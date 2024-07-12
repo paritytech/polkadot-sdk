@@ -41,7 +41,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["bridge_hub_westend_emulated_chain",["",[],["genesis.rs","lib.rs"]]],\
 ["bridge_hub_westend_integration_tests",["",[],["lib.rs"]]],\
 ["bridge_hub_westend_runtime",["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_parachain_system.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_balances.rs","pallet_bridge_grandpa.rs","pallet_bridge_messages.rs","pallet_bridge_parachains.rs","pallet_bridge_relayers.rs","pallet_collator_selection.rs","pallet_message_queue.rs","pallet_multisig.rs","pallet_session.rs","pallet_timestamp.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["bridge_common_config.rs","bridge_to_rococo_config.rs","lib.rs","xcm_config.rs"]]],\
-["bridge_runtime_common",["",[["extensions",[],["check_obsolete_extension.rs","mod.rs","priority_calculator.rs","refund_relayer_extension.rs"]]],["integrity.rs","lib.rs","messages.rs","messages_api.rs","messages_benchmarking.rs","messages_call_ext.rs","messages_generation.rs","messages_xcm_extension.rs","parachains_benchmarking.rs"]]],\
+["bridge_runtime_common",["",[["extensions",[],["check_obsolete_extension.rs","mod.rs","priority_calculator.rs","refund_relayer_extension.rs"]]],["integrity.rs","lib.rs","messages_api.rs","messages_benchmarking.rs","messages_call_ext.rs","messages_xcm_extension.rs","parachains_benchmarking.rs"]]],\
 ["call",["",[],["call.rs"]]],\
 ["chain_spec_builder",["",[],["main.rs"]]],\
 ["chain_spec_guide_runtime",["",[],["lib.rs","pallets.rs","presets.rs","runtime.rs"]]],\
@@ -151,8 +151,8 @@ var srcIndex = new Map(JSON.parse('[\
 ["pallet_bounties",["",[["migrations",[],["mod.rs","v4.rs"]]],["benchmarking.rs","lib.rs","weights.rs"]]],\
 ["pallet_bridge_beefy",["",[],["lib.rs","utils.rs"]]],\
 ["pallet_bridge_grandpa",["",[],["benchmarking.rs","call_ext.rs","lib.rs","storage_types.rs","weights.rs","weights_ext.rs"]]],\
-["pallet_bridge_messages",["",[],["benchmarking.rs","inbound_lane.rs","lib.rs","outbound_lane.rs","weights.rs","weights_ext.rs"]]],\
-["pallet_bridge_parachains",["",[],["benchmarking.rs","call_ext.rs","lib.rs","weights.rs","weights_ext.rs"]]],\
+["pallet_bridge_messages",["",[["tests",[],["messages_generation.rs","mod.rs"]]],["benchmarking.rs","inbound_lane.rs","lib.rs","outbound_lane.rs","proofs.rs","weights.rs","weights_ext.rs"]]],\
+["pallet_bridge_parachains",["",[],["benchmarking.rs","call_ext.rs","lib.rs","proofs.rs","weights.rs","weights_ext.rs"]]],\
 ["pallet_bridge_relayers",["",[],["benchmarking.rs","lib.rs","payment_adapter.rs","stake_adapter.rs","weights.rs","weights_ext.rs"]]],\
 ["pallet_broker",["",[],["adapt_price.rs","benchmarking.rs","core_mask.rs","coretime_interface.rs","dispatchable_impls.rs","lib.rs","migration.rs","nonfungible_impl.rs","runtime_api.rs","tick_impls.rs","types.rs","utility_impls.rs","weights.rs"]]],\
 ["pallet_child_bounties",["",[],["benchmarking.rs","lib.rs","weights.rs"]]],\
@@ -498,7 +498,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["substrate_frame_rpc_system",["",[],["lib.rs"]]],\
 ["substrate_node",["",[],["main.rs"]]],\
 ["substrate_prometheus_endpoint",["",[],["lib.rs","sourced.rs"]]],\
-["substrate_relay_helper",["",[["cli",[["relay_headers_and_messages",[],["mod.rs","parachain_to_parachain.rs","relay_to_parachain.rs","relay_to_relay.rs"]]],["bridge.rs","chain_schema.rs","detect_equivocations.rs","init_bridge.rs","mod.rs","relay_headers.rs","relay_messages.rs","relay_parachains.rs"]],["equivocation",[],["mod.rs","source.rs","target.rs"]],["finality",[],["initialize.rs","mod.rs","source.rs","target.rs"]],["finality_base",[],["engine.rs","mod.rs"]],["on_demand",[],["headers.rs","mod.rs","parachains.rs"]],["parachains",[],["mod.rs","source.rs","target.rs"]]],["error.rs","lib.rs","messages_lane.rs","messages_metrics.rs","messages_source.rs","messages_target.rs"]]],\
+["substrate_relay_helper",["",[["cli",[["relay_headers_and_messages",[],["mod.rs","parachain_to_parachain.rs","relay_to_parachain.rs","relay_to_relay.rs"]]],["bridge.rs","chain_schema.rs","detect_equivocations.rs","init_bridge.rs","mod.rs","relay_headers.rs","relay_messages.rs","relay_parachains.rs"]],["equivocation",[],["mod.rs","source.rs","target.rs"]],["finality",[],["initialize.rs","mod.rs","source.rs","target.rs"]],["finality_base",[],["engine.rs","mod.rs"]],["messages",[],["metrics.rs","mod.rs","source.rs","target.rs"]],["on_demand",[],["headers.rs","mod.rs","parachains.rs"]],["parachains",[],["mod.rs","source.rs","target.rs"]]],["error.rs","lib.rs"]]],\
 ["substrate_rpc_client",["",[],["lib.rs"]]],\
 ["substrate_state_trie_migration_rpc",["",[],["lib.rs"]]],\
 ["substrate_test_client",["",[],["client_ext.rs","lib.rs"]]],\

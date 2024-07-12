@@ -304,30 +304,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -346,11 +322,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Primitives of messages module, that are used on the source chain.
 
-</span><span class="kw">use crate</span>::{InboundLaneData, LaneId, MessageNonce, VerificationError};
+</span><span class="kw">use crate</span>::{LaneId, MessageNonce, UnrewardedRelayer};
 
-<span class="kw">use </span><span class="kw">crate</span>::UnrewardedRelayer;
-<span class="kw">use </span>bp_runtime::Size;
-<span class="kw">use </span>frame_support::Parameter;
+<span class="kw">use </span>bp_runtime::{raw_storage_proof_size, RawStorageProof, Size};
+<span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_core::RuntimeDebug;
 <span class="kw">use </span>sp_std::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
@@ -358,41 +334,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ops::RangeInclusive,
 };
 
+<span class="doccomment">/// Messages delivery proof from the bridged chain.
+///
+/// It contains everything required to prove that our (this chain) messages have been
+/// delivered to the bridged (target) chain:
+///
+/// - hash of finalized header;
+///
+/// - storage proof of the inbound lane state;
+///
+/// - lane id.
+</span><span class="attr">#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+</span><span class="kw">pub struct </span>FromBridgedChainMessagesDeliveryProof&lt;BridgedHeaderHash&gt; {
+	<span class="doccomment">/// Hash of the bridge header the proof is for.
+	</span><span class="kw">pub </span>bridged_header_hash: BridgedHeaderHash,
+	<span class="doccomment">/// Storage trie proof generated for [`Self::bridged_header_hash`].
+	</span><span class="kw">pub </span>storage_proof: RawStorageProof,
+	<span class="doccomment">/// Lane id of which messages were delivered and the proof is for.
+	</span><span class="kw">pub </span>lane: LaneId,
+}
+
+<span class="kw">impl</span>&lt;BridgedHeaderHash&gt; Size <span class="kw">for </span>FromBridgedChainMessagesDeliveryProof&lt;BridgedHeaderHash&gt; {
+	<span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+		<span class="kw">use </span>frame_support::sp_runtime::SaturatedConversion;
+		raw_storage_proof_size(<span class="kw-2">&amp;</span><span class="self">self</span>.storage_proof).saturated_into()
+	}
+}
+
 <span class="doccomment">/// Number of messages, delivered by relayers.
 </span><span class="kw">pub type </span>RelayersRewards&lt;AccountId&gt; = BTreeMap&lt;AccountId, MessageNonce&gt;;
-
-<span class="doccomment">/// Target chain API. Used by source chain to verify target chain proofs.
-///
-/// All implementations of this trait should only work with finalized data that
-/// can't change. Wrong implementation may lead to invalid lane states (i.e. lane
-/// that's stuck) and/or processing messages without paying fees.
-///
-/// The `Payload` type here means the payload of the message that is sent from the
-/// source chain to the target chain. The `AccountId` type here means the account
-/// type used by the source chain.
-</span><span class="kw">pub trait </span>TargetHeaderChain&lt;Payload, AccountId&gt; {
-	<span class="doccomment">/// Proof that messages have been received by target chain.
-	</span><span class="kw">type </span>MessagesDeliveryProof: Parameter + Size;
-
-	<span class="doccomment">/// Verify message payload before we accept it.
-	///
-	/// **CAUTION**: this is very important function. Incorrect implementation may lead
-	/// to stuck lanes and/or relayers loses.
-	///
-	/// The proper implementation must ensure that the delivery-transaction with this
-	/// payload would (at least) be accepted into target chain transaction pool AND
-	/// eventually will be successfully mined. The most obvious incorrect implementation
-	/// example would be implementation for BTC chain that accepts payloads larger than
-	/// 1MB. BTC nodes aren't accepting transactions that are larger than 1MB, so relayer
-	/// will be unable to craft valid transaction =&gt; this (and all subsequent) messages will
-	/// never be delivered.
-	</span><span class="kw">fn </span>verify_message(payload: <span class="kw-2">&amp;</span>Payload) -&gt; <span class="prelude-ty">Result</span>&lt;(), VerificationError&gt;;
-
-	<span class="doccomment">/// Verify messages delivery proof and return lane &amp;&amp; nonce of the latest received message.
-	</span><span class="kw">fn </span>verify_messages_delivery_proof(
-		proof: <span class="self">Self</span>::MessagesDeliveryProof,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(LaneId, InboundLaneData&lt;AccountId&gt;), VerificationError&gt;;
-}
 
 <span class="doccomment">/// Manages payments that are happening at the source chain during delivery confirmation
 /// transaction.
@@ -473,27 +443,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>send_message(message: <span class="self">Self</span>::SendMessageArgs) -&gt; SendMessageArtifacts;
 }
 
-<span class="doccomment">/// Structure that may be used in place of `TargetHeaderChain` and
-/// `MessageDeliveryAndDispatchPayment` on chains, where outbound messages are forbidden.
+<span class="doccomment">/// Structure that may be used in place `MessageDeliveryAndDispatchPayment` on chains,
+/// where outbound messages are forbidden.
 </span><span class="kw">pub struct </span>ForbidOutboundMessages;
-
-<span class="doccomment">/// Error message that is used in `ForbidOutboundMessages` implementation.
-</span><span class="kw">const </span>ALL_OUTBOUND_MESSAGES_REJECTED: <span class="kw-2">&amp;</span>str =
-	<span class="string">"This chain is configured to reject all outbound messages"</span>;
-
-<span class="kw">impl</span>&lt;Payload, AccountId&gt; TargetHeaderChain&lt;Payload, AccountId&gt; <span class="kw">for </span>ForbidOutboundMessages {
-	<span class="kw">type </span>MessagesDeliveryProof = ();
-
-	<span class="kw">fn </span>verify_message(_payload: <span class="kw-2">&amp;</span>Payload) -&gt; <span class="prelude-ty">Result</span>&lt;(), VerificationError&gt; {
-		<span class="prelude-val">Err</span>(VerificationError::Other(ALL_OUTBOUND_MESSAGES_REJECTED))
-	}
-
-	<span class="kw">fn </span>verify_messages_delivery_proof(
-		_proof: <span class="self">Self</span>::MessagesDeliveryProof,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(LaneId, InboundLaneData&lt;AccountId&gt;), VerificationError&gt; {
-		<span class="prelude-val">Err</span>(VerificationError::Other(ALL_OUTBOUND_MESSAGES_REJECTED))
-	}
-}
 
 <span class="kw">impl</span>&lt;AccountId&gt; DeliveryConfirmationPayments&lt;AccountId&gt; <span class="kw">for </span>ForbidOutboundMessages {
 	<span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;

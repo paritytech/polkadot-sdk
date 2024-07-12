@@ -2054,13 +2054,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1903" id="1903">1903</a>
 <a href="#1904" id="1904">1904</a>
 <a href="#1905" id="1905">1905</a>
-<a href="#1906" id="1906">1906</a>
-<a href="#1907" id="1907">1907</a>
-<a href="#1908" id="1908">1908</a>
-<a href="#1909" id="1909">1909</a>
-<a href="#1910" id="1910">1910</a>
-<a href="#1911" id="1911">1911</a>
-<a href="#1912" id="1912">1912</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -2091,11 +2084,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>weights_ext::WeightInfoExt;
 
 <span class="kw">use </span>bp_header_chain::{HeaderChain, HeaderChainError};
-<span class="kw">use </span>bp_parachains::{parachain_head_storage_key_at_source, ParaInfo, ParaStoredHeaderData};
-<span class="kw">use </span>bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
-<span class="kw">use </span>bp_runtime::{Chain, HashOf, HeaderId, HeaderIdOf, Parachain, StorageProofError};
+<span class="kw">use </span>bp_parachains::{ParaInfo, ParaStoredHeaderData};
+<span class="kw">use </span>bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
+<span class="kw">use </span>bp_runtime::{Chain, HashOf, HeaderId, HeaderIdOf, Parachain};
 <span class="kw">use </span>frame_support::{dispatch::PostDispatchInfo, DefaultNoBound};
 <span class="kw">use </span>pallet_bridge_grandpa::SubmitFinalityProofHelper;
+<span class="kw">use </span>proofs::{ParachainsStorageProofAdapter, StorageProofAdapter};
 <span class="kw">use </span>sp_std::{marker::PhantomData, vec::Vec};
 
 <span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
@@ -2118,6 +2112,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>call_ext;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>mock;
+<span class="kw">mod </span>proofs;
 
 <span class="doccomment">/// The target that will be used when publishing logs related to this pallet.
 </span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::bridge-parachains"</span>;
@@ -2511,15 +2506,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				parachains.len() <span class="kw">as _</span>,
 			);
 
-			<span class="kw">let </span><span class="kw-2">mut </span>is_updated_something = <span class="bool-val">false</span>;
-			<span class="kw">let </span><span class="kw-2">mut </span>storage = GrandpaPalletOf::&lt;T, I&gt;::storage_proof_checker(
-				relay_block_hash,
-				parachain_heads_proof.storage_proof,
-			)
-			.map_err(Error::&lt;T, I&gt;::HeaderChainStorageProof)<span class="question-mark">?</span>;
+			<span class="kw">let </span><span class="kw-2">mut </span>storage: ParachainsStorageProofAdapter&lt;T, I&gt; =
+				ParachainsStorageProofAdapter::try_new_with_verified_storage_proof(
+					relay_block_hash,
+					parachain_heads_proof.storage_proof,
+				)
+				.map_err(Error::&lt;T, I&gt;::HeaderChainStorageProof)<span class="question-mark">?</span>;
 
 			<span class="kw">for </span>(parachain, parachain_head_hash) <span class="kw">in </span>parachains {
-				<span class="kw">let </span>parachain_head = <span class="kw">match </span><span class="self">Self</span>::read_parachain_head(<span class="kw-2">&amp;mut </span>storage, parachain) {
+				<span class="kw">let </span>parachain_head = <span class="kw">match </span>storage.read_parachain_head(parachain) {
 					<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(parachain_head)) =&gt; parachain_head,
 					<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
 						<span class="macro">log::trace!</span>(
@@ -2604,7 +2599,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							parachain_head_hash,
 						)<span class="question-mark">?</span>;
 
-						is_updated_something = <span class="bool-val">true</span>;
 						<span class="kw">if </span>is_free {
 							free_parachain_heads = free_parachain_heads + <span class="number">1</span>;
 						}
@@ -2635,7 +2629,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// =&gt; treat this as an error
 			//
 			// (we can throw error here, because now all our calls are transactional)
-			</span>storage.ensure_no_unused_nodes().map_err(|e| {
+			</span>storage.ensure_no_unused_keys().map_err(|e| {
 				Error::&lt;T, I&gt;::HeaderChainStorageProof(HeaderChainError::StorageProof(e))
 			})<span class="question-mark">?</span>;
 
@@ -2694,16 +2688,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Get parachain head data with given hash.
 		</span><span class="kw">pub fn </span>parachain_head(parachain: ParaId, hash: ParaHash) -&gt; <span class="prelude-ty">Option</span>&lt;ParaStoredHeaderData&gt; {
 			ImportedParaHeads::&lt;T, I&gt;::get(parachain, hash).map(|h| h.into_inner())
-		}
-
-		<span class="doccomment">/// Read parachain head from storage proof.
-		</span><span class="kw">fn </span>read_parachain_head(
-			storage: <span class="kw-2">&amp;mut </span>bp_runtime::StorageProofChecker&lt;RelayBlockHasher&gt;,
-			parachain: ParaId,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ParaHead&gt;, StorageProofError&gt; {
-			<span class="kw">let </span>parachain_head_key =
-				parachain_head_storage_key_at_source(T::ParasPalletName::get(), parachain);
-			storage.read_and_decode_value(parachain_head_key.<span class="number">0</span>.as_ref())
 		}
 
 		<span class="doccomment">/// Try to update parachain head.
@@ -2864,6 +2848,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>initialize_for_benchmarks&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>, PC: Parachain&lt;Hash = ParaHash&gt;&gt;(
 	header: HeaderOf&lt;PC&gt;,
 ) {
+	<span class="kw">use </span>bp_polkadot_core::parachains::ParaHead;
 	<span class="kw">use </span>bp_runtime::HeaderIdProvider;
 	<span class="kw">use </span>sp_runtime::traits::Header;
 
@@ -2907,9 +2892,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>bp_parachains::{
 		BestParaHeadHash, BridgeParachainCall, ImportedParaHeadsKeyProvider, ParasInfoKeyProvider,
 	};
+	<span class="kw">use </span>bp_polkadot_core::parachains::ParaHead;
 	<span class="kw">use </span>bp_runtime::{
 		BasicOperatingMode, OwnedBridgeModuleError, StorageDoubleMapKeyProvider,
-		StorageMapKeyProvider,
+		StorageMapKeyProvider, StorageProofError,
 	};
 	<span class="kw">use </span>bp_test_utils::{
 		authority_list, generate_owned_bridge_module_tests, make_default_justification,

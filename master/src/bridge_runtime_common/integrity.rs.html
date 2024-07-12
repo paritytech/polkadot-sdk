@@ -488,15 +488,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -518,10 +509,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Most of the tests in this module assume that the bridge is using standard (see `crate::messages`
 //! module for details) configuration.
 
-</span><span class="kw">use crate</span>::{messages, messages::MessageBridge};
-
-<span class="kw">use </span>bp_messages::{InboundLaneData, MessageNonce};
-<span class="kw">use </span>bp_runtime::{Chain, ChainId};
+</span><span class="kw">use </span>bp_header_chain::ChainWithGrandpa;
+<span class="kw">use </span>bp_messages::{ChainWithMessages, InboundLaneData, MessageNonce};
+<span class="kw">use </span>bp_runtime::Chain;
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_support::{storage::generator::StorageValue, traits::Get, weights::Weight};
 <span class="kw">use </span>frame_system::limits;
@@ -549,23 +539,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 );
 
-<span class="doccomment">/// Macro that ensures that the bridge GRANDPA pallet is configured properly to bridge with given
-/// chain.
-</span><span class="attr">#[macro_export]
-</span><span class="macro">macro_rules! </span>assert_bridge_grandpa_pallet_types(
-	( runtime: <span class="macro-nonterminal">$r</span>:path, with_bridged_chain_grandpa_instance: <span class="macro-nonterminal">$i</span>:path, bridged_chain: <span class="macro-nonterminal">$bridged</span>:path ) =&gt; {
-		{
-			<span class="comment">// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
-			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
-			// and relays will stop functioning)
-			</span><span class="kw">use </span>pallet_bridge_grandpa::Config <span class="kw">as </span>GrandpaConfig;
-			<span class="kw">use </span>static_assertions::assert_type_eq_all;
-
-			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>GrandpaConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::BridgedChain, <span class="macro-nonterminal">$bridged</span>);
-		}
-	}
-);
-
 <span class="doccomment">/// Macro that ensures that the bridge messages pallet is configured properly to bridge using given
 /// configuration.
 </span><span class="attr">#[macro_export]
@@ -573,32 +546,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(
 		runtime: <span class="macro-nonterminal">$r</span>:path,
 		with_bridged_chain_messages_instance: <span class="macro-nonterminal">$i</span>:path,
-		bridge: <span class="macro-nonterminal">$bridge</span>:path
+		this_chain: <span class="macro-nonterminal">$this</span>:path,
+		bridged_chain: <span class="macro-nonterminal">$bridged</span>:path,
 	) =&gt; {
 		{
 			<span class="comment">// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
 			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
 			// and relays will stop functioning)
-			</span><span class="kw">use </span><span class="macro-nonterminal">$crate::messages</span>::{
-				source::{FromThisChainMessagePayload, TargetHeaderChainAdapter},
-				target::{FromBridgedChainMessagePayload, SourceHeaderChainAdapter},
-				AccountIdOf, BalanceOf, BridgedChain, ThisChain,
-			};
+			</span><span class="kw">use </span><span class="macro-nonterminal">$crate::messages_xcm_extension::XcmAsPlainPayload</span>;
+			<span class="kw">use </span>bp_messages::ChainWithMessages;
+			<span class="kw">use </span>bp_runtime::Chain;
 			<span class="kw">use </span>pallet_bridge_messages::Config <span class="kw">as </span>MessagesConfig;
 			<span class="kw">use </span>static_assertions::assert_type_eq_all;
 
-			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::OutboundPayload, FromThisChainMessagePayload);
+			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::ThisChain, <span class="macro-nonterminal">$this</span>);
+			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::BridgedChain, <span class="macro-nonterminal">$bridged</span>);
 
-			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::InboundRelayer, AccountIdOf&lt;BridgedChain&lt;<span class="macro-nonterminal">$bridge</span>&gt;&gt;);
-
-			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::TargetHeaderChain, TargetHeaderChainAdapter&lt;<span class="macro-nonterminal">$bridge</span>&gt;);
-			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::SourceHeaderChain, SourceHeaderChainAdapter&lt;<span class="macro-nonterminal">$bridge</span>&gt;);
+			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::OutboundPayload, XcmAsPlainPayload);
+			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::InboundPayload, XcmAsPlainPayload);
 		}
 	}
 );
 
 <span class="doccomment">/// Macro that combines four other macro calls - `assert_chain_types`, `assert_bridge_types`,
-/// `assert_bridge_grandpa_pallet_types` and `assert_bridge_messages_pallet_types`. It may be used
+/// and `assert_bridge_messages_pallet_types`. It may be used
 /// at the chain that is implementing complete standard messages bridge (i.e. with bridge GRANDPA
 /// and messages pallets deployed).
 </span><span class="attr">#[macro_export]
@@ -607,21 +578,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		runtime: <span class="macro-nonterminal">$r</span>:path,
 		with_bridged_chain_grandpa_instance: <span class="macro-nonterminal">$gi</span>:path,
 		with_bridged_chain_messages_instance: <span class="macro-nonterminal">$mi</span>:path,
-		bridge: <span class="macro-nonterminal">$bridge</span>:path,
 		this_chain: <span class="macro-nonterminal">$this</span>:path,
 		bridged_chain: <span class="macro-nonterminal">$bridged</span>:path,
 	) =&gt; {
 		<span class="macro-nonterminal">$</span><span class="macro">crate::assert_chain_types!</span>(<span class="macro-nonterminal">runtime</span>: <span class="macro-nonterminal">$r</span>, this_chain: <span class="macro-nonterminal">$this</span>);
-		<span class="macro-nonterminal">$</span><span class="macro">crate::assert_bridge_grandpa_pallet_types!</span>(
-			<span class="macro-nonterminal">runtime</span>: <span class="macro-nonterminal">$r</span>,
-			with_bridged_chain_grandpa_instance: <span class="macro-nonterminal">$gi</span>,
-			bridged_chain: <span class="macro-nonterminal">$bridged
-		</span>);
 		<span class="macro-nonterminal">$</span><span class="macro">crate::assert_bridge_messages_pallet_types!</span>(
 			<span class="macro-nonterminal">runtime</span>: <span class="macro-nonterminal">$r</span>,
 			with_bridged_chain_messages_instance: <span class="macro-nonterminal">$mi</span>,
-			bridge: <span class="macro-nonterminal">$bridge
-		</span>);
+			this_chain: <span class="macro-nonterminal">$this</span>,
+			bridged_chain: <span class="macro-nonterminal">$bridged</span>,
+		);
 	}
 );
 
@@ -683,20 +649,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 }
 
-<span class="doccomment">/// Parameters for asserting messages pallet constants.
-</span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>AssertBridgeMessagesPalletConstants {
-	<span class="doccomment">/// Maximal number of unrewarded relayer entries in a confirmation transaction at the bridged
-	/// chain.
-	</span><span class="kw">pub </span>max_unrewarded_relayers_in_bridged_confirmation_tx: MessageNonce,
-	<span class="doccomment">/// Maximal number of unconfirmed messages in a confirmation transaction at the bridged chain.
-	</span><span class="kw">pub </span>max_unconfirmed_messages_in_bridged_confirmation_tx: MessageNonce,
-	<span class="doccomment">/// Identifier of the bridged chain.
-	</span><span class="kw">pub </span>bridged_chain_id: ChainId,
-}
-
 <span class="doccomment">/// Test that the constants, used in messages pallet configuration are valid.
-</span><span class="kw">pub fn </span>assert_bridge_messages_pallet_constants&lt;R, MI&gt;(params: AssertBridgeMessagesPalletConstants)
+</span><span class="kw">pub fn </span>assert_bridge_messages_pallet_constants&lt;R, MI&gt;()
 <span class="kw">where
 	</span>R: pallet_bridge_messages::Config&lt;MI&gt;,
 	MI: <span class="lifetime">'static</span>,
@@ -706,27 +660,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="string">"ActiveOutboundLanes ({:?}) must not be empty"</span>,
 		R::ActiveOutboundLanes::get(),
 	);
+
 	<span class="macro">assert!</span>(
-		R::MaxUnrewardedRelayerEntriesAtInboundLane::get() &lt;= params.max_unrewarded_relayers_in_bridged_confirmation_tx,
-		<span class="string">"MaxUnrewardedRelayerEntriesAtInboundLane ({}) must be &lt;= than the hardcoded value for bridged chain: {}"</span>,
-		R::MaxUnrewardedRelayerEntriesAtInboundLane::get(),
-		params.max_unrewarded_relayers_in_bridged_confirmation_tx,
+		pallet_bridge_messages::BridgedChainOf::&lt;R, MI&gt;::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX
+			&lt;= pallet_bridge_messages::BridgedChainOf::&lt;R, MI&gt;::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
+		<span class="string">"MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX ({}) of {:?} is larger than \
+			its MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX ({}). This makes \
+			no sense"</span>,
+		pallet_bridge_messages::BridgedChainOf::&lt;R, MI&gt;::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+		pallet_bridge_messages::BridgedChainOf::&lt;R, MI&gt;::ID,
+		pallet_bridge_messages::BridgedChainOf::&lt;R, MI&gt;::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 	);
-	<span class="macro">assert!</span>(
-		R::MaxUnconfirmedMessagesAtInboundLane::get() &lt;= params.max_unconfirmed_messages_in_bridged_confirmation_tx,
-		<span class="string">"MaxUnrewardedRelayerEntriesAtInboundLane ({}) must be &lt;= than the hardcoded value for bridged chain: {}"</span>,
-		R::MaxUnconfirmedMessagesAtInboundLane::get(),
-		params.max_unconfirmed_messages_in_bridged_confirmation_tx,
-	);
-	<span class="macro">assert_eq!</span>(R::BridgedChainId::get(), params.bridged_chain_id);
 }
 
 <span class="doccomment">/// Parameters for asserting bridge pallet names.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>AssertBridgePalletNames&lt;<span class="lifetime">'a</span>&gt; {
-	<span class="doccomment">/// Name of the messages pallet, deployed at the bridged chain and used to bridge with this
-	/// chain.
-	</span><span class="kw">pub </span>with_this_chain_messages_pallet_name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
 	<span class="doccomment">/// Name of the GRANDPA pallet, deployed at this chain and used to bridge with the bridged
 	/// chain.
 	</span><span class="kw">pub </span>with_bridged_chain_grandpa_pallet_name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
@@ -737,19 +686,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Tests that bridge pallet names used in `construct_runtime!()` macro call are matching constants
 /// from chain primitives crates.
-</span><span class="kw">pub fn </span>assert_bridge_pallet_names&lt;B, R, GI, MI&gt;(params: AssertBridgePalletNames)
+</span><span class="kw">fn </span>assert_bridge_pallet_names&lt;R, GI, MI&gt;(params: AssertBridgePalletNames)
 <span class="kw">where
-	</span>B: MessageBridge,
-	R: pallet_bridge_grandpa::Config&lt;GI&gt; + pallet_bridge_messages::Config&lt;MI&gt;,
+	</span>R: pallet_bridge_grandpa::Config&lt;GI&gt; + pallet_bridge_messages::Config&lt;MI&gt;,
 	GI: <span class="lifetime">'static</span>,
 	MI: <span class="lifetime">'static</span>,
 {
-	<span class="macro">assert_eq!</span>(B::BRIDGED_MESSAGES_PALLET_NAME, params.with_this_chain_messages_pallet_name);
-	<span class="macro">assert_eq!</span>(
+	<span class="comment">// check that the bridge GRANDPA pallet has required name
+	</span><span class="macro">assert_eq!</span>(
 		pallet_bridge_grandpa::PalletOwner::&lt;R, GI&gt;::storage_value_final_key().to_vec(),
-		bp_runtime::storage_value_key(params.with_bridged_chain_grandpa_pallet_name, <span class="string">"PalletOwner"</span>,).<span class="number">0</span>,
+		bp_runtime::storage_value_key(
+			params.with_bridged_chain_grandpa_pallet_name,
+			<span class="string">"PalletOwner"</span>,
+		).<span class="number">0</span>,
 	);
-	<span class="macro">assert_eq!</span>(
+
+	<span class="comment">// check that the bridge messages pallet has required name
+	</span><span class="macro">assert_eq!</span>(
 		pallet_bridge_messages::PalletOwner::&lt;R, MI&gt;::storage_value_final_key().to_vec(),
 		bp_runtime::storage_value_key(
 			params.with_bridged_chain_messages_pallet_name,
@@ -761,35 +714,58 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Parameters for asserting complete standard messages bridge.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>AssertCompleteBridgeConstants&lt;<span class="lifetime">'a</span>&gt; {
+</span><span class="kw">pub struct </span>AssertCompleteBridgeConstants {
 	<span class="doccomment">/// Parameters to assert this chain constants.
 	</span><span class="kw">pub </span>this_chain_constants: AssertChainConstants,
-	<span class="doccomment">/// Parameters to assert messages pallet constants.
-	</span><span class="kw">pub </span>messages_pallet_constants: AssertBridgeMessagesPalletConstants,
-	<span class="doccomment">/// Parameters to assert pallet names constants.
-	</span><span class="kw">pub </span>pallet_names: AssertBridgePalletNames&lt;<span class="lifetime">'a</span>&gt;,
 }
 
-<span class="doccomment">/// All bridge-related constants tests for the complete standard messages bridge (i.e. with bridge
-/// GRANDPA and messages pallets deployed).
-</span><span class="kw">pub fn </span>assert_complete_bridge_constants&lt;R, GI, MI, B&gt;(params: AssertCompleteBridgeConstants)
-<span class="kw">where
+<span class="doccomment">/// All bridge-related constants tests for the complete standard relay-chain messages bridge
+/// (i.e. with bridge GRANDPA and messages pallets deployed).
+</span><span class="kw">pub fn </span>assert_complete_with_relay_chain_bridge_constants&lt;R, GI, MI&gt;(
+	params: AssertCompleteBridgeConstants,
+) <span class="kw">where
 	</span>R: frame_system::Config
 		+ pallet_bridge_grandpa::Config&lt;GI&gt;
 		+ pallet_bridge_messages::Config&lt;MI&gt;,
 	GI: <span class="lifetime">'static</span>,
 	MI: <span class="lifetime">'static</span>,
-	B: MessageBridge,
 {
 	assert_chain_constants::&lt;R&gt;(params.this_chain_constants);
 	assert_bridge_grandpa_pallet_constants::&lt;R, GI&gt;();
-	assert_bridge_messages_pallet_constants::&lt;R, MI&gt;(params.messages_pallet_constants);
-	assert_bridge_pallet_names::&lt;B, R, GI, MI&gt;(params.pallet_names);
+	assert_bridge_messages_pallet_constants::&lt;R, MI&gt;();
+	assert_bridge_pallet_names::&lt;R, GI, MI&gt;(AssertBridgePalletNames {
+		with_bridged_chain_grandpa_pallet_name:
+			&lt;R <span class="kw">as </span>pallet_bridge_grandpa::Config&lt;GI&gt;&gt;::BridgedChain::WITH_CHAIN_GRANDPA_PALLET_NAME,
+		with_bridged_chain_messages_pallet_name:
+			&lt;R <span class="kw">as </span>pallet_bridge_messages::Config&lt;MI&gt;&gt;::BridgedChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
+	});
+}
+
+<span class="doccomment">/// All bridge-related constants tests for the complete standard parachain messages bridge
+/// (i.e. with bridge GRANDPA, parachains and messages pallets deployed).
+</span><span class="kw">pub fn </span>assert_complete_with_parachain_bridge_constants&lt;R, GI, MI, RelayChain&gt;(
+	params: AssertCompleteBridgeConstants,
+) <span class="kw">where
+	</span>R: frame_system::Config
+		+ pallet_bridge_grandpa::Config&lt;GI&gt;
+		+ pallet_bridge_messages::Config&lt;MI&gt;,
+	GI: <span class="lifetime">'static</span>,
+	MI: <span class="lifetime">'static</span>,
+	RelayChain: ChainWithGrandpa,
+{
+	assert_chain_constants::&lt;R&gt;(params.this_chain_constants);
+	assert_bridge_grandpa_pallet_constants::&lt;R, GI&gt;();
+	assert_bridge_messages_pallet_constants::&lt;R, MI&gt;();
+	assert_bridge_pallet_names::&lt;R, GI, MI&gt;(AssertBridgePalletNames {
+		with_bridged_chain_grandpa_pallet_name: RelayChain::WITH_CHAIN_GRANDPA_PALLET_NAME,
+		with_bridged_chain_messages_pallet_name:
+			&lt;R <span class="kw">as </span>pallet_bridge_messages::Config&lt;MI&gt;&gt;::BridgedChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
+	});
 }
 
 <span class="doccomment">/// Check that the message lane weights are correct.
 </span><span class="kw">pub fn </span>check_message_lane_weights&lt;
-	C: Chain,
+	C: ChainWithMessages,
 	T: frame_system::Config + pallet_bridge_messages::Config&lt;MessagesPalletInstance&gt;,
 	MessagesPalletInstance: <span class="lifetime">'static</span>,
 &gt;(
@@ -807,14 +783,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// check basic weight assumptions
 	</span>pallet_bridge_messages::ensure_weights_are_correct::&lt;Weights&lt;T, MessagesPalletInstance&gt;&gt;();
 
+	<span class="comment">// check that the maximal message dispatch weight is below hardcoded limit
+	</span>pallet_bridge_messages::ensure_maximal_message_dispatch::&lt;Weights&lt;T, MessagesPalletInstance&gt;&gt;(
+		C::maximal_incoming_message_size(),
+		C::maximal_incoming_message_dispatch_weight(),
+	);
+
 	<span class="comment">// check that weights allow us to receive messages
-	</span><span class="kw">let </span>max_incoming_message_proof_size = bridged_chain_extra_storage_proof_size
-		.saturating_add(messages::target::maximal_incoming_message_size(C::max_extrinsic_size()));
+	</span><span class="kw">let </span>max_incoming_message_proof_size =
+		bridged_chain_extra_storage_proof_size.saturating_add(C::maximal_incoming_message_size());
 	pallet_bridge_messages::ensure_able_to_receive_message::&lt;Weights&lt;T, MessagesPalletInstance&gt;&gt;(
 		C::max_extrinsic_size(),
 		C::max_extrinsic_weight(),
 		max_incoming_message_proof_size,
-		messages::target::maximal_incoming_message_dispatch_weight(C::max_extrinsic_weight()),
+		C::maximal_incoming_message_dispatch_weight(),
 	);
 
 	<span class="comment">// check that weights allow us to receive delivery confirmations

@@ -284,6 +284,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -310,7 +314,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use crate</span>::{Chain, ChainWithBalances, ChainWithMessages};
 <span class="kw">use </span>bp_messages::{ChainWithMessages <span class="kw">as </span>ChainWithMessagesBase, MessageNonce};
 <span class="kw">use </span>bp_runtime::ChainId;
-<span class="kw">use </span>frame_support::weights::Weight;
+<span class="kw">use </span>frame_support::{sp_runtime::StateVersion, weights::Weight};
 <span class="kw">use </span>std::time::Duration;
 
 <span class="doccomment">/// Chain that may be used in tests.
@@ -329,6 +333,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Balance = u32;
 	<span class="kw">type </span>Nonce = u32;
 	<span class="kw">type </span>Signature = sp_runtime::testing::TestSignature;
+
+	<span class="kw">const </span>STATE_VERSION: StateVersion = StateVersion::V1;
 
 	<span class="kw">fn </span>max_extrinsic_size() -&gt; u32 {
 		<span class="number">100000
@@ -385,6 +391,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Balance = u32;
 	<span class="kw">type </span>Nonce = u32;
 	<span class="kw">type </span>Signature = sp_runtime::testing::TestSignature;
+
+	<span class="kw">const </span>STATE_VERSION: StateVersion = StateVersion::V1;
 
 	<span class="kw">fn </span>max_extrinsic_size() -&gt; u32 {
 		<span class="macro">unreachable!</span>()

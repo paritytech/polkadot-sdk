@@ -460,6 +460,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
 <a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -481,23 +488,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
-</span><span class="kw">use crate</span>::{
-	messages::{
-		source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
-		AccountIdOf, BridgedChain, HashOf, MessageBridge, ThisChain,
-	},
+</span><span class="kw">use </span>bp_messages::{
+	source_chain::FromBridgedChainMessagesDeliveryProof,
+	target_chain::FromBridgedChainMessagesProof, MessagePayload,
+};
+<span class="kw">use </span>bp_polkadot_core::parachains::ParaHash;
+<span class="kw">use </span>bp_runtime::{AccountIdOf, Chain, HashOf, Parachain};
+<span class="kw">use </span>codec::Encode;
+<span class="kw">use </span>frame_support::weights::Weight;
+<span class="kw">use </span>pallet_bridge_messages::{
+	benchmarking::{MessageDeliveryProofParams, MessageProofParams},
 	messages_generation::{
 		encode_all_messages, encode_lane_data, prepare_message_delivery_storage_proof,
 		prepare_messages_storage_proof,
 	},
+	BridgedChainOf, ThisChainOf,
 };
-
-<span class="kw">use </span>bp_messages::MessagePayload;
-<span class="kw">use </span>bp_polkadot_core::parachains::ParaHash;
-<span class="kw">use </span>bp_runtime::{Chain, Parachain, StorageProofSize, UnderlyingChainOf};
-<span class="kw">use </span>codec::Encode;
-<span class="kw">use </span>frame_support::weights::Weight;
-<span class="kw">use </span>pallet_bridge_messages::benchmarking::{MessageDeliveryProofParams, MessageProofParams};
 <span class="kw">use </span>sp_runtime::traits::{Header, Zero};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
@@ -507,11 +513,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	params: <span class="kw-2">&amp;</span>MessageProofParams,
 	successful_dispatch_message_generator: <span class="kw">impl </span>Fn(usize) -&gt; MessagePayload,
 ) -&gt; MessagePayload {
-	<span class="comment">// we only care about **this** message size when message proof needs to be `Minimal`
-	</span><span class="kw">let </span>expected_size = <span class="kw">match </span>params.size {
-		StorageProofSize::Minimal(size) =&gt; size <span class="kw">as </span>usize,
-		<span class="kw">_ </span>=&gt; <span class="number">0</span>,
-	};
+	<span class="kw">let </span>expected_size = params.proof_params.db_size.unwrap_or(<span class="number">0</span>) <span class="kw">as </span>usize;
 
 	<span class="comment">// if we don't need a correct message, then we may just return some random blob
 	</span><span class="kw">if </span>!params.is_successful_dispatch_expected {
@@ -537,25 +539,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This method is intended to be used when benchmarking pallet, linked to the chain that
 /// uses GRANDPA finality. For parachains, please use the `prepare_message_proof_from_parachain`
 /// function.
-</span><span class="kw">pub fn </span>prepare_message_proof_from_grandpa_chain&lt;R, FI, B&gt;(
+</span><span class="kw">pub fn </span>prepare_message_proof_from_grandpa_chain&lt;R, FI, MI&gt;(
 	params: MessageProofParams,
 	message_generator: <span class="kw">impl </span>Fn(usize) -&gt; MessagePayload,
-) -&gt; (FromBridgedChainMessagesProof&lt;HashOf&lt;BridgedChain&lt;B&gt;&gt;&gt;, Weight)
+) -&gt; (FromBridgedChainMessagesProof&lt;HashOf&lt;BridgedChainOf&lt;R, MI&gt;&gt;&gt;, Weight)
 <span class="kw">where
-	</span>R: pallet_bridge_grandpa::Config&lt;FI, BridgedChain = UnderlyingChainOf&lt;BridgedChain&lt;B&gt;&gt;&gt;,
+	</span>R: pallet_bridge_grandpa::Config&lt;FI, BridgedChain = BridgedChainOf&lt;R, MI&gt;&gt;
+		+ pallet_bridge_messages::Config&lt;
+			MI,
+			BridgedHeaderChain = pallet_bridge_grandpa::Pallet&lt;R, FI&gt;,
+		&gt;,
 	FI: <span class="lifetime">'static</span>,
-	B: MessageBridge,
+	MI: <span class="lifetime">'static</span>,
 {
 	<span class="comment">// prepare storage proof
-	</span><span class="kw">let </span>(state_root, storage_proof) = prepare_messages_storage_proof::&lt;B&gt;(
-		params.lane,
-		params.message_nonces.clone(),
-		params.outbound_lane_data.clone(),
-		params.size,
-		prepare_inbound_message(<span class="kw-2">&amp;</span>params, message_generator),
-		encode_all_messages,
-		encode_lane_data,
-	);
+	</span><span class="kw">let </span>(state_root, storage_proof) =
+		prepare_messages_storage_proof::&lt;BridgedChainOf&lt;R, MI&gt;, ThisChainOf&lt;R, MI&gt;&gt;(
+			params.lane,
+			params.message_nonces.clone(),
+			params.outbound_lane_data.clone(),
+			params.proof_params,
+			|<span class="kw">_</span>| prepare_inbound_message(<span class="kw-2">&amp;</span>params, <span class="kw-2">&amp;</span>message_generator),
+			encode_all_messages,
+			encode_lane_data,
+			<span class="bool-val">false</span>,
+			<span class="bool-val">false</span>,
+		);
 
 	<span class="comment">// update runtime storage
 	</span><span class="kw">let </span>(<span class="kw">_</span>, bridged_header_hash) = insert_header_to_grandpa_pallet::&lt;R, FI&gt;(state_root);
@@ -580,30 +589,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This method is intended to be used when benchmarking pallet, linked to the chain that
 /// uses parachain finality. For GRANDPA chains, please use the
 /// `prepare_message_proof_from_grandpa_chain` function.
-</span><span class="kw">pub fn </span>prepare_message_proof_from_parachain&lt;R, PI, B&gt;(
+</span><span class="kw">pub fn </span>prepare_message_proof_from_parachain&lt;R, PI, MI&gt;(
 	params: MessageProofParams,
 	message_generator: <span class="kw">impl </span>Fn(usize) -&gt; MessagePayload,
-) -&gt; (FromBridgedChainMessagesProof&lt;HashOf&lt;BridgedChain&lt;B&gt;&gt;&gt;, Weight)
+) -&gt; (FromBridgedChainMessagesProof&lt;HashOf&lt;BridgedChainOf&lt;R, MI&gt;&gt;&gt;, Weight)
 <span class="kw">where
-	</span>R: pallet_bridge_parachains::Config&lt;PI&gt;,
+	</span>R: pallet_bridge_parachains::Config&lt;PI&gt; + pallet_bridge_messages::Config&lt;MI&gt;,
 	PI: <span class="lifetime">'static</span>,
-	B: MessageBridge,
-	UnderlyingChainOf&lt;BridgedChain&lt;B&gt;&gt;: Chain&lt;Hash = ParaHash&gt; + Parachain,
+	MI: <span class="lifetime">'static</span>,
+	BridgedChainOf&lt;R, MI&gt;: Chain&lt;Hash = ParaHash&gt; + Parachain,
 {
 	<span class="comment">// prepare storage proof
-	</span><span class="kw">let </span>(state_root, storage_proof) = prepare_messages_storage_proof::&lt;B&gt;(
-		params.lane,
-		params.message_nonces.clone(),
-		params.outbound_lane_data.clone(),
-		params.size,
-		prepare_inbound_message(<span class="kw-2">&amp;</span>params, message_generator),
-		encode_all_messages,
-		encode_lane_data,
-	);
+	</span><span class="kw">let </span>(state_root, storage_proof) =
+		prepare_messages_storage_proof::&lt;BridgedChainOf&lt;R, MI&gt;, ThisChainOf&lt;R, MI&gt;&gt;(
+			params.lane,
+			params.message_nonces.clone(),
+			params.outbound_lane_data.clone(),
+			params.proof_params,
+			|<span class="kw">_</span>| prepare_inbound_message(<span class="kw-2">&amp;</span>params, <span class="kw-2">&amp;</span>message_generator),
+			encode_all_messages,
+			encode_lane_data,
+			<span class="bool-val">false</span>,
+			<span class="bool-val">false</span>,
+		);
 
 	<span class="comment">// update runtime storage
 	</span><span class="kw">let </span>(<span class="kw">_</span>, bridged_header_hash) =
-		insert_header_to_parachains_pallet::&lt;R, PI, UnderlyingChainOf&lt;BridgedChain&lt;B&gt;&gt;&gt;(state_root);
+		insert_header_to_parachains_pallet::&lt;R, PI, BridgedChainOf&lt;R, MI&gt;&gt;(state_root);
 
 	(
 		FromBridgedChainMessagesProof {
@@ -622,21 +634,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This method is intended to be used when benchmarking pallet, linked to the chain that
 /// uses GRANDPA finality. For parachains, please use the
 /// `prepare_message_delivery_proof_from_parachain` function.
-</span><span class="kw">pub fn </span>prepare_message_delivery_proof_from_grandpa_chain&lt;R, FI, B&gt;(
-	params: MessageDeliveryProofParams&lt;AccountIdOf&lt;ThisChain&lt;B&gt;&gt;&gt;,
-) -&gt; FromBridgedChainMessagesDeliveryProof&lt;HashOf&lt;BridgedChain&lt;B&gt;&gt;&gt;
+</span><span class="kw">pub fn </span>prepare_message_delivery_proof_from_grandpa_chain&lt;R, FI, MI&gt;(
+	params: MessageDeliveryProofParams&lt;AccountIdOf&lt;ThisChainOf&lt;R, MI&gt;&gt;&gt;,
+) -&gt; FromBridgedChainMessagesDeliveryProof&lt;HashOf&lt;BridgedChainOf&lt;R, MI&gt;&gt;&gt;
 <span class="kw">where
-	</span>R: pallet_bridge_grandpa::Config&lt;FI, BridgedChain = UnderlyingChainOf&lt;BridgedChain&lt;B&gt;&gt;&gt;,
+	</span>R: pallet_bridge_grandpa::Config&lt;FI, BridgedChain = BridgedChainOf&lt;R, MI&gt;&gt;
+		+ pallet_bridge_messages::Config&lt;
+			MI,
+			BridgedHeaderChain = pallet_bridge_grandpa::Pallet&lt;R, FI&gt;,
+		&gt;,
 	FI: <span class="lifetime">'static</span>,
-	B: MessageBridge,
+	MI: <span class="lifetime">'static</span>,
 {
 	<span class="comment">// prepare storage proof
 	</span><span class="kw">let </span>lane = params.lane;
-	<span class="kw">let </span>(state_root, storage_proof) = prepare_message_delivery_storage_proof::&lt;B&gt;(
-		params.lane,
-		params.inbound_lane_data,
-		params.size,
-	);
+	<span class="kw">let </span>(state_root, storage_proof) = prepare_message_delivery_storage_proof::&lt;
+		BridgedChainOf&lt;R, MI&gt;,
+		ThisChainOf&lt;R, MI&gt;,
+	&gt;(params.lane, params.inbound_lane_data, params.proof_params);
 
 	<span class="comment">// update runtime storage
 	</span><span class="kw">let </span>(<span class="kw">_</span>, bridged_header_hash) = insert_header_to_grandpa_pallet::&lt;R, FI&gt;(state_root);
@@ -653,26 +668,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This method is intended to be used when benchmarking pallet, linked to the chain that
 /// uses parachain finality. For GRANDPA chains, please use the
 /// `prepare_message_delivery_proof_from_grandpa_chain` function.
-</span><span class="kw">pub fn </span>prepare_message_delivery_proof_from_parachain&lt;R, PI, B&gt;(
-	params: MessageDeliveryProofParams&lt;AccountIdOf&lt;ThisChain&lt;B&gt;&gt;&gt;,
-) -&gt; FromBridgedChainMessagesDeliveryProof&lt;HashOf&lt;BridgedChain&lt;B&gt;&gt;&gt;
+</span><span class="kw">pub fn </span>prepare_message_delivery_proof_from_parachain&lt;R, PI, MI&gt;(
+	params: MessageDeliveryProofParams&lt;AccountIdOf&lt;ThisChainOf&lt;R, MI&gt;&gt;&gt;,
+) -&gt; FromBridgedChainMessagesDeliveryProof&lt;HashOf&lt;BridgedChainOf&lt;R, MI&gt;&gt;&gt;
 <span class="kw">where
-	</span>R: pallet_bridge_parachains::Config&lt;PI&gt;,
+	</span>R: pallet_bridge_parachains::Config&lt;PI&gt; + pallet_bridge_messages::Config&lt;MI&gt;,
 	PI: <span class="lifetime">'static</span>,
-	B: MessageBridge,
-	UnderlyingChainOf&lt;BridgedChain&lt;B&gt;&gt;: Chain&lt;Hash = ParaHash&gt; + Parachain,
+	MI: <span class="lifetime">'static</span>,
+	BridgedChainOf&lt;R, MI&gt;: Chain&lt;Hash = ParaHash&gt; + Parachain,
 {
 	<span class="comment">// prepare storage proof
 	</span><span class="kw">let </span>lane = params.lane;
-	<span class="kw">let </span>(state_root, storage_proof) = prepare_message_delivery_storage_proof::&lt;B&gt;(
-		params.lane,
-		params.inbound_lane_data,
-		params.size,
-	);
+	<span class="kw">let </span>(state_root, storage_proof) = prepare_message_delivery_storage_proof::&lt;
+		BridgedChainOf&lt;R, MI&gt;,
+		ThisChainOf&lt;R, MI&gt;,
+	&gt;(params.lane, params.inbound_lane_data, params.proof_params);
 
 	<span class="comment">// update runtime storage
 	</span><span class="kw">let </span>(<span class="kw">_</span>, bridged_header_hash) =
-		insert_header_to_parachains_pallet::&lt;R, PI, UnderlyingChainOf&lt;BridgedChain&lt;B&gt;&gt;&gt;(state_root);
+		insert_header_to_parachains_pallet::&lt;R, PI, BridgedChainOf&lt;R, MI&gt;&gt;(state_root);
 
 	FromBridgedChainMessagesDeliveryProof {
 		bridged_header_hash: bridged_header_hash.into(),

@@ -892,6 +892,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#741" id="741">741</a>
 <a href="#742" id="742">742</a>
 <a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -946,7 +958,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	storage::{StorageData, StorageKey},
 	Bytes, Hasher, Pair,
 };
-<span class="kw">use </span>sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
+<span class="kw">use </span>sp_runtime::{
+	traits::Header,
+	transaction_validity::{TransactionSource, TransactionValidity},
+};
 <span class="kw">use </span>sp_trie::StorageProof;
 <span class="kw">use </span>sp_version::RuntimeVersion;
 <span class="kw">use </span>std::{cmp::Ordering, future::Future, marker::PhantomData};
@@ -1529,16 +1544,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>.map_err(|e| Error::failed_state_call::&lt;C&gt;(at, method_clone, arguments_clone, e))
 	}
 
-	<span class="kw">async fn </span>prove_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, at: HashOf&lt;C&gt;, keys: Vec&lt;StorageKey&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;StorageProof&gt; {
+	<span class="kw">async fn </span>prove_storage(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		at: HashOf&lt;C&gt;,
+		keys: Vec&lt;StorageKey&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(StorageProof, HashOf&lt;C&gt;)&gt; {
+		<span class="kw">let </span>state_root = <span class="kw-2">*</span><span class="self">self</span>.header_by_hash(at).<span class="kw">await</span><span class="question-mark">?</span>.state_root();
+
 		<span class="kw">let </span>keys_clone = keys.clone();
-		<span class="self">self</span>.jsonrpsee_execute(<span class="kw">move </span>|client| <span class="kw">async move </span>{
-			SubstrateStateClient::&lt;C&gt;::prove_storage(<span class="kw-2">&amp;*</span>client, keys, <span class="prelude-val">Some</span>(at))
-				.<span class="kw">await
-				</span>.map(|proof| StorageProof::new(proof.proof.into_iter().map(|b| b.<span class="number">0</span>)))
-				.map_err(Into::into)
-		})
-		.<span class="kw">await
-		</span>.map_err(|e| Error::failed_to_prove_storage::&lt;C&gt;(at, keys_clone, e))
+		<span class="kw">let </span>read_proof = <span class="self">self
+			</span>.jsonrpsee_execute(<span class="kw">move </span>|client| <span class="kw">async move </span>{
+				SubstrateStateClient::&lt;C&gt;::prove_storage(<span class="kw-2">&amp;*</span>client, keys_clone, <span class="prelude-val">Some</span>(at))
+					.<span class="kw">await
+					</span>.map(|proof| StorageProof::new(proof.proof.into_iter().map(|b| b.<span class="number">0</span>)))
+					.map_err(Into::into)
+			})
+			.<span class="kw">await
+			</span>.map_err(|e| Error::failed_to_prove_storage::&lt;C&gt;(at, keys.clone(), e))<span class="question-mark">?</span>;
+
+		<span class="prelude-val">Ok</span>((read_proof, state_root))
 	}
 }
 

@@ -698,7 +698,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use crate</span>::{
 	cli::{bridge::MessagesCliBridge, DefaultClient, HexLaneId, PrometheusParams},
-	messages_lane::{MessagesRelayLimits, MessagesRelayParams},
+	messages::{MessagesRelayLimits, MessagesRelayParams},
 	on_demand::OnDemandRelay,
 	HeadersToRelay, TaggedAccount, TransactionParams,
 };
@@ -958,14 +958,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		{
 			<span class="kw">let </span>common = <span class="self">self</span>.mut_base().mut_common();
-			<span class="kw">crate</span>::messages_metrics::add_relay_balances_metrics::&lt;<span class="kw">_</span>, <span class="self">Self</span>::Right&gt;(
+			<span class="kw">crate</span>::messages::metrics::add_relay_balances_metrics::&lt;<span class="kw">_</span>, <span class="self">Self</span>::Right&gt;(
 				common.left.client.clone(),
 				<span class="kw-2">&amp;</span>common.metrics_params,
 				<span class="kw-2">&amp;</span>common.left.accounts,
 				<span class="kw-2">&amp;</span>lanes,
 			)
 			.<span class="kw">await</span><span class="question-mark">?</span>;
-			<span class="kw">crate</span>::messages_metrics::add_relay_balances_metrics::&lt;<span class="kw">_</span>, <span class="self">Self</span>::Left&gt;(
+			<span class="kw">crate</span>::messages::metrics::add_relay_balances_metrics::&lt;<span class="kw">_</span>, <span class="self">Self</span>::Left&gt;(
 				common.right.client.clone(),
 				<span class="kw-2">&amp;</span>common.metrics_params,
 				<span class="kw-2">&amp;</span>common.right.accounts,
@@ -978,7 +978,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span><span class="kw-2">mut </span>message_relays = Vec::with_capacity(lanes.len() * <span class="number">2</span>);
 		<span class="kw">for </span>lane <span class="kw">in </span>lanes {
 			<span class="kw">let </span>left_to_right_messages =
-				<span class="kw">crate</span>::messages_lane::run::&lt;&lt;<span class="self">Self</span>::L2R <span class="kw">as </span>MessagesCliBridge&gt;::MessagesLane, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+				<span class="kw">crate</span>::messages::run::&lt;&lt;<span class="self">Self</span>::L2R <span class="kw">as </span>MessagesCliBridge&gt;::MessagesLane, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
 					<span class="self">self</span>.left_to_right().messages_relay_params(
 						left_to_right_on_demand_headers.clone(),
 						right_to_left_on_demand_headers.clone(),
@@ -991,7 +991,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			message_relays.push(left_to_right_messages);
 
 			<span class="kw">let </span>right_to_left_messages =
-				<span class="kw">crate</span>::messages_lane::run::&lt;&lt;<span class="self">Self</span>::R2L <span class="kw">as </span>MessagesCliBridge&gt;::MessagesLane, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+				<span class="kw">crate</span>::messages::run::&lt;&lt;<span class="self">Self</span>::R2L <span class="kw">as </span>MessagesCliBridge&gt;::MessagesLane, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
 					<span class="self">self</span>.right_to_left().messages_relay_params(
 						right_to_left_on_demand_headers.clone(),
 						left_to_right_on_demand_headers.clone(),

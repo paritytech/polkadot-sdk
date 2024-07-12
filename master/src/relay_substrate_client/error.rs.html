@@ -579,9 +579,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
 <a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -797,9 +794,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The bridge pallet is not yet initialized and all transactions will be rejected.
 	</span><span class="attr">#[error(<span class="string">"Bridge pallet is not initialized."</span>)]
 	</span>BridgePalletIsNotInitialized,
-	<span class="doccomment">/// An error has happened when we have tried to parse storage proof.
-	</span><span class="attr">#[error(<span class="string">"Error when parsing storage proof: {0:?}."</span>)]
-	</span>StorageProofError(bp_runtime::StorageProofError),
 	<span class="doccomment">/// The Substrate transaction is invalid.
 	</span><span class="attr">#[error(<span class="string">"Substrate transaction is invalid: {0:?}"</span>)]
 	</span>TransactionInvalid(<span class="attr">#[from] </span>TransactionValidityError),

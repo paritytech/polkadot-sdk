@@ -3047,6 +3047,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2896" id="2896">2896</a>
 <a href="#2897" id="2897">2897</a>
 <a href="#2898" id="2898">2898</a>
+<a href="#2899" id="2899">2899</a>
+<a href="#2900" id="2900">2900</a>
+<a href="#2901" id="2901">2901</a>
+<a href="#2902" id="2902">2902</a>
+<a href="#2903" id="2903">2903</a>
+<a href="#2904" id="2904">2904</a>
+<a href="#2905" id="2905">2905</a>
+<a href="#2906" id="2906">2906</a>
+<a href="#2907" id="2907">2907</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -3071,9 +3080,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span><span class="kw">crate</span>::messages_call_ext::{
 	CallHelper <span class="kw">as </span>MessagesCallHelper, CallInfo <span class="kw">as </span>MessagesCallInfo, MessagesCallSubType,
 };
-<span class="kw">use </span>bp_messages::{LaneId, MessageNonce};
+<span class="kw">use </span>bp_messages::{ChainWithMessages, LaneId, MessageNonce};
 <span class="kw">use </span>bp_relayers::{ExplicitOrAccountParams, RewardsAccountOwner, RewardsAccountParams};
-<span class="kw">use </span>bp_runtime::{Parachain, RangeInclusiveExt, StaticStrProvider};
+<span class="kw">use </span>bp_runtime::{Chain, Parachain, RangeInclusiveExt, StaticStrProvider};
 <span class="kw">use </span>codec::{Codec, Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	dispatch::{CallableCallFor, DispatchInfo, PostDispatchInfo},
@@ -3342,7 +3351,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				&lt;<span class="self">Self</span>::Msgs <span class="kw">as </span>RefundableMessagesLaneId&gt;::Id::get(),
 				&lt;<span class="self">Self</span>::Runtime <span class="kw">as </span>MessagesConfig&lt;
 					&lt;<span class="self">Self</span>::Msgs <span class="kw">as </span>RefundableMessagesLaneId&gt;::Instance,
-				&gt;&gt;::BridgedChainId::get(),
+				&gt;&gt;::BridgedChain::ID,
 				<span class="kw">if </span>call_info.is_receive_messages_proof_call() {
 					RewardsAccountOwner::ThisChain
 				} <span class="kw">else </span>{
@@ -3455,8 +3464,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// a quick check to avoid invalid high-priority transactions
 		</span><span class="kw">let </span>max_unconfirmed_messages_in_confirmation_tx = &lt;<span class="self">Self</span>::Runtime <span class="kw">as </span>MessagesConfig&lt;
 			&lt;<span class="self">Self</span>::Msgs <span class="kw">as </span>RefundableMessagesLaneId&gt;::Instance,
-		&gt;&gt;::MaxUnconfirmedMessagesAtInboundLane::get(
-		);
+		&gt;&gt;::BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 		<span class="kw">if </span>bundled_messages &gt; max_unconfirmed_messages_in_confirmation_tx {
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
@@ -3984,9 +3992,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{
-		messages::{
-			source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
-		},
 		messages_call_ext::{
 			BaseMessagesProofInfo, ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo,
 			UnrewardedRelayerOccupation,
@@ -3995,8 +4000,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">use </span>bp_header_chain::StoredHeaderDataBuilder;
 	<span class="kw">use </span>bp_messages::{
-		DeliveredMessages, InboundLaneData, MessageNonce, MessagesOperatingMode, OutboundLaneData,
-		UnrewardedRelayer, UnrewardedRelayersState,
+		source_chain::FromBridgedChainMessagesDeliveryProof,
+		target_chain::FromBridgedChainMessagesProof, DeliveredMessages, InboundLaneData,
+		MessageNonce, MessagesOperatingMode, OutboundLaneData, UnrewardedRelayer,
+		UnrewardedRelayersState,
 	};
 	<span class="kw">use </span>bp_parachains::{BestParaHeadHash, ParaInfo};
 	<span class="kw">use </span>bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};
@@ -4172,7 +4179,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
 				[parachain_head_at_relay_header_number <span class="kw">as </span>u8; <span class="number">32</span>].into(),
 			)],
-			parachain_heads_proof: ParaHeadsProof { storage_proof: <span class="macro">vec!</span>[] },
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 		})
 	}
 
@@ -4185,7 +4192,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
 				[parachain_head_at_relay_header_number <span class="kw">as </span>u8; <span class="number">32</span>].into(),
 			)],
-			parachain_heads_proof: ParaHeadsProof { storage_proof: <span class="macro">vec!</span>[] },
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 			is_free_execution_expected: <span class="bool-val">false</span>,
 		})
 	}
@@ -4193,9 +4200,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>message_delivery_call(best_message: MessageNonce) -&gt; RuntimeCall {
 		RuntimeCall::BridgeMessages(MessagesCall::receive_messages_proof {
 			relayer_id_at_bridged_chain: relayer_account_at_bridged_chain(),
-			proof: FromBridgedChainMessagesProof {
+			proof: Box::new(FromBridgedChainMessagesProof {
 				bridged_header_hash: Default::default(),
-				storage_proof: <span class="macro">vec!</span>[],
+				storage_proof: Default::default(),
 				lane: TestLaneId::get(),
 				nonces_start: pallet_bridge_messages::InboundLanes::&lt;TestRuntime&gt;::get(
 					TEST_LANE_ID,
@@ -4203,7 +4210,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.last_delivered_nonce() +
 					<span class="number">1</span>,
 				nonces_end: best_message,
-			},
+			}),
 			messages_count: <span class="number">1</span>,
 			dispatch_weight: Weight::zero(),
 		})
@@ -4213,7 +4220,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		RuntimeCall::BridgeMessages(MessagesCall::receive_messages_delivery_proof {
 			proof: FromBridgedChainMessagesDeliveryProof {
 				bridged_header_hash: Default::default(),
-				storage_proof: <span class="macro">vec!</span>[],
+				storage_proof: Default::default(),
 				lane: TestLaneId::get(),
 			},
 			relayers_state: UnrewardedRelayersState {
@@ -4376,8 +4383,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						best_stored_nonce: <span class="number">100</span>,
 					},
 					unrewarded_relayers: UnrewardedRelayerOccupation {
-						free_relayer_slots: MaxUnrewardedRelayerEntriesAtInboundLane::get(),
-						free_message_slots: MaxUnconfirmedMessagesAtInboundLane::get(),
+						free_relayer_slots:
+							BridgedUnderlyingChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+						free_message_slots:
+							BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 					},
 				}),
 			),
@@ -4446,8 +4455,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						best_stored_nonce: <span class="number">100</span>,
 					},
 					unrewarded_relayers: UnrewardedRelayerOccupation {
-						free_relayer_slots: MaxUnrewardedRelayerEntriesAtInboundLane::get(),
-						free_message_slots: MaxUnconfirmedMessagesAtInboundLane::get(),
+						free_relayer_slots:
+							BridgedUnderlyingChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+						free_message_slots:
+							BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 					},
 				}),
 			),
@@ -4508,8 +4519,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						best_stored_nonce: <span class="number">100</span>,
 					},
 					unrewarded_relayers: UnrewardedRelayerOccupation {
-						free_relayer_slots: MaxUnrewardedRelayerEntriesAtInboundLane::get(),
-						free_message_slots: MaxUnconfirmedMessagesAtInboundLane::get(),
+						free_relayer_slots:
+							BridgedUnderlyingChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+						free_message_slots:
+							BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 					},
 				}),
 			),
@@ -4548,8 +4561,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						best_stored_nonce: <span class="number">100</span>,
 					},
 					unrewarded_relayers: UnrewardedRelayerOccupation {
-						free_relayer_slots: MaxUnrewardedRelayerEntriesAtInboundLane::get(),
-						free_message_slots: MaxUnconfirmedMessagesAtInboundLane::get(),
+						free_relayer_slots:
+							BridgedUnderlyingChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+						free_message_slots:
+							BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 					},
 				},
 			)),
@@ -4784,14 +4799,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>fns = [run_validate, run_grandpa_validate, run_messages_validate];
 			<span class="kw">for </span>f <span class="kw">in </span>fns {
-				<span class="kw">let </span>priority_of_max_messages_delivery =
-					f(message_delivery_call(<span class="number">100 </span>+ MaxUnconfirmedMessagesAtInboundLane::get()))
-						.unwrap()
-						.priority;
-				<span class="kw">let </span>priority_of_more_than_max_messages_delivery =
-					f(message_delivery_call(<span class="number">100 </span>+ MaxUnconfirmedMessagesAtInboundLane::get() + <span class="number">1</span>))
-						.unwrap()
-						.priority;
+				<span class="kw">let </span>priority_of_max_messages_delivery = f(message_delivery_call(
+					<span class="number">100 </span>+ BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
+				))
+				.unwrap()
+				.priority;
+				<span class="kw">let </span>priority_of_more_than_max_messages_delivery = f(message_delivery_call(
+					<span class="number">100 </span>+ BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX + <span class="number">1</span>,
+				))
+				.unwrap()
+				.priority;
 
 				<span class="macro">assert!</span>(
 					priority_of_max_messages_delivery &gt; priority_of_more_than_max_messages_delivery,
@@ -5152,7 +5169,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								[<span class="number">1u8</span>; <span class="number">32</span>].into(),
 							),
 						],
-						parachain_heads_proof: ParaHeadsProof { storage_proof: <span class="macro">vec!</span>[] },
+						parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 					}),
 					message_delivery_call(<span class="number">200</span>),
 				],
@@ -5914,7 +5931,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>does_not_panic_on_boosting_priority_of_empty_message_delivery_transaction() {
 		run_test(|| {
-			<span class="kw">let </span>best_delivered_message = MaxUnconfirmedMessagesAtInboundLane::get();
+			<span class="kw">let </span>best_delivered_message =
+				BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 			initialize_environment(<span class="number">100</span>, <span class="number">100</span>, best_delivered_message);
 
 			<span class="comment">// register relayer so it gets priority boost

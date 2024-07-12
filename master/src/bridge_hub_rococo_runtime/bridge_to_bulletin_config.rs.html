@@ -406,47 +406,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -469,22 +428,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! are reusing Polkadot Bulletin chain primitives everywhere here.
 
 </span><span class="kw">use crate</span>::{
-	bridge_common_config::BridgeHubRococo, weights, xcm_config::UniversalLocation, AccountId,
-	BridgeRococoBulletinGrandpa, BridgeRococoBulletinMessages, PolkadotXcm, Runtime, RuntimeEvent,
-	XcmOverRococoBulletin, XcmRouter,
+	weights, xcm_config::UniversalLocation, BridgeRococoBulletinGrandpa,
+	BridgeRococoBulletinMessages, PolkadotXcm, Runtime, RuntimeEvent, XcmOverRococoBulletin,
+	XcmRouter,
 };
-<span class="kw">use </span>bp_messages::LaneId;
+<span class="kw">use </span>bp_messages::{
+	source_chain::FromBridgedChainMessagesDeliveryProof,
+	target_chain::FromBridgedChainMessagesProof, LaneId,
+};
 <span class="kw">use </span>bp_runtime::Chain;
 <span class="kw">use </span>bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
 		RefundableMessagesLane,
-	},
-	messages,
-	messages::{
-		source::{FromBridgedChainMessagesDeliveryProof, TargetHeaderChainAdapter},
-		target::{FromBridgedChainMessagesProof, SourceHeaderChainAdapter},
-		MessageBridge, UnderlyingChainProvider,
 	},
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
@@ -493,7 +449,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">use </span>frame_support::{parameter_types, traits::PalletInfoAccess};
-<span class="kw">use </span>sp_runtime::RuntimeDebug;
 <span class="kw">use </span>xcm::{
 	latest::prelude::<span class="kw-2">*</span>,
 	prelude::{InteriorLocation, NetworkId},
@@ -501,15 +456,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>xcm_builder::BridgeBlobDispatcher;
 
 <span class="macro">parameter_types! </span>{
-	<span class="doccomment">/// Maximal number of entries in the unrewarded relayers vector at the Rococo Bridge Hub. It matches the
-	/// maximal number of unrewarded relayers that the single confirmation transaction at Rococo Bulletin Chain
-	/// may process.
-	</span><span class="kw">pub const </span>MaxUnrewardedRelayerEntriesAtInboundLane: bp_messages::MessageNonce =
-		bp_polkadot_bulletin::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
-	<span class="doccomment">/// Maximal number of unconfirmed messages at the Rococo Bridge Hub. It matches the maximal number of
-	/// unconfirmed messages that the single confirmation transaction at Rococo Bulletin Chain may process.
-	</span><span class="kw">pub const </span>MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
-		bp_polkadot_bulletin::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	<span class="doccomment">/// Bridge specific chain (network) identifier of the Rococo Bulletin Chain.
 	</span><span class="kw">pub const </span>RococoBulletinChainId: bp_runtime::ChainId = bp_polkadot_bulletin::PolkadotBulletin::ID;
 	<span class="doccomment">/// Interior location (relative to this runtime) of the with-RococoBulletin messages pallet.
@@ -591,31 +537,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">type </span>OnMessagesDeliveredFromRococoBulletin =
 	XcmBlobHaulerAdapter&lt;ToRococoBulletinXcmBlobHauler, ActiveLanes&gt;;
 
-<span class="doccomment">/// Messaging Bridge configuration for BridgeHubRococo -&gt; Rococo Bulletin.
-</span><span class="kw">pub struct </span>WithRococoBulletinMessageBridge;
-<span class="kw">impl </span>MessageBridge <span class="kw">for </span>WithRococoBulletinMessageBridge {
-	<span class="comment">// Bulletin chain assumes it is bridged with Polkadot Bridge Hub
-	</span><span class="kw">const </span>BRIDGED_MESSAGES_PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str =
-		bp_bridge_hub_polkadot::WITH_BRIDGE_HUB_POLKADOT_MESSAGES_PALLET_NAME;
-	<span class="kw">type </span>ThisChain = BridgeHubRococo;
-	<span class="kw">type </span>BridgedChain = RococoBulletin;
-	<span class="kw">type </span>BridgedHeaderChain = BridgeRococoBulletinGrandpa;
-}
-
-<span class="doccomment">/// Maximal outbound payload size of BridgeHubRococo -&gt; RococoBulletin messages.
-</span><span class="kw">pub type </span>ToRococoBulletinMaximalOutboundPayloadSize =
-	messages::source::FromThisChainMaximalOutboundPayloadSize&lt;WithRococoBulletinMessageBridge&gt;;
-
-<span class="doccomment">/// RococoBulletin chain from message lane point of view.
-</span><span class="attr">#[derive(RuntimeDebug, Clone, Copy)]
-</span><span class="kw">pub struct </span>RococoBulletin;
-
-<span class="kw">impl </span>UnderlyingChainProvider <span class="kw">for </span>RococoBulletin {
-	<span class="kw">type </span>Chain = bp_polkadot_bulletin::PolkadotBulletin;
-}
-
-<span class="kw">impl </span>messages::BridgedChainWithMessages <span class="kw">for </span>RococoBulletin {}
-
 <span class="doccomment">/// Signed extension that refunds relayers that are delivering messages from the Rococo Bulletin
 /// chain.
 </span><span class="kw">pub type </span>OnBridgeHubRococoRefundRococoBulletinMessages = RefundSignedExtensionAdapter&lt;
@@ -638,22 +559,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>WeightInfo =
 		weights::pallet_bridge_messages_rococo_to_rococo_bulletin::WeightInfo&lt;Runtime&gt;;
-	<span class="kw">type </span>BridgedChainId = RococoBulletinChainId;
-	<span class="kw">type </span>ActiveOutboundLanes = ActiveOutboundLanesToRococoBulletin;
-	<span class="kw">type </span>MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
-	<span class="kw">type </span>MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
 
-	<span class="kw">type </span>MaximalOutboundPayloadSize = ToRococoBulletinMaximalOutboundPayloadSize;
+	<span class="kw">type </span>ThisChain = bp_bridge_hub_rococo::BridgeHubRococo;
+	<span class="kw">type </span>BridgedChain = bp_polkadot_bulletin::PolkadotBulletin;
+	<span class="kw">type </span>BridgedHeaderChain = BridgeRococoBulletinGrandpa;
+
+	<span class="kw">type </span>ActiveOutboundLanes = ActiveOutboundLanesToRococoBulletin;
+
 	<span class="kw">type </span>OutboundPayload = XcmAsPlainPayload;
 
 	<span class="kw">type </span>InboundPayload = XcmAsPlainPayload;
-	<span class="kw">type </span>InboundRelayer = AccountId;
 	<span class="kw">type </span>DeliveryPayments = ();
 
-	<span class="kw">type </span>TargetHeaderChain = TargetHeaderChainAdapter&lt;WithRococoBulletinMessageBridge&gt;;
 	<span class="kw">type </span>DeliveryConfirmationPayments = ();
 
-	<span class="kw">type </span>SourceHeaderChain = SourceHeaderChainAdapter&lt;WithRococoBulletinMessageBridge&gt;;
 	<span class="kw">type </span>MessageDispatch =
 		XcmBlobMessageDispatch&lt;FromRococoBulletinMessageBlobDispatcher, <span class="self">Self</span>::WeightInfo, ()&gt;;
 	<span class="kw">type </span>OnMessagesDelivered = OnMessagesDeliveredFromRococoBulletin;
@@ -716,8 +635,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			runtime: Runtime,
 			with_bridged_chain_grandpa_instance: BridgeGrandpaRococoBulletinInstance,
 			with_bridged_chain_messages_instance: WithRococoBulletinMessagesInstance,
-			bridge: WithRococoBulletinMessageBridge,
-			this_chain: bp_rococo::Rococo,
+			this_chain: bp_bridge_hub_rococo::BridgeHubRococo,
 			bridged_chain: bp_polkadot_bulletin::PolkadotBulletin,
 		);
 

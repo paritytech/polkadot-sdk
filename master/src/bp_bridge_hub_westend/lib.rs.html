@@ -252,6 +252,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -279,7 +281,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
 <span class="kw">use </span>frame_support::dispatch::DispatchClass;
-<span class="kw">use </span>sp_runtime::RuntimeDebug;
+<span class="kw">use </span>sp_runtime::{RuntimeDebug, StateVersion};
 
 <span class="doccomment">/// BridgeHubWestend parachain.
 </span><span class="attr">#[derive(RuntimeDebug)]
@@ -297,6 +299,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Balance = Balance;
 	<span class="kw">type </span>Nonce = Nonce;
 	<span class="kw">type </span>Signature = Signature;
+
+	<span class="kw">const </span>STATE_VERSION: StateVersion = StateVersion::V1;
 
 	<span class="kw">fn </span>max_extrinsic_size() -&gt; u32 {
 		<span class="kw-2">*</span>BlockLength::get().max.get(DispatchClass::Normal)

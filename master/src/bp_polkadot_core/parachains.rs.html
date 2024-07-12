@@ -251,10 +251,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -279,7 +275,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! parachains. Having pallets that are referencing polkadot, would mean that there may
 //! be two versions of polkadot crates included in the runtime. Which is bad.
 
-</span><span class="kw">use </span>bp_runtime::{RawStorageProof, Size};
+</span><span class="kw">use </span>bp_runtime::{raw_storage_proof_size, RawStorageProof, Size};
 <span class="kw">use </span>codec::{CompactAs, Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_core::Hasher;
@@ -353,12 +349,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Size <span class="kw">for </span>ParaHeadsProof {
 	<span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
-		u32::try_from(
-			<span class="self">self</span>.storage_proof
-				.iter()
-				.fold(<span class="number">0usize</span>, |sum, node| sum.saturating_add(node.len())),
-		)
-		.unwrap_or(u32::MAX)
+		<span class="kw">use </span>frame_support::sp_runtime::SaturatedConversion;
+		raw_storage_proof_size(<span class="kw-2">&amp;</span><span class="self">self</span>.storage_proof).saturated_into()
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

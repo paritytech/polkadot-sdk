@@ -583,6 +583,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -609,7 +615,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		AtLeast32Bit, AtLeast32BitUnsigned, Hash <span class="kw">as </span>HashT, Header <span class="kw">as </span>HeaderT, MaybeDisplay,
 		MaybeSerialize, MaybeSerializeDeserialize, Member, SimpleBitOps, Verify,
 	},
-	FixedPointOperand,
+	FixedPointOperand, StateVersion,
 };
 <span class="kw">use </span>sp_std::{fmt::Debug, hash::Hash, str::FromStr, vec, vec::Vec};
 
@@ -781,6 +787,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Signature type, used on this chain.
 	</span><span class="kw">type </span>Signature: Parameter + Verify;
 
+	<span class="doccomment">/// Version of the state implementation used by this chain. This is directly related with the
+	/// `TrieLayout` configuration used by the storage.
+	</span><span class="kw">const </span>STATE_VERSION: StateVersion;
+
 	<span class="doccomment">/// Get the maximum size (in bytes) of a Normal extrinsic at this chain.
 	</span><span class="kw">fn </span>max_extrinsic_size() -&gt; u32;
 	<span class="doccomment">/// Get the maximum weight (compute time) that a Normal extrinsic at this chain can use.
@@ -807,6 +817,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Balance = &lt;T::Chain <span class="kw">as </span>Chain&gt;::Balance;
 	<span class="kw">type </span>Nonce = &lt;T::Chain <span class="kw">as </span>Chain&gt;::Nonce;
 	<span class="kw">type </span>Signature = &lt;T::Chain <span class="kw">as </span>Chain&gt;::Signature;
+
+	<span class="kw">const </span>STATE_VERSION: StateVersion = &lt;T::Chain <span class="kw">as </span>Chain&gt;::STATE_VERSION;
 
 	<span class="kw">fn </span>max_extrinsic_size() -&gt; u32 {
 		&lt;T::Chain <span class="kw">as </span>Chain&gt;::max_extrinsic_size()

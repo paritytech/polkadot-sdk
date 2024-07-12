@@ -915,67 +915,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#764" id="764">764</a>
 <a href="#765" id="765">765</a>
 <a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
-<a href="#785" id="785">785</a>
-<a href="#786" id="786">786</a>
-<a href="#787" id="787">787</a>
-<a href="#788" id="788">788</a>
-<a href="#789" id="789">789</a>
-<a href="#790" id="790">790</a>
-<a href="#791" id="791">791</a>
-<a href="#792" id="792">792</a>
-<a href="#793" id="793">793</a>
-<a href="#794" id="794">794</a>
-<a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
-<a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
-<a href="#809" id="809">809</a>
-<a href="#810" id="810">810</a>
-<a href="#811" id="811">811</a>
-<a href="#812" id="812">812</a>
-<a href="#813" id="813">813</a>
-<a href="#814" id="814">814</a>
-<a href="#815" id="815">815</a>
-<a href="#816" id="816">816</a>
-<a href="#817" id="817">817</a>
-<a href="#818" id="818">818</a>
-<a href="#819" id="819">819</a>
-<a href="#820" id="820">820</a>
-<a href="#821" id="821">821</a>
-<a href="#822" id="822">822</a>
-<a href="#823" id="823">823</a>
-<a href="#824" id="824">824</a>
-<a href="#825" id="825">825</a>
-<a href="#826" id="826">826</a>
-<a href="#827" id="827">827</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1001,22 +940,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">use </span>bp_header_chain::ChainWithGrandpa;
-<span class="kw">use </span>bp_messages::{
-	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, LaneId,
-	UnrewardedRelayersState,
-};
+<span class="kw">use </span>bp_messages::{LaneId, UnrewardedRelayersState};
 <span class="kw">use </span>bp_polkadot_core::parachains::ParaHash;
 <span class="kw">use </span>bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
-<span class="kw">use </span>bp_runtime::{HashOf, Parachain, UnderlyingChainOf};
-<span class="kw">use </span>bridge_runtime_common::{
-	messages::{
-		source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
-		BridgedChain <span class="kw">as </span>MessageBridgedChain, MessageBridge, ThisChain <span class="kw">as </span>MessageThisChain,
-	},
-	messages_xcm_extension::XcmAsPlainPayload,
-};
+<span class="kw">use </span>bp_runtime::{Chain, Parachain};
+<span class="kw">use </span>bridge_runtime_common::messages_xcm_extension::XcmAsPlainPayload;
 <span class="kw">use </span>frame_support::traits::{OnFinalize, OnInitialize};
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
+<span class="kw">use </span>pallet_bridge_messages::{BridgedChainOf, ThisChainOf};
 <span class="kw">use </span>parachains_runtimes_test_utils::{
 	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
 };
@@ -1037,7 +968,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ BridgeMessagesConfig&lt;
 			<span class="self">Self</span>::MPI,
 			InboundPayload = XcmAsPlainPayload,
-			InboundRelayer = bp_runtime::AccountIdOf&lt;MessageBridgedChain&lt;<span class="self">Self</span>::MB&gt;&gt;,
 			OutboundPayload = XcmAsPlainPayload,
 		&gt; + pallet_bridge_relayers::Config;
 	<span class="doccomment">/// All pallets of this chain, excluding system pallet.
@@ -1049,17 +979,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>PPI: <span class="lifetime">'static</span>;
 	<span class="doccomment">/// Instance of the `pallet-bridge-messages`, used to bridge with remote parachain.
 	</span><span class="kw">type </span>MPI: <span class="lifetime">'static</span>;
-	<span class="doccomment">/// Messages bridge definition.
-	</span><span class="kw">type </span>MB: MessageBridge;
 }
 
 <span class="doccomment">/// Adapter struct that implements `WithRemoteParachainHelper`.
-</span><span class="kw">pub struct </span>WithRemoteParachainHelperAdapter&lt;Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI, MB&gt;(
-	sp_std::marker::PhantomData&lt;(Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI, MB)&gt;,
+</span><span class="kw">pub struct </span>WithRemoteParachainHelperAdapter&lt;Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI&gt;(
+	sp_std::marker::PhantomData&lt;(Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI)&gt;,
 );
 
-<span class="kw">impl</span>&lt;Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI, MB&gt; WithRemoteParachainHelper
-	<span class="kw">for </span>WithRemoteParachainHelperAdapter&lt;Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI, MB&gt;
+<span class="kw">impl</span>&lt;Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI&gt; WithRemoteParachainHelper
+	<span class="kw">for </span>WithRemoteParachainHelperAdapter&lt;Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI&gt;
 <span class="kw">where
 	</span>Runtime: BasicParachainRuntime
 		+ cumulus_pallet_xcmp_queue::Config
@@ -1068,7 +996,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ BridgeMessagesConfig&lt;
 			MPI,
 			InboundPayload = XcmAsPlainPayload,
-			InboundRelayer = bp_runtime::AccountIdOf&lt;MessageBridgedChain&lt;MB&gt;&gt;,
 			OutboundPayload = XcmAsPlainPayload,
 		&gt; + pallet_bridge_relayers::Config,
 	AllPalletsWithoutSystem:
@@ -1076,14 +1003,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	GPI: <span class="lifetime">'static</span>,
 	PPI: <span class="lifetime">'static</span>,
 	MPI: <span class="lifetime">'static</span>,
-	MB: MessageBridge,
-{
+	<span class="comment">// MB: MessageBridge,
+</span>{
 	<span class="kw">type </span>Runtime = Runtime;
 	<span class="kw">type </span>AllPalletsWithoutSystem = AllPalletsWithoutSystem;
 	<span class="kw">type </span>GPI = GPI;
 	<span class="kw">type </span>PPI = PPI;
 	<span class="kw">type </span>MPI = MPI;
-	<span class="kw">type </span>MB = MB;
 }
 
 <span class="doccomment">/// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,
@@ -1109,16 +1035,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	RuntimeCallOf&lt;RuntimeHelper::Runtime&gt;: From&lt;BridgeGrandpaCall&lt;RuntimeHelper::Runtime, RuntimeHelper::GPI&gt;&gt;
 		+ From&lt;BridgeParachainsCall&lt;RuntimeHelper::Runtime, RuntimeHelper::PPI&gt;&gt;
 		+ From&lt;BridgeMessagesCall&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;&gt;,
-	UnderlyingChainOf&lt;MessageBridgedChain&lt;RuntimeHelper::MB&gt;&gt;:
-		bp_runtime::Chain&lt;Hash = ParaHash&gt; + Parachain,
+	BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;: Chain&lt;Hash = ParaHash&gt; + Parachain,
 	&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain:
 		bp_runtime::Chain&lt;Hash = RelayBlockHash, BlockNumber = RelayBlockNumber&gt; + ChainWithGrandpa,
-	&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeMessagesConfig&lt;RuntimeHelper::MPI&gt;&gt;::SourceHeaderChain:
-		SourceHeaderChain&lt;
-			MessagesProof = FromBridgedChainMessagesProof&lt;
-				HashOf&lt;MessageBridgedChain&lt;RuntimeHelper::MB&gt;&gt;,
-			&gt;,
-		&gt;,
 {
 	helpers::relayed_incoming_message_works::&lt;
 		RuntimeHelper::Runtime,
@@ -1157,7 +1076,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				message_proof,
 			) = test_data::from_parachain::make_complex_relayer_delivery_proofs::&lt;
 				&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain,
-				RuntimeHelper::MB,
+				BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
+				ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 				(),
 			&gt;(
 				lane_id,
@@ -1197,7 +1117,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				(
 					BridgeMessagesCall::&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;::receive_messages_proof {
 						relayer_id_at_bridged_chain,
-						proof: message_proof,
+						proof: Box::new(message_proof),
 						messages_count: <span class="number">1</span>,
 						dispatch_weight: Weight::from_parts(<span class="number">1000000000</span>, <span class="number">0</span>),
 					}.into(),
@@ -1246,16 +1166,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	RuntimeCallOf&lt;RuntimeHelper::Runtime&gt;: From&lt;BridgeGrandpaCall&lt;RuntimeHelper::Runtime, RuntimeHelper::GPI&gt;&gt;
 		+ From&lt;BridgeParachainsCall&lt;RuntimeHelper::Runtime, RuntimeHelper::PPI&gt;&gt;
 		+ From&lt;BridgeMessagesCall&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;&gt;,
-	UnderlyingChainOf&lt;MessageBridgedChain&lt;RuntimeHelper::MB&gt;&gt;:
-		bp_runtime::Chain&lt;Hash = ParaHash&gt; + Parachain,
+	BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;: Chain&lt;Hash = ParaHash&gt; + Parachain,
 	&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain:
 		bp_runtime::Chain&lt;Hash = RelayBlockHash, BlockNumber = RelayBlockNumber&gt; + ChainWithGrandpa,
-	&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeMessagesConfig&lt;RuntimeHelper::MPI&gt;&gt;::SourceHeaderChain:
-		SourceHeaderChain&lt;
-			MessagesProof = FromBridgedChainMessagesProof&lt;
-				HashOf&lt;MessageBridgedChain&lt;RuntimeHelper::MB&gt;&gt;,
-			&gt;,
-		&gt;,
 {
 	<span class="comment">// ensure that the runtime allows free header submissions
 	</span><span class="kw">let </span>free_headers_interval = &lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;
@@ -1316,7 +1229,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				message_proof,
 			) = test_data::from_parachain::make_complex_relayer_delivery_proofs::&lt;
 				&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain,
-				RuntimeHelper::MB,
+				BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
+				ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 				(),
 			&gt;(
 				lane_id,
@@ -1368,7 +1282,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				(
 					BridgeMessagesCall::&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;::receive_messages_proof {
 						relayer_id_at_bridged_chain,
-						proof: message_proof,
+						proof: Box::new(message_proof),
 						messages_count: <span class="number">1</span>,
 						dispatch_weight: Weight::from_parts(<span class="number">1000000000</span>, <span class="number">0</span>),
 					}.into(),
@@ -1418,16 +1332,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ From&lt;BridgeParachainsCall&lt;RuntimeHelper::Runtime, RuntimeHelper::PPI&gt;&gt;
 		+ From&lt;BridgeMessagesCall&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;&gt;
 		+ From&lt;pallet_utility::Call&lt;RuntimeHelper::Runtime&gt;&gt;,
-	UnderlyingChainOf&lt;MessageBridgedChain&lt;RuntimeHelper::MB&gt;&gt;:
-		bp_runtime::Chain&lt;Hash = ParaHash&gt; + Parachain,
+	BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;: Chain&lt;Hash = ParaHash&gt; + Parachain,
 	&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain:
 		bp_runtime::Chain&lt;Hash = RelayBlockHash, BlockNumber = RelayBlockNumber&gt; + ChainWithGrandpa,
-	&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeMessagesConfig&lt;RuntimeHelper::MPI&gt;&gt;::SourceHeaderChain:
-		SourceHeaderChain&lt;
-			MessagesProof = FromBridgedChainMessagesProof&lt;
-				HashOf&lt;MessageBridgedChain&lt;RuntimeHelper::MB&gt;&gt;,
-			&gt;,
-		&gt;,
 {
 	helpers::relayed_incoming_message_works::&lt;
 		RuntimeHelper::Runtime,
@@ -1466,7 +1373,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				message_proof,
 			) = test_data::from_parachain::make_complex_relayer_delivery_proofs::&lt;
 				&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain,
-				RuntimeHelper::MB,
+				BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
+				ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 				(),
 			&gt;(
 				lane_id,
@@ -1496,7 +1404,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						}.into(),
 						BridgeMessagesCall::&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;::receive_messages_proof {
 							relayer_id_at_bridged_chain,
-							proof: message_proof,
+							proof: Box::new(message_proof),
 							messages_count: <span class="number">1</span>,
 							dispatch_weight: Weight::from_parts(<span class="number">1000000000</span>, <span class="number">0</span>),
 						}.into(),
@@ -1543,16 +1451,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	RuntimeCallOf&lt;RuntimeHelper::Runtime&gt;: From&lt;BridgeGrandpaCall&lt;RuntimeHelper::Runtime, RuntimeHelper::GPI&gt;&gt;
 		+ From&lt;BridgeParachainsCall&lt;RuntimeHelper::Runtime, RuntimeHelper::PPI&gt;&gt;
 		+ From&lt;BridgeMessagesCall&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;&gt;,
-	UnderlyingChainOf&lt;MessageBridgedChain&lt;RuntimeHelper::MB&gt;&gt;:
-		bp_runtime::Chain&lt;Hash = ParaHash&gt; + Parachain,
+	BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;: Chain&lt;Hash = ParaHash&gt; + Parachain,
 	&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain:
 		bp_runtime::Chain&lt;Hash = RelayBlockHash, BlockNumber = RelayBlockNumber&gt; + ChainWithGrandpa,
-	&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeMessagesConfig&lt;RuntimeHelper::MPI&gt;&gt;::SourceHeaderChain:
-		SourceHeaderChain&lt;
-			MessagesProof = FromBridgedChainMessagesProof&lt;
-				HashOf&lt;MessageBridgedChain&lt;RuntimeHelper::MB&gt;&gt;,
-			&gt;,
-		&gt;,
 {
 	run_test::&lt;RuntimeHelper::Runtime, <span class="kw">_</span>&gt;(collator_session_key, <span class="number">1000</span>, <span class="macro">vec!</span>[], || {
 		<span class="comment">// generate bridged relay chain finality, parachain heads and message proofs,
@@ -1570,7 +1471,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			message_proof,
 		) = test_data::from_parachain::make_complex_relayer_delivery_proofs::&lt;
 			&lt;RuntimeHelper::Runtime <span class="kw">as </span>pallet_bridge_grandpa::Config&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain,
-			RuntimeHelper::MB,
+			BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
+			ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 			(),
 		&gt;(
 			LaneId::default(),
@@ -1590,7 +1492,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			RuntimeHelper::GPI,
 			RuntimeHelper::PPI,
 			RuntimeHelper::MPI,
-			<span class="kw">_</span>,
 		&gt;(
 			relay_chain_header,
 			grandpa_justification,
@@ -1615,23 +1516,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AccountIdOf&lt;RuntimeHelper::Runtime&gt;: From&lt;AccountId32&gt;,
 	RuntimeHelper::Runtime:
 		pallet_utility::Config&lt;RuntimeCall = RuntimeCallOf&lt;RuntimeHelper::Runtime&gt;&gt;,
-	MessageThisChain&lt;RuntimeHelper::MB&gt;:
-		bp_runtime::Chain&lt;AccountId = AccountIdOf&lt;RuntimeHelper::Runtime&gt;&gt;,
+	ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;:
+		Chain&lt;AccountId = AccountIdOf&lt;RuntimeHelper::Runtime&gt;&gt;,
 	RuntimeCallOf&lt;RuntimeHelper::Runtime&gt;: From&lt;BridgeGrandpaCall&lt;RuntimeHelper::Runtime, RuntimeHelper::GPI&gt;&gt;
 		+ From&lt;BridgeParachainsCall&lt;RuntimeHelper::Runtime, RuntimeHelper::PPI&gt;&gt;
 		+ From&lt;BridgeMessagesCall&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;&gt;,
-	UnderlyingChainOf&lt;MessageBridgedChain&lt;RuntimeHelper::MB&gt;&gt;:
-		bp_runtime::Chain&lt;Hash = ParaHash&gt; + Parachain,
+	BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;: Chain&lt;Hash = ParaHash&gt; + Parachain,
 	&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain:
 		bp_runtime::Chain&lt;Hash = RelayBlockHash, BlockNumber = RelayBlockNumber&gt; + ChainWithGrandpa,
-	&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeMessagesConfig&lt;RuntimeHelper::MPI&gt;&gt;::TargetHeaderChain:
-		TargetHeaderChain&lt;
-			XcmAsPlainPayload,
-			AccountIdOf&lt;RuntimeHelper::Runtime&gt;,
-			MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof&lt;
-				HashOf&lt;UnderlyingChainOf&lt;MessageBridgedChain&lt;RuntimeHelper::MB&gt;&gt;&gt;,
-			&gt;,
-		&gt;,
 {
 	run_test::&lt;RuntimeHelper::Runtime, <span class="kw">_</span>&gt;(collator_session_key, <span class="number">1000</span>, <span class="macro">vec!</span>[], || {
 		<span class="comment">// generate bridged relay chain finality, parachain heads and message proofs,
@@ -1650,7 +1542,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			message_delivery_proof,
 		) = test_data::from_parachain::make_complex_relayer_confirmation_proofs::&lt;
 			&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain,
-			RuntimeHelper::MB,
+			BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
+			ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 			(),
 		&gt;(
 			LaneId::default(),
@@ -1692,16 +1585,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>RuntimeHelper: WithRemoteParachainHelper,
 	RuntimeCallOf&lt;RuntimeHelper::Runtime&gt;:
 		From&lt;BridgeMessagesCall&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;&gt;,
-	UnderlyingChainOf&lt;MessageBridgedChain&lt;RuntimeHelper::MB&gt;&gt;:
-		bp_runtime::Chain&lt;Hash = ParaHash&gt; + Parachain,
+	BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;: Chain&lt;Hash = ParaHash&gt; + Parachain,
 	&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain:
 		bp_runtime::Chain&lt;Hash = RelayBlockHash, BlockNumber = RelayBlockNumber&gt; + ChainWithGrandpa,
-	&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeMessagesConfig&lt;RuntimeHelper::MPI&gt;&gt;::SourceHeaderChain:
-		SourceHeaderChain&lt;
-			MessagesProof = FromBridgedChainMessagesProof&lt;
-				HashOf&lt;MessageBridgedChain&lt;RuntimeHelper::MB&gt;&gt;,
-			&gt;,
-		&gt;,
 {
 	run_test::&lt;RuntimeHelper::Runtime, <span class="kw">_</span>&gt;(collator_session_key, <span class="number">1000</span>, <span class="macro">vec!</span>[], || {
 		<span class="comment">// generate bridged relay chain finality, parachain heads and message proofs,
@@ -1719,7 +1605,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			message_proof,
 		) = test_data::from_parachain::make_complex_relayer_delivery_proofs::&lt;
 			&lt;RuntimeHelper::Runtime <span class="kw">as </span>pallet_bridge_grandpa::Config&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain,
-			RuntimeHelper::MB,
+			BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
+			ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 			(),
 		&gt;(
 			LaneId::default(),
@@ -1735,7 +1622,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>call = test_data::from_parachain::make_standalone_relayer_delivery_call::&lt;
 			RuntimeHelper::Runtime,
 			RuntimeHelper::MPI,
-			<span class="kw">_</span>,
 		&gt;(
 			message_proof,
 			helpers::relayer_id_at_bridged_chain::&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;(),
@@ -1756,22 +1642,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>RuntimeHelper: WithRemoteParachainHelper,
 	AccountIdOf&lt;RuntimeHelper::Runtime&gt;: From&lt;AccountId32&gt;,
-	MessageThisChain&lt;RuntimeHelper::MB&gt;:
-		bp_runtime::Chain&lt;AccountId = AccountIdOf&lt;RuntimeHelper::Runtime&gt;&gt;,
+	ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;:
+		Chain&lt;AccountId = AccountIdOf&lt;RuntimeHelper::Runtime&gt;&gt;,
 	RuntimeCallOf&lt;RuntimeHelper::Runtime&gt;:
 		From&lt;BridgeMessagesCall&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;&gt;,
-	UnderlyingChainOf&lt;MessageBridgedChain&lt;RuntimeHelper::MB&gt;&gt;:
-		bp_runtime::Chain&lt;Hash = ParaHash&gt; + Parachain,
+	BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;: Chain&lt;Hash = ParaHash&gt; + Parachain,
 	&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain:
 		bp_runtime::Chain&lt;Hash = RelayBlockHash, BlockNumber = RelayBlockNumber&gt; + ChainWithGrandpa,
-	&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeMessagesConfig&lt;RuntimeHelper::MPI&gt;&gt;::TargetHeaderChain:
-		TargetHeaderChain&lt;
-			XcmAsPlainPayload,
-			AccountIdOf&lt;RuntimeHelper::Runtime&gt;,
-			MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof&lt;
-				HashOf&lt;UnderlyingChainOf&lt;MessageBridgedChain&lt;RuntimeHelper::MB&gt;&gt;&gt;,
-			&gt;,
-		&gt;,
 {
 	run_test::&lt;RuntimeHelper::Runtime, <span class="kw">_</span>&gt;(collator_session_key, <span class="number">1000</span>, <span class="macro">vec!</span>[], || {
 		<span class="comment">// generate bridged relay chain finality, parachain heads and message proofs,
@@ -1784,7 +1661,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, message_delivery_proof) =
 			test_data::from_parachain::make_complex_relayer_confirmation_proofs::&lt;
 				&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain,
-				RuntimeHelper::MB,
+				BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
+				ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 				(),
 			&gt;(
 				LaneId::default(),

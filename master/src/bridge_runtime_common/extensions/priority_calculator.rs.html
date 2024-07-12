@@ -556,6 +556,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#405" id="405">405</a>
 <a href="#406" id="406">406</a>
 <a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -877,6 +878,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub mod </span>per_message {
 		<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
+		<span class="kw">use </span>bp_messages::ChainWithMessages;
 		<span class="kw">use </span>pallet_bridge_messages::WeightInfoExt;
 
 		<span class="doccomment">/// Ensures that the value of `PriorityBoostPerMessage` matches the value of
@@ -897,7 +899,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			BalanceOf&lt;Runtime&gt;: Send + Sync + FixedPointOperand,
 		{
 			<span class="kw">let </span>maximal_messages_in_delivery_transaction =
-				Runtime::MaxUnconfirmedMessagesAtInboundLane::get();
+				Runtime::BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 			<span class="kw">super</span>::ensure_priority_boost_is_sane::&lt;PriorityBoostPerMessage, BalanceOf&lt;Runtime&gt;&gt;(
 				<span class="string">"PriorityBoostPerMessage"</span>,
 				maximal_messages_in_delivery_transaction,

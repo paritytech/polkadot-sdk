@@ -447,60 +447,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
 <a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -520,26 +466,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Bridge definitions used on BridgeHubRococo for bridging to BridgeHubWestend.
 
 </span><span class="kw">use crate</span>::{
-	bridge_common_config::{
-		BridgeHubRococo, BridgeParachainWestendInstance, DeliveryRewardInBalance,
-	},
+	bridge_common_config::{BridgeParachainWestendInstance, DeliveryRewardInBalance},
 	weights,
 	xcm_config::UniversalLocation,
-	AccountId, BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent, XcmOverBridgeHubWestend,
-	XcmRouter,
+	BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent, XcmOverBridgeHubWestend, XcmRouter,
 };
-<span class="kw">use </span>bp_messages::LaneId;
+<span class="kw">use </span>bp_messages::{
+	source_chain::FromBridgedChainMessagesDeliveryProof,
+	target_chain::FromBridgedChainMessagesProof, LaneId,
+};
 <span class="kw">use </span>bp_runtime::Chain;
 <span class="kw">use </span>bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
 		RefundableMessagesLane,
-	},
-	messages,
-	messages::{
-		source::{FromBridgedChainMessagesDeliveryProof, TargetHeaderChainAdapter},
-		target::{FromBridgedChainMessagesProof, SourceHeaderChainAdapter},
-		MessageBridge, UnderlyingChainProvider,
 	},
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
@@ -549,7 +489,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_support::{parameter_types, traits::PalletInfoAccess};
-<span class="kw">use </span>sp_runtime::RuntimeDebug;
 <span class="kw">use </span>xcm::{
 	latest::prelude::<span class="kw-2">*</span>,
 	prelude::{InteriorLocation, NetworkId},
@@ -557,11 +496,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>xcm_builder::BridgeBlobDispatcher;
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>MaxUnrewardedRelayerEntriesAtInboundLane: bp_messages::MessageNonce =
-		bp_bridge_hub_rococo::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
-	<span class="kw">pub const </span>MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
-		bp_bridge_hub_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
-	<span class="kw">pub const </span>BridgeHubWestendChainId: bp_runtime::ChainId = BridgeHubWestend::ID;
+	<span class="kw">pub const </span>BridgeHubWestendChainId: bp_runtime::ChainId = bp_bridge_hub_westend::BridgeHubWestend::ID;
 	<span class="kw">pub </span>BridgeRococoToWestendMessagesPalletInstance: InteriorLocation = [PalletInstance(&lt;BridgeWestendMessages <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8)].into();
 	<span class="kw">pub </span>WestendGlobalConsensusNetwork: NetworkId = NetworkId::Westend;
 	<span class="kw">pub </span>WestendGlobalConsensusNetworkLocation: Location = Location::new(
@@ -651,34 +586,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">type </span>OnMessagesDeliveredFromWestend =
 	XcmBlobHaulerAdapter&lt;ToBridgeHubWestendXcmBlobHauler, ActiveLanes&gt;;
 
-<span class="doccomment">/// Messaging Bridge configuration for BridgeHubRococo -&gt; BridgeHubWestend
-</span><span class="kw">pub struct </span>WithBridgeHubWestendMessageBridge;
-<span class="kw">impl </span>MessageBridge <span class="kw">for </span>WithBridgeHubWestendMessageBridge {
-	<span class="kw">const </span>BRIDGED_MESSAGES_PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str =
-		bp_bridge_hub_rococo::WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME;
-	<span class="kw">type </span>ThisChain = BridgeHubRococo;
-	<span class="kw">type </span>BridgedChain = BridgeHubWestend;
-	<span class="kw">type </span>BridgedHeaderChain = pallet_bridge_parachains::ParachainHeaders&lt;
-		Runtime,
-		BridgeParachainWestendInstance,
-		bp_bridge_hub_westend::BridgeHubWestend,
-	&gt;;
-}
-
-<span class="doccomment">/// Maximal outbound payload size of BridgeHubRococo -&gt; BridgeHubWestend messages.
-</span><span class="kw">pub type </span>ToBridgeHubWestendMaximalOutboundPayloadSize =
-	messages::source::FromThisChainMaximalOutboundPayloadSize&lt;WithBridgeHubWestendMessageBridge&gt;;
-
-<span class="doccomment">/// BridgeHubWestend chain from message lane point of view.
-</span><span class="attr">#[derive(RuntimeDebug, Clone, Copy)]
-</span><span class="kw">pub struct </span>BridgeHubWestend;
-
-<span class="kw">impl </span>UnderlyingChainProvider <span class="kw">for </span>BridgeHubWestend {
-	<span class="kw">type </span>Chain = bp_bridge_hub_westend::BridgeHubWestend;
-}
-
-<span class="kw">impl </span>messages::BridgedChainWithMessages <span class="kw">for </span>BridgeHubWestend {}
-
 <span class="doccomment">/// Signed extension that refunds relayers that are delivering messages from the Westend parachain.
 </span><span class="kw">pub type </span>OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundSignedExtensionAdapter&lt;
 	RefundBridgedMessages&lt;
@@ -699,26 +606,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>pallet_bridge_messages::Config&lt;WithBridgeHubWestendMessagesInstance&gt; <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>WeightInfo = weights::pallet_bridge_messages_rococo_to_westend::WeightInfo&lt;Runtime&gt;;
-	<span class="kw">type </span>BridgedChainId = BridgeHubWestendChainId;
-	<span class="kw">type </span>ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubWestend;
-	<span class="kw">type </span>MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
-	<span class="kw">type </span>MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
 
-	<span class="kw">type </span>MaximalOutboundPayloadSize = ToBridgeHubWestendMaximalOutboundPayloadSize;
+	<span class="kw">type </span>ThisChain = bp_bridge_hub_rococo::BridgeHubRococo;
+	<span class="kw">type </span>BridgedChain = bp_bridge_hub_westend::BridgeHubWestend;
+	<span class="kw">type </span>BridgedHeaderChain = pallet_bridge_parachains::ParachainHeaders&lt;
+		Runtime,
+		BridgeParachainWestendInstance,
+		bp_bridge_hub_westend::BridgeHubWestend,
+	&gt;;
+
+	<span class="kw">type </span>ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubWestend;
+
 	<span class="kw">type </span>OutboundPayload = XcmAsPlainPayload;
 
 	<span class="kw">type </span>InboundPayload = XcmAsPlainPayload;
-	<span class="kw">type </span>InboundRelayer = AccountId;
 	<span class="kw">type </span>DeliveryPayments = ();
 
-	<span class="kw">type </span>TargetHeaderChain = TargetHeaderChainAdapter&lt;WithBridgeHubWestendMessageBridge&gt;;
 	<span class="kw">type </span>DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter&lt;
 		Runtime,
 		WithBridgeHubWestendMessagesInstance,
 		DeliveryRewardInBalance,
 	&gt;;
 
-	<span class="kw">type </span>SourceHeaderChain = SourceHeaderChainAdapter&lt;WithBridgeHubWestendMessageBridge&gt;;
 	<span class="kw">type </span>MessageDispatch = XcmBlobMessageDispatch&lt;
 		FromWestendMessageBlobDispatcher,
 		<span class="self">Self</span>::WeightInfo,
@@ -751,9 +660,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		assert_complete_bridge_types,
 		extensions::refund_relayer_extension::RefundableParachain,
 		integrity::{
-			assert_complete_bridge_constants, check_message_lane_weights,
-			AssertBridgeMessagesPalletConstants, AssertBridgePalletNames, AssertChainConstants,
-			AssertCompleteBridgeConstants,
+			assert_complete_with_parachain_bridge_constants, check_message_lane_weights,
+			AssertChainConstants, AssertCompleteBridgeConstants,
 		},
 	};
 	<span class="kw">use </span>parachains_common::Balance;
@@ -795,35 +703,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			runtime: Runtime,
 			with_bridged_chain_grandpa_instance: BridgeGrandpaWestendInstance,
 			with_bridged_chain_messages_instance: WithBridgeHubWestendMessagesInstance,
-			bridge: WithBridgeHubWestendMessageBridge,
-			this_chain: bp_rococo::Rococo,
-			bridged_chain: bp_westend::Westend,
+			this_chain: bp_bridge_hub_rococo::BridgeHubRococo,
+			bridged_chain: bp_bridge_hub_westend::BridgeHubWestend,
 		);
 
-		assert_complete_bridge_constants::&lt;
+		assert_complete_with_parachain_bridge_constants::&lt;
 			Runtime,
 			BridgeGrandpaWestendInstance,
 			WithBridgeHubWestendMessagesInstance,
-			WithBridgeHubWestendMessageBridge,
+			bp_westend::Westend,
 		&gt;(AssertCompleteBridgeConstants {
 			this_chain_constants: AssertChainConstants {
 				block_length: bp_bridge_hub_rococo::BlockLength::get(),
 				block_weights: bp_bridge_hub_rococo::BlockWeightsForAsyncBacking::get(),
-			},
-			messages_pallet_constants: AssertBridgeMessagesPalletConstants {
-				max_unrewarded_relayers_in_bridged_confirmation_tx:
-					bp_bridge_hub_westend::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
-				max_unconfirmed_messages_in_bridged_confirmation_tx:
-					bp_bridge_hub_westend::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
-				bridged_chain_id: BridgeHubWestend::ID,
-			},
-			pallet_names: AssertBridgePalletNames {
-				with_this_chain_messages_pallet_name:
-					bp_bridge_hub_rococo::WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME,
-				with_bridged_chain_grandpa_pallet_name:
-					bp_westend::WITH_WESTEND_GRANDPA_PALLET_NAME,
-				with_bridged_chain_messages_pallet_name:
-					bp_bridge_hub_westend::WITH_BRIDGE_HUB_WESTEND_MESSAGES_PALLET_NAME,
 			},
 		});
 
@@ -835,7 +727,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		bridge_runtime_common::extensions::priority_calculator::per_parachain_header::ensure_priority_boost_is_sane::&lt;
 			Runtime,
-			RefundableParachain&lt;WithBridgeHubWestendMessagesInstance, BridgeHubWestend&gt;,
+			RefundableParachain&lt;WithBridgeHubWestendMessagesInstance, bp_bridge_hub_westend::BridgeHubWestend&gt;,
 			PriorityBoostPerParachainHeader,
 		&gt;(FEE_BOOST_PER_PARACHAIN_HEADER);
 

@@ -344,23 +344,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -379,16 +362,47 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Primitives of messages module, that are used on the target chain.
 
-</span><span class="kw">use crate</span>::{
-	LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData, VerificationError,
-};
+</span><span class="kw">use crate</span>::{LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData};
 
-<span class="kw">use </span>bp_runtime::{messages::MessageDispatchResult, Size};
+<span class="kw">use </span>bp_runtime::{messages::MessageDispatchResult, raw_storage_proof_size, RawStorageProof, Size};
 <span class="kw">use </span>codec::{Decode, Encode, Error <span class="kw">as </span>CodecError};
-<span class="kw">use </span>frame_support::{weights::Weight, Parameter};
+<span class="kw">use </span>frame_support::weights::Weight;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_core::RuntimeDebug;
 <span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, fmt::Debug, marker::PhantomData, prelude::<span class="kw-2">*</span>};
+
+<span class="doccomment">/// Messages proof from bridged chain.
+///
+/// It contains everything required to prove that bridged (source) chain has
+/// sent us some messages:
+///
+/// - hash of finalized header;
+///
+/// - storage proof of messages and (optionally) outbound lane state;
+///
+/// - lane id;
+///
+/// - nonces (inclusive range) of messages which are included in this proof.
+</span><span class="attr">#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+</span><span class="kw">pub struct </span>FromBridgedChainMessagesProof&lt;BridgedHeaderHash&gt; {
+	<span class="doccomment">/// Hash of the finalized bridged header the proof is for.
+	</span><span class="kw">pub </span>bridged_header_hash: BridgedHeaderHash,
+	<span class="doccomment">/// A storage trie proof of messages being delivered.
+	</span><span class="kw">pub </span>storage_proof: RawStorageProof,
+	<span class="doccomment">/// Messages in this proof are sent over this lane.
+	</span><span class="kw">pub </span>lane: LaneId,
+	<span class="doccomment">/// Nonce of the first message being delivered.
+	</span><span class="kw">pub </span>nonces_start: MessageNonce,
+	<span class="doccomment">/// Nonce of the last message being delivered.
+	</span><span class="kw">pub </span>nonces_end: MessageNonce,
+}
+
+<span class="kw">impl</span>&lt;BridgedHeaderHash&gt; Size <span class="kw">for </span>FromBridgedChainMessagesProof&lt;BridgedHeaderHash&gt; {
+	<span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+		<span class="kw">use </span>frame_support::sp_runtime::SaturatedConversion;
+		raw_storage_proof_size(<span class="kw-2">&amp;</span><span class="self">self</span>.storage_proof).saturated_into()
+	}
+}
 
 <span class="doccomment">/// Proved messages from the source chain.
 </span><span class="kw">pub type </span>ProvedMessages&lt;Message&gt; = BTreeMap&lt;LaneId, ProvedLaneMessages&lt;Message&gt;&gt;;
@@ -416,33 +430,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>key: MessageKey,
 	<span class="doccomment">/// Message data with decoded dispatch payload.
 	</span><span class="kw">pub </span>data: DispatchMessageData&lt;DispatchPayload&gt;,
-}
-
-<span class="doccomment">/// Source chain API. Used by target chain, to verify source chain proofs.
-///
-/// All implementations of this trait should only work with finalized data that
-/// can't change. Wrong implementation may lead to invalid lane states (i.e. lane
-/// that's stuck) and/or processing messages without paying fees.
-</span><span class="kw">pub trait </span>SourceHeaderChain {
-	<span class="doccomment">/// Proof that messages are sent from source chain. This may also include proof
-	/// of corresponding outbound lane states.
-	</span><span class="kw">type </span>MessagesProof: Parameter + Size;
-
-	<span class="doccomment">/// Verify messages proof and return proved messages.
-	///
-	/// Returns error if either proof is incorrect, or the number of messages in the proof
-	/// is not matching the `messages_count`.
-	///
-	/// Messages vector is required to be sorted by nonce within each lane. Out-of-order
-	/// messages will be rejected.
-	///
-	/// The `messages_count` argument verification (sane limits) is supposed to be made
-	/// outside this function. This function only verifies that the proof declares exactly
-	/// `messages_count` messages.
-	</span><span class="kw">fn </span>verify_messages_proof(
-		proof: <span class="self">Self</span>::MessagesProof,
-		messages_count: u32,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;ProvedMessages&lt;Message&gt;, VerificationError&gt;;
 }
 
 <span class="doccomment">/// Called when inbound message is received.
@@ -530,32 +517,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 }
 
-<span class="doccomment">/// Structure that may be used in place of `SourceHeaderChain` and `MessageDispatch` on chains,
+<span class="doccomment">/// Structure that may be used in place of  `MessageDispatch` on chains,
 /// where inbound messages are forbidden.
-</span><span class="kw">pub struct </span>ForbidInboundMessages&lt;MessagesProof, DispatchPayload&gt;(
-	PhantomData&lt;(MessagesProof, DispatchPayload)&gt;,
-);
+</span><span class="kw">pub struct </span>ForbidInboundMessages&lt;DispatchPayload&gt;(PhantomData&lt;DispatchPayload&gt;);
 
-<span class="doccomment">/// Error message that is used in `ForbidInboundMessages` implementation.
-</span><span class="kw">const </span>ALL_INBOUND_MESSAGES_REJECTED: <span class="kw-2">&amp;</span>str =
-	<span class="string">"This chain is configured to reject all inbound messages"</span>;
-
-<span class="kw">impl</span>&lt;MessagesProof: Parameter + Size, DispatchPayload&gt; SourceHeaderChain
-	<span class="kw">for </span>ForbidInboundMessages&lt;MessagesProof, DispatchPayload&gt;
-{
-	<span class="kw">type </span>MessagesProof = MessagesProof;
-
-	<span class="kw">fn </span>verify_messages_proof(
-		_proof: <span class="self">Self</span>::MessagesProof,
-		_messages_count: u32,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;ProvedMessages&lt;Message&gt;, VerificationError&gt; {
-		<span class="prelude-val">Err</span>(VerificationError::Other(ALL_INBOUND_MESSAGES_REJECTED))
-	}
-}
-
-<span class="kw">impl</span>&lt;MessagesProof, DispatchPayload: Decode&gt; MessageDispatch
-	<span class="kw">for </span>ForbidInboundMessages&lt;MessagesProof, DispatchPayload&gt;
-{
+<span class="kw">impl</span>&lt;DispatchPayload: Decode&gt; MessageDispatch <span class="kw">for </span>ForbidInboundMessages&lt;DispatchPayload&gt; {
 	<span class="kw">type </span>DispatchPayload = DispatchPayload;
 	<span class="kw">type </span>DispatchLevelResult = ();
 

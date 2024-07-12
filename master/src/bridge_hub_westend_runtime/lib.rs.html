@@ -2549,7 +2549,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					prepare_message_proof_from_parachain::&lt;
 						Runtime,
 						bridge_to_rococo_config::BridgeGrandpaRococoInstance,
-						bridge_to_rococo_config::WithBridgeHubRococoMessageBridge,
+						bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
 					&gt;(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(Westend), Parachain(<span class="number">42</span>)].into()))
 				}
 
@@ -2559,7 +2559,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					prepare_message_delivery_proof_from_parachain::&lt;
 						Runtime,
 						bridge_to_rococo_config::BridgeGrandpaRococoInstance,
-						bridge_to_rococo_config::WithBridgeHubRococoMessageBridge,
+						bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
 					&gt;(params)
 				}
 
@@ -2585,7 +2585,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">fn </span>prepare_parachain_heads_proof(
 					parachains: <span class="kw-2">&amp;</span>[bp_polkadot_core::parachains::ParaId],
 					parachain_head_size: u32,
-					proof_size: bp_runtime::StorageProofSize,
+					proof_params: bp_runtime::UnverifiedStorageProofParams,
 				) -&gt; (
 					pallet_bridge_parachains::RelayBlockNumber,
 					pallet_bridge_parachains::RelayBlockHash,
@@ -2595,7 +2595,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					prepare_parachain_heads_proof::&lt;Runtime, bridge_to_rococo_config::BridgeParachainRococoInstance&gt;(
 						parachains,
 						parachain_head_size,
-						proof_size,
+						proof_params,
 					)
 				}
 			}

@@ -234,9 +234,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#83" id="83">83</a>
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -257,14 +254,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
-</span><span class="kw">use crate</span>::{
-	messages_benchmarking::insert_header_to_grandpa_pallet,
-	messages_generation::grow_trie_leaf_value,
-};
+</span><span class="kw">use </span><span class="kw">crate</span>::messages_benchmarking::insert_header_to_grandpa_pallet;
 
 <span class="kw">use </span>bp_parachains::parachain_head_storage_key_at_source;
 <span class="kw">use </span>bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
-<span class="kw">use </span>bp_runtime::{record_all_trie_keys, StorageProofSize};
+<span class="kw">use </span>bp_runtime::{grow_storage_value, record_all_trie_keys, Chain, UnverifiedStorageProofParams};
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_support::traits::Get;
 <span class="kw">use </span>pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
@@ -278,14 +272,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>prepare_parachain_heads_proof&lt;R, PI&gt;(
 	parachains: <span class="kw-2">&amp;</span>[ParaId],
 	parachain_head_size: u32,
-	size: StorageProofSize,
+	proof_params: UnverifiedStorageProofParams,
 ) -&gt; (RelayBlockNumber, RelayBlockHash, ParaHeadsProof, Vec&lt;(ParaId, ParaHash)&gt;)
 <span class="kw">where
 	</span>R: pallet_bridge_parachains::Config&lt;PI&gt;
 		+ pallet_bridge_grandpa::Config&lt;R::BridgesGrandpaPalletInstance&gt;,
 	PI: <span class="lifetime">'static</span>,
 	&lt;R <span class="kw">as </span>pallet_bridge_grandpa::Config&lt;R::BridgesGrandpaPalletInstance&gt;&gt;::BridgedChain:
-		bp_runtime::Chain&lt;BlockNumber = RelayBlockNumber, Hash = RelayBlockHash&gt;,
+		Chain&lt;BlockNumber = RelayBlockNumber, Hash = RelayBlockHash&gt;,
 {
 	<span class="kw">let </span>parachain_head = ParaHead(<span class="macro">vec!</span>[<span class="number">0u8</span>; parachain_head_size <span class="kw">as </span>usize]);
 
@@ -303,7 +297,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>storage_key =
 				parachain_head_storage_key_at_source(R::ParasPalletName::get(), <span class="kw-2">*</span>parachain);
 			<span class="kw">let </span>leaf_data = <span class="kw">if </span>i == <span class="number">0 </span>{
-				grow_trie_leaf_value(parachain_head.encode(), size)
+				grow_storage_value(parachain_head.encode(), <span class="kw-2">&amp;</span>proof_params)
 			} <span class="kw">else </span>{
 				parachain_head.encode()
 			};

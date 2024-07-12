@@ -705,6 +705,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#554" id="554">554</a>
 <a href="#555" id="555">555</a>
 <a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -723,15 +724,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Everything about incoming messages receival.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::Config;
+</span><span class="kw">use crate</span>::{BridgedChainOf, Config};
 
 <span class="kw">use </span>bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
-	DeliveredMessages, InboundLaneData, LaneId, MessageKey, MessageNonce, OutboundLaneData,
-	ReceptionResult, UnrewardedRelayer,
+	ChainWithMessages, DeliveredMessages, InboundLaneData, LaneId, MessageKey, MessageNonce,
+	OutboundLaneData, ReceptionResult, UnrewardedRelayer,
 };
+<span class="kw">use </span>bp_runtime::AccountIdOf;
 <span class="kw">use </span>codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-<span class="kw">use </span>frame_support::traits::Get;
 <span class="kw">use </span>scale_info::{Type, TypeInfo};
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
 <span class="kw">use </span>sp_std::prelude::PartialEq;
@@ -762,10 +763,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// The encoding of this type matches encoding of the corresponding `MessageData`.
 </span><span class="attr">#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
-</span><span class="kw">pub struct </span>StoredInboundLaneData&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(<span class="kw">pub </span>InboundLaneData&lt;T::InboundRelayer&gt;);
+</span><span class="kw">pub struct </span>StoredInboundLaneData&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
+	<span class="kw">pub </span>InboundLaneData&lt;AccountIdOf&lt;BridgedChainOf&lt;T, I&gt;&gt;&gt;,
+);
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; sp_std::ops::Deref <span class="kw">for </span>StoredInboundLaneData&lt;T, I&gt; {
-	<span class="kw">type </span>Target = InboundLaneData&lt;T::InboundRelayer&gt;;
+	<span class="kw">type </span>Target = InboundLaneData&lt;AccountIdOf&lt;BridgedChainOf&lt;T, I&gt;&gt;&gt;;
 
 	<span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
@@ -785,7 +788,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; From&lt;StoredInboundLaneData&lt;T, I&gt;&gt;
-	<span class="kw">for </span>InboundLaneData&lt;T::InboundRelayer&gt;
+	<span class="kw">for </span>InboundLaneData&lt;AccountIdOf&lt;BridgedChainOf&lt;T, I&gt;&gt;&gt;
 {
 	<span class="kw">fn </span>from(data: StoredInboundLaneData&lt;T, I&gt;) -&gt; <span class="self">Self </span>{
 		data.<span class="number">0
@@ -793,7 +796,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; EncodeLike&lt;StoredInboundLaneData&lt;T, I&gt;&gt;
-	<span class="kw">for </span>InboundLaneData&lt;T::InboundRelayer&gt;
+	<span class="kw">for </span>InboundLaneData&lt;AccountIdOf&lt;BridgedChainOf&lt;T, I&gt;&gt;&gt;
 {
 }
 
@@ -801,14 +804,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Identity = <span class="self">Self</span>;
 
 	<span class="kw">fn </span>type_info() -&gt; Type {
-		InboundLaneData::&lt;T::InboundRelayer&gt;::type_info()
+		InboundLaneData::&lt;AccountIdOf&lt;BridgedChainOf&lt;T, I&gt;&gt;&gt;::type_info()
 	}
 }
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; MaxEncodedLen <span class="kw">for </span>StoredInboundLaneData&lt;T, I&gt; {
 	<span class="kw">fn </span>max_encoded_len() -&gt; usize {
-		InboundLaneData::&lt;T::InboundRelayer&gt;::encoded_size_hint(
-			T::MaxUnrewardedRelayerEntriesAtInboundLane::get() <span class="kw">as </span>usize,
+		InboundLaneData::&lt;AccountIdOf&lt;BridgedChainOf&lt;T, I&gt;&gt;&gt;::encoded_size_hint(
+			BridgedChainOf::&lt;T, I&gt;::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX <span class="kw">as </span>usize,
 		)
 		.unwrap_or(usize::MAX)
 	}
@@ -923,10 +926,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{
 		inbound_lane,
-		mock::{
+		tests::mock::{
 			dispatch_result, inbound_message_data, inbound_unrewarded_relayers_state, run_test,
-			unrewarded_relayer, TestMessageDispatch, TestRuntime, REGULAR_PAYLOAD, TEST_LANE_ID,
-			TEST_RELAYER_A, TEST_RELAYER_B, TEST_RELAYER_C,
+			unrewarded_relayer, BridgedChain, TestMessageDispatch, TestRuntime, REGULAR_PAYLOAD,
+			TEST_LANE_ID, TEST_RELAYER_A, TEST_RELAYER_B, TEST_RELAYER_C,
 		},
 		RuntimeInboundLaneStorage,
 	};
@@ -1079,8 +1082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>fails_to_receive_messages_above_unrewarded_relayer_entries_limit_per_lane() {
 		run_test(|| {
 			<span class="kw">let </span><span class="kw-2">mut </span>lane = inbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(TEST_LANE_ID);
-			<span class="kw">let </span>max_nonce =
-				&lt;TestRuntime <span class="kw">as </span>Config&gt;::MaxUnrewardedRelayerEntriesAtInboundLane::get();
+			<span class="kw">let </span>max_nonce = BridgedChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 			<span class="kw">for </span>current_nonce <span class="kw">in </span><span class="number">1</span>..max_nonce + <span class="number">1 </span>{
 				<span class="macro">assert_eq!</span>(
 					lane.receive_message::&lt;TestMessageDispatch&gt;(
@@ -1116,7 +1118,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>fails_to_receive_messages_above_unconfirmed_messages_limit_per_lane() {
 		run_test(|| {
 			<span class="kw">let </span><span class="kw-2">mut </span>lane = inbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(TEST_LANE_ID);
-			<span class="kw">let </span>max_nonce = &lt;TestRuntime <span class="kw">as </span>Config&gt;::MaxUnconfirmedMessagesAtInboundLane::get();
+			<span class="kw">let </span>max_nonce = BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 			<span class="kw">for </span>current_nonce <span class="kw">in </span><span class="number">1</span>..=max_nonce {
 				<span class="macro">assert_eq!</span>(
 					lane.receive_message::&lt;TestMessageDispatch&gt;(

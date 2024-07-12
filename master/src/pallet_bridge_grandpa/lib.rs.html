@@ -1994,6 +1994,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1843" id="1843">1843</a>
 <a href="#1844" id="1844">1844</a>
 <a href="#1845" id="1845">1845</a>
+<a href="#1846" id="1846">1846</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -3439,11 +3440,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>parse_finalized_storage_proof_rejects_proof_on_unknown_header() {
+	</span><span class="kw">fn </span>verify_storage_proof_rejects_unknown_header() {
 		run_test(|| {
 			<span class="macro">assert_noop!</span>(
-				Pallet::&lt;TestRuntime&gt;::storage_proof_checker(Default::default(), <span class="macro">vec!</span>[],)
-					.map(|<span class="kw">_</span>| ()),
+				Pallet::&lt;TestRuntime&gt;::verify_storage_proof(
+					Default::default(),
+					Default::default(),
+				)
+				.map(|<span class="kw">_</span>| ()),
 				bp_header_chain::HeaderChainError::UnknownHeader,
 			);
 		});
@@ -3461,9 +3465,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			&lt;BestFinalized&lt;TestRuntime&gt;&gt;::put(HeaderId(<span class="number">2</span>, hash));
 			&lt;ImportedHeaders&lt;TestRuntime&gt;&gt;::insert(hash, header.build());
 
-			<span class="macro">assert_ok!</span>(
-				Pallet::&lt;TestRuntime&gt;::storage_proof_checker(hash, storage_proof).map(|<span class="kw">_</span>| ())
-			);
+			<span class="macro">assert_ok!</span>(Pallet::&lt;TestRuntime&gt;::verify_storage_proof(hash, storage_proof).map(|<span class="kw">_</span>| ()));
 		});
 	}
 

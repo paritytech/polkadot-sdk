@@ -617,6 +617,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#466" id="466">466</a>
 <a href="#467" id="467">467</a>
 <a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -1081,7 +1085,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.<span class="kw">await
 	</span>}
 
-	<span class="kw">async fn </span>prove_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, at: HashOf&lt;C&gt;, keys: Vec&lt;StorageKey&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;StorageProof&gt; {
+	<span class="kw">async fn </span>prove_storage(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		at: HashOf&lt;C&gt;,
+		keys: Vec&lt;StorageKey&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(StorageProof, HashOf&lt;C&gt;)&gt; {
 		<span class="self">self</span>.backend.prove_storage(at, keys).<span class="kw">await
 	</span>}
 }

@@ -476,69 +476,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#325" id="325">325</a>
 <a href="#326" id="326">326</a>
 <a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
-<a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
-<a href="#362" id="362">362</a>
-<a href="#363" id="363">363</a>
-<a href="#364" id="364">364</a>
-<a href="#365" id="365">365</a>
-<a href="#366" id="366">366</a>
-<a href="#367" id="367">367</a>
-<a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -559,22 +496,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use crate</span>::{
 	bridge_common_config::DeliveryRewardInBalance, weights, xcm_config::UniversalLocation,
-	AccountId, BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin,
-	XcmOverBridgeHubRococo, XcmRouter,
+	BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent, XcmOverBridgeHubRococo, XcmRouter,
 };
-<span class="kw">use </span>bp_messages::LaneId;
+<span class="kw">use </span>bp_messages::{
+	source_chain::FromBridgedChainMessagesDeliveryProof,
+	target_chain::FromBridgedChainMessagesProof, LaneId,
+};
 <span class="kw">use </span>bp_parachains::SingleParaStoredHeaderDataBuilder;
 <span class="kw">use </span>bp_runtime::Chain;
 <span class="kw">use </span>bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
 		RefundableMessagesLane,
-	},
-	messages,
-	messages::{
-		source::{FromBridgedChainMessagesDeliveryProof, TargetHeaderChainAdapter},
-		target::{FromBridgedChainMessagesProof, SourceHeaderChainAdapter},
-		MessageBridge, ThisChainWithMessages, UnderlyingChainProvider,
 	},
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
@@ -586,7 +519,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	parameter_types,
 	traits::{ConstU32, PalletInfoAccess},
 };
-<span class="kw">use </span>sp_runtime::RuntimeDebug;
 <span class="kw">use </span>xcm::{
 	latest::prelude::<span class="kw-2">*</span>,
 	prelude::{InteriorLocation, NetworkId},
@@ -600,11 +532,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>RococoBridgeParachainPalletName: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"Paras"</span>;
 	<span class="kw">pub const </span>MaxRococoParaHeadDataSize: u32 = bp_rococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
 
-	<span class="kw">pub const </span>MaxUnrewardedRelayerEntriesAtInboundLane: bp_messages::MessageNonce =
-		bp_bridge_hub_westend::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
-	<span class="kw">pub const </span>MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
-		bp_bridge_hub_westend::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
-	<span class="kw">pub const </span>BridgeHubRococoChainId: bp_runtime::ChainId = BridgeHubRococo::ID;
+	<span class="kw">pub const </span>BridgeHubRococoChainId: bp_runtime::ChainId = bp_bridge_hub_rococo::BridgeHubRococo::ID;
 	<span class="kw">pub </span>BridgeWestendToRococoMessagesPalletInstance: InteriorLocation = [PalletInstance(&lt;BridgeRococoMessages <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8)].into();
 	<span class="kw">pub </span>RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
 	<span class="kw">pub </span>RococoGlobalConsensusNetworkLocation: Location = Location::new(
@@ -694,46 +622,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// On messages delivered callback.
 </span><span class="kw">type </span>OnMessagesDelivered = XcmBlobHaulerAdapter&lt;ToBridgeHubRococoXcmBlobHauler, ActiveLanes&gt;;
 
-<span class="doccomment">/// Messaging Bridge configuration for BridgeHubWestend -&gt; BridgeHubRococo
-</span><span class="kw">pub struct </span>WithBridgeHubRococoMessageBridge;
-<span class="kw">impl </span>MessageBridge <span class="kw">for </span>WithBridgeHubRococoMessageBridge {
-	<span class="kw">const </span>BRIDGED_MESSAGES_PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str =
-		bp_bridge_hub_westend::WITH_BRIDGE_HUB_WESTEND_MESSAGES_PALLET_NAME;
-	<span class="kw">type </span>ThisChain = BridgeHubWestend;
-	<span class="kw">type </span>BridgedChain = BridgeHubRococo;
-	<span class="kw">type </span>BridgedHeaderChain = pallet_bridge_parachains::ParachainHeaders&lt;
-		Runtime,
-		BridgeParachainRococoInstance,
-		bp_bridge_hub_rococo::BridgeHubRococo,
-	&gt;;
-}
-
-<span class="doccomment">/// Maximal outbound payload size of BridgeHubWestend -&gt; BridgeHubRococo messages.
-</span><span class="kw">type </span>ToBridgeHubRococoMaximalOutboundPayloadSize =
-	messages::source::FromThisChainMaximalOutboundPayloadSize&lt;WithBridgeHubRococoMessageBridge&gt;;
-
-<span class="doccomment">/// BridgeHubRococo chain from message lane point of view.
-</span><span class="attr">#[derive(RuntimeDebug, Clone, Copy)]
-</span><span class="kw">pub struct </span>BridgeHubRococo;
-
-<span class="kw">impl </span>UnderlyingChainProvider <span class="kw">for </span>BridgeHubRococo {
-	<span class="kw">type </span>Chain = bp_bridge_hub_rococo::BridgeHubRococo;
-}
-
-<span class="kw">impl </span>messages::BridgedChainWithMessages <span class="kw">for </span>BridgeHubRococo {}
-
-<span class="doccomment">/// BridgeHubWestend chain from message lane point of view.
-</span><span class="attr">#[derive(RuntimeDebug, Clone, Copy)]
-</span><span class="kw">pub struct </span>BridgeHubWestend;
-
-<span class="kw">impl </span>UnderlyingChainProvider <span class="kw">for </span>BridgeHubWestend {
-	<span class="kw">type </span>Chain = bp_bridge_hub_westend::BridgeHubWestend;
-}
-
-<span class="kw">impl </span>ThisChainWithMessages <span class="kw">for </span>BridgeHubWestend {
-	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
-}
-
 <span class="doccomment">/// Signed extension that refunds relayers that are delivering messages from the Rococo parachain.
 </span><span class="kw">pub type </span>OnBridgeHubWestendRefundBridgeHubRococoMessages = RefundSignedExtensionAdapter&lt;
 	RefundBridgedMessages&lt;
@@ -778,26 +666,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>pallet_bridge_messages::Config&lt;WithBridgeHubRococoMessagesInstance&gt; <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>WeightInfo = weights::pallet_bridge_messages::WeightInfo&lt;Runtime&gt;;
-	<span class="kw">type </span>BridgedChainId = BridgeHubRococoChainId;
-	<span class="kw">type </span>ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubRococo;
-	<span class="kw">type </span>MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
-	<span class="kw">type </span>MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
 
-	<span class="kw">type </span>MaximalOutboundPayloadSize = ToBridgeHubRococoMaximalOutboundPayloadSize;
+	<span class="kw">type </span>ThisChain = bp_bridge_hub_westend::BridgeHubWestend;
+	<span class="kw">type </span>BridgedChain = bp_bridge_hub_rococo::BridgeHubRococo;
+	<span class="kw">type </span>BridgedHeaderChain = pallet_bridge_parachains::ParachainHeaders&lt;
+		Runtime,
+		BridgeParachainRococoInstance,
+		bp_bridge_hub_rococo::BridgeHubRococo,
+	&gt;;
+
+	<span class="kw">type </span>ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubRococo;
+
 	<span class="kw">type </span>OutboundPayload = XcmAsPlainPayload;
 
 	<span class="kw">type </span>InboundPayload = XcmAsPlainPayload;
-	<span class="kw">type </span>InboundRelayer = AccountId;
 	<span class="kw">type </span>DeliveryPayments = ();
 
-	<span class="kw">type </span>TargetHeaderChain = TargetHeaderChainAdapter&lt;WithBridgeHubRococoMessageBridge&gt;;
 	<span class="kw">type </span>DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter&lt;
 		Runtime,
 		WithBridgeHubRococoMessagesInstance,
 		DeliveryRewardInBalance,
 	&gt;;
 
-	<span class="kw">type </span>SourceHeaderChain = SourceHeaderChainAdapter&lt;WithBridgeHubRococoMessageBridge&gt;;
 	<span class="kw">type </span>MessageDispatch = XcmBlobMessageDispatch&lt;
 		FromRococoMessageBlobDispatcher,
 		<span class="self">Self</span>::WeightInfo,
@@ -828,9 +718,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		assert_complete_bridge_types,
 		extensions::refund_relayer_extension::RefundableParachain,
 		integrity::{
-			assert_complete_bridge_constants, check_message_lane_weights,
-			AssertBridgeMessagesPalletConstants, AssertBridgePalletNames, AssertChainConstants,
-			AssertCompleteBridgeConstants,
+			assert_complete_with_parachain_bridge_constants, check_message_lane_weights,
+			AssertChainConstants, AssertCompleteBridgeConstants,
 		},
 	};
 	<span class="kw">use </span>parachains_common::Balance;
@@ -872,34 +761,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			runtime: Runtime,
 			with_bridged_chain_grandpa_instance: BridgeGrandpaRococoInstance,
 			with_bridged_chain_messages_instance: WithBridgeHubRococoMessagesInstance,
-			bridge: WithBridgeHubRococoMessageBridge,
-			this_chain: bp_westend::Westend,
-			bridged_chain: bp_rococo::Rococo,
+			this_chain: bp_bridge_hub_westend::BridgeHubWestend,
+			bridged_chain: bp_bridge_hub_rococo::BridgeHubRococo,
 		);
 
-		assert_complete_bridge_constants::&lt;
+		assert_complete_with_parachain_bridge_constants::&lt;
 			Runtime,
 			BridgeGrandpaRococoInstance,
 			WithBridgeHubRococoMessagesInstance,
-			WithBridgeHubRococoMessageBridge,
+			bp_rococo::Rococo,
 		&gt;(AssertCompleteBridgeConstants {
 			this_chain_constants: AssertChainConstants {
 				block_length: bp_bridge_hub_westend::BlockLength::get(),
 				block_weights: bp_bridge_hub_westend::BlockWeightsForAsyncBacking::get(),
-			},
-			messages_pallet_constants: AssertBridgeMessagesPalletConstants {
-				max_unrewarded_relayers_in_bridged_confirmation_tx:
-					bp_bridge_hub_rococo::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
-				max_unconfirmed_messages_in_bridged_confirmation_tx:
-					bp_bridge_hub_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
-				bridged_chain_id: BridgeHubRococo::ID,
-			},
-			pallet_names: AssertBridgePalletNames {
-				with_this_chain_messages_pallet_name:
-					bp_bridge_hub_westend::WITH_BRIDGE_HUB_WESTEND_MESSAGES_PALLET_NAME,
-				with_bridged_chain_grandpa_pallet_name: bp_rococo::WITH_ROCOCO_GRANDPA_PALLET_NAME,
-				with_bridged_chain_messages_pallet_name:
-					bp_bridge_hub_rococo::WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME,
 			},
 		});
 
@@ -911,7 +785,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		bridge_runtime_common::extensions::priority_calculator::per_parachain_header::ensure_priority_boost_is_sane::&lt;
 			Runtime,
-			RefundableParachain&lt;WithBridgeHubRococoMessagesInstance, BridgeHubRococo&gt;,
+			RefundableParachain&lt;WithBridgeHubRococoMessagesInstance, bp_bridge_hub_rococo::BridgeHubRococo&gt;,
 			PriorityBoostPerParachainHeader,
 		&gt;(FEE_BOOST_PER_PARACHAIN_HEADER);
 

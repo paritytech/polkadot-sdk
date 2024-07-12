@@ -898,7 +898,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		RuntimeCall::Parachains(<span class="kw">crate</span>::Call::&lt;TestRuntime, ()&gt;::submit_parachain_heads_ex {
 			at_relay_block: (num, [num <span class="kw">as </span>u8; <span class="number">32</span>].into()),
 			parachains,
-			parachain_heads_proof: ParaHeadsProof { storage_proof: Vec::new() },
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 			is_free_execution_expected: <span class="bool-val">false</span>,
 		})
 		.check_obsolete_submit_parachain_heads()
@@ -912,7 +912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		RuntimeCall::Parachains(<span class="kw">crate</span>::Call::&lt;TestRuntime, ()&gt;::submit_parachain_heads_ex {
 			at_relay_block: (num, [num <span class="kw">as </span>u8; <span class="number">32</span>].into()),
 			parachains,
-			parachain_heads_proof: ParaHeadsProof { storage_proof: Vec::new() },
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 			is_free_execution_expected: <span class="bool-val">true</span>,
 		})
 		.check_obsolete_submit_parachain_heads()

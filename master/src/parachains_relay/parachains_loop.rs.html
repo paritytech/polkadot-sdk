@@ -1405,8 +1405,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1254" id="1254">1254</a>
 <a href="#1255" id="1255">1255</a>
 <a href="#1256" id="1256">1256</a>
-<a href="#1257" id="1257">1257</a>
-<a href="#1258" id="1258">1258</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -2089,7 +2087,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>async_std::sync::{Arc, Mutex};
-	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>futures::{SinkExt, StreamExt};
 	<span class="kw">use </span>relay_substrate_client::test_chain::{TestChain, TestParachain};
 	<span class="kw">use </span>relay_utils::{HeaderId, MaybeConnectionError};
@@ -2230,8 +2227,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>head_result =
 				SourceClient::&lt;TestParachainsPipeline&gt;::parachain_head(<span class="self">self</span>, at_block).<span class="kw">await</span><span class="question-mark">?</span>;
 			<span class="kw">let </span>head = head_result.as_available().unwrap();
-			<span class="kw">let </span>storage_proof = <span class="macro">vec!</span>[head.hash().encode()];
-			<span class="kw">let </span>proof = (ParaHeadsProof { storage_proof }, head.hash());
+			<span class="kw">let </span>proof = (ParaHeadsProof { storage_proof: Default::default() }, head.hash());
 			<span class="self">self</span>.data.lock().<span class="kw">await</span>.source_proof.clone().map(|<span class="kw">_</span>| proof)
 		}
 	}

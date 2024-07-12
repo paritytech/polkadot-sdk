@@ -3604,6 +3604,54 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3453" id="3453">3453</a>
 <a href="#3454" id="3454">3454</a>
 <a href="#3455" id="3455">3455</a>
+<a href="#3456" id="3456">3456</a>
+<a href="#3457" id="3457">3457</a>
+<a href="#3458" id="3458">3458</a>
+<a href="#3459" id="3459">3459</a>
+<a href="#3460" id="3460">3460</a>
+<a href="#3461" id="3461">3461</a>
+<a href="#3462" id="3462">3462</a>
+<a href="#3463" id="3463">3463</a>
+<a href="#3464" id="3464">3464</a>
+<a href="#3465" id="3465">3465</a>
+<a href="#3466" id="3466">3466</a>
+<a href="#3467" id="3467">3467</a>
+<a href="#3468" id="3468">3468</a>
+<a href="#3469" id="3469">3469</a>
+<a href="#3470" id="3470">3470</a>
+<a href="#3471" id="3471">3471</a>
+<a href="#3472" id="3472">3472</a>
+<a href="#3473" id="3473">3473</a>
+<a href="#3474" id="3474">3474</a>
+<a href="#3475" id="3475">3475</a>
+<a href="#3476" id="3476">3476</a>
+<a href="#3477" id="3477">3477</a>
+<a href="#3478" id="3478">3478</a>
+<a href="#3479" id="3479">3479</a>
+<a href="#3480" id="3480">3480</a>
+<a href="#3481" id="3481">3481</a>
+<a href="#3482" id="3482">3482</a>
+<a href="#3483" id="3483">3483</a>
+<a href="#3484" id="3484">3484</a>
+<a href="#3485" id="3485">3485</a>
+<a href="#3486" id="3486">3486</a>
+<a href="#3487" id="3487">3487</a>
+<a href="#3488" id="3488">3488</a>
+<a href="#3489" id="3489">3489</a>
+<a href="#3490" id="3490">3490</a>
+<a href="#3491" id="3491">3491</a>
+<a href="#3492" id="3492">3492</a>
+<a href="#3493" id="3493">3493</a>
+<a href="#3494" id="3494">3494</a>
+<a href="#3495" id="3495">3495</a>
+<a href="#3496" id="3496">3496</a>
+<a href="#3497" id="3497">3497</a>
+<a href="#3498" id="3498">3498</a>
+<a href="#3499" id="3499">3499</a>
+<a href="#3500" id="3500">3500</a>
+<a href="#3501" id="3501">3501</a>
+<a href="#3502" id="3502">3502</a>
+<a href="#3503" id="3503">3503</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4006,6 +4054,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	state: <span class="kw-2">&amp;mut </span>State,
 	update: NetworkBridgeEvent&lt;net_protocol::StatementDistributionMessage&gt;,
 	reputation: <span class="kw-2">&amp;mut </span>ReputationAggregator,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	<span class="kw">match </span>update {
 		NetworkBridgeEvent::PeerConnected(peer_id, role, protocol_version, <span class="kw-2">mut </span>authority_ids) =&gt; {
@@ -4089,23 +4138,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			net_protocol::StatementDistributionMessage::V3(
 				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			) =&gt;
-				handle_incoming_statement(ctx, state, peer_id, relay_parent, statement, reputation)
-					.<span class="kw">await</span>,
+				handle_incoming_statement(
+					ctx,
+					state,
+					peer_id,
+					relay_parent,
+					statement,
+					reputation,
+					metrics,
+				)
+				.<span class="kw">await</span>,
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(inner),
 			) |
 			net_protocol::StatementDistributionMessage::V3(
 				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(inner),
-			) =&gt; handle_incoming_manifest(ctx, state, peer_id, inner, reputation).<span class="kw">await</span>,
+			) =&gt; handle_incoming_manifest(ctx, state, peer_id, inner, reputation, metrics).<span class="kw">await</span>,
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::BackedCandidateKnown(inner),
 			) |
 			net_protocol::StatementDistributionMessage::V3(
 				protocol_v3::StatementDistributionMessage::BackedCandidateKnown(inner),
-			) =&gt; handle_incoming_acknowledgement(ctx, state, peer_id, inner, reputation).<span class="kw">await</span>,
+			) =&gt;
+				handle_incoming_acknowledgement(ctx, state, peer_id, inner, reputation, metrics)
+					.<span class="kw">await</span>,
 		},
 		NetworkBridgeEvent::PeerViewChange(peer_id, view) =&gt;
-			handle_peer_view_update(ctx, state, peer_id, view).<span class="kw">await</span>,
+			handle_peer_view_update(ctx, state, peer_id, view, metrics).<span class="kw">await</span>,
 		NetworkBridgeEvent::OurViewChange(_view) =&gt; {
 			<span class="comment">// handled by `handle_activated_leaf`
 		</span>},
@@ -4145,6 +4204,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	state: <span class="kw-2">&amp;mut </span>State,
 	activated: <span class="kw-2">&amp;</span>ActivatedLeaf,
 	leaf_mode: ProspectiveParachainsMode,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) -&gt; JfyiErrorResult&lt;()&gt; {
 	<span class="kw">let </span>max_candidate_depth = <span class="kw">match </span>leaf_mode {
 		ProspectiveParachainsMode::Disabled =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
@@ -4320,7 +4380,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">for </span>(peer, fresh) <span class="kw">in </span>update_peers {
 			<span class="kw">for </span>fresh_relay_parent <span class="kw">in </span>fresh {
-				send_peer_messages_for_relay_parent(ctx, state, peer, fresh_relay_parent).<span class="kw">await</span>;
+				send_peer_messages_for_relay_parent(ctx, state, peer, fresh_relay_parent, metrics)
+					.<span class="kw">await</span>;
 			}
 		}
 	}
@@ -4421,6 +4482,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	state: <span class="kw-2">&amp;mut </span>State,
 	peer: PeerId,
 	new_view: View,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	<span class="kw">let </span>fresh_implicit = {
 		<span class="kw">let </span>peer_data = <span class="kw">match </span>state.peers.get_mut(<span class="kw-2">&amp;</span>peer) {
@@ -4432,7 +4494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">for </span>new_relay_parent <span class="kw">in </span>fresh_implicit {
-		send_peer_messages_for_relay_parent(ctx, state, peer, new_relay_parent).<span class="kw">await</span>;
+		send_peer_messages_for_relay_parent(ctx, state, peer, new_relay_parent, metrics).<span class="kw">await</span>;
 	}
 }
 
@@ -4463,6 +4525,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	state: <span class="kw-2">&amp;mut </span>State,
 	peer: PeerId,
 	relay_parent: Hash,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	<span class="kw">let </span>peer_data = <span class="kw">match </span>state.peers.get_mut(<span class="kw-2">&amp;</span>peer) {
 		<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
@@ -4495,6 +4558,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;mut </span>active.cluster_tracker,
 				<span class="kw-2">&amp;</span>state.candidates,
 				<span class="kw-2">&amp;</span>relay_parent_state.statement_store,
+				metrics,
 			)
 			.<span class="kw">await</span>;
 		}
@@ -4507,6 +4571,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>per_session_state.groups,
 			relay_parent_state,
 			<span class="kw-2">&amp;</span>state.candidates,
+			metrics,
 		)
 		.<span class="kw">await</span>;
 	}
@@ -4555,6 +4620,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	cluster_tracker: <span class="kw-2">&amp;mut </span>ClusterTracker,
 	candidates: <span class="kw-2">&amp;</span>Candidates,
 	statement_store: <span class="kw-2">&amp;</span>StatementStore,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	<span class="kw">let </span>pending_statements = cluster_tracker.pending_statements_for(peer_validator_id);
 	<span class="kw">let </span>network_messages = pending_statements
@@ -4580,12 +4646,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 		.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-	<span class="kw">if </span>network_messages.is_empty() {
-		<span class="kw">return
-	</span>}
-
-	ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(network_messages))
-		.<span class="kw">await</span>;
+	<span class="kw">if </span>!network_messages.is_empty() {
+		<span class="kw">let </span>count = network_messages.len();
+		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(network_messages))
+			.<span class="kw">await</span>;
+		metrics.on_statements_distributed(count);
+	}
 }
 
 <span class="doccomment">/// Send a peer all pending grid messages / acknowledgements / follow up statements
@@ -4599,6 +4665,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	groups: <span class="kw-2">&amp;</span>Groups,
 	relay_parent_state: <span class="kw-2">&amp;mut </span>PerRelayParentState,
 	candidates: <span class="kw-2">&amp;</span>Candidates,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	<span class="kw">let </span>pending_manifests = {
 		<span class="kw">let </span>local_validator = <span class="kw">match </span>relay_parent_state.local_validator.as_mut() {
@@ -4611,6 +4678,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">let </span><span class="kw-2">mut </span>messages: Vec&lt;(Vec&lt;PeerId&gt;, net_protocol::VersionedValidationProtocol)&gt; = Vec::new();
+	<span class="kw">let </span><span class="kw-2">mut </span>statements_count = <span class="number">0</span>;
 	<span class="kw">for </span>(candidate_hash, kind) <span class="kw">in </span>pending_manifests {
 		<span class="kw">let </span>confirmed_candidate = <span class="kw">match </span>candidates.get_confirmed(<span class="kw-2">&amp;</span>candidate_hash) {
 			<span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>, <span class="comment">// sanity
@@ -4685,7 +4753,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				};
 			},
 			grid::ManifestKind::Acknowledgement =&gt; {
-				messages.extend(acknowledgement_and_statement_messages(
+				<span class="kw">let </span>(m, c) = acknowledgement_and_statement_messages(
 					peer_id,
 					peer_validator_id,
 					groups,
@@ -4694,7 +4762,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					group_index,
 					candidate_hash,
 					local_knowledge,
-				));
+				);
+				messages.extend(m);
+				statements_count += c;
 			},
 		}
 	}
@@ -4713,8 +4783,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>pending_statements = grid_tracker.all_pending_statements_for(peer_validator_id);
 
-		<span class="kw">let </span>extra_statements =
-			pending_statements.into_iter().filter_map(|(originator, compact)| {
+		<span class="kw">let </span>extra_statements = pending_statements
+			.into_iter()
+			.filter_map(|(originator, compact)| {
 				<span class="kw">let </span>res = pending_statement_network_message(
 					<span class="kw-2">&amp;</span>relay_parent_state.statement_store,
 					relay_parent,
@@ -4734,15 +4805,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 
 				res
-			});
+			})
+			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
+		statements_count += extra_statements.len();
 		messages.extend(extra_statements);
 	}
 
-	<span class="kw">if </span>messages.is_empty() {
-		<span class="kw">return
-	</span>}
-	ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(messages)).<span class="kw">await</span>;
+	<span class="kw">if </span>!messages.is_empty() {
+		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(messages)).<span class="kw">await</span>;
+		metrics.on_statements_distributed(statements_count);
+	}
 }
 
 <span class="comment">// Imports a locally originating statement and distributes it to peers.
@@ -4753,6 +4826,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	relay_parent: Hash,
 	statement: SignedFullStatementWithPVD,
 	reputation: <span class="kw-2">&amp;mut </span>ReputationAggregator,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) -&gt; JfyiErrorResult&lt;()&gt; {
 	<span class="kw">let </span>per_relay_parent = <span class="kw">match </span>state.per_relay_parent.get_mut(<span class="kw-2">&amp;</span>relay_parent) {
 		<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(JfyiError::InvalidShare),
@@ -4875,11 +4949,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span>state.authorities,
 		<span class="kw-2">&amp;</span>state.peers,
 		compact_statement,
+		metrics,
 	)
 	.<span class="kw">await</span>;
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(post_confirmation) = post_confirmation {
-		apply_post_confirmation(ctx, state, post_confirmation, reputation).<span class="kw">await</span>;
+		apply_post_confirmation(ctx, state, post_confirmation, reputation, metrics).<span class="kw">await</span>;
 	}
 
 	<span class="prelude-val">Ok</span>(())
@@ -4916,6 +4991,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	authorities: <span class="kw-2">&amp;</span>HashMap&lt;AuthorityDiscoveryId, PeerId&gt;,
 	peers: <span class="kw-2">&amp;</span>HashMap&lt;PeerId, PeerState&gt;,
 	statement: SignedStatement,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	<span class="kw">let </span>session_info = <span class="kw-2">&amp;</span>per_session.session_info;
 
@@ -5052,6 +5128,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.into(),
 		))
 		.<span class="kw">await</span>;
+		metrics.on_statement_distributed();
 	}
 
 	<span class="kw">if </span>!statement_to_v3_peers.is_empty() {
@@ -5071,6 +5148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.into(),
 		))
 		.<span class="kw">await</span>;
+		metrics.on_statement_distributed();
 	}
 }
 <span class="doccomment">/// Check a statement signature under this parent hash.
@@ -5117,6 +5195,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	relay_parent: Hash,
 	statement: UncheckedSignedStatement,
 	reputation: <span class="kw-2">&amp;mut </span>ReputationAggregator,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	<span class="kw">let </span>peer_state = <span class="kw">match </span>state.peers.get(<span class="kw-2">&amp;</span>peer) {
 		<span class="prelude-val">None </span>=&gt; {
@@ -5393,6 +5472,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>state.authorities,
 			<span class="kw-2">&amp;</span>state.peers,
 			checked_statement,
+			metrics,
 		)
 		.<span class="kw">await</span>;
 	} <span class="kw">else </span>{
@@ -5550,6 +5630,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	per_session: <span class="kw-2">&amp;</span>PerSessionState,
 	authorities: <span class="kw-2">&amp;</span>HashMap&lt;AuthorityDiscoveryId, PeerId&gt;,
 	peers: <span class="kw-2">&amp;</span>HashMap&lt;PeerId, PeerState&gt;,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	<span class="kw">let </span>local_validator = <span class="kw">match </span>relay_parent_state.local_validator {
 		<span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>v) =&gt; v,
@@ -5737,8 +5818,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.<span class="kw">await</span>;
 	}
 	<span class="kw">if </span>!post_statements.is_empty() {
+		<span class="kw">let </span>count = post_statements.len();
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(post_statements))
 			.<span class="kw">await</span>;
+		metrics.on_statements_distributed(count);
 	}
 }
 
@@ -6138,6 +6221,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	peer: PeerId,
 	manifest: net_protocol::v2::BackedCandidateManifest,
 	reputation: <span class="kw-2">&amp;mut </span>ReputationAggregator,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
@@ -6194,7 +6278,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		};
 
-		<span class="kw">let </span>messages = acknowledgement_and_statement_messages(
+		<span class="kw">let </span>(messages, statements_count) = acknowledgement_and_statement_messages(
 			<span class="kw-2">&amp;</span>(
 				peer,
 				state
@@ -6215,6 +6299,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if </span>!messages.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(messages)).<span class="kw">await</span>;
+			metrics.on_statements_distributed(statements_count);
 		}
 	} <span class="kw">else if </span>!state.candidates.is_confirmed(<span class="kw-2">&amp;</span>manifest.candidate_hash) {
 		<span class="comment">// 5. if unconfirmed, add request entry
@@ -6242,9 +6327,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	group_index: GroupIndex,
 	candidate_hash: CandidateHash,
 	local_knowledge: StatementFilter,
-) -&gt; Vec&lt;(Vec&lt;PeerId&gt;, net_protocol::VersionedValidationProtocol)&gt; {
+) -&gt; (Vec&lt;(Vec&lt;PeerId&gt;, net_protocol::VersionedValidationProtocol)&gt;, usize) {
 	<span class="kw">let </span>local_validator = <span class="kw">match </span>relay_parent_state.local_validator.as_mut() {
-		<span class="prelude-val">None </span>=&gt; <span class="kw">return </span>Vec::new(),
+		<span class="prelude-val">None </span>=&gt; <span class="kw">return </span>(Vec::new(), <span class="number">0</span>),
 		<span class="prelude-val">Some</span>(l) =&gt; l,
 	};
 
@@ -6272,7 +6357,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="string">"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
 				legacy should have handled this"
 			</span>);
-			<span class="kw">return </span>Vec::new()
+			<span class="kw">return </span>(Vec::new(), <span class="number">0</span>)
 		},
 	};
 
@@ -6293,10 +6378,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		candidate_hash,
 		peer,
 	);
+	<span class="kw">let </span>statements_count = statement_messages.len();
 
 	messages.extend(statement_messages.into_iter().map(|m| (<span class="macro">vec!</span>[peer.<span class="number">0</span>], m)));
 
-	messages
+	(messages, statements_count)
 }
 
 <span class="attr">#[overseer::contextbounds(StatementDistribution, prefix=<span class="self">self</span>::overseer)]
@@ -6306,6 +6392,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	peer: PeerId,
 	acknowledgement: net_protocol::v2::BackedCandidateAcknowledgement,
 	reputation: <span class="kw-2">&amp;mut </span>ReputationAggregator,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	<span class="comment">// The key difference between acknowledgments and full manifests is that only
 	// the candidate hash is included alongside the bitfields, so the candidate
@@ -6386,10 +6473,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 
 	<span class="kw">if </span>!messages.is_empty() {
+		<span class="kw">let </span>count = messages.len();
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(
 			messages.into_iter().map(|m| (<span class="macro">vec!</span>[peer], m)).collect(),
 		))
 		.<span class="kw">await</span>;
+		metrics.on_statements_distributed(count);
 	}
 }
 
@@ -6399,6 +6488,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	state: <span class="kw-2">&amp;mut </span>State,
 	candidate_hash: CandidateHash,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	<span class="comment">// If the candidate is unknown or unconfirmed, it's a race (pruned before receiving message)
 	// or a bug. Ignore if so
@@ -6440,6 +6530,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		per_session,
 		<span class="kw-2">&amp;</span>state.authorities,
 		<span class="kw-2">&amp;</span>state.peers,
+		metrics,
 	)
 	.<span class="kw">await</span>;
 
@@ -6461,6 +6552,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	state: <span class="kw-2">&amp;mut </span>State,
 	candidate_hash: CandidateHash,
 	relay_parent: Hash,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	<span class="kw">let </span>relay_parent_state = <span class="kw">match </span>state.per_relay_parent.get_mut(<span class="kw-2">&amp;</span>relay_parent) {
 		<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
@@ -6503,6 +6595,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>state.authorities,
 			<span class="kw-2">&amp;</span>state.peers,
 			statement,
+			metrics,
 		)
 		.<span class="kw">await</span>;
 	}
@@ -6520,6 +6613,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	state: <span class="kw-2">&amp;mut </span>State,
 	post_confirmation: PostConfirmation,
 	reputation: <span class="kw-2">&amp;mut </span>ReputationAggregator,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	<span class="kw">for </span>peer <span class="kw">in </span>post_confirmation.reckoning.incorrect {
 		modify_reputation(reputation, ctx.sender(), peer, COST_INACCURATE_ADVERTISEMENT).<span class="kw">await</span>;
@@ -6533,6 +6627,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		state,
 		candidate_hash,
 		post_confirmation.hypothetical.relay_parent(),
+		metrics,
 	)
 	.<span class="kw">await</span>;
 	new_confirmed_candidate_fragment_chain_updates(ctx, state, post_confirmation.hypothetical)
@@ -6658,6 +6753,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	state: <span class="kw-2">&amp;mut </span>State,
 	response: UnhandledResponse,
 	reputation: <span class="kw-2">&amp;mut </span>ReputationAggregator,
+	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	<span class="kw">let </span><span class="kw-2">&amp;</span>requests::CandidateIdentifier { relay_parent, candidate_hash, group_index } =
 		response.candidate_identifier();
@@ -6757,7 +6853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="comment">// Note that this implicitly circulates all statements via the cluster.
-	</span>apply_post_confirmation(ctx, state, post_confirmation, reputation).<span class="kw">await</span>;
+	</span>apply_post_confirmation(ctx, state, post_confirmation, reputation, metrics).<span class="kw">await</span>;
 
 	<span class="kw">let </span>confirmed = state.candidates.get_confirmed(<span class="kw-2">&amp;</span>candidate_hash).expect(<span class="string">"just confirmed; qed"</span>);
 

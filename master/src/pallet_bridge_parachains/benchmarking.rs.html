@@ -289,7 +289,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">use </span>bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
-<span class="kw">use </span>bp_runtime::StorageProofSize;
+<span class="kw">use </span>bp_runtime::UnverifiedStorageProofParams;
 <span class="kw">use </span>frame_benchmarking::{account, benchmarks_instance_pallet};
 <span class="kw">use </span>frame_system::RawOrigin;
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
@@ -305,7 +305,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>prepare_parachain_heads_proof(
 		parachains: <span class="kw-2">&amp;</span>[ParaId],
 		parachain_head_size: u32,
-		proof_size: StorageProofSize,
+		proof_params: UnverifiedStorageProofParams,
 	) -&gt; (RelayBlockNumber, RelayBlockHash, ParaHeadsProof, Vec&lt;(ParaId, ParaHash)&gt;);
 }
 
@@ -335,7 +335,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(relay_block_number, relay_block_hash, parachain_heads_proof, parachains_heads) = T::prepare_parachain_heads_proof(
 			<span class="kw-2">&amp;</span>parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,
-			StorageProofSize::Minimal(<span class="number">0</span>),
+			UnverifiedStorageProofParams::default(),
 		);
 		<span class="kw">let </span>at_relay_block = (relay_block_number, relay_block_hash);
 	}: submit_parachain_heads(RawOrigin::Signed(sender), at_relay_block, parachains_heads, parachain_heads_proof)
@@ -352,7 +352,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(relay_block_number, relay_block_hash, parachain_heads_proof, parachains_heads) = T::prepare_parachain_heads_proof(
 			<span class="kw-2">&amp;</span>parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,
-			StorageProofSize::HasLargeLeaf(<span class="number">1024</span>),
+			UnverifiedStorageProofParams::from_db_size(<span class="number">1024</span>),
 		);
 		<span class="kw">let </span>at_relay_block = (relay_block_number, relay_block_hash);
 	}: submit_parachain_heads(RawOrigin::Signed(sender), at_relay_block, parachains_heads, parachain_heads_proof)
@@ -369,7 +369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(relay_block_number, relay_block_hash, parachain_heads_proof, parachains_heads) = T::prepare_parachain_heads_proof(
 			<span class="kw-2">&amp;</span>parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,
-			StorageProofSize::HasLargeLeaf(<span class="number">16 </span>* <span class="number">1024</span>),
+			UnverifiedStorageProofParams::from_db_size(<span class="number">16 </span>* <span class="number">1024</span>),
 		);
 		<span class="kw">let </span>at_relay_block = (relay_block_number, relay_block_hash);
 	}: submit_parachain_heads(RawOrigin::Signed(sender), at_relay_block, parachains_heads, parachain_heads_proof)

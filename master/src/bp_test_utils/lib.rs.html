@@ -496,6 +496,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#345" id="345">345</a>
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -675,6 +677,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span><span class="kw-2">mut </span>parachains = Vec::with_capacity(heads.len());
 	<span class="kw">let </span><span class="kw-2">mut </span>root = Default::default();
 	<span class="kw">let </span><span class="kw-2">mut </span>mdb = MemoryDB::default();
+	<span class="kw">let </span><span class="kw-2">mut </span>storage_keys = <span class="macro">vec!</span>[];
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>trie = TrieDBMutBuilderV1::&lt;H::Hashing&gt;::new(<span class="kw-2">&amp;mut </span>mdb, <span class="kw-2">&amp;mut </span>root).build();
 		<span class="kw">for </span>(parachain, head) <span class="kw">in </span>heads {
@@ -683,11 +686,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			trie.insert(<span class="kw-2">&amp;</span>storage_key.<span class="number">0</span>, <span class="kw-2">&amp;</span>head.encode())
 				.map_err(|<span class="kw">_</span>| <span class="string">"TrieMut::insert has failed"</span>)
 				.expect(<span class="string">"TrieMut::insert should not fail in tests"</span>);
+			storage_keys.push(storage_key.<span class="number">0</span>);
 			parachains.push((ParaId(parachain), head.hash()));
 		}
 	}
 
-	<span class="comment">// generate storage proof to be delivered to This chain
+	<span class="comment">// generate storage proof to be delivered to this chain
 	</span><span class="kw">let </span>storage_proof = record_all_trie_keys::&lt;LayoutV1&lt;H::Hashing&gt;, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>mdb, <span class="kw-2">&amp;</span>root)
 		.map_err(|<span class="kw">_</span>| <span class="string">"record_all_trie_keys has failed"</span>)
 		.expect(<span class="string">"record_all_trie_keys should not fail in benchmarks"</span>);

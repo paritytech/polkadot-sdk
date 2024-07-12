@@ -231,6 +231,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -258,7 +260,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>bp_runtime::{
 	decl_bridge_finality_runtime_apis, extensions::PrevalidateAttests, Chain, ChainId,
 };
-<span class="kw">use </span>frame_support::weights::Weight;
+<span class="kw">use </span>frame_support::{sp_runtime::StateVersion, weights::Weight};
 
 <span class="doccomment">/// Polkadot Chain
 </span><span class="kw">pub struct </span>Polkadot;
@@ -275,6 +277,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Balance = Balance;
 	<span class="kw">type </span>Nonce = Nonce;
 	<span class="kw">type </span>Signature = Signature;
+
+	<span class="kw">const </span>STATE_VERSION: StateVersion = StateVersion::V0;
 
 	<span class="kw">fn </span>max_extrinsic_size() -&gt; u32 {
 		max_extrinsic_size()

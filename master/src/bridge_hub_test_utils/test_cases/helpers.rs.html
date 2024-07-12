@@ -526,6 +526,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -557,6 +560,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>pallet_bridge_grandpa::{BridgedBlockHash, BridgedHeader};
+<span class="kw">use </span>pallet_bridge_messages::BridgedChainOf;
 <span class="kw">use </span>parachains_common::AccountId;
 <span class="kw">use </span>parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
@@ -768,10 +772,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>CallsAndVerifiers&lt;Runtime&gt; =
 	Vec&lt;(RuntimeCallOf&lt;Runtime&gt;, Box&lt;<span class="kw">dyn </span>VerifyTransactionOutcome&gt;)&gt;;
 
+<span class="kw">pub type </span>InboundRelayerId&lt;Runtime, MPI&gt; = bp_runtime::AccountIdOf&lt;BridgedChainOf&lt;Runtime, MPI&gt;&gt;;
+
 <span class="doccomment">/// Returns relayer id at the bridged chain.
 </span><span class="kw">pub fn </span>relayer_id_at_bridged_chain&lt;Runtime: pallet_bridge_messages::Config&lt;MPI&gt;, MPI&gt;(
-) -&gt; Runtime::InboundRelayer {
-	Runtime::InboundRelayer::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::zeroes()).unwrap()
+) -&gt; InboundRelayerId&lt;Runtime, MPI&gt; {
+	Decode::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::zeroes()).unwrap()
 }
 
 <span class="doccomment">/// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,
@@ -788,7 +794,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; sp_runtime::DispatchOutcome,
 	prepare_message_proof_import: <span class="kw">impl </span>FnOnce(
 		Runtime::AccountId,
-		Runtime::InboundRelayer,
+		InboundRelayerId&lt;Runtime, MPI&gt;,
 		InteriorLocation,
 		MessageNonce,
 		Xcm&lt;()&gt;,

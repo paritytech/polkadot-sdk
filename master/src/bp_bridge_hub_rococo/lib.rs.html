@@ -261,6 +261,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -288,8 +292,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
-<span class="kw">use </span>frame_support::dispatch::DispatchClass;
-<span class="kw">use </span>sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug};
+<span class="kw">use </span>frame_support::{
+	dispatch::DispatchClass,
+	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
+};
 
 <span class="doccomment">/// BridgeHubRococo parachain.
 </span><span class="attr">#[derive(RuntimeDebug)]
@@ -307,6 +313,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Balance = Balance;
 	<span class="kw">type </span>Nonce = Nonce;
 	<span class="kw">type </span>Signature = Signature;
+
+	<span class="kw">const </span>STATE_VERSION: StateVersion = StateVersion::V1;
 
 	<span class="kw">fn </span>max_extrinsic_size() -&gt; u32 {
 		<span class="kw-2">*</span>BlockLength::get().max.get(DispatchClass::Normal)
@@ -366,11 +374,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub const </span>BridgeHubRococoBaseXcmFeeInRocs: u128 = <span class="number">59_034_266</span>;
 
 	<span class="doccomment">/// Transaction fee that is paid at the Rococo BridgeHub for delivering single inbound message.
-	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_complex_message_delivery_transaction` + `33%`)
+	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
 	</span><span class="kw">pub const </span>BridgeHubRococoBaseDeliveryFeeInRocs: u128 = <span class="number">314_037_860</span>;
 
 	<span class="doccomment">/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
-	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_complex_message_confirmation_transaction` + `33%`)
+	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
 	</span><span class="kw">pub const </span>BridgeHubRococoBaseConfirmationFeeInRocs: u128 = <span class="number">57_414_813</span>;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

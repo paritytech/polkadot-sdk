@@ -307,6 +307,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -332,6 +333,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	LaneId, MessageNonce,
 };
 <span class="kw">use </span>bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
+<span class="kw">use </span>bp_runtime::Chain;
 <span class="kw">use </span>frame_support::{sp_runtime::SaturatedConversion, traits::Get};
 <span class="kw">use </span>sp_arithmetic::traits::{Saturating, Zero};
 <span class="kw">use </span>sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeInclusive};
@@ -366,7 +368,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			relayers_rewards,
 			RewardsAccountParams::new(
 				lane_id,
-				T::BridgedChainId::get(),
+				T::BridgedChain::ID,
 				RewardsAccountOwner::BridgedChain,
 			),
 			DeliveryReward::get(),

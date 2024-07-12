@@ -665,35 +665,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#514" id="514">514</a>
 <a href="#515" id="515">515</a>
 <a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
-<a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
-<a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -736,14 +707,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">pub use </span>frame_support::storage::storage_prefix <span class="kw">as </span>storage_value_final_key;
 <span class="kw">use </span>num_traits::{CheckedAdd, CheckedSub, One, SaturatingAdd, Zero};
-<span class="kw">pub use </span>storage_proof::{
-	record_all_keys <span class="kw">as </span>record_all_trie_keys, Error <span class="kw">as </span>StorageProofError,
-	ProofSize <span class="kw">as </span>StorageProofSize, RawStorageProof, StorageProofChecker,
-};
-<span class="kw">pub use </span>storage_types::BoundedStorageValue;
-
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub use </span>storage_proof::craft_valid_storage_proof;
+<span class="attr">#[cfg(feature = <span class="string">"test-helpers"</span>)]
+</span><span class="kw">pub use </span>storage_proof::{
+	grow_storage_proof, grow_storage_value, record_all_keys <span class="kw">as </span>record_all_trie_keys,
+	UnverifiedStorageProofParams,
+};
+<span class="kw">pub use </span>storage_proof::{
+	raw_storage_proof_size, RawStorageProof, StorageProofChecker, StorageProofError,
+};
+<span class="kw">pub use </span>storage_types::BoundedStorageValue;
 
 <span class="kw">pub mod </span>extensions;
 <span class="kw">pub mod </span>messages;
@@ -1155,38 +1129,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 	};
-}
-
-<span class="doccomment">/// Error message that is only displayable in `std` environment.
-</span><span class="attr">#[derive(Encode, Decode, Clone, Eq, PartialEq, PalletError, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-</span><span class="kw">pub struct </span>StrippableError&lt;T&gt; {
-	_phantom_data: sp_std::marker::PhantomData&lt;T&gt;,
-	<span class="attr">#[codec(skip)]
-	#[cfg(feature = <span class="string">"std"</span>)]
-	</span>message: String,
-}
-
-<span class="kw">impl</span>&lt;T: Debug&gt; From&lt;T&gt; <span class="kw">for </span>StrippableError&lt;T&gt; {
-	<span class="kw">fn </span>from(_err: T) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{
-			_phantom_data: Default::default(),
-			<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-			</span>message: <span class="macro">format!</span>(<span class="string">"{:?}"</span>, _err),
-		}
-	}
-}
-
-<span class="kw">impl</span>&lt;T&gt; Debug <span class="kw">for </span>StrippableError&lt;T&gt; {
-	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
-		f.write_str(<span class="kw-2">&amp;</span><span class="self">self</span>.message)
-	}
-
-	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
-		f.write_str(<span class="string">"Stripped error"</span>)
-	}
 }
 
 <span class="doccomment">/// A trait defining helper methods for `RangeInclusive` (start..=end)

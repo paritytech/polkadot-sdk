@@ -1224,7 +1224,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! On-demand Substrate -&gt; Substrate parachain finality relay.
 
 </span><span class="kw">use crate</span>::{
-	messages_source::best_finalized_peer_header_at_self,
+	messages::source::best_finalized_peer_header_at_self,
 	on_demand::OnDemandRelay,
 	parachains::{
 		source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter,
@@ -1888,7 +1888,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">async fn </span>best_finalized_relay_block_at_target(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;HeaderIdOf&lt;P::SourceRelayChain&gt;, SubstrateError&gt; {
-		<span class="prelude-val">Ok</span>(<span class="kw">crate</span>::messages_source::read_client_state::&lt;P::TargetChain, P::SourceRelayChain&gt;(
+		<span class="prelude-val">Ok</span>(<span class="kw">crate</span>::messages::source::read_client_state::&lt;P::TargetChain, P::SourceRelayChain&gt;(
 			<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>.target_client,
 		)
 		.<span class="kw">await</span><span class="question-mark">?

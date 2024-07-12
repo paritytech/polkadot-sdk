@@ -384,6 +384,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -411,14 +418,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">struct </span>MetricsInner {
 	<span class="comment">// V1
-	</span>statements_distributed: prometheus::Counter&lt;prometheus::U64&gt;,
-	sent_requests: prometheus::Counter&lt;prometheus::U64&gt;,
+	</span>sent_requests: prometheus::Counter&lt;prometheus::U64&gt;,
 	received_responses: prometheus::CounterVec&lt;prometheus::U64&gt;,
 	network_bridge_update: prometheus::HistogramVec,
 	statements_unexpected: prometheus::CounterVec&lt;prometheus::U64&gt;,
 	created_message_size: prometheus::Gauge&lt;prometheus::U64&gt;,
 	<span class="comment">// V1+
-	</span>active_leaves_update: prometheus::Histogram,
+	</span>statements_distributed: prometheus::Counter&lt;prometheus::U64&gt;,
+	active_leaves_update: prometheus::Histogram,
 	share: prometheus::Histogram,
 	<span class="comment">// V2+
 	</span>peer_rate_limit_request_drop: prometheus::Counter&lt;prometheus::U64&gt;,
@@ -434,6 +441,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>on_statement_distributed(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
 			metrics.statements_distributed.inc();
+		}
+	}
+
+	<span class="doccomment">/// Update statements distributed counter by an amount
+	</span><span class="kw">pub fn </span>on_statements_distributed(<span class="kw-2">&amp;</span><span class="self">self</span>, n: usize) {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
+			metrics.statements_distributed.inc_by(n <span class="kw">as </span>u64);
 		}
 	}
 

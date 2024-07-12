@@ -438,22 +438,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -475,30 +459,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span><span class="kw">crate</span>::test_data::prepare_inbound_xcm;
 
 <span class="kw">use </span>bp_messages::{
-	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, LaneId, MessageNonce,
+	source_chain::FromBridgedChainMessagesDeliveryProof,
+	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, LaneId, MessageNonce,
 	UnrewardedRelayersState,
 };
-<span class="kw">use </span>bp_runtime::{AccountIdOf, BlockNumberOf, HeaderOf, StorageProofSize, UnderlyingChainOf};
+<span class="kw">use </span>bp_runtime::{AccountIdOf, BlockNumberOf, Chain, HeaderOf, UnverifiedStorageProofParams};
 <span class="kw">use </span>bp_test_utils::make_default_justification;
-<span class="kw">use </span>bridge_runtime_common::{
-	messages::{
-		source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
-		BridgedChain <span class="kw">as </span>MessageBridgedChain, MessageBridge, ThisChain <span class="kw">as </span>MessageThisChain,
-	},
-	messages_generation::{
-		encode_all_messages, encode_lane_data, prepare_message_delivery_storage_proof,
-		prepare_messages_storage_proof,
-	},
-	messages_xcm_extension::XcmAsPlainPayload,
-};
+<span class="kw">use </span>bridge_runtime_common::messages_xcm_extension::XcmAsPlainPayload;
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>pallet_bridge_grandpa::{BridgedChain, BridgedHeader};
 <span class="kw">use </span>sp_runtime::traits::Header <span class="kw">as </span>HeaderT;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
+<span class="kw">use </span><span class="kw">crate</span>::test_cases::helpers::InboundRelayerId;
 <span class="kw">use </span>bp_header_chain::{justification::GrandpaJustification, ChainWithGrandpa};
 <span class="kw">use </span>bp_messages::{DeliveredMessages, InboundLaneData, UnrewardedRelayer};
 <span class="kw">use </span>bp_runtime::HashOf;
+<span class="kw">use </span>pallet_bridge_messages::{
+	messages_generation::{
+		encode_all_messages, encode_lane_data, prepare_message_delivery_storage_proof,
+		prepare_messages_storage_proof,
+	},
+	BridgedChainOf,
+};
 <span class="kw">use </span>sp_runtime::DigestItem;
 
 <span class="doccomment">/// Prepare a batch call with bridged GRANDPA finality and message proof.
@@ -506,22 +489,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	bridged_header: BridgedHeader&lt;Runtime, GPI&gt;,
 	bridged_justification: GrandpaJustification&lt;BridgedHeader&lt;Runtime, GPI&gt;&gt;,
 	message_proof: FromBridgedChainMessagesProof&lt;HashOf&lt;BridgedChain&lt;Runtime, GPI&gt;&gt;&gt;,
-	relayer_id_at_bridged_chain: AccountIdOf&lt;BridgedChain&lt;Runtime, GPI&gt;&gt;,
+	relayer_id_at_bridged_chain: InboundRelayerId&lt;Runtime, MPI&gt;,
 ) -&gt; pallet_utility::Call&lt;Runtime&gt;
 <span class="kw">where
 	</span>Runtime: pallet_bridge_grandpa::Config&lt;GPI&gt;
-		+ pallet_bridge_messages::Config&lt;
-			MPI,
-			InboundPayload = XcmAsPlainPayload,
-			InboundRelayer = AccountIdOf&lt;BridgedChain&lt;Runtime, GPI&gt;&gt;,
-		&gt; + pallet_utility::Config,
+		+ pallet_bridge_messages::Config&lt;MPI, InboundPayload = XcmAsPlainPayload&gt;
+		+ pallet_utility::Config,
 	GPI: <span class="lifetime">'static</span>,
 	MPI: <span class="lifetime">'static</span>,
-	&lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MPI&gt;&gt;::SourceHeaderChain: SourceHeaderChain&lt;
-		MessagesProof = FromBridgedChainMessagesProof&lt;HashOf&lt;BridgedChain&lt;Runtime, GPI&gt;&gt;&gt;,
-	&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_utility::Config&gt;::RuntimeCall: From&lt;pallet_bridge_grandpa::Call&lt;Runtime, GPI&gt;&gt;
 		+ From&lt;pallet_bridge_messages::Call&lt;Runtime, MPI&gt;&gt;,
+	BridgedChainOf&lt;Runtime, MPI&gt;: Chain&lt;Hash = HashOf&lt;BridgedChain&lt;Runtime, GPI&gt;&gt;&gt;,
 {
 	<span class="kw">let </span>submit_grandpa = pallet_bridge_grandpa::Call::&lt;Runtime, GPI&gt;::submit_finality_proof {
 		finality_target: Box::new(bridged_header),
@@ -529,7 +507,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">let </span>submit_message = pallet_bridge_messages::Call::&lt;Runtime, MPI&gt;::receive_messages_proof {
 		relayer_id_at_bridged_chain,
-		proof: message_proof,
+		proof: Box::new(message_proof),
 		messages_count: <span class="number">1</span>,
 		dispatch_weight: Weight::from_parts(<span class="number">1000000000</span>, <span class="number">0</span>),
 	};
@@ -553,15 +531,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ pallet_utility::Config,
 	GPI: <span class="lifetime">'static</span>,
 	MPI: <span class="lifetime">'static</span>,
-	&lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MPI&gt;&gt;::TargetHeaderChain: TargetHeaderChain&lt;
-		XcmAsPlainPayload,
-		Runtime::AccountId,
-		MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof&lt;
-			HashOf&lt;BridgedChain&lt;Runtime, GPI&gt;&gt;,
-		&gt;,
-	&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_utility::Config&gt;::RuntimeCall: From&lt;pallet_bridge_grandpa::Call&lt;Runtime, GPI&gt;&gt;
 		+ From&lt;pallet_bridge_messages::Call&lt;Runtime, MPI&gt;&gt;,
+	BridgedChainOf&lt;Runtime, MPI&gt;: Chain&lt;Hash = HashOf&lt;BridgedChain&lt;Runtime, GPI&gt;&gt;&gt;,
 {
 	<span class="kw">let </span>submit_grandpa = pallet_bridge_grandpa::Call::&lt;Runtime, GPI&gt;::submit_finality_proof {
 		finality_target: Box::new(bridged_header),
@@ -580,24 +552,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Prepare a call with message proof.
 </span><span class="kw">pub fn </span>make_standalone_relayer_delivery_call&lt;Runtime, GPI, MPI&gt;(
 	message_proof: FromBridgedChainMessagesProof&lt;HashOf&lt;BridgedChain&lt;Runtime, GPI&gt;&gt;&gt;,
-	relayer_id_at_bridged_chain: AccountIdOf&lt;BridgedChain&lt;Runtime, GPI&gt;&gt;,
+	relayer_id_at_bridged_chain: InboundRelayerId&lt;Runtime, MPI&gt;,
 ) -&gt; Runtime::RuntimeCall
 <span class="kw">where
 	</span>Runtime: pallet_bridge_grandpa::Config&lt;GPI&gt;
-		+ pallet_bridge_messages::Config&lt;
-			MPI,
-			InboundPayload = XcmAsPlainPayload,
-			InboundRelayer = AccountIdOf&lt;BridgedChain&lt;Runtime, GPI&gt;&gt;,
-		&gt;,
+		+ pallet_bridge_messages::Config&lt;MPI, InboundPayload = XcmAsPlainPayload&gt;,
 	MPI: <span class="lifetime">'static</span>,
-	&lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MPI&gt;&gt;::SourceHeaderChain: SourceHeaderChain&lt;
-		MessagesProof = FromBridgedChainMessagesProof&lt;HashOf&lt;BridgedChain&lt;Runtime, GPI&gt;&gt;&gt;,
-	&gt;,
 	Runtime::RuntimeCall: From&lt;pallet_bridge_messages::Call&lt;Runtime, MPI&gt;&gt;,
+	BridgedChainOf&lt;Runtime, MPI&gt;: Chain&lt;Hash = HashOf&lt;BridgedChain&lt;Runtime, GPI&gt;&gt;&gt;,
 {
 	pallet_bridge_messages::Call::&lt;Runtime, MPI&gt;::receive_messages_proof {
 		relayer_id_at_bridged_chain,
-		proof: message_proof,
+		proof: Box::new(message_proof),
 		messages_count: <span class="number">1</span>,
 		dispatch_weight: Weight::from_parts(<span class="number">1000000000</span>, <span class="number">0</span>),
 	}
@@ -615,14 +581,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Runtime: pallet_bridge_grandpa::Config&lt;GPI&gt;
 		+ pallet_bridge_messages::Config&lt;MPI, OutboundPayload = XcmAsPlainPayload&gt;,
 	MPI: <span class="lifetime">'static</span>,
-	&lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MPI&gt;&gt;::TargetHeaderChain: TargetHeaderChain&lt;
-		XcmAsPlainPayload,
-		Runtime::AccountId,
-		MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof&lt;
-			HashOf&lt;BridgedChain&lt;Runtime, GPI&gt;&gt;,
-		&gt;,
-	&gt;,
 	Runtime::RuntimeCall: From&lt;pallet_bridge_messages::Call&lt;Runtime, MPI&gt;&gt;,
+	BridgedChainOf&lt;Runtime, MPI&gt;: Chain&lt;Hash = HashOf&lt;BridgedChain&lt;Runtime, GPI&gt;&gt;&gt;,
 {
 	pallet_bridge_messages::Call::&lt;Runtime, MPI&gt;::receive_messages_delivery_proof {
 		proof: message_delivery_proof,
@@ -632,39 +592,47 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Prepare storage proofs of messages, stored at the (bridged) source GRANDPA chain.
-</span><span class="kw">pub fn </span>make_complex_relayer_delivery_proofs&lt;MB, InnerXcmRuntimeCall&gt;(
+</span><span class="kw">pub fn </span>make_complex_relayer_delivery_proofs&lt;
+	BridgedChain,
+	ThisChainWithMessages,
+	InnerXcmRuntimeCall,
+&gt;(
 	lane_id: LaneId,
 	xcm_message: Xcm&lt;InnerXcmRuntimeCall&gt;,
 	message_nonce: MessageNonce,
 	message_destination: Junctions,
-	header_number: BlockNumberOf&lt;MessageBridgedChain&lt;MB&gt;&gt;,
+	header_number: BlockNumberOf&lt;BridgedChain&gt;,
 	is_minimal_call: bool,
 ) -&gt; (
-	HeaderOf&lt;MessageBridgedChain&lt;MB&gt;&gt;,
-	GrandpaJustification&lt;HeaderOf&lt;MessageBridgedChain&lt;MB&gt;&gt;&gt;,
-	FromBridgedChainMessagesProof&lt;HashOf&lt;MessageBridgedChain&lt;MB&gt;&gt;&gt;,
+	HeaderOf&lt;BridgedChain&gt;,
+	GrandpaJustification&lt;HeaderOf&lt;BridgedChain&gt;&gt;,
+	FromBridgedChainMessagesProof&lt;HashOf&lt;BridgedChain&gt;&gt;,
 )
 <span class="kw">where
-	</span>MB: MessageBridge,
-	MessageBridgedChain&lt;MB&gt;: Send + Sync + <span class="lifetime">'static</span>,
-	UnderlyingChainOf&lt;MessageBridgedChain&lt;MB&gt;&gt;: ChainWithGrandpa,
+	</span>BridgedChain: ChainWithGrandpa,
+	ThisChainWithMessages: ChainWithMessages,
 {
-	<span class="kw">let </span>message_payload = prepare_inbound_xcm(xcm_message, message_destination);
-	<span class="kw">let </span>message_size = StorageProofSize::Minimal(message_payload.len() <span class="kw">as </span>u32);
-	<span class="comment">// prepare para storage proof containing message
-	</span><span class="kw">let </span>(state_root, storage_proof) = prepare_messages_storage_proof::&lt;MB&gt;(
-		lane_id,
-		message_nonce..=message_nonce,
-		<span class="prelude-val">None</span>,
-		message_size,
-		message_payload,
-		encode_all_messages,
-		encode_lane_data,
-	);
+	<span class="comment">// prepare message
+	</span><span class="kw">let </span>message_payload = prepare_inbound_xcm(xcm_message, message_destination);
+	<span class="comment">// prepare storage proof containing message
+	</span><span class="kw">let </span>(state_root, storage_proof) =
+		prepare_messages_storage_proof::&lt;BridgedChain, ThisChainWithMessages&gt;(
+			lane_id,
+			message_nonce..=message_nonce,
+			<span class="prelude-val">None</span>,
+			UnverifiedStorageProofParams::from_db_size(message_payload.len() <span class="kw">as </span>u32),
+			|<span class="kw">_</span>| message_payload.clone(),
+			encode_all_messages,
+			encode_lane_data,
+			<span class="bool-val">false</span>,
+			<span class="bool-val">false</span>,
+		);
 
-	<span class="kw">let </span>(header, justification) = make_complex_bridged_grandpa_header_proof::&lt;
-		MessageBridgedChain&lt;MB&gt;,
-	&gt;(state_root, header_number, is_minimal_call);
+	<span class="kw">let </span>(header, justification) = make_complex_bridged_grandpa_header_proof::&lt;BridgedChain&gt;(
+		state_root,
+		header_number,
+		is_minimal_call,
+	);
 
 	<span class="kw">let </span>message_proof = FromBridgedChainMessagesProof {
 		bridged_header_hash: header.hash(),
@@ -678,44 +646,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Prepare storage proofs of message confirmations, stored at the (bridged) target GRANDPA chain.
-</span><span class="kw">pub fn </span>make_complex_relayer_confirmation_proofs&lt;MB, InnerXcmRuntimeCall&gt;(
+</span><span class="kw">pub fn </span>make_complex_relayer_confirmation_proofs&lt;
+	BridgedChain,
+	ThisChainWithMessages,
+	InnerXcmRuntimeCall,
+&gt;(
 	lane_id: LaneId,
-	header_number: BlockNumberOf&lt;MessageBridgedChain&lt;MB&gt;&gt;,
-	relayer_id_at_this_chain: AccountIdOf&lt;MessageThisChain&lt;MB&gt;&gt;,
+	header_number: BlockNumberOf&lt;BridgedChain&gt;,
+	relayer_id_at_this_chain: AccountIdOf&lt;ThisChainWithMessages&gt;,
 	relayers_state: UnrewardedRelayersState,
 ) -&gt; (
-	HeaderOf&lt;MessageBridgedChain&lt;MB&gt;&gt;,
-	GrandpaJustification&lt;HeaderOf&lt;MessageBridgedChain&lt;MB&gt;&gt;&gt;,
-	FromBridgedChainMessagesDeliveryProof&lt;HashOf&lt;MessageBridgedChain&lt;MB&gt;&gt;&gt;,
+	HeaderOf&lt;BridgedChain&gt;,
+	GrandpaJustification&lt;HeaderOf&lt;BridgedChain&gt;&gt;,
+	FromBridgedChainMessagesDeliveryProof&lt;HashOf&lt;BridgedChain&gt;&gt;,
 )
 <span class="kw">where
-	</span>MB: MessageBridge,
-	MessageBridgedChain&lt;MB&gt;: Send + Sync + <span class="lifetime">'static</span>,
-	MessageThisChain&lt;MB&gt;: Send + Sync + <span class="lifetime">'static</span>,
-	UnderlyingChainOf&lt;MessageBridgedChain&lt;MB&gt;&gt;: ChainWithGrandpa,
+	</span>BridgedChain: ChainWithGrandpa,
+	ThisChainWithMessages: ChainWithMessages,
 {
 	<span class="comment">// prepare storage proof containing message delivery proof
-	</span><span class="kw">let </span>(state_root, storage_proof) = prepare_message_delivery_storage_proof::&lt;MB&gt;(
-		lane_id,
-		InboundLaneData {
-			relayers: <span class="macro">vec!</span>[
-				UnrewardedRelayer {
-					relayer: relayer_id_at_this_chain,
-					messages: DeliveredMessages::new(<span class="number">1</span>)
-				};
-				relayers_state.unrewarded_relayer_entries <span class="kw">as </span>usize
-			]
-			.into(),
-			last_confirmed_nonce: <span class="number">1</span>,
-		},
-		StorageProofSize::Minimal(<span class="number">0</span>),
-	);
+	</span><span class="kw">let </span>(state_root, storage_proof) =
+		prepare_message_delivery_storage_proof::&lt;BridgedChain, ThisChainWithMessages&gt;(
+			lane_id,
+			InboundLaneData {
+				relayers: <span class="macro">vec!</span>[
+					UnrewardedRelayer {
+						relayer: relayer_id_at_this_chain,
+						messages: DeliveredMessages::new(<span class="number">1</span>)
+					};
+					relayers_state.unrewarded_relayer_entries <span class="kw">as </span>usize
+				]
+				.into(),
+				last_confirmed_nonce: <span class="number">1</span>,
+			},
+			UnverifiedStorageProofParams::default(),
+		);
 
-	<span class="kw">let </span>(header, justification) = make_complex_bridged_grandpa_header_proof::&lt;MB::BridgedChain&gt;(
-		state_root,
-		header_number,
-		<span class="bool-val">false</span>,
-	);
+	<span class="kw">let </span>(header, justification) =
+		make_complex_bridged_grandpa_header_proof::&lt;BridgedChain&gt;(state_root, header_number, <span class="bool-val">false</span>);
 
 	<span class="kw">let </span>message_delivery_proof = FromBridgedChainMessagesDeliveryProof {
 		bridged_header_hash: header.hash(),

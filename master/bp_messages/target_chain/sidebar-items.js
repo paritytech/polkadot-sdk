@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["DispatchMessage","DispatchMessageData","ForbidInboundMessages","ProvedLaneMessages"],"trait":["DeliveryPayments","MessageDispatch","SourceHeaderChain"],"type":["ProvedMessages"]};
+window.SIDEBAR_ITEMS = {"struct":["DispatchMessage","DispatchMessageData","ForbidInboundMessages","FromBridgedChainMessagesProof","ProvedLaneMessages"],"trait":["DeliveryPayments","MessageDispatch"],"type":["ProvedMessages"]};

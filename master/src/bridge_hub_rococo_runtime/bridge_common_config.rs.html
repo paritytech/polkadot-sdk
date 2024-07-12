@@ -249,23 +249,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -289,14 +272,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! For example, the messaging pallet needs to know the sending and receiving chains, but the
 //! GRANDPA tracking pallet only needs to be aware of one chain.
 
-</span><span class="kw">use super</span>::{
-	weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent, RuntimeOrigin,
-};
+</span><span class="kw">use super</span>::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
 <span class="kw">use </span>bp_parachains::SingleParaStoredHeaderDataBuilder;
-<span class="kw">use </span>bp_runtime::UnderlyingChainProvider;
-<span class="kw">use </span>bridge_runtime_common::messages::ThisChainWithMessages;
 <span class="kw">use </span>frame_support::{parameter_types, traits::ConstU32};
-<span class="kw">use </span>sp_runtime::RuntimeDebug;
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>RelayChainHeadersToKeep: u32 = <span class="number">1024</span>;
@@ -370,18 +348,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// In practice, however, GRANDPA pallet works the same way for all bridged chains, so
 	// weights are also the same for both bridges.
 	</span><span class="kw">type </span>WeightInfo = weights::pallet_bridge_grandpa::WeightInfo&lt;Runtime&gt;;
-}
-
-<span class="doccomment">/// BridgeHubRococo chain from message lane point of view.
-</span><span class="attr">#[derive(RuntimeDebug, Clone, Copy)]
-</span><span class="kw">pub struct </span>BridgeHubRococo;
-
-<span class="kw">impl </span>UnderlyingChainProvider <span class="kw">for </span>BridgeHubRococo {
-	<span class="kw">type </span>Chain = bp_bridge_hub_rococo::BridgeHubRococo;
-}
-
-<span class="kw">impl </span>ThisChainWithMessages <span class="kw">for </span>BridgeHubRococo {
-	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

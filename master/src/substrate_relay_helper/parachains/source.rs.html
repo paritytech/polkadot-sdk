@@ -332,6 +332,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -350,8 +354,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Parachain heads source.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::parachains::{ParachainsPipelineAdapter, SubstrateParachainsPipeline};
-
+</span><span class="kw">use crate</span>::{
+	parachains::{ParachainsPipelineAdapter, SubstrateParachainsPipeline},
+	proofs::to_raw_storage_proof,
+};
 <span class="kw">use </span>async_std::sync::{Arc, Mutex};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bp_parachains::parachain_head_storage_key_at_source;
@@ -487,12 +493,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>parachain = ParaId(P::SourceParachain::PARACHAIN_ID);
 		<span class="kw">let </span>storage_key =
 			parachain_head_storage_key_at_source(P::SourceRelayChain::PARAS_PALLET_NAME, parachain);
-		<span class="kw">let </span>parachain_heads_proof = <span class="self">self
-			</span>.client
-			.prove_storage(at_block.hash(), <span class="macro">vec!</span>[storage_key.clone()])
-			.<span class="kw">await</span><span class="question-mark">?
-			</span>.into_iter_nodes()
-			.collect();
+
+		<span class="kw">let </span>storage_proof =
+			<span class="self">self</span>.client.prove_storage(at_block.hash(), <span class="macro">vec!</span>[storage_key.clone()]).<span class="kw">await</span><span class="question-mark">?</span>;
 
 		<span class="comment">// why we're reading parachain head here once again (it has already been read at the
 		// `parachain_head`)? that's because `parachain_head` sometimes returns obsolete parachain
@@ -512,7 +515,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})<span class="question-mark">?</span>;
 		<span class="kw">let </span>parachain_head_hash = parachain_head.hash();
 
-		<span class="prelude-val">Ok</span>((ParaHeadsProof { storage_proof: parachain_heads_proof }, parachain_head_hash))
+		<span class="prelude-val">Ok</span>((
+			ParaHeadsProof {
+				storage_proof: to_raw_storage_proof::&lt;P::SourceRelayChain&gt;(storage_proof),
+			},
+			parachain_head_hash,
+		))
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

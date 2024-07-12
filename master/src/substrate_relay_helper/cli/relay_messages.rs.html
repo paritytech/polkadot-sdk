@@ -378,7 +378,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use crate</span>::{
 	cli::{bridge::<span class="kw-2">*</span>, chain_schema::<span class="kw-2">*</span>, HexLaneId, PrometheusParams},
-	messages_lane::MessagesRelayParams,
+	messages::MessagesRelayParams,
 	TransactionParams,
 };
 
@@ -477,7 +477,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>target_sign = data.target_sign.to_keypair::&lt;<span class="self">Self</span>::Target&gt;()<span class="question-mark">?</span>;
 		<span class="kw">let </span>target_transactions_mortality = data.target_sign.transactions_mortality()<span class="question-mark">?</span>;
 
-		<span class="kw">crate</span>::messages_lane::run::&lt;<span class="self">Self</span>::MessagesLane, <span class="kw">_</span>, <span class="kw">_</span>&gt;(MessagesRelayParams {
+		<span class="kw">crate</span>::messages::run::&lt;<span class="self">Self</span>::MessagesLane, <span class="kw">_</span>, <span class="kw">_</span>&gt;(MessagesRelayParams {
 			source_client,
 			source_transaction_params: TransactionParams {
 				signer: source_sign,
@@ -521,7 +521,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})<span class="question-mark">?
 			</span>.id();
 
-		<span class="kw">crate</span>::messages_lane::relay_messages_range::&lt;<span class="self">Self</span>::MessagesLane&gt;(
+		<span class="kw">crate</span>::messages::relay_messages_range::&lt;<span class="self">Self</span>::MessagesLane&gt;(
 			source_client,
 			target_client,
 			TransactionParams { signer: source_sign, mortality: source_transactions_mortality },
@@ -557,7 +557,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})<span class="question-mark">?
 			</span>.id();
 
-		<span class="kw">crate</span>::messages_lane::relay_messages_delivery_confirmation::&lt;<span class="self">Self</span>::MessagesLane&gt;(
+		<span class="kw">crate</span>::messages::relay_messages_delivery_confirmation::&lt;<span class="self">Self</span>::MessagesLane&gt;(
 			source_client,
 			target_client,
 			TransactionParams { signer: source_sign, mortality: source_transactions_mortality },

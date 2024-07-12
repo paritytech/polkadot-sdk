@@ -619,24 +619,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#468" id="468">468</a>
 <a href="#469" id="469">469</a>
 <a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
-<a href="#481" id="481">481</a>
-<a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -679,14 +661,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// benchmarked using `MaxEncodedLen` approach and there are no components that cause additional
 	// db reads
 
-	// verify `receive_messages_proof` weight components
-	</span><span class="macro">assert_ne!</span>(W::receive_messages_proof_overhead().ref_time(), <span class="number">0</span>);
-	<span class="macro">assert_ne!</span>(W::receive_messages_proof_overhead().proof_size(), <span class="number">0</span>);
-	<span class="comment">// W::receive_messages_proof_messages_overhead(1).ref_time() may be zero because:
-	// the message processing code (`InboundLane::receive_message`) is minimal and may not be
-	// accounted by our benchmarks
-	</span><span class="macro">assert_eq!</span>(W::receive_messages_proof_messages_overhead(<span class="number">1</span>).proof_size(), <span class="number">0</span>);
-	<span class="comment">// W::receive_messages_proof_outbound_lane_state_overhead().ref_time() may be zero because:
+	// W::receive_messages_proof_outbound_lane_state_overhead().ref_time() may be zero because:
 	// the outbound lane state processing code (`InboundLane::receive_state_update`) is minimal and
 	// may not be accounted by our benchmarks
 	</span><span class="macro">assert_eq!</span>(W::receive_messages_proof_outbound_lane_state_overhead().proof_size(), <span class="number">0</span>);
@@ -725,6 +700,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	total_messages_in_delivery_proof_does_not_affect_proof_size::&lt;W&gt;();
 }
 
+<span class="doccomment">/// Ensure that we are able to dispatch maximal size messages.
+</span><span class="kw">pub fn </span>ensure_maximal_message_dispatch&lt;W: WeightInfoExt&gt;(
+	max_incoming_message_size: u32,
+	max_incoming_message_dispatch_weight: Weight,
+) {
+	<span class="kw">let </span>message_dispatch_weight = W::message_dispatch_weight(max_incoming_message_size);
+	<span class="macro">assert!</span>(
+		message_dispatch_weight.all_lte(max_incoming_message_dispatch_weight),
+		<span class="string">"Dispatch weight of maximal message {message_dispatch_weight:?} must be lower \
+		than the hardcoded {max_incoming_message_dispatch_weight:?}"</span>,
+	);
+}
+
 <span class="doccomment">/// Ensure that we're able to receive maximal (by-size and by-weight) message from other chain.
 </span><span class="kw">pub fn </span>ensure_able_to_receive_message&lt;W: WeightInfoExt&gt;(
 	max_extrinsic_size: u32,
@@ -737,7 +725,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		max_incoming_message_proof_size.saturating_add(SIGNED_EXTENSIONS_SIZE);
 	<span class="macro">assert!</span>(
 		max_delivery_transaction_size &lt;= max_extrinsic_size,
-		<span class="string">"Size of maximal message delivery transaction {max_incoming_message_proof_size} + {SIGNED_EXTENSIONS_SIZE} is larger than maximal possible transaction size {max_extrinsic_size}"</span>,
+		<span class="string">"Size of maximal message delivery transaction {max_incoming_message_proof_size} + \
+		{SIGNED_EXTENSIONS_SIZE} is larger than maximal possible transaction size {max_extrinsic_size}"</span>,
 	);
 
 	<span class="comment">// verify that we're able to receive proof of maximal-size message with maximal dispatch weight
@@ -936,13 +925,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		dispatch_weight: Weight,
 	) -&gt; Weight {
 		<span class="comment">// basic components of extrinsic weight
-		</span><span class="kw">let </span>transaction_overhead = <span class="self">Self</span>::receive_messages_proof_overhead();
+		</span><span class="kw">let </span>base_weight = <span class="self">Self</span>::receive_n_messages_proof(messages_count);
 		<span class="kw">let </span>transaction_overhead_from_runtime =
 			<span class="self">Self</span>::receive_messages_proof_overhead_from_runtime();
 		<span class="kw">let </span>outbound_state_delivery_weight =
 			<span class="self">Self</span>::receive_messages_proof_outbound_lane_state_overhead();
-		<span class="kw">let </span>messages_delivery_weight =
-			<span class="self">Self</span>::receive_messages_proof_messages_overhead(MessageNonce::from(messages_count));
 		<span class="kw">let </span>messages_dispatch_weight = dispatch_weight;
 
 		<span class="comment">// proof size overhead weight
@@ -954,10 +941,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			actual_proof_size.saturating_sub(expected_proof_size),
 		);
 
-		transaction_overhead
+		base_weight
 			.saturating_add(transaction_overhead_from_runtime)
 			.saturating_add(outbound_state_delivery_weight)
-			.saturating_add(messages_delivery_weight)
 			.saturating_add(messages_dispatch_weight)
 			.saturating_add(proof_size_overhead)
 	}
@@ -993,26 +979,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Functions that are used by extrinsics weights formulas.
 
-	</span><span class="doccomment">/// Returns weight overhead of message delivery transaction (`receive_messages_proof`).
-	</span><span class="kw">fn </span>receive_messages_proof_overhead() -&gt; Weight {
-		<span class="kw">let </span>weight_of_two_messages_and_two_tx_overheads =
-			<span class="self">Self</span>::receive_single_message_proof().saturating_mul(<span class="number">2</span>);
-		<span class="kw">let </span>weight_of_two_messages_and_single_tx_overhead = <span class="self">Self</span>::receive_two_messages_proof();
-		weight_of_two_messages_and_two_tx_overheads
-			.saturating_sub(weight_of_two_messages_and_single_tx_overhead)
-	}
-
-	<span class="doccomment">/// Returns weight that needs to be accounted when receiving given a number of messages with
-	/// message delivery transaction (`receive_messages_proof`).
-	</span><span class="kw">fn </span>receive_messages_proof_messages_overhead(messages: MessageNonce) -&gt; Weight {
-		<span class="kw">let </span>weight_of_two_messages_and_single_tx_overhead = <span class="self">Self</span>::receive_two_messages_proof();
-		<span class="kw">let </span>weight_of_single_message_and_single_tx_overhead = <span class="self">Self</span>::receive_single_message_proof();
-		weight_of_two_messages_and_single_tx_overhead
-			.saturating_sub(weight_of_single_message_and_single_tx_overhead)
-			.saturating_mul(messages <span class="kw">as _</span>)
-	}
-
-	<span class="doccomment">/// Returns weight that needs to be accounted when message delivery transaction
+	</span><span class="doccomment">/// Returns weight that needs to be accounted when message delivery transaction
 	/// (`receive_messages_proof`) is carrying outbound lane state proof.
 	</span><span class="kw">fn </span>receive_messages_proof_outbound_lane_state_overhead() -&gt; Weight {
 		<span class="kw">let </span>weight_of_single_message_and_lane_state =
@@ -1065,9 +1032,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// is less than that cost).
 	</span><span class="kw">fn </span>storage_proof_size_overhead(proof_size: u32) -&gt; Weight {
 		<span class="kw">let </span>proof_size_in_bytes = proof_size;
-		<span class="kw">let </span>byte_weight = (<span class="self">Self</span>::receive_single_message_proof_16_kb() -
-			<span class="self">Self</span>::receive_single_message_proof_1_kb()) /
-			(<span class="number">15 </span>* <span class="number">1024</span>);
+		<span class="kw">let </span>byte_weight = <span class="self">Self</span>::receive_single_n_bytes_message_proof(<span class="number">2</span>) -
+			<span class="self">Self</span>::receive_single_n_bytes_message_proof(<span class="number">1</span>);
 		proof_size_in_bytes * byte_weight
 	}
 
@@ -1079,11 +1045,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// `receive_single_message_proof_with_dispatch` benchmark. See its requirements for
 	/// details.
 	</span><span class="kw">fn </span>message_dispatch_weight(message_size: u32) -&gt; Weight {
-		<span class="comment">// There may be a tiny overweight/underweight here, because we don't account how message
-		// size affects all steps before dispatch. But the effect should be small enough and we
-		// may ignore it.
-		</span><span class="self">Self</span>::receive_single_message_proof_with_dispatch(message_size)
-			.saturating_sub(<span class="self">Self</span>::receive_single_message_proof())
+		<span class="kw">let </span>message_size_in_bytes = message_size;
+		<span class="self">Self</span>::receive_single_n_bytes_message_proof_with_dispatch(message_size_in_bytes)
+			.saturating_sub(<span class="self">Self</span>::receive_single_n_bytes_message_proof(message_size_in_bytes))
 	}
 }
 
@@ -1118,7 +1082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use crate</span>::{mock::TestRuntime, weights::BridgeWeight};
+	<span class="kw">use crate</span>::{tests::mock::TestRuntime, weights::BridgeWeight};
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>ensure_default_weights_are_correct() {
