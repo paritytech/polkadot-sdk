@@ -504,7 +504,7 @@ where
 				},
 				Err(e) => {
 					pending_iterator.report_invalid(&pending_tx);
-					debug!(
+					info!(
 						target: LOG_TARGET,
 						"[{:?}] Invalid transaction: {} at: {}", pending_tx_hash, e, self.parent_hash
 					);
