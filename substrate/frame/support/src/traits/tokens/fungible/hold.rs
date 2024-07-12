@@ -361,6 +361,7 @@ pub trait Mutate<AccountId>:
 			ensure!(amount <= liquid, TokenError::Frozen);
 			ensure!(amount <= have, TokenError::FundsUnavailable);
 		}
+
 		// We want to make sure we can deposit the amount in advance. If we can't then something is
 		// very wrong.
 		ensure!(Self::can_deposit(dest, amount, Extant) == Success, TokenError::CannotCreate);
