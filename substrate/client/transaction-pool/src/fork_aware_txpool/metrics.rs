@@ -42,6 +42,7 @@ pub struct Metrics {
 	pub view_revalidation_invalid_txs: Counter<U64>,
 	pub view_revalidation_resubmitted_txs: Counter<U64>,
 	pub view_revalidation_duration: Histogram,
+	pub non_cloned_views: Counter<U64>,
 }
 
 impl MetricsRegistrant for Metrics {
@@ -145,6 +146,13 @@ impl MetricsRegistrant for Metrics {
 					"Histogram of view revalidation durations.",
 					linear_buckets(0.0, 0.25, 13).unwrap()
 				))?,
+				registry,
+			)?,
+			non_cloned_views: register(
+				Counter::new(
+					"substrate_sub_txpool_non_cloned_views",
+					"Total number of the views created w/o cloning existing view.",
+				)?,
 				registry,
 			)?,
 		}))

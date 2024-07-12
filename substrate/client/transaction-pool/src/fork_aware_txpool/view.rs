@@ -118,6 +118,7 @@ where
 		options: graph::Options,
 		metrics: PrometheusMetrics,
 	) -> Self {
+		metrics.report(|metrics| metrics.non_cloned_views.inc());
 		Self {
 			pool: graph::Pool::new(options, true.into(), api),
 			at,
