@@ -11266,7 +11266,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -12148,7 +12147,6 @@ dependencies = [
  "sp-offchain",
  "sp-runtime",
  "sp-session",
- "sp-std 14.0.0",
  "sp-transaction-pool",
  "sp-version",
  "staging-parachain-info",
@@ -19833,7 +19831,6 @@ dependencies = [
  "sp-offchain",
  "sp-runtime",
  "sp-session",
- "sp-std 14.0.0",
  "sp-storage 19.0.0",
  "sp-transaction-pool",
  "sp-version",
@@ -21093,7 +21090,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "impl-trait-for-tuples",
- "log",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
@@ -21103,6 +21099,7 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-weights",
  "staging-xcm",
+ "tracing",
 ]
 
 [[package]]
