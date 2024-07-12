@@ -183,6 +183,9 @@ pub trait StakeStrategy {
 		num_slashing_spans: u32,
 	) -> DispatchResult;
 
+	/// Dissolve the pool account.
+	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult;
+
 	/// Check if there is any pending slash for the pool.
 	fn pending_slash(pool_account: Pool<Self::AccountId>) -> Self::Balance;
 
@@ -263,7 +266,7 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 	}
 
 	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<BalanceOf<T>> {
-		Some(T::Currency::total_balance(&pool_account.0))
+		Some(T::Currency::total_balance(&pool_account.get()))
 	}
 
 	fn member_delegation_balance(
@@ -302,6 +305,17 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 	) -> DispatchResult {
 		T::Currency::transfer(&pool_account.0, &who.0, amount, Preservation::Expendable)?;
 
+		Ok(())
+	}
+
+	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult {
+		defensive_assert!(
+			T::Currency::total_balance(&pool_account.clone().get()).is_zero(),
+			"dissolving pool should not have any balance"
+		);
+
+		// Defensively force set balance to zero.
+		T::Currency::set_balance(&pool_account.get(), Zero::zero());
 		Ok(())
 	}
 
@@ -392,12 +406,13 @@ impl<
 	) -> DispatchResult {
 		match bond_type {
 			BondType::Create => {
-				// first delegation
-				Delegation::delegate(who.into(), pool_account.into(), reward_account, amount)
+				// first delegation. Register agent first.
+				Delegation::register_agent(pool_account.clone().into(), reward_account)?;
+				Delegation::delegate(who.into(), pool_account.into(), amount)
 			},
 			BondType::Extra => {
 				// additional delegation
-				Delegation::delegate_extra(who.into(), pool_account.into(), amount)
+				Delegation::delegate(who.into(), pool_account.into(), amount)
 			},
 		}
 	}
@@ -409,6 +424,10 @@ impl<
 		num_slashing_spans: u32,
 	) -> DispatchResult {
 		Delegation::withdraw_delegation(who.into(), pool_account.into(), amount, num_slashing_spans)
+	}
+
+	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult {
+		Delegation::remove_agent(pool_account.into())
 	}
 
 	fn pending_slash(pool_account: Pool<Self::AccountId>) -> Self::Balance {
@@ -441,6 +460,6 @@ impl<
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn remove_as_agent(pool: Pool<Self::AccountId>) {
-		Delegation::drop_agent(pool.into())
+		Delegation::migrate_to_direct_staker(pool.into())
 	}
 }

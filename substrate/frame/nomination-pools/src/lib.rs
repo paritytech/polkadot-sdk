@@ -3071,16 +3071,11 @@ impl<T: Config> Pallet<T> {
 			T::Currency::total_balance(&reward_account) == Zero::zero(),
 			"could not transfer all amount to depositor while dissolving pool"
 		);
-		defensive_assert!(
-			T::StakeAdapter::total_balance(Pool::from(bonded_pool.bonded_account()))
-				.unwrap_or_default() ==
-				Zero::zero(),
-			"dissolving pool should not have any balance"
-		);
 		// NOTE: Defensively force set balance to zero.
 		T::Currency::set_balance(&reward_account, Zero::zero());
-		// NOTE: With `DelegateStake` strategy, this won't do anything.
-		T::Currency::set_balance(&bonded_pool.bonded_account(), Zero::zero());
+
+		// dissolve pool account.
+		let _ = T::StakeAdapter::dissolve(Pool::from(bonded_account)).defensive();
 
 		Self::deposit_event(Event::<T>::Destroyed { pool_id: bonded_pool.id });
 		// Remove bonded pool metadata.

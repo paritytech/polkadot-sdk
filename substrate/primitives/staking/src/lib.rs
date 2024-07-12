@@ -532,20 +532,19 @@ pub trait DelegationInterface {
 	/// Returns the total amount of funds delegated. `None` if not a `Delegator`.
 	fn delegator_balance(delegator: Delegator<Self::AccountId>) -> Option<Self::Balance>;
 
-	/// Delegate funds to `Agent`.
-	///
-	/// Only used for the initial delegation. Use [`Self::delegate_extra`] to add more delegation.
-	fn delegate(
-		delegator: Delegator<Self::AccountId>,
+	/// Register `Agent` such that it can accept delegation.
+	fn register_agent(
 		agent: Agent<Self::AccountId>,
 		reward_account: &Self::AccountId,
-		amount: Self::Balance,
 	) -> DispatchResult;
 
-	/// Add more delegation to the `Agent`.
+	/// Removes `Agent` registration.
 	///
-	/// If this is the first delegation, use [`Self::delegate`] instead.
-	fn delegate_extra(
+	/// This should only be allowed if the agent has no staked funds.
+	fn remove_agent(agent: Agent<Self::AccountId>) -> DispatchResult;
+
+	/// Add delegation to the `Agent`.
+	fn delegate(
 		delegator: Delegator<Self::AccountId>,
 		agent: Agent<Self::AccountId>,
 		amount: Self::Balance,
@@ -620,7 +619,7 @@ pub trait DelegationMigrator {
 	///
 	/// Also removed from [`StakingUnchecked`] as a Virtual Staker. Useful for testing.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn drop_agent(agent: Agent<Self::AccountId>);
+	fn migrate_to_direct_staker(agent: Agent<Self::AccountId>);
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
