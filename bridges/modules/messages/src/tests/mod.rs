@@ -1,4 +1,4 @@
-// Copyright (C) Parity Technologies (UK) Ltd.
+// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -14,22 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Common types/functions that may be used by runtimes of all bridged chains.
+//! Tests and test helpers for messages pallet.
 
-#![warn(missing_docs)]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg(any(feature = "test-helpers", test))]
 
-pub mod extensions;
+#[cfg(test)]
+pub(crate) mod mock;
+#[cfg(test)]
+mod pallet_tests;
 
-pub mod messages_api;
-pub mod messages_benchmarking;
-pub mod messages_call_ext;
-pub mod messages_xcm_extension;
-pub mod parachains_benchmarking;
-
-mod mock;
-
-#[cfg(feature = "integrity-test")]
-pub mod integrity;
-
-const LOG_TARGET_BRIDGE_DISPATCH: &str = "runtime::bridge-dispatch";
+pub mod messages_generation;
