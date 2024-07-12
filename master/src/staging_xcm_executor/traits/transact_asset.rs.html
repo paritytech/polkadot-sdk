@@ -723,12 +723,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				r =&gt; <span class="kw">return </span>r,
 			}
 		)* );
-		<span class="macro">log::trace!</span>(
+		<span class="macro">tracing::trace!</span>(
 			target: <span class="string">"xcm::TransactAsset::can_check_in"</span>,
-			<span class="string">"asset not found: what: {:?}, origin: {:?}, context: {:?}"</span>,
-			what,
-			origin,
-			context,
+			<span class="question-mark">?</span>what,
+			<span class="question-mark">?</span>origin,
+			<span class="question-mark">?</span>context,
+			<span class="string">"asset not found"</span>,
 		);
 		<span class="prelude-val">Err</span>(XcmError::AssetNotFound)
 	}
@@ -746,12 +746,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				r =&gt; <span class="kw">return </span>r,
 			}
 		)* );
-		<span class="macro">log::trace!</span>(
+		<span class="macro">tracing::trace!</span>(
 			target: <span class="string">"xcm::TransactAsset::can_check_out"</span>,
-			<span class="string">"asset not found: what: {:?}, dest: {:?}, context: {:?}"</span>,
-			what,
-			dest,
-			context,
+			<span class="question-mark">?</span>what,
+			<span class="question-mark">?</span>dest,
+			<span class="question-mark">?</span>context,
+			<span class="string">"asset not found"</span>,
 		);
 		<span class="prelude-val">Err</span>(XcmError::AssetNotFound)
 	}
@@ -769,12 +769,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				r =&gt; <span class="kw">return </span>r,
 			}
 		)* );
-		<span class="macro">log::trace!</span>(
+		<span class="macro">tracing::trace!</span>(
 			target: <span class="string">"xcm::TransactAsset::deposit_asset"</span>,
-			<span class="string">"did not deposit asset: what: {:?}, who: {:?}, context: {:?}"</span>,
-			what,
-			who,
-			context,
+			<span class="question-mark">?</span>what,
+			<span class="question-mark">?</span>who,
+			<span class="question-mark">?</span>context,
+			<span class="string">"did not deposit asset"</span>,
 		);
 		<span class="prelude-val">Err</span>(XcmError::AssetNotFound)
 	}
@@ -790,12 +790,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				r =&gt; <span class="kw">return </span>r,
 			}
 		)* );
-		<span class="macro">log::trace!</span>(
+		<span class="macro">tracing::trace!</span>(
 			target: <span class="string">"xcm::TransactAsset::withdraw_asset"</span>,
-			<span class="string">"did not withdraw asset: what: {:?}, who: {:?}, maybe_context: {:?}"</span>,
-			what,
-			who,
-			maybe_context,
+			<span class="question-mark">?</span>what,
+			<span class="question-mark">?</span>who,
+			<span class="question-mark">?</span>maybe_context,
+			<span class="string">"did not withdraw asset"</span>,
 		);
 		<span class="prelude-val">Err</span>(XcmError::AssetNotFound)
 	}
@@ -812,13 +812,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				r =&gt; <span class="kw">return </span>r,
 			}
 		)* );
-		<span class="macro">log::trace!</span>(
+		<span class="macro">tracing::trace!</span>(
 			target: <span class="string">"xcm::TransactAsset::internal_transfer_asset"</span>,
-			<span class="string">"did not transfer asset: what: {:?}, from: {:?}, to: {:?}, context: {:?}"</span>,
-			what,
-			from,
-			to,
-			context,
+			<span class="question-mark">?</span>what,
+			<span class="question-mark">?</span>from,
+			<span class="question-mark">?</span>to,
+			<span class="question-mark">?</span>context,
+			<span class="string">"did not transfer asset"</span>,
 		);
 		<span class="prelude-val">Err</span>(XcmError::AssetNotFound)
 	}

@@ -285,7 +285,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">for_tuples!</span>( #(
 			<span class="kw">match </span>Tuple::matches_fungible(a) { o @ <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>o, <span class="kw">_ </span>=&gt; () }
 		)* );
-		<span class="macro">log::trace!</span>(target: <span class="string">"xcm::matches_fungible"</span>, <span class="string">"did not match fungible asset: {:?}"</span>, <span class="kw-2">&amp;</span>a);
+		<span class="macro">tracing::trace!</span>(target: <span class="string">"xcm::matches_fungible"</span>, asset = <span class="question-mark">?</span>a, <span class="string">"did not match fungible asset"</span>);
 		<span class="prelude-val">None
 	</span>}
 }
@@ -300,7 +300,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">for_tuples!</span>( #(
 			<span class="kw">match </span>Tuple::matches_nonfungible(a) { o @ <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>o, <span class="kw">_ </span>=&gt; () }
 		)* );
-		<span class="macro">log::trace!</span>(target: <span class="string">"xcm::matches_non_fungible"</span>, <span class="string">"did not match non-fungible asset: {:?}"</span>, <span class="kw-2">&amp;</span>a);
+		<span class="macro">tracing::trace!</span>(target: <span class="string">"xcm::matches_non_fungible"</span>, asset = <span class="question-mark">?</span>a, <span class="string">"did not match non-fungible asset"</span>);
 		<span class="prelude-val">None
 	</span>}
 }
@@ -344,7 +344,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">for_tuples!</span>( #(
 			<span class="kw">match </span>Tuple::matches_fungibles(a) { o @ <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>o, <span class="kw">_ </span>=&gt; () }
 		)* );
-		<span class="macro">log::trace!</span>(target: <span class="string">"xcm::matches_fungibles"</span>, <span class="string">"did not match fungibles asset: {:?}"</span>, <span class="kw-2">&amp;</span>a);
+		<span class="macro">tracing::trace!</span>(target: <span class="string">"xcm::matches_fungibles"</span>, asset = <span class="question-mark">?</span>a, <span class="string">"did not match fungibles asset"</span>);
 		<span class="prelude-val">Err</span>(Error::AssetNotHandled)
 	}
 }
@@ -359,7 +359,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">for_tuples!</span>( #(
 			<span class="kw">match </span>Tuple::matches_nonfungibles(a) { o @ <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>o, <span class="kw">_ </span>=&gt; () }
 		)* );
-		<span class="macro">log::trace!</span>(target: <span class="string">"xcm::matches_non_fungibles"</span>, <span class="string">"did not match fungibles asset: {:?}"</span>, <span class="kw-2">&amp;</span>a);
+		<span class="macro">tracing::trace!</span>(target: <span class="string">"xcm::matches_non_fungibles"</span>, asset = <span class="question-mark">?</span>a, <span class="string">"did not match fungibles asset"</span>);
 		<span class="prelude-val">Err</span>(Error::AssetNotHandled)
 	}
 }

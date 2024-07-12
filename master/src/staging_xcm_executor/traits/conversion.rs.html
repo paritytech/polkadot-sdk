@@ -296,6 +296,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -386,19 +412,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
 </span><span class="kw">impl</span>&lt;O&gt; ConvertOrigin&lt;O&gt; <span class="kw">for </span>Tuple {
 	<span class="kw">fn </span>convert_origin(origin: <span class="kw">impl </span>Into&lt;Location&gt;, kind: OriginKind) -&gt; <span class="prelude-ty">Result</span>&lt;O, Location&gt; {
+		<span class="kw">let </span>origin = origin.into();
+
+		<span class="macro">tracing::trace!</span>(
+			target: <span class="string">"xcm::convert_origin"</span>,
+			<span class="question-mark">?</span>origin,
+			<span class="question-mark">?</span>kind,
+			<span class="string">"Converting origin"</span>,
+		);
+
 		<span class="macro">for_tuples!</span>( #(
+			<span class="kw">let </span>convert_origin = core::any::type_name::&lt;Tuple&gt;();
+
 			<span class="kw">let </span>origin = <span class="kw">match </span>Tuple::convert_origin(origin, kind) {
-				<span class="prelude-val">Err</span>(o) =&gt; o,
-				r =&gt; <span class="kw">return </span>r
+				<span class="prelude-val">Err</span>(o) =&gt; {
+					<span class="macro">tracing::trace!</span>(
+						target: <span class="string">"xcm::convert_origin"</span>,
+						%convert_origin,
+						<span class="string">"Convert origin step failed"</span>,
+					);
+
+					o
+				},
+				<span class="prelude-val">Ok</span>(o) =&gt; {
+					<span class="macro">tracing::trace!</span>(
+						target: <span class="string">"xcm::convert_origin"</span>,
+						%convert_origin,
+						<span class="string">"Convert origin step succeeded"</span>,
+					);
+
+					<span class="kw">return </span><span class="prelude-val">Ok</span>(o)
+				}
 			};
 		)* );
-		<span class="kw">let </span>origin = origin.into();
-		<span class="macro">log::trace!</span>(
+
+		<span class="macro">tracing::trace!</span>(
 			target: <span class="string">"xcm::convert_origin"</span>,
-			<span class="string">"could not convert: origin: {:?}, kind: {:?}"</span>,
-			origin,
-			kind,
+			<span class="string">"Converting origin failed"</span>,
 		);
+
 		<span class="prelude-val">Err</span>(origin)
 	}
 }

@@ -439,7 +439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Errors that can happen when attempting to process a message with
 /// [`ProcessMessage::process_message()`].
-</span><span class="attr">#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo, RuntimeDebug)]
+</span><span class="attr">#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug)]
 </span><span class="kw">pub enum </span>ProcessMessageError {
 	<span class="doccomment">/// The message data format is unknown (e.g. unrecognised header)
 	</span>BadFormat,

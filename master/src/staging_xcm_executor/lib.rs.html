@@ -1401,6 +1401,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1250" id="1250">1250</a>
 <a href="#1251" id="1251">1251</a>
 <a href="#1252" id="1252">1252</a>
+<a href="#1253" id="1253">1253</a>
+<a href="#1254" id="1254">1254</a>
+<a href="#1255" id="1255">1255</a>
+<a href="#1256" id="1256">1256</a>
+<a href="#1257" id="1257">1257</a>
+<a href="#1258" id="1258">1258</a>
+<a href="#1259" id="1259">1259</a>
+<a href="#1260" id="1260">1260</a>
+<a href="#1261" id="1261">1261</a>
+<a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
+<a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1611,9 +1641,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		weight_credit: Weight,
 	) -&gt; Outcome {
 		<span class="kw">let </span>origin = origin.into();
-		<span class="macro">log::trace!</span>(
+		<span class="macro">tracing::trace!</span>(
 			target: <span class="string">"xcm::execute"</span>,
-			<span class="string">"origin: {origin:?}, message: {message:?}, weight_credit: {weight_credit:?}"</span>,
+			<span class="question-mark">?</span>origin,
+			<span class="question-mark">?</span>message,
+			<span class="question-mark">?</span>weight_credit,
+			<span class="string">"Executing message"</span>,
 		);
 		<span class="kw">let </span><span class="kw-2">mut </span>properties = Properties { weight_credit, message_id: <span class="prelude-val">None </span>};
 
@@ -1629,10 +1662,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			xcm_weight,
 			<span class="kw-2">&amp;mut </span>properties,
 		) {
-			<span class="macro">log::trace!</span>(
+			<span class="macro">tracing::trace!</span>(
 				target: <span class="string">"xcm::execute"</span>,
-				<span class="string">"Barrier blocked execution! Error: {e:?}. \
-				 (origin: {origin:?}, message: {message:?}, properties: {properties:?})"</span>,
+				<span class="question-mark">?</span>origin,
+				<span class="question-mark">?</span>message,
+				<span class="question-mark">?</span>properties,
+				error = <span class="question-mark">?</span>e,
+				<span class="string">"Barrier blocked execution"</span>,
 			);
 			<span class="kw">return </span>Outcome::Error { error: XcmError::Barrier }
 		}
@@ -1643,7 +1679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">while </span>!message.<span class="number">0</span>.is_empty() {
 			<span class="kw">let </span>result = vm.process(message);
-			<span class="macro">log::trace!</span>(target: <span class="string">"xcm::execute"</span>, <span class="string">"result: {result:?}"</span>);
+			<span class="macro">tracing::trace!</span>(target: <span class="string">"xcm::execute"</span>, <span class="question-mark">?</span>result, <span class="string">"Message executed"</span>);
 			message = <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = result {
 				vm.total_surplus.saturating_accrue(error.weight);
 				vm.error = <span class="prelude-val">Some</span>((error.index, error.xcm_error));
@@ -1685,11 +1721,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">impl </span>From&lt;ExecutorError&gt; <span class="kw">for </span>frame_benchmarking::BenchmarkError {
 	<span class="kw">fn </span>from(error: ExecutorError) -&gt; <span class="self">Self </span>{
-		<span class="macro">log::error!</span>(
-			<span class="string">"XCM ERROR &gt;&gt; Index: {:?}, Error: {:?}, Weight: {:?}"</span>,
-			error.index,
-			error.xcm_error,
-			error.weight
+		<span class="macro">tracing::error!</span>(
+			index = <span class="question-mark">?</span>error.index,
+			xcm_error = <span class="question-mark">?</span>error.xcm_error,
+			weight = <span class="question-mark">?</span>error.weight,
+			<span class="string">"XCM ERROR"</span>,
 		);
 		<span class="self">Self</span>::Stop(<span class="string">"xcm executor error: see error logs"</span>)
 	}
@@ -1729,10 +1765,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>weight_used = xcm_weight.saturating_sub(<span class="self">self</span>.total_surplus);
 
 		<span class="kw">if </span>!<span class="self">self</span>.holding.is_empty() {
-			<span class="macro">log::trace!</span>(
+			<span class="macro">tracing::trace!</span>(
 				target: <span class="string">"xcm::post_process"</span>,
-				<span class="string">"Trapping assets in holding register: {:?}, context: {:?} (original_origin: {:?})"</span>,
-				<span class="self">self</span>.holding, <span class="self">self</span>.context, <span class="self">self</span>.original_origin,
+				holding_register = <span class="question-mark">?</span><span class="self">self</span>.holding,
+				context = <span class="question-mark">?</span><span class="self">self</span>.context,
+				original_origin = <span class="question-mark">?</span><span class="self">self</span>.original_origin,
+				<span class="string">"Trapping assets in holding register"</span>,
 			);
 			<span class="kw">let </span>effective_origin = <span class="self">self</span>.context.origin.as_ref().unwrap_or(<span class="kw-2">&amp;</span><span class="self">self</span>.original_origin);
 			<span class="kw">let </span>trap_weight =
@@ -1745,7 +1783,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// TODO: #2841 #REALWEIGHT We should deduct the cost of any instructions following
 			// the error which didn't end up being executed.
 			</span><span class="prelude-val">Some</span>((_i, e)) =&gt; {
-				<span class="macro">log::trace!</span>(target: <span class="string">"xcm::post_process"</span>, <span class="string">"Execution errored at {:?}: {:?} (original_origin: {:?})"</span>, _i, e, <span class="self">self</span>.original_origin);
+				<span class="macro">tracing::trace!</span>(
+					target: <span class="string">"xcm::post_process"</span>,
+					instruction = <span class="question-mark">?</span>_i,
+					error = <span class="question-mark">?</span>e,
+					original_origin = <span class="question-mark">?</span><span class="self">self</span>.original_origin,
+					<span class="string">"Execution failed"</span>,
+				);
 				Outcome::Incomplete { used: weight_used, error: e }
 			},
 		}
@@ -1766,9 +1810,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		msg: Xcm&lt;()&gt;,
 		reason: FeeReason,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, XcmError&gt; {
-		<span class="macro">log::trace!</span>(
-			target: <span class="string">"xcm::send"</span>, <span class="string">"Sending msg: {msg:?}, to destination: {dest:?}, (reason: {reason:?})"
-		</span>);
+		<span class="macro">tracing::trace!</span>(
+			target: <span class="string">"xcm::send"</span>,
+			<span class="question-mark">?</span>msg,
+			destination = <span class="question-mark">?</span>dest,
+			reason = <span class="question-mark">?</span>reason,
+			<span class="string">"Sending msg"</span>,
+		);
 		<span class="kw">let </span>(ticket, fee) = validate_send::&lt;Config::XcmSender&gt;(dest, msg)<span class="question-mark">?</span>;
 		<span class="self">self</span>.take_fee(fee, reason)<span class="question-mark">?</span>;
 		Config::XcmSender::deliver(ticket).map_err(Into::into)
@@ -1803,7 +1851,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// `holding_limit` items (which has a best case outcome of holding.len() == holding_limit),
 		// then the operation is guaranteed to succeed.
 		</span><span class="kw">let </span>worst_case_holding_len = <span class="self">self</span>.holding.len() + assets_length;
-		<span class="macro">log::trace!</span>(target: <span class="string">"xcm::ensure_can_subsume_assets"</span>, <span class="string">"worst_case_holding_len: {:?}, holding_limit: {:?}"</span>, worst_case_holding_len, <span class="self">self</span>.holding_limit);
+		<span class="macro">tracing::trace!</span>(
+			target: <span class="string">"xcm::ensure_can_subsume_assets"</span>,
+			<span class="question-mark">?</span>worst_case_holding_len,
+			holding_limit = <span class="question-mark">?</span><span class="self">self</span>.holding_limit,
+			<span class="string">"Ensuring subsume assets work"</span>,
+		);
 		<span class="macro">ensure!</span>(worst_case_holding_len &lt;= <span class="self">self</span>.holding_limit * <span class="number">2</span>, XcmError::HoldingWouldOverflow);
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1811,12 +1864,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Refund any unused weight.
 	</span><span class="kw">fn </span>refund_surplus(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), XcmError&gt; {
 		<span class="kw">let </span>current_surplus = <span class="self">self</span>.total_surplus.saturating_sub(<span class="self">self</span>.total_refunded);
-		<span class="macro">log::trace!</span>(
+		<span class="macro">tracing::trace!</span>(
 			target: <span class="string">"xcm::refund_surplus"</span>,
-			<span class="string">"total_surplus: {:?}, total_refunded: {:?}, current_surplus: {:?}"</span>,
-			<span class="self">self</span>.total_surplus,
-			<span class="self">self</span>.total_refunded,
-			current_surplus,
+			total_surplus = <span class="question-mark">?</span><span class="self">self</span>.total_surplus,
+			total_refunded = <span class="question-mark">?</span><span class="self">self</span>.total_refunded,
+			<span class="question-mark">?</span>current_surplus,
+			<span class="string">"Refunding surplus"</span>,
 		);
 		<span class="kw">if </span>current_surplus.any_gt(Weight::zero()) {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(w) = <span class="self">self</span>.trader.refund_weight(current_surplus, <span class="kw-2">&amp;</span><span class="self">self</span>.context) {
@@ -1829,7 +1882,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.defensive_proof(
 							<span class="string">"refund_weight returned an asset capable of buying weight; qed"</span>,
 						);
-					<span class="macro">log::error!</span>(
+					<span class="macro">tracing::error!</span>(
 						target: <span class="string">"xcm::refund_surplus"</span>,
 						<span class="string">"error: HoldingWouldOverflow"</span>,
 					);
@@ -1839,10 +1892,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.holding.subsume_assets(w.into());
 			}
 		}
-		<span class="macro">log::trace!</span>(
+		<span class="macro">tracing::trace!</span>(
 			target: <span class="string">"xcm::refund_surplus"</span>,
-			<span class="string">"total_refunded: {:?}"</span>,
-			<span class="self">self</span>.total_refunded,
+			total_refunded = <span class="question-mark">?</span><span class="self">self</span>.total_refunded,
 		);
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1851,13 +1903,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>Config::FeeManager::is_waived(<span class="self">self</span>.origin_ref(), reason.clone()) {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		}
-		<span class="macro">log::trace!</span>(
+		<span class="macro">tracing::trace!</span>(
 			target: <span class="string">"xcm::fees"</span>,
-			<span class="string">"taking fee: {:?} from origin_ref: {:?} in fees_mode: {:?} for a reason: {:?}"</span>,
-			fee,
-			<span class="self">self</span>.origin_ref(),
-			<span class="self">self</span>.fees_mode,
-			reason,
+			<span class="question-mark">?</span>fee,
+			origin_ref = <span class="question-mark">?</span><span class="self">self</span>.origin_ref(),
+			fees_mode = <span class="question-mark">?</span><span class="self">self</span>.fees_mode,
+			<span class="question-mark">?</span>reason,
+			<span class="string">"Taking fees"</span>,
 		);
 		<span class="kw">let </span>paid = <span class="kw">if </span><span class="self">self</span>.fees_mode.jit_withdraw {
 			<span class="kw">let </span>origin = <span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
@@ -1910,7 +1962,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>reanchor_context = Config::UniversalLocation::get();
 		<span class="kw">let </span>reanchored =
 			reanchorable.reanchored(<span class="kw-2">&amp;</span>destination, <span class="kw-2">&amp;</span>reanchor_context).map_err(|error| {
-				<span class="macro">log::error!</span>(target: <span class="string">"xcm::reanchor"</span>, <span class="string">"Failed reanchoring with error {error:?}"</span>);
+				<span class="macro">tracing::error!</span>(target: <span class="string">"xcm::reanchor"</span>, <span class="question-mark">?</span>error, <span class="string">"Failed reanchoring with error"</span>);
 				XcmError::ReanchorFailed
 			})<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>((reanchored, reanchor_context))
@@ -1933,13 +1985,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>process(<span class="kw-2">&amp;mut </span><span class="self">self</span>, xcm: Xcm&lt;Config::RuntimeCall&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ExecutorError&gt; {
-		<span class="macro">log::trace!</span>(
+		<span class="macro">tracing::trace!</span>(
 			target: <span class="string">"xcm::process"</span>,
-			<span class="string">"origin: {:?}, total_surplus/refunded: {:?}/{:?}, error_handler_weight: {:?}"</span>,
-			<span class="self">self</span>.origin_ref(),
-			<span class="self">self</span>.total_surplus,
-			<span class="self">self</span>.total_refunded,
-			<span class="self">self</span>.error_handler_weight,
+			origin = <span class="question-mark">?</span><span class="self">self</span>.origin_ref(),
+			total_surplus = <span class="question-mark">?</span><span class="self">self</span>.total_surplus,
+			total_refunded = <span class="question-mark">?</span><span class="self">self</span>.total_refunded,
+			error_handler_weight = <span class="question-mark">?</span><span class="self">self</span>.error_handler_weight,
 		);
 		<span class="kw">let </span><span class="kw-2">mut </span>result = <span class="prelude-val">Ok</span>(());
 		<span class="kw">for </span>(i, instr) <span class="kw">in </span>xcm.<span class="number">0</span>.into_iter().enumerate() {
@@ -1969,7 +2020,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="self">self</span>.process_instruction(instr)
 					});
 					<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inst_res {
-						<span class="macro">log::trace!</span>(target: <span class="string">"xcm::execute"</span>, <span class="string">"!!! ERROR: {:?}"</span>, e);
+						<span class="macro">tracing::trace!</span>(target: <span class="string">"xcm::execute"</span>, <span class="string">"!!! ERROR: {:?}"</span>, e);
 						<span class="kw-2">*</span>r = <span class="prelude-val">Err</span>(ExecutorError {
 							index: i <span class="kw">as </span>u32,
 							xcm_error: e,
@@ -1991,11 +2042,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		instr: Instruction&lt;Config::RuntimeCall&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), XcmError&gt; {
-		<span class="macro">log::trace!</span>(
+		<span class="macro">tracing::trace!</span>(
 			target: <span class="string">"xcm::process_instruction"</span>,
-			<span class="string">"=== {:?}"</span>,
-			instr
+			instruction = <span class="question-mark">?</span>instr,
+			<span class="string">"Processing instruction"</span>,
 		);
+
 		<span class="kw">match </span>instr {
 			WithdrawAsset(assets) =&gt; {
 				<span class="kw">let </span>origin = <span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
@@ -2097,7 +2149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Transact { origin_kind, require_weight_at_most, <span class="kw-2">mut </span>call } =&gt; {
 				<span class="comment">// We assume that the Relay-chain is allowed to use transact on this parachain.
 				</span><span class="kw">let </span>origin = <span class="self">self</span>.cloned_origin().ok_or_else(|| {
-					<span class="macro">log::trace!</span>(
+					<span class="macro">tracing::trace!</span>(
 						target: <span class="string">"xcm::process_instruction::transact"</span>,
 						<span class="string">"No origin provided"</span>,
 					);
@@ -2107,7 +2159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="comment">// TODO: #2841 #TRANSACTFILTER allow the trait to issue filters for the relay-chain
 				</span><span class="kw">let </span>message_call = call.take_decoded().map_err(|<span class="kw">_</span>| {
-					<span class="macro">log::trace!</span>(
+					<span class="macro">tracing::trace!</span>(
 						target: <span class="string">"xcm::process_instruction::transact"</span>,
 						<span class="string">"Failed to decode call"</span>,
 					);
@@ -2115,13 +2167,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					XcmError::FailedToDecode
 				})<span class="question-mark">?</span>;
 
-				<span class="macro">log::trace!</span>(
+				<span class="macro">tracing::trace!</span>(
 					target: <span class="string">"xcm::process_instruction::transact"</span>,
-					<span class="string">"Processing call: {message_call:?}"</span>,
+					<span class="question-mark">?</span>call,
+					<span class="string">"Processing call"</span>,
 				);
 
 				<span class="kw">if </span>!Config::SafeCallFilter::contains(<span class="kw-2">&amp;</span>message_call) {
-					<span class="macro">log::trace!</span>(
+					<span class="macro">tracing::trace!</span>(
 						target: <span class="string">"xcm::process_instruction::transact"</span>,
 						<span class="string">"Call filtered by `SafeCallFilter`"</span>,
 					);
@@ -2132,26 +2185,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>dispatch_origin =
 					Config::OriginConverter::convert_origin(origin.clone(), origin_kind).map_err(
 						|<span class="kw">_</span>| {
-							<span class="macro">log::trace!</span>(
+							<span class="macro">tracing::trace!</span>(
 								target: <span class="string">"xcm::process_instruction::transact"</span>,
-								<span class="string">"Failed to convert origin {origin:?} and origin kind {origin_kind:?} to a local origin."
+								<span class="question-mark">?</span>origin,
+								<span class="question-mark">?</span>origin_kind,
+								<span class="string">"Failed to convert origin to a local origin."
 							</span>);
 
 							XcmError::BadOrigin
 						},
 					)<span class="question-mark">?</span>;
 
-				<span class="macro">log::trace!</span>(
+				<span class="macro">tracing::trace!</span>(
 					target: <span class="string">"xcm::process_instruction::transact"</span>,
-					<span class="string">"Dispatching with origin: {dispatch_origin:?}"</span>,
+					origin = <span class="question-mark">?</span>dispatch_origin,
+					<span class="string">"Dispatching with origin"</span>,
 				);
 
 				<span class="kw">let </span>weight = message_call.get_dispatch_info().weight;
 
 				<span class="kw">if </span>!weight.all_lte(require_weight_at_most) {
-					<span class="macro">log::trace!</span>(
+					<span class="macro">tracing::trace!</span>(
 						target: <span class="string">"xcm::process_instruction::transact"</span>,
-						<span class="string">"Max {weight} bigger than require at most {require_weight_at_most}"</span>,
+						%weight,
+						%require_weight_at_most,
+						<span class="string">"Max weight bigger than require at most"</span>,
 					);
 
 					<span class="kw">return </span><span class="prelude-val">Err</span>(XcmError::MaxWeightInvalid)
@@ -2160,17 +2218,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>maybe_actual_weight =
 					<span class="kw">match </span>Config::CallDispatcher::dispatch(message_call, dispatch_origin) {
 						<span class="prelude-val">Ok</span>(post_info) =&gt; {
-							<span class="macro">log::trace!</span>(
+							<span class="macro">tracing::trace!</span>(
 								target: <span class="string">"xcm::process_instruction::transact"</span>,
-								<span class="string">"Dispatch successful: {post_info:?}"
+								<span class="question-mark">?</span>post_info,
+								<span class="string">"Dispatch successful"
 							</span>);
 							<span class="self">self</span>.transact_status = MaybeErrorCode::Success;
 							post_info.actual_weight
 						},
 						<span class="prelude-val">Err</span>(error_and_info) =&gt; {
-							<span class="macro">log::trace!</span>(
+							<span class="macro">tracing::trace!</span>(
 								target: <span class="string">"xcm::process_instruction::transact"</span>,
-								<span class="string">"Dispatch failed {error_and_info:?}"
+								<span class="question-mark">?</span>error_and_info,
+								<span class="string">"Dispatch failed"
 							</span>);
 
 							<span class="self">self</span>.transact_status = error_and_info.error.encode().into();
