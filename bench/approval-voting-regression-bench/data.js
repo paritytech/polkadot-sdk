@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720777946481,
+  "lastUpdate": 1720786638038,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -10339,6 +10339,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.021457435020016,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Eres",
+            "username": "AndreiEres",
+            "email": "eresav@me.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d31285a1562318959a7b21dbfec95c2fd6f06d7a",
+          "message": "[statement-distribution] Add metrics for distributed statements in V2 (#4554)\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/4334",
+          "timestamp": "2024-07-12T10:43:48Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d31285a1562318959a7b21dbfec95c2fd6f06d7a"
+        },
+        "date": 1720786608885,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63806.159999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.25519561439001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.938801651089904,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.208922351020159,
             "unit": "seconds"
           }
         ]
