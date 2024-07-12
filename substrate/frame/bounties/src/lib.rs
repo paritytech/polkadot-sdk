@@ -836,14 +836,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///   `BountyDescriptions`.
 	/// * Number of items in `Bounties` should be the same as `BountyDescriptions` length.
 	fn try_state_bounties_count() -> Result<(), sp_runtime::TryRuntimeError> {
-		let bounties_length = Self::get_bounties_count();
+		let bounties_length = Bounties::<T, I>::iter().count() as u32;
 
 		ensure!(
 			<BountyCount<T, I>>::get() >= bounties_length,
 			"`BountyCount` must be grater or equals the number of `Bounties` in storage"
 		);
 
-		let bounties_description_length = Self::get_bounties_description_count();
+		let bounties_description_length = BountyDescriptions::<T, I>::iter().count() as u32;
 		ensure!(
 			<BountyCount<T, I>>::get() >= bounties_description_length,
 			"`BountyCount` must be grater or equals the number of `BountiesDescriptions` in storage."
@@ -854,14 +854,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				"Number of `Bounties` in storage must be the same as the Number of `BountiesDescription` in storage."
 		);
 		Ok(())
-	}
-
-	fn get_bounties_count() -> u32 {
-		Bounties::<T, I>::iter().count() as u32
-	}
-
-	fn get_bounties_description_count() -> u32 {
-		BountyDescriptions::<T, I>>::iter().count() as u32
 	}
 }
 
