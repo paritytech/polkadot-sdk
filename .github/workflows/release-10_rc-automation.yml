@@ -1,15 +1,18 @@
 name: Release - RC automation
 on:
-  push:
-    branches:
-      # TODO: delete old branches patterns, when the release from stable is properly done
-      # Catches release-polkadot-v1.2.3, release-v1.2.3-rc1, etc
-      - release-v[0-9]+.[0-9]+.[0-9]+*
-      - release-cumulus-v[0-9]+*
-      - release-polkadot-v[0-9]+*
-      - stable
+  # TODO: Activate it and delete old branches patterns, when the release process from stable is setteled
+  #push:
+    # branches:
+    #   # Catches release-polkadot-v1.2.3, release-v1.2.3-rc1, etc
+    #   - release-v[0-9]+.[0-9]+.[0-9]+*
+    #   - release-cumulus-v[0-9]+*
+    #   - release-polkadot-v[0-9]+*
+    #   - stable
 
   workflow_dispatch:
+    inputs:
+      version:
+        description: Current release/rc version in format vX.X.X
 
 jobs:
   tag_rc:
@@ -35,8 +38,11 @@ jobs:
           . ./.github/scripts/common/lib.sh
 
           # Get last rc tag if exists, else set it to {version}-rc1
-          # TODO: find a way to get latest release tag
-          version=v$(get_polkadot_node_version_from_code)
+          if [[ -z "${{ inputs.version }}" ]]; then
+            version=v$(get_polkadot_node_version_from_code)
+          else
+            version=$(filter_version_from_input ${{ inputs.version }})
+          fi
           echo "$version"
           echo "version=$version" >> $GITHUB_OUTPUT
 
