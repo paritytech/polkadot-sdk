@@ -664,18 +664,14 @@ where
 		let view_store = self.view_store.clone();
 		log::info!(target: LOG_TARGET, "fatp::submit_at count:{} views:{}", xts.len(), self.views_count());
 		log_xt_debug!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "[{:?}] fatp::submit_at");
-		self.mempool.extend_unwatched(xts.clone());
+		self.mempool.extend_unwatched(source, xts.clone());
 		let xts = xts.clone();
 
 		self.metrics
 			.report(|metrics| metrics.submitted_transactions.inc_by(xts.len() as u64));
 
 		if view_store.is_empty() {
-			return future::ready(Ok(xts
-				.iter()
-				.map(|xt| Ok(self.api.hash_and_length(xt).0))
-				.collect()))
-			.boxed()
+			return future::ready(Ok(xts.iter().map(|xt| Ok(self.hash_of(xt))).collect())).boxed()
 		}
 
 		async move {
@@ -692,13 +688,13 @@ where
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
 		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.views_count());
-		self.mempool.push_unwatched(xt.clone());
+		self.mempool.push_unwatched(source, xt.clone());
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
 		// assume that transaction may be valid, will be validated later.
 		let view_store = self.view_store.clone();
 		if view_store.is_empty() {
-			return future::ready(Ok(self.api.hash_and_length(&xt).0)).boxed()
+			return future::ready(Ok(self.hash_of(&xt))).boxed()
 		}
 
 		async move {
@@ -724,7 +720,7 @@ where
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.views_count());
-		self.mempool.push_watched(xt.clone());
+		self.mempool.push_watched(source, xt.clone());
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
 		let view_store = self.view_store.clone();
@@ -732,7 +728,7 @@ where
 	}
 
 	// todo: api change? we need block hash here (assuming we need it at all - could be useful for
-	// verification for debuggin purposes).
+	// verification for debugging purposes).
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
 		if !hashes.is_empty() {
 			log::info!(target: LOG_TARGET, "fatp::remove_invalid {}", hashes.len());
@@ -943,6 +939,9 @@ where
 		Some(view)
 	}
 
+	/// Returns the list of xts included in all block ancestors, excluding the block itself.
+	///
+	/// For the following chain `F<-B1<-B2<-B3` xts from `F,B1,B2` will returned.
 	async fn extrinsics_included_since_finalized(&self, at: Block::Hash) -> HashSet<TxHash<Self>> {
 		let start = Instant::now();
 		let recent_finalized_block = self.enactment_state.lock().recent_finalized_block();
@@ -963,7 +962,7 @@ where
 				})
 				.unwrap_or_default()
 				.into_iter()
-				.map(|t| api.hash_and_length(&t).0)
+				.map(|t| self.hash_of(&t))
 				.for_each(|tx_hash| {
 					all_extrinsics.insert(tx_hash);
 				});
@@ -988,53 +987,51 @@ where
 			self.mempool.len(),
 			self.views_count()
 		);
-		//todo: source?
-		let source = TransactionSource::External;
-
-		//this could be collected/cached in view
+		//todo: this could be collected/cached in view
 		let included_xts = self.extrinsics_included_since_finalized(view.at.hash).await;
 
-		//todo this clone is not neccessary, try to use iterators
+		//todo: can we do better - w/o clone?
 		let xts = self.mempool.clone_unwatched();
 
 		let mut all_submitted_count = 0;
 		if !xts.is_empty() {
 			let unwatched_count = xts.len();
-			let xts = xts
-				.into_iter()
-				.filter(|tx| {
-					!view.pool.validated_pool().pool.read().is_imported(&self.hash_of(&tx))
-				})
-				.filter(|tx| !included_xts.contains(&self.hash_of(&tx)))
-				.collect::<Vec<_>>();
-			all_submitted_count = xts.len();
-			//todo: internal checked banned: not required any more?
-			let _ = view.submit_many(source, xts).await;
+			let mut buckets = HashMap::<TransactionSource, Vec<Block::Extrinsic>>::default();
+			xts.into_iter()
+				.filter(|(hash, _)| !view.pool.validated_pool().pool.read().is_imported(hash))
+				.filter(|(hash, _)| !included_xts.contains(&hash))
+				.map(|(_, tx)| (tx.source, tx.clone_data()))
+				.for_each(|(source, tx)| buckets.entry(source).or_default().push(tx));
+
+			for (source, xts) in buckets {
+				all_submitted_count += xts.len();
+				//todo: internal checked banned: not required any more?
+				let _ = view.submit_many(source, xts).await;
+			}
 			log::info!(target: LOG_TARGET, "update_view_pool: at {:?} unwatched {}/{}", view.at.hash, all_submitted_count, unwatched_count);
 		}
 		let view = Arc::from(view);
 
 		let included_xts = Arc::from(included_xts);
-		//todo: hash computed multiple times
 		//todo: maybe we don't need to register listener in view? We could use
 		// multi_view_listner.transcation_in_block
 		let submitted_count = Arc::from(AtomicUsize::new(0));
 
 		let results = self
 			.mempool
-			.watched_xts()
-			.map(|t| {
+			.clone_watched()
+			.into_iter()
+			.map(|(tx_hash,tx)| {
 				let view = view.clone();
 				let included_xts = included_xts.clone();
 				let submitted_count = submitted_count.clone();
 				async move {
-					let tx_hash = self.hash_of(&t);
 					let result = if view.pool.validated_pool().pool.read().is_imported(&tx_hash) || included_xts.contains(&tx_hash)
 					{
-						Err(Error::AlreadyImported(Box::new(tx_hash)).into())
+						Ok(view.create_watcher(tx_hash))
 					} else {
 						submitted_count.fetch_add(1, Ordering::Relaxed);
-						view.submit_and_watch(source, t.clone()).await
+						view.submit_and_watch(tx.source, tx.clone_data()).await
 					};
 					let result = result.map_or_else(
 						|error| {
@@ -1057,32 +1054,20 @@ where
 									Error::TemporarilyBanned |
 									Error::AlreadyImported(_),
 								) => Ok(view.create_watcher(tx_hash)),
-								//ignore
 								Ok(
-									//todo: shall be: Error::InvalidTransaction(_)
-									Error::InvalidTransaction(InvalidTransaction::Custom(_)),
-								) => Err((error.expect("already in Ok arm. qed."), tx_hash, t)),
-								//todo: panic while testing
+									Error::InvalidTransaction(_),
+								) => Err((error.expect("already in Ok arm. qed."), tx_hash, tx.clone_data())),
 								_ => {
-									// Err(crate::error::Error::RuntimeApi(_)) => {
-									//todo:
-									//Err(RuntimeApi("Api called for an unknown Block: State
-									// already discarded for
-									// 0x881b8b0e32780e99c1dfb353f6850cdd8271e05b551f0f29d3e12dd09520efda"
-									// ))',
-									log::error!(target: LOG_TARGET, "[{:?}] txpool: update_view: somehing went wrong: {error:?}", tx_hash);
+									log::error!(target: LOG_TARGET, "[{:?}] txpool: update_view: something went wrong: {error:?}", tx_hash);
 									Err((
 										Error::UnknownTransaction(UnknownTransaction::CannotLookup),
 										tx_hash,
-										t,
+										tx.clone_data(),
 									))
 								},
-								// _ => {
-								// 	panic!("[{:?}] txpool: update_view: somehing went wrong:
-								// {error:?}", tx_hash); },
 							}
 						},
-						|x| Ok(x),
+						|watcher| Ok(watcher),
 					);
 
 					if let Ok(watcher) = result {
@@ -1117,12 +1102,10 @@ where
 		if self.view_store.is_empty() {
 			for result in results {
 				match result {
-					Err((Error::TemporarilyBanned | Error::AlreadyImported(_), ..)) => {},
 					Err((Error::InvalidTransaction(_), tx_hash, tx)) => {
 						self.view_store.listener.invalidate_transactions(vec![tx_hash]);
 						self.mempool.remove_watched(&tx);
 					},
-
 					_ => {},
 				}
 			}
@@ -1177,7 +1160,7 @@ where
 				let mut resubmitted_to_report = 0;
 
 				resubmit_transactions.extend(block_transactions.into_iter().filter(|tx| {
-					let tx_hash = self.api.hash_and_length(tx).0;
+					let tx_hash = self.hash_of(tx);
 					let contains = pruned_log.contains(&tx_hash);
 
 					// need to count all transactions, not just filtered, here

@@ -43,9 +43,15 @@ use std::{
 	time::Instant,
 };
 
+/// The minimum interval between single transaction revalidations. Given in blocks.
+const TXMEMPOOL_REVALIDATION_PERIOD: u64 = 10;
+
+/// The number of transactions revalidated in single revalidation batch.
+const TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE: usize = 1000;
+
 /// Represents the transaction in the intermediary buffer.
 #[derive(Debug)]
-struct TxInMemPool<Block>
+pub(crate) struct TxInMemPool<Block>
 where
 	Block: BlockT,
 {
@@ -56,7 +62,7 @@ where
 	/// transaction actual body
 	tx: Block::Extrinsic,
 	/// transaction source
-	source: TransactionSource,
+	pub(crate) source: TransactionSource,
 	/// when transaction was revalidated, used to periodically revalidate mem pool buffer.
 	validated_at: AtomicU64,
 }
@@ -66,22 +72,16 @@ impl<Block: BlockT> TxInMemPool<Block> {
 		self.watched
 	}
 
-	fn unwatched(tx: Block::Extrinsic) -> Self {
-		Self {
-			watched: false,
-			tx,
-			source: TransactionSource::External,
-			validated_at: AtomicU64::new(0),
-		}
+	fn new_unwatched(source: TransactionSource, tx: Block::Extrinsic) -> Self {
+		Self { watched: false, tx, source, validated_at: AtomicU64::new(0) }
 	}
 
-	fn watched(tx: Block::Extrinsic) -> Self {
-		Self {
-			watched: true,
-			tx,
-			source: TransactionSource::External,
-			validated_at: AtomicU64::new(0),
-		}
+	fn new_watched(source: TransactionSource, tx: Block::Extrinsic) -> Self {
+		Self { watched: true, tx, source, validated_at: AtomicU64::new(0) }
+	}
+
+	pub fn clone_data(&self) -> Block::Extrinsic {
+		self.tx.clone()
 	}
 }
 
@@ -117,57 +117,61 @@ where
 		Self { api, listener, xts2: Default::default(), metrics }
 	}
 
-	pub(super) fn watched_xts(&self) -> impl Iterator<Item = Block::Extrinsic> {
-		self.xts2
-			.read()
-			.values()
-			.filter_map(|x| x.is_watched().then(|| x.tx.clone()))
-			.collect::<Vec<_>>()
-			.into_iter()
-	}
-
 	pub(super) fn len(&self) -> (usize, usize) {
 		let xts2 = self.xts2.read();
 		let watched_count = xts2.values().filter(|x| x.is_watched()).count();
 		(xts2.len() - watched_count, watched_count)
 	}
 
-	pub(super) fn push_unwatched(&self, xt: Block::Extrinsic) {
+	pub(super) fn push_unwatched(&self, source: TransactionSource, xt: Block::Extrinsic) {
 		let hash = self.api.hash_and_length(&xt).0;
-		let unwatched = Arc::from(TxInMemPool::unwatched(xt));
+		let unwatched = Arc::from(TxInMemPool::new_unwatched(source, xt));
 		self.xts2.write().entry(hash).or_insert(unwatched);
 	}
 
-	pub(super) fn extend_unwatched(&self, xts: Vec<Block::Extrinsic>) {
+	pub(super) fn extend_unwatched(&self, source: TransactionSource, xts: Vec<Block::Extrinsic>) {
 		let mut xts2 = self.xts2.write();
 		xts.into_iter().for_each(|xt| {
 			let hash = self.api.hash_and_length(&xt).0;
-			let unwatched = Arc::from(TxInMemPool::unwatched(xt));
+			let unwatched = Arc::from(TxInMemPool::new_unwatched(source, xt));
 			xts2.entry(hash).or_insert(unwatched);
 		});
 	}
 
-	pub(super) fn push_watched(&self, xt: Block::Extrinsic) {
+	pub(super) fn push_watched(&self, source: TransactionSource, xt: Block::Extrinsic) {
 		let hash = self.api.hash_and_length(&xt).0;
-		let watched = Arc::from(TxInMemPool::watched(xt));
+		let watched = Arc::from(TxInMemPool::new_watched(source, xt));
 		self.xts2.write().entry(hash).or_insert(watched);
 	}
 
-	pub(super) fn clone_unwatched(&self) -> Vec<Block::Extrinsic> {
+	pub(super) fn clone_unwatched(
+		&self,
+	) -> HashMap<graph::ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block>>> {
 		self.xts2
 			.read()
-			.values()
-			.filter_map(|x| (!x.is_watched()).then(|| x.tx.clone()))
-			.collect::<Vec<_>>()
+			.iter()
+			.filter_map(|(hash, tx)| (!tx.is_watched()).then(|| (hash.clone(), tx.clone())))
+			.collect::<HashMap<_, _>>()
+	}
+	pub(super) fn clone_watched(
+		&self,
+	) -> HashMap<graph::ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block>>> {
+		self.xts2
+			.read()
+			.iter()
+			.filter_map(|(hash, tx)| (tx.is_watched()).then(|| (hash.clone(), tx.clone())))
+			.collect::<HashMap<_, _>>()
 	}
 
 	pub(super) fn remove_watched(&self, xt: &Block::Extrinsic) {
 		self.xts2.write().retain(|_, t| t.tx != *xt);
 	}
 
-	//returns vec of invalid hashes
-	async fn validate_array(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {
-		log::debug!(target: LOG_TARGET, "validate_array at:{:?} {}", finalized_block, line!());
+	/// Revalidates a batch of transactions.
+	///
+	/// Returns vec of invalid hashes.
+	async fn revalidate(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {
+		log::debug!(target: LOG_TARGET, "mempool::revalidate at:{:?} {}", finalized_block, line!());
 		let start = Instant::now();
 
 		let (count, input) = {
@@ -183,16 +187,13 @@ where
 							&b.1.validated_at.load(atomic::Ordering::Relaxed),
 						)
 					})
-					//todo: add const
-					//todo: add threshold (min revalidated, but older than e.g. 10 blocks)
-					//threshold ~~> finality period?
-					//count ~~> 25% of block?
 					.filter(|xt| {
 						let finalized_block_number = finalized_block.number.into().as_u64();
-						xt.1.validated_at.load(atomic::Ordering::Relaxed) + 10 <
+						xt.1.validated_at.load(atomic::Ordering::Relaxed) +
+							TXMEMPOOL_REVALIDATION_PERIOD <
 							finalized_block_number
 					})
-					.take(1000),
+					.take(TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE),
 			)
 		};
 
@@ -202,6 +203,7 @@ where
 				.map(move |validation_result| (xt_hash, xt, validation_result))
 		});
 		let validation_results = futures::future::join_all(futs).await;
+		let input_len = validation_results.len();
 
 		let duration = start.elapsed();
 
@@ -228,7 +230,7 @@ where
 
 		log::info!(
 			target: LOG_TARGET,
-			"purge_transactions: at {finalized_block:?} count:{count:?} purged:{:?} took {duration:?}", invalid_hashes.len(),
+			"mempool::revalidate: at {finalized_block:?} count:{input_len}/{count} purged:{} took {duration:?}", invalid_hashes.len(),
 		);
 
 		invalid_hashes
@@ -245,7 +247,7 @@ where
 
 	pub(super) async fn purge_transactions(&self, finalized_block: HashAndNumber<Block>) {
 		log::debug!(target: LOG_TARGET, "purge_transactions at:{:?}", finalized_block);
-		let invalid_hashes = self.validate_array(finalized_block.clone()).await;
+		let invalid_hashes = self.revalidate(finalized_block.clone()).await;
 
 		let _ = invalid_hashes.len().try_into().map(|v| {
 			self.metrics

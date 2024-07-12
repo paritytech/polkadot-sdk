@@ -191,7 +191,7 @@ where
 		let validated_pool = self.pool.validated_pool();
 		let api = validated_pool.api();
 
-		let batch: Vec<_> = validated_pool.ready().map(|tx| tx.hash).collect();
+		let batch: Vec<_> = validated_pool.ready().collect();
 		let batch_len = batch.len();
 
 		//todo: sort batch by revalidation timestamp | maybe not needed at all? xts will be getting
@@ -203,23 +203,20 @@ where
 
 		let mut validation_results = vec![];
 		let mut batch_iter = batch.into_iter();
-		let mut should_break = false;
 		loop {
+			let mut should_break = false;
 			tokio::select! {
 				_ = finish_revalidation_request_rx.recv() => {
 					log::trace!(target: LOG_TARGET, "view::revalidate_later: finish revalidation request received at {}.", self.at.hash);
 					should_break = true;
 				}
 				_ = async {
-					if let Some(ext_hash) = batch_iter.next() {
-						//todo clean up mess:
-						if let Some(ext) = validated_pool.ready_by_hash(&ext_hash) {
-							let validation_result = (api.validate_transaction(self.at.hash, ext.source, ext.data.clone()).await, ext_hash, ext);
-							validation_results.push(validation_result);
-						}
+					if let Some(tx) = batch_iter.next() {
+						let validation_result = (api.validate_transaction(self.at.hash, tx.source, tx.data.clone()).await, tx.hash, tx);
+						validation_results.push(validation_result);
 					} else {
 						{
-							self.revalidation_worker_channels.lock().as_mut().map(|v| v.remove_sender());
+							self.revalidation_worker_channels.lock().as_mut().map(|ch| ch.remove_sender());
 						}
 						should_break = true;
 					}
@@ -245,24 +242,21 @@ where
 		);
 		log_xt_debug!(data:tuple, target:LOG_TARGET, validation_results.iter().map(|x| (x.1, &x.0)), "[{:?}] view::revalidate_later result: {:?}");
 
-		for (validation_result, ext_hash, ext) in validation_results {
+		for (validation_result, tx_hash, tx) in validation_results {
 			match validation_result {
 				Ok(Err(TransactionValidityError::Invalid(_))) => {
-					invalid_hashes.push(ext_hash);
+					invalid_hashes.push(tx_hash);
 				},
-				Ok(Err(TransactionValidityError::Unknown(_))) => {
-					// skipping unknown, they might be pushed by valid or invalid transaction
-					// when latter resubmitted.
-				},
+				Ok(Err(TransactionValidityError::Unknown(_))) => {},
 				Ok(Ok(validity)) => {
 					revalidated.insert(
-						ext_hash,
+						tx_hash,
 						ValidatedTransaction::valid_at(
 							self.at.number.saturated_into::<u64>(),
-							ext_hash,
-							ext.source,
-							ext.data.clone(),
-							api.hash_and_length(&ext.data).1,
+							tx_hash,
+							tx.source,
+							tx.data.clone(),
+							api.hash_and_length(&tx.data).1,
 							validity,
 						),
 					);
@@ -271,10 +265,10 @@ where
 					log::trace!(
 						target: LOG_TARGET,
 						"[{:?}]: Removing due to error during revalidation: {}",
-						ext_hash,
+						tx_hash,
 						validation_err
 					);
-					invalid_hashes.push(ext_hash);
+					invalid_hashes.push(tx_hash);
 				},
 			}
 		}
