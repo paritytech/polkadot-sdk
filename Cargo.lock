@@ -13894,6 +13894,7 @@ dependencies = [
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
+ "docify",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-support",

@@ -84,37 +84,16 @@
 //! This phase consists of plugging in the new slot-based collator.
 //!
 //! 1. In `node/src/service.rs` import the slot based collator instead of the lookahead collator.
-//!
-//! ```rust
-//! use cumulus_client_consensus_aura::collators::slot_based::{self as aura, Params as AuraParams};
-//! ```
+#![doc = docify::embed!("../../cumulus/polkadot-parachain/src/service.rs", slot_based_colator_import)]
 //!
 //! 2. In `start_consensus()`
 //!     - Remove the `overseer_handle` param (also remove the
 //!     `OverseerHandle` type import if it’s not used elsewhere).
-//!     - In `AuraParams`, remove the `overseer_handle` field and add a
+//!     - Rename `AuraParams` to `SlotBasedParams`, remove the `overseer_handle` field and add a
 //!     `slot_drift` field with a   value of `Duration::from_secs(1)`.
 //!     - Replace the single future returned by `aura::run` with the two futures returned by it and
 //!     spawn them as separate tasks:
-//!      ```rust
-//!      let (collation_future, block_builder_future) = aura::run::<
-//!          Block,
-//!          sp_consensus_aura::sr25519::AuthorityPair,
-//!          _,
-//!          _,
-//!          _,
-//!          _,
-//!          _,
-//!          _,
-//!          _,
-//!          _>(params);
-//!      task_manager
-//!          .spawn_essential_handle()
-//!          .spawn("collation-task", Some("parachain-block-authoring"), collation_future);
-//!      task_manager
-//!          .spawn_essential_handle()
-//!          .spawn("block-builder-task", Some("parachain-block-authoring"), block_builder_future);
-//!     ```
+#![doc = docify::embed!("../../cumulus/polkadot-parachain/src/service.rs", launch_slot_based_collator)]
 //!
 //! 3. In `start_parachain_node()` remove the `overseer_handle` param passed to `start_consensus`.
 //!
