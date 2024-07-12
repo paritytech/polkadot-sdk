@@ -27,12 +27,7 @@ use crate::{
 	log_xt_debug,
 };
 use async_trait::async_trait;
-use futures::{
-	channel::oneshot,
-	future::{self, ready},
-	prelude::*,
-	Future, FutureExt,
-};
+use futures::{channel::oneshot, future, prelude::*, Future, FutureExt};
 use parking_lot::Mutex;
 use std::{
 	collections::{HashMap, HashSet},
@@ -804,23 +799,4 @@ where
 			}
 		}
 	}
-}
-
-// todo: move to common
-/// Inform the transaction pool about imported and finalized blocks.
-pub async fn notification_future<Client, Pool, Block>(client: Arc<Client>, txpool: Arc<Pool>)
-where
-	Block: BlockT,
-	Client: sc_client_api::BlockchainEvents<Block>,
-	Pool: MaintainedTransactionPool<Block = Block> + ?Sized,
-{
-	let import_stream = client
-		.import_notification_stream()
-		.filter_map(|n| ready(n.try_into().ok()))
-		.fuse();
-	let finality_stream = client.finality_notification_stream().map(Into::into).fuse();
-
-	futures::stream::select(import_stream, finality_stream)
-		.for_each(|evt| txpool.maintain(evt))
-		.await
 }

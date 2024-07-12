@@ -239,8 +239,6 @@ where
 		let (import_notification_sink, import_notification_sink_task) =
 			MultiViewImportNotificationSink::new_with_worker();
 
-		//todo: error handling?
-		//todo: is it a really good idea? (revalidation_task may be quite heavy)
 		let combined_tasks = async move {
 			tokio::select! {
 				_ = revalidation_task => {},
