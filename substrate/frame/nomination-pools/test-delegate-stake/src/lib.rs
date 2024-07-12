@@ -1436,7 +1436,6 @@ fn pool_best_effort_release() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::StateChanged { pool_id: 1, new_state: PoolState::Destroying },
-				// TODO(ank4n): check why points reduce
 				PoolsEvent::Unbonded { member: alice, pool_id: 1, points: 15, balance: 15, era: 21 }
 			]
 		);
@@ -1456,5 +1455,12 @@ fn pool_best_effort_release() {
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
+
+		// alice and charlie has no balances left on hold
+		assert_eq!(Balances::total_balance_on_hold(&alice), 0);
+		assert_eq!(Balances::total_balance_on_hold(&charlie), 0);
+
+		// bob has some dangling hold left
+		assert_eq!(Balances::total_balance_on_hold(&bob), 5);
 	});
 }
