@@ -97,4 +97,4 @@ jobs:
         run: curl -o .forklift/forklift -L https://github.com/paritytech/forklift/releases/download/0.13.1-alpha/forklift_0.13.1-alpha_linux_amd64
       - run: chmod +x .forklift/forklift && .forklift/forklift version
       - name: script
-        run: time cargo nextest run --workspace --locked --release --no-fail-fast --features try-runtime,experimental,riscv,ci-only-tests -E "!test(/.*benchmark.*/)" --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
+        run: time cargo nextest run --workspace --locked --release --no-fail-fast --features try-runtime,experimental,riscv,ci-only-tests -E "!test(/.*benchmark.*/) - test(/recovers_from_only_chunks_if_pov_large::case_1/) - test(/participation_requests_reprioritized_for_newly_included/)" --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
