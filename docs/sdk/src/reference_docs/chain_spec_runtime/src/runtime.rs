@@ -21,6 +21,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use alloc::{vec, vec::Vec};
 use crate::{
 	pallets::{pallet_bar, pallet_foo},
 	presets::*,
