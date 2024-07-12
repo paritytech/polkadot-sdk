@@ -18,8 +18,8 @@
 
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
+use codec::Decode;
 use log::debug;
-use parity_scale_codec::Decode;
 
 use sc_client_api::{backend::Backend, utils::is_descendent_of};
 use sc_consensus::{
@@ -518,7 +518,7 @@ where
 	Client: ClientForGrandpa<Block, BE>,
 	Client::Api: GrandpaApi<Block>,
 	for<'a> &'a Client: BlockImport<Block, Error = ConsensusError>,
-	SC: Send,
+	SC: Send + Sync,
 {
 	type Error = ConsensusError;
 
@@ -697,7 +697,7 @@ where
 	}
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await

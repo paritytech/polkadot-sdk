@@ -88,7 +88,7 @@ pub enum Error {
 	JoinMultiple(#[source] oneshot::Canceled),
 
 	#[error("Obtaining erasure chunks failed")]
-	ObtainErasureChunks(#[from] erasure_coding::Error),
+	ObtainErasureChunks(#[from] polkadot_erasure_coding::Error),
 
 	#[error(transparent)]
 	ValidationFailed(#[from] ValidationFailed),

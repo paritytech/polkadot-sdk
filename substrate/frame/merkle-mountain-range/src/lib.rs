@@ -260,15 +260,15 @@ pub mod pallet {
 
 /// Stateless MMR proof verification for batch of leaves.
 ///
-/// This function can be used to verify received MMR [primitives::Proof] (`proof`)
+/// This function can be used to verify received MMR [primitives::LeafProof] (`proof`)
 /// for given leaves set (`leaves`) against a known MMR root hash (`root`).
 /// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
 /// same position in both the `leaves` vector and the `leaf_indices` vector contained in the
-/// [primitives::Proof].
+/// [primitives::LeafProof].
 pub fn verify_leaves_proof<H, L>(
 	root: H::Output,
 	leaves: Vec<mmr::Node<H, L>>,
-	proof: primitives::Proof<H::Output>,
+	proof: primitives::LeafProof<H::Output>,
 ) -> Result<(), primitives::Error>
 where
 	H: traits::Hash,
@@ -280,6 +280,19 @@ where
 	} else {
 		Err(primitives::Error::Verify.log_debug(("The proof is incorrect.", root)))
 	}
+}
+
+/// Stateless ancestry proof verification.
+pub fn verify_ancestry_proof<H, L>(
+	root: H::Output,
+	ancestry_proof: primitives::AncestryProof<H::Output>,
+) -> Result<H::Output, Error>
+where
+	H: traits::Hash,
+	L: primitives::FullLeaf,
+{
+	mmr::verify_ancestry_proof::<H, L>(root, ancestry_proof)
+		.map_err(|_| Error::Verify.log_debug(("The ancestry proof is incorrect.", root)))
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -303,17 +316,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Provide the parent number for the block that added `leaf_index` to the MMR.
-	fn leaf_index_to_parent_block_num(
-		leaf_index: LeafIndex,
-		leaves_count: LeafIndex,
-	) -> BlockNumberFor<T> {
+	fn leaf_index_to_parent_block_num(leaf_index: LeafIndex) -> BlockNumberFor<T> {
 		// leaves are zero-indexed and were added one per block since pallet activation,
 		// while block numbers are one-indexed, so block number that added `leaf_idx` is:
 		// `block_num = block_num_when_pallet_activated + leaf_idx + 1`
 		// `block_num = (current_block_num - leaves_count) + leaf_idx + 1`
 		// `parent_block_num = current_block_num - leaves_count + leaf_idx`.
 		<frame_system::Pallet<T>>::block_number()
-			.saturating_sub(leaves_count.saturated_into())
+			.saturating_sub(Self::mmr_leaves().saturated_into())
 			.saturating_add(leaf_index.saturated_into())
 	}
 
@@ -330,6 +340,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		utils::block_num_to_leaf_index::<HeaderFor<T>>(block_num, first_mmr_block)
 	}
 
+	/// Convert a block number into a leaf index.
+	pub fn block_num_to_leaf_count(block_num: BlockNumberFor<T>) -> Result<LeafIndex, Error>
+	where
+		T: frame_system::Config,
+	{
+		let leaf_index = Self::block_num_to_leaf_index(block_num)?;
+		Ok(leaf_index.saturating_add(1))
+	}
+
 	/// Generate an MMR proof for the given `block_numbers`.
 	/// If `best_known_block_number = Some(n)`, this generates a historical proof for
 	/// the chain with head at height `n`.
@@ -342,13 +361,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn generate_proof(
 		block_numbers: Vec<BlockNumberFor<T>>,
 		best_known_block_number: Option<BlockNumberFor<T>>,
-	) -> Result<(Vec<LeafOf<T, I>>, primitives::Proof<HashOf<T, I>>), primitives::Error> {
+	) -> Result<(Vec<LeafOf<T, I>>, primitives::LeafProof<HashOf<T, I>>), primitives::Error> {
 		// check whether best_known_block_number provided, else use current best block
 		let best_known_block_number =
 			best_known_block_number.unwrap_or_else(|| <frame_system::Pallet<T>>::block_number());
 
-		let leaves_count =
-			Self::block_num_to_leaf_index(best_known_block_number)?.saturating_add(1);
+		let leaf_count = Self::block_num_to_leaf_count(best_known_block_number)?;
 
 		// we need to translate the block_numbers into leaf indices.
 		let leaf_indices = block_numbers
@@ -358,13 +376,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			})
 			.collect::<Result<Vec<LeafIndex>, _>>()?;
 
-		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(leaves_count);
+		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(leaf_count);
 		mmr.generate_proof(leaf_indices)
-	}
-
-	/// Return the on-chain MMR root hash.
-	pub fn mmr_root() -> HashOf<T, I> {
-		RootHash::<T, I>::get()
 	}
 
 	/// Verify MMR proof for given `leaves`.
@@ -375,11 +388,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// or the proof is invalid.
 	pub fn verify_leaves(
 		leaves: Vec<LeafOf<T, I>>,
-		proof: primitives::Proof<HashOf<T, I>>,
+		proof: primitives::LeafProof<HashOf<T, I>>,
 	) -> Result<(), primitives::Error> {
 		if proof.leaf_count > NumberOfLeaves::<T, I>::get() ||
 			proof.leaf_count == 0 ||
-			(proof.items.len().saturating_add(leaves.len())) as u64 > proof.leaf_count
+			proof.items.len().saturating_add(leaves.len()) as u64 > proof.leaf_count
 		{
 			return Err(primitives::Error::Verify
 				.log_debug("The proof has incorrect number of leaves or proof items."))
@@ -392,5 +405,32 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		} else {
 			Err(primitives::Error::Verify.log_debug("The proof is incorrect."))
 		}
+	}
+
+	pub fn generate_ancestry_proof(
+		prev_block_number: BlockNumberFor<T>,
+		best_known_block_number: Option<BlockNumberFor<T>>,
+	) -> Result<primitives::AncestryProof<HashOf<T, I>>, Error> {
+		// check whether best_known_block_number provided, else use current best block
+		let best_known_block_number =
+			best_known_block_number.unwrap_or_else(|| <frame_system::Pallet<T>>::block_number());
+
+		let leaf_count = Self::block_num_to_leaf_count(best_known_block_number)?;
+		let prev_leaf_count = Self::block_num_to_leaf_count(prev_block_number)?;
+
+		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(leaf_count);
+		mmr.generate_ancestry_proof(prev_leaf_count)
+	}
+
+	pub fn verify_ancestry_proof(
+		root: HashOf<T, I>,
+		ancestry_proof: primitives::AncestryProof<HashOf<T, I>>,
+	) -> Result<HashOf<T, I>, Error> {
+		verify_ancestry_proof::<HashingOf<T, I>, LeafOf<T, I>>(root, ancestry_proof)
+	}
+
+	/// Return the on-chain MMR root hash.
+	pub fn mmr_root() -> HashOf<T, I> {
+		RootHash::<T, I>::get()
 	}
 }

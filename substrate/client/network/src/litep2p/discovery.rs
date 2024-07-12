@@ -20,9 +20,7 @@
 
 use crate::{
 	config::{NetworkConfiguration, ProtocolId},
-	multiaddr::Protocol,
 	peer_store::PeerStoreProvider,
-	Multiaddr,
 };
 
 use array_bytes::bytes2hex;
@@ -35,13 +33,15 @@ use litep2p::{
 		libp2p::{
 			identify::{Config as IdentifyConfig, IdentifyEvent},
 			kademlia::{
-				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder, KademliaEvent,
-				KademliaHandle, QueryId, Quorum, Record, RecordKey, RecordsType,
+				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder,
+				IncomingRecordValidationMode, KademliaEvent, KademliaHandle, QueryId, Quorum,
+				Record, RecordKey, RecordsType,
 			},
 			ping::{Config as PingConfig, PingEvent},
 		},
 		mdns::{Config as MdnsConfig, MdnsEvent},
 	},
+	types::multiaddr::{Multiaddr, Protocol},
 	PeerId, ProtocolName,
 };
 use parking_lot::RwLock;
@@ -54,7 +54,7 @@ use std::{
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
-	time::Duration,
+	time::{Duration, Instant},
 };
 
 /// Logging target for the file.
@@ -143,6 +143,15 @@ pub enum DiscoveryEvent {
 		/// Query ID.
 		query_id: QueryId,
 	},
+
+	/// Incoming record to store.
+	IncomingRecord {
+		/// Record.
+		record: Record,
+	},
+
+	/// Started a random Kademlia query.
+	RandomKademliaStarted,
 }
 
 /// Discovery.
@@ -231,7 +240,7 @@ impl Discovery {
 		let (identify_config, identify_event_stream) = IdentifyConfig::new(
 			"/substrate/1.0".to_string(),
 			Some(user_agent),
-			config.public_addresses.clone(),
+			config.public_addresses.clone().into_iter().map(Into::into).collect(),
 		);
 
 		let (mdns_config, mdns_event_stream) = match config.transport {
@@ -254,6 +263,7 @@ impl Discovery {
 			KademliaConfigBuilder::new()
 				.with_known_peers(known_peers)
 				.with_protocol_names(protocol_names)
+				.with_incoming_records_validation_mode(IncomingRecordValidationMode::Manual)
 				.build()
 		};
 
@@ -270,12 +280,12 @@ impl Discovery {
 				duration_to_next_find_query: Duration::from_secs(1),
 				address_confirmations: LruMap::new(ByLength::new(8)),
 				allow_non_global_addresses: config.allow_non_globals_in_dht,
-				public_addresses: config.public_addresses.iter().cloned().collect(),
+				public_addresses: config.public_addresses.iter().cloned().map(Into::into).collect(),
 				next_kad_query: Some(Delay::new(KADEMLIA_QUERY_INTERVAL)),
-				local_protocols: HashSet::from_iter([
-					kademlia_protocol_name(genesis_hash, fork_id),
-					legacy_kademlia_protocol_name(protocol_id),
-				]),
+				local_protocols: HashSet::from_iter([kademlia_protocol_name(
+					genesis_hash,
+					fork_id,
+				)]),
 			},
 			ping_config,
 			identify_config,
@@ -299,6 +309,11 @@ impl Discovery {
 		addresses: Vec<Multiaddr>,
 	) {
 		if self.local_protocols.is_disjoint(&supported_protocols) {
+			log::trace!(
+				target: LOG_TARGET,
+				"Ignoring self-reported address of peer {peer} as remote node is not part of the \
+				 Kademlia DHT supported by the local node.",
+			);
 			return
 		}
 
@@ -357,6 +372,30 @@ impl Discovery {
 				update_local_storage,
 			)
 			.await
+	}
+
+	/// Store record in the local DHT store.
+	pub async fn store_record(
+		&mut self,
+		key: KademliaKey,
+		value: Vec<u8>,
+		publisher: Option<sc_network_types::PeerId>,
+		expires: Option<Instant>,
+	) {
+		log::debug!(
+			target: LOG_TARGET,
+			"Storing DHT record with key {key:?}, originally published by {publisher:?}, \
+			 expires {expires:?}.",
+		);
+
+		self.kademlia_handle
+			.store_record(Record {
+				key: RecordKey::new(&key.to_vec()),
+				value,
+				publisher: publisher.map(Into::into),
+				expires,
+			})
+			.await;
 	}
 
 	/// Check if the observed address is a known address.
@@ -443,6 +482,7 @@ impl Stream for Discovery {
 					match this.kademlia_handle.try_find_node(peer) {
 						Ok(query_id) => {
 							this.find_node_query_id = Some(query_id);
+							return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
 						},
 						Err(()) => {
 							this.duration_to_next_find_query = cmp::min(
@@ -499,6 +539,16 @@ impl Stream for Discovery {
 					},
 					false => return Poll::Ready(Some(DiscoveryEvent::QueryFailed { query_id })),
 				}
+			},
+			Poll::Ready(Some(KademliaEvent::IncomingRecord { record })) => {
+				log::trace!(
+					target: LOG_TARGET,
+					"incoming `PUT_RECORD` request with key {:?} from publisher {:?}",
+					record.key,
+					record.publisher,
+				);
+
+				return Poll::Ready(Some(DiscoveryEvent::IncomingRecord { record }))
 			},
 		}
 

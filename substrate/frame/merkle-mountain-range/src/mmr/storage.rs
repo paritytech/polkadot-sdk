@@ -60,14 +60,13 @@ impl<StorageType, T, I, L> Default for Storage<StorageType, T, I, L> {
 	}
 }
 
-impl<T, I, L> mmr_lib::MMRStore<NodeOf<T, I, L>> for Storage<OffchainStorage, T, I, L>
+impl<T, I, L> mmr_lib::MMRStoreReadOps<NodeOf<T, I, L>> for Storage<OffchainStorage, T, I, L>
 where
 	T: Config<I>,
 	I: 'static,
 	L: primitives::FullLeaf + codec::Decode,
 {
 	fn get_elem(&self, pos: NodeIndex) -> mmr_lib::Result<Option<NodeOf<T, I, L>>> {
-		let leaves = NumberOfLeaves::<T, I>::get();
 		// Find out which leaf added node `pos` in the MMR.
 		let ancestor_leaf_idx = NodesUtils::leaf_index_that_added_node(pos);
 
@@ -86,7 +85,7 @@ where
 
 		// Fall through to searching node using fork-specific key.
 		let ancestor_parent_block_num =
-			Pallet::<T, I>::leaf_index_to_parent_block_num(ancestor_leaf_idx, leaves);
+			Pallet::<T, I>::leaf_index_to_parent_block_num(ancestor_leaf_idx);
 		let ancestor_parent_hash = T::BlockHashProvider::block_hash(ancestor_parent_block_num);
 		let temp_key = Pallet::<T, I>::node_temp_offchain_key(pos, ancestor_parent_hash);
 		debug!(
@@ -98,13 +97,20 @@ where
 		Ok(sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &temp_key)
 			.and_then(|v| codec::Decode::decode(&mut &*v).ok()))
 	}
+}
 
+impl<T, I, L> mmr_lib::MMRStoreWriteOps<NodeOf<T, I, L>> for Storage<OffchainStorage, T, I, L>
+where
+	T: Config<I>,
+	I: 'static,
+	L: primitives::FullLeaf + codec::Decode,
+{
 	fn append(&mut self, _: NodeIndex, _: Vec<NodeOf<T, I, L>>) -> mmr_lib::Result<()> {
 		panic!("MMR must not be altered in the off-chain context.")
 	}
 }
 
-impl<T, I, L> mmr_lib::MMRStore<NodeOf<T, I, L>> for Storage<RuntimeStorage, T, I, L>
+impl<T, I, L> mmr_lib::MMRStoreReadOps<NodeOf<T, I, L>> for Storage<RuntimeStorage, T, I, L>
 where
 	T: Config<I>,
 	I: 'static,
@@ -113,7 +119,14 @@ where
 	fn get_elem(&self, pos: NodeIndex) -> mmr_lib::Result<Option<NodeOf<T, I, L>>> {
 		Ok(Nodes::<T, I>::get(pos).map(Node::Hash))
 	}
+}
 
+impl<T, I, L> mmr_lib::MMRStoreWriteOps<NodeOf<T, I, L>> for Storage<RuntimeStorage, T, I, L>
+where
+	T: Config<I>,
+	I: 'static,
+	L: primitives::FullLeaf,
+{
 	fn append(&mut self, pos: NodeIndex, elems: Vec<NodeOf<T, I, L>>) -> mmr_lib::Result<()> {
 		if elems.is_empty() {
 			return Ok(())

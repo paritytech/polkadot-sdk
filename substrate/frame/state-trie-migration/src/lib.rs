@@ -109,7 +109,6 @@ pub mod pallet {
 		MaxEncodedLen,
 	)]
 	#[scale_info(skip_type_params(MaxKeyLen))]
-	#[codec(mel_bound())]
 	pub enum Progress<MaxKeyLen: Get<u32>> {
 		/// Yet to begin.
 		ToStart,
@@ -126,7 +125,6 @@ pub mod pallet {
 	///
 	/// It tracks the last top and child keys read.
 	#[derive(Clone, Encode, Decode, scale_info::TypeInfo, PartialEq, Eq, MaxEncodedLen)]
-	#[codec(mel_bound(T: Config))]
 	#[scale_info(skip_type_params(T))]
 	pub struct MigrationTask<T: Config> {
 		/// The current top trie migration progress.
@@ -1103,11 +1101,7 @@ mod benchmarks {
 mod mock {
 	use super::*;
 	use crate as pallet_state_trie_migration;
-	use frame_support::{
-		derive_impl, parameter_types,
-		traits::{ConstU32, Hooks},
-		weights::Weight,
-	};
+	use frame_support::{derive_impl, parameter_types, traits::Hooks, weights::Weight};
 	use frame_system::{EnsureRoot, EnsureSigned};
 	use sp_core::{
 		storage::{ChildInfo, StateVersion},
@@ -1134,7 +1128,6 @@ mod mock {
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type Block = Block;
-		type BlockHashCount = ConstU32<250>;
 		type AccountData = pallet_balances::AccountData<u64>;
 	}
 

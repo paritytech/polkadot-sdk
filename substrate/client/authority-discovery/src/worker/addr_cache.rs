@@ -56,6 +56,7 @@ impl AddrCache {
 				authority_id,
 				addresses,
 			);
+
 			return
 		} else if peer_ids.len() > 1 {
 			log::warn!(
@@ -65,6 +66,7 @@ impl AddrCache {
 				peer_ids
 			);
 		}
+
 		log::debug!(
 			target: super::LOG_TARGET,
 			"Found addresses for authority {authority_id:?}: {addresses:?}",
@@ -80,6 +82,7 @@ impl AddrCache {
 				.or_default()
 				.insert(authority_id.clone());
 		});
+
 		// Remove the old peer ids
 		self.remove_authority_id_from_peer_ids(&authority_id, old_peer_ids.difference(&peer_ids));
 	}
@@ -173,8 +176,8 @@ fn addresses_to_peer_ids(addresses: &HashSet<Multiaddr>) -> HashSet<PeerId> {
 mod tests {
 	use super::*;
 
-	use multihash::{self, Multihash};
 	use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
+	use sc_network_types::multihash::{Code, Multihash};
 
 	use sp_authority_discovery::{AuthorityId, AuthorityPair};
 	use sp_core::crypto::Pair;
@@ -195,10 +198,9 @@ mod tests {
 	impl Arbitrary for TestMultiaddr {
 		fn arbitrary(g: &mut Gen) -> Self {
 			let seed = (0..32).map(|_| u8::arbitrary(g)).collect::<Vec<_>>();
-			let peer_id = PeerId::from_multihash(
-				Multihash::wrap(multihash::Code::Sha2_256.into(), &seed).unwrap(),
-			)
-			.unwrap();
+			let peer_id =
+				PeerId::from_multihash(Multihash::wrap(Code::Sha2_256.into(), &seed).unwrap())
+					.unwrap();
 			let multiaddr = "/ip6/2001:db8:0:0:0:0:0:2/tcp/30333"
 				.parse::<Multiaddr>()
 				.unwrap()
@@ -214,10 +216,9 @@ mod tests {
 	impl Arbitrary for TestMultiaddrsSamePeerCombo {
 		fn arbitrary(g: &mut Gen) -> Self {
 			let seed = (0..32).map(|_| u8::arbitrary(g)).collect::<Vec<_>>();
-			let peer_id = PeerId::from_multihash(
-				Multihash::wrap(multihash::Code::Sha2_256.into(), &seed).unwrap(),
-			)
-			.unwrap();
+			let peer_id =
+				PeerId::from_multihash(Multihash::wrap(Code::Sha2_256.into(), &seed).unwrap())
+					.unwrap();
 			let multiaddr1 = "/ip6/2001:db8:0:0:0:0:0:2/tcp/30333"
 				.parse::<Multiaddr>()
 				.unwrap()
