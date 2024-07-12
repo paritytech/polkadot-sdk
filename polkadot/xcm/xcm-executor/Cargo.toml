@@ -22,7 +22,7 @@ sp-core = { workspace = true }
 sp-runtime = { workspace = true }
 sp-weights = { workspace = true }
 frame-support = { workspace = true }
-log = { workspace = true }
+tracing = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 
 [features]
@@ -37,7 +37,6 @@ std = [
 	"environmental/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
-	"log/std",
 	"scale-info/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
@@ -45,5 +44,6 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-weights/std",
+	"tracing/std",
 	"xcm/std",
 ]
