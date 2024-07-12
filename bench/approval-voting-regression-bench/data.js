@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720786638038,
+  "lastUpdate": 1720794304239,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -10386,6 +10386,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.208922351020159,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "dharjeezy",
+            "username": "dharjeezy",
+            "email": "dharjeezy@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4aa29a41cf731b8181f03168240e8dedb2adfa7a",
+          "message": "Try State Hook for Bounties (#4563)\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/239\n\nPolkadot address: 12GyGD3QhT4i2JJpNzvMf96sxxBLWymz4RdGCxRH5Rj5agKW\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-07-12T11:51:33Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4aa29a41cf731b8181f03168240e8dedb2adfa7a"
+        },
+        "date": 1720794274248,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63844.659999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 11.019592862200101,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 8.195193040709963,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.805535842470197,
             "unit": "seconds"
           }
         ]
