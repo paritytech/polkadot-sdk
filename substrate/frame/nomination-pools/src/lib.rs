@@ -354,7 +354,9 @@
 extern crate alloc;
 
 use adapter::{Member, Pool, StakeStrategy};
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use codec::Codec;
+use core::{fmt::Debug, ops::Div};
 use frame_support::{
 	defensive, defensive_assert, ensure,
 	pallet_prelude::{MaxEncodedLen, *},
@@ -377,8 +379,6 @@ use sp_runtime::{
 	FixedPointNumber, Perbill,
 };
 use sp_staking::{EraIndex, StakingInterface};
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
-use core::{fmt::Debug, ops::Div};
 
 #[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 use sp_runtime::TryRuntimeError;

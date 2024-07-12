@@ -300,8 +300,8 @@ mod tests {
 		mock::{new_test_ext, System, Test, CALL},
 		AllExtrinsicsLen, BlockWeight, DispatchClass,
 	};
-	use frame_support::{assert_err, assert_ok, dispatch::Pays, weights::Weight};
 	use core::marker::PhantomData;
+	use frame_support::{assert_err, assert_ok, dispatch::Pays, weights::Weight};
 
 	fn block_weights() -> crate::limits::BlockWeights {
 		<Test as crate::Config>::BlockWeights::get()

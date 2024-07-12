@@ -22,6 +22,11 @@
 
 extern crate alloc;
 
+use alloc::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
 use frame_support::{
@@ -97,10 +102,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill,
 };
 use sp_staking::SessionIndex;
-use alloc::{
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-	vec, vec::Vec
-};
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;

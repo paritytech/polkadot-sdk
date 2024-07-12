@@ -69,16 +69,15 @@ include!(concat!(env!("OUT_DIR"), "/migration_codegen.rs"));
 
 use crate::{weights::WeightInfo, Config, Error, MigrationInProgress, Pallet, Weight, LOG_TARGET};
 use codec::{Codec, Decode};
+use core::marker::PhantomData;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{ConstU32, OnRuntimeUpgrade},
 	weights::WeightMeter,
 };
 use sp_runtime::Saturating;
-use core::marker::PhantomData;
 
 #[cfg(feature = "try-runtime")]
-
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 

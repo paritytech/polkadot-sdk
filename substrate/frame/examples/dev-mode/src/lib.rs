@@ -30,9 +30,9 @@
 
 extern crate alloc;
 
+use alloc::{vec, vec::Vec};
 use frame_support::dispatch::DispatchResult;
 use frame_system::ensure_signed;
-use alloc::{vec, vec::Vec};
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;

@@ -23,7 +23,9 @@
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::cmp::Ordering;
 use frame_support::{
 	traits::{EstimateNextSessionRotation, Get, OneSessionHandler},
 	BoundedVec,
@@ -43,8 +45,6 @@ use sp_mixnet::types::{
 	SessionPhase, SessionStatus, KX_PUBLIC_SIZE,
 };
 use sp_runtime::RuntimeDebug;
-use alloc::vec::Vec;
-use core::cmp::Ordering;
 
 const LOG_TARGET: &str = "runtime::mixnet";
 

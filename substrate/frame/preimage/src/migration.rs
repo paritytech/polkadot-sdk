@@ -18,11 +18,11 @@
 //! Storage migrations for the preimage pallet.
 
 use super::*;
+use alloc::collections::btree_map::BTreeMap;
 use frame_support::{
 	storage_alias,
 	traits::{ConstU32, OnRuntimeUpgrade},
 };
-use alloc::collections::btree_map::BTreeMap;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;

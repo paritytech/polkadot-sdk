@@ -205,7 +205,9 @@ pub mod weights;
 
 extern crate alloc;
 
+use alloc::{vec, vec::Vec};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use core::{fmt::Debug, ops::Deref};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
@@ -225,8 +227,6 @@ use sp_runtime::{
 	traits::{One, Zero},
 	SaturatedConversion, Saturating,
 };
-use core::{fmt::Debug, ops::Deref};
-use alloc::{vec, vec::Vec};
 use sp_weights::WeightMeter;
 pub use weights::WeightInfo;
 

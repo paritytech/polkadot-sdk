@@ -16,7 +16,11 @@
 
 //! Pallet to process claims from Ethereum addresses.
 
+#[cfg(not(feature = "std"))]
+use alloc::{format, string::String};
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::fmt::Debug;
 use frame_support::{
 	ensure,
 	traits::{Currency, Get, IsSubType, VestingSchedule},
@@ -35,10 +39,6 @@ use sp_runtime::{
 	},
 	RuntimeDebug,
 };
-#[cfg(not(feature = "std"))]
-use alloc::{format, string::String};
-use alloc::{vec, vec::Vec};
-use core::fmt::Debug;
 
 type CurrencyOf<T> = <<T as Config>::VestingSchedule as VestingSchedule<
 	<T as frame_system::Config>::AccountId,

@@ -17,6 +17,7 @@
 
 //! Implementations for fungibles trait.
 
+use alloc::vec::Vec;
 use frame_support::{
 	defensive,
 	traits::tokens::{
@@ -26,7 +27,6 @@ use frame_support::{
 		Provenance::{self, Minted},
 	},
 };
-use alloc::vec::Vec;
 
 use super::*;
 

@@ -18,8 +18,8 @@
 //! Means for splitting an imbalance into two and handling them differently.
 
 use super::super::imbalance::{Imbalance, OnUnbalanced};
-use sp_runtime::traits::Saturating;
 use core::{marker::PhantomData, ops::Div};
+use sp_runtime::traits::Saturating;
 
 /// Split an unbalanced amount two ways between a common divisor.
 pub struct SplitTwoWays<Balance, Imbalance, Target1, Target2, const PART1: u32, const PART2: u32>(

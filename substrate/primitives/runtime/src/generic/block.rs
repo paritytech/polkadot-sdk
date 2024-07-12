@@ -23,7 +23,6 @@ use std::fmt;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use alloc::vec::Vec;
 use crate::{
 	codec::{Codec, Decode, Encode},
 	traits::{
@@ -32,6 +31,7 @@ use crate::{
 	},
 	Justifications,
 };
+use alloc::vec::Vec;
 use sp_core::RuntimeDebug;
 
 /// Something to identify a block.

@@ -15,12 +15,12 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::universal_exports::ensure_is_remote;
+use alloc::vec::Vec;
 use codec::{Compact, Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::traits::Get;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{AccountIdConversion, TrailingZeroInput, TryConvert};
-use core::marker::PhantomData;
-use alloc::vec::Vec;
 use xcm::latest::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 
@@ -461,8 +461,8 @@ impl<UniversalLocation, AccountId>
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use polkadot_primitives::AccountId;
 	use alloc::vec;
+	use polkadot_primitives::AccountId;
 
 	pub type ForeignChainAliasAccount<AccountId> =
 		HashedDescription<AccountId, LegacyDescribeForeignChainAccount>;

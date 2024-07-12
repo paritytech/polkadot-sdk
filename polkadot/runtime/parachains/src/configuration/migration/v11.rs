@@ -17,6 +17,7 @@
 //! A module that is responsible for migration of storage.
 
 use crate::configuration::{self, Config, Pallet};
+use alloc::vec::Vec;
 use frame_support::{
 	migrations::VersionedMigration,
 	pallet_prelude::*,
@@ -28,7 +29,6 @@ use polkadot_primitives::{
 	ApprovalVotingParams, AsyncBackingParams, ExecutorParams, NodeFeatures, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
-use alloc::vec::Vec;
 
 use polkadot_core_primitives::Balance;
 use sp_arithmetic::Perbill;

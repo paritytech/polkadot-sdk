@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::Config;
+use alloc::vec;
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchInfo;
 use scale_info::TypeInfo;
@@ -26,7 +27,6 @@ use sp_runtime::{
 		ValidTransaction,
 	},
 };
-use alloc::vec;
 
 /// Nonce check and increment to give replay protection for transactions.
 ///

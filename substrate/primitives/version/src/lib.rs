@@ -411,9 +411,9 @@ impl<T: GetNativeVersion> GetNativeVersion for std::sync::Arc<T> {
 #[cfg(feature = "serde")]
 mod apis_serialize {
 	use super::*;
+	use alloc::vec::Vec;
 	use impl_serde::serialize as bytes;
 	use serde::{de, ser::SerializeTuple, Serializer};
-	use alloc::vec::Vec;
 
 	#[derive(Serialize)]
 	struct ApiId<'a>(#[serde(serialize_with = "serialize_bytesref")] &'a super::ApiId, &'a u32);

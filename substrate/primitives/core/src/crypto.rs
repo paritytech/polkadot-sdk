@@ -18,8 +18,14 @@
 //! Cryptographic utilities.
 
 use crate::{ed25519, sr25519};
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::{format, string::String, vec};
+use alloc::{str, vec::Vec};
 use bip39::{Language, Mnemonic};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::hash::Hash;
+#[doc(hidden)]
+pub use core::ops::Deref;
 #[cfg(feature = "std")]
 use itertools::Itertools;
 #[cfg(feature = "std")]
@@ -27,15 +33,6 @@ use rand::{rngs::OsRng, RngCore};
 use scale_info::TypeInfo;
 pub use secrecy::{ExposeSecret, SecretString};
 use sp_runtime_interface::pass_by::PassByInner;
-#[doc(hidden)]
-pub use core::ops::Deref;
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use alloc::{
-	format, string::String,
-	vec,
-};
-use core::hash::Hash;
-use alloc::{str, vec::Vec};
 pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58AddressFormatRegistry};
 /// Trait to zeroize a memory buffer.
 pub use zeroize::Zeroize;

@@ -58,7 +58,9 @@ pub mod weights;
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -78,8 +80,6 @@ use sp_runtime::{
 	},
 	DispatchError, RuntimeDebug,
 };
-use core::{fmt::Debug, marker::PhantomData};
-use alloc::{vec::Vec};
 
 pub use pallet::*;
 pub use vesting_info::*;

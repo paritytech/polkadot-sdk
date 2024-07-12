@@ -152,6 +152,7 @@ pub mod block_flowchart {}
 mod tests;
 
 use codec::{Codec, Encode};
+use core::marker::PhantomData;
 use frame_support::{
 	defensive_assert,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
@@ -174,7 +175,6 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode,
 };
-use core::marker::PhantomData;
 
 #[cfg(feature = "try-runtime")]
 use ::{

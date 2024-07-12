@@ -152,9 +152,7 @@ pub trait TryState<BlockNumber> {
 #[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(all(feature = "tuples-128"), impl_for_tuples(128))]
-impl<BlockNumber: Clone + core::fmt::Debug + AtLeast32BitUnsigned> TryState<BlockNumber>
-	for Tuple
-{
+impl<BlockNumber: Clone + core::fmt::Debug + AtLeast32BitUnsigned> TryState<BlockNumber> for Tuple {
 	for_tuples!( where #( Tuple: crate::traits::PalletInfoAccess )* );
 	fn try_state(n: BlockNumber, targets: Select) -> Result<(), TryRuntimeError> {
 		match targets {

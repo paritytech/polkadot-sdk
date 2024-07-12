@@ -18,10 +18,10 @@
 
 use super::*;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
-use alloc::vec::Vec;
 
 /// Candidate's acceptance limitations for asynchronous backing per relay parent.
 #[derive(

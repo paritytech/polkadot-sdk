@@ -18,13 +18,13 @@
 //! Implementations for `nonfungibles` traits.
 
 use super::*;
+use alloc::vec::Vec;
 use frame_support::{
 	storage::KeyPrefixIterator,
 	traits::{tokens::nonfungibles::*, Get},
 	BoundedSlice,
 };
 use sp_runtime::{DispatchError, DispatchResult};
-use alloc::vec::Vec;
 
 impl<T: Config<I>, I: 'static> Inspect<<T as SystemConfig>::AccountId> for Pallet<T, I> {
 	type ItemId = T::ItemId;

@@ -73,9 +73,9 @@ mod v1 {
 		CandidatePendingAvailability as V1CandidatePendingAvailability, Config, Pallet,
 		PendingAvailability as V1PendingAvailability,
 	};
+	use alloc::{collections::vec_deque::VecDeque, vec::Vec};
 	use frame_support::{traits::UncheckedOnRuntimeUpgrade, weights::Weight};
 	use sp_core::Get;
-	use alloc::{collections::vec_deque::VecDeque, vec::Vec};
 
 	#[cfg(feature = "try-runtime")]
 	use codec::{Decode, Encode};

@@ -15,16 +15,16 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::xcm_config;
+use alloc::{boxed::Box, vec};
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::pallet_prelude::DispatchResult;
 use frame_system::RawOrigin;
 use polkadot_primitives::Balance;
 use polkadot_runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
-use core::marker::PhantomData;
 use westend_runtime_constants::currency::*;
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
-use alloc::{boxed::Box, vec};
 
 /// A type containing the encoding of the People Chain pallets in its runtime. Used to construct any
 /// remote calls. The codec index must correspond to the index of `IdentityMigrator` in the

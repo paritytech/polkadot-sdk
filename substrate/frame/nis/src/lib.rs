@@ -173,6 +173,7 @@ impl BenchmarkSetup for () {
 pub mod pallet {
 	use super::{FunInspect, FunMutate};
 	pub use crate::weights::WeightInfo;
+	use alloc::{vec, vec::Vec};
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{
@@ -195,7 +196,6 @@ pub mod pallet {
 		traits::{AccountIdConversion, Bounded, Convert, ConvertBack, Saturating, Zero},
 		Rounding, TokenError,
 	};
-	use alloc::{vec, vec::Vec};
 
 	type BalanceOf<T> =
 		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;

@@ -25,6 +25,7 @@
 pub mod migration;
 
 use crate::traits::{LeaseError, Leaser, Registrar};
+use alloc::{vec, vec::Vec};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, ReservableCurrency},
@@ -34,7 +35,6 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::{CheckedConversion, CheckedSub, Saturating, Zero};
-use alloc::{vec, vec::Vec};
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;

@@ -33,16 +33,16 @@ pub use sp_core::{
 };
 
 #[doc(hidden)]
+pub use alloc::vec::Vec;
+#[doc(hidden)]
 pub use codec;
+#[doc(hidden)]
+pub use core::ops::Deref;
 #[doc(hidden)]
 pub use scale_info;
 #[doc(hidden)]
 #[cfg(feature = "serde")]
 pub use serde;
-#[doc(hidden)]
-pub use core::ops::Deref;
-#[doc(hidden)]
-pub use alloc::vec::Vec;
 
 #[cfg(feature = "bandersnatch-experimental")]
 pub mod bandersnatch;

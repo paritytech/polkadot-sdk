@@ -17,11 +17,11 @@
 
 //! Traits for managing information attached to pallets and their constituents.
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::ops::Add;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_runtime::RuntimeDebug;
-use core::ops::Add;
-use alloc::{vec, vec::Vec};
 
 /// Provides information about the pallet itself and its setup in the runtime.
 ///

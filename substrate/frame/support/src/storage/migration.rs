@@ -22,8 +22,8 @@ use crate::{
 	storage::{storage_prefix, unhashed},
 	StorageHasher, Twox128,
 };
-use codec::{Decode, Encode};
 use alloc::{vec, vec::Vec};
+use codec::{Decode, Encode};
 
 use super::PrefixIterator;
 

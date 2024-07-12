@@ -29,8 +29,9 @@ pub mod migration;
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+use core::{marker::PhantomData, result::Result};
 use frame_support::{
 	dispatch::{
 		DispatchErrorWithPostInfo, GetDispatchInfo, PostDispatchInfo, WithPostDispatchInfo,
@@ -52,8 +53,6 @@ use sp_runtime::{
 	},
 	Either, RuntimeDebug,
 };
-use alloc::{boxed::Box, vec};
-use core::{marker::PhantomData, result::Result};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::{
 	ExecuteController, ExecuteControllerWeightInfo, InspectMessageQueues, QueryController,

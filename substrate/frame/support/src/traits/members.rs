@@ -17,11 +17,11 @@
 
 //! Traits for dealing with the idea of membership.
 
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_arithmetic::traits::AtLeast16BitUnsigned;
 use sp_runtime::DispatchResult;
-use core::marker::PhantomData;
-use alloc::vec::Vec;
 
 /// A trait for querying whether a type can be said to "contain" a value.
 pub trait Contains<T> {

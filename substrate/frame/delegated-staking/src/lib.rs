@@ -138,6 +138,7 @@ pub use pallet::*;
 
 use types::*;
 
+use core::convert::TryInto;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -156,7 +157,6 @@ use sp_runtime::{
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 use sp_staking::{Agent, Delegator, EraIndex, StakingInterface, StakingUnchecked};
-use core::convert::TryInto;
 
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;

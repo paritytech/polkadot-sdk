@@ -21,11 +21,11 @@ use frame_support::traits::StorageVersion;
 pub mod v1 {
 	use super::*;
 	use crate::disputes::{Config, Pallet};
+	use alloc::vec::Vec;
 	use frame_support::{
 		pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade, weights::Weight,
 	};
 	use polkadot_primitives::SessionIndex;
-	use alloc::vec::Vec;
 
 	#[storage_alias]
 	type SpamSlots<T: Config> = StorageMap<Pallet<T>, Twox64Concat, SessionIndex, Vec<u32>>;

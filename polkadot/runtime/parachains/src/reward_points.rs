@@ -22,9 +22,9 @@
 //! for the time being, although we will build schemes to do so in the future.
 
 use crate::{session_info, shared};
+use alloc::collections::btree_set::BTreeSet;
 use frame_support::traits::{Defensive, ValidatorSet};
 use polkadot_primitives::{SessionIndex, ValidatorIndex};
-use alloc::collections::btree_set::BTreeSet;
 
 /// The amount of era points given by backing a candidate that is included.
 pub const BACKING_POINTS: u32 = 20;

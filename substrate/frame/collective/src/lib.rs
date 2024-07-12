@@ -43,15 +43,15 @@
 
 extern crate alloc;
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::{marker::PhantomData, result};
 use scale_info::TypeInfo;
 use sp_io::storage;
 use sp_runtime::{
 	traits::{Dispatchable, Hash},
 	DispatchError, RuntimeDebug,
 };
-use core::{marker::PhantomData, result};
-use alloc::{boxed::Box, vec, vec::Vec};
 
 use frame_support::{
 	dispatch::{

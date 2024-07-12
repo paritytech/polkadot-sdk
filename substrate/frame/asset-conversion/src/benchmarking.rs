@@ -20,6 +20,7 @@
 use super::*;
 use crate::Pallet as AssetConversion;
 use alloc::vec;
+use core::marker::PhantomData;
 use frame_benchmarking::{v2::*, whitelisted_caller};
 use frame_support::{
 	assert_ok,
@@ -30,7 +31,6 @@ use frame_support::{
 };
 use frame_system::RawOrigin as SystemOrigin;
 use sp_core::Get;
-use core::marker::PhantomData;
 
 /// Benchmark Helper
 pub trait BenchmarkHelper<AssetKind> {

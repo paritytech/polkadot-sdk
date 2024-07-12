@@ -21,6 +21,7 @@ use crate::{
 	helpers, Call, Config, ElectionCompute, Error, FeasibilityError, Pallet, RawSolution,
 	ReadySolution, RoundSnapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
 };
+use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
 use frame_election_provider_support::{NposSolution, NposSolver, PerThing128, VoteWeight};
 use frame_support::{
@@ -39,7 +40,6 @@ use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageValueRef},
 	DispatchError, SaturatedConversion,
 };
-use alloc::{boxed::Box, vec::Vec};
 
 /// Storage key used to store the last block number at which offchain worker ran.
 pub(crate) const OFFCHAIN_LAST_BLOCK: &[u8] = b"parity/multi-phase-unsigned-election";
@@ -1016,6 +1016,7 @@ mod tests {
 		Event, InvalidTransaction, Phase, QueuedSolution, TransactionSource,
 		TransactionValidityError,
 	};
+	use alloc::vec;
 	use codec::Decode;
 	use frame_election_provider_support::IndexAssignment;
 	use frame_support::{assert_noop, assert_ok, traits::OffchainWorker};
@@ -1026,7 +1027,6 @@ mod tests {
 		traits::{Dispatchable, ValidateUnsigned, Zero},
 		ModuleError, PerU16,
 	};
-	use alloc::vec;
 
 	type Assignment = crate::unsigned::Assignment<Runtime>;
 

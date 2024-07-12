@@ -17,9 +17,9 @@
 //! Various implementations of `ContainsPair<Asset, Location>` or
 //! `Contains<(Location, Vec<Asset>)>`.
 
-use frame_support::traits::{Contains, ContainsPair, Get};
 use alloc::vec::Vec;
 use core::marker::PhantomData;
+use frame_support::traits::{Contains, ContainsPair, Get};
 use xcm::latest::{Asset, AssetFilter, AssetId, Location, WildAsset};
 
 /// Accepts an asset iff it is a native asset.

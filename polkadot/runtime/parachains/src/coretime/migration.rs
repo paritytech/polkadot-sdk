@@ -26,10 +26,12 @@ mod v_coretime {
 		coretime::{mk_coretime_call, Config, PartsOf57600, WeightInfo},
 		paras,
 	};
+	use alloc::{vec, vec::Vec};
 	#[cfg(feature = "try-runtime")]
 	use codec::Decode;
 	#[cfg(feature = "try-runtime")]
 	use codec::Encode;
+	use core::{iter, result};
 	#[cfg(feature = "try-runtime")]
 	use frame_support::ensure;
 	use frame_support::{
@@ -43,8 +45,6 @@ mod v_coretime {
 	use sp_arithmetic::traits::SaturatedConversion;
 	use sp_core::Get;
 	use sp_runtime::BoundedVec;
-	use alloc::{vec, vec::Vec};
-	use core::{iter, result};
 	use xcm::prelude::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
 
 	/// Return information about a legacy lease of a parachain.

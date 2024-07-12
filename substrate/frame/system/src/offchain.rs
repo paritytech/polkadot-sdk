@@ -56,13 +56,13 @@
 
 #![warn(missing_docs)]
 
+use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use codec::Encode;
 use sp_runtime::{
 	app_crypto::RuntimeAppPublic,
 	traits::{Extrinsic as ExtrinsicT, IdentifyAccount, One},
 	RuntimeDebug,
 };
-use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 
 /// Marker struct used to flag using all supported keys to sign a payload.
 pub struct ForAll {}

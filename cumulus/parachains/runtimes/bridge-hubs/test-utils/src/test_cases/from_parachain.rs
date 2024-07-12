@@ -22,6 +22,7 @@ use crate::{
 	test_data,
 };
 
+use alloc::{boxed::Box, vec};
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{LaneId, UnrewardedRelayersState};
 use bp_polkadot_core::parachains::ParaHash;
@@ -38,7 +39,6 @@ use sp_core::Get;
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::Header as HeaderT, AccountId32};
 use xcm::latest::prelude::*;
-use alloc::{boxed::Box, vec};
 
 /// Helper trait to test bridges with remote parachain.
 ///

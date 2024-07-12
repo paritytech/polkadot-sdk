@@ -16,12 +16,12 @@
 // limitations under the License.
 
 pub mod v1 {
+	use alloc::collections::btree_map::BTreeMap;
 	use frame_support::{
 		storage::unhashed,
 		traits::{Defensive, GetStorageVersion, OnRuntimeUpgrade},
 		BoundedVec,
 	};
-	use alloc::collections::btree_map::BTreeMap;
 
 	use crate::*;
 	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);

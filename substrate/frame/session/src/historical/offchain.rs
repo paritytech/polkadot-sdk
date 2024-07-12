@@ -23,12 +23,12 @@
 //! required data to the offchain validator set. This is used in conjunction with [`ProvingTrie`]
 //! and the off-chain indexing API.
 
+use alloc::vec::Vec;
 use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
 	KeyTypeId,
 };
 use sp_session::MembershipProof;
-use alloc::vec::Vec;
 
 use super::{shared, Config, IdentificationTuple, ProvingTrie};
 use crate::{Pallet as SessionModule, SessionIndex};

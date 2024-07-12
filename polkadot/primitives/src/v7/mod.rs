@@ -16,14 +16,17 @@
 
 //! `V7` Primitives.
 
+use alloc::{
+	vec,
+	vec::{IntoIter, Vec},
+};
 use bitvec::{field::BitField, slice::BitSlice, vec::BitVec};
 use codec::{Decode, Encode};
-use scale_info::TypeInfo;
 use core::{
 	marker::PhantomData,
 	slice::{Iter, IterMut},
 };
-use alloc::{vec, vec::{IntoIter, Vec}};
+use scale_info::TypeInfo;
 
 use sp_application_crypto::KeyTypeId;
 use sp_arithmetic::traits::{BaseArithmetic, Saturating};
@@ -171,10 +174,10 @@ pub type ValidatorSignature = validator_app::Signature;
 /// A declarations of storage keys where an external observer can find some interesting data.
 pub mod well_known_keys {
 	use super::{HrmpChannelId, Id, WellKnownKey};
+	use alloc::vec::Vec;
 	use codec::Encode as _;
 	use hex_literal::hex;
 	use sp_io::hashing::twox_64;
-	use alloc::vec::Vec;
 
 	// A note on generating these magic values below:
 	//

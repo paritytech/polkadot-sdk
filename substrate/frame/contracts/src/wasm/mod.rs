@@ -48,6 +48,7 @@ use crate::{
 	AccountIdOf, BadOrigin, BalanceOf, CodeHash, CodeInfoOf, CodeVec, Config, Error, Event,
 	HoldReason, Pallet, PristineCode, Schedule, Weight, LOG_TARGET,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::DispatchResult,
@@ -57,7 +58,6 @@ use frame_support::{
 use sp_core::Get;
 use sp_runtime::{DispatchError, RuntimeDebug};
 use wasmi::{CompilationMode, InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
-use alloc::vec::Vec;
 
 const BYTES_PER_PAGE: usize = 64 * 1024;
 

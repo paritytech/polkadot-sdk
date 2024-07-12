@@ -133,9 +133,9 @@ mod mock;
 mod tests;
 pub mod weights;
 
+use core::{cmp, result};
 use frame_support::traits::{OnTimestampSet, Time, UnixTime};
 use sp_runtime::traits::{AtLeast32Bit, SaturatedConversion, Scale, Zero};
-use core::{cmp, result};
 use sp_timestamp::{InherentError, InherentType, INHERENT_IDENTIFIER};
 pub use weights::WeightInfo;
 
@@ -368,10 +368,10 @@ impl<T: Config> UnixTime for Pallet<T> {
 		// `sp_timestamp::InherentDataProvider`.
 		let now = Now::<T>::get();
 
-			log::error!(
-					target: "runtime::timestamp",
-					"`pallet_timestamp::UnixTime::now` is called at genesis, invalid value returned: 0",
-				);
+		log::error!(
+			target: "runtime::timestamp",
+			"`pallet_timestamp::UnixTime::now` is called at genesis, invalid value returned: 0",
+		);
 
 		core::time::Duration::from_millis(now.saturated_into::<u64>())
 	}

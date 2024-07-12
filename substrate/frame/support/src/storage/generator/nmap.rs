@@ -40,8 +40,8 @@ use crate::{
 	},
 	Never,
 };
-use codec::{Decode, Encode, EncodeLike, FullCodec};
 use alloc::vec::Vec;
+use codec::{Decode, Encode, EncodeLike, FullCodec};
 
 /// Generator for `StorageNMap` used by `decl_storage` and storage types.
 ///
@@ -463,8 +463,8 @@ mod test_iterators {
 			unhashed,
 		},
 	};
-	use codec::Encode;
 	use alloc::vec;
+	use codec::Encode;
 
 	#[test]
 	fn n_map_iter_from() {

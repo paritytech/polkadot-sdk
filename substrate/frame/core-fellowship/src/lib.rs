@@ -59,12 +59,12 @@
 
 extern crate alloc;
 
+use alloc::boxed::Box;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::{fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Saturating, Zero};
 use sp_runtime::RuntimeDebug;
-use core::{fmt::Debug, marker::PhantomData};
-use alloc::boxed::Box;
 
 use frame_support::{
 	defensive,

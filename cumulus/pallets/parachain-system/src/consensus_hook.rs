@@ -18,8 +18,8 @@
 //! of parachain blocks ready to submit to the relay chain, as well as some basic implementations.
 
 use super::relay_state_snapshot::RelayChainStateProof;
-use frame_support::weights::Weight;
 use core::num::NonZeroU32;
+use frame_support::weights::Weight;
 
 /// The possible capacity of the unincluded segment.
 #[derive(Clone)]

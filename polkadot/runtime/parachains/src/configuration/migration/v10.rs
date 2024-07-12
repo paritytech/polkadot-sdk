@@ -17,6 +17,7 @@
 //! A module that is responsible for migration of storage.
 
 use crate::configuration::{Config, Pallet};
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, UncheckedOnRuntimeUpgrade},
@@ -28,7 +29,6 @@ use polkadot_primitives::{
 	LEGACY_MIN_BACKING_VOTES, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::Perbill;
-use alloc::vec::Vec;
 
 use super::v9::V9HostConfiguration;
 // All configuration of the runtime with respect to paras.

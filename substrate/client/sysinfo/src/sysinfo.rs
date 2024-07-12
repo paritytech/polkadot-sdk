@@ -26,7 +26,8 @@ use derive_more::From;
 use rand::{seq::SliceRandom, Rng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
-	fmt, fmt::{Display, Formatter},
+	fmt,
+	fmt::{Display, Formatter},
 	fs::File,
 	io::{Seek, SeekFrom, Write},
 	ops::{Deref, DerefMut},

@@ -16,13 +16,13 @@
 
 //! `PayOverXcm` struct for paying through XCM and getting the status back.
 
+use alloc::vec;
+use core::marker::PhantomData;
 use frame_support::traits::{
 	tokens::{Pay, PaymentStatus},
 	Get,
 };
 use sp_runtime::traits::TryConvert;
-use alloc::vec;
-use core::marker::PhantomData;
 use xcm::{opaque::lts::Weight, prelude::*};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 

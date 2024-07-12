@@ -259,6 +259,7 @@ pub mod migrations;
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use frame_support::{
 	impl_ensure_origin_with_arg_ignoring_arg,
 	pallet_prelude::*,
@@ -284,7 +285,6 @@ use sp_runtime::{
 	ArithmeticError::Overflow,
 	Percent, RuntimeDebug,
 };
-use alloc::vec::Vec;
 
 pub use weights::WeightInfo;
 

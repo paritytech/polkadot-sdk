@@ -117,7 +117,12 @@ pub mod weights;
 
 extern crate alloc;
 
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, MaxEncodedLen};
+use core::{
+	marker::PhantomData,
+	ops::{Rem, Sub},
+};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -134,11 +139,6 @@ use sp_runtime::{
 	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
 };
 use sp_staking::SessionIndex;
-use core::{
-	marker::PhantomData,
-	ops::{Rem, Sub},
-};
-use alloc::{boxed::Box, vec::Vec};
 
 pub use pallet::*;
 pub use weights::WeightInfo;

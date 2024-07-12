@@ -24,7 +24,9 @@ use crate::{
 	weights::WeightInfo,
 	BalanceOf, CodeHash, Config, DebugBufferVec, Error, SENTINEL,
 };
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
+use core::fmt;
 use frame_support::{
 	dispatch::DispatchInfo, ensure, pallet_prelude::DispatchResultWithPostInfo, parameter_types,
 	traits::Get, weights::Weight,
@@ -36,8 +38,6 @@ use sp_runtime::{
 	traits::{Bounded, Zero},
 	DispatchError, RuntimeDebug,
 };
-use core::fmt;
-use alloc::{boxed::Box, vec, vec::Vec};
 use wasmi::{core::HostError, errors::LinkerError, Linker, Memory, Store};
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;

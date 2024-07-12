@@ -87,7 +87,9 @@ pub mod weights;
 
 extern crate alloc;
 
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::{borrow::Borrow, cmp::Ordering, marker::PhantomData};
 use frame_support::{
 	dispatch::{DispatchResult, GetDispatchInfo, Parameter, RawOrigin},
 	ensure,
@@ -108,8 +110,6 @@ use sp_runtime::{
 	traits::{BadOrigin, Dispatchable, One, Saturating, Zero},
 	BoundedVec, DispatchError, RuntimeDebug,
 };
-use core::{borrow::Borrow, cmp::Ordering, marker::PhantomData};
-use alloc::{boxed::Box, vec::Vec};
 
 pub use pallet::*;
 pub use weights::WeightInfo;

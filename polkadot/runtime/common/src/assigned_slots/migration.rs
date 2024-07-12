@@ -18,9 +18,9 @@ use super::{Config, MaxPermanentSlots, MaxTemporarySlots, Pallet, LOG_TARGET};
 use frame_support::traits::{Get, GetStorageVersion, UncheckedOnRuntimeUpgrade};
 
 #[cfg(feature = "try-runtime")]
-use frame_support::ensure;
-#[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
+#[cfg(feature = "try-runtime")]
+use frame_support::ensure;
 
 pub mod v1 {
 	use super::*;

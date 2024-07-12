@@ -18,12 +18,12 @@
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use cumulus_pallet_parachain_system as parachain_system;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use polkadot_primitives::PersistedValidationData;
-use alloc::vec::Vec;
 
 #[frame_support::pallet]
 pub mod pallet {

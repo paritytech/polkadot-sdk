@@ -103,8 +103,8 @@ pub mod weights;
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec::Vec};
 use crate::types::{AuthorityPropertiesOf, Suffix, Username};
+use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
 use frame_support::{
 	ensure,

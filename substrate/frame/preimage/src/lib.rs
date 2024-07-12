@@ -39,11 +39,11 @@ pub mod weights;
 
 extern crate alloc;
 
+use alloc::{borrow::Cow, vec::Vec};
 use sp_runtime::{
 	traits::{BadOrigin, Hash, Saturating},
 	Perbill,
 };
-use alloc::{borrow::Cow, vec::Vec};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{

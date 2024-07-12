@@ -16,13 +16,13 @@
 
 //! Common try-runtime only tests for runtimes.
 
+use alloc::collections::btree_set::BTreeSet;
 use frame_support::{
 	dispatch::RawOrigin,
 	traits::{Get, Hooks},
 };
 use pallet_fast_unstake::{Pallet as FastUnstake, *};
 use pallet_staking::*;
-use alloc::collections::btree_set::BTreeSet;
 
 /// register all inactive nominators for fast-unstake, and progress until they have all been
 /// processed.

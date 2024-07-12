@@ -17,9 +17,9 @@
 //! Various implementations and utilities for matching and filtering `Location` and
 //! `InteriorLocation` types.
 
+use core::marker::PhantomData;
 use frame_support::traits::{Contains, Get};
 use sp_runtime::traits::MaybeEquivalence;
-use core::marker::PhantomData;
 use xcm::latest::{InteriorLocation, Location, NetworkId};
 
 /// An implementation of `Contains` that checks for `Location` or

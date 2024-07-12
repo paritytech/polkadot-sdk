@@ -23,6 +23,7 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use codec::Encode;
+use core::marker::PhantomData;
 use cumulus_primitives_core::{MessageSendError, UpwardMessageSender};
 use frame_support::{
 	defensive,
@@ -36,7 +37,6 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	SaturatedConversion,
 };
-use core::marker::PhantomData;
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion};
 use xcm_builder::{InspectMessageQueues, TakeRevenue};
 use xcm_executor::{

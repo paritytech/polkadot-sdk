@@ -25,6 +25,7 @@ use crate::{
 	disputes::{self, DisputesHandler as _, SlashingHandler as _},
 	dmp, hrmp, inclusion, paras, scheduler, session_info, shared,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{
 	traits::{OneSessionHandler, Randomness},
@@ -33,7 +34,6 @@ use frame_support::{
 use frame_system::limits::BlockWeights;
 use polkadot_primitives::{BlockNumber, ConsensusLog, SessionIndex, ValidatorId};
 use scale_info::TypeInfo;
-use alloc::vec::Vec;
 
 #[cfg(test)]
 mod tests;

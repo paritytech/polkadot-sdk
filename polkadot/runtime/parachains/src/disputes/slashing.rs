@@ -50,6 +50,12 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 
+use alloc::{
+	boxed::Box,
+	collections::{btree_map::Entry, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
 use polkadot_primitives::{
 	slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes, SlashingOffenceKind},
 	CandidateHash, SessionIndex, ValidatorId, ValidatorIndex,
@@ -65,11 +71,6 @@ use sp_runtime::{
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::offence::{Kind, Offence, OffenceError, ReportOffence};
-use alloc::{
-	boxed::Box,
-	collections::{btree_map::Entry, btree_set::BTreeSet},
-	vec, vec::Vec,
-};
 
 const LOG_TARGET: &str = "runtime::parachains::slashing";
 

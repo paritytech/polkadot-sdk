@@ -19,13 +19,13 @@
 pub mod v5;
 
 use crate::{Config, OverweightIndex, Pallet, QueueConfig, QueueConfigData, DEFAULT_POV_SIZE};
+use alloc::vec::Vec;
 use cumulus_primitives_core::XcmpMessageFormat;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{EnqueueMessage, StorageVersion, UncheckedOnRuntimeUpgrade},
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
-use alloc::vec::Vec;
 
 /// The in-code storage version.
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);

@@ -81,6 +81,7 @@ pub mod weights;
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::*,
@@ -89,7 +90,6 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use sp_runtime::{traits::Dispatchable, DispatchResult};
-use alloc::vec::Vec;
 
 pub use pallet::*;
 pub use weights::*;

@@ -77,11 +77,11 @@ use sp_core::{
 	sr25519,
 };
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::format;
 use alloc::{vec, vec::Vec};
+use codec::{Decode, Encode, MaxEncodedLen};
+use scale_info::TypeInfo;
 
 pub mod curve;
 pub mod generic;

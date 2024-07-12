@@ -17,7 +17,6 @@
 
 //! Primitives for the runtime modules.
 
-use alloc::vec::Vec;
 use crate::{
 	generic::Digest,
 	scale_info::{MetaType, StaticTypeInfo, TypeInfo},
@@ -27,7 +26,10 @@ use crate::{
 	},
 	DispatchResult,
 };
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+#[doc(hidden)]
+pub use core::{fmt::Debug, marker::PhantomData};
 use impl_trait_for_tuples::impl_for_tuples;
 #[cfg(feature = "serde")]
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -45,8 +47,6 @@ pub use sp_core::{
 	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
 	ConstU16, ConstU32, ConstU64, ConstU8, Get, GetDefault, TryCollect, TypedGet,
 };
-#[doc(hidden)]
-pub use core::{fmt::Debug, marker::PhantomData};
 #[cfg(feature = "std")]
 use std::fmt::Display;
 #[cfg(feature = "std")]

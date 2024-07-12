@@ -28,10 +28,10 @@ use crate::{
 	},
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 };
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_runtime::SaturatedConversion;
-use alloc::{vec, vec::Vec};
 
 /// A type representing an *NMap* in storage. This structure associates an arbitrary number of keys
 /// with a value of a specified type stored on-chain.
@@ -655,9 +655,9 @@ mod test {
 		hash::{StorageHasher as _, *},
 		storage::types::{Key as NMapKey, ValueQuery},
 	};
+	use alloc::boxed::Box;
 	use sp_io::{hashing::twox_128, TestExternalities};
 	use sp_metadata_ir::{StorageEntryModifierIR, StorageHasherIR};
-	use alloc::boxed::Box;
 
 	struct Prefix;
 	impl StorageInstance for Prefix {

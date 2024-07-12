@@ -22,6 +22,7 @@
 use super::*;
 
 use crate as proxy;
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_noop, assert_ok, derive_impl,
@@ -29,7 +30,6 @@ use frame_support::{
 };
 use sp_core::H256;
 use sp_runtime::{traits::BlakeTwo256, BuildStorage, DispatchError, RuntimeDebug};
-use alloc::{vec, vec::Vec};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

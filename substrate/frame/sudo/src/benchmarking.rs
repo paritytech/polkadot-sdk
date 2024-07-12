@@ -19,9 +19,9 @@
 
 use super::*;
 use crate::Pallet;
+use alloc::{boxed::Box, vec};
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
-use alloc::{boxed::Box, vec};
 
 fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
 	let re: <T as Config>::RuntimeEvent = generic_event.into();

@@ -18,6 +18,7 @@
 //! A migration that unreserves all deposit and unlocks all stake held in the context of this
 //! pallet.
 
+use alloc::collections::btree_map::BTreeMap;
 use core::iter::Sum;
 use frame_support::{
 	pallet_prelude::OptionQuery,
@@ -27,7 +28,6 @@ use frame_support::{
 	Parameter, Twox64Concat,
 };
 use sp_runtime::{traits::Zero, Saturating};
-use alloc::collections::btree_map::BTreeMap;
 
 #[cfg(feature = "try-runtime")]
 const LOG_TARGET: &str = "runtime::tips::migrations::unreserve_deposits";

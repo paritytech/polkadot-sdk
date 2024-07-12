@@ -16,6 +16,7 @@
 
 //! Adapters to work with [`frame_support::traits::fungibles`] through XCM.
 
+use core::{marker::PhantomData, result};
 use frame_support::traits::{
 	tokens::{
 		fungibles,
@@ -26,7 +27,6 @@ use frame_support::traits::{
 	},
 	Contains, Get,
 };
-use core::{marker::PhantomData, result};
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{ConvertLocation, Error as MatchError, MatchesFungibles, TransactAsset};
 

@@ -19,11 +19,11 @@
 
 #[allow(deprecated)]
 use super::PreimageProvider;
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
+use core::{fmt::Debug, result::Result};
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Saturating, DispatchError, RuntimeDebug};
-use core::{fmt::Debug, result::Result};
-use alloc::vec::Vec;
 
 /// Information relating to the period of a scheduled task. First item is the length of the
 /// period and the second is the number of times it should be executed in total before the task

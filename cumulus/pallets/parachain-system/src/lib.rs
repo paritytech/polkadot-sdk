@@ -29,7 +29,9 @@
 
 extern crate alloc;
 
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::cmp;
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
 	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
@@ -56,8 +58,6 @@ use sp_runtime::{
 	},
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
-use core::cmp;
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
 use xcm_builder::InspectMessageQueues;
 

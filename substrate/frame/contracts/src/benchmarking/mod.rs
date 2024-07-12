@@ -34,6 +34,7 @@ use crate::{
 	wasm::BenchEnv,
 	Pallet as Contracts, *,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
@@ -47,7 +48,6 @@ use pallet_balances;
 use pallet_contracts_uapi::{CallFlags, ReturnErrorCode};
 use sp_runtime::traits::{Bounded, Hash};
 use wasm_instrument::parity_wasm::elements::{Instruction, Local, ValueType};
-use alloc::{vec, vec::Vec};
 
 /// How many runs we do per API benchmark.
 ///

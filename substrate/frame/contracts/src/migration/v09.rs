@@ -22,8 +22,8 @@ use crate::{
 	weights::WeightInfo,
 	CodeHash, Config, Determinism, Pallet, Weight, LOG_TARGET,
 };
-use codec::{Decode, Encode};
 use alloc::vec::Vec;
+use codec::{Decode, Encode};
 use frame_support::{
 	pallet_prelude::*, storage_alias, weights::WeightMeter, DefaultNoBound, Identity,
 };

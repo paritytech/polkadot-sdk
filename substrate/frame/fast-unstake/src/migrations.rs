@@ -17,13 +17,13 @@
 
 pub mod v1 {
 	use crate::{types::BalanceOf, *};
+	use alloc::vec::Vec;
 	use frame_support::{
 		storage::unhashed,
 		traits::{Defensive, Get, GetStorageVersion, OnRuntimeUpgrade},
 		weights::Weight,
 	};
 	use sp_staking::EraIndex;
-	use alloc::vec::Vec;
 
 	#[cfg(feature = "try-runtime")]
 	use frame_support::ensure;

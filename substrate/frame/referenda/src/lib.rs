@@ -66,7 +66,9 @@
 
 extern crate alloc;
 
+use alloc::boxed::Box;
 use codec::{Codec, Encode};
+use core::fmt::Debug;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -86,8 +88,6 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Bounded, Dispatchable, One, Saturating, Zero},
 	DispatchError, Perbill,
 };
-use core::fmt::Debug;
-use alloc::boxed::Box;
 
 mod branch;
 pub mod migration;

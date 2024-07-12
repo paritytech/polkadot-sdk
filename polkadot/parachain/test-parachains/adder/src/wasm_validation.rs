@@ -17,10 +17,10 @@
 //! WASM validation for adder parachain.
 
 use crate::{BlockData, HeadData};
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::panic;
 use polkadot_parachain_primitives::primitives::{HeadData as GenericHeadData, ValidationResult};
-use alloc::vec::Vec;
 
 #[no_mangle]
 pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
@@ -38,9 +38,7 @@ pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
 		head_data: GenericHeadData(new_head.encode()),
 		new_validation_code: None,
 		upward_messages: alloc::vec::Vec::new().try_into().expect("empty vec fits into bounds"),
-		horizontal_messages: alloc::vec::Vec::new()
-			.try_into()
-			.expect("empty vec fits into bounds"),
+		horizontal_messages: alloc::vec::Vec::new().try_into().expect("empty vec fits into bounds"),
 		processed_downward_messages: 0,
 		hrmp_watermark: params.relay_parent_number,
 	})

@@ -39,13 +39,6 @@
 use core::iter::Peekable;
 
 use crate::{configuration, initializer::SessionChangeNotification, paras};
-use frame_support::{pallet_prelude::*, traits::Defensive};
-use frame_system::pallet_prelude::BlockNumberFor;
-pub use polkadot_core_primitives::v2::BlockNumber;
-use polkadot_primitives::{
-	CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ScheduledCore, ValidatorIndex,
-};
-use sp_runtime::traits::One;
 use alloc::{
 	collections::{
 		btree_map::{self, BTreeMap},
@@ -53,6 +46,13 @@ use alloc::{
 	},
 	vec::Vec,
 };
+use frame_support::{pallet_prelude::*, traits::Defensive};
+use frame_system::pallet_prelude::BlockNumberFor;
+pub use polkadot_core_primitives::v2::BlockNumber;
+use polkadot_primitives::{
+	CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ScheduledCore, ValidatorIndex,
+};
+use sp_runtime::traits::One;
 
 pub mod common;
 
@@ -314,10 +314,8 @@ impl<T: Config> Pallet<T> {
 				.into_iter()
 				.filter(|(freed_index, _)| (freed_index.0 as usize) < c_len)
 				.for_each(|(freed_index, freed_reason)| {
-					match core::mem::replace(
-						&mut cores[freed_index.0 as usize],
-						CoreOccupied::Free,
-					) {
+					match core::mem::replace(&mut cores[freed_index.0 as usize], CoreOccupied::Free)
+					{
 						CoreOccupied::Free => {},
 						CoreOccupied::Paras(entry) => {
 							match freed_reason {

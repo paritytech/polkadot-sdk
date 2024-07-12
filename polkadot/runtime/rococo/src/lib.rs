@@ -22,7 +22,13 @@
 
 extern crate alloc;
 
+use alloc::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::cmp::Ordering;
 use frame_support::{
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	traits::FromContains,
@@ -70,8 +76,6 @@ use sp_consensus_beefy::{
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
 use sp_genesis_builder::PresetId;
-use alloc::{collections::{btree_map::BTreeMap, vec_deque::VecDeque}, vec, vec::Vec};
-use core::cmp::Ordering;
 
 use frame_support::{
 	construct_runtime, derive_impl,

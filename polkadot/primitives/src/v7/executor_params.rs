@@ -22,12 +22,12 @@
 //! done in `polkadot-node-core-pvf`.
 
 use crate::{BlakeTwo256, HashT as _, PvfExecKind, PvfPrepKind};
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::{ops::Deref, time::Duration};
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use core::{ops::Deref, time::Duration};
 
 /// Default maximum number of wasm values allowed for the stack during execution of a PVF.
 pub const DEFAULT_LOGICAL_STACK_MAX: u32 = 65536;

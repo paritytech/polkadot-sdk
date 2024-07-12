@@ -19,6 +19,7 @@
 //! Configuration can change only at session boundaries and is buffered until then.
 
 use crate::{inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND, shared};
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, DefaultNoBound};
 use frame_system::pallet_prelude::*;
@@ -31,7 +32,6 @@ use polkadot_primitives::{
 	MAX_POV_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill, Percent};
-use alloc::vec::Vec;
 
 #[cfg(test)]
 mod tests;

@@ -21,8 +21,8 @@
 
 extern crate alloc;
 
-use codec::{Decode, Encode};
 use alloc::vec::Vec;
+use codec::{Decode, Encode};
 
 sp_api::decl_runtime_apis! {
 	pub trait NftsApi<AccountId, CollectionId, ItemId>

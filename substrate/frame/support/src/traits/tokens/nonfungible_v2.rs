@@ -29,9 +29,9 @@ use crate::{
 	dispatch::{DispatchResult, Parameter},
 	traits::Get,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_runtime::TokenError;
-use alloc::vec::Vec;
 
 /// Trait for providing an interface to a read-only NFT-like item.
 pub trait Inspect<AccountId> {

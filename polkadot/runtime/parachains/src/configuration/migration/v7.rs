@@ -17,6 +17,7 @@
 //! A module that is responsible for migration of storage.
 
 use crate::configuration::{self, Config, Pallet};
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, StorageVersion},
@@ -24,7 +25,6 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
-use alloc::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
 

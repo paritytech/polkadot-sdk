@@ -103,6 +103,7 @@ const LOG_TARGET: &str = "runtime::collator-selection";
 #[frame_support::pallet]
 pub mod pallet {
 	pub use crate::weights::WeightInfo;
+	use alloc::vec::Vec;
 	use core::ops::Div;
 	use frame_support::{
 		dispatch::{DispatchClass, DispatchResultWithPostInfo},
@@ -120,7 +121,6 @@ pub mod pallet {
 		RuntimeDebug,
 	};
 	use sp_staking::SessionIndex;
-	use alloc::vec::Vec;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);

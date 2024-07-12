@@ -342,13 +342,13 @@ pub mod primitives {
 /// This is already part of the [`prelude`].
 pub mod derive {
 	pub use codec::{Decode, Encode};
+	pub use core::fmt::Debug;
 	pub use frame_support::{
 		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,
 		PartialOrdNoBound, RuntimeDebugNoBound,
 	};
 	pub use scale_info::TypeInfo;
 	pub use sp_runtime::RuntimeDebug;
-	pub use core::fmt::Debug;
 }
 
 /// Access to all of the dependencies of this crate. In case the re-exports are not enough, this

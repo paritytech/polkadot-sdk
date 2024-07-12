@@ -28,10 +28,10 @@ use crate::{
 	},
 	AccountIdOf, CodeVec, Config, Error, Schedule, LOG_TARGET,
 };
-use codec::MaxEncodedLen;
-use sp_runtime::{traits::Hash, DispatchError};
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 use alloc::vec::Vec;
+use codec::MaxEncodedLen;
+use sp_runtime::{traits::Hash, DispatchError};
 use wasmi::{
 	core::ValType as WasmiValueType, CompilationMode, Config as WasmiConfig, Engine, ExternType,
 	Module, StackLimits,

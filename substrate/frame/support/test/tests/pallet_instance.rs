@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::any::TypeId;
 use frame_support::{
 	derive_impl,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays},
@@ -33,7 +34,6 @@ use sp_io::{
 	TestExternalities,
 };
 use sp_runtime::{DispatchError, ModuleError};
-use core::any::TypeId;
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {

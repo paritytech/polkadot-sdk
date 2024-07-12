@@ -25,7 +25,9 @@ use crate::{
 	BalanceOf, CodeHash, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter,
 	Error, TrieId, SENTINEL,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support::{
 	storage::child::{self, ChildInfo},
 	weights::{Weight, WeightMeter},
@@ -38,8 +40,6 @@ use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
 	BoundedBTreeMap, DispatchError, DispatchResult, RuntimeDebug,
 };
-use core::marker::PhantomData;
-use alloc::vec::Vec;
 
 use self::meter::Diff;
 

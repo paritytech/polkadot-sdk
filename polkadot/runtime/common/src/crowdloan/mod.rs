@@ -55,6 +55,7 @@ use crate::{
 	slot_range::SlotRange,
 	traits::{Auctioneer, Registrar},
 };
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	ensure,
@@ -77,7 +78,6 @@ use sp_runtime::{
 	},
 	MultiSignature, MultiSigner, RuntimeDebug,
 };
-use alloc::{vec, vec::Vec};
 
 type CurrencyOf<T> = <<T as Config>::Auctioneer as Auctioneer<BlockNumberFor<T>>>::Currency;
 type LeasePeriodOf<T> = <<T as Config>::Auctioneer as Auctioneer<BlockNumberFor<T>>>::LeasePeriod;
@@ -838,10 +838,10 @@ impl<T: Config> crate::traits::OnSwap for Pallet<T> {
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod crypto {
+	use alloc::vec::Vec;
 	use sp_core::ed25519;
 	use sp_io::crypto::{ed25519_generate, ed25519_sign};
 	use sp_runtime::{MultiSignature, MultiSigner};
-	use alloc::vec::Vec;
 
 	pub fn create_ed25519_pubkey(seed: Vec<u8>) -> MultiSigner {
 		ed25519_generate(0.into(), Some(seed)).into()

@@ -99,6 +99,8 @@
 
 extern crate alloc;
 
+use alloc::{boxed::Box, vec, vec::Vec};
+use core::{fmt::Debug, marker::PhantomData};
 use pallet_prelude::{BlockNumberFor, HeaderFor};
 #[cfg(feature = "std")]
 use serde::Serialize;
@@ -120,8 +122,6 @@ use sp_runtime::{
 };
 #[cfg(any(feature = "std", test))]
 use sp_std::map;
-use core::{fmt::Debug, marker::PhantomData};
-use alloc::{boxed::Box, vec, vec::Vec};
 use sp_version::RuntimeVersion;
 
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};

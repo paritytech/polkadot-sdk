@@ -34,9 +34,9 @@ use cumulus_primitives_core::{
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
 
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use scale_info::TypeInfo;
 use sp_inherents::InherentIdentifier;
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
 /// The identifier for the parachain inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1337";

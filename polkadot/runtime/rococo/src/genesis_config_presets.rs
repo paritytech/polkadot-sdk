@@ -17,6 +17,9 @@
 //! Genesis configs presets for the Rococo runtime
 
 use crate::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
+#[cfg(not(feature = "std"))]
+use alloc::format;
+use alloc::vec::Vec;
 use polkadot_primitives::{
 	vstaging::SchedulerParams, AccountId, AccountPublic, AssignmentId, ValidatorId,
 };
@@ -27,9 +30,6 @@ use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::IdentifyAccount;
-#[cfg(not(feature = "std"))]
-use alloc::format;
-use alloc::vec::Vec;
 
 /// Helper function to generate a crypto pair from seed
 fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {

@@ -18,9 +18,9 @@
 use codec::Codec;
 use scale_info::TypeInfo;
 
-use sp_core::crypto::{CryptoType, CryptoTypeId, IsWrappedBy, KeyTypeId, Pair, Public};
-use core::fmt::Debug;
 use alloc::vec::Vec;
+use core::fmt::Debug;
+use sp_core::crypto::{CryptoType, CryptoTypeId, IsWrappedBy, KeyTypeId, Pair, Public};
 
 /// Application-specific cryptographic object.
 ///

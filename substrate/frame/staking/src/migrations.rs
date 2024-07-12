@@ -382,9 +382,9 @@ pub mod v10 {
 pub mod v9 {
 	use super::*;
 	#[cfg(feature = "try-runtime")]
-	use codec::{Decode, Encode};
-	#[cfg(feature = "try-runtime")]
 	use alloc::vec::Vec;
+	#[cfg(feature = "try-runtime")]
+	use codec::{Decode, Encode};
 
 	/// Migration implementation that injects all validators into sorted list.
 	///

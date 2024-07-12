@@ -161,9 +161,9 @@ mod regular;
 mod union_of;
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use core::marker::PhantomData;
 
 use super::{
 	Fortitude::{Force, Polite},

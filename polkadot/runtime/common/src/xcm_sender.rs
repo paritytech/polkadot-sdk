@@ -16,7 +16,9 @@
 
 //! XCM sender for relay chain.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::traits::Get;
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::Id as ParaId;
@@ -25,11 +27,9 @@ use polkadot_runtime_parachains::{
 	dmp, FeeTracker,
 };
 use sp_runtime::FixedPointNumber;
-use core::marker::PhantomData;
 use xcm::prelude::*;
 use xcm_builder::InspectMessageQueues;
 use SendError::*;
-use alloc::vec::Vec;
 
 /// Simple value-bearing trait for determining/expressing the assets required to be paid for a
 /// messages to be delivered to a parachain.
@@ -259,11 +259,11 @@ impl EnsureForParachain for () {
 mod tests {
 	use super::*;
 	use crate::integration_tests::new_test_ext;
+	use alloc::vec;
 	use frame_support::{assert_ok, parameter_types};
 	use polkadot_runtime_parachains::FeeTracker;
 	use sp_runtime::FixedU128;
 	use xcm::MAX_XCM_DECODE_DEPTH;
-	use alloc::vec;
 
 	parameter_types! {
 		pub const BaseDeliveryFee: u128 = 300_000_000;

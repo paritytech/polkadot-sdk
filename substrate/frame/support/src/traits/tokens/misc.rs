@@ -19,13 +19,13 @@
 
 use crate::{traits::Contains, TypeInfo};
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+use core::fmt::Debug;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_core::RuntimeDebug;
 use sp_runtime::{
 	traits::{Convert, MaybeSerializeDeserialize},
 	ArithmeticError, DispatchError, TokenError,
 };
-use core::fmt::Debug;
 
 /// The origin of funds to be used for a deposit operation.
 #[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]

@@ -18,10 +18,10 @@
 //! Presets for the chain-spec demo runtime.
 
 use crate::pallets::{FooEnum, SomeFooData1, SomeFooData2};
+use alloc::vec;
 use serde_json::{json, to_string, Value};
 use sp_application_crypto::Ss58Codec;
 use sp_keyring::AccountKeyring;
-use alloc::vec;
 
 /// A demo preset with strings only.
 pub const PRESET_1: &str = "preset_1";

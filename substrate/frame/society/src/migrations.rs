@@ -18,9 +18,9 @@
 //! # Migrations for Society Pallet
 
 use super::*;
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::traits::{Defensive, DefensiveOption, Instance, UncheckedOnRuntimeUpgrade};
-use alloc::{vec, vec::Vec};
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;

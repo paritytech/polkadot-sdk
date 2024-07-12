@@ -18,10 +18,10 @@
 //! Storage key type.
 
 use crate::hash::{ReversibleStorageHasher, StorageHasher};
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use paste::paste;
 use scale_info::StaticTypeInfo;
-use alloc::{boxed::Box, vec::Vec};
 
 /// A type used exclusively by storage maps as their key type.
 ///

@@ -18,6 +18,7 @@
 //! A migration that unreserves all deposit and unlocks all stake held in the context of this
 //! pallet.
 
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use core::iter::Sum;
 use frame_support::{
 	pallet_prelude::ValueQuery,
@@ -28,7 +29,6 @@ use frame_support::{
 };
 use sp_core::Get;
 use sp_runtime::traits::Zero;
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
 const LOG_TARGET: &str = "elections_phragmen::migrations::unlock_and_unreserve_all_funds";
 
@@ -187,8 +187,8 @@ where
 	/// reported as staked by the pallet and the amount actually locked in `Balances`.
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		use codec::Encode;
 		use alloc::collections::btree_set::BTreeSet;
+		use codec::Encode;
 
 		// Get staked and deposited balances as reported by this pallet.
 		let (account_deposited_sums, account_staked_sums, _) =

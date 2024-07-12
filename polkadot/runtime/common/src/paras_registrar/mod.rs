@@ -19,6 +19,8 @@
 
 pub mod migration;
 
+use alloc::{vec, vec::Vec};
+use core::result;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -34,8 +36,6 @@ use polkadot_runtime_parachains::{
 	paras::{self, ParaGenesisArgs, UpgradeStrategy},
 	Origin, ParaLifecycle,
 };
-use core::result;
-use alloc::{vec, vec::Vec};
 
 use crate::traits::{OnSwap, Registrar};
 use codec::{Decode, Encode};
@@ -718,6 +718,7 @@ mod tests {
 	use crate::{
 		mock::conclude_pvf_checking, paras_registrar, traits::Registrar as RegistrarTrait,
 	};
+	use alloc::collections::btree_map::BTreeMap;
 	use frame_support::{
 		assert_noop, assert_ok, derive_impl,
 		error::BadOrigin,
@@ -736,7 +737,6 @@ mod tests {
 		transaction_validity::TransactionPriority,
 		BuildStorage, Perbill,
 	};
-	use alloc::collections::btree_map::BTreeMap;
 
 	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 	type Block = frame_system::mocking::MockBlockU32<Test>;

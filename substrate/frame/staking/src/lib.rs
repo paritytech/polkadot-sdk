@@ -306,6 +306,7 @@ mod pallet;
 
 extern crate alloc;
 
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, defensive_assert,
@@ -327,7 +328,6 @@ use sp_staking::{
 	StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};

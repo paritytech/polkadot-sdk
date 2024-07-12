@@ -18,7 +18,13 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	dmp, ensure_parachain, initializer, paras,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
 use codec::{Decode, Encode};
+use core::{fmt, mem};
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;
 use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
@@ -31,12 +37,6 @@ use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, Hash as HashT, UniqueSaturatedInto, Zero},
 	ArithmeticError,
 };
-use alloc::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	vec,
-	vec::Vec,
-};
-use core::{fmt, mem};
 
 pub use pallet::*;
 

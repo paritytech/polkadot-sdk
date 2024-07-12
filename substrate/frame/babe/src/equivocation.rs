@@ -33,10 +33,10 @@
 //! that the `ValidateUnsigned` for the BABE pallet is used in the runtime
 //! definition.
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use frame_support::traits::{Get, KeyOwnerProofSystem};
 use frame_system::pallet_prelude::HeaderFor;
 use log::{error, info};
-use alloc::{boxed::Box, vec, vec::Vec};
 
 use sp_consensus_babe::{AuthorityId, EquivocationProof, Slot, KEY_TYPE};
 use sp_runtime::{

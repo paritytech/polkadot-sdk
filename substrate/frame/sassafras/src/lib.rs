@@ -53,6 +53,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use log::{debug, error, trace, warn};
 use scale_info::TypeInfo;
 
+use alloc::vec::Vec;
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
 	traits::{Defensive, Get},
@@ -74,7 +75,6 @@ use sp_runtime::{
 	traits::{One, Zero},
 	BoundToRuntimeAppPublic,
 };
-use alloc::vec::Vec;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;

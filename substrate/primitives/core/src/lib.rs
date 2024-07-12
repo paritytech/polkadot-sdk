@@ -33,16 +33,16 @@ macro_rules! map {
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 #[doc(hidden)]
 pub use codec::{Decode, Encode, MaxEncodedLen};
+use core::ops::Deref;
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 pub use serde;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_runtime_interface::pass_by::{PassByEnum, PassByInner};
-use core::ops::Deref;
-use alloc::vec::Vec;
 
 pub use sp_debug_derive::RuntimeDebug;
 

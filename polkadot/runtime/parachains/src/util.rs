@@ -17,9 +17,9 @@
 //! Utilities that don't belong to any particular module but may draw
 //! on all modules.
 
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{HeadData, Id as ParaId, PersistedValidationData, ValidatorIndex};
-use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 
 use crate::{configuration, hrmp, paras};
 

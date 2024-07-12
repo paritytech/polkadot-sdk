@@ -179,12 +179,12 @@ pub mod traits;
 
 pub extern crate alloc;
 
+use alloc::{boxed::Box, vec::Vec};
+use core::fmt::Debug;
 use sp_runtime::{
 	traits::{Bounded, Saturating, Zero},
 	RuntimeDebug,
 };
-use core::fmt::Debug;
-use alloc::{boxed::Box, vec::Vec};
 
 pub use bounds::DataProviderBounds;
 pub use codec::{Decode, Encode};
@@ -205,10 +205,10 @@ use sp_runtime::TryRuntimeError;
 // re-export for the solution macro, with the dependencies of the macro.
 #[doc(hidden)]
 pub mod private {
+	pub use alloc;
 	pub use codec;
 	pub use scale_info;
 	pub use sp_arithmetic;
-	pub use alloc;
 
 	// Simple Extension trait to easily convert `None` from index closures to `Err`.
 	//

@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_core::RuntimeDebug;
-use alloc::vec::Vec;
 
 /// A string that wraps a `&'static str` in the runtime and `String`/`Vec<u8>` on decode.
 #[derive(Eq, RuntimeDebug, Clone)]

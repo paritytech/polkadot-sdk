@@ -20,6 +20,7 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	ensure,
@@ -27,7 +28,6 @@ use frame_support::{
 };
 use sp_core::defer;
 use sp_io::hashing::blake2_128;
-use core::{fmt::Debug, marker::PhantomData};
 use sp_weights::Weight;
 use xcm::latest::prelude::*;
 

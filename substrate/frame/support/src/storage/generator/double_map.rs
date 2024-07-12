@@ -20,8 +20,8 @@ use crate::{
 	storage::{self, storage_prefix, unhashed, KeyPrefixIterator, PrefixIterator, StorageAppend},
 	Never,
 };
-use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
 use alloc::vec::Vec;
+use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
 
 /// Generator for `StorageDoubleMap` used by `decl_storage`.
 ///
@@ -516,8 +516,8 @@ mod test_iterators {
 			unhashed,
 		},
 	};
-	use codec::Encode;
 	use alloc::vec;
+	use codec::Encode;
 
 	#[test]
 	fn double_map_iter_from() {

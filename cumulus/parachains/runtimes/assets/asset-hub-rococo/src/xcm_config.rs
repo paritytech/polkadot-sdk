@@ -511,8 +511,8 @@ impl pallet_assets::BenchmarkHelper<xcm::v3::Location> for XcmBenchmarkHelper {
 /// All configuration related to bridging
 pub mod bridging {
 	use super::*;
-	use assets_common::matching;
 	use alloc::collections::btree_set::BTreeSet;
+	use assets_common::matching;
 
 	// common/shared parameters
 	parameter_types! {

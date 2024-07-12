@@ -20,13 +20,13 @@
 
 extern crate alloc;
 
+use alloc::{vec, vec::Vec};
 use cumulus_pallet_xcm::{ensure_sibling_para, Origin as CumulusOrigin};
 use cumulus_primitives_core::ParaId;
 use frame_support::{parameter_types, BoundedVec};
 use frame_system::Config as SystemConfig;
 use sp_runtime::traits::Saturating;
 use xcm::latest::prelude::*;
-use alloc::{vec, vec::Vec};
 
 pub use pallet::*;
 

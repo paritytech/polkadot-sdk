@@ -17,11 +17,11 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
+use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use sp_application_crypto::AppCrypto;
 #[cfg(feature = "std")]
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
-use alloc::vec::Vec;
 
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::AppVerify;

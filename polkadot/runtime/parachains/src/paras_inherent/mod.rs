@@ -32,6 +32,11 @@ use crate::{
 	shared::{self, AllowedRelayParentsTracker},
 	ParaId,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
 use bitvec::prelude::BitVec;
 use frame_support::{
 	defensive,
@@ -53,10 +58,6 @@ use polkadot_primitives::{
 use rand::{seq::SliceRandom, SeedableRng};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Header as HeaderT, One};
-use alloc::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	vec, vec::Vec,
-};
 
 mod misc;
 mod weights;

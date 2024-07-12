@@ -17,6 +17,7 @@
 
 use crate::Config;
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::{dispatch::DispatchInfo, DefaultNoBound};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -25,7 +26,6 @@ use sp_runtime::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
 };
-use core::marker::PhantomData;
 
 /// Check to ensure that the sender is not the zero address.
 #[derive(Encode, Decode, DefaultNoBound, Clone, Eq, PartialEq, TypeInfo)]

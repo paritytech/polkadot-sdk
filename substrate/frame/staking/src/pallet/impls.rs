@@ -49,13 +49,13 @@ use sp_staking::{
 	StakingInterface,
 };
 
-use alloc::{boxed::Box, vec, vec::Vec};
 use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
 };
+use alloc::{boxed::Box, vec, vec::Vec};
 
 use super::pallet::*;
 
@@ -2159,8 +2159,8 @@ impl<T: Config> Pallet<T> {
 	/// = exposure.own + exposure.own).
 	/// * Paged exposures metadata (`ErasStakersOverview`) matches the paged exposures state.
 	fn check_paged_exposures() -> Result<(), TryRuntimeError> {
-		use sp_staking::PagedExposureMetadata;
 		use alloc::collections::btree_map::BTreeMap;
+		use sp_staking::PagedExposureMetadata;
 
 		// Sanity check for the paged exposure of the active era.
 		let mut exposures: BTreeMap<T::AccountId, PagedExposureMetadata<BalanceOf<T>>> =

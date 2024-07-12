@@ -14,9 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use sp_runtime::{traits::Saturating, RuntimeDebug};
-use alloc::{collections::{btree_map::BTreeMap, btree_set::BTreeSet}, vec::Vec};
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec::Vec,
+};
 use core::mem;
+use sp_runtime::{traits::Saturating, RuntimeDebug};
 use xcm::latest::{
 	Asset, AssetFilter, AssetId, AssetInstance, Assets,
 	Fungibility::{Fungible, NonFungible},
@@ -517,8 +520,8 @@ impl AssetsInHolding {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use xcm::latest::prelude::*;
 	use alloc::vec;
+	use xcm::latest::prelude::*;
 
 	#[allow(non_snake_case)]
 	/// Concrete fungible constructor

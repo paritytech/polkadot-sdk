@@ -17,13 +17,13 @@
 
 //! An MMR storage implementation.
 
+use alloc::{vec, vec::Vec};
 use codec::Encode;
+use core::iter::Peekable;
 use log::{debug, trace};
 use sp_core::offchain::StorageKind;
 use sp_io::offchain_index;
 use sp_mmr_primitives::{mmr_lib, mmr_lib::helper, utils::NodesUtils};
-use core::iter::Peekable;
-use alloc::{vec, vec::Vec};
 
 use crate::{
 	mmr::{Node, NodeOf},

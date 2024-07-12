@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use core::cmp::Ordering;
 use alloc::vec::Vec;
+use core::cmp::Ordering;
 
 /// A helper trait to allow calling retain while getting access
 /// to the index of the item in the `vec`.

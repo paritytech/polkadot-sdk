@@ -16,13 +16,13 @@
 
 use super::*;
 use crate::configuration::HostConfiguration;
+use alloc::vec;
 use frame_benchmarking::benchmarks;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use polkadot_primitives::{
 	HeadData, Id as ParaId, ValidationCode, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
 };
 use sp_runtime::traits::{One, Saturating};
-use alloc::vec;
 
 mod pvf_check;
 

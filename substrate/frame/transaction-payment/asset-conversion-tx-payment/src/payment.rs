@@ -17,6 +17,8 @@
 use super::*;
 use crate::Config;
 
+use alloc::vec;
+use core::marker::PhantomData;
 use frame_support::{
 	ensure,
 	traits::{fungible::Inspect, tokens::Balance},
@@ -28,8 +30,6 @@ use sp_runtime::{
 	transaction_validity::InvalidTransaction,
 	Saturating,
 };
-use core::marker::PhantomData;
-use alloc::vec;
 
 /// Handle withdrawing, refunding and depositing of transaction fees.
 pub trait OnChargeAssetTransaction<T: Config> {

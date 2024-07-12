@@ -54,6 +54,7 @@ use crate::{
 	NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash, UnappliedSlash,
 	ValidatorSlashInEra,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
@@ -65,7 +66,6 @@ use sp_runtime::{
 	DispatchResult, RuntimeDebug,
 };
 use sp_staking::{EraIndex, StakingInterface};
-use alloc::vec::Vec;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.

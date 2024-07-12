@@ -44,6 +44,7 @@ pub use weights::WeightInfo;
 
 extern crate alloc;
 
+use alloc::boxed::Box;
 use frame_support::traits::{
 	fungible::{Inspect as FungibleInspect, Mutate as FungibleMutate},
 	fungibles::{roles::ResetTeam, Inspect, Mutate, Refund},
@@ -52,7 +53,6 @@ use frame_support::traits::{
 };
 use pallet_asset_conversion::{PoolLocator, Pools};
 use sp_runtime::traits::{TryConvert, Zero};
-use alloc::boxed::Box;
 
 #[frame_support::pallet]
 pub mod pallet {

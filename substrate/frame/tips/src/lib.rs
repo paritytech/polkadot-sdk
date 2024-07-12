@@ -67,6 +67,7 @@ use sp_runtime::{
 	Percent, RuntimeDebug,
 };
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	ensure,
@@ -77,7 +78,6 @@ use frame_support::{
 	Parameter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use alloc::{vec, vec::Vec};
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;

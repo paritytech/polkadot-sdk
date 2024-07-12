@@ -92,7 +92,9 @@ pub mod __private {
 	pub use std_imports::*;
 
 	pub use crate::*;
+	pub use alloc::vec;
 	pub use codec::{self, Decode, DecodeLimit, Encode};
+	pub use core::{mem, slice};
 	pub use scale_info;
 	pub use sp_core::offchain;
 	#[cfg(not(feature = "std"))]
@@ -105,8 +107,6 @@ pub mod __private {
 		transaction_validity::TransactionValidity,
 		ExtrinsicInclusionMode, RuntimeString, TransactionOutcome,
 	};
-	pub use core::{mem, slice};
-	pub use alloc::vec;
 	pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
 
 	#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))]

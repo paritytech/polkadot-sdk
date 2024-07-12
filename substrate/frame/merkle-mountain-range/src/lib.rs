@@ -58,6 +58,7 @@
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use frame_support::weights::Weight;
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use log;
@@ -66,7 +67,6 @@ use sp_runtime::{
 	traits::{self, One, Saturating},
 	SaturatedConversion,
 };
-use alloc::vec::Vec;
 
 pub use pallet::*;
 pub use sp_mmr_primitives::{

@@ -16,8 +16,8 @@
 
 //! Runtime metric primitives.
 
-use codec::{Decode, Encode};
 use alloc::vec::Vec;
+use codec::{Decode, Encode};
 
 /// Runtime metric operations.
 #[derive(Encode, Decode)]

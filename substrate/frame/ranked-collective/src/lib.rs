@@ -43,6 +43,7 @@
 extern crate alloc;
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Saturating;
 use sp_runtime::{
@@ -50,7 +51,6 @@ use sp_runtime::{
 	ArithmeticError::Overflow,
 	DispatchError, Perbill, RuntimeDebug,
 };
-use core::marker::PhantomData;
 
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},

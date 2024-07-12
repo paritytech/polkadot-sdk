@@ -116,6 +116,7 @@ use crate::{
 	wasm::{CodeInfo, WasmBlob},
 };
 use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
+use core::fmt::Debug;
 use environmental::*;
 use frame_support::{
 	dispatch::{GetDispatchInfo, Pays, PostDispatchInfo, RawOrigin, WithPostDispatchInfo},
@@ -139,7 +140,6 @@ use sp_runtime::{
 	traits::{Convert, Dispatchable, Saturating, StaticLookup, Zero},
 	DispatchError, RuntimeDebug,
 };
-use core::fmt::Debug;
 
 pub use crate::{
 	address::{AddressGenerator, DefaultAddressGenerator},

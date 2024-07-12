@@ -77,6 +77,8 @@ pub mod pallet {
 
 	pub use crate::weights::WeightInfo;
 
+	use alloc::{vec, vec::Vec};
+	use core::ops::Deref;
 	use frame_support::{
 		dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 		ensure,
@@ -95,8 +97,6 @@ pub mod pallet {
 		self,
 		traits::{Saturating, Zero},
 	};
-	use core::ops::Deref;
-	use alloc::{vec, vec::Vec};
 
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -956,8 +956,8 @@ pub mod pallet {
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks {
 	use super::{pallet::Pallet as StateTrieMigration, *};
-	use frame_support::traits::fungible::{Inspect, Mutate};
 	use alloc::vec;
+	use frame_support::traits::fungible::{Inspect, Mutate};
 
 	// The size of the key seemingly makes no difference in the read/write time, so we make it
 	// constant.
@@ -1104,6 +1104,7 @@ mod benchmarks {
 mod mock {
 	use super::*;
 	use crate as pallet_state_trie_migration;
+	use alloc::{vec, vec::Vec};
 	use frame_support::{derive_impl, parameter_types, traits::Hooks, weights::Weight};
 	use frame_system::{EnsureRoot, EnsureSigned};
 	use sp_core::{
@@ -1111,7 +1112,6 @@ mod mock {
 		H256,
 	};
 	use sp_runtime::{traits::Header as _, BuildStorage, StorageChild};
-	use alloc::{vec, vec::Vec};
 
 	type Block = frame_system::mocking::MockBlockU32<Test>;
 

@@ -17,6 +17,7 @@
 
 //! Stuff for dealing with hashed preimages.
 
+use alloc::borrow::Cow;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
@@ -24,7 +25,6 @@ use sp_runtime::{
 	traits::{ConstU32, Hash},
 	DispatchError,
 };
-use alloc::borrow::Cow;
 
 pub type BoundedInline = crate::BoundedVec<u8, ConstU32<128>>;
 

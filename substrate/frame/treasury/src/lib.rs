@@ -86,11 +86,11 @@ extern crate alloc;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
+use alloc::{boxed::Box, collections::btree_map::BTreeMap};
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
 	Permill, RuntimeDebug,
 };
-use alloc::{boxed::Box, collections::btree_map::BTreeMap};
 
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},

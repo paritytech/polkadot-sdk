@@ -25,7 +25,13 @@
 //! interface.
 
 use crate::Config;
+use alloc::{
+	boxed::Box,
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec::Vec,
+};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::{iter, marker::PhantomData};
 use frame_election_provider_support::ScoreProvider;
 use frame_support::{
 	defensive, ensure,
@@ -34,15 +40,6 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Bounded, Zero};
-use alloc::{
-	boxed::Box,
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	vec::Vec,
-};
-use core::{
-	iter,
-	marker::PhantomData,
-};
 
 #[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
 use sp_runtime::TryRuntimeError;

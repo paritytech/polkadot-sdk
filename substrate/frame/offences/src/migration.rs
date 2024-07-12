@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::{Config, Kind, OffenceDetails, Pallet, Perbill, SessionIndex, LOG_TARGET};
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::ValueQuery,
 	storage_alias,
@@ -24,7 +25,6 @@ use frame_support::{
 	Twox64Concat,
 };
 use sp_staking::offence::OnOffenceHandler;
-use alloc::vec::Vec;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;

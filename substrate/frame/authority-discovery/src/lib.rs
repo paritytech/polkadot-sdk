@@ -170,6 +170,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 mod tests {
 	use super::*;
 	use crate as pallet_authority_discovery;
+	use alloc::vec;
 	use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 	use sp_application_crypto::Pair;
 	use sp_authority_discovery::AuthorityPair;
@@ -180,7 +181,6 @@ mod tests {
 		traits::{ConvertInto, IdentityLookup, OpaqueKeys},
 		BuildStorage, KeyTypeId, Perbill,
 	};
-	use alloc::vec;
 
 	type Block = frame_system::mocking::MockBlock<Test>;
 

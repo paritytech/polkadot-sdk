@@ -47,6 +47,7 @@
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::traits::Get;
 use frame_system::{
@@ -69,7 +70,6 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 	RuntimeDebug,
 };
-use alloc::vec::Vec;
 
 #[cfg(test)]
 mod tests;

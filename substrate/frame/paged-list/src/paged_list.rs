@@ -23,6 +23,7 @@
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 use core::marker::PhantomData;
 use frame_support::{
@@ -32,7 +33,6 @@ use frame_support::{
 	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
 use sp_runtime::traits::Saturating;
-use alloc::vec::Vec;
 
 pub type PageIndex = u32;
 pub type ValueIndex = u32;

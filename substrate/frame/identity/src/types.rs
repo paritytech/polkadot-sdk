@@ -16,7 +16,9 @@
 // limitations under the License.
 
 use super::*;
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::{fmt::Debug, iter::once, ops::Add};
 use frame_support::{
 	traits::{ConstU32, Get},
 	BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
@@ -29,8 +31,6 @@ use sp_runtime::{
 	traits::{Member, Zero},
 	RuntimeDebug,
 };
-use core::{fmt::Debug, iter::once, ops::Add};
-use alloc::{vec, vec::Vec};
 
 /// An identifier for a single name registrar/identity verification service.
 pub type RegistrarIndex = u32;

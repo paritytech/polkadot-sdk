@@ -52,13 +52,13 @@ pub use weights::WeightInfo;
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use bounded_collections::BoundedBTreeSet;
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, ChannelStatus, GetChannelInfo, MessageSendError,
 	ParaId, XcmpMessageFormat, XcmpMessageHandler, XcmpMessageSource,
 };
-use alloc::vec::Vec;
 
 use frame_support::{
 	defensive, defensive_assert,

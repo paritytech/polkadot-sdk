@@ -21,6 +21,11 @@ use crate::{
 	scheduler::{self, common::AssignmentProvider, CoreOccupied, ParasEntry},
 	session_info, shared,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
@@ -38,11 +43,6 @@ use sp_runtime::{
 	generic::Digest,
 	traits::{Header as HeaderT, One, TrailingZeroInput, Zero},
 	RuntimeAppPublic,
-};
-use alloc::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
-	vec::Vec,
-	vec,
 };
 
 fn mock_validation_code() -> ValidationCode {

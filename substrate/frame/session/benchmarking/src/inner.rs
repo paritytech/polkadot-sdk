@@ -18,8 +18,8 @@
 //! Benchmarks for the Session Pallet.
 // This is separated into its own crate due to cyclic dependency issues.
 
-use sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
 use alloc::{vec, vec::Vec};
+use sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
 
 use codec::Decode;
 use frame_benchmarking::v1::benchmarks;

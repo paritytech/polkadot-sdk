@@ -17,6 +17,7 @@
 //! A module that is responsible for migration of storage.
 
 use crate::configuration::{self, Config, Pallet};
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, StorageVersion},
@@ -28,7 +29,6 @@ use polkadot_primitives::{
 	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::Perbill;
-use alloc::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
 

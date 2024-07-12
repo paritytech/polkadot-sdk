@@ -113,8 +113,10 @@ use crate::{
 	initializer::SessionChangeNotification,
 	shared,
 };
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use codec::{Decode, Encode};
+use core::{cmp, mem};
 use frame_support::{pallet_prelude::*, traits::EstimateNextSessionRotation, DefaultNoBound};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
@@ -127,8 +129,6 @@ use sp_runtime::{
 	traits::{AppVerify, One, Saturating},
 	DispatchResult, SaturatedConversion,
 };
-use alloc::{collections::btree_set::BTreeSet, vec::Vec};
-use core::{cmp, mem};
 
 use serde::{Deserialize, Serialize};
 

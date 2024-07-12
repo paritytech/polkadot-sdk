@@ -16,12 +16,12 @@
 
 extern crate alloc;
 
+use alloc::collections::btree_map::BTreeMap;
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
 };
 use polkadot_primitives::UpgradeGoAhead;
 use sp_runtime::traits::HashingFor;
-use alloc::collections::btree_map::BTreeMap;
 use sp_trie::PrefixedMemoryDB;
 
 /// Builds a sproof (portmanteau of 'spoof' and 'proof') of the relay chain state.

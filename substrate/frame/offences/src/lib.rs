@@ -28,9 +28,9 @@ mod tests;
 
 extern crate alloc;
 
-use core::marker::PhantomData;
 use alloc::vec::Vec;
 use codec::Encode;
+use core::marker::PhantomData;
 use frame_support::weights::Weight;
 use sp_runtime::{traits::Hash, Perbill};
 use sp_staking::{

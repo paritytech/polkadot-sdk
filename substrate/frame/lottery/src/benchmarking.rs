@@ -22,6 +22,7 @@
 use super::*;
 
 use crate::Pallet as Lottery;
+use alloc::{boxed::Box, vec};
 use frame_benchmarking::{
 	v1::{account, whitelisted_caller, BenchmarkError},
 	v2::*,
@@ -32,7 +33,6 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::{Bounded, Zero};
-use alloc::{boxed::Box, vec};
 
 // Set up and start a lottery
 fn setup_lottery<T: Config>(repeat: bool) -> Result<(), &'static str> {

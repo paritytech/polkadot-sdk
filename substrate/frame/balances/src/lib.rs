@@ -152,7 +152,9 @@ pub mod weights;
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use codec::{Codec, MaxEncodedLen};
+use core::{cmp, fmt::Debug, mem, result};
 use frame_support::{
 	ensure,
 	pallet_prelude::DispatchResult,
@@ -178,8 +180,6 @@ use sp_runtime::{
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
 };
-use core::{cmp, fmt::Debug, mem, result};
-use alloc::vec::Vec;
 pub use types::{
 	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
 };
@@ -873,9 +873,7 @@ pub mod pallet {
 		/// or any other kind of fees, though). Will be at most `free_balance`.
 		///
 		/// This requires that the account stays alive.
-		pub fn usable_balance_for_fees(
-			who: impl core::borrow::Borrow<T::AccountId>,
-		) -> T::Balance {
+		pub fn usable_balance_for_fees(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			<Self as fungible::Inspect<_>>::reducible_balance(who.borrow(), Protect, Polite)
 		}
 

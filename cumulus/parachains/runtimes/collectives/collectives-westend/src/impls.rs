@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::OriginCaller;
+use core::{cmp::Ordering, marker::PhantomData};
 use frame_support::{
 	dispatch::DispatchResultWithPostInfo,
 	traits::{Currency, PrivilegeCmp},
@@ -21,7 +22,6 @@ use frame_support::{
 };
 use pallet_alliance::{ProposalIndex, ProposalProvider};
 use sp_runtime::DispatchError;
-use core::{cmp::Ordering, marker::PhantomData};
 
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 

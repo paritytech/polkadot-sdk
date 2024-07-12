@@ -35,6 +35,7 @@
 //! that the `ValidateUnsigned` for the GRANDPA pallet is used in the runtime
 //! definition.
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{self as codec, Decode, Encode};
 use frame_support::traits::{Get, KeyOwnerProofSystem};
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -52,7 +53,6 @@ use sp_staking::{
 	offence::{Kind, Offence, OffenceReportSystem, ReportOffence},
 	SessionIndex,
 };
-use alloc::{boxed::Box, vec, vec::Vec};
 
 use super::{Call, Config, Error, Pallet, LOG_TARGET};
 
