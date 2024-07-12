@@ -1083,6 +1083,54 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#932" id="932">932</a>
 <a href="#933" id="933">933</a>
 <a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1891,6 +1939,54 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::BountyExtended { index: bounty_id });
 			<span class="prelude-val">Ok</span>(())
 		}
+	}
+
+	<span class="attr">#[pallet::hooks]
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+		</span><span class="kw">fn </span>try_state(_n: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
+			<span class="self">Self</span>::do_try_state()
+		}
+	}
+}
+
+<span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
+</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
+	<span class="doccomment">/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	</span><span class="kw">pub fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
+		<span class="self">Self</span>::try_state_bounties_count()<span class="question-mark">?</span>;
+
+		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="doccomment">/// # Invariants
+	///
+	/// * `BountyCount` should be greater or equals to the length of the number of items in
+	///   `Bounties`.
+	/// * `BountyCount` should be greater or equals to the length of the number of items in
+	///   `BountyDescriptions`.
+	/// * Number of items in `Bounties` should be the same as `BountyDescriptions` length.
+	</span><span class="kw">fn </span>try_state_bounties_count() -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
+		<span class="kw">let </span>bounties_length = Bounties::&lt;T, I&gt;::iter().count() <span class="kw">as </span>u32;
+
+		<span class="macro">ensure!</span>(
+			&lt;BountyCount&lt;T, I&gt;&gt;::get() &gt;= bounties_length,
+			<span class="string">"`BountyCount` must be grater or equals the number of `Bounties` in storage"
+		</span>);
+
+		<span class="kw">let </span>bounties_description_length = BountyDescriptions::&lt;T, I&gt;::iter().count() <span class="kw">as </span>u32;
+		<span class="macro">ensure!</span>(
+			&lt;BountyCount&lt;T, I&gt;&gt;::get() &gt;= bounties_description_length,
+			<span class="string">"`BountyCount` must be grater or equals the number of `BountiesDescriptions` in storage."
+		</span>);
+
+		<span class="macro">ensure!</span>(
+				bounties_length == bounties_description_length,
+				<span class="string">"Number of `Bounties` in storage must be the same as the Number of `BountiesDescription` in storage."
+		</span>);
+		<span class="prelude-val">Ok</span>(())
 	}
 }
 
