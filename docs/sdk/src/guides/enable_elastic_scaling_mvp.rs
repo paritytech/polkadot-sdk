@@ -121,13 +121,13 @@
 //! 1. Rename `BLOCK_PROCESSING_VELOCITY` to `MAX_BLOCK_PROCESSING_VELOCITY` and increase it to the
 //!    desired value. In this example, 3.
 //!
-//!      ```rust
+//!      ```ignore
 //!      const MAX_BLOCK_PROCESSING_VELOCITY: u32 = 3;
 //!      ```
 //!
 //! 2. Set the `MILLISECS_PER_BLOCK` to the desired value.
 //!
-//!      ```rust
+//!      ```ignore
 //!      const MILLISECS_PER_BLOCK: u32 =
 //!          RELAY_CHAIN_SLOT_DURATION_MILLIS / MAX_BLOCK_PROCESSING_VELOCITY;
 //!      ```
@@ -137,6 +137,6 @@
 //!
 //! 3. Increase the `UNINCLUDED_SEGMENT_CAPACITY` to the desired value.
 //!
-//!     ```rust
+//!     ```ignore
 //!     const UNINCLUDED_SEGMENT_CAPACITY: u32 = 2 * MAX_BLOCK_PROCESSING_VELOCITY + 1;
 //!     ```
