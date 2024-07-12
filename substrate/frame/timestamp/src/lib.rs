@@ -372,7 +372,6 @@ impl<T: Config> UnixTime for Pallet<T> {
 					target: "runtime::timestamp",
 					"`pallet_timestamp::UnixTime::now` is called at genesis, invalid value returned: 0",
 				);
-		}
 
 		core::time::Duration::from_millis(now.saturated_into::<u64>())
 	}
