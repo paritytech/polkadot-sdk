@@ -12,9 +12,9 @@ doc:
 
 
 crates:
-  - name: polkadot-network-bridge
-    bump: minor
   - name: polkadot-overseer
+    bump: minor
+  - name: polkadot-network-bridge
     bump: patch
   - name: polkadot-availability-distribution
     bump: patch
