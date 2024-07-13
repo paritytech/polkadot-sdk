@@ -17,7 +17,6 @@
 
 //! Storage migrations for the core-fellowship pallet.
 use super::*;
-use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	storage_alias,
@@ -25,6 +24,8 @@ use frame_support::{
 	BoundedVec,
 };
 
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 

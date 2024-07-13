@@ -68,7 +68,6 @@ pub mod v16;
 include!(concat!(env!("OUT_DIR"), "/migration_codegen.rs"));
 
 use crate::{weights::WeightInfo, Config, Error, MigrationInProgress, Pallet, Weight, LOG_TARGET};
-use alloc::vec::Vec;
 use codec::{Codec, Decode};
 use core::marker::PhantomData;
 use frame_support::{
@@ -79,6 +78,7 @@ use frame_support::{
 use sp_runtime::Saturating;
 
 #[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
