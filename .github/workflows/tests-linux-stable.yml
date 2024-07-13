@@ -96,6 +96,10 @@ jobs:
       - name: update forklift
         run: curl -o .forklift/forklift -L https://github.com/paritytech/forklift/releases/download/0.13.1-alpha/forklift_0.13.1-alpha_linux_amd64
       - run: chmod +x .forklift/forklift && .forklift/forklift version
+      
+      - run: rustup component add llvm-tools-preview
+      - run: mkdir -p ${{ github.workspace }}/target/coverage/result
+
       - name: script
         run: >
           time cargo
@@ -119,8 +123,7 @@ jobs:
           "
           --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
 
-      - run: rustup component add llvm-tools-preview
-      - run: mkdir -p target/coverage/result/
+      - run: ls -la ${{ github.workspace }}/target/coverage/
 
       - name: generate report
         run: >
@@ -130,13 +133,13 @@ jobs:
           -s .
           -t lcov
           --branch
-          -o target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
+          -o ${{ github.workspace }}/target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
 
       - name: upload report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report-${{ matrix.ci_node_index }}.lcov
-          path: target/coverage/report-${{ matrix.ci_node_index }}.lcov
+          path: ${{ github.workspace }}/target/coverage/report-${{ matrix.ci_node_index }}.lcov
 
   upload-reports:
     needs: [test-linux-stable]
