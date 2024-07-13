@@ -543,7 +543,9 @@ reason = "changed"
 [[crate]]
 name = "mmr-rpc"
 from = "35.0.0"
-to = "35.0.0"
+to = "35.0.1"
+bump = "patch"
+reason = "changed"
 
 [[crate]]
 name = "polkadot-primitives"
@@ -3121,9 +3123,8 @@ to = "0.1.0"
 [[crate]]
 name = "polkadot-parachain-bin"
 from = "5.0.0"
-to = "6.0.0"
-bump = "major"
-reason = "changed"
+to = "5.0.0"
+publish = false
 
 [[crate]]
 name = "polkadot-sdk"

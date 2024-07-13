@@ -8685,7 +8685,7 @@ dependencies = [
 
 [[package]]
 name = "mmr-rpc"
-version = "35.0.0"
+version = "35.0.1"
 dependencies = [
  "jsonrpsee",
  "parity-scale-codec",

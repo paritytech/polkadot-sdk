@@ -828,7 +828,7 @@ minimal-template-runtime = { path = "templates/minimal/runtime", version = "0.1.
 mixnet = { version = "0.7.0" }
 mmr-gadget = { path = "substrate/client/merkle-mountain-range", default-features = false, version = "37.0.0" }
 mmr-lib = { version = "0.5.2", package = "ckb-merkle-mountain-range" }
-mmr-rpc = { path = "substrate/client/merkle-mountain-range/rpc", default-features = false, version = "35.0.0" }
+mmr-rpc = { path = "substrate/client/merkle-mountain-range/rpc", default-features = false, version = "35.0.1" }
 mockall = { version = "0.11.3" }
 multiaddr = { version = "0.18.1" }
 multihash = { version = "0.19.1", default-features = false }

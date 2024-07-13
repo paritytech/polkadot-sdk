@@ -2128,7 +2128,7 @@ version = "37.0.0"
 path = "../substrate/client/merkle-mountain-range/rpc"
 default-features = false
 optional = true
-version = "35.0.0"
+version = "35.0.1"
 
 [dependencies.pallet-contracts-mock-network]
 path = "../substrate/frame/contracts/mock-network"
