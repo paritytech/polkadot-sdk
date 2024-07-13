@@ -1,12 +1,12 @@
 [package]
 name = "sp-arithmetic"
-version = "23.0.0"
+version = "26.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Minimal fixed point arithmetic primitives and types for runtime."
+description = "Minimal fixed point arithmetic primitives and types for runtime. (polkadot v1.14.0)"
 documentation = "https://docs.rs/sp-arithmetic"
 readme = "README.md"
 
@@ -26,13 +26,13 @@ num-traits = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 static_assertions = { workspace = true, default-features = true }
-sp-std = { workspace = true }
+sp-std.workspace = true
 docify = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
 primitive-types = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
+sp-crypto-hashing = { default-features = true, path = "../crypto/hashing" }
 rand = { workspace = true, default-features = true }
 
 [features]
@@ -42,7 +42,6 @@ std = [
 	"num-traits/std",
 	"scale-info/std",
 	"serde/std",
-	"sp-crypto-hashing/std",
 	"sp-std/std",
 ]
 # Serde support without relying on std features.

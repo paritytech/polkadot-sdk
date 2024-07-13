@@ -1,12 +1,12 @@
 [package]
 name = "pallet-transaction-payment-rpc-runtime-api"
-version = "28.0.0"
+version = "36.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "RPC runtime API for transaction payment FRAME pallet"
+description = "RPC runtime API for transaction payment FRAME pallet (polkadot v1.14.0)"
 readme = "README.md"
 
 [lints]
@@ -17,10 +17,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-pallet-transaction-payment = { workspace = true }
-sp-api = { workspace = true }
-sp-runtime = { workspace = true }
-sp-weights = { workspace = true }
+pallet-transaction-payment.workspace = true
+sp-api.workspace = true
+sp-runtime.workspace = true
+sp-weights.workspace = true
 
 [features]
 default = ["std"]

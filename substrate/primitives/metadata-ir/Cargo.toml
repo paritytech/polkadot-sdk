@@ -1,12 +1,12 @@
 [package]
 name = "sp-metadata-ir"
-version = "0.6.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Intermediate representation of the runtime metadata."
+description = "Intermediate representation of the runtime metadata. (polkadot v1.14.0)"
 documentation = "https://docs.rs/sp-metadata-ir"
 
 [lints]

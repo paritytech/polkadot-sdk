@@ -8,6 +8,7 @@ license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
+description = "sp-runtime-interface-test-wasm (polkadot v1.14.0)"
 
 [lints]
 workspace = true
@@ -17,10 +18,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 bytes = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime-interface = { workspace = true }
-sp-std = { workspace = true }
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime-interface.workspace = true
+sp-std.workspace = true
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

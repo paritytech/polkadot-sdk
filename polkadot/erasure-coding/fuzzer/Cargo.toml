@@ -5,15 +5,19 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 publish = false
+description = "erasure_coding_fuzzer (polkadot v1.14.0)"
 
 [lints]
 workspace = true
 
 [dependencies]
-polkadot-erasure-coding = { workspace = true, default-features = true }
+polkadot-erasure-coding.workspace = true
+polkadot-erasure-coding.default-features = true
 honggfuzz = { workspace = true }
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+polkadot-node-primitives.workspace = true
+polkadot-node-primitives.default-features = true
 
 [[bin]]
 name = "reconstruct"

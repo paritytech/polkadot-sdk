@@ -576,11 +576,6 @@ from = "20.0.0"
 to = "20.0.0"
 
 [[crate]]
-name = "sp-consensus-sassafras"
-from = "0.3.4"
-to = "0.3.4"
-
-[[crate]]
 name = "substrate-wasm-builder"
 from = "23.0.0"
 to = "23.0.0"
@@ -1219,11 +1214,6 @@ from = "35.0.0"
 to = "36.0.0"
 bump = "major"
 reason = "changed"
-
-[[crate]]
-name = "pallet-sassafras"
-from = "0.3.5"
-to = "0.3.5"
 
 [[crate]]
 name = "pallet-scheduler"

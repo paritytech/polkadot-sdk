@@ -1,12 +1,12 @@
 [package]
 name = "pallet-assets"
-version = "29.1.0"
+version = "37.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "FRAME asset management pallet"
+description = "FRAME asset management pallet (polkadot v1.14.0)"
 readme = "README.md"
 
 [lints]
@@ -20,20 +20,17 @@ codec = { workspace = true }
 impl-trait-for-tuples = "0.2.2"
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-std = { workspace = true }
-# Needed for various traits. In our case, `OnFinalize`.
-sp-runtime = { workspace = true }
-# Needed for type-safe access to storage DB.
-frame-support = { workspace = true }
-# `system` module provides us with all sorts of useful stuff and macros depend on it being around.
-frame-system = { workspace = true }
+sp-std.workspace = true
+sp-runtime.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
-sp-core = { workspace = true }
+sp-core.workspace = true
 
 [dev-dependencies]
-sp-std = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
+sp-std = { default-features = true, path = "../../primitives/std" }
+sp-io = { default-features = true, path = "../../primitives/io" }
+pallet-balances = { default-features = true, path = "../balances" }
 
 [features]
 default = ["std"]
@@ -43,10 +40,8 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
 	"scale-info/std",
 	"sp-core/std",
-	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 ]
@@ -54,12 +49,10 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

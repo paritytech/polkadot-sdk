@@ -1,8 +1,8 @@
 [package]
 name = "kitchensink-runtime"
-version = "3.0.0-dev"
+version = "3.0.0"
 authors.workspace = true
-description = "Substrate node kitchensink runtime."
+description = "Substrate node kitchensink runtime. (polkadot v1.14.0)"
 edition.workspace = true
 build = "build.rs"
 license = "Apache-2.0"
@@ -30,15 +30,10 @@ serde_json = { features = ["alloc", "arbitrary_precision"], workspace = true }
 
 # pallet-asset-conversion: turn on "num-traits" feature
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
-
 polkadot-sdk = { features = ["runtime", "tuples-96"], workspace = true }
-
-# shared code between runtime and node
-node-primitives = { workspace = true }
-
-# Example pallets that are not published:
-pallet-example-mbm = { workspace = true }
-pallet-example-tasks = { workspace = true }
+node-primitives.workspace = true
+pallet-example-mbm.workspace = true
+pallet-example-tasks.workspace = true
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

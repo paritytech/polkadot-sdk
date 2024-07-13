@@ -1,10 +1,10 @@
 [package]
 name = "slot-range-helper"
-version = "7.0.0"
+version = "14.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Helper crate for generating slot ranges for the Polkadot runtime."
+description = "Helper crate for generating slot ranges for the Polkadot runtime. (polkadot v1.14.0)"
 
 [lints]
 workspace = true
@@ -13,8 +13,8 @@ workspace = true
 paste = { workspace = true, default-features = true }
 enumn = { workspace = true }
 codec = { features = ["derive"], workspace = true }
-sp-std = { workspace = true }
-sp-runtime = { workspace = true }
+sp-std.workspace = true
+sp-runtime.workspace = true
 
 [features]
 default = ["std"]

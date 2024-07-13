@@ -1,12 +1,12 @@
 [package]
 name = "pallet-im-online"
-version = "27.0.0"
+version = "35.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "FRAME's I'm online pallet"
+description = "FRAME's I'm online pallet (polkadot v1.14.0)"
 readme = "README.md"
 
 [lints]
@@ -20,18 +20,18 @@ codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-authorship = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-authorship.workspace = true
 sp-application-crypto = { features = ["serde"], workspace = true }
 sp-core = { features = ["serde"], workspace = true }
-sp-io = { workspace = true }
+sp-io.workspace = true
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
-sp-std = { workspace = true }
+sp-std.workspace = true
 
 [dev-dependencies]
-pallet-session = { workspace = true, default-features = true }
+pallet-session = { default-features = true, path = "../session" }
 
 [features]
 default = ["std"]
@@ -42,7 +42,6 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-authorship/std",
-	"pallet-session/std",
 	"scale-info/std",
 	"sp-application-crypto/std",
 	"sp-core/std",
@@ -62,6 +61,5 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authorship/try-runtime",
-	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
 ]

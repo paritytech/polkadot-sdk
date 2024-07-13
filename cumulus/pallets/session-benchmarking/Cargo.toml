@@ -1,12 +1,12 @@
 [package]
 name = "cumulus-pallet-session-benchmarking"
-version = "9.0.0"
+version = "17.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "FRAME sessions pallet benchmarking"
+description = "FRAME sessions pallet benchmarking (polkadot v1.14.0)"
 readme = "README.md"
 
 [lints]
@@ -17,12 +17,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true }
-sp-std = { workspace = true }
-sp-runtime = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+sp-std.workspace = true
+sp-runtime.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
-pallet-session = { workspace = true }
+pallet-session.workspace = true
 
 [features]
 default = ["std"]

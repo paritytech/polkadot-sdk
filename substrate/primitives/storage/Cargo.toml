@@ -1,9 +1,9 @@
 [package]
 name = "sp-storage"
-version = "19.0.0"
+version = "21.0.0"
 authors.workspace = true
 edition.workspace = true
-description = "Storage related primitives"
+description = "Storage related primitives (polkadot v1.14.0)"
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
@@ -21,7 +21,7 @@ codec = { features = ["derive"], workspace = true }
 impl-serde = { optional = true, workspace = true }
 ref-cast = { workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
-sp-debug-derive = { workspace = true }
+sp-debug-derive.workspace = true
 
 [features]
 default = ["std"]

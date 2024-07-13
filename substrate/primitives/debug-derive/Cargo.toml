@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Macros to derive runtime debug implementation."
+description = "Macros to derive runtime debug implementation. (polkadot v1.14.0)"
 documentation = "https://docs.rs/sp-debug-derive"
 
 [lints]

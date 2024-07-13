@@ -5,14 +5,16 @@ version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Fixtures for testing contracts pallet."
+description = "Fixtures for testing contracts pallet. (polkadot v1.14.0)"
 
 [lints]
 workspace = true
 
 [dependencies]
-frame-system = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+frame-system.workspace = true
+frame-system.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
 anyhow = { workspace = true }
 
 [build-dependencies]

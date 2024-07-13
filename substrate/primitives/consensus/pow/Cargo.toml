@@ -1,8 +1,8 @@
 [package]
 name = "sp-consensus-pow"
-version = "0.32.0"
+version = "0.39.0"
 authors.workspace = true
-description = "Primitives for Aura consensus"
+description = "Primitives for Aura consensus (polkadot v1.14.0)"
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
@@ -17,9 +17,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-sp-api = { workspace = true }
-sp-core = { workspace = true }
-sp-runtime = { workspace = true }
+sp-api.workspace = true
+sp-core.workspace = true
+sp-runtime.workspace = true
 
 [features]
 default = ["std"]

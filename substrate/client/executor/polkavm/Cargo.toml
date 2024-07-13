@@ -1,12 +1,12 @@
 [package]
 name = "sc-executor-polkavm"
-version = "0.29.0"
+version = "0.32.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "PolkaVM executor for Substrate"
+description = "PolkaVM executor for Substrate (polkadot v1.14.0)"
 readme = "README.md"
 
 [lints]
@@ -18,6 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 log = { workspace = true }
 polkavm = { workspace = true }
-
-sc-executor-common = { workspace = true, default-features = true }
-sp-wasm-interface = { workspace = true, default-features = true }
+sc-executor-common.workspace = true
+sc-executor-common.default-features = true
+sp-wasm-interface.workspace = true
+sp-wasm-interface.default-features = true

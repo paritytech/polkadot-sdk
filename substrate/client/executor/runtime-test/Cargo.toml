@@ -8,6 +8,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 publish = false
 homepage = "https://substrate.io"
 repository.workspace = true
+description = "sc-runtime-test (polkadot v1.14.0)"
 
 [lints]
 workspace = true
@@ -16,11 +17,11 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-core = { workspace = true }
+sp-core.workspace = true
 sp-io = { features = ["improved_panic_error_reporting"], workspace = true }
-sp-runtime = { workspace = true }
-sp-runtime-interface = { workspace = true }
-sp-std = { workspace = true }
+sp-runtime.workspace = true
+sp-runtime-interface.workspace = true
+sp-std.workspace = true
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

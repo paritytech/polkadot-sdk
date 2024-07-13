@@ -1,9 +1,9 @@
 [package]
 name = "testnet-parachains-constants"
-version = "1.0.0"
+version = "8.0.0"
 authors.workspace = true
 edition.workspace = true
-description = "Common constants for Testnet Parachains runtimes"
+description = "Common constants for Testnet Parachains runtimes (polkadot v1.14.0)"
 license = "Apache-2.0"
 
 [lints]
@@ -14,19 +14,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 smallvec = { workspace = true, default-features = true }
-
-# Substrate
-frame-support = { workspace = true }
-sp-runtime = { workspace = true }
-
-# Polkadot
-polkadot-core-primitives = { workspace = true }
+frame-support.workspace = true
+sp-runtime.workspace = true
+polkadot-core-primitives.workspace = true
 rococo-runtime-constants = { optional = true, workspace = true }
 westend-runtime-constants = { optional = true, workspace = true }
-xcm = { workspace = true }
-
-# Cumulus
-cumulus-primitives-core = { workspace = true }
+xcm.workspace = true
+cumulus-primitives-core.workspace = true
 
 [features]
 default = ["std"]
