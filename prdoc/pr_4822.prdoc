@@ -12,12 +12,12 @@ doc:
 
 crates:
   - name: westend-runtime
-    bump: patch
+    bump: minor
   - name: kitchensink-runtime
     bump: patch
   - name: pallet-delegated-staking
     bump: patch
   - name: pallet-nomination-pools
-    bump: patch
+    bump: minor
   - name: sp-staking
     bump: patch
