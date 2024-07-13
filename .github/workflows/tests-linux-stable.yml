@@ -134,7 +134,7 @@ jobs:
           -t lcov
           --branch
           -o target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
-          --ignore "target/release/deps"
+          --ignore "/*"
           --log-level DEBUG
           --llvm
       - name: upload report
