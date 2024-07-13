@@ -21,3 +21,5 @@ crates:
     bump: minor
   - name: sp-staking
     bump: patch
+  - name: pallet-nomination-pools-runtime-api
+    bump: minor
