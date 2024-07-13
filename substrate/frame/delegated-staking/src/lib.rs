@@ -302,24 +302,20 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub fn remove_agent(
-			origin: OriginFor<T>,
-		) -> DispatchResult {
+		pub fn remove_agent(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let ledger = AgentLedger::<T>::get(&who).ok_or(Error::<T>::NotAgent)?;
 
-			ensure!(ledger.pending_slash == Zero::zero(), Error::<T>::NotAllowed);
-			ensure!(ledger.stakeable_balance() == Zero::zero(), Error::<T>::NotAllowed);
-			// ensure agent is not staking anymore.
-			ensure!(T::CoreStaking::status(&who).is_err(), Error::<T>::NotAllowed);
+			ensure!(
+				ledger.total_delegated == Zero::zero() &&
+					ledger.pending_slash == Zero::zero() &&
+					ledger.unclaimed_withdrawals == Zero::zero(),
+				Error::<T>::NotAllowed
+			);
 
 			// remove provider reference
 			let _ = frame_system::Pallet::<T>::dec_providers(&who).defensive();
-
-			// It is possible that there are some dangling delegators left in the system. They
-			// should be able to claim their funds back via `TODO(ank4n): add a new call.`
 			<Agents<T>>::remove(who);
-
 			Ok(())
 		}
 

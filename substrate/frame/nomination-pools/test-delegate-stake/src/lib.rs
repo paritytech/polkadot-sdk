@@ -152,9 +152,9 @@ fn pool_lifecycle_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 20, pool_id: 1, points: 10, balance: 10 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 20 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 20, balance: 0 },
 				PoolsEvent::Withdrawn { member: 21, pool_id: 1, points: 10, balance: 10 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 21 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 21, balance: 0 },
 			]
 		);
 
@@ -193,7 +193,7 @@ fn pool_lifecycle_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 10, pool_id: 1, points: 50, balance: 50 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 10 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 10, balance: 0 },
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
@@ -476,10 +476,10 @@ fn pool_slash_e2e() {
 			vec![
 				// 20 had unbonded 10 safely, and 10 got slashed by half.
 				PoolsEvent::Withdrawn { member: 20, pool_id: 1, balance: 10 + 5, points: 20 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 20 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 20, balance: 0 },
 				// 21 unbonded all of it after the slash
 				PoolsEvent::Withdrawn { member: 21, pool_id: 1, balance: 5 + 5, points: 15 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 21 }
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 21, balance: 0 }
 			]
 		);
 		assert_eq!(
@@ -525,7 +525,7 @@ fn pool_slash_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 10, pool_id: 1, balance: 10 + 15, points: 30 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 10 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 10, balance: 0 },
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
@@ -1160,7 +1160,7 @@ fn pool_migration_e2e() {
 			vec![
 				PoolsEvent::Withdrawn { member: 21, pool_id: 1, balance: 10, points: 10 },
 				// 21 was fully unbonding and removed from pool.
-				PoolsEvent::MemberRemoved { member: 21, pool_id: 1 },
+				PoolsEvent::MemberRemoved { member: 21, pool_id: 1, balance: 0 },
 				PoolsEvent::Withdrawn { member: 22, pool_id: 1, balance: 5, points: 5 },
 			]
 		);
@@ -1185,7 +1185,7 @@ fn pool_migration_e2e() {
 }
 
 #[test]
-fn pool_best_effort_release() {
+fn pool_no_dangling_delegation() {
 	new_test_ext().execute_with(|| {
 		ExistentialDeposit::set(1);
 		assert_eq!(Balances::minimum_balance(), 1);
@@ -1212,9 +1212,11 @@ fn pool_best_effort_release() {
 		);
 		assert_eq!(
 			delegated_staking_events_since_last_call(),
-			vec![
-				DelegatedStakingEvent::Delegated { agent: POOL1_BONDED, delegator: alice, amount: 40 },
-			]
+			vec![DelegatedStakingEvent::Delegated {
+				agent: POOL1_BONDED,
+				delegator: alice,
+				amount: 40
+			},]
 		);
 
 		assert_eq!(
@@ -1243,8 +1245,16 @@ fn pool_best_effort_release() {
 		assert_eq!(
 			delegated_staking_events_since_last_call(),
 			vec![
-				DelegatedStakingEvent::Delegated { agent: POOL1_BONDED, delegator: bob, amount: 20 },
-				DelegatedStakingEvent::Delegated { agent: POOL1_BONDED, delegator: charlie, amount: 20 },
+				DelegatedStakingEvent::Delegated {
+					agent: POOL1_BONDED,
+					delegator: bob,
+					amount: 20
+				},
+				DelegatedStakingEvent::Delegated {
+					agent: POOL1_BONDED,
+					delegator: charlie,
+					amount: 20
+				},
 			]
 		);
 
@@ -1256,15 +1266,11 @@ fn pool_best_effort_release() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 20 },
-			]
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 20 },]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
-			vec![
-				PoolsEvent::Unbonded { member: bob, pool_id: 1, balance: 20, points: 20, era: 4 }
-			]
+			vec![PoolsEvent::Unbonded { member: bob, pool_id: 1, balance: 20, points: 20, era: 4 }]
 		);
 
 		// this era will get slashed
@@ -1285,7 +1291,13 @@ fn pool_best_effort_release() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Unbonded { member: alice, pool_id: 1, balance: 10, points: 10, era: 5 },
-				PoolsEvent::Unbonded { member: charlie, pool_id: 1, balance: 10, points: 10, era: 5 },
+				PoolsEvent::Unbonded {
+					member: charlie,
+					pool_id: 1,
+					balance: 10,
+					points: 10,
+					era: 5
+				},
 			]
 		);
 
@@ -1311,8 +1323,8 @@ fn pool_best_effort_release() {
 				// unbonding pool of 20 for era 5 has been slashed to 10
 				PoolsEvent::UnbondingPoolSlashed { pool_id: 1, era: 5, balance: 10 },
 				// active stake of 40 has been slashed to half
-				PoolsEvent::PoolSlashed { pool_id: 1, balance: 20 }
-				// no slash to era 4 unbonding pool
+				PoolsEvent::PoolSlashed { pool_id: 1, balance: 20 } /* no slash to era 4
+				                                                     * unbonding pool */
 			]
 		);
 
@@ -1335,11 +1347,18 @@ fn pool_best_effort_release() {
 		assert_eq!(
 			delegated_staking_events_since_last_call(),
 			vec![
-				DelegatedStakingEvent::Slashed { agent: POOL1_BONDED, delegator: alice, amount: 20 },
-				DelegatedStakingEvent::Slashed { agent: POOL1_BONDED, delegator: charlie, amount: 10 },
+				DelegatedStakingEvent::Slashed {
+					agent: POOL1_BONDED,
+					delegator: alice,
+					amount: 20
+				},
+				DelegatedStakingEvent::Slashed {
+					agent: POOL1_BONDED,
+					delegator: charlie,
+					amount: 10
+				},
 			]
 		);
-
 
 		// go forward to an era after PostUnbondingPoolsWindow = 10 ends for era 5.
 		CurrentEra::<Runtime>::set(Some(15));
@@ -1363,35 +1382,41 @@ fn pool_best_effort_release() {
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
-			vec![PoolsEvent::Unbonded { member: charlie, pool_id: 1, balance: 5, points: 5, era: 18 }]
+			vec![PoolsEvent::Unbonded {
+				member: charlie,
+				pool_id: 1,
+				balance: 5,
+				points: 5,
+				era: 18
+			}]
 		);
 
-
-		// Bob can still withdraw worth all his points.
+		// When bob withdraws all, he gets all his locked funds back.
 		let bob_pre_withdraw_balance = Balances::free_balance(&bob);
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(bob), bob, 0));
-		assert_eq!(Balances::free_balance(&bob), bob_pre_withdraw_balance + 15);
-		// But some funds are locked forever.
-		assert_eq!(Balances::total_balance_on_hold(&bob), 5);
+		assert_eq!(Balances::free_balance(&bob), bob_pre_withdraw_balance + 20);
+		assert_eq!(Balances::total_balance_on_hold(&bob), 0);
+		assert!(!PoolMembers::<Runtime>::contains_key(bob));
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![
-				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 30 },
-			]
+			vec![StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 30 },]
 		);
 
 		assert_eq!(
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { pool_id: 1, member: bob, balance: 15, points: 20 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: bob },
+				// dangling delegation of 5 is released
+				PoolsEvent::MemberRemoved { pool_id: 1, member: bob, balance: 5 },
 			]
 		);
 		assert_eq!(
 			delegated_staking_events_since_last_call(),
 			vec![
 				DelegatedStakingEvent::Released { agent: POOL1_BONDED, delegator: bob, amount: 15 },
+				// the second release is the dangling delegation when member is removed.
+				DelegatedStakingEvent::Released { agent: POOL1_BONDED, delegator: bob, amount: 5 },
 			]
 		);
 
@@ -1405,23 +1430,23 @@ fn pool_best_effort_release() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![
-				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 5 },
-			]
+			vec![StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 5 },]
 		);
 
 		assert_eq!(
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { pool_id: 1, member: charlie, balance: 10, points: 15 },
-				PoolsEvent::MemberRemoved { member: charlie, pool_id: 1 }
+				PoolsEvent::MemberRemoved { member: charlie, pool_id: 1, balance: 0 }
 			]
 		);
 		assert_eq!(
 			delegated_staking_events_since_last_call(),
-			vec![
-				DelegatedStakingEvent::Released { agent: POOL1_BONDED, delegator: charlie, amount: 10 },
-			]
+			vec![DelegatedStakingEvent::Released {
+				agent: POOL1_BONDED,
+				delegator: charlie,
+				amount: 10
+			},]
 		);
 
 		// Set pools to destroying so alice can withdraw
@@ -1436,7 +1461,13 @@ fn pool_best_effort_release() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::StateChanged { pool_id: 1, new_state: PoolState::Destroying },
-				PoolsEvent::Unbonded { member: alice, pool_id: 1, points: 15, balance: 15, era: 21 }
+				PoolsEvent::Unbonded {
+					member: alice,
+					pool_id: 1,
+					points: 15,
+					balance: 15,
+					era: 21
+				}
 			]
 		);
 
@@ -1451,16 +1482,14 @@ fn pool_best_effort_release() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: alice, pool_id: 1, balance: 20, points: 25 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: alice },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: alice, balance: 0 },
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
 
-		// alice and charlie has no balances left on hold
+		// holds for all members are released.
 		assert_eq!(Balances::total_balance_on_hold(&alice), 0);
+		assert_eq!(Balances::total_balance_on_hold(&bob), 0);
 		assert_eq!(Balances::total_balance_on_hold(&charlie), 0);
-
-		// bob has some dangling hold left
-		assert_eq!(Balances::total_balance_on_hold(&bob), 5);
 	});
 }
