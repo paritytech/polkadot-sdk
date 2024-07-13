@@ -41,7 +41,12 @@ extern crate alloc;
 /// The exports are not stable and should not be relied on.
 #[doc(hidden)]
 pub mod __private {
-	pub use alloc::{boxed::Box, rc::Rc, vec, vec::{IntoIter, Vec}};
+	pub use alloc::{
+		boxed::Box,
+		rc::Rc,
+		vec,
+		vec::{IntoIter, Vec},
+	};
 	pub use codec;
 	pub use frame_metadata as metadata;
 	pub use log;

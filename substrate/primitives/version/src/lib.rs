@@ -42,11 +42,11 @@ use std::collections::HashSet;
 #[cfg(feature = "std")]
 use std::fmt;
 
+#[doc(hidden)]
+pub use alloc::borrow::Cow;
 use codec::{Decode, Encode, Input};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeString;
-#[doc(hidden)]
-pub use alloc::borrow::Cow;
 pub use sp_runtime::{create_runtime_str, StateVersion};
 #[doc(hidden)]
 pub use sp_std;

@@ -1268,11 +1268,11 @@ fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 						bp_asset_hub_westend::XcmBridgeHubRouterCall::report_bridge_status {
 							bridge_id: Default::default(),
 							is_congested: true,
-						}
+						},
 					)
 					.encode()
 					.into(),
-				}
+				},
 			]
 			.into()
 		},
@@ -1287,11 +1287,11 @@ fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 						bp_asset_hub_westend::XcmBridgeHubRouterCall::report_bridge_status {
 							bridge_id: Default::default(),
 							is_congested: false,
-						}
+						},
 					)
 					.encode()
 					.into(),
-				}
+				},
 			]
 			.into()
 		},

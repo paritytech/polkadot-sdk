@@ -32,6 +32,9 @@ mod trie_recorder;
 
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
+pub use alloc::{boxed::Box, slice};
+#[cfg(not(feature = "std"))]
+#[doc(hidden)]
 pub use bytes;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
@@ -42,9 +45,6 @@ pub use polkadot_parachain_primitives;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub use sp_runtime::traits::GetRuntimeBlockType;
-#[cfg(not(feature = "std"))]
-#[doc(hidden)]
-pub use alloc::{boxed::Box, slice};
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub use sp_std;

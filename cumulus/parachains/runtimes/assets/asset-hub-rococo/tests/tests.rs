@@ -1287,11 +1287,11 @@ mod asset_hub_rococo_tests {
 							bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
 								bridge_id: Default::default(),
 								is_congested: true,
-							}
+							},
 						)
 						.encode()
 						.into(),
-					}
+					},
 				]
 				.into()
 			},
@@ -1306,11 +1306,11 @@ mod asset_hub_rococo_tests {
 							bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
 								bridge_id: Default::default(),
 								is_congested: false,
-							}
+							},
 						)
 						.encode()
 						.into(),
-					}
+					},
 				]
 				.into()
 			},

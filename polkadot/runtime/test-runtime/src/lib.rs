@@ -22,7 +22,11 @@
 
 extern crate alloc;
 
-use alloc::{collections::{btree_map::BTreeMap, vec_deque::VecDeque}, vec, vec::Vec};
+use alloc::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 use codec::Encode;
 use pallet_transaction_payment::FungibleAdapter;
 
