@@ -184,7 +184,7 @@ where
 	}
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	env_logger::init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
