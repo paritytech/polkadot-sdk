@@ -123,8 +123,7 @@ jobs:
           "
           --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
 
-      - run: ls -la 
-      - run: ls -la target/coverage/
+      - run: ls -la
 
       - name: generate report
         run: >
