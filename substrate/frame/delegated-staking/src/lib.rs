@@ -302,6 +302,10 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Remove an account from being an `Agent`.
+		///
+		/// This can only be called if the agent has no delegated funds, no pending slashes and no
+		/// unclaimed withdrawals.
 		pub fn remove_agent(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let ledger = AgentLedger::<T>::get(&who).ok_or(Error::<T>::NotAgent)?;
