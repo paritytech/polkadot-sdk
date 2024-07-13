@@ -27,7 +27,7 @@
 //!
 //! Users must ensure that they register this pallet as an inherent provider.
 
-pub extern crate alloc;
+extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode};

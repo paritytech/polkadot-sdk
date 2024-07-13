@@ -105,7 +105,7 @@ pub fn expand_outer_origin(
 		#[derive(Clone)]
 		pub struct RuntimeOrigin {
 			pub caller: OriginCaller,
-			filter: #scrate::__private::alloc::rc::Rc<#scrate::__private::alloc::boxed::Box<dyn Fn(&<#runtime as #system_path::Config>::RuntimeCall) -> bool>>,
+			filter: #scrate::__private::Rc<#scrate::__private::Box<dyn Fn(&<#runtime as #system_path::Config>::RuntimeCall) -> bool>>,
 		}
 
 		#[cfg(not(feature = "std"))]
@@ -139,7 +139,7 @@ pub fn expand_outer_origin(
 			fn add_filter(&mut self, filter: impl Fn(&Self::Call) -> bool + 'static) {
 				let f = self.filter.clone();
 
-				self.filter = #scrate::__private::alloc::rc::Rc::new(#scrate::__private::alloc::boxed::Box::new(move |call| {
+				self.filter = #scrate::__private::Rc::new(#scrate::__private::Box::new(move |call| {
 					f(call) && filter(call)
 				}));
 			}
@@ -150,7 +150,7 @@ pub fn expand_outer_origin(
 					as #scrate::traits::Contains<<#runtime as #system_path::Config>::RuntimeCall>
 				>::contains;
 
-				self.filter = #scrate::__private::alloc::rc::Rc::new(#scrate::__private::alloc::boxed::Box::new(filter));
+				self.filter = #scrate::__private::Rc::new(#scrate::__private::Box::new(filter));
 			}
 
 			fn set_caller_from(&mut self, other: impl Into<Self>) {
@@ -275,7 +275,7 @@ pub fn expand_outer_origin(
 			fn from(x: OriginCaller) -> Self {
 				let mut o = RuntimeOrigin {
 					caller: x,
-					filter: #scrate::__private::alloc::rc::Rc::new(#scrate::__private::alloc::boxed::Box::new(|_| true)),
+					filter: #scrate::__private::Rc::new(#scrate::__private::Box::new(|_| true)),
 				};
 
 				#scrate::traits::OriginTrait::reset_filter(&mut o);

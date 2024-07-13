@@ -177,7 +177,7 @@ pub mod bounds;
 pub mod onchain;
 pub mod traits;
 
-pub extern crate alloc;
+extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
 use core::fmt::Debug;
@@ -205,7 +205,7 @@ use sp_runtime::TryRuntimeError;
 // re-export for the solution macro, with the dependencies of the macro.
 #[doc(hidden)]
 pub mod private {
-	pub use alloc;
+	pub use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 	pub use codec;
 	pub use scale_info;
 	pub use sp_arithmetic;

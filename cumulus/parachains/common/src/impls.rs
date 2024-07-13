@@ -24,7 +24,7 @@ use frame_support::traits::{
 };
 use pallet_asset_tx_payment::HandleCredit;
 use pallet_collator_selection::StakingPotAccountId;
-use sp_runtime::{alloc, traits::Zero};
+use sp_runtime::traits::Zero;
 use xcm::latest::{
 	Asset, AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here, Location,
 	Parent, WeightLimit,

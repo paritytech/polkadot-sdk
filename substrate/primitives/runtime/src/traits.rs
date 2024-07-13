@@ -2035,7 +2035,7 @@ macro_rules! impl_opaque_keys_inner {
 			/// The generated key pairs are stored in the keystore.
 			///
 			/// Returns the concatenated SCALE encoded public keys.
-			pub fn generate(seed: Option<$crate::alloc::vec::Vec<u8>>) -> $crate::alloc::vec::Vec<u8> {
+			pub fn generate(seed: Option<$crate::Vec<u8>>) -> $crate::Vec<u8> {
 				let keys = Self{
 					$(
 						$field: <
@@ -2051,7 +2051,7 @@ macro_rules! impl_opaque_keys_inner {
 			/// Converts `Self` into a `Vec` of `(raw public key, KeyTypeId)`.
 			pub fn into_raw_public_keys(
 				self,
-			) -> $crate::alloc::vec::Vec<($crate::alloc::vec::Vec<u8>, $crate::KeyTypeId)> {
+			) -> $crate::Vec<($crate::Vec<u8>, $crate::KeyTypeId)> {
 				let mut keys = Vec::new();
 				$(
 					keys.push((
@@ -2073,7 +2073,7 @@ macro_rules! impl_opaque_keys_inner {
 			/// Returns `None` when the decoding failed, otherwise `Some(_)`.
 			pub fn decode_into_raw_public_keys(
 				encoded: &[u8],
-			) -> Option<$crate::alloc::vec::Vec<($crate::alloc::vec::Vec<u8>, $crate::KeyTypeId)>> {
+			) -> Option<$crate::Vec<($crate::Vec<u8>, $crate::KeyTypeId)>> {
 				<Self as $crate::codec::Decode>::decode(&mut &encoded[..])
 					.ok()
 					.map(|s| s.into_raw_public_keys())

@@ -34,14 +34,14 @@
 extern crate self as frame_support;
 
 #[doc(hidden)]
-pub extern crate alloc;
+extern crate alloc;
 
 /// Private exports that are being used by macros.
 ///
 /// The exports are not stable and should not be relied on.
 #[doc(hidden)]
 pub mod __private {
-	pub use alloc;
+	pub use alloc::{boxed::Box, rc::Rc, vec, vec::{IntoIter, Vec}};
 	pub use codec;
 	pub use frame_metadata as metadata;
 	pub use log;
@@ -472,7 +472,7 @@ macro_rules! ord_parameter_types {
 	(IMPL $name:ident , $type:ty , $value:expr) => {
 		impl $crate::traits::SortedMembers<$type> for $name {
 			fn contains(t: &$type) -> bool { &$value == t }
-			fn sorted_members() -> $crate::alloc::vec::Vec<$type> { vec![$value] }
+			fn sorted_members() -> $crate::__private::Vec<$type> { vec![$value] }
 			fn count() -> usize { 1 }
 			#[cfg(feature = "runtime-benchmarks")]
 			fn add(_: &$type) {}

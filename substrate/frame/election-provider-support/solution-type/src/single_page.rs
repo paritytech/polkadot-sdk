@@ -40,7 +40,7 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 		let name = vote_field(1);
 		// NOTE: we use the visibility of the struct for the fields as well.. could be made better.
 		quote!(
-			#vis #name: _fepsp::alloc::vec::Vec<(#voter_type, #target_type)>,
+			#vis #name: _fepsp::Vec<(#voter_type, #target_type)>,
 		)
 	};
 
@@ -49,7 +49,7 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 			let field_name = vote_field(c);
 			let array_len = c - 1;
 			quote!(
-				#vis #field_name: _fepsp::alloc::vec::Vec<(
+				#vis #field_name: _fepsp::Vec<(
 					#voter_type,
 					[(#target_type, #weight_type); #array_len],
 					#target_type
@@ -147,8 +147,8 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 				self,
 				voter_at: impl Fn(Self::VoterIndex) -> Option<A>,
 				target_at: impl Fn(Self::TargetIndex) -> Option<A>,
-			) -> Result<_fepsp::alloc::vec::Vec<_feps::Assignment<A, #weight_type>>, _feps::Error> {
-				let mut #assignment_name: _fepsp::alloc::vec::Vec<_feps::Assignment<A, #weight_type>> = Default::default();
+			) -> Result<_fepsp::Vec<_feps::Assignment<A, #weight_type>>, _feps::Error> {
+				let mut #assignment_name: _fepsp::Vec<_feps::Assignment<A, #weight_type>> = Default::default();
 				#into_impl
 				Ok(#assignment_name)
 			}
@@ -165,10 +165,10 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 				all_edges
 			}
 
-			fn unique_targets(&self) -> _fepsp::alloc::vec::Vec<Self::TargetIndex> {
+			fn unique_targets(&self) -> _fepsp::Vec<Self::TargetIndex> {
 				// NOTE: this implementation returns the targets sorted, but we don't use it yet per
 				// se, nor is the API enforcing it.
-				use _fepsp::alloc::collections::btree_set::BTreeSet;
+				use _fepsp::BTreeSet;
 				let mut all_targets: BTreeSet<Self::TargetIndex> = BTreeSet::new();
 				let mut maybe_insert_target = |t: Self::TargetIndex| {
 					all_targets.insert(t);
@@ -361,7 +361,7 @@ pub(crate) fn into_impl(
 							let target = target_at(*t_idx).or_invalid_index()?;
 							Ok((target, *p))
 						})
-						.collect::<Result<_fepsp::alloc::vec::Vec<(A, #per_thing)>, _feps::Error>>()?;
+						.collect::<Result<_fepsp::Vec<(A, #per_thing)>, _feps::Error>>()?;
 
 					if sum >= #per_thing::one() {
 						return Err(_feps::Error::SolutionWeightOverflow);

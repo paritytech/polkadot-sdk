@@ -1763,7 +1763,6 @@ mod feasibility_check {
 		raw_solution, roll_to, EpochLength, ExtBuilder, MultiPhase, Runtime, SignedPhase,
 		TargetIndex, UnsignedPhase, VoterIndex,
 	};
-	use alloc::vec;
 	use frame_support::{assert_noop, assert_ok};
 
 	const COMPUTE: ElectionCompute = ElectionCompute::OnChain;

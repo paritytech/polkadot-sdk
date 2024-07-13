@@ -44,7 +44,7 @@ pub use polkadot_parachain_primitives;
 pub use sp_runtime::traits::GetRuntimeBlockType;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
-pub use alloc;
+pub use alloc::{boxed::Box, slice};
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub use sp_std;

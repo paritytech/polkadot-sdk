@@ -33,7 +33,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub extern crate alloc;
+extern crate alloc;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -45,6 +45,8 @@ use std::fmt;
 use codec::{Decode, Encode, Input};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeString;
+#[doc(hidden)]
+pub use alloc::borrow::Cow;
 pub use sp_runtime::{create_runtime_str, StateVersion};
 #[doc(hidden)]
 pub use sp_std;
@@ -147,7 +149,7 @@ pub type ApisVec = alloc::borrow::Cow<'static, [(ApiId, u32)]>;
 #[macro_export]
 macro_rules! create_apis_vec {
 	( $y:expr ) => {
-		$crate::alloc::borrow::Cow::Borrowed(&$y)
+		$crate::Cow::Borrowed(&$y)
 	};
 }
 

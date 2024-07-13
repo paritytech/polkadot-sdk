@@ -20,7 +20,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub extern crate alloc;
+extern crate alloc;
 
 pub use sp_core::crypto::{key_types, CryptoTypeId, DeriveJunction, KeyTypeId, Ss58Codec};
 #[doc(hidden)]
@@ -174,7 +174,7 @@ macro_rules! app_crypto_pair_common {
 			fn public(&self) -> Self::Public {
 				Public(self.0.public())
 			}
-			fn to_raw_vec(&self) -> $crate::alloc::vec::Vec<u8> {
+			fn to_raw_vec(&self) -> $crate::Vec<u8> {
 				self.0.to_raw_vec()
 			}
 		}
@@ -527,10 +527,10 @@ macro_rules! app_crypto_signature_common {
 			}
 		}
 
-		impl TryFrom<$crate::alloc::vec::Vec<u8>> for Signature {
+		impl TryFrom<$crate::Vec<u8>> for Signature {
 			type Error = ();
 
-			fn try_from(data: $crate::alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {
+			fn try_from(data: $crate::Vec<u8>) -> Result<Self, Self::Error> {
 				Self::try_from(&data[..])
 			}
 		}
