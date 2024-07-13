@@ -20,8 +20,7 @@
 use std::collections::BTreeMap;
 
 use frame_support::{
-	assert_noop, assert_ok, derive_impl,
-	parameter_types,
+	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{ConstU16, EitherOf, MapSuccess, Polling},
 };
 use sp_core::Get;

@@ -718,8 +718,7 @@ mod tests {
 		mock::conclude_pvf_checking, paras_registrar, traits::Registrar as RegistrarTrait,
 	};
 	use frame_support::{
-		assert_noop, assert_ok, derive_impl,
-		parameter_types,
+		assert_noop, assert_ok, derive_impl, parameter_types,
 		traits::{OnFinalize, OnInitialize},
 	};
 	use frame_system::limits;
