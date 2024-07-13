@@ -19,24 +19,25 @@
 //! `<BridgedName>` chain.
 
 use crate::{
-	messages_lane::{
+	messages::{
+		source::{
+			ensure_messages_pallet_active, read_client_state_from_both_chains,
+			SubstrateMessagesProof,
+		},
 		BatchProofTransaction, MessageLaneAdapter, ReceiveMessagesProofCallBuilder,
 		SubstrateMessageLane,
 	},
-	messages_source::{
-		ensure_messages_pallet_active, read_client_state_from_both_chains, SubstrateMessagesProof,
-	},
 	on_demand::OnDemandRelay,
+	proofs::to_raw_storage_proof,
 	TransactionParams,
 };
 
 use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
-	storage_keys::inbound_lane_data_key, ChainWithMessages as _, InboundLaneData, LaneId,
-	MessageNonce, UnrewardedRelayersState,
+	source_chain::FromBridgedChainMessagesDeliveryProof, storage_keys::inbound_lane_data_key,
+	ChainWithMessages as _, InboundLaneData, LaneId, MessageNonce, UnrewardedRelayersState,
 };
-use bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof;
 use messages_relay::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
 	message_lane_loop::{NoncesSubmitArtifacts, TargetClient, TargetClientState},
@@ -47,7 +48,7 @@ use relay_substrate_client::{
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
-use std::ops::RangeInclusive;
+use std::{convert::TryFrom, ops::RangeInclusive};
 
 /// Message receiving proof returned by the target Substrate node.
 pub type SubstrateMessagesDeliveryProof<C> =
@@ -231,19 +232,16 @@ where
 		SubstrateError,
 	> {
 		let (id, relayers_state) = self.unrewarded_relayers_state(id).await?;
-		let inbound_data_key = bp_messages::storage_keys::inbound_lane_data_key(
+		let storage_keys = vec![inbound_lane_data_key(
 			P::SourceChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
 			&self.lane_id,
-		);
-		let proof = self
-			.target_client
-			.prove_storage(id.hash(), vec![inbound_data_key])
-			.await?
-			.into_iter_nodes()
-			.collect();
+		)];
+
+		let storage_proof =
+			self.target_client.prove_storage(id.hash(), storage_keys.clone()).await?;
 		let proof = FromBridgedChainMessagesDeliveryProof {
 			bridged_header_hash: id.1,
-			storage_proof: proof,
+			storage_proof: to_raw_storage_proof::<P::TargetChain>(storage_proof),
 			lane: self.lane_id,
 		};
 		Ok((id, (relayers_state, proof)))

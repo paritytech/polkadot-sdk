@@ -20,11 +20,12 @@
 
 use crate::{
 	finality_base::best_synced_header_id,
-	messages_lane::{
+	messages::{
 		BatchProofTransaction, MessageLaneAdapter, ReceiveMessagesDeliveryProofCallBuilder,
 		SubstrateMessageLane,
 	},
 	on_demand::OnDemandRelay,
+	proofs::to_raw_storage_proof,
 	TransactionParams,
 };
 
@@ -32,11 +33,11 @@ use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
 	storage_keys::{operating_mode_key, outbound_lane_data_key},
+	target_chain::FromBridgedChainMessagesProof,
 	ChainWithMessages as _, InboundMessageDetails, LaneId, MessageNonce, MessagePayload,
 	MessagesOperatingMode, OutboundLaneData, OutboundMessageDetails,
 };
-use bp_runtime::{BasicOperatingMode, HeaderIdProvider};
-use bridge_runtime_common::messages::target::FromBridgedChainMessagesProof;
+use bp_runtime::{BasicOperatingMode, HeaderIdProvider, RangeInclusiveExt};
 use codec::Encode;
 use frame_support::weights::Weight;
 use messages_relay::{
@@ -320,34 +321,27 @@ where
 		),
 		SubstrateError,
 	> {
-		let mut storage_keys =
-			Vec::with_capacity(nonces.end().saturating_sub(*nonces.start()) as usize + 1);
-		let mut message_nonce = *nonces.start();
-		while message_nonce <= *nonces.end() {
+		let mut storage_keys = Vec::with_capacity(nonces.saturating_len() as usize);
+		for message_nonce in nonces.clone() {
 			let message_key = bp_messages::storage_keys::message_key(
 				P::TargetChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
 				&self.lane_id,
 				message_nonce,
 			);
 			storage_keys.push(message_key);
-			message_nonce += 1;
 		}
 		if proof_parameters.outbound_state_proof_required {
-			storage_keys.push(bp_messages::storage_keys::outbound_lane_data_key(
+			storage_keys.push(outbound_lane_data_key(
 				P::TargetChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
 				&self.lane_id,
 			));
 		}
 
-		let proof = self
-			.source_client
-			.prove_storage(id.1, storage_keys)
-			.await?
-			.into_iter_nodes()
-			.collect();
+		let storage_proof =
+			self.source_client.prove_storage(id.hash(), storage_keys.clone()).await?;
 		let proof = FromBridgedChainMessagesProof {
 			bridged_header_hash: id.1,
-			storage_proof: proof,
+			storage_proof: to_raw_storage_proof::<P::SourceChain>(storage_proof),
 			lane: self.lane_id,
 			nonces_start: *nonces.start(),
 			nonces_end: *nonces.end(),
