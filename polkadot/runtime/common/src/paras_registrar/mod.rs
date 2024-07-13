@@ -719,7 +719,6 @@ mod tests {
 	};
 	use frame_support::{
 		assert_noop, assert_ok, derive_impl,
-		error::BadOrigin,
 		parameter_types,
 		traits::{OnFinalize, OnInitialize},
 	};
@@ -731,7 +730,7 @@ mod tests {
 	use sp_io::TestExternalities;
 	use sp_keyring::Sr25519Keyring;
 	use sp_runtime::{
-		traits::{BlakeTwo256, IdentityLookup},
+		traits::{BadOrigin, BlakeTwo256, IdentityLookup},
 		transaction_validity::TransactionPriority,
 		BuildStorage, Perbill,
 	};
