@@ -119,6 +119,9 @@ jobs:
           "
           --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
 
+      - run: rustup component add llvm-tools-preview
+      - run: mkdir -p target/coverage/result/
+
       - name: generate report
         run: >
           grcov
