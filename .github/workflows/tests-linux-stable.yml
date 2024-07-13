@@ -84,7 +84,7 @@ jobs:
       # Enable debug assertions since we are running optimized builds for testing
       # but still want to have debug assertions.
       RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings -Cinstrument-coverage"
-      LLVM_PROFILE_FILE: "${{ github.workspace }}/target/coverage/cargo-test-${{ matrix.ci_node_index }}-%p-%m.profraw"
+      LLVM_PROFILE_FILE: "target/coverage/cargo-test-${{ matrix.ci_node_index }}-%p-%m.profraw"
     strategy: 
       fail-fast: false     
       matrix:
@@ -98,7 +98,7 @@ jobs:
       - run: chmod +x .forklift/forklift && .forklift/forklift version
       
       - run: rustup component add llvm-tools-preview
-      - run: mkdir -p ${{ github.workspace }}/target/coverage/result
+      - run: mkdir -p target/coverage/result
 
       - name: script
         run: >
@@ -124,23 +124,23 @@ jobs:
           --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
 
       - run: ls -la 
-      - run: ls -la ${{ github.workspace }}/target/coverage/
+      - run: ls -la target/coverage/
 
       - name: generate report
         run: >
           grcov
-          ${{ github.workspace }}/target/coverage/
+          target/coverage/
           --binary-path ./target/release/
           -s .
           -t lcov
           --branch
-          -o ${{ github.workspace }}/target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
+          -o target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
 
       - name: upload report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report-${{ matrix.ci_node_index }}.lcov
-          path: ${{ github.workspace }}/target/coverage/report-${{ matrix.ci_node_index }}.lcov
+          path: target/coverage/report-${{ matrix.ci_node_index }}.lcov
 
   upload-reports:
     needs: [test-linux-stable]
