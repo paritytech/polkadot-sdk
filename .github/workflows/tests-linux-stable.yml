@@ -125,7 +125,7 @@ jobs:
       - name: generate report
         run: >
           grcov
-          target/coverage/
+          ${{ github.workspace }}/target/coverage/
           --binary-path ./target/release/
           -s .
           -t lcov
