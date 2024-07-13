@@ -151,6 +151,8 @@ pub mod block_flowchart {}
 #[cfg(test)]
 mod tests;
 
+extern crate alloc;
+
 use codec::{Codec, Encode};
 use core::marker::PhantomData;
 use frame_support::{
@@ -467,7 +469,7 @@ where
 
 	/// Logs the result of trying to decode the entire state.
 	fn log_decode_result(
-		res: Result<usize, Vec<TryDecodeEntireStorageError>>,
+		res: Result<usize, alloc::vec::Vec<TryDecodeEntireStorageError>>,
 	) -> Result<(), TryRuntimeError> {
 		match res {
 			Ok(bytes) => {

@@ -31,6 +31,7 @@ mod xcm_config;
 
 extern crate alloc;
 
+use alloc::{vec, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::AggregateMessageOrigin;
 use sp_api::impl_runtime_apis;
@@ -816,7 +817,7 @@ impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+				) -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					// Contracts-System-Para only supports teleports to system parachain.
 					// Relay/native token can be teleported between Contracts-System-Para and Relay.
 					let native_location = Parent.into();

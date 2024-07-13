@@ -22,6 +22,7 @@
 
 const TRACING_TARGET: &'static str = "metrics";
 
+use alloc::vec::Vec;
 use codec::Encode;
 use polkadot_primitives::{
 	metric_definitions::{CounterDefinition, CounterVecDefinition, HistogramDefinition},

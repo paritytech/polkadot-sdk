@@ -17,6 +17,7 @@
 
 //! Storage migrations for the core-fellowship pallet.
 use super::*;
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	storage_alias,

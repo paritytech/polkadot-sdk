@@ -26,6 +26,7 @@ use sp_runtime_interface::runtime_interface;
 #[cfg(not(feature = "std"))]
 use core::mem;
 
+use alloc::{vec, vec::Vec};
 use sp_core::{sr25519::Public, wasm_export_functions};
 
 // Include the WASM binary

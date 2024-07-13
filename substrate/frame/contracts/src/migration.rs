@@ -68,6 +68,7 @@ pub mod v16;
 include!(concat!(env!("OUT_DIR"), "/migration_codegen.rs"));
 
 use crate::{weights::WeightInfo, Config, Error, MigrationInProgress, Pallet, Weight, LOG_TARGET};
+use alloc::vec::Vec;
 use codec::{Codec, Decode};
 use core::marker::PhantomData;
 use frame_support::{
@@ -602,7 +603,7 @@ mod test {
 
 		let mut meter = WeightMeter::with_limit(Weight::from_all(1));
 		let result = Migrations::steps(version, &cursor, &mut meter);
-		cursor = vec![1u8, 0].try_into().unwrap();
+		cursor = alloc::vec![1u8, 0].try_into().unwrap();
 		assert_eq!(result, StepResult::InProgress { cursor: cursor.clone(), steps_done: 1 });
 		assert_eq!(meter.consumed(), Weight::from_all(1));
 

@@ -22,6 +22,7 @@ pub use decode_entire_state::{TryDecodeEntireStorage, TryDecodeEntireStorageErro
 
 use super::StorageInstance;
 
+use alloc::vec::Vec;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_runtime::TryRuntimeError;

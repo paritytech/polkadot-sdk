@@ -47,6 +47,7 @@ extern crate alloc;
 
 pub use ambassador::pallet_ambassador_origins;
 
+use alloc::{vec, vec::Vec};
 use ambassador::AmbassadorCoreInstance;
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use fellowship::{pallet_fellowship_origins, Fellows, FellowshipCoreInstance};
@@ -1098,7 +1099,7 @@ impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+				) -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					// Collectives only supports teleports to system parachain.
 					// Relay/native token can be teleported between Collectives and Relay.
 					let native_location = Parent.into();

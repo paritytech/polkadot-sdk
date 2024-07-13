@@ -33,6 +33,7 @@ pub mod xcm_config;
 
 extern crate alloc;
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::AggregateMessageOrigin;

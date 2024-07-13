@@ -24,6 +24,7 @@ use crate::{
 	weights::WeightInfo,
 	CodeHash, Config, Pallet, TrieId, Weight, LOG_TARGET,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::{
 	cmp::{max, min},

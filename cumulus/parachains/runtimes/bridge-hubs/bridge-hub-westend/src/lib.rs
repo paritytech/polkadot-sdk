@@ -34,6 +34,7 @@ pub mod xcm_config;
 
 extern crate alloc;
 
+use alloc::{vec, vec::Vec};
 use bridge_runtime_common::extensions::{
 	check_obsolete_extension::{
 		CheckAndBoostBridgeGrandpaTransactions, CheckAndBoostBridgeParachainsTransactions,
@@ -929,7 +930,7 @@ impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+				) -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					// BH only supports teleports to system parachain.
 					// Relay/native token can be teleported between BH and Relay.
 					let native_location = Parent.into();
@@ -1052,7 +1053,7 @@ impl_runtime_apis! {
 					// save XCM version for remote bridge hub
 					let _ = PolkadotXcm::force_xcm_version(
 						RuntimeOrigin::root(),
-						Box::new(bridge_to_rococo_config::BridgeHubRococoLocation::get()),
+						alloc::boxed::Box::new(bridge_to_rococo_config::BridgeHubRococoLocation::get()),
 						XCM_VERSION,
 					).map_err(|e| {
 						log::error!(

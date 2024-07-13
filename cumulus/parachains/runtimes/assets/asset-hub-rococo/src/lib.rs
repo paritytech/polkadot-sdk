@@ -29,6 +29,7 @@ pub mod xcm_config;
 
 extern crate alloc;
 
+use alloc::{vec, vec::Vec};
 use assets_common::{
 	foreign_creators::ForeignCreators,
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
@@ -1516,7 +1517,7 @@ impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(XcmAssets, u32, Location, Box<dyn FnOnce()>)> {
+				) -> Option<(XcmAssets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
 					// fees using teleported native token.
 					// (We don't care that Relay doesn't accept incoming unknown AH local asset)
@@ -1551,7 +1552,7 @@ impl_runtime_apis! {
 					let fee_index = if assets.get(0).unwrap().eq(&fee_asset) { 0 } else { 1 };
 
 					// verify transferred successfully
-					let verify = Box::new(move || {
+					let verify = alloc::boxed::Box::new(move || {
 						// verify native balance after transfer, decreased by transferred fee amount
 						// (plus transport fees)
 						assert!(Balances::free_balance(&who) <= balance - fee_amount);
@@ -1585,7 +1586,7 @@ impl_runtime_apis! {
 					let bridged_asset_hub = xcm_config::bridging::to_westend::AssetHubWestend::get();
 					let _ = PolkadotXcm::force_xcm_version(
 						RuntimeOrigin::root(),
-						Box::new(bridged_asset_hub.clone()),
+						alloc::boxed::Box::new(bridged_asset_hub.clone()),
 						XCM_VERSION,
 					).map_err(|e| {
 						log::error!(

@@ -17,14 +17,14 @@
 //! A module that is responsible for migration of storage for Collator Selection.
 
 use super::*;
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
 use frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
 use log;
 
 /// Migrate to v2. Should have been part of <https://github.com/paritytech/polkadot-sdk/pull/1340>.
 pub mod v2 {
 	use super::*;
-	#[cfg(feature = "try-runtime")]
-	use alloc::vec::Vec;
 	use frame_support::{
 		pallet_prelude::*,
 		storage_alias,

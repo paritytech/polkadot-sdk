@@ -38,7 +38,7 @@
 /// ```
 #[must_use]
 pub struct StorageNoopGuard<'a> {
-	storage_root: Vec<u8>,
+	storage_root: alloc::vec::Vec<u8>,
 	error_message: &'a str,
 }
 
@@ -71,6 +71,7 @@ impl<'a> StorageNoopGuard<'a> {
 impl<'a> Drop for StorageNoopGuard<'a> {
 	fn drop(&mut self) {
 		// No need to double panic, eg. inside a test assertion failure.
+		#[cfg(feature = "std")]
 		if std::thread::panicking() {
 			return
 		}

@@ -861,7 +861,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 					#frame_support::__private::log::debug!(target: "runtime::try-decode-state", "trying to decode pallet: {pallet_name}");
 
 					// NOTE: for now, we have to exclude storage items that are feature gated.
-					let mut errors = #frame_support::__private::new();
+					let mut errors = #frame_support::__private::Vec::new();
 					let mut decoded = 0usize;
 
 					#(

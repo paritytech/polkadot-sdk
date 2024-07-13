@@ -26,6 +26,7 @@ use crate::{
 	traits::{PartialStorageInfoTrait, StorageInfo},
 	StorageHasher,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeAll, FullCodec};
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_core::Get;

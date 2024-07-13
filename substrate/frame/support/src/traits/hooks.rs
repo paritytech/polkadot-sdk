@@ -22,6 +22,7 @@
 #![deny(missing_docs)]
 
 use crate::weights::Weight;
+use alloc::vec::Vec;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_weights::WeightMeter;
@@ -622,6 +623,7 @@ pub trait OnTimestampSet<Moment> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use alloc::vec;
 	use sp_io::TestExternalities;
 
 	#[cfg(feature = "try-runtime")]

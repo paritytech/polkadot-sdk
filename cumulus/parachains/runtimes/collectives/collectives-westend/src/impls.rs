@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::OriginCaller;
+use alloc::boxed::Box;
 use core::{cmp::Ordering, marker::PhantomData};
 use frame_support::{
 	dispatch::DispatchResultWithPostInfo,

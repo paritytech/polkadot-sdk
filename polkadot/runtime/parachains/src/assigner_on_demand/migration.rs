@@ -88,7 +88,7 @@ mod v1 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 			let n: u32 = v0::OnDemandQueue::<T>::get().len() as u32;
 
 			log::info!(
@@ -100,7 +100,7 @@ mod v1 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			log::info!(target: LOG_TARGET, "Running post_upgrade()");
 
 			ensure!(
