@@ -28,7 +28,6 @@ use crate::Config;
 use alloc::{
 	boxed::Box,
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	vec::Vec,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{iter, marker::PhantomData};
@@ -41,6 +40,14 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Bounded, Zero};
 
+#[cfg(any(
+	test,
+	feature = "try-runtime",
+	feature = "fuzz",
+	feature = "std",
+	feature = "runtime-benchmarks"
+))]
+use alloc::vec::Vec;
 #[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
 use sp_runtime::TryRuntimeError;
 

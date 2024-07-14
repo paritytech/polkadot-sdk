@@ -37,7 +37,7 @@ pub mod xcm_config;
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use bridge_runtime_common::extensions::{
 	check_obsolete_extension::{
 		CheckAndBoostBridgeGrandpaTransactions, CheckAndBoostBridgeParachainsTransactions,
@@ -113,7 +113,7 @@ use parachains_common::{
 };
 
 #[cfg(feature = "runtime-benchmarks")]
-use alloc::{boxed::Box, vec};
+use alloc::boxed::Box;
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
 
