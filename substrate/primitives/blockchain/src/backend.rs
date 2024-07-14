@@ -301,14 +301,6 @@ pub trait Backend<Block: BlockT>:
 				MinimalBlockMetadata::from(&self.header_metadata(leaf_hash)?);
 			let leaf_number = current_header_metadata.number;
 
-			if leaf_number == Zero::zero() {
-				debug!(target: crate::LOG_TARGET, %leaf_hash, "Leaf is genesis hash, removing.");
-				if finalized_block_number > leaf_number {
-					result.displaced_leaves.push((leaf_number, leaf_hash));
-				}
-				continue;
-			}
-
 			// Collect all block hashes until the height of the finalized block
 			displaced_blocks_candidates.clear();
 			while current_header_metadata.number > finalized_block_number {

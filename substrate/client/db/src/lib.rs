@@ -1708,7 +1708,8 @@ impl<Block: BlockT> Backend<Block> {
 						);
 					}
 				} else if number > best_num + One::one() &&
-					number > One::one() && self.blockchain.header(parent_hash)?.is_none()
+					number > One::one() &&
+					self.blockchain.header(parent_hash)?.is_none()
 				{
 					let gap = (best_num + One::one(), number - One::one());
 					transaction.set(columns::META, meta_keys::BLOCK_GAP, &gap.encode());
@@ -3169,7 +3170,7 @@ pub(crate) mod tests {
 			let displaced =
 				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
-			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
+			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
 
@@ -3177,7 +3178,7 @@ pub(crate) mod tests {
 			let displaced =
 				blockchain.displaced_leaves_after_finalizing(a4_hash, a4_number).unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
-			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
+			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
 
@@ -3301,6 +3302,15 @@ pub(crate) mod tests {
 				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
 			assert_eq!(displaced_a3.displaced_leaves, vec![]);
 			assert_eq!(displaced_a3.displaced_blocks, vec![]);
+		}
+		{
+			// Finalized block is above leaves and not imported yet.
+			// We will not be able to make a connection,
+			// nothing can be marked as displaced.
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(H256::from([57; 32]), 10).unwrap();
+			assert_eq!(displaced.displaced_leaves, vec![]);
+			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
 
 		// fork from genesis: 2 prong.
