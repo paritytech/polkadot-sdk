@@ -134,9 +134,10 @@ jobs:
           -t lcov
           --branch
           -o target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
-          --ignore "/*"
+          --ignore "/*,$HOME/.cargo/**,target/release/wbuild/*,target/release/build/*"
           --log-level DEBUG
           --llvm
+          --ignore-not-existing
       - name: upload report
         uses: actions/upload-artifact@v4
         with:
