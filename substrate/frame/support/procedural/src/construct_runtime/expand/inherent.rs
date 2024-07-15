@@ -87,6 +87,7 @@ pub fn expand_outer_inherent(
 			}
 
 			fn check_extrinsics(&self, block: &#block) -> #scrate::inherent::CheckInherentsResult {
+				use #scrate::__private::sp_std::ops::Deref;
 				use #scrate::inherent::{ProvideInherent, IsFatalError};
 				use #scrate::traits::{IsSubType, ExtrinsicCall};
 				use #scrate::sp_runtime::traits::Block as _;
@@ -120,6 +121,7 @@ pub fn expand_outer_inherent(
 					}
 				}
 
+				let mut inherents = vec![];
 				for xt in block.extrinsics() {
 					// Inherents are before any other extrinsics.
 					// And signed extrinsics are not inherents.
@@ -129,11 +131,11 @@ pub fn expand_outer_inherent(
 
 					let mut is_inherent = false;
 
+					let call = <#unchecked_extrinsic as ExtrinsicCall>::call(xt);
 					#(
 						#pallet_attrs
 						{
-							let call = <#unchecked_extrinsic as ExtrinsicCall>::call(xt);
-							if let Some(call) = IsSubType::<_>::is_sub_type(call) {
+							if let Some(call) = IsSubType::<_>::is_sub_type(call.deref()) {
 								if #pallet_names::is_inherent(call) {
 									is_inherent = true;
 									if let Err(e) = #pallet_names::check_inherent(call, self) {
@@ -149,10 +151,12 @@ pub fn expand_outer_inherent(
 						}
 					)*
 
-					// Inherents are before any other extrinsics.
-					// No module marked it as inherent thus it is not.
-					if !is_inherent {
-						break
+					// If there is no pallet apart from System, the true branch will be unreachable.
+					#[allow(unreachable_code)]
+					if is_inherent {
+						inherents.push(call);
+					} else {
+						break;
 					}
 				}
 
@@ -160,23 +164,12 @@ pub fn expand_outer_inherent(
 					#pallet_attrs
 					match #pallet_names::is_inherent_required(self) {
 						Ok(Some(e)) => {
-							let found = block.extrinsics().iter().any(|xt| {
-								let is_signed = #scrate::sp_runtime::traits::Extrinsic::is_signed(xt)
-									.unwrap_or(false);
-
-								if !is_signed {
-									let call = <
-										#unchecked_extrinsic as ExtrinsicCall
-									>::call(xt);
-									if let Some(call) = IsSubType::<_>::is_sub_type(call) {
-										#pallet_names::is_inherent(&call)
-									} else {
-										false
-									}
-								} else {
-									// Signed extrinsics are not inherents.
-									false
+							let found = inherents.iter().any(|call| {
+								if let Some(call) = IsSubType::<_>::is_sub_type(call.deref()) {
+									return #pallet_names::is_inherent(&call);
 								}
+
+								false
 							});
 
 							if !found {
@@ -206,6 +199,7 @@ pub fn expand_outer_inherent(
 
 		impl #scrate::traits::IsInherent<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic> for #runtime {
 			fn is_inherent(ext: &<#block as #scrate::sp_runtime::traits::Block>::Extrinsic) -> bool {
+				use #scrate::__private::sp_std::ops::Deref;
 				use #scrate::inherent::ProvideInherent;
 				use #scrate::traits::{IsSubType, ExtrinsicCall};
 
@@ -214,11 +208,11 @@ pub fn expand_outer_inherent(
 					return false
 				}
 
+				let call = <#unchecked_extrinsic as ExtrinsicCall>::call(ext);
 				#(
 					#pallet_attrs
 					{
-						let call = <#unchecked_extrinsic as ExtrinsicCall>::call(ext);
-						if let Some(call) = IsSubType::<_>::is_sub_type(call) {
+						if let Some(call) = IsSubType::<_>::is_sub_type(call.deref()) {
 							if <#pallet_names as ProvideInherent>::is_inherent(&call) {
 								return true;
 							}
@@ -226,28 +220,6 @@ pub fn expand_outer_inherent(
 					}
 				)*
 				false
-			}
-		}
-
-		impl #scrate::traits::EnsureInherentsAreFirst<#block> for #runtime {
-			fn ensure_inherents_are_first(block: &#block) -> Result<u32, u32> {
-				use #scrate::inherent::ProvideInherent;
-				use #scrate::traits::{IsSubType, ExtrinsicCall};
-				use #scrate::sp_runtime::traits::Block as _;
-
-				let mut num_inherents = 0u32;
-
-				for (i, xt) in block.extrinsics().iter().enumerate() {
-					if <Self as #scrate::traits::IsInherent<_>>::is_inherent(xt) {
-						if num_inherents != i as u32 {
-							return Err(i as u32);
-						}
-
-						num_inherents += 1; // Safe since we are in an `enumerate` loop.
-					}
-				}
-
-				Ok(num_inherents)
 			}
 		}
 	}

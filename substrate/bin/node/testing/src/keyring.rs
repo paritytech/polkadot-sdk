@@ -116,11 +116,13 @@ pub fn sign(
 						}
 					})
 					.into();
-			UncheckedExtrinsic {
-				signature: Some((sp_runtime::MultiAddress::Id(signed), signature, extra)),
-				function: payload.0,
-			}
+			UncheckedExtrinsic::new_signed(
+				payload.0,
+				sp_runtime::MultiAddress::Id(signed),
+				signature,
+				extra,
+			)
 		},
-		None => UncheckedExtrinsic { signature: None, function: xt.function },
+		None => UncheckedExtrinsic::new_unsigned(xt.function),
 	}
 }

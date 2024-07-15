@@ -336,7 +336,9 @@ mod tests {
 	use sc_transaction_pool::BasicPool;
 	use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
 	use sp_consensus::BlockOrigin;
+	use sp_core::sp_std;
 	use sp_runtime::traits::Block as BlockT;
+	use sp_std::ops::Deref;
 	use std::{collections::HashSet, sync::Arc};
 	use substrate_test_runtime_client::{
 		runtime::{
@@ -467,7 +469,7 @@ mod tests {
 		// then
 		assert_eq!(pool.status().ready, 1);
 		assert!(matches!(
-			pool.ready().next().unwrap().data().function,
+			pool.ready().next().unwrap().data().get_or_decode_function().deref(),
 			RuntimeCall::SubstrateTest(PalletCall::storage_change { .. })
 		));
 	}

@@ -29,7 +29,7 @@ pub use sp_runtime::traits::{
 	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128, ConstU16, ConstU32,
 	ConstU64, ConstU8, Get, GetDefault, TryCollect, TypedGet,
 };
-use sp_runtime::{traits::Block as BlockT, DispatchError};
+use sp_runtime::{generic::ValOrRef, traits::Block as BlockT, DispatchError};
 use sp_std::{cmp::Ordering, prelude::*};
 
 #[doc(hidden)]
@@ -893,20 +893,6 @@ pub trait GetBacking {
 	fn get_backing(&self) -> Option<Backing>;
 }
 
-/// A trait to ensure the inherent are before non-inherent in a block.
-///
-/// This is typically implemented on runtime, through `construct_runtime!`.
-pub trait EnsureInherentsAreFirst<Block: sp_runtime::traits::Block>:
-	IsInherent<<Block as sp_runtime::traits::Block>::Extrinsic>
-{
-	/// Ensure the position of inherent is correct, i.e. they are before non-inherents.
-	///
-	/// On error return the index of the inherent with invalid position (counting from 0). On
-	/// success it returns the index of the last inherent. `0` therefore means that there are no
-	/// inherents.
-	fn ensure_inherents_are_first(block: &Block) -> Result<u32, u32>;
-}
-
 /// A trait to check if an extrinsic is an inherent.
 pub trait IsInherent<Extrinsic> {
 	/// Whether this extrinsic is an inherent.
@@ -915,18 +901,22 @@ pub trait IsInherent<Extrinsic> {
 
 /// An extrinsic on which we can get access to call.
 pub trait ExtrinsicCall: sp_runtime::traits::Extrinsic {
+	/// Cache the call of the extrinsic.
+	fn cache_call(&mut self);
 	/// Get the call of the extrinsic.
-	fn call(&self) -> &Self::Call;
+	fn call(&self) -> ValOrRef<Self::Call>;
 }
 
 #[cfg(feature = "std")]
 impl<Call, Extra> ExtrinsicCall for sp_runtime::testing::TestXt<Call, Extra>
 where
-	Call: codec::Codec + Sync + Send + TypeInfo,
+	Call: codec::Codec + Clone + Sync + Send + TypeInfo,
 	Extra: TypeInfo,
 {
-	fn call(&self) -> &Self::Call {
-		&self.call
+	fn cache_call(&mut self) {}
+
+	fn call(&self) -> ValOrRef<Self::Call> {
+		ValOrRef::Ref(&self.call)
 	}
 }
 
@@ -934,12 +924,16 @@ impl<Address, Call, Signature, Extra> ExtrinsicCall
 	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
 where
 	Address: TypeInfo,
-	Call: TypeInfo,
+	Call: Encode + Decode + TypeInfo,
 	Signature: TypeInfo,
 	Extra: sp_runtime::traits::SignedExtension + TypeInfo,
 {
-	fn call(&self) -> &Self::Call {
-		&self.function
+	fn cache_call(&mut self) {
+		self.cache_function();
+	}
+
+	fn call(&self) -> ValOrRef<Self::Call> {
+		self.get_or_decode_function()
 	}
 }
 
