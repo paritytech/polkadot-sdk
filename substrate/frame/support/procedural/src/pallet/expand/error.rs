@@ -104,41 +104,17 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let deprecation_status =
 		crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &error.attrs)
-			.expect("Correctly parse deprecation attributes");
+			.unwrap_or_else(syn::Error::into_compile_error);
 
-	let default_deprecation_info =
-		quote::quote! { #frame_support::__private::metadata_ir::DeprecationStatus::NotDeprecated }
-			.to_string();
-	let deprecation = {
-		if deprecation_status.to_string() == default_deprecation_info {
-			let indexes: Vec<proc_macro2::TokenStream> = error_item
-				.variants
-				.iter()
-				.enumerate()
-				.filter_map(|(key, x)| {
-					let key = key as u8;
-					let deprecation_status = crate::deprecation::get_deprecation(
-						&quote::quote! {#frame_support},
-						&x.attrs,
-					)
-					.expect("Correctly parse deprecation attributes");
-					if deprecation_status.to_string() == default_deprecation_info {
-						None
-					} else {
-						Some(quote::quote! { (#key, #deprecation_status) })
-					}
-				})
-				.collect();
-			if indexes.is_empty() {
-				quote::quote! { #frame_support::__private::metadata_ir::DeprecationInfo::NotDeprecated }
-			} else {
-				let indexes = quote::quote! { #frame_support::__private::scale_info::prelude::collections::BTreeMap::from([#( #indexes),*]) };
-				quote::quote! { #frame_support::__private::metadata_ir::DeprecationInfo::PartiallyDeprecated(#indexes) }
-			}
-		} else {
-			quote::quote! { #frame_support::__private::metadata_ir::DeprecationInfo::FullyDeprecated(#deprecation_status) }
-		}
-	};
+	let variants = crate::deprecation::get_deprecation_enum(
+		&quote::quote! {#frame_support},
+		error_item
+			.variants
+			.iter()
+			.enumerate()
+			.map(|(index, item)| (index as u8, item.attrs.as_ref())),
+	)
+	.unwrap_or_else(syn::Error::into_compile_error);
 	// derive TypeInfo for error metadata
 	error_item.attrs.push(syn::parse_quote! {
 		#[derive(

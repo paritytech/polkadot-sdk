@@ -80,3 +80,32 @@ pub fn get_deprecation(path: &TokenStream, attrs: &[syn::Attribute]) -> Result<T
 			Ok(quote! {#path::__private::metadata_ir::DeprecationStatus::NotDeprecated})
 		})
 }
+
+/// collects deprecation attribute if its present for enum-like types
+pub fn get_deprecation_enum<'a>(
+	path: &TokenStream,
+	attrs: impl Iterator<Item = (u8, &'a [syn::Attribute])>,
+) -> Result<TokenStream> {
+	fn parse_deprecation(
+		path: &TokenStream,
+		attrs: &[syn::Attribute],
+	) -> Result<Option<TokenStream>> {
+		attrs
+			.iter()
+			.find(|a| a.path().is_ident("deprecated"))
+			.map(|a| parse_deprecated_meta(path, a).map(|x| Some(x)))
+			.unwrap_or_else(|| Ok(None))
+	}
+
+	let children = attrs
+		.filter_map(|(key, attributes)| {
+			let key = key as u8;
+			let deprecation_status = parse_deprecation(path, attributes).transpose();
+			deprecation_status.map(|item| item.map(|item| quote::quote! { (#key, #item) }))
+		})
+		.collect::<Result<Vec<TokenStream>>>()?;
+
+	Ok(
+		quote::quote! { #path::__private::scale_info::prelude::collections::BTreeMap::from([#( #children),*]) },
+	)
+}
