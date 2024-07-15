@@ -16,8 +16,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::time::Duration;
-
 use sc_network_types::PeerId;
 use schnellru::{ByLength, LruMap};
 
@@ -40,6 +38,9 @@ const DISCONNECTED_PEER_BACKOFF_SECONDS: u64 = 30;
 
 /// Maximum number of disconnects with a request in flight before a peer is banned.
 const MAX_NUM_DISCONNECTS: u64 = 3;
+
+/// Forget the persistent state after 15 minutes.
+const FORGET_PERSISTENT_STATE_SECONDS: u64 = 900;
 
 pub struct DisconnectedPeerState {
 	/// The total number of disconnects.
@@ -103,10 +104,12 @@ impl PersistentPeersState {
 		};
 
 		let elapsed = state.last_disconnect().elapsed();
-		let disconnected_backoff =
-			Duration::from_secs(DISCONNECTED_PEER_BACKOFF_SECONDS * state.num_disconnects);
+		if elapsed.as_secs() > FORGET_PERSISTENT_STATE_SECONDS {
+			self.disconnected_peers.remove(peer_id);
+			return true;
+		}
 
-		elapsed >= disconnected_backoff
+		elapsed.as_secs() >= DISCONNECTED_PEER_BACKOFF_SECONDS * state.num_disconnects
 	}
 }
 
