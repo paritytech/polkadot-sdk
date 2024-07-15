@@ -20,7 +20,10 @@
 
 use crate::{
 	schema::v1::StateResponse,
-	strategy::state_sync::{ImportResult, StateSync, StateSyncProvider},
+	strategy::{
+		persistent_peer_state::PersistentPeersState,
+		state_sync::{ImportResult, StateSync, StateSyncProvider},
+	},
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
 	LOG_TARGET,
 };
@@ -78,6 +81,7 @@ struct Peer<B: BlockT> {
 pub struct StateStrategy<B: BlockT> {
 	state_sync: Box<dyn StateSyncProvider<B>>,
 	peers: HashMap<PeerId, Peer<B>>,
+	persistent_peers: PersistentPeersState,
 	actions: Vec<StateStrategyAction<B>>,
 	succeeded: bool,
 }
@@ -109,6 +113,7 @@ impl<B: BlockT> StateStrategy<B> {
 				skip_proof,
 			)),
 			peers,
+			persistent_peers: PersistentPeersState::new(),
 			actions: Vec::new(),
 			succeeded: false,
 		}
@@ -140,7 +145,11 @@ impl<B: BlockT> StateStrategy<B> {
 
 	/// Notify that a peer has disconnected.
 	pub fn remove_peer(&mut self, peer_id: &PeerId) {
-		self.peers.remove(peer_id);
+		if let Some(state) = self.peers.remove(peer_id) {
+			if !state.state.is_available() {
+				self.persistent_peers.remove_peer(*peer_id);
+			}
+		}
 	}
 
 	/// Submit a validated block announcement.
@@ -305,7 +314,10 @@ impl<B: BlockT> StateStrategy<B> {
 		// Find a random peer that is synced as much as peer majority and is above
 		// `min_best_number`.
 		for (peer_id, peer) in self.peers.iter_mut() {
-			if peer.state.is_available() && peer.best_number >= threshold {
+			if peer.state.is_available() &&
+				peer.best_number >= threshold &&
+				self.persistent_peers.is_peer_available(peer_id)
+			{
 				peer.state = new_state;
 				return Some(*peer_id)
 			}
