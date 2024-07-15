@@ -214,7 +214,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-rococo"),
 	impl_name: create_runtime_str!("bridge-hub-rococo"),
 	authoring_version: 1,
-	spec_version: 1_013_000,
+	spec_version: 1_014_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
@@ -1432,7 +1432,7 @@ impl_runtime_apis! {
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaWestendInstance,
-						bridge_to_westend_config::WithBridgeHubWestendMessageBridge,
+						bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
 					>(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(Rococo), Parachain(42)].into()))
 				}
 
@@ -1442,7 +1442,7 @@ impl_runtime_apis! {
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaWestendInstance,
-						bridge_to_westend_config::WithBridgeHubWestendMessageBridge,
+						bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
 					>(params)
 				}
 
@@ -1467,7 +1467,7 @@ impl_runtime_apis! {
 					prepare_message_proof_from_grandpa_chain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
-						bridge_to_bulletin_config::WithRococoBulletinMessageBridge,
+						bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
 					>(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(Rococo), Parachain(42)].into()))
 				}
 
@@ -1477,7 +1477,7 @@ impl_runtime_apis! {
 					prepare_message_delivery_proof_from_grandpa_chain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
-						bridge_to_bulletin_config::WithRococoBulletinMessageBridge,
+						bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
 					>(params)
 				}
 
@@ -1503,7 +1503,7 @@ impl_runtime_apis! {
 				fn prepare_parachain_heads_proof(
 					parachains: &[bp_polkadot_core::parachains::ParaId],
 					parachain_head_size: u32,
-					proof_size: bp_runtime::StorageProofSize,
+					proof_params: bp_runtime::UnverifiedStorageProofParams,
 				) -> (
 					pallet_bridge_parachains::RelayBlockNumber,
 					pallet_bridge_parachains::RelayBlockHash,
@@ -1513,7 +1513,7 @@ impl_runtime_apis! {
 					prepare_parachain_heads_proof::<Runtime, bridge_common_config::BridgeParachainWestendInstance>(
 						parachains,
 						parachain_head_size,
-						proof_size,
+						proof_params,
 					)
 				}
 			}
