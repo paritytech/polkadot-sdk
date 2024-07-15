@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720794304239,
+  "lastUpdate": 1721038239257,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -10433,6 +10433,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.805535842470197,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d2dff5f1c3f705c5acdad040447822f92bb02891",
+          "message": "network/tx: Ban peers with tx that fail to decode (#5002)\n\nA malicious peer can submit random bytes on transaction protocol.\nIn this case, the peer is not disconnected or reported back to the\npeerstore.\n\nThis PR ensures the peer's reputation is properly reported.\n\nDiscovered during testing:\n- https://github.com/paritytech/polkadot-sdk/pull/4977\n\n\ncc @paritytech/networking\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2024-07-15T08:31:06Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d2dff5f1c3f705c5acdad040447822f92bb02891"
+        },
+        "date": 1721038210349,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63836.92,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52935.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.621676971550206,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.896605642439994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.713485432480052,
             "unit": "seconds"
           }
         ]
