@@ -137,7 +137,7 @@ where
 	}
 
 	fn trigger(&mut self, at: <Block as BlockT>::Hash, ready_iterator: impl Fn() -> T) {
-		log::debug!( target: LOG_TARGET, "fatp::trigger {at:?} pending keys: {:?}", self.pollers.keys());
+		log::debug!(target: LOG_TARGET, "fatp::trigger {at:?} pending keys: {:?}", self.pollers.keys());
 		let Some(pollers) = self.pollers.remove(&at) else { return };
 		pollers.into_iter().for_each(|p| {
 			log::info!(target: LOG_TARGET, "trigger ready signal at block {}", at);
@@ -317,7 +317,7 @@ where
 	/// returned.
 	fn ready_light(&self, at: Block::Hash) -> PolledIterator<ChainApi> {
 		let start = Instant::now();
-		log::info!( target: LOG_TARGET, "fatp::ready_light {:?}", at);
+		log::debug!(target: LOG_TARGET, "fatp::ready_light {:?}", at);
 
 		let Ok(block_number) = self.api.resolve_block_number(at) else {
 			let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
@@ -333,7 +333,7 @@ where
 			for v in views.values().chain(retracted_views.values()) {
 				let tree_route = self.api.tree_route(v.at.hash, at);
 				if let Ok(tree_route) = tree_route {
-					log::info!( target: LOG_TARGET, "fatp::ready_light {} tree_route from: {} e:{} r:{}", at,v.at.hash,tree_route.enacted().len(), tree_route.retracted().len());
+					log::debug!(target: LOG_TARGET, "fatp::ready_light {} tree_route from: {} e:{} r:{}", at,v.at.hash,tree_route.enacted().len(), tree_route.retracted().len());
 					if tree_route.retracted().is_empty() &&
 						tree_route.enacted().len() < best_enacted_len
 					{
@@ -389,7 +389,7 @@ where
 				let _ = tmp_view.pool.validated_pool().prune_tags(tags);
 
 				let after_count = tmp_view.pool.validated_pool().status().ready;
-				log::info!( target: LOG_TARGET,
+				log::info!(target: LOG_TARGET,
 					"fatp::ready_light {} from {} before: {} to be removed: {} after: {} took:{:?}",
 					at,
 					best_view.at.hash,
@@ -401,7 +401,7 @@ where
 				Box::new(tmp_view.pool.validated_pool().ready())
 			} else {
 				let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
-				log::info!( target: LOG_TARGET, "fatp::ready_light {} -> empty, took:{:?}", at, start.elapsed());
+				log::info!(target: LOG_TARGET, "fatp::ready_light {} -> empty, took:{:?}", at, start.elapsed());
 				empty
 			}
 		})
@@ -782,7 +782,7 @@ where
 
 	fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> PolledIterator<ChainApi> {
 		if let Some((view, retracted)) = self.view_store.get_view_at(at, true) {
-			log::info!( target: LOG_TARGET, "fatp::ready_at {:?} (retracted:{:?})", at, retracted);
+			log::info!(target: LOG_TARGET, "fatp::ready_at {:?} (retracted:{:?})", at, retracted);
 			let iterator: ReadyIteratorFor<ChainApi> = Box::new(view.pool.validated_pool().ready());
 			return async move { iterator }.boxed();
 		}
@@ -798,7 +798,7 @@ where
 				})
 			})
 			.boxed();
-		log::info!( target: LOG_TARGET,
+		log::info!(target: LOG_TARGET,
 			"fatp::ready_at {at:?} pending keys: {:?}",
 			self.ready_poll.lock().pollers.keys()
 		);
@@ -966,7 +966,7 @@ where
 				});
 		}
 
-		log::info!( target: LOG_TARGET,
+		log::info!(target: LOG_TARGET,
 			"fatp::extrinsics_included_since_finalized {} from {} count: {} took:{:?}",
 			at,
 			recent_finalized_block,
@@ -976,7 +976,6 @@ where
 		all_extrinsics
 	}
 
-	//todo: maybe move to ViewManager
 	async fn update_view(&self, view: &View<ChainApi>) {
 		log::debug!(
 			target: LOG_TARGET,
@@ -1003,7 +1002,6 @@ where
 
 			for (source, xts) in buckets {
 				all_submitted_count += xts.len();
-				//todo: internal checked banned: not required any more?
 				let _ = view.submit_many(source, xts).await;
 			}
 			log::info!(target: LOG_TARGET, "update_view_pool: at {:?} unwatched {}/{}", view.at.hash, all_submitted_count, unwatched_count);
@@ -1275,6 +1273,7 @@ where
 {
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
 		let start = Instant::now();
+		log::info!(target: LOG_TARGET, "processing event: {event:?}");
 
 		self.view_store.finish_background_revalidations().await;
 
