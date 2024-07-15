@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::*;
+use coretime_interface::CoretimeInterface;
 use frame_support::{
 	pallet_prelude::{DispatchResult, *},
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
@@ -458,6 +459,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_notify_revenue(revenue: OnDemandRevenueRecordOf<T>) -> DispatchResult {
+		RevenueInbox::<T>::put(revenue);
+		Ok(())
+	}
+
 	pub(crate) fn do_swap_leases(id: TaskId, other: TaskId) -> DispatchResult {
 		let mut id_leases_count = 0;
 		let mut other_leases_count = 0;
@@ -472,7 +478,6 @@ impl<T: Config> Pallet<T> {
 				}
 			})
 		});
-
 		Ok(())
 	}
 

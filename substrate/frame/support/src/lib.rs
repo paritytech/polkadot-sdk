@@ -508,6 +508,29 @@ pub use frame_support_procedural::{
 	construct_runtime, match_and_insert, transactional, PalletError, RuntimeDebugNoBound,
 };
 
+/// Construct a runtime, with the given name and the given pallets.
+///
+/// # Example:
+#[doc = docify::embed!("src/tests/runtime.rs", runtime_macro)]
+///
+/// # Supported Attributes:
+///
+/// ## Legacy Ordering
+///
+/// An optional attribute can be defined as #[frame_support::runtime(legacy_ordering)] to
+/// ensure that the order of hooks is same as the order of pallets (and not based on the
+/// pallet_index). This is to support legacy runtimes and should be avoided for new ones.
+///
+/// # Note
+///
+/// The population of the genesis storage depends on the order of pallets. So, if one of your
+/// pallets depends on another pallet, the pallet that is depended upon needs to come before
+/// the pallet depending on it.
+///
+/// # Type definitions
+///
+/// * The macro generates a type alias for each pallet to their `Pallet`. E.g. `type System =
+///   frame_system::Pallet<Runtime>`
 pub use frame_support_procedural::runtime;
 
 #[doc(hidden)]
@@ -2273,6 +2296,18 @@ pub mod pallet_macros {
 	///     pub type Baz<T> = StorageMap<Hasher = Blake2_128Concat, Key = u32, Value = u32>;
 	/// }
 	/// ```
+	///
+	/// ### Value Trait Bounds
+	///
+	/// To use a type as the value of a storage type, be it `StorageValue`, `StorageMap` or
+	/// anything else, you need to meet a number of trait bound constraints.
+	///
+	/// See: <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_storage_derives/index.html>.
+	///
+	/// Notably, all value types need to implement `Encode`, `Decode`, `MaxEncodedLen` and
+	/// `TypeInfo`, and possibly `Default`, if
+	/// [`ValueQuery`](frame_support::storage::types::ValueQuery) is used, explained in the
+	/// next section.
 	///
 	/// ### QueryKind
 	///
