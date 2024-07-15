@@ -21,16 +21,16 @@
 pub mod aura;
 pub mod command;
 pub mod parachain;
+mod solochain;
 
 use cumulus_primitives_core::CollectCollationInfo;
 use sc_client_api::{BlockBackend, UsageProvider};
 use sc_client_db::{Backend, DbHash};
-use sc_consensus::{BlockImport, DefaultImportQueue};
+use sc_consensus::DefaultImportQueue;
 use sc_executor::{HostFunctions, WasmExecutor};
 use sc_rpc::DenyUnsafe;
-use sc_service::{
-	error::Result as ServiceResult, Configuration, PartialComponents, TFullClient, TaskManager,
-};
+pub use sc_service::{error::Result as ServiceResult, Error as ServiceError};
+use sc_service::{Configuration, PartialComponents, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sc_transaction_pool::FullPool;
 use sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata, ProvideRuntimeApi};
@@ -144,7 +144,7 @@ pub struct NodeExtraArgs {
 }
 
 pub trait BuildImportQueue<Block: BlockT, Client> {
-	type BlockImport: BlockImport<Block>;
+	type BlockImport;
 
 	fn build_import_queue(
 		client: Arc<Client>,

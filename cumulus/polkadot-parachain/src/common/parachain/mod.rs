@@ -198,30 +198,30 @@ pub trait ParachainNodeSpec {
 			let rpc_builder = {
 				let client = client.clone();
 				let transaction_pool = transaction_pool.clone();
-				let backend_for_rpc = backend.clone();
+				let backend = backend.clone();
 
 				Box::new(move |deny_unsafe, _| {
 					Self::BuildRpcExtensions::build_rpc_extensions(
 						deny_unsafe,
 						client.clone(),
-						backend_for_rpc.clone(),
+						backend.clone(),
 						transaction_pool.clone(),
 					)
 				})
 			};
 
 			sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-				rpc_builder,
-				client: client.clone(),
-				transaction_pool: transaction_pool.clone(),
-				task_manager: &mut task_manager,
 				config: parachain_config,
-				keystore: params.keystore_container.keystore(),
+				client: client.clone(),
 				backend: backend.clone(),
+				task_manager: &mut task_manager,
+				keystore: params.keystore_container.keystore(),
+				transaction_pool: transaction_pool.clone(),
+				rpc_builder,
 				network: network.clone(),
-				sync_service: sync_service.clone(),
 				system_rpc_tx,
 				tx_handler_controller,
+				sync_service: sync_service.clone(),
 				telemetry: telemetry.as_mut(),
 			})?;
 

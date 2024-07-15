@@ -57,6 +57,7 @@ sp-core = { workspace = true, default-features = true }
 sp-session = { workspace = true, default-features = true }
 frame-try-runtime = { optional = true, workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
+sc-consensus-manual-seal = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 sc-cli = { workspace = true, default-features = true }
@@ -79,6 +80,7 @@ sc-chain-spec = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
+sc-offchain = { workspace = true, default-features = true }
 sp-offchain = { workspace = true, default-features = true }
 frame-system-rpc-runtime-api = { workspace = true, default-features = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
@@ -113,6 +115,7 @@ cumulus-client-service = { workspace = true, default-features = true }
 cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
+futures-timer = "3.0.3"
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }

@@ -13,6 +13,7 @@ build = "build.rs"
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+
 [dependencies]
 docify = { workspace = true }
 clap = { features = ["derive"], workspace = true }

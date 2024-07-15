@@ -282,7 +282,7 @@ pub async fn start_parachain_node(
 
 		task_manager.spawn_handle().spawn(
 			"offchain-workers-runner",
-			"offchain-work",
+			"offchain-worker",
 			sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
 				runtime_api_provider: client.clone(),
 				keystore: Some(params.keystore_container.keystore()),
