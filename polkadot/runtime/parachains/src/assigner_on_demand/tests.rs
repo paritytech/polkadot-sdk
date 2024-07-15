@@ -30,11 +30,12 @@ use crate::{
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 };
-use frame_support::{assert_noop, assert_ok, error::BadOrigin};
+use frame_support::{assert_noop, assert_ok};
 use pallet_balances::Error as BalancesError;
 use polkadot_primitives::{
 	BlockNumber, SessionIndex, ValidationCode, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
+use sp_runtime::traits::BadOrigin;
 use sp_std::{
 	cmp::{Ord, Ordering},
 	collections::btree_map::BTreeMap,

@@ -2600,7 +2600,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let mut bonded_pool = match ensure_root(origin.clone()) {
 				Ok(()) => BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?,
-				Err(frame_support::error::BadOrigin) => {
+				Err(sp_runtime::traits::BadOrigin) => {
 					let who = ensure_signed(origin)?;
 					let bonded_pool =
 						BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
