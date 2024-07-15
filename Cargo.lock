@@ -3357,12 +3357,31 @@ dependencies = [
 [[package]]
 name = "coretime-westend-emulated-chain"
 version = "0.0.0"
+dependencies = [
+ "coretime-westend-runtime",
+ "cumulus-primitives-core",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "parachains-common",
+ "sp-core",
+ "testnet-parachains-constants",
+]
 
 [[package]]
 name = "coretime-westend-integration-tests"
 version = "0.1.0"
 dependencies = [
  "emulated-integration-tests-common",
+ "frame-support",
+ "pallet-balances",
+ "pallet-identity",
+ "pallet-message-queue",
+ "polkadot-runtime-common",
+ "sp-runtime",
+ "staging-xcm",
+ "staging-xcm-executor",
+ "westend-runtime-constants",
+ "westend-system-emulated-network",
 ]
 
 [[package]]
@@ -23561,6 +23580,7 @@ dependencies = [
  "asset-hub-westend-emulated-chain",
  "bridge-hub-westend-emulated-chain",
  "collectives-westend-emulated-chain",
+ "coretime-westend-emulated-chain",
  "emulated-integration-tests-common",
  "penpal-emulated-chain",
  "people-westend-emulated-chain",

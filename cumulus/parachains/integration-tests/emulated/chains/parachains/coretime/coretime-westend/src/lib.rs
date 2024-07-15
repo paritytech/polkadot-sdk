@@ -1,14 +1,38 @@
-pub fn add(left: usize, right: usize) -> usize {
-	left + right
+pub use coretime_westend_runtime;
+
+pub mod genesis;
+
+// Substrate
+use frame_support::traits::OnInitialize;
+
+// Cumulus
+use emulated_integration_tests_common::{
+	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
+	impls::Parachain, xcm_emulator::decl_test_parachains,
+};
+
+// CoretimeWestend Parachain declaration
+decl_test_parachains! {
+	pub struct CoretimeWestend {
+		genesis = genesis::genesis(),
+		on_init = {
+			coretime_westend_runtime::AuraExt::on_initialize(1);
+		},
+		runtime = coretime_westend_runtime,
+		core = {
+			XcmpMessageHandler: coretime_westend_runtime::XcmpQueue,
+			LocationToAccountId: coretime_westend_runtime::xcm_config::LocationToAccountId,
+			ParachainInfo: coretime_westend_runtime::ParachainInfo,
+			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
+		},
+		pallets = {
+			PolkadotXcm: coretime_westend_runtime::PolkadotXcm,
+			Balances: coretime_westend_runtime::Balances,
+			Broker: coretime_westend_runtime::Broker,
+		}
+	},
 }
 
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn it_works() {
-		let result = add(2, 2);
-		assert_eq!(result, 4);
-	}
-}
+// CoretimeWestend implementation
+impl_accounts_helpers_for_parachain!(CoretimeWestend);
+impl_assert_events_helpers_for_parachain!(CoretimeWestend);
