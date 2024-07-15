@@ -500,6 +500,7 @@ members = [
 	"substrate/test-utils/cli",
 	"substrate/test-utils/client",
 	"substrate/test-utils/runtime",
+	"substrate/test-utils/multisig-reentrancy-attack",
 	"substrate/test-utils/runtime/client",
 	"substrate/test-utils/runtime/transaction-pool",
 	"substrate/utils/binary-merkle-tree",
