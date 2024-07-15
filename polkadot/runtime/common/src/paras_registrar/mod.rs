@@ -720,9 +720,7 @@ mod tests {
 	};
 	use alloc::collections::btree_map::BTreeMap;
 	use frame_support::{
-		assert_noop, assert_ok, derive_impl,
-		error::BadOrigin,
-		parameter_types,
+		assert_noop, assert_ok, derive_impl, parameter_types,
 		traits::{OnFinalize, OnInitialize},
 	};
 	use frame_system::limits;
@@ -733,7 +731,7 @@ mod tests {
 	use sp_io::TestExternalities;
 	use sp_keyring::Sr25519Keyring;
 	use sp_runtime::{
-		traits::{BlakeTwo256, IdentityLookup},
+		traits::{BadOrigin, BlakeTwo256, IdentityLookup},
 		transaction_validity::TransactionPriority,
 		BuildStorage, Perbill,
 	};
