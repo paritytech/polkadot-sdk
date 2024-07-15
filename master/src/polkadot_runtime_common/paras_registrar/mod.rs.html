@@ -1818,8 +1818,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1667" id="1667">1667</a>
 <a href="#1668" id="1668">1668</a>
 <a href="#1669" id="1669">1669</a>
-<a href="#1670" id="1670">1670</a>
-<a href="#1671" id="1671">1671</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2540,9 +2538,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		mock::conclude_pvf_checking, paras_registrar, traits::Registrar <span class="kw">as </span>RegistrarTrait,
 	};
 	<span class="kw">use </span>frame_support::{
-		assert_noop, assert_ok, derive_impl,
-		error::BadOrigin,
-		parameter_types,
+		assert_noop, assert_ok, derive_impl, parameter_types,
 		traits::{OnFinalize, OnInitialize},
 	};
 	<span class="kw">use </span>frame_system::limits;
@@ -2553,7 +2549,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sp_io::TestExternalities;
 	<span class="kw">use </span>sp_keyring::Sr25519Keyring;
 	<span class="kw">use </span>sp_runtime::{
-		traits::{BlakeTwo256, IdentityLookup},
+		traits::{BadOrigin, BlakeTwo256, IdentityLookup},
 		transaction_validity::TransactionPriority,
 		BuildStorage, Perbill,
 	};

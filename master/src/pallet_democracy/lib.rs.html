@@ -1902,7 +1902,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1751" id="1751">1751</a>
 <a href="#1752" id="1752">1752</a>
 <a href="#1753" id="1753">1753</a>
-<a href="#1754" id="1754">1754</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2060,7 +2059,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	ensure,
-	error::BadOrigin,
 	traits::{
 		defensive_prelude::<span class="kw-2">*</span>,
 		schedule::{v3::Named <span class="kw">as </span>ScheduleNamed, DispatchTime},
@@ -2071,7 +2069,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
 <span class="kw">use </span>sp_runtime::{
-	traits::{Bounded <span class="kw">as </span>ArithBounded, One, Saturating, StaticLookup, Zero},
+	traits::{BadOrigin, Bounded <span class="kw">as </span>ArithBounded, One, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, DispatchResult,
 };
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;

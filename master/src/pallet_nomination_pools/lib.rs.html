@@ -6700,7 +6700,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResult {
 			<span class="kw">let </span><span class="kw-2">mut </span>bonded_pool = <span class="kw">match </span>ensure_root(origin.clone()) {
 				<span class="prelude-val">Ok</span>(()) =&gt; BondedPool::&lt;T&gt;::get(pool_id).ok_or(Error::&lt;T&gt;::PoolNotFound)<span class="question-mark">?</span>,
-				<span class="prelude-val">Err</span>(frame_support::error::BadOrigin) =&gt; {
+				<span class="prelude-val">Err</span>(sp_runtime::traits::BadOrigin) =&gt; {
 					<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 					<span class="kw">let </span>bonded_pool =
 						BondedPool::&lt;T&gt;::get(pool_id).ok_or(Error::&lt;T&gt;::PoolNotFound)<span class="question-mark">?</span>;
