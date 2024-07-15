@@ -46,11 +46,16 @@ const TEST_KEY: &[u8] = b":test:key:";
 
 #[cfg(feature = "try-runtime")]
 mod try_runtime {
-	use frame_support::traits::{IdentifiableTryStateLogic, TryStateLogic};
+	use frame_support::{
+		parameter_types,
+		traits::{IdentifiableTryStateLogic, TryStateLogic},
+	};
 	use sp_runtime::traits::AtLeast32BitUnsigned;
 
 	// Will contain `true` when the custom runtime logic is called.
-	pub(super) static mut CANARY_FLAG: bool = false;
+	parameter_types! {
+		pub(super) static CanaryFlag: bool = false;
+	}
 
 	const CUSTOM_TRY_STATE_ID: &[u8] = b"custom_try_state";
 
@@ -61,9 +66,7 @@ mod try_runtime {
 		BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
 	{
 		fn try_state(_: BlockNumber) -> Result<(), sp_runtime::TryRuntimeError> {
-			unsafe {
-				CANARY_FLAG = true;
-			}
+			CanaryFlag::set(true);
 			Ok(())
 		}
 	}
@@ -116,12 +119,10 @@ mod custom {
 		// Verify that `CustomTryState` has been called before.
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-			unsafe {
-				assert!(
-					try_runtime::CANARY_FLAG,
-					"Custom `try-runtime` did not run before pallet `try-runtime`."
-				);
-			}
+			assert!(
+				try_runtime::CanaryFlag::get(),
+				"Custom `try-runtime` did not run before pallet `try-runtime`."
+			);
 			Ok(())
 		}
 	}
@@ -577,9 +578,7 @@ fn new_test_ext(balance_factor: Balance) -> sp_io::TestExternalities {
 	});
 
 	#[cfg(feature = "try-runtime")]
-	unsafe {
-		try_runtime::CANARY_FLAG = false;
-	}
+	try_runtime::CanaryFlag::set(false);
 
 	ext
 }
