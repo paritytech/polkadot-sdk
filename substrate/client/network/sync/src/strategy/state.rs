@@ -373,6 +373,7 @@ mod test {
 	use sc_block_builder::BlockBuilderBuilder;
 	use sc_client_api::KeyValueStates;
 	use sc_consensus::{ImportedAux, ImportedState};
+	use sp_core::H256;
 	use sp_runtime::traits::Zero;
 	use substrate_test_runtime_client::{
 		runtime::{Block, Hash},
@@ -476,6 +477,62 @@ mod test {
 			let peer_id = state_strategy.schedule_next_peer(PeerState::DownloadingState, 10);
 			assert!(*peers.get(&peer_id.unwrap()).unwrap() == 10);
 		}
+	}
+
+	#[test]
+	fn backedoff_number_peer_is_not_scheduled() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+
+		let peers = (1..=10)
+			.map(|best_number| (PeerId::random(), best_number))
+			.collect::<Vec<(_, _)>>();
+		let ninth_peer = peers[8].0.clone();
+		let tenth_peer = peers[9].0.clone();
+		let initial_peers = peers.iter().map(|(p, n)| (*p, *n));
+
+		let mut state_strategy = StateStrategy::new(
+			client.clone(),
+			target_block.header().clone(),
+			None,
+			None,
+			false,
+			initial_peers,
+		);
+
+		// Disconnecting a peer without an inflight request has no effect on persistent states.
+		state_strategy.remove_peer(&tenth_peer);
+		state_strategy.remove_peer(&tenth_peer);
+		state_strategy.remove_peer(&tenth_peer);
+		assert!(state_strategy.persistent_peers.is_peer_available(&tenth_peer));
+
+		// Disconnect the peer with an inflight request.
+		state_strategy.add_peer(tenth_peer.clone(), H256::random(), 10);
+		let peer_id: Option<PeerId> =
+			state_strategy.schedule_next_peer(PeerState::DownloadingState, 10);
+		assert_eq!(tenth_peer, peer_id.unwrap());
+		state_strategy.remove_peer(&tenth_peer);
+
+		// Peer is backed off.
+		assert!(!state_strategy.persistent_peers.is_peer_available(&tenth_peer));
+
+		// No peer available for 10'th best block because of the backoff.
+		state_strategy.add_peer(tenth_peer.clone(), H256::random(), 10);
+		let peer_id: Option<PeerId> =
+			state_strategy.schedule_next_peer(PeerState::DownloadingState, 10);
+		assert!(peer_id.is_none());
+
+		// Other requests can still happen.
+		let peer_id: Option<PeerId> =
+			state_strategy.schedule_next_peer(PeerState::DownloadingState, 9);
+		assert_eq!(ninth_peer, peer_id.unwrap());
 	}
 
 	#[test]
