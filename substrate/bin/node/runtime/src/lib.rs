@@ -1609,6 +1609,8 @@ impl pallet_mmr::Config for Runtime {
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;
 	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Runtime>;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 parameter_types! {

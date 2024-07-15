@@ -13876,6 +13876,7 @@ dependencies = [
  "pallet-balances",
  "pallet-broker",
  "pallet-message-queue",
+ "pallet-mmr",
  "pallet-session",
  "pallet-staking",
  "pallet-timestamp",

@@ -28,6 +28,8 @@ benchmarks_instance_pallet! {
 		let x in 1 .. 1_000;
 
 		let leaves = x as NodeIndex;
+
+		<<T as pallet::Config::<I>>::BenchmarkHelper as BenchmarkHelper>::setup();
 	}: {
 		for b in 0..leaves {
 			Pallet::<T, I>::on_initialize((b as u32).into());

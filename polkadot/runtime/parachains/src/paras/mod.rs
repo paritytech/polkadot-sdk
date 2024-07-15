@@ -134,7 +134,7 @@ use serde::{Deserialize, Serialize};
 pub use crate::Origin as ParachainOrigin;
 
 #[cfg(feature = "runtime-benchmarks")]
-pub(crate) mod benchmarking;
+pub mod benchmarking;
 
 #[cfg(test)]
 pub(crate) mod tests;

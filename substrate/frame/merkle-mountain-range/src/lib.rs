@@ -125,6 +125,17 @@ pub trait WeightInfo {
 	fn on_initialize(peaks: NodeIndex) -> Weight;
 }
 
+/// This trait decoples dependencies on pallets needed for benchmarking.
+#[cfg(feature = "runtime-benchmarks")]
+pub trait BenchmarkHelper {
+	fn setup();
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelper for () {
+	fn setup() {}
+}
+
 /// An MMR specific to the pallet.
 type ModuleMmr<StorageType, T, I> = mmr::Mmr<StorageType, T, I, LeafOf<T, I>>;
 
@@ -203,6 +214,10 @@ pub mod pallet {
 
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Benchmarking setup helper trait.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper;
 	}
 
 	/// Latest MMR Root hash.

@@ -1289,9 +1289,11 @@ impl pallet_mmr::Config for Runtime {
 	const INDEXING_PREFIX: &'static [u8] = mmr::INDEXING_PREFIX;
 	type Hashing = Keccak256;
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;
-	type WeightInfo = ();
 	type LeafData = pallet_beefy_mmr::Pallet<Runtime>;
 	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Runtime>;
+	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = parachains_paras::benchmarking::mmr_setup::MmrSetup<Runtime>;
 }
 
 parameter_types! {
