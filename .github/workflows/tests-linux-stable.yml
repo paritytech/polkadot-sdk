@@ -102,8 +102,7 @@ jobs:
         run: |
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
-          # .forklift/forklift cargo nextest run \
-          cargo nextest run \
+          .forklift/forklift cargo nextest run \
             --workspace \
             --locked \
             --release \
