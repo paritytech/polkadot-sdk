@@ -13,6 +13,8 @@ crates:
   bump: patch
 - name: polkadot-runtime-common
   bump: patch
+- name: polkadot-runtime-parachains
+  bump: patch
 - name: pallet-alliance
   bump: patch
 - name: pallet-contracts
