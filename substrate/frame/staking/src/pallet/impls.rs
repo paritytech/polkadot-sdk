@@ -1804,13 +1804,13 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 		Validators::<T>::remove_all();
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
-	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
+	#[cfg(feature = "try-runtime")]
+	fn in_position(_id: &T::AccountId) -> Result<bool, Self::Error> {
 		unimplemented!()
 	}
 
-	#[cfg(feature = "try-runtime")]
-	fn in_position(_id: &T::AccountId) -> Result<bool, Self::Error> {
+	#[cfg(feature = "runtime-benchmarks")]
+	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
 		unimplemented!()
 	}
 }
@@ -1884,13 +1884,13 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 		Validators::<T>::remove_all();
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
-	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
+	#[cfg(feature = "try-runtime")]
+	fn in_position(_id: &T::AccountId) -> Result<bool, Self::Error> {
 		unimplemented!()
 	}
 
-	#[cfg(feature = "try-runtime")]
-	fn in_position(_id: &T::AccountId) -> Result<bool, Self::Error> {
+	#[cfg(feature = "runtime-benchmarks")]
+	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
 		unimplemented!()
 	}
 }
