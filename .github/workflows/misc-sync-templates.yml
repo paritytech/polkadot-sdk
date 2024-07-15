@@ -92,7 +92,6 @@ jobs:
           resolver = "2"
 
           [workspace.dependencies]
-          
           EOF
 
           echo "$(toml get -r ./runtime/Cargo.toml 'package.name') = { path = \"./runtime\" }" >> Cargo.toml
