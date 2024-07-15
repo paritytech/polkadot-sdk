@@ -271,6 +271,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
 <a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -298,6 +299,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	pallets::{pallet_bar, pallet_foo},
 	presets::<span class="kw-2">*</span>,
 };
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>frame::{
 	deps::frame_support::{
 		genesis_builder_helper::{build_state, get_preset},

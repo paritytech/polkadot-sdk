@@ -661,6 +661,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#510" id="510">510</a>
 <a href="#511" id="511">511</a>
 <a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -719,6 +721,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>tests;
 <span class="kw">pub mod </span>weights;
 
+<span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{boxed::Box, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo},
@@ -727,7 +732,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_core::TypeId;
 <span class="kw">use </span>sp_io::hashing::blake2_256;
 <span class="kw">use </span>sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>weights::WeightInfo;
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
@@ -794,7 +798,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The limit on the number of batched calls.
 		</span><span class="kw">fn </span>batched_calls_limit() -&gt; u32 {
 			<span class="kw">let </span>allocator_limit = sp_core::MAX_POSSIBLE_ALLOCATION;
-			<span class="kw">let </span>call_size = ((sp_std::mem::size_of::&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;() <span class="kw">as </span>u32 +
+			<span class="kw">let </span>call_size = ((core::mem::size_of::&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;() <span class="kw">as </span>u32 +
 				CALL_ALIGN - <span class="number">1</span>) / CALL_ALIGN) *
 				CALL_ALIGN;
 			<span class="comment">// The margin to take into account vec doubling capacity.
@@ -809,7 +813,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>integrity_test() {
 			<span class="comment">// If you hit this error, you need to try to `Box` big dispatchable parameters.
 			</span><span class="macro">assert!</span>(
-				sp_std::mem::size_of::&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;() <span class="kw">as </span>u32 &lt;= CALL_ALIGN,
+				core::mem::size_of::&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;() <span class="kw">as </span>u32 &lt;= CALL_ALIGN,
 				<span class="string">"Call enum size should be smaller than {} bytes."</span>,
 				CALL_ALIGN,
 			);

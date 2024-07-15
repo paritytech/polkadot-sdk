@@ -1179,6 +1179,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1028" id="1028">1028</a>
 <a href="#1029" id="1029">1029</a>
 <a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1213,6 +1215,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>weights;
 <span class="kw">pub mod </span>xcm_config;
 
+<span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 <span class="kw">use </span>cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
@@ -1250,7 +1255,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ApplyExtrinsicResult,
 };
 <span class="kw">pub use </span>sp_runtime::{traits::ConvertInto, MultiAddress, Perbill, Permill};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
@@ -1918,7 +1922,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Runtime::metadata_at_version(version)
 		}
 
-		<span class="kw">fn </span>metadata_versions() -&gt; sp_std::vec::Vec&lt;u32&gt; {
+		<span class="kw">fn </span>metadata_versions() -&gt; alloc::vec::Vec&lt;u32&gt; {
 			Runtime::metadata_versions()
 		}
 	}

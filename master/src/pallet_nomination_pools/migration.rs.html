@@ -1331,8 +1331,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::log;
+<span class="kw">use </span>alloc::{collections::btree_map::BTreeMap, vec::Vec};
 <span class="kw">use </span>frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
-<span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 <span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
@@ -1374,7 +1374,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="doccomment">/// Checks and updates `TotalValueLocked` if out of sync.
-	</span><span class="kw">pub struct </span>TotalValueLockedSync&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	</span><span class="kw">pub struct </span>TotalValueLockedSync&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>TotalValueLockedSync&lt;T&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
@@ -1439,7 +1439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// If there are pools that fail to migrate or did not fit in the bounds, the remaining pools
 	/// can be migrated via the permission-less extrinsic [`Call::migrate_pool_to_delegate_stake`].
-	</span><span class="kw">pub struct </span>DelegationStakeMigration&lt;T, MaxPools&gt;(sp_std::marker::PhantomData&lt;(T, MaxPools)&gt;);
+	</span><span class="kw">pub struct </span>DelegationStakeMigration&lt;T, MaxPools&gt;(core::marker::PhantomData&lt;(T, MaxPools)&gt;);
 
 	<span class="kw">impl</span>&lt;T: Config, MaxPools: Get&lt;u32&gt;&gt; OnRuntimeUpgrade <span class="kw">for </span>DelegationStakeMigration&lt;T, MaxPools&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
@@ -1576,7 +1576,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">pub struct </span>VersionUncheckedMigrateV7ToV8&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	<span class="kw">pub struct </span>VersionUncheckedMigrateV7ToV8&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateV7ToV8&lt;T&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
@@ -1655,7 +1655,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub type </span>BondedPools&lt;T: Config&gt; =
 		CountedStorageMap&lt;Pallet&lt;T&gt;, Twox64Concat, PoolId, V7BondedPoolInner&lt;T&gt;&gt;;
 
-	<span class="kw">pub struct </span>VersionUncheckedMigrateV6ToV7&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	<span class="kw">pub struct </span>VersionUncheckedMigrateV6ToV7&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateV6ToV7&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span>migrated = BondedPools::&lt;T&gt;::count();
@@ -1716,7 +1716,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// This migration would restrict reward account of pools to go below ED by doing a named
 	/// freeze on all the existing pools.
-	</span><span class="kw">pub struct </span>MigrateToV6&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	</span><span class="kw">pub struct </span>MigrateToV6&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 
 	<span class="kw">impl</span>&lt;T: Config&gt; MigrateToV6&lt;T&gt; {
 		<span class="kw">fn </span>freeze_ed(pool_id: PoolId) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
@@ -1784,7 +1784,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// This migration adds `total_commission_pending` and `total_commission_claimed` field to every
 	/// `RewardPool`, if any.
-	</span><span class="kw">pub struct </span>MigrateToV5&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	</span><span class="kw">pub struct </span>MigrateToV5&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV5&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span>in_code = Pallet::&lt;T&gt;::in_code_storage_version();
@@ -1939,7 +1939,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[deprecated(
 		note = <span class="string">"To avoid mangled storage please use `MigrateV3ToV5` instead. See: github.com/paritytech/substrate/pull/13715"
 	</span>)]
-	</span><span class="kw">pub struct </span>MigrateToV4&lt;T, U&gt;(sp_std::marker::PhantomData&lt;(T, U)&gt;);
+	</span><span class="kw">pub struct </span>MigrateToV4&lt;T, U&gt;(core::marker::PhantomData&lt;(T, U)&gt;);
 	<span class="attr">#[allow(deprecated)]
 	</span><span class="kw">impl</span>&lt;T: Config, U: Get&lt;Perbill&gt;&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV4&lt;T, U&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
@@ -2021,7 +2021,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="doccomment">/// This migration removes stale bonded-pool metadata, if any.
-	</span><span class="kw">pub struct </span>MigrateToV3&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	</span><span class="kw">pub struct </span>MigrateToV3&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV3&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span>current = Pallet::&lt;T&gt;::in_code_storage_version();
@@ -2159,7 +2159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Migrate the pool reward scheme to the new version, as per
 	/// &lt;https://github.com/paritytech/substrate/pull/11669.&gt;.
-	</span><span class="kw">pub struct </span>MigrateToV2&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	</span><span class="kw">pub struct </span>MigrateToV2&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; MigrateToV2&lt;T&gt; {
 		<span class="kw">fn </span>run(current: StorageVersion) -&gt; Weight {
 			<span class="kw">let </span><span class="kw-2">mut </span>reward_pools_translated = <span class="number">0u64</span>;
@@ -2418,7 +2418,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Trivial migration which makes the roles of each pool optional.
 	///
 	/// Note: The depositor is not optional since they can never change.
-	</span><span class="kw">pub struct </span>MigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	</span><span class="kw">pub struct </span>MigrateToV1&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV1&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span>current = Pallet::&lt;T&gt;::in_code_storage_version();

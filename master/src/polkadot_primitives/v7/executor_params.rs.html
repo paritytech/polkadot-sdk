@@ -586,6 +586,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#435" id="435">435</a>
 <a href="#436" id="436">436</a>
 <a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -610,11 +611,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! done in `polkadot-node-core-pvf`.
 
 </span><span class="kw">use crate</span>::{BlakeTwo256, HashT <span class="kw">as _</span>, PvfExecKind, PvfPrepKind};
+<span class="kw">use </span>alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>core::{ops::Deref, time::Duration};
 <span class="kw">use </span>polkadot_core_primitives::Hash;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, ops::Deref, time::Duration, vec, vec::Vec};
 
 <span class="doccomment">/// Default maximum number of wasm values allowed for the stack during execution of a PVF.
 </span><span class="kw">pub const </span>DEFAULT_LOGICAL_STACK_MAX: u32 = <span class="number">65536</span>;
@@ -722,21 +724,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>sp_std::fmt::Display <span class="kw">for </span>ExecutorParamsHash {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
+<span class="kw">impl </span>core::fmt::Display <span class="kw">for </span>ExecutorParamsHash {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="self">self</span>.<span class="number">0</span>.fmt(f)
 	}
 }
 
-<span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>ExecutorParamsHash {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>ExecutorParamsHash {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="macro">write!</span>(f, <span class="string">"{:?}"</span>, <span class="self">self</span>.<span class="number">0</span>)
 	}
 }
 
-<span class="kw">impl </span>sp_std::fmt::LowerHex <span class="kw">for </span>ExecutorParamsHash {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
-		sp_std::fmt::LowerHex::fmt(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, f)
+<span class="kw">impl </span>core::fmt::LowerHex <span class="kw">for </span>ExecutorParamsHash {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+		core::fmt::LowerHex::fmt(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, f)
 	}
 }
 
@@ -747,21 +749,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Clone, Copy, Encode, Decode, Hash, Eq, PartialEq, PartialOrd, Ord, TypeInfo)]
 </span><span class="kw">pub struct </span>ExecutorParamsPrepHash(Hash);
 
-<span class="kw">impl </span>sp_std::fmt::Display <span class="kw">for </span>ExecutorParamsPrepHash {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
+<span class="kw">impl </span>core::fmt::Display <span class="kw">for </span>ExecutorParamsPrepHash {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="self">self</span>.<span class="number">0</span>.fmt(f)
 	}
 }
 
-<span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>ExecutorParamsPrepHash {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>ExecutorParamsPrepHash {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="macro">write!</span>(f, <span class="string">"{:?}"</span>, <span class="self">self</span>.<span class="number">0</span>)
 	}
 }
 
-<span class="kw">impl </span>sp_std::fmt::LowerHex <span class="kw">for </span>ExecutorParamsPrepHash {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
-		sp_std::fmt::LowerHex::fmt(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, f)
+<span class="kw">impl </span>core::fmt::LowerHex <span class="kw">for </span>ExecutorParamsPrepHash {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+		core::fmt::LowerHex::fmt(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, f)
 	}
 }
 

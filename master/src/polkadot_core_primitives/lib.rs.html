@@ -306,6 +306,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -328,7 +330,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! These core Polkadot types are used by the relay chain and the Parachains.
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
 	generic,
@@ -389,8 +393,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>CandidateHash {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>CandidateHash {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="macro">write!</span>(f, <span class="string">"{:?}"</span>, <span class="self">self</span>.<span class="number">0</span>)
 	}
 }
@@ -427,7 +431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A message sent from the relay-chain down to a parachain.
 ///
 /// The size of the message is limited by the `config.max_downward_message_size` parameter.
-</span><span class="kw">pub type </span>DownwardMessage = sp_std::vec::Vec&lt;u8&gt;;
+</span><span class="kw">pub type </span>DownwardMessage = alloc::vec::Vec&lt;u8&gt;;
 
 <span class="doccomment">/// A wrapped version of `DownwardMessage`. The difference is that it has attached the block number
 /// when the message was sent.
@@ -447,7 +451,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// enacted.
 	</span><span class="kw">pub </span>sent_at: BlockNumber,
 	<span class="doccomment">/// The message payload.
-	</span><span class="kw">pub </span>data: sp_std::vec::Vec&lt;u8&gt;,
+	</span><span class="kw">pub </span>data: alloc::vec::Vec&lt;u8&gt;,
 }
 
 <span class="doccomment">/// An HRMP message seen from the perspective of a sender.
@@ -456,7 +460,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The para that will get this message in its downward message queue.
 	</span><span class="kw">pub </span>recipient: Id,
 	<span class="doccomment">/// The message payload.
-	</span><span class="kw">pub </span>data: sp_std::vec::Vec&lt;u8&gt;,
+	</span><span class="kw">pub </span>data: alloc::vec::Vec&lt;u8&gt;,
 }
 
 <span class="doccomment">/// `V2` primitives.

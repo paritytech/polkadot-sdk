@@ -494,11 +494,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Adapters to work with [`frame_support::traits::tokens::nonfungible`] through XCM.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::MintLocation;
+<span class="kw">use </span>core::{marker::PhantomData, result};
 <span class="kw">use </span>frame_support::{
 	ensure,
 	traits::{tokens::nonfungible, Get},
 };
-<span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>, result};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_executor::traits::{
 	ConvertLocation, Error <span class="kw">as </span>MatchError, MatchesNonFungible, TransactAsset,

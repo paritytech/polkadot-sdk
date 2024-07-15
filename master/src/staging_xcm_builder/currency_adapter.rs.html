@@ -408,9 +408,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![allow(deprecated)]
 
 </span><span class="kw">use </span><span class="kw">super</span>::MintLocation;
+<span class="kw">use </span>core::{marker::PhantomData, result};
 <span class="kw">use </span>frame_support::traits::{ExistenceRequirement::AllowDeath, Get, WithdrawReasons};
 <span class="kw">use </span>sp_runtime::traits::CheckedSub;
-<span class="kw">use </span>sp_std::{marker::PhantomData, result};
 <span class="kw">use </span>xcm::latest::{Asset, Error <span class="kw">as </span>XcmError, Location, <span class="prelude-ty">Result</span>, XcmContext};
 <span class="kw">use </span>xcm_executor::{
 	traits::{ConvertLocation, MatchesFungible, TransactAsset},

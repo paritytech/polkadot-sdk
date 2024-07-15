@@ -317,10 +317,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! The Pay trait and associated types.
 
 </span><span class="kw">use </span>codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+<span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_core::{RuntimeDebug, TypedGet};
 <span class="kw">use </span>sp_runtime::DispatchError;
-<span class="kw">use </span>sp_std::fmt::Debug;
 
 <span class="kw">use super</span>::{fungible, fungibles, Balance, Preservation::Expendable};
 

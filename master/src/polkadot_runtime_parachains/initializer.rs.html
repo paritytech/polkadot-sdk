@@ -532,6 +532,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	disputes::{<span class="self">self</span>, DisputesHandler <span class="kw">as _</span>, SlashingHandler <span class="kw">as _</span>},
 	dmp, hrmp, inclusion, paras, scheduler, session_info, shared,
 };
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	traits::{OneSessionHandler, Randomness},
@@ -540,7 +541,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_system::limits::BlockWeights;
 <span class="kw">use </span>polkadot_primitives::{BlockNumber, ConsensusLog, SessionIndex, ValidatorId};
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
@@ -756,7 +756,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// TODO: audit usage of randomness API
 			// https://github.com/paritytech/polkadot/issues/2601
 			</span><span class="kw">let </span>(random_hash, <span class="kw">_</span>) = T::Randomness::random(<span class="kw-2">&amp;</span><span class="string">b"paras"</span>[..]);
-			<span class="kw">let </span>len = sp_std::cmp::min(<span class="number">32</span>, random_hash.as_ref().len());
+			<span class="kw">let </span>len = core::cmp::min(<span class="number">32</span>, random_hash.as_ref().len());
 			buf[..len].copy_from_slice(<span class="kw-2">&amp;</span>random_hash.as_ref()[..len]);
 			buf
 		};

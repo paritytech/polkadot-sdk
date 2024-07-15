@@ -399,7 +399,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Twox64Concat,
 };
 
-<span class="kw">pub struct </span>MigrateToTrackInactiveV2&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+<span class="kw">pub struct </span>MigrateToTrackInactiveV2&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToTrackInactiveV2&lt;T&gt; {
 	<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 		<span class="kw">let </span>on_chain_version = Pallet::&lt;T&gt;::on_chain_storage_version();

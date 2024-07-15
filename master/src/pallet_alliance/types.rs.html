@@ -288,11 +288,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_support::{traits::ConstU32, BoundedVec};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// A Multihash instance that only supports the basic functionality and no hashing.
 </span><span class="attr">#[derive(

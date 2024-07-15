@@ -813,6 +813,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#662" id="662">662</a>
 <a href="#663" id="663">663</a>
 <a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -834,6 +835,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::Pallet <span class="kw">as </span>Referenda;
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>assert_matches::assert_matches;
 <span class="kw">use </span>frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, BenchmarkError,
@@ -1447,7 +1449,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	set_some_metadata {
-		<span class="kw">use </span>sp_std::borrow::Cow;
+		<span class="kw">use </span>alloc::borrow::Cow;
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
 			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin.clone());
@@ -1458,7 +1460,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	clear_metadata {
-		<span class="kw">use </span>sp_std::borrow::Cow;
+		<span class="kw">use </span>alloc::borrow::Cow;
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
 			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin.clone());

@@ -574,7 +574,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Adapters to work with [`frame_support::traits::fungibles`] through XCM.
 
-</span><span class="kw">use </span>frame_support::traits::{
+</span><span class="kw">use </span>core::{marker::PhantomData, result};
+<span class="kw">use </span>frame_support::traits::{
 	tokens::{
 		fungibles,
 		Fortitude::Polite,
@@ -584,7 +585,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	Contains, Get,
 };
-<span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>, result};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_executor::traits::{ConvertLocation, Error <span class="kw">as </span>MatchError, MatchesFungibles, TransactAsset};
 
@@ -659,7 +659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Implementation of `AssetChecking` which subjects a given set of assets `T` to having their
 /// teleportations recorded with a `MintLocation::Local`.
-</span><span class="kw">pub struct </span>LocalMint&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>LocalMint&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;AssetId, T: Contains&lt;AssetId&gt;&gt; AssetChecking&lt;AssetId&gt; <span class="kw">for </span>LocalMint&lt;T&gt; {
 	<span class="kw">fn </span>asset_checking(asset: <span class="kw-2">&amp;</span>AssetId) -&gt; <span class="prelude-ty">Option</span>&lt;MintLocation&gt; {
 		<span class="kw">match </span>T::contains(asset) {
@@ -671,7 +671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Implementation of `AssetChecking` which subjects a given set of assets `T` to having their
 /// teleportations recorded with a `MintLocation::NonLocal`.
-</span><span class="kw">pub struct </span>NonLocalMint&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>NonLocalMint&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;AssetId, T: Contains&lt;AssetId&gt;&gt; AssetChecking&lt;AssetId&gt; <span class="kw">for </span>NonLocalMint&lt;T&gt; {
 	<span class="kw">fn </span>asset_checking(asset: <span class="kw-2">&amp;</span>AssetId) -&gt; <span class="prelude-ty">Option</span>&lt;MintLocation&gt; {
 		<span class="kw">match </span>T::contains(asset) {
@@ -684,7 +684,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Implementation of `AssetChecking` which subjects a given set of assets `L` to having their
 /// teleportations recorded with a `MintLocation::Local` and a second set of assets `R` to having
 /// their teleportations recorded with a `MintLocation::NonLocal`.
-</span><span class="kw">pub struct </span>DualMint&lt;L, R&gt;(sp_std::marker::PhantomData&lt;(L, R)&gt;);
+</span><span class="kw">pub struct </span>DualMint&lt;L, R&gt;(core::marker::PhantomData&lt;(L, R)&gt;);
 <span class="kw">impl</span>&lt;AssetId, L: Contains&lt;AssetId&gt;, R: Contains&lt;AssetId&gt;&gt; AssetChecking&lt;AssetId&gt;
 	<span class="kw">for </span>DualMint&lt;L, R&gt;
 {

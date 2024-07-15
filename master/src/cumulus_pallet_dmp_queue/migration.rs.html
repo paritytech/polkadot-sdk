@@ -281,9 +281,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Migrates the storage from the previously deleted DMP pallet.
 
 </span><span class="kw">use crate</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>cumulus_primitives_core::relay_chain::BlockNumber <span class="kw">as </span>RelayBlockNumber;
 <span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, storage_alias, traits::HandleMessage};
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>LOG: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::dmp-queue-export-xcms"</span>;
 

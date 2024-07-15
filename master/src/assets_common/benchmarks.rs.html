@@ -207,9 +207,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>cumulus_primitives_core::ParaId;
+</span><span class="kw">use </span>core::marker::PhantomData;
+<span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>sp_runtime::traits::Get;
-<span class="kw">use </span>sp_std::marker::PhantomData;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Creates asset pairs for liquidity pools with `Target` always being the first asset.

@@ -649,14 +649,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 </span><span class="doccomment">//! Interfaces, types and utils for benchmarking a FRAME runtime.
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{dispatch::DispatchErrorWithPostInfo, pallet_prelude::<span class="kw-2">*</span>, traits::StorageInfo};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sp_io::hashing::blake2_256;
 <span class="kw">use </span>sp_runtime::{traits::TrailingZeroInput, DispatchError};
-<span class="kw">use </span>sp_std::vec::Vec;
 <span class="kw">use </span>sp_storage::TrackedStorageKey;
 
 <span class="doccomment">/// An alphabet of possible parameters to use for benchmarking.

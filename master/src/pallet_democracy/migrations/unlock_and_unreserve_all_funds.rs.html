@@ -600,6 +600,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! pallet.
 
 </span><span class="kw">use crate</span>::{PropIndex, Voting, DEMOCRACY_ID};
+<span class="kw">use </span>alloc::{collections::btree_map::BTreeMap, vec::Vec};
 <span class="kw">use </span>core::iter::Sum;
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::ValueQuery,
@@ -610,7 +611,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_runtime::{traits::Zero, BoundedVec, Saturating};
-<span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::democracy::migrations::unlock_and_unreserve_all_funds"</span>;
 
@@ -668,7 +668,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The pallet should be made inoperable before this migration is run.
 ///
 /// (See also [`RemovePallet`][frame_support::migrations::RemovePallet])
-</span><span class="kw">pub struct </span>UnlockAndUnreserveAllFunds&lt;T: UnlockConfig&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>UnlockAndUnreserveAllFunds&lt;T: UnlockConfig&gt;(core::marker::PhantomData&lt;T&gt;);
 
 <span class="kw">impl</span>&lt;T: UnlockConfig&gt; UnlockAndUnreserveAllFunds&lt;T&gt; {
 	<span class="doccomment">/// Calculates and returns the total amounts reserved by each account by this pallet, and all
@@ -751,8 +751,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// the actual total reserved amount for any accounts.
 	</span><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
+		<span class="kw">use </span>alloc::collections::btree_set::BTreeSet;
 		<span class="kw">use </span>codec::Encode;
-		<span class="kw">use </span>sp_std::collections::btree_set::BTreeSet;
 
 		<span class="comment">// Get staked and deposited balances as reported by this pallet.
 		</span><span class="kw">let </span>(account_deposits, account_locks, <span class="kw">_</span>) = <span class="self">Self</span>::get_account_deposits_and_locks();

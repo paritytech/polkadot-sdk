@@ -1007,6 +1007,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#856" id="856">856</a>
 <a href="#857" id="857">857</a>
 <a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1028,7 +1031,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>codec::Encode;
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>codec::Encode;
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>cumulus_primitives_core::{MessageSendError, UpwardMessageSender};
 <span class="kw">use </span>frame_support::{
 	defensive,
@@ -1042,7 +1049,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Saturating, Zero},
 	SaturatedConversion,
 };
-<span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedLocation, VersionedXcm, WrapVersion};
 <span class="kw">use </span>xcm_builder::{InspectMessageQueues, TakeRevenue};
 <span class="kw">use </span>xcm_executor::{
@@ -1812,7 +1818,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// needed.
 </span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub struct </span>ToParentDeliveryHelper&lt;XcmConfig, ExistentialDeposit, PriceForDelivery&gt;(
-	sp_std::marker::PhantomData&lt;(XcmConfig, ExistentialDeposit, PriceForDelivery)&gt;,
+	core::marker::PhantomData&lt;(XcmConfig, ExistentialDeposit, PriceForDelivery)&gt;,
 );
 
 <span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]

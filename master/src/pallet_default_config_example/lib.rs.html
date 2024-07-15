@@ -383,6 +383,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -417,7 +419,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-#[frame_support::pallet]
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
 	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 
@@ -574,7 +578,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="macro">parameter_types! </span>{
-		<span class="kw">pub const </span>SomeCall: RuntimeCall = RuntimeCall::System(frame_system::Call::&lt;Runtime&gt;::remark { remark: <span class="macro">vec!</span>[] });
+		<span class="kw">pub const </span>SomeCall: RuntimeCall = RuntimeCall::System(frame_system::Call::&lt;Runtime&gt;::remark { remark: <span class="macro">alloc::vec!</span>[] });
 	}
 
 	<span class="attr">#[derive_impl(TestDefaultConfig <span class="kw">as </span>pallet::DefaultConfig)]

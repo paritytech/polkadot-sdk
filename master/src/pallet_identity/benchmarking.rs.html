@@ -876,6 +876,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#725" id="725">725</a>
 <a href="#726" id="726">726</a>
 <a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -900,6 +901,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="kw">crate</span>::Pallet <span class="kw">as </span>Identity;
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>frame_benchmarking::{account, v2::<span class="kw-2">*</span>, whitelisted_caller, BenchmarkError};
 <span class="kw">use </span>frame_support::{
 	assert_ok, ensure,

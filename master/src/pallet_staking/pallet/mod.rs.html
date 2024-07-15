@@ -2329,7 +2329,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Staking FRAME Pallet.
 
-</span><span class="kw">use </span>codec::Codec;
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::Codec;
 <span class="kw">use </span>frame_election_provider_support::{
 	ElectionProvider, ElectionProviderBase, SortedListProvider, VoteWeight,
 };
@@ -2353,7 +2354,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	StakingAccount::{<span class="self">self</span>, Controller, Stash},
 	StakingInterface,
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">mod </span>impls;
 
@@ -2413,7 +2413,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			+ codec::FullCodec
 			+ Copy
 			+ MaybeSerializeDeserialize
-			+ sp_std::fmt::Debug
+			+ core::fmt::Debug
 			+ Default
 			+ From&lt;u64&gt;
 			+ TypeInfo

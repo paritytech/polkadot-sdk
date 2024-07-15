@@ -312,14 +312,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![allow(missing_docs)]
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	migrations::<span class="kw-2">*</span>,
 	weights::{Weight, WeightMeter},
 };
 <span class="kw">use </span>sp_core::ConstU32;
 <span class="kw">use </span>sp_runtime::BoundedVec;
-<span class="kw">use </span>sp_std::{vec, vec::Vec};
 
 <span class="doccomment">/// Opaque identifier of a migration.
 </span><span class="kw">pub type </span>MockedIdentifier = BoundedVec&lt;u8, ConstU32&lt;<span class="number">256</span>&gt;&gt;;

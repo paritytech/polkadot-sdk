@@ -393,6 +393,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
 <a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -412,9 +413,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Implementation of `ProcessMessage` for an `ExecuteXcm` implementation.
 
 </span><span class="kw">use </span>codec::{Decode, FullCodec, MaxEncodedLen};
+<span class="kw">use </span>core::{fmt::Debug, marker::PhantomData};
 <span class="kw">use </span>frame_support::traits::{ProcessMessage, ProcessMessageError};
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_std::{fmt::Debug, marker::PhantomData};
 <span class="kw">use </span>sp_weights::{Weight, WeightMeter};
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 
@@ -513,6 +514,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>alloc::vec;
 	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>frame_support::{
 		assert_err, assert_ok,

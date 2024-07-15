@@ -331,8 +331,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Benchmarks for the Session Pallet.
 </span><span class="comment">// This is separated into its own crate due to cyclic dependency issues.
 
-</span><span class="kw">use </span>sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
-<span class="kw">use </span>sp_std::{prelude::<span class="kw-2">*</span>, vec};
+</span><span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
 
 <span class="kw">use </span>codec::Decode;
 <span class="kw">use </span>frame_benchmarking::v1::benchmarks;

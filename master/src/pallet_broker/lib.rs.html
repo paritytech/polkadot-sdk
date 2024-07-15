@@ -993,6 +993,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#842" id="842">842</a>
 <a href="#843" id="843">843</a>
 <a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1042,12 +1044,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>coretime_interface::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>types::<span class="kw-2">*</span>;
 
+<span class="kw">extern crate </span>alloc;
+
 <span class="doccomment">/// The log target for this pallet.
 </span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::broker"</span>;
 
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>alloc::vec::Vec;
 	<span class="kw">use </span>frame_support::{
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, <span class="kw-2">*</span>},
 		traits::{
@@ -1058,7 +1063,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 	<span class="kw">use </span>sp_runtime::traits::{Convert, ConvertBack};
-	<span class="kw">use </span>sp_std::vec::Vec;
 
 	<span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">3</span>);
 
@@ -1491,7 +1495,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[pallet::genesis_config]
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
 		<span class="attr">#[serde(skip)]
-		</span><span class="kw">pub </span>_config: sp_std::marker::PhantomData&lt;T&gt;,
+		</span><span class="kw">pub </span>_config: core::marker::PhantomData&lt;T&gt;,
 	}
 
 	<span class="attr">#[pallet::genesis_build]

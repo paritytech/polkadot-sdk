@@ -869,6 +869,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#718" id="718">718</a>
 <a href="#719" id="719">719</a>
 <a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -921,6 +923,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 
+<span class="kw">use </span>alloc::{
+	boxed::Box,
+	collections::{btree_map::Entry, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
 <span class="kw">use </span>polkadot_primitives::{
 	slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes, SlashingOffenceKind},
 	CandidateHash, SessionIndex, ValidatorId, ValidatorIndex,
@@ -936,10 +944,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_session::{GetSessionNumber, GetValidatorCount};
 <span class="kw">use </span>sp_staking::offence::{Kind, Offence, OffenceError, ReportOffence};
-<span class="kw">use </span>sp_std::{
-	collections::{btree_map::Entry, btree_set::BTreeSet},
-	prelude::<span class="kw-2">*</span>,
-};
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::parachains::slashing"</span>;
 
@@ -1029,7 +1033,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// This type implements `SlashingHandler`.
 </span><span class="kw">pub struct </span>SlashValidatorsForDisputes&lt;C&gt; {
-	_phantom: sp_std::marker::PhantomData&lt;C&gt;,
+	_phantom: core::marker::PhantomData&lt;C&gt;,
 }
 
 <span class="kw">impl</span>&lt;C&gt; Default <span class="kw">for </span>SlashValidatorsForDisputes&lt;C&gt; {
@@ -1511,7 +1515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// When configured properly, should be instantiated with
 /// `T::KeyOwnerIdentification, Offences, ReportLongevity` parameters.
 </span><span class="kw">pub struct </span>SlashingReportHandler&lt;I, R, L&gt; {
-	_phantom: sp_std::marker::PhantomData&lt;(I, R, L)&gt;,
+	_phantom: core::marker::PhantomData&lt;(I, R, L)&gt;,
 }
 
 <span class="kw">impl</span>&lt;I, R, L&gt; Default <span class="kw">for </span>SlashingReportHandler&lt;I, R, L&gt; {

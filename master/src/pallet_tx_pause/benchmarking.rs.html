@@ -208,6 +208,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -228,6 +229,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use super</span>::{Pallet <span class="kw">as </span>TxPause, <span class="kw-2">*</span>};
+<span class="kw">use </span>alloc::vec;
 <span class="kw">use </span>frame_benchmarking::v2::<span class="kw-2">*</span>;
 
 <span class="attr">#[benchmarks]

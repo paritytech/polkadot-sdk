@@ -1058,6 +1058,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#907" id="907">907</a>
 <a href="#908" id="908">908</a>
 <a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1116,7 +1118,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>tests;
 <span class="kw">pub mod </span>weights;
 
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
+<span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::vec::Vec;
 
 <span class="kw">use </span>frame_support::traits::{
 	Currency,

@@ -282,6 +282,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -301,13 +302,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![deny(missing_docs)]
 
-</span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>frame_support::Parameter;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_arithmetic::traits::AtLeast32BitUnsigned;
 <span class="kw">use </span>sp_core::RuntimeDebug;
 <span class="kw">use </span>sp_runtime::traits::BlockNumberProvider;
-<span class="kw">use </span>sp_std::{fmt::Debug, vec::Vec};
 
 <span class="kw">use </span><span class="kw">crate</span>::Timeslice;
 

@@ -321,8 +321,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! This module contains helper methods to configure account roles for existing collections.
 
 </span><span class="kw">use crate</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>alloc::{collections::btree_map::BTreeMap, vec::Vec};
 <span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>sp_std::collections::btree_map::BTreeMap;
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 	<span class="doccomment">/// Set the team roles for a specific collection.

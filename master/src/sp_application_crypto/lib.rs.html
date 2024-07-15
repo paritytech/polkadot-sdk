@@ -768,6 +768,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#617" id="617">617</a>
 <a href="#618" id="618">618</a>
 <a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -790,7 +794,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![warn(missing_docs)]
 #![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">pub use </span>sp_core::crypto::{key_types, CryptoTypeId, DeriveJunction, KeyTypeId, Ss58Codec};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">pub use </span>sp_core::crypto::{key_types, CryptoTypeId, DeriveJunction, KeyTypeId, Ss58Codec};
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>sp_core::crypto::{DeriveError, Pair, SecretStringError};
 <span class="attr">#[doc(hidden)]
@@ -801,14 +807,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="attr">#[doc(hidden)]
+</span><span class="kw">pub use </span>alloc::vec::Vec;
+<span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>codec;
+<span class="attr">#[doc(hidden)]
+</span><span class="kw">pub use </span>core::ops::Deref;
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>scale_info;
 <span class="attr">#[doc(hidden)]
 #[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">pub use </span>serde;
-<span class="attr">#[doc(hidden)]
-</span><span class="kw">pub use </span>sp_std::{ops::Deref, vec::Vec};
 
 <span class="attr">#[cfg(feature = <span class="string">"bandersnatch-experimental"</span>)]
 </span><span class="kw">pub mod </span>bandersnatch;
@@ -1127,7 +1135,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub mod </span>module_format_string_prelude {
 	<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
-	</span><span class="kw">pub use </span>sp_std::alloc::{format, string::String};
+	</span><span class="kw">pub use </span>alloc::{format, string::String};
 	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">pub use </span>std::{format, string::String};
 }

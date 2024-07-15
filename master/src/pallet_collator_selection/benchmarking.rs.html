@@ -604,6 +604,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#453" id="453">453</a>
 <a href="#454" id="454">454</a>
 <a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -627,13 +628,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[allow(unused)]
 </span><span class="kw">use </span><span class="kw">crate</span>::Pallet <span class="kw">as </span>CollatorSelection;
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::Decode;
+<span class="kw">use </span>core::cmp;
 <span class="kw">use </span>frame_benchmarking::{account, v2::<span class="kw-2">*</span>, whitelisted_caller, BenchmarkError};
 <span class="kw">use </span>frame_support::traits::{Currency, EnsureOrigin, Get, ReservableCurrency};
 <span class="kw">use </span>frame_system::{pallet_prelude::BlockNumberFor, EventRecord, RawOrigin};
 <span class="kw">use </span>pallet_authorship::EventHandler;
 <span class="kw">use </span>pallet_session::{<span class="self">self </span><span class="kw">as </span>session, SessionManager};
-<span class="kw">use </span>sp_std::{cmp, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">pub type </span>BalanceOf&lt;T&gt; =
 	&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>Currency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;

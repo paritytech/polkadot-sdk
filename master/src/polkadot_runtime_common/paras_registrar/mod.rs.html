@@ -1818,6 +1818,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1667" id="1667">1667</a>
 <a href="#1668" id="1668">1668</a>
 <a href="#1669" id="1669">1669</a>
+<a href="#1670" id="1670">1670</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1839,6 +1840,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">pub mod </span>migration;
 
+<span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>core::result;
 <span class="kw">use </span>frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -1854,7 +1857,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	paras::{<span class="self">self</span>, ParaGenesisArgs, UpgradeStrategy},
 	Origin, ParaLifecycle,
 };
-<span class="kw">use </span>sp_std::{prelude::<span class="kw-2">*</span>, result};
 
 <span class="kw">use </span><span class="kw">crate</span>::traits::{OnSwap, Registrar};
 <span class="kw">use </span>codec::{Decode, Encode};
@@ -2030,7 +2032,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::genesis_config]
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
 		<span class="attr">#[serde(skip)]
-		</span><span class="kw">pub </span>_config: sp_std::marker::PhantomData&lt;T&gt;,
+		</span><span class="kw">pub </span>_config: core::marker::PhantomData&lt;T&gt;,
 		<span class="kw">pub </span>next_free_para_id: ParaId,
 	}
 
@@ -2537,6 +2539,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use crate</span>::{
 		mock::conclude_pvf_checking, paras_registrar, traits::Registrar <span class="kw">as </span>RegistrarTrait,
 	};
+	<span class="kw">use </span>alloc::collections::btree_map::BTreeMap;
 	<span class="kw">use </span>frame_support::{
 		assert_noop, assert_ok, derive_impl, parameter_types,
 		traits::{OnFinalize, OnInitialize},
@@ -2553,7 +2556,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		transaction_validity::TransactionPriority,
 		BuildStorage, Perbill,
 	};
-	<span class="kw">use </span>sp_std::collections::btree_map::BTreeMap;
 
 	<span class="kw">type </span>UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic&lt;Test&gt;;
 	<span class="kw">type </span>Block = frame_system::mocking::MockBlockU32&lt;Test&gt;;

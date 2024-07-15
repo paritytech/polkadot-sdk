@@ -2676,7 +2676,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	DispatchResult,
 };
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Codec, Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+<span class="attr">#[doc(hidden)]
+</span><span class="kw">pub use </span>core::{fmt::Debug, marker::PhantomData};
 <span class="kw">use </span>impl_trait_for_tuples::impl_for_tuples;
 <span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -2694,9 +2697,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
 	ConstU16, ConstU32, ConstU64, ConstU8, Get, GetDefault, TryCollect, TypedGet,
 };
-<span class="attr">#[doc(hidden)]
-</span><span class="kw">pub use </span>sp_std::marker::PhantomData;
-<span class="kw">use </span>sp_std::{<span class="self">self</span>, fmt::Debug, prelude::<span class="kw-2">*</span>};
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>std::fmt::Display;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
@@ -2972,7 +2972,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Implementation of `Morph` which converts between types using `Into`.
-</span><span class="kw">pub struct </span>MorphInto&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>MorphInto&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T, A: Into&lt;T&gt;&gt; Morph&lt;A&gt; <span class="kw">for </span>MorphInto&lt;T&gt; {
 	<span class="kw">type </span>Outcome = T;
 	<span class="kw">fn </span>morph(a: A) -&gt; T {
@@ -2981,7 +2981,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Implementation of `TryMorph` which attempts to convert between types using `TryInto`.
-</span><span class="kw">pub struct </span>TryMorphInto&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>TryMorphInto&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T, A: TryInto&lt;T&gt;&gt; TryMorph&lt;A&gt; <span class="kw">for </span>TryMorphInto&lt;T&gt; {
 	<span class="kw">type </span>Outcome = T;
 	<span class="kw">fn </span>try_morph(a: A) -&gt; <span class="prelude-ty">Result</span>&lt;T, ()&gt; {
@@ -3342,7 +3342,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Adapter which turns a [Get] implementation into a [Convert] implementation which always returns
 /// in the same value no matter the input.
-</span><span class="kw">pub struct </span>ConvertToValue&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>ConvertToValue&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;X, Y, T: Get&lt;Y&gt;&gt; Convert&lt;X, Y&gt; <span class="kw">for </span>ConvertToValue&lt;T&gt; {
 	<span class="kw">fn </span>convert(<span class="kw">_</span>: X) -&gt; Y {
 		T::get()
@@ -3584,17 +3584,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub trait </span>SimpleBitOps:
 	Sized
 	+ Clear
-	+ sp_std::ops::BitOr&lt;<span class="self">Self</span>, Output = <span class="self">Self</span>&gt;
-	+ sp_std::ops::BitXor&lt;<span class="self">Self</span>, Output = <span class="self">Self</span>&gt;
-	+ sp_std::ops::BitAnd&lt;<span class="self">Self</span>, Output = <span class="self">Self</span>&gt;
+	+ core::ops::BitOr&lt;<span class="self">Self</span>, Output = <span class="self">Self</span>&gt;
+	+ core::ops::BitXor&lt;<span class="self">Self</span>, Output = <span class="self">Self</span>&gt;
+	+ core::ops::BitAnd&lt;<span class="self">Self</span>, Output = <span class="self">Self</span>&gt;
 {
 }
 <span class="kw">impl</span>&lt;
 		T: Sized
 			+ Clear
-			+ sp_std::ops::BitOr&lt;<span class="self">Self</span>, Output = <span class="self">Self</span>&gt;
-			+ sp_std::ops::BitXor&lt;<span class="self">Self</span>, Output = <span class="self">Self</span>&gt;
-			+ sp_std::ops::BitAnd&lt;<span class="self">Self</span>, Output = <span class="self">Self</span>&gt;,
+			+ core::ops::BitOr&lt;<span class="self">Self</span>, Output = <span class="self">Self</span>&gt;
+			+ core::ops::BitXor&lt;<span class="self">Self</span>, Output = <span class="self">Self</span>&gt;
+			+ core::ops::BitAnd&lt;<span class="self">Self</span>, Output = <span class="self">Self</span>&gt;,
 	&gt; SimpleBitOps <span class="kw">for </span>T
 {
 }
@@ -3638,7 +3638,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	+ MaybeDisplay
 	+ MaybeFromStr
 	+ Debug
-	+ sp_std::hash::Hash
+	+ core::hash::Hash
 	+ AsRef&lt;[u8]&gt;
 	+ AsMut&lt;[u8]&gt;
 	+ Copy
@@ -3658,7 +3658,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ MaybeDisplay
 		+ MaybeFromStr
 		+ Debug
-		+ sp_std::hash::Hash
+		+ core::hash::Hash
 		+ AsRef&lt;[u8]&gt;
 		+ AsMut&lt;[u8]&gt;
 		+ Copy
@@ -3781,7 +3781,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">trait </span>MaybeFromStr: FromStr;
 
 	<span class="doccomment">/// A type that implements Hash when in std environment.
-	</span><span class="kw">trait </span>MaybeHash: sp_std::hash::Hash;
+	</span><span class="kw">trait </span>MaybeHash: core::hash::Hash;
 );
 
 <span class="macro">sp_core::impl_maybe_marker_std_or_serde!</span>(
@@ -3808,7 +3808,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	+ MaybeSerializeDeserialize
 	+ MaybeFromStr
 	+ Debug
-	+ sp_std::hash::Hash
+	+ core::hash::Hash
 	+ Copy
 	+ MaybeDisplay
 	+ AtLeast32BitUnsigned
@@ -3826,7 +3826,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			+ MaybeSerializeDeserialize
 			+ MaybeFromStr
 			+ Debug
-			+ sp_std::hash::Hash
+			+ core::hash::Hash
 			+ Copy
 			+ MaybeDisplay
 			+ AtLeast32BitUnsigned
@@ -4249,7 +4249,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This method provides a default implementation that returns a vec containing a single
 	/// [`SignedExtensionMetadata`].
 	</span><span class="kw">fn </span>metadata() -&gt; Vec&lt;SignedExtensionMetadata&gt; {
-		<span class="macro">sp_std::vec!</span>[SignedExtensionMetadata {
+		<span class="macro">alloc::vec!</span>[SignedExtensionMetadata {
 			identifier: <span class="self">Self</span>::IDENTIFIER,
 			ty: scale_info::meta_type::&lt;<span class="self">Self</span>&gt;(),
 			additional_signed: scale_info::meta_type::&lt;<span class="self">Self</span>::AdditionalSigned&gt;()
@@ -4352,7 +4352,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Call = ();
 	<span class="kw">type </span>Pre = ();
 	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"UnitSignedExtension"</span>;
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::result::Result&lt;(), TransactionValidityError&gt; {
+	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; core::result::Result&lt;(), TransactionValidityError&gt; {
 		<span class="prelude-val">Ok</span>(())
 	}
 	<span class="kw">fn </span>pre_dispatch(
@@ -4685,7 +4685,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			/// The generated key pairs are stored in the keystore.
 			///
 			/// Returns the concatenated SCALE encoded public keys.
-			</span><span class="kw">pub fn </span>generate(seed: <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::sp_std::vec::Vec</span>&lt;u8&gt;&gt;) -&gt; <span class="macro-nonterminal">$crate::sp_std::vec::Vec</span>&lt;u8&gt; {
+			</span><span class="kw">pub fn </span>generate(seed: <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::Vec</span>&lt;u8&gt;&gt;) -&gt; <span class="macro-nonterminal">$crate::Vec</span>&lt;u8&gt; {
 				<span class="kw">let </span>keys = <span class="self">Self</span>{
 					$(
 						<span class="macro-nonterminal">$field</span>: &lt;
@@ -4701,7 +4701,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="doccomment">/// Converts `Self` into a `Vec` of `(raw public key, KeyTypeId)`.
 			</span><span class="kw">pub fn </span>into_raw_public_keys(
 				<span class="self">self</span>,
-			) -&gt; <span class="macro-nonterminal">$crate::sp_std::vec::Vec</span>&lt;(<span class="macro-nonterminal">$crate::sp_std::vec::Vec</span>&lt;u8&gt;, <span class="macro-nonterminal">$crate::KeyTypeId</span>)&gt; {
+			) -&gt; <span class="macro-nonterminal">$crate::Vec</span>&lt;(<span class="macro-nonterminal">$crate::Vec</span>&lt;u8&gt;, <span class="macro-nonterminal">$crate::KeyTypeId</span>)&gt; {
 				<span class="kw">let </span><span class="kw-2">mut </span>keys = Vec::new();
 				$(
 					keys.push((
@@ -4723,7 +4723,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			/// Returns `None` when the decoding failed, otherwise `Some(_)`.
 			</span><span class="kw">pub fn </span>decode_into_raw_public_keys(
 				encoded: <span class="kw-2">&amp;</span>[u8],
-			) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::sp_std::vec::Vec</span>&lt;(<span class="macro-nonterminal">$crate::sp_std::vec::Vec</span>&lt;u8&gt;, <span class="macro-nonterminal">$crate::KeyTypeId</span>)&gt;&gt; {
+			) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::Vec</span>&lt;(<span class="macro-nonterminal">$crate::Vec</span>&lt;u8&gt;, <span class="macro-nonterminal">$crate::KeyTypeId</span>)&gt;&gt; {
 				&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::codec::Decode</span>&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..])
 					.ok()
 					.map(|s| s.into_raw_public_keys())

@@ -383,11 +383,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 // Shared test utilities and implementations for the XCM Builder.
 
-</span><span class="kw">use </span>frame_support::{
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>frame_support::{
 	parameter_types,
 	traits::{Contains, CrateVersion, PalletInfoData, PalletsInfoAccess},
 };
-<span class="kw">use </span>sp_std::vec::Vec;
 <span class="kw">pub use </span>xcm::latest::{prelude::<span class="kw-2">*</span>, Weight};
 <span class="kw">use </span>xcm_executor::traits::{ClaimAssets, DropAssets, VersionChangeNotifier};
 <span class="kw">pub use </span>xcm_executor::{

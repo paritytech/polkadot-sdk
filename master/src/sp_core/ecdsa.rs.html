@@ -806,14 +806,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>k256::ecdsa::{SigningKey <span class="kw">as </span>SecretKey, VerifyingKey};
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>secp256k1::{
 	ecdsa::{RecoverableSignature, RecoveryId},
 	Message, PublicKey, SecretKey, SECP256K1,
 };
-<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-</span><span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="doccomment">/// An identifier used to match public keys against ecdsa keys
 </span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b"ecds"</span>);

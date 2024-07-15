@@ -2162,6 +2162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2011" id="2011">2011</a>
 <a href="#2012" id="2012">2012</a>
 <a href="#2013" id="2013">2013</a>
+<a href="#2014" id="2014">2014</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2185,6 +2186,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	helpers, Call, Config, ElectionCompute, Error, FeasibilityError, Pallet, RawSolution,
 	ReadySolution, RoundSnapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
 };
+<span class="kw">use </span>alloc::{boxed::Box, vec::Vec};
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_election_provider_support::{NposSolution, NposSolver, PerThing128, VoteWeight};
 <span class="kw">use </span>frame_support::{
@@ -2203,7 +2205,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	offchain::storage::{MutateStorageError, StorageValueRef},
 	DispatchError, SaturatedConversion,
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Storage key used to store the last block number at which offchain worker ran.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>OFFCHAIN_LAST_BLOCK: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"parity/multi-phase-unsigned-election"</span>;
@@ -2560,14 +2561,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Configurations for a miner that comes with this pallet.
 </span><span class="kw">pub trait </span>MinerConfig {
 	<span class="doccomment">/// The account id type.
-	</span><span class="kw">type </span>AccountId: Ord + Clone + codec::Codec + sp_std::fmt::Debug;
+	</span><span class="kw">type </span>AccountId: Ord + Clone + codec::Codec + core::fmt::Debug;
 	<span class="doccomment">/// The solution that the miner is mining.
 	</span><span class="kw">type </span>Solution: codec::Codec
 		+ Default
 		+ PartialEq
 		+ Eq
 		+ Clone
-		+ sp_std::fmt::Debug
+		+ core::fmt::Debug
 		+ Ord
 		+ NposSolution
 		+ TypeInfo;
@@ -2592,7 +2593,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A base miner, suitable to be used for both signed and unsigned submissions.
-</span><span class="kw">pub struct </span>Miner&lt;T: MinerConfig&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>Miner&lt;T: MinerConfig&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: MinerConfig&gt; Miner&lt;T&gt; {
 	<span class="doccomment">/// Same as [`Pallet::mine_solution`], but the input snapshot data must be given.
 	</span><span class="kw">pub fn </span>mine_solution_with_snapshot&lt;S&gt;(
@@ -2669,7 +2670,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							stake
 						})
 						.unwrap_or_default();
-					sp_std::cmp::Reverse(stake)
+					core::cmp::Reverse(stake)
 				},
 			);
 
@@ -3180,6 +3181,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Event, InvalidTransaction, Phase, QueuedSolution, TransactionSource,
 		TransactionValidityError,
 	};
+	<span class="kw">use </span>alloc::vec;
 	<span class="kw">use </span>codec::Decode;
 	<span class="kw">use </span>frame_election_provider_support::IndexAssignment;
 	<span class="kw">use </span>frame_support::{assert_noop, assert_ok, traits::OffchainWorker};

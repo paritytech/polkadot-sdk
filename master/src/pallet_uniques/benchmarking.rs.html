@@ -619,6 +619,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, whitelisted_caller, BenchmarkError,
 };
@@ -628,7 +629,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::RawOrigin <span class="kw">as </span>SystemOrigin;
 <span class="kw">use </span>sp_runtime::traits::Bounded;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="kw">crate</span>::Pallet <span class="kw">as </span>Uniques;
 

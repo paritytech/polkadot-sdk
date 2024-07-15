@@ -995,6 +995,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#844" id="844">844</a>
 <a href="#845" id="845">845</a>
 <a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1129,10 +1131,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 <span class="kw">mod </span>types;
 
+<span class="kw">extern crate </span>alloc;
+
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>types::<span class="kw-2">*</span>;
 
+<span class="kw">use </span>core::convert::TryInto;
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::<span class="kw-2">*</span>,
 	traits::{
@@ -1151,7 +1156,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 <span class="kw">use </span>sp_staking::{Agent, Delegator, EraIndex, StakingInterface, StakingUnchecked};
-<span class="kw">use </span>sp_std::{convert::TryInto, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">pub type </span>BalanceOf&lt;T&gt; =
 	&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>FunInspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
@@ -1776,7 +1780,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[cfg(any(test, feature = <span class="string">"try-runtime"</span>))]
-</span><span class="kw">use </span>sp_std::collections::btree_map::BTreeMap;
+</span><span class="kw">use </span>alloc::collections::btree_map::BTreeMap;
 
 <span class="attr">#[cfg(any(test, feature = <span class="string">"try-runtime"</span>))]
 </span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {

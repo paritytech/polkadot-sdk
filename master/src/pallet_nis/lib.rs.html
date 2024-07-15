@@ -1312,6 +1312,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1161" id="1161">1161</a>
 <a href="#1162" id="1162">1162</a>
 <a href="#1163" id="1163">1163</a>
+<a href="#1164" id="1164">1164</a>
+<a href="#1165" id="1165">1165</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1390,7 +1392,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>frame_support::traits::{
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>frame_support::traits::{
 	fungible::{<span class="self">self</span>, Inspect <span class="kw">as </span>FunInspect, Mutate <span class="kw">as </span>FunMutate},
 	tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
 };
@@ -1409,7 +1413,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 <span class="kw">pub mod </span>weights;
 
-<span class="kw">pub struct </span>WithMaximumOf&lt;A: TypedGet&gt;(sp_std::marker::PhantomData&lt;A&gt;);
+<span class="kw">pub struct </span>WithMaximumOf&lt;A: TypedGet&gt;(core::marker::PhantomData&lt;A&gt;);
 <span class="kw">impl</span>&lt;A: TypedGet&gt; Convert&lt;Perquintill, A::Type&gt; <span class="kw">for </span>WithMaximumOf&lt;A&gt;
 <span class="kw">where
 	</span>A::Type: Clone + Unsigned + From&lt;u64&gt;,
@@ -1430,7 +1434,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">pub struct </span>NoCounterpart&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+<span class="kw">pub struct </span>NoCounterpart&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T&gt; FunInspect&lt;T&gt; <span class="kw">for </span>NoCounterpart&lt;T&gt; {
 	<span class="kw">type </span>Balance = u32;
 	<span class="kw">fn </span>total_issuance() -&gt; u32 {
@@ -1485,6 +1489,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>pallet {
 	<span class="kw">use super</span>::{FunInspect, FunMutate};
 	<span class="kw">pub use </span><span class="kw">crate</span>::weights::WeightInfo;
+	<span class="kw">use </span>alloc::{vec, vec::Vec};
 	<span class="kw">use </span>frame_support::{
 		pallet_prelude::<span class="kw-2">*</span>,
 		traits::{
@@ -1507,7 +1512,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		traits::{AccountIdConversion, Bounded, Convert, ConvertBack, Saturating, Zero},
 		Rounding, TokenError,
 	};
-	<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 	<span class="kw">type </span>BalanceOf&lt;T&gt; =
 		&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>FunInspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
@@ -1686,7 +1690,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub </span>receipts_on_hold: Balance,
 	}
 
-	<span class="kw">pub struct </span>OnEmptyQueueTotals&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	<span class="kw">pub struct </span>OnEmptyQueueTotals&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; Get&lt;QueueTotalsTypeOf&lt;T&gt;&gt; <span class="kw">for </span>OnEmptyQueueTotals&lt;T&gt; {
 		<span class="kw">fn </span>get() -&gt; QueueTotalsTypeOf&lt;T&gt; {
 			BoundedVec::truncate_from(<span class="macro">vec!</span>[
@@ -1887,7 +1891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// queue is &lt;Ordered: Lowest ... Highest&gt;&lt;Fifo: Last ... First&gt;
 					</span><span class="kw">let </span><span class="kw-2">mut </span>bid = Bid { amount, who: who.clone() };
 					<span class="kw">let </span>net = <span class="kw">if </span>queue_full {
-						sp_std::mem::swap(<span class="kw-2">&amp;mut </span>q[<span class="number">0</span>], <span class="kw-2">&amp;mut </span>bid);
+						core::mem::swap(<span class="kw-2">&amp;mut </span>q[<span class="number">0</span>], <span class="kw-2">&amp;mut </span>bid);
 						<span class="kw">let _ </span>= T::Currency::release(
 							<span class="kw-2">&amp;</span>HoldReason::NftReceipt.into(),
 							<span class="kw-2">&amp;</span>bid.who,

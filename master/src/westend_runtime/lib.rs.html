@@ -2867,6 +2867,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2716" id="2716">2716</a>
 <a href="#2717" id="2717">2717</a>
 <a href="#2718" id="2718">2718</a>
+<a href="#2719" id="2719">2719</a>
+<a href="#2720" id="2720">2720</a>
+<a href="#2721" id="2721">2721</a>
+<a href="#2722" id="2722">2722</a>
+<a href="#2723" id="2723">2723</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2889,7 +2894,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="comment">// `#[frame_support::runtime]!` does a lot of recursion and requires us to increase the limit.
 </span><span class="attr">#![recursion_limit = <span class="string">"512"</span>]
 
-</span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
+<span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
 <span class="kw">use </span>frame_support::{
 	derive_impl,
@@ -2964,10 +2976,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill,
 };
 <span class="kw">use </span>sp_staking::SessionIndex;
-<span class="kw">use </span>sp_std::{
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-	prelude::<span class="kw-2">*</span>,
-};
 <span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
@@ -4671,7 +4679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Runtime::metadata_at_version(version)
 		}
 
-		<span class="kw">fn </span>metadata_versions() -&gt; sp_std::vec::Vec&lt;u32&gt; {
+		<span class="kw">fn </span>metadata_versions() -&gt; alloc::vec::Vec&lt;u32&gt; {
 			Runtime::metadata_versions()
 		}
 	}
@@ -5288,6 +5296,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">impl </span>pallet_election_provider_support_benchmarking::Config <span class="kw">for </span>Runtime {}
 
 			<span class="kw">use </span>xcm_config::{AssetHub, TokenLocation};
+
+			<span class="kw">use </span>alloc::boxed::Box;
 
 			<span class="macro">parameter_types! </span>{
 				<span class="kw">pub </span>ExistentialDepositAsset: <span class="prelude-ty">Option</span>&lt;Asset&gt; = <span class="prelude-val">Some</span>((

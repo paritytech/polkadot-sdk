@@ -214,8 +214,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Means for splitting an imbalance into two and handling them differently.
 
 </span><span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::imbalance::{Imbalance, OnUnbalanced};
+<span class="kw">use </span>core::{marker::PhantomData, ops::Div};
 <span class="kw">use </span>sp_runtime::traits::Saturating;
-<span class="kw">use </span>sp_std::{marker::PhantomData, ops::Div};
 
 <span class="doccomment">/// Split an unbalanced amount two ways between a common divisor.
 </span><span class="kw">pub struct </span>SplitTwoWays&lt;Balance, Imbalance, Target1, Target2, <span class="kw">const </span>PART1: u32, <span class="kw">const </span>PART2: u32&gt;(

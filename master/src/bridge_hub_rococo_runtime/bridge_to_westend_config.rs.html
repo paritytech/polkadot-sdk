@@ -520,7 +520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ParentThen([Parachain(AssetHubRococoParaId::get().into())].into()).into(),
 		XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
 	);
-	<span class="kw">pub </span>ActiveLanes: sp_std::vec::Vec&lt;(SenderAndLane, (NetworkId, InteriorLocation))&gt; = <span class="macro">sp_std::vec!</span>[
+	<span class="kw">pub </span>ActiveLanes: alloc::vec::Vec&lt;(SenderAndLane, (NetworkId, InteriorLocation))&gt; = <span class="macro">alloc::vec!</span>[
 			(
 				FromAssetHubRococoToAssetHubWestendRoute::get(),
 				(WestendGlobalConsensusNetwork::get(), [Parachain(AssetHubWestendParaId::get().into())].into())
@@ -540,8 +540,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 <span class="kw">pub const </span>XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND: LaneId = LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">2</span>]);
 
-<span class="kw">fn </span>build_congestion_message&lt;Call&gt;(is_congested: bool) -&gt; sp_std::vec::Vec&lt;Instruction&lt;Call&gt;&gt; {
-	<span class="macro">sp_std::vec!</span>[
+<span class="kw">fn </span>build_congestion_message&lt;Call&gt;(is_congested: bool) -&gt; alloc::vec::Vec&lt;Instruction&lt;Call&gt;&gt; {
+	<span class="macro">alloc::vec!</span>[
 		UnpaidExecution { weight_limit: Unlimited, check_origin: <span class="prelude-val">None </span>},
 		Transact {
 			origin_kind: OriginKind::Xcm,

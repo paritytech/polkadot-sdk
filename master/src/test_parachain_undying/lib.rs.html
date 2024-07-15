@@ -307,6 +307,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -327,8 +329,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![no_std]
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>sp_std::vec::Vec;
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>tiny_keccak::{Hasher <span class="kw">as _</span>, Keccak};
 
 <span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]

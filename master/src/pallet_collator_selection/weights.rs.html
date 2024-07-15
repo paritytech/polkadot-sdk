@@ -412,11 +412,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![allow(unused_parens)]
 #![allow(unused_imports)]
 
-</span><span class="kw">use </span>frame_support::{
+</span><span class="kw">use </span>core::marker::PhantomData;
+<span class="kw">use </span>frame_support::{
 	traits::Get,
 	weights::{constants::RocksDbWeight, Weight},
 };
-<span class="kw">use </span>sp_std::marker::PhantomData;
 
 <span class="comment">// The weight info trait for `pallet_collator_selection`.
 </span><span class="kw">pub trait </span>WeightInfo {

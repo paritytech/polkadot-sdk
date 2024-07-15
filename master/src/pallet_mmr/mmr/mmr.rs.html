@@ -429,8 +429,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	primitives::{<span class="self">self</span>, Error, NodeIndex},
 	Config, HashOf, HashingOf,
 };
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>sp_mmr_primitives::{mmr_lib, mmr_lib::MMRStoreReadOps, utils::NodesUtils, LeafIndex};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Stateless verification of the proof for a batch of leaves.
 /// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the

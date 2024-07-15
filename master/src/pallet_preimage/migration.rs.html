@@ -440,11 +440,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Storage migrations for the preimage pallet.
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>alloc::collections::btree_map::BTreeMap;
 <span class="kw">use </span>frame_support::{
 	storage_alias,
 	traits::{ConstU32, OnRuntimeUpgrade},
 };
-<span class="kw">use </span>sp_std::collections::btree_map::BTreeMap;
 
 <span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>frame_support::ensure;
@@ -501,7 +501,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Note: This needs to be run with the same hashing algorithm as before
 	/// since it is not re-hashing the preimages.
-	</span><span class="kw">pub struct </span>Migration&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	</span><span class="kw">pub struct </span>Migration&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>Migration&lt;T&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]

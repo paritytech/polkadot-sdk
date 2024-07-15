@@ -538,13 +538,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use crate</span>::{traits::Contains, TypeInfo};
 <span class="kw">use </span>codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+<span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 <span class="kw">use </span>sp_core::RuntimeDebug;
 <span class="kw">use </span>sp_runtime::{
 	traits::{Convert, MaybeSerializeDeserialize},
 	ArithmeticError, DispatchError, TokenError,
 };
-<span class="kw">use </span>sp_std::fmt::Debug;
 
 <span class="doccomment">/// The origin of funds to be used for a deposit operation.
 </span><span class="attr">#[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
@@ -870,7 +870,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Adapter for a rank-to-salary `Convert` implementation into a `GetSalary` implementation.
-</span><span class="kw">pub struct </span>ConvertRank&lt;C&gt;(sp_std::marker::PhantomData&lt;C&gt;);
+</span><span class="kw">pub struct </span>ConvertRank&lt;C&gt;(core::marker::PhantomData&lt;C&gt;);
 <span class="kw">impl</span>&lt;A, R, B, C: Convert&lt;R, B&gt;&gt; GetSalary&lt;R, A, B&gt; <span class="kw">for </span>ConvertRank&lt;C&gt; {
 	<span class="kw">fn </span>get_salary(rank: R, <span class="kw">_</span>: <span class="kw-2">&amp;</span>A) -&gt; B {
 		C::convert(rank)

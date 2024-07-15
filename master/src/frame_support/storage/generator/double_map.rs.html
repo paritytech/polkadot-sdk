@@ -805,6 +805,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#654" id="654">654</a>
 <a href="#655" id="655">655</a>
 <a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -827,8 +828,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	storage::{<span class="self">self</span>, storage_prefix, unhashed, KeyPrefixIterator, PrefixIterator, StorageAppend},
 	Never,
 };
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Generator for `StorageDoubleMap` used by `decl_storage`.
 ///
@@ -1323,6 +1324,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			unhashed,
 		},
 	};
+	<span class="kw">use </span>alloc::vec;
 	<span class="kw">use </span>codec::Encode;
 
 	<span class="attr">#[test]

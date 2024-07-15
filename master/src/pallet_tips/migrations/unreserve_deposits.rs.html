@@ -493,7 +493,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! A migration that unreserves all deposit and unlocks all stake held in the context of this
 //! pallet.
 
-</span><span class="kw">use </span>core::iter::Sum;
+</span><span class="kw">use </span>alloc::collections::btree_map::BTreeMap;
+<span class="kw">use </span>core::iter::Sum;
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::OptionQuery,
 	storage_alias,
@@ -502,7 +503,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Parameter, Twox64Concat,
 };
 <span class="kw">use </span>sp_runtime::{traits::Zero, Saturating};
-<span class="kw">use </span>sp_std::collections::btree_map::BTreeMap;
 
 <span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::tips::migrations::unreserve_deposits"</span>;
@@ -560,7 +560,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The pallet should be made inoperable before or immediately after this migration is run.
 ///
 /// (See also the `RemovePallet` migration in `frame/support/src/migrations.rs`)
-</span><span class="kw">pub struct </span>UnreserveDeposits&lt;T: UnlockConfig&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(sp_std::marker::PhantomData&lt;(T, I)&gt;);
+</span><span class="kw">pub struct </span>UnreserveDeposits&lt;T: UnlockConfig&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(core::marker::PhantomData&lt;(T, I)&gt;);
 
 <span class="kw">impl</span>&lt;T: UnlockConfig&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; UnreserveDeposits&lt;T, I&gt; {
 	<span class="doccomment">/// Calculates and returns the total amount reserved by each account by this pallet from open
@@ -608,7 +608,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Fails with a `TryRuntimeError` if somehow the amount reserved by this pallet is greater than
 	/// the actual total reserved amount for any accounts.
 	</span><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;sp_std::vec::Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
+	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;alloc::vec::Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">use </span>codec::Encode;
 		<span class="kw">use </span>frame_support::ensure;
 
@@ -664,7 +664,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Verifies that the account reserved balances were reduced by the actual expected amounts.
 	</span><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>post_upgrade(
-		account_reserved_before_bytes: sp_std::vec::Vec&lt;u8&gt;,
+		account_reserved_before_bytes: alloc::vec::Vec&lt;u8&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">use </span>codec::Decode;
 

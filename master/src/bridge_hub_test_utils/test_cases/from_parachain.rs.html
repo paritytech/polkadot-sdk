@@ -915,6 +915,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#764" id="764">764</a>
 <a href="#765" id="765">765</a>
 <a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -939,6 +940,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	test_data,
 };
 
+<span class="kw">use </span>alloc::{boxed::Box, vec};
 <span class="kw">use </span>bp_header_chain::ChainWithGrandpa;
 <span class="kw">use </span>bp_messages::{LaneId, UnrewardedRelayersState};
 <span class="kw">use </span>bp_polkadot_core::parachains::ParaHash;
@@ -983,7 +985,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Adapter struct that implements `WithRemoteParachainHelper`.
 </span><span class="kw">pub struct </span>WithRemoteParachainHelperAdapter&lt;Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI&gt;(
-	sp_std::marker::PhantomData&lt;(Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI)&gt;,
+	core::marker::PhantomData&lt;(Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI)&gt;,
 );
 
 <span class="kw">impl</span>&lt;Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI&gt; WithRemoteParachainHelper

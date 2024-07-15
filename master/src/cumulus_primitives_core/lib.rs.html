@@ -545,6 +545,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#394" id="394">394</a>
 <a href="#395" id="395">395</a>
 <a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -565,11 +567,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::HeadData;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>polkadot_core_primitives::InboundDownwardMessage;
 <span class="kw">pub use </span>polkadot_parachain_primitives::primitives::{
@@ -749,7 +753,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The header of the parachain block.
 	</span>header: B::Header,
 	<span class="doccomment">/// The extrinsics of the parachain block.
-	</span>extrinsics: sp_std::vec::Vec&lt;B::Extrinsic&gt;,
+	</span>extrinsics: alloc::vec::Vec&lt;B::Extrinsic&gt;,
 	<span class="doccomment">/// The data that is required to emulate the storage accesses executed by all extrinsics.
 	</span>storage_proof: sp_trie::CompactProof,
 }
@@ -758,7 +762,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Creates a new instance of `Self`.
 	</span><span class="kw">pub fn </span>new(
 		header: &lt;B <span class="kw">as </span>BlockT&gt;::Header,
-		extrinsics: sp_std::vec::Vec&lt;&lt;B <span class="kw">as </span>BlockT&gt;::Extrinsic&gt;,
+		extrinsics: alloc::vec::Vec&lt;&lt;B <span class="kw">as </span>BlockT&gt;::Extrinsic&gt;,
 		storage_proof: sp_trie::CompactProof,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ header, extrinsics, storage_proof }
@@ -790,7 +794,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Deconstruct into the inner parts.
-	</span><span class="kw">pub fn </span>deconstruct(<span class="self">self</span>) -&gt; (B::Header, sp_std::vec::Vec&lt;B::Extrinsic&gt;, sp_trie::CompactProof) {
+	</span><span class="kw">pub fn </span>deconstruct(<span class="self">self</span>) -&gt; (B::Header, alloc::vec::Vec&lt;B::Extrinsic&gt;, sp_trie::CompactProof) {
 		(<span class="self">self</span>.header, <span class="self">self</span>.extrinsics, <span class="self">self</span>.storage_proof)
 	}
 }

@@ -335,10 +335,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Presets for the chain-spec demo runtime.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::pallets::{FooEnum, SomeFooData1, SomeFooData2};
+<span class="kw">use </span>alloc::vec;
 <span class="kw">use </span>serde_json::{json, to_string, Value};
 <span class="kw">use </span>sp_application_crypto::Ss58Codec;
 <span class="kw">use </span>sp_keyring::AccountKeyring;
-<span class="kw">use </span>sp_std::vec;
 
 <span class="doccomment">/// A demo preset with strings only.
 </span><span class="kw">pub const </span>PRESET_1: <span class="kw-2">&amp;</span>str = <span class="string">"preset_1"</span>;
@@ -439,7 +439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// If no preset with given `id` exits `None` is returned.
 </span><span class="attr">#[docify::export]
-</span><span class="kw">pub fn </span>get_builtin_preset(id: <span class="kw-2">&amp;</span>sp_genesis_builder::PresetId) -&gt; <span class="prelude-ty">Option</span>&lt;sp_std::vec::Vec&lt;u8&gt;&gt; {
+</span><span class="kw">pub fn </span>get_builtin_preset(id: <span class="kw-2">&amp;</span>sp_genesis_builder::PresetId) -&gt; <span class="prelude-ty">Option</span>&lt;alloc::vec::Vec&lt;u8&gt;&gt; {
 	<span class="kw">let </span>preset = <span class="kw">match </span>id.try_into() {
 		<span class="prelude-val">Ok</span>(PRESET_1) =&gt; preset_1(),
 		<span class="prelude-val">Ok</span>(PRESET_2) =&gt; preset_2(),

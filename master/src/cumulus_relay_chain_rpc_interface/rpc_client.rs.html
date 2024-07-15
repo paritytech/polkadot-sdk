@@ -887,7 +887,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#736" id="736">736</a>
 <a href="#737" id="737">737</a>
 <a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -914,7 +913,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>serde::de::DeserializeOwned;
 <span class="kw">use </span>serde_json::Value <span class="kw">as </span>JsonValue;
-<span class="kw">use </span>std::collections::VecDeque;
+<span class="kw">use </span>std::collections::{btree_map::BTreeMap, VecDeque};
 <span class="kw">use </span>tokio::sync::mpsc::Sender <span class="kw">as </span>TokioSender;
 
 <span class="kw">use </span>codec::{Decode, Encode};
@@ -937,7 +936,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_rpc_api::{state::ReadProof, system::Health};
 <span class="kw">use </span>sc_service::TaskManager;
 <span class="kw">use </span>sp_consensus_babe::Epoch;
-<span class="kw">use </span>sp_core::sp_std::collections::btree_map::BTreeMap;
 <span class="kw">use </span>sp_storage::StorageKey;
 <span class="kw">use </span>sp_version::RuntimeVersion;
 

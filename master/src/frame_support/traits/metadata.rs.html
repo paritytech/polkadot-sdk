@@ -530,6 +530,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -549,10 +550,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Traits for managing information attached to pallets and their constituents.
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>core::ops::Add;
 <span class="kw">use </span>impl_trait_for_tuples::impl_for_tuples;
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
-<span class="kw">use </span>sp_std::{ops::Add, prelude::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// Provides information about the pallet itself and its setup in the runtime.
 ///
@@ -678,16 +680,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>sp_std::cmp::Ord <span class="kw">for </span>CrateVersion {
-	<span class="kw">fn </span>cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; sp_std::cmp::Ordering {
+<span class="kw">impl </span>Ord <span class="kw">for </span>CrateVersion {
+	<span class="kw">fn </span>cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; core::cmp::Ordering {
 		<span class="self">self</span>.major
 			.cmp(<span class="kw-2">&amp;</span>other.major)
 			.then_with(|| <span class="self">self</span>.minor.cmp(<span class="kw-2">&amp;</span>other.minor).then_with(|| <span class="self">self</span>.patch.cmp(<span class="kw-2">&amp;</span>other.patch)))
 	}
 }
 
-<span class="kw">impl </span>sp_std::cmp::PartialOrd <span class="kw">for </span>CrateVersion {
-	<span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;sp_std::cmp::Ordering&gt; {
+<span class="kw">impl </span>PartialOrd <span class="kw">for </span>CrateVersion {
+	<span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;core::cmp::Ordering&gt; {
 		<span class="prelude-val">Some</span>(&lt;<span class="self">Self </span><span class="kw">as </span>Ord&gt;::cmp(<span class="self">self</span>, other))
 	}
 }
@@ -780,7 +782,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>PartialOrd&lt;u16&gt; <span class="kw">for </span>StorageVersion {
-	<span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>u16) -&gt; <span class="prelude-ty">Option</span>&lt;sp_std::cmp::Ordering&gt; {
+	<span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>u16) -&gt; <span class="prelude-ty">Option</span>&lt;core::cmp::Ordering&gt; {
 		<span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="number">0</span>.cmp(other))
 	}
 }

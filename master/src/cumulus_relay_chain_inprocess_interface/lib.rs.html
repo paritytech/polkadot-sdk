@@ -672,7 +672,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>std::{pin::Pin, sync::Arc, time::Duration};
+</span><span class="kw">use </span>std::{collections::btree_map::BTreeMap, pin::Pin, sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>cumulus_primitives_core::{
@@ -696,7 +696,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_telemetry::TelemetryWorkerHandle;
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_consensus::SyncOracle;
-<span class="kw">use </span>sp_core::{sp_std::collections::btree_map::BTreeMap, Pair};
+<span class="kw">use </span>sp_core::Pair;
 <span class="kw">use </span>sp_state_machine::{Backend <span class="kw">as </span>StateBackend, StorageValue};
 
 <span class="doccomment">/// The timeout in seconds after that the waiting for a block should be aborted.

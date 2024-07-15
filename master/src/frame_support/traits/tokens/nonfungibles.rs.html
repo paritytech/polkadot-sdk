@@ -429,9 +429,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! `nonfungible` traits by using the `nonfungible::ItemOf` type adapter.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::dispatch::DispatchResult;
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>sp_runtime::{DispatchError, TokenError};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Trait for providing an interface to many read-only NFT-like sets of items.
 </span><span class="kw">pub trait </span>Inspect&lt;AccountId&gt; {

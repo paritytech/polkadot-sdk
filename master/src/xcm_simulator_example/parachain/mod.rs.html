@@ -330,7 +330,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -364,7 +363,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Get, IdentityLookup},
 	AccountId32,
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{EnsureXcmOrigin, SignedToAccountId32};
 <span class="kw">use </span>xcm_executor::{traits::ConvertLocation, XcmExecutor};
@@ -434,7 +432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>try_origin(
 		o: RuntimeOrigin,
 		a: <span class="kw-2">&amp;</span>Location,
-	) -&gt; sp_std::result::Result&lt;<span class="self">Self</span>::Success, RuntimeOrigin&gt; {
+	) -&gt; core::result::Result&lt;<span class="self">Self</span>::Success, RuntimeOrigin&gt; {
 		<span class="kw">let </span>origin_location = pallet_xcm::EnsureXcm::&lt;Everything&gt;::try_origin(o.clone())<span class="question-mark">?</span>;
 		<span class="kw">if </span>!a.starts_with(<span class="kw-2">&amp;</span>origin_location) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(o);

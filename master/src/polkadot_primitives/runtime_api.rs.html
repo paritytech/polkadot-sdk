@@ -569,12 +569,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
+<span class="kw">use </span>alloc::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec::Vec,
+};
 <span class="kw">use </span>polkadot_core_primitives <span class="kw">as </span>pcp;
 <span class="kw">use </span>polkadot_parachain_primitives::primitives <span class="kw">as </span>ppp;
-<span class="kw">use </span>sp_std::{
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-	prelude::<span class="kw-2">*</span>,
-};
 
 <span class="macro">sp_api::decl_runtime_apis! </span>{
 	<span class="doccomment">/// The API for querying the state of parachains on-chain.

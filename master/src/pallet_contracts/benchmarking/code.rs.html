@@ -540,9 +540,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! compiles it down into a `WasmModule` that can be used as a contract's code.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::Config;
+<span class="kw">use </span>alloc::{borrow::ToOwned, vec, vec::Vec};
 <span class="kw">use </span>frame_support::traits::Get;
 <span class="kw">use </span>sp_runtime::{traits::Hash, Saturating};
-<span class="kw">use </span>sp_std::{borrow::ToOwned, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>wasm_instrument::parity_wasm::{
 	builder,
 	elements::{
@@ -853,7 +853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.cycle()
 				.take(instructions.len() * usize::try_from(repetitions).unwrap())
 				.cloned()
-				.chain(sp_std::iter::once(Instruction::End))
+				.chain(core::iter::once(Instruction::End))
 				.collect(),
 		);
 		FuncBody::new(locals.to_vec(), instructions)

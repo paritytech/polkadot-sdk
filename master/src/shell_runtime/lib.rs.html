@@ -597,6 +597,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#446" id="446">446</a>
 <a href="#447" id="447">447</a>
 <a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -630,6 +632,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub mod </span>xcm_config;
 
+<span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 <span class="kw">use </span>cumulus_primitives_core::AggregateMessageOrigin;
@@ -644,7 +649,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
@@ -879,7 +883,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Pre = ();
 	<span class="kw">fn </span>additional_signed(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-	) -&gt; sp_std::result::Result&lt;(), sp_runtime::transaction_validity::TransactionValidityError&gt; {
+	) -&gt; core::result::Result&lt;(), sp_runtime::transaction_validity::TransactionValidityError&gt; {
 		<span class="prelude-val">Ok</span>(())
 	}
 	<span class="kw">fn </span>pre_dispatch(
@@ -967,7 +971,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Runtime::metadata_at_version(version)
 		}
 
-		<span class="kw">fn </span>metadata_versions() -&gt; sp_std::vec::Vec&lt;u32&gt; {
+		<span class="kw">fn </span>metadata_versions() -&gt; alloc::vec::Vec&lt;u32&gt; {
 			Runtime::metadata_versions()
 		}
 	}

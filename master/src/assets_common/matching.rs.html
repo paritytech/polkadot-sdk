@@ -391,7 +391,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Accepts an asset if it is from the origin.
-</span><span class="kw">pub struct </span>IsForeignConcreteAsset&lt;IsForeign&gt;(sp_std::marker::PhantomData&lt;IsForeign&gt;);
+</span><span class="kw">pub struct </span>IsForeignConcreteAsset&lt;IsForeign&gt;(core::marker::PhantomData&lt;IsForeign&gt;);
 <span class="kw">impl</span>&lt;IsForeign: ContainsPair&lt;Location, Location&gt;&gt; ContainsPair&lt;Asset, Location&gt;
 	<span class="kw">for </span>IsForeignConcreteAsset&lt;IsForeign&gt;
 {
@@ -404,7 +404,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Checks if `a` is from sibling location `b`. Checks that `Location-a` starts with
 /// `Location-b`, and that the `ParaId` of `b` is not equal to `a`.
 </span><span class="kw">pub struct </span>FromSiblingParachain&lt;SelfParaId, L = Location&gt;(
-	sp_std::marker::PhantomData&lt;(SelfParaId, L)&gt;,
+	core::marker::PhantomData&lt;(SelfParaId, L)&gt;,
 );
 <span class="kw">impl</span>&lt;SelfParaId: Get&lt;ParaId&gt;, L: TryFrom&lt;Location&gt; + TryInto&lt;Location&gt; + Clone&gt; ContainsPair&lt;L, L&gt;
 	<span class="kw">for </span>FromSiblingParachain&lt;SelfParaId, L&gt;
@@ -428,7 +428,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Checks if `a` is from the expected global consensus network. Checks that `Location-a`
 /// starts with `Location-b`, and that network is a foreign consensus system.
 </span><span class="kw">pub struct </span>FromNetwork&lt;UniversalLocation, ExpectedNetworkId, L = Location&gt;(
-	sp_std::marker::PhantomData&lt;(UniversalLocation, ExpectedNetworkId, L)&gt;,
+	core::marker::PhantomData&lt;(UniversalLocation, ExpectedNetworkId, L)&gt;,
 );
 <span class="kw">impl</span>&lt;
 		UniversalLocation: Get&lt;InteriorLocation&gt;,
@@ -463,7 +463,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Accept an asset if it is native to `AssetsAllowedNetworks` and it is coming from
 /// `OriginLocation`.
 </span><span class="kw">pub struct </span>RemoteAssetFromLocation&lt;AssetsAllowedNetworks, OriginLocation&gt;(
-	sp_std::marker::PhantomData&lt;(AssetsAllowedNetworks, OriginLocation)&gt;,
+	core::marker::PhantomData&lt;(AssetsAllowedNetworks, OriginLocation)&gt;,
 );
 <span class="kw">impl</span>&lt;AssetsAllowedNetworks: Contains&lt;Location&gt;, OriginLocation: Get&lt;Location&gt;&gt;
 	ContainsPair&lt;Asset, Location&gt; <span class="kw">for </span>RemoteAssetFromLocation&lt;AssetsAllowedNetworks, OriginLocation&gt;

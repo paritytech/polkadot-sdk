@@ -565,6 +565,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#414" id="414">414</a>
 <a href="#415" id="415">415</a>
 <a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -599,7 +602,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-</span><span class="kw">use </span>sp_std::{vec, vec::Vec};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+</span><span class="kw">use </span>alloc::{vec, vec::Vec};
 
 <span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>sp_core::{ed25519, sr25519};
@@ -899,7 +905,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>test_message = <span class="string">b"Hello invalid heap memory"</span>;
 		<span class="kw">let </span>ptr = (heap_base + offset) <span class="kw">as </span><span class="kw-2">*mut </span>u8;
 
-		<span class="kw">let </span>message_slice = <span class="kw">unsafe </span>{ sp_std::slice::from_raw_parts_mut(ptr, test_message.len()) };
+		<span class="kw">let </span>message_slice = <span class="kw">unsafe </span>{ alloc::slice::from_raw_parts_mut(ptr, test_message.len()) };
 
 		<span class="macro">assert_ne!</span>(test_message, message_slice);
 		message_slice.copy_from_slice(test_message);

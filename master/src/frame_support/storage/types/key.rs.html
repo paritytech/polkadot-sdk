@@ -451,10 +451,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Storage key type.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::hash::{ReversibleStorageHasher, StorageHasher};
+<span class="kw">use </span>alloc::{boxed::Box, vec::Vec};
 <span class="kw">use </span>codec::{Encode, EncodeLike, FullCodec, MaxEncodedLen};
 <span class="kw">use </span>paste::paste;
 <span class="kw">use </span>scale_info::StaticTypeInfo;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// A type used exclusively by storage maps as their key type.
 ///
@@ -636,19 +636,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Trait to indicate that a tuple can be converted into an iterator of a vector of encoded bytes.
 </span><span class="kw">pub trait </span>TupleToEncodedIter {
-	<span class="kw">fn </span>to_encoded_iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::vec::IntoIter&lt;Vec&lt;u8&gt;&gt;;
+	<span class="kw">fn </span>to_encoded_iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; alloc::vec::IntoIter&lt;Vec&lt;u8&gt;&gt;;
 }
 
 <span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">1</span>, <span class="number">18</span>)]
 #[tuple_types_custom_trait_bound(Encode)]
 </span><span class="kw">impl </span>TupleToEncodedIter <span class="kw">for </span>Tuple {
-	<span class="kw">fn </span>to_encoded_iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::vec::IntoIter&lt;Vec&lt;u8&gt;&gt; {
+	<span class="kw">fn </span>to_encoded_iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; alloc::vec::IntoIter&lt;Vec&lt;u8&gt;&gt; {
 		[<span class="macro">for_tuples!</span>( #(<span class="self">self</span>.Tuple.encode()),* )].to_vec().into_iter()
 	}
 }
 
 <span class="kw">impl</span>&lt;T: TupleToEncodedIter&gt; TupleToEncodedIter <span class="kw">for </span><span class="kw-2">&amp;</span>T {
-	<span class="kw">fn </span>to_encoded_iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::vec::IntoIter&lt;Vec&lt;u8&gt;&gt; {
+	<span class="kw">fn </span>to_encoded_iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; alloc::vec::IntoIter&lt;Vec&lt;u8&gt;&gt; {
 		(<span class="kw-2">*</span><span class="self">self</span>).to_encoded_iter()
 	}
 }
@@ -656,7 +656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: EncodeLike&lt;U&gt; + TupleToEncodedIter, U: Encode&gt; TupleToEncodedIter
 	<span class="kw">for </span>codec::Ref&lt;<span class="lifetime">'a</span>, T, U&gt;
 {
-	<span class="kw">fn </span>to_encoded_iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::vec::IntoIter&lt;Vec&lt;u8&gt;&gt; {
+	<span class="kw">fn </span>to_encoded_iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; alloc::vec::IntoIter&lt;Vec&lt;u8&gt;&gt; {
 		<span class="kw">use </span>core::ops::Deref <span class="kw">as _</span>;
 		<span class="self">self</span>.deref().to_encoded_iter()
 	}

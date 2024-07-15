@@ -495,7 +495,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(field) = pallet_item.fields.iter_mut().next() {
 		<span class="kw">if </span>field.ty == <span class="macro">syn::parse_quote!</span>(<span class="kw">_</span>) {
 			field.ty = <span class="macro">syn::parse_quote!</span>(
-				#frame_support::__private::sp_std::marker::PhantomData&lt;(#type_use_gen)&gt;
+				core::marker::PhantomData&lt;(#type_use_gen)&gt;
 			);
 		}
 	}
@@ -580,10 +580,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			#storages_where_clauses
 		{
 			<span class="kw">fn </span>storage_info()
-				-&gt; #frame_support::__private::sp_std::vec::Vec&lt;#frame_support::traits::StorageInfo&gt;
+				-&gt; #frame_support::__private::Vec&lt;#frame_support::traits::StorageInfo&gt;
 			{
 				<span class="attr">#[allow(unused_mut)]
-				</span><span class="kw">let </span><span class="kw-2">mut </span>res = #<span class="macro">frame_support::__private::sp_std::vec!</span>[];
+				</span><span class="kw">let </span><span class="kw-2">mut </span>res = #<span class="macro">frame_support::__private::vec!</span>[];
 
 				#(
 					#(#storage_cfg_attrs)*
@@ -620,8 +620,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>whitelisted_storage_keys_impl = <span class="macro">quote::quote!</span>[
 		<span class="kw">use </span>#frame_support::traits::{StorageInfoTrait, TrackedStorageKey, WhitelistedStorageKeys};
 		<span class="kw">impl</span>&lt;#type_impl_gen&gt; WhitelistedStorageKeys <span class="kw">for </span>#pallet_ident&lt;#type_use_gen&gt; #storages_where_clauses {
-			<span class="kw">fn </span>whitelisted_storage_keys() -&gt; #frame_support::__private::sp_std::vec::Vec&lt;TrackedStorageKey&gt; {
-				<span class="kw">use </span>#frame_support::__private::sp_std::vec;
+			<span class="kw">fn </span>whitelisted_storage_keys() -&gt; #frame_support::__private::Vec&lt;TrackedStorageKey&gt; {
+				<span class="kw">use </span>#frame_support::__private::vec;
 				<span class="macro">vec!</span>[#(
 					TrackedStorageKey::new(#whitelisted_storage_idents::&lt;#type_use_gen&gt;::hashed_key().to_vec())
 				),<span class="kw-2">*</span>]
@@ -713,7 +713,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			#config_where_clause
 		{
 			<span class="kw">fn </span>count() -&gt; usize { <span class="number">1 </span>}
-			<span class="kw">fn </span>infos() -&gt; #frame_support::__private::sp_std::vec::Vec&lt;#frame_support::traits::PalletInfoData&gt; {
+			<span class="kw">fn </span>infos() -&gt; #frame_support::__private::Vec&lt;#frame_support::traits::PalletInfoData&gt; {
 				<span class="kw">use </span>#frame_support::traits::PalletInfoAccess;
 				<span class="kw">let </span>item = #frame_support::traits::PalletInfoData {
 					index: <span class="self">Self</span>::index(),
@@ -721,7 +721,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					module_name: <span class="self">Self</span>::module_name(),
 					crate_version: <span class="self">Self</span>::crate_version(),
 				};
-				#<span class="macro">frame_support::__private::sp_std::vec!</span>[item]
+				#<span class="macro">frame_support::__private::vec!</span>[item]
 			}
 		}
 

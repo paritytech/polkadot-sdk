@@ -256,16 +256,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// is not affected in any other way.
 </span><span class="attr">#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-</span><span class="kw">pub struct </span>CheckTxVersion&lt;T: Config + Send + Sync&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>CheckTxVersion&lt;T: Config + Send + Sync&gt;(core::marker::PhantomData&lt;T&gt;);
 
-<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; sp_std::fmt::Debug <span class="kw">for </span>CheckTxVersion&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; core::fmt::Debug <span class="kw">for </span>CheckTxVersion&lt;T&gt; {
 	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="macro">write!</span>(f, <span class="string">"CheckTxVersion"</span>)
 	}
 
 	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="prelude-val">Ok</span>(())
 	}
 }
@@ -273,7 +273,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; CheckTxVersion&lt;T&gt; {
 	<span class="doccomment">/// Create new `SignedExtension` to check transaction version.
 	</span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>(sp_std::marker::PhantomData)
+		<span class="self">Self</span>(core::marker::PhantomData)
 	}
 }
 

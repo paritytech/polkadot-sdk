@@ -341,7 +341,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>origin = T::DispatchWhitelistedOrigin::try_successful_origin()
 			.map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
-		<span class="kw">let </span>remark = <span class="macro">sp_std::vec!</span>[<span class="number">1u8</span>; n <span class="kw">as </span>usize];
+		<span class="kw">let </span>remark = <span class="macro">alloc::vec!</span>[<span class="number">1u8</span>; n <span class="kw">as </span>usize];
 		<span class="kw">let </span>call: &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall = frame_system::Call::remark { remark }.into();
 		<span class="kw">let </span>call_weight = call.get_dispatch_info().weight;
 		<span class="kw">let </span>encoded_call = call.encode();
@@ -365,7 +365,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>dispatch_whitelisted_call_with_preimage(n: Linear&lt;<span class="number">1</span>, <span class="number">10_000</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>origin = T::DispatchWhitelistedOrigin::try_successful_origin()
 			.map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
-		<span class="kw">let </span>remark = <span class="macro">sp_std::vec!</span>[<span class="number">1u8</span>; n <span class="kw">as </span>usize];
+		<span class="kw">let </span>remark = <span class="macro">alloc::vec!</span>[<span class="number">1u8</span>; n <span class="kw">as </span>usize];
 
 		<span class="kw">let </span>call: &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall = frame_system::Call::remark { remark }.into();
 		<span class="kw">let </span>call_hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>call);

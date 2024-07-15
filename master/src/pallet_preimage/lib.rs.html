@@ -732,6 +732,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#581" id="581">581</a>
 <a href="#582" id="582">582</a>
 <a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -771,11 +773,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 <span class="kw">pub mod </span>weights;
 
+<span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{borrow::Cow, vec::Vec};
 <span class="kw">use </span>sp_runtime::{
 	traits::{BadOrigin, Hash, Saturating},
 	Perbill,
 };
-<span class="kw">use </span>sp_std::{borrow::Cow, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_support::{

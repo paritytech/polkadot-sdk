@@ -265,9 +265,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! for the time being, although we will build schemes to do so in the future.
 
 </span><span class="kw">use crate</span>::{session_info, shared};
+<span class="kw">use </span>alloc::collections::btree_set::BTreeSet;
 <span class="kw">use </span>frame_support::traits::{Defensive, ValidatorSet};
 <span class="kw">use </span>polkadot_primitives::{SessionIndex, ValidatorIndex};
-<span class="kw">use </span>sp_std::collections::btree_set::BTreeSet;
 
 <span class="doccomment">/// The amount of era points given by backing a candidate that is included.
 </span><span class="kw">pub const </span>BACKING_POINTS: u32 = <span class="number">20</span>;
@@ -275,7 +275,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub const </span>DISPUTE_STATEMENT_POINTS: u32 = <span class="number">20</span>;
 
 <span class="doccomment">/// Rewards validators for participating in parachains with era points in pallet-staking.
-</span><span class="kw">pub struct </span>RewardValidatorsWithEraPoints&lt;C&gt;(sp_std::marker::PhantomData&lt;C&gt;);
+</span><span class="kw">pub struct </span>RewardValidatorsWithEraPoints&lt;C&gt;(core::marker::PhantomData&lt;C&gt;);
 
 <span class="kw">impl</span>&lt;C&gt; RewardValidatorsWithEraPoints&lt;C&gt;
 <span class="kw">where

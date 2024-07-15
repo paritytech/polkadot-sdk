@@ -1416,11 +1416,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Get, GetDefault, StorageInfo, StorageInfoTrait, StorageInstance},
 	Never,
 };
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen, Ref};
 <span class="kw">use </span>sp_io::MultiRemovalResults;
 <span class="kw">use </span>sp_metadata_ir::StorageEntryMetadataIR;
 <span class="kw">use </span>sp_runtime::traits::Saturating;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// A wrapper around a [`StorageMap`] and a [`StorageValue`] (with the value being `u32`) to keep
 /// track of how many items are in a map, without needing to iterate all the values.

@@ -478,6 +478,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -504,11 +505,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BoundedSupportsOf, Debug, ElectionDataProvider, ElectionProvider, ElectionProviderBase,
 	InstantElectionProvider, NposSolver, WeightInfo,
 };
+<span class="kw">use </span>alloc::collections::btree_map::BTreeMap;
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::{dispatch::DispatchClass, traits::Get};
 <span class="kw">use </span>sp_npos_elections::{
 	assignment_ratio_to_staked_normalized, to_supports, BoundedSupports, ElectionResult, VoteWeight,
 };
-<span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, marker::PhantomData, prelude::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// Errors of the on-chain election.
 </span><span class="attr">#[derive(Eq, PartialEq, Debug)]

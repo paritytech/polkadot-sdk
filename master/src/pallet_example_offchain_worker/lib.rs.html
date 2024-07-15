@@ -873,6 +873,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#722" id="722">722</a>
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -920,7 +922,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::traits::Get;
 <span class="kw">use </span>frame_system::{
 	<span class="self">self </span><span class="kw">as </span>system,
@@ -942,7 +947,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 	RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
@@ -1481,7 +1485,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>body = response.body().collect::&lt;Vec&lt;u8&gt;&gt;();
 
 		<span class="comment">// Create a str slice from the body.
-		</span><span class="kw">let </span>body_str = sp_std::str::from_utf8(<span class="kw-2">&amp;</span>body).map_err(|<span class="kw">_</span>| {
+		</span><span class="kw">let </span>body_str = alloc::str::from_utf8(<span class="kw-2">&amp;</span>body).map_err(|<span class="kw">_</span>| {
 			<span class="macro">log::warn!</span>(<span class="string">"No UTF8 body"</span>);
 			http::Error::Unknown
 		})<span class="question-mark">?</span>;

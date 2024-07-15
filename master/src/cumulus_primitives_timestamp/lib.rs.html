@@ -248,9 +248,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>cumulus_primitives_core::relay_chain::Slot;
+</span><span class="kw">use </span>core::time::Duration;
+<span class="kw">use </span>cumulus_primitives_core::relay_chain::Slot;
 <span class="kw">use </span>sp_inherents::{Error, InherentData};
-<span class="kw">use </span>sp_std::time::Duration;
 
 <span class="kw">pub use </span>sp_timestamp::{InherentType, INHERENT_IDENTIFIER};
 

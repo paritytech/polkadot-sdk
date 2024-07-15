@@ -402,6 +402,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	configuration, paras, scheduler, shared,
 	util::{take_active_subset, take_active_subset_and_inactive},
 };
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::<span class="kw-2">*</span>,
 	traits::{OneSessionHandler, ValidatorSet, ValidatorSetWithIdentification},
@@ -410,7 +411,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_primitives::{
 	AssignmentId, AuthorityDiscoveryId, ExecutorParams, SessionIndex, SessionInfo,
 };
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 

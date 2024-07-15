@@ -835,6 +835,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#684" id="684">684</a>
 <a href="#685" id="685">685</a>
 <a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -864,7 +865,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![recursion_limit = <span class="string">"256"</span>]
 #![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>frame_support::{
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
@@ -877,7 +880,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{AtLeast32BitUnsigned, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, Perbill,
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">mod </span>conviction;
 <span class="kw">mod </span>types;
@@ -1396,7 +1398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">ensure!</span>(balance &lt;= T::Currency::total_balance(<span class="kw-2">&amp;</span>who), Error::&lt;T, I&gt;::InsufficientFunds);
 		<span class="kw">let </span>votes =
 			VotingFor::&lt;T, I&gt;::try_mutate(<span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;</span>class, |voting| -&gt; <span class="prelude-ty">Result</span>&lt;u32, DispatchError&gt; {
-				<span class="kw">let </span>old = sp_std::mem::replace(
+				<span class="kw">let </span>old = core::mem::replace(
 					voting,
 					Voting::Delegating(Delegating {
 						balance,
@@ -1433,7 +1435,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>try_undelegate(who: T::AccountId, class: ClassOf&lt;T, I&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;u32, DispatchError&gt; {
 		<span class="kw">let </span>votes =
 			VotingFor::&lt;T, I&gt;::try_mutate(<span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;</span>class, |voting| -&gt; <span class="prelude-ty">Result</span>&lt;u32, DispatchError&gt; {
-				<span class="kw">match </span>sp_std::mem::replace(voting, Voting::default()) {
+				<span class="kw">match </span>core::mem::replace(voting, Voting::default()) {
 					Voting::Delegating(Delegating {
 						balance,
 						target,

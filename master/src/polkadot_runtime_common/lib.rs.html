@@ -432,6 +432,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
 <a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -474,6 +476,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>integration_tests;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>mock;
+
+<span class="kw">extern crate </span>alloc;
 
 <span class="kw">use </span>frame_support::{
 	parameter_types,
@@ -603,7 +607,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A placeholder since there is currently no provided session key handler for parachain validator
 /// keys.
-</span><span class="kw">pub struct </span>ParachainSessionKeyPlaceholder&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>ParachainSessionKeyPlaceholder&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T&gt; sp_runtime::BoundToRuntimeAppPublic <span class="kw">for </span>ParachainSessionKeyPlaceholder&lt;T&gt; {
 	<span class="kw">type </span>Public = ValidatorId;
 }
@@ -632,7 +636,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A placeholder since there is currently no provided session key handler for parachain validator
 /// keys.
-</span><span class="kw">pub struct </span>AssignmentSessionKeyPlaceholder&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>AssignmentSessionKeyPlaceholder&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T&gt; sp_runtime::BoundToRuntimeAppPublic <span class="kw">for </span>AssignmentSessionKeyPlaceholder&lt;T&gt; {
 	<span class="kw">type </span>Public = AssignmentId;
 }

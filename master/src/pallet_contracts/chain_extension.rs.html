@@ -643,6 +643,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#492" id="492">492</a>
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -719,17 +720,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	wasm::{Runtime, RuntimeCosts},
 	Error,
 };
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Decode, MaxEncodedLen};
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::weights::Weight;
 <span class="kw">use </span>sp_runtime::DispatchError;
-<span class="kw">use </span>sp_std::{marker::PhantomData, vec::Vec};
 
 <span class="kw">pub use crate</span>::{exec::Ext, gas::ChargedAmount, storage::meter::Diff, Config};
 <span class="kw">pub use </span>frame_system::Config <span class="kw">as </span>SysConfig;
 <span class="kw">pub use </span>pallet_contracts_uapi::ReturnFlags;
 
 <span class="doccomment">/// Result that returns a [`DispatchError`] on error.
-</span><span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = sp_std::result::Result&lt;T, DispatchError&gt;;
+</span><span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = core::result::Result&lt;T, DispatchError&gt;;
 
 <span class="doccomment">/// A trait used to extend the set of contract callable functions.
 ///

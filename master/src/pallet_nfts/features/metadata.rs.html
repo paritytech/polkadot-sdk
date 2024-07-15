@@ -430,6 +430,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -450,6 +451,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! This module contains helper methods to configure the metadata of collections and items.
 
 </span><span class="kw">use crate</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {

@@ -600,6 +600,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#449" id="449">449</a>
 <a href="#450" id="450">450</a>
 <a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -622,15 +625,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Used for sending messages.
 </span><span class="kw">pub mod </span>mock_message_queue;
 
+<span class="kw">extern crate </span>alloc;
+
 <span class="kw">pub use </span>codec::Encode;
 <span class="kw">pub use </span>paste;
 
+<span class="kw">pub use </span>alloc::collections::vec_deque::VecDeque;
+<span class="kw">pub use </span>core::{cell::RefCell, marker::PhantomData};
 <span class="kw">pub use </span>frame_support::{
 	traits::{EnqueueMessage, Get, ProcessMessage, ProcessMessageError, ServiceQueues},
 	weights::{Weight, WeightMeter},
 };
 <span class="kw">pub use </span>sp_io::{hashing::blake2_256, TestExternalities};
-<span class="kw">pub use </span>sp_std::{cell::RefCell, collections::vec_deque::VecDeque, marker::PhantomData};
 
 <span class="kw">pub use </span>polkadot_core_primitives::BlockNumber <span class="kw">as </span>RelayBlockNumber;
 <span class="kw">pub use </span>polkadot_parachain_primitives::primitives::{

@@ -463,17 +463,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">trait </span>InherentDataExt {
 			<span class="kw">fn </span>create_extrinsics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt;
-				#scrate::__private::sp_std::vec::Vec&lt;&lt;#block <span class="kw">as </span>#scrate::sp_runtime::traits::Block&gt;::Extrinsic&gt;;
+				#scrate::__private::Vec&lt;&lt;#block <span class="kw">as </span>#scrate::sp_runtime::traits::Block&gt;::Extrinsic&gt;;
 			<span class="kw">fn </span>check_extrinsics(<span class="kw-2">&amp;</span><span class="self">self</span>, block: <span class="kw-2">&amp;</span>#block) -&gt; #scrate::inherent::CheckInherentsResult;
 		}
 
 		<span class="kw">impl </span>InherentDataExt <span class="kw">for </span>#scrate::inherent::InherentData {
 			<span class="kw">fn </span>create_extrinsics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt;
-				#scrate::__private::sp_std::vec::Vec&lt;&lt;#block <span class="kw">as </span>#scrate::sp_runtime::traits::Block&gt;::Extrinsic&gt;
+				#scrate::__private::Vec&lt;&lt;#block <span class="kw">as </span>#scrate::sp_runtime::traits::Block&gt;::Extrinsic&gt;
 			{
 				<span class="kw">use </span>#scrate::inherent::ProvideInherent;
 
-				<span class="kw">let </span><span class="kw-2">mut </span>inherents = #scrate::__private::sp_std::vec::Vec::new();
+				<span class="kw">let </span><span class="kw-2">mut </span>inherents = #scrate::__private::Vec::new();
 
 				#(
 					#pallet_attrs

@@ -482,6 +482,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#331" id="331">331</a>
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -563,6 +565,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>tests;
 <span class="kw">pub mod </span>weights;
 
+<span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::<span class="kw-2">*</span>,
@@ -571,7 +576,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>sp_runtime::{traits::Dispatchable, DispatchResult};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>weights::<span class="kw-2">*</span>;

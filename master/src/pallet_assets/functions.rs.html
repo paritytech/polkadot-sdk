@@ -1203,6 +1203,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1052" id="1052">1052</a>
 <a href="#1053" id="1053">1053</a>
 <a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1223,6 +1224,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Functions for the Assets pallet.
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>alloc::vec;
 <span class="kw">use </span>frame_support::{defensive, traits::Get, BoundedVec};
 
 <span class="attr">#[must_use]
@@ -1240,20 +1242,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="doccomment">/// Return the extra "sid-car" data for `id`/`who`, or `None` if the account doesn't exist.
 	</span><span class="kw">pub fn </span>adjust_extra(
 		id: T::AssetId,
-		who: <span class="kw">impl </span>sp_std::borrow::Borrow&lt;T::AccountId&gt;,
+		who: <span class="kw">impl </span>core::borrow::Borrow&lt;T::AccountId&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;ExtraMutator&lt;T, I&gt;&gt; {
 		ExtraMutator::maybe_new(id, who)
 	}
 
 	<span class="doccomment">/// Get the asset `id` balance of `who`, or zero if the asset-account doesn't exist.
-	</span><span class="kw">pub fn </span>balance(id: T::AssetId, who: <span class="kw">impl </span>sp_std::borrow::Borrow&lt;T::AccountId&gt;) -&gt; T::Balance {
+	</span><span class="kw">pub fn </span>balance(id: T::AssetId, who: <span class="kw">impl </span>core::borrow::Borrow&lt;T::AccountId&gt;) -&gt; T::Balance {
 		<span class="self">Self</span>::maybe_balance(id, who).unwrap_or_default()
 	}
 
 	<span class="doccomment">/// Get the asset `id` balance of `who` if the asset-account exists.
 	</span><span class="kw">pub fn </span>maybe_balance(
 		id: T::AssetId,
-		who: <span class="kw">impl </span>sp_std::borrow::Borrow&lt;T::AccountId&gt;,
+		who: <span class="kw">impl </span>core::borrow::Borrow&lt;T::AccountId&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;T::Balance&gt; {
 		Account::&lt;T, I&gt;::get(id, who.borrow()).map(|a| a.balance)
 	}

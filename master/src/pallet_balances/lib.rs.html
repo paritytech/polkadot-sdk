@@ -1374,6 +1374,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1223" id="1223">1223</a>
 <a href="#1224" id="1224">1224</a>
 <a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1526,7 +1527,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>types;
 <span class="kw">pub mod </span>weights;
 
+<span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Codec, MaxEncodedLen};
+<span class="kw">use </span>core::{cmp, fmt::Debug, mem, result};
 <span class="kw">use </span>frame_support::{
 	ensure,
 	pallet_prelude::DispatchResult,
@@ -1552,7 +1557,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
 };
-<span class="kw">use </span>sp_std::{cmp, fmt::Debug, mem, prelude::<span class="kw-2">*</span>, result};
 <span class="kw">pub use </span>types::{
 	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
 };
@@ -1901,7 +1905,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.iter()
 				.map(|(x, <span class="kw">_</span>)| x)
 				.cloned()
-				.collect::&lt;sp_std::collections::btree_set::BTreeSet&lt;<span class="kw">_</span>&gt;&gt;();
+				.collect::&lt;alloc::collections::btree_set::BTreeSet&lt;<span class="kw">_</span>&gt;&gt;();
 
 			<span class="macro">assert!</span>(
 				endowed_accounts.len() == <span class="self">self</span>.balances.len(),
@@ -2232,13 +2236,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>}
 
 		<span class="doccomment">/// Get the free balance of an account.
-		</span><span class="kw">pub fn </span>free_balance(who: <span class="kw">impl </span>sp_std::borrow::Borrow&lt;T::AccountId&gt;) -&gt; T::Balance {
+		</span><span class="kw">pub fn </span>free_balance(who: <span class="kw">impl </span>core::borrow::Borrow&lt;T::AccountId&gt;) -&gt; T::Balance {
 			<span class="self">Self</span>::account(who.borrow()).free
 		}
 
 		<span class="doccomment">/// Get the balance of an account that can be used for transfers, reservations, or any other
 		/// non-locking, non-transaction-fee activity. Will be at most `free_balance`.
-		</span><span class="kw">pub fn </span>usable_balance(who: <span class="kw">impl </span>sp_std::borrow::Borrow&lt;T::AccountId&gt;) -&gt; T::Balance {
+		</span><span class="kw">pub fn </span>usable_balance(who: <span class="kw">impl </span>core::borrow::Borrow&lt;T::AccountId&gt;) -&gt; T::Balance {
 			&lt;<span class="self">Self </span><span class="kw">as </span>fungible::Inspect&lt;<span class="kw">_</span>&gt;&gt;::reducible_balance(who.borrow(), Expendable, Polite)
 		}
 
@@ -2246,14 +2250,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// or any other kind of fees, though). Will be at most `free_balance`.
 		///
 		/// This requires that the account stays alive.
-		</span><span class="kw">pub fn </span>usable_balance_for_fees(
-			who: <span class="kw">impl </span>sp_std::borrow::Borrow&lt;T::AccountId&gt;,
-		) -&gt; T::Balance {
+		</span><span class="kw">pub fn </span>usable_balance_for_fees(who: <span class="kw">impl </span>core::borrow::Borrow&lt;T::AccountId&gt;) -&gt; T::Balance {
 			&lt;<span class="self">Self </span><span class="kw">as </span>fungible::Inspect&lt;<span class="kw">_</span>&gt;&gt;::reducible_balance(who.borrow(), Protect, Polite)
 		}
 
 		<span class="doccomment">/// Get the reserved balance of an account.
-		</span><span class="kw">pub fn </span>reserved_balance(who: <span class="kw">impl </span>sp_std::borrow::Borrow&lt;T::AccountId&gt;) -&gt; T::Balance {
+		</span><span class="kw">pub fn </span>reserved_balance(who: <span class="kw">impl </span>core::borrow::Borrow&lt;T::AccountId&gt;) -&gt; T::Balance {
 			<span class="self">Self</span>::account(who.borrow()).reserved
 		}
 

@@ -426,8 +426,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="attr">#[no_mangle]
 				</span><span class="kw">unsafe fn </span>validate_block(arguments: <span class="kw-2">*mut </span>u8, arguments_len: usize) -&gt; u64 {
 					<span class="comment">// We convert the `arguments` into a boxed slice and then into `Bytes`.
-					</span><span class="kw">let </span>args = #crate_::validate_block::sp_std::boxed::Box::from_raw(
-						#crate_::validate_block::sp_std::slice::from_raw_parts_mut(
+					</span><span class="kw">let </span>args = #crate_::validate_block::Box::from_raw(
+						#crate_::validate_block::slice::from_raw_parts_mut(
 							arguments,
 							arguments_len,
 						)

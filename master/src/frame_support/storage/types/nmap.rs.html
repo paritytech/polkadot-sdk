@@ -1465,6 +1465,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1314" id="1314">1314</a>
 <a href="#1315" id="1315">1315</a>
 <a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1495,10 +1496,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 };
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 <span class="kw">use </span>sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 <span class="kw">use </span>sp_runtime::SaturatedConversion;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// A type representing an *NMap* in storage. This structure associates an arbitrary number of keys
 /// with a value of a specified type stored on-chain.
@@ -2122,6 +2123,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		hash::{StorageHasher <span class="kw">as _</span>, <span class="kw-2">*</span>},
 		storage::types::{Key <span class="kw">as </span>NMapKey, ValueQuery},
 	};
+	<span class="kw">use </span>alloc::boxed::Box;
 	<span class="kw">use </span>sp_io::{hashing::twox_128, TestExternalities};
 	<span class="kw">use </span>sp_metadata_ir::{StorageEntryModifierIR, StorageHasherIR};
 

@@ -2082,6 +2082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1931" id="1931">1931</a>
 <a href="#1932" id="1932">1932</a>
 <a href="#1933" id="1933">1933</a>
+<a href="#1934" id="1934">1934</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2106,7 +2107,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	slot_range::SlotRange,
 	traits::{AuctionStatus, Auctioneer, LeaseError, Leaser, Registrar},
 };
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::Decode;
+<span class="kw">use </span>core::mem::swap;
 <span class="kw">use </span>frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -2117,7 +2120,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">use </span>polkadot_primitives::Id <span class="kw">as </span>ParaId;
 <span class="kw">use </span>sp_runtime::traits::{CheckedSub, One, Saturating, Zero};
-<span class="kw">use </span>sp_std::{mem::swap, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">type </span>CurrencyOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::Leaser <span class="kw">as </span>Leaser&lt;BlockNumberFor&lt;T&gt;&gt;&gt;::Currency;
 <span class="kw">type </span>BalanceOf&lt;T&gt; = &lt;&lt;&lt;T <span class="kw">as </span>Config&gt;::Leaser <span class="kw">as </span>Leaser&lt;BlockNumberFor&lt;T&gt;&gt;&gt;::Currency <span class="kw">as </span>Currency&lt;

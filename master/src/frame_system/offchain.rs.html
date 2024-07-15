@@ -1003,13 +1003,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![warn(missing_docs)]
 
-</span><span class="kw">use </span>codec::Encode;
+</span><span class="kw">use </span>alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
+<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>sp_runtime::{
 	app_crypto::RuntimeAppPublic,
 	traits::{Extrinsic <span class="kw">as </span>ExtrinsicT, IdentifyAccount, One},
 	RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::{collections::btree_set::BTreeSet, prelude::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// Marker struct used to flag using all supported keys to sign a payload.
 </span><span class="kw">pub struct </span>ForAll {}
@@ -1023,7 +1023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// utility function can be used. However, this struct is used by `Signer`
 /// to submit a signed transactions providing the signature along with the call.
 </span><span class="kw">pub struct </span>SubmitTransaction&lt;T: SendTransactionTypes&lt;OverarchingCall&gt;, OverarchingCall&gt; {
-	_phantom: sp_std::marker::PhantomData&lt;(T, OverarchingCall)&gt;,
+	_phantom: core::marker::PhantomData&lt;(T, OverarchingCall)&gt;,
 }
 
 <span class="kw">impl</span>&lt;T, LocalCall&gt; SubmitTransaction&lt;T, LocalCall&gt;
@@ -1062,7 +1062,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(RuntimeDebug)]
 </span><span class="kw">pub struct </span>Signer&lt;T: SigningTypes, C: AppCrypto&lt;T::Public, T::Signature&gt;, X = ForAny&gt; {
 	accounts: <span class="prelude-ty">Option</span>&lt;Vec&lt;T::Public&gt;&gt;,
-	_phantom: sp_std::marker::PhantomData&lt;(X, C)&gt;,
+	_phantom: core::marker::PhantomData&lt;(X, C)&gt;,
 }
 
 <span class="kw">impl</span>&lt;T: SigningTypes, C: AppCrypto&lt;T::Public, T::Signature&gt;, X&gt; Default <span class="kw">for </span>Signer&lt;T, C, X&gt; {

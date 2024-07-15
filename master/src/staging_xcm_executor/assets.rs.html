@@ -872,6 +872,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#721" id="721">721</a>
 <a href="#722" id="722">722</a>
 <a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -888,12 +890,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>sp_runtime::{traits::Saturating, RuntimeDebug};
-<span class="kw">use </span>sp_std::{
+</span><span class="kw">use </span>alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	mem,
-	prelude::<span class="kw-2">*</span>,
+	vec::Vec,
 };
+<span class="kw">use </span>core::mem;
+<span class="kw">use </span>sp_runtime::{traits::Saturating, RuntimeDebug};
 <span class="kw">use </span>xcm::latest::{
 	Asset, AssetFilter, AssetId, AssetInstance, Assets,
 	Fungibility::{Fungible, NonFungible},
@@ -1394,7 +1396,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>alloc::vec;
 	<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
+
 	<span class="attr">#[allow(non_snake_case)]
 	</span><span class="doccomment">/// Concrete fungible constructor
 	</span><span class="kw">fn </span>CF(amount: u128) -&gt; Asset {

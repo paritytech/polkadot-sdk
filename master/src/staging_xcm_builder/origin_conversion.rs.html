@@ -501,11 +501,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Various implementations for `ConvertOrigin`.
 
-</span><span class="kw">use </span>frame_support::traits::{EnsureOrigin, Get, GetBacking, OriginTrait};
+</span><span class="kw">use </span>core::marker::PhantomData;
+<span class="kw">use </span>frame_support::traits::{EnsureOrigin, Get, GetBacking, OriginTrait};
 <span class="kw">use </span>frame_system::RawOrigin <span class="kw">as </span>SystemRawOrigin;
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::IsSystem;
 <span class="kw">use </span>sp_runtime::traits::TryConvert;
-<span class="kw">use </span>sp_std::marker::PhantomData;
 <span class="kw">use </span>xcm::latest::{BodyId, BodyPart, Junction, Junctions::<span class="kw-2">*</span>, Location, NetworkId, OriginKind};
 <span class="kw">use </span>xcm_executor::traits::{ConvertLocation, ConvertOrigin};
 

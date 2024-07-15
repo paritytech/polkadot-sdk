@@ -1076,6 +1076,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#925" id="925">925</a>
 <a href="#926" id="926">926</a>
 <a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1103,7 +1109,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! interface.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::Config;
+<span class="kw">use </span>alloc::{
+	boxed::Box,
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+};
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>core::{iter, marker::PhantomData};
 <span class="kw">use </span>frame_election_provider_support::ScoreProvider;
 <span class="kw">use </span>frame_support::{
 	defensive, ensure,
@@ -1112,14 +1123,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::traits::{Bounded, Zero};
-<span class="kw">use </span>sp_std::{
-	boxed::Box,
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	iter,
-	marker::PhantomData,
-	prelude::<span class="kw-2">*</span>,
-};
 
+<span class="attr">#[cfg(any(
+	test,
+	feature = <span class="string">"try-runtime"</span>,
+	feature = <span class="string">"fuzz"</span>,
+	feature = <span class="string">"std"</span>,
+	feature = <span class="string">"runtime-benchmarks"
+</span>))]
+</span><span class="kw">use </span>alloc::vec::Vec;
 <span class="attr">#[cfg(any(test, feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"fuzz"</span>))]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
@@ -1352,7 +1364,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		</span><span class="kw">let </span>start_node = Node::&lt;T, I&gt;::get(start).ok_or(ListError::NodeNotFound)<span class="question-mark">?</span>;
 		<span class="kw">let </span>start_node_upper = start_node.bag_upper;
-		<span class="kw">let </span>start_bag = sp_std::iter::successors(start_node.next(), |prev| prev.next());
+		<span class="kw">let </span>start_bag = core::iter::successors(start_node.next(), |prev| prev.next());
 
 		<span class="kw">let </span>thresholds = T::BagThresholds::get();
 		<span class="kw">let </span>idx = thresholds.partition_point(|<span class="kw-2">&amp;</span>threshold| start_node_upper &gt; threshold);
@@ -1419,7 +1431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>!<span class="self">Self</span>::contains(id) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(ListError::NodeNotFound)
 		}
-		<span class="kw">let _ </span>= <span class="self">Self</span>::remove_many(sp_std::iter::once(id));
+		<span class="kw">let _ </span>= <span class="self">Self</span>::remove_many(core::iter::once(id));
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -1669,7 +1681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>Box::new(iter)
 		} <span class="kw">else </span>{
 			<span class="comment">// otherwise, insert it here.
-			</span>Box::new(iter.chain(sp_std::iter::once(T::Score::max_value())))
+			</span>Box::new(iter.chain(core::iter::once(T::Score::max_value())))
 		};
 
 		iter.filter_map(|t| {
@@ -1751,7 +1763,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Iterate over the nodes in this bag.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Node&lt;T, I&gt;&gt; {
-		sp_std::iter::successors(<span class="self">self</span>.head(), |prev| prev.next())
+		core::iter::successors(<span class="self">self</span>.head(), |prev| prev.next())
 	}
 
 	<span class="doccomment">/// Insert a new id into this bag.
@@ -1882,7 +1894,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	#[allow(dead_code)]
 	</span><span class="kw">pub fn </span>std_iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Node&lt;T, I&gt;&gt; {
-		sp_std::iter::successors(<span class="self">self</span>.head(), |prev| prev.next())
+		core::iter::successors(<span class="self">self</span>.head(), |prev| prev.next())
 	}
 }
 

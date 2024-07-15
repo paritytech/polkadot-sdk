@@ -661,7 +661,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	F: fungibles::Inspect&lt;AccountId&gt;,
 	A: Get&lt;&lt;F <span class="kw">as </span>fungibles::Inspect&lt;AccountId&gt;&gt;::AssetId&gt;,
 	AccountId,
-&gt;(sp_std::marker::PhantomData&lt;(F, A, AccountId)&gt;);
+&gt;(core::marker::PhantomData&lt;(F, A, AccountId)&gt;);
 
 <span class="kw">impl</span>&lt;
 		F: fungibles::Inspect&lt;AccountId&gt;,
@@ -983,7 +983,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">pub struct </span>ConvertImbalanceDropHandler&lt;AccountId, Balance, AssetIdType, AssetId, Handler&gt;(
-	sp_std::marker::PhantomData&lt;(AccountId, Balance, AssetIdType, AssetId, Handler)&gt;,
+	core::marker::PhantomData&lt;(AccountId, Balance, AssetIdType, AssetId, Handler)&gt;,
 );
 
 <span class="kw">impl</span>&lt;

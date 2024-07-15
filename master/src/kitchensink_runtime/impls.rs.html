@@ -641,7 +641,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
 <a href="#492" id="492">492</a>
-<a href="#493" id="493">493</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -661,8 +660,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Some configurable implementations as associated type for the substrate runtime.
 
-</span><span class="kw">use </span>polkadot_sdk::<span class="kw-2">*</span>;
-
+</span><span class="kw">use </span>alloc::boxed::Box;
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::<span class="kw-2">*</span>,
 	traits::{
@@ -673,7 +671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>pallet_alliance::{IdentityVerifier, ProposalIndex, ProposalProvider};
 <span class="kw">use </span>pallet_asset_tx_payment::HandleCredit;
 <span class="kw">use </span>pallet_identity::legacy::IdentityField;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>polkadot_sdk::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{
 	AccountId, AllianceCollective, AllianceMotion, Assets, Authorship, Balances, Hash,

@@ -1119,8 +1119,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // of the inner member.
 </span><span class="kw">mod </span>imbalances {
 	<span class="kw">use super</span>::{result, Config, Imbalance, RuntimeDebug, Saturating, TryDrop, Zero};
+	<span class="kw">use </span>core::mem;
 	<span class="kw">use </span>frame_support::traits::SameOrOther;
-	<span class="kw">use </span>sp_std::mem;
 
 	<span class="doccomment">/// Opaque, move-only struct with private fields that serves as a token denoting that
 	/// funds have been created without any equal and opposite accounting.

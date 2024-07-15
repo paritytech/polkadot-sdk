@@ -1605,8 +1605,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1454" id="1454">1454</a>
 <a href="#1455" id="1455">1455</a>
 <a href="#1456" id="1456">1456</a>
-<a href="#1457" id="1457">1457</a>
-<a href="#1458" id="1458">1458</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1627,8 +1625,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Cryptographic utilities.
 
 </span><span class="kw">use crate</span>::{ed25519, sr25519};
+<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
+</span><span class="kw">use </span>alloc::{format, string::String, vec};
+<span class="kw">use </span>alloc::{str, vec::Vec};
 <span class="kw">use </span>bip39::{Language, Mnemonic};
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>core::hash::Hash;
+<span class="attr">#[doc(hidden)]
+</span><span class="kw">pub use </span>core::ops::Deref;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>itertools::Itertools;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
@@ -1636,14 +1640,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">pub use </span>secrecy::{ExposeSecret, SecretString};
 <span class="kw">use </span>sp_runtime_interface::pass_by::PassByInner;
-<span class="attr">#[doc(hidden)]
-</span><span class="kw">pub use </span>sp_std::ops::Deref;
-<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
-</span><span class="kw">use </span>sp_std::{
-	alloc::{format, string::String},
-	vec,
-};
-<span class="kw">use </span>sp_std::{hash::Hash, str, vec::Vec};
 <span class="kw">pub use </span>ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58AddressFormatRegistry};
 <span class="doccomment">/// Trait to zeroize a memory buffer.
 </span><span class="kw">pub use </span>zeroize::Zeroize;
@@ -1854,8 +1850,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-</span><span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>PublicError {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
+</span><span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>PublicError {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="comment">// Just use the `Display` implementation
 		</span><span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>)
 	}
@@ -2196,8 +2192,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>AccountId32 {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>AccountId32 {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 		</span>{
 			<span class="kw">let </span>s = <span class="self">self</span>.to_ss58check();
@@ -2233,7 +2229,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-</span><span class="kw">impl </span>sp_std::str::FromStr <span class="kw">for </span>AccountId32 {
+</span><span class="kw">impl </span>std::str::FromStr <span class="kw">for </span>AccountId32 {
 	<span class="kw">type </span><span class="prelude-val">Err </span>= <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 	<span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
@@ -2395,7 +2391,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>junctions: Vec&lt;DeriveJunction&gt;,
 }
 
-<span class="kw">impl </span>sp_std::str::FromStr <span class="kw">for </span>SecretUri {
+<span class="kw">impl </span>alloc::str::FromStr <span class="kw">for </span>SecretUri {
 	<span class="kw">type </span><span class="prelude-val">Err </span>= SecretStringError;
 
 	<span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
@@ -2534,7 +2530,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		s: <span class="kw-2">&amp;</span>str,
 		password_override: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Seed&gt;), SecretStringError&gt; {
-		<span class="kw">use </span>sp_std::str::FromStr;
+		<span class="kw">use </span>alloc::str::FromStr;
 		<span class="kw">let </span>SecretUri { junctions, phrase, password } = SecretUri::from_str(s)<span class="question-mark">?</span>;
 		<span class="kw">let </span>password =
 			password_override.or_else(|| password.as_ref().map(|p| p.expose_secret().as_str()));

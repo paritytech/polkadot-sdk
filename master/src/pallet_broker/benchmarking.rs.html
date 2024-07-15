@@ -1162,6 +1162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{CoreAssignment::Task, Pallet <span class="kw">as </span>Broker};
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>frame_benchmarking::v2::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_support::{
 	storage::bounded_vec::BoundedVec,
@@ -1174,7 +1175,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_arithmetic::{traits::Zero, Perbill};
 <span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_runtime::{traits::BlockNumberProvider, Saturating};
-<span class="kw">use </span>sp_std::{vec, vec::Vec};
 
 <span class="kw">const </span>SEED: u32 = <span class="number">0</span>;
 <span class="kw">const </span>MAX_CORE_COUNT: u16 = <span class="number">1_000</span>;

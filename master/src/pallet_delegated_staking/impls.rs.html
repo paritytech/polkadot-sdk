@@ -451,7 +451,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>on_slash(
 		who: <span class="kw-2">&amp;</span>T::AccountId,
 		_slashed_active: BalanceOf&lt;T&gt;,
-		_slashed_unlocking: <span class="kw-2">&amp;</span>sp_std::collections::btree_map::BTreeMap&lt;EraIndex, BalanceOf&lt;T&gt;&gt;,
+		_slashed_unlocking: <span class="kw-2">&amp;</span>alloc::collections::btree_map::BTreeMap&lt;EraIndex, BalanceOf&lt;T&gt;&gt;,
 		slashed_total: BalanceOf&lt;T&gt;,
 	) {
 		&lt;Agents&lt;T&gt;&gt;::mutate(who, |maybe_register| <span class="kw">match </span>maybe_register {

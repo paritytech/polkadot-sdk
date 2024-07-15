@@ -1083,6 +1083,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#932" id="932">932</a>
 <a href="#933" id="933">933</a>
 <a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1200,7 +1202,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 <span class="kw">pub mod </span>weights;
 
+<span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{boxed::Box, vec::Vec};
 <span class="kw">use </span>codec::{Decode, MaxEncodedLen};
+<span class="kw">use </span>core::{
+	marker::PhantomData,
+	ops::{Rem, Sub},
+};
 <span class="kw">use </span>frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -1217,11 +1226,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
 };
 <span class="kw">use </span>sp_staking::SessionIndex;
-<span class="kw">use </span>sp_std::{
-	marker::PhantomData,
-	ops::{Rem, Sub},
-	prelude::<span class="kw-2">*</span>,
-};
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>weights::WeightInfo;
@@ -2002,7 +2006,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Wraps the author-scraping logic for consensus engines that can recover
 /// the canonical index of an author. This then transforms it into the
 /// registering account-ID of that session key index.
-</span><span class="kw">pub struct </span>FindAccountFromAuthorIndex&lt;T, Inner&gt;(sp_std::marker::PhantomData&lt;(T, Inner)&gt;);
+</span><span class="kw">pub struct </span>FindAccountFromAuthorIndex&lt;T, Inner&gt;(core::marker::PhantomData&lt;(T, Inner)&gt;);
 
 <span class="kw">impl</span>&lt;T: Config, Inner: FindAuthor&lt;u32&gt;&gt; FindAuthor&lt;T::ValidatorId&gt;
 	<span class="kw">for </span>FindAccountFromAuthorIndex&lt;T, Inner&gt;

@@ -716,6 +716,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -744,12 +745,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
 };
+<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
+</span><span class="kw">use </span>alloc::format;
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Compact, Decode, Encode, EncodeLike, Error, Input};
+<span class="kw">use </span>core::fmt;
 <span class="kw">use </span>scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter};
 <span class="kw">use </span>sp_io::hashing::blake2_256;
-<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
-</span><span class="kw">use </span>sp_std::alloc::format;
-<span class="kw">use </span>sp_std::{fmt, prelude::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// Current version of the [`UncheckedExtrinsic`] encoded format.
 ///
@@ -1034,7 +1036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Extra: SignedExtension,
 {
 	<span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>tmp = Vec::with_capacity(sp_std::mem::size_of::&lt;<span class="self">Self</span>&gt;());
+		<span class="kw">let </span><span class="kw-2">mut </span>tmp = Vec::with_capacity(core::mem::size_of::&lt;<span class="self">Self</span>&gt;());
 
 		<span class="comment">// 1 byte version id.
 		</span><span class="kw">match </span><span class="self">self</span>.signature.as_ref() {
@@ -1155,7 +1157,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>AdditionalSigned = ();
 		<span class="kw">type </span>Pre = ();
 
-		<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::result::Result&lt;(), TransactionValidityError&gt; {
+		<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; core::result::Result&lt;(), TransactionValidityError&gt; {
 			<span class="prelude-val">Ok</span>(())
 		}
 

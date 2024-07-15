@@ -644,6 +644,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -665,10 +666,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#[allow(deprecated)]
 </span><span class="kw">use </span><span class="kw">super</span>::PreimageProvider;
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
+<span class="kw">use </span>core::{fmt::Debug, result::Result};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{traits::Saturating, DispatchError, RuntimeDebug};
-<span class="kw">use </span>sp_std::{fmt::Debug, prelude::<span class="kw-2">*</span>, result::Result};
 
 <span class="doccomment">/// Information relating to the period of a scheduled task. First item is the length of the
 /// period and the second is the number of times it should be executed in total before the task
@@ -828,7 +830,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A type that can be used as a scheduler.
 	</span><span class="kw">pub trait </span>Named&lt;BlockNumber, Call, RuntimeOrigin&gt; {
 		<span class="doccomment">/// An address which can be used for removing a scheduled task.
-		</span><span class="kw">type </span>Address: Codec + Clone + Eq + EncodeLike + sp_std::fmt::Debug + MaxEncodedLen;
+		</span><span class="kw">type </span>Address: Codec + Clone + Eq + EncodeLike + core::fmt::Debug + MaxEncodedLen;
 
 		<span class="doccomment">/// Schedule a dispatch to happen at the beginning of some block in the future.
 		///
@@ -999,7 +1001,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A type that can be used as a scheduler.
 	</span><span class="kw">pub trait </span>Named&lt;BlockNumber, Call, RuntimeOrigin&gt; {
 		<span class="doccomment">/// An address which can be used for removing a scheduled task.
-		</span><span class="kw">type </span>Address: Codec + Clone + Eq + EncodeLike + sp_std::fmt::Debug + MaxEncodedLen;
+		</span><span class="kw">type </span>Address: Codec + Clone + Eq + EncodeLike + core::fmt::Debug + MaxEncodedLen;
 		<span class="doccomment">/// A means of expressing a call by the hash of its encoded data.
 		</span><span class="kw">type </span>Hash;
 
@@ -1094,7 +1096,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A type that can be used as a scheduler.
 	</span><span class="kw">pub trait </span>Named&lt;BlockNumber, Call, Origin&gt; {
 		<span class="doccomment">/// An address which can be used for removing a scheduled task.
-		</span><span class="kw">type </span>Address: Codec + MaxEncodedLen + Clone + Eq + EncodeLike + sp_std::fmt::Debug;
+		</span><span class="kw">type </span>Address: Codec + MaxEncodedLen + Clone + Eq + EncodeLike + core::fmt::Debug;
 		<span class="doccomment">/// The hasher used in the runtime.
 		</span><span class="kw">type </span>Hasher: sp_runtime::traits::Hash;
 

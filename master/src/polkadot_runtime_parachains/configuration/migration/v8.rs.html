@@ -587,6 +587,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! A module that is responsible for migration of storage.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::configuration::{<span class="self">self</span>, Config, Pallet};
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::<span class="kw-2">*</span>,
 	traits::{Defensive, StorageVersion},
@@ -597,7 +598,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AsyncBackingParams, Balance, ExecutorParams, SessionIndex, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 <span class="kw">use </span>sp_runtime::Perbill;
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="kw">use </span>frame_support::traits::OnRuntimeUpgrade;
 
@@ -731,7 +731,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;;
 }
 
-<span class="kw">pub struct </span>MigrateToV8&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+<span class="kw">pub struct </span>MigrateToV8&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV8&lt;T&gt; {
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {

@@ -387,9 +387,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -410,16 +407,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use super</span>::{alloc, pallet::Config};
 <span class="kw">use </span>alloc::collections::BinaryHeap;
+<span class="kw">use </span>core::cmp::{Ord, Ordering, PartialOrd};
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::{Decode, Encode, RuntimeDebug, TypeInfo},
 	traits::Currency,
 };
 <span class="kw">use </span>polkadot_primitives::{CoreIndex, Id <span class="kw">as </span>ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
 <span class="kw">use </span>sp_runtime::FixedU128;
-<span class="kw">use </span>sp_std::{
-	cmp::{Ord, Ordering, PartialOrd},
-	prelude::<span class="kw-2">*</span>,
-};
 
 <span class="doccomment">/// Shorthand for the Balance type the runtime is using.
 </span><span class="kw">pub type </span>BalanceOf&lt;T&gt; =

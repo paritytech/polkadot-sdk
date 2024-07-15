@@ -965,13 +965,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_telemetry::SysInfo;
 <span class="kw">use </span>sp_core::{sr25519, Pair};
 <span class="kw">use </span>sp_io::crypto::sr25519_verify;
-<span class="kw">use </span>sp_std::{fmt, fmt::Formatter, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">use </span>derive_more::From;
 <span class="kw">use </span>rand::{seq::SliceRandom, Rng, RngCore};
 <span class="kw">use </span>serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 <span class="kw">use </span>std::{
-	fmt::Display,
+	fmt,
+	fmt::{Display, Formatter},
 	fs::File,
 	io::{Seek, SeekFrom, Write},
 	ops::{Deref, DerefMut},

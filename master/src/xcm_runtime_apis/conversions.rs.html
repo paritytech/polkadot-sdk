@@ -251,7 +251,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// It is useful when you already have a `ConvertLocation&lt;AccountId&gt;` implementation and a default
 /// `Ss58Prefix`.
 </span><span class="kw">pub struct </span>LocationToAccountHelper&lt;AccountId, Conversion&gt;(
-	sp_std::marker::PhantomData&lt;(AccountId, Conversion)&gt;,
+	core::marker::PhantomData&lt;(AccountId, Conversion)&gt;,
 );
 <span class="kw">impl</span>&lt;AccountId: Decode, Conversion: ConvertLocation&lt;AccountId&gt;&gt;
 	LocationToAccountHelper&lt;AccountId, Conversion&gt;

@@ -384,7 +384,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -404,14 +403,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! An MMR storage implementation.
 
-</span><span class="kw">use </span>codec::Encode;
+</span><span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>codec::Encode;
+<span class="kw">use </span>core::iter::Peekable;
 <span class="kw">use </span>log::{debug, trace};
 <span class="kw">use </span>sp_core::offchain::StorageKind;
 <span class="kw">use </span>sp_io::offchain_index;
 <span class="kw">use </span>sp_mmr_primitives::{mmr_lib, mmr_lib::helper, utils::NodesUtils};
-<span class="kw">use </span>sp_std::iter::Peekable;
-<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-</span><span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{
 	mmr::{Node, NodeOf},
@@ -439,7 +437,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// There are two different implementations depending on the use case.
 /// See docs for [RuntimeStorage] and [OffchainStorage].
-</span><span class="kw">pub struct </span>Storage&lt;StorageType, T, I, L&gt;(sp_std::marker::PhantomData&lt;(StorageType, T, I, L)&gt;);
+</span><span class="kw">pub struct </span>Storage&lt;StorageType, T, I, L&gt;(core::marker::PhantomData&lt;(StorageType, T, I, L)&gt;);
 
 <span class="kw">impl</span>&lt;StorageType, T, I, L&gt; Default <span class="kw">for </span>Storage&lt;StorageType, T, I, L&gt; {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{

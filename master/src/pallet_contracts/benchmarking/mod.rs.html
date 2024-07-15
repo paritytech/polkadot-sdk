@@ -1838,6 +1838,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	wasm::BenchEnv,
 	Pallet <span class="kw">as </span>Contracts, <span class="kw-2">*</span>,
 };
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_benchmarking::v2::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_support::{
@@ -1850,7 +1851,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>pallet_balances;
 <span class="kw">use </span>pallet_contracts_uapi::{CallFlags, ReturnErrorCode};
 <span class="kw">use </span>sp_runtime::traits::{Bounded, Hash};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasm_instrument::parity_wasm::elements::{Instruction, Local, ValueType};
 
 <span class="doccomment">/// How many runs we do per API benchmark.
@@ -1990,7 +1990,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[benchmarks(
 	<span class="kw">where
-		</span>&lt;BalanceOf&lt;T&gt; <span class="kw">as </span>codec::HasCompact&gt;::Type: Clone + Eq + PartialEq + sp_std::fmt::Debug + scale_info::TypeInfo + codec::Encode,
+		</span>&lt;BalanceOf&lt;T&gt; <span class="kw">as </span>codec::HasCompact&gt;::Type: Clone + Eq + PartialEq + core::fmt::Debug + scale_info::TypeInfo + codec::Encode,
 		T: Config + pallet_balances::Config,
 		BalanceOf&lt;T&gt;: From&lt;&lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Currency&lt;T::AccountId&gt;&gt;::Balance&gt;,
 		&lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Currency&lt;T::AccountId&gt;&gt;::Balance: From&lt;BalanceOf&lt;T&gt;&gt;,

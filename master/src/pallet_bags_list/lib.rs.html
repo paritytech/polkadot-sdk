@@ -652,6 +652,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#501" id="501">501</a>
 <a href="#502" id="502">502</a>
 <a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -776,11 +778,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests.rs"</span>, examples_work)]
 </span><span class="kw">pub mod </span>example {}
 
+<span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::boxed::Box;
 <span class="kw">use </span>codec::FullCodec;
 <span class="kw">use </span>frame_election_provider_support::{ScoreProvider, SortedListProvider};
 <span class="kw">use </span>frame_system::ensure_signed;
 <span class="kw">use </span>sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, StaticLookup};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="attr">#[cfg(any(test, feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"fuzz"</span>))]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
@@ -892,7 +896,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			+ Eq
 			+ Ord
 			+ PartialOrd
-			+ sp_std::fmt::Debug
+			+ core::fmt::Debug
 			+ Copy
 			+ AtLeast32BitUnsigned
 			+ Bounded
@@ -1119,7 +1123,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>node = list::Node::&lt;T, I&gt;::get(who).unwrap();
 			<span class="kw">let </span>current_bag_idx = thresholds
 				.iter()
-				.chain(sp_std::iter::once(<span class="kw-2">&amp;</span>T::Score::max_value()))
+				.chain(core::iter::once(<span class="kw-2">&amp;</span>T::Score::max_value()))
 				.position(|w| w == <span class="kw-2">&amp;</span>node.bag_upper)
 				.unwrap();
 

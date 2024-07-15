@@ -347,6 +347,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -366,6 +367,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::Config;
 
+<span class="kw">use </span>alloc::vec;
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::{
 	ensure,
 	traits::{fungible::Inspect, tokens::Balance},
@@ -377,7 +380,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	transaction_validity::InvalidTransaction,
 	Saturating,
 };
-<span class="kw">use </span>sp_std::marker::PhantomData;
 
 <span class="doccomment">/// Handle withdrawing, refunding and depositing of transaction fees.
 </span><span class="kw">pub trait </span>OnChargeAssetTransaction&lt;T: Config&gt; {

@@ -495,6 +495,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#344" id="344">344</a>
 <a href="#345" id="345">345</a>
 <a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -513,14 +514,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Auxiliary struct/enums for parachain runtimes.
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
-</span><span class="kw">use </span>frame_support::traits::{
+</span><span class="kw">use </span>alloc::boxed::Box;
+<span class="kw">use </span>core::marker::PhantomData;
+<span class="kw">use </span>frame_support::traits::{
 	fungible, fungibles, tokens::imbalance::ResolveTo, Contains, ContainsPair, Currency, Defensive,
 	Get, Imbalance, OnUnbalanced, OriginTrait,
 };
 <span class="kw">use </span>pallet_asset_tx_payment::HandleCredit;
 <span class="kw">use </span>pallet_collator_selection::StakingPotAccountId;
 <span class="kw">use </span>sp_runtime::traits::Zero;
-<span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm::latest::{
 	Asset, AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here, Location,
 	Parent, WeightLimit,

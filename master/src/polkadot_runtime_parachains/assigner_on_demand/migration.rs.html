@@ -355,7 +355,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">mod </span>v0 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>sp_std::collections::vec_deque::VecDeque;
+	<span class="kw">use </span>alloc::collections::vec_deque::VecDeque;
 
 	<span class="attr">#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone)]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>EnqueuedOrder {
@@ -382,7 +382,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span><span class="kw">crate</span>::assigner_on_demand::LOG_TARGET;
 
 	<span class="doccomment">/// Migration to V1
-	</span><span class="kw">pub struct </span>UncheckedMigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	</span><span class="kw">pub struct </span>UncheckedMigrateToV1&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>UncheckedMigrateToV1&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span><span class="kw-2">mut </span>weight: Weight = Weight::zero();
@@ -420,7 +420,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
+		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;alloc::vec::Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
 			<span class="kw">let </span>n: u32 = v0::OnDemandQueue::&lt;T&gt;::get().len() <span class="kw">as </span>u32;
 
 			<span class="macro">log::info!</span>(
@@ -432,7 +432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-		</span><span class="kw">fn </span>post_upgrade(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
+		</span><span class="kw">fn </span>post_upgrade(state: alloc::vec::Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 			<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"Running post_upgrade()"</span>);
 
 			<span class="macro">ensure!</span>(

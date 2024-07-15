@@ -2059,6 +2059,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1908" id="1908">1908</a>
 <a href="#1909" id="1909">1909</a>
 <a href="#1910" id="1910">1910</a>
+<a href="#1911" id="1911">1911</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2148,7 +2149,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 #![cfg_attr(feature = <span class="string">"runtime-benchmarks"</span>, recursion_limit = <span class="string">"1024"</span>)]
 
-</span><span class="kw">mod </span>address;
+</span><span class="kw">extern crate </span>alloc;
+<span class="kw">mod </span>address;
 <span class="kw">mod </span>benchmarking;
 <span class="kw">mod </span>exec;
 <span class="kw">mod </span>gas;
@@ -2176,6 +2178,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	wasm::{CodeInfo, WasmBlob},
 };
 <span class="kw">use </span>codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
+<span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>environmental::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_support::{
 	dispatch::{GetDispatchInfo, Pays, PostDispatchInfo, RawOrigin, WithPostDispatchInfo},
@@ -2198,7 +2201,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{BadOrigin, Convert, Dispatchable, Saturating, StaticLookup, Zero},
 	DispatchError, RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::{fmt::Debug, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">pub use crate</span>::{
 	address::{AddressGenerator, DefaultAddressGenerator},

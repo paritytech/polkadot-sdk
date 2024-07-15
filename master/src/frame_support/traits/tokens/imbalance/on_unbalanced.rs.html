@@ -251,9 +251,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Trait for handling imbalances.
 
-</span><span class="kw">use </span>frame_support::traits::{fungible, fungibles, misc::TryDrop};
+</span><span class="kw">use </span>core::marker::PhantomData;
+<span class="kw">use </span>frame_support::traits::{fungible, fungibles, misc::TryDrop};
 <span class="kw">use </span>sp_core::TypedGet;
-<span class="kw">use </span>sp_std::marker::PhantomData;
 
 <span class="doccomment">/// Handler for when some currency "account" decreased in balance for
 /// some reason.

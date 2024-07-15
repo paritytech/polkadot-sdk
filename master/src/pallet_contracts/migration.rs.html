@@ -807,7 +807,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#656" id="656">656</a>
 <a href="#657" id="657">657</a>
 <a href="#658" id="658">658</a>
-<a href="#659" id="659">659</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -879,17 +878,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use crate</span>::{weights::WeightInfo, Config, Error, MigrationInProgress, Pallet, Weight, LOG_TARGET};
 <span class="kw">use </span>codec::{Codec, Decode};
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::<span class="kw-2">*</span>,
 	traits::{ConstU32, OnRuntimeUpgrade},
 	weights::WeightMeter,
 };
 <span class="kw">use </span>sp_runtime::Saturating;
-<span class="kw">use </span>sp_std::marker::PhantomData;
 
 <span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-</span><span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
-
+</span><span class="kw">use </span>alloc::vec::Vec;
 <span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
@@ -1414,7 +1412,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::with_limit(Weight::from_all(<span class="number">1</span>));
 		<span class="kw">let </span>result = Migrations::steps(version, <span class="kw-2">&amp;</span>cursor, <span class="kw-2">&amp;mut </span>meter);
-		cursor = <span class="macro">vec!</span>[<span class="number">1u8</span>, <span class="number">0</span>].try_into().unwrap();
+		cursor = <span class="macro">alloc::vec!</span>[<span class="number">1u8</span>, <span class="number">0</span>].try_into().unwrap();
 		<span class="macro">assert_eq!</span>(result, StepResult::InProgress { cursor: cursor.clone(), steps_done: <span class="number">1 </span>});
 		<span class="macro">assert_eq!</span>(meter.consumed(), Weight::from_all(<span class="number">1</span>));
 

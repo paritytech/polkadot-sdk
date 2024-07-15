@@ -327,6 +327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -344,12 +345,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::xcm_config;
+<span class="kw">use </span>alloc::{boxed::Box, vec};
 <span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::pallet_prelude::DispatchResult;
 <span class="kw">use </span>frame_system::RawOrigin;
 <span class="kw">use </span>polkadot_primitives::Balance;
 <span class="kw">use </span>polkadot_runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
-<span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>westend_runtime_constants::currency::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedLocation, VersionedXcm};
 <span class="kw">use </span>xcm_executor::traits::TransactAsset;

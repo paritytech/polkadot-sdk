@@ -1280,6 +1280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span><span class="kw">crate</span>::traits::UnfilteredDispatchable;
 <span class="kw">use </span>codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
+<span class="kw">use </span>core::fmt;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -1288,7 +1289,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::SignedExtension,
 	DispatchError, RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::fmt;
 <span class="kw">use </span>sp_weights::Weight;
 
 <span class="doccomment">/// The return type of a `Dispatchable` in frame. When returned explicitly from
@@ -1480,14 +1480,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>OneOrMany&lt;DispatchClass&gt; <span class="kw">for </span>DispatchClass {
-	<span class="kw">type </span>Iter = sp_std::iter::Once&lt;DispatchClass&gt;;
+	<span class="kw">type </span>Iter = core::iter::Once&lt;DispatchClass&gt;;
 	<span class="kw">fn </span>into_iter(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Iter {
-		sp_std::iter::once(<span class="self">self</span>)
+		core::iter::once(<span class="self">self</span>)
 	}
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; OneOrMany&lt;DispatchClass&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'a </span>[DispatchClass] {
-	<span class="kw">type </span>Iter = sp_std::iter::Cloned&lt;sp_std::slice::Iter&lt;<span class="lifetime">'a</span>, DispatchClass&gt;&gt;;
+	<span class="kw">type </span>Iter = core::iter::Cloned&lt;core::slice::Iter&lt;<span class="lifetime">'a</span>, DispatchClass&gt;&gt;;
 	<span class="kw">fn </span>into_iter(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Iter {
 		<span class="self">self</span>.iter().cloned()
 	}

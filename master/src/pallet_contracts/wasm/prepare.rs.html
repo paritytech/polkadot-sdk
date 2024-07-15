@@ -1052,10 +1052,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	AccountIdOf, CodeVec, Config, Error, Schedule, LOG_TARGET,
 };
+<span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>))]
+</span><span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::MaxEncodedLen;
 <span class="kw">use </span>sp_runtime::{traits::Hash, DispatchError};
-<span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>))]
-</span><span class="kw">use </span>sp_std::prelude::Vec;
 <span class="kw">use </span>wasmi::{
 	core::ValType <span class="kw">as </span>WasmiValueType, CompilationMode, Config <span class="kw">as </span>WasmiConfig, Engine, ExternType,
 	Module, StackLimits,
@@ -1080,7 +1080,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub mod </span>tracker {
-	<span class="kw">use </span>sp_std::cell::RefCell;
+	<span class="kw">use </span>core::cell::RefCell;
 	<span class="macro">thread_local! </span>{
 		<span class="kw">pub static </span>LOADED_MODULE: RefCell&lt;Vec&lt;<span class="kw">super</span>::LoadingMode&gt;&gt; = RefCell::new(Vec::new());
 	}

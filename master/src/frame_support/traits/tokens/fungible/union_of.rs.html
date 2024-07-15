@@ -1136,6 +1136,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! See the [`crate::traits::fungible`] doc for more information about fungible traits.
 
 </span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>core::cmp::Ordering;
 <span class="kw">use </span>frame_support::traits::{
 	fungible::imbalance,
 	tokens::{
@@ -1151,7 +1152,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Either::{Left, Right},
 	RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::cmp::Ordering;
 
 <span class="doccomment">/// The `NativeOrWithId` enum classifies an asset as either `Native` to the current chain or as an
 /// asset with a specific ID.
@@ -1216,7 +1216,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// - `AssetKind` is a superset type encompassing asset kinds from `Left` and `Right` sets.
 /// - `AccountId` is an account identifier type.
 </span><span class="kw">pub struct </span>UnionOf&lt;Left, Right, Criterion, AssetKind, AccountId&gt;(
-	sp_std::marker::PhantomData&lt;(Left, Right, Criterion, AssetKind, AccountId)&gt;,
+	core::marker::PhantomData&lt;(Left, Right, Criterion, AssetKind, AccountId)&gt;,
 );
 
 <span class="kw">impl</span>&lt;
@@ -1779,7 +1779,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Balance,
 	AssetId,
 	AccountId,
-&gt;(sp_std::marker::PhantomData&lt;(Left, Right, Criterion, AssetKind, Balance, AssetId, AccountId)&gt;);
+&gt;(core::marker::PhantomData&lt;(Left, Right, Criterion, AssetKind, Balance, AssetId, AccountId)&gt;);
 
 <span class="kw">impl</span>&lt;
 		Left: fungible::HandleImbalanceDrop&lt;Balance&gt;,

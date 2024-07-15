@@ -2371,6 +2371,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2220" id="2220">2220</a>
 <a href="#2221" id="2221">2221</a>
 <a href="#2222" id="2222">2222</a>
+<a href="#2223" id="2223">2223</a>
+<a href="#2224" id="2224">2224</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2389,15 +2391,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! `V7` Primitives.
 
-</span><span class="kw">use </span>bitvec::{field::BitField, slice::BitSlice, vec::BitVec};
-<span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_std::{
-	marker::PhantomData,
-	prelude::<span class="kw-2">*</span>,
-	slice::{Iter, IterMut},
-	vec::IntoIter,
+</span><span class="kw">use </span>alloc::{
+	vec,
+	vec::{IntoIter, Vec},
 };
+<span class="kw">use </span>bitvec::{field::BitField, slice::BitSlice, vec::BitVec};
+<span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>core::{
+	marker::PhantomData,
+	slice::{Iter, IterMut},
+};
+<span class="kw">use </span>scale_info::TypeInfo;
 
 <span class="kw">use </span>sp_application_crypto::KeyTypeId;
 <span class="kw">use </span>sp_arithmetic::traits::{BaseArithmetic, Saturating};
@@ -2545,10 +2549,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A declarations of storage keys where an external observer can find some interesting data.
 </span><span class="kw">pub mod </span>well_known_keys {
 	<span class="kw">use super</span>::{HrmpChannelId, Id, WellKnownKey};
+	<span class="kw">use </span>alloc::vec::Vec;
 	<span class="kw">use </span>codec::Encode <span class="kw">as _</span>;
 	<span class="kw">use </span>hex_literal::hex;
 	<span class="kw">use </span>sp_io::hashing::twox_64;
-	<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 	<span class="comment">// A note on generating these magic values below:
 	//
@@ -2990,13 +2994,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>PartialOrd <span class="kw">for </span>CommittedCandidateReceipt {
-	<span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;sp_std::cmp::Ordering&gt; {
+	<span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;core::cmp::Ordering&gt; {
 		<span class="prelude-val">Some</span>(<span class="self">self</span>.cmp(other))
 	}
 }
 
 <span class="kw">impl </span>Ord <span class="kw">for </span>CommittedCandidateReceipt {
-	<span class="kw">fn </span>cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; sp_std::cmp::Ordering {
+	<span class="kw">fn </span>cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; core::cmp::Ordering {
 		<span class="comment">// TODO: compare signatures or something more sane
 		// https://github.com/paritytech/polkadot/issues/222
 		</span><span class="self">self</span>.descriptor()
@@ -3357,7 +3361,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span>GroupIndex(<span class="number">0</span>)
 		}
 
-		<span class="kw">let </span>cores = sp_std::cmp::min(cores, u32::MAX <span class="kw">as </span>usize);
+		<span class="kw">let </span>cores = core::cmp::min(cores, u32::MAX <span class="kw">as </span>usize);
 		<span class="kw">let </span>blocks_since_start = <span class="self">self</span>.now.saturating_sub(<span class="self">self</span>.session_start_block);
 		<span class="kw">let </span>rotations = blocks_since_start / <span class="self">self</span>.group_rotation_frequency;
 
@@ -3379,7 +3383,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span>CoreIndex(<span class="number">0</span>)
 		}
 
-		<span class="kw">let </span>cores = sp_std::cmp::min(cores, u32::MAX <span class="kw">as </span>usize);
+		<span class="kw">let </span>cores = core::cmp::min(cores, u32::MAX <span class="kw">as </span>usize);
 		<span class="kw">let </span>blocks_since_start = <span class="self">self</span>.now.saturating_sub(<span class="self">self</span>.session_start_block);
 		<span class="kw">let </span>rotations = blocks_since_start / <span class="self">self</span>.group_rotation_frequency;
 		<span class="kw">let </span>rotations = rotations % cores <span class="kw">as </span>u32;
@@ -4243,7 +4247,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	group_len: usize,
 	configured_minimum_backing_votes: u32,
 ) -&gt; usize {
-	sp_std::cmp::min(group_len, configured_minimum_backing_votes <span class="kw">as </span>usize)
+	core::cmp::min(group_len, configured_minimum_backing_votes <span class="kw">as </span>usize)
 }
 
 <span class="doccomment">/// Information about validator sets of a session.
@@ -4339,7 +4343,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>WellKnownKey&lt;T&gt; {
 	<span class="doccomment">/// The raw storage key.
 	</span><span class="kw">pub </span>key: Vec&lt;u8&gt;,
-	_p: sp_std::marker::PhantomData&lt;T&gt;,
+	_p: core::marker::PhantomData&lt;T&gt;,
 }
 
 <span class="kw">impl</span>&lt;T&gt; From&lt;Vec&lt;u8&gt;&gt; <span class="kw">for </span>WellKnownKey&lt;T&gt; {

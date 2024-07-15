@@ -338,9 +338,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>frame_support::traits::{Contains, OriginTrait};
+</span><span class="kw">use </span>core::{marker::PhantomData, result::Result};
+<span class="kw">use </span>frame_support::traits::{Contains, OriginTrait};
 <span class="kw">use </span>sp_runtime::{traits::Dispatchable, DispatchErrorWithPostInfo};
-<span class="kw">use </span>sp_std::{marker::PhantomData, result::Result};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Means of converting a location into an account identifier.

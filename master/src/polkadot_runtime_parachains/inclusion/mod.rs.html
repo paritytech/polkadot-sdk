@@ -1514,6 +1514,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1363" id="1363">1363</a>
 <a href="#1364" id="1364">1364</a>
 <a href="#1365" id="1365">1365</a>
+<a href="#1366" id="1366">1366</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1543,8 +1544,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	shared::{<span class="self">self</span>, AllowedRelayParentsTracker},
 	util::make_persisted_validation_data_with_parent,
 };
+<span class="kw">use </span>alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 <span class="kw">use </span>bitvec::{order::Lsb0 <span class="kw">as </span>BitOrderLsb0, vec::BitVec};
 <span class="kw">use </span>codec::{Decode, Encode};
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">use </span>core::fmt;
 <span class="kw">use </span>frame_support::{
 	defensive,
 	pallet_prelude::<span class="kw-2">*</span>,
@@ -1562,12 +1570,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
-<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-</span><span class="kw">use </span>sp_std::fmt;
-<span class="kw">use </span>sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
-	prelude::<span class="kw-2">*</span>,
-};
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 

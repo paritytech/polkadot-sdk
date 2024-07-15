@@ -753,7 +753,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
 
-</span><span class="kw">use </span>codec::{Decode, Encode, EncodeLike, FullCodec};
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::{Decode, Encode, EncodeLike, FullCodec};
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::{
 	defensive,
@@ -762,7 +763,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
 <span class="kw">use </span>sp_runtime::traits::Saturating;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">pub type </span>PageIndex = u32;
 <span class="kw">pub type </span>ValueIndex = u32;
@@ -907,7 +907,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The index of the page.
 	</span>index: PageIndex,
 	<span class="doccomment">/// The remaining values of the page, to be drained by [`Page::next`].
-	</span>values: sp_std::iter::Skip&lt;sp_std::vec::IntoIter&lt;V&gt;&gt;,
+	</span>values: core::iter::Skip&lt;alloc::vec::IntoIter&lt;V&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;V: FullCodec&gt; Page&lt;V&gt; {
@@ -918,7 +918,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
 		<span class="kw">let </span>key = page_key::&lt;Prefix&gt;(index);
 		<span class="kw">let </span>values = sp_io::storage::get(<span class="kw-2">&amp;</span>key)
-			.and_then(|raw| sp_std::vec::Vec::&lt;V&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>raw[..]).ok())<span class="question-mark">?</span>;
+			.and_then(|raw| alloc::vec::Vec::&lt;V&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>raw[..]).ok())<span class="question-mark">?</span>;
 		<span class="kw">if </span>values.is_empty() {
 			<span class="comment">// Don't create empty pages.
 			</span><span class="kw">return </span><span class="prelude-val">None

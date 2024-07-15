@@ -601,8 +601,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Little util for parsing an address URI. Replaces regular expressions.
 
 </span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-</span><span class="kw">use </span>sp_std::{
-	alloc::string::{String, ToString},
+</span><span class="kw">use </span>alloc::{
+	string::{String, ToString},
 	vec::Vec,
 };
 
@@ -680,10 +680,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>sp_std::fmt::Display <span class="kw">for </span>InvalidCharacterInfo {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+<span class="kw">impl </span>core::fmt::Display <span class="kw">for </span>InvalidCharacterInfo {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="kw">let </span>(s, pos) = escape_string(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, <span class="self">self</span>.<span class="number">1</span>);
-		<span class="macro">write!</span>(f, <span class="string">"{s}\n{i}^"</span>, i = sp_std::iter::repeat(<span class="string">" "</span>).take(pos).collect::&lt;String&gt;())
+		<span class="macro">write!</span>(f, <span class="string">"{s}\n{i}^"</span>, i = core::iter::repeat(<span class="string">" "</span>).take(pos).collect::&lt;String&gt;())
 	}
 }
 

@@ -655,7 +655,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#504" id="504">504</a>
 <a href="#505" id="505">505</a>
 <a href="#506" id="506">506</a>
-<a href="#507" id="507">507</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -683,7 +682,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BoundedSlice,
 };
 <span class="kw">use </span>sp_runtime::{DispatchError, DispatchResult};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Inspect&lt;&lt;T <span class="kw">as </span>SystemConfig&gt;::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">type </span>ItemId = T::ItemId;

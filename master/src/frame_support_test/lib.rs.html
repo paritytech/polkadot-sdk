@@ -423,7 +423,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Provides an implementation of [`frame_support::traits::Randomness`] that should only be used in
 /// tests!
-</span><span class="kw">pub struct </span>TestRandomness&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>TestRandomness&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 
 <span class="kw">impl</span>&lt;Output: codec::Decode + Default, T&gt;
 	frame_support::traits::Randomness&lt;Output, BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>TestRandomness&lt;T&gt;

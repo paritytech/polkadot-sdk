@@ -715,6 +715,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Genesis configs presets for the Rococo runtime
 
 </span><span class="kw">use crate</span>::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+</span><span class="kw">use </span>alloc::format;
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>polkadot_primitives::{
 	vstaging::SchedulerParams, AccountId, AccountPublic, AssignmentId, ValidatorId,
 };
@@ -725,9 +728,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_consensus_grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
 <span class="kw">use </span>sp_core::{sr25519, Pair, Public};
 <span class="kw">use </span>sp_runtime::traits::IdentifyAccount;
-<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-</span><span class="kw">use </span>sp_std::alloc::format;
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="doccomment">/// Helper function to generate a crypto pair from seed
 </span><span class="kw">fn </span>get_from_seed&lt;TPublic: Public&gt;(seed: <span class="kw-2">&amp;</span>str) -&gt; &lt;TPublic::Pair <span class="kw">as </span>Pair&gt;::Public {
@@ -1228,7 +1228,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Provides the JSON representation of predefined genesis config for given `id`.
-</span><span class="kw">pub fn </span>get_preset(id: <span class="kw-2">&amp;</span>sp_genesis_builder::PresetId) -&gt; <span class="prelude-ty">Option</span>&lt;sp_std::vec::Vec&lt;u8&gt;&gt; {
+</span><span class="kw">pub fn </span>get_preset(id: <span class="kw-2">&amp;</span>sp_genesis_builder::PresetId) -&gt; <span class="prelude-ty">Option</span>&lt;alloc::vec::Vec&lt;u8&gt;&gt; {
 	<span class="kw">let </span>patch = <span class="kw">match </span>id.try_into() {
 		<span class="prelude-val">Ok</span>(<span class="string">"local_testnet"</span>) =&gt; rococo_local_testnet_genesis(),
 		<span class="prelude-val">Ok</span>(<span class="string">"development"</span>) =&gt; rococo_development_config_genesis(),

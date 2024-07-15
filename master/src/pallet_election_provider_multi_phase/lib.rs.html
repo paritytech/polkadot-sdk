@@ -2856,6 +2856,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2705" id="2705">2705</a>
 <a href="#2706" id="2706">2706</a>
 <a href="#2707" id="2707">2707</a>
+<a href="#2708" id="2708">2708</a>
+<a href="#2709" id="2709">2709</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3087,7 +3089,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{boxed::Box, vec::Vec};
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_election_provider_support::{
 	bounds::{CountBound, ElectionBounds, ElectionBoundsBuilder, SizeBound},
 	BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
@@ -3114,7 +3119,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	DispatchError, ModuleError, PerThing, Perbill, RuntimeDebug, SaturatedConversion,
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
@@ -3695,7 +3699,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">fn </span>integrity_test() {
-			<span class="kw">use </span>sp_std::mem::size_of;
+			<span class="kw">use </span>core::mem::size_of;
 			<span class="comment">// The index type of both voters and targets need to be smaller than that of usize (very
 			// unlikely to be the case, but anyhow)..
 			</span><span class="macro">assert!</span>(size_of::&lt;SolutionVoterIndexOf&lt;T::MinerConfig&gt;&gt;() &lt;= size_of::&lt;usize&gt;());
@@ -4212,7 +4216,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// This wrapper is created for handling the synchronization of [`Snapshot`], [`SnapshotMetadata`]
 /// and [`DesiredTargets`] storage items.
-</span><span class="kw">pub struct </span>SnapshotWrapper&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>SnapshotWrapper&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 
 <span class="kw">impl</span>&lt;T: Config&gt; SnapshotWrapper&lt;T&gt; {
 	<span class="doccomment">/// Kill all snapshot related storage items at the same time.

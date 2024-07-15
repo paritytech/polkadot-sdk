@@ -1975,6 +1975,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1824" id="1824">1824</a>
 <a href="#1825" id="1825">1825</a>
 <a href="#1826" id="1826">1826</a>
+<a href="#1827" id="1827">1827</a>
+<a href="#1828" id="1828">1828</a>
+<a href="#1829" id="1829">1829</a>
+<a href="#1830" id="1830">1830</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2032,7 +2036,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">pub mod </span>weights;
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::state-trie-migration"</span>;
@@ -2052,6 +2058,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub use </span><span class="kw">crate</span>::weights::WeightInfo;
 
+	<span class="kw">use </span>alloc::{vec, vec::Vec};
+	<span class="kw">use </span>core::ops::Deref;
 	<span class="kw">use </span>frame_support::{
 		dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 		ensure,
@@ -2070,7 +2078,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>,
 		traits::{Saturating, Zero},
 	};
-	<span class="kw">use </span>sp_std::{ops::Deref, prelude::<span class="kw-2">*</span>};
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>BalanceOf&lt;T&gt; =
 		&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>Inspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
@@ -2146,11 +2153,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub</span>(<span class="kw">crate</span>) child_items: u32,
 
 		<span class="attr">#[codec(skip)]
-		</span><span class="kw">pub</span>(<span class="kw">crate</span>) _ph: sp_std::marker::PhantomData&lt;T&gt;,
+		</span><span class="kw">pub</span>(<span class="kw">crate</span>) _ph: core::marker::PhantomData&lt;T&gt;,
 	}
 
-	<span class="kw">impl</span>&lt;Size: Get&lt;u32&gt;&gt; sp_std::fmt::Debug <span class="kw">for </span>Progress&lt;Size&gt; {
-		<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
+	<span class="kw">impl</span>&lt;Size: Get&lt;u32&gt;&gt; core::fmt::Debug <span class="kw">for </span>Progress&lt;Size&gt; {
+		<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
 			<span class="kw">match </span><span class="self">self </span>{
 				Progress::ToStart =&gt; f.write_str(<span class="string">"To start"</span>),
 				Progress::LastKey(key) =&gt; <span class="macro">write!</span>(f, <span class="string">"Last: {:?}"</span>, HexDisplay::from(key.deref())),
@@ -2159,8 +2166,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl</span>&lt;T: Config&gt; sp_std::fmt::Debug <span class="kw">for </span>MigrationTask&lt;T&gt; {
-		<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
+	<span class="kw">impl</span>&lt;T: Config&gt; core::fmt::Debug <span class="kw">for </span>MigrationTask&lt;T&gt; {
+		<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
 			f.debug_struct(<span class="string">"MigrationTask"</span>)
 				.field(<span class="string">"top"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.progress_top)
 				.field(<span class="string">"child"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.progress_child)
@@ -2930,8 +2937,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarks {
 	<span class="kw">use super</span>::{pallet::Pallet <span class="kw">as </span>StateTrieMigration, <span class="kw-2">*</span>};
+	<span class="kw">use </span>alloc::vec;
 	<span class="kw">use </span>frame_support::traits::fungible::{Inspect, Mutate};
-	<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 	<span class="comment">// The size of the key seemingly makes no difference in the read/write time, so we make it
 	// constant.
@@ -3057,7 +3064,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		process_top_key {
 			<span class="kw">let </span>v <span class="kw">in </span><span class="number">1 </span>.. (<span class="number">4 </span>* <span class="number">1024 </span>* <span class="number">1024</span>);
 
-			<span class="kw">let </span>value = <span class="macro">sp_std::vec!</span>[<span class="number">1u8</span>; v <span class="kw">as </span>usize];
+			<span class="kw">let </span>value = <span class="macro">alloc::vec!</span>[<span class="number">1u8</span>; v <span class="kw">as </span>usize];
 			sp_io::storage::set(KEY, <span class="kw-2">&amp;</span>value);
 		}: {
 			<span class="kw">let </span>data = sp_io::storage::get(KEY).unwrap();
@@ -3078,6 +3085,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>mock {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate as </span>pallet_state_trie_migration;
+	<span class="kw">use </span>alloc::{vec, vec::Vec};
 	<span class="kw">use </span>frame_support::{derive_impl, parameter_types, traits::Hooks, weights::Weight};
 	<span class="kw">use </span>frame_system::{EnsureRoot, EnsureSigned};
 	<span class="kw">use </span>sp_core::{

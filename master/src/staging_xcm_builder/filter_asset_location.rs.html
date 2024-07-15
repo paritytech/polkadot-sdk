@@ -358,6 +358,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -377,8 +378,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Various implementations of `ContainsPair&lt;Asset, Location&gt;` or
 //! `Contains&lt;(Location, Vec&lt;Asset&gt;)&gt;`.
 
-</span><span class="kw">use </span>frame_support::traits::{Contains, ContainsPair, Get};
-<span class="kw">use </span>sp_std::{marker::PhantomData, vec::Vec};
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>core::marker::PhantomData;
+<span class="kw">use </span>frame_support::traits::{Contains, ContainsPair, Get};
 <span class="kw">use </span>xcm::latest::{Asset, AssetFilter, AssetId, Location, WildAsset};
 
 <span class="doccomment">/// Accepts an asset iff it is a native asset.
@@ -404,7 +406,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// implementation of the given `Location` and if every asset from `assets` matches at least one of
 /// the `AssetFilter` instances provided by the `Get` implementation of `AssetFilters`.
 </span><span class="kw">pub struct </span>LocationWithAssetFilters&lt;LocationFilter, AssetFilters&gt;(
-	sp_std::marker::PhantomData&lt;(LocationFilter, AssetFilters)&gt;,
+	core::marker::PhantomData&lt;(LocationFilter, AssetFilters)&gt;,
 );
 <span class="kw">impl</span>&lt;LocationFilter: Contains&lt;Location&gt;, AssetFilters: Get&lt;Vec&lt;AssetFilter&gt;&gt;&gt;
 	Contains&lt;(Location, Vec&lt;Asset&gt;)&gt; <span class="kw">for </span>LocationWithAssetFilters&lt;LocationFilter, AssetFilters&gt;
@@ -435,7 +437,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>AllAssets;
 <span class="kw">impl </span>Get&lt;Vec&lt;AssetFilter&gt;&gt; <span class="kw">for </span>AllAssets {
 	<span class="kw">fn </span>get() -&gt; Vec&lt;AssetFilter&gt; {
-		<span class="macro">sp_std::vec!</span>[AssetFilter::Wild(WildAsset::All)]
+		<span class="macro">alloc::vec!</span>[AssetFilter::Wild(WildAsset::All)]
 	}
 }
 
@@ -456,11 +458,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">pub </span>AssetYLocation: Location = Location::new(<span class="number">1</span>, [GeneralIndex(<span class="number">2222</span>)]);
 			<span class="kw">pub </span>AssetZLocation: Location = Location::new(<span class="number">1</span>, [GeneralIndex(<span class="number">3333</span>)]);
 
-			<span class="kw">pub </span>OnlyAssetXOrAssetY: sp_std::vec::Vec&lt;AssetFilter&gt; = <span class="macro">sp_std::vec!</span>[
+			<span class="kw">pub </span>OnlyAssetXOrAssetY: alloc::vec::Vec&lt;AssetFilter&gt; = <span class="macro">alloc::vec!</span>[
 				Wild(AllOf { fun: WildFungible, id: AssetId(AssetXLocation::get()) }),
 				Wild(AllOf { fun: WildFungible, id: AssetId(AssetYLocation::get()) }),
 			];
-			<span class="kw">pub </span>OnlyAssetZ: sp_std::vec::Vec&lt;AssetFilter&gt; = <span class="macro">sp_std::vec!</span>[
+			<span class="kw">pub </span>OnlyAssetZ: alloc::vec::Vec&lt;AssetFilter&gt; = <span class="macro">alloc::vec!</span>[
 				Wild(AllOf { fun: WildFungible, id: AssetId(AssetZLocation::get()) })
 			];
 		}

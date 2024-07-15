@@ -848,7 +848,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>measured_storage_value_read_linear_size(l: Linear&lt;<span class="number">0</span>, { <span class="number">1 </span>&lt;&lt; <span class="number">22 </span>}&gt;) {
-		<span class="kw">let </span>v: sp_runtime::BoundedVec&lt;u8, <span class="kw">_</span>&gt; = <span class="macro">sp_std::vec!</span>[<span class="number">0u8</span>; l <span class="kw">as </span>usize].try_into().unwrap();
+		<span class="kw">let </span>v: sp_runtime::BoundedVec&lt;u8, <span class="kw">_</span>&gt; = <span class="macro">alloc::vec!</span>[<span class="number">0u8</span>; l <span class="kw">as </span>usize].try_into().unwrap();
 		LargeValue::&lt;T&gt;::put(<span class="kw-2">&amp;</span>v);
 		<span class="attr">#[block]
 		</span>{
@@ -858,7 +858,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = MaxEncodedLen)]
 	</span><span class="kw">fn </span>mel_storage_value_read_linear_size(l: Linear&lt;<span class="number">0</span>, { <span class="number">1 </span>&lt;&lt; <span class="number">22 </span>}&gt;) {
-		<span class="kw">let </span>v: sp_runtime::BoundedVec&lt;u8, <span class="kw">_</span>&gt; = <span class="macro">sp_std::vec!</span>[<span class="number">0u8</span>; l <span class="kw">as </span>usize].try_into().unwrap();
+		<span class="kw">let </span>v: sp_runtime::BoundedVec&lt;u8, <span class="kw">_</span>&gt; = <span class="macro">alloc::vec!</span>[<span class="number">0u8</span>; l <span class="kw">as </span>usize].try_into().unwrap();
 		LargeValue::&lt;T&gt;::put(<span class="kw-2">&amp;</span>v);
 		<span class="attr">#[block]
 		</span>{
@@ -868,7 +868,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>measured_storage_double_value_read_linear_size(l: Linear&lt;<span class="number">0</span>, { <span class="number">1 </span>&lt;&lt; <span class="number">22 </span>}&gt;) {
-		<span class="kw">let </span>v: sp_runtime::BoundedVec&lt;u8, <span class="kw">_</span>&gt; = <span class="macro">sp_std::vec!</span>[<span class="number">0u8</span>; l <span class="kw">as </span>usize].try_into().unwrap();
+		<span class="kw">let </span>v: sp_runtime::BoundedVec&lt;u8, <span class="kw">_</span>&gt; = <span class="macro">alloc::vec!</span>[<span class="number">0u8</span>; l <span class="kw">as </span>usize].try_into().unwrap();
 		LargeValue::&lt;T&gt;::put(<span class="kw-2">&amp;</span>v);
 		LargeValue2::&lt;T&gt;::put(<span class="kw-2">&amp;</span>v);
 		<span class="attr">#[block]
@@ -880,7 +880,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = MaxEncodedLen)]
 	</span><span class="kw">fn </span>mel_storage_double_value_read_linear_size(l: Linear&lt;<span class="number">0</span>, { <span class="number">1 </span>&lt;&lt; <span class="number">22 </span>}&gt;) {
-		<span class="kw">let </span>v: sp_runtime::BoundedVec&lt;u8, <span class="kw">_</span>&gt; = <span class="macro">sp_std::vec!</span>[<span class="number">0u8</span>; l <span class="kw">as </span>usize].try_into().unwrap();
+		<span class="kw">let </span>v: sp_runtime::BoundedVec&lt;u8, <span class="kw">_</span>&gt; = <span class="macro">alloc::vec!</span>[<span class="number">0u8</span>; l <span class="kw">as </span>usize].try_into().unwrap();
 		LargeValue::&lt;T&gt;::put(<span class="kw-2">&amp;</span>v);
 		LargeValue2::&lt;T&gt;::put(<span class="kw-2">&amp;</span>v);
 		<span class="attr">#[block]
@@ -894,7 +894,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Pov::LargeValue2: Measured
 	})]
 	</span><span class="kw">fn </span>mel_mixed_storage_double_value_read_linear_size(l: Linear&lt;<span class="number">0</span>, { <span class="number">1 </span>&lt;&lt; <span class="number">22 </span>}&gt;) {
-		<span class="kw">let </span>v: sp_runtime::BoundedVec&lt;u8, <span class="kw">_</span>&gt; = <span class="macro">sp_std::vec!</span>[<span class="number">0u8</span>; l <span class="kw">as </span>usize].try_into().unwrap();
+		<span class="kw">let </span>v: sp_runtime::BoundedVec&lt;u8, <span class="kw">_</span>&gt; = <span class="macro">alloc::vec!</span>[<span class="number">0u8</span>; l <span class="kw">as </span>usize].try_into().unwrap();
 		LargeValue::&lt;T&gt;::put(<span class="kw-2">&amp;</span>v);
 		LargeValue2::&lt;T&gt;::put(<span class="kw-2">&amp;</span>v);
 		<span class="attr">#[block]
@@ -908,7 +908,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Pov::LargeValue2: MaxEncodedLen
 	})]
 	</span><span class="kw">fn </span>measured_mixed_storage_double_value_read_linear_size(l: Linear&lt;<span class="number">0</span>, { <span class="number">1 </span>&lt;&lt; <span class="number">22 </span>}&gt;) {
-		<span class="kw">let </span>v: sp_runtime::BoundedVec&lt;u8, <span class="kw">_</span>&gt; = <span class="macro">sp_std::vec!</span>[<span class="number">0u8</span>; l <span class="kw">as </span>usize].try_into().unwrap();
+		<span class="kw">let </span>v: sp_runtime::BoundedVec&lt;u8, <span class="kw">_</span>&gt; = <span class="macro">alloc::vec!</span>[<span class="number">0u8</span>; l <span class="kw">as </span>usize].try_into().unwrap();
 		LargeValue::&lt;T&gt;::put(<span class="kw-2">&amp;</span>v);
 		LargeValue2::&lt;T&gt;::put(<span class="kw-2">&amp;</span>v);
 		<span class="attr">#[block]
@@ -920,8 +920,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>storage_map_unbounded_both_measured_read(i: Linear&lt;<span class="number">0</span>, <span class="number">1000</span>&gt;) {
-		UnboundedMap::&lt;T&gt;::insert(i, <span class="macro">sp_std::vec!</span>[<span class="number">0</span>; i <span class="kw">as </span>usize]);
-		UnboundedMap2::&lt;T&gt;::insert(i, <span class="macro">sp_std::vec!</span>[<span class="number">0</span>; i <span class="kw">as </span>usize]);
+		UnboundedMap::&lt;T&gt;::insert(i, <span class="macro">alloc::vec!</span>[<span class="number">0</span>; i <span class="kw">as </span>usize]);
+		UnboundedMap2::&lt;T&gt;::insert(i, <span class="macro">alloc::vec!</span>[<span class="number">0</span>; i <span class="kw">as </span>usize]);
 		<span class="attr">#[block]
 		</span>{
 			<span class="macro">assert!</span>(UnboundedMap::&lt;T&gt;::get(i).is_some());
@@ -934,7 +934,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	})]
 	</span><span class="kw">fn </span>storage_map_partial_unbounded_read(i: Linear&lt;<span class="number">0</span>, <span class="number">1000</span>&gt;) {
 		Map1M::&lt;T&gt;::insert(i, <span class="number">0</span>);
-		UnboundedMap::&lt;T&gt;::insert(i, <span class="macro">sp_std::vec!</span>[<span class="number">0</span>; i <span class="kw">as </span>usize]);
+		UnboundedMap::&lt;T&gt;::insert(i, <span class="macro">alloc::vec!</span>[<span class="number">0</span>; i <span class="kw">as </span>usize]);
 		<span class="attr">#[block]
 		</span>{
 			<span class="macro">assert!</span>(Map1M::&lt;T&gt;::get(i).is_some());
@@ -947,7 +947,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	})]
 	</span><span class="kw">fn </span>storage_map_partial_unbounded_ignored_read(i: Linear&lt;<span class="number">0</span>, <span class="number">1000</span>&gt;) {
 		Map1M::&lt;T&gt;::insert(i, <span class="number">0</span>);
-		UnboundedMap::&lt;T&gt;::insert(i, <span class="macro">sp_std::vec!</span>[<span class="number">0</span>; i <span class="kw">as </span>usize]);
+		UnboundedMap::&lt;T&gt;::insert(i, <span class="macro">alloc::vec!</span>[<span class="number">0</span>; i <span class="kw">as </span>usize]);
 		<span class="attr">#[block]
 		</span>{
 			<span class="macro">assert!</span>(Map1M::&lt;T&gt;::get(i).is_some());
@@ -980,7 +980,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>storage_iteration() {
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">65000 </span>{
-			UnboundedMapTwox::&lt;T&gt;::insert(i, <span class="macro">sp_std::vec!</span>[<span class="number">0</span>; <span class="number">64</span>]);
+			UnboundedMapTwox::&lt;T&gt;::insert(i, <span class="macro">alloc::vec!</span>[<span class="number">0</span>; <span class="number">64</span>]);
 		}
 		<span class="attr">#[block]
 		</span>{

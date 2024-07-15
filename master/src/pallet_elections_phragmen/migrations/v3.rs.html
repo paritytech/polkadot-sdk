@@ -336,12 +336,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::LOG_TARGET;
 <span class="kw">use crate</span>::{Config, Pallet};
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Decode, Encode, FullCodec};
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::ValueQuery, traits::StorageVersion, weights::Weight, Twox64Concat,
 };
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="attr">#[derive(Encode, Decode, Clone, Default, RuntimeDebug, PartialEq)]
 </span><span class="kw">struct </span>SeatHolder&lt;AccountId, Balance&gt; {

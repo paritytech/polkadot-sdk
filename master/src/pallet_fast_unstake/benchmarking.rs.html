@@ -373,6 +373,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use crate</span>::{types::<span class="kw-2">*</span>, Pallet <span class="kw">as </span>FastUnstake, <span class="kw-2">*</span>};
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>frame_benchmarking::v1::{benchmarks, whitelist_account, BenchmarkError};
 <span class="kw">use </span>frame_support::{
 	assert_ok,
@@ -381,7 +382,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_system::RawOrigin;
 <span class="kw">use </span>sp_runtime::traits::Zero;
 <span class="kw">use </span>sp_staking::{EraIndex, StakingInterface};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">const </span>USER_SEED: u32 = <span class="number">0</span>;
 

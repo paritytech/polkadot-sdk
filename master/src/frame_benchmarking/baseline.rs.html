@@ -338,12 +338,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use </span><span class="kw">crate</span>::benchmarks;
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>frame_system::Pallet <span class="kw">as </span>System;
 <span class="kw">use </span>sp_runtime::{
 	traits::{AppVerify, Hash},
 	RuntimeAppPublic,
 };
-<span class="kw">use </span>sp_std::{vec, vec::Vec};
 
 <span class="kw">mod </span>crypto {
 	<span class="kw">use </span>sp_application_crypto::{app_crypto, sr25519, KeyTypeId};

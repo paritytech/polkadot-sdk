@@ -282,6 +282,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -311,14 +313,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>cumulus_primitives_core::{
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>cumulus_primitives_core::{
 	relay_chain::{BlakeTwo256, Hash <span class="kw">as </span>RelayHash, HashT <span class="kw">as _</span>},
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
 
+<span class="kw">use </span>alloc::{collections::btree_map::BTreeMap, vec::Vec};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_inherents::InherentIdentifier;
-<span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 <span class="doccomment">/// The identifier for the parachain inherent.
 </span><span class="kw">pub const </span>INHERENT_IDENTIFIER: InherentIdentifier = <span class="kw-2">*</span><span class="string">b"sysi1337"</span>;

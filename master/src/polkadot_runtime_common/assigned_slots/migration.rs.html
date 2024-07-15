@@ -241,13 +241,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::traits::{Get, GetStorageVersion, UncheckedOnRuntimeUpgrade};
 
 <span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-</span><span class="kw">use </span>frame_support::ensure;
+</span><span class="kw">use </span>alloc::vec::Vec;
 <span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-</span><span class="kw">use </span>sp_std::vec::Vec;
+</span><span class="kw">use </span>frame_support::ensure;
 
 <span class="kw">pub mod </span>v1 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">pub struct </span>VersionUncheckedMigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	<span class="kw">pub struct </span>VersionUncheckedMigrateToV1&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateToV1&lt;T&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {

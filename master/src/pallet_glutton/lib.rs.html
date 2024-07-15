@@ -602,6 +602,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#451" id="451">451</a>
 <a href="#452" id="452">452</a>
 <a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -639,12 +641,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 <span class="kw">pub mod </span>weights;
 
+<span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>blake2::{Blake2b512, Digest};
 <span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, weights::WeightMeter, DefaultNoBound};
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>sp_io::hashing::twox_256;
 <span class="kw">use </span>sp_runtime::{traits::Zero, FixedPointNumber, FixedU64};
-<span class="kw">use </span>sp_std::{vec, vec::Vec};
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>weights::WeightInfo;
@@ -766,7 +770,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub </span>block_length: FixedU64,
 		<span class="attr">#[serde(skip)]
 		</span><span class="doccomment">/// The required configuration field.
-		</span><span class="kw">pub </span>_config: sp_std::marker::PhantomData&lt;T&gt;,
+		</span><span class="kw">pub </span>_config: core::marker::PhantomData&lt;T&gt;,
 	}
 
 	<span class="attr">#[pallet::genesis_build]

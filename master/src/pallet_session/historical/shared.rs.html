@@ -205,9 +205,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Shared logic between on-chain and off-chain components used for slashing using an off-chain
 //! worker.
 
-</span><span class="kw">use </span>codec::Encode;
+</span><span class="kw">use </span>alloc::{borrow::ToOwned, vec::Vec};
+<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>sp_staking::SessionIndex;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>PREFIX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"session_historical"</span>;
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>LAST_PRUNE: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"session_historical_last_prune"</span>;

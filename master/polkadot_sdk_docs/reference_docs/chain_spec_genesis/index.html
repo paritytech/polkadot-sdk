@@ -319,7 +319,7 @@ just provides a <code>Vec</code> of the names of supported presets, while the la
 to a function that maps the name to an actual preset:
 <a href="../../../chain_spec_guide_runtime/presets/fn.get_builtin_preset.html" title="fn chain_spec_guide_runtime::presets::get_builtin_preset"><code>chain_spec_guide_runtime::presets::get_builtin_preset</code></a></p>
 
-<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub fn </span>get_builtin_preset(id: <span class="kw-2">&amp;</span>sp_genesis_builder::PresetId) -&gt; <span class="prelude-ty">Option</span>&lt;sp_std::vec::Vec&lt;u8&gt;&gt; {
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub fn </span>get_builtin_preset(id: <span class="kw-2">&amp;</span>sp_genesis_builder::PresetId) -&gt; <span class="prelude-ty">Option</span>&lt;alloc::vec::Vec&lt;u8&gt;&gt; {
 	<span class="kw">let </span>preset = <span class="kw">match </span>id.try_into() {
 		<span class="prelude-val">Ok</span>(PRESET_1) =&gt; preset_1(),
 		<span class="prelude-val">Ok</span>(PRESET_2) =&gt; preset_2(),

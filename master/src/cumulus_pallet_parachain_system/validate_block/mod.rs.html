@@ -216,6 +216,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
@@ -248,6 +251,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #[doc(hidden)]
 </span><span class="kw">mod </span>trie_recorder;
 
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+#[doc(hidden)]
+</span><span class="kw">pub use </span>alloc::{boxed::Box, slice};
 <span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 #[doc(hidden)]
 </span><span class="kw">pub use </span>bytes;

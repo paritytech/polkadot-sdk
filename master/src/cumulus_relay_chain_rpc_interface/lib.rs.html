@@ -410,7 +410,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -443,11 +442,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_overseer::Handle;
 
 <span class="kw">use </span>sc_client_api::StorageProof;
-<span class="kw">use </span>sp_core::sp_std::collections::btree_map::BTreeMap;
 <span class="kw">use </span>sp_state_machine::StorageValue;
 <span class="kw">use </span>sp_storage::StorageKey;
 <span class="kw">use </span>sp_version::RuntimeVersion;
-<span class="kw">use </span>std::pin::Pin;
+<span class="kw">use </span>std::{collections::btree_map::BTreeMap, pin::Pin};
 
 <span class="kw">use </span>cumulus_primitives_core::relay_chain::BlockId;
 <span class="kw">pub use </span>url::Url;

@@ -182,7 +182,7 @@ are formed from concatenating some details together, as in the following pseudo-
 	Extra: SignedExtension,
 {
 	<span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>tmp = Vec::with_capacity(sp_std::mem::size_of::&lt;<span class="self">Self</span>&gt;());
+		<span class="kw">let </span><span class="kw-2">mut </span>tmp = Vec::with_capacity(core::mem::size_of::&lt;<span class="self">Self</span>&gt;());
 
 		<span class="comment">// 1 byte version id.
 		</span><span class="kw">match </span><span class="self">self</span>.signature.as_ref() {

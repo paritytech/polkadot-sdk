@@ -275,7 +275,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// enacted on-chain.
 	///
 	/// Use experimental [`MigrateToV1`] instead.
-	</span><span class="kw">pub struct </span>VersionUncheckedMigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	</span><span class="kw">pub struct </span>VersionUncheckedMigrateToV1&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateToV1&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span><span class="kw-2">mut </span>weight = T::DbWeight::get().reads(<span class="number">1</span>);
@@ -322,7 +322,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// `XCM_VERSION`.
 ///
 /// NOTE: This migration can be permanently added to the runtime migrations.
-</span><span class="kw">pub struct </span>MigrateToLatestXcmVersion&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>MigrateToLatestXcmVersion&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToLatestXcmVersion&lt;T&gt; {
 	<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 		CurrentMigration::&lt;T&gt;::put(VersionMigrationStage::default());

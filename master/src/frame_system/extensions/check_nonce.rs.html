@@ -384,6 +384,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::Config;
+<span class="kw">use </span>alloc::vec;
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::dispatch::DispatchInfo;
 <span class="kw">use </span>scale_info::TypeInfo;
@@ -394,7 +395,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ValidTransaction,
 	},
 };
-<span class="kw">use </span>sp_std::vec;
 
 <span class="doccomment">/// Nonce check and increment to give replay protection for transactions.
 ///
@@ -414,14 +414,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; sp_std::fmt::Debug <span class="kw">for </span>CheckNonce&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Config&gt; core::fmt::Debug <span class="kw">for </span>CheckNonce&lt;T&gt; {
 	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="macro">write!</span>(f, <span class="string">"CheckNonce({})"</span>, <span class="self">self</span>.<span class="number">0</span>)
 	}
 
 	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="prelude-val">Ok</span>(())
 	}
 }
@@ -436,7 +436,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Pre = ();
 	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"CheckNonce"</span>;
 
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::result::Result&lt;(), TransactionValidityError&gt; {
+	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; core::result::Result&lt;(), TransactionValidityError&gt; {
 		<span class="prelude-val">Ok</span>(())
 	}
 

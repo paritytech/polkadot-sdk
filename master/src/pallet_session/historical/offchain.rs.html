@@ -434,12 +434,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! required data to the offchain validator set. This is used in conjunction with [`ProvingTrie`]
 //! and the off-chain indexing API.
 
-</span><span class="kw">use </span>sp_runtime::{
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
 	KeyTypeId,
 };
 <span class="kw">use </span>sp_session::MembershipProof;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use super</span>::{shared, Config, IdentificationTuple, ProvingTrie};
 <span class="kw">use crate</span>::{Pallet <span class="kw">as </span>SessionModule, SessionIndex};
@@ -471,9 +471,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Implement conversion into iterator for usage
 /// with [ProvingTrie](super::ProvingTrie::generate_for).
-</span><span class="kw">impl</span>&lt;T: Config&gt; sp_std::iter::IntoIterator <span class="kw">for </span>ValidatorSet&lt;T&gt; {
+</span><span class="kw">impl</span>&lt;T: Config&gt; core::iter::IntoIterator <span class="kw">for </span>ValidatorSet&lt;T&gt; {
 	<span class="kw">type </span>Item = (T::ValidatorId, T::FullIdentification);
-	<span class="kw">type </span>IntoIter = sp_std::vec::IntoIter&lt;<span class="self">Self</span>::Item&gt;;
+	<span class="kw">type </span>IntoIter = alloc::vec::IntoIter&lt;<span class="self">Self</span>::Item&gt;;
 	<span class="kw">fn </span>into_iter(<span class="self">self</span>) -&gt; <span class="self">Self</span>::IntoIter {
 		<span class="self">self</span>.validator_set.into_iter()
 	}

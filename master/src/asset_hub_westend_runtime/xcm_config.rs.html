@@ -1320,8 +1320,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// All configuration related to bridging
 </span><span class="kw">pub mod </span>bridging {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>alloc::collections::btree_set::BTreeSet;
 	<span class="kw">use </span>assets_common::matching;
-	<span class="kw">use </span>sp_std::collections::btree_set::BTreeSet;
 
 	<span class="macro">parameter_types! </span>{
 		<span class="doccomment">/// Base price of every byte of the Westend -&gt; Rococo message. Can be adjusted via
@@ -1349,8 +1349,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// (`AssetId` has to be aligned with `BridgeTable`)
 		</span><span class="kw">pub </span>XcmBridgeHubRouterFeeAssetId: AssetId = WestendLocation::get().into();
 
-		<span class="kw">pub </span>BridgeTable: sp_std::vec::Vec&lt;NetworkExportTableItem&gt; =
-			sp_std::vec::Vec::new().into_iter()
+		<span class="kw">pub </span>BridgeTable: alloc::vec::Vec&lt;NetworkExportTableItem&gt; =
+			alloc::vec::Vec::new().into_iter()
 			.chain(to_rococo::BridgeTable::get())
 			.collect();
 	}
@@ -1381,10 +1381,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="doccomment">/// Set up exporters configuration.
 			/// `Option&lt;Asset&gt;` represents static "base fee" which is used for total delivery fee calculation.
-			</span><span class="kw">pub </span>BridgeTable: sp_std::vec::Vec&lt;NetworkExportTableItem&gt; = <span class="macro">sp_std::vec!</span>[
+			</span><span class="kw">pub </span>BridgeTable: alloc::vec::Vec&lt;NetworkExportTableItem&gt; = <span class="macro">alloc::vec!</span>[
 				NetworkExportTableItem::new(
 					RococoNetwork::get(),
-					<span class="prelude-val">Some</span>(<span class="macro">sp_std::vec!</span>[
+					<span class="prelude-val">Some</span>(<span class="macro">alloc::vec!</span>[
 						AssetHubRococo::get().interior.split_global().expect(<span class="string">"invalid configuration for AssetHubRococo"</span>).<span class="number">1</span>,
 					]),
 					SiblingBridgeHub::get(),
@@ -1398,7 +1398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="doccomment">/// Universal aliases
 			</span><span class="kw">pub </span>UniversalAliases: BTreeSet&lt;(Location, Junction)&gt; = BTreeSet::from_iter(
-				<span class="macro">sp_std::vec!</span>[
+				<span class="macro">alloc::vec!</span>[
 					(SiblingBridgeHubWithBridgeHubRococoInstance::get(), GlobalConsensus(RococoNetwork::get()))
 				]
 			);

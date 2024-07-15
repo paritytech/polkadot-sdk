@@ -238,14 +238,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Various implementations and utilities for matching and filtering `Location` and
 //! `InteriorLocation` types.
 
-</span><span class="kw">use </span>frame_support::traits::{Contains, Get};
+</span><span class="kw">use </span>core::marker::PhantomData;
+<span class="kw">use </span>frame_support::traits::{Contains, Get};
 <span class="kw">use </span>sp_runtime::traits::MaybeEquivalence;
-<span class="kw">use </span>sp_std::marker::PhantomData;
 <span class="kw">use </span>xcm::latest::{InteriorLocation, Location, NetworkId};
 
 <span class="doccomment">/// An implementation of `Contains` that checks for `Location` or
 /// `InteriorLocation` if starts with the provided type `T`.
-</span><span class="kw">pub struct </span>StartsWith&lt;T, L = Location&gt;(sp_std::marker::PhantomData&lt;(T, L)&gt;);
+</span><span class="kw">pub struct </span>StartsWith&lt;T, L = Location&gt;(core::marker::PhantomData&lt;(T, L)&gt;);
 <span class="kw">impl</span>&lt;T: Get&lt;L&gt;, L: TryInto&lt;Location&gt; + Clone&gt; Contains&lt;L&gt; <span class="kw">for </span>StartsWith&lt;T, L&gt; {
 	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>L) -&gt; bool {
 		<span class="kw">let </span>latest_location: Location =
@@ -263,7 +263,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// An implementation of `Contains` that checks for `Location` or
 /// `InteriorLocation` if starts with expected `GlobalConsensus(NetworkId)` provided as type
 /// `T`.
-</span><span class="kw">pub struct </span>StartsWithExplicitGlobalConsensus&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>StartsWithExplicitGlobalConsensus&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: Get&lt;NetworkId&gt;&gt; Contains&lt;Location&gt; <span class="kw">for </span>StartsWithExplicitGlobalConsensus&lt;T&gt; {
 	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		<span class="macro">matches!</span>(location.interior().global_consensus(), <span class="prelude-val">Ok</span>(requested_network) <span class="kw">if </span>requested_network.eq(<span class="kw-2">&amp;</span>T::get()))

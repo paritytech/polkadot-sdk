@@ -245,7 +245,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">pub struct </span>VersionUncheckedMigrateToV1&lt;T, UnlockParaIds&gt;(
-	sp_std::marker::PhantomData&lt;(T, UnlockParaIds)&gt;,
+	core::marker::PhantomData&lt;(T, UnlockParaIds)&gt;,
 );
 <span class="kw">impl</span>&lt;T: Config, UnlockParaIds: Contains&lt;ParaId&gt;&gt; UncheckedOnRuntimeUpgrade
 	<span class="kw">for </span>VersionUncheckedMigrateToV1&lt;T, UnlockParaIds&gt;

@@ -268,6 +268,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -298,9 +300,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="comment">// Ensure we're `no_std` when compiling for Wasm.
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>frame_support::dispatch::DispatchResult;
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>frame_support::dispatch::DispatchResult;
 <span class="kw">use </span>frame_system::ensure_signed;
-<span class="kw">use </span>sp_std::{vec, vec::Vec};
 
 <span class="comment">// Re-export pallet items so that they can be accessed from the crate namespace.
 </span><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;

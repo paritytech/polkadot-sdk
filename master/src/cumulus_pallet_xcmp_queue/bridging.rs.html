@@ -262,7 +262,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// both `OutboundXcmpStatus` and `InboundXcmpStatus` for defined `ParaId` if any of those is
 /// suspended.
 </span><span class="kw">pub struct </span>InAndOutXcmpChannelStatusProvider&lt;SiblingBridgeHubParaId, Runtime&gt;(
-	sp_std::marker::PhantomData&lt;(SiblingBridgeHubParaId, Runtime)&gt;,
+	core::marker::PhantomData&lt;(SiblingBridgeHubParaId, Runtime)&gt;,
 );
 <span class="kw">impl</span>&lt;SiblingBridgeHubParaId: Get&lt;ParaId&gt;, Runtime: <span class="kw">crate</span>::Config&gt;
 	bp_xcm_bridge_hub_router::XcmChannelStatusProvider
@@ -286,7 +286,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Adapter implementation for `bp_xcm_bridge_hub_router::XcmChannelStatusProvider` which checks
 /// only `OutboundXcmpStatus` for defined `SiblingParaId` if is suspended.
 </span><span class="kw">pub struct </span>OutXcmpChannelStatusProvider&lt;SiblingBridgeHubParaId, Runtime&gt;(
-	sp_std::marker::PhantomData&lt;(SiblingBridgeHubParaId, Runtime)&gt;,
+	core::marker::PhantomData&lt;(SiblingBridgeHubParaId, Runtime)&gt;,
 );
 <span class="kw">impl</span>&lt;SiblingBridgeHubParaId: Get&lt;ParaId&gt;, Runtime: <span class="kw">crate</span>::Config&gt;
 	bp_xcm_bridge_hub_router::XcmChannelStatusProvider

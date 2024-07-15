@@ -529,14 +529,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Relay chain state proof provides means for accessing part of relay chain storage for reads.
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
 };
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::traits::HashingFor;
 <span class="kw">use </span>sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
-<span class="kw">use </span>sp_std::vec::Vec;
 <span class="kw">use </span>sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
 
 <span class="doccomment">/// The capacity of the upward message queue of a parachain on the relay chain.

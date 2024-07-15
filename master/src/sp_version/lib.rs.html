@@ -624,6 +624,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#473" id="473">473</a>
 <a href="#474" id="474">474</a>
 <a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -659,13 +663,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-#[cfg(feature = <span class="string">"serde"</span>)]
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>std::collections::HashSet;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>std::fmt;
 
+<span class="attr">#[doc(hidden)]
+</span><span class="kw">pub use </span>alloc::borrow::Cow;
 <span class="kw">use </span>codec::{Decode, Encode, Input};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::RuntimeString;
@@ -765,13 +773,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>ApiId = [u8; <span class="number">8</span>];
 
 <span class="doccomment">/// A vector of pairs of `ApiId` and a `u32` for version.
-</span><span class="kw">pub type </span>ApisVec = sp_std::borrow::Cow&lt;<span class="lifetime">'static</span>, [(ApiId, u32)]&gt;;
+</span><span class="kw">pub type </span>ApisVec = alloc::borrow::Cow&lt;<span class="lifetime">'static</span>, [(ApiId, u32)]&gt;;
 
 <span class="doccomment">/// Create a vector of Api declarations.
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>create_apis_vec {
 	( <span class="macro-nonterminal">$y</span>:expr ) =&gt; {
-		<span class="macro-nonterminal">$crate::sp_std::borrow::Cow::Borrowed</span>(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$y</span>)
+		<span class="macro-nonterminal">$crate::Cow::Borrowed</span>(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$y</span>)
 	};
 }
 
@@ -1035,9 +1043,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">mod </span>apis_serialize {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>alloc::vec::Vec;
 	<span class="kw">use </span>impl_serde::serialize <span class="kw">as </span>bytes;
 	<span class="kw">use </span>serde::{de, ser::SerializeTuple, Serializer};
-	<span class="kw">use </span>sp_std::vec::Vec;
 
 	<span class="attr">#[derive(Serialize)]
 	</span><span class="kw">struct </span>ApiId&lt;<span class="lifetime">'a</span>&gt;(<span class="attr">#[serde(serialize_with = <span class="string">"serialize_bytesref"</span>)] </span><span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">super</span>::ApiId, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>u32);
@@ -1072,7 +1080,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; de::Visitor&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>Visitor {
 			<span class="kw">type </span>Value = ApisVec;
 
-			<span class="kw">fn </span>expecting(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+			<span class="kw">fn </span>expecting(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 				formatter.write_str(<span class="string">"a sequence of api id and version tuples"</span>)
 			}
 

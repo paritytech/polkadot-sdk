@@ -510,6 +510,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#359" id="359">359</a>
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -558,6 +559,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	configuration::{<span class="self">self</span>, HostConfiguration},
 	initializer, FeeTracker,
 };
+<span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>core::fmt;
 <span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>polkadot_primitives::{DownwardMessage, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage};
@@ -566,7 +569,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{BlakeTwo256, Hash <span class="kw">as </span>HashT, SaturatedConversion},
 	FixedU128, Saturating,
 };
-<span class="kw">use </span>sp_std::{fmt, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm::latest::SendError;
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;

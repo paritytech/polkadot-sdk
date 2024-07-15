@@ -1685,7 +1685,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
 	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
 };
+<span class="kw">use </span>alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec::Vec,
+};
 <span class="kw">use </span>codec::{Decode, Encode, HasCompact};
+<span class="kw">use </span>core::cmp::Ordering;
 <span class="kw">use </span>frame_election_provider_support::NposSolution;
 <span class="kw">use </span>frame_support::traits::{
 	defensive_prelude::<span class="kw-2">*</span>, Currency, Get, OnUnbalanced, ReservableCurrency,
@@ -1697,11 +1702,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::{
 	traits::{Convert, Saturating, Zero},
 	FixedPointNumber, FixedPointOperand, FixedU128, Percent, RuntimeDebug,
-};
-<span class="kw">use </span>sp_std::{
-	cmp::Ordering,
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	vec::Vec,
 };
 
 <span class="doccomment">/// A raw, unchecked signed submission.

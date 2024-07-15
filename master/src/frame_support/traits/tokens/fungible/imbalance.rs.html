@@ -373,9 +373,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	misc::{SameOrOther, TryDrop},
 	tokens::{AssetId, Balance},
 };
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 <span class="kw">use </span>sp_runtime::traits::Zero;
-<span class="kw">use </span>sp_std::marker::PhantomData;
 
 <span class="doccomment">/// Handler for when an imbalance gets dropped. This could handle either a credit (negative) or
 /// debt (positive) imbalance.
@@ -440,7 +440,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Forget the imbalance without invoking the on-drop handler.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>forget(imbalance: <span class="self">Self</span>) {
-		sp_std::mem::forget(imbalance);
+		core::mem::forget(imbalance);
 	}
 }
 
@@ -455,7 +455,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>drop_zero(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>&gt; {
 		<span class="kw">if </span><span class="self">self</span>.amount.is_zero() {
-			sp_std::mem::forget(<span class="self">self</span>);
+			core::mem::forget(<span class="self">self</span>);
 			<span class="prelude-val">Ok</span>(())
 		} <span class="kw">else </span>{
 			<span class="prelude-val">Err</span>(<span class="self">self</span>)
@@ -465,7 +465,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>split(<span class="self">self</span>, amount: B) -&gt; (<span class="self">Self</span>, <span class="self">Self</span>) {
 		<span class="kw">let </span>first = <span class="self">self</span>.amount.min(amount);
 		<span class="kw">let </span>second = <span class="self">self</span>.amount - first;
-		sp_std::mem::forget(<span class="self">self</span>);
+		core::mem::forget(<span class="self">self</span>);
 		(Imbalance::new(first), Imbalance::new(second))
 	}
 
@@ -477,19 +477,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>merge(<span class="kw-2">mut </span><span class="self">self</span>, other: <span class="self">Self</span>) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.amount = <span class="self">self</span>.amount.saturating_add(other.amount);
-		sp_std::mem::forget(other);
+		core::mem::forget(other);
 		<span class="self">self
 	</span>}
 	<span class="kw">fn </span>subsume(<span class="kw-2">&amp;mut </span><span class="self">self</span>, other: <span class="self">Self</span>) {
 		<span class="self">self</span>.amount = <span class="self">self</span>.amount.saturating_add(other.amount);
-		sp_std::mem::forget(other);
+		core::mem::forget(other);
 	}
 	<span class="kw">fn </span>offset(
 		<span class="self">self</span>,
 		other: Imbalance&lt;B, OppositeOnDrop, OnDrop&gt;,
 	) -&gt; SameOrOther&lt;<span class="self">Self</span>, Imbalance&lt;B, OppositeOnDrop, OnDrop&gt;&gt; {
 		<span class="kw">let </span>(a, b) = (<span class="self">self</span>.amount, other.amount);
-		sp_std::mem::forget((<span class="self">self</span>, other));
+		core::mem::forget((<span class="self">self</span>, other));
 
 		<span class="kw">if </span>a == b {
 			SameOrOther::None

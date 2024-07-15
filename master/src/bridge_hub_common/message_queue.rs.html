@@ -311,6 +311,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 </span><span class="doccomment">//! Runtime configuration for MessageQueue pallet
 </span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>cumulus_primitives_core::{AggregateMessageOrigin <span class="kw">as </span>CumulusAggregateMessageOrigin, ParaId};
 <span class="kw">use </span>frame_support::{
 	traits::{ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery},
@@ -319,7 +320,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>pallet_message_queue::OnQueueChanged;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>snowbridge_core::ChannelId;
-<span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm::v4::{Junction, Location};
 
 <span class="doccomment">/// The aggregate origin of an inbound message.

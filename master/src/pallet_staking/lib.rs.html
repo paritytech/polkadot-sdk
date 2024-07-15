@@ -1492,6 +1492,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1341" id="1341">1341</a>
 <a href="#1342" id="1342">1342</a>
 <a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1798,6 +1800,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">mod </span>pallet;
 
+<span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 <span class="kw">use </span>frame_support::{
 	defensive, defensive_assert,
@@ -1819,7 +1824,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	StakingAccount,
 };
 <span class="kw">pub use </span>sp_staking::{Exposure, IndividualExposure, StakerStatus};
-<span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>};
 <span class="kw">pub use </span>weights::WeightInfo;
 
 <span class="kw">pub use </span>pallet::{pallet::<span class="kw-2">*</span>, UseNominatorsAndValidatorsMap, UseValidatorsMap};
@@ -2168,7 +2172,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// slightly under-slashed, by at most `MaxUnlockingChunks * ED`, which is not a big
 				// deal.
 				</span>slash_from_target =
-					sp_std::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
+					core::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
 			}
 
 			<span class="self">self</span>.total = <span class="self">self</span>.total.saturating_sub(slash_from_target);
@@ -2410,7 +2414,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
-</span><span class="kw">pub struct </span>ConvertCurve&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>ConvertCurve&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;Balance, T&gt; EraPayout&lt;Balance&gt; <span class="kw">for </span>ConvertCurve&lt;T&gt;
 <span class="kw">where
 	</span>Balance: AtLeast32BitUnsigned + Clone + Copy,
@@ -2468,7 +2472,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A `Convert` implementation that finds the stash of the given controller account,
 /// if any.
-</span><span class="kw">pub struct </span>StashOf&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>StashOf&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 
 <span class="kw">impl</span>&lt;T: Config&gt; Convert&lt;T::AccountId, <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;&gt; <span class="kw">for </span>StashOf&lt;T&gt; {
 	<span class="kw">fn </span>convert(controller: T::AccountId) -&gt; <span class="prelude-ty">Option</span>&lt;T::AccountId&gt; {
@@ -2481,7 +2485,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Active exposure is the exposure of the validator set currently validating, i.e. in
 /// `active_era`. It can differ from the latest planned exposure in `current_era`.
-</span><span class="kw">pub struct </span>ExposureOf&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>ExposureOf&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 
 <span class="kw">impl</span>&lt;T: Config&gt; Convert&lt;T::AccountId, <span class="prelude-ty">Option</span>&lt;Exposure&lt;T::AccountId, BalanceOf&lt;T&gt;&gt;&gt;&gt;
 	<span class="kw">for </span>ExposureOf&lt;T&gt;
@@ -2494,7 +2498,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Filter historical offences out and only allow those from the bonding period.
 </span><span class="kw">pub struct </span>FilterHistoricalOffences&lt;T, R&gt; {
-	_inner: sp_std::marker::PhantomData&lt;(T, R)&gt;,
+	_inner: core::marker::PhantomData&lt;(T, R)&gt;,
 }
 
 <span class="kw">impl</span>&lt;T, Reporter, Offender, R, O&gt; ReportOffence&lt;Reporter, Offender, O&gt;
@@ -2527,7 +2531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Wrapper struct for Era related information. It is not a pure encapsulation as these storage
 /// items can be accessed directly but nevertheless, its recommended to use `EraInfo` where we
 /// can and add more functions to it as needed.
-</span><span class="kw">pub struct </span>EraInfo&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>EraInfo&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: Config&gt; EraInfo&lt;T&gt; {
 	<span class="doccomment">/// Returns true if validator has one or more page of era rewards not claimed yet.
 	</span><span class="comment">// Also looks at legacy storage that can be cleaned up after #433.

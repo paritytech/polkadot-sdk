@@ -218,13 +218,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>frame_support::traits::Get;
+</span><span class="kw">use </span>core::marker::PhantomData;
+<span class="kw">use </span>frame_support::traits::Get;
 <span class="kw">use </span>sp_runtime::{
 	traits::{Convert, MaybeEquivalence},
 	Either,
 	Either::{Left, Right},
 };
-<span class="kw">use </span>sp_std::marker::PhantomData;
 <span class="kw">use </span>xcm::latest::Location;
 
 <span class="doccomment">/// Converts a given [`Location`] to [`Either::Left`] when equal to `Target`, or

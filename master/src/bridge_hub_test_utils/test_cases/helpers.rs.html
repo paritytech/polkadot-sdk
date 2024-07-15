@@ -554,6 +554,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>bp_polkadot_core::parachains::{ParaHash, ParaId};
 <span class="kw">use </span>bp_relayers::RewardsAccountParams;
 <span class="kw">use </span>codec::Decode;
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::{
 	assert_ok,
 	traits::{OnFinalize, OnInitialize, PalletInfoAccess},
@@ -568,7 +569,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_keyring::AccountKeyring::<span class="kw-2">*</span>;
 <span class="kw">use </span>sp_runtime::{traits::TrailingZeroInput, AccountId32};
-<span class="kw">use </span>sp_std::marker::PhantomData;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Verify that the transaction has succeeded.
@@ -821,7 +821,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// value here is tricky - there are several transaction payment pallets and we don't
 			// want to introduce additional bounds and traits here just for that, so let's just
 			// select some presumably large value
-			</span>sp_std::cmp::max::&lt;Runtime::Balance&gt;(Runtime::ExistentialDeposit::get(), <span class="number">1u32</span>.into()) *
+			</span>core::cmp::max::&lt;Runtime::Balance&gt;(Runtime::ExistentialDeposit::get(), <span class="number">1u32</span>.into()) *
 				<span class="number">100_000_000u32</span>.into(),
 		)],
 		|| {

@@ -309,6 +309,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! The velocity `V` refers to the rate of block processing by the relay chain.
 
 </span><span class="kw">use super</span>::{pallet, Aura};
+<span class="kw">use </span>core::{marker::PhantomData, num::NonZeroU32};
 <span class="kw">use </span>cumulus_pallet_parachain_system::{
 	<span class="self">self </span><span class="kw">as </span>parachain_system,
 	consensus_hook::{ConsensusHook, UnincludedSegmentCapacity},
@@ -316,7 +317,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>sp_consensus_aura::{Slot, SlotDuration};
-<span class="kw">use </span>sp_std::{marker::PhantomData, num::NonZeroU32};
 
 <span class="doccomment">/// A consensus hook for a fixed block processing velocity and unincluded segment capacity.
 ///
@@ -373,7 +373,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		(
 			weight,
-			NonZeroU32::new(sp_std::cmp::max(C, <span class="number">1</span>))
+			NonZeroU32::new(core::cmp::max(C, <span class="number">1</span>))
 				.expect(<span class="string">"1 is the minimum value and non-zero; qed"</span>)
 				.into(),
 		)

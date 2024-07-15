@@ -1043,7 +1043,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#892" id="892">892</a>
 <a href="#893" id="893">893</a>
 <a href="#894" id="894">894</a>
-<a href="#895" id="895">895</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1115,7 +1114,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	FixedPointNumber, FixedU128, Perbill, Perquintill, RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
 
 <span class="attr">#[cfg(test)]
@@ -1183,7 +1181,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// More info can be found at:
 /// &lt;https://research.web3.foundation/en/latest/polkadot/overview/2-token-economics.html&gt;
-</span><span class="kw">pub struct </span>TargetedFeeAdjustment&lt;T, S, V, M, X&gt;(sp_std::marker::PhantomData&lt;(T, S, V, M, X)&gt;);
+</span><span class="kw">pub struct </span>TargetedFeeAdjustment&lt;T, S, V, M, X&gt;(core::marker::PhantomData&lt;(T, S, V, M, X)&gt;);
 
 <span class="doccomment">/// Something that can convert the current multiplier to the next one.
 </span><span class="kw">pub trait </span>MultiplierUpdate: Convert&lt;Multiplier, Multiplier&gt; {
@@ -1310,7 +1308,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A struct to make the fee multiplier a constant
-</span><span class="kw">pub struct </span>ConstFeeMultiplier&lt;M: Get&lt;Multiplier&gt;&gt;(sp_std::marker::PhantomData&lt;M&gt;);
+</span><span class="kw">pub struct </span>ConstFeeMultiplier&lt;M: Get&lt;Multiplier&gt;&gt;(core::marker::PhantomData&lt;M&gt;);
 
 <span class="kw">impl</span>&lt;M: Get&lt;Multiplier&gt;&gt; MultiplierUpdate <span class="kw">for </span>ConstFeeMultiplier&lt;M&gt; {
 	<span class="kw">fn </span>min() -&gt; Multiplier {
@@ -1452,7 +1450,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
 		<span class="kw">pub </span>multiplier: Multiplier,
 		<span class="attr">#[serde(skip)]
-		</span><span class="kw">pub </span>_config: sp_std::marker::PhantomData&lt;T&gt;,
+		</span><span class="kw">pub </span>_config: core::marker::PhantomData&lt;T&gt;,
 	}
 
 	<span class="kw">impl</span>&lt;T: Config&gt; Default <span class="kw">for </span>GenesisConfig&lt;T&gt; {
@@ -1852,13 +1850,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; sp_std::fmt::Debug <span class="kw">for </span>ChargeTransactionPayment&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Config&gt; core::fmt::Debug <span class="kw">for </span>ChargeTransactionPayment&lt;T&gt; {
 	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="macro">write!</span>(f, <span class="string">"ChargeTransactionPayment&lt;{:?}&gt;"</span>, <span class="self">self</span>.<span class="number">0</span>)
 	}
 	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="prelude-val">Ok</span>(())
 	}
 }
@@ -1880,7 +1878,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// imbalance resulting from withdrawing the fee
 		</span>&lt;&lt;T <span class="kw">as </span>Config&gt;::OnChargeTransaction <span class="kw">as </span>OnChargeTransaction&lt;T&gt;&gt;::LiquidityInfo,
 	);
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::result::Result&lt;(), TransactionValidityError&gt; {
+	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; core::result::Result&lt;(), TransactionValidityError&gt; {
 		<span class="prelude-val">Ok</span>(())
 	}
 

@@ -344,6 +344,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -362,9 +363,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Runtime API definition for assets.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::runtime_api::FungiblesAccessError;
+<span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>core::borrow::Borrow;
 <span class="kw">use </span>frame_support::traits::Contains;
 <span class="kw">use </span>sp_runtime::traits::MaybeEquivalence;
-<span class="kw">use </span>sp_std::{borrow::Borrow, vec::Vec};
 <span class="kw">use </span>xcm::latest::{Asset, Location};
 <span class="kw">use </span>xcm_builder::{ConvertedConcreteId, MatchedConvertedConcreteId};
 <span class="kw">use </span>xcm_executor::traits::MatchesFungibles;

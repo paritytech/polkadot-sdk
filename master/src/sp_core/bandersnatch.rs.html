@@ -1272,7 +1272,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 
-<span class="kw">use </span>sp_std::{vec, vec::Vec};
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 
 <span class="doccomment">/// Identifier used to match public keys against bandersnatch-vrf keys.
 </span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b"band"</span>);

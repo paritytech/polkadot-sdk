@@ -2460,6 +2460,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2309" id="2309">2309</a>
 <a href="#2310" id="2310">2310</a>
 <a href="#2311" id="2311">2311</a>
+<a href="#2312" id="2312">2312</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2486,7 +2487,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weights::WeightInfo,
 	BalanceOf, CodeHash, Config, DebugBufferVec, Error, SENTINEL,
 };
+<span class="kw">use </span>alloc::{boxed::Box, vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
+<span class="kw">use </span>core::fmt;
 <span class="kw">use </span>frame_support::{
 	dispatch::DispatchInfo, ensure, pallet_prelude::DispatchResultWithPostInfo, parameter_types,
 	traits::Get, weights::Weight,
@@ -2498,7 +2501,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Bounded, Zero},
 	DispatchError, RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::{fmt, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>wasmi::{core::HostError, errors::LinkerError, Linker, Memory, Store};
 
 <span class="kw">type </span>CallOf&lt;T&gt; = &lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall;
@@ -4362,7 +4364,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		data_len: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		<span class="kw">let </span>num_topic = topics_len
-			.checked_div(sp_std::mem::size_of::&lt;TopicOf&lt;E::T&gt;&gt;() <span class="kw">as </span>u32)
+			.checked_div(core::mem::size_of::&lt;TopicOf&lt;E::T&gt;&gt;() <span class="kw">as </span>u32)
 			.ok_or(<span class="string">"Zero sized topics are not allowed"</span>)<span class="question-mark">?</span>;
 		ctx.charge_gas(RuntimeCosts::DepositEvent { num_topic, len: data_len })<span class="question-mark">?</span>;
 		<span class="kw">if </span>data_len &gt; ctx.ext.max_value_size() {

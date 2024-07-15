@@ -247,9 +247,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! This API can be used to simulate XCMs and, for example, find the fees
 //! that need to be paid.
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::pallet_prelude::{DispatchResultWithPostInfo, TypeInfo};
-<span class="kw">use </span>sp_std::vec::Vec;
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Effects of dry-running an extrinsic.

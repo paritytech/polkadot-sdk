@@ -228,12 +228,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Put implementations of functions from staging APIs here.
 
 </span><span class="kw">use crate</span>::{configuration, inclusion, initializer, scheduler};
-<span class="kw">use </span>polkadot_primitives::{CommittedCandidateReceipt, CoreIndex, Id <span class="kw">as </span>ParaId};
-<span class="kw">use </span>sp_runtime::traits::One;
-<span class="kw">use </span>sp_std::{
+<span class="kw">use </span>alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	vec::Vec,
 };
+<span class="kw">use </span>polkadot_primitives::{CommittedCandidateReceipt, CoreIndex, Id <span class="kw">as </span>ParaId};
+<span class="kw">use </span>sp_runtime::traits::One;
 
 <span class="doccomment">/// Returns the claimqueue from the scheduler
 </span><span class="kw">pub fn </span>claim_queue&lt;T: scheduler::Config&gt;() -&gt; BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt; {

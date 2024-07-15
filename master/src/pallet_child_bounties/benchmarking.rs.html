@@ -465,6 +465,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#314" id="314">314</a>
 <a href="#315" id="315">315</a>
 <a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -487,6 +489,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 
 <span class="kw">use </span>frame_benchmarking::v1::{account, benchmarks, whitelisted_caller, BenchmarkError};
 <span class="kw">use </span>frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};

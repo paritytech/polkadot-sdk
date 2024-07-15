@@ -508,14 +508,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Stuff for dealing with hashed preimages.
 
-</span><span class="kw">use </span>codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+</span><span class="kw">use </span>alloc::borrow::Cow;
+<span class="kw">use </span>codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_core::RuntimeDebug;
 <span class="kw">use </span>sp_runtime::{
 	traits::{ConstU32, Hash},
 	DispatchError,
 };
-<span class="kw">use </span>sp_std::borrow::Cow;
 
 <span class="kw">pub type </span>BoundedInline = <span class="kw">crate</span>::BoundedVec&lt;u8, ConstU32&lt;<span class="number">128</span>&gt;&gt;;
 
@@ -528,7 +528,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A hash with no preimage length. We do not support creation of this except
 	/// for transitioning from legacy state. In the future we will make this a pure
 	/// `Dummy` item storing only the final `dummy` field.
-	</span>Legacy { hash: H::Output, dummy: sp_std::marker::PhantomData&lt;T&gt; },
+	</span>Legacy { hash: H::Output, dummy: core::marker::PhantomData&lt;T&gt; },
 	<span class="doccomment">/// A an bounded `Call`. Its encoding must be at most 128 bytes.
 	</span>Inline(BoundedInline),
 	<span class="doccomment">/// A hash of the call together with an upper limit for its size.`
@@ -552,7 +552,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	{
 		<span class="kw">use </span>Bounded::<span class="kw-2">*</span>;
 		<span class="kw">match </span><span class="self">self </span>{
-			Legacy { hash, .. } =&gt; Legacy { hash, dummy: sp_std::marker::PhantomData },
+			Legacy { hash, .. } =&gt; Legacy { hash, dummy: core::marker::PhantomData },
 			Inline(x) =&gt; Inline(x),
 			Lookup { hash, len } =&gt; Lookup { hash, len },
 		}
@@ -614,7 +614,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Constructs a `Legacy` bounded item.
 	</span><span class="attr">#[deprecated = <span class="string">"This API is only for transitioning to Scheduler v3 API"</span>]
 	</span><span class="kw">pub fn </span>from_legacy_hash(hash: <span class="kw">impl </span>Into&lt;H::Output&gt;) -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>::Legacy { hash: hash.into(), dummy: sp_std::marker::PhantomData }
+		<span class="self">Self</span>::Legacy { hash: hash.into(), dummy: core::marker::PhantomData }
 	}
 }
 

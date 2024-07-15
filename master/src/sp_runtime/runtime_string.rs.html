@@ -334,9 +334,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>sp_core::RuntimeDebug;
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="doccomment">/// A string that wraps a `&amp;'static str` in the runtime and `String`/`Vec&lt;u8&gt;` on decode.
 </span><span class="attr">#[derive(Eq, RuntimeDebug, Clone)]
@@ -369,7 +369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 		</span>{
-			sp_runtime::RuntimeString::Owned(<span class="macro">sp_std::alloc::format!</span>($(<span class="macro-nonterminal">$args</span>)<span class="kw-2">*</span>).as_bytes().to_vec())
+			sp_runtime::RuntimeString::Owned(<span class="macro">alloc::format!</span>($(<span class="macro-nonterminal">$args</span>)<span class="kw-2">*</span>).as_bytes().to_vec())
 		}
 	}};
 }

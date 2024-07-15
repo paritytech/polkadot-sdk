@@ -2426,6 +2426,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2275" id="2275">2275</a>
 <a href="#2276" id="2276">2276</a>
 <a href="#2277" id="2277">2277</a>
+<a href="#2278" id="2278">2278</a>
+<a href="#2279" id="2279">2279</a>
+<a href="#2280" id="2280">2280</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2525,7 +2528,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>pallet_prelude::{BlockNumberFor, HeaderFor};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{boxed::Box, vec, vec::Vec};
+<span class="kw">use </span>core::{fmt::Debug, marker::PhantomData};
+<span class="kw">use </span>pallet_prelude::{BlockNumberFor, HeaderFor};
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>serde::Serialize;
 <span class="kw">use </span>sp_io::hashing::blake2_256;
@@ -2546,7 +2553,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">use </span>sp_std::map;
-<span class="kw">use </span>sp_std::{fmt::Debug, marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>sp_version::RuntimeVersion;
 
 <span class="kw">use </span>codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
@@ -2697,7 +2703,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// NOTE: Avoids overriding `BlockHashCount` when using `mocking::{MockBlock, MockBlockU32,
 		/// MockBlockU128}`.
-		</span><span class="kw">pub struct </span>TestBlockHashCount&lt;C: Get&lt;u32&gt;&gt;(sp_std::marker::PhantomData&lt;C&gt;);
+		</span><span class="kw">pub struct </span>TestBlockHashCount&lt;C: Get&lt;u32&gt;&gt;(core::marker::PhantomData&lt;C&gt;);
 		<span class="kw">impl</span>&lt;I: From&lt;u32&gt;, C: Get&lt;u32&gt;&gt; Get&lt;I&gt; <span class="kw">for </span>TestBlockHashCount&lt;C&gt; {
 			<span class="kw">fn </span>get() -&gt; I {
 				C::get().into()
@@ -2939,7 +2945,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			+ Default
 			+ Copy
 			+ CheckEqual
-			+ sp_std::hash::Hash
+			+ core::hash::Hash
 			+ AsRef&lt;[u8]&gt;
 			+ AsMut&lt;[u8]&gt;
 			+ MaxEncodedLen;
@@ -3439,7 +3445,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[pallet::genesis_config]
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
 		<span class="attr">#[serde(skip)]
-		</span><span class="kw">pub </span>_config: sp_std::marker::PhantomData&lt;T&gt;,
+		</span><span class="kw">pub </span>_config: core::marker::PhantomData&lt;T&gt;,
 	}
 
 	<span class="attr">#[pallet::genesis_build]
@@ -3581,7 +3587,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Ensure the origin is Root.
-</span><span class="kw">pub struct </span>EnsureRoot&lt;AccountId&gt;(sp_std::marker::PhantomData&lt;AccountId&gt;);
+</span><span class="kw">pub struct </span>EnsureRoot&lt;AccountId&gt;(core::marker::PhantomData&lt;AccountId&gt;);
 <span class="kw">impl</span>&lt;O: Into&lt;<span class="prelude-ty">Result</span>&lt;RawOrigin&lt;AccountId&gt;, O&gt;&gt; + From&lt;RawOrigin&lt;AccountId&gt;&gt;, AccountId&gt;
 	EnsureOrigin&lt;O&gt; <span class="kw">for </span>EnsureRoot&lt;AccountId&gt;
 {
@@ -3607,7 +3613,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Ensure the origin is Root and return the provided `Success` value.
 </span><span class="kw">pub struct </span>EnsureRootWithSuccess&lt;AccountId, Success&gt;(
-	sp_std::marker::PhantomData&lt;(AccountId, Success)&gt;,
+	core::marker::PhantomData&lt;(AccountId, Success)&gt;,
 );
 <span class="kw">impl</span>&lt;
 		O: Into&lt;<span class="prelude-ty">Result</span>&lt;RawOrigin&lt;AccountId&gt;, O&gt;&gt; + From&lt;RawOrigin&lt;AccountId&gt;&gt;,
@@ -3637,7 +3643,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Ensure the origin is provided `Ensure` origin and return the provided `Success` value.
 </span><span class="kw">pub struct </span>EnsureWithSuccess&lt;Ensure, AccountId, Success&gt;(
-	sp_std::marker::PhantomData&lt;(Ensure, AccountId, Success)&gt;,
+	core::marker::PhantomData&lt;(Ensure, AccountId, Success)&gt;,
 );
 
 <span class="kw">impl</span>&lt;
@@ -3660,7 +3666,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Ensure the origin is any `Signed` origin.
-</span><span class="kw">pub struct </span>EnsureSigned&lt;AccountId&gt;(sp_std::marker::PhantomData&lt;AccountId&gt;);
+</span><span class="kw">pub struct </span>EnsureSigned&lt;AccountId&gt;(core::marker::PhantomData&lt;AccountId&gt;);
 <span class="kw">impl</span>&lt;O: Into&lt;<span class="prelude-ty">Result</span>&lt;RawOrigin&lt;AccountId&gt;, O&gt;&gt; + From&lt;RawOrigin&lt;AccountId&gt;&gt;, AccountId: Decode&gt;
 	EnsureOrigin&lt;O&gt; <span class="kw">for </span>EnsureSigned&lt;AccountId&gt;
 {
@@ -3687,7 +3693,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Ensure the origin is `Signed` origin from the given `AccountId`.
-</span><span class="kw">pub struct </span>EnsureSignedBy&lt;Who, AccountId&gt;(sp_std::marker::PhantomData&lt;(Who, AccountId)&gt;);
+</span><span class="kw">pub struct </span>EnsureSignedBy&lt;Who, AccountId&gt;(core::marker::PhantomData&lt;(Who, AccountId)&gt;);
 <span class="kw">impl</span>&lt;
 		O: Into&lt;<span class="prelude-ty">Result</span>&lt;RawOrigin&lt;AccountId&gt;, O&gt;&gt; + From&lt;RawOrigin&lt;AccountId&gt;&gt;,
 		Who: SortedMembers&lt;AccountId&gt;,
@@ -3719,7 +3725,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Ensure the origin is `None`. i.e. unsigned transaction.
-</span><span class="kw">pub struct </span>EnsureNone&lt;AccountId&gt;(sp_std::marker::PhantomData&lt;AccountId&gt;);
+</span><span class="kw">pub struct </span>EnsureNone&lt;AccountId&gt;(core::marker::PhantomData&lt;AccountId&gt;);
 <span class="kw">impl</span>&lt;O: Into&lt;<span class="prelude-ty">Result</span>&lt;RawOrigin&lt;AccountId&gt;, O&gt;&gt; + From&lt;RawOrigin&lt;AccountId&gt;&gt;, AccountId&gt;
 	EnsureOrigin&lt;O&gt; <span class="kw">for </span>EnsureNone&lt;AccountId&gt;
 {
@@ -3744,7 +3750,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Always fail.
-</span><span class="kw">pub struct </span>EnsureNever&lt;Success&gt;(sp_std::marker::PhantomData&lt;Success&gt;);
+</span><span class="kw">pub struct </span>EnsureNever&lt;Success&gt;(core::marker::PhantomData&lt;Success&gt;);
 <span class="kw">impl</span>&lt;O, Success&gt; EnsureOrigin&lt;O&gt; <span class="kw">for </span>EnsureNever&lt;Success&gt; {
 	<span class="kw">type </span>Success = Success;
 	<span class="kw">fn </span>try_origin(o: O) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Success, O&gt; {
@@ -4334,7 +4340,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Should only be called if you know what you are doing and outside of the runtime block
 	/// execution else it can have a large impact on the PoV size of a block.
 	</span><span class="kw">pub fn </span>read_events_no_consensus(
-	) -&gt; <span class="kw">impl </span>sp_std::iter::Iterator&lt;Item = Box&lt;EventRecord&lt;T::RuntimeEvent, T::Hash&gt;&gt;&gt; {
+	) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Box&lt;EventRecord&lt;T::RuntimeEvent, T::Hash&gt;&gt;&gt; {
 		Events::&lt;T&gt;::stream_iter()
 	}
 

@@ -912,6 +912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#761" id="761">761</a>
 <a href="#762" id="762">762</a>
 <a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -938,9 +939,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span><span class="kw">crate</span>::weights::Weight;
 <span class="kw">use </span>impl_trait_for_tuples::impl_for_tuples;
 <span class="kw">use </span>sp_runtime::traits::AtLeast32BitUnsigned;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>sp_weights::WeightMeter;
 
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+</span><span class="kw">use </span>alloc::vec::Vec;
 <span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
@@ -1621,7 +1623,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>on_idle_round_robin_works() {
-		<span class="kw">static </span><span class="kw-2">mut </span>ON_IDLE_INVOCATION_ORDER: sp_std::vec::Vec&lt;<span class="kw-2">&amp;</span>str&gt; = sp_std::vec::Vec::new();
+		<span class="kw">static </span><span class="kw-2">mut </span>ON_IDLE_INVOCATION_ORDER: alloc::vec::Vec&lt;<span class="kw-2">&amp;</span>str&gt; = alloc::vec::Vec::new();
 
 		<span class="kw">struct </span>Test1;
 		<span class="kw">struct </span>Test2;

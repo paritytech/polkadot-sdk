@@ -368,7 +368,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-</span><span class="kw">use </span>sp_std::vec::Vec;
+</span><span class="kw">use </span>alloc::vec::Vec;
 
 <span class="doccomment">/// Collection of storage item formats from the previous storage version.
 ///
@@ -388,7 +388,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// In this migration, update the on-chain storage for the pallet to reflect the new storage
 /// layout.
-</span><span class="kw">pub struct </span>InnerMigrateV0ToV1&lt;T: <span class="kw">crate</span>::Config&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>InnerMigrateV0ToV1&lt;T: <span class="kw">crate</span>::Config&gt;(core::marker::PhantomData&lt;T&gt;);
 
 <span class="kw">impl</span>&lt;T: <span class="kw">crate</span>::Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>InnerMigrateV0ToV1&lt;T&gt; {
 	<span class="doccomment">/// Return the existing [`crate::Value`] so we can check that it was correctly set in

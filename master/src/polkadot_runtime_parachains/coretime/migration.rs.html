@@ -441,7 +441,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -470,10 +469,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		coretime::{mk_coretime_call, Config, PartsOf57600, WeightInfo},
 		paras,
 	};
+	<span class="kw">use </span>alloc::{vec, vec::Vec};
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>codec::Decode;
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>codec::Encode;
+	<span class="kw">use </span>core::{iter, result};
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>frame_support::ensure;
 	<span class="kw">use </span>frame_support::{
@@ -487,9 +488,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sp_arithmetic::traits::SaturatedConversion;
 	<span class="kw">use </span>sp_core::Get;
 	<span class="kw">use </span>sp_runtime::BoundedVec;
-	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-	</span><span class="kw">use </span>sp_std::vec::Vec;
-	<span class="kw">use </span>sp_std::{iter, prelude::<span class="kw-2">*</span>, result};
 	<span class="kw">use </span>xcm::prelude::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
 
 	<span class="doccomment">/// Return information about a legacy lease of a parachain.
@@ -503,7 +501,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This assumes that the `Coretime` and the `AssignerCoretime` pallets are added at the same
 	/// time to a runtime.
 	</span><span class="kw">pub struct </span>MigrateToCoretime&lt;T, SendXcm, LegacyLease&gt;(
-		sp_std::marker::PhantomData&lt;(T, SendXcm, LegacyLease)&gt;,
+		core::marker::PhantomData&lt;(T, SendXcm, LegacyLease)&gt;,
 	);
 
 	<span class="kw">impl</span>&lt;T: Config, SendXcm: xcm::v4::SendXcm, LegacyLease: GetLegacyLease&lt;BlockNumberFor&lt;T&gt;&gt;&gt;

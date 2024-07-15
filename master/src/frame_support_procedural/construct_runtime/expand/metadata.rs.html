@@ -520,7 +520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					&gt;();
 
 				#scrate::__private::metadata_ir::MetadataIR {
-					pallets: #<span class="macro">scrate::__private::sp_std::vec!</span>[ #(#pallets),* ],
+					pallets: #<span class="macro">scrate::__private::vec!</span>[ #(#pallets),* ],
 					extrinsic: #scrate::__private::metadata_ir::ExtrinsicMetadataIR {
 						ty,
 						version: &lt;#extrinsic <span class="kw">as </span>#scrate::sp_runtime::traits::ExtrinsicMetadata&gt;::VERSION,
@@ -565,7 +565,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 			}
 
-			<span class="kw">pub fn </span>metadata_versions() -&gt; #scrate::__private::sp_std::vec::Vec&lt;u32&gt; {
+			<span class="kw">pub fn </span>metadata_versions() -&gt; #scrate::__private::Vec&lt;u32&gt; {
 				#scrate::__private::metadata_ir::supported_versions()
 			}
 		}

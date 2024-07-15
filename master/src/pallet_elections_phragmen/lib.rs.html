@@ -3442,6 +3442,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3291" id="3291">3291</a>
 <a href="#3292" id="3292">3292</a>
 <a href="#3293" id="3293">3293</a>
+<a href="#3294" id="3294">3294</a>
+<a href="#3295" id="3295">3295</a>
+<a href="#3296" id="3296">3296</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3542,7 +3545,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>core::cmp::Ordering;
 <span class="kw">use </span>frame_support::{
 	traits::{
 		defensive_prelude::<span class="kw-2">*</span>, ChangeMembers, Contains, ContainsLengthBound, Currency, Get,
@@ -3559,7 +3566,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	DispatchError, Perbill, RuntimeDebug,
 };
 <span class="kw">use </span>sp_staking::currency_to_vote::CurrencyToVote;
-<span class="kw">use </span>sp_std::{cmp::Ordering, prelude::<span class="kw-2">*</span>};
 
 <span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;

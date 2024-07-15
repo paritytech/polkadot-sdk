@@ -320,10 +320,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
 <span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-</span><span class="kw">use </span>sp_std::vec::Vec;
+</span><span class="kw">use </span>alloc::vec::Vec;
 
 <span class="doccomment">/// A struct that does not migration, but only checks that the counter prefix exists and is correct.
-</span><span class="kw">pub struct </span>CheckCounterPrefix&lt;T: <span class="kw">crate</span>::Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(sp_std::marker::PhantomData&lt;(T, I)&gt;);
+</span><span class="kw">pub struct </span>CheckCounterPrefix&lt;T: <span class="kw">crate</span>::Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(core::marker::PhantomData&lt;(T, I)&gt;);
 <span class="kw">impl</span>&lt;T: <span class="kw">crate</span>::Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; OnRuntimeUpgrade <span class="kw">for </span>CheckCounterPrefix&lt;T, I&gt; {
 	<span class="kw">fn </span>on_runtime_upgrade() -&gt; frame_support::weights::Weight {
 		frame_support::weights::Weight::zero()
@@ -380,7 +380,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A struct that migrates all bags lists to contain a score value.
-</span><span class="kw">pub struct </span>AddScore&lt;T: <span class="kw">crate</span>::Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt;(sp_std::marker::PhantomData&lt;(T, I)&gt;);
+</span><span class="kw">pub struct </span>AddScore&lt;T: <span class="kw">crate</span>::Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt;(core::marker::PhantomData&lt;(T, I)&gt;);
 <span class="kw">impl</span>&lt;T: <span class="kw">crate</span>::Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; OnRuntimeUpgrade <span class="kw">for </span>AddScore&lt;T, I&gt; {
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {

@@ -343,6 +343,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span><span class="kw">crate</span>::Config;
 
 <span class="kw">use </span>codec::FullCodec;
+<span class="kw">use </span>core::{fmt::Debug, marker::PhantomData};
 <span class="kw">use </span>frame_support::{
 	traits::{
 		fungibles::{Balanced, Credit, Inspect},
@@ -358,7 +359,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{DispatchInfoOf, MaybeSerializeDeserialize, One, PostDispatchInfoOf},
 	transaction_validity::InvalidTransaction,
 };
-<span class="kw">use </span>sp_std::{fmt::Debug, marker::PhantomData};
 
 <span class="doccomment">/// Handle withdrawing, refunding and depositing of transaction fees.
 </span><span class="kw">pub trait </span>OnChargeAssetTransaction&lt;T: Config&gt; {

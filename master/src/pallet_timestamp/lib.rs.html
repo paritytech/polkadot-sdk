@@ -527,8 +527,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -664,9 +662,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 <span class="kw">pub mod </span>weights;
 
+<span class="kw">use </span>core::{cmp, result};
 <span class="kw">use </span>frame_support::traits::{OnTimestampSet, Time, UnixTime};
 <span class="kw">use </span>sp_runtime::traits::{AtLeast32Bit, SaturatedConversion, Scale, Zero};
-<span class="kw">use </span>sp_std::{cmp, result};
 <span class="kw">use </span>sp_timestamp::{InherentError, InherentType, INHERENT_IDENTIFIER};
 <span class="kw">pub use </span>weights::WeightInfo;
 
@@ -898,14 +896,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// now is duration since unix epoch in millisecond as documented in
 		// `sp_timestamp::InherentDataProvider`.
 		</span><span class="kw">let </span>now = Now::&lt;T&gt;::get();
-		<span class="macro">sp_std::if_std! </span>{
-			<span class="kw">if </span>now == T::Moment::zero() {
-				<span class="macro">log::error!</span>(
-					target: <span class="string">"runtime::timestamp"</span>,
-					<span class="string">"`pallet_timestamp::UnixTime::now` is called at genesis, invalid value returned: 0"</span>,
-				);
-			}
-		}
+
+		<span class="macro">log::error!</span>(
+			target: <span class="string">"runtime::timestamp"</span>,
+			<span class="string">"`pallet_timestamp::UnixTime::now` is called at genesis, invalid value returned: 0"</span>,
+		);
+
 		core::time::Duration::from_millis(now.saturated_into::&lt;u64&gt;())
 	}
 }

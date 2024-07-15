@@ -1356,6 +1356,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1205" id="1205">1205</a>
 <a href="#1206" id="1206">1206</a>
 <a href="#1207" id="1207">1207</a>
+<a href="#1208" id="1208">1208</a>
+<a href="#1209" id="1209">1209</a>
+<a href="#1210" id="1210">1210</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1378,12 +1381,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 </span><span class="attr">#![recursion_limit = <span class="string">"256"</span>]
 
-</span><span class="kw">use </span>codec::Encode;
-<span class="kw">use </span>pallet_transaction_payment::FungibleAdapter;
-<span class="kw">use </span>sp_std::{
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-	prelude::<span class="kw-2">*</span>,
+	vec,
+	vec::Vec,
 };
+<span class="kw">use </span>codec::Encode;
+<span class="kw">use </span>pallet_transaction_payment::FungibleAdapter;
 
 <span class="kw">use </span>polkadot_runtime_parachains::{
 	assigner_parachains <span class="kw">as </span>parachains_assigner_parachains,
@@ -2151,7 +2157,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Runtime::metadata_at_version(version)
 		}
 
-		<span class="kw">fn </span>metadata_versions() -&gt; sp_std::vec::Vec&lt;u32&gt; {
+		<span class="kw">fn </span>metadata_versions() -&gt; Vec&lt;u32&gt; {
 			Runtime::metadata_versions()
 		}
 	}

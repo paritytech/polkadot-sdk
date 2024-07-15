@@ -1243,6 +1243,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1092" id="1092">1092</a>
 <a href="#1093" id="1093">1093</a>
 <a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1266,7 +1268,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_must_use)]
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{boxed::Box, vec, vec::Vec};
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
 	ensure,
@@ -1289,7 +1294,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_session::{GetSessionNumber, GetValidatorCount};
 <span class="kw">use </span>sp_staking::{offence::OffenceReportSystem, SessionIndex};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>sp_consensus_babe::AuthorityId;
 
@@ -1560,7 +1564,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">pub </span>authorities: Vec&lt;(AuthorityId, BabeAuthorityWeight)&gt;,
 		<span class="kw">pub </span>epoch_config: BabeEpochConfiguration,
 		<span class="attr">#[serde(skip)]
-		</span><span class="kw">pub </span>_config: sp_std::marker::PhantomData&lt;T&gt;,
+		</span><span class="kw">pub </span>_config: core::marker::PhantomData&lt;T&gt;,
 	}
 
 	<span class="attr">#[pallet::genesis_build]
@@ -1932,7 +1936,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Update the start blocks of the previous and new current epoch.
 		</span>EpochStart::&lt;T&gt;::mutate(|(previous_epoch_start_block, current_epoch_start_block)| {
-			<span class="kw-2">*</span>previous_epoch_start_block = sp_std::mem::take(current_epoch_start_block);
+			<span class="kw-2">*</span>previous_epoch_start_block = core::mem::take(current_epoch_start_block);
 			<span class="kw-2">*</span>current_epoch_start_block = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
 		});
 
@@ -2113,7 +2117,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// randomness. Returns the new randomness.
 	</span><span class="kw">fn </span>randomness_change_epoch(next_epoch_index: u64) -&gt; BabeRandomness {
 		<span class="kw">let </span>this_randomness = NextRandomness::&lt;T&gt;::get();
-		<span class="kw">let </span>segment_idx: u32 = SegmentIndex::&lt;T&gt;::mutate(|s| sp_std::mem::replace(s, <span class="number">0</span>));
+		<span class="kw">let </span>segment_idx: u32 = SegmentIndex::&lt;T&gt;::mutate(|s| core::mem::replace(s, <span class="number">0</span>));
 
 		<span class="comment">// overestimate to the segment being full.
 		</span><span class="kw">let </span>rho_size = (segment_idx.saturating_add(<span class="number">1</span>) * UNDER_CONSTRUCTION_SEGMENT_LENGTH) <span class="kw">as </span>usize;
@@ -2300,7 +2304,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 	}
 
-	<span class="kw">struct </span>__OldNextEpochConfig&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	<span class="kw">struct </span>__OldNextEpochConfig&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: BabePalletPrefix&gt; frame_support::traits::StorageInstance <span class="kw">for </span>__OldNextEpochConfig&lt;T&gt; {
 		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 			T::pallet_prefix()

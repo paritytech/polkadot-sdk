@@ -305,7 +305,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 
 	<span class="kw">fn </span>log(<span class="kw-2">&amp;</span><span class="self">self</span>, record: <span class="kw-2">&amp;</span>log::Record) {
-		<span class="kw">use </span>sp_std::fmt::Write;
+		<span class="kw">use </span>core::fmt::Write;
 		<span class="kw">let </span><span class="kw-2">mut </span>w = sp_std::Writer::default();
 		<span class="kw">let _ </span>= <span class="macro">::core::write!</span>(<span class="kw-2">&amp;mut </span>w, <span class="string">"{}"</span>, record.args());
 

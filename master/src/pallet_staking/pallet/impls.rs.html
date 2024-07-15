@@ -2506,7 +2506,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	StakingAccount::{<span class="self">self</span>, Controller, Stash},
 	StakingInterface,
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
@@ -2514,6 +2513,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
 };
+<span class="kw">use </span>alloc::{boxed::Box, vec, vec::Vec};
 
 <span class="kw">use </span><span class="kw">super</span>::pallet::<span class="kw-2">*</span>;
 
@@ -4042,14 +4042,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>imbalance = T::Currency::burn(T::Currency::total_issuance());
 		<span class="comment">// kinda ugly, but gets the job done. The fact that this works here is a HUGE exception.
 		// Don't try this pattern in other places.
-		</span>sp_std::mem::forget(imbalance);
+		</span>core::mem::forget(imbalance);
 	}
 }
 
 <span class="doccomment">/// A simple sorted list implementation that does not require any additional pallets. Note, this
 /// does not provide validators in sorted order. If you desire nominators in a sorted order take
 /// a look at [`pallet-bags-list`].
-</span><span class="kw">pub struct </span>UseValidatorsMap&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>UseValidatorsMap&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: Config&gt; SortedListProvider&lt;T::AccountId&gt; <span class="kw">for </span>UseValidatorsMap&lt;T&gt; {
 	<span class="kw">type </span>Score = BalanceOf&lt;T&gt;;
 	<span class="kw">type </span>Error = ();
@@ -4115,7 +4115,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A simple voter list implementation that does not require any additional pallets. Note, this
 /// does not provided nominators in sorted ordered. If you desire nominators in a sorted order take
 /// a look at [`pallet-bags-list].
-</span><span class="kw">pub struct </span>UseNominatorsAndValidatorsMap&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>UseNominatorsAndValidatorsMap&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: Config&gt; SortedListProvider&lt;T::AccountId&gt; <span class="kw">for </span>UseNominatorsAndValidatorsMap&lt;T&gt; {
 	<span class="kw">type </span>Error = ();
 	<span class="kw">type </span>Score = VoteWeight;
@@ -4453,7 +4453,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// &lt;https://github.com/paritytech/polkadot-sdk/issues/3245&gt; is resolved, turn warns into check
 	/// failures.
 	</span><span class="kw">fn </span>check_bonded_consistency() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
-		<span class="kw">use </span>sp_std::collections::btree_set::BTreeSet;
+		<span class="kw">use </span>alloc::collections::btree_set::BTreeSet;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>count_controller_double = <span class="number">0</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>count_double = <span class="number">0</span>;
@@ -4617,8 +4617,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// = exposure.own + exposure.own).
 	/// * Paged exposures metadata (`ErasStakersOverview`) matches the paged exposures state.
 	</span><span class="kw">fn </span>check_paged_exposures() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
+		<span class="kw">use </span>alloc::collections::btree_map::BTreeMap;
 		<span class="kw">use </span>sp_staking::PagedExposureMetadata;
-		<span class="kw">use </span>sp_std::collections::btree_map::BTreeMap;
 
 		<span class="comment">// Sanity check for the paged exposure of the active era.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>exposures: BTreeMap&lt;T::AccountId, PagedExposureMetadata&lt;BalanceOf&lt;T&gt;&gt;&gt; =

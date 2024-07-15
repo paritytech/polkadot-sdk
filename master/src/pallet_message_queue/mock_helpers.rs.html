@@ -341,6 +341,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -365,6 +366,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Cannot be put into mock.rs since benchmarks require no-std and mock.rs is std.
 
 </span><span class="kw">use crate</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>frame_support::traits::Defensive;
 
 <span class="doccomment">/// Converts `Self` into a `Weight` by using `Self` for all components.

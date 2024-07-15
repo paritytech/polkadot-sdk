@@ -1005,6 +1005,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#854" id="854">854</a>
 <a href="#855" id="855">855</a>
 <a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1028,11 +1030,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! sent to relay chain.
 
 </span><span class="kw">use </span><span class="kw">super</span>::relay_state_snapshot::{MessagingStateSnapshot, RelayDispatchQueueRemainingCapacity};
+<span class="kw">use </span>alloc::collections::btree_map::BTreeMap;
 <span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>cumulus_primitives_core::{relay_chain, ParaId};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
-<span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, marker::PhantomData};
 
 <span class="doccomment">/// Constraints on outbound HRMP channel.
 </span><span class="attr">#[derive(Clone, RuntimeDebug)]
@@ -1405,6 +1408,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>alloc::{vec, vec::Vec};
 	<span class="kw">use </span>assert_matches::assert_matches;
 
 	<span class="attr">#[test]

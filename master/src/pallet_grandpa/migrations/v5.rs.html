@@ -250,6 +250,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -268,7 +269,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 </span><span class="kw">use crate</span>::{BoundedAuthorityList, Pallet};
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::Decode;
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::{
 	migrations::VersionedMigration,
 	storage,
@@ -276,7 +279,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weights::Weight,
 };
 <span class="kw">use </span>sp_consensus_grandpa::AuthorityList;
-<span class="kw">use </span>sp_std::{marker::PhantomData, vec::Vec};
 
 <span class="kw">const </span>GRANDPA_AUTHORITIES_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b":grandpa_authorities"</span>;
 

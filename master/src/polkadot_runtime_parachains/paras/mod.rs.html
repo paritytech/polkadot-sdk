@@ -2511,6 +2511,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2360" id="2360">2360</a>
 <a href="#2361" id="2361">2361</a>
 <a href="#2362" id="2362">2362</a>
+<a href="#2363" id="2363">2363</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2626,8 +2627,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	initializer::SessionChangeNotification,
 	shared,
 };
+<span class="kw">use </span>alloc::{collections::btree_set::BTreeSet, vec::Vec};
 <span class="kw">use </span>bitvec::{order::Lsb0 <span class="kw">as </span>BitOrderLsb0, vec::BitVec};
 <span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>core::{cmp, mem};
 <span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, traits::EstimateNextSessionRotation, DefaultNoBound};
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>polkadot_primitives::{
@@ -2640,7 +2643,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{AppVerify, One, Saturating},
 	DispatchResult, SaturatedConversion,
 };
-<span class="kw">use </span>sp_std::{cmp, collections::btree_set::BTreeSet, mem, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
@@ -3376,7 +3378,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[derive(DefaultNoBound)]
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
 		<span class="attr">#[serde(skip)]
-		</span><span class="kw">pub </span>_config: sp_std::marker::PhantomData&lt;T&gt;,
+		</span><span class="kw">pub </span>_config: core::marker::PhantomData&lt;T&gt;,
 		<span class="kw">pub </span>paras: Vec&lt;(ParaId, ParaGenesisArgs)&gt;,
 	}
 

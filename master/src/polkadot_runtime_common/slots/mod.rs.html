@@ -1325,6 +1325,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>migration;
 
 <span class="kw">use </span><span class="kw">crate</span>::traits::{LeaseError, Leaser, Registrar};
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::<span class="kw-2">*</span>,
 	traits::{Currency, ReservableCurrency},
@@ -1334,7 +1335,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">use </span>polkadot_primitives::Id <span class="kw">as </span>ParaId;
 <span class="kw">use </span>sp_runtime::traits::{CheckedConversion, CheckedSub, Saturating, Zero};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">type </span>BalanceOf&lt;T&gt; =
 	&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>Currency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
@@ -1609,7 +1609,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// Useful when trying to clean up a parachain leases, as this would tell
 	// you all the balances you need to unreserve.
 	</span><span class="kw">fn </span>all_deposits_held(para: ParaId) -&gt; Vec&lt;(T::AccountId, BalanceOf&lt;T&gt;)&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>tracker = sp_std::collections::btree_map::BTreeMap::new();
+		<span class="kw">let </span><span class="kw-2">mut </span>tracker = alloc::collections::btree_map::BTreeMap::new();
 		Leases::&lt;T&gt;::get(para).into_iter().for_each(|lease| <span class="kw">match </span>lease {
 			<span class="prelude-val">Some</span>((who, amount)) =&gt; <span class="kw">match </span>tracker.get(<span class="kw-2">&amp;</span>who) {
 				<span class="prelude-val">Some</span>(prev_amount) =&gt;
@@ -1629,7 +1629,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T: Config&gt; <span class="kw">crate</span>::traits::OnSwap <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">fn </span>on_swap(one: ParaId, other: ParaId) {
-		Leases::&lt;T&gt;::mutate(one, |x| Leases::&lt;T&gt;::mutate(other, |y| sp_std::mem::swap(x, y)))
+		Leases::&lt;T&gt;::mutate(one, |x| Leases::&lt;T&gt;::mutate(other, |y| core::mem::swap(x, y)))
 	}
 }
 

@@ -1159,6 +1159,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1008" id="1008">1008</a>
 <a href="#1009" id="1009">1009</a>
 <a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1176,11 +1179,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::universal_exports::ensure_is_remote;
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Compact, Decode, Encode};
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::traits::Get;
 <span class="kw">use </span>sp_io::hashing::blake2_256;
 <span class="kw">use </span>sp_runtime::traits::{AccountIdConversion, TrailingZeroInput, TryConvert};
-<span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_executor::traits::ConvertLocation;
 
@@ -1621,7 +1625,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>alloc::vec;
 	<span class="kw">use </span>polkadot_primitives::AccountId;
+
 	<span class="kw">pub type </span>ForeignChainAliasAccount&lt;AccountId&gt; =
 		HashedDescription&lt;AccountId, LegacyDescribeForeignChainAccount&gt;;
 

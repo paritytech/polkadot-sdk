@@ -451,6 +451,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weights::WeightInfo,
 	BalanceOf, CodeHash, Config, Determinism, HoldReason, Pallet, Weight, LOG_TARGET,
 };
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+</span><span class="kw">use </span>alloc::collections::btree_map::BTreeMap;
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>environmental::Vec;
@@ -467,8 +469,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 <span class="kw">use </span>sp_runtime::{traits::Zero, Saturating};
-<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-</span><span class="kw">use </span>sp_std::collections::btree_map::BTreeMap;
 
 <span class="kw">mod </span>v13 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -505,8 +505,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>T: Config,
 	OldCurrency: ReservableCurrency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt; + <span class="lifetime">'static</span>,
 {
+	<span class="kw">use </span>alloc::vec;
 	<span class="kw">use </span>sp_runtime::traits::Hash;
-	<span class="kw">use </span>sp_std::vec;
 
 	<span class="kw">let </span>len = T::MaxCodeLen::get();
 	<span class="kw">let </span>code = <span class="macro">vec!</span>[<span class="number">42u8</span>; len <span class="kw">as </span>usize];

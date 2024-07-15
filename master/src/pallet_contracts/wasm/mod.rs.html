@@ -3763,6 +3763,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AccountIdOf, BadOrigin, BalanceOf, CodeHash, CodeInfoOf, CodeVec, Config, Error, Event,
 	HoldReason, Pallet, PristineCode, Schedule, Weight, LOG_TARGET,
 };
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_support::{
 	dispatch::DispatchResult,
@@ -3771,7 +3772,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_runtime::{DispatchError, RuntimeDebug};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasmi::{CompilationMode, InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
 
 <span class="kw">const </span>BYTES_PER_PAGE: usize = <span class="number">64 </span>* <span class="number">1024</span>;

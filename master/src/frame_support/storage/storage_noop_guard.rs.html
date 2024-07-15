@@ -317,6 +317,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -357,7 +359,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// ```
 </span><span class="attr">#[must_use]
 </span><span class="kw">pub struct </span>StorageNoopGuard&lt;<span class="lifetime">'a</span>&gt; {
-	storage_root: sp_std::vec::Vec&lt;u8&gt;,
+	storage_root: alloc::vec::Vec&lt;u8&gt;,
 	error_message: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
 }
 
@@ -390,7 +392,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Drop <span class="kw">for </span>StorageNoopGuard&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="comment">// No need to double panic, eg. inside a test assertion failure.
-		</span><span class="kw">if </span>sp_std::thread::panicking() {
+		</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+		</span><span class="kw">if </span>std::thread::panicking() {
 			<span class="kw">return
 		</span>}
 		<span class="macro">assert_eq!</span>(
@@ -404,8 +407,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>sp_io::TestExternalities;
+
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="attr">#[test]
 	#[should_panic(expected = <span class="string">"`StorageNoopGuard` detected an attempted storage change."</span>)]
@@ -431,7 +435,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		TestExternalities::default().execute_with(|| {
 			<span class="kw">let </span>guard = StorageNoopGuard::default();
 			frame_support::storage::unhashed::put(<span class="string">b"key"</span>, <span class="string">b"value"</span>);
-			sp_std::mem::drop(guard);
+			std::mem::drop(guard);
 			frame_support::storage::unhashed::kill(<span class="string">b"key"</span>);
 		});
 	}
@@ -441,7 +445,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		TestExternalities::default().execute_with(|| {
 			<span class="kw">let </span>guard = StorageNoopGuard::default();
 			frame_support::storage::unhashed::put(<span class="string">b"key"</span>, <span class="string">b"value"</span>);
-			sp_std::mem::forget(guard);
+			std::mem::forget(guard);
 		});
 	}
 

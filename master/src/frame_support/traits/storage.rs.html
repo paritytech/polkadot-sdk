@@ -476,7 +476,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Traits for encoding data related to pallet's storage items.
 
-</span><span class="kw">use </span>codec::{Encode, FullCodec, MaxEncodedLen};
+</span><span class="kw">use </span>alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
+<span class="kw">use </span>codec::{Encode, FullCodec, MaxEncodedLen};
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>impl_trait_for_tuples::impl_for_tuples;
 <span class="kw">use </span>scale_info::TypeInfo;
@@ -486,7 +487,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Convert, Member, Saturating},
 	DispatchError, RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::{collections::btree_set::BTreeSet, prelude::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// An instance of a pallet in the storage.
 ///

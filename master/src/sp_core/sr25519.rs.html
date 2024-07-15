@@ -1096,25 +1096,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span><span class="kw">crate</span>::crypto::{
 	CryptoBytes, DeriveError, DeriveJunction, Pair <span class="kw">as </span>TraitPair, SecretStringError,
 };
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 </span><span class="kw">use </span>schnorrkel::signing_context;
 <span class="kw">use </span>schnorrkel::{
 	derive::{ChainCode, Derivation, CHAIN_CODE_LENGTH},
 	ExpansionMode, Keypair, MiniSecretKey, PublicKey, SecretKey,
 };
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="kw">use </span><span class="kw">crate</span>::crypto::{CryptoType, CryptoTypeId, Derive, Public <span class="kw">as </span>TraitPublic, SignatureBytes};
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 
+<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
+</span><span class="kw">use </span>alloc::{format, string::String};
 <span class="kw">use </span>schnorrkel::keys::{MINI_SECRET_KEY_LENGTH, SECRET_KEY_LENGTH};
 <span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">use </span>serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_runtime_interface::pass_by::PassByInner;
-<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
-</span><span class="kw">use </span>sp_std::alloc::{format, string::String};
 
 <span class="comment">// signing context
 </span><span class="kw">const </span>SIGNING_CTX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"substrate"</span>;
@@ -1171,15 +1171,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>Public {
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Public {
 	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="kw">let </span>s = <span class="self">self</span>.to_ss58check();
 		<span class="macro">write!</span>(f, <span class="string">"{} ({}...)"</span>, <span class="kw">crate</span>::hexdisplay::HexDisplay::from(<span class="self">self</span>.inner()), <span class="kw-2">&amp;</span>s[<span class="number">0</span>..<span class="number">8</span>])
 	}
 
 	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="prelude-val">Ok</span>(())
 	}
 }

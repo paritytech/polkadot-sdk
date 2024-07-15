@@ -508,6 +508,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#357" id="357">357</a>
 <a href="#358" id="358">358</a>
 <a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -526,7 +528,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! XCM sender for relay chain.
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::traits::Get;
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>polkadot_primitives::Id <span class="kw">as </span>ParaId;
@@ -535,7 +539,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	dmp, FeeTracker,
 };
 <span class="kw">use </span>sp_runtime::FixedPointNumber;
-<span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::InspectMessageQueues;
 <span class="kw">use </span>SendError::<span class="kw-2">*</span>;
@@ -566,7 +569,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Implementation of [`PriceForMessageDelivery`] which returns a fixed price.
-</span><span class="kw">pub struct </span>ConstantPrice&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>ConstantPrice&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: Get&lt;Assets&gt;&gt; PriceForMessageDelivery <span class="kw">for </span>ConstantPrice&lt;T&gt; {
 	<span class="kw">type </span>Id = ();
 
@@ -589,7 +592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// - `B`: The base fee to pay for message delivery.
 /// - `M`: The fee to pay for each and every byte of the message after encoding it.
 /// - `F`: A fee factor multiplier. It can be understood as the exponent term in the formula.
-</span><span class="kw">pub struct </span>ExponentialPrice&lt;A, B, M, F&gt;(sp_std::marker::PhantomData&lt;(A, B, M, F)&gt;);
+</span><span class="kw">pub struct </span>ExponentialPrice&lt;A, B, M, F&gt;(core::marker::PhantomData&lt;(A, B, M, F)&gt;);
 <span class="kw">impl</span>&lt;A: Get&lt;AssetId&gt;, B: Get&lt;u128&gt;, M: Get&lt;u128&gt;, F: FeeTracker&gt; PriceForMessageDelivery
 	<span class="kw">for </span>ExponentialPrice&lt;A, B, M, F&gt;
 {
@@ -679,7 +682,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ParaId,
 	ToParaIdHelper,
 &gt;(
-	sp_std::marker::PhantomData&lt;(
+	core::marker::PhantomData&lt;(
 		XcmConfig,
 		ExistentialDeposit,
 		PriceForDelivery,
@@ -733,7 +736,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="comment">// overestimate delivery fee
-			</span><span class="kw">let </span>overestimated_xcm = <span class="macro">vec!</span>[ClearOrigin; <span class="number">128</span>].into();
+			</span><span class="kw">let </span>overestimated_xcm = <span class="macro">alloc::vec!</span>[ClearOrigin; <span class="number">128</span>].into();
 			<span class="kw">let </span>overestimated_fees =
 				PriceForDelivery::price_for_delivery(Parachain::get(), <span class="kw-2">&amp;</span>overestimated_xcm);
 
@@ -768,6 +771,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::integration_tests::new_test_ext;
+	<span class="kw">use </span>alloc::vec;
 	<span class="kw">use </span>frame_support::{assert_ok, parameter_types};
 	<span class="kw">use </span>polkadot_runtime_parachains::FeeTracker;
 	<span class="kw">use </span>sp_runtime::FixedU128;

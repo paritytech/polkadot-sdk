@@ -362,6 +362,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -378,12 +380,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>cumulus_primitives_core::{
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::collections::btree_map::BTreeMap;
+<span class="kw">use </span>cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
 };
 <span class="kw">use </span>polkadot_primitives::UpgradeGoAhead;
 <span class="kw">use </span>sp_runtime::traits::HashingFor;
-<span class="kw">use </span>sp_std::collections::btree_map::BTreeMap;
 <span class="kw">use </span>sp_trie::PrefixedMemoryDB;
 
 <span class="doccomment">/// Builds a sproof (portmanteau of 'spoof' and 'proof') of the relay chain state.

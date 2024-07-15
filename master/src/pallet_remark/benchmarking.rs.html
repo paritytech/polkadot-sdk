@@ -218,9 +218,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>alloc::vec;
 <span class="kw">use </span>frame_benchmarking::v1::{benchmarks, whitelisted_caller};
 <span class="kw">use </span>frame_system::{EventRecord, Pallet <span class="kw">as </span>System, RawOrigin};
-<span class="kw">use </span>sp_std::<span class="kw-2">*</span>;
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">use </span><span class="kw">crate</span>::Pallet <span class="kw">as </span>Remark;

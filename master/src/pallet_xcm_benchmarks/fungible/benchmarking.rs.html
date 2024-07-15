@@ -474,6 +474,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{account_and_location, new_executor, AssetTransactorOf, EnsureDelivery, XcmCallOf};
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>frame_benchmarking::{benchmarks_instance_pallet, BenchmarkError, BenchmarkResult};
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::Get,
@@ -481,7 +482,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weights::Weight,
 };
 <span class="kw">use </span>sp_runtime::traits::{Bounded, Zero};
-<span class="kw">use </span>sp_std::{prelude::<span class="kw-2">*</span>, vec};
 <span class="kw">use </span>xcm::latest::{prelude::<span class="kw-2">*</span>, MAX_ITEMS_IN_ASSETS};
 <span class="kw">use </span>xcm_executor::traits::{ConvertLocation, FeeReason, TransactAsset};
 
@@ -495,7 +495,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			&gt;::Balance
 			<span class="kw">as
 			</span>TryInto&lt;u128&gt;
-		&gt;::Error: sp_std::fmt::Debug,
+		&gt;::Error: core::fmt::Debug,
 	}
 
 	withdraw_asset {

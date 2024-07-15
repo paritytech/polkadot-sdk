@@ -179,6 +179,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#28" id="28">28</a>
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -199,7 +201,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="doccomment">/// Exposes runtime APIs for various XCM-related conversions.
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="doccomment">/// Exposes runtime APIs for various XCM-related conversions.
 </span><span class="kw">pub mod </span>conversions;
 
 <span class="doccomment">/// Dry-run API.

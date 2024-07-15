@@ -464,11 +464,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! In your pallet you will only have to use [`with_context`], because as described above
 //! [`run_in_context`] will be handled by FRAME for you.
 
-</span><span class="kw">use </span>sp_std::{
-	any::{Any, TypeId},
+</span><span class="kw">use </span>alloc::{
 	boxed::Box,
 	collections::btree_map::{BTreeMap, Entry},
 };
+<span class="kw">use </span>core::any::{Any, TypeId};
 
 <span class="macro">environmental::environmental!</span>(DISPATCH_CONTEXT: BTreeMap&lt;TypeId, Box&lt;<span class="kw">dyn </span>Any&gt;&gt;);
 
@@ -541,7 +541,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>value.is_none() {
 				<span class="macro">log::error!</span>(
 					<span class="string">"Failed to downcast value for type {} in dispatch context!"</span>,
-					sp_std::any::type_name::&lt;T&gt;(),
+					core::any::type_name::&lt;T&gt;(),
 				);
 			}
 

@@ -362,8 +362,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Runtime metric primitives.
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::{Decode, Encode};
 
 <span class="doccomment">/// Runtime metric operations.
 </span><span class="attr">#[derive(Encode, Decode)]
@@ -388,7 +388,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">fn </span>vec_to_str&lt;<span class="lifetime">'a</span>&gt;(v: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Vec&lt;u8&gt;, default: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str {
-	<span class="kw">return </span>sp_std::str::from_utf8(v).unwrap_or(default)
+	<span class="kw">return </span>alloc::str::from_utf8(v).unwrap_or(default)
 }
 
 <span class="kw">impl </span>RuntimeMetricLabels {
@@ -445,7 +445,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>AsStr <span class="kw">for </span>RuntimeMetricLabel {
 	<span class="kw">fn </span>as_str(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt; {
-		sp_std::str::from_utf8(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>).ok()
+		alloc::str::from_utf8(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>).ok()
 	}
 }
 

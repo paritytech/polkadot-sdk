@@ -416,6 +416,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -454,6 +455,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+	<span class="kw">use </span>alloc::vec::Vec;
 	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>sp_io::TestExternalities;
 	<span class="kw">use </span>sp_runtime::{generic, traits::BlakeTwo256, BuildStorage};

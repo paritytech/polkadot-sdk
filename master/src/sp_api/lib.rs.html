@@ -991,6 +991,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#840" id="840">840</a>
 <a href="#841" id="841">841</a>
 <a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1063,6 +1066,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="comment">// Make doc tests happy
 </span><span class="kw">extern crate </span><span class="self">self </span><span class="kw">as </span>sp_api;
 
+<span class="kw">extern crate </span>alloc;
+
 <span class="doccomment">/// Private exports used by the macros.
 ///
 /// This is seen as internal API and can change at any point.
@@ -1083,7 +1088,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub use </span>std_imports::<span class="kw-2">*</span>;
 
 	<span class="kw">pub use crate</span>::<span class="kw-2">*</span>;
+	<span class="kw">pub use </span>alloc::vec;
 	<span class="kw">pub use </span>codec::{<span class="self">self</span>, Decode, DecodeLimit, Encode};
+	<span class="kw">pub use </span>core::{mem, slice};
 	<span class="kw">pub use </span>scale_info;
 	<span class="kw">pub use </span>sp_core::offchain;
 	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
@@ -1096,7 +1103,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		transaction_validity::TransactionValidity,
 		ExtrinsicInclusionMode, RuntimeString, TransactionOutcome,
 	};
-	<span class="kw">pub use </span>sp_std::{mem, slice, vec};
 	<span class="kw">pub use </span>sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
 
 	<span class="attr">#[cfg(all(any(target_arch = <span class="string">"riscv32"</span>, target_arch = <span class="string">"riscv64"</span>), substrate_runtime))]
@@ -1826,7 +1832,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Returns the supported metadata versions.
 		///
 		/// This can be used to call `metadata_at_version`.
-		</span><span class="kw">fn </span>metadata_versions() -&gt; sp_std::vec::Vec&lt;u32&gt;;
+		</span><span class="kw">fn </span>metadata_versions() -&gt; alloc::vec::Vec&lt;u32&gt;;
 	}
 }
 

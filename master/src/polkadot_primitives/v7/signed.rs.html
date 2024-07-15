@@ -535,11 +535,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>scale_info::TypeInfo;
 
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_application_crypto::AppCrypto;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_keystore::{Error <span class="kw">as </span>KeystoreError, KeystorePtr};
-<span class="kw">use </span>sp_std::prelude::Vec;
 
 <span class="kw">use </span>sp_core::RuntimeDebug;
 <span class="kw">use </span>sp_runtime::traits::AppVerify;
@@ -575,7 +575,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The signature by the validator of the signed payload.
 	</span>signature: ValidatorSignature,
 	<span class="doccomment">/// This ensures the real payload is tracked at the typesystem level.
-	</span>real_payload: sp_std::marker::PhantomData&lt;RealPayload&gt;,
+	</span>real_payload: core::marker::PhantomData&lt;RealPayload&gt;,
 }
 
 <span class="kw">impl</span>&lt;Payload: EncodeAs&lt;RealPayload&gt;, RealPayload: Encode&gt; Signed&lt;Payload, RealPayload&gt; {
@@ -681,7 +681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				payload: claimed,
 				validator_index: <span class="self">self</span>.<span class="number">0</span>.validator_index,
 				signature: <span class="self">self</span>.<span class="number">0</span>.signature,
-				real_payload: sp_std::marker::PhantomData,
+				real_payload: core::marker::PhantomData,
 			}))
 		} <span class="kw">else </span>{
 			<span class="prelude-val">Err</span>((<span class="self">self</span>, claimed))
@@ -709,7 +709,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				payload: converted,
 				validator_index: <span class="self">self</span>.<span class="number">0</span>.validator_index,
 				signature: <span class="self">self</span>.<span class="number">0</span>.signature,
-				real_payload: sp_std::marker::PhantomData,
+				real_payload: core::marker::PhantomData,
 			}))
 		} <span class="kw">else </span>{
 			<span class="prelude-val">Err</span>(converted)
@@ -776,7 +776,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			signature: <span class="self">self</span>.signature.clone(),
 			validator_index: <span class="self">self</span>.validator_index,
 			payload: (<span class="kw-2">&amp;</span><span class="self">self</span>.payload).into(),
-			real_payload: sp_std::marker::PhantomData,
+			real_payload: core::marker::PhantomData,
 		}
 	}
 
@@ -834,7 +834,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>data = <span class="self">Self</span>::payload_data(<span class="kw-2">&amp;</span>payload, context);
 		<span class="kw">let </span>signature = public.sign(<span class="kw-2">&amp;</span>data).unwrap();
 
-		<span class="self">Self </span>{ payload, validator_index, signature, real_payload: sp_std::marker::PhantomData }
+		<span class="self">Self </span>{ payload, validator_index, signature, real_payload: core::marker::PhantomData }
 	}
 
 	<span class="doccomment">/// Immutably access the signature.

@@ -274,6 +274,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -294,11 +295,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Traits for the election operations.
 
 </span><span class="kw">use crate</span>::{Assignment, IdentifierT, IndexAssignmentOf, PerThing128, VoteWeight};
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::Encode;
+<span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_arithmetic::traits::{Bounded, UniqueSaturatedInto};
 <span class="kw">use </span>sp_npos_elections::{ElectionScore, Error, EvaluateSupport};
-<span class="kw">use </span>sp_std::{fmt::Debug, prelude::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// An opaque index-based, NPoS solution type.
 </span><span class="kw">pub trait </span>NposSolution

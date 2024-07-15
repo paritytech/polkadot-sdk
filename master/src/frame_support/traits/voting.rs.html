@@ -298,10 +298,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! votes.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::dispatch::Parameter;
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{HasCompact, MaxEncodedLen};
 <span class="kw">use </span>sp_arithmetic::Perbill;
 <span class="kw">use </span>sp_runtime::{traits::Member, DispatchError};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">pub trait </span>VoteTally&lt;Votes, Class&gt; {
 	<span class="doccomment">/// Initializes a new tally.
@@ -353,7 +353,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">pub struct </span>ClassCountOf&lt;P, T&gt;(sp_std::marker::PhantomData&lt;(P, T)&gt;);
+<span class="kw">pub struct </span>ClassCountOf&lt;P, T&gt;(core::marker::PhantomData&lt;(P, T)&gt;);
 <span class="kw">impl</span>&lt;T, P: Polling&lt;T&gt;&gt; sp_runtime::traits::Get&lt;u32&gt; <span class="kw">for </span>ClassCountOf&lt;P, T&gt; {
 	<span class="kw">fn </span>get() -&gt; u32 {
 		P::classes().len() <span class="kw">as </span>u32

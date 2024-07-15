@@ -1090,8 +1090,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// note a new preimage.
 </span><span class="kw">fn </span>note_preimage&lt;T: Config&gt;() -&gt; T::Hash {
+	<span class="kw">use </span>alloc::borrow::Cow;
 	<span class="kw">use </span>core::sync::atomic::{AtomicU8, Ordering};
-	<span class="kw">use </span>sp_std::borrow::Cow;
 	<span class="comment">// note a new preimage on every function invoke.
 	</span><span class="kw">static </span>COUNTER: AtomicU8 = AtomicU8::new(<span class="number">0</span>);
 	<span class="kw">let </span>data = Cow::from(<span class="macro">vec!</span>[COUNTER.fetch_add(<span class="number">1</span>, Ordering::Relaxed)]);

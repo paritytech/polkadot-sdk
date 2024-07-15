@@ -393,7 +393,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This implementation ensures that messages with non-reanchored assets return higher
 /// prices than messages with reanchored assets.
 /// Useful for `deposit_reserve_asset_works_for_any_xcm_sender` integration test.
-</span><span class="kw">pub struct </span>TestDeliveryPrice&lt;A, F&gt;(sp_std::marker::PhantomData&lt;(A, F)&gt;);
+</span><span class="kw">pub struct </span>TestDeliveryPrice&lt;A, F&gt;(core::marker::PhantomData&lt;(A, F)&gt;);
 <span class="kw">impl</span>&lt;A: Get&lt;AssetId&gt;, F: FeeTracker&gt; PriceForMessageDelivery <span class="kw">for </span>TestDeliveryPrice&lt;A, F&gt; {
 	<span class="kw">type </span>Id = F::Id;
 

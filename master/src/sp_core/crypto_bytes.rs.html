@@ -564,7 +564,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 <span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
-</span><span class="kw">use </span>sp_std::alloc::{format, string::String};
+</span><span class="kw">use </span>alloc::{format, string::String};
 
 <span class="kw">pub use </span>public_bytes::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>signature_bytes::<span class="kw-2">*</span>;
@@ -786,7 +786,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl</span>&lt;<span class="kw">const </span>N: usize, SubTag&gt; Public <span class="kw">for </span>PublicBytes&lt;N, SubTag&gt; <span class="kw">where </span><span class="self">Self</span>: CryptoType {}
 
-	<span class="kw">impl</span>&lt;<span class="kw">const </span>N: usize, SubTag&gt; sp_std::fmt::Debug <span class="kw">for </span>PublicBytes&lt;N, SubTag&gt;
+	<span class="kw">impl</span>&lt;<span class="kw">const </span>N: usize, SubTag&gt; core::fmt::Debug <span class="kw">for </span>PublicBytes&lt;N, SubTag&gt;
 	<span class="kw">where
 		</span><span class="self">Self</span>: CryptoType,
 	{
@@ -797,7 +797,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-		</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+		</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 			<span class="prelude-val">Ok</span>(())
 		}
 	}
@@ -892,17 +892,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl</span>&lt;<span class="kw">const </span>N: usize, SubTag&gt; sp_std::fmt::Debug <span class="kw">for </span>SignatureBytes&lt;N, SubTag&gt;
+	<span class="kw">impl</span>&lt;<span class="kw">const </span>N: usize, SubTag&gt; core::fmt::Debug <span class="kw">for </span>SignatureBytes&lt;N, SubTag&gt;
 	<span class="kw">where
 		</span><span class="self">Self</span>: CryptoType,
 	{
 		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-		</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+		</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 			<span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="kw">crate</span>::hexdisplay::HexDisplay::from(&amp;&amp;<span class="self">self</span>.<span class="number">0</span>[..]))
 		}
 
 		<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-		</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+		</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 			<span class="prelude-val">Ok</span>(())
 		}
 	}

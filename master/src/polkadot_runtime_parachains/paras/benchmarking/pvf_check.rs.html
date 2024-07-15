@@ -373,6 +373,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -392,6 +393,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! This module focuses on the benchmarking of the `include_pvf_check_statement` dispatchable.
 
 </span><span class="kw">use crate</span>::{configuration, paras::<span class="kw-2">*</span>, shared::Pallet <span class="kw">as </span>ParasShared};
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>frame_support::assert_ok;
 <span class="kw">use </span>frame_system::RawOrigin;
 <span class="kw">use </span>polkadot_primitives::{HeadData, Id <span class="kw">as </span>ParaId, ValidationCode, ValidatorId, ValidatorIndex};

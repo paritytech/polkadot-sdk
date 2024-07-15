@@ -378,7 +378,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -409,7 +408,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{AccountIdConversion, Verify},
 	RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="macro">parameter_types! </span>{
 	<span class="comment">//   27 | Min encoded size of `Registration`
@@ -475,8 +473,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 )]
 #[codec(mel_bound())]
 </span><span class="kw">pub struct </span>IdentityInfo {
-	<span class="doccomment">/// A reasonable display name for the controller of the account. This should be whatever the  
-	/// account is typically known as and should not be confusable with other entities, given  
+	<span class="doccomment">/// A reasonable display name for the controller of the account. This should be whatever the
+	/// account is typically known as and should not be confusable with other entities, given
 	/// reasonable context.
 	///
 	/// Stored as UTF-8.
@@ -532,7 +530,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>create_identity_info() -&gt; <span class="self">Self </span>{
-		<span class="kw">let </span>data = Data::Raw(<span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">32</span>].try_into().unwrap());
+		<span class="kw">let </span>data = Data::Raw(<span class="macro">alloc::vec!</span>[<span class="number">0</span>; <span class="number">32</span>].try_into().unwrap());
 
 		IdentityInfo {
 			display: data.clone(),

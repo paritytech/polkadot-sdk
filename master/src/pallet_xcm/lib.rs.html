@@ -3518,6 +3518,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3367" id="3367">3367</a>
 <a href="#3368" id="3368">3368</a>
 <a href="#3369" id="3369">3369</a>
+<a href="#3370" id="3370">3370</a>
+<a href="#3371" id="3371">3371</a>
+<a href="#3372" id="3372">3372</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3547,7 +3550,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub mod </span>migration;
 
+<span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{boxed::Box, vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+<span class="kw">use </span>core::{marker::PhantomData, result::Result};
 <span class="kw">use </span>frame_support::{
 	dispatch::{
 		DispatchErrorWithPostInfo, GetDispatchInfo, PostDispatchInfo, WithPostDispatchInfo,
@@ -3569,7 +3576,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	Either, RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::{boxed::Box, marker::PhantomData, prelude::<span class="kw-2">*</span>, result::Result, vec};
 <span class="kw">use </span>xcm::{latest::QueryResponseInfo, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm_builder::{
 	ExecuteController, ExecuteControllerWeightInfo, InspectMessageQueues, QueryController,
@@ -4312,7 +4318,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::genesis_config]
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
 		<span class="attr">#[serde(skip)]
-		</span><span class="kw">pub </span>_config: sp_std::marker::PhantomData&lt;T&gt;,
+		</span><span class="kw">pub </span>_config: core::marker::PhantomData&lt;T&gt;,
 		<span class="doccomment">/// The default version to encode outgoing XCM messages with.
 		</span><span class="kw">pub </span>safe_xcm_version: <span class="prelude-ty">Option</span>&lt;XcmVersion&gt;,
 	}
@@ -4958,8 +4964,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Separate { local_xcm: Xcm&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;, remote_xcm: Xcm&lt;()&gt; },
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; sp_std::fmt::Debug <span class="kw">for </span>FeesHandling&lt;T&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
+<span class="kw">impl</span>&lt;T: Config&gt; core::fmt::Debug <span class="kw">for </span>FeesHandling&lt;T&gt; {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::Batched { fees } =&gt; <span class="macro">write!</span>(f, <span class="string">"FeesHandling::Batched({:?})"</span>, fees),
 			<span class="self">Self</span>::Separate { local_xcm, remote_xcm } =&gt; <span class="macro">write!</span>(
@@ -5360,8 +5366,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			FeesHandling::Separate { local_xcm: <span class="kw-2">mut </span>local_fees, remote_xcm: <span class="kw-2">mut </span>remote_fees } =&gt; {
 				<span class="comment">// fees are handled by separate XCM instructions, prepend fees instructions (for
 				// remote XCM they have to be prepended instead of appended to pass barriers).
-				</span>sp_std::mem::swap(local, <span class="kw-2">&amp;mut </span>local_fees);
-				sp_std::mem::swap(remote, <span class="kw-2">&amp;mut </span>remote_fees);
+				</span>core::mem::swap(local, <span class="kw-2">&amp;mut </span>local_fees);
+				core::mem::swap(remote, <span class="kw-2">&amp;mut </span>remote_fees);
 				<span class="comment">// these are now swapped so fees actually go first
 				</span>local.inner_mut().append(<span class="kw-2">&amp;mut </span>local_fees.into_inner());
 				remote.inner_mut().append(<span class="kw-2">&amp;mut </span>remote_fees.into_inner());

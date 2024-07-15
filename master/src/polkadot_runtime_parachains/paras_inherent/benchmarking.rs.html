@@ -368,6 +368,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#217" id="217">217</a>
 <a href="#218" id="218">218</a>
 <a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -386,9 +387,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{inclusion, ParaId};
+<span class="kw">use </span>alloc::collections::btree_map::BTreeMap;
+<span class="kw">use </span>core::cmp::min;
 <span class="kw">use </span>frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 <span class="kw">use </span>frame_system::RawOrigin;
-<span class="kw">use </span>sp_std::{cmp::min, collections::btree_map::BTreeMap};
 
 <span class="kw">use </span>polkadot_primitives::v7::GroupIndex;
 

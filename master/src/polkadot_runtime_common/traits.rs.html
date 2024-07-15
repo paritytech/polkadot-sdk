@@ -432,12 +432,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Traits used across pallets for Polkadot.
 
-</span><span class="kw">use </span>frame_support::{
+</span><span class="kw">use </span>alloc::vec::<span class="kw-2">*</span>;
+<span class="kw">use </span>frame_support::{
 	dispatch::DispatchResult,
 	traits::{Currency, ReservableCurrency},
 };
 <span class="kw">use </span>polkadot_primitives::{HeadData, Id <span class="kw">as </span>ParaId, ValidationCode};
-<span class="kw">use </span>sp_std::vec::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Parachain registration API.
 </span><span class="kw">pub trait </span>Registrar {

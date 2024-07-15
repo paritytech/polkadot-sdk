@@ -278,8 +278,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! of parachain blocks ready to submit to the relay chain, as well as some basic implementations.
 
 </span><span class="kw">use </span><span class="kw">super</span>::relay_state_snapshot::RelayChainStateProof;
+<span class="kw">use </span>core::num::NonZeroU32;
 <span class="kw">use </span>frame_support::weights::Weight;
-<span class="kw">use </span>sp_std::num::NonZeroU32;
 
 <span class="doccomment">/// The possible capacity of the unincluded segment.
 </span><span class="attr">#[derive(Clone)]
@@ -355,7 +355,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>on_state_proof(_state_proof: <span class="kw-2">&amp;</span>RelayChainStateProof) -&gt; (Weight, UnincludedSegmentCapacity) {
 		(
 			Weight::zero(),
-			NonZeroU32::new(sp_std::cmp::max(N, <span class="number">1</span>))
+			NonZeroU32::new(core::cmp::max(N, <span class="number">1</span>))
 				.expect(<span class="string">"1 is the minimum value and non-zero; qed"</span>)
 				.into(),
 		)

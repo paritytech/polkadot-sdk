@@ -404,11 +404,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>pallet_xcm_benchmarks_generic;
 
 <span class="kw">use crate</span>::{xcm_config::MaxAssetsIntoHolding, Runtime};
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_support::weights::Weight;
 <span class="kw">use </span>pallet_xcm_benchmarks_fungible::WeightInfo <span class="kw">as </span>XcmFungibleWeight;
 <span class="kw">use </span>pallet_xcm_benchmarks_generic::WeightInfo <span class="kw">as </span>XcmGeneric;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, DoubleEncoded};
 
 <span class="kw">trait </span>WeighAssets {

@@ -833,8 +833,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 </span><span class="kw">use crate</span>::{BoundedBTreeMap, BoundedBTreeSet, BoundedVec, WeakBoundedVec};
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::Decode;
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="doccomment">/// Provides the sealed trait `StreamIter`.
 </span><span class="kw">mod </span>private {
@@ -843,7 +843,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Used as marker trait for types that support stream iteration.
 	</span><span class="kw">pub trait </span>StreamIter {
 		<span class="doccomment">/// The actual iterator implementation.
-		</span><span class="kw">type </span>Iterator: sp_std::iter::Iterator;
+		</span><span class="kw">type </span>Iterator: core::iter::Iterator;
 
 		<span class="doccomment">/// Create the stream iterator for the value found at `key`.
 		</span><span class="kw">fn </span>stream_iter(key: Vec&lt;u8&gt;) -&gt; <span class="self">Self</span>::Iterator;
@@ -857,7 +857,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl</span>&lt;T: codec::Decode&gt; StreamIter <span class="kw">for </span>sp_std::collections::btree_set::BTreeSet&lt;T&gt; {
+	<span class="kw">impl</span>&lt;T: codec::Decode&gt; StreamIter <span class="kw">for </span>alloc::collections::btree_set::BTreeSet&lt;T&gt; {
 		<span class="kw">type </span>Iterator = ScaleContainerStreamIter&lt;T&gt;;
 
 		<span class="kw">fn </span>stream_iter(key: Vec&lt;u8&gt;) -&gt; <span class="self">Self</span>::Iterator {
@@ -866,7 +866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">impl</span>&lt;K: codec::Decode, V: codec::Decode&gt; StreamIter
-		<span class="kw">for </span>sp_std::collections::btree_map::BTreeMap&lt;K, V&gt;
+		<span class="kw">for </span>alloc::collections::btree_map::BTreeMap&lt;K, V&gt;
 	{
 		<span class="kw">type </span>Iterator = ScaleContainerStreamIter&lt;(K, V)&gt;;
 
@@ -933,14 +933,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A streaming iterator implementation for SCALE container types.
 ///
 /// SCALE container types follow the same type of encoding `Compact&lt;u32&gt;(len) ++ data`.
-/// This type provides an [`Iterator`](sp_std::iter::Iterator) implementation that decodes
+/// This type provides an [`Iterator`](core::iter::Iterator) implementation that decodes
 /// one item after another with each call to [`next`](Self::next). The bytes representing
 /// the container are also not read at once into memory and instead being read in chunks. As long
 /// as individual items are smaller than these chunks the memory usage of this iterator should
 /// be constant. On decoding errors [`next`](Self::next) will return `None` to signal that the
 /// iterator is finished.
 </span><span class="kw">pub struct </span>ScaleContainerStreamIter&lt;T&gt; {
-	marker: sp_std::marker::PhantomData&lt;T&gt;,
+	marker: core::marker::PhantomData&lt;T&gt;,
 	input: StorageInput,
 	length: u32,
 	read: u32,
@@ -973,7 +973,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="number">0
 		</span>};
 
-		<span class="self">Self </span>{ marker: sp_std::marker::PhantomData, input, length, read: <span class="number">0 </span>}
+		<span class="self">Self </span>{ marker: core::marker::PhantomData, input, length, read: <span class="number">0 </span>}
 	}
 
 	<span class="doccomment">/// Creates a new instance of the stream iterator.
@@ -985,11 +985,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>input = StorageInput::new(key);
 		<span class="kw">let </span>length = <span class="kw">if </span>input.exists() { codec::Compact::&lt;u32&gt;::decode(<span class="kw-2">&amp;mut </span>input)<span class="question-mark">?</span>.<span class="number">0 </span>} <span class="kw">else </span>{ <span class="number">0 </span>};
 
-		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ marker: sp_std::marker::PhantomData, input, length, read: <span class="number">0 </span>})
+		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ marker: core::marker::PhantomData, input, length, read: <span class="number">0 </span>})
 	}
 }
 
-<span class="kw">impl</span>&lt;T: codec::Decode&gt; sp_std::iter::Iterator <span class="kw">for </span>ScaleContainerStreamIter&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: codec::Decode&gt; core::iter::Iterator <span class="kw">for </span>ScaleContainerStreamIter&lt;T&gt; {
 	<span class="kw">type </span>Item = T;
 
 	<span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
@@ -1052,7 +1052,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// - `key`: The storage key of the storage item that this input will read.
 	</span><span class="kw">fn </span>new(key: Vec&lt;u8&gt;) -&gt; <span class="self">Self </span>{
-		<span class="kw">let </span><span class="kw-2">mut </span>buffer = <span class="macro">sp_std::vec!</span>[<span class="number">0</span>; STORAGE_INPUT_BUFFER_CAPACITY];
+		<span class="kw">let </span><span class="kw-2">mut </span>buffer = <span class="macro">alloc::vec!</span>[<span class="number">0</span>; STORAGE_INPUT_BUFFER_CAPACITY];
 		<span class="kw">unsafe </span>{
 			buffer.set_len(buffer.capacity());
 		}
@@ -1087,7 +1087,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			sp_io::storage::read(<span class="kw-2">&amp;</span><span class="self">self</span>.key, <span class="kw-2">&amp;mut </span><span class="self">self</span>.buffer[present_bytes..], <span class="self">self</span>.offset)
 		{
 			<span class="kw">let </span>bytes_read =
-				sp_std::cmp::min(length_minus_offset <span class="kw">as </span>usize, <span class="self">self</span>.buffer.len() - present_bytes);
+				core::cmp::min(length_minus_offset <span class="kw">as </span>usize, <span class="self">self</span>.buffer.len() - present_bytes);
 			<span class="kw">let </span>buffer_len = present_bytes + bytes_read;
 			<span class="kw">unsafe </span>{
 				<span class="self">self</span>.buffer.set_len(buffer_len);

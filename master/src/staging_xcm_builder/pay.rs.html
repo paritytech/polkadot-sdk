@@ -358,6 +358,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -376,12 +377,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! `PayOverXcm` struct for paying through XCM and getting the status back.
 
-</span><span class="kw">use </span>frame_support::traits::{
+</span><span class="kw">use </span>alloc::vec;
+<span class="kw">use </span>core::marker::PhantomData;
+<span class="kw">use </span>frame_support::traits::{
 	tokens::{Pay, PaymentStatus},
 	Get,
 };
 <span class="kw">use </span>sp_runtime::traits::TryConvert;
-<span class="kw">use </span>sp_std::{marker::PhantomData, vec};
 <span class="kw">use </span>xcm::{opaque::lts::Weight, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
@@ -559,7 +561,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Adapter `struct` which implements a conversion from any `AssetKind` into a [`LocatableAssetId`]
 /// value using a fixed `Location` for the `location` field.
-</span><span class="kw">pub struct </span>FixedLocation&lt;FixedLocationValue&gt;(sp_std::marker::PhantomData&lt;FixedLocationValue&gt;);
+</span><span class="kw">pub struct </span>FixedLocation&lt;FixedLocationValue&gt;(core::marker::PhantomData&lt;FixedLocationValue&gt;);
 <span class="kw">impl</span>&lt;FixedLocationValue: Get&lt;Location&gt;, AssetKind: Into&lt;AssetId&gt;&gt;
 	TryConvert&lt;AssetKind, LocatableAssetId&gt; <span class="kw">for </span>FixedLocation&lt;FixedLocationValue&gt;
 {

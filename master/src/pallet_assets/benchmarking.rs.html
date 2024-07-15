@@ -728,13 +728,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>alloc::vec;
 <span class="kw">use </span>frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, whitelisted_caller, BenchmarkError,
 };
 <span class="kw">use </span>frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable};
 <span class="kw">use </span>frame_system::RawOrigin <span class="kw">as </span>SystemOrigin;
 <span class="kw">use </span>sp_runtime::traits::Bounded;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="kw">crate</span>::Pallet <span class="kw">as </span>Assets;
 
@@ -784,7 +784,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>asset_id = default_asset_id::&lt;T, I&gt;();
 	Asset::&lt;T, I&gt;::mutate(<span class="kw-2">&amp;</span>asset_id.into(), |maybe_a| {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>a) = maybe_a {
-			sp_std::mem::swap(s, <span class="kw-2">&amp;mut </span>a.is_sufficient)
+			core::mem::swap(s, <span class="kw-2">&amp;mut </span>a.is_sufficient)
 		}
 	});
 }

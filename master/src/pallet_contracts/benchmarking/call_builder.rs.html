@@ -374,11 +374,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BalanceOf, Config, DebugBufferVec, Determinism, ExecReturnValue, GasMeter, Origin, Schedule,
 	TypeInfo, WasmBlob, Weight,
 };
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Encode, HasCompact};
 <span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>frame_benchmarking::benchmarking;
 <span class="kw">use </span>sp_core::Get;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">type </span>StackExt&lt;<span class="lifetime">'a</span>, T&gt; = Stack&lt;<span class="lifetime">'a</span>, T, WasmBlob&lt;T&gt;&gt;;
 

@@ -483,6 +483,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -527,6 +529,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>weights::WeightInfo;
 
+<span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::boxed::Box;
 <span class="kw">use </span>frame_support::traits::{
 	fungible::{Inspect <span class="kw">as </span>FungibleInspect, Mutate <span class="kw">as </span>FungibleMutate},
 	fungibles::{roles::ResetTeam, Inspect, Mutate, Refund},
@@ -535,7 +540,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>pallet_asset_conversion::{PoolLocator, Pools};
 <span class="kw">use </span>sp_runtime::traits::{TryConvert, Zero};
-<span class="kw">use </span>sp_std::boxed::Box;
 
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {

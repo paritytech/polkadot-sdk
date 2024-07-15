@@ -227,9 +227,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! On-chain logic to store a validator-set for deferred validation using an off-chain worker.
 
-</span><span class="kw">use </span>codec::Encode;
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>sp_runtime::traits::Convert;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use super</span>::{shared, Config <span class="kw">as </span>HistoricalConfig};
 <span class="kw">use crate</span>::{Config <span class="kw">as </span>SessionConfig, Pallet <span class="kw">as </span>SessionModule, SessionIndex};

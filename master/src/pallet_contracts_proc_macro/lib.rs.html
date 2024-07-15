@@ -1723,7 +1723,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">quote! </span>{
 				<span class="kw">let </span>result = #body;
 				<span class="kw">if </span><span class="macro">::log::log_enabled!</span>(target: <span class="string">"runtime::contracts::strace"</span>, ::log::Level::Trace) {
-						<span class="kw">use </span>sp_std::fmt::Write;
+						<span class="kw">use </span>core::fmt::Write;
 						<span class="kw">let </span><span class="kw-2">mut </span>w = sp_std::Writer::default();
 						<span class="kw">let _ </span>= <span class="macro">core::write!</span>(<span class="kw-2">&amp;mut </span>w, #trace_fmt_str, #( #trace_fmt_args, )* result);
 						<span class="kw">let </span>msg = core::str::from_utf8(<span class="kw-2">&amp;</span>w.inner()).unwrap_or_default();

@@ -1230,6 +1230,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1079" id="1079">1079</a>
 <a href="#1080" id="1080">1080</a>
 <a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1279,10 +1281,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
 #![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>log::{debug, error, trace, warn};
 <span class="kw">use </span>scale_info::TypeInfo;
 
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
 	traits::{Defensive, Get},
@@ -1304,7 +1309,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{One, Zero},
 	BoundToRuntimeAppPublic,
 };
-<span class="kw">use </span>sp_std::prelude::Vec;
 
 <span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
@@ -1520,7 +1524,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub </span>epoch_config: EpochConfiguration,
 		<span class="doccomment">/// Phantom config
 		</span><span class="attr">#[serde(skip)]
-		</span><span class="kw">pub </span>_phantom: sp_std::marker::PhantomData&lt;T&gt;,
+		</span><span class="kw">pub </span>_phantom: core::marker::PhantomData&lt;T&gt;,
 	}
 
 	<span class="attr">#[pallet::genesis_build]

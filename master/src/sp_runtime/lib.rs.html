@@ -1327,6 +1327,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1176" id="1176">1176</a>
 <a href="#1177" id="1177">1177</a>
 <a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1375,6 +1380,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 #[doc(hidden)]
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="attr">#[doc(hidden)]
+</span><span class="kw">pub use </span>alloc::vec::Vec;
+<span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>codec;
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>scale_info;
@@ -1402,12 +1412,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	hash::{H256, H512},
 	sr25519,
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
+<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
+</span><span class="kw">use </span>alloc::format;
+<span class="kw">use </span>alloc::vec;
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
-</span><span class="kw">use </span>sp_std::alloc::format;
 
 <span class="kw">pub mod </span>curve;
 <span class="kw">pub mod </span>generic;
@@ -1520,7 +1530,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>IntoIterator <span class="kw">for </span>Justifications {
 	<span class="kw">type </span>Item = Justification;
-	<span class="kw">type </span>IntoIter = sp_std::vec::IntoIter&lt;<span class="self">Self</span>::Item&gt;;
+	<span class="kw">type </span>IntoIter = alloc::vec::IntoIter&lt;<span class="self">Self</span>::Item&gt;;
 
 	<span class="kw">fn </span>into_iter(<span class="self">self</span>) -&gt; <span class="self">Self</span>::IntoIter {
 		<span class="self">self</span>.<span class="number">0</span>.into_iter()
@@ -1837,11 +1847,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// This is the legacy return type of `Dispatchable`. It is still exposed for compatibility reasons.
 /// The new return type is `DispatchResultWithInfo`. FRAME runtimes should use
 /// `frame_support::dispatch::DispatchResult`.
-</span><span class="kw">pub type </span>DispatchResult = sp_std::result::Result&lt;(), DispatchError&gt;;
+</span><span class="kw">pub type </span>DispatchResult = core::result::Result&lt;(), DispatchError&gt;;
 
 <span class="doccomment">/// Return type of a `Dispatchable` which contains the `DispatchResult` and additional information
 /// about the `Dispatchable` that is only known post dispatch.
-</span><span class="kw">pub type </span>DispatchResultWithInfo&lt;T&gt; = sp_std::result::Result&lt;T, DispatchErrorWithPostInfo&lt;T&gt;&gt;;
+</span><span class="kw">pub type </span>DispatchResultWithInfo&lt;T&gt; = core::result::Result&lt;T, DispatchErrorWithPostInfo&lt;T&gt;&gt;;
 
 <span class="doccomment">/// Reason why a pallet call failed.
 </span><span class="attr">#[derive(Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
@@ -2240,14 +2250,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>OpaqueExtrinsic {
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>OpaqueExtrinsic {
 	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="macro">write!</span>(fmt, <span class="string">"{}"</span>, sp_core::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>))
 	}
 
 	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, _fmt: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, _fmt: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="prelude-val">Ok</span>(())
 	}
 }

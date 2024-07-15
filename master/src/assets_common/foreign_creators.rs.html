@@ -233,7 +233,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// `EnsureOriginWithArg` impl for `CreateOrigin` that allows only XCM origins that are locations
 /// containing the class location.
 </span><span class="kw">pub struct </span>ForeignCreators&lt;IsForeign, AccountOf, AccountId, L = Location&gt;(
-	sp_std::marker::PhantomData&lt;(IsForeign, AccountOf, AccountId, L)&gt;,
+	core::marker::PhantomData&lt;(IsForeign, AccountOf, AccountId, L)&gt;,
 );
 <span class="kw">impl</span>&lt;
 		IsForeign: ContainsPair&lt;L, L&gt;,
@@ -251,7 +251,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>try_origin(
 		origin: RuntimeOrigin,
 		asset_location: <span class="kw-2">&amp;</span>L,
-	) -&gt; sp_std::result::Result&lt;<span class="self">Self</span>::Success, RuntimeOrigin&gt; {
+	) -&gt; core::result::Result&lt;<span class="self">Self</span>::Success, RuntimeOrigin&gt; {
 		<span class="kw">let </span>origin_location = EnsureXcm::&lt;Everything, L&gt;::try_origin(origin.clone())<span class="question-mark">?</span>;
 		<span class="kw">if </span>!IsForeign::contains(asset_location, <span class="kw-2">&amp;</span>origin_location) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(origin)

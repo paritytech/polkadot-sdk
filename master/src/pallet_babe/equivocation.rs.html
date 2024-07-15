@@ -433,7 +433,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! that the `ValidateUnsigned` for the BABE pallet is used in the runtime
 //! definition.
 
-</span><span class="kw">use </span>frame_support::traits::{Get, KeyOwnerProofSystem};
+</span><span class="kw">use </span>alloc::{boxed::Box, vec, vec::Vec};
+<span class="kw">use </span>frame_support::traits::{Get, KeyOwnerProofSystem};
 <span class="kw">use </span>frame_system::pallet_prelude::HeaderFor;
 <span class="kw">use </span>log::{error, info};
 
@@ -450,7 +451,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	offence::{Kind, Offence, OffenceReportSystem, ReportOffence},
 	SessionIndex,
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{Call, Config, Error, Pallet, LOG_TARGET};
 
@@ -504,7 +504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// - On-chain validity checks and processing are mostly delegated to the user provided generic
 ///   types implementing `KeyOwnerProofSystem` and `ReportOffence` traits.
 /// - Offence reporter for unsigned transactions is fetched via the the authorship pallet.
-</span><span class="kw">pub struct </span>EquivocationReportSystem&lt;T, R, P, L&gt;(sp_std::marker::PhantomData&lt;(T, R, P, L)&gt;);
+</span><span class="kw">pub struct </span>EquivocationReportSystem&lt;T, R, P, L&gt;(core::marker::PhantomData&lt;(T, R, P, L)&gt;);
 
 <span class="kw">impl</span>&lt;T, R, P, L&gt;
 	OffenceReportSystem&lt;<span class="prelude-ty">Option</span>&lt;T::AccountId&gt;, (EquivocationProof&lt;HeaderFor&lt;T&gt;&gt;, T::KeyOwnerProof)&gt;

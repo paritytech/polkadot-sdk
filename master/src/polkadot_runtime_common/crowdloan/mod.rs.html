@@ -2397,7 +2397,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2246" id="2246">2246</a>
 <a href="#2247" id="2247">2247</a>
 <a href="#2248" id="2248">2248</a>
-<a href="#2249" id="2249">2249</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2455,6 +2454,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	slot_range::SlotRange,
 	traits::{Auctioneer, Registrar},
 };
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	ensure,
@@ -2477,7 +2477,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	MultiSignature, MultiSigner, RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="kw">type </span>CurrencyOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::Auctioneer <span class="kw">as </span>Auctioneer&lt;BlockNumberFor&lt;T&gt;&gt;&gt;::Currency;
 <span class="kw">type </span>LeasePeriodOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::Auctioneer <span class="kw">as </span>Auctioneer&lt;BlockNumberFor&lt;T&gt;&gt;&gt;::LeasePeriod;
@@ -3232,16 +3231,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T: Config&gt; <span class="kw">crate</span>::traits::OnSwap <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">fn </span>on_swap(one: ParaId, other: ParaId) {
-		Funds::&lt;T&gt;::mutate(one, |x| Funds::&lt;T&gt;::mutate(other, |y| sp_std::mem::swap(x, y)))
+		Funds::&lt;T&gt;::mutate(one, |x| Funds::&lt;T&gt;::mutate(other, |y| core::mem::swap(x, y)))
 	}
 }
 
 <span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 </span><span class="kw">mod </span>crypto {
+	<span class="kw">use </span>alloc::vec::Vec;
 	<span class="kw">use </span>sp_core::ed25519;
 	<span class="kw">use </span>sp_io::crypto::{ed25519_generate, ed25519_sign};
 	<span class="kw">use </span>sp_runtime::{MultiSignature, MultiSigner};
-	<span class="kw">use </span>sp_std::vec::Vec;
 
 	<span class="kw">pub fn </span>create_ed25519_pubkey(seed: Vec&lt;u8&gt;) -&gt; MultiSigner {
 		ed25519_generate(<span class="number">0</span>.into(), <span class="prelude-val">Some</span>(seed)).into()
@@ -4368,7 +4367,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>polkadot_runtime_parachains::paras;
 	<span class="kw">use </span>sp_core::crypto::UncheckedFrom;
 	<span class="kw">use </span>sp_runtime::traits::{Bounded, CheckedSub};
-	<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 	<span class="kw">use </span>frame_benchmarking::{account, benchmarks, whitelisted_caller};
 

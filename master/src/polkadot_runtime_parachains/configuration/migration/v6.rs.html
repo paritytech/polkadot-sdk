@@ -284,8 +284,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -305,13 +303,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Contains the V6 storage definition of the host configuration.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::configuration::{Config, Pallet};
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="kw">use </span>polkadot_primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
-<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-</span><span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="attr">#[derive(codec::Encode, codec::Decode, Debug, Clone)]
 </span><span class="kw">pub struct </span>V6HostConfiguration&lt;BlockNumber&gt; {

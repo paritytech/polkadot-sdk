@@ -1047,7 +1047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// transaction is valid.
 </span><span class="attr">#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-</span><span class="kw">pub struct </span>CheckWeight&lt;T: Config + Send + Sync&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>CheckWeight&lt;T: Config + Send + Sync&gt;(core::marker::PhantomData&lt;T&gt;);
 
 <span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; CheckWeight&lt;T&gt;
 <span class="kw">where
@@ -1221,7 +1221,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Pre = ();
 	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"CheckWeight"</span>;
 
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::result::Result&lt;(), TransactionValidityError&gt; {
+	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; core::result::Result&lt;(), TransactionValidityError&gt; {
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -1291,14 +1291,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; sp_std::fmt::Debug <span class="kw">for </span>CheckWeight&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; core::fmt::Debug <span class="kw">for </span>CheckWeight&lt;T&gt; {
 	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="macro">write!</span>(f, <span class="string">"CheckWeight"</span>)
 	}
 
 	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="prelude-val">Ok</span>(())
 	}
 }
@@ -1310,8 +1310,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		mock::{new_test_ext, System, Test, CALL},
 		AllExtrinsicsLen, BlockWeight, DispatchClass,
 	};
+	<span class="kw">use </span>core::marker::PhantomData;
 	<span class="kw">use </span>frame_support::{assert_err, assert_ok, dispatch::Pays, weights::Weight};
-	<span class="kw">use </span>sp_std::marker::PhantomData;
 
 	<span class="kw">fn </span>block_weights() -&gt; <span class="kw">crate</span>::limits::BlockWeights {
 		&lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::BlockWeights::get()

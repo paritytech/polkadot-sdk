@@ -636,7 +636,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#485" id="485">485</a>
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -673,13 +672,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ParaId,
 };
 
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>frame_support::{defensive, pallet_prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>pallet_broker::CoreAssignment;
 <span class="kw">use </span>polkadot_primitives::CoreIndex;
 <span class="kw">use </span>sp_runtime::traits::{One, Saturating};
-
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 

@@ -1754,6 +1754,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1603" id="1603">1603</a>
 <a href="#1604" id="1604">1604</a>
 <a href="#1605" id="1605">1605</a>
+<a href="#1606" id="1606">1606</a>
+<a href="#1607" id="1607">1607</a>
+<a href="#1608" id="1608">1608</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1770,7 +1773,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">pub use </span>codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">pub use </span>codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 <span class="kw">pub use </span>lazy_static::lazy_static;
 <span class="kw">pub use </span>log;
 <span class="kw">pub use </span>paste;
@@ -1780,7 +1785,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="comment">// Substrate
-</span><span class="kw">pub use </span>cumulus_primitives_core::AggregateMessageOrigin <span class="kw">as </span>CumulusAggregateMessageOrigin;
+</span><span class="kw">pub use </span>alloc::collections::vec_deque::VecDeque;
+<span class="kw">pub use </span>core::{cell::RefCell, fmt::Debug};
+<span class="kw">pub use </span>cumulus_primitives_core::AggregateMessageOrigin <span class="kw">as </span>CumulusAggregateMessageOrigin;
 <span class="kw">pub use </span>frame_support::{
 	assert_ok,
 	sp_runtime::{traits::Header <span class="kw">as </span>HeaderT, DispatchResult},
@@ -1800,7 +1807,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>sp_crypto_hashing::blake2_256;
 <span class="kw">pub use </span>sp_io::TestExternalities;
 <span class="kw">pub use </span>sp_runtime::BoundedSlice;
-<span class="kw">pub use </span>sp_std::{cell::RefCell, collections::vec_deque::VecDeque, fmt::Debug};
 <span class="kw">pub use </span>sp_tracing;
 
 <span class="comment">// Cumulus

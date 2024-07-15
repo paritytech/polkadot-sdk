@@ -472,6 +472,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
 <a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -493,11 +496,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>sp_runtime_interface::runtime_interface;
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>sp_runtime_interface::runtime_interface;
 
 <span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-</span><span class="kw">use </span>sp_std::{mem, prelude::<span class="kw-2">*</span>};
+</span><span class="kw">use </span>core::mem;
 
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>sp_core::{sr25519::Public, wasm_export_functions};
 
 <span class="comment">// Include the WASM binary
@@ -703,7 +709,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>test_invalid_utf8_data_should_return_an_error() {
 		<span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="number">0</span>, <span class="number">159</span>, <span class="number">146</span>, <span class="number">150</span>];
 		<span class="comment">// I'm an evil hacker, trying to hack!
-		</span><span class="kw">let </span>data_str = <span class="kw">unsafe </span>{ sp_std::str::from_utf8_unchecked(<span class="kw-2">&amp;</span>data) };
+		</span><span class="kw">let </span>data_str = <span class="kw">unsafe </span>{ alloc::str::from_utf8_unchecked(<span class="kw-2">&amp;</span>data) };
 
 		test_api::invalid_utf8_data(data_str);
 	}

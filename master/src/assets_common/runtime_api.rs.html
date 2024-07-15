@@ -215,7 +215,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>codec::{Codec, Decode, Encode};
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-</span><span class="kw">use </span>{sp_std::vec::Vec, xcm::latest::Asset};
+</span><span class="kw">use </span>{alloc::vec::Vec, xcm::latest::Asset};
 
 <span class="doccomment">/// The possible errors that can happen querying the storage of assets.
 </span><span class="attr">#[derive(Eq, PartialEq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo)]

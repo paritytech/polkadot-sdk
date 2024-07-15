@@ -1081,6 +1081,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	scheduler::{<span class="self">self</span>, common::AssignmentProvider, CoreOccupied, ParasEntry},
 	session_info, shared,
 };
+<span class="kw">use </span>alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 <span class="kw">use </span>bitvec::{order::Lsb0 <span class="kw">as </span>BitOrderLsb0, vec::BitVec};
 <span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
@@ -1098,11 +1103,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	generic::Digest,
 	traits::{Header <span class="kw">as </span>HeaderT, One, TrailingZeroInput, Zero},
 	RuntimeAppPublic,
-};
-<span class="kw">use </span>sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
-	prelude::Vec,
-	vec,
 };
 
 <span class="kw">fn </span>mock_validation_code() -&gt; ValidationCode {
@@ -1172,7 +1172,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>fill_claimqueue: bool,
 	<span class="doccomment">/// Cores which should not be available when being populated with pending candidates.
 	</span>unavailable_cores: Vec&lt;u32&gt;,
-	_phantom: sp_std::marker::PhantomData&lt;T&gt;,
+	_phantom: core::marker::PhantomData&lt;T&gt;,
 }
 
 <span class="doccomment">/// Paras inherent `enter` benchmark scenario.
@@ -1203,7 +1203,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			code_upgrade: <span class="prelude-val">None</span>,
 			fill_claimqueue: <span class="bool-val">true</span>,
 			unavailable_cores: <span class="macro">vec!</span>[],
-			_phantom: sp_std::marker::PhantomData::&lt;T&gt;,
+			_phantom: core::marker::PhantomData::&lt;T&gt;,
 		}
 	}
 

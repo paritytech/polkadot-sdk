@@ -502,6 +502,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#351" id="351">351</a>
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -523,7 +525,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">mod </span>analysis;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
@@ -539,6 +543,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The exports are not stable and should not be relied on.
 </span><span class="attr">#[doc(hidden)]
 </span><span class="kw">pub mod </span>__private {
+	<span class="kw">pub use </span>alloc::{boxed::Box, str, vec, vec::Vec};
 	<span class="kw">pub use </span>codec;
 	<span class="kw">pub use </span>frame_support::{storage, traits};
 	<span class="kw">pub use </span>log;
@@ -546,7 +551,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub use </span>sp_core::defer;
 	<span class="kw">pub use </span>sp_io::storage::root <span class="kw">as </span>storage_root;
 	<span class="kw">pub use </span>sp_runtime::{traits::Zero, StateVersion};
-	<span class="kw">pub use </span>sp_std::{<span class="self">self</span>, boxed::Box, str, vec, vec::Vec};
 	<span class="kw">pub use </span>sp_storage::{well_known_keys, TrackedStorageKey};
 }
 

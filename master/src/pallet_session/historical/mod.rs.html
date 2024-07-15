@@ -642,6 +642,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#491" id="491">491</a>
 <a href="#492" id="492">492</a>
 <a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -674,14 +676,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>onchain;
 <span class="kw">mod </span>shared;
 
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>sp_runtime::{
 	traits::{Convert, OpaqueKeys},
 	KeyTypeId,
 };
 <span class="kw">use </span>sp_session::{MembershipProof, ValidatorCount};
 <span class="kw">use </span>sp_staking::SessionIndex;
-<span class="kw">use </span>sp_std::{fmt::Debug, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
 	LayoutV0, MemoryDB, Recorder, StorageProof, Trie, TrieMut, TrieRecorder,
@@ -747,7 +750,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>, <span class="comment">// nothing to prune.
 			</span>};
 
-			<span class="kw">let </span>up_to = sp_std::cmp::min(up_to, end);
+			<span class="kw">let </span>up_to = core::cmp::min(up_to, end);
 
 			<span class="kw">if </span>up_to &lt; start {
 				<span class="kw">return </span><span class="comment">// out of bounds. harmless.
@@ -812,7 +815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An `SessionManager` implementation that wraps an inner `I` and also
 /// sets the historical trie root of the ending session.
-</span><span class="kw">pub struct </span>NoteHistoricalRoot&lt;T, I&gt;(sp_std::marker::PhantomData&lt;(T, I)&gt;);
+</span><span class="kw">pub struct </span>NoteHistoricalRoot&lt;T, I&gt;(core::marker::PhantomData&lt;(T, I)&gt;);
 
 <span class="kw">impl</span>&lt;T: Config, I: SessionManager&lt;T::ValidatorId, T::FullIdentification&gt;&gt; NoteHistoricalRoot&lt;T, I&gt; {
 	<span class="kw">fn </span>do_new_session(new_index: SessionIndex, is_genesis: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;T::ValidatorId&gt;&gt; {
@@ -1018,6 +1021,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span><span class="kw">crate</span>::mock::{
 		force_new_session, set_next_validators, NextValidators, Session, System, Test,
 	};
+	<span class="kw">use </span>alloc::vec;
 
 	<span class="kw">use </span>sp_runtime::{key_types::DUMMY, testing::UintAuthorityId, BuildStorage};
 	<span class="kw">use </span>sp_state_machine::BasicExternalities;

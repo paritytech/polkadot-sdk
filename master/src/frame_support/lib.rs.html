@@ -2827,6 +2827,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2676" id="2676">2676</a>
 <a href="#2677" id="2677">2677</a>
 <a href="#2678" id="2678">2678</a>
+<a href="#2679" id="2679">2679</a>
+<a href="#2680" id="2680">2680</a>
+<a href="#2681" id="2681">2681</a>
+<a href="#2682" id="2682">2682</a>
+<a href="#2683" id="2683">2683</a>
+<a href="#2684" id="2684">2684</a>
+<a href="#2685" id="2685">2685</a>
+<a href="#2686" id="2686">2686</a>
+<a href="#2687" id="2687">2687</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2862,11 +2871,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[doc(hidden)]
 </span><span class="kw">extern crate </span><span class="self">self </span><span class="kw">as </span>frame_support;
 
+<span class="attr">#[doc(hidden)]
+</span><span class="kw">extern crate </span>alloc;
+
 <span class="doccomment">/// Private exports that are being used by macros.
 ///
 /// The exports are not stable and should not be relied on.
 </span><span class="attr">#[doc(hidden)]
 </span><span class="kw">pub mod </span>__private {
+	<span class="kw">pub use </span>alloc::{
+		boxed::Box,
+		rc::Rc,
+		vec,
+		vec::{IntoIter, Vec},
+	};
 	<span class="kw">pub use </span>codec;
 	<span class="kw">pub use </span>frame_metadata <span class="kw">as </span>metadata;
 	<span class="kw">pub use </span>log;
@@ -3090,7 +3108,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) =&gt; (
 		$( <span class="attr">#[ <span class="macro-nonterminal">$attr </span>] </span>)*
 		<span class="macro-nonterminal">$vis </span><span class="kw">struct </span><span class="macro-nonterminal">$name </span>$(
-			&lt; $(<span class="macro-nonterminal">$ty_params</span>),* &gt;( $(<span class="macro-nonterminal">$crate::__private::sp_std::marker::PhantomData</span>&lt;<span class="macro-nonterminal">$ty_params</span>&gt;),* )
+			&lt; $(<span class="macro-nonterminal">$ty_params</span>),* &gt;( $(core::marker::PhantomData&lt;<span class="macro-nonterminal">$ty_params</span>&gt;),* )
 		)<span class="question-mark">?</span>;
 		<span class="macro-nonterminal">$</span><span class="macro">crate::parameter_types!</span>(<span class="macro-nonterminal">IMPL_CONST $name </span>, <span class="macro-nonterminal">$</span><span class="kw">type </span>, <span class="macro-nonterminal">$value </span>$( $(, <span class="macro-nonterminal">$ty_params</span>)* )<span class="question-mark">?</span>);
 		<span class="macro-nonterminal">$</span><span class="macro">crate::parameter_types!</span>( $( <span class="macro-nonterminal">$rest </span>)* );
@@ -3102,7 +3120,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) =&gt; (
 		$( <span class="attr">#[ <span class="macro-nonterminal">$attr </span>] </span>)*
 		<span class="macro-nonterminal">$vis </span><span class="kw">struct </span><span class="macro-nonterminal">$name </span>$(
-			&lt; $(<span class="macro-nonterminal">$ty_params</span>),* &gt;( $(<span class="macro-nonterminal">$crate::__private::sp_std::marker::PhantomData</span>&lt;<span class="macro-nonterminal">$ty_params</span>&gt;),* )
+			&lt; $(<span class="macro-nonterminal">$ty_params</span>),* &gt;( $(core::marker::PhantomData&lt;<span class="macro-nonterminal">$ty_params</span>&gt;),* )
 		)<span class="question-mark">?</span>;
 		<span class="macro-nonterminal">$</span><span class="macro">crate::parameter_types!</span>(<span class="macro-nonterminal">IMPL $name</span>, <span class="macro-nonterminal">$</span><span class="kw">type</span>, <span class="macro-nonterminal">$value </span>$( $(, <span class="macro-nonterminal">$ty_params</span>)* )<span class="question-mark">?</span>);
 		<span class="macro-nonterminal">$</span><span class="macro">crate::parameter_types!</span>( $( <span class="macro-nonterminal">$rest </span>)* );
@@ -3114,7 +3132,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) =&gt; (
 		$( <span class="attr">#[ <span class="macro-nonterminal">$attr </span>] </span>)*
 		<span class="macro-nonterminal">$vis </span><span class="kw">struct </span><span class="macro-nonterminal">$name </span>$(
-			&lt; $(<span class="macro-nonterminal">$ty_params</span>),* &gt;( $(<span class="macro-nonterminal">$crate::__private::sp_std::marker::PhantomData</span>&lt;<span class="macro-nonterminal">$ty_params</span>&gt;),* )
+			&lt; $(<span class="macro-nonterminal">$ty_params</span>),* &gt;( $(core::marker::PhantomData&lt;<span class="macro-nonterminal">$ty_params</span>&gt;),* )
 		)<span class="question-mark">?</span>;
 		<span class="macro-nonterminal">$</span><span class="macro">crate::parameter_types!</span>(<span class="macro-nonterminal">IMPL_STORAGE $name</span>, <span class="macro-nonterminal">$</span><span class="kw">type</span>, <span class="macro-nonterminal">$value </span>$( $(, <span class="macro-nonterminal">$ty_params</span>)* )<span class="question-mark">?</span>);
 		<span class="macro-nonterminal">$</span><span class="macro">crate::parameter_types!</span>( $( <span class="macro-nonterminal">$rest </span>)* );
@@ -3297,7 +3315,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(IMPL <span class="macro-nonterminal">$name</span>:ident , <span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty </span>, <span class="macro-nonterminal">$value</span>:expr) =&gt; {
 		<span class="kw">impl </span><span class="macro-nonterminal">$crate::traits::SortedMembers</span>&lt;<span class="macro-nonterminal">$</span><span class="kw">type</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
 			<span class="kw">fn </span>contains(t: <span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="kw">type</span>) -&gt; <span class="macro-nonterminal">bool </span>{ <span class="kw-2">&amp;</span><span class="macro-nonterminal">$value </span>== t }
-			<span class="kw">fn </span>sorted_members() -&gt; <span class="macro-nonterminal">$crate::__private::sp_std::prelude::Vec</span>&lt;<span class="macro-nonterminal">$</span><span class="kw">type</span>&gt; { <span class="macro">vec!</span>[<span class="macro-nonterminal">$value</span>] }
+			<span class="kw">fn </span>sorted_members() -&gt; <span class="macro-nonterminal">$crate::__private::Vec</span>&lt;<span class="macro-nonterminal">$</span><span class="kw">type</span>&gt; { <span class="macro">vec!</span>[<span class="macro-nonterminal">$value</span>] }
 			<span class="kw">fn </span>count() -&gt; usize { <span class="number">1 </span>}
 			<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 			</span><span class="kw">fn </span>add(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="kw">type</span>) {}
@@ -3328,7 +3346,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Print out the debuggable type.
-</span><span class="kw">pub fn </span>debug(data: <span class="kw-2">&amp;</span><span class="kw">impl </span>sp_std::fmt::Debug) {
+</span><span class="kw">pub fn </span>debug(data: <span class="kw-2">&amp;</span><span class="kw">impl </span>core::fmt::Debug) {
 	<span class="macro">runtime_print!</span>(<span class="string">"{:?}"</span>, data);
 }
 
@@ -3755,6 +3773,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub use </span>codec::{Decode, Encode, MaxEncodedLen};
 	<span class="kw">pub use </span>frame_support::pallet_macros::<span class="kw-2">*</span>;
 
+	<span class="kw">pub use </span>core::marker::PhantomData;
 	<span class="doccomment">/// The optional attribute `#[inject_runtime_type]` can be attached to `RuntimeCall`,
 	/// `RuntimeEvent`, `RuntimeOrigin` or `PalletInfo` in an impl statement that has
 	/// `#[register_default_impl]` attached to indicate that this item is generated by
@@ -3783,7 +3802,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 		DispatchError, RuntimeDebug, MAX_MODULE_ERROR_ENCODED_SIZE,
 	};
-	<span class="kw">pub use </span>sp_std::marker::PhantomData;
 	<span class="kw">pub use </span>sp_weights::Weight;
 }
 
@@ -4114,7 +4132,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # 	use frame_support::pallet_prelude::*;
 	/// # 	use frame_support::inherent::IsFatalError;
 	/// # 	use sp_timestamp::InherentError;
-	/// # 	use sp_std::result;
+	/// # 	use core::result;
 	/// #
 	/// 	// Example inherent identifier
 	/// 	pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"timstap0";
@@ -4740,7 +4758,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Field types in enum variants must also implement [`frame_support::PalletError`],
 	/// otherwise the pallet will fail to compile. Rust primitive types have already
 	/// implemented the [`frame_support::PalletError`] trait along with some commonly used
-	/// stdlib types such as [`Option`] and [`sp_std::marker::PhantomData`], and hence
+	/// stdlib types such as [`Option`] and [`core::marker::PhantomData`], and hence
 	/// in most use cases, a manual implementation is not necessary and is discouraged.
 	///
 	/// The generic `T` must not bound anything and a `where` clause is not allowed. That said,

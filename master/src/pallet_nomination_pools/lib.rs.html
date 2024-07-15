@@ -4098,6 +4098,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3947" id="3947">3947</a>
 <a href="#3948" id="3948">3948</a>
 <a href="#3949" id="3949">3949</a>
+<a href="#3950" id="3950">3950</a>
+<a href="#3951" id="3951">3951</a>
+<a href="#3952" id="3952">3952</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4451,8 +4454,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>adapter::{Member, Pool, StakeStrategy};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>adapter::{Member, Pool, StakeStrategy};
+<span class="kw">use </span>alloc::{collections::btree_map::BTreeMap, vec::Vec};
 <span class="kw">use </span>codec::Codec;
+<span class="kw">use </span>core::{fmt::Debug, ops::Div};
 <span class="kw">use </span>frame_support::{
 	defensive, defensive_assert, ensure,
 	pallet_prelude::{MaxEncodedLen, <span class="kw-2">*</span>},
@@ -4475,7 +4482,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	FixedPointNumber, Perbill,
 };
 <span class="kw">use </span>sp_staking::{EraIndex, StakingInterface};
-<span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, fmt::Debug, ops::Div, vec::Vec};
 
 <span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"fuzzing"</span>, test, debug_assertions))]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
@@ -5049,14 +5055,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>inner: BondedPoolInner&lt;T&gt;,
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; sp_std::ops::Deref <span class="kw">for </span>BondedPool&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Config&gt; core::ops::Deref <span class="kw">for </span>BondedPool&lt;T&gt; {
 	<span class="kw">type </span>Target = BondedPoolInner&lt;T&gt;;
 	<span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.inner
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; sp_std::ops::DerefMut <span class="kw">for </span>BondedPool&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Config&gt; core::ops::DerefMut <span class="kw">for </span>BondedPool&lt;T&gt; {
 	<span class="kw">fn </span>deref_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self</span>::Target {
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner
 	}

@@ -1459,6 +1459,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1308" id="1308">1308</a>
 <a href="#1309" id="1309">1309</a>
 <a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1480,8 +1481,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use crate</span>::{
 	configuration, initializer::SessionChangeNotification, metrics::METRICS, session_info,
 };
+<span class="kw">use </span>alloc::{collections::btree_set::BTreeSet, vec::Vec};
 <span class="kw">use </span>bitvec::{bitvec, order::Lsb0 <span class="kw">as </span>BitOrderLsb0};
 <span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>core::cmp::Ordering;
 <span class="kw">use </span>frame_support::{ensure, weights::Weight};
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>polkadot_primitives::{
@@ -1497,7 +1500,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{AppVerify, One, Saturating, Zero},
 	DispatchError, RuntimeDebug, SaturatedConversion,
 };
-<span class="kw">use </span>sp_std::{cmp::Ordering, collections::btree_set::BTreeSet, prelude::<span class="kw-2">*</span>};
 
 <span class="attr">#[cfg(test)]
 #[allow(unused_imports)]

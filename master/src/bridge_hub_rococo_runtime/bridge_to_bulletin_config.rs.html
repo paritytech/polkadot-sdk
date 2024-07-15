@@ -495,7 +495,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
 	);
 	<span class="doccomment">/// All active routes and their destinations.
-	</span><span class="kw">pub </span>ActiveLanes: sp_std::vec::Vec&lt;(SenderAndLane, (NetworkId, InteriorLocation))&gt; = <span class="macro">sp_std::vec!</span>[
+	</span><span class="kw">pub </span>ActiveLanes: alloc::vec::Vec&lt;(SenderAndLane, (NetworkId, InteriorLocation))&gt; = <span class="macro">alloc::vec!</span>[
 			(
 				FromRococoPeopleToRococoBulletinRoute::get(),
 				(RococoBulletinGlobalConsensusNetwork::get(), Here)

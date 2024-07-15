@@ -470,8 +470,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#319" id="319">319</a>
 <a href="#320" id="320">320</a>
 <a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -491,6 +489,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! A module that is responsible for migration of storage for Collator Selection.
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+</span><span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
 <span class="kw">use </span>log;
 
@@ -503,8 +503,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		traits::{Currency, ReservableCurrency},
 	};
 	<span class="kw">use </span>sp_runtime::traits::{Saturating, Zero};
-	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-	</span><span class="kw">use </span>sp_std::vec::Vec;
 
 	<span class="doccomment">/// [`UncheckedMigrationToV2`] wrapped in a
 	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
@@ -525,7 +523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;;
 
 	<span class="doccomment">/// Migrate to V2.
-	</span><span class="kw">pub struct </span>UncheckedMigrationToV2&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	</span><span class="kw">pub struct </span>UncheckedMigrationToV2&lt;T&gt;(PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config + pallet_balances::Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>UncheckedMigrationToV2&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::zero();
@@ -597,10 +595,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>v1 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
-	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-	</span><span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
-	<span class="kw">pub struct </span>MigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	<span class="kw">pub struct </span>MigrateToV1&lt;T&gt;(PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV1&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span>on_chain_version = Pallet::&lt;T&gt;::on_chain_storage_version();

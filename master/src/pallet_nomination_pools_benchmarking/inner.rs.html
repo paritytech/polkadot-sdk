@@ -1194,7 +1194,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Benchmarks for the nomination pools coupled with the staking and bags list pallets.
 
-</span><span class="kw">use </span>frame_benchmarking::v1::{account, whitelist_account};
+</span><span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>frame_benchmarking::v1::{account, whitelist_account};
 <span class="kw">use </span>frame_election_provider_support::SortedListProvider;
 <span class="kw">use </span>frame_support::{
 	assert_ok, ensure,
@@ -1218,7 +1219,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Perbill,
 };
 <span class="kw">use </span>sp_staking::EraIndex;
-<span class="kw">use </span>sp_std::{vec, vec::Vec};
 <span class="comment">// `frame_benchmarking::benchmarks!` macro needs this
 </span><span class="kw">use </span>pallet_nomination_pools::Call;
 

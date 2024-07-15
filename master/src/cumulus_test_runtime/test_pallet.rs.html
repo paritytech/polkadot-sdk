@@ -284,7 +284,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::weight(<span class="number">0</span>)]
 		</span><span class="kw">pub fn </span>set_custom_validation_head_data(
 			<span class="kw">_</span>: OriginFor&lt;T&gt;,
-			custom_header: sp_std::vec::Vec&lt;u8&gt;,
+			custom_header: alloc::vec::Vec&lt;u8&gt;,
 		) -&gt; DispatchResult {
 			cumulus_pallet_parachain_system::Pallet::&lt;T&gt;::set_custom_validation_head_data(
 				custom_header,
@@ -321,7 +321,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[pallet::genesis_config]
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
 		<span class="attr">#[serde(skip)]
-		</span><span class="kw">pub </span>_config: sp_std::marker::PhantomData&lt;T&gt;,
+		</span><span class="kw">pub </span>_config: core::marker::PhantomData&lt;T&gt;,
 	}
 
 	<span class="attr">#[pallet::genesis_build]

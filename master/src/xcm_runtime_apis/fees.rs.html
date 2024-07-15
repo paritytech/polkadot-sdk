@@ -264,9 +264,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Runtime API definition for getting XCM fees.
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::pallet_prelude::TypeInfo;
-<span class="kw">use </span>sp_std::vec::Vec;
 <span class="kw">use </span>sp_weights::Weight;
 <span class="kw">use </span>xcm::{Version, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
 

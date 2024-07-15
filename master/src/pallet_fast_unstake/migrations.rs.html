@@ -258,20 +258,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">pub mod </span>v1 {
 	<span class="kw">use crate</span>::{types::BalanceOf, <span class="kw-2">*</span>};
+	<span class="kw">use </span>alloc::vec::Vec;
 	<span class="kw">use </span>frame_support::{
 		storage::unhashed,
 		traits::{Defensive, Get, GetStorageVersion, OnRuntimeUpgrade},
 		weights::Weight,
 	};
 	<span class="kw">use </span>sp_staking::EraIndex;
-	<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>frame_support::ensure;
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
-	<span class="kw">pub struct </span>MigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	<span class="kw">pub struct </span>MigrateToV1&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV1&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span>current = Pallet::&lt;T&gt;::in_code_storage_version();

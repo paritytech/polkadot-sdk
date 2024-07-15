@@ -417,11 +417,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Preimage pallet benchmarking.
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>alloc::vec;
 <span class="kw">use </span>frame_benchmarking::v1::{account, benchmarks, whitelisted_caller, BenchmarkError};
 <span class="kw">use </span>frame_support::assert_ok;
 <span class="kw">use </span>frame_system::RawOrigin;
 <span class="kw">use </span>sp_runtime::traits::Bounded;
-<span class="kw">use </span>sp_std::{prelude::<span class="kw-2">*</span>, vec};
 
 <span class="kw">use </span><span class="kw">crate</span>::Pallet <span class="kw">as </span>Preimage;
 

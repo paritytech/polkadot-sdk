@@ -577,6 +577,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>bp_messages::LaneId;
 <span class="kw">use </span>bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
 <span class="kw">use </span>bp_runtime::ChainId;
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::{
 	parameter_types,
 	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
@@ -596,7 +597,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>snowbridge_runtime_common::XcmExportFeeToSibling;
 <span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
-<span class="kw">use </span>sp_std::marker::PhantomData;
 <span class="kw">use </span>testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{

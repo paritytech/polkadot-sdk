@@ -856,6 +856,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#705" id="705">705</a>
 <a href="#706" id="706">706</a>
 <a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -875,9 +876,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Traits and utilities to help with origin mutation and bridging.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::InspectMessageQueues;
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>core::{convert::TryInto, marker::PhantomData};
 <span class="kw">use </span>frame_support::{ensure, traits::Get};
-<span class="kw">use </span>sp_std::{convert::TryInto, marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_executor::traits::{validate_export, ExportXcm};
 <span class="kw">use </span>SendError::<span class="kw-2">*</span>;
@@ -1007,7 +1009,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// An adapter for the implementation of `ExporterFor`, which attempts to find the
 /// `(bridge_location, payment)` for the requested `network` and `remote_location` in the provided
 /// `T` table containing various exporters.
-</span><span class="kw">pub struct </span>NetworkExportTable&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>NetworkExportTable&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: Get&lt;Vec&lt;NetworkExportTableItem&gt;&gt;&gt; ExporterFor <span class="kw">for </span>NetworkExportTable&lt;T&gt; {
 	<span class="kw">fn </span>exporter_for(
 		network: <span class="kw-2">&amp;</span>NetworkId,
@@ -1507,7 +1509,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">pub </span>PaymentForNetworkAAndParachain2000: Asset = (Location::parent(), <span class="number">150</span>).into();
 
-			<span class="kw">pub </span>BridgeTable: sp_std::vec::Vec&lt;NetworkExportTableItem&gt; = <span class="macro">sp_std::vec!</span>[
+			<span class="kw">pub </span>BridgeTable: alloc::vec::Vec&lt;NetworkExportTableItem&gt; = <span class="macro">alloc::vec!</span>[
 				<span class="comment">// NetworkA allows `Parachain(1000)` as remote location WITHOUT payment.
 				</span>NetworkExportTableItem::new(
 					NetworkA::get(),

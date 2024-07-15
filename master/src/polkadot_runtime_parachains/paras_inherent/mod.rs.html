@@ -1678,6 +1678,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	shared::{<span class="self">self</span>, AllowedRelayParentsTracker},
 	ParaId,
 };
+<span class="kw">use </span>alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
 <span class="kw">use </span>bitvec::prelude::BitVec;
 <span class="kw">use </span>frame_support::{
 	defensive,
@@ -1699,11 +1704,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>rand::{seq::SliceRandom, SeedableRng};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::traits::{Header <span class="kw">as </span>HeaderT, One};
-<span class="kw">use </span>sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	prelude::<span class="kw-2">*</span>,
-	vec::Vec,
-};
 
 <span class="kw">mod </span>misc;
 <span class="kw">mod </span>weights;
@@ -1941,7 +1941,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>process_inherent_data(
 		data: ParachainsInherentData&lt;HeaderFor&lt;T&gt;&gt;,
 		context: ProcessInherentDataContext,
-	) -&gt; sp_std::result::Result&lt;
+	) -&gt; core::result::Result&lt;
 		(ParachainsInherentData&lt;HeaderFor&lt;T&gt;&gt;, PostDispatchInfo),
 		DispatchErrorWithPostInfo,
 	&gt; {
@@ -2408,7 +2408,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span><span class="kw-2">mut </span>chained_candidates: Vec&lt;Vec&lt;<span class="kw">_</span>&gt;&gt; = Vec::new();
 	<span class="kw">let </span><span class="kw-2">mut </span>current_para_id = <span class="prelude-val">None</span>;
 
-	<span class="kw">for </span>candidate <span class="kw">in </span>sp_std::mem::take(candidates).into_iter() {
+	<span class="kw">for </span>candidate <span class="kw">in </span>core::mem::take(candidates).into_iter() {
 		<span class="kw">let </span>candidate_para_id = candidate.descriptor().para_id;
 		<span class="kw">if </span><span class="prelude-val">Some</span>(candidate_para_id) == current_para_id {
 			<span class="kw">let </span>chain = chained_candidates

@@ -398,13 +398,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Frame System benchmarks.
 
-</span><span class="kw">use </span>codec::Encode;
+</span><span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_benchmarking::v2::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_support::{dispatch::DispatchClass, storage, traits::Get};
 <span class="kw">use </span>frame_system::{Call, Pallet <span class="kw">as </span>System, RawOrigin};
 <span class="kw">use </span>sp_core::storage::well_known_keys;
 <span class="kw">use </span>sp_runtime::traits::Hash;
-<span class="kw">use </span>sp_std::{prelude::<span class="kw-2">*</span>, vec};
 
 <span class="kw">pub struct </span>Pallet&lt;T: Config&gt;(System&lt;T&gt;);
 <span class="kw">pub trait </span>Config: frame_system::Config {

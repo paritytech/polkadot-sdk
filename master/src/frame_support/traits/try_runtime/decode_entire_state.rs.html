@@ -703,10 +703,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{PartialStorageInfoTrait, StorageInfo},
 	StorageHasher,
 };
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, DecodeAll, FullCodec};
 <span class="kw">use </span>impl_trait_for_tuples::impl_for_tuples;
 <span class="kw">use </span>sp_core::Get;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Decode the entire data under the given storage type.
 ///
@@ -759,8 +759,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">write!</span>(
 			f,
 			<span class="string">"`{}::{}` key `{}` is undecodable"</span>,
-			<span class="kw-2">&amp;</span>sp_std::str::from_utf8(<span class="kw-2">&amp;</span><span class="self">self</span>.info.pallet_name).unwrap_or(<span class="string">"&lt;invalid&gt;"</span>),
-			<span class="kw-2">&amp;</span>sp_std::str::from_utf8(<span class="kw-2">&amp;</span><span class="self">self</span>.info.storage_name).unwrap_or(<span class="string">"&lt;invalid&gt;"</span>),
+			<span class="kw-2">&amp;</span>alloc::str::from_utf8(<span class="kw-2">&amp;</span><span class="self">self</span>.info.pallet_name).unwrap_or(<span class="string">"&lt;invalid&gt;"</span>),
+			<span class="kw-2">&amp;</span>alloc::str::from_utf8(<span class="kw-2">&amp;</span><span class="self">self</span>.info.storage_name).unwrap_or(<span class="string">"&lt;invalid&gt;"</span>),
 			array_bytes::bytes2hex(<span class="string">"0x"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.key)
 		)
 	}

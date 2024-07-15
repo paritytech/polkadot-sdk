@@ -550,12 +550,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#399" id="399">399</a>
 <a href="#400" id="400">400</a>
 <a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -690,10 +684,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[doc(no_inline)]
 	</span><span class="kw">pub use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 
-	<span class="doccomment">/// All of the std alternative types.
-	</span><span class="attr">#[doc(no_inline)]
-	</span><span class="kw">pub use </span>sp_std::prelude::<span class="kw-2">*</span>;
-
 	<span class="doccomment">/// All FRAME-relevant derive macros.
 	</span><span class="attr">#[doc(no_inline)]
 	</span><span class="kw">pub use </span><span class="kw">super</span>::derive::<span class="kw-2">*</span>;
@@ -722,7 +712,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub use </span>frame_system::{<span class="self">self</span>, mocking::<span class="kw-2">*</span>};
 	<span class="kw">pub use </span>sp_io::TestExternalities <span class="kw">as </span>TestState;
-	<span class="kw">pub use </span>sp_std::if_std;
 }
 
 <span class="doccomment">/// All of the types and tools needed to build FRAME-based runtimes.
@@ -905,13 +894,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This is already part of the [`prelude`].
 </span><span class="kw">pub mod </span>derive {
 	<span class="kw">pub use </span>codec::{Decode, Encode};
+	<span class="kw">pub use </span>core::fmt::Debug;
 	<span class="kw">pub use </span>frame_support::{
 		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,
 		PartialOrdNoBound, RuntimeDebugNoBound,
 	};
 	<span class="kw">pub use </span>scale_info::TypeInfo;
 	<span class="kw">pub use </span>sp_runtime::RuntimeDebug;
-	<span class="kw">pub use </span>sp_std::fmt::Debug;
 }
 
 <span class="doccomment">/// Access to all of the dependencies of this crate. In case the re-exports are not enough, this
@@ -931,7 +920,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub use </span>sp_core;
 	<span class="kw">pub use </span>sp_io;
 	<span class="kw">pub use </span>sp_runtime;
-	<span class="kw">pub use </span>sp_std;
 
 	<span class="kw">pub use </span>codec;
 	<span class="kw">pub use </span>scale_info;

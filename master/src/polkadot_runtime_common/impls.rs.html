@@ -616,7 +616,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>xcm::VersionedLocation;
 
 <span class="doccomment">/// Logic for the author to get a portion of fees.
-</span><span class="kw">pub struct </span>ToAuthor&lt;R&gt;(sp_std::marker::PhantomData&lt;R&gt;);
+</span><span class="kw">pub struct </span>ToAuthor&lt;R&gt;(core::marker::PhantomData&lt;R&gt;);
 <span class="kw">impl</span>&lt;R&gt; OnUnbalanced&lt;Credit&lt;R::AccountId, pallet_balances::Pallet&lt;R&gt;&gt;&gt; <span class="kw">for </span>ToAuthor&lt;R&gt;
 <span class="kw">where
 	</span>R: pallet_balances::Config + pallet_authorship::Config,
@@ -632,7 +632,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">pub struct </span>DealWithFees&lt;R&gt;(sp_std::marker::PhantomData&lt;R&gt;);
+<span class="kw">pub struct </span>DealWithFees&lt;R&gt;(core::marker::PhantomData&lt;R&gt;);
 <span class="kw">impl</span>&lt;R&gt; OnUnbalanced&lt;Credit&lt;R::AccountId, pallet_balances::Pallet&lt;R&gt;&gt;&gt; <span class="kw">for </span>DealWithFees&lt;R&gt;
 <span class="kw">where
 	</span>R: pallet_balances::Config + pallet_authorship::Config + pallet_treasury::Config,

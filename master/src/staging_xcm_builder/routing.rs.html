@@ -349,6 +349,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -367,9 +368,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Various implementations for `SendXcm`.
 
-</span><span class="kw">use </span>codec::Encode;
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::Encode;
+<span class="kw">use </span>core::{marker::PhantomData, result::Result};
 <span class="kw">use </span>frame_system::unique;
-<span class="kw">use </span>sp_std::{marker::PhantomData, result::Result, vec::Vec};
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_executor::{traits::FeeReason, FeesMode};
 
@@ -524,7 +526,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// `Inner::Ticket`. Therefore, this router aims to validate at least the passed `message`.
 ///
 /// NOTE: For use in mock runtimes which don't have the DMP/UMP/HRMP XCM validations.
-</span><span class="kw">pub struct </span>EnsureDecodableXcm&lt;Inner&gt;(sp_std::marker::PhantomData&lt;Inner&gt;);
+</span><span class="kw">pub struct </span>EnsureDecodableXcm&lt;Inner&gt;(core::marker::PhantomData&lt;Inner&gt;);
 <span class="kw">impl</span>&lt;Inner: SendXcm&gt; SendXcm <span class="kw">for </span>EnsureDecodableXcm&lt;Inner&gt; {
 	<span class="kw">type </span>Ticket = Inner::Ticket;
 

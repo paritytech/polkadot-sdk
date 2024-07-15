@@ -350,7 +350,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! A simple wrapper allowing `Sudo` to call into `paras` routines.
 
-</span><span class="kw">use </span>codec::Encode;
+</span><span class="kw">use </span>alloc::boxed::Box;
+<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
@@ -360,7 +361,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	paras::{<span class="self">self</span>, AssignCoretime, ParaGenesisArgs},
 	ParaLifecycle,
 };
-<span class="kw">use </span>sp_std::boxed::Box;
 
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {

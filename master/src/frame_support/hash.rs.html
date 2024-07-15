@@ -390,10 +390,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Hash utilities.
 
-</span><span class="kw">use </span>codec::{Codec, MaxEncodedLen};
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>codec::{Codec, MaxEncodedLen};
 <span class="kw">use </span>sp_io::hashing::{blake2_128, blake2_256, twox_128, twox_256, twox_64};
 <span class="kw">use </span>sp_metadata_ir <span class="kw">as </span>metadata_ir;
-<span class="kw">use </span>sp_std::prelude::Vec;
 
 <span class="comment">// This trait must be kept coherent with frame-support-procedural HasherKind usage
 </span><span class="kw">pub trait </span>Hashable: Sized {

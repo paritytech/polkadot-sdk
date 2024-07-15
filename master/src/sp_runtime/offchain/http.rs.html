@@ -758,8 +758,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#607" id="607">607</a>
 <a href="#608" id="608">608</a>
 <a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -810,15 +808,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! assert_eq!(body.error(), &amp;None);
 //! ```
 
-</span><span class="kw">use </span>sp_core::{
+</span><span class="kw">use </span>alloc::{str, vec, vec::Vec};
+<span class="kw">use </span>sp_core::{
 	offchain::{
 		HttpError, HttpRequestId <span class="kw">as </span>RequestId, HttpRequestStatus <span class="kw">as </span>RequestStatus, Timestamp,
 	},
 	RuntimeDebug,
 };
-<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-</span><span class="kw">use </span>sp_std::prelude::vec;
-<span class="kw">use </span>sp_std::{prelude::Vec, str};
 
 <span class="doccomment">/// Request method (HTTP verb)
 </span><span class="attr">#[derive(Clone, PartialEq, Eq, RuntimeDebug)]

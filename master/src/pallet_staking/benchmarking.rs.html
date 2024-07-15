@@ -1237,7 +1237,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1086" id="1086">1086</a>
 <a href="#1087" id="1087">1087</a>
 <a href="#1088" id="1088">1088</a>
-<a href="#1089" id="1089">1089</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1273,7 +1272,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Perbill, Percent, Saturating,
 };
 <span class="kw">use </span>sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>frame_benchmarking::v1::{
 	account, benchmarks, impl_benchmark_test_suite, whitelist_account, whitelisted_caller,
@@ -1409,7 +1407,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// burn the entire issuance.
 		</span><span class="kw">let </span>i = T::Currency::burn(T::Currency::total_issuance());
-		sp_std::mem::forget(i);
+		core::mem::forget(i);
 
 		<span class="comment">// create accounts with the origin weight
 

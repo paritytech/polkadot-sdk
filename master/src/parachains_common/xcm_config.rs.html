@@ -389,13 +389,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::impls::AccountIdOf;
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>cumulus_primitives_core::{IsSystem, ParaId};
 <span class="kw">use </span>frame_support::{
 	traits::{fungibles::Inspect, tokens::ConversionToAssetBalance, Contains, ContainsPair},
 	weights::Weight,
 };
 <span class="kw">use </span>sp_runtime::traits::Get;
-<span class="kw">use </span>sp_std::marker::PhantomData;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// A `ChargeFeeInFungibles` implementation that converts the output of

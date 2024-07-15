@@ -338,23 +338,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The extension affects `longevity` of the transaction according to the [`Era`] definition.
 </span><span class="attr">#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-</span><span class="kw">pub struct </span>CheckMortality&lt;T: Config + Send + Sync&gt;(<span class="kw">pub </span>Era, sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>CheckMortality&lt;T: Config + Send + Sync&gt;(<span class="kw">pub </span>Era, core::marker::PhantomData&lt;T&gt;);
 
 <span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; CheckMortality&lt;T&gt; {
 	<span class="doccomment">/// utility constructor. Used only in client/factory code.
 	</span><span class="kw">pub fn </span>from(era: Era) -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>(era, sp_std::marker::PhantomData)
+		<span class="self">Self</span>(era, core::marker::PhantomData)
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; sp_std::fmt::Debug <span class="kw">for </span>CheckMortality&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; core::fmt::Debug <span class="kw">for </span>CheckMortality&lt;T&gt; {
 	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="macro">write!</span>(f, <span class="string">"CheckMortality({:?})"</span>, <span class="self">self</span>.<span class="number">0</span>)
 	}
 
 	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="prelude-val">Ok</span>(())
 	}
 }

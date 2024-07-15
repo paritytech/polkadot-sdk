@@ -1493,7 +1493,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			#(#cfg_attrs)*
 			{
 				&lt;#full_ident <span class="kw">as </span>#frame_support::storage::StorageEntryMetadataBuilder&gt;::build_metadata(
-					#<span class="macro">frame_support::__private::sp_std::vec!</span>[
+					#<span class="macro">frame_support::__private::vec!</span>[
 						#( #docs, )*
 					],
 					<span class="kw-2">&amp;mut </span>entries,
@@ -1923,7 +1923,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">impl</span>&lt;#type_impl_gen&gt; #frame_support::traits::TryDecodeEntireStorage
 			<span class="kw">for </span>#pallet_ident&lt;#type_use_gen&gt; #completed_where_clause
 			{
-				<span class="kw">fn </span>try_decode_entire_state() -&gt; <span class="prelude-ty">Result</span>&lt;usize, #frame_support::__private::sp_std::vec::Vec&lt;#frame_support::traits::TryDecodeEntireStorageError&gt;&gt; {
+				<span class="kw">fn </span>try_decode_entire_state() -&gt; <span class="prelude-ty">Result</span>&lt;usize, #frame_support::__private::Vec&lt;#frame_support::traits::TryDecodeEntireStorageError&gt;&gt; {
 					<span class="kw">let </span>pallet_name = &lt;&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo	<span class="kw">as </span>#frame_support::traits::PalletInfo&gt;
 						::name::&lt;#pallet_ident&lt;#type_use_gen&gt;&gt;()
 						.expect(<span class="string">"Every active pallet has a name in the runtime; qed"</span>);
@@ -1931,7 +1931,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					#<span class="macro">frame_support::__private::log::debug!</span>(target: <span class="string">"runtime::try-decode-state"</span>, <span class="string">"trying to decode pallet: {pallet_name}"</span>);
 
 					<span class="comment">// NOTE: for now, we have to exclude storage items that are feature gated.
-					</span><span class="kw">let </span><span class="kw-2">mut </span>errors = #frame_support::__private::sp_std::vec::Vec::new();
+					</span><span class="kw">let </span><span class="kw-2">mut </span>errors = #frame_support::__private::Vec::new();
 					<span class="kw">let </span><span class="kw-2">mut </span>decoded = <span class="number">0usize</span>;
 
 					#(
@@ -1972,7 +1972,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.expect(<span class="string">"No name found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`."</span>),
 					entries: {
 						<span class="attr">#[allow(unused_mut)]
-						</span><span class="kw">let </span><span class="kw-2">mut </span>entries = #<span class="macro">frame_support::__private::sp_std::vec!</span>[];
+						</span><span class="kw">let </span><span class="kw-2">mut </span>entries = #<span class="macro">frame_support::__private::vec!</span>[];
 						#( #entries_builder )*
 						entries
 					},

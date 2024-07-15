@@ -558,6 +558,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#407" id="407">407</a>
 <a href="#408" id="408">408</a>
 <a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -576,7 +577,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>core::{fmt::Debug, iter::once, ops::Add};
 <span class="kw">use </span>frame_support::{
 	traits::{ConstU32, Get},
 	BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
@@ -589,7 +592,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Member, Zero},
 	RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::{fmt::Debug, iter::once, ops::Add, prelude::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// An identifier for a single name registrar/identity verification service.
 </span><span class="kw">pub type </span>RegistrarIndex = u32;
@@ -625,7 +627,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>Decode <span class="kw">for </span>Data {
-	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; sp_std::result::Result&lt;<span class="self">Self</span>, codec::Error&gt; {
+	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; core::result::Result&lt;<span class="self">Self</span>, codec::Error&gt; {
 		<span class="kw">let </span>b = input.read_byte()<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(<span class="kw">match </span>b {
 			<span class="number">0 </span>=&gt; Data::None,
@@ -855,7 +857,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		IdentityInfo: IdentityInformationProvider,
 	&gt; Decode <span class="kw">for </span>Registration&lt;Balance, MaxJudgements, IdentityInfo&gt;
 {
-	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; sp_std::result::Result&lt;<span class="self">Self</span>, codec::Error&gt; {
+	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; core::result::Result&lt;<span class="self">Self</span>, codec::Error&gt; {
 		<span class="kw">let </span>(judgements, deposit, info) = Decode::decode(<span class="kw-2">&amp;mut </span>AppendZerosInput::new(input))<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ judgements, deposit, info })
 	}

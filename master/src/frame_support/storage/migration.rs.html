@@ -690,8 +690,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	storage::{storage_prefix, unhashed},
 	StorageHasher, Twox128,
 };
+<span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="kw">super</span>::PrefixIterator;
 
@@ -700,7 +700,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	prefix: Vec&lt;u8&gt;,
 	previous_key: Vec&lt;u8&gt;,
 	drain: bool,
-	_phantom: ::sp_std::marker::PhantomData&lt;T&gt;,
+	_phantom: ::core::marker::PhantomData&lt;T&gt;,
 }
 
 <span class="kw">impl</span>&lt;T&gt; StorageIterator&lt;T&gt; {
@@ -763,7 +763,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	prefix: Vec&lt;u8&gt;,
 	previous_key: Vec&lt;u8&gt;,
 	drain: bool,
-	_phantom: ::sp_std::marker::PhantomData&lt;(K, T, H)&gt;,
+	_phantom: ::core::marker::PhantomData&lt;(K, T, H)&gt;,
 }
 
 <span class="kw">impl</span>&lt;K, T, H: ReversibleStorageHasher&gt; StorageKeyIterator&lt;K, T, H&gt; {

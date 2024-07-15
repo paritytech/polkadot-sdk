@@ -1134,6 +1134,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#983" id="983">983</a>
 <a href="#984" id="984">984</a>
 <a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1217,14 +1219,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub use </span>benchmarking::ArgumentsFactory;
 
+<span class="kw">extern crate </span>alloc;
+
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 
+<span class="kw">use </span>alloc::{boxed::Box, collections::btree_map::BTreeMap};
 <span class="kw">use </span>sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
 	Permill, RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">use </span>frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
@@ -1462,7 +1466,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[derive(frame_support::DefaultNoBound)]
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="attr">#[serde(skip)]
-		</span>_config: sp_std::marker::PhantomData&lt;(T, I)&gt;,
+		</span>_config: core::marker::PhantomData&lt;(T, I)&gt;,
 	}
 
 	<span class="attr">#[pallet::genesis_build]

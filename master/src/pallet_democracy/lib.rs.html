@@ -1902,6 +1902,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1751" id="1751">1751</a>
 <a href="#1752" id="1752">1752</a>
 <a href="#1753" id="1753">1753</a>
+<a href="#1754" id="1754">1754</a>
+<a href="#1755" id="1755">1755</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2056,7 +2058,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![recursion_limit = <span class="string">"256"</span>]
 #![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	ensure,
 	traits::{
@@ -2072,7 +2077,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{BadOrigin, Bounded <span class="kw">as </span>ArithBounded, One, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, DispatchResult,
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">mod </span>conviction;
 <span class="kw">mod </span>types;
@@ -2342,7 +2346,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[derive(frame_support::DefaultNoBound)]
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
 		<span class="attr">#[serde(skip)]
-		</span>_config: sp_std::marker::PhantomData&lt;T&gt;,
+		</span>_config: core::marker::PhantomData&lt;T&gt;,
 	}
 
 	<span class="attr">#[pallet::genesis_build]
@@ -3337,7 +3341,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				delegations: Default::default(),
 				prior: Default::default(),
 			};
-			sp_std::mem::swap(<span class="kw-2">&amp;mut </span>old, voting);
+			core::mem::swap(<span class="kw-2">&amp;mut </span>old, voting);
 			<span class="kw">match </span>old {
 				Voting::Delegating {
 					balance, target, conviction, delegations, <span class="kw-2">mut </span>prior, ..
@@ -3378,7 +3382,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>try_undelegate(who: T::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;u32, DispatchError&gt; {
 		<span class="kw">let </span>votes = VotingOf::&lt;T&gt;::try_mutate(<span class="kw-2">&amp;</span>who, |voting| -&gt; <span class="prelude-ty">Result</span>&lt;u32, DispatchError&gt; {
 			<span class="kw">let </span><span class="kw-2">mut </span>old = Voting::default();
-			sp_std::mem::swap(<span class="kw-2">&amp;mut </span>old, voting);
+			core::mem::swap(<span class="kw-2">&amp;mut </span>old, voting);
 			<span class="kw">match </span>old {
 				Voting::Delegating { balance, target, conviction, delegations, <span class="kw-2">mut </span>prior } =&gt; {
 					<span class="comment">// remove any delegation votes to our current target.

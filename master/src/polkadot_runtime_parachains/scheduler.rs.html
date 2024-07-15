@@ -881,8 +881,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#730" id="730">730</a>
 <a href="#731" id="731">731</a>
 <a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -924,6 +922,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>core::iter::Peekable;
 
 <span class="kw">use crate</span>::{configuration, initializer::SessionChangeNotification, paras};
+<span class="kw">use </span>alloc::{
+	collections::{
+		btree_map::{<span class="self">self</span>, BTreeMap},
+		vec_deque::VecDeque,
+	},
+	vec::Vec,
+};
 <span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, traits::Defensive};
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">pub use </span>polkadot_core_primitives::v2::BlockNumber;
@@ -931,13 +936,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	CoreIndex, GroupIndex, GroupRotationInfo, Id <span class="kw">as </span>ParaId, ScheduledCore, ValidatorIndex,
 };
 <span class="kw">use </span>sp_runtime::traits::One;
-<span class="kw">use </span>sp_std::{
-	collections::{
-		btree_map::{<span class="self">self</span>, BTreeMap},
-		vec_deque::VecDeque,
-	},
-	prelude::<span class="kw-2">*</span>,
-};
 
 <span class="kw">pub mod </span>common;
 
@@ -1199,10 +1197,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.into_iter()
 				.filter(|(freed_index, <span class="kw">_</span>)| (freed_index.<span class="number">0 </span><span class="kw">as </span>usize) &lt; c_len)
 				.for_each(|(freed_index, freed_reason)| {
-					<span class="kw">match </span>sp_std::mem::replace(
-						<span class="kw-2">&amp;mut </span>cores[freed_index.<span class="number">0 </span><span class="kw">as </span>usize],
-						CoreOccupied::Free,
-					) {
+					<span class="kw">match </span>core::mem::replace(<span class="kw-2">&amp;mut </span>cores[freed_index.<span class="number">0 </span><span class="kw">as </span>usize], CoreOccupied::Free)
+					{
 						CoreOccupied::Free =&gt; {},
 						CoreOccupied::Paras(entry) =&gt; {
 							<span class="kw">match </span>freed_reason {
@@ -1454,7 +1450,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>push_occupied_cores_to_assignment_provider() {
 		AvailabilityCores::&lt;T&gt;::mutate(|cores| {
 			<span class="kw">for </span>core <span class="kw">in </span>cores.iter_mut() {
-				<span class="kw">match </span>sp_std::mem::replace(core, CoreOccupied::Free) {
+				<span class="kw">match </span>core::mem::replace(core, CoreOccupied::Free) {
 					CoreOccupied::Free =&gt; <span class="kw">continue</span>,
 					CoreOccupied::Paras(entry) =&gt; {
 						<span class="self">Self</span>::maybe_push_assignment(entry);

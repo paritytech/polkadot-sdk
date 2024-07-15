@@ -543,9 +543,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		CandidatePendingAvailability <span class="kw">as </span>V1CandidatePendingAvailability, Config, Pallet,
 		PendingAvailability <span class="kw">as </span>V1PendingAvailability,
 	};
+	<span class="kw">use </span>alloc::{collections::vec_deque::VecDeque, vec::Vec};
 	<span class="kw">use </span>frame_support::{traits::UncheckedOnRuntimeUpgrade, weights::Weight};
 	<span class="kw">use </span>sp_core::Get;
-	<span class="kw">use </span>sp_std::{collections::vec_deque::VecDeque, vec::Vec};
 
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>codec::{Decode, Encode};
@@ -555,7 +555,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		traits::{GetStorageVersion, StorageVersion},
 	};
 
-	<span class="kw">pub struct </span>VersionUncheckedMigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	<span class="kw">pub struct </span>VersionUncheckedMigrateToV1&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 
 	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateToV1&lt;T&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]

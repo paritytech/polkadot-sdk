@@ -1432,7 +1432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[doc(hidden)]
 		</span><span class="kw">trait </span>InternalConstructRuntime {
 			<span class="attr">#[inline(always)]
-			</span><span class="kw">fn </span>runtime_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; #scrate::__private::sp_std::vec::Vec&lt;#scrate::__private::metadata_ir::RuntimeApiMetadataIR&gt; {
+			</span><span class="kw">fn </span>runtime_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; #scrate::__private::Vec&lt;#scrate::__private::metadata_ir::RuntimeApiMetadataIR&gt; {
 				Default::default()
 			}
 		}
@@ -1631,10 +1631,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">impl </span>#scrate::traits::PalletInfo <span class="kw">for </span>PalletInfo {
 
 			<span class="kw">fn </span>index&lt;P: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
-				<span class="kw">let </span>type_id = #scrate::__private::sp_std::any::TypeId::of::&lt;P&gt;();
+				<span class="kw">let </span>type_id = core::any::TypeId::of::&lt;P&gt;();
 				#(
 					#pallet_attrs
-					<span class="kw">if </span>type_id == #scrate::__private::sp_std::any::TypeId::of::&lt;#names&gt;() {
+					<span class="kw">if </span>type_id == core::any::TypeId::of::&lt;#names&gt;() {
 						<span class="kw">return </span><span class="prelude-val">Some</span>(#indices)
 					}
 				)*
@@ -1643,10 +1643,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>}
 
 			<span class="kw">fn </span>name&lt;P: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
-				<span class="kw">let </span>type_id = #scrate::__private::sp_std::any::TypeId::of::&lt;P&gt;();
+				<span class="kw">let </span>type_id = core::any::TypeId::of::&lt;P&gt;();
 				#(
 					#pallet_attrs
-					<span class="kw">if </span>type_id == #scrate::__private::sp_std::any::TypeId::of::&lt;#names&gt;() {
+					<span class="kw">if </span>type_id == core::any::TypeId::of::&lt;#names&gt;() {
 						<span class="kw">return </span><span class="prelude-val">Some</span>(#name_strings)
 					}
 				)*
@@ -1655,10 +1655,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>}
 
 			<span class="kw">fn </span>name_hash&lt;P: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">16</span>]&gt; {
-				<span class="kw">let </span>type_id = #scrate::__private::sp_std::any::TypeId::of::&lt;P&gt;();
+				<span class="kw">let </span>type_id = core::any::TypeId::of::&lt;P&gt;();
 				#(
 					#pallet_attrs
-					<span class="kw">if </span>type_id == #scrate::__private::sp_std::any::TypeId::of::&lt;#names&gt;() {
+					<span class="kw">if </span>type_id == core::any::TypeId::of::&lt;#names&gt;() {
 						<span class="kw">return </span><span class="prelude-val">Some</span>(#name_hashes)
 					}
 				)*
@@ -1667,10 +1667,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>}
 
 			<span class="kw">fn </span>module_name&lt;P: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
-				<span class="kw">let </span>type_id = #scrate::__private::sp_std::any::TypeId::of::&lt;P&gt;();
+				<span class="kw">let </span>type_id = core::any::TypeId::of::&lt;P&gt;();
 				#(
 					#pallet_attrs
-					<span class="kw">if </span>type_id == #scrate::__private::sp_std::any::TypeId::of::&lt;#names&gt;() {
+					<span class="kw">if </span>type_id == core::any::TypeId::of::&lt;#names&gt;() {
 						<span class="kw">return </span><span class="prelude-val">Some</span>(#module_names)
 					}
 				)*
@@ -1679,10 +1679,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>}
 
 			<span class="kw">fn </span>crate_version&lt;P: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;#scrate::traits::CrateVersion&gt; {
-				<span class="kw">let </span>type_id = #scrate::__private::sp_std::any::TypeId::of::&lt;P&gt;();
+				<span class="kw">let </span>type_id = core::any::TypeId::of::&lt;P&gt;();
 				#(
 					#pallet_attrs
-					<span class="kw">if </span>type_id == #scrate::__private::sp_std::any::TypeId::of::&lt;#names&gt;() {
+					<span class="kw">if </span>type_id == core::any::TypeId::of::&lt;#names&gt;() {
 						<span class="kw">return </span><span class="prelude-val">Some</span>(
 							&lt;#pallet_structs <span class="kw">as </span>#scrate::traits::PalletInfoAccess&gt;::crate_version()
 						)

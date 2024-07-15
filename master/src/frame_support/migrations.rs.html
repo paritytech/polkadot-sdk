@@ -1260,6 +1260,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1109" id="1109">1109</a>
 <a href="#1110" id="1110">1110</a>
 <a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1286,13 +1287,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	weights::{RuntimeDbWeight, Weight, WeightMeter},
 };
+<span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>impl_trait_for_tuples::impl_for_tuples;
 <span class="kw">use </span>sp_arithmetic::traits::Bounded;
 <span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
 <span class="kw">use </span>sp_runtime::traits::Zero;
-<span class="kw">use </span>sp_std::{marker::PhantomData, vec::Vec};
 
 <span class="doccomment">/// Handles storage migration pallet versioning.
 ///
@@ -1333,7 +1335,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// /// - https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40
 /// mod version_unchecked {
 /// 	use super::*;
-/// 	pub struct VersionUncheckedMigrateV5ToV6&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+/// 	pub struct VersionUncheckedMigrateV5ToV6&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 /// 	impl&lt;T: Config&gt; UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV5ToV6&lt;T&gt; {
 /// 		// `UncheckedOnRuntimeUpgrade` implementation...
 /// 	}
@@ -1364,7 +1366,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Encode, Decode)]
 </span><span class="kw">pub enum </span>VersionedPostUpgradeData {
 	<span class="doccomment">/// The migration ran, inner vec contains pre_upgrade data.
-	</span>MigrationExecuted(sp_std::vec::Vec&lt;u8&gt;),
+	</span>MigrationExecuted(alloc::vec::Vec&lt;u8&gt;),
 	<span class="doccomment">/// This migration is a noop, do not run post_upgrade checks.
 	</span>Noop,
 }
@@ -1387,7 +1389,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// [`VersionedPostUpgradeData`] before passing them to post_upgrade, so it knows whether the
 	/// migration ran or not.
 	</span><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;sp_std::vec::Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
+	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;alloc::vec::Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">let </span>on_chain_version = Pallet::on_chain_storage_version();
 		<span class="kw">if </span>on_chain_version == FROM {
 			<span class="prelude-val">Ok</span>(VersionedPostUpgradeData::MigrationExecuted(Inner::pre_upgrade()<span class="question-mark">?</span>).encode())
@@ -1437,7 +1439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// the migration ran, and [`VersionedPostUpgradeData::Noop`] otherwise.
 	</span><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>post_upgrade(
-		versioned_post_upgrade_data_bytes: sp_std::vec::Vec&lt;u8&gt;,
+		versioned_post_upgrade_data_bytes: alloc::vec::Vec&lt;u8&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">use </span>codec::DecodeAll;
 		<span class="kw">match </span>&lt;VersionedPostUpgradeData&gt;::decode_all(<span class="kw-2">&amp;mut &amp;</span>versioned_post_upgrade_data_bytes[..])
@@ -1601,7 +1603,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;sp_std::vec::Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
+	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;alloc::vec::Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">use </span><span class="kw">crate</span>::storage::unhashed::contains_prefixed_key;
 
 		<span class="kw">let </span>hashed_prefix = twox_128(P::get().as_bytes());
@@ -1612,11 +1614,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				P::get()
 			),
 		};
-		<span class="prelude-val">Ok</span>(sp_std::vec::Vec::new())
+		<span class="prelude-val">Ok</span>(alloc::vec::Vec::new())
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-	</span><span class="kw">fn </span>post_upgrade(_state: sp_std::vec::Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
+	</span><span class="kw">fn </span>post_upgrade(_state: alloc::vec::Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">use </span><span class="kw">crate</span>::storage::unhashed::contains_prefixed_key;
 
 		<span class="kw">let </span>hashed_prefix = twox_128(P::get().as_bytes());
@@ -1712,7 +1714,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;sp_std::vec::Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
+	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;alloc::vec::Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">use </span><span class="kw">crate</span>::storage::unhashed::contains_prefixed_key;
 
 		<span class="kw">let </span>hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
@@ -1728,7 +1730,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-	</span><span class="kw">fn </span>post_upgrade(_state: sp_std::vec::Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
+	</span><span class="kw">fn </span>post_upgrade(_state: alloc::vec::Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">use </span><span class="kw">crate</span>::storage::unhashed::contains_prefixed_key;
 
 		<span class="kw">let </span>hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());

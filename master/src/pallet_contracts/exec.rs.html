@@ -4113,6 +4113,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3962" id="3962">3962</a>
 <a href="#3963" id="3963">3963</a>
 <a href="#3964" id="3964">3964</a>
+<a href="#3965" id="3965">3965</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4139,6 +4140,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	DebugBufferVec, Determinism, Error, Event, Nonce, Origin, Pallet <span class="kw">as </span>Contracts, Schedule,
 	LOG_TARGET,
 };
+<span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>core::{fmt::Debug, marker::PhantomData, mem};
 <span class="kw">use </span>frame_support::{
 	crypto::ecdsa::ECDSAExt,
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
@@ -4164,7 +4167,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Convert, Dispatchable, Zero},
 	DispatchError,
 };
-<span class="kw">use </span>sp_std::{fmt::Debug, marker::PhantomData, mem, prelude::<span class="kw-2">*</span>, vec::Vec};
 
 <span class="kw">pub type </span>AccountIdOf&lt;T&gt; = &lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId;
 <span class="kw">pub type </span>MomentOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::Time <span class="kw">as </span>Time&gt;::Moment;
@@ -5300,12 +5302,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The iterator starts with the top frame and ends with the root frame.
 	</span><span class="kw">fn </span>frames(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>Frame&lt;T&gt;&gt; {
-		sp_std::iter::once(<span class="kw-2">&amp;</span><span class="self">self</span>.first_frame).chain(<span class="kw-2">&amp;</span><span class="self">self</span>.frames).rev()
+		core::iter::once(<span class="kw-2">&amp;</span><span class="self">self</span>.first_frame).chain(<span class="kw-2">&amp;</span><span class="self">self</span>.frames).rev()
 	}
 
 	<span class="doccomment">/// Same as `frames` but with a mutable reference as iterator item.
 	</span><span class="kw">fn </span>frames_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;mut </span>Frame&lt;T&gt;&gt; {
-		sp_std::iter::once(<span class="kw-2">&amp;mut </span><span class="self">self</span>.first_frame).chain(<span class="kw-2">&amp;mut </span><span class="self">self</span>.frames).rev()
+		core::iter::once(<span class="kw-2">&amp;mut </span><span class="self">self</span>.first_frame).chain(<span class="kw-2">&amp;mut </span><span class="self">self</span>.frames).rev()
 	}
 
 	<span class="doccomment">/// Returns whether the current contract is on the stack multiple times.
