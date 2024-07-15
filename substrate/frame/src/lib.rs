@@ -209,6 +209,8 @@ pub mod runtime {
 		/// Macro to implement runtime APIs.
 		pub use sp_api::impl_runtime_apis;
 
+		pub use sp_api::impl_opaque_keys;
+
 		#[cfg(feature = "std")]
 		pub use sp_version::NativeVersion;
 	}

@@ -21,11 +21,11 @@ scale-info = { features = [
 	"serde",
 ], workspace = true }
 
-# frame
-frame-support = { features = ["experimental"], workspace = true }
-frame-system = { workspace = true }
-frame-try-runtime = { optional = true, workspace = true }
-frame-executive = { workspace = true }
+# this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
+frame = { features = [
+	"experimental",
+	"runtime",
+], workspace = true }
 
 # frame pallets
 pallet-aura = { workspace = true }
@@ -81,14 +81,7 @@ std = [
 	"codec/std",
 	"scale-info/std",
 
-	"frame-executive/std",
-	"frame-support/std",
-	"frame-system-benchmarking?/std",
-	"frame-system-rpc-runtime-api/std",
-	"frame-system/std",
-
-	"frame-benchmarking?/std",
-	"frame-try-runtime?/std",
+	"frame/std",
 
 	"pallet-aura/std",
 	"pallet-balances/std",
@@ -118,10 +111,7 @@ std = [
 ]
 
 runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system-benchmarking/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
+	"frame/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
@@ -131,10 +121,7 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
-	"frame-executive/try-runtime",
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"frame-try-runtime/try-runtime",
+	"frame/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-grandpa/try-runtime",

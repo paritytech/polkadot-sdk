@@ -2343,13 +2343,13 @@ pub mod pallet_macros {
 	/// the storage type, additional key specifications may be needed.
 	///
 	/// #### Example
-	#[doc = docify::embed!("src/lib.rs", example_storage_value_append)]
+	// #[doc = docify::embed!("src/lib.rs", example_storage_value_append)]
 	/// Similarly, there also exists a `::try_append()` method, which can be used when handling
 	/// types where an append operation might fail, such as a
 	/// [`BoundedVec`](frame_support::BoundedVec).
 	///
 	/// #### Example
-	#[doc = docify::embed!("src/lib.rs", example_storage_value_try_append)]
+	// #[doc = docify::embed!("src/lib.rs", example_storage_value_try_append)]
 	/// ### Optimized Length Decoding
 	///
 	/// All storage items — such as
@@ -2358,7 +2358,7 @@ pub mod pallet_macros {
 	/// incorporate the `::decode_len()` method. This method allows for efficient retrieval of
 	/// a collection's length without the necessity of decoding the entire dataset.
 	/// #### Example
-	#[doc = docify::embed!("src/lib.rs", example_storage_value_decode_len)]
+	// #[doc = docify::embed!("src/lib.rs", example_storage_value_decode_len)]
 	/// ### Hashers
 	///
 	/// For all storage types, except
@@ -2406,7 +2406,7 @@ pub mod pallet_macros {
 	/// map.
 	///
 	/// #### Example
-	#[doc = docify::embed!("src/lib.rs", example_storage_value_map_prefixes)]
+	// #[doc = docify::embed!("src/lib.rs", example_storage_value_map_prefixes)]
 	/// ## Related Macros
 	///
 	/// The following attribute macros can be used in conjunction with the `#[storage]` macro:
