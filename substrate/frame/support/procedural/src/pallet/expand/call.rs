@@ -247,31 +247,19 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let deprecation_status = if let Some(call) = def.call.as_ref() {
 		crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &call.attrs)
-			.expect("Correctly parse deprecation attributes")
 	} else {
-		quote::quote! { #frame_support::__private::metadata_ir::DeprecationStatus::NotDeprecated }
-	};
+		Ok(
+			quote::quote! { #frame_support::__private::metadata_ir::DeprecationStatus::NotDeprecated },
+		)
+	}
+	.unwrap_or_else(syn::Error::into_compile_error);
 
-	let default_deprecation_info =
-		quote::quote! { #frame_support::__private::metadata_ir::DeprecationStatus::NotDeprecated }
-			.to_string();
+	let indexes = crate::deprecation::get_deprecation_enum(
+		&quote::quote! {#frame_support},
+		methods.iter().map(|item| (item.call_index as u8, item.attrs.as_ref())),
+	)
+	.unwrap_or_else(syn::Error::into_compile_error);
 
-	let indexes: Vec<proc_macro2::TokenStream> = methods
-		.iter()
-		.filter_map(|x| {
-			let key = x.call_index;
-			let deprecation_status =
-				crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &x.attrs)
-					.expect("Correctly parse deprecation attributes");
-			if deprecation_status.to_string() == default_deprecation_info {
-				None
-			} else {
-				Some(quote::quote! { (#key, #deprecation_status) })
-			}
-		})
-		.collect();
-
-	let indexes = quote::quote! { #frame_support::__private::scale_info::prelude::collections::BTreeMap::from([#( #indexes),*]) };
 	quote::quote_spanned!(span =>
 		#[doc(hidden)]
 		mod warnings {
