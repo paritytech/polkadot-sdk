@@ -60,7 +60,6 @@ mod asset_transactor {
 	parameter_types! {
 		pub LocalPrefix: Location = Location::here();
 		pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-		pub LocalCheckAccount: (AccountId, MintLocation) = (CheckingAccount::get(), MintLocation::Local);
 	}
 
 	/// AssetTransactor for handling the chain's native token.

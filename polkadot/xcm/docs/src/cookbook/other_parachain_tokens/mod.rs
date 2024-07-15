@@ -20,12 +20,17 @@
 //!
 //! The most important configuration is the `AssetTransactor`.
 //! We need to reference other parachain tokens coming in XCMs.
-//! The assets coming in have an [`xcm::latest::asset::AssetId`] which is just a wrapper around a
-//! [`xcm::latest::location::Location`].
+//! The assets coming in have an [`xcm::latest::AssetId`] which is just a wrapper around a
+//! [`xcm::latest::Location`].
 //! We could map these locations to integers and reference the assets this way internally.
 //! However, a simpler way is just using the locations themselves as ids.
 //!
-//! 
+//! Here's a configuration of the assets pallet with xcm locations as ids.
+#![doc = docify::embed!("src/cookbook/other_parachain_tokens/parachain/mod.rs", foreign_assets)]
+//!
+//! Given that, we can configure the following `AssetTransactor`.
+//! It has one for managing the native token and another for these "foreign assets", other parachain tokens.
+#![doc = docify::embed!("src/cookbook/other_parachain_tokens/parachain/xcm_config.rs", asset_transactor)]
 
 /// The parachain runtime for this example.
 pub mod parachain;

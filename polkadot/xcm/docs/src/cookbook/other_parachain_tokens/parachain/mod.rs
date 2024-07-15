@@ -67,6 +67,7 @@ parameter_types! {
 	pub const MetadataDepositPerByte: Balance = 1;
 }
 
+#[docify::export(foreign_assets)]
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
 impl pallet_assets::Config for Runtime {
 	type AssetId = xcm::v4::Location;
