@@ -59,19 +59,35 @@ impl ShouldExecute for Tuple {
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
 		for_tuples!( #(
-			match Tuple::should_execute(origin, instructions, max_weight, properties) {
-				Ok(()) => return Ok(()),
-				_ => (),
+			let barrier = core::any::type_name::<Tuple>();
+ 			match Tuple::should_execute(origin, instructions, max_weight, properties) {
+				Ok(()) => {
+					tracing::trace!(
+						target: "xcm::should_execute",
+						?origin,
+						?instructions,
+						?max_weight,
+						?properties,
+						%barrier,
+						"pass barrier",
+					);
+					return Ok(())
+				},
+				Err(error) => {
+					tracing::trace!(
+						target: "xcm::should_execute",
+						?origin,
+						?instructions,
+						?max_weight,
+						?properties,
+						?error,
+						%barrier,
+						"did not pass barrier",
+					);
+				},
 			}
 		)* );
-		log::trace!(
-			target: "xcm::should_execute",
-			"did not pass barrier: origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin,
-			instructions,
-			max_weight,
-			properties,
-		);
+
 		Err(ProcessMessageError::Unsupported)
 	}
 }
