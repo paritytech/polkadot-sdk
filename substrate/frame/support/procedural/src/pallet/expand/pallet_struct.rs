@@ -54,7 +54,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 	if let Some(field) = pallet_item.fields.iter_mut().next() {
 		if field.ty == syn::parse_quote!(_) {
 			field.ty = syn::parse_quote!(
-				#frame_support::__private::sp_std::marker::PhantomData<(#type_use_gen)>
+				core::marker::PhantomData<(#type_use_gen)>
 			);
 		}
 	}
@@ -139,10 +139,10 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			#storages_where_clauses
 		{
 			fn storage_info()
-				-> #frame_support::__private::sp_std::vec::Vec<#frame_support::traits::StorageInfo>
+				-> #frame_support::__private::Vec<#frame_support::traits::StorageInfo>
 			{
 				#[allow(unused_mut)]
-				let mut res = #frame_support::__private::sp_std::vec![];
+				let mut res = #frame_support::__private::vec![];
 
 				#(
 					#(#storage_cfg_attrs)*
@@ -179,8 +179,8 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 	let whitelisted_storage_keys_impl = quote::quote![
 		use #frame_support::traits::{StorageInfoTrait, TrackedStorageKey, WhitelistedStorageKeys};
 		impl<#type_impl_gen> WhitelistedStorageKeys for #pallet_ident<#type_use_gen> #storages_where_clauses {
-			fn whitelisted_storage_keys() -> #frame_support::__private::sp_std::vec::Vec<TrackedStorageKey> {
-				use #frame_support::__private::sp_std::vec;
+			fn whitelisted_storage_keys() -> #frame_support::__private::Vec<TrackedStorageKey> {
+				use #frame_support::__private::vec;
 				vec![#(
 					TrackedStorageKey::new(#whitelisted_storage_idents::<#type_use_gen>::hashed_key().to_vec())
 				),*]
@@ -272,7 +272,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			#config_where_clause
 		{
 			fn count() -> usize { 1 }
-			fn infos() -> #frame_support::__private::sp_std::vec::Vec<#frame_support::traits::PalletInfoData> {
+			fn infos() -> #frame_support::__private::Vec<#frame_support::traits::PalletInfoData> {
 				use #frame_support::traits::PalletInfoAccess;
 				let item = #frame_support::traits::PalletInfoData {
 					index: Self::index(),
@@ -280,7 +280,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 					module_name: Self::module_name(),
 					crate_version: Self::crate_version(),
 				};
-				#frame_support::__private::sp_std::vec![item]
+				#frame_support::__private::vec![item]
 			}
 		}
 

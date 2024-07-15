@@ -87,6 +87,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "1024")]
 
+extern crate alloc;
 mod address;
 mod benchmarking;
 mod exec;
@@ -115,6 +116,7 @@ use crate::{
 	wasm::{CodeInfo, WasmBlob},
 };
 use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
+use core::fmt::Debug;
 use environmental::*;
 use frame_support::{
 	dispatch::{GetDispatchInfo, Pays, PostDispatchInfo, RawOrigin, WithPostDispatchInfo},
@@ -137,7 +139,6 @@ use sp_runtime::{
 	traits::{BadOrigin, Convert, Dispatchable, Saturating, StaticLookup, Zero},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{fmt::Debug, prelude::*};
 
 pub use crate::{
 	address::{AddressGenerator, DefaultAddressGenerator},
