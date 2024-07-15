@@ -26,16 +26,17 @@ pub mod migration;
 mod mock;
 mod tests;
 
-use core::marker::PhantomData;
+extern crate alloc;
 
+use alloc::vec::Vec;
 use codec::Encode;
+use core::marker::PhantomData;
 use frame_support::weights::Weight;
 use sp_runtime::{traits::Hash, Perbill};
 use sp_staking::{
 	offence::{Kind, Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
 	SessionIndex,
 };
-use sp_std::prelude::*;
 
 pub use pallet::*;
 
