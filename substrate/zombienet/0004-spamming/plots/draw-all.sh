@@ -37,8 +37,10 @@ if [ ! -d $MAIN/bob ]; then
   ./parse-log.py $MAIN/bob.log $MAIN/bob
 fi
 #
-./draw-log.sh $MAIN/alice -x
-./draw-log.sh $MAIN/bob -x
+GRAPHS=block_proposing,txpool_maintain,txpool_maintain_duration
+./draw-log.py $MAIN/alice -x --graphs $GRAPHS
+./draw-log.py $MAIN/bob -x --graphs $GRAPHS
+
 
 
 cat $MAIN/bob/import_transaction.csv | awk '{ s+=1; print $2"\t"s }' > $MAIN/imported_transaction-bob-summed.csv     

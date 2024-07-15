@@ -9,6 +9,7 @@ def extract_time_point(command, file_path):
     time_point = result.stdout.strip()
     with open(file_path, 'w') as f:
         f.write(time_point)
+        print(f"{file_path}: {time_point}")
 
 def convert_to_microseconds(value, unit):
     if unit == 'µs':
@@ -177,11 +178,11 @@ def main():
     start_file = f"{output_dir}/../start"
     end_file = f"{output_dir}/../end"
 
-    timestamp_command = f"grep 'INFO.*maintain' {log_file_path} | head -n 1 | cut -f2 -d' ' | cut -f1 -d'.'"
+    timestamp_command = f"grep '.*maintain' {log_file_path} | head -n 1 | cut -f1,2 -d' ' | cut -f1 -d'.'"
     if not os.path.isfile(start_file):
         extract_time_point(timestamp_command, start_file)
 
-    timestamp_command = f"grep 'INFO.*maintain' {log_file_path} | tail -n 1 | cut -f2 -d' ' | cut -f1 -d'.'"
+    timestamp_command = f"grep '.*maintain' {log_file_path} | tail -n 1 | cut -f1,2 -d' ' | cut -f1 -d'.'"
     if not os.path.isfile(end_file):
         extract_time_point(timestamp_command, end_file)
 
