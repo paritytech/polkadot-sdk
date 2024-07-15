@@ -49,7 +49,7 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 		let const_type = &const_.type_;
 		let deprecation_info =
 			crate::deprecation::get_deprecation(&quote::quote! { #frame_support }, &const_.attrs)
-				.expect("invalid deprecation attribute");
+				.unwrap_or_else(syn::Error::into_compile_error);
 		ConstDef {
 			ident: const_.ident.clone(),
 			type_: const_.type_.clone(),
@@ -60,7 +60,7 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 				#frame_support::__private::codec::Encode::encode(&value)
 			),
 			metadata_name: None,
-			deprecation_info: quote::quote! { #deprecation_info },
+			deprecation_info,
 		}
 	});
 
@@ -68,7 +68,7 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 		let ident = &const_.ident;
 		let deprecation_info =
 			crate::deprecation::get_deprecation(&quote::quote! { #frame_support }, &const_.attrs)
-				.expect("invalid deprecation attribute");
+				.unwrap_or_else(syn::Error::into_compile_error);
 
 		ConstDef {
 			ident: const_.ident.clone(),
@@ -79,7 +79,7 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 				#frame_support::__private::codec::Encode::encode(&value)
 			),
 			metadata_name: const_.metadata_name.clone(),
-			deprecation_info: quote::quote! { #deprecation_info },
+			deprecation_info,
 		}
 	});
 
