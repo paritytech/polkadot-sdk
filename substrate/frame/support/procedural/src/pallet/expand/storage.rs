@@ -419,7 +419,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 		let cfg_attrs = &storage.cfg_attrs;
 		let deprecation =
 			crate::deprecation::get_deprecation(&quote::quote! { #frame_support }, &storage.attrs)
-				.unwrap_or_else(|err| err.to_compile_error());
+				.unwrap_or_else(syn::Error::into_compile_error);
 		quote::quote_spanned!(storage.attr_span =>
 			#(#cfg_attrs)*
 			{
