@@ -133,6 +133,7 @@ impl<B: BlockT> StateStrategy<B> {
 					(peer_id, Peer { best_number, state: PeerState::Available })
 				})
 				.collect(),
+			persistent_peers: PersistentPeersState::new(),
 			actions: Vec::new(),
 			succeeded: false,
 		}
