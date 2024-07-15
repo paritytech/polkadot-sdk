@@ -20,7 +20,9 @@
 
 use super::*;
 
+use alloc::collections::vec_deque::VecDeque;
 use codec::Encode;
+use core::num::NonZeroU32;
 use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, AggregateMessageOrigin, InboundDownwardMessage,
 	InboundHrmpMessage, PersistedValidationData,
@@ -37,7 +39,6 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_runtime::{traits::BlakeTwo256, BuildStorage};
-use sp_std::{collections::vec_deque::VecDeque, num::NonZeroU32};
 use sp_version::RuntimeVersion;
 use std::cell::RefCell;
 

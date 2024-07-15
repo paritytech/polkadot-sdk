@@ -23,6 +23,7 @@ use bp_messages::{LaneId, MessageNonce};
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
 use bp_relayers::RewardsAccountParams;
 use codec::Decode;
+use core::marker::PhantomData;
 use frame_support::{
 	assert_ok,
 	traits::{OnFinalize, OnInitialize, PalletInfoAccess},
@@ -37,7 +38,6 @@ use parachains_runtimes_test_utils::{
 use sp_core::Get;
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::TrailingZeroInput, AccountId32};
-use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 
 /// Verify that the transaction has succeeded.
@@ -290,7 +290,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 			// value here is tricky - there are several transaction payment pallets and we don't
 			// want to introduce additional bounds and traits here just for that, so let's just
 			// select some presumably large value
-			sp_std::cmp::max::<Runtime::Balance>(Runtime::ExistentialDeposit::get(), 1u32.into()) *
+			core::cmp::max::<Runtime::Balance>(Runtime::ExistentialDeposit::get(), 1u32.into()) *
 				100_000_000u32.into(),
 		)],
 		|| {

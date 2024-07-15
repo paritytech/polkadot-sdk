@@ -23,9 +23,9 @@ use crate::{
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 };
+use alloc::collections::btree_map::BTreeMap;
 use frame_support::{assert_ok, pallet_prelude::*};
 use polkadot_primitives::{BlockNumber, Id as ParaId, SessionIndex, ValidationCode};
-use sp_std::collections::btree_map::BTreeMap;
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
 	let validation_code: ValidationCode = vec![1, 2, 3].into();
