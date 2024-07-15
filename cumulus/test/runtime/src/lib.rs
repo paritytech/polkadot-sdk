@@ -27,6 +27,11 @@ pub mod wasm_spec_version_incremented {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
 }
 
+pub mod elastic_scaling {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling.rs"));
+}
+
 mod test_pallet;
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
@@ -66,7 +71,7 @@ use frame_system::{
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_glutton::Call as GluttonCall;
 pub use pallet_sudo::Call as SudoCall;
-pub use pallet_timestamp::Call as TimestampCall;
+pub use pallet_timestamp::{Call as TimestampCall, Now};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -83,8 +88,23 @@ impl_opaque_keys! {
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
 
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
+#[cfg(not(feature = "elastic-scaling"))]
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 4;
+#[cfg(not(feature = "elastic-scaling"))]
 const BLOCK_PROCESSING_VELOCITY: u32 = 1;
+
+#[cfg(feature = "elastic-scaling")]
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 7;
+#[cfg(feature = "elastic-scaling")]
+const BLOCK_PROCESSING_VELOCITY: u32 = 4;
+
+#[cfg(not(feature = "elastic-scaling"))]
+pub const MILLISECS_PER_BLOCK: u64 = 6000;
+#[cfg(feature = "elastic-scaling")]
+pub const MILLISECS_PER_BLOCK: u64 = 2000;
+
+pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
 // The only difference between the two declarations below is the `spec_version`. With the
@@ -125,10 +145,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 1,
 	state_version: 1,
 };
-
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
-
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
 
@@ -499,7 +515,7 @@ impl_runtime_apis! {
 
 	impl crate::GetLastTimestamp<Block> for Runtime {
 		fn get_last_timestamp() -> u64 {
-			Timestamp::now()
+			Now::<Runtime>::get()
 		}
 	}
 
