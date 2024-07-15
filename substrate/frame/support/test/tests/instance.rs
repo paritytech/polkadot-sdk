@@ -441,7 +441,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<u32>()),
 				default: vec![0, 0, 0, 0],
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "Map",
@@ -453,7 +453,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: [0u8; 8].to_vec(),
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "DoubleMap",
@@ -465,7 +465,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: [0u8; 8].to_vec(),
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 			},
 		],
 	}

@@ -296,7 +296,6 @@ pub mod pallet {
 		/// event doc comment put in metadata
 		Proposed(<T as frame_system::Config>::AccountId),
 		Spending(BalanceOf<T>),
-		#[deprecated = "test"]
 		Something(u32),
 		SomethingElse(<T::AccountId as SomeAssociation1>::_1),
 	}
@@ -2486,14 +2485,14 @@ fn test_error_feature_parsing() {
 
 #[test]
 fn pallet_metadata() {
-	use sp_metadata_ir::{DeprecationInfo, DeprecationStatus};
+	use sp_metadata_ir::{DeprecationInfoIR, DeprecationStatusIR};
 	let pallets = Runtime::metadata_ir().pallets;
 	let example = pallets[0].clone();
 	let example2 = pallets[1].clone();
 	{
 		// Example2 pallet is deprecated
 		assert_eq!(
-			&DeprecationStatus::Deprecated { note: "test", since: None },
+			&DeprecationStatusIR::Deprecated { note: "test", since: None },
 			&example2.deprecation_info
 		)
 	}
@@ -2501,9 +2500,9 @@ fn pallet_metadata() {
 		// Example pallet calls is fully and partially deprecated
 		let meta = &example.calls.unwrap();
 		assert_eq!(
-			DeprecationInfo::PartiallyDeprecated(BTreeMap::from([(
+			DeprecationInfoIR::PartiallyDeprecated(BTreeMap::from([(
 				0,
-				DeprecationStatus::Deprecated { note: "test", since: None }
+				DeprecationStatusIR::Deprecated { note: "test", since: None }
 			)])),
 			meta.deprecation_info
 		)
@@ -2512,9 +2511,9 @@ fn pallet_metadata() {
 		// Example pallet errors are partially and fully deprecated
 		let meta = &example.error.unwrap();
 		assert_eq!(
-			DeprecationInfo::PartiallyDeprecated(BTreeMap::from([(
+			DeprecationInfoIR::PartiallyDeprecated(BTreeMap::from([(
 				2,
-				DeprecationStatus::Deprecated { note: "test", since: None }
+				DeprecationStatusIR::Deprecated { note: "test", since: None }
 			)])),
 			meta.deprecation_info
 		)
@@ -2523,7 +2522,7 @@ fn pallet_metadata() {
 		// Example pallet events are partially and fully deprecated
 		let meta = example.event.unwrap();
 		assert_eq!(
-			DeprecationInfo::FullyDeprecated(DeprecationStatus::Deprecated {
+			DeprecationInfoIR::FullyDeprecated(DeprecationStatusIR::Deprecated {
 				note: "test",
 				since: None
 			}),
@@ -2533,6 +2532,6 @@ fn pallet_metadata() {
 	{
 		// Example2 pallet events are not deprecated
 		let meta = example2.event.unwrap();
-		assert_eq!(DeprecationInfo::NotDeprecated, meta.deprecation_info);
+		assert_eq!(DeprecationInfoIR::NotDeprecated, meta.deprecation_info);
 	}
 }

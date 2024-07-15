@@ -95,12 +95,9 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 		event_item.variants.push(variant);
 	}
 
-	let deprecation_status =
-		crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &event.attrs)
-			.unwrap_or_else(syn::Error::into_compile_error);
-
-	let variants = crate::deprecation::get_deprecation_enum(
+	let deprecation = crate::deprecation::get_deprecation_enum(
 		&quote::quote! {#frame_support},
+		&event.attrs,
 		event_item
 			.variants
 			.iter()

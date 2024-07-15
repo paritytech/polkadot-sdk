@@ -313,7 +313,7 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 					} else {
 						quote! { None }
 					};
-					let doc = quote! { #crate_::metadata_ir::DeprecationStatus::Deprecated { note: #note, since: #since }};
+					let doc = quote! { #crate_::metadata_ir::DeprecationStatusIR::Deprecated { note: #note, since: #since }};
 					Ok(doc)
 				},
 			)
@@ -323,12 +323,12 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 			..
 		}) => {
 			// #[deprecated = "lit"]
-			let doc = quote! { #crate_::metadata_ir::DeprecationStatus::Deprecated { note: #lit, since: None } };
+			let doc = quote! { #crate_::metadata_ir::DeprecationStatusIR::Deprecated { note: #lit, since: None } };
 			Ok(doc)
 		},
 		Meta::Path(_) => {
 			// #[deprecated]
-			Ok(quote! { #crate_::metadata_ir::DeprecationStatus::DeprecatedWithoutNote })
+			Ok(quote! { #crate_::metadata_ir::DeprecationStatusIR::DeprecatedWithoutNote })
 		},
 		_ => Err(Error::new(attr.span(), "Invalid deprecation attribute")),
 	}
@@ -340,7 +340,7 @@ pub fn get_deprecation(crate_: &TokenStream, attrs: &[syn::Attribute]) -> Result
 		.iter()
 		.find(|a| a.path().is_ident("deprecated"))
 		.map(|a| parse_deprecated_meta(&crate_, a))
-		.unwrap_or_else(|| Ok(quote! {#crate_::metadata_ir::DeprecationStatus::NotDeprecated}))
+		.unwrap_or_else(|| Ok(quote! {#crate_::metadata_ir::DeprecationStatusIR::NotDeprecated}))
 }
 
 #[cfg(test)]
@@ -404,23 +404,23 @@ mod tests {
 			parse_quote!(#[deprecated(note = #FIRST, since = #SECOND, extra = "Test")]);
 		assert_eq!(
 			get_deprecation(&quote! { crate }, &[simple]).unwrap().to_string(),
-			quote! { crate::metadata_ir::DeprecationStatus::DeprecatedWithoutNote }.to_string()
+			quote! { crate::metadata_ir::DeprecationStatusIR::DeprecatedWithoutNote }.to_string()
 		);
 		assert_eq!(
 			get_deprecation(&quote! { crate }, &[simple_path]).unwrap().to_string(),
-			quote! { crate::metadata_ir::DeprecationStatus::Deprecated { note: #FIRST, since: None } }.to_string()
+			quote! { crate::metadata_ir::DeprecationStatusIR::Deprecated { note: #FIRST, since: None } }.to_string()
 		);
 		assert_eq!(
 			get_deprecation(&quote! { crate }, &[meta_list]).unwrap().to_string(),
-			quote! { crate::metadata_ir::DeprecationStatus::Deprecated { note: #FIRST, since: None } }.to_string()
+			quote! { crate::metadata_ir::DeprecationStatusIR::Deprecated { note: #FIRST, since: None } }.to_string()
 		);
 		assert_eq!(
 			get_deprecation(&quote! { crate }, &[meta_list_with_since]).unwrap().to_string(),
-			quote! { crate::metadata_ir::DeprecationStatus::Deprecated { note: #FIRST, since: Some(#SECOND) }}.to_string()
+			quote! { crate::metadata_ir::DeprecationStatusIR::Deprecated { note: #FIRST, since: Some(#SECOND) }}.to_string()
 		);
 		assert_eq!(
 			get_deprecation(&quote! { crate }, &[extra_fields]).unwrap().to_string(),
-			quote! { crate::metadata_ir::DeprecationStatus::Deprecated { note: #FIRST, since: Some(#SECOND) }}.to_string()
+			quote! { crate::metadata_ir::DeprecationStatusIR::Deprecated { note: #FIRST, since: Some(#SECOND) }}.to_string()
 		);
 	}
 }

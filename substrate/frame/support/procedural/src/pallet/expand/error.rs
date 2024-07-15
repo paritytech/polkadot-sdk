@@ -102,12 +102,9 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let capture_docs = if cfg!(feature = "no-metadata-docs") { "never" } else { "always" };
 
-	let deprecation_status =
-		crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &error.attrs)
-			.unwrap_or_else(syn::Error::into_compile_error);
-
-	let variants = crate::deprecation::get_deprecation_enum(
+	let deprecation = crate::deprecation::get_deprecation_enum(
 		&quote::quote! {#frame_support},
+		&error.attrs,
 		error_item
 			.variants
 			.iter()
@@ -115,6 +112,7 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 			.map(|(index, item)| (index as u8, item.attrs.as_ref())),
 	)
 	.unwrap_or_else(syn::Error::into_compile_error);
+
 	// derive TypeInfo for error metadata
 	error_item.attrs.push(syn::parse_quote! {
 		#[derive(
