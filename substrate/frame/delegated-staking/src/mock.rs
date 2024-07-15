@@ -242,9 +242,8 @@ impl ExtBuilder {
 		ext.execute_with(test);
 		ext.execute_with(|| {
 			#[cfg(feature = "try-runtime")]
-			<AllPalletsWithSystem as frame_support::traits::TryState<u64>>::try_state(
+			<AllPalletsWithSystem as frame_support::traits::TryStateLogic<u64>>::try_state(
 				frame_system::Pallet::<Runtime>::block_number(),
-				frame_support::traits::TryStateSelect::All,
 			)
 			.unwrap();
 			#[cfg(not(feature = "try-runtime"))]

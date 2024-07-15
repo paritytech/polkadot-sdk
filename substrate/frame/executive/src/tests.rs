@@ -44,6 +44,43 @@ use pallet_balances::Call as BalancesCall;
 
 const TEST_KEY: &[u8] = b":test:key:";
 
+#[cfg(feature = "try-runtime")]
+mod try_runtime {
+	use frame_support::{
+		parameter_types,
+		traits::{IdentifiableTryStateLogic, TryStateLogic},
+	};
+	use sp_runtime::traits::AtLeast32BitUnsigned;
+
+	// Will contain `true` when the custom runtime logic is called.
+	parameter_types! {
+		pub(super) static CanaryFlag: bool = false;
+	}
+
+	const CUSTOM_TRY_STATE_ID: &[u8] = b"custom_try_state";
+
+	pub(super) struct CustomTryState;
+
+	impl<BlockNumber> TryStateLogic<BlockNumber> for CustomTryState
+	where
+		BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
+	{
+		fn try_state(_: BlockNumber) -> Result<(), sp_runtime::TryRuntimeError> {
+			CanaryFlag::set(true);
+			Ok(())
+		}
+	}
+
+	impl<BlockNumber> IdentifiableTryStateLogic<BlockNumber> for CustomTryState
+	where
+		BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
+	{
+		fn matches_id(id: &[u8]) -> bool {
+			id == CUSTOM_TRY_STATE_ID
+		}
+	}
+}
+
 #[frame_support::pallet(dev_mode)]
 mod custom {
 	use super::*;
@@ -77,6 +114,16 @@ mod custom {
 
 		fn offchain_worker(n: BlockNumberFor<T>) {
 			assert_eq!(BlockNumberFor::<T>::from(1u32), n);
+		}
+
+		// Verify that `CustomTryState` has been called before.
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			assert!(
+				try_runtime::CanaryFlag::get(),
+				"Custom `try-runtime` did not run before pallet `try-runtime`."
+			);
+			Ok(())
 		}
 	}
 
@@ -397,6 +444,11 @@ impl OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
 	}
 }
 
+#[cfg(not(feature = "try-runtime"))]
+type CustomOnTryState = ();
+#[cfg(feature = "try-runtime")]
+type CustomOnTryState = try_runtime::CustomTryState;
+
 type Executive = super::Executive<
 	Runtime,
 	Block<TestXt>,
@@ -404,6 +456,7 @@ type Executive = super::Executive<
 	Runtime,
 	AllPalletsWithSystem,
 	CustomOnRuntimeUpgrade,
+	CustomOnTryState,
 >;
 
 parameter_types! {
@@ -523,9 +576,12 @@ fn new_test_ext(balance_factor: Balance) -> sp_io::TestExternalities {
 	ext.execute_with(|| {
 		SystemCallbacksCalled::set(0);
 	});
+
+	#[cfg(feature = "try-runtime")]
+	try_runtime::CanaryFlag::set(false);
+
 	ext
 }
-
 fn new_test_ext_v0(balance_factor: Balance) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(1, 111 * balance_factor)] }

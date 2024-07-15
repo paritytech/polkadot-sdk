@@ -86,11 +86,18 @@
 //! done by setting an optional generic parameter. The custom logic will be called before
 //! the on runtime upgrade logic of all modules is called.
 //!
+//! ### Custom `TryState` logic
+//!
+//! You can add custom logic that should be called in your runtime on a try-state test. This is
+//! done by setting an optional generic parameter after the `OnRuntimeUpgrade` type. The custom
+//! logic will be called before the `try-state` logic of all modules is called.
+//!
 //! ```
 //! # use sp_runtime::generic;
 //! # use frame_executive as executive;
 //! # pub struct UncheckedExtrinsic {};
 //! # pub struct Header {};
+//! # pub type BlockNumber = u32;
 //! # type Context = frame_system::ChainContext<Runtime>;
 //! # pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 //! # pub type Balances = u64;
@@ -115,7 +122,23 @@
 //!     }
 //! }
 //!
-//! pub type Executive = executive::Executive<Runtime, Block, Context, Runtime, AllPalletsWithSystem, CustomOnRuntimeUpgrade>;
+//! struct CustomTryState;
+//!
+//! #[cfg(feature = "try-runtime")]
+//! impl frame_support::traits::IdentifiableTryStateLogic<BlockNumber> for CustomTryState {
+//!
+//! 	fn try_state(_: BlockNumber) -> Result<(), sp_runtime::TryRuntimeError> {
+//!         // Do whatever you want.
+//!         Ok(())
+//! 	}
+//!
+//! 	fn matches_id(id: &[u8]) -> bool {
+//! 		// Used to decide whether to include this or not when `Select::Only` is specified.
+//!         id == b"my_custom_try_state"
+//! 	}
+//! }
+//!
+//! pub type Executive = executive::Executive<Runtime, Block, Context, Runtime, AllPalletsWithSystem, CustomOnRuntimeUpgrade, CustomTryState>;
 //! ```
 
 #[cfg(doc)]
@@ -179,7 +202,10 @@ use sp_std::{marker::PhantomData, prelude::*};
 #[cfg(feature = "try-runtime")]
 use ::{
 	frame_support::{
-		traits::{TryDecodeEntireStorage, TryDecodeEntireStorageError, TryState},
+		traits::{
+			IdentifiableTryStateLogic, TryDecodeEntireStorage, TryDecodeEntireStorageError,
+			TryState,
+		},
 		StorageNoopGuard,
 	},
 	frame_try_runtime::{TryStateSelect, UpgradeCheckSelect},
@@ -205,6 +231,8 @@ pub type OriginOf<E, C> = <CallOf<E, C> as Dispatchable>::RuntimeOrigin;
 ///   used to call hooks e.g. `on_initialize`.
 /// - `OnRuntimeUpgrade`: Custom logic that should be called after a runtime upgrade. Modules are
 ///   already called by `AllPalletsWithSystem`. It will be called before all modules will be called.
+/// - `TryState`: Custom logic that should be called when running `try-state` tests. Modules are
+///   already called by `AllPalletsWithSystem`. It will be called before all modules will be called.
 pub struct Executive<
 	System,
 	Block,
@@ -212,6 +240,7 @@ pub struct Executive<
 	UnsignedValidator,
 	AllPalletsWithSystem,
 	OnRuntimeUpgrade = (),
+	TryState = (),
 >(
 	PhantomData<(
 		System,
@@ -220,6 +249,7 @@ pub struct Executive<
 		UnsignedValidator,
 		AllPalletsWithSystem,
 		OnRuntimeUpgrade,
+		TryState,
 	)>,
 );
 
@@ -239,9 +269,17 @@ impl<
 			+ OffchainWorker<BlockNumberFor<System>>
 			+ OnPoll<BlockNumberFor<System>>,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
+		CTryState,
 	> ExecuteBlock<Block>
-	for Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
-where
+	for Executive<
+		System,
+		Block,
+		Context,
+		UnsignedValidator,
+		AllPalletsWithSystem,
+		COnRuntimeUpgrade,
+		CTryState,
+	> where
 	Block::Extrinsic: Checkable<Context> + Codec,
 	CheckedOf<Block::Extrinsic, Context>: Applyable + GetDispatchInfo,
 	CallOf<Block::Extrinsic, Context>:
@@ -277,11 +315,20 @@ impl<
 			+ OnFinalize<BlockNumberFor<System>>
 			+ OffchainWorker<BlockNumberFor<System>>
 			+ OnPoll<BlockNumberFor<System>>
-			+ TryState<BlockNumberFor<System>>
+			+ IdentifiableTryStateLogic<BlockNumberFor<System>>
 			+ TryDecodeEntireStorage,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
-	> Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
-where
+		CTryState: IdentifiableTryStateLogic<BlockNumberFor<System>>,
+	>
+	Executive<
+		System,
+		Block,
+		Context,
+		UnsignedValidator,
+		AllPalletsWithSystem,
+		COnRuntimeUpgrade,
+		CTryState,
+	> where
 	Block::Extrinsic: Checkable<Context> + Codec,
 	CheckedOf<Block::Extrinsic, Context>: Applyable + GetDispatchInfo,
 	CallOf<Block::Extrinsic, Context>:
@@ -377,9 +424,10 @@ where
 
 		// run the try-state checks of all pallets, ensuring they don't alter any state.
 		let _guard = frame_support::StorageNoopGuard::default();
-		<AllPalletsWithSystem as frame_support::traits::TryState<
-			BlockNumberFor<System>,
-		>>::try_state(*header.number(), select.clone())
+		<(CTryState, AllPalletsWithSystem) as TryState<BlockNumberFor<System>>>::try_state(
+			*header.number(),
+			select.clone(),
+		)
 		.map_err(|e| {
 			log::error!(target: LOG_TARGET, "failure: {:?}", e);
 			e
@@ -456,7 +504,7 @@ where
 
 		// Check all storage invariants:
 		if checks.try_state() {
-			AllPalletsWithSystem::try_state(
+			<(CTryState, AllPalletsWithSystem) as TryState<BlockNumberFor<System>>>::try_state(
 				frame_system::Pallet::<System>::block_number(),
 				TryStateSelect::All,
 			)?;
@@ -514,8 +562,17 @@ impl<
 			+ OffchainWorker<BlockNumberFor<System>>
 			+ OnPoll<BlockNumberFor<System>>,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
-	> Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
-where
+		CTryState,
+	>
+	Executive<
+		System,
+		Block,
+		Context,
+		UnsignedValidator,
+		AllPalletsWithSystem,
+		COnRuntimeUpgrade,
+		CTryState,
+	> where
 	Block::Extrinsic: Checkable<Context> + Codec,
 	CheckedOf<Block::Extrinsic, Context>: Applyable + GetDispatchInfo,
 	CallOf<Block::Extrinsic, Context>:

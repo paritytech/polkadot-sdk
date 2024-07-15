@@ -24,7 +24,7 @@ use sp_runtime::{traits::AccountIdConversion, BuildStorage};
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
 
 #[cfg(feature = "try-runtime")]
-use frame_support::traits::{TryState, TryStateSelect::All};
+use frame_support::traits::TryStateLogic;
 use frame_support::{assert_ok, traits::IntegrityTest};
 use xcm::{latest::prelude::*, MAX_XCM_DECODE_DEPTH};
 

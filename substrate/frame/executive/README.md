@@ -53,7 +53,7 @@ generic parameter. The custom logic will be called before the on runtime upgrade
 struct CustomOnRuntimeUpgrade;
 impl frame_support::traits::OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
     fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        // Do whatever you want.
+        // Do whatever you want besides modifying storage.
         frame_support::weights::Weight::zero()
     }
 }
