@@ -50,8 +50,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      # ------------ remove me after release ------------
+      - name: update forklift
+        run: curl -o .forklift/forklift -L https://github.com/paritytech/forklift/releases/download/0.13.2/forklift_0.13.2_linux_amd64
+      - run: chmod +x .forklift/forklift && .forklift/forklift version
+      # -------------------------------------------------
       - name: script
-        run: WASM_BUILD_NO_COLOR=1 time forklift cargo test -p staging-node-cli --release --locked -- --ignored
+        run: WASM_BUILD_NO_COLOR=1 .forklift/forklift cargo test -p staging-node-cli --release --locked -- --ignored
 
   # https://github.com/paritytech/ci_cd/issues/864
   test-linux-stable-runtime-benchmarks:
@@ -69,8 +74,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      # ------------ remove me after release ------------
+      - name: update forklift
+        run: curl -o .forklift/forklift -L https://github.com/paritytech/forklift/releases/download/0.13.2/forklift_0.13.2_linux_amd64
+      - run: chmod +x .forklift/forklift && .forklift/forklift version
+      # -------------------------------------------------
       - name: script
-        run: time forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+        run: .forklift/forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
 
   test-linux-stable-oldkernel:
     needs: [set-image, changes]
@@ -95,7 +105,7 @@ jobs:
         uses: actions/checkout@v4
       # ------------ remove me after release ------------
       - name: update forklift
-        run: curl -o .forklift/forklift -L https://github.com/paritytech/forklift/releases/download/0.13.1-alpha/forklift_0.13.1-alpha_linux_amd64
+        run: curl -o .forklift/forklift -L https://github.com/paritytech/forklift/releases/download/0.13.2/forklift_0.13.2_linux_amd64
       - run: chmod +x .forklift/forklift && .forklift/forklift version
       # -------------------------------------------------
       - name: script
