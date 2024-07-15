@@ -32,9 +32,9 @@ const MAX_DISCONNECTED_PEERS_STATE: u32 = 512;
 /// This is to prevent submitting a request to a peer that has disconnected because it could not
 /// keep up with the number of requests.
 ///
-/// The peer will disconnect due to the keep-alive timeout, however disconnections without
+/// The peer may disconnect due to the keep-alive timeout, however disconnections without
 /// an inflight request are not tracked.
-const DISCONNECTED_PEER_BACKOFF_SECONDS: u64 = 30;
+const DISCONNECTED_PEER_BACKOFF_SECONDS: u64 = 20;
 
 /// Maximum number of disconnects with a request in flight before a peer is banned.
 const MAX_NUM_DISCONNECTS: u64 = 3;
