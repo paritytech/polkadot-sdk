@@ -33,118 +33,46 @@ jobs:
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
 
-  # test-linux-stable-int:
-  #   needs: [set-image, changes]
-  #   if: ${{ needs.changes.outputs.rust }}
-  #   runs-on: arc-runners-polkadot-sdk-beefy
-  #   timeout-minutes: 60
-  #   container:
-  #     image: ${{ needs.set-image.outputs.IMAGE }}
-  #   env:
-  #     RUSTFLAGS: "-C debug-assertions -D warnings"
-  #     RUST_BACKTRACE: 1
-  #     WASM_BUILD_NO_COLOR: 1
-  #     WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
-  #     # Ensure we run the UI tests.
-  #     RUN_UI_TESTS: 1
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #     - name: script
-  #       run: WASM_BUILD_NO_COLOR=1 time forklift cargo test -p staging-node-cli --release --locked -- --ignored
+  test-linux-stable-int:
+    needs: [set-image, changes]
+    if: ${{ needs.changes.outputs.rust }}
+    runs-on: arc-runners-polkadot-sdk-beefy
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    env:
+      RUSTFLAGS: "-C debug-assertions -D warnings"
+      RUST_BACKTRACE: 1
+      WASM_BUILD_NO_COLOR: 1
+      WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
+      # Ensure we run the UI tests.
+      RUN_UI_TESTS: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: WASM_BUILD_NO_COLOR=1 time forklift cargo test -p staging-node-cli --release --locked -- --ignored
 
-  # # https://github.com/paritytech/ci_cd/issues/864
-  # test-linux-stable-runtime-benchmarks:
-  #   needs: [set-image, changes]
-  #   if: ${{ needs.changes.outputs.rust }}
-  #   runs-on: arc-runners-polkadot-sdk-beefy
-  #   timeout-minutes: 60
-  #   container:
-  #     image: ${{ needs.set-image.outputs.IMAGE }}
-  #   env:
-  #     RUST_TOOLCHAIN: stable
-  #     # Enable debug assertions since we are running optimized builds for testing
-  #     # but still want to have debug assertions.
-  #     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #     - name: script
-  #       run: time forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+  # https://github.com/paritytech/ci_cd/issues/864
+  test-linux-stable-runtime-benchmarks:
+    needs: [set-image, changes]
+    if: ${{ needs.changes.outputs.rust }}
+    runs-on: arc-runners-polkadot-sdk-beefy
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    env:
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: time forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
 
-  # #todo: enable forklift
-  # test-linux-stable-oldkernel:
-  #   needs: [set-image, changes]
-  #   if: ${{ needs.changes.outputs.rust }}
-  #   runs-on: oldlinux
-  #   timeout-minutes: 60
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       partition: [1/3, 2/3, 3/3]
-  #   container:
-  #     image: ${{ needs.set-image.outputs.IMAGE }}
-  #     # needed for tests that use unshare syscall
-  #     options: --security-opt seccomp=unconfined
-  #   env:
-  #     RUST_TOOLCHAIN: stable
-  #     # Enable debug assertions since we are running optimized builds for testing
-  #     # but still want to have debug assertions.
-  #     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #     - name: script
-  #       run: |
-  #         # Fixes "detected dubious ownership" error in the ci
-  #         git config --global --add safe.directory '*'
-  #         time cargo nextest run \
-  #           --workspace \
-  #           --locked \
-  #           --release \
-  #           --no-fail-fast \
-  #           --features try-runtime,experimental,riscv,ci-only-tests \
-  #           --partition count:${{ matrix.partition }}
-  #         # run runtime-api tests with `enable-staging-api` feature on the 1st node
-  #         if [ "${{ matrix.partition }}" == "1/3" ]; then time cargo nextest run -p sp-api-test --features enable-staging-api; fi
-
-  # #todo: enable forklift
-  # test-linux-stable:
-  #   needs: [set-image, changes]
-  #   if: ${{ needs.changes.outputs.rust }}
-  #   runs-on: arc-runners-polkadot-sdk-beefy-ubuntu
-  #   timeout-minutes: 60
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       partition: [1/3, 2/3, 3/3]
-  #   container:
-  #     image: ${{ needs.set-image.outputs.IMAGE }}
-  #     # needed for tests that use unshare syscall
-  #     options: --security-opt seccomp=unconfined
-  #   env:
-  #     RUST_TOOLCHAIN: stable
-  #     # Enable debug assertions since we are running optimized builds for testing
-  #     # but still want to have debug assertions.
-  #     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #     - name: script
-  #       run: |
-  #         # Fixes "detected dubious ownership" error in the ci
-  #         git config --global --add safe.directory '*'
-  #         time cargo nextest run \
-  #           --workspace \
-  #           --locked \
-  #           --release \
-  #           --no-fail-fast \
-  #           --features try-runtime,experimental,riscv,ci-only-tests \
-  #           --partition count:${{ matrix.partition }}
-  #         # run runtime-api tests with `enable-staging-api` feature on the 1st node
-  #         if [ "${{ matrix.partition }}" == "1/3" ]; then time cargo nextest run -p sp-api-test --features enable-staging-api; fi
-
-  test-linux-stable-oldkernel-fl:
+  test-linux-stable-oldkernel:
     needs: [set-image, changes]
     if: ${{ needs.changes.outputs.rust }}
     runs-on: oldlinux
@@ -165,9 +93,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      # ------------ remove me after release ------------
       - name: update forklift
         run: curl -o .forklift/forklift -L https://github.com/paritytech/forklift/releases/download/0.13.1-alpha/forklift_0.13.1-alpha_linux_amd64
       - run: chmod +x .forklift/forklift && .forklift/forklift version
+      # -------------------------------------------------
       - name: script
         run: |
           # Fixes "detected dubious ownership" error in the ci
@@ -180,108 +110,44 @@ jobs:
             --features try-runtime,experimental,riscv,ci-only-tests \
             --partition count:${{ matrix.partition }}
           # run runtime-api tests with `enable-staging-api` feature on the 1st node
-          if [ "${{ matrix.partition }}" == "1/3" ]; then time forklift cargo nextest run -p sp-api-test --features enable-staging-api; fi
+          if [ "${{ matrix.partition }}" = "1/3" ]; then
+            forklift cargo nextest run -p sp-api-test --features enable-staging-api
+          fi
 
-  test-linux-stable-fl:
-    needs: [set-image, changes]
-    if: ${{ needs.changes.outputs.rust }}
-    runs-on: arc-runners-polkadot-sdk-beefy-ubuntu
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        partition: [1/3, 2/3, 3/3]
-    container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
-      # needed for tests that use unshare syscall
-      options: --security-opt seccomp=unconfined
-    env:
-      RUST_TOOLCHAIN: stable
-      # Enable debug assertions since we are running optimized builds for testing
-      # but still want to have debug assertions.
-      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: update forklift
-        run: curl -o .forklift/forklift -L https://github.com/paritytech/forklift/releases/download/0.13.1-alpha/forklift_0.13.1-alpha_linux_amd64
-      - run: chmod +x .forklift/forklift && .forklift/forklift version
-      - name: script
-        run: |
-          # Fixes "detected dubious ownership" error in the ci
-          git config --global --add safe.directory '*'
-          .forklift/forklift cargo nextest run \
-            --workspace \
-            --locked \
-            --release \
-            --no-fail-fast \
-            --features try-runtime,experimental,riscv,ci-only-tests \
-            --partition count:${{ matrix.partition }}
-          # run runtime-api tests with `enable-staging-api` feature on the 1st node
-          if [ "${{ matrix.partition }}" == "1/3" ]; then time forklift cargo nextest run -p sp-api-test --features enable-staging-api; fi
-
-  # test-landlock:
+  # test-linux-stable-fl:
   #   needs: [set-image, changes]
   #   if: ${{ needs.changes.outputs.rust }}
-  #   # runs-on: arc-runners-polkadot-sdk-beefy-ubuntu
-  #   runs-on: ubuntu-latest
+  #   runs-on: arc-runners-polkadot-sdk-beefy-ubuntu
   #   timeout-minutes: 60
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       partition: [1/3, 2/3, 3/3]
   #   container:
   #     image: ${{ needs.set-image.outputs.IMAGE }}
+  #     # needed for tests that use unshare syscall
   #     options: --security-opt seccomp=unconfined
   #   env:
   #     RUST_TOOLCHAIN: stable
+  #     # Enable debug assertions since we are running optimized builds for testing
+  #     # but still want to have debug assertions.
   #     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   #   steps:
   #     - name: Checkout
   #       uses: actions/checkout@v4
+  #     - name: update forklift
+  #       run: curl -o .forklift/forklift -L https://github.com/paritytech/forklift/releases/download/0.13.1-alpha/forklift_0.13.1-alpha_linux_amd64
+  #     - run: chmod +x .forklift/forklift && .forklift/forklift version
   #     - name: script
   #       run: |
-  #         SKIP_WASM_BUILD="1" cargo test -p polkadot-node-core-pvf all_security_features_work --features=ci-only-tests
-
-  single-test:
-    needs: [set-image, changes]
-    if: ${{ needs.changes.outputs.rust }}
-    runs-on: arc-runners-polkadot-sdk-beefy
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        partition: [1, 2, 3, 4, 5]
-    container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
-    env:
-      RUST_TOOLCHAIN: stable
-      # Enable debug assertions since we are running optimized builds for testing
-      # but still want to have debug assertions.
-      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: script
-        run: cargo test -p frame-metadata-hash-extension ensure_check_metadata_works_on_real_extrinsics
-
-  single-test-fl:
-    needs: [set-image, changes]
-    if: ${{ needs.changes.outputs.rust }}
-    runs-on: arc-runners-polkadot-sdk-beefy
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        partition: [1, 2, 3, 4, 5]
-    container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
-    env:
-      RUST_TOOLCHAIN: stable
-      # Enable debug assertions since we are running optimized builds for testing
-      # but still want to have debug assertions.
-      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: update forklift
-        run: curl -o .forklift/forklift -L https://github.com/paritytech/forklift/releases/download/0.13.1-alpha/forklift_0.13.1-alpha_linux_amd64
-      - run: chmod +x .forklift/forklift && .forklift/forklift version
-      - name: script
-        run: time ./.forklift/forklift cargo test -p frame-metadata-hash-extension ensure_check_metadata_works_on_real_extrinsics
+  #         # Fixes "detected dubious ownership" error in the ci
+  #         git config --global --add safe.directory '*'
+  #         .forklift/forklift cargo nextest run \
+  #           --workspace \
+  #           --locked \
+  #           --release \
+  #           --no-fail-fast \
+  #           --features try-runtime,experimental,riscv,ci-only-tests \
+  #           --partition count:${{ matrix.partition }}
+  #         # run runtime-api tests with `enable-staging-api` feature on the 1st node
+  #         if [ "${{ matrix.partition }}" == "1/3" ]; then time forklift cargo nextest run -p sp-api-test --features enable-staging-api; fi
