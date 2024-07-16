@@ -190,7 +190,7 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type OpenBridgeOrigin = OpenBridgeOrigin;
 	type BridgeOriginAccountIdConverter = LocationToAccountId;
 
-	type BridgeReserve = BridgeDeposit;
+	type BridgeDeposit = BridgeDeposit;
 	type NativeCurrency = Balances;
 
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
