@@ -910,10 +910,9 @@ pub mod pallet_prelude {
 		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
 	};
 	pub use codec::{Decode, Encode, MaxEncodedLen};
-	pub use frame_support::pallet_macros::*;
 	pub use core::marker::PhantomData;
-	pub use frame_support_procedural::inject_runtime_type;
-	pub use frame_support_procedural::register_default_impl;
+	pub use frame_support::pallet_macros::*;
+	pub use frame_support_procedural::{inject_runtime_type, register_default_impl};
 	pub use scale_info::TypeInfo;
 	pub use sp_inherents::MakeFatalError;
 	pub use sp_runtime::{
@@ -2406,12 +2405,10 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	pub use frame_support_procedural::storage;
-	
-	pub use frame_support_procedural::task_condition;
-	pub use frame_support_procedural::task_index;
-	pub use frame_support_procedural::task_list;
-	pub use frame_support_procedural::task_weight;
-	pub use frame_support_procedural::tasks_experimental;
+
+	pub use frame_support_procedural::{
+		task_condition, task_index, task_list, task_weight, tasks_experimental,
+	};
 
 	/// Allows a pallet to declare a type as an origin.
 	///

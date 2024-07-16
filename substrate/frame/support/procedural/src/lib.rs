@@ -789,8 +789,8 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 /// `construct_runtime!`.
 #[doc = docify::embed!("examples/inject_runtime_type.rs", derive_impl_works_with_runtime_type_injection)]
 ///
-/// However, if `no_aggregated_types` is specified while using 
-/// [`#[derive_impl(..)]`](macro@derive_impl), then these items are attached verbatim to the 
+/// However, if `no_aggregated_types` is specified while using
+/// [`#[derive_impl(..)]`](macro@derive_impl), then these items are attached verbatim to the
 /// combined impl.
 #[doc = docify::embed!("examples/inject_runtime_type.rs", derive_impl_works_with_no_aggregated_types)]
 #[proc_macro_attribute]
@@ -1082,14 +1082,13 @@ pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-
 /// Allows you to define some service work that can be recognized by a script or an
 /// off-chain worker.
 ///
 /// Such a script can then create and submit all such work items at any given time.
 ///
-/// These work items are defined as instances of the `Task` trait (found at 
-/// `frame_support::traits::Task`). [`pallet:tasks_experimental`](macro@tasks_experimental) when 
+/// These work items are defined as instances of the `Task` trait (found at
+/// `frame_support::traits::Task`). [`pallet:tasks_experimental`](macro@tasks_experimental) when
 /// attached to an `impl` block inside a pallet, will generate an enum `Task<T>` whose variants
 /// are mapped to functions inside this `impl` block.
 ///
