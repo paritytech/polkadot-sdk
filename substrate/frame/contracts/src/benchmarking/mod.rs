@@ -41,6 +41,7 @@ use frame_benchmarking::v2::*;
 use frame_support::{
 	self, assert_ok,
 	pallet_prelude::StorageVersion,
+	storage::child,
 	traits::{fungible::InspectHold, Currency},
 	weights::{Weight, WeightMeter},
 };
@@ -62,6 +63,9 @@ const API_BENCHMARK_RUNS: u32 = 1600;
 /// Same rationale as for [`API_BENCHMARK_RUNS`]. The number is bigger because instruction
 /// benchmarks are faster.
 const INSTR_BENCHMARK_RUNS: u32 = 5000;
+
+/// Number of layers in a Radix16 unbalanced trie
+const UNBALANCED_TRIE_LAYERS: u32 = 10;
 
 /// An instantiated and deployed contract.
 #[derive(Clone)]
@@ -150,6 +154,34 @@ where
 		}
 		<ContractInfoOf<T>>::insert(&self.account_id, info);
 		Ok(())
+	}
+
+	/// Create a new contract with the supplied storage item count and size each.
+	fn with_unbalanced_storage_trie(
+		code: WasmModule<T>,
+		trie_layers: u32,
+		key_size: u32,
+		value_size: u32,
+	) -> Result<Self, &'static str> {
+		if key_size < (trie_layers + 1) / 2 {
+			return Err("Key size to small to create the specified trie");
+		}
+		let contract = Contract::<T>::new(code, vec![])?;
+		let info = contract.info()?;
+		let child_trie_info = info.child_trie_info();
+		for l in 0..trie_layers {
+			let pos = l as usize / 2;
+			let mut key = vec![0u8; key_size as usize];
+			for i in 0u8..16 {
+				if l % 2 == 0 {
+					key[pos] = i
+				} else {
+					key[pos] = i << 4;
+				}
+				child::put_raw(&child_trie_info, &key, &vec![42u8; value_size as usize]);
+			}
+		}
+		Ok(contract)
 	}
 
 	/// Get the `ContractInfo` of the `addr` or an error if it no longer exists.
@@ -1012,6 +1044,126 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 		assert_eq!(setup.debug_message().unwrap().len() as u32, i);
+	}
+
+	// n: new byte size
+	// o: old byte size
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn get_storage_empty(
+		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
+		o: Linear<0, { T::Schedule::get().limits.payload_len }>,
+	) -> Result<(), BenchmarkError> {
+		let max_key_len = T::MaxStorageKeyLen::get();
+		let key = vec![0u8; max_key_len as usize];
+		let value = vec![1u8; n as usize];
+
+		let instance = Contract::<T>::new(WasmModule::dummy(), vec![])?;
+		let info = instance.info()?;
+		let child_trie_info = info.child_trie_info();
+		info.bench_write_raw(&key, Some(vec![42u8; o as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let result;
+		#[block]
+		{
+			result = child::get_raw(&child_trie_info, &key);
+		}
+
+		assert_eq!(result, Some(value));
+		Ok(())
+	}
+
+	// n: new byte size
+	// o: old byte size
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn get_storage_full(
+		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
+		o: Linear<0, { T::Schedule::get().limits.payload_len }>,
+	) -> Result<(), BenchmarkError> {
+		let max_key_len = T::MaxStorageKeyLen::get();
+		let key = vec![0u8; max_key_len as usize];
+		let value = vec![1u8; n as usize];
+
+		let instance = Contract::<T>::with_unbalanced_storage_trie(
+			WasmModule::dummy(),
+			UNBALANCED_TRIE_LAYERS,
+			max_key_len,
+			T::Schedule::get().limits.payload_len,
+		)?;
+		let info = instance.info()?;
+		let child_trie_info = info.child_trie_info();
+		info.bench_write_raw(&key, Some(vec![42u8; o as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let result;
+		#[block]
+		{
+			result = child::get_raw(&child_trie_info, &key);
+		}
+
+		assert_eq!(result, Some(value));
+		Ok(())
+	}
+
+	// n: new byte size
+	// o: old byte size
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn set_storage_empty(
+		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
+		o: Linear<0, { T::Schedule::get().limits.payload_len }>,
+	) -> Result<(), BenchmarkError> {
+		let max_key_len = T::MaxStorageKeyLen::get();
+		let key = vec![0u8; max_key_len as usize];
+		let value = vec![1u8; n as usize];
+
+		let instance = Contract::<T>::new(WasmModule::dummy(), vec![])?;
+		let info = instance.info()?;
+		let child_trie_info = info.child_trie_info();
+		info.bench_write_raw(&key, Some(vec![42u8; o as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let result;
+		#[block]
+		{
+			result = info.bench_write_raw(&key, Some(value.clone()), false);
+		}
+
+		assert_ok!(result);
+		assert_eq!(child::get_raw(&child_trie_info, &key).unwrap(), value);
+		Ok(())
+	}
+
+	// n: new byte size
+	// o: old byte size
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn set_storage_full(
+		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
+		o: Linear<0, { T::Schedule::get().limits.payload_len }>,
+	) -> Result<(), BenchmarkError> {
+		let max_key_len = T::MaxStorageKeyLen::get();
+		let key = vec![0u8; max_key_len as usize];
+		let value = vec![1u8; n as usize];
+
+		let instance = Contract::<T>::with_unbalanced_storage_trie(
+			WasmModule::dummy(),
+			UNBALANCED_TRIE_LAYERS,
+			max_key_len,
+			T::Schedule::get().limits.payload_len,
+		)?;
+		let info = instance.info()?;
+		let child_trie_info = info.child_trie_info();
+		info.bench_write_raw(&key, Some(vec![42u8; o as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let result;
+		#[block]
+		{
+			result = info.bench_write_raw(&key, Some(value.clone()), false);
+		}
+
+		assert_ok!(result);
+		assert_eq!(child::get_raw(&child_trie_info, &key).unwrap(), value);
+		Ok(())
 	}
 
 	// n: new byte size
