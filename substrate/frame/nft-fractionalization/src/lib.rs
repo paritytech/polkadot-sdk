@@ -56,6 +56,7 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use core::fmt::Display;
 	use frame_support::{
 		dispatch::DispatchResult,
 		ensure,
@@ -83,7 +84,6 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::{format, string::String};
 	use sp_runtime::traits::{One, Zero};
-	use sp_std::{fmt::Display, prelude::*};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);

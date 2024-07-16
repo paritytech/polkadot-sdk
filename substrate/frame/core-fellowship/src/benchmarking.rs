@@ -22,6 +22,7 @@
 use super::*;
 use crate::Pallet as CoreFellowship;
 
+use alloc::{boxed::Box, vec};
 use frame_benchmarking::v2::*;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_arithmetic::traits::Bounded;
@@ -206,6 +207,22 @@ mod benchmarks {
 		_(RawOrigin::Root, member.clone(), 2u8.into());
 
 		assert_eq!(T::Members::rank_of(&member), Some(2));
+		assert!(!MemberEvidence::<T, I>::contains_key(&member));
+		Ok(())
+	}
+
+	/// Benchmark the `promote_fast` extrinsic to promote someone up to `r`.
+	#[benchmark]
+	fn promote_fast(r: Linear<1, { T::MaxRank::get() as u32 }>) -> Result<(), BenchmarkError> {
+		let r = r.try_into().expect("r is too large");
+		let member = make_member::<T, I>(0)?;
+
+		ensure_evidence::<T, I>(&member)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, member.clone(), r);
+
+		assert_eq!(T::Members::rank_of(&member), Some(r));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}

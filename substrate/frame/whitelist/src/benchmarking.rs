@@ -73,7 +73,7 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let origin = T::DispatchWhitelistedOrigin::try_successful_origin()
 			.map_err(|_| BenchmarkError::Weightless)?;
-		let remark = sp_std::vec![1u8; n as usize];
+		let remark = alloc::vec![1u8; n as usize];
 		let call: <T as Config>::RuntimeCall = frame_system::Call::remark { remark }.into();
 		let call_weight = call.get_dispatch_info().weight;
 		let encoded_call = call.encode();
@@ -97,7 +97,7 @@ mod benchmarks {
 	fn dispatch_whitelisted_call_with_preimage(n: Linear<1, 10_000>) -> Result<(), BenchmarkError> {
 		let origin = T::DispatchWhitelistedOrigin::try_successful_origin()
 			.map_err(|_| BenchmarkError::Weightless)?;
-		let remark = sp_std::vec![1u8; n as usize];
+		let remark = alloc::vec![1u8; n as usize];
 
 		let call: <T as Config>::RuntimeCall = frame_system::Call::remark { remark }.into();
 		let call_hash = T::Hashing::hash_of(&call);
