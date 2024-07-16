@@ -19,7 +19,6 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 //! DATE: 2024-07-15, STEPS: `5`, REPEAT: `1`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `am1max.local`, CPU: `<UNKNOWN>`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `Some("westend-dev")`, DB CACHE: 1024
 
 // Executed Command:
@@ -51,28 +50,26 @@ impl<T: frame_system::Config> pallet_mmr::WeightInfo for WeightInfo<T> {
 	/// Proof: `Mmr::NumberOfLeaves` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `System::ParentHash` (r:1 w:0)
 	/// Proof: `System::ParentHash` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
-	/// Storage: `Paras::Heads` (r:2049 w:0)
+	/// Storage: `Paras::Heads` (r:1025 w:0)
 	/// Proof: `Paras::Heads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `BeefyMmrLeaf::BeefyNextAuthorities` (r:1 w:0)
 	/// Proof: `BeefyMmrLeaf::BeefyNextAuthorities` (`max_values`: Some(1), `max_size`: Some(44), added: 539, mode: `MaxEncodedLen`)
+	/// Storage: `Mmr::Nodes` (r:8 w:4)
+	/// Proof: `Mmr::Nodes` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
 	/// Storage: `System::Digest` (r:1 w:1)
 	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Mmr::Nodes` (r:0 w:1000)
-	/// Proof: `Mmr::Nodes` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
 	/// Storage: `Mmr::RootHash` (r:0 w:1)
 	/// Proof: `Mmr::RootHash` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
 	/// The range of component `x` is `[1, 1000]`.
 	fn on_initialize(x: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2140817`
-		//  Estimated: `7213082`
-		// Minimum execution time: 20_387_000_000 picoseconds.
-		Weight::from_parts(223_625_477_528, 0)
-			.saturating_add(Weight::from_parts(0, 7213082))
-			// Standard Error: 310_550_970
-			.saturating_add(Weight::from_parts(16_906_397_286, 0).saturating_mul(x.into()))
-			.saturating_add(T::DbWeight::get().reads(2053))
-			.saturating_add(T::DbWeight::get().writes(3))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(x.into())))
+		//  Measured:  `1071043 + x * (39 ±0)`
+		//  Estimated: `3608787 + x * (39 ±0)`
+		// Minimum execution time: 10_502_000_000 picoseconds.
+		Weight::from_parts(10_768_775_439, 0)
+			.saturating_add(Weight::from_parts(0, 3608787))
+			.saturating_add(T::DbWeight::get().reads(1031))
+			.saturating_add(T::DbWeight::get().writes(4))
+			.saturating_add(Weight::from_parts(0, 39).saturating_mul(x.into()))
 	}
 }

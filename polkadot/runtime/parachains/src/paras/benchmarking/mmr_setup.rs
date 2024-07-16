@@ -30,7 +30,7 @@ where
 		// Create a head with 1024 bytes of data.
 		let head = vec![42u8; 1024];
 
-		for para in 0..(2 * MAX_PARA_HEADS) {
+		for para in 0..MAX_PARA_HEADS {
 			let id = (para as u32).into();
 			let h = head.clone().into();
 			Pallet::<T>::heads_insert(&id, h);

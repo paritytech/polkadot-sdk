@@ -122,7 +122,7 @@ impl<T: frame_system::Config> BlockHashProvider<BlockNumberFor<T>, T::Hash>
 }
 
 pub trait WeightInfo {
-	fn on_initialize(peaks: NodeIndex) -> Weight;
+	fn on_initialize(peaks: u32) -> Weight;
 }
 
 /// This trait decoples dependencies on pallets needed for benchmarking.
@@ -251,14 +251,14 @@ pub mod pallet {
 			// MMR push never fails, but better safe than sorry.
 			if mmr.push(data).is_none() {
 				log::error!(target: "runtime::mmr", "MMR push failed");
-				return T::WeightInfo::on_initialize(peaks_before)
+				return T::WeightInfo::on_initialize(peaks_before as u32)
 			}
 			// Update the size, `mmr.finalize()` should also never fail.
 			let (leaves, root) = match mmr.finalize() {
 				Ok((leaves, root)) => (leaves, root),
 				Err(e) => {
 					log::error!(target: "runtime::mmr", "MMR finalize failed: {:?}", e);
-					return T::WeightInfo::on_initialize(peaks_before)
+					return T::WeightInfo::on_initialize(peaks_before as u32)
 				},
 			};
 			<T::OnNewRoot as primitives::OnNewRoot<_>>::on_new_root(&root);
@@ -268,7 +268,7 @@ pub mod pallet {
 
 			let peaks_after = sp_mmr_primitives::utils::NodesUtils::new(leaves).number_of_peaks();
 
-			T::WeightInfo::on_initialize(peaks_before.max(peaks_after))
+			T::WeightInfo::on_initialize(peaks_before.max(peaks_after) as u32)
 		}
 	}
 }
