@@ -222,10 +222,10 @@ impl SendXcm for TestPaidForPara3000SendXcm {
 	) -> SendResult<(Location, Xcm<()>)> {
 		if let Some(dest) = dest.as_ref() {
 			if !dest.eq(&Para3000Location::get()) {
-				return Err(SendError::NotApplicable);
+				return Err(SendError::NotApplicable)
 			}
 		} else {
-			return Err(SendError::NotApplicable);
+			return Err(SendError::NotApplicable)
 		}
 
 		let pair = (dest.take().unwrap(), msg.take().unwrap());

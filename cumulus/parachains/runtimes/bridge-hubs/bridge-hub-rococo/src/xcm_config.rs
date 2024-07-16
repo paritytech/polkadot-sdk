@@ -380,7 +380,7 @@ impl<
 				}
 			}
 
-			return Assets::new();
+			return Assets::new()
 		}
 
 		fee
@@ -396,7 +396,7 @@ impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
 	fn is_waived(origin: Option<&Location>, fee_reason: FeeReason) -> bool {
 		let Some(loc) = origin else { return false };
 		if let Export { network, destination: Here } = fee_reason {
-			return !(network == EthereumNetwork::get());
+			return !(network == EthereumNetwork::get())
 		}
 		WaivedLocations::contains(loc)
 	}
