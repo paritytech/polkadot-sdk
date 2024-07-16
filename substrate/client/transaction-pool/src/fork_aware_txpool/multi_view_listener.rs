@@ -19,7 +19,7 @@
 //! Multi view listener. Combines streams from many views into single transaction status stream.
 
 use crate::{
-	graph::{self, BlockHash, ExtrinsicHash as TxHash},
+	graph::{self, BlockHash, ExtrinsicHash},
 	LOG_TARGET,
 };
 use futures::{stream, StreamExt};
@@ -39,7 +39,7 @@ type CommandReceiver<T> = mpsc::TracingUnboundedReceiver<T>;
 /// The stream of transaction events.
 ///
 /// It can represent both view's stream and external watcher stream.
-pub type TxStatusStream<T> = Pin<Box<TransactionStatusStream<TxHash<T>, BlockHash<T>>>>;
+pub type TxStatusStream<T> = Pin<Box<TransactionStatusStream<ExtrinsicHash<T>, BlockHash<T>>>>;
 
 enum ControllerCommand<ChainApi: graph::ChainApi> {
 	AddView(BlockHash<ChainApi>, TxStatusStream<ChainApi>),
@@ -78,8 +78,9 @@ where
 /// The listner allows to add and remove view's stream (per transaction).
 /// The listener allows also to invalidate and finalize transcation.
 pub struct MultiViewListener<ChainApi: graph::ChainApi> {
-	controllers:
-		parking_lot::RwLock<HashMap<TxHash<ChainApi>, Controller<ControllerCommand<ChainApi>>>>,
+	controllers: parking_lot::RwLock<
+		HashMap<ExtrinsicHash<ChainApi>, Controller<ControllerCommand<ChainApi>>>,
+	>,
 }
 
 /// External watcher context.
@@ -88,7 +89,7 @@ pub struct MultiViewListener<ChainApi: graph::ChainApi> {
 /// events. This context is used to unfold external watcher stream.
 use futures::stream::Fuse;
 struct ExternalWatcherContext<ChainApi: graph::ChainApi> {
-	tx_hash: TxHash<ChainApi>,
+	tx_hash: ExtrinsicHash<ChainApi>,
 	fused: futures::stream::Fuse<StreamMap<BlockHash<ChainApi>, TxStatusStream<ChainApi>>>,
 	rx: Fuse<CommandReceiver<ControllerCommand<ChainApi>>>,
 	terminate: bool,
@@ -104,7 +105,7 @@ where
 	<<ChainApi as graph::ChainApi>::Block as BlockT>::Hash: Unpin,
 {
 	fn new(
-		tx_hash: TxHash<ChainApi>,
+		tx_hash: ExtrinsicHash<ChainApi>,
 		rx: Fuse<CommandReceiver<ControllerCommand<ChainApi>>>,
 	) -> Self {
 		let mut stream_map: StreamMap<BlockHash<ChainApi>, TxStatusStream<ChainApi>> =
@@ -124,7 +125,7 @@ where
 
 	fn handle(
 		&mut self,
-		status: &TransactionStatus<TxHash<ChainApi>, BlockHash<ChainApi>>,
+		status: &TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
 		hash: BlockHash<ChainApi>,
 	) -> bool {
 		trace!(
@@ -213,7 +214,7 @@ where
 	/// Creates an external watcher for given transaction.
 	pub(crate) fn create_external_watcher_for_tx(
 		&self,
-		tx_hash: TxHash<ChainApi>,
+		tx_hash: ExtrinsicHash<ChainApi>,
 	) -> Option<TxStatusStream<ChainApi>> {
 		let mut controllers = self.controllers.write();
 		if controllers.contains_key(&tx_hash) {
@@ -281,7 +282,7 @@ where
 	/// Adds a view's stream for particular transaction.
 	pub(crate) fn add_view_watcher_for_tx(
 		&self,
-		tx_hash: TxHash<ChainApi>,
+		tx_hash: ExtrinsicHash<ChainApi>,
 		block_hash: BlockHash<ChainApi>,
 		stream: TxStatusStream<ChainApi>,
 	) {
@@ -318,7 +319,7 @@ where
 	/// Invalidate given transaction.
 	///
 	/// This will send invalidated event to the external watcher.
-	pub(crate) fn invalidate_transactions(&self, invalid_hashes: Vec<TxHash<ChainApi>>) {
+	pub(crate) fn invalidate_transactions(&self, invalid_hashes: Vec<ExtrinsicHash<ChainApi>>) {
 		let mut controllers = self.controllers.write();
 
 		for tx_hash in invalid_hashes {
@@ -337,7 +338,7 @@ where
 
 	pub(crate) fn transactions_broadcasted(
 		&self,
-		propagated: HashMap<TxHash<ChainApi>, Vec<String>>,
+		propagated: HashMap<ExtrinsicHash<ChainApi>, Vec<String>>,
 	) {
 		// pub fn on_broadcasted(&self, propagated: HashMap<ExtrinsicHash<B>, Vec<String>>) {
 		let mut controllers = self.controllers.write();
@@ -361,7 +362,7 @@ where
 	/// This will send finalize event to the external watcher.
 	pub(crate) fn finalize_transaction(
 		&self,
-		tx_hash: TxHash<ChainApi>,
+		tx_hash: ExtrinsicHash<ChainApi>,
 		block: BlockHash<ChainApi>,
 		idx: TxIndex,
 	) {

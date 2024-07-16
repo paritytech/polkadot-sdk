@@ -24,8 +24,7 @@
 use crate::{
 	api::FullChainApi,
 	enactment_state::{EnactmentAction, EnactmentState},
-	graph,
-	graph::Options,
+	graph::{self, base_pool::Transaction, ExtrinsicFor, ExtrinsicHash, IsValidator, Options},
 	log_xt_debug,
 };
 use async_trait::async_trait;
@@ -47,7 +46,6 @@ use std::{
 };
 use tokio::select;
 
-use crate::graph::{ExtrinsicHash, IsValidator};
 use futures::FutureExt;
 use sc_transaction_pool_api::{
 	ChainEvent, ImportNotificationStream, MaintainedTransactionPool, PoolFuture, PoolStatus,
@@ -91,7 +89,7 @@ where
 {
 	/// Create new basic transaction pool for a full node with the provided api.
 	pub fn new_full(
-		options: graph::Options,
+		options: Options,
 		is_validator: IsValidator,
 		prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
@@ -170,8 +168,7 @@ where
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
 	revalidation_queue: Arc<view_revalidation::RevalidationQueue<ChainApi, Block>>,
 
-	import_notification_sink:
-		MultiViewImportNotificationSink<Block::Hash, graph::ExtrinsicHash<ChainApi>>,
+	import_notification_sink: MultiViewImportNotificationSink<Block::Hash, ExtrinsicHash<ChainApi>>,
 	options: Options,
 	is_validator: IsValidator,
 	// todo: this are coming from ValidatedPool, some of them maybe needed here
@@ -210,7 +207,7 @@ where
 				))),
 				revalidation_queue: Arc::from(view_revalidation::RevalidationQueue::new()),
 				import_notification_sink,
-				options: graph::Options::default(),
+				options: Options::default(),
 				is_validator: false.into(),
 				metrics: Default::default(),
 			},
@@ -222,7 +219,7 @@ where
 	///
 	/// The txpool essential tasks are spawned using provided spawner.
 	pub fn new_with_background_queue(
-		options: graph::Options,
+		options: Options,
 		is_validator: IsValidator,
 		pool_api: Arc<ChainApi>,
 		prometheus: Option<&PrometheusRegistry>,
@@ -649,11 +646,8 @@ where
 	<Block as BlockT>::Hash: Unpin,
 {
 	type Block = ChainApi::Block;
-	type Hash = graph::ExtrinsicHash<ChainApi>;
-	type InPoolTransaction = graph::base_pool::Transaction<
-		graph::ExtrinsicHash<ChainApi>,
-		graph::ExtrinsicFor<ChainApi>,
-	>;
+	type Hash = ExtrinsicHash<ChainApi>;
+	type InPoolTransaction = Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>;
 	type Error = ChainApi::Error;
 
 	fn submit_at(
@@ -842,7 +836,7 @@ where
 	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 {
 	type Block = Block;
-	type Hash = graph::ExtrinsicHash<FullChainApi<Client, Block>>;
+	type Hash = ExtrinsicHash<FullChainApi<Client, Block>>;
 	type Error = <FullChainApi<Client, Block> as graph::ChainApi>::Error;
 
 	fn submit_local(
@@ -1000,7 +994,7 @@ where
 		let mut all_submitted_count = 0;
 		if !xts.is_empty() {
 			let unwatched_count = xts.len();
-			let mut buckets = HashMap::<TransactionSource, Vec<Arc<Block::Extrinsic>>>::default();
+			let mut buckets = HashMap::<TransactionSource, Vec<ExtrinsicFor<ChainApi>>>::default();
 			xts.into_iter()
 				.filter(|(hash, _)| !view.pool.validated_pool().pool.read().is_imported(hash))
 				.filter(|(hash, _)| !included_xts.contains(&hash))

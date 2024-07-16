@@ -21,13 +21,16 @@
 //! the crucial use cases when it is needed:
 //! - empty pool (no views yet)
 //! - potential races between creation of view and submitting transaction (w/o intermediary buffer
-//!   some transactions
-//! could be lost)
+//!   some transactions could be lost)
 //! - on some forks transaction can be invalid (view does not contain it), on other for tx can be
 //!   valid.
 
 use super::{metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener};
-use crate::{graph, graph::ExtrinsicHash, log_xt_debug, LOG_TARGET};
+use crate::{
+	graph,
+	graph::{ExtrinsicFor, ExtrinsicForRaw, ExtrinsicHash},
+	log_xt_debug, LOG_TARGET,
+};
 use futures::FutureExt;
 use itertools::Itertools;
 use parking_lot::RwLock;
@@ -60,7 +63,7 @@ where
 	/// is transaction watched
 	watched: bool,
 	/// transaction actual body
-	tx: graph::ExtrinsicFor<ChainApi>,
+	tx: ExtrinsicFor<ChainApi>,
 	/// transaction source
 	pub(crate) source: TransactionSource,
 	/// when transaction was revalidated, used to periodically revalidate mem pool buffer.
@@ -76,15 +79,15 @@ where
 		self.watched
 	}
 
-	fn new_unwatched(source: TransactionSource, tx: Arc<Block::Extrinsic>) -> Self {
+	fn new_unwatched(source: TransactionSource, tx: ExtrinsicFor<ChainApi>) -> Self {
 		Self { watched: false, tx, source, validated_at: AtomicU64::new(0) }
 	}
 
-	fn new_watched(source: TransactionSource, tx: Arc<Block::Extrinsic>) -> Self {
+	fn new_watched(source: TransactionSource, tx: ExtrinsicFor<ChainApi>) -> Self {
 		Self { watched: true, tx, source, validated_at: AtomicU64::new(0) }
 	}
 
-	pub(crate) fn tx(&self) -> graph::ExtrinsicFor<ChainApi> {
+	pub(crate) fn tx(&self) -> ExtrinsicFor<ChainApi> {
 		self.tx.clone()
 	}
 }
@@ -101,7 +104,7 @@ where
 	api: Arc<ChainApi>,
 	//could be removed after removing watched field (and adding listener into tx)
 	listener: Arc<MultiViewListener<ChainApi>>,
-	xts2: RwLock<HashMap<graph::ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block, ChainApi>>>>,
+	xts2: RwLock<HashMap<ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block, ChainApi>>>>,
 	metrics: PrometheusMetrics,
 }
 
@@ -123,8 +126,8 @@ where
 
 	pub(super) fn get_by_hash(
 		&self,
-		hash: graph::ExtrinsicHash<ChainApi>,
-	) -> Option<graph::ExtrinsicFor<ChainApi>> {
+		hash: ExtrinsicHash<ChainApi>,
+	) -> Option<ExtrinsicFor<ChainApi>> {
 		self.xts2.read().get(&hash).map(|t| t.tx.clone())
 	}
 
@@ -134,7 +137,7 @@ where
 		(xts2.len() - watched_count, watched_count)
 	}
 
-	pub(super) fn push_unwatched(&self, source: TransactionSource, xt: Arc<Block::Extrinsic>) {
+	pub(super) fn push_unwatched(&self, source: TransactionSource, xt: ExtrinsicFor<ChainApi>) {
 		let hash = self.api.hash_and_length(&xt).0;
 		let unwatched = Arc::from(TxInMemPool::new_unwatched(source, xt));
 		self.xts2.write().entry(hash).or_insert(unwatched);
@@ -143,7 +146,7 @@ where
 	pub(super) fn extend_unwatched(
 		&self,
 		source: TransactionSource,
-		xts: Vec<Arc<Block::Extrinsic>>,
+		xts: Vec<ExtrinsicFor<ChainApi>>,
 	) {
 		let mut xts2 = self.xts2.write();
 		xts.into_iter().for_each(|xt| {
@@ -153,7 +156,7 @@ where
 		});
 	}
 
-	pub(super) fn push_watched(&self, source: TransactionSource, xt: Arc<Block::Extrinsic>) {
+	pub(super) fn push_watched(&self, source: TransactionSource, xt: ExtrinsicFor<ChainApi>) {
 		let hash = self.api.hash_and_length(&xt).0;
 		let watched = Arc::from(TxInMemPool::new_watched(source, xt));
 		self.xts2.write().entry(hash).or_insert(watched);
@@ -161,7 +164,7 @@ where
 
 	pub(super) fn clone_unwatched(
 		&self,
-	) -> HashMap<graph::ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block, ChainApi>>> {
+	) -> HashMap<ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block, ChainApi>>> {
 		self.xts2
 			.read()
 			.iter()
@@ -170,7 +173,7 @@ where
 	}
 	pub(super) fn clone_watched(
 		&self,
-	) -> HashMap<graph::ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block, ChainApi>>> {
+	) -> HashMap<ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block, ChainApi>>> {
 		self.xts2
 			.read()
 			.iter()
@@ -178,7 +181,7 @@ where
 			.collect::<HashMap<_, _>>()
 	}
 
-	pub(super) fn remove_watched(&self, xt: &Block::Extrinsic) {
+	pub(super) fn remove_watched(&self, xt: &ExtrinsicForRaw<ChainApi>) {
 		self.xts2.write().retain(|_, t| *t.tx != *xt);
 	}
 

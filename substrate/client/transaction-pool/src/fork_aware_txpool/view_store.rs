@@ -23,7 +23,7 @@ use futures::prelude::*;
 use parking_lot::RwLock;
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
-use crate::graph::{ExtrinsicFor, ExtrinsicHash};
+use crate::graph::{base_pool::Transaction, ExtrinsicFor, ExtrinsicHash, TransactionFor};
 use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus, TransactionSource};
 
 use super::multi_view_listener::{MultiViewListener, TxStatusStream};
@@ -73,7 +73,7 @@ where
 	pub(super) async fn submit_at(
 		&self,
 		source: TransactionSource,
-		xts: impl IntoIterator<Item = Arc<Block::Extrinsic>> + Clone,
+		xts: impl IntoIterator<Item = ExtrinsicFor<ChainApi>> + Clone,
 	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>>> {
 		let results = {
 			let views = self.views.read();
@@ -100,7 +100,7 @@ where
 	pub(super) async fn submit_one(
 		&self,
 		source: TransactionSource,
-		xt: Arc<Block::Extrinsic>,
+		xt: ExtrinsicFor<ChainApi>,
 	) -> HashMap<Block::Hash, Result<ExtrinsicHash<ChainApi>, ChainApi::Error>> {
 		let mut output = HashMap::new();
 		let mut result = self.submit_at(source, std::iter::once(xt)).await;
@@ -120,7 +120,7 @@ where
 		&self,
 		_at: Block::Hash,
 		source: TransactionSource,
-		xt: Arc<Block::Extrinsic>,
+		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<TxStatusStream<ChainApi>, ChainApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
 		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash) else {
@@ -237,7 +237,7 @@ where
 
 	pub(super) fn futures(
 		&self,
-	) -> Vec<graph::base_pool::Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>> {
+	) -> Vec<Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>> {
 		let futures = self
 			.most_recent_view
 			.read()
@@ -290,8 +290,7 @@ where
 		&self,
 		at: Block::Hash,
 		tx_hash: &ExtrinsicHash<ChainApi>,
-	) -> Option<Arc<graph::base_pool::Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>>>
-	{
+	) -> Option<TransactionFor<ChainApi>> {
 		self.views
 			.read()
 			.get(&at)

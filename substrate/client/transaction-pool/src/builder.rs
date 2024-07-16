@@ -18,16 +18,18 @@
 
 //! Utitlity for building substrate transaction pool trait object.
 
-use sp_runtime::traits::Block as BlockT;
-use std::{marker::PhantomData, sync::Arc, time::Duration};
-
 use crate::{
-	fork_aware_txpool::fork_aware_txpool::FullPool as ForkAwareFullPool, graph::IsValidator,
-	single_state_txpool::single_state_txpool::FullPool as SingleStateFullPool, LOG_TARGET,
+	common::api::FullChainApi,
+	fork_aware_txpool::FullPool as ForkAwareFullPool,
+	graph::{base_pool::Transaction, ChainApi, ExtrinsicFor, ExtrinsicHash, IsValidator, Options},
+	single_state_txpool::FullPool as SingleStateFullPool,
+	LOG_TARGET,
 };
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{LocalTransactionPool, MaintainedTransactionPool};
 use sp_core::traits::SpawnEssentialNamed;
+use sp_runtime::traits::Block as BlockT;
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 /// The type of transaction pool.
 #[derive(Debug, Clone)]
@@ -42,7 +44,7 @@ pub enum TransactionPoolType {
 #[derive(Debug, Clone)]
 pub struct TransactionPoolOptions {
 	txpool_type: TransactionPoolType,
-	options: crate::graph::Options,
+	options: Options,
 }
 
 impl Default for TransactionPoolOptions {
@@ -60,7 +62,7 @@ impl TransactionPoolOptions {
 		txpool_type: TransactionPoolType,
 		is_dev: bool,
 	) -> TransactionPoolOptions {
-		let mut options = crate::graph::Options::default();
+		let mut options = Options::default();
 
 		// ready queue
 		options.ready.count = pool_limit;
@@ -72,11 +74,11 @@ impl TransactionPoolOptions {
 		options.future.total_bytes = pool_kbytes * 1024 / factor;
 
 		options.ban_time = if let Some(ban_seconds) = tx_ban_seconds {
-			std::time::Duration::from_secs(ban_seconds)
+			Duration::from_secs(ban_seconds)
 		} else if is_dev {
-			std::time::Duration::from_secs(0)
+			Duration::from_secs(0)
 		} else {
-			std::time::Duration::from_secs(30 * 60)
+			Duration::from_secs(30 * 60)
 		};
 
 		TransactionPoolOptions { options, txpool_type }
@@ -85,7 +87,7 @@ impl TransactionPoolOptions {
 	/// Creates predefined options for benchmarking
 	pub fn new_for_benchmarks() -> TransactionPoolOptions {
 		TransactionPoolOptions {
-			options: crate::graph::Options {
+			options: Options {
 				ready: crate::graph::base_pool::Limit {
 					count: 100_000,
 					total_bytes: 100 * 1024 * 1024,
@@ -102,8 +104,6 @@ impl TransactionPoolOptions {
 	}
 }
 
-use crate::{common::api::FullChainApi, graph::ChainApi};
-
 /// `FullClientTransactionPool` is a trait that combines the functionality of
 /// `MaintainedTransactionPool` and `LocalTransactionPool` for a given `Client` and `Block`.
 ///
@@ -112,15 +112,15 @@ use crate::{common::api::FullChainApi, graph::ChainApi};
 pub trait FullClientTransactionPool<Block, Client>:
 	MaintainedTransactionPool<
 		Block = Block,
-		Hash = crate::graph::ExtrinsicHash<FullChainApi<Client, Block>>,
-		InPoolTransaction = crate::graph::base_pool::Transaction<
-			crate::graph::ExtrinsicHash<FullChainApi<Client, Block>>,
-			crate::graph::ExtrinsicFor<FullChainApi<Client, Block>>,
+		Hash = ExtrinsicHash<FullChainApi<Client, Block>>,
+		InPoolTransaction = Transaction<
+			ExtrinsicHash<FullChainApi<Client, Block>>,
+			ExtrinsicFor<FullChainApi<Client, Block>>,
 		>,
 		Error = <FullChainApi<Client, Block> as ChainApi>::Error,
 	> + LocalTransactionPool<
 		Block = Block,
-		Hash = crate::graph::ExtrinsicHash<FullChainApi<Client, Block>>,
+		Hash = ExtrinsicHash<FullChainApi<Client, Block>>,
 		Error = <FullChainApi<Client, Block> as ChainApi>::Error,
 	>
 where
@@ -147,15 +147,15 @@ where
 	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 	P: MaintainedTransactionPool<
 			Block = Block,
-			Hash = crate::graph::ExtrinsicHash<FullChainApi<Client, Block>>,
-			InPoolTransaction = crate::graph::base_pool::Transaction<
-				crate::graph::ExtrinsicHash<FullChainApi<Client, Block>>,
-				crate::graph::ExtrinsicFor<FullChainApi<Client, Block>>,
+			Hash = ExtrinsicHash<FullChainApi<Client, Block>>,
+			InPoolTransaction = Transaction<
+				ExtrinsicHash<FullChainApi<Client, Block>>,
+				ExtrinsicFor<FullChainApi<Client, Block>>,
 			>,
 			Error = <FullChainApi<Client, Block> as ChainApi>::Error,
 		> + LocalTransactionPool<
 			Block = Block,
-			Hash = crate::graph::ExtrinsicHash<FullChainApi<Client, Block>>,
+			Hash = ExtrinsicHash<FullChainApi<Client, Block>>,
 			Error = <FullChainApi<Client, Block> as ChainApi>::Error,
 		>,
 {

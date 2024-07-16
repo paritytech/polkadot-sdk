@@ -44,11 +44,10 @@ pub type EventStream<H> = Receiver<H>;
 pub type BlockHash<A> = <<A as ChainApi>::Block as traits::Block>::Hash;
 /// Extrinsic hash type for a pool.
 pub type ExtrinsicHash<A> = <<A as ChainApi>::Block as traits::Block>::Hash;
-/// Extrinsic type for a pool (reference).
+/// Extrinsic type for a pool (reference counted).
 pub type ExtrinsicFor<A> = Arc<<<A as ChainApi>::Block as traits::Block>::Extrinsic>;
 /// Extrinsic type for a pool (raw data).
-// todo: arctx better naming?
-pub type ExtrinsicForRaw<A> = <<A as ChainApi>::Block as traits::Block>::Extrinsic;
+pub type RawExtrinsicFor<A> = <<A as ChainApi>::Block as traits::Block>::Extrinsic;
 /// Block number type for the ChainApi
 pub type NumberFor<A> = traits::NumberFor<<A as ChainApi>::Block>;
 /// A type of transaction stored in the pool
@@ -92,7 +91,7 @@ pub trait ChainApi: Send + Sync {
 	) -> Result<Option<<Self::Block as BlockT>::Hash>, Self::Error>;
 
 	/// Returns hash and encoding length of the extrinsic.
-	fn hash_and_length(&self, uxt: &ExtrinsicForRaw<Self>) -> (ExtrinsicHash<Self>, usize);
+	fn hash_and_length(&self, uxt: &RawExtrinsicFor<Self>) -> (ExtrinsicHash<Self>, usize);
 
 	/// Returns a block body given the block.
 	fn block_body(&self, at: <Self::Block as BlockT>::Hash) -> Self::BodyFuture;
@@ -256,7 +255,7 @@ impl<B: ChainApi> Pool<B> {
 		&self,
 		at: &HashAndNumber<B::Block>,
 		parent: <B::Block as BlockT>::Hash,
-		extrinsics: &[ExtrinsicForRaw<B>],
+		extrinsics: &[RawExtrinsicFor<B>],
 	) {
 		log::info!(
 			target: LOG_TARGET,
@@ -375,7 +374,7 @@ impl<B: ChainApi> Pool<B> {
 	}
 
 	/// Returns transaction hash
-	pub fn hash_of(&self, xt: &ExtrinsicForRaw<B>) -> ExtrinsicHash<B> {
+	pub fn hash_of(&self, xt: &RawExtrinsicFor<B>) -> ExtrinsicHash<B> {
 		self.validated_pool.api().hash_and_length(xt).0
 	}
 
