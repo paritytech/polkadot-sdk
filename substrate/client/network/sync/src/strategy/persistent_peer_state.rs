@@ -21,6 +21,8 @@ use sc_network::ReputationChange as Rep;
 use sc_network_types::PeerId;
 use schnellru::{ByLength, LruMap};
 
+const LOG_TARGET: &str = "sync::persistent_peer_state";
+
 /// The maximum number of disconnected peers to keep track of.
 ///
 /// When a peer disconnects, we must keep track if it was in the middle of a request.
@@ -122,21 +124,19 @@ impl PersistentPeersState {
 	/// Check if a peer is available for queries.
 	pub fn is_peer_available(&mut self, peer_id: &PeerId) -> bool {
 		let Some(state) = self.disconnected_peers.get(peer_id) else {
-			log::debug!(
-				target: LOG_TARGET,
-				"Peer {peer_id} is not in the disconnected peers state",
-			);
-
+			log::debug!(target: LOG_TARGET,"Peer {peer_id} is not in the disconnected peers state");
 			return true;
 		};
 
 		let elapsed = state.last_disconnect().elapsed();
-		if elapsed.as_secs() > FORGET_PERSISTENT_STATE_SECONDS {
+		if elapsed.as_secs() >= DISCONNECTED_PEER_BACKOFF_SECONDS * state.num_disconnects {
+			log::debug!(target: LOG_TARGET, "Peer {peer_id} is available for queries");
 			self.disconnected_peers.remove(peer_id);
-			return true;
+			true
+		} else {
+			log::debug!(target: LOG_TARGET,"Peer {peer_id} is backedoff");
+			false
 		}
-
-		elapsed.as_secs() >= DISCONNECTED_PEER_BACKOFF_SECONDS * state.num_disconnects
 	}
 }
 

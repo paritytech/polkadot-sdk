@@ -1147,7 +1147,9 @@ where
 
 		if let Some(state) = self.peers.remove(peer_id) {
 			if !state.state.is_available() {
-				self.persistent_peers.remove_peer(*peer_id);
+				if let Some(bad_peer) = self.persistent_peers.remove_peer(*peer_id) {
+					self.actions.push(ChainSyncAction::DropPeer(bad_peer));
+				}
 			}
 		}
 
