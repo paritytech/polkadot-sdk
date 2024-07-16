@@ -27,14 +27,16 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use cumulus_primitives_core::{
 	relay_chain::{BlakeTwo256, Hash as RelayHash, HashT as _},
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
 
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use scale_info::TypeInfo;
 use sp_inherents::InherentIdentifier;
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 /// The identifier for the parachain inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1337";
