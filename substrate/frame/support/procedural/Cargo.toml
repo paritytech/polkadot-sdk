@@ -53,6 +53,8 @@ static_assertions = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
+	"codec/std",
+	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
 	"sp-core/std",
@@ -60,8 +62,6 @@ std = [
 	"sp-io/std",
 	"sp-metadata-ir/std",
 	"sp-runtime/std",
-	"frame-support/std",
-	"codec/std"
 ]
 no-metadata-docs = []
 experimental = []
