@@ -278,7 +278,7 @@ impl Peerstore {
 		let metrics = if let Some(registry) = &metrics_registry {
 			PeerSetMetrics::register(registry)
 				.map_err(|err| {
-					log::error!(target: LOG_TARGET, "Failed to register peer set metrics: {}", err);
+					log::error!(target: LOG_TARGET, "Failed to register peer store metrics: {}", err);
 					err
 				})
 				.ok()
