@@ -17,8 +17,7 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use polkadot_sdk::*;
-
+use alloc::boxed::Box;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -29,7 +28,7 @@ use frame_support::{
 use pallet_alliance::{IdentityVerifier, ProposalIndex, ProposalProvider};
 use pallet_asset_tx_payment::HandleCredit;
 use pallet_identity::legacy::IdentityField;
-use sp_std::prelude::*;
+use polkadot_sdk::*;
 
 use crate::{
 	AccountId, AllianceCollective, AllianceMotion, Assets, Authorship, Balances, Hash,

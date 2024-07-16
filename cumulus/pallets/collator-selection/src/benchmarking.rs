@@ -21,13 +21,14 @@ use super::*;
 
 #[allow(unused)]
 use crate::Pallet as CollatorSelection;
+use alloc::vec::Vec;
 use codec::Decode;
+use core::cmp;
 use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::traits::{Currency, EnsureOrigin, Get, ReservableCurrency};
 use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, RawOrigin};
 use pallet_authorship::EventHandler;
 use pallet_session::{self as session, SessionManager};
-use sp_std::{cmp, prelude::*};
 
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;

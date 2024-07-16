@@ -22,8 +22,11 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limits.
 #![recursion_limit = "1024"]
 
+extern crate alloc;
+
 use polkadot_sdk::*;
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
@@ -100,7 +103,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, FixedPointNumber, FixedU128, Perbill, Percent, Permill, Perquintill,
 	RuntimeDebug,
 };
-use sp_std::prelude::*;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -1371,6 +1373,7 @@ impl pallet_contracts::Config for Runtime {
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
+	type MaxTransientStorageSize = ConstU32<{ 1 * 1024 * 1024 }>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations = ();
@@ -2548,6 +2551,7 @@ impl pallet_beefy::Config for Runtime {
 	type MaxNominators = ConstU32<0>;
 	type MaxSetIdSessionEntries = BeefySetIdSessionEntries;
 	type OnNewValidatorSet = MmrLeaf;
+	type AncestryHelper = MmrLeaf;
 	type WeightInfo = ();
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
 	type EquivocationReportSystem =
@@ -2659,7 +2663,7 @@ impl_runtime_apis! {
 			Runtime::metadata_at_version(version)
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
 	}
@@ -3032,7 +3036,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(3)]
+	#[api_version(4)]
 	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			pallet_beefy::GenesisBlock::<Runtime>::get()
@@ -3042,7 +3046,7 @@ impl_runtime_apis! {
 			Beefy::validator_set()
 		}
 
-		fn submit_report_equivocation_unsigned_extrinsic(
+		fn submit_report_double_voting_unsigned_extrinsic(
 			equivocation_proof: sp_consensus_beefy::DoubleVotingProof<
 				BlockNumber,
 				BeefyId,
@@ -3052,7 +3056,7 @@ impl_runtime_apis! {
 		) -> Option<()> {
 			let key_owner_proof = key_owner_proof.decode()?;
 
-			Beefy::submit_unsigned_equivocation_report(
+			Beefy::submit_unsigned_double_voting_report(
 				equivocation_proof,
 				key_owner_proof,
 			)

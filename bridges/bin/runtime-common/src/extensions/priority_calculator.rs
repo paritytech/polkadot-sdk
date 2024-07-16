@@ -319,6 +319,7 @@ mod integrity_tests {
 	pub mod per_message {
 		use super::*;
 
+		use bp_messages::ChainWithMessages;
 		use pallet_bridge_messages::WeightInfoExt;
 
 		/// Ensures that the value of `PriorityBoostPerMessage` matches the value of
@@ -339,7 +340,7 @@ mod integrity_tests {
 			BalanceOf<Runtime>: Send + Sync + FixedPointOperand,
 		{
 			let maximal_messages_in_delivery_transaction =
-				Runtime::MaxUnconfirmedMessagesAtInboundLane::get();
+				Runtime::BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 			super::ensure_priority_boost_is_sane::<PriorityBoostPerMessage, BalanceOf<Runtime>>(
 				"PriorityBoostPerMessage",
 				maximal_messages_in_delivery_transaction,

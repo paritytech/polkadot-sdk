@@ -87,6 +87,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "1024")]
 
+extern crate alloc;
 mod address;
 mod benchmarking;
 mod exec;
@@ -96,6 +97,7 @@ pub use primitives::*;
 
 mod schedule;
 mod storage;
+mod transient_storage;
 mod wasm;
 
 pub mod chain_extension;
@@ -115,11 +117,11 @@ use crate::{
 	wasm::{CodeInfo, WasmBlob},
 };
 use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
+use core::fmt::Debug;
 use environmental::*;
 use frame_support::{
 	dispatch::{GetDispatchInfo, Pays, PostDispatchInfo, RawOrigin, WithPostDispatchInfo},
 	ensure,
-	error::BadOrigin,
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
 		ConstU32, Contains, Get, Randomness, Time,
@@ -135,10 +137,9 @@ use frame_system::{
 use scale_info::TypeInfo;
 use smallvec::Array;
 use sp_runtime::{
-	traits::{Convert, Dispatchable, Saturating, StaticLookup, Zero},
+	traits::{BadOrigin, Convert, Dispatchable, Saturating, StaticLookup, Zero},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{fmt::Debug, prelude::*};
 
 pub use crate::{
 	address::{AddressGenerator, DefaultAddressGenerator},
@@ -388,6 +389,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxStorageKeyLen: Get<u32>;
 
+		/// The maximum size of the transient storage in bytes.
+		/// This includes keys, values, and previous entries used for storage rollback.
+		#[pallet::constant]
+		type MaxTransientStorageSize: Get<u32>;
+
 		/// The maximum number of delegate_dependencies that a contract can lock with
 		/// [`chain_extension::Ext::lock_delegate_dependency`].
 		#[pallet::constant]
@@ -554,6 +560,7 @@ pub mod pallet {
 			type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
 			type MaxDelegateDependencies = MaxDelegateDependencies;
 			type MaxStorageKeyLen = ConstU32<128>;
+			type MaxTransientStorageSize = ConstU32<{ 1 * 1024 * 1024 }>;
 			type Migrations = ();
 			type Time = Self;
 			type Randomness = Self;
@@ -605,7 +612,11 @@ pub mod pallet {
 			// Max call depth is CallStack::size() + 1
 			let max_call_depth = u32::try_from(T::CallStack::size().saturating_add(1))
 				.expect("CallStack size is too big");
-
+			// Transient storage uses a BTreeMap, which has overhead compared to the raw size of
+			// key-value data. To ensure safety, a margin of 2x the raw key-value size is used.
+			let max_transient_storage_size = T::MaxTransientStorageSize::get()
+				.checked_mul(2)
+				.expect("MaxTransientStorageSize is too large");
 			// Check that given configured `MaxCodeLen`, runtime heap memory limit can't be broken.
 			//
 			// In worst case, the decoded Wasm contract code would be `x16` times larger than the
@@ -615,7 +626,7 @@ pub mod pallet {
 			// Next, the pallet keeps the Wasm blob for each
 			// contract, hence we add up `MaxCodeLen` to the safety margin.
 			//
-			// Finally, the inefficiencies of the freeing-bump allocator
+			// The inefficiencies of the freeing-bump allocator
 			// being used in the client for the runtime memory allocations, could lead to possible
 			// memory allocations for contract code grow up to `x4` times in some extreme cases,
 			// which gives us total multiplier of `17*4` for `MaxCodeLen`.
@@ -624,17 +635,20 @@ pub mod pallet {
 			// memory should be available. Note that maximum allowed heap memory and stack size per
 			// each contract (stack frame) should also be counted.
 			//
+			// The pallet holds transient storage with a size up to `max_transient_storage_size`.
+			//
 			// Finally, we allow 50% of the runtime memory to be utilized by the contracts call
 			// stack, keeping the rest for other facilities, such as PoV, etc.
 			//
 			// This gives us the following formula:
 			//
-			// `(MaxCodeLen * 17 * 4 + MAX_STACK_SIZE + max_heap_size) * max_call_depth <
-			// max_runtime_mem/2`
+			// `(MaxCodeLen * 17 * 4 + MAX_STACK_SIZE + max_heap_size) * max_call_depth +
+			// max_transient_storage_size < max_runtime_mem/2`
 			//
 			// Hence the upper limit for the `MaxCodeLen` can be defined as follows:
 			let code_len_limit = max_runtime_mem
 				.saturating_div(2)
+				.saturating_sub(max_transient_storage_size)
 				.saturating_div(max_call_depth)
 				.saturating_sub(max_heap_size)
 				.saturating_sub(MAX_STACK_SIZE)
@@ -1235,6 +1249,8 @@ pub mod pallet {
 		DelegateDependencyAlreadyExists,
 		/// Can not add a delegate dependency to the code hash of the contract itself.
 		CannotAddSelfAsDelegateDependency,
+		/// Can not add more data to transient storage.
+		OutOfTransientStorage,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
