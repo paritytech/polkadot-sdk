@@ -37,7 +37,7 @@ use xcm_builder::{
 	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
 	HashedDescription, IsConcrete, MatchedConvertedConcreteId, NoChecking,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	XcmFeeManagerFromComponents, XcmSendFeeToAccount,
+	XcmFeeManagerFromComponents, SendXcmFeeToAccount,
 };
 use xcm_executor::{
 	traits::{Identity, JustTry},
