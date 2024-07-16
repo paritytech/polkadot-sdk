@@ -140,9 +140,8 @@ pub fn deposit_or_burn_fee<AssetTransactor: TransactAsset>(
 		if let Err(e) = AssetTransactor::deposit_asset(&asset, &dest, context) {
 			log::trace!(
 				target: "xcm::fees",
-				"`AssetTransactor::deposit_asset` returned error: {:?}. Burning fee: {:?}. \
+				"`AssetTransactor::deposit_asset` returned error: {e:?}. Burning fee: {asset:?}. \
 				They might be burned.",
-				e, asset,
 			);
 		}
 	}
