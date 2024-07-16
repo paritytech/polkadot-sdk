@@ -35,9 +35,9 @@ use xcm_builder::{
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
 	ChildSystemParachainAsSuperuser, DescribeAllTerminal, EnsureDecodableXcm, FixedRateOfFungible,
 	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
-	HashedDescription, IsConcrete, MatchedConvertedConcreteId, NoChecking,
+	HashedDescription, IsConcrete, MatchedConvertedConcreteId, NoChecking, SendXcmFeeToAccount,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	XcmFeeManagerFromComponents, SendXcmFeeToAccount,
+	XcmFeeManagerFromComponents,
 };
 use xcm_executor::{
 	traits::{Identity, JustTry},

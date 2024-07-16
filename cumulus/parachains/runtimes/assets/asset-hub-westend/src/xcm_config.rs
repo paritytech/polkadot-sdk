@@ -260,9 +260,9 @@ impl Contains<Location> for FellowshipEntities {
 	fn contains(location: &Location) -> bool {
 		matches!(
 			location.unpack(),
-			(1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }])
-				| (1, [Parachain(1001), PalletInstance(64)])
-				| (1, [Parachain(1001), PalletInstance(65)])
+			(1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }]) |
+				(1, [Parachain(1001), PalletInstance(64)]) |
+				(1, [Parachain(1001), PalletInstance(65)])
 		)
 	}
 }
