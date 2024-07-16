@@ -35,7 +35,7 @@ sp-std = { workspace = true }
 
 [dev-dependencies]
 bp-runtime = { workspace = true }
-pallet-balances = { workspace = true }
+pallet-balances = { workspace = true, default-features = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 bp-parachains = { workspace = true }

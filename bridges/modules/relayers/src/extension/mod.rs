@@ -51,7 +51,7 @@ use sp_runtime::{
 use sp_std::{fmt::Debug, marker::PhantomData};
 
 pub use grandpa_adapter::WithGrandpaChainExtensionConfig;
-pub use messages_adapter::MessagesExtensionConfig;
+pub use messages_adapter::WithMessagesExtensionConfig;
 pub use parachain_adapter::WithParachainExtensionConfig;
 pub use priority::*;
 
@@ -488,6 +488,10 @@ mod tests {
 		ConstU64<1>,
 	>;
 	type TestExtension = BridgeRelayersSignedExtension<TestRuntime, TestExtensionConfig>;
+	type TestMessagesExtensionConfig =
+		messages_adapter::WithMessagesExtensionConfig<StrTestId, TestRuntime, (), ConstU64<1>>;
+	type TestMessagesExtension =
+		BridgeRelayersSignedExtension<TestRuntime, TestMessagesExtensionConfig>;
 
 	fn test_lane_id() -> LaneId {
 		LaneId::new(1, 2)
@@ -983,8 +987,8 @@ mod tests {
 		}
 	}
 
-	fn delivery_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber>
-	{
+	fn delivery_pre_dispatch_data<RemoteGrandpaChainBlockNumber: Debug>(
+	) -> PreDispatchData<ThisChainAccountId, RemoteGrandpaChainBlockNumber> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: ExtensionCallInfo::Msgs(MessagesCallInfo::ReceiveMessagesProof(
@@ -1005,8 +1009,8 @@ mod tests {
 		}
 	}
 
-	fn confirmation_pre_dispatch_data(
-	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber> {
+	fn confirmation_pre_dispatch_data<RemoteGrandpaChainBlockNumber: Debug>(
+	) -> PreDispatchData<ThisChainAccountId, RemoteGrandpaChainBlockNumber> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: ExtensionCallInfo::Msgs(MessagesCallInfo::ReceiveMessagesDeliveryProof(
@@ -1047,12 +1051,10 @@ mod tests {
 		extension.validate(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
 	}
 
-	// TODO:(bridges-v2) - most of that stuff was introduced with free header execution: https://github.com/paritytech/polkadot-sdk/pull/4102
-	// fn run_messages_validate(call: RuntimeCall) -> TransactionValidity {
-	// 	let extension: TestMessagesExtension =
-	// 		RefundSignedExtensionAdapter(RefundBridgedMessages(PhantomData));
-	// 	extension.validate(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
-	// }
+	fn run_messages_validate(call: RuntimeCall) -> TransactionValidity {
+		let extension: TestMessagesExtension = BridgeRelayersSignedExtension(PhantomData);
+		extension.validate(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
+	}
 
 	fn ignore_priority(tx: TransactionValidity) -> TransactionValidity {
 		tx.map(|mut tx| {
@@ -1082,14 +1084,12 @@ mod tests {
 		extension.pre_dispatch(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
 	}
 
-	// TODO:(bridges-v2) - most of that stuff was introduced with free header execution: https://github.com/paritytech/polkadot-sdk/pull/4102
-	// fn run_messages_pre_dispatch(
-	// 	call: RuntimeCall,
-	// ) -> Result<Option<PreDispatchData<ThisChainAccountId>>, TransactionValidityError> {
-	// 	let extension: TestMessagesExtension =
-	// 		RefundSignedExtensionAdapter(RefundBridgedMessages(PhantomData));
-	// 	extension.pre_dispatch(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
-	// }
+	fn run_messages_pre_dispatch(
+		call: RuntimeCall,
+	) -> Result<Option<PreDispatchData<ThisChainAccountId, ()>>, TransactionValidityError> {
+		let extension: TestMessagesExtension = BridgeRelayersSignedExtension(PhantomData);
+		extension.pre_dispatch(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
+	}
 
 	fn dispatch_info() -> DispatchInfo {
 		DispatchInfo {
@@ -1249,11 +1249,10 @@ mod tests {
 				ignore_priority(run_validate(message_confirmation_call(200))),
 				Ok(ValidTransaction::default()),
 			);
-			// TODO:(bridges-v2) - most of that stuff was introduced with free header execution: https://github.com/paritytech/polkadot-sdk/pull/4102
-			// assert_eq!(
-			// 	ignore_priority(run_messages_validate(message_delivery_call(200))),
-			// 	Ok(ValidTransaction::default()),
-			// );
+			assert_eq!(
+				ignore_priority(run_messages_validate(message_delivery_call(200))),
+				Ok(ValidTransaction::default()),
+			);
 
 			assert_eq!(
 				ignore_priority(run_validate(parachain_finality_and_delivery_batch_call(200, 200))),
@@ -2019,148 +2018,147 @@ mod tests {
 		});
 	}
 
-	// TODO:(bridges-v2) - most of that stuff was introduced with free header execution: https://github.com/paritytech/polkadot-sdk/pull/4102
-	// #[test]
-	// fn messages_ext_only_parses_standalone_transactions() {
-	// 	run_test(|| {
-	// 		initialize_environment(100, 100, 100);
-	//
-	// 		// relay + parachain + message delivery calls batch is ignored
-	// 		assert_eq!(
-	// 			TestMessagesExtensionProvider::parse_and_check_for_obsolete_call(
-	// 				&all_finality_and_delivery_batch_call(200, 200, 200)
-	// 			),
-	// 			Ok(None),
-	// 		);
-	// 		assert_eq!(
-	// 			TestMessagesExtensionProvider::parse_and_check_for_obsolete_call(
-	// 				&all_finality_and_delivery_batch_call_ex(200, 200, 200)
-	// 			),
-	// 			Ok(None),
-	// 		);
-	//
-	// 		// relay + parachain + message confirmation calls batch is ignored
-	// 		assert_eq!(
-	// 			TestMessagesExtensionProvider::parse_and_check_for_obsolete_call(
-	// 				&all_finality_and_confirmation_batch_call(200, 200, 200)
-	// 			),
-	// 			Ok(None),
-	// 		);
-	// 		assert_eq!(
-	// 			TestMessagesExtensionProvider::parse_and_check_for_obsolete_call(
-	// 				&all_finality_and_confirmation_batch_call_ex(200, 200, 200)
-	// 			),
-	// 			Ok(None),
-	// 		);
-	//
-	// 		// parachain + message delivery call batch is ignored
-	// 		assert_eq!(
-	// 			TestMessagesExtensionProvider::parse_and_check_for_obsolete_call(
-	// 				&parachain_finality_and_delivery_batch_call(200, 200)
-	// 			),
-	// 			Ok(None),
-	// 		);
-	//
-	// 		// parachain + message confirmation call batch is ignored
-	// 		assert_eq!(
-	// 			TestMessagesExtensionProvider::parse_and_check_for_obsolete_call(
-	// 				&parachain_finality_and_confirmation_batch_call(200, 200)
-	// 			),
-	// 			Ok(None),
-	// 		);
-	//
-	// 		// relay + message delivery call batch is ignored
-	// 		assert_eq!(
-	// 			TestMessagesExtensionProvider::parse_and_check_for_obsolete_call(
-	// 				&relay_finality_and_delivery_batch_call(200, 200)
-	// 			),
-	// 			Ok(None),
-	// 		);
-	// 		assert_eq!(
-	// 			TestMessagesExtensionProvider::parse_and_check_for_obsolete_call(
-	// 				&relay_finality_and_delivery_batch_call_ex(200, 200)
-	// 			),
-	// 			Ok(None),
-	// 		);
-	//
-	// 		// relay + message confirmation call batch is ignored
-	// 		assert_eq!(
-	// 			TestMessagesExtensionProvider::parse_and_check_for_obsolete_call(
-	// 				&relay_finality_and_confirmation_batch_call(200, 200)
-	// 			),
-	// 			Ok(None),
-	// 		);
-	// 		assert_eq!(
-	// 			TestMessagesExtensionProvider::parse_and_check_for_obsolete_call(
-	// 				&relay_finality_and_confirmation_batch_call_ex(200, 200)
-	// 			),
-	// 			Ok(None),
-	// 		);
-	//
-	// 		// message delivery call batch is accepted
-	// 		assert_eq!(
-	// 			TestMessagesExtensionProvider::parse_and_check_for_obsolete_call(
-	// 				&message_delivery_call(200)
-	// 			),
-	// 			Ok(Some(delivery_pre_dispatch_data().call_info)),
-	// 		);
-	//
-	// 		// message confirmation call batch is accepted
-	// 		assert_eq!(
-	// 			TestMessagesExtensionProvider::parse_and_check_for_obsolete_call(
-	// 				&message_confirmation_call(200)
-	// 			),
-	// 			Ok(Some(confirmation_pre_dispatch_data().call_info)),
-	// 		);
-	// 	});
-	// }
-	//
-	// #[test]
-	// fn messages_ext_rejects_calls_with_obsolete_messages() {
-	// 	run_test(|| {
-	// 		initialize_environment(100, 100, 100);
-	//
-	// 		assert_eq!(
-	// 			run_messages_pre_dispatch(message_delivery_call(100)),
-	// 			Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
-	// 		);
-	// 		assert_eq!(
-	// 			run_messages_pre_dispatch(message_confirmation_call(100)),
-	// 			Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
-	// 		);
-	//
-	// 		assert_eq!(
-	// 			run_messages_validate(message_delivery_call(100)),
-	// 			Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
-	// 		);
-	// 		assert_eq!(
-	// 			run_messages_validate(message_confirmation_call(100)),
-	// 			Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
-	// 		);
-	// 	});
-	// }
-	//
-	// #[test]
-	// fn messages_ext_accepts_calls_with_new_messages() {
-	// 	run_test(|| {
-	// 		initialize_environment(100, 100, 100);
-	//
-	// 		assert_eq!(
-	// 			run_messages_pre_dispatch(message_delivery_call(200)),
-	// 			Ok(Some(delivery_pre_dispatch_data())),
-	// 		);
-	// 		assert_eq!(
-	// 			run_messages_pre_dispatch(message_confirmation_call(200)),
-	// 			Ok(Some(confirmation_pre_dispatch_data())),
-	// 		);
-	//
-	// 		assert_eq!(run_messages_validate(message_delivery_call(200)), Ok(Default::default()),);
-	// 		assert_eq!(
-	// 			run_messages_validate(message_confirmation_call(200)),
-	// 			Ok(Default::default()),
-	// 		);
-	// 	});
-	// }
+	#[test]
+	fn messages_ext_only_parses_standalone_transactions() {
+		run_test(|| {
+			initialize_environment(100, 100, 100);
+
+			// relay + parachain + message delivery calls batch is ignored
+			assert_eq!(
+				TestMessagesExtensionConfig::parse_and_check_for_obsolete_call(
+					&all_finality_and_delivery_batch_call(200, 200, 200)
+				),
+				Ok(None),
+			);
+			assert_eq!(
+				TestMessagesExtensionConfig::parse_and_check_for_obsolete_call(
+					&all_finality_and_delivery_batch_call_ex(200, 200, 200)
+				),
+				Ok(None),
+			);
+
+			// relay + parachain + message confirmation calls batch is ignored
+			assert_eq!(
+				TestMessagesExtensionConfig::parse_and_check_for_obsolete_call(
+					&all_finality_and_confirmation_batch_call(200, 200, 200)
+				),
+				Ok(None),
+			);
+			assert_eq!(
+				TestMessagesExtensionConfig::parse_and_check_for_obsolete_call(
+					&all_finality_and_confirmation_batch_call_ex(200, 200, 200)
+				),
+				Ok(None),
+			);
+
+			// parachain + message delivery call batch is ignored
+			assert_eq!(
+				TestMessagesExtensionConfig::parse_and_check_for_obsolete_call(
+					&parachain_finality_and_delivery_batch_call(200, 200)
+				),
+				Ok(None),
+			);
+
+			// parachain + message confirmation call batch is ignored
+			assert_eq!(
+				TestMessagesExtensionConfig::parse_and_check_for_obsolete_call(
+					&parachain_finality_and_confirmation_batch_call(200, 200)
+				),
+				Ok(None),
+			);
+
+			// relay + message delivery call batch is ignored
+			assert_eq!(
+				TestMessagesExtensionConfig::parse_and_check_for_obsolete_call(
+					&relay_finality_and_delivery_batch_call(200, 200)
+				),
+				Ok(None),
+			);
+			assert_eq!(
+				TestMessagesExtensionConfig::parse_and_check_for_obsolete_call(
+					&relay_finality_and_delivery_batch_call_ex(200, 200)
+				),
+				Ok(None),
+			);
+
+			// relay + message confirmation call batch is ignored
+			assert_eq!(
+				TestMessagesExtensionConfig::parse_and_check_for_obsolete_call(
+					&relay_finality_and_confirmation_batch_call(200, 200)
+				),
+				Ok(None),
+			);
+			assert_eq!(
+				TestMessagesExtensionConfig::parse_and_check_for_obsolete_call(
+					&relay_finality_and_confirmation_batch_call_ex(200, 200)
+				),
+				Ok(None),
+			);
+
+			// message delivery call batch is accepted
+			assert_eq!(
+				TestMessagesExtensionConfig::parse_and_check_for_obsolete_call(
+					&message_delivery_call(200)
+				),
+				Ok(Some(delivery_pre_dispatch_data().call_info)),
+			);
+
+			// message confirmation call batch is accepted
+			assert_eq!(
+				TestMessagesExtensionConfig::parse_and_check_for_obsolete_call(
+					&message_confirmation_call(200)
+				),
+				Ok(Some(confirmation_pre_dispatch_data().call_info)),
+			);
+		});
+	}
+
+	#[test]
+	fn messages_ext_rejects_calls_with_obsolete_messages() {
+		run_test(|| {
+			initialize_environment(100, 100, 100);
+
+			assert_eq!(
+				run_messages_pre_dispatch(message_delivery_call(100)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+			assert_eq!(
+				run_messages_pre_dispatch(message_confirmation_call(100)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+
+			assert_eq!(
+				run_messages_validate(message_delivery_call(100)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+			assert_eq!(
+				run_messages_validate(message_confirmation_call(100)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+		});
+	}
+
+	#[test]
+	fn messages_ext_accepts_calls_with_new_messages() {
+		run_test(|| {
+			initialize_environment(100, 100, 100);
+
+			assert_eq!(
+				run_messages_pre_dispatch(message_delivery_call(200)),
+				Ok(Some(delivery_pre_dispatch_data())),
+			);
+			assert_eq!(
+				run_messages_pre_dispatch(message_confirmation_call(200)),
+				Ok(Some(confirmation_pre_dispatch_data())),
+			);
+
+			assert_eq!(run_messages_validate(message_delivery_call(200)), Ok(Default::default()),);
+			assert_eq!(
+				run_messages_validate(message_confirmation_call(200)),
+				Ok(Default::default()),
+			);
+		});
+	}
 
 	#[test]
 	fn grandpa_ext_rejects_batch_with_obsolete_relay_chain_header() {
