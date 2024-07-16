@@ -4,9 +4,9 @@
 title: Send PeerViewChange with high priority
 
 doc:
-  - audience: Node Operator
+  - audience: Node Dev
     description: |
-      - orchestra updated to 0.4.0
+      - orchestra updated to 0.4.0, which introduces support for prioritizing system messages.
       - PeerViewChange sent with high priority and should be processed first in a queue.
       - To count them in tests added tracker to TestSender and TestOverseer. It acts more like a smoke test though.
 
