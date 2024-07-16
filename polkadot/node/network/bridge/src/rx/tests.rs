@@ -975,6 +975,7 @@ fn peer_messages_sent_via_overseer() {
 			&mut virtual_overseer,
 		)
 		.await;
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 		virtual_overseer
 	});
 }
@@ -1043,6 +1044,7 @@ fn peer_disconnect_from_just_one_peerset() {
 			&mut virtual_overseer,
 		)
 		.await;
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 
 		// to show that we're still connected on the collation protocol, send a view update.
 

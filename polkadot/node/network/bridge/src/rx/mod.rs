@@ -1140,7 +1140,12 @@ async fn dispatch_validation_events_to_all<I>(
 			if let Ok(event) = $event.focus() {
 				let has_high_priority = matches!(
 					event,
-					NetworkBridgeEvent::PeerConnected(..) | NetworkBridgeEvent::PeerViewChange(..)
+					// NetworkBridgeEvent::OurViewChange(..) must also be here,
+					// but it is sent via an unbounded channel.
+					// See https://github.com/paritytech/polkadot-sdk/issues/824
+					NetworkBridgeEvent::PeerConnected(..) |
+						NetworkBridgeEvent::PeerDisconnected(..) |
+						NetworkBridgeEvent::PeerViewChange(..)
 				);
 				let message = $message::from(event);
 				if has_high_priority {
