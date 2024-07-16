@@ -52,7 +52,7 @@ frame_support::construct_runtime! {
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Event<T>},
 		Messages: pallet_bridge_messages::{Pallet, Call, Event<T>},
-		XcmOverBridge: pallet_xcm_bridge_hub::{Pallet, Call, Event<T>},
+		XcmOverBridge: pallet_xcm_bridge_hub::{Pallet, Call, HoldReason, Event<T>},
 	}
 }
 
@@ -161,7 +161,8 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type BridgeOriginAccountIdConverter = LocationToAccountId;
 
 	type BridgeDeposit = BridgeDeposit;
-	type NativeCurrency = Balances;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 

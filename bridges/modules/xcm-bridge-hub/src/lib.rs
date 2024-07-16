@@ -57,10 +57,7 @@ use bp_xcm_bridge_hub::{
 	bridge_locations, Bridge, BridgeId, BridgeLocations, BridgeLocationsError, BridgeState,
 	LocalXcmChannelManager,
 };
-use frame_support::{
-	traits::{Currency, ReservableCurrency},
-	DefaultNoBound,
-};
+use frame_support::{traits::fungible::MutateHold, DefaultNoBound};
 use frame_system::Config as SystemConfig;
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, LanesManagerError};
 use sp_runtime::traits::Zero;
@@ -83,8 +80,16 @@ pub const LOG_TARGET: &str = "runtime::bridge-xcm";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, traits::tokens::Precision};
 	use frame_system::pallet_prelude::{BlockNumberFor, *};
+
+	/// The reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The funds are held as a deposit for opened bridge.
+		#[codec(index = 0)]
+		BridgeDeposit,
+	}
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
@@ -129,7 +134,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type BridgeDeposit: Get<BalanceOf<ThisChainOf<Self, I>>>;
 		/// Currency used to pay for bridge registration.
-		type NativeCurrency: ReservableCurrency<Self::AccountId>;
+		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		/// The overarching runtime hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Local XCM channel manager.
 		type LocalXcmChannelManager: LocalXcmChannelManager;
@@ -164,7 +171,7 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Pallet<T, I>
 	where
 		T: frame_system::Config<AccountId = AccountIdOf<ThisChainOf<T, I>>>,
-		T::NativeCurrency: Currency<T::AccountId, Balance = BalanceOf<ThisChainOf<T, I>>>,
+		T::Currency: MutateHold<T::AccountId, Balance = BalanceOf<ThisChainOf<T, I>>>,
 	{
 		/// Open a bridge between two locations.
 		///
@@ -193,7 +200,7 @@ pub mod pallet {
 				&locations.bridge_origin_relative_location,
 			)
 			.ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
-			T::NativeCurrency::reserve(&bridge_owner_account, reserve)
+			T::Currency::hold(&HoldReason::BridgeDeposit.into(), &bridge_owner_account, reserve)
 				.map_err(|_| Error::<T, I>::FailedToReserveBridgeDeposit)?;
 
 			// save bridge metadata
@@ -233,6 +240,7 @@ pub mod pallet {
 			// deposit `BridgeOpened` event
 			Self::deposit_event(Event::<T, I>::BridgeOpened {
 				bridge_id: locations.bridge_id,
+				bridge_deposit: Some(reserve),
 				local_endpoint: Box::new(locations.bridge_origin_universal_location),
 				remote_endpoint: Box::new(locations.bridge_destination_universal_location),
 			});
@@ -333,24 +341,29 @@ pub mod pallet {
 			outbound_lane.purge();
 			Bridges::<T, I>::remove(locations.bridge_id);
 
-			// unreserve remaining amount
-			let failed_to_unreserve =
-				T::NativeCurrency::unreserve(&bridge.bridge_owner_account, bridge.reserve);
-			if !failed_to_unreserve.is_zero() {
+			// return deposit
+			let released_deposit = T::Currency::release(
+				&HoldReason::BridgeDeposit.into(),
+				&bridge.bridge_owner_account,
+				bridge.reserve,
+				Precision::BestEffort,
+			)
+			.map_err(|e| {
 				// we can't do anything here - looks like funds have been (partially) unreserved
 				// before by someone else. Let's not fail, though - it'll be worse for the caller
-				log::trace!(
+				log::error!(
 					target: LOG_TARGET,
-					"Failed to unreserve {:?} during ridge {:?} closure",
-					failed_to_unreserve,
+					"Failed to unreserve during the bridge {:?} closure with error: {e:?}",
 					locations.bridge_id,
 				);
-			}
+				e
+			})
+			.ok();
 
 			// write something to log
 			log::trace!(
 				target: LOG_TARGET,
-				"Bridge {:?} between {:?} and {:?} has been closed",
+				"Bridge {:?} between {:?} and {:?} has been closed, the bridge deposit {released_deposit:?} was returned",
 				locations.bridge_id,
 				locations.bridge_origin_universal_location,
 				locations.bridge_destination_universal_location,
@@ -359,6 +372,7 @@ pub mod pallet {
 			// deposit the `BridgePruned` event
 			Self::deposit_event(Event::<T, I>::BridgePruned {
 				bridge_id: locations.bridge_id,
+				bridge_deposit: released_deposit,
 				pruned_messages,
 			});
 
@@ -476,6 +490,8 @@ pub mod pallet {
 			remote_endpoint: Box<InteriorLocation>,
 			/// Bridge identifier.
 			bridge_id: BridgeId,
+			/// Amount of deposit held.
+			bridge_deposit: Option<BalanceOf<ThisChainOf<T, I>>>,
 		},
 		/// Bridge is going to be closed, but not yet fully pruned from the runtime storage.
 		ClosingBridge {
@@ -491,6 +507,8 @@ pub mod pallet {
 		BridgePruned {
 			/// Bridge identifier.
 			bridge_id: BridgeId,
+			/// Amount of deposit released.
+			bridge_deposit: Option<BalanceOf<ThisChainOf<T, I>>>,
 			/// Number of pruned messages during the close call.
 			pruned_messages: MessageNonce,
 		},
@@ -545,7 +563,7 @@ mod tests {
 			XcmOverBridge::bridge_locations_from_origin(origin, Box::new(with.into())).unwrap();
 		let bridge_owner_account =
 			fund_origin_sovereign_account(&locations, reserve + ExistentialDeposit::get());
-		Balances::reserve(&bridge_owner_account, reserve).unwrap();
+		Balances::hold(&HoldReason::BridgeDeposit.into(), &bridge_owner_account, reserve).unwrap();
 
 		let bridge = Bridge {
 			bridge_origin_relative_location: Box::new(
@@ -839,6 +857,7 @@ mod tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::XcmOverBridge(Event::BridgeOpened {
 							bridge_id: locations.bridge_id,
+							bridge_deposit: Some(BridgeDeposit::get()),
 							local_endpoint: Box::new(locations.bridge_origin_universal_location),
 							remote_endpoint: Box::new(
 								locations.bridge_destination_universal_location
@@ -1077,6 +1096,7 @@ mod tests {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::XcmOverBridge(Event::BridgePruned {
 						bridge_id: locations.bridge_id,
+						bridge_deposit: Some(BridgeDeposit::get()),
 						pruned_messages: 8,
 					}),
 					topics: vec![],
