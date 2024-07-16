@@ -165,18 +165,18 @@ impl core::Benchmark for ConstructionBenchmark {
 
 #[derive(Clone, Debug)]
 pub struct PoolTransaction {
-	data: OpaqueExtrinsic,
+	data: Arc<OpaqueExtrinsic>,
 	hash: node_primitives::Hash,
 }
 
 impl From<OpaqueExtrinsic> for PoolTransaction {
 	fn from(e: OpaqueExtrinsic) -> Self {
-		PoolTransaction { data: e, hash: node_primitives::Hash::zero() }
+		PoolTransaction { data: Arc::from(e), hash: node_primitives::Hash::zero() }
 	}
 }
 
 impl sc_transaction_pool_api::InPoolTransaction for PoolTransaction {
-	type Transaction = OpaqueExtrinsic;
+	type Transaction = Arc<OpaqueExtrinsic>;
 	type Hash = node_primitives::Hash;
 
 	fn data(&self) -> &Self::Transaction {
