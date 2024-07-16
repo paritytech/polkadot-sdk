@@ -245,7 +245,7 @@ pub trait TransactionPool: Send + Sync {
 	type Hash: Hash + Eq + Member + Serialize + DeserializeOwned + Codec;
 	/// In-pool transaction type.
 	type InPoolTransaction: InPoolTransaction<
-		Transaction = TransactionFor<Self>,
+		Transaction = Arc<TransactionFor<Self>>,
 		Hash = TxHash<Self>,
 	>;
 	/// Error type.

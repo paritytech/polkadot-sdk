@@ -87,8 +87,7 @@ pub struct PruneStatus<Hash, Ex> {
 #[derive(PartialEq, Eq, Clone)]
 pub struct Transaction<Hash, Extrinsic> {
 	/// Raw extrinsic representing that transaction.
-	//todo: arctx should Extrnsic already be Arc? See ExtrinsicFor
-	pub data: Arc<Extrinsic>,
+	pub data: Extrinsic,
 	/// Number of bytes encoding of the transaction requires.
 	pub bytes: usize,
 	/// Transaction hash (unique)
@@ -554,7 +553,7 @@ mod tests {
 
 	fn default_tx() -> Transaction<Hash, Vec<u8>> {
 		Transaction {
-			data: Arc::new(vec![]),
+			data: vec![],
 			bytes: 1,
 			hash: 1u64,
 			priority: 5u64,

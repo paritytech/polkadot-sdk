@@ -178,7 +178,7 @@ where
 
 	fn hash_and_length(
 		&self,
-		ex: &graph::ExtrinsicFor<Self>,
+		ex: &graph::ExtrinsicForRaw<Self>,
 	) -> (graph::ExtrinsicHash<Self>, usize) {
 		ex.using_encoded(|x| (<traits::HashingFor<Block> as traits::Hash>::hash(x), x.len()))
 	}
@@ -240,7 +240,7 @@ where
 			sp_tracing::Level::TRACE, "runtime::validate_transaction";
 		{
 			if api_version >= 3 {
-				runtime_api.validate_transaction(at, source, uxt.clone(), at)
+				runtime_api.validate_transaction(at, source, (*uxt).clone(), at)
 					.map_err(|e| Error::RuntimeApi(e.to_string()))
 			} else {
 				let block_number = client.to_number(&BlockId::Hash(at))
@@ -260,11 +260,11 @@ where
 
 				if api_version == 2 {
 					#[allow(deprecated)] // old validate_transaction
-					runtime_api.validate_transaction_before_version_3(at, source, uxt)
+					runtime_api.validate_transaction_before_version_3(at, source, (*uxt).clone())
 						.map_err(|e| Error::RuntimeApi(e.to_string()))
 				} else {
 					#[allow(deprecated)] // old validate_transaction
-					runtime_api.validate_transaction_before_version_2(at, uxt)
+					runtime_api.validate_transaction_before_version_2(at, (*uxt).clone())
 						.map_err(|e| Error::RuntimeApi(e.to_string()))
 				}
 			}

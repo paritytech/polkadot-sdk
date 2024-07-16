@@ -65,8 +65,9 @@ impl ChainApi for TestApi {
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
-		uxt: <Self::Block as BlockT>::Extrinsic,
+		uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
 	) -> Self::ValidationFuture {
+		let uxt = (*uxt).clone();
 		let transfer = TransferData::try_from(&uxt)
 			.expect("uxt is expected to be bench_call (carrying TransferData)");
 		let nonce = transfer.nonce;

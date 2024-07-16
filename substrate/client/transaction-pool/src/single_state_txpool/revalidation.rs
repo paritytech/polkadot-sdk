@@ -88,8 +88,7 @@ async fn batch_revalidate<Api: ChainApi>(
 
 	let validation_results = futures::future::join_all(batch.into_iter().filter_map(|ext_hash| {
 		pool.validated_pool().ready_by_hash(&ext_hash).map(|ext| {
-			//todo: arctx - data clone - can we do better?
-			api.validate_transaction(at, ext.source, (*ext.data).clone())
+			api.validate_transaction(at, ext.source, ext.data.clone())
 				.map(move |validation_result| (validation_result, ext_hash, ext))
 		})
 	}))

@@ -34,7 +34,10 @@ use sp_runtime::{
 		ValidTransaction,
 	},
 };
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::{
+	collections::{BTreeMap, HashMap, HashSet},
+	sync::Arc,
+};
 use substrate_test_runtime_client::{
 	runtime::{
 		AccountId, Block, BlockNumber, Extrinsic, ExtrinsicBuilder, Hash, Header, Nonce, Transfer,
@@ -350,8 +353,9 @@ impl ChainApi for TestApi {
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
-		uxt: <Self::Block as BlockT>::Extrinsic,
+		uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
 	) -> Self::ValidationFuture {
+		let uxt = (*uxt).clone();
 		self.validation_requests.write().push(uxt.clone());
 		let block_number;
 

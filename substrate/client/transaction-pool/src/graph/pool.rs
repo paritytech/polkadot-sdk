@@ -44,8 +44,11 @@ pub type EventStream<H> = Receiver<H>;
 pub type BlockHash<A> = <<A as ChainApi>::Block as traits::Block>::Hash;
 /// Extrinsic hash type for a pool.
 pub type ExtrinsicHash<A> = <<A as ChainApi>::Block as traits::Block>::Hash;
-/// Extrinsic type for a pool.
-pub type ExtrinsicFor<A> = <<A as ChainApi>::Block as traits::Block>::Extrinsic;
+/// Extrinsic type for a pool (reference).
+pub type ExtrinsicFor<A> = Arc<<<A as ChainApi>::Block as traits::Block>::Extrinsic>;
+/// Extrinsic type for a pool (raw data).
+// todo: arctx better naming?
+pub type ExtrinsicForRaw<A> = <<A as ChainApi>::Block as traits::Block>::Extrinsic;
 /// Block number type for the ChainApi
 pub type NumberFor<A> = traits::NumberFor<<A as ChainApi>::Block>;
 /// A type of transaction stored in the pool
@@ -89,7 +92,7 @@ pub trait ChainApi: Send + Sync {
 	) -> Result<Option<<Self::Block as BlockT>::Hash>, Self::Error>;
 
 	/// Returns hash and encoding length of the extrinsic.
-	fn hash_and_length(&self, uxt: &ExtrinsicFor<Self>) -> (ExtrinsicHash<Self>, usize);
+	fn hash_and_length(&self, uxt: &ExtrinsicForRaw<Self>) -> (ExtrinsicHash<Self>, usize);
 
 	/// Returns a block body given the block.
 	fn block_body(&self, at: <Self::Block as BlockT>::Hash) -> Self::BodyFuture;
@@ -166,7 +169,7 @@ impl<B: ChainApi> Pool<B> {
 		&self,
 		at: &HashAndNumber<B::Block>,
 		source: TransactionSource,
-		xts: impl IntoIterator<Item = Arc<ExtrinsicFor<B>>>,
+		xts: impl IntoIterator<Item = ExtrinsicFor<B>>,
 	) -> Vec<Result<ExtrinsicHash<B>, B::Error>> {
 		let xts = xts.into_iter().map(|xt| (source, xt));
 		let validated_transactions = self.verify(at, xts, CheckBannedBeforeVerify::Yes).await;
@@ -180,7 +183,7 @@ impl<B: ChainApi> Pool<B> {
 		&self,
 		at: &HashAndNumber<B::Block>,
 		source: TransactionSource,
-		xts: impl IntoIterator<Item = Arc<ExtrinsicFor<B>>>,
+		xts: impl IntoIterator<Item = ExtrinsicFor<B>>,
 	) -> Vec<Result<ExtrinsicHash<B>, B::Error>> {
 		let xts = xts.into_iter().map(|xt| (source, xt));
 		let validated_transactions = self.verify(at, xts, CheckBannedBeforeVerify::No).await;
@@ -192,7 +195,7 @@ impl<B: ChainApi> Pool<B> {
 		&self,
 		at: &HashAndNumber<B::Block>,
 		source: TransactionSource,
-		xt: Arc<ExtrinsicFor<B>>,
+		xt: ExtrinsicFor<B>,
 	) -> Result<ExtrinsicHash<B>, B::Error> {
 		let res = self.submit_at(at, source, std::iter::once(xt)).await.pop();
 		res.expect("One extrinsic passed; one result returned; qed")
@@ -203,7 +206,7 @@ impl<B: ChainApi> Pool<B> {
 		&self,
 		at: &HashAndNumber<B::Block>,
 		source: TransactionSource,
-		xt: Arc<ExtrinsicFor<B>>,
+		xt: ExtrinsicFor<B>,
 	) -> Result<Watcher<ExtrinsicHash<B>, ExtrinsicHash<B>>, B::Error> {
 		let (_, tx) = self
 			.verify_one(at.hash, at.number, source, xt, CheckBannedBeforeVerify::Yes)
@@ -253,7 +256,7 @@ impl<B: ChainApi> Pool<B> {
 		&self,
 		at: &HashAndNumber<B::Block>,
 		parent: <B::Block as BlockT>::Hash,
-		extrinsics: &[ExtrinsicFor<B>],
+		extrinsics: &[ExtrinsicForRaw<B>],
 	) {
 		log::info!(
 			target: LOG_TARGET,
@@ -288,7 +291,7 @@ impl<B: ChainApi> Pool<B> {
 							.validate_transaction(
 								parent,
 								TransactionSource::InBlock,
-								extrinsic.clone(),
+								Arc::from(extrinsic.clone()),
 							)
 							.await;
 
@@ -372,7 +375,7 @@ impl<B: ChainApi> Pool<B> {
 	}
 
 	/// Returns transaction hash
-	pub fn hash_of(&self, xt: &ExtrinsicFor<B>) -> ExtrinsicHash<B> {
+	pub fn hash_of(&self, xt: &ExtrinsicForRaw<B>) -> ExtrinsicHash<B> {
 		self.validated_pool.api().hash_and_length(xt).0
 	}
 
@@ -380,7 +383,7 @@ impl<B: ChainApi> Pool<B> {
 	async fn verify(
 		&self,
 		at: &HashAndNumber<B::Block>,
-		xts: impl IntoIterator<Item = (TransactionSource, Arc<ExtrinsicFor<B>>)>,
+		xts: impl IntoIterator<Item = (TransactionSource, ExtrinsicFor<B>)>,
 		check: CheckBannedBeforeVerify,
 	) -> HashMap<ExtrinsicHash<B>, ValidatedTransactionFor<B>> {
 		let HashAndNumber { number, hash } = *at;
@@ -402,7 +405,7 @@ impl<B: ChainApi> Pool<B> {
 		block_hash: <B::Block as BlockT>::Hash,
 		block_number: NumberFor<B>,
 		source: TransactionSource,
-		xt: Arc<ExtrinsicFor<B>>,
+		xt: ExtrinsicFor<B>,
 		check: CheckBannedBeforeVerify,
 	) -> (ExtrinsicHash<B>, ValidatedTransactionFor<B>) {
 		let (hash, bytes) = self.validated_pool.api().hash_and_length(&xt);
@@ -415,7 +418,7 @@ impl<B: ChainApi> Pool<B> {
 		let validation_result = self
 			.validated_pool
 			.api()
-			.validate_transaction(block_hash, source, (*xt).clone())
+			.validate_transaction(block_hash, source, xt.clone())
 			.await;
 
 		let status = match validation_result {

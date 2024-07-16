@@ -446,7 +446,7 @@ where
 				break EndProposingReason::HitDeadline
 			}
 
-			let pending_tx_data = pending_tx.data().clone();
+			let pending_tx_data = (**pending_tx.data()).clone();
 			let pending_tx_hash = pending_tx.hash().clone();
 
 			let block_size =

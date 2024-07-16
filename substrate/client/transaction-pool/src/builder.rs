@@ -115,7 +115,7 @@ pub trait FullClientTransactionPool<Block, Client>:
 		Hash = crate::graph::ExtrinsicHash<FullChainApi<Client, Block>>,
 		InPoolTransaction = crate::graph::base_pool::Transaction<
 			crate::graph::ExtrinsicHash<FullChainApi<Client, Block>>,
-			<Block as BlockT>::Extrinsic,
+			crate::graph::ExtrinsicFor<FullChainApi<Client, Block>>,
 		>,
 		Error = <FullChainApi<Client, Block> as ChainApi>::Error,
 	> + LocalTransactionPool<
@@ -150,7 +150,7 @@ where
 			Hash = crate::graph::ExtrinsicHash<FullChainApi<Client, Block>>,
 			InPoolTransaction = crate::graph::base_pool::Transaction<
 				crate::graph::ExtrinsicHash<FullChainApi<Client, Block>>,
-				<Block as BlockT>::Extrinsic,
+				crate::graph::ExtrinsicFor<FullChainApi<Client, Block>>,
 			>,
 			Error = <FullChainApi<Client, Block> as ChainApi>::Error,
 		> + LocalTransactionPool<

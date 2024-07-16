@@ -23,7 +23,7 @@ use futures::prelude::*;
 use parking_lot::RwLock;
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
-use crate::graph::ExtrinsicHash;
+use crate::graph::{ExtrinsicFor, ExtrinsicHash};
 use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus, TransactionSource};
 
 use super::multi_view_listener::{MultiViewListener, TxStatusStream};
@@ -237,7 +237,7 @@ where
 
 	pub(super) fn futures(
 		&self,
-	) -> Vec<graph::base_pool::Transaction<ExtrinsicHash<ChainApi>, Block::Extrinsic>> {
+	) -> Vec<graph::base_pool::Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>> {
 		let futures = self
 			.most_recent_view
 			.read()
@@ -272,7 +272,7 @@ where
 				})
 				.unwrap_or_default()
 				.iter()
-				.map(|e| self.api.hash_and_length(e).0)
+				.map(|e| self.api.hash_and_length(&e).0)
 				.collect::<Vec<_>>();
 
 			extrinsics
@@ -290,7 +290,8 @@ where
 		&self,
 		at: Block::Hash,
 		tx_hash: &ExtrinsicHash<ChainApi>,
-	) -> Option<Arc<graph::base_pool::Transaction<ExtrinsicHash<ChainApi>, Block::Extrinsic>>> {
+	) -> Option<Arc<graph::base_pool::Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>>>
+	{
 		self.views
 			.read()
 			.get(&at)

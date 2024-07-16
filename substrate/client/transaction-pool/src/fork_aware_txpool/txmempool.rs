@@ -51,23 +51,27 @@ const TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE: usize = 1000;
 
 /// Represents the transaction in the intermediary buffer.
 #[derive(Debug)]
-pub(crate) struct TxInMemPool<Block>
+pub(crate) struct TxInMemPool<Block, ChainApi>
 where
 	Block: BlockT,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
 {
 	//todo: add listener? for updating view with invalid transaction?
 	/// is transaction watched
 	watched: bool,
-	//todo: Arc?
 	/// transaction actual body
-	tx: Arc<Block::Extrinsic>,
+	tx: graph::ExtrinsicFor<ChainApi>,
 	/// transaction source
 	pub(crate) source: TransactionSource,
 	/// when transaction was revalidated, used to periodically revalidate mem pool buffer.
 	validated_at: AtomicU64,
 }
 
-impl<Block: BlockT> TxInMemPool<Block> {
+impl<Block, ChainApi> TxInMemPool<Block, ChainApi>
+where
+	Block: BlockT,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
+{
 	fn is_watched(&self) -> bool {
 		self.watched
 	}
@@ -80,7 +84,7 @@ impl<Block: BlockT> TxInMemPool<Block> {
 		Self { watched: true, tx, source, validated_at: AtomicU64::new(0) }
 	}
 
-	pub fn clone_data(&self) -> Arc<Block::Extrinsic> {
+	pub(crate) fn tx(&self) -> graph::ExtrinsicFor<ChainApi> {
 		self.tx.clone()
 	}
 }
@@ -97,7 +101,7 @@ where
 	api: Arc<ChainApi>,
 	//could be removed after removing watched field (and adding listener into tx)
 	listener: Arc<MultiViewListener<ChainApi>>,
-	xts2: RwLock<HashMap<graph::ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block>>>>,
+	xts2: RwLock<HashMap<graph::ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block, ChainApi>>>>,
 	metrics: PrometheusMetrics,
 }
 
@@ -115,6 +119,13 @@ where
 		metrics: PrometheusMetrics,
 	) -> Self {
 		Self { api, listener, xts2: Default::default(), metrics }
+	}
+
+	pub(super) fn get_by_hash(
+		&self,
+		hash: graph::ExtrinsicHash<ChainApi>,
+	) -> Option<graph::ExtrinsicFor<ChainApi>> {
+		self.xts2.read().get(&hash).map(|t| t.tx.clone())
 	}
 
 	pub(super) fn len(&self) -> (usize, usize) {
@@ -150,7 +161,7 @@ where
 
 	pub(super) fn clone_unwatched(
 		&self,
-	) -> HashMap<graph::ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block>>> {
+	) -> HashMap<graph::ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block, ChainApi>>> {
 		self.xts2
 			.read()
 			.iter()
@@ -159,7 +170,7 @@ where
 	}
 	pub(super) fn clone_watched(
 		&self,
-	) -> HashMap<graph::ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block>>> {
+	) -> HashMap<graph::ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block, ChainApi>>> {
 		self.xts2
 			.read()
 			.iter()
@@ -203,7 +214,7 @@ where
 
 		let futs = input.into_iter().map(|(xt_hash, xt)| {
 			self.api
-				.validate_transaction(finalized_block.hash, xt.source, (*(xt.tx)).clone())
+				.validate_transaction(finalized_block.hash, xt.source, xt.tx.clone())
 				.map(move |validation_result| (xt_hash, xt, validation_result))
 		});
 		let validation_results = futures::future::join_all(futs).await;

@@ -593,7 +593,7 @@ mod tests {
 
 	fn tx(id: u8) -> Transaction<u64, Vec<u8>> {
 		Transaction {
-			data: Arc::from(vec![id]),
+			data: vec![id],
 			bytes: 1,
 			hash: id as u64,
 			priority: 1,

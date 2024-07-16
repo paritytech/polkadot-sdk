@@ -458,7 +458,7 @@ where
 		.filter(|t| t.is_propagable())
 		.map(|t| {
 			let hash = t.hash().clone();
-			let ex: B::Extrinsic = t.data().clone();
+			let ex: B::Extrinsic = (**t.data()).clone();
 			(hash, ex)
 		})
 		.collect()
@@ -531,7 +531,7 @@ where
 	fn transaction(&self, hash: &H) -> Option<B::Extrinsic> {
 		self.pool.ready_transaction(hash).and_then(
 			// Only propagable transactions should be resolved for network service.
-			|tx| if tx.is_propagable() { Some(tx.data().clone()) } else { None },
+			|tx| if tx.is_propagable() { Some((**tx.data()).clone()) } else { None },
 		)
 	}
 }

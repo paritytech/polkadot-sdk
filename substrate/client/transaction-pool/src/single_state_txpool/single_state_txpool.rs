@@ -270,7 +270,8 @@ where
 {
 	type Block = PoolApi::Block;
 	type Hash = graph::ExtrinsicHash<PoolApi>;
-	type InPoolTransaction = graph::base_pool::Transaction<TxHash<Self>, TransactionFor<Self>>;
+	type InPoolTransaction =
+		graph::base_pool::Transaction<graph::ExtrinsicHash<PoolApi>, graph::ExtrinsicFor<PoolApi>>;
 	type Error = PoolApi::Error;
 
 	fn submit_at(
@@ -478,7 +479,7 @@ where
 
 		let validity = self
 			.api
-			.validate_transaction_blocking(at, TransactionSource::Local, xt.clone())?
+			.validate_transaction_blocking(at, TransactionSource::Local, Arc::from(xt.clone()))?
 			.map_err(|e| {
 				Self::Error::Pool(match e {
 					TransactionValidityError::Invalid(i) => TxPoolError::InvalidTransaction(i),
@@ -699,27 +700,24 @@ where
 				let mut resubmitted_to_report = 0;
 
 				resubmit_transactions.extend(
-					block_transactions
-						.into_iter()
-						.filter(|tx| {
-							let tx_hash = pool.hash_of(tx);
-							let contains = pruned_log.contains(&tx_hash);
+					//todo: arctx - we need to get ref from somewhere
+					block_transactions.into_iter().map(Arc::from).filter(|tx| {
+						let tx_hash = pool.hash_of(tx);
+						let contains = pruned_log.contains(&tx_hash);
 
-							// need to count all transactions, not just filtered, here
-							resubmitted_to_report += 1;
+						// need to count all transactions, not just filtered, here
+						resubmitted_to_report += 1;
 
-							if !contains {
-								log::debug!(
-									target: LOG_TARGET,
-									"[{:?}]: Resubmitting from retracted block {:?}",
-									tx_hash,
-									hash,
-								);
-							}
-							!contains
-						})
-						//todo: arctx - we need to get ref from somewhere
-						.map(Arc::from),
+						if !contains {
+							log::debug!(
+								target: LOG_TARGET,
+								"[{:?}]: Resubmitting from retracted block {:?}",
+								tx_hash,
+								hash,
+							);
+						}
+						!contains
+					}),
 				);
 
 				self.metrics.report(|metrics| {

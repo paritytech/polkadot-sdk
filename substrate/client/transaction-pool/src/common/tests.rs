@@ -18,7 +18,7 @@
 
 //! Testing related primitives for internal usage in this crate.
 
-use crate::graph::{BlockHash, ChainApi, ExtrinsicFor, NumberFor, Pool};
+use crate::graph::{BlockHash, ChainApi, ExtrinsicFor, ExtrinsicForRaw, NumberFor, Pool};
 use codec::Encode;
 use parking_lot::Mutex;
 use sc_transaction_pool_api::error;
@@ -77,6 +77,7 @@ impl ChainApi for TestApi {
 		_source: TransactionSource,
 		uxt: ExtrinsicFor<Self>,
 	) -> Self::ValidationFuture {
+		let uxt = (*uxt).clone();
 		self.validation_requests.lock().push(uxt.clone());
 		let hash = self.hash_and_length(&uxt).0;
 		let block_number = self.block_id_to_number(&BlockId::Hash(at)).unwrap().unwrap();
@@ -180,7 +181,7 @@ impl ChainApi for TestApi {
 	}
 
 	/// Hash the extrinsic.
-	fn hash_and_length(&self, uxt: &ExtrinsicFor<Self>) -> (BlockHash<Self>, usize) {
+	fn hash_and_length(&self, uxt: &ExtrinsicForRaw<Self>) -> (BlockHash<Self>, usize) {
 		let encoded = uxt.encode();
 		let len = encoded.len();
 		(Hashing::hash(&encoded), len)

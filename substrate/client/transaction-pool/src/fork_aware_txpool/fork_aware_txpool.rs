@@ -650,7 +650,10 @@ where
 {
 	type Block = ChainApi::Block;
 	type Hash = graph::ExtrinsicHash<ChainApi>;
-	type InPoolTransaction = graph::base_pool::Transaction<TxHash<Self>, TransactionFor<Self>>;
+	type InPoolTransaction = graph::base_pool::Transaction<
+		graph::ExtrinsicHash<ChainApi>,
+		graph::ExtrinsicFor<ChainApi>,
+	>;
 	type Error = ChainApi::Error;
 
 	fn submit_at(
@@ -916,6 +919,7 @@ where
 			}
 			view
 		} else {
+			log::info!(target: LOG_TARGET, "creating non-cloned view: for: {at:?}");
 			View::new(self.api.clone(), at.clone(), self.options.clone(), self.metrics.clone())
 		};
 
@@ -1000,7 +1004,7 @@ where
 			xts.into_iter()
 				.filter(|(hash, _)| !view.pool.validated_pool().pool.read().is_imported(hash))
 				.filter(|(hash, _)| !included_xts.contains(&hash))
-				.map(|(_, tx)| (tx.source, tx.clone_data()))
+				.map(|(_, tx)| (tx.source, tx.tx()))
 				.for_each(|(source, tx)| buckets.entry(source).or_default().push(tx));
 
 			for (source, xts) in buckets {
@@ -1030,7 +1034,7 @@ where
 						Ok(view.create_watcher(tx_hash))
 					} else {
 						submitted_count.fetch_add(1, Ordering::Relaxed);
-						view.submit_and_watch(tx.source, tx.clone_data()).await
+						view.submit_and_watch(tx.source, tx.tx()).await
 					};
 					let result = result.map_or_else(
 						|error| {
@@ -1055,13 +1059,13 @@ where
 								) => Ok(view.create_watcher(tx_hash)),
 								Ok(
 									Error::InvalidTransaction(_),
-								) => Err((error.expect("already in Ok arm. qed."), tx_hash, tx.clone_data())),
+								) => Err((error.expect("already in Ok arm. qed."), tx_hash, tx.tx())),
 								_ => {
 									log::error!(target: LOG_TARGET, "[{:?}] txpool: update_view: something went wrong: {error:?}", tx_hash);
 									Err((
 										Error::UnknownTransaction(UnknownTransaction::CannotLookup),
 										tx_hash,
-										tx.clone_data(),
+										tx.tx(),
 									))
 								},
 							}
@@ -1161,8 +1165,8 @@ where
 				resubmit_transactions.extend(
 					block_transactions
 						.into_iter()
-						.filter(|tx| {
-							let tx_hash = self.hash_of(tx);
+						.map(|tx| (self.hash_of(&tx), tx))
+						.filter(|(tx_hash, _)| {
 							let contains = pruned_log.contains(&tx_hash);
 
 							// need to count all transactions, not just filtered, here
@@ -1178,8 +1182,10 @@ where
 							}
 							!contains
 						})
-						//todo: arctx: we should inc ref of existing entity (from mempool)
-						.map(Arc::from),
+						.map(|(tx_hash, tx)| {
+							//find arc if tx is known
+							self.mempool.get_by_hash(tx_hash).unwrap_or_else(|| Arc::from(tx))
+						}),
 				);
 
 				self.metrics.report(|metrics| {
@@ -1256,12 +1262,7 @@ where
 			for tx in ready {
 				let validation_result = self
 					.api
-					//todo: arctx - data clone - can we do better?
-					.validate_transaction(
-						block_hash,
-						TransactionSource::External,
-						(*tx.data).clone(),
-					)
+					.validate_transaction(block_hash, TransactionSource::External, tx.data.clone())
 					.await;
 				log::debug!(target:LOG_TARGET, "[{:?}] is ready in view {:?} validation result {:?}", tx.hash, block_hash, validation_result);
 			}
