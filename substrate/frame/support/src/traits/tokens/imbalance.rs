@@ -185,7 +185,7 @@ pub trait Imbalance<Balance>: Sized + TryDrop + Default + TryMerge {
 /// Try to merge two imbalances.
 pub trait TryMerge: Sized {
 	/// Consume `self` and an `other` to return a new instance that combines both. Errors with
-	/// Err(self, other) if the imbalances are not identical (e.g. imbalances of different assets).
+	/// Err(self, other) if the imbalances cannot be merged (e.g. imbalances of different assets).
 	fn try_merge(self, other: Self) -> Result<Self, (Self, Self)>;
 }
 
