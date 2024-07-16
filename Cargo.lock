@@ -5969,6 +5969,7 @@ dependencies = [
  "itertools 0.11.0",
  "macro_magic",
  "parity-scale-codec",
+ "pretty_assertions",
  "proc-macro-warning 1.0.0",
  "proc-macro2 1.0.82",
  "quote 1.0.35",

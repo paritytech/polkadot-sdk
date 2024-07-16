@@ -47,6 +47,7 @@ sp-runtime = { features = [
 ], workspace = true }
 frame-system = { workspace = true, default-features = true }
 frame-support = { workspace = true }
+pretty_assertions = { workspace = true }
 static_assertions = { workspace = true, default-features = true }
 
 [features]
@@ -70,4 +71,4 @@ tuples-96 = []
 tuples-128 = []
 
 [[example]]
-name = "proc-main"
+name = "proc_main"

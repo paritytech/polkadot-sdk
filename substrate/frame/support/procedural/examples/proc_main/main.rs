@@ -17,12 +17,16 @@
 
 use frame_support::*;
 use frame_support_procedural::import_section;
+#[cfg(test)]
 use sp_io::{MultiRemovalResults, TestExternalities};
+#[cfg(test)]
 use sp_metadata_ir::{
 	PalletStorageMetadataIR, StorageEntryMetadataIR, StorageEntryModifierIR, StorageEntryTypeIR,
 	StorageHasherIR,
 };
-use sp_runtime::{generic, traits::BlakeTwo256, BuildStorage};
+#[cfg(test)]
+use sp_runtime::BuildStorage;
+use sp_runtime::{generic, traits::BlakeTwo256};
 
 pub use self::frame_system::{pallet_prelude::*, Config, Pallet};
 
@@ -246,14 +250,17 @@ impl Config for Runtime {
 	type AccountId = AccountId;
 }
 
+#[cfg(test)]
 fn new_test_ext() -> TestExternalities {
 	RuntimeGenesisConfig::default().build_storage().unwrap().into()
 }
 
+#[cfg(test)]
 trait Sorted {
 	fn sorted(self) -> Self;
 }
 
+#[cfg(test)]
 impl<T: Ord> Sorted for Vec<T> {
 	fn sorted(mut self) -> Self {
 		self.sort();
@@ -575,6 +582,7 @@ fn double_map_try_mutate_exists_should_work() {
 	});
 }
 
+#[cfg(test)]
 fn expected_metadata() -> PalletStorageMetadataIR {
 	PalletStorageMetadataIR {
 		prefix: "System",
