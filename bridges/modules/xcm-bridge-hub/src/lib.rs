@@ -26,10 +26,10 @@
 //! 1) the sibling parachain opens a XCMP channel with this bridge hub;
 //!
 //! 2) the sibling parachain funds its sovereign parachain account at this bridge hub. It shall hold
-//!    enough funds to pay for the bridge (see `BridgeReserve`);
+//!    enough funds to pay for the bridge (see `BridgeDeposit`);
 //!
 //! 3) the sibling parachain opens the bridge by sending XCM `Transact` instruction with the
-//!    `open_bridge` call. The `BridgeReserve` amount is reserved on the sovereign account of
+//!    `open_bridge` call. The `BridgeDeposit` amount is reserved on the sovereign account of
 //!    sibling parachain;
 //!
 //! 4) at the other side of the bridge, the same thing (1, 2, 3) happens. Parachains that need to
@@ -127,7 +127,7 @@ pub mod pallet {
 		/// Amount of this chain native tokens that is reserved on the sibling parachain account
 		/// when bridge open request is registered.
 		#[pallet::constant]
-		type BridgeReserve: Get<BalanceOf<ThisChainOf<Self, I>>>;
+		type BridgeDeposit: Get<BalanceOf<ThisChainOf<Self, I>>>;
 		/// Currency used to pay for bridge registration.
 		type NativeCurrency: ReservableCurrency<Self::AccountId>;
 
@@ -172,7 +172,7 @@ pub mod pallet {
 		/// parachain or a parent relay chain). The `bridge_destination_universal_location` must be
 		/// a destination within the consensus of the `T::BridgedNetwork` network.
 		///
-		/// The `BridgeReserve` amount is reserved on the caller account. This reserve
+		/// The `BridgeDeposit` amount is reserved on the caller account. This deposit
 		/// is unreserved after bridge is closed.
 		///
 		/// The states after this call: bridge is `Opened`, outbound lane is `Opened`, inbound lane
@@ -188,13 +188,13 @@ pub mod pallet {
 				Self::bridge_locations_from_origin(origin, bridge_destination_universal_location)?;
 
 			// reserve balance on the parachain sovereign account
-			let reserve = T::BridgeReserve::get();
+			let reserve = T::BridgeDeposit::get();
 			let bridge_owner_account = T::BridgeOriginAccountIdConverter::convert_location(
 				&locations.bridge_origin_relative_location,
 			)
 			.ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
 			T::NativeCurrency::reserve(&bridge_owner_account, reserve)
-				.map_err(|_| Error::<T, I>::FailedToReserveBridgeReserve)?;
+				.map_err(|_| Error::<T, I>::FailedToReserveBridgeDeposit)?;
 
 			// save bridge metadata
 			Bridges::<T, I>::try_mutate(locations.bridge_id, |bridge| match bridge {
@@ -513,7 +513,7 @@ pub mod pallet {
 		/// Trying to access unknown bridge.
 		UnknownBridge,
 		/// The bridge origin can't pay the required amount for opening the bridge.
-		FailedToReserveBridgeReserve,
+		FailedToReserveBridgeDeposit,
 		/// The version of XCM location argument is unsupported.
 		UnsupportedXcmVersion,
 	}
@@ -540,7 +540,7 @@ mod tests {
 		origin: RuntimeOrigin,
 		with: InteriorLocation,
 	) -> (BridgeOf<TestRuntime, ()>, BridgeLocations) {
-		let reserve = BridgeReserve::get();
+		let reserve = BridgeDeposit::get();
 		let locations =
 			XcmOverBridge::bridge_locations_from_origin(origin, Box::new(with.into())).unwrap();
 		let bridge_owner_account =
@@ -674,7 +674,7 @@ mod tests {
 					OpenBridgeOrigin::parent_relay_chain_origin(),
 					Box::new(bridged_asset_hub_location().into()),
 				),
-				Error::<TestRuntime, ()>::FailedToReserveBridgeReserve,
+				Error::<TestRuntime, ()>::FailedToReserveBridgeDeposit,
 			);
 		});
 	}
@@ -690,7 +690,7 @@ mod tests {
 			.unwrap();
 			fund_origin_sovereign_account(
 				&locations,
-				BridgeReserve::get() + ExistentialDeposit::get(),
+				BridgeDeposit::get() + ExistentialDeposit::get(),
 			);
 
 			Bridges::<TestRuntime, ()>::insert(
@@ -723,7 +723,7 @@ mod tests {
 			.unwrap();
 			fund_origin_sovereign_account(
 				&locations,
-				BridgeReserve::get() + ExistentialDeposit::get(),
+				BridgeDeposit::get() + ExistentialDeposit::get(),
 			);
 
 			let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
@@ -763,7 +763,7 @@ mod tests {
 
 			// check that every origin may open the bridge
 			let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
-			let expected_reserve = BridgeReserve::get();
+			let expected_reserve = BridgeDeposit::get();
 			let existential_deposit = ExistentialDeposit::get();
 			for origin in origins {
 				// reset events

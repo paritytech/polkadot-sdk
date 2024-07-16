@@ -140,7 +140,7 @@ parameter_types! {
 	pub const BridgedRelayNetwork: NetworkId = NetworkId::Polkadot;
 	pub BridgedRelayNetworkLocation: Location = (Parent, GlobalConsensus(BridgedRelayNetwork::get())).into();
 	pub const NonBridgedRelayNetwork: NetworkId = NetworkId::Rococo;
-	pub const BridgeReserve: Balance = 100_000;
+	pub const BridgeDeposit: Balance = 100_000;
 	pub UniversalLocation: InteriorLocation = [
 		GlobalConsensus(RelayNetwork::get()),
 		Parachain(THIS_BRIDGE_HUB_ID),
@@ -160,7 +160,7 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type OpenBridgeOrigin = OpenBridgeOrigin;
 	type BridgeOriginAccountIdConverter = LocationToAccountId;
 
-	type BridgeReserve = BridgeReserve;
+	type BridgeDeposit = BridgeDeposit;
 	type NativeCurrency = Balances;
 
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
