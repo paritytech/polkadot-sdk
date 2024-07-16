@@ -143,6 +143,7 @@ impl PersistentPeersState {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use std::time::Duration;
 
 	#[test]
 	fn test_persistent_peer_state() {
@@ -152,9 +153,9 @@ mod tests {
 		// Is not part of the disconnected peers yet.
 		assert_eq!(state.is_peer_available(&peer), true);
 
-		assert_eq!(state.remove_peer(peer), false);
-		assert_eq!(state.remove_peer(peer), false);
-		assert_eq!(state.remove_peer(peer), true);
+		assert!(state.remove_peer(peer).is_none());
+		assert!(state.remove_peer(peer).is_none());
+		assert!(state.remove_peer(peer).is_some());
 
 		// The peer is backed off.
 		assert_eq!(state.is_peer_available(&peer), false);
@@ -165,7 +166,7 @@ mod tests {
 		let mut state = PersistentPeersState::new();
 		let peer = PeerId::random();
 
-		assert_eq!(state.remove_peer(peer), false);
+		assert!(state.remove_peer(peer).is_none());
 		assert_eq!(state.is_peer_available(&peer), false);
 
 		// Wait until the backoff time has passed
