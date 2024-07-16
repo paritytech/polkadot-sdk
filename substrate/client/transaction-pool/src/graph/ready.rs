@@ -593,7 +593,7 @@ mod tests {
 
 	fn tx(id: u8) -> Transaction<u64, Vec<u8>> {
 		Transaction {
-			data: vec![id],
+			data: Arc::from(vec![id]),
 			bytes: 1,
 			hash: id as u64,
 			priority: 1,
@@ -703,7 +703,7 @@ mod tests {
 		tx6.requires = vec![tx5.provides[0].clone()];
 		tx6.provides = vec![];
 		let tx7 = Transaction {
-			data: vec![7],
+			data: vec![7].into(),
 			bytes: 1,
 			hash: 7,
 			priority: 1,

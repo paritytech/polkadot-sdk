@@ -166,7 +166,7 @@ impl<B: ChainApi> Pool<B> {
 		&self,
 		at: &HashAndNumber<B::Block>,
 		source: TransactionSource,
-		xts: impl IntoIterator<Item = ExtrinsicFor<B>>,
+		xts: impl IntoIterator<Item = Arc<ExtrinsicFor<B>>>,
 	) -> Vec<Result<ExtrinsicHash<B>, B::Error>> {
 		let xts = xts.into_iter().map(|xt| (source, xt));
 		let validated_transactions = self.verify(at, xts, CheckBannedBeforeVerify::Yes).await;
@@ -180,7 +180,7 @@ impl<B: ChainApi> Pool<B> {
 		&self,
 		at: &HashAndNumber<B::Block>,
 		source: TransactionSource,
-		xts: impl IntoIterator<Item = ExtrinsicFor<B>>,
+		xts: impl IntoIterator<Item = Arc<ExtrinsicFor<B>>>,
 	) -> Vec<Result<ExtrinsicHash<B>, B::Error>> {
 		let xts = xts.into_iter().map(|xt| (source, xt));
 		let validated_transactions = self.verify(at, xts, CheckBannedBeforeVerify::No).await;
@@ -192,7 +192,7 @@ impl<B: ChainApi> Pool<B> {
 		&self,
 		at: &HashAndNumber<B::Block>,
 		source: TransactionSource,
-		xt: ExtrinsicFor<B>,
+		xt: Arc<ExtrinsicFor<B>>,
 	) -> Result<ExtrinsicHash<B>, B::Error> {
 		let res = self.submit_at(at, source, std::iter::once(xt)).await.pop();
 		res.expect("One extrinsic passed; one result returned; qed")
@@ -203,7 +203,7 @@ impl<B: ChainApi> Pool<B> {
 		&self,
 		at: &HashAndNumber<B::Block>,
 		source: TransactionSource,
-		xt: ExtrinsicFor<B>,
+		xt: Arc<ExtrinsicFor<B>>,
 	) -> Result<Watcher<ExtrinsicHash<B>, ExtrinsicHash<B>>, B::Error> {
 		let (_, tx) = self
 			.verify_one(at.hash, at.number, source, xt, CheckBannedBeforeVerify::Yes)
@@ -380,7 +380,7 @@ impl<B: ChainApi> Pool<B> {
 	async fn verify(
 		&self,
 		at: &HashAndNumber<B::Block>,
-		xts: impl IntoIterator<Item = (TransactionSource, ExtrinsicFor<B>)>,
+		xts: impl IntoIterator<Item = (TransactionSource, Arc<ExtrinsicFor<B>>)>,
 		check: CheckBannedBeforeVerify,
 	) -> HashMap<ExtrinsicHash<B>, ValidatedTransactionFor<B>> {
 		let HashAndNumber { number, hash } = *at;
@@ -402,7 +402,7 @@ impl<B: ChainApi> Pool<B> {
 		block_hash: <B::Block as BlockT>::Hash,
 		block_number: NumberFor<B>,
 		source: TransactionSource,
-		xt: ExtrinsicFor<B>,
+		xt: Arc<ExtrinsicFor<B>>,
 		check: CheckBannedBeforeVerify,
 	) -> (ExtrinsicHash<B>, ValidatedTransactionFor<B>) {
 		let (hash, bytes) = self.validated_pool.api().hash_and_length(&xt);
@@ -415,7 +415,7 @@ impl<B: ChainApi> Pool<B> {
 		let validation_result = self
 			.validated_pool
 			.api()
-			.validate_transaction(block_hash, source, xt.clone())
+			.validate_transaction(block_hash, source, (*xt).clone())
 			.await;
 
 		let status = match validation_result {
@@ -489,16 +489,19 @@ mod tests {
 		let (pool, api) = pool();
 
 		// when
-		let hash = block_on(pool.submit_one(
-			&api.expect_hash_and_number(0),
-			SOURCE,
-			uxt(Transfer {
-				from: Alice.into(),
-				to: AccountId::from_h256(H256::from_low_u64_be(2)),
-				amount: 5,
-				nonce: 0,
-			}),
-		))
+		let hash = block_on(
+			pool.submit_one(
+				&api.expect_hash_and_number(0),
+				SOURCE,
+				uxt(Transfer {
+					from: Alice.into(),
+					to: AccountId::from_h256(H256::from_low_u64_be(2)),
+					amount: 5,
+					nonce: 0,
+				})
+				.into(),
+			),
+		)
 		.unwrap();
 
 		// then
@@ -518,7 +521,7 @@ mod tests {
 
 		// when
 		pool.validated_pool.ban(&Instant::now(), vec![pool.hash_of(&uxt)]);
-		let res = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt));
+		let res = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.into()));
 		assert_eq!(pool.validated_pool().status().ready, 0);
 		assert_eq!(pool.validated_pool().status().future, 0);
 
@@ -541,7 +544,7 @@ mod tests {
 		let uxt = ExtrinsicBuilder::new_include_data(vec![42]).build();
 
 		// when
-		let res = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt));
+		let res = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.into()));
 
 		// then
 		assert_matches!(res.unwrap_err(), error::Error::Unactionable);
@@ -556,39 +559,48 @@ mod tests {
 			let stream = pool.validated_pool().import_notification_stream();
 
 			// when
-			let hash0 = block_on(pool.submit_one(
-				&han_of_block0,
-				SOURCE,
-				uxt(Transfer {
-					from: Alice.into(),
-					to: AccountId::from_h256(H256::from_low_u64_be(2)),
-					amount: 5,
-					nonce: 0,
-				}),
-			))
+			let hash0 = block_on(
+				pool.submit_one(
+					&han_of_block0,
+					SOURCE,
+					uxt(Transfer {
+						from: Alice.into(),
+						to: AccountId::from_h256(H256::from_low_u64_be(2)),
+						amount: 5,
+						nonce: 0,
+					})
+					.into(),
+				),
+			)
 			.unwrap();
-			let hash1 = block_on(pool.submit_one(
-				&han_of_block0,
-				SOURCE,
-				uxt(Transfer {
-					from: Alice.into(),
-					to: AccountId::from_h256(H256::from_low_u64_be(2)),
-					amount: 5,
-					nonce: 1,
-				}),
-			))
+			let hash1 = block_on(
+				pool.submit_one(
+					&han_of_block0,
+					SOURCE,
+					uxt(Transfer {
+						from: Alice.into(),
+						to: AccountId::from_h256(H256::from_low_u64_be(2)),
+						amount: 5,
+						nonce: 1,
+					})
+					.into(),
+				),
+			)
 			.unwrap();
 			// future doesn't count
-			let _hash = block_on(pool.submit_one(
-				&han_of_block0,
-				SOURCE,
-				uxt(Transfer {
-					from: Alice.into(),
-					to: AccountId::from_h256(H256::from_low_u64_be(2)),
-					amount: 5,
-					nonce: 3,
-				}),
-			))
+			let _hash = block_on(
+				pool.submit_one(
+					&han_of_block0,
+					SOURCE,
+					uxt(Transfer {
+						from: Alice.into(),
+						to: AccountId::from_h256(H256::from_low_u64_be(2)),
+						amount: 5,
+						nonce: 3,
+					})
+					.into(),
+				),
+			)
 			.unwrap();
 
 			assert_eq!(pool.validated_pool().status().ready, 2);
@@ -609,38 +621,47 @@ mod tests {
 		// given
 		let (pool, api) = pool();
 		let han_of_block0 = api.expect_hash_and_number(0);
-		let hash1 = block_on(pool.submit_one(
-			&han_of_block0,
-			SOURCE,
-			uxt(Transfer {
-				from: Alice.into(),
-				to: AccountId::from_h256(H256::from_low_u64_be(2)),
-				amount: 5,
-				nonce: 0,
-			}),
-		))
+		let hash1 = block_on(
+			pool.submit_one(
+				&han_of_block0,
+				SOURCE,
+				uxt(Transfer {
+					from: Alice.into(),
+					to: AccountId::from_h256(H256::from_low_u64_be(2)),
+					amount: 5,
+					nonce: 0,
+				})
+				.into(),
+			),
+		)
 		.unwrap();
-		let hash2 = block_on(pool.submit_one(
-			&han_of_block0,
-			SOURCE,
-			uxt(Transfer {
-				from: Alice.into(),
-				to: AccountId::from_h256(H256::from_low_u64_be(2)),
-				amount: 5,
-				nonce: 1,
-			}),
-		))
+		let hash2 = block_on(
+			pool.submit_one(
+				&han_of_block0,
+				SOURCE,
+				uxt(Transfer {
+					from: Alice.into(),
+					to: AccountId::from_h256(H256::from_low_u64_be(2)),
+					amount: 5,
+					nonce: 1,
+				})
+				.into(),
+			),
+		)
 		.unwrap();
-		let hash3 = block_on(pool.submit_one(
-			&han_of_block0,
-			SOURCE,
-			uxt(Transfer {
-				from: Alice.into(),
-				to: AccountId::from_h256(H256::from_low_u64_be(2)),
-				amount: 5,
-				nonce: 3,
-			}),
-		))
+		let hash3 = block_on(
+			pool.submit_one(
+				&han_of_block0,
+				SOURCE,
+				uxt(Transfer {
+					from: Alice.into(),
+					to: AccountId::from_h256(H256::from_low_u64_be(2)),
+					amount: 5,
+					nonce: 3,
+				})
+				.into(),
+			),
+		)
 		.unwrap();
 
 		// when
@@ -660,16 +681,19 @@ mod tests {
 	fn should_ban_mined_transactions() {
 		// given
 		let (pool, api) = pool();
-		let hash1 = block_on(pool.submit_one(
-			&api.expect_hash_and_number(0),
-			SOURCE,
-			uxt(Transfer {
-				from: Alice.into(),
-				to: AccountId::from_h256(H256::from_low_u64_be(2)),
-				amount: 5,
-				nonce: 0,
-			}),
-		))
+		let hash1 = block_on(
+			pool.submit_one(
+				&api.expect_hash_and_number(0),
+				SOURCE,
+				uxt(Transfer {
+					from: Alice.into(),
+					to: AccountId::from_h256(H256::from_low_u64_be(2)),
+					amount: 5,
+					nonce: 0,
+				})
+				.into(),
+			),
+		)
 		.unwrap();
 
 		// when
@@ -698,20 +722,24 @@ mod tests {
 		let api = Arc::new(TestApi::default());
 		let pool = Pool::new(options, true.into(), api.clone());
 
-		let hash1 = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, xt)).unwrap();
+		let hash1 =
+			block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, xt.into())).unwrap();
 		assert_eq!(pool.validated_pool().status().future, 1);
 
 		// when
-		let hash2 = block_on(pool.submit_one(
-			&api.expect_hash_and_number(0),
-			SOURCE,
-			uxt(Transfer {
-				from: Bob.into(),
-				to: AccountId::from_h256(H256::from_low_u64_be(2)),
-				amount: 5,
-				nonce: 10,
-			}),
-		))
+		let hash2 = block_on(
+			pool.submit_one(
+				&api.expect_hash_and_number(0),
+				SOURCE,
+				uxt(Transfer {
+					from: Bob.into(),
+					to: AccountId::from_h256(H256::from_low_u64_be(2)),
+					amount: 5,
+					nonce: 10,
+				})
+				.into(),
+			),
+		)
 		.unwrap();
 
 		// then
@@ -731,16 +759,19 @@ mod tests {
 		let pool = Pool::new(options, true.into(), api.clone());
 
 		// when
-		block_on(pool.submit_one(
-			&api.expect_hash_and_number(0),
-			SOURCE,
-			uxt(Transfer {
-				from: Alice.into(),
-				to: AccountId::from_h256(H256::from_low_u64_be(2)),
-				amount: 5,
-				nonce: 1,
-			}),
-		))
+		block_on(
+			pool.submit_one(
+				&api.expect_hash_and_number(0),
+				SOURCE,
+				uxt(Transfer {
+					from: Alice.into(),
+					to: AccountId::from_h256(H256::from_low_u64_be(2)),
+					amount: 5,
+					nonce: 1,
+				})
+				.into(),
+			),
+		)
 		.unwrap_err();
 
 		// then
@@ -754,16 +785,19 @@ mod tests {
 		let (pool, api) = pool();
 
 		// when
-		let err = block_on(pool.submit_one(
-			&api.expect_hash_and_number(0),
-			SOURCE,
-			uxt(Transfer {
-				from: Alice.into(),
-				to: AccountId::from_h256(H256::from_low_u64_be(2)),
-				amount: 5,
-				nonce: INVALID_NONCE,
-			}),
-		))
+		let err = block_on(
+			pool.submit_one(
+				&api.expect_hash_and_number(0),
+				SOURCE,
+				uxt(Transfer {
+					from: Alice.into(),
+					to: AccountId::from_h256(H256::from_low_u64_be(2)),
+					amount: 5,
+					nonce: INVALID_NONCE,
+				})
+				.into(),
+			),
+		)
 		.unwrap_err();
 
 		// then
@@ -779,16 +813,19 @@ mod tests {
 		fn should_trigger_ready_and_finalized() {
 			// given
 			let (pool, api) = pool();
-			let watcher = block_on(pool.submit_and_watch(
-				&api.expect_hash_and_number(0),
-				SOURCE,
-				uxt(Transfer {
-					from: Alice.into(),
-					to: AccountId::from_h256(H256::from_low_u64_be(2)),
-					amount: 5,
-					nonce: 0,
-				}),
-			))
+			let watcher = block_on(
+				pool.submit_and_watch(
+					&api.expect_hash_and_number(0),
+					SOURCE,
+					uxt(Transfer {
+						from: Alice.into(),
+						to: AccountId::from_h256(H256::from_low_u64_be(2)),
+						amount: 5,
+						nonce: 0,
+					})
+					.into(),
+				),
+			)
 			.unwrap();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 			assert_eq!(pool.validated_pool().status().future, 0);
@@ -813,16 +850,19 @@ mod tests {
 		fn should_trigger_ready_and_finalized_when_pruning_via_hash() {
 			// given
 			let (pool, api) = pool();
-			let watcher = block_on(pool.submit_and_watch(
-				&api.expect_hash_and_number(0),
-				SOURCE,
-				uxt(Transfer {
-					from: Alice.into(),
-					to: AccountId::from_h256(H256::from_low_u64_be(2)),
-					amount: 5,
-					nonce: 0,
-				}),
-			))
+			let watcher = block_on(
+				pool.submit_and_watch(
+					&api.expect_hash_and_number(0),
+					SOURCE,
+					uxt(Transfer {
+						from: Alice.into(),
+						to: AccountId::from_h256(H256::from_low_u64_be(2)),
+						amount: 5,
+						nonce: 0,
+					})
+					.into(),
+				),
+			)
 			.unwrap();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 			assert_eq!(pool.validated_pool().status().future, 0);
@@ -849,31 +889,37 @@ mod tests {
 			let (pool, api) = pool();
 			let han_of_block0 = api.expect_hash_and_number(0);
 
-			let watcher = block_on(pool.submit_and_watch(
-				&han_of_block0,
-				SOURCE,
-				uxt(Transfer {
-					from: Alice.into(),
-					to: AccountId::from_h256(H256::from_low_u64_be(2)),
-					amount: 5,
-					nonce: 1,
-				}),
-			))
+			let watcher = block_on(
+				pool.submit_and_watch(
+					&han_of_block0,
+					SOURCE,
+					uxt(Transfer {
+						from: Alice.into(),
+						to: AccountId::from_h256(H256::from_low_u64_be(2)),
+						amount: 5,
+						nonce: 1,
+					})
+					.into(),
+				),
+			)
 			.unwrap();
 			assert_eq!(pool.validated_pool().status().ready, 0);
 			assert_eq!(pool.validated_pool().status().future, 1);
 
 			// when
-			block_on(pool.submit_one(
-				&han_of_block0,
-				SOURCE,
-				uxt(Transfer {
-					from: Alice.into(),
-					to: AccountId::from_h256(H256::from_low_u64_be(2)),
-					amount: 5,
-					nonce: 0,
-				}),
-			))
+			block_on(
+				pool.submit_one(
+					&han_of_block0,
+					SOURCE,
+					uxt(Transfer {
+						from: Alice.into(),
+						to: AccountId::from_h256(H256::from_low_u64_be(2)),
+						amount: 5,
+						nonce: 0,
+					})
+					.into(),
+				),
+			)
 			.unwrap();
 			assert_eq!(pool.validated_pool().status().ready, 2);
 
@@ -894,7 +940,7 @@ mod tests {
 				nonce: 0,
 			});
 			let watcher =
-				block_on(pool.submit_and_watch(&api.expect_hash_and_number(0), SOURCE, uxt))
+				block_on(pool.submit_and_watch(&api.expect_hash_and_number(0), SOURCE, uxt.into()))
 					.unwrap();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 
@@ -919,7 +965,7 @@ mod tests {
 				nonce: 0,
 			});
 			let watcher =
-				block_on(pool.submit_and_watch(&api.expect_hash_and_number(0), SOURCE, uxt))
+				block_on(pool.submit_and_watch(&api.expect_hash_and_number(0), SOURCE, uxt.into()))
 					.unwrap();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 
@@ -952,7 +998,7 @@ mod tests {
 				nonce: 0,
 			});
 			let watcher =
-				block_on(pool.submit_and_watch(&api.expect_hash_and_number(0), SOURCE, xt))
+				block_on(pool.submit_and_watch(&api.expect_hash_and_number(0), SOURCE, xt.into()))
 					.unwrap();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 
@@ -963,7 +1009,7 @@ mod tests {
 				amount: 4,
 				nonce: 1,
 			});
-			block_on(pool.submit_one(&api.expect_hash_and_number(1), SOURCE, xt)).unwrap();
+			block_on(pool.submit_one(&api.expect_hash_and_number(1), SOURCE, xt.into())).unwrap();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 
 			// then
@@ -986,7 +1032,8 @@ mod tests {
 				// after validation `IncludeData` will have priority set to 9001
 				// (validate_transaction mock)
 				let xt = ExtrinsicBuilder::new_include_data(Vec::new()).build();
-				block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, xt)).unwrap();
+				block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, xt.into()))
+					.unwrap();
 				assert_eq!(pool.validated_pool().status().ready, 1);
 
 				// then
@@ -998,7 +1045,8 @@ mod tests {
 					amount: 4,
 					nonce: 1,
 				});
-				let result = block_on(pool.submit_one(&api.expect_hash_and_number(1), SOURCE, xt));
+				let result =
+					block_on(pool.submit_one(&api.expect_hash_and_number(1), SOURCE, xt.into()));
 				assert!(matches!(
 					result,
 					Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped)
@@ -1018,7 +1066,7 @@ mod tests {
 				// after validation `IncludeData` will have priority set to 9001
 				// (validate_transaction mock)
 				let xt = ExtrinsicBuilder::new_include_data(Vec::new()).build();
-				block_on(pool.submit_and_watch(&han_of_block0, SOURCE, xt)).unwrap();
+				block_on(pool.submit_and_watch(&han_of_block0, SOURCE, xt.into())).unwrap();
 				assert_eq!(pool.validated_pool().status().ready, 1);
 
 				// after validation `Transfer` will have priority set to 4 (validate_transaction
@@ -1029,14 +1077,16 @@ mod tests {
 					amount: 5,
 					nonce: 0,
 				});
-				let watcher = block_on(pool.submit_and_watch(&han_of_block0, SOURCE, xt)).unwrap();
+				let watcher =
+					block_on(pool.submit_and_watch(&han_of_block0, SOURCE, xt.into())).unwrap();
 				assert_eq!(pool.validated_pool().status().ready, 2);
 
 				// when
 				// after validation `Store` will have priority set to 9001 (validate_transaction
 				// mock)
 				let xt = ExtrinsicBuilder::new_indexed_call(Vec::new()).build();
-				block_on(pool.submit_one(&api.expect_hash_and_number(1), SOURCE, xt)).unwrap();
+				block_on(pool.submit_one(&api.expect_hash_and_number(1), SOURCE, xt.into()))
+					.unwrap();
 				assert_eq!(pool.validated_pool().status().ready, 2);
 
 				// then
@@ -1071,7 +1121,7 @@ mod tests {
 			std::thread::spawn({
 				let hash_of_block0 = han_of_block0.clone();
 				move || {
-					block_on(pool2.submit_one(&hash_of_block0, SOURCE, xt)).unwrap();
+					block_on(pool2.submit_one(&hash_of_block0, SOURCE, xt.into())).unwrap();
 					ready.send(()).unwrap();
 				}
 			});
@@ -1086,7 +1136,7 @@ mod tests {
 			});
 			// The tag the above transaction provides (TestApi is using just nonce as u8)
 			let provides = vec![0_u8];
-			block_on(pool.submit_one(&han_of_block0, SOURCE, xt)).unwrap();
+			block_on(pool.submit_one(&han_of_block0, SOURCE, xt.into())).unwrap();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 
 			// Now block import happens before the second transaction is able to finish

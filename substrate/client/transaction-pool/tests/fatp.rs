@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Tests for top-level transaction pool api
+//! Tests for fork-aware transaction pool.
 
 use futures::{executor::block_on, task::Poll, FutureExt, StreamExt};
 use sc_transaction_pool::ChainApi;
@@ -452,7 +452,7 @@ fn fatp_one_view_future_turns_to_ready_works() {
 
 	let xt1 = uxt(Alice, 200);
 	block_on(pool.submit_one(invalid_hash(), SOURCE, xt1.clone())).unwrap();
-	let ready: Vec<_> = pool.ready().map(|v| v.data.clone()).collect();
+	let ready: Vec<_> = pool.ready().map(|v| (*v.data).clone()).collect();
 	assert_eq!(ready, vec![xt1, xt0]);
 	assert_pool_status!(at, &pool, 2, 0);
 }
@@ -468,7 +468,7 @@ fn fatp_one_view_ready_gets_pruned() {
 
 	let xt0 = uxt(Alice, 200);
 	block_on(pool.submit_one(invalid_hash(), SOURCE, xt0.clone())).unwrap();
-	let pending: Vec<_> = pool.ready().map(|v| v.data.clone()).collect();
+	let pending: Vec<_> = pool.ready().map(|v| (*v.data).clone()).collect();
 	assert_eq!(pending, vec![xt0.clone()]);
 	assert_eq!(pool.status_all()[&block1].ready, 1);
 
@@ -491,7 +491,7 @@ fn fatp_one_view_ready_turns_to_stale_works() {
 
 	let xt0 = uxt(Alice, 200);
 	block_on(pool.submit_one(invalid_hash(), SOURCE, xt0.clone())).unwrap();
-	let pending: Vec<_> = pool.ready().map(|v| v.data.clone()).collect();
+	let pending: Vec<_> = pool.ready().map(|v| (*v.data).clone()).collect();
 	assert_eq!(pending, vec![xt0.clone()]);
 	assert_eq!(pool.status_all()[&block1].ready, 1);
 
@@ -684,7 +684,7 @@ fn fatp_fork_reorg() {
 
 	let ready_f13 = pool.ready().collect::<Vec<_>>();
 	expected.iter().for_each(|e| {
-		assert!(ready_f13.iter().any(|v| v.data == *e));
+		assert!(ready_f13.iter().any(|v| *v.data == *e));
 	});
 	assert_eq!(expected.len(), ready_f13.len());
 }
@@ -759,11 +759,11 @@ fn fatp_fork_stale_switch_to_future() {
 
 	let futures_f13 = pool.futures();
 	let ready_f13 = pool.ready().collect::<Vec<_>>();
-	assert!(futures_f13.iter().any(|v| v.data == xt2));
-	assert!(futures_f03.iter().any(|v| v.data == xt0));
-	assert!(futures_f03.iter().any(|v| v.data == xt1));
-	assert!(ready_f13.iter().any(|v| v.data == xt0));
-	assert!(ready_f13.iter().any(|v| v.data == xt1));
+	assert!(futures_f13.iter().any(|v| *v.data == xt2));
+	assert!(futures_f03.iter().any(|v| *v.data == xt0));
+	assert!(futures_f03.iter().any(|v| *v.data == xt1));
+	assert!(ready_f13.iter().any(|v| *v.data == xt0));
+	assert!(ready_f13.iter().any(|v| *v.data == xt1));
 }
 
 #[test]

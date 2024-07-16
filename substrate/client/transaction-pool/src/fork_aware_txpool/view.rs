@@ -141,7 +141,7 @@ where
 	pub(super) async fn submit_many(
 		&self,
 		source: TransactionSource,
-		xts: impl IntoIterator<Item = ExtrinsicFor<ChainApi>>,
+		xts: impl IntoIterator<Item = Arc<ExtrinsicFor<ChainApi>>>,
 	) -> Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>> {
 		let xts = xts.into_iter().collect::<Vec<_>>();
 		log_xt_debug!(target: LOG_TARGET, xts.iter().map(|xt| self.pool.validated_pool().api().hash_and_length(xt).0), "[{:?}] view::submit_many at:{}", self.at.hash);
@@ -152,7 +152,7 @@ where
 	pub(super) async fn submit_and_watch(
 		&self,
 		source: TransactionSource,
-		xt: ExtrinsicFor<ChainApi>,
+		xt: Arc<ExtrinsicFor<ChainApi>>,
 	) -> Result<Watcher<ExtrinsicHash<ChainApi>, ExtrinsicHash<ChainApi>>, ChainApi::Error> {
 		log::debug!(target: LOG_TARGET, "[{:?}] view::submit_and_watch at:{}", self.pool.validated_pool().api().hash_and_length(&xt).0, self.at.hash);
 		self.pool.submit_and_watch(&self.at, source, xt).await
@@ -213,7 +213,8 @@ where
 				}
 				_ = async {
 					if let Some(tx) = batch_iter.next() {
-						let validation_result = (api.validate_transaction(self.at.hash, tx.source, tx.data.clone()).await, tx.hash, tx);
+						//todo: arctx - data clone - can we do better?
+						let validation_result = (api.validate_transaction(self.at.hash, tx.source, (*tx.data).clone()).await, tx.hash, tx);
 						validation_results.push(validation_result);
 					} else {
 						{

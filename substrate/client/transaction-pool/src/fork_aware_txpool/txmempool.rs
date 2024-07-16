@@ -60,7 +60,7 @@ where
 	watched: bool,
 	//todo: Arc?
 	/// transaction actual body
-	tx: Block::Extrinsic,
+	tx: Arc<Block::Extrinsic>,
 	/// transaction source
 	pub(crate) source: TransactionSource,
 	/// when transaction was revalidated, used to periodically revalidate mem pool buffer.
@@ -72,15 +72,15 @@ impl<Block: BlockT> TxInMemPool<Block> {
 		self.watched
 	}
 
-	fn new_unwatched(source: TransactionSource, tx: Block::Extrinsic) -> Self {
+	fn new_unwatched(source: TransactionSource, tx: Arc<Block::Extrinsic>) -> Self {
 		Self { watched: false, tx, source, validated_at: AtomicU64::new(0) }
 	}
 
-	fn new_watched(source: TransactionSource, tx: Block::Extrinsic) -> Self {
+	fn new_watched(source: TransactionSource, tx: Arc<Block::Extrinsic>) -> Self {
 		Self { watched: true, tx, source, validated_at: AtomicU64::new(0) }
 	}
 
-	pub fn clone_data(&self) -> Block::Extrinsic {
+	pub fn clone_data(&self) -> Arc<Block::Extrinsic> {
 		self.tx.clone()
 	}
 }
@@ -123,13 +123,17 @@ where
 		(xts2.len() - watched_count, watched_count)
 	}
 
-	pub(super) fn push_unwatched(&self, source: TransactionSource, xt: Block::Extrinsic) {
+	pub(super) fn push_unwatched(&self, source: TransactionSource, xt: Arc<Block::Extrinsic>) {
 		let hash = self.api.hash_and_length(&xt).0;
 		let unwatched = Arc::from(TxInMemPool::new_unwatched(source, xt));
 		self.xts2.write().entry(hash).or_insert(unwatched);
 	}
 
-	pub(super) fn extend_unwatched(&self, source: TransactionSource, xts: Vec<Block::Extrinsic>) {
+	pub(super) fn extend_unwatched(
+		&self,
+		source: TransactionSource,
+		xts: Vec<Arc<Block::Extrinsic>>,
+	) {
 		let mut xts2 = self.xts2.write();
 		xts.into_iter().for_each(|xt| {
 			let hash = self.api.hash_and_length(&xt).0;
@@ -138,7 +142,7 @@ where
 		});
 	}
 
-	pub(super) fn push_watched(&self, source: TransactionSource, xt: Block::Extrinsic) {
+	pub(super) fn push_watched(&self, source: TransactionSource, xt: Arc<Block::Extrinsic>) {
 		let hash = self.api.hash_and_length(&xt).0;
 		let watched = Arc::from(TxInMemPool::new_watched(source, xt));
 		self.xts2.write().entry(hash).or_insert(watched);
@@ -164,7 +168,7 @@ where
 	}
 
 	pub(super) fn remove_watched(&self, xt: &Block::Extrinsic) {
-		self.xts2.write().retain(|_, t| t.tx != *xt);
+		self.xts2.write().retain(|_, t| *t.tx != *xt);
 	}
 
 	/// Revalidates a batch of transactions.
@@ -199,7 +203,7 @@ where
 
 		let futs = input.into_iter().map(|(xt_hash, xt)| {
 			self.api
-				.validate_transaction(finalized_block.hash, xt.source, xt.tx.clone())
+				.validate_transaction(finalized_block.hash, xt.source, (*(xt.tx)).clone())
 				.map(move |validation_result| (xt_hash, xt, validation_result))
 		});
 		let validation_results = futures::future::join_all(futs).await;

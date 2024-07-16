@@ -85,12 +85,13 @@ const SOURCE: TransactionSource = TransactionSource::External;
 #[test]
 fn submission_should_work() {
 	let (pool, api) = pool();
-	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 209))).unwrap();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 209).into()))
+		.unwrap();
 
 	let pending: Vec<_> = pool
 		.validated_pool()
 		.ready()
-		.map(|a| TransferData::try_from(&a.data).unwrap().nonce)
+		.map(|a| TransferData::try_from(&*a.data).unwrap().nonce)
 		.collect();
 	assert_eq!(pending, vec![209]);
 }
@@ -98,13 +99,15 @@ fn submission_should_work() {
 #[test]
 fn multiple_submission_should_work() {
 	let (pool, api) = pool();
-	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 209))).unwrap();
-	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 210))).unwrap();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 209).into()))
+		.unwrap();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 210).into()))
+		.unwrap();
 
 	let pending: Vec<_> = pool
 		.validated_pool()
 		.ready()
-		.map(|a| TransferData::try_from(&a.data).unwrap().nonce)
+		.map(|a| TransferData::try_from(&*a.data).unwrap().nonce)
 		.collect();
 	assert_eq!(pending, vec![209, 210]);
 }
@@ -113,13 +116,14 @@ fn multiple_submission_should_work() {
 fn early_nonce_should_be_culled() {
 	sp_tracing::try_init_simple();
 	let (pool, api) = pool();
-	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 208))).unwrap();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 208).into()))
+		.unwrap();
 
 	log::info!("-> {:?}", pool.validated_pool().status());
 	let pending: Vec<_> = pool
 		.validated_pool()
 		.ready()
-		.map(|a| TransferData::try_from(&a.data).unwrap().nonce)
+		.map(|a| TransferData::try_from(&*a.data).unwrap().nonce)
 		.collect();
 	assert_eq!(pending, Vec::<Nonce>::new());
 }
@@ -128,19 +132,21 @@ fn early_nonce_should_be_culled() {
 fn late_nonce_should_be_queued() {
 	let (pool, api) = pool();
 
-	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 210))).unwrap();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 210).into()))
+		.unwrap();
 	let pending: Vec<_> = pool
 		.validated_pool()
 		.ready()
-		.map(|a| TransferData::try_from(&a.data).unwrap().nonce)
+		.map(|a| TransferData::try_from(&*a.data).unwrap().nonce)
 		.collect();
 	assert_eq!(pending, Vec::<Nonce>::new());
 
-	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 209))).unwrap();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 209).into()))
+		.unwrap();
 	let pending: Vec<_> = pool
 		.validated_pool()
 		.ready()
-		.map(|a| TransferData::try_from(&a.data).unwrap().nonce)
+		.map(|a| TransferData::try_from(&*a.data).unwrap().nonce)
 		.collect();
 	assert_eq!(pending, vec![209, 210]);
 }
@@ -149,13 +155,15 @@ fn late_nonce_should_be_queued() {
 fn prune_tags_should_work() {
 	let (pool, api) = pool();
 	let hash209 =
-		block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 209))).unwrap();
-	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 210))).unwrap();
+		block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 209).into()))
+			.unwrap();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 210).into()))
+		.unwrap();
 
 	let pending: Vec<_> = pool
 		.validated_pool()
 		.ready()
-		.map(|a| TransferData::try_from(&a.data).unwrap().nonce)
+		.map(|a| TransferData::try_from(&*a.data).unwrap().nonce)
 		.collect();
 	assert_eq!(pending, vec![209, 210]);
 
@@ -165,7 +173,7 @@ fn prune_tags_should_work() {
 	let pending: Vec<_> = pool
 		.validated_pool()
 		.ready()
-		.map(|a| TransferData::try_from(&a.data).unwrap().nonce)
+		.map(|a| TransferData::try_from(&*a.data).unwrap().nonce)
 		.collect();
 	assert_eq!(pending, vec![210]);
 }
@@ -173,7 +181,7 @@ fn prune_tags_should_work() {
 #[test]
 fn should_ban_invalid_transactions() {
 	let (pool, api) = pool();
-	let uxt = uxt(Alice, 209);
+	let uxt = Arc::from(uxt(Alice, 209));
 	let hash =
 		block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.clone())).unwrap();
 	pool.validated_pool().remove_invalid(&[hash]);
@@ -183,7 +191,7 @@ fn should_ban_invalid_transactions() {
 	let pending: Vec<_> = pool
 		.validated_pool()
 		.ready()
-		.map(|a| TransferData::try_from(&a.data).unwrap().nonce)
+		.map(|a| TransferData::try_from(&*a.data).unwrap().nonce)
 		.collect();
 	assert_eq!(pending, Vec::<Nonce>::new());
 
@@ -215,7 +223,7 @@ fn should_correctly_prune_transactions_providing_more_than_one_tag() {
 		v.provides.push(vec![155]);
 	}));
 	let pool = Pool::new(Default::default(), true.into(), api.clone());
-	let xt0 = uxt(Alice, 209);
+	let xt0 = Arc::from(uxt(Alice, 209));
 	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, xt0.clone()))
 		.expect("1. Imported");
 	assert_eq!(pool.validated_pool().status().ready, 1);
@@ -234,7 +242,7 @@ fn should_correctly_prune_transactions_providing_more_than_one_tag() {
 	api.increment_nonce(Alice.into());
 	api.push_block(2, Vec::new(), true);
 	let xt1 = uxt(Alice, 211);
-	block_on(pool.submit_one(&api.expect_hash_and_number(2), SOURCE, xt1.clone()))
+	block_on(pool.submit_one(&api.expect_hash_and_number(2), SOURCE, xt1.clone().into()))
 		.expect("2. Imported");
 	assert_eq!(api.validation_requests().len(), 3);
 	assert_eq!(pool.validated_pool().status().ready, 1);
@@ -242,7 +250,7 @@ fn should_correctly_prune_transactions_providing_more_than_one_tag() {
 	let pending: Vec<_> = pool
 		.validated_pool()
 		.ready()
-		.map(|a| TransferData::try_from(&a.data).unwrap().nonce)
+		.map(|a| TransferData::try_from(&*a.data).unwrap().nonce)
 		.collect();
 	assert_eq!(pending, vec![211]);
 

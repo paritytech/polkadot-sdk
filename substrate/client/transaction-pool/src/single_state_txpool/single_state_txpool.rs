@@ -280,6 +280,7 @@ where
 		xts: Vec<TransactionFor<Self>>,
 	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
 		let pool = self.pool.clone();
+		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
 
 		self.metrics
 			.report(|metrics| metrics.submitted_transactions.inc_by(xts.len() as u64));
@@ -299,6 +300,7 @@ where
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
 		let pool = self.pool.clone();
+		let xt = Arc::from(xt);
 
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
@@ -317,6 +319,7 @@ where
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		let pool = self.pool.clone();
+		let xt = Arc::from(xt);
 
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
@@ -493,7 +496,7 @@ where
 			block_number.saturated_into::<u64>(),
 			hash,
 			TransactionSource::Local,
-			xt,
+			Arc::from(xt),
 			bytes,
 			validity,
 		);
@@ -695,23 +698,29 @@ where
 
 				let mut resubmitted_to_report = 0;
 
-				resubmit_transactions.extend(block_transactions.into_iter().filter(|tx| {
-					let tx_hash = pool.hash_of(tx);
-					let contains = pruned_log.contains(&tx_hash);
+				resubmit_transactions.extend(
+					block_transactions
+						.into_iter()
+						.filter(|tx| {
+							let tx_hash = pool.hash_of(tx);
+							let contains = pruned_log.contains(&tx_hash);
 
-					// need to count all transactions, not just filtered, here
-					resubmitted_to_report += 1;
+							// need to count all transactions, not just filtered, here
+							resubmitted_to_report += 1;
 
-					if !contains {
-						log::debug!(
-							target: LOG_TARGET,
-							"[{:?}]: Resubmitting from retracted block {:?}",
-							tx_hash,
-							hash,
-						);
-					}
-					!contains
-				}));
+							if !contains {
+								log::debug!(
+									target: LOG_TARGET,
+									"[{:?}]: Resubmitting from retracted block {:?}",
+									tx_hash,
+									hash,
+								);
+							}
+							!contains
+						})
+						//todo: arctx - we need to get ref from somewhere
+						.map(Arc::from),
+				);
 
 				self.metrics.report(|metrics| {
 					metrics.block_transactions_resubmitted.inc_by(resubmitted_to_report)

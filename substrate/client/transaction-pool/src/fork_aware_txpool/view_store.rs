@@ -73,7 +73,7 @@ where
 	pub(super) async fn submit_at(
 		&self,
 		source: TransactionSource,
-		xts: impl IntoIterator<Item = Block::Extrinsic> + Clone,
+		xts: impl IntoIterator<Item = Arc<Block::Extrinsic>> + Clone,
 	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>>> {
 		let results = {
 			let views = self.views.read();
@@ -100,7 +100,7 @@ where
 	pub(super) async fn submit_one(
 		&self,
 		source: TransactionSource,
-		xt: Block::Extrinsic,
+		xt: Arc<Block::Extrinsic>,
 	) -> HashMap<Block::Hash, Result<ExtrinsicHash<ChainApi>, ChainApi::Error>> {
 		let mut output = HashMap::new();
 		let mut result = self.submit_at(source, std::iter::once(xt)).await;
@@ -120,7 +120,7 @@ where
 		&self,
 		_at: Block::Hash,
 		source: TransactionSource,
-		xt: Block::Extrinsic,
+		xt: Arc<Block::Extrinsic>,
 	) -> Result<TxStatusStream<ChainApi>, ChainApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
 		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash) else {

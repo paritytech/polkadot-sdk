@@ -156,7 +156,8 @@ fn bench_configured(pool: Pool<TestApi>, number: u64, api: Arc<TestApi>) {
 			to: AccountId::from_h256(H256::from_low_u64_be(2)),
 			amount: 5,
 			nonce,
-		});
+		})
+		.into();
 
 		tags.push(to_tag(nonce, AccountId::from_h256(H256::from_low_u64_be(1))));
 

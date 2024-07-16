@@ -662,6 +662,7 @@ where
 		let view_store = self.view_store.clone();
 		log::info!(target: LOG_TARGET, "fatp::submit_at count:{} views:{}", xts.len(), self.views_count());
 		log_xt_debug!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "[{:?}] fatp::submit_at");
+		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
 		self.mempool.extend_unwatched(source, xts.clone());
 		let xts = xts.clone();
 
@@ -673,7 +674,7 @@ where
 		}
 
 		async move {
-			let mut results_map = view_store.submit_at(source, xts).await;
+			let mut results_map = view_store.submit_at(source, xts.into_iter()).await;
 			Ok(reduce_multiview_result(&mut results_map))
 		}
 		.boxed()
@@ -686,6 +687,7 @@ where
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
 		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.views_count());
+		let xt = Arc::from(xt);
 		self.mempool.push_unwatched(source, xt.clone());
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
@@ -718,6 +720,7 @@ where
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.views_count());
+		let xt = Arc::from(xt);
 		self.mempool.push_watched(source, xt.clone());
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
@@ -993,7 +996,7 @@ where
 		let mut all_submitted_count = 0;
 		if !xts.is_empty() {
 			let unwatched_count = xts.len();
-			let mut buckets = HashMap::<TransactionSource, Vec<Block::Extrinsic>>::default();
+			let mut buckets = HashMap::<TransactionSource, Vec<Arc<Block::Extrinsic>>>::default();
 			xts.into_iter()
 				.filter(|(hash, _)| !view.pool.validated_pool().pool.read().is_imported(hash))
 				.filter(|(hash, _)| !included_xts.contains(&hash))
@@ -1155,23 +1158,29 @@ where
 
 				let mut resubmitted_to_report = 0;
 
-				resubmit_transactions.extend(block_transactions.into_iter().filter(|tx| {
-					let tx_hash = self.hash_of(tx);
-					let contains = pruned_log.contains(&tx_hash);
+				resubmit_transactions.extend(
+					block_transactions
+						.into_iter()
+						.filter(|tx| {
+							let tx_hash = self.hash_of(tx);
+							let contains = pruned_log.contains(&tx_hash);
 
-					// need to count all transactions, not just filtered, here
-					resubmitted_to_report += 1;
+							// need to count all transactions, not just filtered, here
+							resubmitted_to_report += 1;
 
-					if !contains {
-						log::trace!(
-							target: LOG_TARGET,
-							"[{:?}]: Resubmitting from retracted block {:?}",
-							tx_hash,
-							hash,
-						);
-					}
-					!contains
-				}));
+							if !contains {
+								log::trace!(
+									target: LOG_TARGET,
+									"[{:?}]: Resubmitting from retracted block {:?}",
+									tx_hash,
+									hash,
+								);
+							}
+							!contains
+						})
+						//todo: arctx: we should inc ref of existing entity (from mempool)
+						.map(Arc::from),
+				);
 
 				self.metrics.report(|metrics| {
 					metrics.resubmitted_retracted_txs.inc_by(resubmitted_to_report)
@@ -1247,7 +1256,12 @@ where
 			for tx in ready {
 				let validation_result = self
 					.api
-					.validate_transaction(block_hash, TransactionSource::External, tx.data.clone())
+					//todo: arctx - data clone - can we do better?
+					.validate_transaction(
+						block_hash,
+						TransactionSource::External,
+						(*tx.data).clone(),
+					)
 					.await;
 				log::debug!(target:LOG_TARGET, "[{:?}] is ready in view {:?} validation result {:?}", tx.hash, block_hash, validation_result);
 			}

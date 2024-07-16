@@ -88,7 +88,8 @@ async fn batch_revalidate<Api: ChainApi>(
 
 	let validation_results = futures::future::join_all(batch.into_iter().filter_map(|ext_hash| {
 		pool.validated_pool().ready_by_hash(&ext_hash).map(|ext| {
-			api.validate_transaction(at, ext.source, ext.data.clone())
+			//todo: arctx - data clone - can we do better?
+			api.validate_transaction(at, ext.source, (*ext.data).clone())
 				.map(move |validation_result| (validation_result, ext_hash, ext))
 		})
 	}))
@@ -400,9 +401,12 @@ mod tests {
 
 		let han_of_block0 = api.expect_hash_and_number(0);
 
-		let uxt_hash =
-			block_on(pool.submit_one(&han_of_block0, TransactionSource::External, uxt.clone()))
-				.expect("Should be valid");
+		let uxt_hash = block_on(pool.submit_one(
+			&han_of_block0,
+			TransactionSource::External,
+			uxt.clone().into(),
+		))
+		.expect("Should be valid");
 
 		block_on(queue.revalidate_later(han_of_block0.hash, vec![uxt_hash]));
 
@@ -434,11 +438,14 @@ mod tests {
 		let han_of_block0 = api.expect_hash_and_number(0);
 		let unknown_block = H256::repeat_byte(0x13);
 
-		let uxt_hashes =
-			block_on(pool.submit_at(&han_of_block0, TransactionSource::External, vec![uxt0, uxt1]))
-				.into_iter()
-				.map(|r| r.expect("Should be valid"))
-				.collect::<Vec<_>>();
+		let uxt_hashes = block_on(pool.submit_at(
+			&han_of_block0,
+			TransactionSource::External,
+			vec![uxt0.into(), uxt1.into()],
+		))
+		.into_iter()
+		.map(|r| r.expect("Should be valid"))
+		.collect::<Vec<_>>();
 
 		assert_eq!(api.validation_requests().len(), 2);
 		assert_eq!(pool.validated_pool().status().ready, 2);

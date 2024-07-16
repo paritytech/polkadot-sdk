@@ -63,7 +63,7 @@ impl<Hash, Ex, Error> ValidatedTransaction<Hash, Ex, Error> {
 		at: u64,
 		hash: Hash,
 		source: TransactionSource,
-		data: Ex,
+		data: Arc<Ex>,
 		bytes: usize,
 		validity: ValidTransaction,
 	) -> Self {
@@ -642,7 +642,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 
 	/// Returns a Vec of hashes and extrinsics in the future pool.
 	pub fn futures(&self) -> Vec<(ExtrinsicHash<B>, ExtrinsicFor<B>)> {
-		self.pool.read().futures().map(|tx| (tx.hash, tx.data.clone())).collect()
+		self.pool.read().futures().map(|tx| (tx.hash, (*tx.data).clone())).collect()
 	}
 
 	/// Returns pool status.
