@@ -525,9 +525,7 @@ async fn prepare_can_run_serially() {
 async fn all_security_features_work() {
 	// Landlock is only available starting Linux 5.13, and we may be testing on an old kernel.
 	let can_enable_landlock = {
-		let res = unsafe {
-			libc::syscall(libc::SYS_landlock_create_ruleset, 0usize, 0usize, 0u32);
-		};
+		let res = unsafe { libc::syscall(libc::SYS_landlock_create_ruleset, 0usize, 0usize, 0u32) };
 		if res == -1 {
 			let err = std::io::Error::last_os_error().raw_os_error().unwrap();
 			if err == libc::ENOSYS {
