@@ -18,7 +18,7 @@
 
 //! Testing related primitives for internal usage in this crate.
 
-use crate::graph::{BlockHash, ChainApi, ExtrinsicFor, ExtrinsicForRaw, NumberFor, Pool};
+use crate::graph::{BlockHash, ChainApi, ExtrinsicFor, NumberFor, Pool, RawExtrinsicFor};
 use codec::Encode;
 use parking_lot::Mutex;
 use sc_transaction_pool_api::error;
@@ -181,7 +181,7 @@ impl ChainApi for TestApi {
 	}
 
 	/// Hash the extrinsic.
-	fn hash_and_length(&self, uxt: &ExtrinsicForRaw<Self>) -> (BlockHash<Self>, usize) {
+	fn hash_and_length(&self, uxt: &RawExtrinsicFor<Self>) -> (BlockHash<Self>, usize) {
 		let encoded = uxt.encode();
 		let len = encoded.len();
 		(Hashing::hash(&encoded), len)

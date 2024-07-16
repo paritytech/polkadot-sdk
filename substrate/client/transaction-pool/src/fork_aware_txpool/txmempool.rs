@@ -28,7 +28,7 @@
 use super::{metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener};
 use crate::{
 	graph,
-	graph::{ExtrinsicFor, ExtrinsicForRaw, ExtrinsicHash},
+	graph::{ExtrinsicFor, ExtrinsicHash, RawExtrinsicFor},
 	log_xt_debug, LOG_TARGET,
 };
 use futures::FutureExt;
@@ -181,7 +181,7 @@ where
 			.collect::<HashMap<_, _>>()
 	}
 
-	pub(super) fn remove_watched(&self, xt: &ExtrinsicForRaw<ChainApi>) {
+	pub(super) fn remove_watched(&self, xt: &RawExtrinsicFor<ChainApi>) {
 		self.xts2.write().retain(|_, t| *t.tx != *xt);
 	}
 

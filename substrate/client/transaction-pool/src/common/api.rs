@@ -178,7 +178,7 @@ where
 
 	fn hash_and_length(
 		&self,
-		ex: &graph::ExtrinsicForRaw<Self>,
+		ex: &graph::RawExtrinsicFor<Self>,
 	) -> (graph::ExtrinsicHash<Self>, usize) {
 		ex.using_encoded(|x| (<traits::HashingFor<Block> as traits::Hash>::hash(x), x.len()))
 	}
