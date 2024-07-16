@@ -20,7 +20,6 @@ command = "polkadot"
 
   [[relaychain.nodes]]
   name = "dave"
-  validator = false
   args = [ "-lruntime=debug,parachain=trace" ]
 
 [[parachains]]
@@ -28,6 +27,6 @@ id = 100
 add_to_genesis = true
 
   [parachains.collator]
-  name = "collator-para-100"
+  name = "collator-100"
   image = "{{CUMULUS_IMAGE}}"
   command = "polkadot-parachain"
