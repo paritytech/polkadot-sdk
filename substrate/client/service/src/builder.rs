@@ -507,8 +507,17 @@ where
 		)
 	};
 
-	let rpc = start_rpc_servers(&config, gen_rpc_module, rpc_id_provider)?;
-	let rpc_handlers = RpcHandlers(Arc::new(gen_rpc_module(sc_rpc::DenyUnsafe::No)?.into()));
+	let (rpc, listen_addr) = start_rpc_servers(&config, gen_rpc_module, rpc_id_provider)?;
+
+	let listen_addrs = match listen_addr {
+		Some(addr) => vec![addr.ip().into()],
+		None => vec![],
+	};
+
+	let rpc_handlers = RpcHandlers {
+		rpc_module: Arc::new(gen_rpc_module(sc_rpc::DenyUnsafe::No)?.into()),
+		listen_addresses: Box::new(listen_addrs),
+	};
 
 	// Spawn informant task
 	spawn_handle.spawn(

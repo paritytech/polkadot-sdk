@@ -52,6 +52,14 @@ const MEGABYTE: u32 = 1024 * 1024;
 /// Type alias for the JSON-RPC server.
 pub type Server = jsonrpsee::server::ServerHandle;
 
+/// Type to encapsulate the server handle and listening address.
+pub struct ServerAndListenAddress {
+	/// Handle to the rpc server
+	pub handle: Server,
+	/// Listening address of the server
+	pub listen_addr: Option<SocketAddr>,
+}
+
 /// RPC server configuration.
 #[derive(Debug)]
 pub struct Config<'a, M: Send + Sync + 'static> {
@@ -98,9 +106,9 @@ struct PerConnection<RpcMiddleware, HttpMiddleware> {
 }
 
 /// Start RPC server listening on given address.
-pub async fn start_server<M>(
+pub async fn start_server<M: Send + Sync + 'static>(
 	config: Config<'_, M>,
-) -> Result<Server, Box<dyn StdError + Send + Sync>>
+) -> Result<ServerAndListenAddress, Box<dyn StdError + Send + Sync>>
 where
 	M: Send + Sync,
 {
@@ -264,5 +272,5 @@ where
 		format_cors(cors)
 	);
 
-	Ok(server_handle)
+	Ok(ServerAndListenAddress { handle: server_handle, listen_addr: local_addr })
 }
