@@ -50,13 +50,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      # ------------ remove me after release ------------
-      - name: update forklift
-        run: curl -o .forklift/forklift -L https://github.com/paritytech/forklift/releases/download/0.13.2/forklift_0.13.2_linux_amd64
-      - run: chmod +x .forklift/forklift && .forklift/forklift version
-      # -------------------------------------------------
       - name: script
-        run: WASM_BUILD_NO_COLOR=1 .forklift/forklift cargo test -p staging-node-cli --release --locked -- --ignored
+        run: WASM_BUILD_NO_COLOR=1 forklift cargo test -p staging-node-cli --release --locked -- --ignored
 
   # https://github.com/paritytech/ci_cd/issues/864
   test-linux-stable-runtime-benchmarks:
@@ -74,13 +69,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      # ------------ remove me after release ------------
-      - name: update forklift
-        run: curl -o .forklift/forklift -L https://github.com/paritytech/forklift/releases/download/0.13.2/forklift_0.13.2_linux_amd64
-      - run: chmod +x .forklift/forklift && .forklift/forklift version
-      # -------------------------------------------------
       - name: script
-        run: .forklift/forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+        run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
 
   test-linux-stable-oldkernel:
     needs: [set-image, changes]
@@ -103,23 +93,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      # ------------ remove me after release ------------
-      - name: update forklift
-        run: curl -o .forklift/forklift -L https://github.com/paritytech/forklift/releases/download/0.13.2/forklift_0.13.2_linux_amd64
-      - run: chmod +x .forklift/forklift && .forklift/forklift version
-      # -------------------------------------------------
       - name: script
         run: |
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
-          .forklift/forklift cargo nextest run \
+          forklift cargo nextest run \
             --workspace \
             --locked \
             --release \
             --no-fail-fast \
             --features try-runtime,experimental,riscv,ci-only-tests \
             --partition count:${{ matrix.partition }}
-          # run runtime-api tests with `enable-staging-api` feature on the 1st node
-          if [ "${{ matrix.partition }}" = "1/3" ]; then
-            forklift cargo nextest run -p sp-api-test --features enable-staging-api
-          fi
+      # run runtime-api tests with `enable-staging-api` feature on the 1st node
+      - name: runtime-api tests
+        if: ${{ matrix.partition }} == '1/3'
+        run: forklift cargo nextest run -p sp-api-test --features enable-staging-api
