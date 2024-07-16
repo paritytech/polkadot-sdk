@@ -465,7 +465,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Pallet::&lt;T&gt;::on_initialize(frame_system::pallet_prelude::BlockNumberFor::&lt;T&gt;::one());
 
 	<span class="comment">// skip sessions until the new validator set is enacted
-	</span><span class="kw">while </span>Session::&lt;T&gt;::validators().len() &lt; n <span class="kw">as </span>usize {
+	</span><span class="kw">while </span>Validators::&lt;T&gt;::get().len() &lt; n <span class="kw">as </span>usize {
 		Session::&lt;T&gt;::rotate_session();
 	}
 

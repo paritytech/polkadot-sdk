@@ -1085,6 +1085,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#934" id="934">934</a>
 <a href="#935" id="935">935</a>
 <a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1182,7 +1198,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! use pallet_session as session;
 //!
 //! fn validators&lt;T: pallet_session::Config&gt;() -&gt; Vec&lt;&lt;T as pallet_session::Config&gt;::ValidatorId&gt; {
-//! 	&lt;pallet_session::Pallet&lt;T&gt;&gt;::validators()
+//! 	pallet_session::Validators::&lt;T&gt;::get()
 //! }
 //! # fn main(){}
 //! ```
@@ -1534,7 +1550,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				});
 
 			<span class="kw">for </span>(account, val, keys) <span class="kw">in </span><span class="self">self</span>.keys.iter().cloned() {
-				&lt;Pallet&lt;T&gt;&gt;::inner_set_keys(<span class="kw-2">&amp;</span>val, keys)
+				Pallet::&lt;T&gt;::inner_set_keys(<span class="kw-2">&amp;</span>val, keys)
 					.expect(<span class="string">"genesis config must not contain duplicates; qed"</span>);
 				<span class="kw">if </span>frame_system::Pallet::&lt;T&gt;::inc_consumers_without_limit(<span class="kw-2">&amp;</span>account).is_err() {
 					<span class="comment">// This will leak a provider reference, however it only happens once (at
@@ -1566,7 +1582,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>T::SessionHandler::on_genesis_session::&lt;T::Keys&gt;(<span class="kw-2">&amp;</span>queued_keys);
 
 			Validators::&lt;T&gt;::put(initial_validators_0);
-			&lt;QueuedKeys&lt;T&gt;&gt;::put(queued_keys);
+			QueuedKeys::&lt;T&gt;::put(queued_keys);
 
 			T::SessionManager::start_session(<span class="number">0</span>);
 		}
@@ -1574,12 +1590,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The current set of validators.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>validators)]
 	</span><span class="kw">pub type </span>Validators&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;T::ValidatorId&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Current index of the session.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>current_index)]
 	</span><span class="kw">pub type </span>CurrentIndex&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, SessionIndex, ValueQuery&gt;;
 
 	<span class="doccomment">/// True if the underlying economic identities or weighting behind the validators
@@ -1590,7 +1604,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The queued keys for the next session. When the next session begins, these keys
 	/// will be used to determine the validator's session keys.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>queued_keys)]
 	</span><span class="kw">pub type </span>QueuedKeys&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;(T::ValidatorId, T::Keys)&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Indices of disabled validators.
@@ -1599,7 +1612,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// disabled using binary search. It gets cleared when `on_session_ending` returns
 	/// a new set of identities.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>disabled_validators)]
 	</span><span class="kw">pub type </span>DisabledValidators&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;u32&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The next session keys for a validator.
@@ -1696,33 +1708,53 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+	<span class="doccomment">/// Public function to access the current set of validators.
+	</span><span class="kw">pub fn </span>validators() -&gt; Vec&lt;T::ValidatorId&gt; {
+		Validators::&lt;T&gt;::get()
+	}
+
+	<span class="doccomment">/// Public function to access the current session index.
+	</span><span class="kw">pub fn </span>current_index() -&gt; SessionIndex {
+		CurrentIndex::&lt;T&gt;::get()
+	}
+
+	<span class="doccomment">/// Public function to access the queued keys.
+	</span><span class="kw">pub fn </span>queued_keys() -&gt; Vec&lt;(T::ValidatorId, T::Keys)&gt; {
+		QueuedKeys::&lt;T&gt;::get()
+	}
+
+	<span class="doccomment">/// Public function to access the disabled validators.
+	</span><span class="kw">pub fn </span>disabled_validators() -&gt; Vec&lt;u32&gt; {
+		DisabledValidators::&lt;T&gt;::get()
+	}
+
 	<span class="doccomment">/// Move on to next session. Register new validator set and session keys. Changes to the
 	/// validator set have a session of delay to take effect. This allows for equivocation
 	/// punishment after a fork.
 	</span><span class="kw">pub fn </span>rotate_session() {
-		<span class="kw">let </span>session_index = &lt;CurrentIndex&lt;T&gt;&gt;::get();
+		<span class="kw">let </span>session_index = CurrentIndex::&lt;T&gt;::get();
 		<span class="macro">log::trace!</span>(target: <span class="string">"runtime::session"</span>, <span class="string">"rotating session {:?}"</span>, session_index);
 
-		<span class="kw">let </span>changed = &lt;QueuedChanged&lt;T&gt;&gt;::get();
+		<span class="kw">let </span>changed = QueuedChanged::&lt;T&gt;::get();
 
 		<span class="comment">// Inform the session handlers that a session is going to end.
 		</span>T::SessionHandler::on_before_session_ending();
 		T::SessionManager::end_session(session_index);
 
 		<span class="comment">// Get queued session keys and validators.
-		</span><span class="kw">let </span>session_keys = &lt;QueuedKeys&lt;T&gt;&gt;::get();
+		</span><span class="kw">let </span>session_keys = QueuedKeys::&lt;T&gt;::get();
 		<span class="kw">let </span>validators =
 			session_keys.iter().map(|(validator, <span class="kw">_</span>)| validator.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		Validators::&lt;T&gt;::put(<span class="kw-2">&amp;</span>validators);
 
 		<span class="kw">if </span>changed {
 			<span class="comment">// reset disabled validators if active set was changed
-			</span>&lt;DisabledValidators&lt;T&gt;&gt;::take();
+			</span>DisabledValidators::&lt;T&gt;::take();
 		}
 
 		<span class="comment">// Increment session index.
 		</span><span class="kw">let </span>session_index = session_index + <span class="number">1</span>;
-		&lt;CurrentIndex&lt;T&gt;&gt;::put(session_index);
+		CurrentIndex::&lt;T&gt;::put(session_index);
 
 		T::SessionManager::start_session(session_index);
 
@@ -1770,8 +1802,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(queued_amalgamated, changed)
 		};
 
-		&lt;QueuedKeys&lt;T&gt;&gt;::put(queued_amalgamated.clone());
-		&lt;QueuedChanged&lt;T&gt;&gt;::put(next_changed);
+		QueuedKeys::&lt;T&gt;::put(queued_amalgamated.clone());
+		QueuedChanged::&lt;T&gt;::put(next_changed);
 
 		<span class="comment">// Record that this happened.
 		</span><span class="self">Self</span>::deposit_event(Event::NewSession { session_index });
@@ -1786,7 +1818,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="bool-val">false
 		</span>}
 
-		&lt;DisabledValidators&lt;T&gt;&gt;::mutate(|disabled| {
+		DisabledValidators::&lt;T&gt;::mutate(|disabled| {
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(index) = disabled.binary_search(<span class="kw-2">&amp;</span>i) {
 				disabled.insert(index, i);
 				T::SessionHandler::on_disabled(i);
@@ -1803,7 +1835,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Returns `false` either if the validator could not be found or it was already
 	/// disabled.
 	</span><span class="kw">pub fn </span>disable(c: <span class="kw-2">&amp;</span>T::ValidatorId) -&gt; bool {
-		<span class="self">Self</span>::validators()
+		Validators::&lt;T&gt;::get()
 			.iter()
 			.position(|i| i == c)
 			.map(|i| <span class="self">Self</span>::disable_index(i <span class="kw">as </span>u32))
@@ -1834,7 +1866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>new_ids = T::Keys::key_ids();
 
 		<span class="comment">// Translate NextKeys, and key ownership relations at the same time.
-		</span>&lt;NextKeys&lt;T&gt;&gt;::translate::&lt;Old, <span class="kw">_</span>&gt;(|val, old_keys| {
+		</span>NextKeys::&lt;T&gt;::translate::&lt;Old, <span class="kw">_</span>&gt;(|val, old_keys| {
 			<span class="comment">// Clear all key ownership relations. Typically the overlap should
 			// stay the same, but no guarantees by the upgrade function.
 			</span><span class="kw">for </span>i <span class="kw">in </span>old_ids.iter() {
@@ -1851,7 +1883,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(new_keys)
 		});
 
-		<span class="kw">let _ </span>= &lt;QueuedKeys&lt;T&gt;&gt;::translate::&lt;Vec&lt;(T::ValidatorId, Old)&gt;, <span class="kw">_</span>&gt;(|k| {
+		<span class="kw">let _ </span>= QueuedKeys::&lt;T&gt;::translate::&lt;Vec&lt;(T::ValidatorId, Old)&gt;, <span class="kw">_</span>&gt;(|k| {
 			k.map(|k| {
 				k.into_iter()
 					.map(|(val, old_keys)| (val.clone(), upgrade(val, old_keys)))
@@ -1937,28 +1969,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>load_keys(v: <span class="kw-2">&amp;</span>T::ValidatorId) -&gt; <span class="prelude-ty">Option</span>&lt;T::Keys&gt; {
-		&lt;NextKeys&lt;T&gt;&gt;::get(v)
+		NextKeys::&lt;T&gt;::get(v)
 	}
 
 	<span class="kw">fn </span>take_keys(v: <span class="kw-2">&amp;</span>T::ValidatorId) -&gt; <span class="prelude-ty">Option</span>&lt;T::Keys&gt; {
-		&lt;NextKeys&lt;T&gt;&gt;::take(v)
+		NextKeys::&lt;T&gt;::take(v)
 	}
 
 	<span class="kw">fn </span>put_keys(v: <span class="kw-2">&amp;</span>T::ValidatorId, keys: <span class="kw-2">&amp;</span>T::Keys) {
-		&lt;NextKeys&lt;T&gt;&gt;::insert(v, keys);
+		NextKeys::&lt;T&gt;::insert(v, keys);
 	}
 
 	<span class="doccomment">/// Query the owner of a session key by returning the owner's validator ID.
 	</span><span class="kw">pub fn </span>key_owner(id: KeyTypeId, key_data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;T::ValidatorId&gt; {
-		&lt;KeyOwner&lt;T&gt;&gt;::get((id, key_data))
+		KeyOwner::&lt;T&gt;::get((id, key_data))
 	}
 
 	<span class="kw">fn </span>put_key_owner(id: KeyTypeId, key_data: <span class="kw-2">&amp;</span>[u8], v: <span class="kw-2">&amp;</span>T::ValidatorId) {
-		&lt;KeyOwner&lt;T&gt;&gt;::insert((id, key_data), v)
+		KeyOwner::&lt;T&gt;::insert((id, key_data), v)
 	}
 
 	<span class="kw">fn </span>clear_key_owner(id: KeyTypeId, key_data: <span class="kw-2">&amp;</span>[u8]) {
-		&lt;KeyOwner&lt;T&gt;&gt;::remove((id, key_data));
+		KeyOwner::&lt;T&gt;::remove((id, key_data));
 	}
 }
 
@@ -1973,11 +2005,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>ValidatorIdOf = T::ValidatorIdOf;
 
 	<span class="kw">fn </span>session_index() -&gt; sp_staking::SessionIndex {
-		Pallet::&lt;T&gt;::current_index()
+		CurrentIndex::&lt;T&gt;::get()
 	}
 
 	<span class="kw">fn </span>validators() -&gt; Vec&lt;<span class="self">Self</span>::ValidatorId&gt; {
-		Pallet::&lt;T&gt;::validators()
+		Validators::&lt;T&gt;::get()
 	}
 }
 
@@ -1995,11 +2027,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T: Config&gt; frame_support::traits::DisabledValidators <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">fn </span>is_disabled(index: u32) -&gt; bool {
-		&lt;Pallet&lt;T&gt;&gt;::disabled_validators().binary_search(<span class="kw-2">&amp;</span>index).is_ok()
+		DisabledValidators::&lt;T&gt;::get().binary_search(<span class="kw-2">&amp;</span>index).is_ok()
 	}
 
 	<span class="kw">fn </span>disabled_validators() -&gt; Vec&lt;u32&gt; {
-		&lt;Pallet&lt;T&gt;&gt;::disabled_validators()
+		DisabledValidators::&lt;T&gt;::get()
 	}
 }
 
@@ -2017,7 +2049,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	{
 		<span class="kw">let </span>i = Inner::find_author(digests)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>validators = &lt;Pallet&lt;T&gt;&gt;::validators();
+		<span class="kw">let </span>validators = Validators::&lt;T&gt;::get();
 		validators.get(i <span class="kw">as </span>usize).cloned()
 	}
 }
