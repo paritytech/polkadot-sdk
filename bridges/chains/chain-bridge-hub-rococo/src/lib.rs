@@ -25,8 +25,10 @@ use bp_messages::*;
 use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
-use frame_support::dispatch::DispatchClass;
-use sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug};
+use frame_support::{
+	dispatch::DispatchClass,
+	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
+};
 
 /// BridgeHubRococo parachain.
 #[derive(RuntimeDebug)]
@@ -44,6 +46,8 @@ impl Chain for BridgeHubRococo {
 	type Balance = Balance;
 	type Nonce = Nonce;
 	type Signature = Signature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		*BlockLength::get().max.get(DispatchClass::Normal)
@@ -103,10 +107,10 @@ frame_support::parameter_types! {
 	pub const BridgeHubRococoBaseXcmFeeInRocs: u128 = 59_034_266;
 
 	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single inbound message.
-	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_complex_message_delivery_transaction` + `33%`)
+	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
 	pub const BridgeHubRococoBaseDeliveryFeeInRocs: u128 = 314_037_860;
 
 	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
-	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_complex_message_confirmation_transaction` + `33%`)
+	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
 	pub const BridgeHubRococoBaseConfirmationFeeInRocs: u128 = 57_414_813;
 }

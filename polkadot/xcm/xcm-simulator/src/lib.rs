@@ -20,15 +20,18 @@
 /// Used for sending messages.
 pub mod mock_message_queue;
 
+extern crate alloc;
+
 pub use codec::Encode;
 pub use paste;
 
+pub use alloc::collections::vec_deque::VecDeque;
+pub use core::{cell::RefCell, marker::PhantomData};
 pub use frame_support::{
 	traits::{EnqueueMessage, Get, ProcessMessage, ProcessMessageError, ServiceQueues},
 	weights::{Weight, WeightMeter},
 };
 pub use sp_io::{hashing::blake2_256, TestExternalities};
-pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, marker::PhantomData};
 
 pub use polkadot_core_primitives::BlockNumber as RelayBlockNumber;
 pub use polkadot_parachain_primitives::primitives::{
