@@ -33,7 +33,7 @@ use sp_std::marker::PhantomData;
 
 /// Transaction extension that refunds a relayer for standalone messages delivery and confirmation
 /// transactions. Finality transactions are not refunded.
-pub struct MessagesExtensionConfig<
+pub struct WithMessagesExtensionConfig<
 	IdProvider,
 	Runtime,
 	BridgeMessagesPalletInstance,
@@ -51,7 +51,7 @@ pub struct MessagesExtensionConfig<
 	)>,
 );
 
-impl<ID, R, MI, P> ExtensionConfig for MessagesExtensionConfig<ID, R, MI, P>
+impl<ID, R, MI, P> ExtensionConfig for WithMessagesExtensionConfig<ID, R, MI, P>
 where
 	ID: StaticStrProvider,
 	R: BridgeRelayersConfig + BridgeMessagesConfig<MI>,
