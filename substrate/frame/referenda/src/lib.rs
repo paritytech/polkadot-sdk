@@ -66,7 +66,7 @@
 
 use codec::{Codec, Encode};
 use frame_support::{
-	dispatch::DispatchResult,
+	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	ensure,
 	traits::{
 		schedule::{
@@ -95,10 +95,10 @@ use self::branch::{BeginDecidingBranch, OneFewerDecidingBranch, ServiceBranch};
 pub use self::{
 	pallet::*,
 	types::{
-		BalanceOf, BoundedCallOf, CallOf, Curve, DecidingStatus, DecidingStatusOf, Deposit,
-		InsertSorted, NegativeImbalanceOf, PalletsOriginOf, ReferendumIndex, ReferendumInfo,
-		ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf, ScheduleAddressOf, TallyOf,
-		TrackIdOf, TrackInfo, TrackInfoOf, TracksInfo, VotesOf,
+		BalanceOf, BoundedCallOf, CallOf, Curve, DecidingStatus, DecidingStatusOf, DecisionDeposit,
+		Deposit, InsertSorted, NegativeImbalanceOf, PalletsOriginOf, ReferendumIndex,
+		ReferendumInfo, ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf, ScheduleAddressOf,
+		TallyOf, TrackIdOf, TrackInfo, TrackInfoOf, TracksInfo, VotesOf,
 	},
 	weights::WeightInfo,
 };
@@ -489,6 +489,7 @@ pub mod pallet {
 
 			let track =
 				T::Tracks::track_for(&proposal_origin).map_err(|_| Error::<T, I>::NoTrack)?;
+			let track_info = T::Tracks::info(track).ok_or(Error::<T, I>::BadTrack)?;
 			let submission_deposit = Self::take_deposit(who, T::SubmissionDeposit::get())?.into();
 			let index = ReferendumCount::<T, I>::mutate(|x| {
 				let r = *x;
@@ -505,7 +506,7 @@ pub mod pallet {
 				enactment: enactment_moment,
 				submitted: now,
 				submission_deposit,
-				decision_deposit: Default::default(),
+				decision_deposit: DecisionDeposit::new(track_info.decision_deposit.clone()),
 				deciding: None,
 				tally: TallyOf::<T, I>::new(track),
 				in_queue: false,
@@ -532,18 +533,8 @@ pub mod pallet {
 			index: ReferendumIndex,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let mut status = Self::ensure_ongoing(index)?;
-			ensure!(status.decision_deposit.is_none(), Error::<T, I>::HasDeposit);
-			let track = Self::track(status.track).ok_or(Error::<T, I>::NoTrack)?;
-			status.decision_deposit =
-				Some(Self::take_deposit(who.clone(), track.decision_deposit)?);
-			let now = frame_system::Pallet::<T>::block_number();
-			let (info, _, branch) = Self::service_referendum(now, index, status);
-			ReferendumInfoFor::<T, I>::insert(index, info);
-			let e =
-				Event::<T, I>::DecisionDepositPlaced { index, who, amount: track.decision_deposit };
-			Self::deposit_event(e);
-			Ok(branch.weight_of_deposit::<T, I>().into())
+
+			Self::contribute_decision_deposit(index, who, None)
 		}
 
 		/// Refund the Decision Deposit for a closed referendum back to the depositor.
@@ -566,14 +557,14 @@ pub mod pallet {
 				.take_decision_deposit()
 				.map_err(|_| Error::<T, I>::Unfinished)?
 				.ok_or(Error::<T, I>::NoDeposit)?;
-			Self::refund_deposit(Some(deposit.clone()));
+
+			deposit.contributors.into_iter().for_each(|(who, amount)| {
+				Self::refund_deposit(&who, amount.clone());
+
+				let e = Event::<T, I>::DecisionDepositRefunded { index, who, amount };
+				Self::deposit_event(e);
+			});
 			ReferendumInfoFor::<T, I>::insert(index, info);
-			let e = Event::<T, I>::DecisionDepositRefunded {
-				index,
-				who: deposit.who,
-				amount: deposit.amount,
-			};
-			Self::deposit_event(e);
 			Ok(())
 		}
 
@@ -618,8 +609,13 @@ pub mod pallet {
 			}
 			Self::note_one_fewer_deciding(status.track);
 			Self::deposit_event(Event::<T, I>::Killed { index, tally: status.tally });
-			Self::slash_deposit(Some(status.submission_deposit.clone()));
-			Self::slash_deposit(status.decision_deposit.clone());
+			Self::slash_deposit(
+				status.submission_deposit.who.clone(),
+				status.submission_deposit.amount.clone(),
+			);
+			status.decision_deposit.contributors.iter().for_each(|(who, amount)| {
+				Self::slash_deposit(who.clone(), amount.clone());
+			});
 			Self::do_clear_metadata(index);
 			let info = ReferendumInfo::Killed { when: frame_system::Pallet::<T>::block_number() };
 			ReferendumInfoFor::<T, I>::insert(index, info);
@@ -704,7 +700,7 @@ pub mod pallet {
 				.take_submission_deposit()
 				.map_err(|_| Error::<T, I>::BadStatus)?
 				.ok_or(Error::<T, I>::NoDeposit)?;
-			Self::refund_deposit(Some(deposit.clone()));
+			Self::refund_deposit(&deposit.who, deposit.amount.clone());
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			let e = Event::<T, I>::SubmissionDepositRefunded {
 				index,
@@ -873,8 +869,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn contribute_decision_deposit(
 		index: ReferendumIndex,
 		contributor: T::AccountId,
-		deposit: BalanceOf<T, I>,
-	) -> Result<(), DispatchError> {
+		deposit: Option<BalanceOf<T, I>>,
+	) -> DispatchResultWithPostInfo {
 		let mut status = Self::ensure_ongoing(index)?;
 		let track = Self::track(status.track).ok_or(Error::<T, I>::NoTrack)?;
 		ensure!(
@@ -882,8 +878,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Error::<T, I>::HasDeposit
 		);
 
+		let deposit = deposit.unwrap_or(track.decision_deposit);
+
 		if let Some(pos) =
-			status.decision_deposit.contributors.iter().position(|c| c.0 == &contributor)
+			status.decision_deposit.contributors.iter().position(|c| c.0 == contributor)
 		{
 			let old_deposit = status.decision_deposit.contributors.remove(pos).1;
 
@@ -1232,7 +1230,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					TrackQueue::<T, I>::insert(status.track, queue);
 				} else {
 					// Are we ready for deciding?
-					branch = if status.decision_deposit.is_contributed(&track) {
+					branch = if status.decision_deposit.is_fully_collected() {
 						let prepare_end = status.submitted.saturating_add(track.prepare_period);
 						if now >= prepare_end {
 							let (maybe_alarm, branch) =
@@ -1390,11 +1388,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Slash a deposit, if `Some`.
-	fn slash_deposit(deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>) {
-		if let Some(Deposit { who, amount }) = deposit {
-			T::Slash::on_unbalanced(T::Currency::slash_reserved(&who, amount).0);
-			Self::deposit_event(Event::<T, I>::DepositSlashed { who, amount });
-		}
+	fn slash_deposit(who: T::AccountId, amount: BalanceOf<T, I>) {
+		T::Slash::on_unbalanced(T::Currency::slash_reserved(&who, amount).0);
+		Self::deposit_event(Event::<T, I>::DepositSlashed { who, amount });
 	}
 
 	/// Get the track info value for the track `id`.

@@ -22,7 +22,7 @@ use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use core::{fmt::Debug, mem};
 use frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
-	DefaultNoBound, EqNoBound, Parameter, PartialEqNoBound,
+	EqNoBound, Parameter, PartialEqNoBound,
 };
 use scale_info::TypeInfo;
 use sp_arithmetic::{Rounding::*, SignedRounding::*};
@@ -119,11 +119,11 @@ impl<AccountId, Balance> From<(AccountId, Balance)> for Deposit<AccountId, Balan
 	}
 }
 
-#[derive(Encode, Decode, EqNoBound, PartialEqNoBound, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(MaxContributors))]
 pub struct DecisionDeposit<AccountId, Balance, MaxContributors: Get<u32>> {
 	pub collected_deposit: Balance,
-	pub completely_collected: bool,
+	pub required_track_deposit: Balance,
 	pub contributors: BoundedVec<(AccountId, Balance), MaxContributors>,
 }
 
@@ -133,30 +133,41 @@ impl<AccountId: Clone, Balance: Clone, MaxContributors: Get<u32>> Clone
 	fn clone(&self) -> Self {
 		Self {
 			collected_deposit: self.collected_deposit.clone(),
-			completely_collected: self.completely_collected,
+			required_track_deposit: self.required_track_deposit.clone(),
 			contributors: self.contributors.clone(),
 		}
 	}
 }
 
-impl<AccountId, Balance: Default, MaxContributors: Get<u32>> Default
+impl<AccountId: Eq, Balance: Eq, MaxContributors: Get<u32>> Eq
 	for DecisionDeposit<AccountId, Balance, MaxContributors>
 {
-	fn default() -> Self {
-		Self {
-			collected_deposit: Default::default(),
-			contributors: Default::default(),
-			completely_collected: false,
-		}
+}
+
+impl<AccountId: PartialEq, Balance: PartialEq, MaxContributors: Get<u32>> PartialEq
+	for DecisionDeposit<AccountId, Balance, MaxContributors>
+{
+	fn eq(&self, other: &Self) -> bool {
+		self.collected_deposit == other.collected_deposit &&
+			self.required_track_deposit == other.required_track_deposit &&
+			self.contributors == other.contributors
 	}
 }
 
-impl<AccountId, Balance: PartialOrd, MaxDecisionContributors: Get<u32>>
+impl<AccountId, Balance: PartialOrd + Default, MaxDecisionContributors: Get<u32>>
 	DecisionDeposit<AccountId, Balance, MaxDecisionContributors>
 {
+	pub fn new(required_track_deposit: Balance) -> Self {
+		Self {
+			collected_deposit: Default::default(),
+			required_track_deposit,
+			contributors: Default::default(),
+		}
+	}
+
 	/// Are enough funds collected to pay for the decision deposit?
-	pub fn is_collected<M>(&self, track: &TrackInfo<Balance, M>) -> bool {
-		self.collected_deposit >= track.decision_deposit
+	pub fn is_fully_collected(&self) -> bool {
+		self.collected_deposit >= self.required_track_deposit
 	}
 }
 
@@ -225,7 +236,8 @@ pub trait TracksInfo<Balance, Moment> {
 }
 
 /// Info regarding an ongoing referendum.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEqNoBound, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(MaxContributors))]
 pub struct ReferendumStatus<
 	TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -264,6 +276,7 @@ pub struct ReferendumStatus<
 
 /// Info regarding a referendum, present or past.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(MaxContributors))]
 pub enum ReferendumInfo<
 	TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
