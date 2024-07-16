@@ -51,7 +51,7 @@ use libp2p::{
 		ConnectionDenied, ConnectionId, NetworkBehaviour, PollParameters, THandler,
 		THandlerInEvent, THandlerOutEvent, ToSwarm,
 	},
-	PeerId, 
+	PeerId,
 };
 
 use std::{
