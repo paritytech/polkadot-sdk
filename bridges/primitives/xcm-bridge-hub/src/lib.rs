@@ -59,7 +59,7 @@ impl BridgeId {
 	///
 	/// The fact that we are using versioned locations here means that XCM version upgrades must
 	/// be coordinated at all involved chains (at source and target chains + at bridge hubs).
-	/// Otherwise messages may simply be dropped anywhere on its path to the target chain.
+	/// Otherwise, messages may simply be dropped anywhere on its path to the target chain.
 	pub fn new(
 		universal_location1: &VersionedInteriorLocation,
 		universal_location2: &VersionedInteriorLocation,
