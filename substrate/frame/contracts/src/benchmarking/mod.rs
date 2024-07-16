@@ -65,7 +65,7 @@ const API_BENCHMARK_RUNS: u32 = 1600;
 const INSTR_BENCHMARK_RUNS: u32 = 5000;
 
 /// Number of layers in a Radix16 unbalanced trie
-const UNBALANCED_TRIE_LAYERS: u32 = 10;
+const UNBALANCED_TRIE_LAYERS: u32 = 20;
 
 /// An instantiated and deployed contract.
 #[derive(Clone)]
@@ -1046,8 +1046,6 @@ mod benchmarks {
 		assert_eq!(setup.debug_message().unwrap().len() as u32, i);
 	}
 
-	// n: new byte size
-	// o: old byte size
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn get_storage_empty(
 		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
@@ -1060,7 +1058,7 @@ mod benchmarks {
 		let instance = Contract::<T>::new(WasmModule::dummy(), vec![])?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(vec![42u8; o as usize]), false)
+		info.bench_write_raw(&key, Some(value.clone()), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1073,8 +1071,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// n: new byte size
-	// o: old byte size
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn get_storage_full(
 		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
@@ -1092,7 +1088,7 @@ mod benchmarks {
 		)?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(vec![42u8; o as usize]), false)
+		info.bench_write_raw(&key, Some(value.clone()), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1122,10 +1118,11 @@ mod benchmarks {
 		info.bench_write_raw(&key, Some(vec![42u8; o as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
+		let val = Some(value.clone());
 		let result;
 		#[block]
 		{
-			result = info.bench_write_raw(&key, Some(value.clone()), false);
+			result = info.bench_write_raw(&key, val, false);
 		}
 
 		assert_ok!(result);
@@ -1155,10 +1152,11 @@ mod benchmarks {
 		info.bench_write_raw(&key, Some(vec![42u8; o as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
+		let val = Some(value.clone());
 		let result;
 		#[block]
 		{
-			result = info.bench_write_raw(&key, Some(value.clone()), false);
+			result = info.bench_write_raw(&key, val, false);
 		}
 
 		assert_ok!(result);

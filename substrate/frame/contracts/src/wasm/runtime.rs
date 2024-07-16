@@ -259,11 +259,11 @@ pub enum RuntimeCosts {
 // transient_storage (BTreeMap). To consider the worst-case scenario, the weight of the overhead of
 // writing to a full BTreeMap should be included. On top of that, the rollback weight is added,
 // which is the worst scenario.
-macro_rules! cost_write {
+macro_rules! cost_write_transient_storage {
 	// cost_write!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::rollback_transient_storage())
 	// .saturating_add(T::WeightInfo::set_transient_storage_full().saturating_sub(T::WeightInfo::set_transient_storage_empty())
 	($name:ident $(, $arg:expr )*) => {
-		(T::WeightInfo::$name($( $arg ),*).saturating_add(T::WeightInfo::rollback_transient_storage()).saturating_add(cost_write!(@cost_storage)))
+		(T::WeightInfo::$name($( $arg ),*).saturating_add(T::WeightInfo::rollback_transient_storage()).saturating_add(cost_write_transient_storage!(@cost_storage)))
 	};
 
 	(@cost_storage) => {
@@ -271,15 +271,39 @@ macro_rules! cost_write {
     };
 }
 
-macro_rules! cost_read {
+macro_rules! cost_read_transient_storage {
 	// cost_read!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::get_transient_storage_full()
 	// .saturating_sub(T::WeightInfo::get_transient_storage_empty())
 	($name:ident $(, $arg:expr )*) => {
-		(T::WeightInfo::$name($( $arg ),*).saturating_add(cost_read!(@cost_storage)))
+		(T::WeightInfo::$name($( $arg ),*).saturating_add(cost_read_transient_storage!(@cost_storage)))
 	};
 
 	(@cost_storage) => {
         T::WeightInfo::get_transient_storage_full().saturating_sub(T::WeightInfo::get_transient_storage_empty())
+    };
+}
+
+macro_rules! cost_write_storage {
+	// cost_write!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::rollback_transient_storage())
+	// .saturating_add(T::WeightInfo::set_transient_storage_full().saturating_sub(T::WeightInfo::set_transient_storage_empty())
+	($name:ident $(, $arg:expr )*) => {
+		(T::WeightInfo::$name($( $arg ),*).saturating_add(cost_write_storage( @cost_storage, $( $arg ),*)))
+	};
+
+	(@cost_storage,  $( $arg:expr ),*) => {
+        T::WeightInfo::set_storage_full($( $arg ),*).saturating_sub(T::WeightInfo::set_storage_empty($( $arg ),*))
+    };
+}
+
+macro_rules! cost_read_storage {
+	// cost_read!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::get_transient_storage_full()
+	// .saturating_sub(T::WeightInfo::get_transient_storage_empty())
+	($name:ident $(, $arg:expr )*) => {
+		(T::WeightInfo::$name($( $arg ),*).saturating_add(cost_read!(@cost_storage, $( $arg ),*)))
+	};
+
+	(@cost_storage,  $( $arg:expr ),*) => {
+        T::WeightInfo::get_storage_full($( $arg ),*).saturating_sub(T::WeightInfo::get_storage_empty($( $arg ),*))
     };
 }
 
@@ -335,11 +359,15 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			GetStorage(len) => T::WeightInfo::seal_get_storage(len),
 			TakeStorage(len) => T::WeightInfo::seal_take_storage(len),
 			SetTransientStorage { new_bytes, old_bytes } =>
-				cost_write!(seal_set_transient_storage, new_bytes, old_bytes),
-			ClearTransientStorage(len) => cost_write!(seal_clear_transient_storage, len),
-			ContainsTransientStorage(len) => cost_read!(seal_contains_transient_storage, len),
-			GetTransientStorage(len) => cost_read!(seal_get_transient_storage, len),
-			TakeTransientStorage(len) => cost_write!(seal_take_transient_storage, len),
+				cost_write_transient_storage!(seal_set_transient_storage, new_bytes, old_bytes),
+			ClearTransientStorage(len) =>
+				cost_write_transient_storage!(seal_clear_transient_storage, len),
+			ContainsTransientStorage(len) =>
+				cost_read_transient_storage!(seal_contains_transient_storage, len),
+			GetTransientStorage(len) =>
+				cost_read_transient_storage!(seal_get_transient_storage, len),
+			TakeTransientStorage(len) =>
+				cost_write_transient_storage!(seal_take_transient_storage, len),
 			Transfer => T::WeightInfo::seal_transfer(),
 			CallBase => T::WeightInfo::seal_call(0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),

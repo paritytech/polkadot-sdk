@@ -168,7 +168,7 @@ impl<T: Config> ContractInfo<T> {
 		self.write_raw(&hashed_key, new_value, storage_meter, take)
 	}
 
- 	/// Update a storage entry into a contract's kv storage.
+	/// Update a storage entry into a contract's kv storage.
 	/// Function used in benchmarks, which can simulate prefix collision in keys.
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn bench_write_raw(
