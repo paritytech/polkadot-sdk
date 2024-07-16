@@ -18,6 +18,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use cumulus_primitives_core::Weight;
 use cumulus_primitives_proof_size_hostfunction::{
 	storage_proof_size::storage_proof_size, PROOF_RECORDING_DISABLED,
@@ -37,7 +38,6 @@ use sp_runtime::{
 	transaction_validity::TransactionValidityError,
 	DispatchResult,
 };
-use sp_std::marker::PhantomData;
 
 #[cfg(test)]
 mod tests;

@@ -99,27 +99,27 @@ mod runtime {
 
 	/// Mandatory system pallet that should always be included in a FRAME runtime.
 	#[runtime::pallet_index(0)]
-	pub type System = frame_system;
+	pub type System = frame_system::Pallet<Runtime>;
 
 	/// Provides a way for consensus systems to set and check the onchain time.
 	#[runtime::pallet_index(1)]
-	pub type Timestamp = pallet_timestamp;
+	pub type Timestamp = pallet_timestamp::Pallet<Runtime>;
 
 	/// Provides the ability to keep track of balances.
 	#[runtime::pallet_index(2)]
-	pub type Balances = pallet_balances;
+	pub type Balances = pallet_balances::Pallet<Runtime>;
 
 	/// Provides a way to execute privileged functions.
 	#[runtime::pallet_index(3)]
-	pub type Sudo = pallet_sudo;
+	pub type Sudo = pallet_sudo::Pallet<Runtime>;
 
 	/// Provides the ability to charge for extrinsic execution.
 	#[runtime::pallet_index(4)]
-	pub type TransactionPayment = pallet_transaction_payment;
+	pub type TransactionPayment = pallet_transaction_payment::Pallet<Runtime>;
 
 	/// A minimal pallet template.
 	#[runtime::pallet_index(5)]
-	pub type Template = pallet_minimal_template;
+	pub type Template = pallet_minimal_template::Pallet<Runtime>;
 }
 
 parameter_types! {

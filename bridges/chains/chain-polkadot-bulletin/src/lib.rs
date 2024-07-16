@@ -41,7 +41,7 @@ use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{Dispatchable, TransactionExtensionBase},
 	transaction_validity::TransactionValidityError,
-	Perbill,
+	Perbill, StateVersion,
 };
 
 // This chain reuses most of Polkadot primitives.
@@ -192,6 +192,8 @@ impl Chain for PolkadotBulletin {
 	type Balance = Balance;
 	type Nonce = Nonce;
 	type Signature = Signature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		*BlockLength::get().max.get(DispatchClass::Normal)

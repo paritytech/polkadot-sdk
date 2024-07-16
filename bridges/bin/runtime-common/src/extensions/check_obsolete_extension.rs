@@ -36,6 +36,12 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionValidity, ValidTransactionBuilder},
 };
 
+// Re-export to avoid include tuplex dependency everywhere.
+#[doc(hidden)]
+pub mod __private {
+	pub use tuplex;
+}
+
 /// A duplication of the `FilterCall` trait.
 ///
 /// We need this trait in order to be able to implement it for the messages pallet,
@@ -342,7 +348,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				result: &sp_runtime::DispatchResult,
 				_context: &Context,
 			) -> Result<(), sp_runtime::transaction_validity::TransactionValidityError> {
-				use tuplex::PopFront;
+				use $crate::extensions::check_obsolete_extension::__private::tuplex::PopFront;
 				let Some((relayer, to_post_dispatch)) = to_post_dispatch else { return Ok(()) };
 				let has_failed = result.is_err();
 				$(

@@ -23,7 +23,7 @@ pub use bp_polkadot_core::*;
 
 use bp_header_chain::ChainWithGrandpa;
 use bp_runtime::{decl_bridge_finality_runtime_apis, Chain, ChainId};
-use frame_support::weights::Weight;
+use frame_support::{sp_runtime::StateVersion, weights::Weight};
 
 /// Kusama Chain
 pub struct Kusama;
@@ -40,6 +40,8 @@ impl Chain for Kusama {
 	type Balance = Balance;
 	type Nonce = Nonce;
 	type Signature = Signature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V0;
 
 	fn max_extrinsic_size() -> u32 {
 		max_extrinsic_size()

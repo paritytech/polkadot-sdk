@@ -30,13 +30,43 @@
 //! > **F**ramework for **R**untime **A**ggregation of **M**odularized **E**ntities: Substrate's
 //! > State Transition Function (Runtime) Framework.
 //!
+//! //! ## Usage
+//!
+//! The main intended use of this crate is for it to be imported with its preludes:
+//!
+//! ```
+//! # use polkadot_sdk_frame as frame;
+//! #[frame::pallet]
+//! pub mod pallet {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::prelude::*;
+//! 	// ^^ using the prelude!
+//!
+//! 	#[pallet::config]
+//! 	pub trait Config: frame_system::Config {}
+//!
+//! 	#[pallet::pallet]
+//! 	pub struct Pallet<T>(_);
+//! }
+//!
+//! pub mod tests {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::testing_prelude::*;
+//! }
+//!
+//! pub mod runtime {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::runtime::prelude::*;
+//! }
+//! ```
+//!
+//! See: [`prelude`], [`testing_prelude`] and [`runtime::prelude`].
+//!
+//! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`.
+//!
 //! ## Documentation
 //!
 //! See [`polkadot_sdk::frame`](../polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html).
-//!
-//! ## WARNING: Experimental
-//!
-//! **This crate and all of its content is experimental, and should not yet be used in production.**
 //!
 //! ## Underlying dependencies
 //!
@@ -46,9 +76,9 @@
 //! In short, this crate only re-exports types and traits from multiple sources. All of these
 //! sources are listed (and re-exported again) in [`deps`].
 //!
-//! ## Usage
+//! ## WARNING: Experimental
 //!
-//! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`.
+//! **This crate and all of its content is experimental, and should not yet be used in production.**
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
