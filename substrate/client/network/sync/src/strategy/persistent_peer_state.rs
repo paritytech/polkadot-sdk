@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use crate::types::BadPeer;
+use sc_network::ReputationChange as Rep;
 use sc_network_types::PeerId;
 use schnellru::{ByLength, LruMap};
 
@@ -34,14 +36,15 @@ const MAX_DISCONNECTED_PEERS_STATE: u32 = 512;
 ///
 /// The peer may disconnect due to the keep-alive timeout, however disconnections without
 /// an inflight request are not tracked.
-const DISCONNECTED_PEER_BACKOFF_SECONDS: u64 = 20;
+const DISCONNECTED_PEER_BACKOFF_SECONDS: u64 = 60;
 
 /// Maximum number of disconnects with a request in flight before a peer is banned.
 const MAX_NUM_DISCONNECTS: u64 = 3;
 
-/// Forget the persistent state after 15 minutes.
-const FORGET_PERSISTENT_STATE_SECONDS: u64 = 900;
+/// Peer is slow to respond.
+pub const SLOW_PEER: Rep = Rep::new_fatal("Slow peer after backoffs");
 
+#[derive(Debug)]
 pub struct DisconnectedPeerState {
 	/// The total number of disconnects.
 	num_disconnects: u64,
@@ -86,20 +89,44 @@ impl PersistentPeersState {
 	/// Insert a new peer to the persistent state if not seen before, or update the state if seen.
 	///
 	/// Returns true if the peer should be disconnected.
-	pub fn remove_peer(&mut self, peer: PeerId) -> bool {
+	pub fn remove_peer(&mut self, peer: PeerId) -> Option<BadPeer> {
 		if let Some(state) = self.disconnected_peers.get(&peer) {
 			state.increment();
-			return state.num_disconnects() >= MAX_NUM_DISCONNECTS
+
+			let should_ban = state.num_disconnects() >= MAX_NUM_DISCONNECTS;
+			log::debug!(
+				target: LOG_TARGET,
+				"Remove known peer {peer} state: {state:?}, should ban: {should_ban}",
+			);
+
+			return should_ban.then(|| {
+				// The peer is banned from the peerstore. We can lose track of the peer state
+				// and let the banning mechanism handle the peer backoff.
+				//
+				// After the peer banning expires, if the peer continues to misbehave, it will be
+				// backed off again.
+				self.disconnected_peers.remove(&peer);
+				BadPeer(peer, SLOW_PEER)
+			})
 		}
 
+		log::debug!(
+			target: LOG_TARGET,
+			"Added peer {peer} for the first time"
+		);
 		// First time we see this peer.
 		self.disconnected_peers.insert(peer, DisconnectedPeerState::new());
-		false
+		None
 	}
 
 	/// Check if a peer is available for queries.
 	pub fn is_peer_available(&mut self, peer_id: &PeerId) -> bool {
 		let Some(state) = self.disconnected_peers.get(peer_id) else {
+			log::debug!(
+				target: LOG_TARGET,
+				"Peer {peer_id} is not in the disconnected peers state",
+			);
+
 			return true;
 		};
 
