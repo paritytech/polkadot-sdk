@@ -17,6 +17,7 @@
 
 //! Traits for encoding data related to pallet's storage items.
 
+use alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
 use codec::{Encode, FullCodec, MaxEncodedLen};
 use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;
@@ -27,7 +28,6 @@ use sp_runtime::{
 	traits::{Convert, Member, Saturating},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 /// An instance of a pallet in the storage.
 ///
