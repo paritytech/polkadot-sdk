@@ -44,7 +44,7 @@ pub enum Error {
 /// It is useful when you already have a `ConvertLocation<AccountId>` implementation and a default
 /// `Ss58Prefix`.
 pub struct LocationToAccountHelper<AccountId, Conversion>(
-	sp_std::marker::PhantomData<(AccountId, Conversion)>,
+	core::marker::PhantomData<(AccountId, Conversion)>,
 );
 impl<AccountId: Decode, Conversion: ConvertLocation<AccountId>>
 	LocationToAccountHelper<AccountId, Conversion>

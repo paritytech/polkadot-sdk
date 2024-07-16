@@ -25,7 +25,7 @@ pub struct ParaInfoV1<Account, Balance> {
 }
 
 pub struct VersionUncheckedMigrateToV1<T, UnlockParaIds>(
-	sp_std::marker::PhantomData<(T, UnlockParaIds)>,
+	core::marker::PhantomData<(T, UnlockParaIds)>,
 );
 impl<T: Config, UnlockParaIds: Contains<ParaId>> UncheckedOnRuntimeUpgrade
 	for VersionUncheckedMigrateToV1<T, UnlockParaIds>
