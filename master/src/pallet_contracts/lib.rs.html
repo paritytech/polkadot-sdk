@@ -2060,6 +2060,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1909" id="1909">1909</a>
 <a href="#1910" id="1910">1910</a>
 <a href="#1911" id="1911">1911</a>
+<a href="#1912" id="1912">1912</a>
+<a href="#1913" id="1913">1913</a>
+<a href="#1914" id="1914">1914</a>
+<a href="#1915" id="1915">1915</a>
+<a href="#1916" id="1916">1916</a>
+<a href="#1917" id="1917">1917</a>
+<a href="#1918" id="1918">1918</a>
+<a href="#1919" id="1919">1919</a>
+<a href="#1920" id="1920">1920</a>
+<a href="#1921" id="1921">1921</a>
+<a href="#1922" id="1922">1922</a>
+<a href="#1923" id="1923">1923</a>
+<a href="#1924" id="1924">1924</a>
+<a href="#1925" id="1925">1925</a>
+<a href="#1926" id="1926">1926</a>
+<a href="#1927" id="1927">1927</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2159,6 +2175,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">mod </span>schedule;
 <span class="kw">mod </span>storage;
+<span class="kw">mod </span>transient_storage;
 <span class="kw">mod </span>wasm;
 
 <span class="kw">pub mod </span>chain_extension;
@@ -2450,6 +2467,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>MaxStorageKeyLen: Get&lt;u32&gt;;
 
+		<span class="doccomment">/// The maximum size of the transient storage in bytes.
+		/// This includes keys, values, and previous entries used for storage rollback.
+		</span><span class="attr">#[pallet::constant]
+		</span><span class="kw">type </span>MaxTransientStorageSize: Get&lt;u32&gt;;
+
 		<span class="doccomment">/// The maximum number of delegate_dependencies that a contract can lock with
 		/// [`chain_extension::Ext::lock_delegate_dependency`].
 		</span><span class="attr">#[pallet::constant]
@@ -2616,6 +2638,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">type </span>MaxDebugBufferLen = ConstU32&lt;{ <span class="number">2 </span>* <span class="number">1024 </span>* <span class="number">1024 </span>}&gt;;
 			<span class="kw">type </span>MaxDelegateDependencies = MaxDelegateDependencies;
 			<span class="kw">type </span>MaxStorageKeyLen = ConstU32&lt;<span class="number">128</span>&gt;;
+			<span class="kw">type </span>MaxTransientStorageSize = ConstU32&lt;{ <span class="number">1 </span>* <span class="number">1024 </span>* <span class="number">1024 </span>}&gt;;
 			<span class="kw">type </span>Migrations = ();
 			<span class="kw">type </span>Time = <span class="self">Self</span>;
 			<span class="kw">type </span>Randomness = <span class="self">Self</span>;
@@ -2667,7 +2690,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Max call depth is CallStack::size() + 1
 			</span><span class="kw">let </span>max_call_depth = u32::try_from(T::CallStack::size().saturating_add(<span class="number">1</span>))
 				.expect(<span class="string">"CallStack size is too big"</span>);
-
+			<span class="comment">// Transient storage uses a BTreeMap, which has overhead compared to the raw size of
+			// key-value data. To ensure safety, a margin of 2x the raw key-value size is used.
+			</span><span class="kw">let </span>max_transient_storage_size = T::MaxTransientStorageSize::get()
+				.checked_mul(<span class="number">2</span>)
+				.expect(<span class="string">"MaxTransientStorageSize is too large"</span>);
 			<span class="comment">// Check that given configured `MaxCodeLen`, runtime heap memory limit can't be broken.
 			//
 			// In worst case, the decoded Wasm contract code would be `x16` times larger than the
@@ -2677,7 +2704,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// Next, the pallet keeps the Wasm blob for each
 			// contract, hence we add up `MaxCodeLen` to the safety margin.
 			//
-			// Finally, the inefficiencies of the freeing-bump allocator
+			// The inefficiencies of the freeing-bump allocator
 			// being used in the client for the runtime memory allocations, could lead to possible
 			// memory allocations for contract code grow up to `x4` times in some extreme cases,
 			// which gives us total multiplier of `17*4` for `MaxCodeLen`.
@@ -2686,17 +2713,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// memory should be available. Note that maximum allowed heap memory and stack size per
 			// each contract (stack frame) should also be counted.
 			//
+			// The pallet holds transient storage with a size up to `max_transient_storage_size`.
+			//
 			// Finally, we allow 50% of the runtime memory to be utilized by the contracts call
 			// stack, keeping the rest for other facilities, such as PoV, etc.
 			//
 			// This gives us the following formula:
 			//
-			// `(MaxCodeLen * 17 * 4 + MAX_STACK_SIZE + max_heap_size) * max_call_depth &lt;
-			// max_runtime_mem/2`
+			// `(MaxCodeLen * 17 * 4 + MAX_STACK_SIZE + max_heap_size) * max_call_depth +
+			// max_transient_storage_size &lt; max_runtime_mem/2`
 			//
 			// Hence the upper limit for the `MaxCodeLen` can be defined as follows:
 			</span><span class="kw">let </span>code_len_limit = max_runtime_mem
 				.saturating_div(<span class="number">2</span>)
+				.saturating_sub(max_transient_storage_size)
 				.saturating_div(max_call_depth)
 				.saturating_sub(max_heap_size)
 				.saturating_sub(MAX_STACK_SIZE)
@@ -3297,6 +3327,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>DelegateDependencyAlreadyExists,
 		<span class="doccomment">/// Can not add a delegate dependency to the code hash of the contract itself.
 		</span>CannotAddSelfAsDelegateDependency,
+		<span class="doccomment">/// Can not add more data to transient storage.
+		</span>OutOfTransientStorage,
 	}
 
 	<span class="doccomment">/// A reason for the pallet contracts placing a hold on funds.

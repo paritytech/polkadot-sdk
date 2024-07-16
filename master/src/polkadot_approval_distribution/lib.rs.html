@@ -2890,6 +2890,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2739" id="2739">2739</a>
 <a href="#2740" id="2740">2740</a>
 <a href="#2741" id="2741">2741</a>
+<a href="#2742" id="2742">2742</a>
+<a href="#2743" id="2743">2743</a>
+<a href="#2744" id="2744">2744</a>
+<a href="#2745" id="2745">2745</a>
+<a href="#2746" id="2746">2746</a>
+<a href="#2747" id="2747">2747</a>
+<a href="#2748" id="2748">2748</a>
+<a href="#2749" id="2749">2749</a>
+<a href="#2750" id="2750">2750</a>
+<a href="#2751" id="2751">2751</a>
+<a href="#2752" id="2752">2752</a>
+<a href="#2753" id="2753">2753</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4323,6 +4335,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>required_routing = topology.map_or(RequiredRouting::PendingTopology, |t| {
 			t.local_grid_neighbors().required_routing_by_index(validator_index, local)
 		});
+		<span class="comment">// Peers that we will send the assignment to.
+		</span><span class="kw">let </span><span class="kw-2">mut </span>peers = HashSet::new();
+
+		<span class="kw">let </span>peers_to_route_to = topology
+			.as_ref()
+			.map(|t| t.peers_to_route(required_routing))
+			.unwrap_or_default();
+
+		<span class="kw">for </span>peer <span class="kw">in </span>peers_to_route_to {
+			<span class="kw">if </span>!entry.known_by.contains_key(<span class="kw-2">&amp;</span>peer) {
+				<span class="kw">continue
+			</span>}
+
+			peers.insert(peer);
+		}
 
 		<span class="comment">// All the peers that know the relay chain block.
 		</span><span class="kw">let </span>peers_to_filter = entry.known_by();
@@ -4348,20 +4375,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>n_peers_total = <span class="self">self</span>.peer_views.len();
 		<span class="kw">let </span>source_peer = source.peer_id();
 
-		<span class="comment">// Peers that we will send the assignment to.
-		</span><span class="kw">let </span><span class="kw-2">mut </span>peers = Vec::new();
-
 		<span class="comment">// Filter destination peers
 		</span><span class="kw">for </span>peer <span class="kw">in </span>peers_to_filter.into_iter() {
 			<span class="kw">if </span><span class="prelude-val">Some</span>(peer) == source_peer {
 				<span class="kw">continue
 			</span>}
 
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="bool-val">true</span>) = topology
-				.as_ref()
-				.map(|t| t.local_grid_neighbors().route_to_peer(required_routing, <span class="kw-2">&amp;</span>peer))
-			{
-				peers.push(peer);
+			<span class="kw">if </span>peers.contains(<span class="kw-2">&amp;</span>peer) {
 				<span class="kw">continue
 			</span>}
 
@@ -4377,8 +4397,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">if </span>route_random {
 				approval_entry.routing_info_mut().mark_randomly_sent(peer);
-				peers.push(peer);
+				peers.insert(peer);
 			}
+
+			<span class="kw">if </span>approval_entry.routing_info().random_routing.is_complete() {
+				<span class="kw">break
+			</span>}
 		}
 
 		<span class="comment">// Add the metadata of the assignment to the knowledge of each peer.

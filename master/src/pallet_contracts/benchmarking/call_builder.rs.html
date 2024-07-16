@@ -349,6 +349,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -368,11 +404,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use crate</span>::{
 	benchmarking::{Contract, WasmModule},
-	exec::Stack,
+	exec::{Ext, Key, Stack},
 	storage::meter::Meter,
+	transient_storage::MeterEntry,
 	wasm::Runtime,
-	BalanceOf, Config, DebugBufferVec, Determinism, ExecReturnValue, GasMeter, Origin, Schedule,
-	TypeInfo, WasmBlob, Weight,
+	BalanceOf, Config, DebugBufferVec, Determinism, Error, ExecReturnValue, GasMeter, Origin,
+	Schedule, TypeInfo, WasmBlob, Weight,
 };
 <span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Encode, HasCompact};
@@ -407,6 +444,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	debug_message: <span class="prelude-ty">Option</span>&lt;DebugBufferVec&lt;T&gt;&gt;,
 	determinism: Determinism,
 	data: Vec&lt;u8&gt;,
+	transient_storage_size: u32,
 }
 
 <span class="kw">impl</span>&lt;T&gt; Default <span class="kw">for </span>CallSetup&lt;T&gt;
@@ -454,6 +492,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			debug_message: <span class="prelude-val">None</span>,
 			determinism: Determinism::Enforced,
 			data: <span class="macro">vec!</span>[],
+			transient_storage_size: <span class="number">0</span>,
 		}
 	}
 
@@ -475,6 +514,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Set the call's input data.
 	</span><span class="kw">pub fn </span>set_data(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: Vec&lt;u8&gt;) {
 		<span class="self">self</span>.data = value;
+	}
+
+	<span class="doccomment">/// Set the transient storage size.
+	</span><span class="kw">pub fn </span>set_transient_storage_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size: u32) {
+		<span class="self">self</span>.transient_storage_size = size;
 	}
 
 	<span class="doccomment">/// Set the debug message.
@@ -499,7 +543,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Build the call stack.
 	</span><span class="kw">pub fn </span>ext(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (StackExt&lt;<span class="lifetime">'_</span>, T&gt;, WasmBlob&lt;T&gt;) {
-		StackExt::bench_new_call(
+		<span class="kw">let </span><span class="kw-2">mut </span>ext = StackExt::bench_new_call(
 			<span class="self">self</span>.dest.clone(),
 			<span class="self">self</span>.origin.clone(),
 			<span class="kw-2">&amp;mut </span><span class="self">self</span>.gas_meter,
@@ -508,7 +552,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.value,
 			<span class="self">self</span>.debug_message.as_mut(),
 			<span class="self">self</span>.determinism,
-		)
+		);
+		<span class="kw">if </span><span class="self">self</span>.transient_storage_size &gt; <span class="number">0 </span>{
+			<span class="self">Self</span>::with_transient_storage(<span class="kw-2">&amp;mut </span>ext.<span class="number">0</span>, <span class="self">self</span>.transient_storage_size).unwrap();
+		}
+		ext
 	}
 
 	<span class="doccomment">/// Prepare a call to the module.
@@ -519,6 +567,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; PreparedCall&lt;<span class="lifetime">'a</span>, T&gt; {
 		<span class="kw">let </span>(func, store) = module.bench_prepare_call(ext, input);
 		PreparedCall { func, store }
+	}
+
+	<span class="doccomment">/// Add transient_storage
+	</span><span class="kw">fn </span>with_transient_storage(ext: <span class="kw-2">&amp;mut </span>StackExt&lt;T&gt;, size: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+		<span class="kw">let </span><span class="kw-2">&amp;</span>MeterEntry { amount, limit } = ext.transient_storage().meter().current();
+		ext.transient_storage().meter().current_mut().limit = size;
+		<span class="kw">for </span>i <span class="kw">in </span><span class="number">1u32</span>.. {
+			<span class="kw">let </span><span class="kw-2">mut </span>key_data = i.to_le_bytes().to_vec();
+			<span class="kw">while </span>key_data.last() == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="number">0</span>) {
+				key_data.pop();
+			}
+			<span class="kw">let </span>key = Key::&lt;T&gt;::try_from_var(key_data).unwrap();
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = ext.set_transient_storage(<span class="kw-2">&amp;</span>key, <span class="prelude-val">Some</span>(Vec::new()), <span class="bool-val">false</span>) {
+				<span class="comment">// Restore previous settings.
+				</span>ext.transient_storage().meter().current_mut().limit = limit;
+				ext.transient_storage().meter().current_mut().amount = amount;
+				<span class="kw">if </span>e == Error::&lt;T&gt;::OutOfTransientStorage.into() {
+					<span class="kw">break</span>;
+				} <span class="kw">else </span>{
+					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Initialization of the transient storage failed"</span>);
+				}
+			}
+		}
+		<span class="prelude-val">Ok</span>(())
 	}
 }
 

@@ -944,7 +944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-</span><span class="attr">#[cfg_attr(test, derive(Debug, PartialEq))]
+</span><span class="attr">#[cfg_attr(any(test, feature = <span class="string">"runtime-benchmarks"</span>), derive(Debug, PartialEq))]
 </span><span class="kw">pub enum </span>WriteOutcome {
 	<span class="doccomment">/// No value existed at the specified key.
 	</span>New,
