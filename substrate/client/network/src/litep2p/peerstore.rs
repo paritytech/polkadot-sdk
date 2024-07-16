@@ -126,6 +126,15 @@ pub struct PeerstoreHandleInner {
 pub struct PeerstoreHandle(Arc<Mutex<PeerstoreHandleInner>>);
 
 impl PeerstoreHandle {
+	/// Constructs a new [`PeerstoreHandle`].
+	fn new(
+		peers: HashMap<PeerId, PeerInfo>,
+		protocols: Vec<Arc<dyn ProtocolHandle>>,
+		metrics: Option<PeerStoreMetrics>,
+	) -> Self {
+		Self(Arc::new(Mutex::new(PeerstoreHandleInner { peers, protocols, metrics })))
+	}
+
 	/// Add known peer to [`Peerstore`].
 	pub fn add_known_peer(&self, peer: PeerId) {
 		self.0
@@ -286,13 +295,11 @@ impl Peerstore {
 			None
 		};
 
-		let peerstore_inner = PeerstoreHandleInner {
-			peers: bootnodes.into_iter().map(|peer_id| (peer_id, PeerInfo::default())).collect(),
-			protocols: Vec::new(),
+		let peerstore_handle = PeerstoreHandle::new(
+			bootnodes.iter().map(|peer_id| (*peer_id, PeerInfo::default())).collect(),
+			Vec::new(),
 			metrics,
-		};
-
-		let peerstore_handle = PeerstoreHandle(Arc::new(Mutex::new(peerstore_inner)));
+		);
 
 		Self { peerstore_handle }
 	}
