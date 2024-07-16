@@ -40,7 +40,7 @@ use sp_weights::Weight;
 /// transaction is valid.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct CheckWeight<T: Config + Send + Sync>(sp_std::marker::PhantomData<T>);
+pub struct CheckWeight<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 
 impl<T: Config + Send + Sync> CheckWeight<T>
 where
@@ -281,14 +281,14 @@ where
 	}
 }
 
-impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckWeight<T> {
+impl<T: Config + Send + Sync> core::fmt::Debug for CheckWeight<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "CheckWeight")
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -300,9 +300,9 @@ mod tests {
 		mock::{new_test_ext, System, Test, CALL},
 		AllExtrinsicsLen, BlockWeight, DispatchClass,
 	};
+	use core::marker::PhantomData;
 	use frame_support::{assert_err, assert_ok, dispatch::Pays, weights::Weight};
 	use sp_runtime::traits::DispatchTransaction;
-	use sp_std::marker::PhantomData;
 
 	fn block_weights() -> crate::limits::BlockWeights {
 		<Test as crate::Config>::BlockWeights::get()
@@ -743,10 +743,10 @@ mod tests {
 			let len = 0_usize;
 
 			let next_len = CheckWeight::<Test>::check_block_length(&max_normal, len).unwrap();
-			assert_ok!(CheckWeight::<Test>::do_prepare(&max_normal, next_len));
+			assert_ok!(CheckWeight::<Test>::do_prepare(&max_normal, len, next_len));
 			assert_eq!(System::block_weight().total(), Weight::from_parts(768, 0));
 			let next_len = CheckWeight::<Test>::check_block_length(&mandatory, len).unwrap();
-			assert_ok!(CheckWeight::<Test>::do_prepare(&mandatory, next_len));
+			assert_ok!(CheckWeight::<Test>::do_prepare(&mandatory, len, next_len));
 			assert_eq!(block_weight_limit(), Weight::from_parts(1024, u64::MAX));
 			assert_eq!(System::block_weight().total(), Weight::from_parts(1024 + 768, 0));
 			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&mandatory), Ok(()));

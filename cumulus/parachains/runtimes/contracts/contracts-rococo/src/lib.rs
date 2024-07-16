@@ -29,6 +29,9 @@ mod contracts;
 mod weights;
 mod xcm_config;
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::AggregateMessageOrigin;
 use sp_api::impl_runtime_apis;
@@ -40,7 +43,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, Perbill,
 };
 
-use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -489,7 +491,7 @@ impl_runtime_apis! {
 			Runtime::metadata_at_version(version)
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
 	}
@@ -769,7 +771,7 @@ impl_runtime_apis! {
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			impl frame_system_benchmarking::Config for Runtime {
-				fn setup_set_code_requirements(code: &sp_std::vec::Vec<u8>) -> Result<(), BenchmarkError> {
+				fn setup_set_code_requirements(code: &alloc::vec::Vec<u8>) -> Result<(), BenchmarkError> {
 					ParachainSystem::initialize_for_set_code_benchmark(code.len() as u32);
 					Ok(())
 				}
@@ -819,7 +821,7 @@ impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+				) -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					// Contracts-System-Para only supports teleports to system parachain.
 					// Relay/native token can be teleported between Contracts-System-Para and Relay.
 					let native_location = Parent.into();

@@ -71,7 +71,7 @@ parameter_types! {
 		ParentThen([Parachain(AssetHubRococoParaId::get().into())].into()).into(),
 		XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
 	);
-	pub ActiveLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = sp_std::vec![
+	pub ActiveLanes: alloc::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = alloc::vec![
 			(
 				FromAssetHubRococoToAssetHubWestendRoute::get(),
 				(WestendGlobalConsensusNetwork::get(), [Parachain(AssetHubWestendParaId::get().into())].into())
@@ -91,8 +91,8 @@ parameter_types! {
 }
 pub const XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND: LaneId = LaneId([0, 0, 0, 2]);
 
-fn build_congestion_message<Call>(is_congested: bool) -> sp_std::vec::Vec<Instruction<Call>> {
-	sp_std::vec![
+fn build_congestion_message<Call>(is_congested: bool) -> alloc::vec::Vec<Instruction<Call>> {
+	alloc::vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		Transact {
 			origin_kind: OriginKind::Xcm,

@@ -13,7 +13,7 @@ mod configs;
 mod weights;
 
 extern crate alloc;
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 use smallvec::smallvec;
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,

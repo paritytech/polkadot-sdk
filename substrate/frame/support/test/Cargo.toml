@@ -28,7 +28,6 @@ frame-support = { features = ["experimental"], workspace = true }
 frame-benchmarking = { workspace = true }
 sp-runtime = { workspace = true }
 sp-core = { workspace = true }
-sp-std = { workspace = true }
 sp-version = { workspace = true }
 sp-metadata-ir = { workspace = true }
 trybuild = { features = ["diff"], workspace = true }
@@ -57,7 +56,6 @@ std = [
 	"sp-metadata-ir/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 	"sp-version/std",
 	"test-pallet/std",
 ]

@@ -20,7 +20,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -57,7 +56,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-storage/std",
 ]
 runtime-benchmarks = [

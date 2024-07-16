@@ -4,7 +4,7 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 extern crate alloc;
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;

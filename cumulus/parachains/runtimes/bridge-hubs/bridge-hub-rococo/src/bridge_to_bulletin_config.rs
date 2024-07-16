@@ -87,7 +87,7 @@ parameter_types! {
 		XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
 	);
 	/// All active routes and their destinations.
-	pub ActiveLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = sp_std::vec![
+	pub ActiveLanes: alloc::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = alloc::vec![
 			(
 				FromRococoPeopleToRococoBulletinRoute::get(),
 				(RococoBulletinGlobalConsensusNetwork::get(), Here)

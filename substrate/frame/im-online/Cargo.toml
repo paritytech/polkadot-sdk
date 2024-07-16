@@ -28,7 +28,6 @@ sp-core = { features = ["serde"], workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
-sp-std = { workspace = true }
 
 [dev-dependencies]
 pallet-session = { workspace = true, default-features = true }
@@ -49,7 +48,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

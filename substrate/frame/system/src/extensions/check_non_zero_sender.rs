@@ -17,6 +17,7 @@
 
 use crate::Config;
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::{traits::OriginTrait, DefaultNoBound};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -26,21 +27,20 @@ use sp_runtime::{
 	},
 	transaction_validity::InvalidTransaction,
 };
-use sp_std::{marker::PhantomData, prelude::*};
 
 /// Check to ensure that the sender is not the zero address.
 #[derive(Encode, Decode, DefaultNoBound, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckNonZeroSender<T>(PhantomData<T>);
 
-impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckNonZeroSender<T> {
+impl<T: Config + Send + Sync> core::fmt::Debug for CheckNonZeroSender<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "CheckNonZeroSender")
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -48,7 +48,7 @@ impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckNonZeroSender<T> {
 impl<T: Config + Send + Sync> CheckNonZeroSender<T> {
 	/// Create new `TransactionExtension` to check runtime version.
 	pub fn new() -> Self {
-		Self(sp_std::marker::PhantomData)
+		Self(core::marker::PhantomData)
 	}
 }
 

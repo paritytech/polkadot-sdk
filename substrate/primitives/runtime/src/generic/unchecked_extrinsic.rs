@@ -27,12 +27,13 @@ use crate::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
 };
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::format;
+use alloc::{vec, vec::Vec};
 use codec::{Compact, Decode, Encode, EncodeLike, Error, Input};
+use core::fmt;
 use scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter};
 use sp_io::hashing::blake2_256;
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::format;
-use sp_std::{fmt, prelude::*};
 
 /// Current version of the [`UncheckedExtrinsic`] encoded format.
 ///

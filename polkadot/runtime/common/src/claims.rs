@@ -16,7 +16,11 @@
 
 //! Pallet to process claims from Ethereum addresses.
 
+#[cfg(not(feature = "std"))]
+use alloc::{format, string::String};
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::fmt::Debug;
 use frame_support::{
 	ensure,
 	traits::{Currency, Get, IsSubType, VestingSchedule},
@@ -39,9 +43,6 @@ use sp_runtime::{
 	},
 	RuntimeDebug,
 };
-#[cfg(not(feature = "std"))]
-use sp_std::alloc::{format, string::String};
-use sp_std::{fmt::Debug, prelude::*};
 
 type CurrencyOf<T> = <<T as Config>::VestingSchedule as VestingSchedule<
 	<T as frame_system::Config>::AccountId,
@@ -158,8 +159,8 @@ impl PartialEq for EcdsaSignature {
 	}
 }
 
-impl sp_std::fmt::Debug for EcdsaSignature {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Debug for EcdsaSignature {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "EcdsaSignature({:?})", &self.0[..])
 	}
 }
@@ -604,12 +605,12 @@ where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "PrevalidateAttests")
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -620,7 +621,7 @@ where
 {
 	/// Create new `TransactionExtension` to check runtime version.
 	pub fn new() -> Self {
-		Self(sp_std::marker::PhantomData)
+		Self(core::marker::PhantomData)
 	}
 }
 
