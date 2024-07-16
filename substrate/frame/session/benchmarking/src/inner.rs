@@ -152,7 +152,7 @@ fn check_membership_proof_setup<T: Config>(
 	Pallet::<T>::on_initialize(frame_system::pallet_prelude::BlockNumberFor::<T>::one());
 
 	// skip sessions until the new validator set is enacted
-	while Session::<T>::validators().len() < n as usize {
+	while Validators::<T>::get().len() < n as usize {
 		Session::<T>::rotate_session();
 	}
 
