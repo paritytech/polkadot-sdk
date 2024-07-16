@@ -76,6 +76,7 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 
 		let (protocol_handle_pair, mut notif_service) =
 			crate::protocol::notifications::service::notification_service("/foo".into());
+		// The first swarm has the second peer ID present in the peerstore.
 		let peer_store = PeerStore::new(
 			if index == 0 {
 				keypairs.iter().skip(1).map(|keypair| keypair.public().to_peer_id()).collect()
