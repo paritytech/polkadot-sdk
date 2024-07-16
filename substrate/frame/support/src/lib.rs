@@ -911,6 +911,7 @@ pub mod pallet_prelude {
 	};
 	pub use codec::{Decode, Encode, MaxEncodedLen};
 	pub use frame_support::pallet_macros::*;
+	pub use core::marker::PhantomData;
 	pub use frame_support_procedural::inject_runtime_type;
 	pub use frame_support_procedural::register_default_impl;
 	pub use scale_info::TypeInfo;
