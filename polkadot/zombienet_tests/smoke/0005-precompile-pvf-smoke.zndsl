@@ -20,6 +20,9 @@ alice: js-script ./0005-register-para.js with "100" return is 0 within 600 secon
 # Ensure the parachain made progress.
 alice: parachain 100 block height is at least 10 within 300 seconds
 
+# Ensure the validator didn't prepare pvf
+dave: reports polkadot_pvf_preparation_time_count is 1 within 30 seconds
+
 # Register the validator again
 alice: js-script ./0005-register-deregister-validator.js with "register,dave" return is 0 within 30 secs
 
@@ -31,9 +34,10 @@ dave: reports polkadot_pvf_preparation_time_count is 1 within 30 seconds
 dave: reports polkadot_node_is_parachain_validator is 0 within 30 secs
 dave: reports polkadot_node_is_active_validator is 0 within 30 secs
 
-# Check the pvf preparation again. The authority set change is enacted at curent_session + 2.
-dave: reports polkadot_pvf_preparation_time_count is 1 within 60 seconds
-
 # Check the validator is in the validator set
 dave: reports polkadot_node_is_parachain_validator is 1 within 60 secs
 dave: reports polkadot_node_is_active_validator is 1 within 60 secs
+
+# Check the pvf preparation again. The authority set change is enacted at curent_session + 2.
+sleep 60 seconds
+dave: reports polkadot_pvf_preparation_time_count is 1 within 60 seconds
