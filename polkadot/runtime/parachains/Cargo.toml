@@ -88,6 +88,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-broker/std",
 	"pallet-message-queue/std",
+	"pallet-mmr?/std",
 	"pallet-session/std",
 	"pallet-staking/std",
 	"pallet-timestamp/std",

@@ -66,3 +66,4 @@ try-runtime = [
 	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+runtime-benchmarks = ["pallet-mmr/runtime-benchmarks"]
