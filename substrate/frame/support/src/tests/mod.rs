@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use super::*;
-use frame_support_procedural::import_section;
 use sp_io::{MultiRemovalResults, TestExternalities};
 use sp_metadata_ir::{
 	PalletStorageMetadataIR, StorageEntryMetadataIR, StorageEntryModifierIR, StorageEntryTypeIR,
@@ -28,7 +27,6 @@ pub use self::frame_system::{pallet_prelude::*, Config, Pallet};
 
 mod storage_alias;
 
-#[import_section(tasks::tasks_example)]
 #[pallet]
 pub mod frame_system {
 	#[allow(unused)]
