@@ -496,8 +496,8 @@ mod test {
 		let peers = (1..=10)
 			.map(|best_number| (PeerId::random(), best_number))
 			.collect::<Vec<(_, _)>>();
-		let ninth_peer = peers[8].0.clone();
-		let tenth_peer = peers[9].0.clone();
+		let ninth_peer = peers[8].0;
+		let tenth_peer = peers[9].0;
 		let initial_peers = peers.iter().map(|(p, n)| (*p, *n));
 
 		let mut state_strategy = StateStrategy::new(
@@ -516,7 +516,7 @@ mod test {
 		assert!(state_strategy.persistent_peers.is_peer_available(&tenth_peer));
 
 		// Disconnect the peer with an inflight request.
-		state_strategy.add_peer(tenth_peer.clone(), H256::random(), 10);
+		state_strategy.add_peer(tenth_peer, H256::random(), 10);
 		let peer_id: Option<PeerId> =
 			state_strategy.schedule_next_peer(PeerState::DownloadingState, 10);
 		assert_eq!(tenth_peer, peer_id.unwrap());
@@ -526,7 +526,7 @@ mod test {
 		assert!(!state_strategy.persistent_peers.is_peer_available(&tenth_peer));
 
 		// No peer available for 10'th best block because of the backoff.
-		state_strategy.add_peer(tenth_peer.clone(), H256::random(), 10);
+		state_strategy.add_peer(tenth_peer, H256::random(), 10);
 		let peer_id: Option<PeerId> =
 			state_strategy.schedule_next_peer(PeerState::DownloadingState, 10);
 		assert!(peer_id.is_none());

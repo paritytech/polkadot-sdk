@@ -888,20 +888,14 @@ mod test {
 			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
 		}
 
-		let ninth_peer = warp_sync
-			.peers
-			.iter()
-			.find(|(_peer, state)| state.best_number == 9)
-			.unwrap()
-			.0
-			.clone();
+		let ninth_peer =
+			warp_sync.peers.iter().find(|(_, state)| state.best_number == 9).unwrap().0;
 		let tenth_peer = warp_sync
 			.peers
 			.iter()
-			.find(|(_peer, state)| state.best_number == 10)
+			.find(|(_ state)| state.best_number == 10)
 			.unwrap()
-			.0
-			.clone();
+			.0;
 
 		// Disconnecting a peer without an inflight request has no effect on persistent states.
 		warp_sync.remove_peer(&tenth_peer);
@@ -909,7 +903,7 @@ mod test {
 		warp_sync.remove_peer(&tenth_peer);
 		assert!(warp_sync.persistent_peers.is_peer_available(&tenth_peer));
 
-		warp_sync.add_peer(tenth_peer.clone(), H256::random(), 10);
+		warp_sync.add_peer(tenth_peer, H256::random(), 10);
 		let peer_id = warp_sync.schedule_next_peer(PeerState::DownloadingProofs, Some(10));
 		assert_eq!(tenth_peer, peer_id.unwrap());
 		warp_sync.remove_peer(&tenth_peer);
@@ -918,7 +912,7 @@ mod test {
 		assert!(!warp_sync.persistent_peers.is_peer_available(&tenth_peer));
 
 		// No peer available for 10'th best block because of the backoff.
-		warp_sync.add_peer(tenth_peer.clone(), H256::random(), 10);
+		warp_sync.add_peer(tenth_peer, H256::random(), 10);
 		let peer_id: Option<PeerId> =
 			warp_sync.schedule_next_peer(PeerState::DownloadingProofs, Some(10));
 		assert!(peer_id.is_none());
