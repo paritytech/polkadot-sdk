@@ -48,16 +48,17 @@ pub mod rpc;
 pub type HostFunctions = cumulus_client_service::ParachainHostFunctions;
 
 #[cfg(feature = "runtime-benchmarks")]
-pub type HostFunctions = (
+pub(crate) type HostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
-pub type ParachainClient<RuntimeApi> = TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
+pub(crate) type ParachainClient<RuntimeApi> =
+	TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
 
-pub type ParachainBackend = TFullBackend<Block>;
+pub(crate) type ParachainBackend = TFullBackend<Block>;
 
-pub type ParachainBlockImport<RuntimeApi> =
+pub(crate) type ParachainBlockImport<RuntimeApi> =
 	TParachainBlockImport<Block, Arc<ParachainClient<RuntimeApi>>, ParachainBackend>;
 
 /// Checks that the hardware meets the requirements and print a warning otherwise.
@@ -73,7 +74,7 @@ fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 	}
 }
 
-pub struct BuildParachainSelectChain;
+pub(crate) struct BuildParachainSelectChain;
 
 impl BuildSelectChain<Block> for BuildParachainSelectChain {
 	type SelectChain = ();
@@ -84,7 +85,9 @@ impl BuildSelectChain<Block> for BuildParachainSelectChain {
 }
 
 #[derive(DefaultNoBound)]
-pub struct ParachainNode<RuntimeApi, BuildImportQueue>(PhantomData<(RuntimeApi, BuildImportQueue)>);
+pub(crate) struct ParachainNode<RuntimeApi, BuildImportQueue>(
+	PhantomData<(RuntimeApi, BuildImportQueue)>,
+);
 
 impl<RuntimeApi, BuildImportQueue> NodeSpec for ParachainNode<RuntimeApi, BuildImportQueue>
 where
@@ -98,7 +101,7 @@ where
 	type BuildSelectChain = BuildParachainSelectChain;
 }
 
-pub trait StartConsensus<RuntimeApi>
+pub(crate) trait StartConsensus<RuntimeApi>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
 {
@@ -120,7 +123,7 @@ where
 	) -> Result<(), sc_service::Error>;
 }
 
-pub trait ParachainNodeSpec {
+pub(crate) trait ParachainNodeSpec {
 	type RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Self::RuntimeApi>>;
 
 	type BuildImportQueue: BuildImportQueueT<
@@ -302,7 +305,7 @@ where
 	type NodeSpec = ParachainNode<T::RuntimeApi, T::BuildImportQueue>;
 }
 
-pub trait DynParachainNodeSpec: NodeCommandRunner {
+pub(crate) trait DynParachainNodeSpec: NodeCommandRunner {
 	fn start_node(
 		self: Box<Self>,
 		parachain_config: Configuration,

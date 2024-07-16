@@ -44,16 +44,16 @@ use sp_session::SessionKeys;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 use std::sync::Arc;
 
-pub type NodeBackend<Block> = Backend<Block>;
+pub(crate) type NodeBackend<Block> = Backend<Block>;
 
-pub type FullNodeClient<Spec> = TFullClient<
+pub(crate) type FullNodeClient<Spec> = TFullClient<
 	<Spec as NodeSpec>::Block,
 	<Spec as NodeSpec>::RuntimeApi,
 	WasmExecutor<<Spec as NodeSpec>::HostFunctions>,
 >;
 
 /// Assembly of PartialComponents (enough to run chain ops subcommands)
-pub type NodeService<Spec> =
+pub(crate) type NodeService<Spec> =
 PartialComponents<
 	FullNodeClient<Spec>,
 	Backend<<Spec as NodeSpec>::Block>,
@@ -73,7 +73,7 @@ PartialComponents<
 >;
 
 /// A type representing all RPC extensions.
-pub type RpcModule = jsonrpsee::RpcModule<()>;
+pub(crate) type RpcModule = jsonrpsee::RpcModule<()>;
 
 /// Convenience trait that defines the basic bounds for the `RuntimeApi` of a parachain node.
 pub trait NodeRuntimeApi<Block: BlockT>:
@@ -143,7 +143,7 @@ pub struct NodeExtraArgs {
 	pub use_slot_based_consensus: bool,
 }
 
-pub trait BuildImportQueue<Block: BlockT, Client> {
+pub(crate) trait BuildImportQueue<Block: BlockT, Client> {
 	type BlockImport;
 
 	fn build_import_queue(
@@ -155,13 +155,13 @@ pub trait BuildImportQueue<Block: BlockT, Client> {
 	) -> ServiceResult<(Self::BlockImport, DefaultImportQueue<Block>)>;
 }
 
-pub trait BuildSelectChain<Block: BlockT> {
+pub(crate) trait BuildSelectChain<Block: BlockT> {
 	type SelectChain;
 
 	fn build_select_chain(backend: Arc<NodeBackend<Block>>) -> Self::SelectChain;
 }
 
-pub trait BuildRpcExtensions<Block: BlockT, Client: NodeClient<Block> + 'static, Backend> {
+pub(crate) trait BuildRpcExtensions<Block: BlockT, Client: NodeClient<Block> + 'static, Backend> {
 	fn build_rpc_extensions(
 		deny_unsafe: DenyUnsafe,
 		client: Arc<Client>,
@@ -170,7 +170,7 @@ pub trait BuildRpcExtensions<Block: BlockT, Client: NodeClient<Block> + 'static,
 	) -> ServiceResult<RpcModule>;
 }
 
-pub trait NodeSpec {
+pub(crate) trait NodeSpec {
 	type Block: BlockT<Extrinsic = OpaqueExtrinsic, Hash = DbHash>
 		+ for<'de> serde::Deserialize<'de>;
 	type RuntimeApi: ConstructNodeRuntimeApi<Self::Block, FullNodeClient<Self>>;
@@ -237,6 +237,6 @@ pub trait NodeSpec {
 	}
 }
 
-pub trait NodeSpecProvider {
+pub(crate) trait NodeSpecProvider {
 	type NodeSpec: NodeSpec;
 }
