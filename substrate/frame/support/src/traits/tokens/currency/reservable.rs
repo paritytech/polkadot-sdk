@@ -242,7 +242,7 @@ pub trait NamedReservableCurrency<AccountId>: ReservableCurrency<AccountId> {
 ///
 /// All "anonymous" operations are then implemented as their named counterparts with the given `Id`.
 pub struct WithName<NamedReservable, Id, AccountId>(
-	sp_std::marker::PhantomData<(NamedReservable, Id, AccountId)>,
+	core::marker::PhantomData<(NamedReservable, Id, AccountId)>,
 );
 impl<
 		NamedReservable: NamedReservableCurrency<AccountId>,
