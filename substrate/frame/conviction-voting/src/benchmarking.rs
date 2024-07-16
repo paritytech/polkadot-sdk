@@ -19,6 +19,7 @@
 
 use super::*;
 
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use assert_matches::assert_matches;
 use frame_benchmarking::v1::{account, benchmarks_instance_pallet, whitelist_account};
 use frame_support::{
@@ -30,7 +31,6 @@ use frame_support::{
 	},
 };
 use sp_runtime::traits::Bounded;
-use sp_std::collections::btree_map::BTreeMap;
 
 use crate::Pallet as ConvictionVoting;
 

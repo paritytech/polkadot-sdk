@@ -351,8 +351,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use adapter::{Member, Pool, StakeStrategy};
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use codec::Codec;
+use core::{fmt::Debug, ops::Div};
 use frame_support::{
 	defensive, defensive_assert, ensure,
 	pallet_prelude::{MaxEncodedLen, *},
@@ -375,7 +379,6 @@ use sp_runtime::{
 	FixedPointNumber, Perbill,
 };
 use sp_staking::{EraIndex, StakingInterface};
-use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, ops::Div, vec::Vec};
 
 #[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 use sp_runtime::TryRuntimeError;
@@ -949,14 +952,14 @@ pub struct BondedPool<T: Config> {
 	inner: BondedPoolInner<T>,
 }
 
-impl<T: Config> sp_std::ops::Deref for BondedPool<T> {
+impl<T: Config> core::ops::Deref for BondedPool<T> {
 	type Target = BondedPoolInner<T>;
 	fn deref(&self) -> &Self::Target {
 		&self.inner
 	}
 }
 
-impl<T: Config> sp_std::ops::DerefMut for BondedPool<T> {
+impl<T: Config> core::ops::DerefMut for BondedPool<T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.inner
 	}

@@ -20,13 +20,13 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+use alloc::vec;
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, whitelisted_caller, BenchmarkError,
 };
 use frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable};
 use frame_system::RawOrigin as SystemOrigin;
 use sp_runtime::traits::Bounded;
-use sp_std::prelude::*;
 
 use crate::Pallet as Assets;
 
@@ -76,7 +76,7 @@ fn swap_is_sufficient<T: Config<I>, I: 'static>(s: &mut bool) {
 	let asset_id = default_asset_id::<T, I>();
 	Asset::<T, I>::mutate(&asset_id.into(), |maybe_a| {
 		if let Some(ref mut a) = maybe_a {
-			sp_std::mem::swap(s, &mut a.is_sufficient)
+			core::mem::swap(s, &mut a.is_sufficient)
 		}
 	});
 }
