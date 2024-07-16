@@ -88,7 +88,6 @@ mod imports {
 	pub const ASSET_ID: u32 = 3;
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
 
-	pub type RelayToSystemParaTest = Test<Rococo, AssetHubRococo>;
 	pub type RelayToParaTest = Test<Rococo, PenpalA>;
 	pub type ParaToRelayTest = Test<PenpalA, Rococo>;
 	pub type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
