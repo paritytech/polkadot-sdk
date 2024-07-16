@@ -220,14 +220,14 @@ impl Metrics {
 	}
 }
 
-/// PeerSet metrics.
+/// Peer store metrics.
 #[derive(Clone, Debug)]
-pub struct PeerSetMetrics {
+pub struct PeerStoreMetrics {
 	pub num_banned_peers: Gauge<U64>,
 	pub num_discovered: Gauge<U64>,
 }
 
-impl PeerSetMetrics {
+impl PeerStoreMetrics {
 	pub fn register(registry: &Registry) -> Result<Self, PrometheusError> {
 		Ok(Self {
 			num_banned_peers: prometheus::register(

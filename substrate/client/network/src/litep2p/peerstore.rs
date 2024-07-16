@@ -23,7 +23,7 @@
 
 use crate::{
 	peer_store::{PeerStoreProvider, ProtocolHandle},
-	service::{metrics::PeerSetMetrics, traits::PeerStore},
+	service::{metrics::PeerStoreMetrics, traits::PeerStore},
 	ObservedRole, ReputationChange,
 };
 
@@ -119,7 +119,7 @@ impl PeerInfo {
 pub struct PeerstoreHandleInner {
 	peers: HashMap<PeerId, PeerInfo>,
 	protocols: Vec<Arc<dyn ProtocolHandle>>,
-	metrics: Option<PeerSetMetrics>,
+	metrics: Option<PeerStoreMetrics>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -276,7 +276,7 @@ impl Peerstore {
 	/// Create new [`Peerstore`].
 	pub fn new(bootnodes: Vec<PeerId>, metrics_registry: Option<Registry>) -> Self {
 		let metrics = if let Some(registry) = &metrics_registry {
-			PeerSetMetrics::register(registry)
+			PeerStoreMetrics::register(registry)
 				.map_err(|err| {
 					log::error!(target: LOG_TARGET, "Failed to register peer store metrics: {}", err);
 					err

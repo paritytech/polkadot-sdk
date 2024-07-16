@@ -19,7 +19,7 @@
 //! [`PeerStore`] manages peer reputations and provides connection candidates to
 //! [`crate::protocol_controller::ProtocolController`].
 
-use crate::service::{metrics::PeerSetMetrics, traits::PeerStore as PeerStoreT};
+use crate::service::{metrics::PeerStoreMetrics, traits::PeerStore as PeerStoreT};
 
 use libp2p::PeerId;
 use log::trace;
@@ -233,7 +233,7 @@ impl PeerInfo {
 struct PeerStoreInner {
 	peers: HashMap<PeerId, PeerInfo>,
 	protocols: Vec<Arc<dyn ProtocolHandle>>,
-	metrics: Option<PeerSetMetrics>,
+	metrics: Option<PeerStoreMetrics>,
 }
 
 impl PeerStoreInner {
@@ -375,7 +375,7 @@ impl PeerStore {
 	/// Create a new peer store from the list of bootnodes.
 	pub fn new(bootnodes: Vec<PeerId>, metrics_registry: Option<Registry>) -> Self {
 		let metrics = if let Some(registry) = &metrics_registry {
-			PeerSetMetrics::register(registry)
+			PeerStoreMetrics::register(registry)
 				.map_err(|err| {
 					log::error!(target: LOG_TARGET, "Failed to register peer set metrics: {}", err);
 					err
