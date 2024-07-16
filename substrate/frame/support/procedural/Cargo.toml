@@ -59,6 +59,8 @@ std = [
 	"sp-io/std",
 	"sp-metadata-ir/std",
 	"sp-runtime/std",
+	"frame-support/std",
+	"codec/std"
 ]
 no-metadata-docs = []
 experimental = []
