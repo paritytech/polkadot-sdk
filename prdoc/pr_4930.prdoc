@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add test macro to emulated chains
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR add an portable test macro for all emulated-chains runtimes and chains could
+      claim error for unknown asset.
+
+
+crates:
+- name: emulated-integration-tests-common
+  bump: minor
