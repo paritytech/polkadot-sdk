@@ -471,6 +471,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#320" id="320">320</a>
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -563,6 +574,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&lt;OutgoingMessage <span class="kw">as </span>TryFrom&lt;overseer::AllMessages&gt;&gt;::Error: std::fmt::Debug,
 {
 	<span class="kw">async fn </span>send_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: OutgoingMessage) {
+		<span class="self">self</span>.send_message_with_priority::&lt;overseer::NormalPriority&gt;(msg).<span class="kw">await</span>;
+	}
+
+	<span class="kw">async fn </span>send_message_with_priority&lt;P: Priority&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: OutgoingMessage) {
 		<span class="kw">let </span>msg = &lt;
 					&lt;&lt;Fil <span class="kw">as </span>MessageInterceptor&lt;Sender&gt;&gt;::Message <span class="kw">as </span>overseer::AssociateOutgoing
 				&gt;::OutgoingMessages <span class="kw">as </span>From&lt;OutgoingMessage&gt;&gt;::from(msg);
@@ -576,7 +591,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">fn </span>try_send_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: OutgoingMessage) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrySendError&lt;OutgoingMessage&gt;&gt; {
+	<span class="kw">fn </span>try_send_message(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		msg: OutgoingMessage,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), polkadot_node_subsystem_util::metered::TrySendError&lt;OutgoingMessage&gt;&gt; {
+		<span class="self">self</span>.try_send_message_with_priority::&lt;overseer::NormalPriority&gt;(msg)
+	}
+
+	<span class="kw">fn </span>try_send_message_with_priority&lt;P: Priority&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: OutgoingMessage) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrySendError&lt;OutgoingMessage&gt;&gt; {
 		<span class="kw">let </span>msg = &lt;
 				&lt;&lt;Fil <span class="kw">as </span>MessageInterceptor&lt;Sender&gt;&gt;::Message <span class="kw">as </span>overseer::AssociateOutgoing
 			&gt;::OutgoingMessages <span class="kw">as </span>From&lt;OutgoingMessage&gt;&gt;::from(msg);

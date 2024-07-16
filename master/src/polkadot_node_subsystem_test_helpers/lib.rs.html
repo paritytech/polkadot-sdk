@@ -666,6 +666,59 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#515" id="515">515</a>
 <a href="#516" id="516">516</a>
 <a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -704,7 +757,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	convert::Infallible,
 	future::Future,
 	pin::Pin,
-	sync::Arc,
+	sync::{atomic::AtomicUsize, Arc},
 	task::{Context, Poll, Waker},
 	time::Duration,
 };
@@ -814,12 +867,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>TestSubsystemSender {
 	tx: mpsc::UnboundedSender&lt;AllMessages&gt;,
+	message_counter: MessageCounter,
 }
 
 <span class="doccomment">/// Construct a sender/receiver pair.
 </span><span class="kw">pub fn </span>sender_receiver() -&gt; (TestSubsystemSender, mpsc::UnboundedReceiver&lt;AllMessages&gt;) {
 	<span class="kw">let </span>(tx, rx) = mpsc::unbounded();
-	(TestSubsystemSender { tx }, rx)
+	(TestSubsystemSender { tx, message_counter: MessageCounter::default() }, rx)
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -829,6 +883,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	OutgoingMessage: Send + <span class="lifetime">'static</span>,
 {
 	<span class="kw">async fn </span>send_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: OutgoingMessage) {
+		<span class="self">self</span>.send_message_with_priority::&lt;overseer::NormalPriority&gt;(msg).<span class="kw">await</span>;
+	}
+
+	<span class="kw">async fn </span>send_message_with_priority&lt;P: overseer::Priority&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: OutgoingMessage) {
+		<span class="self">self</span>.message_counter.increment(P::priority());
 		<span class="self">self</span>.tx.send(msg.into()).<span class="kw">await</span>.expect(<span class="string">"test overseer no longer live"</span>);
 	}
 
@@ -836,6 +895,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		msg: OutgoingMessage,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrySendError&lt;OutgoingMessage&gt;&gt; {
+		<span class="self">self</span>.try_send_message_with_priority::&lt;overseer::NormalPriority&gt;(msg)
+	}
+
+	<span class="kw">fn </span>try_send_message_with_priority&lt;P: overseer::Priority&gt;(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		msg: OutgoingMessage,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrySendError&lt;OutgoingMessage&gt;&gt; {
+		<span class="self">self</span>.message_counter.increment(P::priority());
 		<span class="self">self</span>.tx.unbounded_send(msg.into()).expect(<span class="string">"test overseer no longer live"</span>);
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -945,6 +1012,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Direct access to the receiver.
 	</span><span class="kw">pub </span>rx: mpsc::UnboundedReceiver&lt;AllMessages&gt;,
+
+	<span class="doccomment">/// Message counter over subsystems.
+	</span><span class="kw">pub </span>message_counter: MessageCounter,
 }
 
 <span class="kw">impl</span>&lt;M&gt; TestSubsystemContextHandle&lt;M&gt; {
@@ -990,6 +1060,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	make_buffered_subsystem_context(spawner, <span class="number">0</span>)
 }
 
+<span class="doccomment">/// Message counter over subsystems.
+</span><span class="attr">#[derive(Default, Clone)]
+</span><span class="kw">pub struct </span>MessageCounter {
+	total: Arc&lt;AtomicUsize&gt;,
+	with_high_priority: Arc&lt;AtomicUsize&gt;,
+}
+
+<span class="kw">impl </span>MessageCounter {
+	<span class="doccomment">/// Increment the message counter.
+	</span><span class="kw">pub fn </span>increment(<span class="kw-2">&amp;mut </span><span class="self">self</span>, priority_level: overseer::PriorityLevel) {
+		<span class="self">self</span>.total.fetch_add(<span class="number">1</span>, std::sync::atomic::Ordering::SeqCst);
+		<span class="kw">if </span><span class="macro">matches!</span>(priority_level, overseer::PriorityLevel::High) {
+			<span class="self">self</span>.with_high_priority.fetch_add(<span class="number">1</span>, std::sync::atomic::Ordering::SeqCst);
+		}
+	}
+
+	<span class="doccomment">/// Reset the message counter.
+	</span><span class="kw">pub fn </span>reset(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+		<span class="self">self</span>.total.store(<span class="number">0</span>, std::sync::atomic::Ordering::SeqCst);
+		<span class="self">self</span>.with_high_priority.store(<span class="number">0</span>, std::sync::atomic::Ordering::SeqCst);
+	}
+
+	<span class="doccomment">/// Get the messages with high priority count.
+	</span><span class="kw">pub fn </span>with_high_priority(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+		<span class="self">self</span>.with_high_priority.load(std::sync::atomic::Ordering::SeqCst)
+	}
+}
+
 <span class="doccomment">/// Make a test subsystem context with buffered overseer channel. Some tests (e.g.
 /// `dispute-coordinator`) create too many parallel operations and deadlock unless
 /// the channel is buffered. Usually `buffer_size=1` is enough.
@@ -999,15 +1097,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; (TestSubsystemContext&lt;M, SpawnGlue&lt;S&gt;&gt;, TestSubsystemContextHandle&lt;M&gt;) {
 	<span class="kw">let </span>(overseer_tx, overseer_rx) = mpsc::channel(buffer_size);
 	<span class="kw">let </span>(all_messages_tx, all_messages_rx) = mpsc::unbounded();
+	<span class="kw">let </span>message_counter = MessageCounter::default();
 
 	(
 		TestSubsystemContext {
-			tx: TestSubsystemSender { tx: all_messages_tx },
+			tx: TestSubsystemSender {
+				tx: all_messages_tx,
+				message_counter: message_counter.clone(),
+			},
 			rx: overseer_rx,
 			spawn: SpawnGlue(spawner),
 			message_buffer: VecDeque::new(),
 		},
-		TestSubsystemContextHandle { tx: overseer_tx, rx: all_messages_rx },
+		TestSubsystemContextHandle {
+			tx: overseer_tx,
+			rx: all_messages_rx,
+			message_counter: message_counter.clone(),
+		},
 	)
 }
 

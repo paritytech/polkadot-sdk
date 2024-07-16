@@ -1100,6 +1100,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#949" id="949">949</a>
 <a href="#950" id="950">950</a>
 <a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1207,10 +1208,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub use </span>orchestra <span class="kw">as </span>gen;
 <span class="kw">pub use </span>orchestra::{
-	contextbounds, orchestra, subsystem, FromOrchestra, MapSubsystem, MessagePacket,
-	OrchestraError <span class="kw">as </span>OverseerError, SignalsReceived, Spawner, Subsystem, SubsystemContext,
-	SubsystemIncomingMessages, SubsystemInstance, SubsystemMeterReadouts, SubsystemMeters,
-	SubsystemSender, TimeoutExt, ToOrchestra, TrySendError,
+	contextbounds, orchestra, subsystem, FromOrchestra, HighPriority, MapSubsystem, MessagePacket,
+	NormalPriority, OrchestraError <span class="kw">as </span>OverseerError, Priority, PriorityLevel, SignalsReceived,
+	Spawner, Subsystem, SubsystemContext, SubsystemIncomingMessages, SubsystemInstance,
+	SubsystemMeterReadouts, SubsystemMeters, SubsystemSender, TimeoutExt, ToOrchestra,
+	TrySendError,
 };
 
 <span class="attr">#[cfg(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>))]
@@ -1597,7 +1599,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		RuntimeApiMessage,
 		ProspectiveParachainsMessage,
 		ChainApiMessage,
-	]</span>)]
+	]</span>, can_receive_priority_messages)]
 	statement_distribution: StatementDistribution,
 
 	<span class="attr">#[subsystem(AvailabilityDistributionMessage, sends: [
@@ -1626,7 +1628,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
 		ProvisionerMessage,
-	]</span>)]
+	]</span>, can_receive_priority_messages)]
 	bitfield_distribution: BitfieldDistribution,
 
 	<span class="attr">#[subsystem(ProvisionerMessage, sends: [
@@ -1682,7 +1684,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[subsystem(blocking, message_capacity: <span class="number">64000</span>, ApprovalDistributionMessage, sends: [
 		NetworkBridgeTxMessage,
 		ApprovalVotingMessage,
-	]</span>)]
+	]</span>, can_receive_priority_messages)]
 	approval_distribution: ApprovalDistribution,
 
 	<span class="attr">#[subsystem(blocking, ApprovalVotingMessage, sends: [
@@ -1701,7 +1703,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		NetworkBridgeRxMessage, <span class="comment">// TODO &lt;https://github.com/paritytech/polkadot/issues/5626&gt;
 		</span>RuntimeApiMessage,
 		ChainSelectionMessage,
-	]</span>)]
+	]</span>, can_receive_priority_messages)]
 	gossip_support: GossipSupport,
 
 	<span class="attr">#[subsystem(blocking, message_capacity: <span class="number">32000</span>, DisputeCoordinatorMessage, sends: [
