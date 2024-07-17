@@ -137,3 +137,43 @@ jobs:
             --no-fail-fast \
             --features try-runtime,experimental,riscv,ci-only-tests \
             --partition count:1/3
+
+  test-pvf:
+    needs: [set-image, changes]
+    if: ${{ needs.changes.outputs.rust }}
+    runs-on: oldlinux
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+      # needed for tests that use unshare syscall
+      options: --security-opt seccomp=unconfined
+    env:
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: cargo test -p polkadot-node-core-pvf artifact_does_not_reprepare_on_non_meaningful_exec_parameter_change --features=ci-only-tests
+
+  test-pvf-fl:
+    needs: [set-image, changes]
+    if: ${{ needs.changes.outputs.rust }}
+    runs-on: oldlinux
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+      # needed for tests that use unshare syscall
+      options: --security-opt seccomp=unconfined
+    env:
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: forklift cargo test -p polkadot-node-core-pvf artifact_does_not_reprepare_on_non_meaningful_exec_parameter_change --features=ci-only-tests
