@@ -66,6 +66,7 @@ use xcm::prelude::*;
 use xcm_builder::DispatchBlob;
 use xcm_executor::traits::ConvertLocation;
 
+pub use bp_xcm_bridge_hub::XcmAsPlainPayload;
 pub use dispatcher::XcmBlobMessageDispatchResult;
 pub use exporter::PalletAsHaulBlobExporter;
 pub use pallet::*;
@@ -85,7 +86,7 @@ pub mod pallet {
 
 	/// The reason for this pallet placing a hold on funds.
 	#[pallet::composite_enum]
-	pub enum HoldReason {
+	pub enum HoldReason<I: 'static = ()> {
 		/// The funds are held as a deposit for opened bridge.
 		#[codec(index = 0)]
 		BridgeDeposit,
@@ -136,7 +137,7 @@ pub mod pallet {
 		/// Currency used to pay for bridge registration.
 		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 		/// The overarching runtime hold reason.
-		type RuntimeHoldReason: From<HoldReason>;
+		type RuntimeHoldReason: From<HoldReason<I>>;
 
 		/// Local XCM channel manager.
 		type LocalXcmChannelManager: LocalXcmChannelManager;
