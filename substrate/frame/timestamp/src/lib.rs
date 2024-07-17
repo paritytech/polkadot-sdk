@@ -368,6 +368,7 @@ impl<T: Config> UnixTime for Pallet<T> {
 		// `sp_timestamp::InherentDataProvider`.
 		let now = Now::<T>::get();
 
+		#[cfg(not(feature = "std"))]
 		log::error!(
 			target: "runtime::timestamp",
 			"`pallet_timestamp::UnixTime::now` is called at genesis, invalid value returned: 0",
