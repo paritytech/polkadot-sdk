@@ -104,19 +104,19 @@ pub trait LocalXcmChannelManager {
 	/// Returns true if the channel with given location is currently congested.
 	///
 	/// The `with` is guaranteed to be in the same consensus. However, it may point to something
-	/// below the chain level - like the constract or pallet instance, for example.
+	/// below the chain level - like the contract or pallet instance, for example.
 	fn is_congested(with: &Location) -> bool;
 
 	/// Suspend the bridge, opened by given origin.
 	///
 	/// The `local_origin` is guaranteed to be in the same consensus. However, it may point to
-	/// something below the chain level - like the constract or pallet instance, for example.
+	/// something below the chain level - like the contract or pallet instance, for example.
 	fn suspend_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error>;
 
 	/// Resume the previously suspended bridge, opened by given origin.
 	///
 	/// The `local_origin` is guaranteed to be in the same consensus. However, it may point to
-	/// something below the chain level - like the constract or pallet instance, for example.
+	/// something below the chain level - like the contract or pallet instance, for example.
 	fn resume_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error>;
 }
 

@@ -28,7 +28,7 @@ use bp_messages::{LaneId, UnrewardedRelayersState};
 use bp_polkadot_core::parachains::ParaHash;
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::{Chain, Parachain};
-use bridge_runtime_common::messages_xcm_extension::XcmAsPlainPayload;
+use bp_xcm_bridge_hub::XcmAsPlainPayload;
 use frame_support::traits::{OnFinalize, OnInitialize};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_messages::{BridgedChainOf, ThisChainOf};

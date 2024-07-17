@@ -68,7 +68,7 @@ macro_rules! assert_bridge_messages_pallet_types(
 		bridged_chain: $bridged:path,
 	) => {
 		{
-			use $crate::messages_xcm_extension::XcmAsPlainPayload;
+			use $crate::integrity::__private::bp_xcm_bridge_hub::XcmAsPlainPayload;
 			use $crate::integrity::__private::static_assertions::assert_type_eq_all;
 			use bp_messages::ChainWithMessages;
 			use bp_runtime::Chain;

@@ -2043,6 +2043,7 @@ dependencies = [
  "snowbridge-core",
  "sp-core",
  "sp-runtime",
+ "sp-std 14.0.0",
  "staging-xcm",
 ]
 
@@ -2196,10 +2197,12 @@ dependencies = [
  "asset-test-utils",
  "bp-header-chain",
  "bp-messages",
+ "bp-parachains",
  "bp-polkadot-core",
  "bp-relayers",
  "bp-runtime",
  "bp-test-utils",
+ "bp-xcm-bridge-hub",
  "bridge-runtime-common",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -2214,6 +2217,7 @@ dependencies = [
  "pallet-bridge-relayers",
  "pallet-timestamp",
  "pallet-utility",
+ "pallet-xcm-bridge-hub",
  "parachains-common",
  "parachains-runtimes-test-utils",
  "parity-scale-codec",

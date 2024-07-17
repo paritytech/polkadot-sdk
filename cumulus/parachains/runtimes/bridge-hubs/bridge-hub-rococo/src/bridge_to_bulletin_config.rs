@@ -20,31 +20,31 @@
 //! are reusing Polkadot Bulletin chain primitives everywhere here.
 
 use crate::{
-	weights, xcm_config::UniversalLocation, BridgeRococoBulletinGrandpa,
-	BridgeRococoBulletinMessages, PolkadotXcm, Runtime, RuntimeEvent, XcmOverRococoBulletin,
-	XcmRouter,
+	weights, xcm_config::UniversalLocation, AccountId, Balance, Balances,
+	BridgeRococoBulletinGrandpa, BridgeRococoBulletinMessages, PolkadotXcm, Runtime, RuntimeEvent,
+	RuntimeHoldReason, XcmOverRococoBulletin, XcmRouter,
 };
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
-	target_chain::FromBridgedChainMessagesProof, LaneId,
+	target_chain::FromBridgedChainMessagesProof,
 };
-use bridge_runtime_common::{
-	extensions::refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
-		RefundableMessagesLane,
-	},
-	messages_xcm_extension::{
-		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
-		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
-	},
-};
+use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
 
 use frame_support::{parameter_types, traits::PalletInfoAccess};
+use frame_system::EnsureRoot;
+use pallet_bridge_relayers::extension::{
+	BridgeRelayersSignedExtension, WithMessagesExtensionConfig,
+};
+use pallet_xcm::EnsureXcm;
+use pallet_xcm_bridge_hub::XcmAsPlainPayload;
+use parachains_common::xcm_config::ParentRelayOrSiblingParachains;
+use polkadot_parachain_primitives::primitives::Sibling;
+use testnet_parachains_constants::rococo::currency::UNITS as ROC;
 use xcm::{
 	latest::prelude::*,
 	prelude::{InteriorLocation, NetworkId},
 };
-use xcm_builder::BridgeBlobDispatcher;
+use xcm_builder::{BridgeBlobDispatcher, ParentIsPreset, SiblingParachainConvertsVia};
 
 parameter_types! {
 	/// Interior location (relative to this runtime) of the with-RococoBulletin messages pallet.
@@ -58,12 +58,6 @@ parameter_types! {
 		2,
 		[GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())]
 	);
-	/// All active lanes that the current bridge supports.
-	pub ActiveOutboundLanesToRococoBulletin: &'static [bp_messages::LaneId]
-		= &[XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN];
-	/// Lane identifier, used to connect Rococo People and Rococo Bulletin chain.
-	pub const RococoPeopleToRococoBulletinMessagesLane: bp_messages::LaneId
-		= XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN;
 
 	// see the `FEE_BOOST_PER_RELAY_HEADER` constant get the meaning of this value
 	pub PriorityBoostPerRelayHeader: u64 = 58_014_163_614_163;
@@ -75,26 +69,8 @@ parameter_types! {
 	/// meaning of this value.
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
 
-	/// Identifier of the sibling Rococo People parachain.
-	pub RococoPeopleParaId: cumulus_primitives_core::ParaId = rococo_runtime_constants::system_parachain::PEOPLE_ID.into();
-	/// A route (XCM location and bridge lane) that the Rococo People Chain -> Rococo Bulletin Chain
-	/// message is following.
-	pub FromRococoPeopleToRococoBulletinRoute: SenderAndLane = SenderAndLane::new(
-		ParentThen(Parachain(RococoPeopleParaId::get().into()).into()).into(),
-		XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
-	);
-	/// All active routes and their destinations.
-	pub ActiveLanes: alloc::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = alloc::vec![
-			(
-				FromRococoPeopleToRococoBulletinRoute::get(),
-				(RococoBulletinGlobalConsensusNetwork::get(), Here)
-			)
-	];
-
-	/// XCM message that is never sent.
-	pub NeverSentMessage: Option<Xcm<()>> = None;
+	pub storage BridgeDeposit: Balance = 5 * ROC;
 }
-pub const XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN: LaneId = LaneId([0, 0, 0, 0]);
 
 /// Proof of messages, coming from Rococo Bulletin chain.
 pub type FromRococoBulletinMessagesProof =
@@ -110,34 +86,15 @@ type FromRococoBulletinMessageBlobDispatcher = BridgeBlobDispatcher<
 	BridgeRococoToRococoBulletinMessagesPalletInstance,
 >;
 
-/// Export XCM messages to be relayed to the other side
-pub type ToRococoBulletinHaulBlobExporter = XcmOverRococoBulletin;
-
-pub struct ToRococoBulletinXcmBlobHauler;
-impl XcmBlobHauler for ToRococoBulletinXcmBlobHauler {
-	type Runtime = Runtime;
-	type MessagesInstance = WithRococoBulletinMessagesInstance;
-	type ToSourceChainSender = XcmRouter;
-	type CongestedMessage = NeverSentMessage;
-	type UncongestedMessage = NeverSentMessage;
-}
-
-/// On messages delivered callback.
-type OnMessagesDeliveredFromRococoBulletin =
-	XcmBlobHaulerAdapter<ToRococoBulletinXcmBlobHauler, ActiveLanes>;
-
 /// Signed extension that refunds relayers that are delivering messages from the Rococo Bulletin
 /// chain.
-pub type OnBridgeHubRococoRefundRococoBulletinMessages = RefundSignedExtensionAdapter<
-	RefundBridgedMessages<
-		Runtime,
-		RefundableMessagesLane<
-			WithRococoBulletinMessagesInstance,
-			RococoPeopleToRococoBulletinMessagesLane,
-		>,
-		ActualFeeRefund<Runtime>,
-		PriorityBoostPerMessage,
+pub type OnBridgeHubRococoRefundRococoBulletinMessages = BridgeRelayersSignedExtension<
+	Runtime,
+	WithMessagesExtensionConfig<
 		StrOnBridgeHubRococoRefundRococoBulletinMessages,
+		Runtime,
+		WithRococoBulletinMessagesInstance,
+		PriorityBoostPerMessage,
 	>,
 >;
 bp_runtime::generate_static_str_provider!(OnBridgeHubRococoRefundRococoBulletinMessages);
@@ -153,8 +110,6 @@ impl pallet_bridge_messages::Config<WithRococoBulletinMessagesInstance> for Runt
 	type BridgedChain = bp_polkadot_bulletin::PolkadotBulletin;
 	type BridgedHeaderChain = BridgeRococoBulletinGrandpa;
 
-	type ActiveOutboundLanes = ActiveOutboundLanesToRococoBulletin;
-
 	type OutboundPayload = XcmAsPlainPayload;
 
 	type InboundPayload = XcmAsPlainPayload;
@@ -162,22 +117,36 @@ impl pallet_bridge_messages::Config<WithRococoBulletinMessagesInstance> for Runt
 
 	type DeliveryConfirmationPayments = ();
 
-	type MessageDispatch =
-		XcmBlobMessageDispatch<FromRococoBulletinMessageBlobDispatcher, Self::WeightInfo, ()>;
-	type OnMessagesDelivered = OnMessagesDeliveredFromRococoBulletin;
+	type MessageDispatch = XcmOverRococoBulletin;
+	type OnMessagesDelivered = XcmOverRococoBulletin;
 }
 
 /// Add support for the export and dispatch of XCM programs.
 pub type XcmOverPolkadotBulletinInstance = pallet_xcm_bridge_hub::Instance2;
 impl pallet_xcm_bridge_hub::Config<XcmOverPolkadotBulletinInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+
 	type UniversalLocation = UniversalLocation;
 	type BridgedNetwork = RococoBulletinGlobalConsensusNetworkLocation;
 	type BridgeMessagesPalletInstance = WithRococoBulletinMessagesInstance;
+
 	type MessageExportPrice = ();
 	type DestinationVersion =
 		XcmVersionOfDestAndRemoteBridge<PolkadotXcm, RococoBulletinGlobalConsensusNetworkLocation>;
-	type Lanes = ActiveLanes;
-	type LanesSupport = ToRococoBulletinXcmBlobHauler;
+
+	type AdminOrigin = EnsureRoot<AccountId>;
+	// Only allow calls from relay chains and sibling parachains to directly open the bridge.
+	type OpenBridgeOrigin = EnsureXcm<ParentRelayOrSiblingParachains>;
+	// Converter aligned with `OpenBridgeOrigin`.
+	type BridgeOriginAccountIdConverter =
+		(ParentIsPreset<AccountId>, SiblingParachainConvertsVia<Sibling, AccountId>);
+
+	type BridgeDeposit = BridgeDeposit;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+
+	type LocalXcmChannelManager = ();
+	type BlobDispatcher = FromRococoBulletinMessageBlobDispatcher;
 }
 
 #[cfg(test)]
@@ -232,13 +201,13 @@ mod tests {
 		// Bulletin chain - it has the same (almost) runtime for Polkadot Bulletin and Rococo
 		// Bulletin, so we have to adhere Polkadot names here
 
-		bridge_runtime_common::extensions::priority_calculator::per_relay_header::ensure_priority_boost_is_sane::<
+		pallet_bridge_relayers::extension::per_relay_header::ensure_priority_boost_is_sane::<
 			Runtime,
 			BridgeGrandpaRococoBulletinInstance,
 			PriorityBoostPerRelayHeader,
 		>(FEE_BOOST_PER_RELAY_HEADER);
 
-		bridge_runtime_common::extensions::priority_calculator::per_message::ensure_priority_boost_is_sane::<
+		pallet_bridge_relayers::extension::per_message::ensure_priority_boost_is_sane::<
 			Runtime,
 			WithRococoBulletinMessagesInstance,
 			PriorityBoostPerMessage,
@@ -250,5 +219,61 @@ mod tests {
 		.into();
 
 		assert_eq!(BridgeRococoToRococoBulletinMessagesPalletInstance::get(), expected,);
+	}
+}
+
+// TODO:(bridges-v2) - migration from static to dynamic lanes - FAIL-CI
+pub mod migration_for_bridges_v2 {
+	use super::*;
+
+	// /// A pair of sending chain location and message lane, used by this chain to send messages
+	// /// over the bridge.
+	// #[cfg_attr(feature = "std", derive(Debug, Eq, PartialEq))]
+	// pub struct SenderAndLane {
+	// 	/// Sending chain relative location.
+	// 	pub location: Location,
+	// 	/// Message lane, used by the sending chain.
+	// 	pub lane: LaneId,
+	// }
+	//
+	// impl SenderAndLane {
+	// 	/// Create new object using provided location and lane.
+	// 	pub fn new(location: Location, lane: LaneId) -> Self {
+	// 		SenderAndLane { location, lane }
+	// 	}
+	// }
+	//
+	// pub const XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN: LaneId = LaneId([0, 0, 0, 0]);
+	//
+	// parameter_types! {
+	// 	pub RococoPeopleParaId: cumulus_primitives_core::ParaId =
+	// rococo_runtime_constants::system_parachain::PEOPLE_ID.into(); 	// Lanes
+	// 	/// All active lanes that the current bridge supports.
+	// 	pub ActiveOutboundLanesToRococoBulletin: &'static [bp_messages::LaneId]
+	// 		= &[XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN];
+	// 	/// Lane identifier, used to connect Rococo People and Rococo Bulletin chain.
+	// 	pub const RococoPeopleToRococoBulletinMessagesLane: bp_messages::LaneId
+	// 		= XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN;
+	// 	/// Identifier of the sibling Rococo People parachain.
+	// 	/// A route (XCM location and bridge lane) that the Rococo People Chain -> Rococo Bulletin
+	// Chain 	/// message is following.
+	// 	pub FromRococoPeopleToRococoBulletinRoute: SenderAndLane = SenderAndLane::new(
+	// 		ParentThen(Parachain(RococoPeopleParaId::get().into()).into()).into(),
+	// 		XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
+	// 	);
+	// 	/// All active routes and their destinations.
+	// 	pub ActiveLanes: alloc::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> =
+	// alloc::vec![ 			(
+	// 				FromRococoPeopleToRococoBulletinRoute::get(),
+	// 				(RococoBulletinGlobalConsensusNetwork::get(), Here)
+	// 			)
+	// 	];
+	// }
+
+	pub struct StaticToDynamicLanes;
+	impl frame_support::traits::OnRuntimeUpgrade for StaticToDynamicLanes {
+		fn on_runtime_upgrade() -> Weight {
+			todo!()
+		}
 	}
 }

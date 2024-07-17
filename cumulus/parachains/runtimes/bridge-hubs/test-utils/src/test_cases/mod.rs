@@ -29,12 +29,10 @@ use crate::{test_cases::bridges_prelude::*, test_data};
 use asset_test_utils::BasicParachainRuntime;
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
-	LaneId, MessageKey, MessagesOperatingMode, OutboundLaneData,
+	LaneId, LaneState, MessageKey, MessagesOperatingMode, OutboundLaneData,
 };
 use bp_runtime::BasicOperatingMode;
-use bridge_runtime_common::messages_xcm_extension::{
-	XcmAsPlainPayload, XcmBlobMessageDispatchResult,
-};
+use bp_xcm_bridge_hub::XcmAsPlainPayload;
 use codec::Encode;
 use frame_support::{
 	assert_ok,
@@ -42,6 +40,7 @@ use frame_support::{
 	traits::{Get, OnFinalize, OnInitialize, OriginTrait},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use pallet_xcm_bridge_hub::XcmBlobMessageDispatchResult;
 use parachains_common::AccountId;
 use parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeCallOf,
@@ -57,11 +56,11 @@ use xcm_executor::{
 
 /// Common bridges exports.
 pub(crate) mod bridges_prelude {
+	pub use bp_parachains::{RelayBlockHash, RelayBlockNumber};
 	pub use pallet_bridge_grandpa::{Call as BridgeGrandpaCall, Config as BridgeGrandpaConfig};
 	pub use pallet_bridge_messages::{Call as BridgeMessagesCall, Config as BridgeMessagesConfig};
 	pub use pallet_bridge_parachains::{
-		Call as BridgeParachainsCall, Config as BridgeParachainsConfig, RelayBlockHash,
-		RelayBlockNumber,
+		Call as BridgeParachainsCall, Config as BridgeParachainsConfig,
 	};
 }
 
@@ -390,6 +389,7 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 				expected_lane_id
 			),
 			Ok(OutboundLaneData {
+				state: LaneState::Opened,
 				oldest_unpruned_nonce: 1,
 				latest_received_nonce: 0,
 				latest_generated_nonce: 1,

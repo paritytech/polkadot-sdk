@@ -17,10 +17,11 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	TransactionByteFee, WeightToFee, XcmpQueue,
+	TransactionByteFee, WeightToFee, XcmOverBridgeHubWestend, XcmOverRococoBulletin, XcmpQueue,
 };
 use bp_messages::LaneId;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
+
 use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
@@ -39,22 +40,20 @@ use parachains_common::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_runtime_common::XcmExportFeeToSibling;
-use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
-	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
-	AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin,
-	FrameTransactionalProcessor, FungibleAdapter, HandleFee, IsConcrete, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
+	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
+	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FrameTransactionalProcessor,
+	FungibleAdapter, HandleFee, IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{
-	traits::{FeeManager, FeeReason, FeeReason::Export, TransactAsset},
+	traits::{FeeManager, FeeReason, FeeReason::Export},
 	XcmExecutor,
 };
 
@@ -226,8 +225,8 @@ impl xcm_executor::Config for XcmConfig {
 		),
 	>;
 	type MessageExporter = (
-		crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,
-		crate::bridge_to_bulletin_config::ToRococoBulletinHaulBlobExporter,
+		XcmOverBridgeHubWestend,
+		XcmOverRococoBulletin,
 		crate::bridge_to_ethereum_config::SnowbridgeExporter,
 	);
 	type UniversalAliases = Nothing;

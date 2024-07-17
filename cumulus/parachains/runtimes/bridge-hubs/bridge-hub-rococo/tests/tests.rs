@@ -148,7 +148,7 @@ mod bridge_hub_westend_tests {
 	use bridge_hub_test_utils::test_cases::from_parachain;
 	use bridge_to_westend_config::{
 		BridgeHubWestendLocation, WestendGlobalConsensusNetwork,
-		WithBridgeHubWestendMessagesInstance, XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
+		WithBridgeHubWestendMessagesInstance,
 	};
 
 	// Para id of sibling chain used in tests.

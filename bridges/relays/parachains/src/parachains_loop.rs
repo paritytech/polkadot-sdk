@@ -496,7 +496,7 @@ where
 		},
 		(AvailableHeader::Missing, Some(_)) => {
 			// parachain/parathread has been offboarded removed from the system. It needs to
-			// be propageted to the target client
+			// be propagated to the target client
 			true
 		},
 		(AvailableHeader::Missing, None) => {

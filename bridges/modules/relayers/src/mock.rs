@@ -41,9 +41,6 @@ use sp_runtime::{
 	BuildStorage, FixedPointNumber, Perquintill, StateVersion,
 };
 
-// generate identifier of the signed extension
-bp_runtime::generate_static_str_provider!(TestId);
-
 /// Account identifier at `ThisChain`.
 pub type ThisChainAccountId = u64;
 /// Balance at `ThisChain`.

@@ -467,10 +467,12 @@ mod tests {
 		pub TestLaneId: LaneId = test_lane_id();
 	}
 
+	bp_runtime::generate_static_str_provider!(TestGrandpaExtension);
 	bp_runtime::generate_static_str_provider!(TestExtension);
+	bp_runtime::generate_static_str_provider!(TestMessagesExtension);
 
 	type TestGrandpaExtensionConfig = grandpa_adapter::WithGrandpaChainExtensionConfig<
-		StrTestId,
+		StrTestGrandpaExtension,
 		TestRuntime,
 		RuntimeWithUtilityPallet<TestRuntime>,
 		(),
@@ -480,7 +482,7 @@ mod tests {
 	type TestGrandpaExtension =
 		BridgeRelayersSignedExtension<TestRuntime, TestGrandpaExtensionConfig>;
 	type TestExtensionConfig = parachain_adapter::WithParachainExtensionConfig<
-		StrTestId,
+		StrTestExtension,
 		TestRuntime,
 		RuntimeWithUtilityPallet<TestRuntime>,
 		(),
@@ -488,8 +490,12 @@ mod tests {
 		ConstU64<1>,
 	>;
 	type TestExtension = BridgeRelayersSignedExtension<TestRuntime, TestExtensionConfig>;
-	type TestMessagesExtensionConfig =
-		messages_adapter::WithMessagesExtensionConfig<StrTestId, TestRuntime, (), ConstU64<1>>;
+	type TestMessagesExtensionConfig = messages_adapter::WithMessagesExtensionConfig<
+		StrTestMessagesExtension,
+		TestRuntime,
+		(),
+		ConstU64<1>,
+	>;
 	type TestMessagesExtension =
 		BridgeRelayersSignedExtension<TestRuntime, TestMessagesExtensionConfig>;
 

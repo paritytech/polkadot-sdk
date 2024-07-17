@@ -187,6 +187,7 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type MessageExportPrice = ();
 	type DestinationVersion = AlwaysLatest;
 
+	type AdminOrigin = frame_system::EnsureNever<()>;
 	type OpenBridgeOrigin = OpenBridgeOrigin;
 	type BridgeOriginAccountIdConverter = LocationToAccountId;
 

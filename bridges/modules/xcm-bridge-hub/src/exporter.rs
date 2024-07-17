@@ -107,7 +107,7 @@ where
 		let bridge_message =
 			MessagesPallet::<T, I>::validate_message(locations.bridge_id.lane_id(), &blob)
 				.map_err(|e| {
-					// TODO:(bridges-v2) - add test/std feature gate?
+					// TODO:(bridges-v2) - add test/std feature gate? FAIL-CI
 					match e {
 						Error::LanesManager(ref ei) =>
 							log::error!(target: LOG_TARGET, "LanesManager: {ei:?}"),

@@ -28,7 +28,7 @@ use bridge_hub_westend_runtime::{
 };
 use bridge_to_rococo_config::{
 	BridgeGrandpaRococoInstance, BridgeHubRococoLocation, BridgeParachainRococoInstance,
-	WithBridgeHubRococoMessagesInstance, XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
+	WithBridgeHubRococoMessagesInstance,
 };
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
