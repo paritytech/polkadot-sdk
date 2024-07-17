@@ -36,9 +36,9 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
-		ProcessMessageError, VariantCountOf, WithdrawReasons,
+		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter,
+		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
+		VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -93,11 +93,10 @@ use sp_consensus_beefy::{
 };
 use sp_core::{ConstU8, OpaqueMetadata, RuntimeDebug, H256};
 use sp_runtime::{
-	create_runtime_str,
-	generic, impl_opaque_keys,
+	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
 		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic as ExtrinsicT,
-		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
+		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Saturating, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill,
@@ -250,7 +249,8 @@ parameter_types! {
 pub mod dynamic_params {
 	use super::*;
 
-	/// Parameters used to calculate era payouts, see [`polkadot_runtime_common::impls::EraPayoutParams`].
+	/// Parameters used to calculate era payouts, see
+	/// [`polkadot_runtime_common::impls::EraPayoutParams`].
 	#[dynamic_pallet_params]
 	#[codec(index = 0)]
 	pub mod inflation {
@@ -260,11 +260,11 @@ pub mod dynamic_params {
 
 		/// Maximum inflation rate used to calculate era payouts.
 		#[codec(index = 1)]
-		pub static MaxInflation: Perquintill = Perquintill::from_rational(100u64, 1000u64);
+		pub static MaxInflation: Perquintill = Perquintill::from_rational(10u64, 100u64);
 
 		/// Ideal stake ratio used to calculate era payouts.
 		#[codec(index = 2)]
-		pub static IdealStake: Perquintill = Perquintill::from_rational(500u64, 1000u64);
+		pub static IdealStake: Perquintill = Perquintill::from_rational(50u64, 100u64);
 
 		/// Falloff used to calculate era payouts.
 		#[codec(index = 3)]
@@ -276,7 +276,6 @@ pub mod dynamic_params {
 		pub static UseAuctionSlots: bool = false;
 	}
 }
-
 
 #[cfg(feature = "runtime-benchmarks")]
 impl Default for RuntimeParameters {
@@ -292,9 +291,7 @@ impl pallet_parameters::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeParameters = RuntimeParameters;
 	type AdminOrigin = DynamicParameterOrigin;
-	// TODO: add benchmarking and update weight info
-	type WeightInfo = ();
-	// type WeightInfo = weights::pallet_parameters::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_parameters::WeightInfo<Runtime>;
 }
 
 /// Defines what origin can modify which dynamic parameters.
@@ -676,27 +673,31 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type Score = sp_npos_elections::VoteWeight;
 }
 
-
 pub struct EraPayout;
 impl pallet_staking::EraPayout<Balance> for EraPayout {
 	fn era_payout(
 		total_staked: Balance,
-		_total_issuance: Balance,
+		total_issuance: Balance,
 		era_duration_millis: u64,
 	) -> (Balance, Balance) {
 		const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
-		let use_auctioned_slots = dynamic_params::inflation::UseAuctionSlots::get();
 		let params = EraPayoutParams {
 			total_staked,
-			total_stakable: Balances::total_issuance(),
+			total_stakable: total_issuance,
 			ideal_stake: dynamic_params::inflation::IdealStake::get(),
 			max_annual_inflation: dynamic_params::inflation::MaxInflation::get(),
 			min_annual_inflation: dynamic_params::inflation::MinInflation::get(),
 			falloff: dynamic_params::inflation::Falloff::get(),
 			period_fraction: Perquintill::from_rational(era_duration_millis, MILLISECONDS_PER_YEAR),
-			legacy_auction_proportion: if use_auctioned_slots {
-				Some(Perquintill::from_rational(60u64, 200u64))
+			legacy_auction_proportion: if dynamic_params::inflation::UseAuctionSlots::get() {
+				let auctioned_slots = parachains_paras::Parachains::<Runtime>::get()
+					.into_iter()
+					// all active para-ids that do not belong to a system chain is the number of
+					// parachains that we should take into account for inflation.
+					.filter(|i| *i >= 2000.into())
+					.count() as u64;
+				Some(Perquintill::from_rational(auctioned_slots.min(60), 200u64))
 			} else {
 				None
 			},
@@ -2449,6 +2450,10 @@ sp_api::impl_runtime_apis! {
 		fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool {
 			Staking::api_pending_rewards(era, account)
 		}
+
+		fn inflation_info() -> pallet_staking_runtime_api::InflationInfo {
+			Runtime::staking_inflation_info()
+		}
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -2732,6 +2737,42 @@ sp_api::impl_runtime_apis! {
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			vec![]
 		}
+	}
+}
+
+impl Runtime {
+	fn staking_inflation_info() -> pallet_staking_runtime_api::InflationInfo {
+		use pallet_staking::{ActiveEra, EraPayout, ErasTotalStake};
+
+		let (staked, start) = ActiveEra::<Runtime>::get()
+			.map(|ae| (ErasTotalStake::<Runtime>::get(ae.index), ae.start.unwrap_or(0)))
+			.unwrap_or((0, 0));
+		let stake_able_issuance = Balances::total_issuance();
+		let staking_rate = Perquintill::from_rational(staked, stake_able_issuance);
+
+		let ideal_staking_rate = dynamic_params::inflation::IdealStake::get();
+		let inflation = if dynamic_params::inflation::UseAuctionSlots::get() {
+			let auctioned_slots = parachains_paras::Parachains::<Runtime>::get()
+				.into_iter()
+				// all active para-ids that do not belong to a system chain is the number of
+				// parachains that we should take into account for inflation.
+				.filter(|i| *i >= 2000.into())
+				.count() as u64;
+			ideal_staking_rate
+				.saturating_sub(Perquintill::from_rational(auctioned_slots.min(60), 200u64))
+		} else {
+			ideal_staking_rate
+		};
+
+		let now_as_millis_u64 = pallet_timestamp::Now::<Runtime>::get();
+		let era_duration = (now_as_millis_u64.saturating_sub(start)).saturated_into::<u64>();
+		let next_mint = <Self as pallet_staking::Config>::EraPayout::era_payout(
+			staked,
+			stake_able_issuance,
+			era_duration,
+		);
+
+		pallet_staking_runtime_api::InflationInfo { staking_rate, inflation, next_mint }
 	}
 }
 

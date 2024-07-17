@@ -11550,7 +11550,9 @@ name = "pallet-staking-runtime-api"
 version = "14.0.0"
 dependencies = [
  "parity-scale-codec",
+ "scale-info",
  "sp-api",
+ "sp-arithmetic",
  "sp-staking",
 ]
 

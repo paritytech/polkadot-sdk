@@ -21,6 +21,18 @@
 
 use codec::Codec;
 
+/// Return type of [`StakingApi::inflation_info`].
+#[derive(codec::Encode, codec::Decode, scale_info::TypeInfo)]
+pub struct InflationInfo {
+	/// The percentage of the tokens currently staked.
+	pub staking_rate: sp_arithmetic::Perquintill,
+	/// The inflation per annum based on the above, and possibly other parameters.
+	pub inflation: sp_arithmetic::Perquintill,
+	/// A "best effort prediction" of the next inflation amount, based on the current system
+	/// parameters.
+	pub next_mint: (u128, u128),
+}
+
 sp_api::decl_runtime_apis! {
 	pub trait StakingApi<Balance, AccountId>
 		where
@@ -35,5 +47,8 @@ sp_api::decl_runtime_apis! {
 
 		/// Returns true if validator `account` has pages to be claimed for the given era.
 		fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool;
+
+		/// Returns a set of information about the staking rate.
+		fn inflation_info() -> InflationInfo;
 	}
 }

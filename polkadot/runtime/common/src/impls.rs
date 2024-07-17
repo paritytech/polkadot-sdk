@@ -67,12 +67,14 @@ where
 	}
 }
 
+/// Parameters passed into [`relay_era_payout`] function.
 pub struct EraPayoutParams {
 	/// Total staked amount.
 	pub total_staked: Balance,
 	/// Total stakable amount.
 	///
-	/// Usually, this is equal to the total issuance, except if a large part of the issuance is locked in another sub-system. 
+	/// Usually, this is equal to the total issuance, except if a large part of the issuance is
+	/// locked in another sub-system.
 	pub total_stakable: Balance,
 	/// Ideal stake ratio, which is deducted by `legacy_auction_proportion` if not `None`.
 	pub ideal_stake: Perquintill,
@@ -88,6 +90,8 @@ pub struct EraPayoutParams {
 	pub legacy_auction_proportion: Option<Perquintill>,
 }
 
+/// A specialized function to compute the inflation of the staking system, tailored for polkadot
+/// relay chains, such as Polkadot, Kusama and Westend.
 pub fn relay_era_payout(params: EraPayoutParams) -> (Balance, Balance) {
 	use sp_runtime::traits::Saturating;
 
@@ -389,7 +393,7 @@ mod tests {
 		t.into()
 	}
 
-	pub fn era_payout(
+	pub fn deprecated_era_payout(
 		total_staked: Balance,
 		total_stakable: Balance,
 		max_annual_inflation: Perquintill,
@@ -421,13 +425,13 @@ mod tests {
 
 		let other_issuance = total_stakable.saturating_sub(total_staked);
 		if total_staked > other_issuance {
-			let _cap_rest = Perquintill::from_rational(other_issuance, total_staked) * staking_payout;
+			let _cap_rest =
+				Perquintill::from_rational(other_issuance, total_staked) * staking_payout;
 			// We don't do anything with this, but if we wanted to, we could introduce a cap on the
 			// treasury amount with: `rest = rest.min(cap_rest);`
 		}
 		(staking_payout, rest)
 	}
-
 
 	#[test]
 	fn test_fees_and_tip_split() {
@@ -483,10 +487,12 @@ mod tests {
 
 	#[test]
 	fn era_payout_should_give_sensible_results() {
-		let payout = era_payout(75, 100, Perquintill::from_percent(10), Perquintill::one(), 0);
+		let payout =
+			deprecated_era_payout(75, 100, Perquintill::from_percent(10), Perquintill::one(), 0);
 		assert_eq!(payout, (10, 0));
 
-		let payout = era_payout(80, 100, Perquintill::from_percent(10), Perquintill::one(), 0);
+		let payout =
+			deprecated_era_payout(80, 100, Perquintill::from_percent(10), Perquintill::one(), 0);
 		assert_eq!(payout, (6, 4));
 	}
 
@@ -539,7 +545,7 @@ mod tests {
 			)),
 		};
 
-		let payout = era_payout(
+		let payout = deprecated_era_payout(
 			total_staked,
 			total_stakable,
 			max_annual_inflation,
@@ -566,7 +572,7 @@ mod tests {
 			)),
 		};
 
-		let payout = era_payout(
+		let payout = deprecated_era_payout(
 			total_staked,
 			total_stakable,
 			max_annual_inflation,
