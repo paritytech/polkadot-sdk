@@ -1178,8 +1178,9 @@ impl
 		let _ = Balances::deposit_creating(&lp_provider, u64::MAX.into());
 		assert_ok!(ForeignAssets::mint_into(asset_id.into(), &lp_provider, u64::MAX.into()));
 
-		let token_native = Box::new(xcm::v3::MultiLocation::new(1, xcm::v3::Junctions::Here));
-		let token_second = Box::new(asset_id);
+		let token_native =
+			alloc::boxed::Box::new(xcm::v3::MultiLocation::new(1, xcm::v3::Junctions::Here));
+		let token_second = alloc::boxed::Box::new(asset_id);
 
 		assert_ok!(AssetConversion::create_pool(
 			RuntimeOrigin::signed(lp_provider.clone()),

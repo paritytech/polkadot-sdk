@@ -2593,7 +2593,6 @@ impl pallet_asset_conversion_tx_payment::BenchmarkHelperTrait<AccountId, u32, u3
 	}
 
 	fn setup_balances_and_pool(asset_id: u32, account: AccountId) {
-		use alloc::boxed::Box;
 		use frame_support::{assert_ok, traits::fungibles::Mutate};
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
@@ -2611,8 +2610,8 @@ impl pallet_asset_conversion_tx_payment::BenchmarkHelperTrait<AccountId, u32, u3
 			((u64::MAX as u128) * 100).into()
 		));
 
-		let token_native = Box::new(NativeOrWithId::Native);
-		let token_second = Box::new(NativeOrWithId::WithId(asset_id));
+		let token_native = alloc::boxed::Box::new(NativeOrWithId::Native);
+		let token_second = alloc::boxed::Box::new(NativeOrWithId::WithId(asset_id));
 
 		assert_ok!(AssetConversion::create_pool(
 			RuntimeOrigin::signed(lp_provider.clone()),
@@ -2643,7 +2642,6 @@ impl pallet_asset_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32> for Asse
 	}
 
 	fn setup_balances_and_pool(asset_id: u32, account: AccountId) {
-		use alloc::boxed::Box;
 		use frame_support::{assert_ok, traits::fungibles::Mutate};
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
@@ -2661,8 +2659,8 @@ impl pallet_asset_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32> for Asse
 			((u64::MAX as u128) * 100).into()
 		));
 
-		let token_native = Box::new(NativeOrWithId::Native);
-		let token_second = Box::new(NativeOrWithId::WithId(asset_id));
+		let token_native = alloc::boxed::Box::new(NativeOrWithId::Native);
+		let token_second = alloc::boxed::Box::new(NativeOrWithId::WithId(asset_id));
 
 		assert_ok!(AssetConversion::create_pool(
 			RuntimeOrigin::signed(lp_provider.clone()),
