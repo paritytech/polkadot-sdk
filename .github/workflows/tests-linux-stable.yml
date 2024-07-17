@@ -98,11 +98,12 @@ jobs:
       - run: chmod +x .forklift/forklift && .forklift/forklift version
       
       - run: rustup component add llvm-tools-preview
+      - run: cargo install cargo-llvm-cov
       - run: mkdir -p target/coverage/result
 
       - name: script
         run: >
-          time cargo
+          time cargo llvm-cov --no-report
           nextest run
           --workspace --locked --release --no-fail-fast
           --features try-runtime,experimental,riscv,ci-only-tests
@@ -123,41 +124,42 @@ jobs:
           "
           --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
 
+      - run: cargo llvm-cov report --lcov --output-path lcov.info
       - run: ls -la
+      
+      #- name: generate report
+      #  run: >
+      #    grcov
+      #    target/coverage/
+      #    --binary-path ./target/release/
+      #    -s .
+      #    -t lcov
+      #    --branch
+      #    -o target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
+      #    --ignore "/*,$HOME/.cargo/**,target/release/wbuild/*,target/release/build/*"
+      #    --log-level DEBUG
+      #    --llvm
+      #    --ignore-not-existing
+      #- name: upload report
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: coverage-report-${{ matrix.ci_node_index }}.lcov
+      #    path: target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
 
-      - name: generate report
-        run: >
-          grcov
-          target/coverage/
-          --binary-path ./target/release/
-          -s .
-          -t lcov
-          --branch
-          -o target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
-          --ignore "/*,$HOME/.cargo/**,target/release/wbuild/*,target/release/build/*"
-          --log-level DEBUG
-          --llvm
-          --ignore-not-existing
-      - name: upload report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report-${{ matrix.ci_node_index }}.lcov
-          path: target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
-
-  upload-reports:
-    needs: [test-linux-stable]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: reports
-          pattern: coverage-report-*
-          merge-multiple: true    
-      - run: ls -al reports/      
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v2   
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          verbose: true 
-          directory: reports
+  #upload-reports:
+  #  needs: [test-linux-stable]
+  #  runs-on: ubuntu-latest
+  #  steps:
+  #    - name: Download artifacts
+  #      uses: actions/download-artifact@v4
+  #      with:
+  #        path: reports
+  #        pattern: coverage-report-*
+  #        merge-multiple: true    
+  #    - run: ls -al reports/      
+  #    - name: Upload to Codecov
+  #      uses: codecov/codecov-action@v2   
+  #      with:
+  #        token: ${{ secrets.CODECOV_TOKEN }}
+  #        verbose: true 
+  #        directory: reports
