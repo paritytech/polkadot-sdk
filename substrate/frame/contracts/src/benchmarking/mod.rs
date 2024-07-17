@@ -1047,13 +1047,11 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn get_storage_empty(
-		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
-		o: Linear<0, { T::Schedule::get().limits.payload_len }>,
-	) -> Result<(), BenchmarkError> {
+	fn get_storage_empty() -> Result<(), BenchmarkError> {
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let key = vec![0u8; max_key_len as usize];
-		let value = vec![1u8; n as usize];
+		let max_value_len = T::Schedule::get().limits.payload_len as usize;
+		let value = vec![1u8; max_value_len];
 
 		let instance = Contract::<T>::new(WasmModule::dummy(), vec![])?;
 		let info = instance.info()?;
@@ -1072,13 +1070,11 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn get_storage_full(
-		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
-		o: Linear<0, { T::Schedule::get().limits.payload_len }>,
-	) -> Result<(), BenchmarkError> {
+	fn get_storage_full() -> Result<(), BenchmarkError> {
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let key = vec![0u8; max_key_len as usize];
-		let value = vec![1u8; n as usize];
+		let max_value_len = T::Schedule::get().limits.payload_len as usize;
+		let value = vec![1u8; max_value_len];
 
 		let instance = Contract::<T>::with_unbalanced_storage_trie(
 			WasmModule::dummy(),
@@ -1101,21 +1097,17 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// n: new byte size
-	// o: old byte size
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn set_storage_empty(
-		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
-		o: Linear<0, { T::Schedule::get().limits.payload_len }>,
-	) -> Result<(), BenchmarkError> {
+	fn set_storage_empty() -> Result<(), BenchmarkError> {
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let key = vec![0u8; max_key_len as usize];
-		let value = vec![1u8; n as usize];
+		let max_value_len = T::Schedule::get().limits.payload_len as usize;
+		let value = vec![1u8; max_value_len];
 
 		let instance = Contract::<T>::new(WasmModule::dummy(), vec![])?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(vec![42u8; o as usize]), false)
+		info.bench_write_raw(&key, Some(vec![42u8; max_value_len]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let val = Some(value.clone());
@@ -1130,16 +1122,12 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// n: new byte size
-	// o: old byte size
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn set_storage_full(
-		n: Linear<0, { T::Schedule::get().limits.payload_len }>,
-		o: Linear<0, { T::Schedule::get().limits.payload_len }>,
-	) -> Result<(), BenchmarkError> {
+	fn set_storage_full() -> Result<(), BenchmarkError> {
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let key = vec![0u8; max_key_len as usize];
-		let value = vec![1u8; n as usize];
+		let max_value_len = T::Schedule::get().limits.payload_len as usize;
+		let value = vec![1u8; max_value_len];
 
 		let instance = Contract::<T>::with_unbalanced_storage_trie(
 			WasmModule::dummy(),
@@ -1149,7 +1137,7 @@ mod benchmarks {
 		)?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(vec![42u8; o as usize]), false)
+		info.bench_write_raw(&key, Some(vec![42u8; max_value_len]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let val = Some(value.clone());
