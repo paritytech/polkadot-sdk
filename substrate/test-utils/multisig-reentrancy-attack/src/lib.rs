@@ -24,14 +24,16 @@ mod tests;
 pub use pallet::*;
 pub use pallet_multisig::{self as Multisig, Call as MultisigCall};
 pub use pallet_contracts::{self as Contracts, Call as ContractsCall};
+pub use pallet_balances::{self as Balances, Call as BalancesCall};
 
 
 use frame_support::{
+	construct_runtime, parameter_types,
 	dispatch::{
 		GetDispatchInfo,
 		PostDispatchInfo,
 	},
-	traits::ReservableCurrency,
+	traits::{ReservableCurrency, ConstU32},
 };
 use sp_runtime::traits::Dispatchable;
 
@@ -39,16 +41,6 @@ use sp_runtime::traits::Dispatchable;
 /// The log target of this pallet.
 pub const LOG_TARGET: &'static str = "runtime::reentrancy-attack";
 
-
-// impl pallet_multisig::Config for Runtime {
-// 	type RuntimeEvent = RuntimeEvent;
-// 	// type Currency = dyn frame_support::traits::Currency<AccountId>;
-// 	// type RuntimeCall = Self::RuntimeCall;
-// 	type DepositBase = Self::DepositBase;
-// 	type DepositFactor = Self::DepositFactor;
-// 	type MaxSignatories = Self::MaxSignatories;
-// 	type WeightInfo = ();
-// }
 
 
 #[frame_support::pallet]
@@ -68,7 +60,7 @@ pub mod pallet {
 	<<T as Config>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_multisig::Config {
+	pub trait Config: frame_system::Config + pallet_multisig::Config + pallet_balances::Config<Balance = BalanceOf<Self>> {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -129,6 +121,7 @@ pub mod pallet {
             );
 			// T::Currency::transfer(&sender, dest, value, existence_requirement);
 
+			// pallet_balances::Preserve;
 			Ok(())
 		}
 	}
