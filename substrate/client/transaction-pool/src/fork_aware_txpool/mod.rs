@@ -22,7 +22,7 @@ pub(crate) mod fork_aware_txpool;
 mod import_notification_sink;
 mod metrics;
 mod multi_view_listener;
-mod txmempool;
+mod tx_mem_pool;
 mod view;
 mod view_revalidation;
 mod view_store;

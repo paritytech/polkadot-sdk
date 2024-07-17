@@ -25,7 +25,7 @@ use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnbound
 use sp_blockchain::HashAndNumber;
 use sp_runtime::traits::Block as BlockT;
 
-use super::txmempool::TxMemPool;
+use super::tx_mem_pool::TxMemPool;
 use futures::prelude::*;
 
 use super::view::{FinishRevalidationWorkerChannels, View};

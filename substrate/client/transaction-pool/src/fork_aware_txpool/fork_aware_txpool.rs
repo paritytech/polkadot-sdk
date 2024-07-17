@@ -69,7 +69,7 @@ use prometheus_endpoint::Registry as PrometheusRegistry;
 use sp_blockchain::{HashAndNumber, TreeRoute};
 
 pub type FullPool<Block, Client> = ForkAwareTxPool<FullChainApi<Client, Block>, Block>;
-use super::{txmempool::TxMemPool, view::View, view_store::ViewStore};
+use super::{tx_mem_pool::TxMemPool, view::View, view_store::ViewStore};
 
 impl<Block, Client> FullPool<Block, Client>
 where
