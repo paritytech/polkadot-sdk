@@ -11,6 +11,12 @@ crates:
   - name: polkadot-runtime-parachains
     bump: minor
   - name: rococo-runtime
-    bump: major
+    bump: minor
   - name: westend-runtime
+    bump: minor
+  - name: pallet-mmr
     bump: major
+  - name: pallet-beefy-mmr
+    bump: minor
+  - name: polkadot-sdk
+    bump: minor

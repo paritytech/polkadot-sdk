@@ -112,6 +112,7 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
+	"sp-std?/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
