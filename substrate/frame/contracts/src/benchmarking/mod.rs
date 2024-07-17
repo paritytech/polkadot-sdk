@@ -1080,7 +1080,7 @@ mod benchmarks {
 			WasmModule::dummy(),
 			UNBALANCED_TRIE_LAYERS,
 			max_key_len,
-			T::Schedule::get().limits.payload_len,
+			max_value_len,
 		)?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
@@ -1133,7 +1133,7 @@ mod benchmarks {
 			WasmModule::dummy(),
 			UNBALANCED_TRIE_LAYERS,
 			max_key_len,
-			T::Schedule::get().limits.payload_len,
+			max_value_len,
 		)?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
