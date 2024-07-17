@@ -68,7 +68,7 @@ where
 			sc_utils::mpsc::tracing_unbounded::<Command<K, I>>("import-notification-sink", 16);
 
 		let mut stream_map: StreamMap<K, StreamOf<I>> = StreamMap::new();
-		//note: do not terminate stream-map if input streams are all done:
+		//note: do not terminate stream-map if input streams (views) are all done:
 		stream_map.insert(Default::default(), stream::pending().boxed());
 
 		let ctx = Self { stream_map: stream_map.fuse(), controller: receiver.fuse() };

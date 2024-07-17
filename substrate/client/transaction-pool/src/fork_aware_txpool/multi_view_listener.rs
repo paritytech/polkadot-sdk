@@ -22,7 +22,7 @@ use crate::{
 	graph::{self, BlockHash, ExtrinsicHash},
 	LOG_TARGET,
 };
-use futures::{stream, StreamExt};
+use futures::{stream, stream::Fuse, StreamExt};
 use log::{debug, trace};
 use sc_transaction_pool_api::{TransactionStatus, TransactionStatusStream, TxIndex};
 use sc_utils::mpsc;
@@ -87,7 +87,6 @@ pub struct MultiViewListener<ChainApi: graph::ChainApi> {
 ///
 /// Aggregates and implements the logic of converting single view's events to the external
 /// events. This context is used to unfold external watcher stream.
-use futures::stream::Fuse;
 struct ExternalWatcherContext<ChainApi: graph::ChainApi> {
 	tx_hash: ExtrinsicHash<ChainApi>,
 	fused: futures::stream::Fuse<StreamMap<BlockHash<ChainApi>, TxStatusStream<ChainApi>>>,
@@ -110,6 +109,7 @@ where
 	) -> Self {
 		let mut stream_map: StreamMap<BlockHash<ChainApi>, TxStatusStream<ChainApi>> =
 			StreamMap::new();
+		//note: do not terminate stream-map if input streams (views) are all done:
 		stream_map.insert(Default::default(), stream::pending().boxed());
 		Self {
 			tx_hash,

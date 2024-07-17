@@ -491,154 +491,6 @@ fn reduce_multiview_result<H, E>(input: &mut HashMap<H, Vec<Result<H, E>>>) -> V
 	output.into_iter().rev().collect()
 }
 
-#[cfg(test)]
-mod reduce_multiview_result_tests {
-	use super::*;
-	use sp_core::H256;
-	#[derive(Debug, PartialEq, Clone)]
-	enum Error {
-		Custom(u8),
-	}
-
-	#[test]
-	fn empty() {
-		sp_tracing::try_init_simple();
-		let mut input = HashMap::default();
-		let r = reduce_multiview_result::<H256, Error>(&mut input);
-		assert!(r.is_empty());
-	}
-
-	#[test]
-	fn errors_only() {
-		sp_tracing::try_init_simple();
-		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
-			(
-				H256::repeat_byte(0x13),
-				vec![
-					Err(Error::Custom(10)),
-					Err(Error::Custom(11)),
-					Err(Error::Custom(12)),
-					Err(Error::Custom(13)),
-				],
-			),
-			(
-				H256::repeat_byte(0x14),
-				vec![
-					Err(Error::Custom(20)),
-					Err(Error::Custom(21)),
-					Err(Error::Custom(22)),
-					Err(Error::Custom(23)),
-				],
-			),
-			(
-				H256::repeat_byte(0x15),
-				vec![
-					Err(Error::Custom(30)),
-					Err(Error::Custom(31)),
-					Err(Error::Custom(32)),
-					Err(Error::Custom(33)),
-				],
-			),
-		];
-		let mut input = HashMap::from_iter(v.clone());
-		let r = reduce_multiview_result(&mut input);
-
-		//order in HashMap is random, the result shall be one of:
-		assert!(r == v[0].1 || r == v[1].1 || r == v[2].1);
-	}
-
-	#[test]
-	#[should_panic]
-	fn invalid_lengths() {
-		sp_tracing::try_init_simple();
-		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
-			(H256::repeat_byte(0x13), vec![Err(Error::Custom(12)), Err(Error::Custom(13))]),
-			(H256::repeat_byte(0x14), vec![Err(Error::Custom(23))]),
-		];
-		let mut input = HashMap::from_iter(v);
-		let _ = reduce_multiview_result(&mut input);
-	}
-
-	#[test]
-	fn only_hashes() {
-		sp_tracing::try_init_simple();
-
-		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
-			(
-				H256::repeat_byte(0x13),
-				vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x14))],
-			),
-			(
-				H256::repeat_byte(0x14),
-				vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x14))],
-			),
-		];
-		let mut input = HashMap::from_iter(v);
-		let r = reduce_multiview_result(&mut input);
-
-		assert_eq!(r, vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x14))]);
-	}
-
-	#[test]
-	fn one_view() {
-		sp_tracing::try_init_simple();
-		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![(
-			H256::repeat_byte(0x13),
-			vec![Ok(H256::repeat_byte(0x10)), Err(Error::Custom(11))],
-		)];
-		let mut input = HashMap::from_iter(v);
-		let r = reduce_multiview_result(&mut input);
-
-		assert_eq!(r, vec![Ok(H256::repeat_byte(0x10)), Err(Error::Custom(11))]);
-	}
-
-	#[test]
-	fn mix() {
-		sp_tracing::try_init_simple();
-		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
-			(
-				H256::repeat_byte(0x13),
-				vec![
-					Ok(H256::repeat_byte(0x10)),
-					Err(Error::Custom(11)),
-					Err(Error::Custom(12)),
-					Err(Error::Custom(33)),
-				],
-			),
-			(
-				H256::repeat_byte(0x14),
-				vec![
-					Err(Error::Custom(20)),
-					Ok(H256::repeat_byte(0x21)),
-					Err(Error::Custom(22)),
-					Err(Error::Custom(33)),
-				],
-			),
-			(
-				H256::repeat_byte(0x15),
-				vec![
-					Err(Error::Custom(30)),
-					Err(Error::Custom(31)),
-					Ok(H256::repeat_byte(0x32)),
-					Err(Error::Custom(33)),
-				],
-			),
-		];
-		let mut input = HashMap::from_iter(v);
-		let r = reduce_multiview_result(&mut input);
-
-		assert_eq!(
-			r,
-			vec![
-				Ok(H256::repeat_byte(0x10)),
-				Ok(H256::repeat_byte(0x21)),
-				Ok(H256::repeat_byte(0x32)),
-				Err(Error::Custom(33))
-			]
-		);
-	}
-}
-
 impl<ChainApi, Block> TransactionPool for ForkAwareTxPool<ChainApi, Block>
 where
 	Block: BlockT,
@@ -1362,5 +1214,153 @@ where
 		// self.verify().await;
 
 		()
+	}
+}
+
+#[cfg(test)]
+mod reduce_multiview_result_tests {
+	use super::*;
+	use sp_core::H256;
+	#[derive(Debug, PartialEq, Clone)]
+	enum Error {
+		Custom(u8),
+	}
+
+	#[test]
+	fn empty() {
+		sp_tracing::try_init_simple();
+		let mut input = HashMap::default();
+		let r = reduce_multiview_result::<H256, Error>(&mut input);
+		assert!(r.is_empty());
+	}
+
+	#[test]
+	fn errors_only() {
+		sp_tracing::try_init_simple();
+		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
+			(
+				H256::repeat_byte(0x13),
+				vec![
+					Err(Error::Custom(10)),
+					Err(Error::Custom(11)),
+					Err(Error::Custom(12)),
+					Err(Error::Custom(13)),
+				],
+			),
+			(
+				H256::repeat_byte(0x14),
+				vec![
+					Err(Error::Custom(20)),
+					Err(Error::Custom(21)),
+					Err(Error::Custom(22)),
+					Err(Error::Custom(23)),
+				],
+			),
+			(
+				H256::repeat_byte(0x15),
+				vec![
+					Err(Error::Custom(30)),
+					Err(Error::Custom(31)),
+					Err(Error::Custom(32)),
+					Err(Error::Custom(33)),
+				],
+			),
+		];
+		let mut input = HashMap::from_iter(v.clone());
+		let r = reduce_multiview_result(&mut input);
+
+		//order in HashMap is random, the result shall be one of:
+		assert!(r == v[0].1 || r == v[1].1 || r == v[2].1);
+	}
+
+	#[test]
+	#[should_panic]
+	fn invalid_lengths() {
+		sp_tracing::try_init_simple();
+		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
+			(H256::repeat_byte(0x13), vec![Err(Error::Custom(12)), Err(Error::Custom(13))]),
+			(H256::repeat_byte(0x14), vec![Err(Error::Custom(23))]),
+		];
+		let mut input = HashMap::from_iter(v);
+		let _ = reduce_multiview_result(&mut input);
+	}
+
+	#[test]
+	fn only_hashes() {
+		sp_tracing::try_init_simple();
+
+		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
+			(
+				H256::repeat_byte(0x13),
+				vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x14))],
+			),
+			(
+				H256::repeat_byte(0x14),
+				vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x14))],
+			),
+		];
+		let mut input = HashMap::from_iter(v);
+		let r = reduce_multiview_result(&mut input);
+
+		assert_eq!(r, vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x14))]);
+	}
+
+	#[test]
+	fn one_view() {
+		sp_tracing::try_init_simple();
+		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![(
+			H256::repeat_byte(0x13),
+			vec![Ok(H256::repeat_byte(0x10)), Err(Error::Custom(11))],
+		)];
+		let mut input = HashMap::from_iter(v);
+		let r = reduce_multiview_result(&mut input);
+
+		assert_eq!(r, vec![Ok(H256::repeat_byte(0x10)), Err(Error::Custom(11))]);
+	}
+
+	#[test]
+	fn mix() {
+		sp_tracing::try_init_simple();
+		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
+			(
+				H256::repeat_byte(0x13),
+				vec![
+					Ok(H256::repeat_byte(0x10)),
+					Err(Error::Custom(11)),
+					Err(Error::Custom(12)),
+					Err(Error::Custom(33)),
+				],
+			),
+			(
+				H256::repeat_byte(0x14),
+				vec![
+					Err(Error::Custom(20)),
+					Ok(H256::repeat_byte(0x21)),
+					Err(Error::Custom(22)),
+					Err(Error::Custom(33)),
+				],
+			),
+			(
+				H256::repeat_byte(0x15),
+				vec![
+					Err(Error::Custom(30)),
+					Err(Error::Custom(31)),
+					Ok(H256::repeat_byte(0x32)),
+					Err(Error::Custom(33)),
+				],
+			),
+		];
+		let mut input = HashMap::from_iter(v);
+		let r = reduce_multiview_result(&mut input);
+
+		assert_eq!(
+			r,
+			vec![
+				Ok(H256::repeat_byte(0x10)),
+				Ok(H256::repeat_byte(0x21)),
+				Ok(H256::repeat_byte(0x32)),
+				Err(Error::Custom(33))
+			]
+		);
 	}
 }
