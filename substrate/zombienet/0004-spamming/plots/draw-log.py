@@ -65,6 +65,15 @@ plot \\
 unset logscale
 """
 
+def txpool_maintain_duration_histogram():
+    return f"""
+reset
+binwidth=1000;
+bin(x,width)=width*floor(x/width) + binwidth/2.0;
+skip_first_bin(x) = (x >= binwidth) ? x : NaN
+plot file1 using (bin(skip_first_bin(column("duration")),binwidth)):(1.0) smooth freq with boxes lc rgb "blue" fs solid 0.5;
+"""
+
 def validate_transaction():
     return f"""
 set logscale y 2
@@ -119,6 +128,10 @@ GRAPH_FUNCTIONS = {
     "txpool_maintain_duration": {
         "file_names": ["txpool_maintain.csv"],
         "function_name": txpool_maintain_duration_graph
+        },
+    "txpool_maintain_hist": {
+        "file_names": ["txpool_maintain.csv"],
+        "function_name": txpool_maintain_duration_histogram
         },
     "validate_transaction_count": {
         "file_names": ["validate_transaction.csv"],
