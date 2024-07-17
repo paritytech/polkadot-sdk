@@ -178,11 +178,11 @@ def main():
     start_file = f"{output_dir}/../start"
     end_file = f"{output_dir}/../end"
 
-    timestamp_command = f"grep '.*maintain' {log_file_path} | head -n 1 | cut -f1,2 -d' ' | cut -f1 -d'.'"
+    timestamp_command = f"grep '.*maintain.*took' {log_file_path} | head -n 1 | cut -f1,2 -d' ' | cut -f1 -d'.'"
     if not os.path.isfile(start_file):
         extract_time_point(timestamp_command, start_file)
 
-    timestamp_command = f"grep '.*maintain' {log_file_path} | tail -n 1 | cut -f1,2 -d' ' | cut -f1 -d'.'"
+    timestamp_command = f"grep '.*maintain.*took' {log_file_path} | tail -n 1 | cut -f1,2 -d' ' | cut -f1 -d'.'"
     if not os.path.isfile(end_file):
         extract_time_point(timestamp_command, end_file)
 
