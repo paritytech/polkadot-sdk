@@ -1073,8 +1073,8 @@ mod benchmarks {
 	fn get_storage_full() -> Result<(), BenchmarkError> {
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = T::Schedule::get().limits.payload_len as usize;
-		let value = vec![1u8; max_value_len];
+		let max_value_len = T::Schedule::get().limits.payload_len;
+		let value = vec![1u8; max_value_len  as usize];
 
 		let instance = Contract::<T>::with_unbalanced_storage_trie(
 			WasmModule::dummy(),
@@ -1126,8 +1126,8 @@ mod benchmarks {
 	fn set_storage_full() -> Result<(), BenchmarkError> {
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = T::Schedule::get().limits.payload_len as usize;
-		let value = vec![1u8; max_value_len];
+		let max_value_len = T::Schedule::get().limits.payload_len;
+		let value = vec![1u8; max_value_len as usize];
 
 		let instance = Contract::<T>::with_unbalanced_storage_trie(
 			WasmModule::dummy(),
@@ -1137,7 +1137,7 @@ mod benchmarks {
 		)?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(vec![42u8; max_value_len]), false)
+		info.bench_write_raw(&key, Some(vec![42u8; max_value_len as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let val = Some(value.clone());
