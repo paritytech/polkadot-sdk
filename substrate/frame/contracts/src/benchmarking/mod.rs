@@ -173,11 +173,7 @@ where
 			let pos = l as usize / 2;
 			let mut key = vec![0u8; key_size as usize];
 			for i in 0u8..16 {
-				if l % 2 == 0 {
-					key[pos] = i
-				} else {
-					key[pos] = i << 4;
-				}
+				key[pos] = if l % 2 == 0 { i } else { i << 4 };
 				child::put_raw(&child_trie_info, &key, &vec![42u8; value_size as usize]);
 			}
 		}
