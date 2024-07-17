@@ -104,11 +104,11 @@ jobs:
       - name: script
         run: >
           time cargo llvm-cov
-          nextest 
+           
           --no-report
           --workspace --locked --release --no-fail-fast
           --features try-runtime,experimental,riscv,ci-only-tests
-          run
+          nextest run
           -E "
           !test(/.*benchmark.*/)
           - test(/recovers_from_only_chunks_if_pov_large::case_1/)
