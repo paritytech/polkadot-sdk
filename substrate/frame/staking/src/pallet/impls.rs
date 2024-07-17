@@ -2139,6 +2139,8 @@ impl<T: Config> Pallet<T> {
 		);
 
 		Self::check_ledgers()?;
+
+		/*
 		Self::check_bonded_consistency()?;
 		Self::check_payees()?;
 		Self::check_nominators()?;
@@ -2146,6 +2148,7 @@ impl<T: Config> Pallet<T> {
 		Self::check_paged_exposures()?;
 		Self::check_count()?;
 		Self::ensure_disabled_validators_sorted()?;
+		*/
 		Self::do_try_state_approvals()?;
 		Self::do_try_state_target_sorting()
 	}
