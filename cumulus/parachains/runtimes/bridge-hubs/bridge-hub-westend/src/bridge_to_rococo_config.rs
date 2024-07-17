@@ -17,9 +17,9 @@
 //! Bridge definitions used on BridgeHub with the Westend flavor.
 
 use crate::{
-	bridge_common_config::DeliveryRewardInBalance, weights, xcm_config::UniversalLocation, Balance,
-	Balances, BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent, RuntimeHoldReason,
-	XcmOverBridgeHubRococo, XcmRouter,
+	bridge_common_config::DeliveryRewardInBalance, weights, xcm_config::UniversalLocation,
+	AccountId, Balance, Balances, BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent,
+	RuntimeHoldReason, XcmOverBridgeHubRococo, XcmRouter,
 };
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
@@ -28,14 +28,8 @@ use bp_messages::{
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_runtime::Chain;
 use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
-use bridge_runtime_common::{
-	extensions::refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
-		RefundableMessagesLane,
-	},
-	messages_xcm_extension::{
-		SenderAndLane, XcmBlobHauler, XcmBlobHaulerAdapter, XcmBlobMessageDispatch,
-	},
+use bridge_runtime_common::extensions::refund_relayer_extension::{
+	ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter, RefundableMessagesLane,
 };
 use pallet_xcm_bridge_hub::XcmAsPlainPayload;
 
@@ -44,12 +38,16 @@ use frame_support::{
 	parameter_types,
 	traits::{ConstU32, PalletInfoAccess},
 };
+use frame_system::EnsureRoot;
+use pallet_xcm::EnsureXcm;
+use parachains_common::xcm_config::ParentRelayOrSiblingParachains;
+use polkadot_parachain_primitives::primitives::Sibling;
 use testnet_parachains_constants::westend::currency::UNITS as WND;
 use xcm::{
 	latest::prelude::*,
 	prelude::{InteriorLocation, NetworkId},
 };
-use xcm_builder::BridgeBlobDispatcher;
+use xcm_builder::{BridgeBlobDispatcher, ParentIsPreset, SiblingParachainConvertsVia};
 
 parameter_types! {
 	pub const RelayChainHeadersToKeep: u32 = 1024;
@@ -119,22 +117,6 @@ pub type ToRococoBridgeHubMessagesDeliveryProof =
 type FromRococoMessageBlobDispatcher =
 	BridgeBlobDispatcher<XcmRouter, UniversalLocation, BridgeWestendToRococoMessagesPalletInstance>;
 
-/// Export XCM messages to be relayed to the other side
-pub type ToBridgeHubRococoHaulBlobExporter = XcmOverBridgeHubRococo;
-
-pub struct ToBridgeHubRococoXcmBlobHauler;
-impl XcmBlobHauler for ToBridgeHubRococoXcmBlobHauler {
-	type Runtime = Runtime;
-	type MessagesInstance = WithBridgeHubRococoMessagesInstance;
-
-	type ToSourceChainSender = XcmRouter;
-	type CongestedMessage = CongestedMessage;
-	type UncongestedMessage = UncongestedMessage;
-}
-
-/// On messages delivered callback.
-type OnMessagesDelivered = XcmBlobHaulerAdapter<ToBridgeHubRococoXcmBlobHauler, ActiveLanes>;
-
 /// Signed extension that refunds relayers that are delivering messages from the Rococo parachain.
 pub type OnBridgeHubWestendRefundBridgeHubRococoMessages = RefundSignedExtensionAdapter<
 	RefundBridgedMessages<
@@ -199,15 +181,8 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 		DeliveryRewardInBalance,
 	>;
 
-	type MessageDispatch = XcmBlobMessageDispatch<
-		FromRococoMessageBlobDispatcher,
-		Self::WeightInfo,
-		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<
-			AssetHubWestendParaId,
-			Runtime,
-		>,
-	>;
-	type OnMessagesDelivered = OnMessagesDelivered;
+	type MessageDispatch = XcmOverBridgeHubRococo;
+	type OnMessagesDelivered = XcmOverBridgeHubRococo;
 }
 
 /// Add support for the export and dispatch of XCM programs.
@@ -222,11 +197,24 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type MessageExportPrice = ();
 	type DestinationVersion = XcmVersionOfDestAndRemoteBridge<PolkadotXcm, BridgeHubRococoLocation>;
 
+	type AdminOrigin = EnsureRoot<AccountId>;
+	// Only allow calls from relay chains and sibling parachains to directly open the bridge.
+	type OpenBridgeOrigin = EnsureXcm<ParentRelayOrSiblingParachains>;
+	// Converter aligned with `OpenBridgeOrigin`.
+	type BridgeOriginAccountIdConverter =
+		(ParentIsPreset<AccountId>, SiblingParachainConvertsVia<Sibling, AccountId>);
+
 	type BridgeDeposit = BridgeDeposit;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 
-	// TODO:(bridges-v2) - add `LocalXcmChannelManager` impl - FAIL-CI
+	// TODO:(bridges-v2) - add `LocalXcmChannelManager` impl - FAIL-CI - something like this:
+	// cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<
+	//	AssetHubWestendParaId,
+	//	Runtime,
+	// >
 	type LocalXcmChannelManager = ();
+	type BlobDispatcher = FromRococoMessageBlobDispatcher;
 }
 
 #[cfg(test)]

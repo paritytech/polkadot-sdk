@@ -54,7 +54,7 @@ type MessagesPalletWeights<T, I> =
 
 impl<T: Config<I>, I: 'static> MessageDispatch for Pallet<T, I>
 where
-	T: BridgeMessagesConfig<InboundPayload = XcmAsPlainPayload>,
+	T: BridgeMessagesConfig<T::BridgeMessagesPalletInstance, InboundPayload = XcmAsPlainPayload>,
 {
 	type DispatchPayload = XcmAsPlainPayload;
 	type DispatchLevelResult = XcmBlobMessageDispatchResult;
@@ -85,8 +85,8 @@ where
 			Err(e) => {
 				log::error!(
 					target: LOG_TARGET,
-					"[XcmBlobMessageDispatch] payload error: {:?} - message_nonce: {:?}",
-					e,
+					"dispatch - payload error: {e:?} for lane_id: {} and message_nonce: {:?}",
+					message.key.lane_id,
 					message.key.nonce
 				);
 				return MessageDispatchResult {
@@ -99,7 +99,8 @@ where
 			Ok(_) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"[XcmBlobMessageDispatch] DispatchBlob::dispatch_blob was ok - message_nonce: {:?}",
+					"dispatch - `DispatchBlob::dispatch_blob` was ok for lane_id: {} and message_nonce: {:?}",
+					message.key.lane_id,
 					message.key.nonce
 				);
 				XcmBlobMessageDispatchResult::Dispatched
@@ -107,8 +108,9 @@ where
 			Err(e) => {
 				log::error!(
 					target: LOG_TARGET,
-					"[XcmBlobMessageDispatch] DispatchBlob::dispatch_blob failed, error: {:?} - message_nonce: {:?}",
-					e, message.key.nonce
+					"dispatch - `DispatchBlob::dispatch_blob` failed with error: {e:?} for lane_id: {} and message_nonce: {:?}",
+					message.key.lane_id,
+					message.key.nonce
 				);
 				XcmBlobMessageDispatchResult::NotDispatched(Some(e))
 			},

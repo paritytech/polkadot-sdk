@@ -17,7 +17,7 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	TransactionByteFee, WeightToFee, XcmpQueue,
+	TransactionByteFee, WeightToFee, XcmOverBridgeHubWestend, XcmpQueue,
 };
 use bp_messages::LaneId;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
@@ -227,7 +227,7 @@ impl xcm_executor::Config for XcmConfig {
 		),
 	>;
 	type MessageExporter = (
-		crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,
+		XcmOverBridgeHubWestend,
 		crate::bridge_to_bulletin_config::ToRococoBulletinHaulBlobExporter,
 		crate::bridge_to_ethereum_config::SnowbridgeExporter,
 	);

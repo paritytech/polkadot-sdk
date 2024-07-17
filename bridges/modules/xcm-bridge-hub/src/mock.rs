@@ -158,6 +158,7 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type DestinationVersion = AlwaysLatest;
 
 	type OpenBridgeOrigin = OpenBridgeOrigin;
+	type AdminOrigin = frame_system::EnsureNever<()>;
 	type BridgeOriginAccountIdConverter = LocationToAccountId;
 
 	type BridgeDeposit = BridgeDeposit;

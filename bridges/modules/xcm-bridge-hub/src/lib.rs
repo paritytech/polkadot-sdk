@@ -120,13 +120,14 @@ pub mod pallet {
 
 		/// A set of XCM locations within local consensus system that are allowed to open
 		/// bridges with remote destinations.
-		// TODO: there's only one impl of `EnsureOrigin<Success = Location>` -
-		// `EnsureXcmOrigin`, but it doesn't do what we need. Is there some other way to check
-		// `Origin` and get matching `Location`???
 		type OpenBridgeOrigin: EnsureOrigin<
 			<Self as SystemConfig>::RuntimeOrigin,
 			Success = Location,
 		>;
+		/// The origin that is allowed to call privileged operations on the pallet, e.g. open/close
+		/// bridge for location that coresponds to `Self::BridgeOriginAccountIdConverter` and
+		/// `Self::BridgedNetwork`.
+		type AdminOrigin: EnsureOrigin<<Self as SystemConfig>::RuntimeOrigin>;
 		/// A converter between a multi-location and a sovereign account.
 		type BridgeOriginAccountIdConverter: ConvertLocation<Self::AccountId>;
 
@@ -186,7 +187,7 @@ pub mod pallet {
 		/// The states after this call: bridge is `Opened`, outbound lane is `Opened`, inbound lane
 		/// is `Opened`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(Weight::zero())] // TODO: https://github.com/paritytech/parity-bridges-common/issues/1760 - weights
+		#[pallet::weight(Weight::zero())] // TODO:(bridges-v2) - https://github.com/paritytech/polkadot-sdk/pull/4949 - add benchmarks impl - FAIL-CI
 		pub fn open_bridge(
 			origin: OriginFor<T>,
 			bridge_destination_universal_location: Box<VersionedInteriorLocation>,
@@ -267,7 +268,7 @@ pub mod pallet {
 		/// The states after this call: everything is either `Closed`, or purged from the
 		/// runtime storage.
 		#[pallet::call_index(1)]
-		#[pallet::weight(Weight::zero())] // TODO: https://github.com/paritytech/parity-bridges-common/issues/1760 - weights
+		#[pallet::weight(Weight::zero())] // TODO:(bridges-v2) - https://github.com/paritytech/polkadot-sdk/pull/4949 - add benchmarks impl - FAIL-CI
 		pub fn close_bridge(
 			origin: OriginFor<T>,
 			bridge_destination_universal_location: Box<VersionedInteriorLocation>,
@@ -378,6 +379,31 @@ pub mod pallet {
 			});
 
 			Ok(())
+		}
+
+		/// TODO:(bridges-v2) - FAIL-CI - add docs/tests/benchmarks
+		#[pallet::call_index(2)]
+		#[pallet::weight(Weight::zero())] // TODO:(bridges-v2) - https://github.com/paritytech/polkadot-sdk/pull/4949 - add benchmarks impl - FAIL-CI
+		pub fn force_open_bridge(
+			origin: OriginFor<T>,
+			_bridge_origin_universal_location: Box<VersionedInteriorLocation>,
+			_bridge_destination_universal_location: Box<VersionedInteriorLocation>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			todo!()
+		}
+
+		/// TODO:(bridges-v2) - FAIL-CI - add docs/tests/benchmarks
+		#[pallet::call_index(3)]
+		#[pallet::weight(Weight::zero())] // TODO:(bridges-v2) - https://github.com/paritytech/polkadot-sdk/pull/4949 - add benchmarks impl - FAIL-CI
+		pub fn force_close_bridge(
+			origin: OriginFor<T>,
+			_bridge_origin_universal_location: Box<VersionedInteriorLocation>,
+			_bridge_destination_universal_location: Box<VersionedInteriorLocation>,
+			_may_prune_messages: MessageNonce,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			todo!()
 		}
 	}
 
