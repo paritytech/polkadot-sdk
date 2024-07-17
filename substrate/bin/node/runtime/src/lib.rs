@@ -26,7 +26,7 @@ extern crate alloc;
 
 use polkadot_sdk::*;
 
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
@@ -2593,6 +2593,7 @@ impl pallet_asset_conversion_tx_payment::BenchmarkHelperTrait<AccountId, u32, u3
 	}
 
 	fn setup_balances_and_pool(asset_id: u32, account: AccountId) {
+		use alloc::boxed::Box;
 		use frame_support::{assert_ok, traits::fungibles::Mutate};
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
@@ -2642,6 +2643,7 @@ impl pallet_asset_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32> for Asse
 	}
 
 	fn setup_balances_and_pool(asset_id: u32, account: AccountId) {
+		use alloc::boxed::Box;
 		use frame_support::{assert_ok, traits::fungibles::Mutate};
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
