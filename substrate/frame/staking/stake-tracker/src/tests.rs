@@ -405,17 +405,7 @@ fn on_nominator_remove_defensive_works() {
 	})
 }
 
-#[test]
-#[should_panic = "Defensive failure has been triggered!: \"on_validator_remove called on a non-existing target.\""]
-fn on_validator_remove_defensive_works() {
-	ExtBuilder::default().build_and_execute(|| {
-		assert!(!TargetBagsList::contains(&1));
-		<StakeTracker as OnStakingUpdate<A, B>>::on_validator_remove(&1);
-	})
-}
-
 mod staking_integration {
-
 	use super::*;
 
 	#[test]

@@ -432,6 +432,7 @@ pub(crate) fn remove_staker(who: AccountId) {
 			});
 		},
 		Ok(StakerStatus::Validator) => {
+			<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_idle(&who);
 			<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_remove(&who);
 			TestValidators::mutate(|v| v.remove(&who));
 		},

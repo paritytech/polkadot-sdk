@@ -382,20 +382,13 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// The target node is removed from the target list IFF its score is 0 after update. Otherwise,
 	/// it means that there are "dangling" nominations to `who`, ie. there are nominators who are
 	/// nominating `who`. even though it is chilled/removed.
+	///
+	/// Note: `who` *MUST* be either an active validator or chilled staker.
 	fn on_validator_remove(who: &T::AccountId) {
-		// validator must be idle before removing completely.
-		match T::Staking::status(who) {
-			Ok(StakerStatus::Idle) => (), // proceed
-			Ok(StakerStatus::Validator) => Self::on_validator_idle(who),
-			Ok(StakerStatus::Nominator(_)) => {
-				defensive!("on_validator_remove called on a nominator, unexpected.");
-				return
-			},
-			Err(_) => {
-				defensive!("on_validator_remove called on a non-existing target.");
-				return
-			},
-		};
+		debug_assert!(
+			T::Staking::status(who) == Ok(StakerStatus::Validator) ||
+				T::Staking::status(who) == Ok(StakerStatus::Idle)
+		);
 
 		if let Ok(score) = T::TargetList::get_score(who) {
 			// remove from target list IIF score is zero. If `score != 0`, the target still has
@@ -430,7 +423,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		);
 
 		// if `who` is a nominator, update the vote weight of the nominations if they exist. Note:
-		// this will update the score of up to `T::MaxNominations` validators.
+		// this will update the score of up to `T::MaxNominations` validators. Note that `who` may
+		// be a validator.
 		match T::Staking::status(who).defensive() {
 			Ok(StakerStatus::Nominator(_)) =>
 				for t in nominations {
