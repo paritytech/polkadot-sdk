@@ -64,7 +64,7 @@ const API_BENCHMARK_RUNS: u32 = 1600;
 /// benchmarks are faster.
 const INSTR_BENCHMARK_RUNS: u32 = 5000;
 
-/// Number of layers in a Radix16 unbalanced trie
+/// Number of layers in a Radix16 unbalanced trie.
 const UNBALANCED_TRIE_LAYERS: u32 = 20;
 
 /// An instantiated and deployed contract.
@@ -156,7 +156,7 @@ where
 		Ok(())
 	}
 
-	/// Create a new contract with the supplied storage item count and size each.
+	/// Create a new contract with the specified unbalanced storage trie.
 	fn with_unbalanced_storage_trie(
 		code: WasmModule<T>,
 		trie_layers: u32,
