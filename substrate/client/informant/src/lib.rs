@@ -135,18 +135,18 @@ where
 				match maybe_ancestor {
 					Ok(ref ancestor) if ancestor.hash != *last_hash => info!(
 						"♻️  Reorg on #{},{} to #{},{}, common ancestor #{},{}",
-						format.print(Color::Red, Some(Attribute::Bold), last_num.to_string()),
+						format.print(Color::Red, Some(Attribute::Bold), last_num),
 						last_hash,
 						format.print(
 							Color::Green,
 							Some(Attribute::Bold),
-							n.header.number().to_string(),
+							n.header.number(),
 						),
 						n.hash,
 						format.print(
 							Color::White,
 							Some(Attribute::Bold),
-							ancestor.number.to_string(),
+							ancestor.number,
 						),
 						ancestor.hash,
 					),
@@ -173,7 +173,7 @@ where
 			info!(
 				target: "substrate",
 				"{best_indicator} Imported #{} ({} → {})",
-				format.print(Color::White, Some(Attribute::Bold), n.header.number().to_string()),
+				format.print(Color::White, Some(Attribute::Bold), n.header.number()),
 				n.header.parent_hash(),
 				n.hash,
 			);
