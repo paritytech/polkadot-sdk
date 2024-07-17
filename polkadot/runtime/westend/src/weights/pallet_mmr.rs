@@ -65,9 +65,9 @@ impl<T: frame_system::Config> pallet_mmr::WeightInfo for WeightInfo<T> {
 	fn on_initialize(x: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1071043 + x * (39 ±0)`
-		//  Estimated: `3608787 + x * (39 ±0)`
-		// Minimum execution time: 10_200_000_000 picoseconds.
-		Weight::from_parts(10_834_353_578, 0)
+		//  Estimated: `3608787 + x * (39 ±6)`
+		// Minimum execution time: 11_102_000_000 picoseconds.
+		Weight::from_parts(21_772_042_215, 0)
 			.saturating_add(Weight::from_parts(0, 3608787))
 			.saturating_add(T::DbWeight::get().reads(1031))
 			.saturating_add(T::DbWeight::get().writes(4))
