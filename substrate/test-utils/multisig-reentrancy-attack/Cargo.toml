@@ -27,6 +27,8 @@ frame-system = { path = "../../frame/system", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
+frame-try-runtime = { path = "../../frame/try-runtime", default-features = false  }
+
 
 # third party
 log = { workspace = true }
@@ -35,12 +37,14 @@ log = { workspace = true }
 
 
 [features]
-default = ["std"]
+default = [ "std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"frame-try-runtime/std",
+	# "polkadot-runtime-common/std",
 	"log/std",
 	"pallet-balances/std",
 	"pallet-multisig/std",
@@ -65,5 +69,8 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-contracts/try-runtime",
+	"sp-runtime/try-runtime",
+	"frame-try-runtime/try-runtime",
+	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

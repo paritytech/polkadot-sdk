@@ -21,11 +21,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod tests;
+use frame_support::pallet;
 pub use pallet::*;
 pub use pallet_multisig::{self as Multisig, Call as MultisigCall};
 pub use pallet_contracts::{self as Contracts, Call as ContractsCall};
 pub use pallet_balances::{self as Balances, Call as BalancesCall};
-
+pub use pallet_balances;
 
 use frame_support::{
 	construct_runtime, parameter_types,
@@ -33,15 +34,24 @@ use frame_support::{
 		GetDispatchInfo,
 		PostDispatchInfo,
 	},
-	traits::{ReservableCurrency, ConstU32},
+	traits::{
+		ReservableCurrency, ConstU32
+	},
 };
 use sp_runtime::traits::Dispatchable;
 
 
 /// The log target of this pallet.
 pub const LOG_TARGET: &'static str = "runtime::reentrancy-attack";
+pub type Balance = u128;
 
+parameter_types! {
+	pub const ExistentialDeposit: Balance = 1_000_000_000;
+}
 
+// impl pallet_balances::Config for Runtime {
+
+// }
 
 #[frame_support::pallet]
 pub mod pallet {
