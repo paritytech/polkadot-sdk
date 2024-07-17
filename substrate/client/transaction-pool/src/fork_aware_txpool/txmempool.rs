@@ -199,15 +199,13 @@ where
 				xts2.len(),
 				xts2.clone()
 					.into_iter()
-					.sorted_by_key(|tx| {
-						tx.1.validated_at.load(atomic::Ordering::Relaxed)
-					})
 					.filter(|xt| {
 						let finalized_block_number = finalized_block.number.into().as_u64();
 						xt.1.validated_at.load(atomic::Ordering::Relaxed) +
 							TXMEMPOOL_REVALIDATION_PERIOD <
 							finalized_block_number
 					})
+					.sorted_by_key(|tx| tx.1.validated_at.load(atomic::Ordering::Relaxed))
 					.take(TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE),
 			)
 		};
@@ -222,13 +220,14 @@ where
 
 		let duration = start.elapsed();
 
-		let (invalid_hashes, _): (Vec<_>, Vec<_>) =
-			validation_results.into_iter().partition(|(xt_hash, xt, validation_result)| {
+		let invalid_hashes = validation_results
+			.into_iter()
+			.filter_map(|(xt_hash, xt, validation_result)| {
 				xt.validated_at
 					.store(finalized_block.number.into().as_u64(), atomic::Ordering::Relaxed);
 				match validation_result {
 					Ok(Ok(_)) |
-					Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => false,
+					Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => None,
 					Err(_) |
 					Ok(Err(TransactionValidityError::Unknown(_))) |
 					Ok(Err(TransactionValidityError::Invalid(_))) => {
@@ -238,12 +237,11 @@ where
 							xt_hash,
 							validation_result,
 						);
-						true
+						Some(xt_hash)
 					},
 				}
-			});
-
-		let invalid_hashes = invalid_hashes.into_iter().map(|v| v.0).collect::<Vec<_>>();
+			})
+			.collect::<Vec<_>>();
 
 		log::info!(
 			target: LOG_TARGET,
@@ -259,18 +257,24 @@ where
 	) {
 		log::info!(target: LOG_TARGET, "purge_finalized_transactions count:{:?}", finalized_xts.len());
 		log_xt_debug!(target: LOG_TARGET, finalized_xts, "[{:?}] purged finalized transactions");
-		self.xts2.write().retain(|hash, _| !finalized_xts.contains(&hash));
+		let mut xts2 = self.xts2.write();
+		finalized_xts.iter().for_each(|t| {
+			xts2.remove(t);
+		});
 	}
 
 	pub(super) async fn purge_transactions(&self, finalized_block: HashAndNumber<Block>) {
 		log::debug!(target: LOG_TARGET, "purge_transactions at:{:?}", finalized_block);
 		let invalid_hashes = self.revalidate(finalized_block.clone()).await;
 
-		self.metrics
-			.report(|metrics| metrics.mempool_revalidation_invalid_txs.inc_by(invalid_hashes.len() as _));
+		self.metrics.report(|metrics| {
+			metrics.mempool_revalidation_invalid_txs.inc_by(invalid_hashes.len() as _)
+		});
 
-		let mut transactions = self.xts2.write();
-		invalid_hashes.iter().for_each(|i| transactions.remove(i));
+		let mut xts2 = self.xts2.write();
+		invalid_hashes.iter().for_each(|i| {
+			xts2.remove(i);
+		});
 		self.listener.invalidate_transactions(invalid_hashes);
 	}
 }

@@ -89,8 +89,9 @@ pub struct MultiViewListener<ChainApi: graph::ChainApi> {
 /// events. This context is used to unfold external watcher stream.
 struct ExternalWatcherContext<ChainApi: graph::ChainApi> {
 	tx_hash: ExtrinsicHash<ChainApi>,
-	fused: futures::stream::Fuse<StreamMap<BlockHash<ChainApi>, TxStatusStream<ChainApi>>>,
-	rx: Fuse<CommandReceiver<ControllerCommand<ChainApi>>>,
+	status_stream_map:
+		futures::stream::Fuse<StreamMap<BlockHash<ChainApi>, TxStatusStream<ChainApi>>>,
+	command_receiver: Fuse<CommandReceiver<ControllerCommand<ChainApi>>>,
 	terminate: bool,
 	future_seen: bool,
 	ready_seen: bool,
@@ -113,8 +114,8 @@ where
 		stream_map.insert(Default::default(), stream::pending().boxed());
 		Self {
 			tx_hash,
-			fused: futures::StreamExt::fuse(stream_map),
-			rx,
+			status_stream_map: futures::StreamExt::fuse(stream_map),
+			command_receiver: rx,
 			terminate: false,
 			future_seen: false,
 			ready_seen: false,
@@ -130,7 +131,7 @@ where
 	) -> bool {
 		trace!(
 			target: LOG_TARGET, "[{:?}] handle event from {hash:?}: {status:?} views:{:#?}", self.tx_hash,
-			self.fused.get_ref().keys().collect::<Vec<_>>()
+			self.status_stream_map.get_ref().keys().collect::<Vec<_>>()
 		);
 		match status {
 			TransactionStatus::Future => {
@@ -175,12 +176,12 @@ where
 
 	fn handle_invalidate_transaction(&mut self) -> bool {
 		let keys = HashSet::<BlockHash<ChainApi>>::from_iter(
-			self.fused.get_ref().keys().map(Clone::clone),
+			self.status_stream_map.get_ref().keys().map(Clone::clone),
 		);
 		trace!(
 			target: LOG_TARGET,
 			"[{:?}] got invalidate_transaction: views:{:#?}", self.tx_hash,
-			self.fused.get_ref().keys().collect::<Vec<_>>()
+			self.status_stream_map.get_ref().keys().collect::<Vec<_>>()
 		);
 		if self.views_keeping_tx_valid.is_disjoint(&keys) {
 			self.terminate = true;
@@ -191,13 +192,13 @@ where
 	}
 
 	fn add_stream(&mut self, block_hash: BlockHash<ChainApi>, stream: TxStatusStream<ChainApi>) {
-		self.fused.get_mut().insert(block_hash, stream);
-		trace!(target: LOG_TARGET, "[{:?}] AddView view: {:?} views:{:?}", self.tx_hash, block_hash, self.fused.get_ref().keys().collect::<Vec<_>>());
+		self.status_stream_map.get_mut().insert(block_hash, stream);
+		trace!(target: LOG_TARGET, "[{:?}] AddView view: {:?} views:{:?}", self.tx_hash, block_hash, self.status_stream_map.get_ref().keys().collect::<Vec<_>>());
 	}
 
 	fn remove_view(&mut self, block_hash: BlockHash<ChainApi>) {
-		self.fused.get_mut().remove(&block_hash);
-		trace!(target: LOG_TARGET, "[{:?}] RemoveView view: {:?} views:{:?}", self.tx_hash, block_hash, self.fused.get_ref().keys().collect::<Vec<_>>());
+		self.status_stream_map.get_mut().remove(&block_hash);
+		trace!(target: LOG_TARGET, "[{:?}] RemoveView view: {:?} views:{:?}", self.tx_hash, block_hash, self.status_stream_map.get_ref().keys().collect::<Vec<_>>());
 	}
 }
 
@@ -236,8 +237,8 @@ where
 				loop {
 					tokio::select! {
 					biased;
-					v =  futures::StreamExt::select_next_some(&mut ctx.fused) => {
-						log::trace!(target: LOG_TARGET, "[{:?}] select::map views:{:?}", ctx.tx_hash, ctx.fused.get_ref().keys().collect::<Vec<_>>());
+					v =  futures::StreamExt::select_next_some(&mut ctx.status_stream_map) => {
+						log::trace!(target: LOG_TARGET, "[{:?}] select::map views:{:?}", ctx.tx_hash, ctx.status_stream_map.get_ref().keys().collect::<Vec<_>>());
 						let (view_hash, status) = v;
 
 						if ctx.handle(&status, view_hash) {
@@ -245,8 +246,8 @@ where
 							return Some((status, ctx));
 						}
 					},
-					cmd = ctx.rx.next() => {
-						log::trace!(target: LOG_TARGET, "[{:?}] select::rx views:{:?}", ctx.tx_hash, ctx.fused.get_ref().keys().collect::<Vec<_>>());
+					cmd = ctx.command_receiver.next() => {
+						log::trace!(target: LOG_TARGET, "[{:?}] select::rx views:{:?}", ctx.tx_hash, ctx.status_stream_map.get_ref().keys().collect::<Vec<_>>());
 						match cmd {
 							Some(ControllerCommand::AddView(h,stream)) => {
 								ctx.add_stream(h, stream);
