@@ -45,10 +45,10 @@ sp-io = { workspace = true }
 sp-runtime = { features = [
 	"serde",
 ], workspace = true }
-frame-system = { workspace = true, default-features = true }
+frame-system = { workspace = true }
 frame-support = { workspace = true }
 pretty_assertions = { workspace = true }
-static_assertions = { workspace = true, default-features = true }
+static_assertions = { workspace = true }
 
 [features]
 default = ["std"]
