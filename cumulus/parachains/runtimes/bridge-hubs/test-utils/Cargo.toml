@@ -21,7 +21,6 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 pallet-balances = { workspace = true }
 pallet-utility = { workspace = true }
@@ -48,7 +47,7 @@ bp-runtime = { workspace = true }
 bp-test-utils = { workspace = true }
 pallet-bridge-grandpa = { workspace = true }
 pallet-bridge-parachains = { workspace = true }
-pallet-bridge-messages = { workspace = true }
+pallet-bridge-messages = { features = ["test-helpers"], workspace = true }
 pallet-bridge-relayers = { workspace = true }
 bridge-runtime-common = { workspace = true }
 
@@ -81,7 +80,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
