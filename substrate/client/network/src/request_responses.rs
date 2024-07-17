@@ -285,11 +285,6 @@ pub enum Event {
 		changes: Vec<ReputationChange>,
 	},
 
-	/*CustomOutboundFailure {
-		peer: PeerId,
-        request_id: OutboundRequestId,
-        error: CustomOutboundFailure,
-	}*/
 }
 
 /// Combination of a protocol name and a request id.
