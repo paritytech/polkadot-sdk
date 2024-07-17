@@ -25,8 +25,7 @@ use frame_support::pallet;
 pub use pallet::*;
 pub use pallet_multisig::{self as Multisig, Call as MultisigCall};
 pub use pallet_contracts::{self as Contracts, Call as ContractsCall};
-pub use pallet_balances::{self as Balances, Call as BalancesCall};
-pub use pallet_balances;
+
 
 use frame_support::{
 	construct_runtime, parameter_types,
@@ -49,12 +48,18 @@ parameter_types! {
 	pub const ExistentialDeposit: Balance = 1_000_000_000;
 }
 
-// impl pallet_balances::Config for Runtime {
+// construct_runtime!(
+// 	pub struct Runtime {
+// 		System: frame_system,
+// 		Balances: pallet_balances,
+// 	}
+// );
 
-// }
 
 #[frame_support::pallet]
 pub mod pallet {
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
 	use super::*;
 	use frame_support::{dispatch, pallet_prelude::*};
 	use frame_system::pallet_prelude::OriginFor;

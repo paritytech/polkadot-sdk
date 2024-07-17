@@ -44,7 +44,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"frame-try-runtime/std",
-	# "polkadot-runtime-common/std",
 	"log/std",
 	"pallet-balances/std",
 	"pallet-multisig/std",
