@@ -118,16 +118,16 @@ pub mod pallet {
 		/// Checks the XCM version for the destination.
 		type DestinationVersion: GetVersion;
 
+		/// The origin that is allowed to call privileged operations on the pallet, e.g. open/close
+		/// bridge for location that coresponds to `Self::BridgeOriginAccountIdConverter` and
+		/// `Self::BridgedNetwork`.
+		type AdminOrigin: EnsureOrigin<<Self as SystemConfig>::RuntimeOrigin>;
 		/// A set of XCM locations within local consensus system that are allowed to open
 		/// bridges with remote destinations.
 		type OpenBridgeOrigin: EnsureOrigin<
 			<Self as SystemConfig>::RuntimeOrigin,
 			Success = Location,
 		>;
-		/// The origin that is allowed to call privileged operations on the pallet, e.g. open/close
-		/// bridge for location that coresponds to `Self::BridgeOriginAccountIdConverter` and
-		/// `Self::BridgedNetwork`.
-		type AdminOrigin: EnsureOrigin<<Self as SystemConfig>::RuntimeOrigin>;
 		/// A converter between a multi-location and a sovereign account.
 		type BridgeOriginAccountIdConverter: ConvertLocation<Self::AccountId>;
 
