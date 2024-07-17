@@ -32,7 +32,6 @@ use sp_runtime::{
 	generic::Era,
 	traits::{AsSystemOriginSigner, DispatchTransaction, Dispatchable, Get},
 };
-use sp_std::prelude::*;
 
 pub struct Pallet<T: Config>(System<T>);
 
