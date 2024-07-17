@@ -199,11 +199,8 @@ where
 				xts2.len(),
 				xts2.clone()
 					.into_iter()
-					.sorted_by(|a, b| {
-						Ord::cmp(
-							&a.1.validated_at.load(atomic::Ordering::Relaxed),
-							&b.1.validated_at.load(atomic::Ordering::Relaxed),
-						)
+					.sorted_by_key(|tx| {
+						tx.1.validated_at.load(atomic::Ordering::Relaxed)
 					})
 					.filter(|xt| {
 						let finalized_block_number = finalized_block.number.into().as_u64();
