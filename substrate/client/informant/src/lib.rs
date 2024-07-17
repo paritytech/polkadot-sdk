@@ -135,11 +135,7 @@ where
 				match maybe_ancestor {
 					Ok(ref ancestor) if ancestor.hash != *last_hash => info!(
 						"♻️  Reorg on #{},{} to #{},{}, common ancestor #{},{}",
-						format.print(
-							Color::Red,
-							Some(Attribute::Bold),
-							format!("{}", last_num)
-						),
+						format.print(Color::Red, Some(Attribute::Bold), format!("{}", last_num)),
 						last_hash,
 						format.print(
 							Color::Green,
