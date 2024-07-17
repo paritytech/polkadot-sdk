@@ -160,7 +160,7 @@ where
 	fn with_unbalanced_storage_trie(code: WasmModule<T>) -> Result<Self, &'static str> {
 		let max_key_size = T::MaxStorageKeyLen::get();
 		if max_key_size < (UNBALANCED_TRIE_LAYERS + 1) / 2 {
-			return Err("Key size to small to create the specified trie");
+			return Err("Key size too small to create the specified trie");
 		}
 
 		let max_value_size = T::Schedule::get().limits.payload_len;
