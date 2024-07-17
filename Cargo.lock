@@ -13451,6 +13451,7 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-io",
  "sp-tracing 16.0.0",
+ "tempfile",
  "thiserror",
  "tracing-gum",
 ]
