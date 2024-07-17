@@ -157,24 +157,22 @@ where
 	}
 
 	/// Create a new contract with the specified unbalanced storage trie.
-	fn with_unbalanced_storage_trie(
-		code: WasmModule<T>,
-		trie_layers: u32,
-		key_size: u32,
-		value_size: u32,
-	) -> Result<Self, &'static str> {
-		if key_size < (trie_layers + 1) / 2 {
+	fn with_unbalanced_storage_trie(code: WasmModule<T>) -> Result<Self, &'static str> {
+		let max_key_size = T::MaxStorageKeyLen::get();
+		if max_key_size < (UNBALANCED_TRIE_LAYERS + 1) / 2 {
 			return Err("Key size to small to create the specified trie");
 		}
+
+		let max_value_size = T::Schedule::get().limits.payload_len;
 		let contract = Contract::<T>::new(code, vec![])?;
 		let info = contract.info()?;
 		let child_trie_info = info.child_trie_info();
-		for l in 0..trie_layers {
+		for l in 0..UNBALANCED_TRIE_LAYERS {
 			let pos = l as usize / 2;
-			let mut key = vec![0u8; key_size as usize];
+			let mut key = vec![0u8; max_key_size as usize];
 			for i in 0u8..16 {
 				key[pos] = if l % 2 == 0 { i } else { i << 4 };
-				child::put_raw(&child_trie_info, &key, &vec![42u8; value_size as usize]);
+				child::put_raw(&child_trie_info, &key, &vec![16u8; max_value_size as usize]);
 			}
 		}
 		Ok(contract)
@@ -1070,14 +1068,9 @@ mod benchmarks {
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let key = vec![0u8; max_key_len as usize];
 		let max_value_len = T::Schedule::get().limits.payload_len;
-		let value = vec![1u8; max_value_len  as usize];
+		let value = vec![1u8; max_value_len as usize];
 
-		let instance = Contract::<T>::with_unbalanced_storage_trie(
-			WasmModule::dummy(),
-			UNBALANCED_TRIE_LAYERS,
-			max_key_len,
-			max_value_len,
-		)?;
+		let instance = Contract::<T>::with_unbalanced_storage_trie(WasmModule::dummy())?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
 		info.bench_write_raw(&key, Some(value.clone()), false)
@@ -1125,12 +1118,7 @@ mod benchmarks {
 		let max_value_len = T::Schedule::get().limits.payload_len;
 		let value = vec![1u8; max_value_len as usize];
 
-		let instance = Contract::<T>::with_unbalanced_storage_trie(
-			WasmModule::dummy(),
-			UNBALANCED_TRIE_LAYERS,
-			max_key_len,
-			max_value_len,
-		)?;
+		let instance = Contract::<T>::with_unbalanced_storage_trie(WasmModule::dummy())?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
 		info.bench_write_raw(&key, Some(vec![42u8; max_value_len as usize]), false)
