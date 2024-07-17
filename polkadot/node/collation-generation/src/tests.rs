@@ -31,8 +31,8 @@ use polkadot_node_subsystem_test_helpers::{subsystem_test_harness, TestSubsystem
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
 	async_backing::{BackingState, CandidatePendingAvailability},
-	AsyncBackingParams, BlockNumber, CollatorId, CollatorSignature, HeadData,
-	PersistedValidationData, ScheduledCore, ValidationCode,
+	AsyncBackingParams, BlockNumber, CollatorPair, HeadData, PersistedValidationData,
+	ScheduledCore, ValidationCode,
 };
 use rstest::rstest;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
@@ -40,8 +40,6 @@ use std::{
 	collections::{BTreeMap, VecDeque},
 	pin::Pin,
 };
-
-use sp_core::ByteArray;
 use test_helpers::{
 	dummy_candidate_descriptor, dummy_hash, dummy_head_data, dummy_validator, make_candidate,
 };
@@ -125,13 +123,18 @@ async fn overseer_recv(overseer: &mut VirtualOverseer) -> AllMessages {
 
 fn test_config<Id: Into<ParaId>>(para_id: Id) -> CollationGenerationConfig {
 	CollationGenerationConfig {
+		key: CollatorPair::generate().0,
 		collator: Some(Box::new(|_: Hash, _vd: &PersistedValidationData| TestCollator.boxed())),
 		para_id: para_id.into(),
 	}
 }
 
 fn test_config_no_collator<Id: Into<ParaId>>(para_id: Id) -> CollationGenerationConfig {
-	CollationGenerationConfig { collator: None, para_id: para_id.into() }
+	CollationGenerationConfig {
+		key: CollatorPair::generate().0,
+		collator: None,
+		para_id: para_id.into(),
+	}
 }
 
 fn scheduled_core_for<Id: Into<ParaId>>(para_id: Id) -> ScheduledCore {
@@ -470,12 +473,18 @@ fn sends_distribute_collation_message(#[case] runtime_version: u32) {
 	let expect_validation_data_hash = test_validation_data().hash();
 	let expect_relay_parent = Hash::repeat_byte(4);
 	let expect_validation_code_hash = ValidationCode(vec![1, 2, 3]).hash();
-
+	let expect_payload = collator_signature_payload(
+		&expect_relay_parent,
+		&config.para_id,
+		&expect_validation_data_hash,
+		&expect_pov_hash,
+		&expect_validation_code_hash,
+	);
 	let expect_descriptor = CandidateDescriptor {
-		signature: dummy_collator_signature(),
+		signature: config.key.sign(&expect_payload),
 		para_id: config.para_id,
 		relay_parent: expect_relay_parent,
-		collator: dummy_collator(),
+		collator: config.key.public(),
 		persisted_validation_data_hash: expect_validation_data_hash,
 		pov_hash: expect_pov_hash,
 		erasure_root: dummy_hash(), // this isn't something we're checking right now
@@ -490,7 +499,22 @@ fn sends_distribute_collation_message(#[case] runtime_version: u32) {
 			..
 		}) => {
 			let CandidateReceipt { descriptor, .. } = candidate_receipt;
-
+			// signature generation is non-deterministic, so we can't just assert that the
+			// expected descriptor is correct. What we can do is validate that the produced
+			// descriptor has a valid signature, then just copy in the generated signature
+			// and check the rest of the fields for equality.
+			assert!(CollatorPair::verify(
+				&descriptor.signature,
+				&collator_signature_payload(
+					&descriptor.relay_parent,
+					&descriptor.para_id,
+					&descriptor.persisted_validation_data_hash,
+					&descriptor.pov_hash,
+					&descriptor.validation_code_hash,
+				)
+				.as_ref(),
+				&descriptor.collator,
+			));
 			let expect_descriptor = {
 				let mut expect_descriptor = expect_descriptor;
 				expect_descriptor.signature = descriptor.signature.clone();

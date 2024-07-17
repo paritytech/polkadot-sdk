@@ -50,7 +50,7 @@ use polkadot_node_subsystem::messages::{
 };
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
-	AsyncBackingParams, CoreIndex, CoreState, Id as ParaId, OccupiedCoreAssumption,
+	AsyncBackingParams, CollatorPair, CoreIndex, CoreState, Id as ParaId, OccupiedCoreAssumption,
 };
 
 use futures::{channel::oneshot, prelude::*};
@@ -91,6 +91,8 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS> {
 	pub sync_oracle: SO,
 	/// The underlying keystore, which should contain Aura consensus keys.
 	pub keystore: KeystorePtr,
+	/// The collator key used to sign collations before submitting to validators.
+	pub collator_key: CollatorPair,
 	/// The para's ID.
 	pub para_id: ParaId,
 	/// A handle to the relay-chain client's "Overseer" or task orchestrator.
@@ -147,6 +149,7 @@ where
 	async move {
 		cumulus_client_collator::initialize_collator_subsystems(
 			&mut params.overseer_handle,
+			params.collator_key,
 			params.para_id,
 			params.reinitialize,
 		)
