@@ -16099,12 +16099,12 @@ dependencies = [
 name = "relay-utils"
 version = "0.1.0"
 dependencies = [
- "ansi_term",
  "anyhow",
  "async-std",
  "async-trait",
  "backoff",
  "bp-runtime",
+ "console",
  "env_logger 0.11.3",
  "futures",
  "isahc",
