@@ -519,7 +519,7 @@ pub mod pallet {
 		QueryKind = OptionQuery,
 	>;
 
-	// TODO:(bridges-v2) - do we still need this?
+	// TODO:(bridges-v2) - do we still need this? FAIL-CI
 	/// Map of lane id => is congested signal sent. It is managed by the
 	/// `bridge_runtime_common::LocalXcmQueueManager`.
 	///

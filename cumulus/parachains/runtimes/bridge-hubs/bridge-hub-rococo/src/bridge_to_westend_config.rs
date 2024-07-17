@@ -193,6 +193,9 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubWestendInstance> for Runtime 
 
 	type BridgeDeposit = BridgeDeposit;
 	type Currency = Balances;
+
+	// TODO:(bridges-v2) - add `LocalXcmChannelManager` impl - FAIL-CI
+	type LocalXcmChannelManager = ();
 }
 
 #[cfg(test)]
