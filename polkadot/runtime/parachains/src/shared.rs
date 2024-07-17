@@ -19,14 +19,14 @@
 //! To avoid cyclic dependencies, it is important that this pallet is not
 //! dependent on any of the other pallets.
 
-use frame_support::{pallet_prelude::*, traits::DisabledValidators};
-use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{SessionIndex, ValidatorId, ValidatorIndex};
-use sp_runtime::traits::AtLeast32BitUnsigned;
-use sp_std::{
+use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	vec::Vec,
 };
+use frame_support::{pallet_prelude::*, traits::DisabledValidators};
+use frame_system::pallet_prelude::BlockNumberFor;
+use polkadot_primitives::{SessionIndex, ValidatorId, ValidatorIndex};
+use sp_runtime::traits::AtLeast32BitUnsigned;
 
 use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;

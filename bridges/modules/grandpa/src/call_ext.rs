@@ -18,12 +18,8 @@ use crate::{
 	weights::WeightInfo, BestFinalized, BridgedBlockNumber, BridgedHeader, Config,
 	CurrentAuthoritySet, Error, FreeHeadersRemaining, Pallet,
 };
-use bp_header_chain::{
-	justification::GrandpaJustification, max_expected_submit_finality_proof_arguments_size,
-	ChainWithGrandpa, GrandpaConsensusLogReader,
-};
+use bp_header_chain::{justification::GrandpaJustification, submit_finality_proof_limits_extras};
 use bp_runtime::{BlockNumberOf, Chain, OwnedBridgeModule};
-use codec::Encode;
 use frame_support::{
 	dispatch::CallableCallFor,
 	traits::{Get, IsSubType},
@@ -148,8 +144,13 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 			}
 		}
 
-		// we do not check whether the header matches free submission criteria here - it is the
-		// relayer responsibility to check that
+		// let's also check whether the header submission fits the hardcoded limits. A normal
+		// relayer would check that before submitting a transaction (since limits are constants
+		// and do not depend on a volatile runtime state), but the ckeck itself is cheap, so
+		// let's do it here too
+		if !call_info.fits_limits() {
+			return Err(Error::<T, I>::HeaderOverflowLimits);
+		}
 
 		Ok(improved_by)
 	}
@@ -298,53 +299,31 @@ pub(crate) fn submit_finality_proof_info_from_args<T: Config<I>, I: 'static>(
 	current_set_id: Option<SetId>,
 	is_free_execution_expected: bool,
 ) -> SubmitFinalityProofInfo<BridgedBlockNumber<T, I>> {
-	let block_number = *finality_target.number();
-
-	// the `submit_finality_proof` call will reject justifications with invalid, duplicate,
-	// unknown and extra signatures. It'll also reject justifications with less than necessary
-	// signatures. So we do not care about extra weight because of additional signatures here.
-	let precommits_len = justification.commit.precommits.len().saturated_into();
-	let required_precommits = precommits_len;
+	// check if call exceeds limits. In other words - whether some size or weight is included
+	// in the call
+	let extras =
+		submit_finality_proof_limits_extras::<T::BridgedChain>(finality_target, justification);
 
 	// We do care about extra weight because of more-than-expected headers in the votes
 	// ancestries. But we have problems computing extra weight for additional headers (weight of
 	// additional header is too small, so that our benchmarks aren't detecting that). So if there
 	// are more than expected headers in votes ancestries, we will treat the whole call weight
 	// as an extra weight.
-	let votes_ancestries_len = justification.votes_ancestries.len().saturated_into();
-	let extra_weight =
-		if votes_ancestries_len > T::BridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY {
-			T::WeightInfo::submit_finality_proof(precommits_len, votes_ancestries_len)
-		} else {
-			Weight::zero()
-		};
-
-	// check if the `finality_target` is a mandatory header. If so, we are ready to refund larger
-	// size
-	let is_mandatory_finality_target =
-		GrandpaConsensusLogReader::<BridgedBlockNumber<T, I>>::find_scheduled_change(
-			finality_target.digest(),
-		)
-		.is_some();
-
-	// we can estimate extra call size easily, without any additional significant overhead
-	let actual_call_size: u32 = finality_target
-		.encoded_size()
-		.saturating_add(justification.encoded_size())
-		.saturated_into();
-	let max_expected_call_size = max_expected_submit_finality_proof_arguments_size::<T::BridgedChain>(
-		is_mandatory_finality_target,
-		required_precommits,
-	);
-	let extra_size = actual_call_size.saturating_sub(max_expected_call_size);
+	let extra_weight = if extras.is_weight_limit_exceeded {
+		let precommits_len = justification.commit.precommits.len().saturated_into();
+		let votes_ancestries_len = justification.votes_ancestries.len().saturated_into();
+		T::WeightInfo::submit_finality_proof(precommits_len, votes_ancestries_len)
+	} else {
+		Weight::zero()
+	};
 
 	SubmitFinalityProofInfo {
-		block_number,
+		block_number: *finality_target.number(),
 		current_set_id,
-		is_mandatory: is_mandatory_finality_target,
+		is_mandatory: extras.is_mandatory_finality_target,
 		is_free_execution_expected,
 		extra_weight,
-		extra_size,
+		extra_size: extras.extra_size,
 	}
 }
 
@@ -465,6 +444,64 @@ mod tests {
 				bridge_grandpa_call,
 			),)
 			.is_ok());
+		})
+	}
+
+	#[test]
+	fn extension_rejects_new_header_if_it_overflow_size_limits() {
+		run_test(|| {
+			let mut large_finality_target = test_header(10 + FreeHeadersInterval::get() as u64);
+			large_finality_target
+				.digest_mut()
+				.push(DigestItem::Other(vec![42u8; 1024 * 1024]));
+			let justification_params = JustificationGeneratorParams {
+				header: large_finality_target.clone(),
+				..Default::default()
+			};
+			let large_justification = make_justification_for_header(justification_params);
+
+			let bridge_grandpa_call = crate::Call::<TestRuntime, ()>::submit_finality_proof_ex {
+				finality_target: Box::new(large_finality_target),
+				justification: large_justification,
+				current_set_id: 0,
+				is_free_execution_expected: true,
+			};
+			sync_to_header_10();
+
+			// if overflow size limits => Err
+			FreeHeadersRemaining::<TestRuntime, ()>::put(2);
+			assert!(RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
+				bridge_grandpa_call.clone(),
+			),)
+			.is_err());
+		})
+	}
+
+	#[test]
+	fn extension_rejects_new_header_if_it_overflow_weight_limits() {
+		run_test(|| {
+			let finality_target = test_header(10 + FreeHeadersInterval::get() as u64);
+			let justification_params = JustificationGeneratorParams {
+				header: finality_target.clone(),
+				ancestors: TestBridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY,
+				..Default::default()
+			};
+			let justification = make_justification_for_header(justification_params);
+
+			let bridge_grandpa_call = crate::Call::<TestRuntime, ()>::submit_finality_proof_ex {
+				finality_target: Box::new(finality_target),
+				justification,
+				current_set_id: 0,
+				is_free_execution_expected: true,
+			};
+			sync_to_header_10();
+
+			// if overflow weight limits => Err
+			FreeHeadersRemaining::<TestRuntime, ()>::put(2);
+			assert!(RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
+				bridge_grandpa_call.clone(),
+			),)
+			.is_err());
 		})
 	}
 

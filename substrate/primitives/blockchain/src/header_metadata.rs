@@ -20,12 +20,16 @@
 
 use parking_lot::RwLock;
 use schnellru::{ByLength, LruMap};
-use sp_runtime::traits::{Block as BlockT, Header, NumberFor, One};
+use sp_core::U256;
+use sp_runtime::{
+	traits::{Block as BlockT, Header, NumberFor, One},
+	Saturating,
+};
 
 /// Set to the expected max difference between `best` and `finalized` blocks at sync.
-const LRU_CACHE_SIZE: u32 = 5_000;
+pub(crate) const LRU_CACHE_SIZE: u32 = 5_000;
 
-/// Get lowest common ancestor between two blocks in the tree.
+/// Get the lowest common ancestor between two blocks in the tree.
 ///
 /// This implementation is efficient because our trees have very few and
 /// small branches, and because of our current query pattern:
@@ -97,7 +101,7 @@ pub fn lowest_common_ancestor<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 }
 
 /// Compute a tree-route between two blocks. See tree-route docs for more details.
-pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block>>(
+pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 	backend: &T,
 	from: Block::Hash,
 	to: Block::Hash,
@@ -105,15 +109,16 @@ pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block>>(
 	let mut from = backend.header_metadata(from)?;
 	let mut to = backend.header_metadata(to)?;
 
-	let mut from_branch = Vec::new();
-	let mut to_branch = Vec::new();
-
+	let mut to_branch =
+		Vec::with_capacity(Into::<U256>::into(to.number.saturating_sub(from.number)).as_usize());
 	while to.number > from.number {
 		to_branch.push(HashAndNumber { number: to.number, hash: to.hash });
 
 		to = backend.header_metadata(to.parent)?;
 	}
 
+	let mut from_branch =
+		Vec::with_capacity(Into::<U256>::into(to.number.saturating_sub(from.number)).as_usize());
 	while from.number > to.number {
 		from_branch.push(HashAndNumber { number: from.number, hash: from.hash });
 		from = backend.header_metadata(from.parent)?;
@@ -132,6 +137,7 @@ pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block>>(
 	// add the pivot block. and append the reversed to-branch
 	// (note that it's reverse order originals)
 	let pivot = from_branch.len();
+	from_branch.reserve_exact(to_branch.len() + 1);
 	from_branch.push(HashAndNumber { number: to.number, hash: to.hash });
 	from_branch.extend(to_branch.into_iter().rev());
 
@@ -149,7 +155,7 @@ pub struct HashAndNumber<Block: BlockT> {
 
 /// A tree-route from one block to another in the chain.
 ///
-/// All blocks prior to the pivot in the deque is the reverse-order unique ancestry
+/// All blocks prior to the pivot in the vector is the reverse-order unique ancestry
 /// of the first block, the block at the pivot index is the common ancestor,
 /// and all blocks after the pivot is the ancestry of the second block, in
 /// order.

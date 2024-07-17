@@ -41,7 +41,6 @@ use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	SessionIndex,
 };
-use sp_std::prelude::*;
 use substrate_test_utils::assert_eq_uvec;
 
 #[test]
@@ -780,7 +779,7 @@ fn nominators_also_get_slashed_pro_rata() {
 #[test]
 fn double_staking_should_fail() {
 	// should test (in the same order):
-	// * an account already bonded as stash cannot be be stashed again.
+	// * an account already bonded as stash cannot be stashed again.
 	// * an account already bonded as stash cannot nominate.
 	// * an account already bonded as controller can nominate.
 	ExtBuilder::default().try_state(false).build_and_execute(|| {
@@ -1917,6 +1916,44 @@ fn reap_stash_works() {
 			// no easy way to cause an account to go below ED, we tweak their staking ledger
 			// instead.
 			Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 5));
+
+			// reap-able
+			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
+
+			// then
+			assert!(!<Ledger<Test>>::contains_key(&11));
+			assert!(!<Bonded<Test>>::contains_key(&11));
+			assert!(!<Validators<Test>>::contains_key(&11));
+			assert!(!<Payee<Test>>::contains_key(&11));
+			// lock is removed.
+			assert_eq!(Balances::balance_locked(STAKING_ID, &11), 0);
+		});
+}
+
+#[test]
+fn reap_stash_works_with_existential_deposit_zero() {
+	ExtBuilder::default()
+		.existential_deposit(0)
+		.balance_factor(10)
+		.build_and_execute(|| {
+			// given
+			assert_eq!(Balances::balance_locked(STAKING_ID, &11), 10 * 1000);
+			assert_eq!(Staking::bonded(&11), Some(11));
+
+			assert!(<Ledger<Test>>::contains_key(&11));
+			assert!(<Bonded<Test>>::contains_key(&11));
+			assert!(<Validators<Test>>::contains_key(&11));
+			assert!(<Payee<Test>>::contains_key(&11));
+
+			// stash is not reapable
+			assert_noop!(
+				Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
+				Error::<Test>::FundedTarget
+			);
+
+			// no easy way to cause an account to go below ED, we tweak their staking ledger
+			// instead.
+			Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 0));
 
 			// reap-able
 			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
@@ -5213,6 +5250,7 @@ mod election_data_provider {
 	// maybe_max_len`.
 	#[test]
 	#[should_panic]
+	#[cfg(debug_assertions)]
 	fn only_iterates_max_2_times_max_allowed_len() {
 		ExtBuilder::default()
 			.nominate(false)
@@ -5901,6 +5939,7 @@ fn min_commission_works() {
 
 #[test]
 #[should_panic]
+#[cfg(debug_assertions)]
 fn change_of_absolute_max_nominations() {
 	use frame_election_provider_support::ElectionDataProvider;
 	ExtBuilder::default()
@@ -6951,6 +6990,59 @@ mod staking_interface {
 				num_slashing_spans as u32
 			));
 		});
+	}
+
+	#[test]
+	fn do_withdraw_unbonded_can_kill_stash_with_existential_deposit_zero() {
+		ExtBuilder::default()
+			.existential_deposit(0)
+			.nominate(false)
+			.build_and_execute(|| {
+				// Initial state of 11
+				assert_eq!(Staking::bonded(&11), Some(11));
+				assert_eq!(
+					Staking::ledger(11.into()).unwrap(),
+					StakingLedgerInspect {
+						stash: 11,
+						total: 1000,
+						active: 1000,
+						unlocking: Default::default(),
+						legacy_claimed_rewards: bounded_vec![],
+					}
+				);
+				assert_eq!(
+					Staking::eras_stakers(active_era(), &11),
+					Exposure { total: 1000, own: 1000, others: vec![] }
+				);
+
+				// Unbond all of the funds in stash.
+				Staking::chill(RuntimeOrigin::signed(11)).unwrap();
+				Staking::unbond(RuntimeOrigin::signed(11), 1000).unwrap();
+				assert_eq!(
+					Staking::ledger(11.into()).unwrap(),
+					StakingLedgerInspect {
+						stash: 11,
+						total: 1000,
+						active: 0,
+						unlocking: bounded_vec![UnlockChunk { value: 1000, era: 3 }],
+						legacy_claimed_rewards: bounded_vec![],
+					},
+				);
+
+				// trigger future era.
+				mock::start_active_era(3);
+
+				// withdraw unbonded
+				assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0));
+
+				// empty stash has been reaped
+				assert!(!<Ledger<Test>>::contains_key(&11));
+				assert!(!<Bonded<Test>>::contains_key(&11));
+				assert!(!<Validators<Test>>::contains_key(&11));
+				assert!(!<Payee<Test>>::contains_key(&11));
+				// lock is removed.
+				assert_eq!(Balances::balance_locked(STAKING_ID, &11), 0);
+			});
 	}
 
 	#[test]

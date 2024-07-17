@@ -175,10 +175,9 @@ function run_finality_relay() {
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
         $relayer_path relay-headers rococo-to-bridge-hub-westend \
         --only-free-headers \
-        --source-host localhost \
-        --source-port 9942 \
-        --target-host localhost \
-        --target-port 8945 \
+        --source-uri ws://localhost:9942 \
+        --source-version-mode Auto \
+        --target-uri ws://localhost:8945 \
         --target-version-mode Auto \
         --target-signer //Charlie \
         --target-transactions-mortality 4&
@@ -186,10 +185,9 @@ function run_finality_relay() {
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
         $relayer_path relay-headers westend-to-bridge-hub-rococo \
         --only-free-headers \
-        --source-host localhost \
-        --source-port 9945 \
-        --target-host localhost \
-        --target-port 8943 \
+        --source-uri ws://localhost:9945 \
+        --source-version-mode Auto \
+        --target-uri ws://localhost:8943 \
         --target-version-mode Auto \
         --target-signer //Charlie \
         --target-transactions-mortality 4
@@ -201,10 +199,9 @@ function run_parachains_relay() {
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
         $relayer_path relay-parachains rococo-to-bridge-hub-westend \
         --only-free-headers \
-        --source-host localhost \
-        --source-port 9942 \
-        --target-host localhost \
-        --target-port 8945 \
+        --source-uri ws://localhost:9942 \
+        --source-version-mode Auto \
+        --target-uri ws://localhost:8945 \
         --target-version-mode Auto \
         --target-signer //Dave \
         --target-transactions-mortality 4&
@@ -212,10 +209,9 @@ function run_parachains_relay() {
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
         $relayer_path relay-parachains westend-to-bridge-hub-rococo \
         --only-free-headers \
-        --source-host localhost \
-        --source-port 9945 \
-        --target-host localhost \
-        --target-port 8943 \
+        --source-uri ws://localhost:9945 \
+        --source-version-mode Auto \
+        --target-uri ws://localhost:8943 \
         --target-version-mode Auto \
         --target-signer //Dave \
         --target-transactions-mortality 4
@@ -226,13 +222,11 @@ function run_messages_relay() {
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
         $relayer_path relay-messages bridge-hub-rococo-to-bridge-hub-westend \
-        --source-host localhost \
-        --source-port 8943 \
+        --source-uri ws://localhost:8943 \
         --source-version-mode Auto \
         --source-signer //Eve \
         --source-transactions-mortality 4 \
-        --target-host localhost \
-        --target-port 8945 \
+        --target-uri ws://localhost:8945 \
         --target-version-mode Auto \
         --target-signer //Eve \
         --target-transactions-mortality 4 \
@@ -240,13 +234,11 @@ function run_messages_relay() {
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
         $relayer_path relay-messages bridge-hub-westend-to-bridge-hub-rococo \
-        --source-host localhost \
-        --source-port 8945 \
+        --source-uri ws://localhost:8945 \
         --source-version-mode Auto \
         --source-signer //Ferdie \
         --source-transactions-mortality 4 \
-        --target-host localhost \
-        --target-port 8943 \
+        --target-uri ws://localhost:8943 \
         --target-version-mode Auto \
         --target-signer //Ferdie \
         --target-transactions-mortality 4 \

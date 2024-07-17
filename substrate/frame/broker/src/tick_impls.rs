@@ -16,13 +16,10 @@
 // limitations under the License.
 
 use super::*;
-use frame_support::{pallet_prelude::*, weights::WeightMeter};
-use sp_arithmetic::{
-	traits::{One, SaturatedConversion, Saturating, Zero},
-	FixedPointNumber,
-};
+use alloc::{vec, vec::Vec};
+use frame_support::{pallet_prelude::*, traits::defensive_prelude::*, weights::WeightMeter};
+use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
 use sp_runtime::traits::ConvertBack;
-use sp_std::{vec, vec::Vec};
 use CompletionStatus::Complete;
 
 impl<T: Config> Pallet<T> {
@@ -79,6 +76,8 @@ impl<T: Config> Pallet<T> {
 			let rc_block = T::TimeslicePeriod::get() * status.last_timeslice.into();
 			T::Coretime::request_revenue_info_at(rc_block);
 			meter.consume(T::WeightInfo::request_revenue_info_at());
+			T::Coretime::on_new_timeslice(status.last_timeslice);
+			meter.consume(T::WeightInfo::on_new_timeslice());
 		}
 
 		Status::<T>::put(&status);
@@ -96,15 +95,23 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn process_revenue() -> bool {
-		let Some((until, amount)) = T::Coretime::check_notify_revenue_info() else { return false };
+		let Some(OnDemandRevenueRecord { until, amount }) = RevenueInbox::<T>::take() else {
+			return false
+		};
 		let when: Timeslice =
 			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
-		let mut revenue = T::ConvertBalance::convert_back(amount);
+		let mut revenue = T::ConvertBalance::convert_back(amount.clone());
 		if revenue.is_zero() {
 			Self::deposit_event(Event::<T>::HistoryDropped { when, revenue });
 			InstaPoolHistory::<T>::remove(when);
 			return true
 		}
+
+		log::debug!(
+			target: "pallet_broker::process_revenue",
+			"Received {amount:?} from RC, converted into {revenue:?} revenue",
+		);
+
 		let mut r = InstaPoolHistory::<T>::get(when).unwrap_or_default();
 		if r.maybe_payout.is_some() {
 			Self::deposit_event(Event::<T>::HistoryIgnored { when, revenue });
@@ -115,13 +122,18 @@ impl<T: Config> Pallet<T> {
 		let system_payout = if !total_contrib.is_zero() {
 			let system_payout =
 				revenue.saturating_mul(r.system_contributions.into()) / total_contrib.into();
-			let _ = Self::charge(&Self::account_id(), system_payout);
+			Self::charge(&Self::account_id(), system_payout).defensive_ok();
 			revenue.saturating_reduce(system_payout);
 
 			system_payout
 		} else {
 			Zero::zero()
 		};
+
+		log::debug!(
+			target: "pallet_broker::process_revenue",
+			"Charged {system_payout:?} for system payouts, {revenue:?} remaining for private contributions",
+		);
 
 		if !revenue.is_zero() && r.private_contributions > 0 {
 			r.maybe_payout = Some(revenue);
@@ -163,31 +175,13 @@ impl<T: Config> Pallet<T> {
 		InstaPoolIo::<T>::mutate(old_sale.region_end, |r| r.system.saturating_reduce(old_pooled));
 
 		// Calculate the start price for the upcoming sale.
-		let price = {
-			let offered = old_sale.cores_offered;
-			let ideal = old_sale.ideal_cores_sold;
-			let sold = old_sale.cores_sold;
+		let new_prices = T::PriceAdapter::adapt_price(SalePerformance::from_sale(&old_sale));
 
-			let maybe_purchase_price = if offered == 0 {
-				// No cores offered for sale - no purchase price.
-				None
-			} else if sold >= ideal {
-				// Sold more than the ideal amount. We should look for the last purchase price
-				// before the sell-out. If there was no purchase at all, then we avoid having a
-				// price here so that we make no alterations to it (since otherwise we would
-				// increase it).
-				old_sale.sellout_price
-			} else {
-				// Sold less than the ideal - we fall back to the regular price.
-				Some(old_sale.price)
-			};
-			if let Some(purchase_price) = maybe_purchase_price {
-				T::PriceAdapter::adapt_price(sold.min(offered), ideal, offered)
-					.saturating_mul_int(purchase_price)
-			} else {
-				old_sale.price
-			}
-		};
+		log::debug!(
+			"Rotated sale, new prices: {:?}, {:?}",
+			new_prices.end_price,
+			new_prices.target_price
+		);
 
 		// Set workload for the reserved (system, probably) workloads.
 		let region_begin = old_sale.region_end;
@@ -220,12 +214,15 @@ impl<T: Config> Pallet<T> {
 			let expire = until < region_end;
 			if expire {
 				// last time for this one - make it renewable in the next sale.
-				let renewal_id = AllowedRenewalId { core: first_core, when: region_end };
-				let record = AllowedRenewalRecord { price, completion: Complete(schedule) };
-				AllowedRenewals::<T>::insert(renewal_id, &record);
+				let renewal_id = PotentialRenewalId { core: first_core, when: region_end };
+				let record = PotentialRenewalRecord {
+					price: new_prices.target_price,
+					completion: Complete(schedule),
+				};
+				PotentialRenewals::<T>::insert(renewal_id, &record);
 				Self::deposit_event(Event::Renewable {
 					core: first_core,
-					price,
+					price: new_prices.target_price,
 					begin: region_end,
 					workload: record.completion.drain_complete().unwrap_or_default(),
 				});
@@ -244,12 +241,19 @@ impl<T: Config> Pallet<T> {
 		let sale_start = now.saturating_add(config.interlude_length);
 		let leadin_length = config.leadin_length;
 		let ideal_cores_sold = (config.ideal_bulk_proportion * cores_offered as u32) as u16;
+		let sellout_price = if cores_offered > 0 {
+			// No core sold -> price was too high -> we have to adjust downwards.
+			Some(new_prices.end_price)
+		} else {
+			None
+		};
+
 		// Update SaleInfo
 		let new_sale = SaleInfoRecord {
 			sale_start,
 			leadin_length,
-			price,
-			sellout_price: None,
+			end_price: new_prices.end_price,
+			sellout_price,
 			region_begin,
 			region_end,
 			first_core,
@@ -257,12 +261,13 @@ impl<T: Config> Pallet<T> {
 			cores_offered,
 			cores_sold: 0,
 		};
+
 		SaleInfo::<T>::put(&new_sale);
 		Self::deposit_event(Event::SaleInitialized {
 			sale_start,
 			leadin_length,
 			start_price: Self::sale_price(&new_sale, now),
-			regular_price: price,
+			end_price: new_prices.end_price,
 			region_begin,
 			region_end,
 			ideal_cores_sold,

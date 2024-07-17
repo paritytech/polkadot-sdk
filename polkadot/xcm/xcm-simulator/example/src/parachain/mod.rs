@@ -16,7 +16,6 @@
 
 //! Parachain runtime mock.
 
-mod mock_msg_queue;
 mod xcm_config;
 pub use xcm_config::*;
 
@@ -32,10 +31,10 @@ use sp_runtime::{
 	traits::{Get, IdentityLookup},
 	AccountId32,
 };
-use sp_std::prelude::*;
 use xcm::latest::prelude::*;
 use xcm_builder::{EnsureXcmOrigin, SignedToAccountId32};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
+use xcm_simulator::mock_message_queue;
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
@@ -101,7 +100,7 @@ impl EnsureOriginWithArg<RuntimeOrigin, Location> for ForeignCreators {
 	fn try_origin(
 		o: RuntimeOrigin,
 		a: &Location,
-	) -> sp_std::result::Result<Self::Success, RuntimeOrigin> {
+	) -> core::result::Result<Self::Success, RuntimeOrigin> {
 		let origin_location = pallet_xcm::EnsureXcm::<Everything>::try_origin(o.clone())?;
 		if !a.starts_with(&origin_location) {
 			return Err(o);
@@ -121,7 +120,7 @@ parameter_types! {
 	pub const ReservedDmpWeight: Weight = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_div(4), 0);
 }
 
-impl mock_msg_queue::Config for Runtime {
+impl mock_message_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
@@ -175,7 +174,7 @@ construct_runtime!(
 	pub struct Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
-		MsgQueue: mock_msg_queue,
+		MsgQueue: mock_message_queue,
 		PolkadotXcm: pallet_xcm,
 		ForeignUniques: pallet_uniques,
 	}
