@@ -22,6 +22,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "runtime-metrics")]
 mod with_runtime_metrics;
 #[cfg(feature = "runtime-metrics")]

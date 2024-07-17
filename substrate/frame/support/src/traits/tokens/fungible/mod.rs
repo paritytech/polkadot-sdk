@@ -65,7 +65,7 @@
 //!   "stack". This means that if an account has 3 freezes for 100 units, the account can spend its
 //!   funds for any reason down to 100 units, at which point the freezes will start to come into
 //!   play.
-//!   
+//!
 //!   It's important to note that the frozen balance can exceed the total balance of the account.
 //!   This is useful, eg, in cases where you want to prevent a user from transferring any fund. In
 //!   such a case, setting the frozen balance to `Balance::MAX` would serve that purpose
@@ -161,9 +161,9 @@ mod regular;
 mod union_of;
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use sp_std::marker::PhantomData;
 
 use super::{
 	Fortitude::{Force, Polite},
