@@ -16,7 +16,6 @@ scale-info = { features = ["derive"], workspace = true }
 # Substrate
 sp-api = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 sp-trie = { workspace = true }
 
 # Polkadot
@@ -35,7 +34,6 @@ std = [
 	"scale-info/std",
 	"sp-api/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-trie/std",
 	"xcm/std",
 ]

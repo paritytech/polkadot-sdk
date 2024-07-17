@@ -32,7 +32,10 @@ pub fn wasm_binary_unwrap() -> &'static [u8] {
 }
 
 #[cfg(not(feature = "std"))]
-use sp_std::{vec, vec::Vec};
+extern crate alloc;
+
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 #[cfg(not(feature = "std"))]
 use sp_core::{ed25519, sr25519};
@@ -332,7 +335,7 @@ sp_core::wasm_export_functions! {
 		let test_message = b"Hello invalid heap memory";
 		let ptr = (heap_base + offset) as *mut u8;
 
-		let message_slice = unsafe { sp_std::slice::from_raw_parts_mut(ptr, test_message.len()) };
+		let message_slice = unsafe { alloc::slice::from_raw_parts_mut(ptr, test_message.len()) };
 
 		assert_ne!(test_message, message_slice);
 		message_slice.copy_from_slice(test_message);
