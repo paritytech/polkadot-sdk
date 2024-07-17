@@ -290,13 +290,20 @@ pub mod pallet {
 			/// The proposal for the referendum.
 			proposal: BoundedCallOf<T, I>,
 		},
-		/// The decision deposit has been placed.
+		/// The decision deposit has been fully collected and placed.
 		DecisionDepositPlaced {
 			/// Index of the referendum.
 			index: ReferendumIndex,
-			/// The account who placed the deposit.
-			who: T::AccountId,
 			/// The amount placed by the account.
+			amount: BalanceOf<T, I>,
+		},
+		/// Someone contributed to the decision deposit.
+		ContributedDecisionDeposit {
+			/// Index of the referendum.
+			index: ReferendumIndex,
+			/// The account who contributed parts of the deposit.
+			who: T::AccountId,
+			/// The amount contributed by the account.
 			amount: BalanceOf<T, I>,
 		},
 		/// The decision deposit has been refunded.
@@ -398,9 +405,29 @@ pub mod pallet {
 			hash: T::Hash,
 		},
 		/// The list of decision depositors is full, but someone provided an higher deposit.
-		ReplacedDecisionDepositor {
+		ReplacedDecisionContributor {
 			/// The account that got replaced in the list of decision depositors.
 			who: T::AccountId,
+			/// Index of the referendum.
+			index: ReferendumIndex,
+			/// The amount that the account had contributed.
+			amount: BalanceOf<T, I>,
+		},
+		/// An account increased its decision deposit contribution.
+		DecisionDepositContributionIncreased {
+			/// The account that increased its decision deposit contribution.
+			who: T::AccountId,
+			/// The amount by which the contribution was increased.
+			increased_by: BalanceOf<T, I>,
+			/// Index of the referendum.
+			index: ReferendumIndex,
+		},
+		/// An account decreased its decision deposit contribution.
+		DecisionDepositContributionDecreased {
+			/// The account that decreased its decision deposit contribution.
+			who: T::AccountId,
+			/// The amount by which the contribution was decreased.
+			decreased_by: BalanceOf<T, I>,
 			/// Index of the referendum.
 			index: ReferendumIndex,
 		},
@@ -866,6 +893,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 	}
 
+	/// Contribute decision deposit to the referendum with `index`.
+	///
+	/// The `deposit` will be locked for `contributor`. If `deposit` is `None`, the required
+	/// `decision_deposit` of the track will be locked.
 	fn contribute_decision_deposit(
 		index: ReferendumIndex,
 		contributor: T::AccountId,
@@ -888,9 +919,21 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			if old_deposit > deposit {
 				Self::refund_deposit(&contributor, old_deposit - deposit);
 				status.decision_deposit.collected_deposit -= old_deposit - deposit;
+
+				Self::deposit_event(Event::DecisionDepositContributionDecreased {
+					index,
+					who: contributor,
+					decreased_by: old_deposit - deposit,
+				});
 			} else {
 				Self::take_deposit(contributor, deposit - old_deposit);
 				status.decision_deposit.collected_deposit += deposit - old_deposit;
+
+				Self::deposit_event(Event::DecisionDepositContributionIncreased {
+					index,
+					who: contributor,
+					increased_by: deposit - old_deposit,
+				});
 			}
 
 			let pos = status
@@ -903,9 +946,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				.contributors
 				.try_insert(pos, (contributor.clone(), deposit))
 				.expect("We just removed an element, so there is space; qed");
-		} else if T::MaxDepositContributions::get() as usize >=
-			status.decision_deposit.contributors.len()
-		{
+		} else {
 			let pos = status
 				.decision_deposit
 				.contributors
@@ -916,34 +957,25 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				return Err(Error::<T, I>::DepositTooLow.into());
 			}
 
-			if let Some(removed) = status
+			status.decision_deposit.collected_deposit =
+				status.decision_deposit.collected_deposit.saturating_add(deposit);
+
+			if let Some((who, amount)) = status
 				.decision_deposit
 				.contributors
 				.force_insert_keep_right(pos, (contributor.clone(), deposit))
 				.unwrap_or_else(|e| Some(e))
 			{
-				Self::deposit_event(Event::ReplacedDecisionDepositor { who: removed.0, index });
+				Self::refund_deposit(&who, amount);
 
-				Self::refund_deposit(&removed.0, removed.1);
+				Self::deposit_event(Event::ReplacedDecisionContributor { who, index, amount });
 			}
-		} else {
-			let pos = status
-				.decision_deposit
-				.contributors
-				.binary_search_by_key(&deposit, |c| c.1)
-				.unwrap_or_else(|e| e);
 
-			status
-				.decision_deposit
-				.contributors
-				.try_insert(pos, (contributor.clone(), deposit))
-				.expect("We just removed an element, so there is space; qed");
-			status
-				.decision_deposit
-				.contributors
-				.force_push(Self::take_deposit(contributor.clone(), deposit)?);
-			status.decision_deposit.collected_deposit =
-				status.decision_deposit.collected_deposit.saturating_add(deposit);
+			Self::deposit_event(Event::<T, I>::ContributedDecisionDeposit {
+				index,
+				who: contributor,
+				amount: deposit,
+			});
 		}
 
 		if status.decision_deposit.collected_deposit < track.decision_deposit {
@@ -953,11 +985,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let now = frame_system::Pallet::<T>::block_number();
 		let (info, _, branch) = Self::service_referendum(now, index, status);
 		ReferendumInfoFor::<T, I>::insert(index, info);
-		let e = Event::<T, I>::DecisionDepositPlaced {
-			index,
-			who: contributor,
-			amount: track.decision_deposit,
-		};
+		let e = Event::<T, I>::DecisionDepositPlaced { index, amount: track.decision_deposit };
 		Self::deposit_event(e);
 		Ok(branch.weight_of_deposit::<T, I>().into())
 	}
