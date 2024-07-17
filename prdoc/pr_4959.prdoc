@@ -12,6 +12,8 @@ doc:
 crates:
   - name: staging-xcm-builder
     bump: minor
+  - name: staging-xcm
+    bump: minor
   - name: pallet-xcm
     bump: minor
   - name: asset-hub-rococo-runtime
