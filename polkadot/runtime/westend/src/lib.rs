@@ -2450,10 +2450,6 @@ sp_api::impl_runtime_apis! {
 		fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool {
 			Staking::api_pending_rewards(era, account)
 		}
-
-		fn inflation_info() -> pallet_staking_runtime_api::InflationInfo {
-			Runtime::staking_inflation_info()
-		}
 	}
 
 	#[cfg(feature = "try-runtime")]
