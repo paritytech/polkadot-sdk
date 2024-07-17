@@ -36,7 +36,6 @@ use sp_runtime::{
 	Perbill, Percent, Saturating,
 };
 use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex, StakingInterface};
-use sp_std::prelude::*;
 
 pub use frame_benchmarking::v1::{
 	account, impl_benchmark_test_suite, whitelist_account, whitelisted_caller, BenchmarkError,
@@ -178,7 +177,7 @@ impl<T: Config> ListScenario<T> {
 
 		// burn the entire issuance.
 		let i = T::Currency::burn(T::Currency::total_issuance());
-		sp_std::mem::forget(i);
+		core::mem::forget(i);
 
 		// create accounts with the origin weight
 		let (origin_stash1, origin_controller1) = create_stash_controller_with_balance::<T>(

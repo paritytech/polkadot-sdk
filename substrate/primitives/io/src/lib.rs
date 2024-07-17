@@ -77,7 +77,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(enable_alloc_error_handler, feature(alloc_error_handler))]
 
-use sp_std::vec::Vec;
+extern crate alloc;
+
+use alloc::vec::Vec;
 
 #[cfg(feature = "std")]
 use tracing;
@@ -1771,7 +1773,7 @@ pub fn unreachable() -> ! {
 #[panic_handler]
 #[no_mangle]
 pub fn panic(info: &core::panic::PanicInfo) -> ! {
-	let message = sp_std::alloc::format!("{}", info);
+	let message = alloc::format!("{}", info);
 	#[cfg(feature = "improved_panic_error_reporting")]
 	{
 		panic_handler::abort_on_panic(&message);

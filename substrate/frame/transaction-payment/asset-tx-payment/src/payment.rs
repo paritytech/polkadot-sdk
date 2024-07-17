@@ -18,6 +18,7 @@ use super::*;
 use crate::Config;
 
 use codec::FullCodec;
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	traits::{
 		fungibles::{Balanced, Credit, Inspect},
@@ -33,7 +34,6 @@ use sp_runtime::{
 	traits::{DispatchInfoOf, MaybeSerializeDeserialize, One, PostDispatchInfoOf},
 	transaction_validity::InvalidTransaction,
 };
-use sp_std::{fmt::Debug, marker::PhantomData};
 
 /// Handle withdrawing, refunding and depositing of transaction fees.
 pub trait OnChargeAssetTransaction<T: Config> {

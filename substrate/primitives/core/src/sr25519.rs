@@ -25,25 +25,25 @@ use crate::crypto::Ss58Codec;
 use crate::crypto::{
 	CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError,
 };
+use alloc::vec::Vec;
 #[cfg(feature = "full_crypto")]
 use schnorrkel::signing_context;
 use schnorrkel::{
 	derive::{ChainCode, Derivation, CHAIN_CODE_LENGTH},
 	ExpansionMode, Keypair, MiniSecretKey, PublicKey, SecretKey,
 };
-use sp_std::vec::Vec;
 
 use crate::crypto::{CryptoType, CryptoTypeId, Derive, Public as TraitPublic, SignatureBytes};
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::{format, string::String};
 use schnorrkel::keys::{MINI_SECRET_KEY_LENGTH, SECRET_KEY_LENGTH};
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "std")]
 use sp_runtime_interface::pass_by::PassByInner;
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::{format, string::String};
 
 // signing context
 const SIGNING_CTX: &[u8] = b"substrate";
@@ -100,15 +100,15 @@ impl std::fmt::Display for Public {
 	}
 }
 
-impl sp_std::fmt::Debug for Public {
+impl core::fmt::Debug for Public {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		let s = self.to_ss58check();
 		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(self.inner()), &s[0..8])
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
