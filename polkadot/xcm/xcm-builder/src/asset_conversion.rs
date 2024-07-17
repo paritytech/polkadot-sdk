@@ -16,9 +16,9 @@
 
 //! Adapters to work with [`frame_support::traits::fungibles`] through XCM.
 
+use core::{marker::PhantomData, result};
 use frame_support::traits::{Contains, Get};
 use sp_runtime::traits::MaybeEquivalence;
-use sp_std::{marker::PhantomData, prelude::*, result};
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{Error as MatchError, MatchesFungibles, MatchesNonFungibles};
 
@@ -106,17 +106,6 @@ impl<
 
 #[deprecated = "Use `ConvertedConcreteId` instead"]
 pub type ConvertedConcreteAssetId<A, B, C, O> = ConvertedConcreteId<A, B, C, O>;
-
-pub struct V4V3LocationConverter;
-impl MaybeEquivalence<xcm::v4::Location, xcm::v3::Location> for V4V3LocationConverter {
-	fn convert(old: &xcm::v4::Location) -> Option<xcm::v3::Location> {
-		(*old).clone().try_into().ok()
-	}
-
-	fn convert_back(new: &xcm::v3::Location) -> Option<xcm::v4::Location> {
-		(*new).try_into().ok()
-	}
-}
 
 pub struct MatchedConvertedConcreteId<AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertOther>(
 	PhantomData<(AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertOther)>,

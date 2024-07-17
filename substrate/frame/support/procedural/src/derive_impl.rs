@@ -172,6 +172,33 @@ fn combine_impls(
 	final_impl
 }
 
+/// Computes the disambiguation path for the `derive_impl` attribute macro.
+///
+/// When specified explicitly using `as [disambiguation_path]` in the macro attr, the
+/// disambiguation is used as is. If not, we infer the disambiguation path from the
+/// `foreign_impl_path` and the computed scope.
+fn compute_disambiguation_path(
+	disambiguation_path: Option<Path>,
+	foreign_impl: ItemImpl,
+	default_impl_path: Path,
+) -> Result<Path> {
+	match (disambiguation_path, foreign_impl.clone().trait_) {
+		(Some(disambiguation_path), _) => Ok(disambiguation_path),
+		(None, Some((_, foreign_impl_path, _))) =>
+			if default_impl_path.segments.len() > 1 {
+				let scope = default_impl_path.segments.first();
+				Ok(parse_quote!(#scope :: #foreign_impl_path))
+			} else {
+				Ok(foreign_impl_path)
+			},
+		_ => Err(syn::Error::new(
+			default_impl_path.span(),
+			"Impl statement must have a defined type being implemented \
+			for a defined type such as `impl A for B`",
+		)),
+	}
+}
+
 /// Internal implementation behind [`#[derive_impl(..)]`](`macro@crate::derive_impl`).
 ///
 /// `default_impl_path`: the module path of the external `impl` statement whose tokens we are
@@ -194,18 +221,11 @@ pub fn derive_impl(
 	let foreign_impl = parse2::<ItemImpl>(foreign_tokens)?;
 	let default_impl_path = parse2::<Path>(default_impl_path)?;
 
-	// have disambiguation_path default to the item being impl'd in the foreign impl if we
-	// don't specify an `as [disambiguation_path]` in the macro attr
-	let disambiguation_path = match (disambiguation_path, foreign_impl.clone().trait_) {
-		(Some(disambiguation_path), _) => disambiguation_path,
-		(None, Some((_, foreign_impl_path, _))) => foreign_impl_path,
-		_ =>
-			return Err(syn::Error::new(
-				foreign_impl.span(),
-				"Impl statement must have a defined type being implemented \
-				for a defined type such as `impl A for B`",
-			)),
-	};
+	let disambiguation_path = compute_disambiguation_path(
+		disambiguation_path,
+		foreign_impl.clone(),
+		default_impl_path.clone(),
+	)?;
 
 	// generate the combined impl
 	let combined_impl = combine_impls(
@@ -256,4 +276,28 @@ fn test_runtime_type_with_doc() {
 			assert_eq!(is_runtime_type(&typ), true);
 		}
 	}
+}
+
+#[test]
+fn test_disambiguation_path() {
+	let foreign_impl: ItemImpl = parse_quote!(impl SomeTrait for SomeType {});
+	let default_impl_path: Path = parse_quote!(SomeScope::SomeType);
+
+	// disambiguation path is specified
+	let disambiguation_path = compute_disambiguation_path(
+		Some(parse_quote!(SomeScope::SomePath)),
+		foreign_impl.clone(),
+		default_impl_path.clone(),
+	);
+	assert_eq!(disambiguation_path.unwrap(), parse_quote!(SomeScope::SomePath));
+
+	// disambiguation path is not specified and the default_impl_path has more than one segment
+	let disambiguation_path =
+		compute_disambiguation_path(None, foreign_impl.clone(), default_impl_path.clone());
+	assert_eq!(disambiguation_path.unwrap(), parse_quote!(SomeScope::SomeTrait));
+
+	// disambiguation path is not specified and the default_impl_path has only one segment
+	let disambiguation_path =
+		compute_disambiguation_path(None, foreign_impl.clone(), parse_quote!(SomeType));
+	assert_eq!(disambiguation_path.unwrap(), parse_quote!(SomeTrait));
 }

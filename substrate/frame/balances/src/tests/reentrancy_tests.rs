@@ -44,7 +44,7 @@ fn transfer_dust_removal_tst1_should_work() {
 			assert_eq!(Balances::free_balance(&2), 0);
 
 			// As expected beneficiary account 3
-			// received the transfered fund.
+			// received the transferred fund.
 			assert_eq!(Balances::free_balance(&3), 450);
 
 			// Dust balance is deposited to account 1
@@ -123,7 +123,7 @@ fn repatriating_reserved_balance_dust_removal_should_work() {
 
 			// Reserve a value on account 2,
 			// Such that free balance is lower than
-			// Exestintial deposit.
+			// Existential deposit.
 			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), 1, 450));
 
 			// Since free balance of account 2 is lower than

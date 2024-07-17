@@ -26,10 +26,10 @@ use crate::{
 	paras::{ParaGenesisArgs, ParaKind},
 	scheduler::common::Assignment,
 };
+use alloc::collections::btree_map::BTreeMap;
 use frame_support::{assert_noop, assert_ok, pallet_prelude::*, traits::Currency};
 use pallet_broker::TaskId;
-use primitives::{BlockNumber, Id as ParaId, SessionIndex, ValidationCode};
-use sp_std::collections::btree_map::BTreeMap;
+use polkadot_primitives::{BlockNumber, Id as ParaId, SessionIndex, ValidationCode};
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
 	let validation_code: ValidationCode = vec![1, 2, 3].into();
@@ -74,8 +74,11 @@ fn run_to_block(
 		Paras::initializer_initialize(b + 1);
 		Scheduler::initializer_initialize(b + 1);
 
+		// Update the spot traffic and revenue on every block.
+		OnDemandAssigner::on_initialize(b + 1);
+
 		// In the real runtime this is expected to be called by the `InclusionInherent` pallet.
-		Scheduler::free_cores_and_fill_claimqueue(BTreeMap::new(), b + 1);
+		Scheduler::free_cores_and_fill_claim_queue(BTreeMap::new(), b + 1);
 	}
 }
 
@@ -622,7 +625,7 @@ fn assignment_proportions_in_core_state_work() {
 			);
 		}
 
-		// Case 2: Current assignment remaning < step after pop
+		// Case 2: Current assignment remaining < step after pop
 		{
 			assert_eq!(
 				CoretimeAssigner::pop_assignment_for_core(core_idx),

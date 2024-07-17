@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove `experimental` feature from `pallet-aura`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The `experimental` feature in `pallet-aura`, previously used to gate different experimental
+      changes, became redundant with the introduction of the async backing which relies on the
+      mentioned changes, therefore, it is removed.
+
+crates:
+  - name: pallet-aura

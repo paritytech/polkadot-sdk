@@ -93,7 +93,7 @@ pub(crate) fn try_upgrade_db(
 }
 
 /// Try upgrading parachain's database to the next version.
-/// If successfull, it returns the current version.
+/// If successful, it returns the current version.
 pub(crate) fn try_upgrade_db_to_next_version(
 	db_path: &Path,
 	db_kind: DatabaseKind,
@@ -115,7 +115,7 @@ pub(crate) fn try_upgrade_db_to_next_version(
 			Some(CURRENT_VERSION) => CURRENT_VERSION,
 			// This is an arbitrary future version, we don't handle it.
 			Some(v) => return Err(Error::FutureVersion { current: CURRENT_VERSION, got: v }),
-			// No version file. For `RocksDB` we dont need to do anything.
+			// No version file. For `RocksDB` we don't need to do anything.
 			None if db_kind == DatabaseKind::RocksDB => CURRENT_VERSION,
 			// No version file. `ParityDB` did not previously have a version defined.
 			// We handle this as a `0 -> 1` migration.
@@ -183,7 +183,7 @@ fn migrate_from_version_1_to_2(path: &Path, db_kind: DatabaseKind) -> Result<Ver
 	})
 }
 
-// Migrade approval voting database.
+// Migrate approval voting database.
 // In 4  `OurAssignment` has been changed to support the v2 assignments.
 // In 5, `BlockEntry` has been changed to store the number of delayed approvals.
 // As these are backwards compatible, we'll convert the old entries in the new format.
@@ -463,7 +463,7 @@ mod tests {
 		v3::migration_helpers::{v1_to_latest_sanity_check, v2_fill_test_data},
 	};
 	use polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter;
-	use test_helpers::dummy_candidate_receipt;
+	use polkadot_primitives_test_helpers::dummy_candidate_receipt;
 
 	#[test]
 	fn test_paritydb_migrate_0_to_1() {

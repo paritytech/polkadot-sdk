@@ -1,0 +1,12 @@
+title: "provisioner: allow multiple cores assigned to the same para"
+
+topic: Node
+
+doc:
+  - audience: Node Dev
+    description: |
+      Enable supplying multiple backable candidates to the paras_inherent pallet for the same paraid.
+
+crates:
+  - name: polkadot-node-core-prospective-parachains
+  - name: polkadot-node-core-provisioner

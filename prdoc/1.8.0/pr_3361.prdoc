@@ -1,0 +1,10 @@
+title: Fix double charge of host function weight
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixed a double charge which can lead to quadratic gas consumption of
+      the `call` and `instantiate` host functions.
+
+crates:
+  - name: pallet-contracts

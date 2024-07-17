@@ -24,7 +24,6 @@ pub mod pallet_conviction_voting;
 pub mod pallet_election_provider_multi_phase;
 pub mod pallet_fast_unstake;
 pub mod pallet_identity;
-pub mod pallet_im_online;
 pub mod pallet_indices;
 pub mod pallet_message_queue;
 pub mod pallet_multisig;

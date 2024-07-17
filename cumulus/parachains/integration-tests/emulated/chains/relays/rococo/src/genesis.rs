@@ -14,10 +14,10 @@
 // limitations under the License.
 
 // Substrate
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
-use grandpa::AuthorityId as GrandpaId;
+use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_core::{sr25519, storage::Storage};
 
 // Polkadot
@@ -78,7 +78,7 @@ pub fn genesis() -> Storage {
 		},
 		babe: rococo_runtime::BabeConfig {
 			authorities: Default::default(),
-			epoch_config: Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
+			epoch_config: rococo_runtime::BABE_GENESIS_EPOCH_CONFIG,
 			..Default::default()
 		},
 		sudo: rococo_runtime::SudoConfig {

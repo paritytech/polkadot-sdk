@@ -88,7 +88,7 @@ pub fn make_default_justification<H: HeaderT>(header: &H) -> GrandpaJustificatio
 /// Generate justifications in a way where we are able to tune the number of pre-commits
 /// and vote ancestries which are included in the justification.
 ///
-/// This is useful for benchmarkings where we want to generate valid justifications with
+/// This is useful for benchmarks where we want to generate valid justifications with
 /// a specific number of pre-commits (tuned with the number of "authorities") and/or a specific
 /// number of vote ancestries (tuned with the "votes" parameter).
 ///
@@ -129,7 +129,7 @@ pub fn make_justification_for_header<H: HeaderT>(
 			votes_ancestries.push(child.clone());
 		}
 
-		// The header we need to use when pre-commiting is the one at the highest height
+		// The header we need to use when pre-committing is the one at the highest height
 		// on our chain.
 		let precommit_candidate = chain.last().map(|h| (h.hash(), *h.number())).unwrap();
 		unsigned_precommits.push(precommit_candidate);
@@ -177,6 +177,7 @@ pub fn prepare_parachain_heads_proof<H: HeaderT>(
 	let mut parachains = Vec::with_capacity(heads.len());
 	let mut root = Default::default();
 	let mut mdb = MemoryDB::default();
+	let mut storage_keys = vec![];
 	{
 		let mut trie = TrieDBMutBuilderV1::<H::Hashing>::new(&mut mdb, &mut root).build();
 		for (parachain, head) in heads {
@@ -185,11 +186,12 @@ pub fn prepare_parachain_heads_proof<H: HeaderT>(
 			trie.insert(&storage_key.0, &head.encode())
 				.map_err(|_| "TrieMut::insert has failed")
 				.expect("TrieMut::insert should not fail in tests");
+			storage_keys.push(storage_key.0);
 			parachains.push((ParaId(parachain), head.hash()));
 		}
 	}
 
-	// generate storage proof to be delivered to This chain
+	// generate storage proof to be delivered to this chain
 	let storage_proof = record_all_trie_keys::<LayoutV1<H::Hashing>, _>(&mdb, &root)
 		.map_err(|_| "record_all_trie_keys has failed")
 		.expect("record_all_trie_keys should not fail in benchmarks");

@@ -14,10 +14,10 @@
 // limitations under the License.
 
 // Substrate
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
-use grandpa::AuthorityId as GrandpaId;
+use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_core::storage::Storage;
 use sp_runtime::Perbill;
 
@@ -94,7 +94,7 @@ pub fn genesis() -> Storage {
 		},
 		babe: westend_runtime::BabeConfig {
 			authorities: Default::default(),
-			epoch_config: Some(westend_runtime::BABE_GENESIS_EPOCH_CONFIG),
+			epoch_config: westend_runtime::BABE_GENESIS_EPOCH_CONFIG,
 			..Default::default()
 		},
 		configuration: westend_runtime::ConfigurationConfig { config: get_host_config() },

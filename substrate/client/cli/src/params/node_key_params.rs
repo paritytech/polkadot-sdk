@@ -17,16 +17,17 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use clap::Args;
-use sc_network::config::{identity::ed25519, NodeKeyConfig};
+use sc_network::config::{ed25519, NodeKeyConfig};
+use sc_service::Role;
 use sp_core::H256;
 use std::{path::PathBuf, str::FromStr};
 
-use crate::{arg_enums::NodeKeyType, error};
+use crate::{arg_enums::NodeKeyType, error, Error};
 
 /// The file name of the node's Ed25519 secret key inside the chain-specific
 /// network config directory, if neither `--node-key` nor `--node-key-file`
 /// is specified in combination with `--node-key-type=ed25519`.
-const NODE_KEY_ED25519_FILE: &str = "secret_ed25519";
+pub(crate) const NODE_KEY_ED25519_FILE: &str = "secret_ed25519";
 
 /// Parameters used to create the `NodeKeyConfig`, which determines the keypair
 /// used for libp2p networking.
@@ -79,22 +80,48 @@ pub struct NodeKeyParams {
 	/// the chosen type.
 	#[arg(long, value_name = "FILE")]
 	pub node_key_file: Option<PathBuf>,
+
+	/// Forces key generation if node-key-file file does not exist.
+	///
+	/// This is an unsafe feature for production networks, because as an active authority
+	/// other authorities may depend on your node having a stable identity and they might
+	/// not being able to reach you if your identity changes after entering the active set.
+	///
+	/// For minimal node downtime if no custom `node-key-file` argument is provided
+	/// the network-key is usually persisted accross nodes restarts,
+	/// in the `network` folder from directory provided in `--base-path`
+	///
+	/// Warning!! If you ever run the node with this argument, make sure
+	/// you remove it for the subsequent restarts.
+	#[arg(long)]
+	pub unsafe_force_node_key_generation: bool,
 }
 
 impl NodeKeyParams {
 	/// Create a `NodeKeyConfig` from the given `NodeKeyParams` in the context
 	/// of an optional network config storage directory.
-	pub fn node_key(&self, net_config_dir: &PathBuf) -> error::Result<NodeKeyConfig> {
+	pub fn node_key(
+		&self,
+		net_config_dir: &PathBuf,
+		role: Role,
+		is_dev: bool,
+	) -> error::Result<NodeKeyConfig> {
 		Ok(match self.node_key_type {
 			NodeKeyType::Ed25519 => {
 				let secret = if let Some(node_key) = self.node_key.as_ref() {
 					parse_ed25519_secret(node_key)?
 				} else {
-					sc_network::config::Secret::File(
-						self.node_key_file
-							.clone()
-							.unwrap_or_else(|| net_config_dir.join(NODE_KEY_ED25519_FILE)),
-					)
+					let key_path = self
+						.node_key_file
+						.clone()
+						.unwrap_or_else(|| net_config_dir.join(NODE_KEY_ED25519_FILE));
+					if !self.unsafe_force_node_key_generation &&
+						role.is_authority() && !is_dev &&
+						!key_path.exists()
+					{
+						return Err(Error::NetworkKeyNotFound(key_path))
+					}
+					sc_network::config::Secret::File(key_path)
 				};
 
 				NodeKeyConfig::Ed25519(secret)
@@ -121,8 +148,9 @@ fn parse_ed25519_secret(hex: &str) -> error::Result<sc_network::config::Ed25519S
 mod tests {
 	use super::*;
 	use clap::ValueEnum;
-	use libp2p_identity::ed25519;
-	use std::fs;
+	use sc_network::config::ed25519;
+	use std::fs::{self, File};
+	use tempfile::TempDir;
 
 	#[test]
 	fn test_node_key_config_input() {
@@ -136,8 +164,9 @@ mod tests {
 					node_key_type,
 					node_key: Some(format!("{:x}", H256::from_slice(sk.as_ref()))),
 					node_key_file: None,
+					unsafe_force_node_key_generation: false,
 				};
-				params.node_key(net_config_dir).and_then(|c| match c {
+				params.node_key(net_config_dir, Role::Authority, false).and_then(|c| match c {
 					NodeKeyConfig::Ed25519(sc_network::config::Secret::Input(ref ski))
 						if node_key_type == NodeKeyType::Ed25519 && &sk[..] == ski.as_ref() =>
 						Ok(()),
@@ -156,19 +185,16 @@ mod tests {
 				node_key_type: NodeKeyType::Ed25519,
 				node_key: None,
 				node_key_file: Some(file),
+				unsafe_force_node_key_generation: false,
 			};
 
 			let node_key = params
-				.node_key(&PathBuf::from("not-used"))
+				.node_key(&PathBuf::from("not-used"), Role::Authority, false)
 				.expect("Creates node key config")
 				.into_keypair()
 				.expect("Creates node key pair");
 
-			if let Ok(pair) = node_key.try_into_ed25519() {
-				if pair.secret().as_ref() != key.as_ref() {
-					panic!("Invalid key")
-				}
-			} else {
+			if node_key.secret().as_ref() != key.as_ref() {
 				panic!("Invalid key")
 			}
 		}
@@ -186,29 +212,58 @@ mod tests {
 
 	#[test]
 	fn test_node_key_config_default() {
-		fn with_def_params<F>(f: F) -> error::Result<()>
+		fn with_def_params<F>(f: F, unsafe_force_node_key_generation: bool) -> error::Result<()>
 		where
 			F: Fn(NodeKeyParams) -> error::Result<()>,
 		{
 			NodeKeyType::value_variants().iter().try_for_each(|t| {
 				let node_key_type = *t;
-				f(NodeKeyParams { node_key_type, node_key: None, node_key_file: None })
-			})
-		}
-
-		fn some_config_dir(net_config_dir: &PathBuf) -> error::Result<()> {
-			with_def_params(|params| {
-				let dir = PathBuf::from(net_config_dir.clone());
-				let typ = params.node_key_type;
-				params.node_key(net_config_dir).and_then(move |c| match c {
-					NodeKeyConfig::Ed25519(sc_network::config::Secret::File(ref f))
-						if typ == NodeKeyType::Ed25519 && f == &dir.join(NODE_KEY_ED25519_FILE) =>
-						Ok(()),
-					_ => Err(error::Error::Input("Unexpected node key config".into())),
+				f(NodeKeyParams {
+					node_key_type,
+					node_key: None,
+					node_key_file: None,
+					unsafe_force_node_key_generation,
 				})
 			})
 		}
 
-		assert!(some_config_dir(&PathBuf::from_str("x").unwrap()).is_ok());
+		fn some_config_dir(
+			net_config_dir: &PathBuf,
+			unsafe_force_node_key_generation: bool,
+			role: Role,
+			is_dev: bool,
+		) -> error::Result<()> {
+			with_def_params(
+				|params| {
+					let dir = PathBuf::from(net_config_dir.clone());
+					let typ = params.node_key_type;
+					let role = role.clone();
+					params.node_key(net_config_dir, role, is_dev).and_then(move |c| match c {
+						NodeKeyConfig::Ed25519(sc_network::config::Secret::File(ref f))
+							if typ == NodeKeyType::Ed25519 &&
+								f == &dir.join(NODE_KEY_ED25519_FILE) =>
+							Ok(()),
+						_ => Err(error::Error::Input("Unexpected node key config".into())),
+					})
+				},
+				unsafe_force_node_key_generation,
+			)
+		}
+
+		assert!(some_config_dir(&PathBuf::from_str("x").unwrap(), false, Role::Full, false).is_ok());
+		assert!(
+			some_config_dir(&PathBuf::from_str("x").unwrap(), false, Role::Authority, true).is_ok()
+		);
+		assert!(
+			some_config_dir(&PathBuf::from_str("x").unwrap(), true, Role::Authority, false).is_ok()
+		);
+		assert!(matches!(
+			some_config_dir(&PathBuf::from_str("x").unwrap(), false, Role::Authority, false),
+			Err(Error::NetworkKeyNotFound(_))
+		));
+
+		let tempdir = TempDir::new().unwrap();
+		let _file = File::create(tempdir.path().join(NODE_KEY_ED25519_FILE)).unwrap();
+		assert!(some_config_dir(&tempdir.path().into(), false, Role::Authority, false).is_ok());
 	}
 }

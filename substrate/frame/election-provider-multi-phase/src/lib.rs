@@ -229,6 +229,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_election_provider_support::{
 	bounds::{CountBound, ElectionBounds, ElectionBoundsBuilder, SizeBound},
@@ -256,7 +259,6 @@ use sp_runtime::{
 	},
 	DispatchError, ModuleError, PerThing, Perbill, RuntimeDebug, SaturatedConversion,
 };
-use sp_std::prelude::*;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -586,10 +588,8 @@ pub mod pallet {
 		type EstimateCallFee: EstimateCallFee<Call<Self>, BalanceOf<Self>>;
 
 		/// Duration of the unsigned phase.
-		#[pallet::constant]
 		type UnsignedPhase: Get<BlockNumberFor<Self>>;
 		/// Duration of the signed phase.
-		#[pallet::constant]
 		type SignedPhase: Get<BlockNumberFor<Self>>;
 
 		/// The minimum amount of improvement to the solution score that defines a solution as
@@ -839,7 +839,7 @@ pub mod pallet {
 		}
 
 		fn integrity_test() {
-			use sp_std::mem::size_of;
+			use core::mem::size_of;
 			// The index type of both voters and targets need to be smaller than that of usize (very
 			// unlikely to be the case, but anyhow)..
 			assert!(size_of::<SolutionVoterIndexOf<T::MinerConfig>>() <= size_of::<usize>());
@@ -933,7 +933,7 @@ pub mod pallet {
 				.expect(error_message);
 
 			// Store the newly received solution.
-			log!(info, "queued unsigned solution with score {:?}", ready.score);
+			log!(debug, "queued unsigned solution with score {:?}", ready.score);
 			let ejected_a_solution = <QueuedSolution<T>>::exists();
 			<QueuedSolution<T>>::put(ready);
 			Self::deposit_event(Event::SolutionStored {
@@ -1134,7 +1134,7 @@ pub mod pallet {
 		/// A solution was stored with the given compute.
 		///
 		/// The `origin` indicates the origin of the solution. If `origin` is `Some(AccountId)`,
-		/// the stored solution was submited in the signed phase by a miner with the `AccountId`.
+		/// the stored solution was submitted in the signed phase by a miner with the `AccountId`.
 		/// Otherwise, the solution was stored either during the unsigned phase or by
 		/// `T::ForceOrigin`. The `bool` is `true` when a previous solution was ejected to make
 		/// room for this one.
@@ -1192,7 +1192,7 @@ pub mod pallet {
 		BoundNotMet,
 		/// Submitted solution has too many winners
 		TooManyWinners,
-		/// Sumission was prepared for a different round.
+		/// Submission was prepared for a different round.
 		PreDispatchDifferentRound,
 	}
 
@@ -1343,7 +1343,7 @@ pub mod pallet {
 	#[pallet::getter(fn minimum_untrusted_score)]
 	pub type MinimumUntrustedScore<T: Config> = StorageValue<_, ElectionScore>;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	///
 	/// v1: https://github.com/paritytech/substrate/pull/12237/
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -1356,7 +1356,7 @@ pub mod pallet {
 
 /// This wrapper is created for handling the synchronization of [`Snapshot`], [`SnapshotMetadata`]
 /// and [`DesiredTargets`] storage items.
-pub struct SnapshotWrapper<T>(sp_std::marker::PhantomData<T>);
+pub struct SnapshotWrapper<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> SnapshotWrapper<T> {
 	/// Kill all snapshot related storage items at the same time.

@@ -21,7 +21,7 @@
 //! [`ValidationHost`], that allows communication with that event-loop.
 
 use crate::{
-	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts},
+	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts, ArtifactsCleanupConfig},
 	execute::{self, PendingExecutionRequest},
 	metrics::Metrics,
 	prepare, Priority, SecurityStatus, ValidationError, LOG_TARGET,
@@ -188,6 +188,9 @@ impl Config {
 		secure_validator_mode: bool,
 		prepare_worker_program_path: PathBuf,
 		execute_worker_program_path: PathBuf,
+		execute_workers_max_num: usize,
+		prepare_workers_soft_max_num: usize,
+		prepare_workers_hard_max_num: usize,
 	) -> Self {
 		Self {
 			cache_path,
@@ -196,12 +199,12 @@ impl Config {
 
 			prepare_worker_program_path,
 			prepare_worker_spawn_timeout: Duration::from_secs(3),
-			prepare_workers_soft_max_num: 1,
-			prepare_workers_hard_max_num: 1,
+			prepare_workers_soft_max_num,
+			prepare_workers_hard_max_num,
 
 			execute_worker_program_path,
 			execute_worker_spawn_timeout: Duration::from_secs(3),
-			execute_workers_max_num: 2,
+			execute_workers_max_num,
 		}
 	}
 }
@@ -274,7 +277,7 @@ pub async fn start(
 		from_prepare_pool,
 	);
 
-	let (to_execute_queue_tx, run_execute_queue) = execute::start(
+	let (to_execute_queue_tx, from_execute_queue_rx, run_execute_queue) = execute::start(
 		metrics,
 		config.execute_worker_program_path.to_owned(),
 		config.cache_path.clone(),
@@ -290,12 +293,13 @@ pub async fn start(
 	let run_host = async move {
 		run(Inner {
 			cleanup_pulse_interval: Duration::from_secs(3600),
-			artifact_ttl: Duration::from_secs(3600 * 24),
+			cleanup_config: ArtifactsCleanupConfig::default(),
 			artifacts,
 			to_host_rx,
 			to_prepare_queue_tx,
 			from_prepare_queue_rx,
 			to_execute_queue_tx,
+			from_execute_queue_rx,
 			to_sweeper_tx,
 			awaiting_prepare: AwaitingPrepare::default(),
 		})
@@ -333,7 +337,7 @@ impl AwaitingPrepare {
 
 struct Inner {
 	cleanup_pulse_interval: Duration,
-	artifact_ttl: Duration,
+	cleanup_config: ArtifactsCleanupConfig,
 	artifacts: Artifacts,
 
 	to_host_rx: mpsc::Receiver<ToHost>,
@@ -342,6 +346,8 @@ struct Inner {
 	from_prepare_queue_rx: mpsc::UnboundedReceiver<prepare::FromQueue>,
 
 	to_execute_queue_tx: mpsc::Sender<execute::ToQueue>,
+	from_execute_queue_rx: mpsc::UnboundedReceiver<execute::FromQueue>,
+
 	to_sweeper_tx: mpsc::Sender<PathBuf>,
 
 	awaiting_prepare: AwaitingPrepare,
@@ -353,11 +359,12 @@ struct Fatal;
 async fn run(
 	Inner {
 		cleanup_pulse_interval,
-		artifact_ttl,
+		cleanup_config,
 		mut artifacts,
 		to_host_rx,
 		from_prepare_queue_rx,
 		mut to_prepare_queue_tx,
+		from_execute_queue_rx,
 		mut to_execute_queue_tx,
 		mut to_sweeper_tx,
 		mut awaiting_prepare,
@@ -384,10 +391,21 @@ async fn run(
 
 	let mut to_host_rx = to_host_rx.fuse();
 	let mut from_prepare_queue_rx = from_prepare_queue_rx.fuse();
+	let mut from_execute_queue_rx = from_execute_queue_rx.fuse();
 
 	loop {
 		// biased to make it behave deterministically for tests.
 		futures::select_biased! {
+			from_execute_queue_rx = from_execute_queue_rx.next() => {
+				let from_queue = break_if_fatal!(from_execute_queue_rx.ok_or(Fatal));
+				let execute::FromQueue::RemoveArtifact { artifact, reply_to } = from_queue;
+				break_if_fatal!(handle_artifact_removal(
+					&mut to_sweeper_tx,
+					&mut artifacts,
+					artifact,
+					reply_to,
+				).await);
+			},
 			() = cleanup_pulse.select_next_some() => {
 				// `select_next_some` because we don't expect this to fail, but if it does, we
 				// still don't fail. The trade-off is that the compiled cache will start growing
@@ -397,7 +415,7 @@ async fn run(
 				break_if_fatal!(handle_cleanup_pulse(
 					&mut to_sweeper_tx,
 					&mut artifacts,
-					artifact_ttl,
+					&cleanup_config,
 				).await);
 			},
 			to_host = to_host_rx.next() => {
@@ -785,8 +803,12 @@ async fn handle_prepare_done(
 	}
 
 	*state = match result {
-		Ok(PrepareSuccess { path, stats: prepare_stats }) =>
-			ArtifactState::Prepared { path, last_time_needed: SystemTime::now(), prepare_stats },
+		Ok(PrepareSuccess { path, stats: prepare_stats, size }) => ArtifactState::Prepared {
+			path,
+			last_time_needed: SystemTime::now(),
+			size,
+			prepare_stats,
+		},
 		Err(error) => {
 			let last_time_failed = SystemTime::now();
 			let num_failures = *num_failures + 1;
@@ -841,9 +863,9 @@ async fn enqueue_prepare_for_execute(
 async fn handle_cleanup_pulse(
 	sweeper_tx: &mut mpsc::Sender<PathBuf>,
 	artifacts: &mut Artifacts,
-	artifact_ttl: Duration,
+	cleanup_config: &ArtifactsCleanupConfig,
 ) -> Result<(), Fatal> {
-	let to_remove = artifacts.prune(artifact_ttl);
+	let to_remove = artifacts.prune(cleanup_config);
 	gum::debug!(
 		target: LOG_TARGET,
 		"PVF pruning: {} artifacts reached their end of life",
@@ -861,6 +883,37 @@ async fn handle_cleanup_pulse(
 	Ok(())
 }
 
+async fn handle_artifact_removal(
+	sweeper_tx: &mut mpsc::Sender<PathBuf>,
+	artifacts: &mut Artifacts,
+	artifact_id: ArtifactId,
+	reply_to: oneshot::Sender<()>,
+) -> Result<(), Fatal> {
+	let (artifact_id, path) = if let Some(artifact) = artifacts.remove(artifact_id) {
+		artifact
+	} else {
+		// if we haven't found the artifact by its id,
+		// it has been probably removed
+		// anyway with the randomness of the artifact name
+		// it is safe to ignore
+		return Ok(());
+	};
+	reply_to
+		.send(())
+		.expect("the execute queue waits for the artifact remove confirmation; qed");
+	// Thanks to the randomness of the artifact name (see
+	// `artifacts::generate_artifact_path`) there is no issue with any name conflict on
+	// future repreparation.
+	// So we can confirm the artifact removal already
+	gum::debug!(
+		target: LOG_TARGET,
+		validation_code_hash = ?artifact_id.code_hash,
+		"PVF pruning: pruning artifact by request from the execute queue",
+	);
+	sweeper_tx.send(path).await.map_err(|_| Fatal)?;
+	Ok(())
+}
+
 /// A simple task which sole purpose is to delete files thrown at it.
 async fn sweeper_task(mut sweeper_rx: mpsc::Receiver<PathBuf>) {
 	loop {
@@ -871,7 +924,7 @@ async fn sweeper_task(mut sweeper_rx: mpsc::Receiver<PathBuf>) {
 				gum::trace!(
 					target: LOG_TARGET,
 					?result,
-					"Sweeped the artifact file {}",
+					"Swept the artifact file {}",
 					condemned.display(),
 				);
 			},
@@ -910,13 +963,10 @@ fn pulse_every(interval: std::time::Duration) -> impl futures::Stream<Item = ()>
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::{artifacts::generate_artifact_path, PossiblyInvalidError};
+	use crate::{artifacts::generate_artifact_path, testing::artifact_id, PossiblyInvalidError};
 	use assert_matches::assert_matches;
 	use futures::future::BoxFuture;
-	use polkadot_node_core_pvf_common::{
-		error::PrepareError,
-		prepare::{PrepareStats, PrepareSuccess},
-	};
+	use polkadot_node_core_pvf_common::prepare::PrepareStats;
 
 	const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 	pub(crate) const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
@@ -935,14 +985,9 @@ pub(crate) mod tests {
 		}
 	}
 
-	/// Creates a new PVF which artifact id can be uniquely identified by the given number.
-	fn artifact_id(discriminator: u32) -> ArtifactId {
-		ArtifactId::from_pvf_prep_data(&PvfPrepData::from_discriminator(discriminator))
-	}
-
 	struct Builder {
 		cleanup_pulse_interval: Duration,
-		artifact_ttl: Duration,
+		cleanup_config: ArtifactsCleanupConfig,
 		artifacts: Artifacts,
 	}
 
@@ -951,8 +996,7 @@ pub(crate) mod tests {
 			Self {
 				// these are selected high to not interfere in tests in which pruning is irrelevant.
 				cleanup_pulse_interval: Duration::from_secs(3600),
-				artifact_ttl: Duration::from_secs(3600),
-
+				cleanup_config: ArtifactsCleanupConfig::default(),
 				artifacts: Artifacts::empty(),
 			}
 		}
@@ -968,27 +1012,31 @@ pub(crate) mod tests {
 		to_prepare_queue_rx: mpsc::Receiver<prepare::ToQueue>,
 		from_prepare_queue_tx: mpsc::UnboundedSender<prepare::FromQueue>,
 		to_execute_queue_rx: mpsc::Receiver<execute::ToQueue>,
+		#[allow(unused)]
+		from_execute_queue_tx: mpsc::UnboundedSender<execute::FromQueue>,
 		to_sweeper_rx: mpsc::Receiver<PathBuf>,
 
 		run: BoxFuture<'static, ()>,
 	}
 
 	impl Test {
-		fn new(Builder { cleanup_pulse_interval, artifact_ttl, artifacts }: Builder) -> Self {
+		fn new(Builder { cleanup_pulse_interval, artifacts, cleanup_config }: Builder) -> Self {
 			let (to_host_tx, to_host_rx) = mpsc::channel(10);
 			let (to_prepare_queue_tx, to_prepare_queue_rx) = mpsc::channel(10);
 			let (from_prepare_queue_tx, from_prepare_queue_rx) = mpsc::unbounded();
 			let (to_execute_queue_tx, to_execute_queue_rx) = mpsc::channel(10);
+			let (from_execute_queue_tx, from_execute_queue_rx) = mpsc::unbounded();
 			let (to_sweeper_tx, to_sweeper_rx) = mpsc::channel(10);
 
 			let run = run(Inner {
 				cleanup_pulse_interval,
-				artifact_ttl,
+				cleanup_config,
 				artifacts,
 				to_host_rx,
 				to_prepare_queue_tx,
 				from_prepare_queue_rx,
 				to_execute_queue_tx,
+				from_execute_queue_rx,
 				to_sweeper_tx,
 				awaiting_prepare: AwaitingPrepare::default(),
 			})
@@ -999,6 +1047,7 @@ pub(crate) mod tests {
 				to_prepare_queue_rx,
 				from_prepare_queue_tx,
 				to_execute_queue_rx,
+				from_execute_queue_tx,
 				to_sweeper_rx,
 				run,
 			}
@@ -1132,19 +1181,21 @@ pub(crate) mod tests {
 
 		let mut builder = Builder::default();
 		builder.cleanup_pulse_interval = Duration::from_millis(100);
-		builder.artifact_ttl = Duration::from_millis(500);
+		builder.cleanup_config = ArtifactsCleanupConfig::new(1024, Duration::from_secs(0));
 		let path1 = generate_artifact_path(cache_path);
 		let path2 = generate_artifact_path(cache_path);
 		builder.artifacts.insert_prepared(
 			artifact_id(1),
 			path1.clone(),
 			mock_now,
+			1024,
 			PrepareStats::default(),
 		);
 		builder.artifacts.insert_prepared(
 			artifact_id(2),
 			path2.clone(),
 			mock_now,
+			1024,
 			PrepareStats::default(),
 		);
 		let mut test = builder.build();

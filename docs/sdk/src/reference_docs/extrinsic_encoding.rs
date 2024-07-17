@@ -127,7 +127,7 @@
 //! runtimes, a call is represented as an enum of enums, where the outer enum represents the FRAME
 //! pallet being called, and the inner enum represents the call being made within that pallet, and
 //! any arguments to it. Read more about the call enum
-//! [here][crate::reference_docs::frame_composite_enums].
+//! [here][crate::reference_docs::frame_runtime_types].
 //!
 //! FRAME `Call` enums are automatically generated, and end up looking something like this:
 #![doc = docify::embed!("./src/reference_docs/extrinsic_encoding.rs", call_data)]
@@ -191,7 +191,7 @@
 
 #[docify::export]
 pub mod call_data {
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	// The outer enum composes calls within
 	// different pallets together. We have two
@@ -224,7 +224,7 @@ pub mod call_data {
 pub mod encoding_example {
 	use super::call_data::{Call, PalletACall};
 	use crate::reference_docs::signed_extensions::signed_extensions_example;
-	use parity_scale_codec::Encode;
+	use codec::Encode;
 	use sp_core::crypto::AccountId32;
 	use sp_keyring::sr25519::Keyring;
 	use sp_runtime::{

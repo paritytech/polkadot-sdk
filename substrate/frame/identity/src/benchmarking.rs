@@ -22,10 +22,8 @@
 use super::*;
 
 use crate::Pallet as Identity;
-use codec::Encode;
-use frame_benchmarking::{
-	account, impl_benchmark_test_suite, v2::*, whitelisted_caller, BenchmarkError,
-};
+use alloc::{vec, vec::Vec};
+use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::{
 	assert_ok, ensure,
 	traits::{EnsureOrigin, Get, OnFinalize, OnInitialize},
@@ -625,17 +623,17 @@ mod benchmarks {
 
 		let username = bench_username();
 		let bounded_username = bounded_username::<T>(username.clone(), suffix.clone());
-		let encoded_username = Encode::encode(&bounded_username.to_vec());
 
 		let public = sr25519_generate(0.into(), None);
 		let who_account: T::AccountId = MultiSigner::Sr25519(public).into_account().into();
 		let who_lookup = T::Lookup::unlookup(who_account.clone());
 
-		let signature =
-			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &encoded_username).unwrap());
+		let signature = MultiSignature::Sr25519(
+			sr25519_sign(0.into(), &public, &bounded_username[..]).unwrap(),
+		);
 
 		// Verify signature here to avoid surprise errors at runtime
-		assert!(signature.verify(&encoded_username[..], &public.into()));
+		assert!(signature.verify(&bounded_username[..], &public.into()));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(authority.clone()), who_lookup, username, Some(signature.into()));
@@ -673,10 +671,10 @@ mod benchmarks {
 		let username = bounded_username::<T>(bench_username(), bench_suffix());
 		Identity::<T>::queue_acceptance(&caller, username.clone());
 
-		let expected_exiration =
+		let expected_expiration =
 			frame_system::Pallet::<T>::block_number() + T::PendingUsernameExpiration::get();
 
-		run_to_block::<T>(expected_exiration + One::one());
+		run_to_block::<T>(expected_expiration + One::one());
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), username);

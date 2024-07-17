@@ -1,0 +1,5 @@
+error: expected one of: `MaxEncodedLen`, `Measured`, `Ignored`
+  --> tests/benchmark_ui/bad_attr_pov_mode_2.rs:25:8
+   |
+25 |         Key: Wrong
+   |              ^^^^^

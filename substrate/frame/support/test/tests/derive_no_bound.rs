@@ -24,6 +24,7 @@ use frame_support::{
 };
 
 #[derive(RuntimeDebugNoBound)]
+#[allow(dead_code)]
 struct Unnamed(u64);
 
 #[test]

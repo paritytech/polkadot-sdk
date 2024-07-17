@@ -32,6 +32,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
@@ -87,12 +89,11 @@ pub mod pallet {
 		// This will help use not need to disambiguate anything when using `derive_impl`.
 		use super::*;
 		use frame_support::derive_impl;
-		use frame_system::config_preludes::TestDefaultConfig as SystemTestDefaultConfig;
 
 		/// A type providing default configurations for this pallet in testing environment.
 		pub struct TestDefaultConfig;
 
-		#[derive_impl(SystemTestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -108,13 +109,13 @@ pub mod pallet {
 		}
 
 		/// A type providing default configurations for this pallet in another environment. Examples
-		/// could be a parachain, or a solo-chain.
+		/// could be a parachain, or a solochain.
 		///
 		/// Appropriate derive for `frame_system::DefaultConfig` needs to be provided. In this
 		/// example, we simple derive `frame_system::config_preludes::TestDefaultConfig` again.
 		pub struct OtherDefaultConfig;
 
-		#[derive_impl(SystemTestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for OtherDefaultConfig {}
 
 		#[frame_support::register_default_impl(OtherDefaultConfig)]
@@ -149,7 +150,7 @@ pub mod tests {
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
 		// these items are defined by frame-system as `no_default`, so we must specify them here.
 		type Block = Block;
@@ -190,7 +191,7 @@ pub mod tests {
 	}
 
 	parameter_types! {
-		pub const SomeCall: RuntimeCall = RuntimeCall::System(frame_system::Call::<Runtime>::remark { remark: vec![] });
+		pub const SomeCall: RuntimeCall = RuntimeCall::System(frame_system::Call::<Runtime>::remark { remark: alloc::vec![] });
 	}
 
 	#[derive_impl(TestDefaultConfig as pallet::DefaultConfig)]

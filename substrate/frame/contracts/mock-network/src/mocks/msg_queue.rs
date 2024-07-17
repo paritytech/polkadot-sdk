@@ -25,7 +25,6 @@ use polkadot_parachain_primitives::primitives::{
 use polkadot_primitives::BlockNumber as RelayBlockNumber;
 use sp_runtime::traits::{Get, Hash};
 
-use sp_std::prelude::*;
 use xcm::{latest::prelude::*, VersionedXcm};
 
 #[frame_support::pallet]
@@ -47,17 +46,15 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	#[pallet::getter(fn parachain_id)]
 	pub(super) type ParachainId<T: Config> = StorageValue<_, ParaId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn received_dmp)]
 	/// A queue of received DMP messages
 	pub(super) type ReceivedDmp<T: Config> = StorageValue<_, Vec<Xcm<T::RuntimeCall>>, ValueQuery>;
 
 	impl<T: Config> Get<ParaId> for Pallet<T> {
 		fn get() -> ParaId {
-			Self::parachain_id()
+			ParachainId::<T>::get()
 		}
 	}
 
@@ -87,6 +84,14 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn set_para_id(para_id: ParaId) {
 			ParachainId::<T>::put(para_id);
+		}
+
+		pub fn parachain_id() -> ParaId {
+			ParachainId::<T>::get()
+		}
+
+		pub fn received_dmp() -> Vec<Xcm<T::RuntimeCall>> {
+			ReceivedDmp::<T>::get()
 		}
 
 		fn handle_xcmp_message(
@@ -169,7 +174,7 @@ pub mod pallet {
 								limit,
 								Weight::zero(),
 							);
-							<ReceivedDmp<T>>::append(x);
+							ReceivedDmp::<T>::append(x);
 							Self::deposit_event(Event::ExecutedDownward(id, outcome));
 						},
 					},

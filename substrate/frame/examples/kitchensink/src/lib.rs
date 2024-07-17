@@ -42,6 +42,8 @@ use sp_runtime::TryRuntimeError;
 pub mod weights;
 pub use weights::*;
 
+extern crate alloc;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -125,7 +127,6 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded] // optional
 	#[pallet::storage_prefix = "OtherFoo"] // optional
-	#[pallet::getter(fn foo)] // optional
 	pub type Foo<T> = StorageValue<Value = u32>;
 
 	#[pallet::type_value]

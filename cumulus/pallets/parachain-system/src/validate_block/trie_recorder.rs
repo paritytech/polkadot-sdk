@@ -22,11 +22,11 @@
 
 use codec::Encode;
 
-use sp_std::{
-	cell::{RefCell, RefMut},
+use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	rc::Rc,
 };
+use core::cell::{RefCell, RefMut};
 use sp_trie::{NodeCodec, ProofSizeProvider, StorageProof};
 use trie_db::{Hasher, RecordedForKey, TrieAccess};
 
@@ -97,12 +97,20 @@ pub(crate) struct SizeOnlyRecorderProvider<H: Hasher> {
 }
 
 impl<H: Hasher> SizeOnlyRecorderProvider<H> {
+	/// Create a new instance of [`SizeOnlyRecorderProvider`]
 	pub fn new() -> Self {
 		Self {
 			seen_nodes: Default::default(),
 			encoded_size: Default::default(),
 			recorded_keys: Default::default(),
 		}
+	}
+
+	/// Reset the internal state.
+	pub fn reset(&self) {
+		self.seen_nodes.borrow_mut().clear();
+		*self.encoded_size.borrow_mut() = 0;
+		self.recorded_keys.borrow_mut().clear();
 	}
 }
 
@@ -281,6 +289,9 @@ mod tests {
 				reference_recorder.estimate_encoded_size(),
 				recorder_for_test.estimate_encoded_size()
 			);
+
+			recorder_for_test.reset();
+			assert_eq!(recorder_for_test.estimate_encoded_size(), 0)
 		}
 	}
 }

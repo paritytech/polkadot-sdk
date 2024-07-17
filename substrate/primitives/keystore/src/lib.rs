@@ -17,6 +17,10 @@
 
 //! Keystore traits
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
 #[cfg(feature = "std")]
 pub mod testing;
 
@@ -29,24 +33,34 @@ use sp_core::{
 	ecdsa, ed25519, sr25519,
 };
 
-use std::sync::Arc;
+use alloc::{string::String, sync::Arc, vec::Vec};
 
 /// Keystore error
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub enum Error {
 	/// Public key type is not supported
-	#[error("Key not supported: {0:?}")]
 	KeyNotSupported(KeyTypeId),
 	/// Validation error
-	#[error("Validation error: {0}")]
 	ValidationError(String),
 	/// Keystore unavailable
-	#[error("Keystore unavailable")]
 	Unavailable,
 	/// Programming errors
-	#[error("An unknown keystore error occurred: {0}")]
 	Other(String),
 }
+
+impl core::fmt::Display for Error {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+		match self {
+			Error::KeyNotSupported(key_type) => write!(fmt, "Key not supported: {key_type:?}"),
+			Error::ValidationError(error) => write!(fmt, "Validation error: {error}"),
+			Error::Unavailable => fmt.write_str("Keystore unavailable"),
+			Error::Other(error) => write!(fmt, "An unknown keystore error occurred: {error}"),
+		}
+	}
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {}
 
 /// Something that generates, stores and provides access to secret keys.
 pub trait Keystore: Send + Sync {

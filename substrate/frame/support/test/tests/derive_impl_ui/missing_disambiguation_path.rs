@@ -50,10 +50,10 @@ impl Animal for FourLeggedAnimal {
 	}
 }
 
-pub struct AcquaticMammal {}
+pub struct AquaticMammal {}
 
 #[derive_impl(FourLeggedAnimal as)]
-impl Animal for AcquaticMammal {
+impl Animal for AquaticMammal {
 	type Locomotion = (Swims, RunsOnFourLegs);
 	type Environment = (Land, Sea);
 }

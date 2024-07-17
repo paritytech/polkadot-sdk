@@ -23,12 +23,14 @@ use bp_messages::{LaneId, MessageNonce};
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
 use bp_relayers::RewardsAccountParams;
 use codec::Decode;
+use core::marker::PhantomData;
 use frame_support::{
 	assert_ok,
 	traits::{OnFinalize, OnInitialize, PalletInfoAccess},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_grandpa::{BridgedBlockHash, BridgedHeader};
+use pallet_bridge_messages::BridgedChainOf;
 use parachains_common::AccountId;
 use parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
@@ -36,7 +38,6 @@ use parachains_runtimes_test_utils::{
 use sp_core::Get;
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::TrailingZeroInput, AccountId32};
-use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 
 /// Verify that the transaction has succeeded.
@@ -193,11 +194,41 @@ where
 	}
 }
 
+/// Verifies that relayer balance is equal to given value.
+pub struct VerifyRelayerBalance<Runtime: pallet_balances::Config> {
+	relayer: Runtime::AccountId,
+	balance: Runtime::Balance,
+}
+
+impl<Runtime> VerifyRelayerBalance<Runtime>
+where
+	Runtime: pallet_balances::Config,
+{
+	/// Expect given relayer balance after transaction.
+	pub fn expect_relayer_balance(
+		relayer: Runtime::AccountId,
+		balance: Runtime::Balance,
+	) -> Box<dyn VerifyTransactionOutcome> {
+		Box::new(Self { relayer, balance })
+	}
+}
+
+impl<Runtime> VerifyTransactionOutcome for VerifyRelayerBalance<Runtime>
+where
+	Runtime: pallet_balances::Config,
+{
+	fn verify_outcome(&self) {
+		assert_eq!(pallet_balances::Pallet::<Runtime>::free_balance(&self.relayer), self.balance,);
+	}
+}
+
 /// Initialize bridge GRANDPA pallet.
 pub(crate) fn initialize_bridge_grandpa_pallet<Runtime, GPI>(
 	init_data: bp_header_chain::InitializationData<BridgedHeader<Runtime, GPI>>,
 ) where
-	Runtime: BridgeGrandpaConfig<GPI>,
+	Runtime: BridgeGrandpaConfig<GPI>
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_timestamp::Config,
 {
 	pallet_bridge_grandpa::Pallet::<Runtime, GPI>::initialize(
 		RuntimeHelper::<Runtime>::root_origin(),
@@ -210,10 +241,12 @@ pub(crate) fn initialize_bridge_grandpa_pallet<Runtime, GPI>(
 pub type CallsAndVerifiers<Runtime> =
 	Vec<(RuntimeCallOf<Runtime>, Box<dyn VerifyTransactionOutcome>)>;
 
+pub type InboundRelayerId<Runtime, MPI> = bp_runtime::AccountIdOf<BridgedChainOf<Runtime, MPI>>;
+
 /// Returns relayer id at the bridged chain.
 pub fn relayer_id_at_bridged_chain<Runtime: pallet_bridge_messages::Config<MPI>, MPI>(
-) -> Runtime::InboundRelayer {
-	Runtime::InboundRelayer::decode(&mut TrailingZeroInput::zeroes()).unwrap()
+) -> InboundRelayerId<Runtime, MPI> {
+	Decode::decode(&mut TrailingZeroInput::zeroes()).unwrap()
 }
 
 /// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,
@@ -230,7 +263,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 	) -> sp_runtime::DispatchOutcome,
 	prepare_message_proof_import: impl FnOnce(
 		Runtime::AccountId,
-		Runtime::InboundRelayer,
+		InboundRelayerId<Runtime, MPI>,
 		InteriorLocation,
 		MessageNonce,
 		Xcm<()>,
@@ -257,7 +290,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 			// value here is tricky - there are several transaction payment pallets and we don't
 			// want to introduce additional bounds and traits here just for that, so let's just
 			// select some presumably large value
-			sp_std::cmp::max::<Runtime::Balance>(Runtime::ExistentialDeposit::get(), 1u32.into()) *
+			core::cmp::max::<Runtime::Balance>(Runtime::ExistentialDeposit::get(), 1u32.into()) *
 				100_000_000u32.into(),
 		)],
 		|| {

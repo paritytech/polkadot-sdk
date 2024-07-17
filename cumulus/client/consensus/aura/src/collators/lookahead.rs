@@ -33,44 +33,34 @@
 
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
-use cumulus_client_consensus_common::{
-	self as consensus_common, load_abridged_host_configuration, ParachainBlockImportMarker,
-	ParentSearchParams,
-};
+use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{
-	relay_chain::Hash as PHash, CollectCollationInfo, PersistedValidationData,
-};
+use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::SubmitCollationParams;
-use polkadot_node_subsystem::messages::{
-	CollationGenerationMessage, RuntimeApiMessage, RuntimeApiRequest,
-};
+use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
-use futures::{channel::oneshot, prelude::*};
+use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
-use sc_consensus_aura::standalone as aura_internal;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
-use sp_consensus::SyncOracle;
 use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
-use sp_timestamp::Timestamp;
-use std::{convert::TryFrom, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
-use crate::collator::{self as collator_util, SlotClaim};
+use crate::collator::{self as collator_util};
 
 /// Parameters for [`run`].
-pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS> {
+pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -85,8 +75,6 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS> {
 	pub relay_client: RClient,
 	/// A validation code hash provider, used to get the current validation code hash.
 	pub code_hash_provider: CHP,
-	/// A chain synchronization oracle.
-	pub sync_oracle: SO,
 	/// The underlying keystore, which should contain Aura consensus keys.
 	pub keystore: KeystorePtr,
 	/// The collator key used to sign collations before submitting to validators.
@@ -108,8 +96,8 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS> {
 }
 
 /// Run async-backing-friendly Aura.
-pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS>(
-	mut params: Params<BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS>,
+pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
+	mut params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
 ) -> impl Future<Output = ()> + Send + 'static
 where
 	Block: BlockT,
@@ -128,7 +116,6 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	SO: SyncOracle + Send + Sync + Clone + 'static,
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
@@ -136,14 +123,6 @@ where
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
-	// This is an arbitrary value which is likely guaranteed to exceed any reasonable
-	// limit, as it would correspond to 10 non-included blocks.
-	//
-	// Since we only search for parent blocks which have already been imported,
-	// we can guarantee that all imported blocks respect the unincluded segment
-	// rules specified by the parachain's runtime and thus will never be too deep.
-	const PARENT_SEARCH_DEPTH: usize = 10;
-
 	async move {
 		cumulus_client_collator::initialize_collator_subsystems(
 			&mut params.overseer_handle,
@@ -184,7 +163,16 @@ where
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
 
-			if !is_para_scheduled(relay_parent, params.para_id, &mut params.overseer_handle).await {
+			let core_index = if let Some(core_index) = super::cores_scheduled_for_para(
+				relay_parent,
+				params.para_id,
+				&mut params.relay_client,
+			)
+			.await
+			.get(0)
+			{
+				*core_index
+			} else {
 				tracing::trace!(
 					target: crate::LOG_TARGET,
 					?relay_parent,
@@ -193,7 +181,7 @@ where
 				);
 
 				continue
-			}
+			};
 
 			let max_pov_size = match params
 				.relay_client
@@ -212,39 +200,16 @@ where
 				},
 			};
 
-			let parent_search_params = ParentSearchParams {
+			let (included_block, initial_parent) = match crate::collators::find_parent(
 				relay_parent,
-				para_id: params.para_id,
-				ancestry_lookback: max_ancestry_lookback(relay_parent, &params.relay_client).await,
-				max_depth: PARENT_SEARCH_DEPTH,
-				ignore_alternative_branches: true,
-			};
-
-			let potential_parents =
-				cumulus_client_consensus_common::find_potential_parents::<Block>(
-					parent_search_params,
-					&*params.para_backend,
-					&params.relay_client,
-				)
-				.await;
-
-			let mut potential_parents = match potential_parents {
-				Err(e) => {
-					tracing::error!(
-						target: crate::LOG_TARGET,
-						?relay_parent,
-						err = ?e,
-						"Could not fetch potential parents to build upon"
-					);
-
-					continue
-				},
-				Ok(x) => x,
-			};
-
-			let included_block = match potential_parents.iter().find(|x| x.depth == 0) {
-				None => continue, // also serves as an `is_empty` check.
-				Some(b) => b.hash,
+				params.para_id,
+				&*params.para_backend,
+				&params.relay_client,
+			)
+			.await
+			{
+				Some(value) => value,
+				None => continue,
 			};
 
 			let para_client = &*params.para_client;
@@ -275,7 +240,7 @@ where
 					relay_chain_slot_duration = ?params.relay_chain_slot_duration,
 					"Adjusted relay-chain slot to parachain slot"
 				);
-				Some(can_build_upon::<_, _, P>(
+				Some(super::can_build_upon::<_, _, P>(
 					slot_now,
 					timestamp,
 					block_hash,
@@ -285,21 +250,16 @@ where
 				))
 			};
 
-			// Sort by depth, ascending, to choose the longest chain.
-			//
-			// If the longest chain has space, build upon that. Otherwise, don't
-			// build at all.
-			potential_parents.sort_by_key(|a| a.depth);
-			let initial_parent = match potential_parents.pop() {
-				None => continue,
-				Some(p) => p,
-			};
-
 			// Build in a loop until not allowed. Note that the authorities can change
 			// at any block, so we need to re-claim our slot every time.
 			let mut parent_hash = initial_parent.hash;
 			let mut parent_header = initial_parent.header;
 			let overseer_handle = &mut params.overseer_handle;
+
+			// Do not try to build upon an unknown, pruned or bad block
+			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
+				continue
+			}
 
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
@@ -344,14 +304,20 @@ where
 					Ok(x) => x,
 				};
 
-				let validation_code_hash = match params.code_hash_provider.code_hash_at(parent_hash)
-				{
-					None => {
-						tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-						break
-					},
-					Some(v) => v,
+				let Some(validation_code_hash) =
+					params.code_hash_provider.code_hash_at(parent_hash)
+				else {
+					tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
+					break
 				};
+
+				super::check_validation_code_or_log(
+					&validation_code_hash,
+					params.para_id,
+					&params.relay_client,
+					relay_parent,
+				)
+				.await;
 
 				match collator
 					.collate(
@@ -387,6 +353,7 @@ where
 										parent_head: parent_header.encode().into(),
 										validation_code_hash,
 										result_sender: None,
+										core_index,
 									},
 								),
 								"SubmitCollation",
@@ -408,103 +375,4 @@ where
 			}
 		}
 	}
-}
-
-// Checks if we own the slot at the given block and whether there
-// is space in the unincluded segment.
-async fn can_build_upon<Block: BlockT, Client, P>(
-	slot: Slot,
-	timestamp: Timestamp,
-	parent_hash: Block::Hash,
-	included_block: Block::Hash,
-	client: &Client,
-	keystore: &KeystorePtr,
-) -> Option<SlotClaim<P::Public>>
-where
-	Client: ProvideRuntimeApi<Block>,
-	Client::Api: AuraApi<Block, P::Public> + AuraUnincludedSegmentApi<Block>,
-	P: Pair,
-	P::Public: Codec,
-	P::Signature: Codec,
-{
-	let runtime_api = client.runtime_api();
-	let authorities = runtime_api.authorities(parent_hash).ok()?;
-	let author_pub = aura_internal::claim_slot::<P>(slot, &authorities, keystore).await?;
-
-	// Here we lean on the property that building on an empty unincluded segment must always
-	// be legal. Skipping the runtime API query here allows us to seamlessly run this
-	// collator against chains which have not yet upgraded their runtime.
-	if parent_hash != included_block {
-		if !runtime_api.can_build_upon(parent_hash, included_block, slot).ok()? {
-			return None
-		}
-	}
-
-	Some(SlotClaim::unchecked::<P>(author_pub, slot, timestamp))
-}
-
-/// Reads allowed ancestry length parameter from the relay chain storage at the given relay parent.
-///
-/// Falls back to 0 in case of an error.
-async fn max_ancestry_lookback(
-	relay_parent: PHash,
-	relay_client: &impl RelayChainInterface,
-) -> usize {
-	match load_abridged_host_configuration(relay_parent, relay_client).await {
-		Ok(Some(config)) => config.async_backing_params.allowed_ancestry_len as usize,
-		Ok(None) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				"Active config is missing in relay chain storage",
-			);
-			0
-		},
-		Err(err) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				?err,
-				?relay_parent,
-				"Failed to read active config from relay chain client",
-			);
-			0
-		},
-	}
-}
-
-// Checks if there exists a scheduled core for the para at the provided relay parent.
-//
-// Falls back to `false` in case of an error.
-async fn is_para_scheduled(
-	relay_parent: PHash,
-	para_id: ParaId,
-	overseer_handle: &mut OverseerHandle,
-) -> bool {
-	let (tx, rx) = oneshot::channel();
-	let request = RuntimeApiRequest::AvailabilityCores(tx);
-	overseer_handle
-		.send_msg(RuntimeApiMessage::Request(relay_parent, request), "LookaheadCollator")
-		.await;
-
-	let cores = match rx.await {
-		Ok(Ok(cores)) => cores,
-		Ok(Err(error)) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				?error,
-				?relay_parent,
-				"Failed to query availability cores runtime API",
-			);
-			return false
-		},
-		Err(oneshot::Canceled) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				?relay_parent,
-				"Sender for availability cores runtime request dropped",
-			);
-			return false
-		},
-	};
-
-	cores.iter().any(|core| core.para_id() == Some(para_id))
 }

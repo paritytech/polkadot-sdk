@@ -55,16 +55,10 @@
 //! and to keep track of what we have sent to other validators in the group and what we may
 //! continue to send them.
 
-use polkadot_primitives::{CandidateHash, CompactStatement, ValidatorIndex};
+use polkadot_primitives::{CandidateHash, CompactStatement, Hash, ValidatorIndex};
 
+use crate::LOG_TARGET;
 use std::collections::{HashMap, HashSet};
-
-#[derive(Hash, PartialEq, Eq)]
-struct ValidStatementManifest {
-	remote: ValidatorIndex,
-	originator: ValidatorIndex,
-	candidate_hash: CandidateHash,
-}
 
 // A piece of knowledge about a candidate
 #[derive(Hash, Clone, PartialEq, Eq)]
@@ -423,6 +417,30 @@ impl ClusterTracker {
 
 	fn is_in_group(&self, validator: ValidatorIndex) -> bool {
 		self.validators.contains(&validator)
+	}
+
+	/// Dumps pending statement for this cluster.
+	///
+	/// Normally we should not have pending statements to validators in our cluster,
+	/// but if we do for all validators in our cluster, then we don't participate
+	/// in backing. Occasional pending statements are expected if two authorities
+	/// can't detect each other or after restart, where it takes a while to discover
+	/// the whole network.
+
+	pub fn warn_if_too_many_pending_statements(&self, parent_hash: Hash) {
+		if self.pending.iter().filter(|pending| !pending.1.is_empty()).count() >=
+			self.validators.len() &&
+			// No reason to warn if we are the only node in the cluster.
+			self.validators.len() > 1
+		{
+			gum::warn!(
+				target: LOG_TARGET,
+				pending_statements  = ?self.pending,
+				?parent_hash,
+				"Cluster has too many pending statements, something wrong with our connection to our group peers
+				Restart might be needed if validator gets 0 backing rewards for more than 3-4 consecutive sessions"
+			);
+		}
 	}
 }
 

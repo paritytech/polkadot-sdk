@@ -29,8 +29,7 @@ use crate::{
 	LOG_TARGET,
 };
 use chain_sync::{ChainSync, ChainSyncAction, ChainSyncMode};
-use libp2p::PeerId;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
@@ -38,6 +37,7 @@ use sc_network_common::sync::{
 	message::{BlockAnnounce, BlockData, BlockRequest},
 	SyncMode,
 };
+use sc_network_types::PeerId;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
@@ -159,7 +159,7 @@ impl<B: BlockT> From<ChainSyncAction<B>> for SyncingAction<B> {
 
 /// Proxy to specific syncing strategies.
 pub struct SyncingStrategy<B: BlockT, Client> {
-	/// Syncing configuration.
+	/// Initial syncing configuration.
 	config: SyncingConfig,
 	/// Client used by syncing strategies.
 	client: Arc<Client>,
@@ -185,7 +185,7 @@ where
 		+ Sync
 		+ 'static,
 {
-	/// Initialize a new syncing startegy.
+	/// Initialize a new syncing strategy.
 	pub fn new(
 		config: SyncingConfig,
 		client: Arc<Client>,
@@ -418,7 +418,7 @@ where
 			self.state.is_some() ||
 			match self.chain_sync {
 				Some(ref s) => s.status().state.is_major_syncing(),
-				None => unreachable!("At least one syncing startegy is active; qed"),
+				None => unreachable!("At least one syncing strategy is active; qed"),
 			}
 	}
 
@@ -429,7 +429,7 @@ where
 
 	/// Returns the current sync status.
 	pub fn status(&self) -> SyncStatus<B> {
-		// This function presumes that startegies are executed serially and must be refactored
+		// This function presumes that strategies are executed serially and must be refactored
 		// once we have parallel strategies.
 		if let Some(ref warp) = self.warp {
 			warp.status()
@@ -438,7 +438,7 @@ where
 		} else if let Some(ref chain_sync) = self.chain_sync {
 			chain_sync.status()
 		} else {
-			unreachable!("At least one syncing startegy is always active; qed")
+			unreachable!("At least one syncing strategy is always active; qed")
 		}
 	}
 
@@ -466,15 +466,27 @@ where
 		&mut self,
 		target_header: B::Header,
 	) -> Result<(), ()> {
-		match self.warp {
-			Some(ref mut warp) => {
-				warp.set_target_block(target_header);
-				Ok(())
+		match self.config.mode {
+			SyncMode::Warp => match self.warp {
+				Some(ref mut warp) => {
+					warp.set_target_block(target_header);
+					Ok(())
+				},
+				None => {
+					// As mode is set to warp sync, but no warp sync strategy is active, this means
+					// that warp sync has already finished / was skipped.
+					warn!(
+						target: LOG_TARGET,
+						"Discarding warp sync target, as warp sync was seemingly skipped due \
+						 to node being (partially) synced.",
+					);
+					Ok(())
+				},
 			},
-			None => {
+			_ => {
 				error!(
 					target: LOG_TARGET,
-					"Cannot set warp sync target block: no warp sync strategy is active."
+					"Cannot set warp sync target block: not in warp sync mode."
 				);
 				debug_assert!(false);
 				Err(())
@@ -506,7 +518,7 @@ where
 
 	/// Proceed with the next strategy if the active one finished.
 	pub fn proceed_to_next(&mut self) -> Result<(), ClientError> {
-		// The strategies are switched as `WarpSync` -> `StateStartegy` -> `ChainSync`.
+		// The strategies are switched as `WarpSync` -> `StateStrategy` -> `ChainSync`.
 		if let Some(ref mut warp) = self.warp {
 			match warp.take_result() {
 				Some(res) => {
@@ -557,7 +569,7 @@ where
 				},
 			}
 		} else if let Some(state) = &self.state {
-			if state.is_succeded() {
+			if state.is_succeeded() {
 				info!(target: LOG_TARGET, "State sync is complete, continuing with block sync.");
 			} else {
 				error!(target: LOG_TARGET, "State sync failed. Falling back to full sync.");
@@ -585,5 +597,65 @@ where
 		} else {
 			unreachable!("Only warp & state strategies can finish; qed")
 		}
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use futures::executor::block_on;
+	use sc_block_builder::BlockBuilderBuilder;
+	use substrate_test_runtime_client::{
+		ClientBlockImportExt, ClientExt, DefaultTestClientBuilderExt, TestClientBuilder,
+		TestClientBuilderExt,
+	};
+
+	/// Regression test for crash when starting already synced parachain node with `--sync=warp`.
+	/// We must remove this after setting of warp sync target block is moved to initialization of
+	/// `SyncingEngine` (issue https://github.com/paritytech/polkadot-sdk/issues/3537).
+	#[test]
+	fn set_target_block_finished_warp_sync() {
+		// Populate database with finalized state.
+		let mut client = Arc::new(TestClientBuilder::new().build());
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let just = (*b"TEST", Vec::new());
+		client.finalize_block(block.hash(), Some(just)).unwrap();
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+
+		// Initialize syncing strategy.
+		let config = SyncingConfig {
+			mode: SyncMode::Warp,
+			max_parallel_downloads: 3,
+			max_blocks_per_request: 64,
+			metrics_registry: None,
+		};
+		let mut strategy =
+			SyncingStrategy::new(config, client, Some(WarpSyncConfig::WaitForTarget)).unwrap();
+
+		// Warp sync instantly finishes as we have finalized state in DB.
+		let actions = strategy.actions().unwrap();
+		assert_eq!(actions.len(), 1);
+		assert!(matches!(actions[0], SyncingAction::Finished));
+		assert!(strategy.warp.is_none());
+
+		// Try setting the target block. We mustn't crash.
+		strategy
+			.set_warp_sync_target_block_header(target_block.header().clone())
+			.unwrap();
 	}
 }
