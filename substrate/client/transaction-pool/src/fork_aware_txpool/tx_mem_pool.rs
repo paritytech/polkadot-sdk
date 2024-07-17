@@ -140,7 +140,7 @@ where
 	pub(super) fn push_unwatched(&self, source: TransactionSource, xt: ExtrinsicFor<ChainApi>) {
 		let hash = self.api.hash_and_length(&xt).0;
 		let unwatched = Arc::from(TxInMemPool::new_unwatched(source, xt));
-		self.transactions.write().entry(hash).or_insert(unwatched);
+		self.transactions.write().insert(hash, unwatched);
 	}
 
 	pub(super) fn extend_unwatched(
@@ -152,14 +152,14 @@ where
 		xts.into_iter().for_each(|xt| {
 			let hash = self.api.hash_and_length(&xt).0;
 			let unwatched = Arc::from(TxInMemPool::new_unwatched(source, xt));
-			transactions.entry(hash).or_insert(unwatched);
+			transactions.insert(hash, unwatched);
 		});
 	}
 
 	pub(super) fn push_watched(&self, source: TransactionSource, xt: ExtrinsicFor<ChainApi>) {
 		let hash = self.api.hash_and_length(&xt).0;
 		let watched = Arc::from(TxInMemPool::new_watched(source, xt));
-		self.transactions.write().entry(hash).or_insert(watched);
+		self.transactions.write().insert(hash, watched);
 	}
 
 	pub(super) fn clone_unwatched(
