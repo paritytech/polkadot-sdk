@@ -214,7 +214,11 @@ where
 		let futs = input.into_iter().map(|(xt_hash, xt)| {
 			self.api
 				.validate_transaction(finalized_block.hash, xt.source, xt.tx.clone())
-				.map(move |validation_result| (xt_hash, xt, validation_result))
+				.map(move |validation_result| {
+					xt.validated_at
+						.store(finalized_block.number.into().as_u64(), atomic::Ordering::Relaxed);
+					(xt_hash, validation_result)
+				})
 		});
 		let validation_results = futures::future::join_all(futs).await;
 		let input_len = validation_results.len();
@@ -223,24 +227,20 @@ where
 
 		let invalid_hashes = validation_results
 			.into_iter()
-			.filter_map(|(xt_hash, xt, validation_result)| {
-				xt.validated_at
-					.store(finalized_block.number.into().as_u64(), atomic::Ordering::Relaxed);
-				match validation_result {
-					Ok(Ok(_)) |
-					Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => None,
-					Err(_) |
-					Ok(Err(TransactionValidityError::Unknown(_))) |
-					Ok(Err(TransactionValidityError::Invalid(_))) => {
-						log::debug!(
-							target: LOG_TARGET,
-							"[{:?}]: Purging: invalid: {:?}",
-							xt_hash,
-							validation_result,
-						);
-						Some(xt_hash)
-					},
-				}
+			.filter_map(|(xt_hash, validation_result)| match validation_result {
+				Ok(Ok(_)) |
+				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => None,
+				Err(_) |
+				Ok(Err(TransactionValidityError::Unknown(_))) |
+				Ok(Err(TransactionValidityError::Invalid(_))) => {
+					log::debug!(
+						target: LOG_TARGET,
+						"[{:?}]: Purging: invalid: {:?}",
+						xt_hash,
+						validation_result,
+					);
+					Some(xt_hash)
+				},
 			})
 			.collect::<Vec<_>>();
 

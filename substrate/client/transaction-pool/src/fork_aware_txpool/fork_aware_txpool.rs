@@ -1060,10 +1060,8 @@ where
 		self.mempool.purge_finalized_transactions(&finalized_xts).await;
 		self.import_notification_sink.clean_filter(&finalized_xts);
 
-		let _ = finalized_xts
-			.len()
-			.try_into()
-			.map(|v| self.metrics.report(|metrics| metrics.finalized_txs.inc_by(v)));
+		self.metrics
+			.report(|metrics| metrics.finalized_txs.inc_by(finalized_xts.len() as _));
 
 		if let Ok(Some(finalized_number)) = finalized_number {
 			self.revalidation_queue
