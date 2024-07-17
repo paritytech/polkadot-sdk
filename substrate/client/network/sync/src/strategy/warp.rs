@@ -889,9 +889,9 @@ mod test {
 		}
 
 		let ninth_peer =
-			warp_sync.peers.iter().find(|(_, state)| state.best_number == 9).unwrap().0;
+			*warp_sync.peers.iter().find(|(_, state)| state.best_number == 9).unwrap().0;
 		let tenth_peer =
-			warp_sync.peers.iter().find(|(_, state)| state.best_number == 10).unwrap().0;
+			*warp_sync.peers.iter().find(|(_, state)| state.best_number == 10).unwrap().0;
 
 		// Disconnecting a peer without an inflight request has no effect on persistent states.
 		warp_sync.remove_peer(&tenth_peer);
