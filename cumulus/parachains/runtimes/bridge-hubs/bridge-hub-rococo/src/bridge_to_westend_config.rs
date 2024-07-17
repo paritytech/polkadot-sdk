@@ -29,14 +29,14 @@ use bp_messages::{
 };
 use bp_runtime::Chain;
 use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
-use bridge_runtime_common::extensions::refund_relayer_extension::{
-	ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter, RefundableMessagesLane,
-};
 use pallet_xcm_bridge_hub::XcmAsPlainPayload;
 
 use codec::Encode;
 use frame_support::{parameter_types, traits::PalletInfoAccess};
 use frame_system::EnsureRoot;
+use pallet_bridge_relayers::extension::{
+	BridgeRelayersSignedExtension, WithMessagesExtensionConfig,
+};
 use pallet_xcm::EnsureXcm;
 use parachains_common::xcm_config::ParentRelayOrSiblingParachains;
 use polkadot_parachain_primitives::primitives::Sibling;
@@ -62,10 +62,9 @@ parameter_types! {
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
 
-	pub AssetHubRococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
-	pub AssetHubWestendParaId: cumulus_primitives_core::ParaId = bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID.into();
-
+	// TODO:(bridges-v2) - check with `LocalXcmChannelManager` if we need - FAIL-CI
 	pub CongestedMessage: Xcm<()> = build_congestion_message(true).into();
+	// TODO:(bridges-v2) - check with `LocalXcmChannelManager` if we need - FAIL-CI
 	pub UncongestedMessage: Xcm<()> = build_congestion_message(false).into();
 
 	pub BridgeHubWestendLocation: Location = Location::new(
@@ -79,6 +78,7 @@ parameter_types! {
 	pub storage BridgeDeposit: Balance = 5 * ROC;
 }
 
+// TODO:(bridges-v2) - check with `LocalXcmChannelManager` if we need - FAIL-CI
 fn build_congestion_message<Call>(is_congested: bool) -> alloc::vec::Vec<Instruction<Call>> {
 	alloc::vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
@@ -110,16 +110,13 @@ type FromWestendMessageBlobDispatcher =
 	BridgeBlobDispatcher<XcmRouter, UniversalLocation, BridgeRococoToWestendMessagesPalletInstance>;
 
 /// Signed extension that refunds relayers that are delivering messages from the Westend parachain.
-pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundSignedExtensionAdapter<
-	RefundBridgedMessages<
-		Runtime,
-		RefundableMessagesLane<
-			WithBridgeHubWestendMessagesInstance,
-			AssetHubRococoToAssetHubWestendMessagesLane,
-		>,
-		ActualFeeRefund<Runtime>,
-		PriorityBoostPerMessage,
+pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = BridgeRelayersSignedExtension<
+	Runtime,
+	WithMessagesExtensionConfig<
 		StrOnBridgeHubRococoRefundBridgeHubWestendMessages,
+		Runtime,
+		WithBridgeHubWestendMessagesInstance,
+		PriorityBoostPerMessage,
 	>,
 >;
 bp_runtime::generate_static_str_provider!(OnBridgeHubRococoRefundBridgeHubWestendMessages);
