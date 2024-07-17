@@ -1114,7 +1114,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = info.bench_write_raw(&key, val, false);
+			result = info.bench_write_raw(&key, val, true);
 		}
 
 		assert_ok!(result);
@@ -1144,7 +1144,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = info.bench_write_raw(&key, val, false);
+			result = info.bench_write_raw(&key, val, true);
 		}
 
 		assert_ok!(result);
