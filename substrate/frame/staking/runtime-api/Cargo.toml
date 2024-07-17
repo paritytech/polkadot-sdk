@@ -20,8 +20,7 @@ codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-api = { workspace = true }
 sp-staking = { workspace = true }
-sp-arithmetic = { workspace = true }
 
 [features]
 default = ["std"]
-std = ["codec/std", "scale-info/std", "sp-api/std", "sp-arithmetic/std", "sp-staking/std"]
+std = ["codec/std", "scale-info/std", "sp-api/std", "sp-staking/std"]

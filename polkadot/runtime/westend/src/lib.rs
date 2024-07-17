@@ -2740,42 +2740,6 @@ sp_api::impl_runtime_apis! {
 	}
 }
 
-impl Runtime {
-	fn staking_inflation_info() -> pallet_staking_runtime_api::InflationInfo {
-		use pallet_staking::{ActiveEra, EraPayout, ErasTotalStake};
-
-		let (staked, start) = ActiveEra::<Runtime>::get()
-			.map(|ae| (ErasTotalStake::<Runtime>::get(ae.index), ae.start.unwrap_or(0)))
-			.unwrap_or((0, 0));
-		let stake_able_issuance = Balances::total_issuance();
-		let staking_rate = Perquintill::from_rational(staked, stake_able_issuance);
-
-		let ideal_staking_rate = dynamic_params::inflation::IdealStake::get();
-		let inflation = if dynamic_params::inflation::UseAuctionSlots::get() {
-			let auctioned_slots = parachains_paras::Parachains::<Runtime>::get()
-				.into_iter()
-				// all active para-ids that do not belong to a system chain is the number of
-				// parachains that we should take into account for inflation.
-				.filter(|i| *i >= 2000.into())
-				.count() as u64;
-			ideal_staking_rate
-				.saturating_sub(Perquintill::from_rational(auctioned_slots.min(60), 200u64))
-		} else {
-			ideal_staking_rate
-		};
-
-		let now_as_millis_u64 = pallet_timestamp::Now::<Runtime>::get();
-		let era_duration = (now_as_millis_u64.saturating_sub(start)).saturated_into::<u64>();
-		let next_mint = <Self as pallet_staking::Config>::EraPayout::era_payout(
-			staked,
-			stake_able_issuance,
-			era_duration,
-		);
-
-		pallet_staking_runtime_api::InflationInfo { staking_rate, inflation, next_mint }
-	}
-}
-
 #[cfg(all(test, feature = "try-runtime"))]
 mod remote_tests {
 	use super::*;
