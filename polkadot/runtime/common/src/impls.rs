@@ -28,7 +28,7 @@ use sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
 use xcm::VersionedLocation;
 
 /// Logic for the author to get a portion of fees.
-pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
+pub struct ToAuthor<R>(core::marker::PhantomData<R>);
 impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for ToAuthor<R>
 where
 	R: pallet_balances::Config + pallet_authorship::Config,
@@ -44,7 +44,7 @@ where
 	}
 }
 
-pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
+pub struct DealWithFees<R>(core::marker::PhantomData<R>);
 impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for DealWithFees<R>
 where
 	R: pallet_balances::Config + pallet_authorship::Config + pallet_treasury::Config,
