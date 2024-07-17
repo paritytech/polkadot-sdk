@@ -21,6 +21,7 @@
 
 use super::PALLET_MIGRATIONS_ID;
 use crate::{log, weights, Config, Nominations, Nominators, Pallet, StakerStatus, Validators};
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_election_provider_support::{SortedListProvider, VoteWeight};
