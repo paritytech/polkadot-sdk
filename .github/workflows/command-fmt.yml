@@ -37,6 +37,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
       - name: Run FMT
         run: |
+          cargo --version
+          rustc --version
+          cargo +nightly --version
+          rustc +nightly --version
+          
           cargo +nightly fmt
           
           # format toml.
