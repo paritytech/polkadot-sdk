@@ -22,6 +22,7 @@
 use super::*;
 
 use crate::Pallet as Identity;
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::{
 	assert_ok, ensure,

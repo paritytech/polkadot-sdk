@@ -66,7 +66,7 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		#[doc(hidden)]
 		#[codec(skip)]
 		__Ignore(
-			#frame_support::__private::sp_std::marker::PhantomData<(#type_use_gen)>,
+			core::marker::PhantomData<(#type_use_gen)>,
 			#frame_support::Never,
 		)
 	);
@@ -124,11 +124,11 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 	}
 
 	quote::quote_spanned!(error.attr_span =>
-		impl<#type_impl_gen> #frame_support::__private::sp_std::fmt::Debug for #error_ident<#type_use_gen>
+		impl<#type_impl_gen> core::fmt::Debug for #error_ident<#type_use_gen>
 			#config_where_clause
 		{
-			fn fmt(&self, f: &mut #frame_support::__private::sp_std::fmt::Formatter<'_>)
-				-> #frame_support::__private::sp_std::fmt::Result
+			fn fmt(&self, f: &mut core::fmt::Formatter<'_>)
+				-> core::fmt::Result
 			{
 				f.write_str(self.as_str())
 			}
