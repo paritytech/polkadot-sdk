@@ -269,7 +269,8 @@ where
 		self.metrics
 			.report(|metrics| metrics.mempool_revalidation_invalid_txs.inc_by(invalid_hashes.len() as _));
 
-		self.xts2.write().retain(|hash, _| !invalid_hashes.contains(&hash));
+		let mut transactions = self.xts2.write();
+		invalid_hashes.iter().for_each(|i| transactions.remove(i));
 		self.listener.invalidate_transactions(invalid_hashes);
 	}
 }
