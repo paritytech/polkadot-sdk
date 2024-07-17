@@ -105,6 +105,7 @@ use polkadot_node_subsystem_util::{
 	},
 	Validator,
 };
+use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::{
 	node_features::FeatureIndex, BackedCandidate, CandidateCommitments, CandidateHash,
 	CandidateReceipt, CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex,
@@ -624,6 +625,7 @@ async fn request_candidate_validation(
 	executor_params: ExecutorParams,
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
+	let is_system = candidate_receipt.descriptor.para_id.is_system();
 
 	sender
 		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
@@ -632,7 +634,11 @@ async fn request_candidate_validation(
 			candidate_receipt,
 			pov,
 			executor_params,
-			exec_kind: PvfExecPriority::Backing,
+			exec_kind: if is_system {
+				PvfExecPriority::BackingSystem
+			} else {
+				PvfExecPriority::Backing
+			},
 			response_sender: tx,
 		})
 		.await;

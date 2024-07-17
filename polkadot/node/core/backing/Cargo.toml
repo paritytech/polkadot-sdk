@@ -14,6 +14,7 @@ futures = "0.3.30"
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-primitives = { path = "../../primitives" }
+polkadot-parachain-primitives = { path = "../../../parachain" }
 polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-erasure-coding = { path = "../../../erasure-coding" }
