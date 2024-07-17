@@ -55,13 +55,13 @@ where
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			ControllerCommand::AddView(h, _) => write!(f, "ListenerAction::AddView({})", h),
-			ControllerCommand::RemoveView(h) => write!(f, "ListenerAction::RemoveView({})", h),
+			ControllerCommand::AddView(h, _) => write!(f, "ListenerAction::AddView({h})"),
+			ControllerCommand::RemoveView(h) => write!(f, "ListenerAction::RemoveView({h})"),
 			ControllerCommand::InvalidateTransaction => {
 				write!(f, "ListenerAction::InvalidateTransaction")
 			},
 			ControllerCommand::FinalizeTransaction(h, i) => {
-				write!(f, "ListenerAction::FinalizeTransaction({},{})", h, i)
+				write!(f, "ListenerAction::FinalizeTransaction({h},{i})")
 			},
 			ControllerCommand::TransactionBroadcasted(_) => {
 				write!(f, "ListenerAction::TransactionBroadcasted(...)")
