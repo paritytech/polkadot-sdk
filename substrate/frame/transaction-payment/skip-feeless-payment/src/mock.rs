@@ -45,7 +45,7 @@ impl SignedExtension for DummyExtension {
 	type AdditionalSigned = ();
 	type Pre = ();
 	const IDENTIFIER: &'static str = "DummyExtension";
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
 		Ok(())
 	}
 
