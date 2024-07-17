@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use alloc::vec;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},

@@ -17,6 +17,8 @@
 
 //! Benchmarks for Transaction Payment Pallet's transaction extension
 
+extern crate alloc;
+
 use super::*;
 use crate::Pallet;
 use frame_benchmarking::v2::*;
@@ -49,7 +51,7 @@ mod benchmarks {
 		);
 		let tip = <T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance();
 		let ext: ChargeTransactionPayment<T> = ChargeTransactionPayment::from(tip);
-		let inner = frame_system::Call::remark { remark: vec![] };
+		let inner = frame_system::Call::remark { remark: alloc::vec![] };
 		let call = T::RuntimeCall::from(inner);
 		let info = DispatchInfo {
 			weight: Weight::from_parts(100, 0),
