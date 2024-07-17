@@ -26,12 +26,13 @@ use crate::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
 };
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::format;
+use alloc::{vec, vec::Vec};
 use codec::{Compact, Decode, Encode, EncodeLike, Error, Input};
+use core::fmt;
 use scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter};
 use sp_io::hashing::blake2_256;
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::format;
-use sp_std::{fmt, prelude::*};
 
 /// Current version of the [`UncheckedExtrinsic`] encoded format.
 ///
@@ -316,7 +317,7 @@ where
 	Extra: SignedExtension,
 {
 	fn encode(&self) -> Vec<u8> {
-		let mut tmp = Vec::with_capacity(sp_std::mem::size_of::<Self>());
+		let mut tmp = Vec::with_capacity(core::mem::size_of::<Self>());
 
 		// 1 byte version id.
 		match self.signature.as_ref() {
@@ -437,7 +438,7 @@ mod tests {
 		type AdditionalSigned = ();
 		type Pre = ();
 
-		fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+		fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
 			Ok(())
 		}
 
