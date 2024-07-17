@@ -31,6 +31,7 @@ use frame_support::{
 };
 use sp_runtime::{traits::Zero, RuntimeDebug};
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
