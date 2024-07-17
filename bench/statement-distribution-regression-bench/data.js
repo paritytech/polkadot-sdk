@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721243892327,
+  "lastUpdate": 1721259013506,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -5207,6 +5207,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.047894428045999984,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Tom",
+            "username": "senseless",
+            "email": "tsenseless@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4bcdf8166972b63a70b618c90424b9f7d64b719b",
+          "message": "Update the stake.plus bootnode addresses (#5039)\n\nUpdate the stake.plus bootnode addresses\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-07-17T21:36:51Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4bcdf8166972b63a70b618c90424b9f7d64b719b"
+        },
+        "date": 1721258984512,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.95199999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.036294133834,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.044978426704000006,
             "unit": "seconds"
           }
         ]
