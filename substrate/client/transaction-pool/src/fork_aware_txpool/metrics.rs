@@ -150,7 +150,7 @@ impl MetricsRegistrant for Metrics {
 			)?,
 			non_cloned_views: register(
 				Counter::new(
-					"substrate_sub_txpool_non_cloned_views",
+					"substrate_sub_txpool_non_cloned_views_total",
 					"Total number of the views created w/o cloning existing view.",
 				)?,
 				registry,

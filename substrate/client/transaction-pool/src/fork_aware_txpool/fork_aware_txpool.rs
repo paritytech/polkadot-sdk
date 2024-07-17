@@ -961,7 +961,6 @@ where
 		}
 	}
 
-	//todo: maybe move to ViewManager
 	async fn update_view_with_fork(
 		&self,
 		view: &View<ChainApi>,

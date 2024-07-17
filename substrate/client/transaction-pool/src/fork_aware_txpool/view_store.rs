@@ -81,12 +81,8 @@ where
 				.iter()
 				.map(|(_, view)| {
 					let view = view.clone();
-					//todo: remove this clone (Arc?)
 					let xts = xts.clone();
-					async move {
-						let r = (view.at.hash, view.submit_many(source, xts.clone()).await);
-						r
-					}
+					async move { (view.at.hash, view.submit_many(source, xts).await) }
 				})
 				.collect::<Vec<_>>();
 			futs
@@ -152,7 +148,6 @@ where
 			futs
 		};
 		let maybe_watchers = futures::future::join_all(results).await;
-		//todo: maybe try_fold + ControlFlow ?
 		let maybe_error = maybe_watchers.into_iter().reduce(|mut r, v| {
 			if r.is_err() && v.is_ok() {
 				r = v;
