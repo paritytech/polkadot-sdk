@@ -20908,6 +20908,7 @@ dependencies = [
  "schemars",
  "serde",
  "sp-io",
+ "sp-runtime",
  "sp-weights",
  "xcm-procedural",
 ]
