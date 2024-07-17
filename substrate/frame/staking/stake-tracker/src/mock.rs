@@ -29,6 +29,7 @@ pub(crate) type Balance = u64;
 
 type Block = frame_system::mocking::MockBlockU32<Test>;
 
+/*
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
 	pub enum Test
@@ -40,6 +41,39 @@ frame_support::construct_runtime!(
 		StakeTracker: pallet_stake_tracker,
 	}
 );
+*/
+
+#[frame_support::runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Test;
+
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system::Pallet<Test>;
+
+	#[runtime::pallet_index(1)]
+	pub type Balances = pallet_balances::Pallet<Test>;
+
+	#[runtime::pallet_index(2)]
+	pub type StakeTracker = pallet_stake_tracker<Test>;
+
+	#[runtime::pallet_index(3)]
+	pub type VoterBagsList = pallet_bags_list<Test, Instance1>;
+
+	#[runtime::pallet_index(4)]
+	pub type TargetBagsList = pallet_bags_list<Test, Instance2>;
+}
 
 parameter_types! {
 	pub static ExistentialDeposit: Balance = 1;
