@@ -18,6 +18,7 @@
 
 use crate::paras::*;
 use pallet_mmr::BenchmarkHelper;
+use sp_std::vec;
 
 /// Struct to setup benchmarks for the `merkle-mountain-range` pallet.
 pub struct MmrSetup<T>(core::marker::PhantomData<T>);
