@@ -24,20 +24,20 @@ use jsonrpsee::{
 };
 use serde::de::DeserializeOwned;
 use serde_json::Value as JsonValue;
+use std::collections::{btree_map::BTreeMap, VecDeque};
 use tokio::sync::mpsc::Sender as TokioSender;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use cumulus_primitives_core::{
 	relay_chain::{
 		async_backing::{AsyncBackingParams, BackingState},
-		slashing,
-		vstaging::{ApprovalVotingParams, NodeFeatures},
-		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
-		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
-		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
-		ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+		slashing, ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+		CandidateHash, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+		ExecutorParams, GroupRotationInfo, Hash as RelayHash, Header as RelayHeader,
+		InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PvfCheckStatement,
+		ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+		ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -47,7 +47,6 @@ use sc_client_api::StorageData;
 use sc_rpc_api::{state::ReadProof, system::Health};
 use sc_service::TaskManager;
 use sp_consensus_babe::Epoch;
-use sp_core::sp_std::collections::btree_map::BTreeMap;
 use sp_storage::StorageKey;
 use sp_version::RuntimeVersion;
 
@@ -645,6 +644,28 @@ impl RelayChainRpcClient {
 	) -> Result<Option<BackingState>, RelayChainError> {
 		self.call_remote_runtime_function("ParachainHost_para_backing_state", at, Some(para_id))
 			.await
+	}
+
+	pub async fn parachain_host_claim_queue(
+		&self,
+		at: RelayHash,
+	) -> Result<BTreeMap<CoreIndex, VecDeque<ParaId>>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_claim_queue", at, None::<()>)
+			.await
+	}
+
+	/// Get the receipt of all candidates pending availability.
+	pub async fn parachain_host_candidates_pending_availability(
+		&self,
+		at: RelayHash,
+		para_id: ParaId,
+	) -> Result<Vec<CommittedCandidateReceipt>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_candidates_pending_availability",
+			at,
+			Some(para_id),
+		)
+		.await
 	}
 
 	pub async fn validation_code_hash(

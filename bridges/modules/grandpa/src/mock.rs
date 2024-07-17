@@ -20,7 +20,8 @@
 use bp_header_chain::ChainWithGrandpa;
 use bp_runtime::{Chain, ChainId};
 use frame_support::{
-	construct_runtime, derive_impl, parameter_types, traits::Hooks, weights::Weight,
+	construct_runtime, derive_impl, parameter_types, sp_runtime::StateVersion, traits::Hooks,
+	weights::Weight,
 };
 use sp_core::sr25519::Signature;
 
@@ -42,20 +43,22 @@ construct_runtime! {
 	}
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for TestRuntime {
 	type Block = Block;
 }
 
 parameter_types! {
-	pub const MaxFreeMandatoryHeadersPerBlock: u32 = 2;
+	pub const MaxFreeHeadersPerBlock: u32 = 2;
+	pub const FreeHeadersInterval: u32 = 32;
 	pub const HeadersToKeep: u32 = 5;
 }
 
 impl grandpa::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = TestBridgedChain;
-	type MaxFreeMandatoryHeadersPerBlock = MaxFreeMandatoryHeadersPerBlock;
+	type MaxFreeHeadersPerBlock = MaxFreeHeadersPerBlock;
+	type FreeHeadersInterval = FreeHeadersInterval;
 	type HeadersToKeep = HeadersToKeep;
 	type WeightInfo = ();
 }
@@ -76,6 +79,8 @@ impl Chain for TestBridgedChain {
 	type Nonce = u64;
 	type Signature = Signature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		unreachable!()
 	}
@@ -87,7 +92,7 @@ impl Chain for TestBridgedChain {
 impl ChainWithGrandpa for TestBridgedChain {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
 	const MAX_AUTHORITIES_COUNT: u32 = MAX_BRIDGED_AUTHORITIES;
-	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
+	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 = 8;
 	const MAX_MANDATORY_HEADER_SIZE: u32 = 256;
 	const AVERAGE_HEADER_SIZE: u32 = 64;
 }

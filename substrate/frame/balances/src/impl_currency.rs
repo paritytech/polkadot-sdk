@@ -28,8 +28,8 @@ use frame_support::{
 		tokens::{fungible, BalanceStatus as Status, Fortitude::Polite, Precision::BestEffort},
 		Currency, DefensiveSaturating, ExistenceRequirement,
 		ExistenceRequirement::AllowDeath,
-		Get, Imbalance, LockIdentifier, LockableCurrency, NamedReservableCurrency,
-		ReservableCurrency, SignedImbalance, TryDrop, WithdrawReasons,
+		Get, Imbalance, InspectLockableCurrency, LockIdentifier, LockableCurrency,
+		NamedReservableCurrency, ReservableCurrency, SignedImbalance, TryDrop, WithdrawReasons,
 	},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -39,8 +39,8 @@ pub use imbalances::{NegativeImbalance, PositiveImbalance};
 // of the inner member.
 mod imbalances {
 	use super::{result, Config, Imbalance, RuntimeDebug, Saturating, TryDrop, Zero};
+	use core::mem;
 	use frame_support::traits::SameOrOther;
-	use sp_std::mem;
 
 	/// Opaque, move-only struct with private fields that serves as a token denoting that
 	/// funds have been created without any equal and opposite accounting.
@@ -916,5 +916,14 @@ where
 		let mut locks = Self::locks(who);
 		locks.retain(|l| l.id != id);
 		Self::update_locks(who, &locks[..]);
+	}
+}
+
+impl<T: Config<I>, I: 'static> InspectLockableCurrency<T::AccountId> for Pallet<T, I> {
+	fn balance_locked(id: LockIdentifier, who: &T::AccountId) -> Self::Balance {
+		Self::locks(who)
+			.into_iter()
+			.filter(|l| l.id == id)
+			.fold(Zero::zero(), |acc, l| acc + l.amount)
 	}
 }

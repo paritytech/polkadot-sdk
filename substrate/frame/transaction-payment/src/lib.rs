@@ -62,28 +62,22 @@ pub use payment::*;
 use sp_runtime::{
 	traits::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
-		Saturating, TransactionExtension, TransactionExtensionBase, Zero,
+		Saturating, SignedExtension, Zero,
 	},
 	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionValidityError, ValidTransaction,
+		TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
 	FixedPointNumber, FixedU128, Perbill, Perquintill, RuntimeDebug,
 };
-use sp_std::prelude::*;
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
-pub use weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
-
 mod payment;
 mod types;
-pub mod weights;
 
 /// Fee multiplier.
 pub type Multiplier = FixedU128;
@@ -142,7 +136,7 @@ type BalanceOf<T> = <<T as Config>::OnChargeTransaction as OnChargeTransaction<T
 ///
 /// More info can be found at:
 /// <https://research.web3.foundation/en/latest/polkadot/overview/2-token-economics.html>
-pub struct TargetedFeeAdjustment<T, S, V, M, X>(sp_std::marker::PhantomData<(T, S, V, M, X)>);
+pub struct TargetedFeeAdjustment<T, S, V, M, X>(core::marker::PhantomData<(T, S, V, M, X)>);
 
 /// Something that can convert the current multiplier to the next one.
 pub trait MultiplierUpdate: Convert<Multiplier, Multiplier> {
@@ -269,7 +263,7 @@ where
 }
 
 /// A struct to make the fee multiplier a constant
-pub struct ConstFeeMultiplier<M: Get<Multiplier>>(sp_std::marker::PhantomData<M>);
+pub struct ConstFeeMultiplier<M: Get<Multiplier>>(core::marker::PhantomData<M>);
 
 impl<M: Get<Multiplier>> MultiplierUpdate for ConstFeeMultiplier<M> {
 	fn min() -> Multiplier {
@@ -331,7 +325,7 @@ pub mod pallet {
 		/// Default prelude sensible to be used in a testing environment.
 		pub struct TestDefaultConfig;
 
-		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -340,7 +334,6 @@ pub mod pallet {
 			type RuntimeEvent = ();
 			type FeeMultiplierUpdate = ();
 			type OperationalFeeMultiplier = ();
-			type WeightInfo = ();
 		}
 	}
 
@@ -393,9 +386,6 @@ pub mod pallet {
 		/// transactions.
 		#[pallet::constant]
 		type OperationalFeeMultiplier: Get<u8>;
-
-		/// The weight information of this pallet.
-		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::type_value]
@@ -415,7 +405,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub multiplier: Multiplier,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
@@ -516,11 +506,11 @@ impl<T: Config> Pallet<T> {
 		// a very very little potential gain in the future.
 		let dispatch_info = <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
 
-		let partial_fee = if unchecked_extrinsic.is_bare() {
-			// Bare extrinsics have no partial fee.
-			0u32.into()
-		} else {
+		let partial_fee = if unchecked_extrinsic.is_signed().unwrap_or(false) {
 			Self::compute_fee(len, &dispatch_info, 0u32.into())
+		} else {
+			// Unsigned extrinsics have no partial fee.
+			0u32.into()
 		};
 
 		let DispatchInfo { weight, class, .. } = dispatch_info;
@@ -540,11 +530,11 @@ impl<T: Config> Pallet<T> {
 
 		let tip = 0u32.into();
 
-		if unchecked_extrinsic.is_bare() {
-			// Bare extrinsics have no inclusion fee.
-			FeeDetails { inclusion_fee: None, tip }
-		} else {
+		if unchecked_extrinsic.is_signed().unwrap_or(false) {
 			Self::compute_fee_details(len, &dispatch_info, tip)
+		} else {
+			// Unsigned extrinsics have no inclusion fee.
+			FeeDetails { inclusion_fee: None, tip }
 		}
 	}
 
@@ -723,7 +713,7 @@ where
 		who: &T::AccountId,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
-		fee: BalanceOf<T>,
+		len: usize,
 	) -> Result<
 		(
 			BalanceOf<T>,
@@ -732,27 +722,12 @@ where
 		TransactionValidityError,
 	> {
 		let tip = self.0;
+		let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
 
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
 			who, call, info, fee, tip,
 		)
 		.map(|i| (fee, i))
-	}
-
-	fn can_withdraw_fee(
-		&self,
-		who: &T::AccountId,
-		call: &T::RuntimeCall,
-		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
-	) -> Result<BalanceOf<T>, TransactionValidityError> {
-		let tip = self.0;
-		let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
-
-		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::can_withdraw_fee(
-			who, call, info, fee, tip,
-		)?;
-		Ok(fee)
 	}
 
 	/// Get an appropriate priority for a transaction with the given `DispatchInfo`, encoded length
@@ -830,104 +805,78 @@ where
 	}
 }
 
-impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
+impl<T: Config> core::fmt::Debug for ChargeTransactionPayment<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "ChargeTransactionPayment<{:?}>", self.0)
 	}
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
 
-impl<T: Config> TransactionExtensionBase for ChargeTransactionPayment<T> {
-	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
-	type Implicit = ();
-
-	fn weight(&self) -> Weight {
-		T::WeightInfo::charge_transaction_payment()
-	}
-}
-
-impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context>
-	for ChargeTransactionPayment<T>
+impl<T: Config> SignedExtension for ChargeTransactionPayment<T>
 where
 	BalanceOf<T>: Send + Sync + From<u64>,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	type Val = (
-		// tip
-		BalanceOf<T>,
-		// who paid the fee
-		T::AccountId,
-		// computed fee
-		BalanceOf<T>,
-	);
+	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
+	type AccountId = T::AccountId;
+	type Call = T::RuntimeCall;
+	type AdditionalSigned = ();
 	type Pre = (
 		// tip
 		BalanceOf<T>,
-		// who paid the fee
-		T::AccountId,
+		// who paid the fee - this is an option to allow for a Default impl.
+		Self::AccountId,
 		// imbalance resulting from withdrawing the fee
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
 	);
+	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
+		Ok(())
+	}
 
 	fn validate(
 		&self,
-		origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
-		call: &T::RuntimeCall,
-		info: &DispatchInfoOf<T::RuntimeCall>,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
-		_context: &mut Context,
-		_: (),
-		_implication: &impl Encode,
-	) -> Result<
-		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
-		TransactionValidityError,
-	> {
-		let who = frame_system::ensure_signed(origin.clone())
-			.map_err(|_| InvalidTransaction::BadSigner)?;
-		let final_fee = self.can_withdraw_fee(&who, call, info, len)?;
+	) -> TransactionValidity {
+		let (final_fee, _) = self.withdraw_fee(who, call, info, len)?;
 		let tip = self.0;
-		Ok((
-			ValidTransaction {
-				priority: Self::get_priority(info, len, tip, final_fee),
-				..Default::default()
-			},
-			(self.0, who, final_fee),
-			origin,
-		))
+		Ok(ValidTransaction {
+			priority: Self::get_priority(info, len, tip, final_fee),
+			..Default::default()
+		})
 	}
 
-	fn prepare(
+	fn pre_dispatch(
 		self,
-		val: Self::Val,
-		_origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
-		call: &T::RuntimeCall,
-		info: &DispatchInfoOf<T::RuntimeCall>,
-		_len: usize,
-		_context: &Context,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let (tip, who, fee) = val;
-		// Mutating call to `withdraw_fee` to actually charge for the transaction.
-		let (_final_fee, imbalance) = self.withdraw_fee(&who, call, info, fee)?;
-		Ok((tip, who, imbalance))
+		let (_fee, imbalance) = self.withdraw_fee(who, call, info, len)?;
+		Ok((self.0, who.clone(), imbalance))
 	}
 
 	fn post_dispatch(
-		(tip, who, imbalance): Self::Pre,
-		info: &DispatchInfoOf<T::RuntimeCall>,
-		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
+		maybe_pre: Option<Self::Pre>,
+		info: &DispatchInfoOf<Self::Call>,
+		post_info: &PostDispatchInfoOf<Self::Call>,
 		len: usize,
 		_result: &DispatchResult,
-		_context: &Context,
 	) -> Result<(), TransactionValidityError> {
-		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
-		T::OnChargeTransaction::correct_and_deposit_fee(
-			&who, info, post_info, actual_fee, tip, imbalance,
-		)?;
-		Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid { who, actual_fee, tip });
+		if let Some((tip, who, imbalance)) = maybe_pre {
+			let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
+			T::OnChargeTransaction::correct_and_deposit_fee(
+				&who, info, post_info, actual_fee, tip, imbalance,
+			)?;
+			Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid { who, actual_fee, tip });
+		}
 		Ok(())
 	}
 }

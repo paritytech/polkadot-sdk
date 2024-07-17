@@ -18,11 +18,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use codec::{Decode, Encode};
+pub use core::{ops::Add, result};
 pub use enumn::N;
-pub use parity_scale_codec::{Decode, Encode};
 pub use paste;
 pub use sp_runtime::traits::CheckedSub;
-pub use sp_std::{ops::Add, result};
 
 /// This macro generates a `SlotRange` enum of arbitrary length for use in the Slot Auction
 /// mechanism on Polkadot.

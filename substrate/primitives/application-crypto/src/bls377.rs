@@ -18,15 +18,14 @@
 //! BLS12-377 crypto applications.
 use crate::{KeyTypeId, RuntimePublic};
 
+use alloc::vec::Vec;
 pub use sp_core::bls::bls377::*;
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::BLS377);
 }
 
-#[cfg(feature = "full_crypto")]
-pub use app::Pair as AppPair;
-pub use app::{Public as AppPublic, Signature as AppSignature};
+pub use app::{Pair as AppPair, Public as AppPublic, Signature as AppSignature};
 
 impl RuntimePublic for Public {
 	type Signature = Signature;

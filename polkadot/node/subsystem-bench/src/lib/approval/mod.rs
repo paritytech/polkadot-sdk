@@ -30,7 +30,7 @@ use crate::{
 	mock::{
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
-		runtime_api::MockRuntimeApi,
+		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains, TestSyncOracle,
 	},
 	network::{
@@ -40,12 +40,12 @@ use crate::{
 	usage::BenchmarkUsage,
 	NODE_UNDER_TEST,
 };
+use codec::{Decode, Encode};
 use colored::Colorize;
 use futures::channel::oneshot;
 use itertools::Itertools;
 use orchestra::TimeoutExt;
 use overseer::{metrics::Metrics as OverseerMetrics, MetricsTrait};
-use parity_scale_codec::{Decode, Encode};
 use polkadot_approval_distribution::ApprovalDistribution;
 use polkadot_node_core_approval_voting::{
 	time::{slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock},
@@ -60,7 +60,7 @@ use polkadot_node_subsystem_util::metrics::Metrics;
 use polkadot_overseer::Handle as OverseerHandleReal;
 use polkadot_primitives::{
 	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceipt, Hash, Header, Slot,
-	ValidatorIndex,
+	ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
 };
 use prometheus::Registry;
 use sc_keystore::LocalKeystore;
@@ -68,6 +68,7 @@ use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
+use sp_keystore::Keystore;
 use std::{
 	cmp::max,
 	collections::{HashMap, HashSet},
@@ -98,7 +99,7 @@ pub(crate) const TEST_CONFIG: ApprovalVotingConfig = ApprovalVotingConfig {
 const DATA_COL: u32 = 0;
 
 /// Start generating messages for a slot into the future, so that the
-/// generation nevers falls behind the current slot.
+/// generation never falls behind the current slot.
 const BUFFER_FOR_GENERATION_MILLIS: u64 = 30_000;
 
 /// Parameters specific to the approvals benchmark
@@ -115,7 +116,7 @@ pub struct ApprovalsOptions {
 	#[clap(short, long, default_value_t = 1.0)]
 	/// Max candidate to be signed in a single approval.
 	pub coalesce_std_dev: f32,
-	/// The maximum tranche diff between approvals coalesced toghther.
+	/// The maximum tranche diff between approvals coalesced together.
 	pub coalesce_tranche_diff: u32,
 	#[clap(short, long, default_value_t = false)]
 	/// Enable assignments v2.
@@ -170,7 +171,7 @@ struct BlockTestData {
 	total_candidates_before: u64,
 	/// The votes we sent.
 	/// votes[validator_index][candidate_index] tells if validator sent vote for candidate.
-	/// We use this to mark the test as succesfull if GetApprovalSignatures returns all the votes
+	/// We use this to mark the test as successful if GetApprovalSignatures returns all the votes
 	/// from here.
 	votes: Arc<Vec<Vec<AtomicBool>>>,
 }
@@ -237,7 +238,7 @@ struct GeneratedState {
 }
 
 /// Approval test state used by all mock subsystems to be able to answer messages emitted
-/// by the approval-voting and approval-distribution-subystems.
+/// by the approval-voting and approval-distribution-subsystems.
 ///
 /// This gets cloned across all mock subsystems, so if there is any information that gets
 /// updated between subsystems, they would have to be wrapped in Arc's.
@@ -465,8 +466,9 @@ impl ApprovalTestState {
 	}
 }
 
+#[async_trait::async_trait]
 impl HandleNetworkMessage for ApprovalTestState {
-	fn handle(
+	async fn handle(
 		&self,
 		_message: crate::network::NetworkMessage,
 		_node_sender: &mut futures::channel::mpsc::UnboundedSender<crate::network::NetworkMessage>,
@@ -498,7 +500,7 @@ struct PeerMessageProducer {
 
 impl PeerMessageProducer {
 	/// Generates messages by spawning a blocking task in the background which begins creating
-	/// the assignments/approvals and peer view changes at the begining of each block.
+	/// the assignments/approvals and peer view changes at the beginning of each block.
 	fn produce_messages(
 		mut self,
 		env: &TestEnvironment,
@@ -696,12 +698,12 @@ impl PeerMessageProducer {
 			.expect("We can't handle unknown peers")
 			.clone();
 
-		self.network
-			.send_message_from_peer(
-				&peer_authority_id,
-				protocol_v3::ValidationProtocol::ApprovalDistribution(message.msg).into(),
-			)
-			.unwrap_or_else(|_| panic!("Network should be up and running {:?}", sent_by));
+		if let Err(err) = self.network.send_message_from_peer(
+			&peer_authority_id,
+			protocol_v3::ValidationProtocol::ApprovalDistribution(message.msg).into(),
+		) {
+			gum::warn!(target: LOG_TARGET, ?sent_by, ?err, "Validator can not send message");
+		}
 	}
 
 	// Queues a message to be sent by the peer identified by the `sent_by` value.
@@ -740,7 +742,7 @@ impl PeerMessageProducer {
 		}
 	}
 
-	// Initializes the candidates test data. This is used for bookeeping if more assignments and
+	// Initializes the candidates test data. This is used for bookkeeping if more assignments and
 	// approvals would be needed.
 	fn initialize_candidates_test_data(
 		&self,
@@ -767,7 +769,7 @@ impl PeerMessageProducer {
 }
 
 /// Helper function to build an overseer with the real implementation for `ApprovalDistribution` and
-/// `ApprovalVoting` subystems and mock subsytems for all others.
+/// `ApprovalVoting` subsystems and mock subsystems for all others.
 fn build_overseer(
 	state: &ApprovalTestState,
 	network: &NetworkEmulatorHandle,
@@ -784,6 +786,12 @@ fn build_overseer(
 	let db: polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter<kvdb_memorydb::InMemory> =
 		polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[]);
 	let keystore = LocalKeystore::in_memory();
+	keystore
+		.sr25519_generate_new(
+			ASSIGNMENT_KEY_TYPE_ID,
+			Some(state.test_authorities.key_seeds.get(NODE_UNDER_TEST as usize).unwrap().as_str()),
+		)
+		.unwrap();
 
 	let system_clock =
 		PastSystemClock::new(SystemClock {}, state.delta_tick_from_generated.clone());
@@ -807,6 +815,7 @@ fn build_overseer(
 		state.candidate_events_by_block(),
 		Some(state.babe_epoch.clone()),
 		1,
+		MockRuntimeApiCoreState::Occupied,
 	);
 	let mock_tx_bridge = MockNetworkBridgeTx::new(
 		network.clone(),
@@ -886,7 +895,6 @@ fn prepare_test_inner(
 }
 
 pub async fn bench_approvals(
-	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	mut state: ApprovalTestState,
 ) -> BenchmarkUsage {
@@ -898,12 +906,11 @@ pub async fn bench_approvals(
 			env.registry().clone(),
 		)
 		.await;
-	bench_approvals_run(benchmark_name, env, state, producer_rx).await
+	bench_approvals_run(env, state, producer_rx).await
 }
 
 /// Runs the approval benchmark.
 pub async fn bench_approvals_run(
-	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	state: ApprovalTestState,
 	producer_rx: oneshot::Receiver<()>,
@@ -915,7 +922,9 @@ pub async fn bench_approvals_run(
 
 	// First create the initialization messages that make sure that then node under
 	// tests receives notifications about the topology used and the connected peers.
-	let mut initialization_messages = env.network().generate_peer_connected();
+	let mut initialization_messages = env.network().generate_peer_connected(|e| {
+		AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(e))
+	});
 	initialization_messages.extend(generate_new_session_topology(
 		&state.test_authorities,
 		ValidatorIndex(NODE_UNDER_TEST),
@@ -936,7 +945,7 @@ pub async fn bench_approvals_run(
 	for block_num in 0..env.config().num_blocks {
 		let mut current_slot = tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
 
-		// Wait untill the time arrieves at the first slot under test.
+		// Wait until the time arrives at the first slot under test.
 		while current_slot < state.generated_state.initial_slot {
 			sleep(Duration::from_millis(5)).await;
 			current_slot = tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
@@ -961,7 +970,7 @@ pub async fn bench_approvals_run(
 	}
 
 	// Wait for all blocks to be approved before exiting.
-	// This is an invariant of the benchmark, if this does not happen something went teribbly wrong.
+	// This is an invariant of the benchmark, if this does not happen something went terribly wrong.
 	while state.last_approved_block.load(std::sync::atomic::Ordering::SeqCst) <
 		env.config().num_blocks as u32
 	{
@@ -985,11 +994,12 @@ pub async fn bench_approvals_run(
 		"polkadot_parachain_subsystem_bounded_received",
 		Some(("subsystem_name", "approval-distribution-subsystem")),
 		|value| {
-			gum::info!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
+			gum::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
 			value >= at_least_messages as f64
 		},
 	)
 	.await;
+
 	gum::info!("Requesting approval votes ms");
 
 	for info in &state.blocks {
@@ -1029,7 +1039,7 @@ pub async fn bench_approvals_run(
 		"polkadot_parachain_subsystem_bounded_received",
 		Some(("subsystem_name", "approval-distribution-subsystem")),
 		|value| {
-			gum::info!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
+			gum::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
 			value >= at_least_messages as f64
 		},
 	)
@@ -1068,5 +1078,5 @@ pub async fn bench_approvals_run(
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 	);
 
-	env.collect_resource_usage(benchmark_name, &["approval-distribution", "approval-voting"])
+	env.collect_resource_usage(&["approval-distribution", "approval-voting"])
 }

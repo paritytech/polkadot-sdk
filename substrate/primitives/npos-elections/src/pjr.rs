@@ -26,8 +26,8 @@ use crate::{
 	Candidate, CandidatePtr, Edge, ExtendedBalance, IdentifierT, Support, SupportMap, Supports,
 	VoteWeight, Voter,
 };
+use alloc::{collections::btree_map::BTreeMap, rc::Rc, vec::Vec};
 use sp_arithmetic::{traits::Zero, Perbill};
-use sp_std::{collections::btree_map::BTreeMap, rc::Rc, vec::Vec};
 /// The type used as the threshold.
 ///
 /// Just some reading sugar; Must always be same as [`ExtendedBalance`];
@@ -261,7 +261,7 @@ fn prepare_pjr_input<AccountId: IdentifierT>(
 		}
 	}
 
-	// Convert Suppports into a SupportMap
+	// Convert Supports into a SupportMap
 	//
 	// As a flat list, we're limited to linear search. That gives the production of `candidates`,
 	// below, a complexity of `O(s*c)`, where `s == supports.len()` and `c == all_candidates.len()`.

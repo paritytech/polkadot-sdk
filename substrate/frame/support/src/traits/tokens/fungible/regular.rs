@@ -16,6 +16,8 @@
 // limitations under the License.
 
 //! `Inspect` and `Mutate` traits for working with regular balances.
+//!
+//! See the [`crate::traits::fungible`] doc for more information about fungible traits.
 
 use crate::{
 	ensure,
@@ -34,9 +36,9 @@ use crate::{
 		SameOrOther, TryDrop,
 	},
 };
+use core::marker::PhantomData;
 use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
 use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
-use sp_std::marker::PhantomData;
 
 use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
 
@@ -252,19 +254,23 @@ where
 		Ok(actual)
 	}
 
-	/// Decrease the balance of `who` by at least `amount`, possibly slightly more in the case of
-	/// minimum-balance requirements, burning the tokens. If that isn't possible then an `Err` is
-	/// returned and nothing is changed. If successful, the amount of tokens reduced is returned.
+	/// Attempt to decrease the balance of `who`, burning the tokens.
+	/// The actual amount burned is derived from the `amount`, `preservation`, `precision` and
+	/// `force`, and might end up being more, less or equal to the `amount` specified.
+	///
+	/// If the burn isn't possible then an `Err` is returned and nothing is changed.
+	/// If successful, the amount of tokens reduced is returned.
 	fn burn_from(
 		who: &AccountId,
 		amount: Self::Balance,
+		preservation: Preservation,
 		precision: Precision,
 		force: Fortitude,
 	) -> Result<Self::Balance, DispatchError> {
-		let actual = Self::reducible_balance(who, Expendable, force).min(amount);
+		let actual = Self::reducible_balance(who, preservation, force).min(amount);
 		ensure!(actual == amount || precision == BestEffort, TokenError::FundsUnavailable);
 		Self::total_issuance().checked_sub(&actual).ok_or(ArithmeticError::Overflow)?;
-		let actual = Self::decrease_balance(who, actual, BestEffort, Expendable, force)?;
+		let actual = Self::decrease_balance(who, actual, BestEffort, preservation, force)?;
 		Self::set_total_issuance(Self::total_issuance().saturating_sub(actual));
 		Self::done_burn_from(who, actual);
 		Ok(actual)
@@ -340,7 +346,8 @@ where
 	fn set_balance(who: &AccountId, amount: Self::Balance) -> Self::Balance {
 		let b = Self::balance(who);
 		if b > amount {
-			Self::burn_from(who, b - amount, BestEffort, Force).map(|d| b.saturating_sub(d))
+			Self::burn_from(who, b - amount, Expendable, BestEffort, Force)
+				.map(|d| b.saturating_sub(d))
 		} else {
 			Self::mint_into(who, amount - b).map(|d| b.saturating_add(d))
 		}

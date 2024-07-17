@@ -21,27 +21,23 @@
 #![warn(missing_docs)]
 
 pub mod middleware;
+pub mod utils;
 
-use std::{
-	convert::Infallible, error::Error as StdError, net::SocketAddr, num::NonZeroU32, time::Duration,
-};
+use std::{error::Error as StdError, net::SocketAddr, num::NonZeroU32, sync::Arc, time::Duration};
 
-use http::header::HeaderValue;
-use hyper::{
-	server::conn::AddrStream,
-	service::{make_service_fn, service_fn},
-};
 use jsonrpsee::{
+	core::BoxError,
 	server::{
-		middleware::http::{HostFilterLayer, ProxyGetRequestLayer},
-		stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
+		serve_with_graceful_shutdown, stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
 	},
 	Methods, RpcModule,
 };
+use middleware::NodeHealthProxyLayer;
 use tokio::net::TcpListener;
 use tower::Service;
-use tower_http::cors::{AllowOrigin, CorsLayer};
+use utils::{build_rpc_api, format_cors, get_proxy_ip, host_filtering, try_into_cors};
 
+pub use ip_network::IpNetwork;
 pub use jsonrpsee::{
 	core::{
 		id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
@@ -85,6 +81,10 @@ pub struct Config<'a, M: Send + Sync + 'static> {
 	pub batch_config: BatchRequestConfig,
 	/// Rate limit calls per minute.
 	pub rate_limit: Option<NonZeroU32>,
+	/// Disable rate limit for certain ips.
+	pub rate_limit_whitelisted_ips: Vec<IpNetwork>,
+	/// Trust proxy headers for rate limiting.
+	pub rate_limit_trust_proxy_headers: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -94,6 +94,7 @@ struct PerConnection<RpcMiddleware, HttpMiddleware> {
 	metrics: Option<RpcMetrics>,
 	tokio_handle: tokio::runtime::Handle,
 	service_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
+	rate_limit_whitelisted_ips: Arc<Vec<IpNetwork>>,
 }
 
 /// Start RPC server listening on given address.
@@ -117,16 +118,18 @@ where
 		tokio_handle,
 		rpc_api,
 		rate_limit,
+		rate_limit_whitelisted_ips,
+		rate_limit_trust_proxy_headers,
 	} = config;
 
-	let std_listener = TcpListener::bind(addrs.as_slice()).await?.into_std()?;
-	let local_addr = std_listener.local_addr().ok();
-	let host_filter = hosts_filtering(cors.is_some(), local_addr);
+	let listener = TcpListener::bind(addrs.as_slice()).await?;
+	let local_addr = listener.local_addr().ok();
+	let host_filter = host_filtering(cors.is_some(), local_addr);
 
 	let http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
-		// Proxy `GET /health` requests to internal `system_health` method.
-		.layer(ProxyGetRequestLayer::new("/health", "system_health")?)
+		// Proxy `GET /health, /health/readiness` requests to the internal `system_health` method.
+		.layer(NodeHealthProxyLayer::default())
 		.layer(try_into_cors(cors)?);
 
 	let mut builder = jsonrpsee::server::Server::builder()
@@ -156,24 +159,58 @@ where
 		methods: build_rpc_api(rpc_api).into(),
 		service_builder: builder.to_service_builder(),
 		metrics,
-		tokio_handle,
-		stop_handle: stop_handle.clone(),
+		tokio_handle: tokio_handle.clone(),
+		stop_handle,
+		rate_limit_whitelisted_ips: Arc::new(rate_limit_whitelisted_ips),
 	};
 
-	let make_service = make_service_fn(move |_conn: &AddrStream| {
-		let cfg = cfg.clone();
+	tokio_handle.spawn(async move {
+		loop {
+			let (sock, remote_addr) = tokio::select! {
+				res = listener.accept() => {
+					match res {
+						Ok(s) => s,
+						Err(e) => {
+							log::debug!(target: "rpc", "Failed to accept ipv4 connection: {:?}", e);
+							continue;
+						}
+					}
+				}
+				_ = cfg.stop_handle.clone().shutdown() => break,
+			};
 
-		async move {
-			let cfg = cfg.clone();
+			let ip = remote_addr.ip();
+			let cfg2 = cfg.clone();
+			let svc = tower::service_fn(move |req: http::Request<hyper::body::Incoming>| {
+				let PerConnection {
+					methods,
+					service_builder,
+					metrics,
+					tokio_handle,
+					stop_handle,
+					rate_limit_whitelisted_ips,
+				} = cfg2.clone();
 
-			Ok::<_, Infallible>(service_fn(move |req| {
-				let PerConnection { service_builder, metrics, tokio_handle, stop_handle, methods } =
-					cfg.clone();
+				let proxy_ip =
+					if rate_limit_trust_proxy_headers { get_proxy_ip(&req) } else { None };
+
+				let rate_limit_cfg = if rate_limit_whitelisted_ips
+					.iter()
+					.any(|ips| ips.contains(proxy_ip.unwrap_or(ip)))
+				{
+					log::debug!(target: "rpc", "ip={ip}, proxy_ip={:?} is trusted, disabling rate-limit", proxy_ip);
+					None
+				} else {
+					if !rate_limit_whitelisted_ips.is_empty() {
+						log::debug!(target: "rpc", "ip={ip}, proxy_ip={:?} is not trusted, rate-limit enabled", proxy_ip);
+					}
+					rate_limit
+				};
 
 				let is_websocket = ws::is_upgrade_request(&req);
 				let transport_label = if is_websocket { "ws" } else { "http" };
 
-				let middleware_layer = match (metrics, rate_limit) {
+				let middleware_layer = match (metrics, rate_limit_cfg) {
 					(None, None) => None,
 					(Some(metrics), None) => Some(
 						MiddlewareLayer::new().with_metrics(Metrics::new(metrics, transport_label)),
@@ -187,9 +224,9 @@ where
 					),
 				};
 
-				let rpc_middleware =
-					RpcServiceBuilder::new().option_layer(middleware_layer.clone());
-
+				let rpc_middleware = RpcServiceBuilder::new()
+					.rpc_logger(1024)
+					.option_layer(middleware_layer.clone());
 				let mut svc =
 					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
 
@@ -206,17 +243,19 @@ where
 						});
 					}
 
-					svc.call(req).await
+					// https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
+					// to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to
+					// a concrete type as workaround.
+					svc.call(req).await.map_err(|e| BoxError::from(e))
 				}
-			}))
+			});
+
+			cfg.tokio_handle.spawn(serve_with_graceful_shutdown(
+				sock,
+				svc,
+				cfg.stop_handle.clone().shutdown(),
+			));
 		}
-	});
-
-	let server = hyper::Server::from_tcp(std_listener)?.serve(make_service);
-
-	tokio::spawn(async move {
-		let graceful = server.with_graceful_shutdown(async move { stop_handle.shutdown().await });
-		let _ = graceful.await;
 	});
 
 	log::info!(
@@ -226,58 +265,4 @@ where
 	);
 
 	Ok(server_handle)
-}
-
-fn hosts_filtering(enabled: bool, addr: Option<SocketAddr>) -> Option<HostFilterLayer> {
-	// If the local_addr failed, fallback to wildcard.
-	let port = addr.map_or("*".to_string(), |p| p.port().to_string());
-
-	if enabled {
-		// NOTE: The listening addresses are whitelisted by default.
-		let hosts =
-			[format!("localhost:{port}"), format!("127.0.0.1:{port}"), format!("[::1]:{port}")];
-		Some(HostFilterLayer::new(hosts).expect("Valid hosts; qed"))
-	} else {
-		None
-	}
-}
-
-fn build_rpc_api<M: Send + Sync + 'static>(mut rpc_api: RpcModule<M>) -> RpcModule<M> {
-	let mut available_methods = rpc_api.method_names().collect::<Vec<_>>();
-	// The "rpc_methods" is defined below and we want it to be part of the reported methods.
-	available_methods.push("rpc_methods");
-	available_methods.sort();
-
-	rpc_api
-		.register_method("rpc_methods", move |_, _| {
-			serde_json::json!({
-				"methods": available_methods,
-			})
-		})
-		.expect("infallible all other methods have their own address space; qed");
-
-	rpc_api
-}
-
-fn try_into_cors(
-	maybe_cors: Option<&Vec<String>>,
-) -> Result<CorsLayer, Box<dyn StdError + Send + Sync>> {
-	if let Some(cors) = maybe_cors {
-		let mut list = Vec::new();
-		for origin in cors {
-			list.push(HeaderValue::from_str(origin)?);
-		}
-		Ok(CorsLayer::new().allow_origin(AllowOrigin::list(list)))
-	} else {
-		// allow all cors
-		Ok(CorsLayer::permissive())
-	}
-}
-
-fn format_cors(maybe_cors: Option<&Vec<String>>) -> String {
-	if let Some(cors) = maybe_cors {
-		format!("{:?}", cors)
-	} else {
-		format!("{:?}", ["*"])
-	}
 }

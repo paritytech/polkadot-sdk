@@ -21,12 +21,12 @@ to wallets providing their own dictionaries and checksum mechanism. Issues with 
    to CSPRNG supplied dictionary phrases.
 
 2. Providing own dictionaries felt into the _you ain't gonna need it_ anti-pattern category on day 1. Wallet providers
-   (be it hardware or software) typically want their products to be compatibile with other wallets so that users can
+   (be it hardware or software) typically want their products to be compatible with other wallets so that users can
    migrate to their product without having to migrate all their assets.
 
 To achieve the above phrases have to be precisely encoded in _The One True Canonical Encoding_, for which UTF-8 NFKD was
 chosen. This is largely irrelevant (and even ignored) for English phrases, as they encode to basically just ASCII in
-virtualy every character encoding known to mankind, but immedietly becomes a problem for dictionaries that do use
+virtually every character encoding known to mankind, but immediately becomes a problem for dictionaries that do use
 non-ASCII characters. Even if the right encoding is used and implemented correctly, there are still [other caveats
 present for some non-english dictionaries](https://github.com/bitcoin/bips/blob/master/bip-0039/bip-0039-wordlists.md),
 such as normalizing spaces to a canonical form, or making some latin based characters equivalent to their base in
@@ -34,8 +34,8 @@ dictionary lookups (eg. Spanish `ñ` and `n` are meant to be interchangeable). T
 headache, and opens doors for disagreements between buggy implementations, breaking compatibility.
 
 BIP39 does already provide a form of the mnemonic that is free from all of these issues: the entropy byte array. Since
-veryfing the checksum requires that we recover the entropy from which the phrase was generated, no extra work is
-actually needed here. Wallet implementators can encode the dictionaries in whatever encoding they find convenient (as
+verifying the checksum requires that we recover the entropy from which the phrase was generated, no extra work is
+actually needed here. Wallet implementors can encode the dictionaries in whatever encoding they find convenient (as
 long as they are the standard BIP39 dictionaries), no harm in using UTF-16 string primitives that Java and JavaScript
 provide. Since the dictionary is fixed and known, and the checksum is done on the entropy itself, the exact character
 encoding used becomes irrelevant, as are the precise codepoints and amount of whitespace around the words. It is thus

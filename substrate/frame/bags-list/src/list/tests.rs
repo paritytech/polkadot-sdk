@@ -431,7 +431,7 @@ mod list {
 	#[test]
 	fn insert_at_unchecked_at_is_only_node() {
 		// Note that this `insert_at_unchecked` test should fail post checks because node 42 does
-		// not get re-assigned the correct bagu pper. This is because `insert_at_unchecked` assumes
+		// not get re-assigned the correct bag upper. This is because `insert_at_unchecked` assumes
 		// both nodes are already in the same bag with the correct bag upper.
 		ExtBuilder::default().build_and_execute_no_post_check(|| {
 			// given
@@ -777,7 +777,8 @@ mod bags {
 			assert_eq!(bag_1000.tail, Some(4));
 			assert_eq!(bag_1000.iter().count(), 3);
 			bag_1000.insert_node_unchecked(node(4, None, None, bag_1000.bag_upper)); // panics in debug
-			assert_eq!(bag_1000.iter().count(), 3); // in release we expect it to silently ignore the request.
+			assert_eq!(bag_1000.iter().count(), 3); // in release we expect it to silently ignore the
+			                            // request.
 		});
 	}
 

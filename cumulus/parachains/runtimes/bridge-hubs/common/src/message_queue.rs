@@ -14,6 +14,7 @@
 // limitations under the License.
 //! Runtime configuration for MessageQueue pallet
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use cumulus_primitives_core::{AggregateMessageOrigin as CumulusAggregateMessageOrigin, ParaId};
 use frame_support::{
 	traits::{ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery},
@@ -22,7 +23,6 @@ use frame_support::{
 use pallet_message_queue::OnQueueChanged;
 use scale_info::TypeInfo;
 use snowbridge_core::ChannelId;
-use sp_std::{marker::PhantomData, prelude::*};
 use xcm::v4::{Junction, Location};
 
 /// The aggregate origin of an inbound message.

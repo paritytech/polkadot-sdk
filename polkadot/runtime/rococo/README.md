@@ -4,7 +4,7 @@ Rococo is a testnet runtime with no stability guarantees.
 
 ## How to build `rococo` runtime
 `EpochDurationInBlocks` parameter is configurable via `ROCOCO_EPOCH_DURATION` environment variable. To build wasm
-runtime blob with customized epoch duration the following command shall be exectuted:
+runtime blob with customized epoch duration the following command shall be executed:
 ```bash
 ROCOCO_EPOCH_DURATION=10 ./polkadot/scripts/build-only-wasm.sh rococo-runtime /path/to/output/directory/
 ```

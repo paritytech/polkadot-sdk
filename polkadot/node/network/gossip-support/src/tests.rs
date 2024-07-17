@@ -90,7 +90,8 @@ lazy_static! {
 	];
 }
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<GossipSupportMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<GossipSupportMessage>;
 
 #[derive(Debug, Clone)]
 struct MockAuthorityDiscovery {
@@ -122,7 +123,7 @@ impl MockAuthorityDiscovery {
 		self.authorities.lock().clone()
 	}
 
-	fn add_more_authorties(
+	fn add_more_authorities(
 		&self,
 		new_known: Vec<AuthorityDiscoveryId>,
 	) -> HashMap<PeerId, HashSet<AuthorityDiscoveryId>> {
@@ -200,7 +201,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>, AD: AuthorityDiscovery>(
 	test_fn: impl FnOnce(VirtualOverseer) -> T,
 ) -> GossipSupport<AD> {
 	let pool = sp_core::testing::TaskExecutor::new();
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let subsystem = subsystem.run(context);
 
@@ -720,7 +722,7 @@ fn issues_update_authorities_after_session() {
 
 			assert!(overseer.recv().timeout(TIMEOUT).await.is_none());
 			// 4. Connect more authorities except one
-			let newly_added = authority_discovery_mock.add_more_authorties(unknown_at_session);
+			let newly_added = authority_discovery_mock.add_more_authorities(unknown_at_session);
 			let mut newly_added_iter = newly_added.iter();
 			let unconnected_at_last_retry = newly_added_iter
 				.next()

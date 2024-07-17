@@ -148,6 +148,7 @@ enum ApprovalEntryError {
 	InvalidCandidateIndex,
 	DuplicateApproval,
 	UnknownAssignment,
+	#[allow(dead_code)]
 	AssignmentsFollowedDifferentPaths(RequiredRouting, RequiredRouting),
 }
 
@@ -230,7 +231,7 @@ impl ApprovalEntry {
 		Ok(())
 	}
 
-	// Get the assignment certiticate and claimed candidates.
+	// Get the assignment certificate and claimed candidates.
 	pub fn assignment(&self) -> (IndirectAssignmentCertV2, CandidateBitfield) {
 		(self.assignment.clone(), self.assignment_claimed_candidates.clone())
 	}
@@ -404,7 +405,7 @@ impl Knowledge {
 			},
 		};
 
-		// In case of succesful insertion of multiple candidate assignments create additional
+		// In case of successful insertion of multiple candidate assignments create additional
 		// entries for each assigned candidate. This fakes knowledge of individual assignments, but
 		// we need to share the same `MessageSubject` with the followup approval candidate index.
 		if kind == MessageKind::Assignment && success && message.1.count_ones() > 1 {
@@ -1430,6 +1431,21 @@ impl State {
 		let required_routing = topology.map_or(RequiredRouting::PendingTopology, |t| {
 			t.local_grid_neighbors().required_routing_by_index(validator_index, local)
 		});
+		// Peers that we will send the assignment to.
+		let mut peers = HashSet::new();
+
+		let peers_to_route_to = topology
+			.as_ref()
+			.map(|t| t.peers_to_route(required_routing))
+			.unwrap_or_default();
+
+		for peer in peers_to_route_to {
+			if !entry.known_by.contains_key(&peer) {
+				continue
+			}
+
+			peers.insert(peer);
+		}
 
 		// All the peers that know the relay chain block.
 		let peers_to_filter = entry.known_by();
@@ -1455,20 +1471,13 @@ impl State {
 		let n_peers_total = self.peer_views.len();
 		let source_peer = source.peer_id();
 
-		// Peers that we will send the assignment to.
-		let mut peers = Vec::new();
-
 		// Filter destination peers
 		for peer in peers_to_filter.into_iter() {
 			if Some(peer) == source_peer {
 				continue
 			}
 
-			if let Some(true) = topology
-				.as_ref()
-				.map(|t| t.local_grid_neighbors().route_to_peer(required_routing, &peer))
-			{
-				peers.push(peer);
+			if peers.contains(&peer) {
 				continue
 			}
 
@@ -1484,7 +1493,11 @@ impl State {
 
 			if route_random {
 				approval_entry.routing_info_mut().mark_randomly_sent(peer);
-				peers.push(peer);
+				peers.insert(peer);
+			}
+
+			if approval_entry.routing_info().random_routing.is_complete() {
+				break
 			}
 		}
 
@@ -1897,10 +1910,10 @@ impl State {
 					_ => break,
 				};
 
-				// Any peer which is in the `known_by` see and we know its peer_id authorithy id
+				// Any peer which is in the `known_by` see and we know its peer_id authority id
 				// mapping has already been sent all messages it's meant to get for that block and
 				// all in-scope prior blocks. In case, we just learnt about its peer_id
-				// authorithy-id mapping we have to retry sending the messages that should be sent
+				// authority-id mapping we have to retry sending the messages that should be sent
 				// to it for all un-finalized blocks.
 				if entry.known_by.contains_key(&peer_id) && !retry_known_blocks {
 					break
@@ -2199,7 +2212,7 @@ impl State {
 		sanitized_assignments
 	}
 
-	// Filter out obviously invalid candidate indicies.
+	// Filter out obviously invalid candidate indices.
 	async fn sanitize_v1_approvals(
 		&mut self,
 		peer_id: PeerId,
@@ -2226,7 +2239,7 @@ impl State {
 		sanitized_approvals
 	}
 
-	// Filter out obviously invalid candidate indicies.
+	// Filter out obviously invalid candidate indices.
 	async fn sanitize_v2_approvals(
 		&mut self,
 		peer_id: PeerId,
@@ -2260,7 +2273,7 @@ impl State {
 // The modifier accepts as inputs the current required-routing state, whether
 // the message is locally originating, and the validator index of the message issuer.
 //
-// Then, if the topology is known, this progates messages to all peers in the required
+// Then, if the topology is known, this propagates messages to all peers in the required
 // routing set which are aware of the block. Peers which are unaware of the block
 // will have the message sent when it enters their view in `unify_with_peer`.
 //
@@ -2440,7 +2453,7 @@ impl ApprovalDistribution {
 							gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
 							// the relay chain blocks relevant to the approval subsystems
 							// are those that are available, but not finalized yet
-							// actived and deactivated heads hence are irrelevant to this subsystem, other than
+							// activated and deactivated heads hence are irrelevant to this subsystem, other than
 							// for tracing purposes.
 							if let Some(activated) = update.activated {
 								let head = activated.hash;

@@ -34,13 +34,12 @@ use crate::{
 	ParaId,
 };
 
+use alloc::{vec, vec::Vec};
 use frame_support::{defensive, pallet_prelude::*};
 use frame_system::pallet_prelude::*;
 use pallet_broker::CoreAssignment;
-use primitives::CoreIndex;
+use polkadot_primitives::CoreIndex;
 use sp_runtime::traits::{One, Saturating};
-
-use sp_std::prelude::*;
 
 pub use pallet::*;
 
@@ -256,7 +255,7 @@ pub mod pallet {
 
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = frame_system::Pallet::<T>::block_number();
 
 		CoreDescriptors::<T>::mutate(core_idx, |core_state| {
 			Self::ensure_workload(now, core_idx, core_state);
@@ -317,14 +316,14 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
-	fn get_mock_assignment(_: CoreIndex, para_id: primitives::Id) -> Assignment {
+	fn get_mock_assignment(_: CoreIndex, para_id: polkadot_primitives::Id) -> Assignment {
 		// Given that we are not tracking anything in `Bulk` assignments, it is safe to always
 		// return a bulk assignment.
 		Assignment::Bulk(para_id)
 	}
 
 	fn session_core_count() -> u32 {
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		config.scheduler_params.num_cores
 	}
 }
@@ -473,7 +472,7 @@ impl<T: Config> AssignCoretime for Pallet<T> {
 		let current_block = frame_system::Pallet::<T>::block_number();
 
 		// Add a new core and assign the para to it.
-		let mut config = <configuration::Pallet<T>>::config();
+		let mut config = configuration::ActiveConfig::<T>::get();
 		let core = config.scheduler_params.num_cores;
 		config.scheduler_params.num_cores.saturating_inc();
 

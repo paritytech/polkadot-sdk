@@ -143,7 +143,7 @@
 //! For example, all pallets in `polkadot-sdk` that needed to work with currencies could have been
 //! tightly coupled with [`pallet_balances`]. But, `polkadot-sdk` also provides [`pallet_assets`]
 //! (and more implementations by the community), therefore all pallets use traits to loosely couple
-//! with balances or assets pallet. More on this in [`crate::reference_docs::frame_currency`].
+//! with balances or assets pallet. More on this in [`crate::reference_docs::frame_tokens`].
 //!
 //! ## Further References
 //!
@@ -280,7 +280,7 @@ pub mod runtime {
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
 		type Block = MockBlock<Self>;
 	}

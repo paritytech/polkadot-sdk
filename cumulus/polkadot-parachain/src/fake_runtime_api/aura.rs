@@ -53,7 +53,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> Vec<u32> {
 			unimplemented!()
 		}
 	}
@@ -101,12 +101,6 @@ sp_api::impl_runtime_apis! {
 			_: <Block as BlockT>::Extrinsic,
 			_: <Block as BlockT>::Hash,
 		) -> TransactionValidity {
-			unimplemented!()
-		}
-	}
-
-	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
-		fn offchain_worker(_: &<Block as BlockT>::Header) {
 			unimplemented!()
 		}
 	}
@@ -189,11 +183,15 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn create_default_config() -> Vec<u8> {
+		fn build_state(_: Vec<u8>) -> sp_genesis_builder::Result {
 			unimplemented!()
 		}
 
-		fn build_config(_: Vec<u8>) -> sp_genesis_builder::Result {
+		fn get_preset(_id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+			unimplemented!()
+		}
+
+		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			unimplemented!()
 		}
 	}

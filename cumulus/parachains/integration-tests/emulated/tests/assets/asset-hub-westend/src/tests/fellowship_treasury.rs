@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::imports::*;
 use emulated_integration_tests_common::accounts::{ALICE, BOB};
 use frame_support::traits::fungibles::{Create, Inspect, Mutate};
 use polkadot_runtime_common::impls::VersionedLocatableAsset;
@@ -28,10 +28,7 @@ fn create_and_claim_treasury_spend() {
 		Location::new(1, [Parachain(CollectivesWestend::para_id().into()), PalletInstance(65)]);
 	// treasury account on a sibling parachain.
 	let treasury_account =
-		asset_hub_westend_runtime::xcm_config::LocationToAccountId::convert_location(
-			&treasury_location,
-		)
-		.unwrap();
+		ahw_xcm_config::LocationToAccountId::convert_location(&treasury_location).unwrap();
 	let asset_hub_location = Location::new(1, [Parachain(AssetHubWestend::para_id().into())]);
 	let root = <CollectivesWestend as Chain>::RuntimeOrigin::root();
 	// asset kind to be spent from the treasury.
