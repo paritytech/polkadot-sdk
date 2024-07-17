@@ -1,0 +1,12 @@
+title: "Use `console` crate instead of `ansi_term`"
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR replace obsoleted `ansi_term` to `console`.
+
+crates:
+  - name: sc-informant
+    bump: patch
+  - name: sc-tracing
+    bump: patch
