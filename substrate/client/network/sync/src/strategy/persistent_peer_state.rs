@@ -154,11 +154,15 @@ mod tests {
 		assert_eq!(state.is_peer_available(&peer), true);
 
 		assert!(state.remove_peer(peer).is_none());
-		assert!(state.remove_peer(peer).is_none());
-		assert!(state.remove_peer(peer).is_some());
-
-		// The peer is backed off.
 		assert_eq!(state.is_peer_available(&peer), false);
+
+		assert!(state.remove_peer(peer).is_none());
+		assert_eq!(state.is_peer_available(&peer), false);
+
+		assert!(state.remove_peer(peer).is_some());
+		// Peer is supposed to get banned and disconnected.
+		// The state ownership moves to the PeerStore.
+		assert!(state.disconnected_peers.get(&peer).is_none());
 	}
 
 	#[test]
