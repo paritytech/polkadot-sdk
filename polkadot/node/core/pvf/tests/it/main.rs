@@ -523,20 +523,17 @@ async fn prepare_can_run_serially() {
 #[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
 #[tokio::test]
 async fn all_security_features_work() {
-	// Landlock is only available starting Linux 5.13, and we may be testing on an old kernel.
 	let can_enable_landlock = {
-		let sysinfo = sc_sysinfo::gather_sysinfo();
-		// The version will look something like "5.15.0-87-generic".
-		let version = sysinfo.linux_kernel.unwrap();
-		let version_split: Vec<&str> = version.split(".").collect();
-		let major: u32 = version_split[0].parse().unwrap();
-		let minor: u32 = version_split[1].parse().unwrap();
-		if major >= 6 {
-			true
-		} else if major == 5 {
-			minor >= 13
+		let res = unsafe { libc::syscall(libc::SYS_landlock_create_ruleset, 0usize, 0usize, 1u32) };
+		if res == -1 {
+			let err = std::io::Error::last_os_error().raw_os_error().unwrap();
+			if err == libc::ENOSYS {
+				false
+			} else {
+				panic!("Unexpected errno from landlock check: {err}");
+			}
 		} else {
-			false
+			true
 		}
 	};
 
