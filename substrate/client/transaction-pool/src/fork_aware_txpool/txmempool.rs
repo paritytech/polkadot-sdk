@@ -226,7 +226,9 @@ where
 		let duration = start.elapsed();
 
 		let (invalid_hashes, _): (Vec<_>, Vec<_>) =
-			validation_results.into_iter().partition(|(xt_hash, _, validation_result)| {
+			validation_results.into_iter().partition(|(xt_hash, xt, validation_result)| {
+				xt.validated_at
+					.store(finalized_block.number.into().as_u64(), atomic::Ordering::Relaxed);
 				match validation_result {
 					Ok(Ok(_)) |
 					Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => false,
