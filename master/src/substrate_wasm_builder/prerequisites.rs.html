@@ -364,6 +364,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
 <a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -468,7 +471,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			"#</span>,
 		);
 
-		write_file_if_changed(project_dir.join(<span class="string">"src/main.rs"</span>), <span class="string">"fn main() {}"</span>);
+		write_file_if_changed(
+			project_dir.join(<span class="string">"src/main.rs"</span>),
+			<span class="string">"#![allow(missing_docs)] fn main() {}"</span>,
+		);
 		DummyCrate { cargo_command, temp, manifest_path, target }
 	}
 
