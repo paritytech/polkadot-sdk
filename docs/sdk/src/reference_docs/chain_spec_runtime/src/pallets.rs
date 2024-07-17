@@ -17,6 +17,7 @@
 
 //! Pallets for the chain-spec demo runtime.
 
+use alloc::vec::Vec;
 use frame::prelude::*;
 
 #[docify::export]
