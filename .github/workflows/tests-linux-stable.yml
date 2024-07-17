@@ -103,8 +103,9 @@ jobs:
 
       - name: script
         run: >
-          time cargo llvm-cov --no-report
+          time cargo llvm-cov
           nextest run
+          --no-report
           --workspace --locked --release --no-fail-fast
           --features try-runtime,experimental,riscv,ci-only-tests
           -E "
