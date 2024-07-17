@@ -276,7 +276,7 @@ pub trait Backend<Block: BlockT>:
 			Err(Error::UnknownBlock(_)) => {
 				debug!(
 					target: crate::LOG_TARGET,
-					hash = %finalized_block_hash,
+					hash = ?finalized_block_hash,
 					"Tried to fetch unknown block, block ancestry has gaps."
 				);
 				return Ok(DisplacedLeavesAfterFinalization::default());
@@ -346,7 +346,7 @@ pub trait Backend<Block: BlockT>:
 									debug!(
 										target: crate::LOG_TARGET,
 										distance_from_finalized,
-										hash = %to_fetch.parent,
+										hash = ?to_fetch.parent,
 										number = ?to_fetch.number,
 										"Tried to fetch unknown block, block ancestry has gaps."
 									);

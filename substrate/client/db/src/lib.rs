@@ -3200,7 +3200,7 @@ pub(crate) mod tests {
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
 
-		// Import block a1 which has the genesis block as parent.
+		// Import block b1 which has the genesis block as parent.
 		// g -> a1 -> <unimported> -> a3(f) -> a4
 		//  \-> b1
 		let b1_number = 1;
