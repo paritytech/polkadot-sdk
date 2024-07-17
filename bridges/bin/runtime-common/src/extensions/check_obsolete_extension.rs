@@ -323,7 +323,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				_len: usize,
 				_context: &Context,
 			) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
-				use tuplex::PushBack;
+				use $crate::extensions::check_obsolete_extension::__private::tuplex::PushBack;
 				use sp_runtime::traits::AsSystemOriginSigner;
 				let to_post_dispatch = ();
 				let relayer = origin.as_system_origin_signer().ok_or(sp_runtime::transaction_validity::InvalidTransaction::BadSigner)?;
