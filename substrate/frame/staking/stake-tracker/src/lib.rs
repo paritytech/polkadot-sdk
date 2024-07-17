@@ -95,7 +95,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{fungible::Inspect as FnInspect, Defensive, DefensiveSaturating},
 };
-use sp_runtime::traits::{Saturating, Zero};
+use sp_runtime::traits::Zero;
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakerStatus, StakingInterface,
 };
@@ -501,37 +501,21 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		}
 	}
 
+	// no-op events.
+
 	/// Triggered when a staker (nominator/validator) is slashed.
 	///
 	/// From the stake-tracker POV, no direct updates should be made to the target or voter list in
 	/// this event handler, since the stake updates from a slash will be indirectly performed
 	/// through the call to `on_stake_update` resulting from the slash performed at a higher level
 	/// (i.e. by staking).
-	///
-	/// However, if a slash of a nominator results on its active stake becoming 0, the stake
-	/// tracker *requests* the staking interface to chill the nominator in order to ensure that
-	/// their nominations are dropped. This way, we ensure that in the event of a validator and all
-	/// its nominators are 100% slashed, the target can be reaped/killed without leaving
-	/// nominations behind.
 	fn on_slash(
-		stash: &T::AccountId,
+		_stash: &T::AccountId,
 		_slashed_active: BalanceOf<T>,
 		_slashed_unlocking: &BTreeMap<sp_staking::EraIndex, BalanceOf<T>>,
-		slashed_total: BalanceOf<T>,
+		_slashed_total: BalanceOf<T>,
 	) {
-		let active_after_slash = T::Staking::stake(stash)
-			.defensive_unwrap_or_default()
-			.active
-			.saturating_sub(slashed_total);
-
-		if let (true, Ok(StakerStatus::Nominator(_))) =
-			(active_after_slash.is_zero(), T::Staking::status(stash))
-		{
-			let _ = T::Staking::chill(stash).defensive();
-		};
 	}
-
-	// no-op events.
 
 	/// The score of the staker `who` is updated through the `on_stake_update` calls following the
 	/// full unstake (ledger kill).

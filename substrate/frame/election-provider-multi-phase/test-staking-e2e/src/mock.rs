@@ -107,6 +107,7 @@ parameter_types! {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
+	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
@@ -251,7 +252,7 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Runtime {
 	type WeightInfo = ();
 	type ScoreProvider = pallet_bags_list::Pallet<Runtime, TargetBagsListInstance>;
 	type BagThresholds = TargetBagThresholds;
-	type Score = u128;
+	type Score = Balance;
 }
 
 parameter_types! {

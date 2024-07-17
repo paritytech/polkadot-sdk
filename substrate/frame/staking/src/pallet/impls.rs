@@ -1806,7 +1806,8 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn in_position(_id: &T::AccountId) -> Result<bool, Self::Error> {
-		unimplemented!()
+		// No sorting provided by this impl, thus the account is always in position.
+		Ok(true)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1886,7 +1887,8 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 
 	#[cfg(feature = "try-runtime")]
 	fn in_position(_id: &T::AccountId) -> Result<bool, Self::Error> {
-		unimplemented!()
+		// No sorting provided by this impl, thus the account is always in position.
+		Ok(true)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -2233,13 +2235,15 @@ impl<T: Config> Pallet<T> {
 		ensure!(
 			<T as Config>::VoterList::iter()
 				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
-				.count() as u32 == Nominators::<T>::count() + Validators::<T>::count(),
+				.count() as u32 ==
+				Nominators::<T>::count() + Validators::<T>::count(),
 			"wrong external count (VoterList.count != Nominators.count + Validators.count)"
 		);
 		ensure!(
 			<T as Config>::TargetList::iter()
 				.filter(|t| Self::status(&t) == Ok(StakerStatus::Validator))
-				.count() as u32 == Validators::<T>::count(),
+				.count() as u32 ==
+				Validators::<T>::count(),
 			"wrong external count (TargetList.count != Validators.count)"
 		);
 		ensure!(

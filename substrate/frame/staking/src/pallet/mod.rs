@@ -1248,8 +1248,8 @@ pub mod pallet {
 		/// Declare the desire to nominate `targets` for the origin controller.
 		///
 		///	The duplicate nominations will be implicitly removed. Only validators or idle stakers
-		///	are valid targets. If successful, the effects of this call will be felt at the beginning
-		/// of the next era.
+		///	are valid targets. If successful, the effects of this call will be felt at the
+		/// beginning of the next era.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
 		///
