@@ -79,7 +79,7 @@ where
 		let (want_asset_id, want_amount) =
 			Matcher::matches_fungibles(&want_asset).map_err(|error| {
 				log::trace!(
-					target: "xcm::FungiblesPoolAdapter",
+					target: "xcm::FungiblesPoolAdapter::exchange_asset",
 					"Could not map XCM asset {:?} to FRAME asset. Error: {:?}",
 					want,
 					error,
@@ -90,7 +90,6 @@ where
 		// We have to do this to convert the XCM assets into credit the pool can use.
 		let swap_asset = give_asset_id.clone().into();
 		let credit_in = Fungibles::issue(give_asset_id, balance);
-		log::trace!(target: "xcm", "Credit in: {:?}", credit_in.peek());
 
 		// Do the swap.
 		let (credit_out, credit_change) =
@@ -104,7 +103,6 @@ where
 				give.clone()
 			})?;
 
-		log::trace!(target: "xcm", "Credit out: {:?}, Credit change: {:?}", credit_out.peek(), credit_change.peek());
 		debug_assert!(credit_change.peek() == Zero::zero());
 
 		let resulting_asset: Asset = (want_asset.id.clone(), credit_out.peek()).into();

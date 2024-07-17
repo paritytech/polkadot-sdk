@@ -83,9 +83,8 @@ pub struct XcmExecutor<Config: config::Config> {
 	appendix_weight: Weight,
 	transact_status: MaybeErrorCode,
 	fees_mode: FeesMode,
-	/// Id of asset provided in `BuyExecution` instruction (if any) in current XCM program. Same
-	/// asset type will be used for paying any potential delivery fees incurred by current XCM
-	/// program.
+	/// Asset provided in last `BuyExecution` instruction (if any) in current XCM program. Same
+	/// asset type will be used for paying any potential delivery fees incurred by the program.
 	asset_used_for_fees: Option<AssetId>,
 	_config: PhantomData<Config>,
 }

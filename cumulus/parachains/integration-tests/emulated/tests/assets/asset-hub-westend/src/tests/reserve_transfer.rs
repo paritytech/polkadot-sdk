@@ -1181,7 +1181,7 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 	PenpalA::force_create_foreign_asset(
 		custom_asset_penpal_pov.clone(),
 		PenpalAssetOwner::get(),
-		false,
+		true,
 		1_000_000,
 		// We give it some funds to be able to add liquidity later.
 		vec![(PenpalASender::get(), 10_000_000_000_000)],
