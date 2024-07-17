@@ -20,6 +20,7 @@
 use super::*;
 #[allow(unused_imports)]
 use crate::Pallet as RankedCollective;
+use alloc::vec::Vec;
 
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelisted_caller, BenchmarkError,

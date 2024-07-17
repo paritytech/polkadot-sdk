@@ -18,6 +18,8 @@
 //!
 //! <https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md>
 
+use alloc::{vec, vec::Vec};
+use core::result;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{defensive_prelude::*, Currency},
@@ -28,7 +30,6 @@ use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use polkadot_primitives::{Balance, BlockNumber, CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_runtime::traits::TryConvert;
-use sp_std::{prelude::*, result};
 use xcm::{
 	prelude::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm},
 	v4::{
