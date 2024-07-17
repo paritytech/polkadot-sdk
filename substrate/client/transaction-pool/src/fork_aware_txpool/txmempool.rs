@@ -266,10 +266,8 @@ where
 		log::debug!(target: LOG_TARGET, "purge_transactions at:{:?}", finalized_block);
 		let invalid_hashes = self.revalidate(finalized_block.clone()).await;
 
-		let _ = invalid_hashes.len().try_into().map(|v| {
-			self.metrics
-				.report(|metrics| metrics.mempool_revalidation_invalid_txs.inc_by(v))
-		});
+		self.metrics
+			.report(|metrics| metrics.mempool_revalidation_invalid_txs.inc_by(invalid_hashes.len() as _));
 
 		self.xts2.write().retain(|hash, _| !invalid_hashes.contains(&hash));
 		self.listener.invalidate_transactions(invalid_hashes);
