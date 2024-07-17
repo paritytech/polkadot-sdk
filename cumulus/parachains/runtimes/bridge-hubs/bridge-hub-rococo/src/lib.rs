@@ -161,6 +161,8 @@ pub type Migrations = (
 		ConstU32<BRIDGE_HUB_ID>,
 		ConstU32<ASSET_HUB_ID>,
 	>,
+	bridge_to_westend_config::migration_for_bridges_v2::StaticToDynamicLanes,
+	bridge_to_bulletin_config::migration_for_bridges_v2::StaticToDynamicLanes,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );

@@ -26,7 +26,7 @@ use crate::{
 };
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
-	target_chain::FromBridgedChainMessagesProof, LaneId,
+	target_chain::FromBridgedChainMessagesProof,
 };
 use bp_runtime::Chain;
 use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
@@ -222,5 +222,61 @@ mod tests {
 		.into();
 
 		assert_eq!(BridgeRococoToRococoBulletinMessagesPalletInstance::get(), expected,);
+	}
+}
+
+// TODO:(bridges-v2) - migration from static to dynamic lanes - FAIL-CI
+pub mod migration_for_bridges_v2 {
+	use super::*;
+
+	// /// A pair of sending chain location and message lane, used by this chain to send messages
+	// /// over the bridge.
+	// #[cfg_attr(feature = "std", derive(Debug, Eq, PartialEq))]
+	// pub struct SenderAndLane {
+	// 	/// Sending chain relative location.
+	// 	pub location: Location,
+	// 	/// Message lane, used by the sending chain.
+	// 	pub lane: LaneId,
+	// }
+	//
+	// impl SenderAndLane {
+	// 	/// Create new object using provided location and lane.
+	// 	pub fn new(location: Location, lane: LaneId) -> Self {
+	// 		SenderAndLane { location, lane }
+	// 	}
+	// }
+	//
+	// pub const XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN: LaneId = LaneId([0, 0, 0, 0]);
+	//
+	// parameter_types! {
+	// 	pub RococoPeopleParaId: cumulus_primitives_core::ParaId = rococo_runtime_constants::system_parachain::PEOPLE_ID.into();
+	// 	// Lanes
+	// 	/// All active lanes that the current bridge supports.
+	// 	pub ActiveOutboundLanesToRococoBulletin: &'static [bp_messages::LaneId]
+	// 		= &[XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN];
+	// 	/// Lane identifier, used to connect Rococo People and Rococo Bulletin chain.
+	// 	pub const RococoPeopleToRococoBulletinMessagesLane: bp_messages::LaneId
+	// 		= XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN;
+	// 	/// Identifier of the sibling Rococo People parachain.
+	// 	/// A route (XCM location and bridge lane) that the Rococo People Chain -> Rococo Bulletin Chain
+	// 	/// message is following.
+	// 	pub FromRococoPeopleToRococoBulletinRoute: SenderAndLane = SenderAndLane::new(
+	// 		ParentThen(Parachain(RococoPeopleParaId::get().into()).into()).into(),
+	// 		XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
+	// 	);
+	// 	/// All active routes and their destinations.
+	// 	pub ActiveLanes: alloc::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = alloc::vec![
+	// 			(
+	// 				FromRococoPeopleToRococoBulletinRoute::get(),
+	// 				(RococoBulletinGlobalConsensusNetwork::get(), Here)
+	// 			)
+	// 	];
+	// }
+
+	pub struct StaticToDynamicLanes;
+	impl frame_support::traits::OnRuntimeUpgrade for StaticToDynamicLanes {
+		fn on_runtime_upgrade() -> Weight {
+			todo!()
+		}
 	}
 }

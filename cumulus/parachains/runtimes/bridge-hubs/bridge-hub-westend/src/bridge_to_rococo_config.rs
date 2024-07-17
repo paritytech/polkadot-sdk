@@ -23,7 +23,7 @@ use crate::{
 };
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
-	target_chain::FromBridgedChainMessagesProof, LaneId,
+	target_chain::FromBridgedChainMessagesProof,
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_runtime::Chain;
@@ -302,5 +302,54 @@ mod tests {
 				bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX
 			)]
 		);
+	}
+}
+
+// TODO:(bridges-v2) - migration from static to dynamic lanes - FAIL-CI
+pub mod migration_for_bridges_v2 {
+	use super::*;
+
+	// /// A pair of sending chain location and message lane, used by this chain to send messages
+	// /// over the bridge.
+	// #[cfg_attr(feature = "std", derive(Debug, Eq, PartialEq))]
+	// pub struct SenderAndLane {
+	// 	/// Sending chain relative location.
+	// 	pub location: Location,
+	// 	/// Message lane, used by the sending chain.
+	// 	pub lane: LaneId,
+	// }
+	//
+	// impl SenderAndLane {
+	// 	/// Create new object using provided location and lane.
+	// 	pub fn new(location: Location, lane: LaneId) -> Self {
+	// 		SenderAndLane { location, lane }
+	// 	}
+	// }
+	//
+	// pub const XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO: LaneId = LaneId([0, 0, 0, 2]);
+	// parameter_types! {
+	// 	pub AssetHubWestendParaId: cumulus_primitives_core::ParaId = bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID.into();
+	// 	pub AssetHubRococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
+	//
+	// 	// Lanes
+	// 	pub ActiveOutboundLanesToBridgeHubRococo: &'static [bp_messages::LaneId] = &[XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO];
+	// 	pub const AssetHubWestendToAssetHubRococoMessagesLane: bp_messages::LaneId = XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO;
+	// 	pub FromAssetHubWestendToAssetHubRococoRoute: SenderAndLane = SenderAndLane::new(
+	// 		ParentThen([Parachain(AssetHubWestendParaId::get().into())].into()).into(),
+	// 		XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
+	// 	);
+	// 	pub ActiveLanes: alloc::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = alloc::vec![
+	// 		(
+	// 			FromAssetHubWestendToAssetHubRococoRoute::get(),
+	// 			(RococoGlobalConsensusNetwork::get(), [Parachain(AssetHubRococoParaId::get().into())].into())
+	// 		)
+	// 	];
+	// }
+
+	pub struct StaticToDynamicLanes;
+	impl frame_support::traits::OnRuntimeUpgrade for StaticToDynamicLanes {
+		fn on_runtime_upgrade() -> Weight {
+			todo!()
+		}
 	}
 }
