@@ -30,7 +30,6 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_runtime::{traits::Zero, RuntimeDebug};
-use sp_std::prelude::*;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;

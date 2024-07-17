@@ -2396,7 +2396,7 @@ impl<T: Config> Pallet<T> {
 	/// * Checks that each nominator has its entire stake correctly distributed.
 	/// * Nominations do not have duplicate targets.
 	fn check_nominators() -> Result<(), TryRuntimeError> {
-		use sp_std::collections::btree_set::BTreeSet;
+		use alloc::collections::btree_set::BTreeSet;
 
 		// a check per nominator to ensure their entire stake is correctly distributed. Will only
 		// kick-in if the nomination was submitted before the current era.
@@ -2522,7 +2522,7 @@ impl<T: Config> Pallet<T> {
 	///   * The number of target nodes in the target list matches the number of
 	///   (active_validators + idle_validators + dangling_targets_score_with_score).
 	pub fn do_try_state_approvals() -> Result<(), sp_runtime::TryRuntimeError> {
-		use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+		use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 		let mut approvals_map: BTreeMap<T::AccountId, T::CurrencyBalance> = BTreeMap::new();
 
 		// build map of approvals stakes from the `Nominators` storage map POV.

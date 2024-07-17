@@ -607,7 +607,7 @@ impl ExtBuilder {
 
 		let mut ext = sp_io::TestExternalities::from(storage);
 
-		// We consider all test to start after timestamp is initialized This must be ensured by
+		// We consider all test to start after timestamp is initialized. This must be ensured by
 		// having `timestamp::on_initialize` called before `staking::on_initialize`.
 		ext.execute_with(|| {
 			System::set_block_number(1);

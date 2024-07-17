@@ -31,7 +31,6 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_staking::StakingInterface;
-use sp_std::prelude::*;
 
 #[cfg(test)]
 mod tests;
@@ -252,7 +251,7 @@ impl<T: Config, W: weights::WeightInfo> MigrationV13<T, W> {
 		who: &T::AccountId,
 		raw_nominations: Nominations<T>,
 	) -> Result<Vec<T::AccountId>, SteppedMigrationError> {
-		use sp_std::collections::btree_set::BTreeSet;
+		use alloc::collections::btree_set::BTreeSet;
 
 		ensure!(
 			Pallet::<T>::status(who).map(|x| x.is_nominator()).unwrap_or(false),
