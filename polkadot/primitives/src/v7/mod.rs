@@ -2052,7 +2052,7 @@ pub mod node_features {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
 	use super::*;
 	use bitvec::bitvec;
 	use sp_core::sr25519;
