@@ -1658,7 +1658,7 @@ pub type SignedExtra = (
 
 parameter_types! {
 	/// Bounding number of agent pot accounts to be migrated in a single block.
-	pub const MaxAgentsToMigrate: u32 = 200;
+	pub const MaxAgentsToMigrate: u32 = 300;
 }
 
 /// All migrations that will run on the next runtime upgrade.
