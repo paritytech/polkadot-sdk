@@ -859,7 +859,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
 					let deposited = self.holding.saturating_take(assets);
-					Ok(self.deposit_assets_with_retry(deposited, beneficiary)?)
+					self.deposit_assets_with_retry(&deposited, &beneficiary)
 				});
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
 					self.holding = old_holding;
@@ -884,7 +884,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 					// now take assets to deposit (excluding transport_fee)
 					let deposited = self.holding.saturating_take(assets);
-					self.deposit_assets_with_retry(deposited.clone(), dest.clone())?;
+					self.deposit_assets_with_retry(&deposited, &dest)?;
 					// Note that we pass `None` as `maybe_failed_bin` and drop any assets which
 					// cannot be reanchored  because we have already called `deposit_asset` on all
 					// assets.
@@ -1275,20 +1275,29 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		}
 	}
 
-	fn deposit_assets_with_retry(&mut self, deposited: AssetsInHolding, beneficiary: Location) -> Result<(), XcmError> {
-		let mut failed_deposits = Vec::with_capacity(deposited.len());
 
-		for asset in deposited.into_assets_iter() {
-			let asset_result = Config::AssetTransactor::deposit_asset(
-				&asset,
-				&beneficiary,
-				Some(&self.context),
-			);
+	/// Deposit `to_deposit` assets to `beneficiary`, without giving up on the first (transient) error, and
+	/// retrying once just in case one of the subsequently deposited assets satisfy some requirement.
+	///
+	/// Most common transient error is: `beneficiary` account does not yet exist and the first asset(s) in
+	/// the (sorted) list does not satisfy ED, but a subsequent one in the list does.
+	fn deposit_assets_with_retry(
+		&mut self,
+		to_deposited: &AssetsInHolding,
+		beneficiary: &Location,
+	) -> Result<(), XcmError> {
+		let mut failed_deposits = Vec::with_capacity(to_deposited.len());
+
+		for asset in to_deposited.assets_iter() {
+			let asset_result =
+				Config::AssetTransactor::deposit_asset(&asset, &beneficiary, Some(&self.context));
+			// if deposit failed for asset, mark it for retry after depositing the others
 			if asset_result.is_err() {
 				failed_deposits.push(asset);
 			}
 		}
 
+		// retry previously failed deposits, this time short-circuiting on any error
 		for asset in failed_deposits {
 			Config::AssetTransactor::deposit_asset(
 				&asset,
