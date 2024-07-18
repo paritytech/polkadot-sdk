@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-beacon-primitives"
 description = "Snowbridge Beacon Primitives (polkadot v1.15.0)"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true

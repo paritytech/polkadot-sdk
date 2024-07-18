@@ -1,6 +1,6 @@
 [package]
 name = "pallet-asset-rate"
-version = "15.0.0"
+version = "16.0.0"
 description = "Whitelist non-native assets for treasury spending and provide conversion to native balance (polkadot v1.15.0)"
 authors.workspace = true
 homepage = "https://substrate.io"

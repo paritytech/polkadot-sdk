@@ -1,6 +1,6 @@
 [package]
 name = "pallet-paged-list"
-version = "0.14.0"
+version = "0.15.0"
 description = "FRAME pallet that provides a paged list data structure. (polkadot v1.15.0)"
 authors.workspace = true
 homepage = "https://substrate.io"

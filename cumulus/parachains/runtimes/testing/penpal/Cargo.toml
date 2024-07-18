@@ -1,6 +1,6 @@
 [package]
 name = "penpal-runtime"
-version = "0.23.0"
+version = "0.24.0"
 authors = ["Anonymous"]
 description = "A parachain for communication back and forth with XCM of assets and uniques. (polkadot v1.15.0)"
 license = "Unlicense"

@@ -13,4 +13,4 @@ doc:
       for assets in the process of being destroyed.
 
 crates:
-  - name: pallet-assets
+  - name: sp-trie

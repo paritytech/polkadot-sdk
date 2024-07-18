@@ -1,6 +1,6 @@
 [package]
 name = "bp-test-utils"
-version = "0.16.0"
+version = "0.17.0"
 description = "Utilities for testing substrate-based runtime bridge code (polkadot v1.15.0)"
 authors.workspace = true
 edition.workspace = true

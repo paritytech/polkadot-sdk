@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-slots"
-version = "0.42.0"
+version = "0.43.0"
 authors.workspace = true
 description = "Generic slots-based utilities for consensus (polkadot v1.15.0)"
 edition.workspace = true

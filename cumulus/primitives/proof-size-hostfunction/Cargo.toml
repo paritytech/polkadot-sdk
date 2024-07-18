@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-primitives-proof-size-hostfunction"
-version = "0.9.0"
+version = "0.10.0"
 authors.workspace = true
 edition.workspace = true
 description = "Hostfunction exposing storage proof size to the runtime. (polkadot v1.15.0)"

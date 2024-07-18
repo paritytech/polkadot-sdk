@@ -1,6 +1,6 @@
 [package]
 name = "pallet-bridge-grandpa"
-version = "0.16.0"
+version = "0.17.0"
 description = "Module implementing GRANDPA on-chain light client used for bridging consensus of substrate-based chains. (polkadot v1.15.0)"
 authors.workspace = true
 edition.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "sp-trie"
-version = "36.0.0"
+version = "37.0.0"
 authors.workspace = true
 description = "Patricia trie stuff using a parity-scale-codec node format (polkadot v1.15.0)"
 repository.workspace = true

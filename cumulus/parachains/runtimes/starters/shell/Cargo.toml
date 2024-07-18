@@ -1,6 +1,6 @@
 [package]
 name = "shell-runtime"
-version = "0.16.0"
+version = "0.17.0"
 description = "A minimal runtime to test Relay Chain consensus. (polkadot v1.15.0)"
 authors.workspace = true
 edition.workspace = true

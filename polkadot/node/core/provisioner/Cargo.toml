@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-provisioner"
-version = "16.0.0"
+version = "17.0.0"
 description = "Responsible for assembling a relay chain block from a set of available parachain candidates (polkadot v1.15.0)"
 authors.workspace = true
 edition.workspace = true

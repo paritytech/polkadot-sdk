@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-client-parachain-inherent"
-version = "0.10.0"
+version = "0.11.0"
 authors.workspace = true
 edition.workspace = true
 description = "Inherent that needs to be present in every parachain block. Contains messages and a relay chain storage-proof. (polkadot v1.15.0)"

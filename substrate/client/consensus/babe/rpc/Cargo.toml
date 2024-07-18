@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-babe-rpc"
-version = "0.43.0"
+version = "0.44.0"
 authors.workspace = true
 description = "RPC extensions for the BABE consensus algorithm (polkadot v1.15.0)"
 edition.workspace = true

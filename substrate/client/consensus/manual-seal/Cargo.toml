@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-manual-seal"
-version = "0.44.0"
+version = "0.45.0"
 authors.workspace = true
 description = "Manual sealing engine for Substrate (polkadot v1.15.0)"
 edition.workspace = true

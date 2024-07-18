@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-dmp-queue"
-version = "0.15.0"
+version = "0.16.0"
 authors.workspace = true
 edition.workspace = true
 repository.workspace = true

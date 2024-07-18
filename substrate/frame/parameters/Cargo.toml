@@ -3,7 +3,7 @@ name = "pallet-parameters"
 description = "Pallet to store and configure parameters. (polkadot v1.15.0)"
 repository.workspace = true
 license = "Apache-2.0"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["Acala Developers", "Parity Technologies <admin@parity.io>"]
 edition.workspace = true
 

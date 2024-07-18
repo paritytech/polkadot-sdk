@@ -4,7 +4,7 @@ description = "Types and utilities for creating and working with parachains (pol
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "13.0.0"
+version = "14.0.0"
 
 [lints]
 workspace = true

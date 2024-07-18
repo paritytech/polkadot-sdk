@@ -1,6 +1,6 @@
 [package]
 name = "contracts-rococo-runtime"
-version = "0.17.0"
+version = "0.18.0"
 description = "Parachain testnet runtime for FRAME Contracts pallet. (polkadot v1.15.0)"
 authors.workspace = true
 edition.workspace = true

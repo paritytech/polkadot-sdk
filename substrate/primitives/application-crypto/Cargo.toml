@@ -1,6 +1,6 @@
 [package]
 name = "sp-application-crypto"
-version = "37.0.0"
+version = "38.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Provides facilities for generating application specific crypto wrapper types. (polkadot v1.15.0)"

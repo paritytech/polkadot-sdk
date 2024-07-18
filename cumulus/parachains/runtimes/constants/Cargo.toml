@@ -1,6 +1,6 @@
 [package]
 name = "testnet-parachains-constants"
-version = "8.0.0"
+version = "9.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Common constants for Testnet Parachains runtimes (polkadot v1.15.0)"

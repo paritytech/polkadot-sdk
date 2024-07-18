@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 name = "pallet-message-queue"
-version = "39.0.0"
+version = "40.0.0"
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true

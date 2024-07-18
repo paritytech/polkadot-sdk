@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-availability-bitfield-distribution"
-version = "16.0.0"
+version = "17.0.0"
 description = "Polkadot Bitfiled Distribution subsystem, which gossips signed availability bitfields used to compactly determine which backed candidates are available or not based on a 2/3+ quorum. (polkadot v1.15.0)"
 authors.workspace = true
 edition.workspace = true
