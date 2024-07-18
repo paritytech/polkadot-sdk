@@ -22,11 +22,12 @@
 //! done in `polkadot-node-core-pvf`.
 
 use crate::{BlakeTwo256, HashT as _, PvfExecKind, PvfPrepKind};
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::{ops::Deref, time::Duration};
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-use sp_std::{collections::btree_map::BTreeMap, ops::Deref, time::Duration, vec, vec::Vec};
 
 /// Default maximum number of wasm values allowed for the stack during execution of a PVF.
 pub const DEFAULT_LOGICAL_STACK_MAX: u32 = 65536;
@@ -134,21 +135,21 @@ impl ExecutorParamsHash {
 	}
 }
 
-impl sp_std::fmt::Display for ExecutorParamsHash {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Display for ExecutorParamsHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		self.0.fmt(f)
 	}
 }
 
-impl sp_std::fmt::Debug for ExecutorParamsHash {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Debug for ExecutorParamsHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "{:?}", self.0)
 	}
 }
 
-impl sp_std::fmt::LowerHex for ExecutorParamsHash {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
-		sp_std::fmt::LowerHex::fmt(&self.0, f)
+impl core::fmt::LowerHex for ExecutorParamsHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		core::fmt::LowerHex::fmt(&self.0, f)
 	}
 }
 
@@ -159,21 +160,21 @@ impl sp_std::fmt::LowerHex for ExecutorParamsHash {
 #[derive(Clone, Copy, Encode, Decode, Hash, Eq, PartialEq, PartialOrd, Ord, TypeInfo)]
 pub struct ExecutorParamsPrepHash(Hash);
 
-impl sp_std::fmt::Display for ExecutorParamsPrepHash {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Display for ExecutorParamsPrepHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		self.0.fmt(f)
 	}
 }
 
-impl sp_std::fmt::Debug for ExecutorParamsPrepHash {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Debug for ExecutorParamsPrepHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "{:?}", self.0)
 	}
 }
 
-impl sp_std::fmt::LowerHex for ExecutorParamsPrepHash {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
-		sp_std::fmt::LowerHex::fmt(&self.0, f)
+impl core::fmt::LowerHex for ExecutorParamsPrepHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		core::fmt::LowerHex::fmt(&self.0, f)
 	}
 }
 

@@ -15,13 +15,16 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use cumulus_client_cli::{CollatorOptions, ExportGenesisHeadCommand};
-use cumulus_client_collator::service::CollatorService;
-use cumulus_client_consensus_aura::collators::{
-	lookahead::{self as aura, Params as AuraParams},
-	slot_based::{self as slot_based, Params as SlotBasedParams},
+use cumulus_client_collator::service::{
+	CollatorService, ServiceInterface as CollatorServiceInterface,
+};
+use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
+#[docify::export(slot_based_colator_import)]
+use cumulus_client_consensus_aura::collators::slot_based::{
+	self as slot_based, Params as SlotBasedParams,
 };
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
-use cumulus_client_consensus_proposer::Proposer;
+use cumulus_client_consensus_proposer::{Proposer, ProposerInterface};
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 #[allow(deprecated)]
 use cumulus_client_service::old_consensus;
@@ -62,6 +65,7 @@ use sc_sysinfo::HwBench;
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sc_transaction_pool::FullPool;
 use sp_api::ProvideRuntimeApi;
+use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{app_crypto::AppCrypto, traits::Header as HeaderT};
 use std::{marker::PhantomData, pin::Pin, sync::Arc, time::Duration};
@@ -623,6 +627,48 @@ pub(crate) struct StartSlotBasedAuraConsensus<RuntimeApi, AuraId>(
 	PhantomData<(RuntimeApi, AuraId)>,
 );
 
+impl<RuntimeApi, AuraId> StartSlotBasedAuraConsensus<RuntimeApi, AuraId>
+where
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	AuraId: AuraIdT + Sync,
+{
+	#[docify::export_content]
+	fn launch_slot_based_collator<CIDP, CHP, Proposer, CS>(
+		params: SlotBasedParams<
+			ParachainBlockImport<RuntimeApi>,
+			CIDP,
+			ParachainClient<RuntimeApi>,
+			ParachainBackend,
+			Arc<dyn RelayChainInterface>,
+			CHP,
+			Proposer,
+			CS,
+		>,
+		task_manager: &TaskManager,
+	) where
+		CIDP: CreateInherentDataProviders<Block, ()> + 'static,
+		CIDP::InherentDataProviders: Send,
+		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash> + Send + 'static,
+		Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+		CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
+	{
+		let (collation_future, block_builder_future) =
+			slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params);
+
+		task_manager.spawn_essential_handle().spawn(
+			"collation-task",
+			Some("parachain-block-authoring"),
+			collation_future,
+		);
+		task_manager.spawn_essential_handle().spawn(
+			"block-builder-task",
+			Some("parachain-block-authoring"),
+			block_builder_future,
+		);
+	}
+}
+
 impl<RuntimeApi, AuraId> StartConsensus<RuntimeApi>
 	for StartSlotBasedAuraConsensus<RuntimeApi, AuraId>
 where
@@ -683,19 +729,10 @@ where
 			slot_drift: Duration::from_secs(1),
 		};
 
-		let (collation_future, block_builder_future) =
-			slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params);
+		// We have a separate function only to be able to use `docify::export` on this piece of
+		// code.
+		Self::launch_slot_based_collator(params, task_manager);
 
-		task_manager.spawn_essential_handle().spawn(
-			"collation-task",
-			Some("parachain-block-authoring"),
-			collation_future,
-		);
-		task_manager.spawn_essential_handle().spawn(
-			"block-builder-task",
-			Some("parachain-block-authoring"),
-			block_builder_future,
-		);
 		Ok(())
 	}
 }
