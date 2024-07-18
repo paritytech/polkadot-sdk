@@ -16,8 +16,8 @@
 
 use futures::{channel::oneshot, prelude::Future, FutureExt};
 
+use codec::{Decode, Encode, Error as DecodingError};
 use network::ProtocolName;
-use parity_scale_codec::{Decode, Encode, Error as DecodingError};
 
 use sc_network as network;
 use sc_network_types::PeerId;

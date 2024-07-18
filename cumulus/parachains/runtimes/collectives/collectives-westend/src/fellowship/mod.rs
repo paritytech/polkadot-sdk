@@ -30,7 +30,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse, FromContains, MapSuccess,
-		NeverEnsureOrigin, OriginTrait, TryWithMorphedArg,
+		OriginTrait, TryWithMorphedArg,
 	},
 	PalletId,
 };
@@ -55,8 +55,6 @@ use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::impls::benchmarks::{OpenHrmpChannel, PayWithEnsure};
-#[cfg(feature = "runtime-benchmarks")]
-use testnet_parachains_constants::westend::currency::DOLLARS;
 
 /// The Fellowship members' ranks.
 pub mod ranks {
@@ -152,6 +150,7 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	type MinRankOfClass = tracks::MinRankOfClass;
 	type MemberSwappedHandler = (crate::FellowshipCore, crate::FellowshipSalary);
 	type VoteWeight = pallet_ranked_collective::Geometric;
+	type MaxMemberCount = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = (crate::FellowshipCore, crate::FellowshipSalary);
 }
@@ -209,6 +208,7 @@ impl pallet_core_fellowship::Config<FellowshipCoreInstance> for Runtime {
 		>,
 		EnsureCanPromoteTo,
 	>;
+	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<65536>;
 	type MaxRank = ConstU32<9>;
 }
@@ -270,16 +270,6 @@ parameter_types! {
 	pub SelfParaId: ParaId = ParachainInfo::parachain_id();
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	// Benchmark bond. Needed to make `propose_spend` work.
-	pub const TenPercent: Permill = Permill::from_percent(10);
-	// Benchmark minimum. Needed to make `propose_spend` work.
-	pub const BenchmarkProposalBondMinimum: Balance = 1 * DOLLARS;
-	// Benchmark maximum. Needed to make `propose_spend` work.
-	pub const BenchmarkProposalBondMaximum: Balance = 10 * DOLLARS;
-}
-
 /// [`PayOverXcm`] setup to pay the Fellowship Treasury.
 pub type FellowshipTreasuryPaymaster = PayOverXcm<
 	FellowshipTreasuryInteriorLocation,
@@ -295,28 +285,6 @@ pub type FellowshipTreasuryPaymaster = PayOverXcm<
 pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
 
 impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
-	// The creation of proposals via the treasury pallet is deprecated and should not be utilized.
-	// Instead, public or fellowship referenda should be used to propose and command the treasury
-	// spend or spend_local dispatchables. The parameters below have been configured accordingly to
-	// discourage its use.
-	// TODO: replace with `NeverEnsure` once polkadot-sdk 1.5 is released.
-	type ApproveOrigin = NeverEnsureOrigin<()>;
-	type OnSlash = ();
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ProposalBond = HundredPercent;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ProposalBondMinimum = MaxBalance;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ProposalBondMaximum = MaxBalance;
-
-	#[cfg(feature = "runtime-benchmarks")]
-	type ProposalBond = TenPercent;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ProposalBondMinimum = BenchmarkProposalBondMinimum;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ProposalBondMaximum = BenchmarkProposalBondMaximum;
-	// end.
-
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type PalletId = FellowshipTreasuryPalletId;
 	type Currency = Balances;

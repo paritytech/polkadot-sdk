@@ -17,6 +17,8 @@
 //! A module that is responsible for migration of storage for Collator Selection.
 
 use super::*;
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
 use frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
 use log;
 
@@ -29,8 +31,6 @@ pub mod v2 {
 		traits::{Currency, ReservableCurrency},
 	};
 	use sp_runtime::traits::{Saturating, Zero};
-	#[cfg(feature = "try-runtime")]
-	use sp_std::vec::Vec;
 
 	/// [`UncheckedMigrationToV2`] wrapped in a
 	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
@@ -51,7 +51,7 @@ pub mod v2 {
 	>;
 
 	/// Migrate to V2.
-	pub struct UncheckedMigrationToV2<T>(sp_std::marker::PhantomData<T>);
+	pub struct UncheckedMigrationToV2<T>(PhantomData<T>);
 	impl<T: Config + pallet_balances::Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV2<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight = Weight::zero();
@@ -123,10 +123,8 @@ pub mod v2 {
 pub mod v1 {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	#[cfg(feature = "try-runtime")]
-	use sp_std::prelude::*;
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let on_chain_version = Pallet::<T>::on_chain_storage_version();

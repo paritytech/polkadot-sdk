@@ -10,16 +10,15 @@ description = "Pallet to store the parachain ID"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
-frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../substrate/frame/system", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
+sp-runtime = { workspace = true }
 
-cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
+cumulus-primitives-core = { workspace = true }
 
 [features]
 default = ["std"]
@@ -30,7 +29,6 @@ std = [
 	"frame-system/std",
 	"scale-info/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

@@ -44,10 +44,12 @@ mod tests;
 
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 pub use pallet::*;
 use sp_core::OpaquePeerId as PeerId;
 use sp_runtime::traits::StaticLookup;
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 pub use weights::WeightInfo;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;

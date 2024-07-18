@@ -19,7 +19,7 @@
 
 use frame_support::{
 	assert_ok, parameter_types, traits,
-	traits::{Hooks, UnfilteredDispatchable},
+	traits::{Hooks, UnfilteredDispatchable, VariantCountOf},
 	weights::constants,
 };
 use frame_system::EnsureRoot;
@@ -38,7 +38,6 @@ use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	EraIndex, SessionIndex,
 };
-use sp_std::prelude::*;
 use std::collections::BTreeMap;
 
 use codec::Decode;
@@ -102,20 +101,14 @@ parameter_types! {
 		);
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = traits::ConstU32<1024>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type MaxFreezes = traits::ConstU32<1>;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type WeightInfo = ();
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -235,7 +228,6 @@ parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = 2;
 	pub static BondingDuration: sp_staking::EraIndex = 28;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 7; // 1/4 the bonding duration.
-	pub HistoryDepth: u32 = 84;
 }
 
 impl pallet_bags_list::Config for Runtime {
@@ -291,15 +283,11 @@ const MAX_QUOTA_NOMINATIONS: u32 = 16;
 /// Disabling factor set explicitly to byzantine threshold
 pub(crate) const SLASHING_DISABLING_FACTOR: usize = 3;
 
+#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;
-	type CurrencyToVote = ();
-	type RewardRemainder = ();
-	type RuntimeEvent = RuntimeEvent;
-	type Slash = (); // burn slashes
-	type Reward = (); // rewards are minted from the void
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
@@ -314,12 +302,10 @@ impl pallet_staking::Config for Runtime {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
-	type MaxControllersInDeprecationBatch = ConstU32<100>;
-	type HistoryDepth = HistoryDepth;
 	type EventListeners = Pools;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
-	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<SLASHING_DISABLING_FACTOR>;
+	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime
