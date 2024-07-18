@@ -9,7 +9,7 @@ homepage.workspace = true
 
 [dependencies]
 codec.workspace = true
-clap = { workspace = true, features = [ "derive" ] }
+clap = { workspace = true, features = ["derive"] }
 sc-executor.workspace = true
 sp-io.workspace = true
 sp-core.workspace = true

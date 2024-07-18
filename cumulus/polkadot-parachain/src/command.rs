@@ -498,7 +498,7 @@ pub fn run() -> Result<()> {
 				}),
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
-					let node = new_node_spec(&config, cli.node_extra_args())?;
+					let node = new_node_spec(&config, &cli.node_extra_args())?;
 					node.run_benchmark_storage_cmd(config, cmd)
 				}),
 				BenchmarkCmd::Machine(cmd) =>
