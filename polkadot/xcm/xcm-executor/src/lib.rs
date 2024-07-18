@@ -21,7 +21,6 @@ extern crate alloc;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::{fmt::Debug, marker::PhantomData};
-use std::result;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	ensure,
