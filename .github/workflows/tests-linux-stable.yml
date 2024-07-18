@@ -109,6 +109,8 @@ jobs:
           --workspace --locked --release --no-fail-fast
           --features try-runtime,experimental,riscv,ci-only-tests
           nextest run
+          --workspace --locked --release --no-fail-fast
+          --features try-runtime,experimental,riscv,ci-only-tests          
           -E "
           !test(/.*benchmark.*/)
           - test(/recovers_from_only_chunks_if_pov_large::case_1/)
