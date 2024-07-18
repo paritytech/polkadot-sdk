@@ -223,9 +223,8 @@ where
 					(Some(metrics), None) => Some(
 						MiddlewareLayer::new().with_metrics(Metrics::new(metrics, transport_label)),
 					),
-					(None, Some(rate_limit)) => {
-						Some(MiddlewareLayer::new().with_rate_limit_per_minute(rate_limit))
-					},
+					(None, Some(rate_limit)) =>
+						Some(MiddlewareLayer::new().with_rate_limit_per_minute(rate_limit)),
 					(Some(metrics), Some(rate_limit)) => Some(
 						MiddlewareLayer::new()
 							.with_metrics(Metrics::new(metrics, transport_label))
