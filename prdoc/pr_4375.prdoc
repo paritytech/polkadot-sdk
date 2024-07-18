@@ -28,7 +28,7 @@ doc:
 
 crates:
   - name: staging-xcm-executor
-    bump: minor
+    bump: major
   - name: asset-hub-westend-runtime
     bump: minor
   - name: asset-hub-rococo-runtime

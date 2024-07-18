@@ -122,7 +122,6 @@ pub trait Config {
 	type HrmpChannelAcceptedHandler: HandleHrmpChannelAccepted;
 	/// Allows optional logic execution for the `HrmpChannelClosing` XCM notification.
 	type HrmpChannelClosingHandler: HandleHrmpChannelClosing;
-
 	/// Allows recording the last executed XCM (used by dry-run runtime APIs).
 	type XcmRecorder: RecordXcm;
 }
