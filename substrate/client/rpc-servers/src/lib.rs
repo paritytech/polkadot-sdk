@@ -106,7 +106,7 @@ struct PerConnection<RpcMiddleware, HttpMiddleware> {
 }
 
 /// Start RPC server listening on given address.
-pub async fn start_server<M: Send + Sync + 'static>(
+pub async fn start_server<M>(
 	config: Config<'_, M>,
 ) -> Result<ServerAndListenAddress, Box<dyn StdError + Send + Sync>>
 where
@@ -223,8 +223,9 @@ where
 					(Some(metrics), None) => Some(
 						MiddlewareLayer::new().with_metrics(Metrics::new(metrics, transport_label)),
 					),
-					(None, Some(rate_limit)) =>
-						Some(MiddlewareLayer::new().with_rate_limit_per_minute(rate_limit)),
+					(None, Some(rate_limit)) => {
+						Some(MiddlewareLayer::new().with_rate_limit_per_minute(rate_limit))
+					},
 					(Some(metrics), Some(rate_limit)) => Some(
 						MiddlewareLayer::new()
 							.with_metrics(Metrics::new(metrics, transport_label))
