@@ -257,7 +257,7 @@ where
 	///
 	/// Intended for use in unit tests.
 	pub fn mempool_len(&self) -> (usize, usize) {
-		self.mempool.len()
+		self.mempool.unwatched_and_watched_count()
 	}
 
 	/// Returns best effort set of ready transactions for given block, without executing full
@@ -787,7 +787,7 @@ where
 			target: LOG_TARGET,
 			"update_view: {:?} xts:{:?} v:{}",
 			view.at,
-			self.mempool.len(),
+			self.mempool.unwatched_and_watched_count(),
 			self.views_count()
 		);
 		//todo: this could be collected/cached in view

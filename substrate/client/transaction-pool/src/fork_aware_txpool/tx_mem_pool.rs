@@ -131,7 +131,7 @@ where
 		self.transactions.read().get(&hash).map(|t| t.tx.clone())
 	}
 
-	pub(super) fn len(&self) -> (usize, usize) {
+	pub(super) fn unwatched_and_watched_count(&self) -> (usize, usize) {
 		let transactions = self.transactions.read();
 		let watched_count = transactions.values().filter(|t| t.is_watched()).count();
 		(transactions.len() - watched_count, watched_count)

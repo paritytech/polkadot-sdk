@@ -106,7 +106,7 @@ where
 {
 	fn new(
 		tx_hash: ExtrinsicHash<ChainApi>,
-		rx: Fuse<CommandReceiver<ControllerCommand<ChainApi>>>,
+		command_receiver: Fuse<CommandReceiver<ControllerCommand<ChainApi>>>,
 	) -> Self {
 		let mut stream_map: StreamMap<BlockHash<ChainApi>, TxStatusStream<ChainApi>> =
 			StreamMap::new();
@@ -115,7 +115,7 @@ where
 		Self {
 			tx_hash,
 			status_stream_map: futures::StreamExt::fuse(stream_map),
-			command_receiver: rx,
+			command_receiver,
 			terminate: false,
 			future_seen: false,
 			ready_seen: false,
