@@ -4154,7 +4154,7 @@ name = "cumulus-pov-validator"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.5.3",
+ "clap 4.5.9",
  "parity-scale-codec",
  "polkadot-node-primitives",
  "polkadot-parachain-primitives",
