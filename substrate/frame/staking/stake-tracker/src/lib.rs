@@ -89,6 +89,8 @@
 
 pub use pallet::*;
 
+extern crate alloc;
+
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
 	defensive,
@@ -99,7 +101,7 @@ use sp_runtime::traits::Zero;
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakerStatus, StakingInterface,
 };
-use sp_std::{collections::btree_map::BTreeMap, vec, vec::Vec};
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 
 #[cfg(test)]
 pub(crate) mod mock;
@@ -302,7 +304,7 @@ pub mod pallet {
 		/// Used for debug assertions only, since this pallet expects the nominations to be
 		/// deduplicated at all places.
 		pub fn has_duplicate_nominations(mut v: Vec<T::AccountId>) -> bool {
-			use sp_std::collections::btree_set::BTreeSet;
+			use alloc::collections::btree_set::BTreeSet;
 			let size_before = v.len();
 			let dedup = v.drain(..).collect::<BTreeSet<_>>().into_iter().collect::<Vec<_>>();
 

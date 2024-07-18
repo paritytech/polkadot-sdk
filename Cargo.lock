@@ -11551,7 +11551,6 @@ dependencies = [
  "sp-npos-elections",
  "sp-runtime",
  "sp-staking",
- "sp-std 14.0.0",
  "sp-tracing 16.0.0",
 ]
 

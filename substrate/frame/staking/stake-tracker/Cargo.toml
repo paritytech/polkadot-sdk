@@ -12,30 +12,31 @@ repository = "https://github.com/paritytech/polkadot-sdk"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { features = [
+	"derive",
+], workspace = true }
 
-sp-runtime = { default-features = false, path = "../../../primitives/runtime", features = ["serde"] }
-sp-staking = { default-features = false, path = "../../../primitives/staking", features = ["serde"] }
-sp-std = { default-features = false, path = "../../../primitives/std" }
 
-sp-npos-elections = { default-features = false, path = "../../../primitives/npos-elections" }
-frame-election-provider-support = { default-features = false, path = "../../election-provider-support" }
-frame-support = { default-features = false, path = "../../support" }
-frame-system = { default-features = false, path = "../../system" }
+scale-info = { features = ["derive", "serde"], workspace = true }
+
+sp-runtime = { features = ["serde"], workspace = true }
+sp-staking = { features = ["serde"], workspace = true }
+
+sp-npos-elections = { workspace = true, default-features = false }
+frame-election-provider-support = { workspace = true, default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 
 # Optional imports for benchmarking
-frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true }
+frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-sp-std = { default-features = false, path = "../../../primitives/std" }
-sp-core = { default-features = false, path = "../../../primitives/core" }
-sp-io = { default-features = false, path = "../../../primitives/io" }
-sp-runtime = { default-features = false, path = "../../../primitives/runtime", features = ["serde"] }
-sp-tracing = { default-features = false, path = "../../../primitives/tracing" }
-pallet-bags-list = { default-features = false, path = "../../bags-list", features = ["try-runtime"] }
-pallet-balances = { default-features = false, path = "../../balances" }
-frame-benchmarking = { path = "../../benchmarking" }
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
+pallet-bags-list = { workspace = true, default-features = false, features = ["try-runtime"] }
+pallet-balances = { workspace = true, default-features = true }
+frame-benchmarking = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -55,7 +56,6 @@ std = [
 	"sp-runtime/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 	"sp-tracing/std",
 ]
 
