@@ -82,7 +82,7 @@ pub trait WeightInfo {
 	fn set_min_commission() -> Weight;
 	fn restore_ledger() -> Weight;
 	fn drop_dangling_nomination() -> Weight;
-	fn v13_mmb_step() -> Weight;
+	fn v13_mmb_partial_step() -> Weight;
 }
 
 /// Weights for `pallet_staking` using the Substrate node and recommended hardware.
@@ -973,7 +973,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `TargetList::ListBags` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
 	/// Storage: `TargetList::CounterForListNodes` (r:1 w:1)
 	/// Proof: `TargetList::CounterForListNodes` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn v13_mmb_step() -> Weight {
+	fn v13_mmb_partial_step() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `70141`
 		//  Estimated: `477090`
@@ -1871,7 +1871,7 @@ impl WeightInfo for () {
 	/// Proof: `TargetList::ListBags` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
 	/// Storage: `TargetList::CounterForListNodes` (r:1 w:1)
 	/// Proof: `TargetList::CounterForListNodes` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn v13_mmb_step() -> Weight {
+	fn v13_mmb_partial_step() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `70141`
 		//  Estimated: `477090`
