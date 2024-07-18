@@ -88,8 +88,8 @@ jobs:
     strategy: 
       fail-fast: false     
       matrix:
-        ci_node_total: [5]
-        ci_node_index: [1, 2, 3, 4, 5]      
+        ci_node_total: [1]
+        ci_node_index: [1]      
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -98,16 +98,17 @@ jobs:
       - run: chmod +x .forklift/forklift && .forklift/forklift version
       
       - run: rustup component add llvm-tools-preview
-      - run: cargo install cargo-llvm-cov
       - run: mkdir -p target/coverage/result
+      - run: 
 
       - name: script
         run: >
-          time cargo llvm-cov
-          nextest 
-          --no-report
+          PACKAGES=`.github/scripts/group-crates.py 1 5`
+          time cargo
+          nextest run
           --workspace --locked --release --no-fail-fast
-          --features try-runtime,experimental,riscv,ci-only-tests         
+          --features try-runtime,experimental,riscv,ci-only-tests
+          -p $PACKAGES       
           -E "
           !test(/.*benchmark.*/)
           - test(/recovers_from_only_chunks_if_pov_large::case_1/)
@@ -123,29 +124,29 @@ jobs:
           - test(/tests::authoring_blocks/)
           - test(/rejects_missing_seals/)
           "
-          --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
+        #--partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
 
       - run: cargo llvm-cov report --lcov --output-path lcov.info
       - run: ls -la
       
-      #- name: generate report
-      #  run: >
-      #    grcov
-      #    target/coverage/
-      #    --binary-path ./target/release/
-      #    -s .
-      #    -t lcov
-      #    --branch
-      #    -o target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
-      #    --ignore "/*,$HOME/.cargo/**,target/release/wbuild/*,target/release/build/*"
-      #    --log-level DEBUG
-      #    --llvm
-      #    --ignore-not-existing
-      #- name: upload report
-      #  uses: actions/upload-artifact@v4
-      #  with:
-      #    name: coverage-report-${{ matrix.ci_node_index }}.lcov
-      #    path: target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
+      - name: generate report
+        run: >
+          grcov
+          target/coverage/
+          --binary-path ./target/release/
+          -s .
+          -t lcov
+          --branch
+          -o target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
+          --ignore "/*,$HOME/.cargo/**,target/release/wbuild/*,target/release/build/*"
+          --log-level DEBUG
+          --llvm
+          --ignore-not-existing
+      - name: upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.ci_node_index }}.lcov
+          path: target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
 
   #upload-reports:
   #  needs: [test-linux-stable]
