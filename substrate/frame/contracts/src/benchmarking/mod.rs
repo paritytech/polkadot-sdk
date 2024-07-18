@@ -162,11 +162,11 @@ where
 			return Err("Key size too small to create the specified trie");
 		}
 
-		let max_value_size = T::Schedule::get().limits.payload_len;
+		let value = vec![16u8; T::Schedule::get().limits.payload_len as usize];
 		let contract = Contract::<T>::new(code, vec![])?;
 		let info = contract.info()?;
 		let child_trie_info = info.child_trie_info();
-		child::put_raw(&child_trie_info, &key, &vec![16u8; max_value_size as usize]);
+		child::put_raw(&child_trie_info, &key, &value);
 		for l in 0..UNBALANCED_TRIE_LAYERS {
 			let pos = l as usize / 2;
 			let mut key_new = key.to_vec();
@@ -180,7 +180,7 @@ where
 				if key == &key_new {
 					continue
 				}
-				child::put_raw(&child_trie_info, &key_new, &vec![16u8; max_value_size as usize]);
+				child::put_raw(&child_trie_info, &key_new, &value);
 			}
 		}
 		Ok(contract)
