@@ -106,7 +106,7 @@ jobs:
             --partition count:${{ matrix.partition }}
       # run runtime-api tests with `enable-staging-api` feature on the 1st node
       - name: runtime-api tests
-        if: ${{ matrix.partition }} == '1/3'
+        if: ${{ matrix.partition == '1/3' }}
         run: forklift cargo nextest run -p sp-api-test --features enable-staging-api
 
   test-linux-stable-oldkernel-wo-fl:
