@@ -18,24 +18,42 @@
 
 //! Substrate fork-aware transaction pool implementation.
 
-#![warn(unused_extern_crates)]
-#![allow(dead_code)]
-
+use super::{
+	import_notification_sink::MultiViewImportNotificationSink,
+	metrics::MetricsLink as PrometheusMetrics,
+	multi_view_listener::MultiViewListener,
+	tx_mem_pool::{TxMemPool, TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER},
+	view::View,
+	view_store::ViewStore,
+};
 use crate::{
 	api::FullChainApi,
 	enactment_state::{EnactmentAction, EnactmentState},
+	fork_aware_txpool::view_revalidation,
 	graph::{self, base_pool::Transaction, ExtrinsicFor, ExtrinsicHash, IsValidator, Options},
-	log_xt_debug,
+	log_xt_debug, PolledIterator, ReadyIteratorFor, LOG_TARGET,
 };
 use async_trait::async_trait;
 use futures::{
 	channel::oneshot,
 	future::{self},
 	prelude::*,
+	FutureExt,
 };
 use parking_lot::Mutex;
-use sc_transaction_pool_api::error::{Error, IntoPoolError};
-use sp_runtime::transaction_validity::InvalidTransaction;
+use prometheus_endpoint::Registry as PrometheusRegistry;
+use sc_transaction_pool_api::{
+	error::{Error, IntoPoolError},
+	ChainEvent, ImportNotificationStream, MaintainedTransactionPool, PoolFuture, PoolStatus,
+	TransactionFor, TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash,
+};
+use sp_blockchain::{HashAndNumber, TreeRoute};
+use sp_core::traits::SpawnEssentialNamed;
+use sp_runtime::{
+	generic::BlockId,
+	traits::{Block as BlockT, Extrinsic, NumberFor},
+	transaction_validity::{InvalidTransaction, UnknownTransaction},
+};
 use std::{
 	collections::{HashMap, HashSet},
 	pin::Pin,
@@ -43,75 +61,12 @@ use std::{
 		atomic::{AtomicUsize, Ordering},
 		Arc,
 	},
+	time::Instant,
 };
 use tokio::select;
 
-use futures::FutureExt;
-use sc_transaction_pool_api::{
-	ChainEvent, ImportNotificationStream, MaintainedTransactionPool, PoolFuture, PoolStatus,
-	TransactionFor, TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash,
-};
-use sp_core::traits::SpawnEssentialNamed;
-use sp_runtime::{
-	generic::BlockId,
-	traits::{Block as BlockT, Extrinsic, NumberFor},
-	transaction_validity::UnknownTransaction,
-};
-use std::time::Instant;
-
 pub use super::import_notification_sink::ImportNotificationTask;
-use super::{
-	import_notification_sink::MultiViewImportNotificationSink,
-	metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener,
-};
-use crate::{fork_aware_txpool::view_revalidation, PolledIterator, ReadyIteratorFor, LOG_TARGET};
-use prometheus_endpoint::Registry as PrometheusRegistry;
-use sp_blockchain::{HashAndNumber, TreeRoute};
-
 pub type FullPool<Block, Client> = ForkAwareTxPool<FullChainApi<Client, Block>, Block>;
-use super::{tx_mem_pool::TxMemPool, view::View, view_store::ViewStore};
-
-impl<Block, Client> FullPool<Block, Client>
-where
-	Block: BlockT,
-	Client: sp_api::ProvideRuntimeApi<Block>
-		+ sc_client_api::BlockBackend<Block>
-		+ sc_client_api::blockchain::HeaderBackend<Block>
-		+ sp_runtime::traits::BlockIdTo<Block>
-		+ sc_client_api::ExecutorProvider<Block>
-		+ sc_client_api::UsageProvider<Block>
-		+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ Send
-		+ Sync
-		+ 'static,
-	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
-	<Block as BlockT>::Hash: std::marker::Unpin,
-{
-	/// Create new basic transaction pool for a full node with the provided api.
-	pub fn new_full(
-		options: Options,
-		is_validator: IsValidator,
-		prometheus: Option<&PrometheusRegistry>,
-		spawner: impl SpawnEssentialNamed,
-		client: Arc<Client>,
-	) -> Arc<Self> {
-		let pool_api = Arc::new(FullChainApi::new(client.clone(), prometheus, &spawner));
-		let pool = Arc::new(Self::new_with_background_queue(
-			options,
-			is_validator,
-			pool_api,
-			prometheus,
-			spawner,
-			client.usage_info().chain.best_number,
-			client.usage_info().chain.best_hash,
-			client.usage_info().chain.finalized_hash,
-		));
-
-		pool
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
 
 struct ReadyPoll<T, Block>
 where
@@ -147,8 +102,6 @@ where
 		self.pollers.retain(|_, v| v.iter().any(|sender| !sender.is_canceled()));
 	}
 }
-
-////////////////////////////////////////////////////////////////////////////////
 
 /// The fork-aware transaction pool.
 ///
@@ -1083,6 +1036,8 @@ where
 	}
 
 	// use for verirfaction - only for debugging purposes
+	// todo: to be removed at some point
+	#[allow(dead_code)]
 	async fn verify(&self) {
 		log::info!(target:LOG_TARGET, "fatp::verify++");
 
@@ -1211,6 +1166,46 @@ where
 		// self.verify().await;
 
 		()
+	}
+}
+
+impl<Block, Client> FullPool<Block, Client>
+where
+	Block: BlockT,
+	Client: sp_api::ProvideRuntimeApi<Block>
+		+ sc_client_api::BlockBackend<Block>
+		+ sc_client_api::blockchain::HeaderBackend<Block>
+		+ sp_runtime::traits::BlockIdTo<Block>
+		+ sc_client_api::ExecutorProvider<Block>
+		+ sc_client_api::UsageProvider<Block>
+		+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ Send
+		+ Sync
+		+ 'static,
+	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
+	<Block as BlockT>::Hash: std::marker::Unpin,
+{
+	/// Create new basic transaction pool for a full node with the provided api.
+	pub fn new_full(
+		options: Options,
+		is_validator: IsValidator,
+		prometheus: Option<&PrometheusRegistry>,
+		spawner: impl SpawnEssentialNamed,
+		client: Arc<Client>,
+	) -> Arc<Self> {
+		let pool_api = Arc::new(FullChainApi::new(client.clone(), prometheus, &spawner));
+		let pool = Arc::new(Self::new_with_background_queue(
+			options,
+			is_validator,
+			pool_api,
+			prometheus,
+			spawner,
+			client.usage_info().chain.best_number,
+			client.usage_info().chain.best_hash,
+			client.usage_info().chain.finalized_hash,
+		));
+
+		pool
 	}
 }
 
