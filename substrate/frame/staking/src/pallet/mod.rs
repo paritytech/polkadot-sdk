@@ -2067,6 +2067,7 @@ pub mod pallet {
 			maybe_controller: Option<T::AccountId>,
 			maybe_total: Option<BalanceOf<T>>,
 			maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
+			maybe_slashing_spans: Option<u32>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 
@@ -2150,6 +2151,13 @@ pub mod pallet {
 				Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
 				Error::<T>::BadState
 			);
+
+			// if the current stash free balance is enough to lock after restore, force unbonding
+			// the ledger and clear all the data associated with the ledger.
+			if T::Currency::free_balance(&stash) < new_total {
+				Self::kill_stash(&stash, maybe_slashing_spans.unwrap_or_default())?;
+			}
+
 			Ok(())
 		}
 	}
