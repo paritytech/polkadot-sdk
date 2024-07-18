@@ -114,8 +114,6 @@ pub enum RequestFailure{
 	#[error("The remote replied, but the local node is no longer interested in the response.")]
 	Obsolete,
 	#[error("Problem on the network: {0}")]
-	Network(OutboundFailure),
-	#[error("Problem on the network: {0}")]
 	Network2(CustomOutboundFailure),
 }
 
@@ -911,7 +909,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 							let out = Event::InboundRequest {
 								peer,
 								protocol: protocol.clone(),
-								result: Err(ResponseFailure::Network(error)),
+								result: Err(ResponseFailure::Network2(CustomInboundFailure::Timeout)),
 							};
 							return Poll::Ready(ToSwarm::GenerateEvent(out))
 						},
@@ -985,7 +983,7 @@ pub enum RegisterError {
 pub enum ResponseFailure {
 	/// Problem on the network.
 	#[error("Problem on the network: {0}")]
-	Network(InboundFailure),
+	Network2(CustomInboundFailure),
 }
 
 /// Implements the libp2p [`Codec`] trait. Defines how streams of bytes are turned

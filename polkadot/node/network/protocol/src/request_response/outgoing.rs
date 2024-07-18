@@ -23,6 +23,7 @@ use sc_network as network;
 use sc_network_types::PeerId;
 
 use polkadot_primitives::AuthorityDiscoveryId;
+use sc_network::service::CustomOutboundFailure;
 
 use super::{v1, v2, IsRequest, Protocol};
 
@@ -96,8 +97,8 @@ impl RequestError {
 		match self {
 			Self::Canceled(_) |
 			Self::NetworkError(network::RequestFailure::Obsolete) |
-			Self::NetworkError(network::RequestFailure::Network(
-				network::OutboundFailure::Timeout,
+			Self::NetworkError(network::RequestFailure::Network2(
+				CustomOutboundFailure::Timeout,
 			)) => true,
 			_ => false,
 		}

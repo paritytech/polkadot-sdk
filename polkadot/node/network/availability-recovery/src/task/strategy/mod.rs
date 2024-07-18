@@ -30,6 +30,7 @@ use crate::{
 };
 
 use codec::Decode;
+use sc_network::service::CustomOutboundFailure;
 use futures::{channel::oneshot, SinkExt};
 use polkadot_erasure_coding::branch_hash;
 #[cfg(not(test))]
@@ -565,7 +566,7 @@ impl State {
 						RequestError::NetworkError(err) => {
 							// No debug logs on general network errors - that became very
 							// spammy occasionally.
-							if let RequestFailure::Network(OutboundFailure::Timeout) = err {
+							if let RequestFailure::Network2(CustomOutboundFailure::Timeout) = err {
 								metrics.on_chunk_request_timeout(strategy_type);
 							} else {
 								metrics.on_chunk_request_error(strategy_type);

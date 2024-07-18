@@ -91,7 +91,7 @@ use sp_runtime::traits::Block as BlockT;
 
 pub use behaviour::{InboundFailure, OutboundFailure, ResponseFailure};
 // Import our custom type 
-pub use crate::request_responses::CustomOutboundFailure;
+pub use crate::request_responses::{CustomOutboundFailure,CustomInboundFailure};
 pub use libp2p::identity::{DecodingError, Keypair, PublicKey};
 pub use metrics::NotificationMetrics;
 pub use protocol::NotificationsSink;
@@ -1216,7 +1216,7 @@ where
 			// The channel can only be closed if the network worker no longer exists. If the
 			// network worker no longer exists, then all connections to `target` are necessarily
 			// closed, and we legitimately report this situation as a "ConnectionClosed".
-			Err(_) => Err(RequestFailure::Network(OutboundFailure::ConnectionClosed)),
+			Err(_) => Err(RequestFailure::Network2(CustomOutboundFailure::ConnectionClosed)),
 		}
 	}
 
@@ -1494,17 +1494,17 @@ where
 						},
 						Err(err) => {
 							let reason = match err {
-								ResponseFailure::Network(InboundFailure::Timeout) =>
+								ResponseFailure::Network2(CustomInboundFailure::Timeout) =>
 									Some("timeout"),
-								ResponseFailure::Network(InboundFailure::UnsupportedProtocols) =>
+								ResponseFailure::Network2(CustomInboundFailure::UnsupportedProtocols) =>
 								// `UnsupportedProtocols` is reported for every single
 								// inbound request whenever a request with an unsupported
 								// protocol is received. This is not reported in order to
 								// avoid confusions.
 									None,
-								ResponseFailure::Network(InboundFailure::ResponseOmission) =>
+								ResponseFailure::Network2(CustomInboundFailure::ResponseOmission) =>
 									Some("busy-omitted"),
-								ResponseFailure::Network(InboundFailure::ConnectionClosed) =>
+								ResponseFailure::Network2(CustomInboundFailure::ConnectionClosed) =>
 									Some("connection-closed"),
 							};
 
@@ -1539,13 +1539,7 @@ where
 								RequestFailure::UnknownProtocol => "unknown-protocol",
 								RequestFailure::Refused => "refused",
 								RequestFailure::Obsolete => "obsolete",
-								RequestFailure::Network(OutboundFailure::DialFailure) =>
-									"dial-failure",
-								RequestFailure::Network(OutboundFailure::Timeout) => "timeout",
-								RequestFailure::Network(OutboundFailure::ConnectionClosed) =>
-									"connection-closed",
-								RequestFailure::Network(OutboundFailure::UnsupportedProtocols) =>
-									"unsupported",
+								
 								RequestFailure::Network2(CustomOutboundFailure::DialFailure) =>
 									"dial-failure",
 								RequestFailure::Network2(CustomOutboundFailure::Timeout) => "timeout",

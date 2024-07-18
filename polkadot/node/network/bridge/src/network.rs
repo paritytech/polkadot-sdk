@@ -23,6 +23,7 @@ use async_trait::async_trait;
 use parking_lot::Mutex;
 
 use codec::Encode;
+use sc_network::service::CustomOutboundFailure;
 
 use sc_network::{
 	config::parse_addr, multiaddr::Multiaddr, service::traits::NetworkService, types::ProtocolName,
@@ -299,7 +300,7 @@ impl Network for Arc<dyn NetworkService> {
 			None => {
 				gum::debug!(target: LOG_TARGET, "Discovering authority failed");
 				match pending_response
-					.send(Err(RequestFailure::Network(OutboundFailure::DialFailure)))
+					.send(Err(RequestFailure::Network2(CustomOutboundFailure::DialFailure)))
 				{
 					Err(_) => {
 						gum::debug!(target: LOG_TARGET, "Sending failed request response failed.")

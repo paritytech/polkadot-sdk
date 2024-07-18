@@ -26,7 +26,7 @@ use polkadot_node_primitives::AvailableData;
 use polkadot_node_subsystem::{messages::NetworkBridgeTxMessage, overseer, RecoveryError};
 use polkadot_primitives::ValidatorIndex;
 use sc_network::{IfDisconnected, OutboundFailure, RequestFailure};
-
+use sc_network::service::CustomOutboundFailure;
 use futures::{channel::oneshot, SinkExt};
 use rand::seq::SliceRandom;
 
@@ -153,7 +153,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 						RequestError::InvalidResponse(_) =>
 							common_params.metrics.on_full_request_invalid(),
 						RequestError::NetworkError(req_failure) => {
-							if let RequestFailure::Network(OutboundFailure::Timeout) = req_failure {
+							if let RequestFailure::Network2(CustomOutboundFailure::Timeout) = req_failure {
 								common_params.metrics.on_full_request_timeout();
 							} else {
 								common_params.metrics.on_full_request_error();

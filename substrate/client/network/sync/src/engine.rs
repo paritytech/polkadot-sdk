@@ -1308,7 +1308,7 @@ where
 						);
 					},
 					//If OutboundFailure is used, 
-					RequestFailure::Network(_) => {debug_assert!(false, "Don't use deprecated Network");},
+					RequestFailure::Network2(_) => {debug_assert!(false, "Don't use deprecated Network");},
 				}
 			},
 			Err(oneshot::Canceled) => {
