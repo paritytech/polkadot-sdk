@@ -11,5 +11,5 @@ doc:
 crates:
   - name: staging-xcm
     bump: patch
-
+    validate: false
 
