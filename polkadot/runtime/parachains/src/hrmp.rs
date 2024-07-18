@@ -18,11 +18,17 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	dmp, ensure_parachain, initializer, paras,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
+use codec::{Decode, Encode};
+use core::{fmt, mem};
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;
-use parity_scale_codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
-use primitives::{
+use polkadot_primitives::{
 	Balance, Hash, HrmpChannelId, Id as ParaId, InboundHrmpMessage, OutboundHrmpMessage,
 	SessionIndex,
 };
@@ -30,11 +36,6 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, Hash as HashT, UniqueSaturatedInto, Zero},
 	ArithmeticError,
-};
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	fmt, mem,
-	prelude::*,
 };
 
 pub use pallet::*;
@@ -487,7 +488,7 @@ pub mod pallet {
 	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<T>,
+		_config: core::marker::PhantomData<T>,
 		preopen_hrmp_channels: Vec<(ParaId, ParaId, u32, u32)>,
 	}
 
@@ -1864,7 +1865,7 @@ impl<T: Config> Pallet<T> {
 	/// If the XCM version is unknown, the latest XCM version is used as a best effort.
 	fn wrap_notification(
 		mut notification: impl FnMut() -> xcm::opaque::latest::opaque::Xcm,
-	) -> impl FnOnce(ParaId) -> primitives::DownwardMessage {
+	) -> impl FnOnce(ParaId) -> polkadot_primitives::DownwardMessage {
 		use xcm::{
 			opaque::VersionedXcm,
 			prelude::{Junction, Location},
@@ -1892,7 +1893,7 @@ impl<T: Config> Pallet<T> {
 		log_label: &str,
 		config: &HostConfiguration<BlockNumberFor<T>>,
 		dest: ParaId,
-		notification_bytes_for: impl FnOnce(ParaId) -> primitives::DownwardMessage,
+		notification_bytes_for: impl FnOnce(ParaId) -> polkadot_primitives::DownwardMessage,
 	) {
 		// prepare notification
 		let notification_bytes = notification_bytes_for(dest);

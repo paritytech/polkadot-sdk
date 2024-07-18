@@ -23,7 +23,7 @@ use frame_support::{
 
 mod v0 {
 	use super::*;
-	use sp_std::collections::vec_deque::VecDeque;
+	use alloc::collections::vec_deque::VecDeque;
 
 	#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone)]
 	pub(super) struct EnqueuedOrder {
@@ -50,7 +50,7 @@ mod v1 {
 	use crate::assigner_on_demand::LOG_TARGET;
 
 	/// Migration to V1
-	pub struct UncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct UncheckedMigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight: Weight = Weight::zero();
@@ -88,7 +88,7 @@ mod v1 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 			let n: u32 = v0::OnDemandQueue::<T>::get().len() as u32;
 
 			log::info!(
@@ -100,7 +100,7 @@ mod v1 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			log::info!(target: LOG_TARGET, "Running post_upgrade()");
 
 			ensure!(
@@ -143,7 +143,7 @@ pub type MigrateV0ToV1<T> = VersionedMigration<
 mod tests {
 	use super::{v0, v1, UncheckedOnRuntimeUpgrade, Weight};
 	use crate::mock::{new_test_ext, MockGenesisConfig, OnDemandAssigner, Test};
-	use primitives::Id as ParaId;
+	use polkadot_primitives::Id as ParaId;
 
 	#[test]
 	fn migration_to_v1_preserves_queue_ordering() {

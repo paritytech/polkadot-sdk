@@ -19,12 +19,12 @@
 
 use super::super::LOG_TARGET;
 use crate::{Config, Pallet};
+use alloc::vec::Vec;
 use codec::{Decode, Encode, FullCodec};
 use frame_support::{
 	pallet_prelude::ValueQuery, traits::StorageVersion, weights::Weight, Twox64Concat,
 };
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::*;
 
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug, PartialEq)]
 struct SeatHolder<AccountId, Balance> {
@@ -116,16 +116,16 @@ pub fn apply<V: V2ToV3, T: Config>(
 
 /// Migrate from the old legacy voting bond (fixed) to the new one (per-vote dynamic).
 pub fn migrate_voters_to_recorded_deposit<V: V2ToV3, T: Config>(old_deposit: V::Balance) {
-	<Voting<V, T>>::translate::<(V::Balance, Vec<V::AccountId>), _>(|_who, (stake, votes)| {
+	Voting::<V, T>::translate::<(V::Balance, Vec<V::AccountId>), _>(|_who, (stake, votes)| {
 		Some(Voter { votes, stake, deposit: old_deposit })
 	});
 
-	log::info!(target: LOG_TARGET, "migrated {} voter accounts.", <Voting<V, T>>::iter().count());
+	log::info!(target: LOG_TARGET, "migrated {} voter accounts.", Voting::<V, T>::iter().count());
 }
 
 /// Migrate all candidates to recorded deposit.
 pub fn migrate_candidates_to_recorded_deposit<V: V2ToV3, T: Config>(old_deposit: V::Balance) {
-	let _ = <Candidates<V, T>>::translate::<Vec<V::AccountId>, _>(|maybe_old_candidates| {
+	let _ = Candidates::<V, T>::translate::<Vec<V::AccountId>, _>(|maybe_old_candidates| {
 		maybe_old_candidates.map(|old_candidates| {
 			log::info!(target: LOG_TARGET, "migrated {} candidate accounts.", old_candidates.len());
 			old_candidates.into_iter().map(|c| (c, old_deposit)).collect::<Vec<_>>()
@@ -135,7 +135,7 @@ pub fn migrate_candidates_to_recorded_deposit<V: V2ToV3, T: Config>(old_deposit:
 
 /// Migrate all members to recorded deposit.
 pub fn migrate_members_to_recorded_deposit<V: V2ToV3, T: Config>(old_deposit: V::Balance) {
-	let _ = <Members<V, T>>::translate::<Vec<(V::AccountId, V::Balance)>, _>(|maybe_old_members| {
+	let _ = Members::<V, T>::translate::<Vec<(V::AccountId, V::Balance)>, _>(|maybe_old_members| {
 		maybe_old_members.map(|old_members| {
 			log::info!(target: LOG_TARGET, "migrated {} member accounts.", old_members.len());
 			old_members
@@ -148,7 +148,7 @@ pub fn migrate_members_to_recorded_deposit<V: V2ToV3, T: Config>(old_deposit: V:
 
 /// Migrate all runners-up to recorded deposit.
 pub fn migrate_runners_up_to_recorded_deposit<V: V2ToV3, T: Config>(old_deposit: V::Balance) {
-	let _ = <RunnersUp<V, T>>::translate::<Vec<(V::AccountId, V::Balance)>, _>(
+	let _ = RunnersUp::<V, T>::translate::<Vec<(V::AccountId, V::Balance)>, _>(
 		|maybe_old_runners_up| {
 			maybe_old_runners_up.map(|old_runners_up| {
 				log::info!(

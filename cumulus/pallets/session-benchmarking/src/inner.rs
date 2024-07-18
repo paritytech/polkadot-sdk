@@ -15,12 +15,12 @@
 
 //! Benchmarking setup for pallet-session.
 
-use sp_std::{prelude::*, vec};
+use alloc::{vec, vec::Vec};
 
+use codec::Decode;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use pallet_session::*;
-use parity_scale_codec::Decode;
 pub struct Pallet<T: Config>(pallet_session::Pallet<T>);
 pub trait Config: pallet_session::Config {}
 

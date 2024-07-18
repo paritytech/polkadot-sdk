@@ -17,6 +17,7 @@
 //! A module that is responsible for migration of storage.
 
 use super::*;
+use alloc::vec::Vec;
 use frame_support::{
 	migrations::VersionedMigration, pallet_prelude::ValueQuery, storage_alias,
 	traits::UncheckedOnRuntimeUpgrade, weights::Weight,
@@ -34,7 +35,7 @@ struct V0Assignment {
 /// Old scheduler with explicit parathreads and `Scheduled` storage instead of `ClaimQueue`.
 mod v0 {
 	use super::*;
-	use primitives::{CollatorId, Id};
+	use polkadot_primitives::{CollatorId, Id};
 
 	#[storage_alias]
 	pub(super) type Scheduled<T: Config> = StorageValue<Pallet<T>, Vec<CoreAssignment>, ValueQuery>;
@@ -164,7 +165,7 @@ mod v1 {
 	}
 
 	/// Migration to V1
-	pub struct UncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct UncheckedMigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight: Weight = Weight::zero();
@@ -248,7 +249,7 @@ mod v1 {
 				.count();
 
 			ensure!(
-				Pallet::<T>::claimqueue_len() as u32 + availability_cores_waiting as u32 ==
+				Pallet::<T>::claim_queue_len() as u32 + availability_cores_waiting as u32 ==
 					expected_len,
 				"ClaimQueue and AvailabilityCores should have the correct length",
 			);
@@ -301,7 +302,7 @@ mod v2 {
 	}
 
 	/// Migration to V2
-	pub struct UncheckedMigrateToV2<T>(sp_std::marker::PhantomData<T>);
+	pub struct UncheckedMigrateToV2<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV2<T> {
 		fn on_runtime_upgrade() -> Weight {

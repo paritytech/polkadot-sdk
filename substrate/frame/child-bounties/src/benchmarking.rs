@@ -21,6 +21,8 @@
 
 use super::*;
 
+use alloc::{vec, vec::Vec};
+
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller, BenchmarkError};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 

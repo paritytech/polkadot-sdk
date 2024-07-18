@@ -10,39 +10,39 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-futures = "0.3.30"
-futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../../gum" }
-polkadot-primitives = { path = "../../../primitives" }
-sp-staking = { path = "../../../../substrate/primitives/staking", default-features = false }
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-node-network-protocol = { path = "../protocol" }
-arrayvec = "0.7.4"
-indexmap = "2.0.0"
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+gum = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+sp-staking = { workspace = true }
+sp-keystore = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-node-network-protocol = { workspace = true, default-features = true }
+arrayvec = { workspace = true }
+indexmap = { workspace = true }
+codec = { features = ["derive"], workspace = true }
 thiserror = { workspace = true }
-fatality = "0.1.1"
-bitvec = "1"
+fatality = { workspace = true }
+bitvec = { workspace = true, default-features = true }
 
 [dev-dependencies]
-async-channel = "1.8.0"
-assert_matches = "1.4.0"
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-sp-authority-discovery = { path = "../../../../substrate/primitives/authority-discovery" }
-sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-sp-core = { path = "../../../../substrate/primitives/core" }
-sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-sp-tracing = { path = "../../../../substrate/primitives/tracing" }
-sc-keystore = { path = "../../../../substrate/client/keystore" }
-sc-network = { path = "../../../../substrate/client/network" }
-futures-timer = "3.0.2"
-polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
-rand_chacha = "0.3"
-polkadot-subsystem-bench = { path = "../../subsystem-bench" }
+async-channel = { workspace = true }
+assert_matches = { workspace = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+sp-authority-discovery = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+sc-keystore = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+futures-timer = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+rand_chacha = { workspace = true, default-features = true }
+polkadot-subsystem-bench = { workspace = true }
 
 [[bench]]
 name = "statement-distribution-regression-bench"

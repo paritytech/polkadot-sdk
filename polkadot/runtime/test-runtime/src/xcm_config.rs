@@ -20,8 +20,8 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
+use polkadot_runtime_common::xcm_sender::{ChildParachainRouter, PriceForMessageDelivery};
 use polkadot_runtime_parachains::FeeTracker;
-use runtime_common::xcm_sender::{ChildParachainRouter, PriceForMessageDelivery};
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
@@ -54,7 +54,7 @@ pub type LocalOriginToLocation = (
 /// This implementation ensures that messages with non-reanchored assets return higher
 /// prices than messages with reanchored assets.
 /// Useful for `deposit_reserve_asset_works_for_any_xcm_sender` integration test.
-pub struct TestDeliveryPrice<A, F>(sp_std::marker::PhantomData<(A, F)>);
+pub struct TestDeliveryPrice<A, F>(core::marker::PhantomData<(A, F)>);
 impl<A: Get<AssetId>, F: FeeTracker> PriceForMessageDelivery for TestDeliveryPrice<A, F> {
 	type Id = F::Id;
 

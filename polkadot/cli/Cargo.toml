@@ -18,37 +18,39 @@ wasm-opt = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-cfg-if = "1.0"
-clap = { version = "4.5.3", features = ["derive"], optional = true }
+cfg-if = { workspace = true }
+clap = { features = ["derive"], optional = true, workspace = true }
 log = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-futures = "0.3.30"
-pyro = { package = "pyroscope", version = "0.5.3", optional = true }
-pyroscope_pprofrs = { version = "0.2", optional = true }
+futures = { workspace = true }
+pyroscope = { optional = true, workspace = true }
+pyroscope_pprofrs = { optional = true, workspace = true }
 
-service = { package = "polkadot-service", path = "../node/service", default-features = false, optional = true }
+polkadot-service = { optional = true, workspace = true }
 
-sp-core = { path = "../../substrate/primitives/core" }
-sp-io = { path = "../../substrate/primitives/io" }
-sp-keyring = { path = "../../substrate/primitives/keyring" }
-sp-maybe-compressed-blob = { path = "../../substrate/primitives/maybe-compressed-blob" }
-frame-benchmarking-cli = { path = "../../substrate/utils/frame/benchmarking-cli", optional = true }
-sc-cli = { path = "../../substrate/client/cli", optional = true }
-sc-service = { path = "../../substrate/client/service", optional = true }
-polkadot-node-metrics = { path = "../node/metrics" }
-polkadot-node-primitives = { path = "../node/primitives" }
-sc-tracing = { path = "../../substrate/client/tracing", optional = true }
-sc-sysinfo = { path = "../../substrate/client/sysinfo" }
-sc-executor = { path = "../../substrate/client/executor" }
-sc-storage-monitor = { path = "../../substrate/client/storage-monitor" }
-sp-runtime = { path = "../../substrate/primitives/runtime" }
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
+frame-benchmarking-cli = { optional = true, workspace = true, default-features = true }
+sc-cli = { optional = true, workspace = true, default-features = true }
+sc-service = { optional = true, workspace = true, default-features = true }
+polkadot-node-metrics = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+sc-tracing = { optional = true, workspace = true, default-features = true }
+sc-sysinfo = { workspace = true, default-features = true }
+sc-executor = { workspace = true, default-features = true }
+sc-storage-monitor = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
 [build-dependencies]
-substrate-build-script-utils = { path = "../../substrate/utils/build-script-utils" }
+substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
 default = ["cli", "db", "full-node"]
-db = ["service/db"]
+db = ["polkadot-service/db"]
+metadata-hash = ["polkadot-service/metadata-hash"]
+service = ["dep:polkadot-service"]
 cli = [
 	"clap",
 	"frame-benchmarking-cli",
@@ -60,24 +62,24 @@ cli = [
 runtime-benchmarks = [
 	"frame-benchmarking-cli?/runtime-benchmarks",
 	"polkadot-node-metrics/runtime-benchmarks",
+	"polkadot-service?/runtime-benchmarks",
 	"sc-service?/runtime-benchmarks",
-	"service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
-full-node = ["service/full-node"]
+full-node = ["polkadot-service/full-node"]
 try-runtime = [
-	"service/try-runtime",
+	"polkadot-service?/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-fast-runtime = ["service/fast-runtime"]
-pyroscope = ["pyro", "pyroscope_pprofrs"]
+fast-runtime = ["polkadot-service/fast-runtime"]
+pyroscope = ["dep:pyroscope", "pyroscope_pprofrs"]
 
 # Configure the native runtimes to use.
-westend-native = ["service/westend-native"]
-rococo-native = ["service/rococo-native"]
+westend-native = ["polkadot-service/westend-native"]
+rococo-native = ["polkadot-service/rococo-native"]
 
-malus = ["full-node", "service/malus"]
+malus = ["full-node", "polkadot-service/malus"]
 runtime-metrics = [
 	"polkadot-node-metrics/runtime-metrics",
-	"service/runtime-metrics",
+	"polkadot-service/runtime-metrics",
 ]

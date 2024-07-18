@@ -55,6 +55,8 @@ use crate::{
 	slot_range::SlotRange,
 	traits::{Auctioneer, Registrar},
 };
+use alloc::{vec, vec::Vec};
+use codec::{Decode, Encode};
 use frame_support::{
 	ensure,
 	pallet_prelude::{DispatchResult, Weight},
@@ -68,8 +70,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
-use parity_scale_codec::{Decode, Encode};
-use primitives::Id as ParaId;
+use polkadot_primitives::Id as ParaId;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
@@ -77,7 +78,6 @@ use sp_runtime::{
 	},
 	MultiSignature, MultiSigner, RuntimeDebug,
 };
-use sp_std::vec::Vec;
 
 type CurrencyOf<T> = <<T as Config>::Auctioneer as Auctioneer<BlockNumberFor<T>>>::Currency;
 type LeasePeriodOf<T> = <<T as Config>::Auctioneer as Auctioneer<BlockNumberFor<T>>>::LeasePeriod;
@@ -832,16 +832,16 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> crate::traits::OnSwap for Pallet<T> {
 	fn on_swap(one: ParaId, other: ParaId) {
-		Funds::<T>::mutate(one, |x| Funds::<T>::mutate(other, |y| sp_std::mem::swap(x, y)))
+		Funds::<T>::mutate(one, |x| Funds::<T>::mutate(other, |y| core::mem::swap(x, y)))
 	}
 }
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod crypto {
+	use alloc::vec::Vec;
 	use sp_core::ed25519;
 	use sp_io::crypto::{ed25519_generate, ed25519_sign};
 	use sp_runtime::{MultiSignature, MultiSigner};
-	use sp_std::vec::Vec;
 
 	pub fn create_ed25519_pubkey(seed: Vec<u8>) -> MultiSigner {
 		ed25519_generate(0.into(), Some(seed)).into()
@@ -860,9 +860,9 @@ mod tests {
 
 	use frame_support::{
 		assert_noop, assert_ok, derive_impl, parameter_types,
-		traits::{ConstU32, OnFinalize, OnInitialize},
+		traits::{OnFinalize, OnInitialize},
 	};
-	use primitives::Id as ParaId;
+	use polkadot_primitives::Id as ParaId;
 	use sp_core::H256;
 	use std::{cell::RefCell, collections::BTreeMap, sync::Arc};
 	// The testing primitives are very useful for avoiding having to work with signatures
@@ -872,7 +872,7 @@ mod tests {
 		mock::TestRegistrar,
 		traits::{AuctionStatus, OnSwap},
 	};
-	use ::test_helpers::{dummy_head_data, dummy_validation_code};
+	use polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code};
 	use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 	use sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup, TrailingZeroInput},
@@ -918,24 +918,9 @@ mod tests {
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
-	parameter_types! {
-		pub const ExistentialDeposit: u64 = 1;
-	}
-
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
-		type Balance = u64;
-		type RuntimeEvent = RuntimeEvent;
-		type DustRemoval = ();
-		type ExistentialDeposit = ExistentialDeposit;
 		type AccountStore = System;
-		type MaxLocks = ();
-		type MaxReserves = ();
-		type ReserveIdentifier = [u8; 8];
-		type WeightInfo = ();
-		type RuntimeHoldReason = RuntimeHoldReason;
-		type RuntimeFreezeReason = RuntimeFreezeReason;
-		type FreezeIdentifier = ();
-		type MaxFreezes = ConstU32<1>;
 	}
 
 	#[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -980,7 +965,7 @@ mod tests {
 		let fund = Funds::<Test>::get(para).unwrap();
 		let account_id = Crowdloan::fund_account_id(fund.fund_index);
 		if winner {
-			let ed = <Test as pallet_balances::Config>::ExistentialDeposit::get();
+			let ed: u64 = <Test as pallet_balances::Config>::ExistentialDeposit::get();
 			let free_balance = Balances::free_balance(&account_id);
 			Balances::reserve(&account_id, free_balance - ed)
 				.expect("should be able to reserve free balance minus ED");
@@ -1815,7 +1800,8 @@ mod tests {
 	#[test]
 	fn withdraw_from_finished_works() {
 		new_test_ext().execute_with(|| {
-			assert_eq!(<Test as pallet_balances::Config>::ExistentialDeposit::get(), 1);
+			let ed: u64 = <Test as pallet_balances::Config>::ExistentialDeposit::get();
+			assert_eq!(ed, 1);
 			let para = new_para();
 			let index = NextFundIndex::<Test>::get();
 			let account_id = Crowdloan::fund_account_id(index);
@@ -1979,10 +1965,9 @@ mod benchmarking {
 	use super::{Pallet as Crowdloan, *};
 	use frame_support::{assert_ok, traits::OnInitialize};
 	use frame_system::RawOrigin;
-	use runtime_parachains::paras;
+	use polkadot_runtime_parachains::paras;
 	use sp_core::crypto::UncheckedFrom;
 	use sp_runtime::traits::{Bounded, CheckedSub};
-	use sp_std::prelude::*;
 
 	use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 

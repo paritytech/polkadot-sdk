@@ -25,7 +25,9 @@ use crate::{
 	BalanceOf, CodeHash, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter,
 	Error, TrieId, SENTINEL,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support::{
 	storage::child::{self, ChildInfo},
 	weights::{Weight, WeightMeter},
@@ -38,7 +40,6 @@ use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
 	BoundedBTreeMap, DispatchError, DispatchResult, RuntimeDebug,
 };
-use sp_std::{marker::PhantomData, prelude::*};
 
 use self::meter::Diff;
 
@@ -334,7 +335,7 @@ impl<T: Config> ContractInfo<T> {
 }
 
 /// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(any(test, feature = "runtime-benchmarks"), derive(Debug, PartialEq))]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
 	New,

@@ -34,13 +34,12 @@ use crate::{
 	ParaId,
 };
 
+use alloc::{vec, vec::Vec};
 use frame_support::{defensive, pallet_prelude::*};
 use frame_system::pallet_prelude::*;
 use pallet_broker::CoreAssignment;
-use primitives::CoreIndex;
+use polkadot_primitives::CoreIndex;
 use sp_runtime::traits::{One, Saturating};
-
-use sp_std::prelude::*;
 
 pub use pallet::*;
 
@@ -317,7 +316,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
-	fn get_mock_assignment(_: CoreIndex, para_id: primitives::Id) -> Assignment {
+	fn get_mock_assignment(_: CoreIndex, para_id: polkadot_primitives::Id) -> Assignment {
 		// Given that we are not tracking anything in `Bulk` assignments, it is safe to always
 		// return a bulk assignment.
 		Assignment::Bulk(para_id)
