@@ -150,6 +150,7 @@ where
 					pool_api.clone(),
 					listener.clone(),
 					Default::default(),
+					usize::MAX,
 				)),
 				api: pool_api.clone(),
 				view_store: Arc::new(ViewStore::new(pool_api, listener)),
@@ -199,7 +200,13 @@ where
 		spawner.spawn_essential("txpool-background", Some("transaction-pool"), combined_tasks);
 
 		Self {
-			mempool: Arc::from(TxMemPool::new(pool_api.clone(), listener.clone(), metrics.clone())),
+			mempool: Arc::from(TxMemPool::new(
+				pool_api.clone(),
+				listener.clone(),
+				metrics.clone(),
+				TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER *
+					(options.ready.count + options.future.count),
+			)),
 			api: pool_api.clone(),
 			view_store: Arc::new(ViewStore::new(pool_api, listener)),
 			ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
@@ -383,12 +390,10 @@ where
 		};
 
 		Box::pin(async {
-			let results = futures::future::join(maybe_ready.boxed(), fall_back_ready.boxed()).await;
-			if let Some(ready) = results.0 {
-				ready
-			} else {
-				results.1.expect("Fallback value is always Some. qed")
-			}
+			let (maybe_ready, fall_back_ready) =
+				futures::future::join(maybe_ready.boxed(), fall_back_ready.boxed()).await;
+			maybe_ready
+				.unwrap_or_else(|| fall_back_ready.expect("Fallback value is always Some. qed"))
 		})
 	}
 }
@@ -465,19 +470,34 @@ where
 		log::info!(target: LOG_TARGET, "fatp::submit_at count:{} views:{}", xts.len(), self.views_count());
 		log_xt_debug!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "[{:?}] fatp::submit_at");
 		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
-		self.mempool.extend_unwatched(source, xts.clone());
-		let xts = xts.clone();
-
-		self.metrics
-			.report(|metrics| metrics.submitted_transactions.inc_by(xts.len() as u64));
+		let mempool_result = self.mempool.extend_unwatched(source, xts.clone());
 
 		if view_store.is_empty() {
-			return future::ready(Ok(xts.iter().map(|xt| Ok(self.hash_of(xt))).collect())).boxed()
+			return future::ready(Ok(mempool_result)).boxed()
 		}
 
+		let to_be_submitted = mempool_result
+			.iter()
+			.zip(xts)
+			.filter_map(|(result, xt)| result.as_ref().ok().map(|_| xt))
+			.collect::<Vec<_>>();
+
+		self.metrics
+			.report(|metrics| metrics.submitted_transactions.inc_by(to_be_submitted.len() as _));
+
 		async move {
-			let mut results_map = view_store.submit_at(source, xts.into_iter()).await;
-			Ok(reduce_multiview_result(&mut results_map))
+			let mut results_map = view_store.submit_at(source, to_be_submitted.into_iter()).await;
+			let mut submission_result = reduce_multiview_result(&mut results_map).into_iter();
+
+			Ok(mempool_result
+				.into_iter()
+				.map(|result| {
+					result.and_then(|_|
+						submission_result
+							.next()
+							.expect("The number of Ok results in mempool is exactly the same as the size of to-views-submitssion result. qed."))
+				})
+				.collect::<Vec<_>>())
 		}
 		.boxed()
 	}
@@ -490,7 +510,9 @@ where
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
 		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.views_count());
 		let xt = Arc::from(xt);
-		self.mempool.push_unwatched(source, xt.clone());
+		if let Err(e) = self.mempool.push_unwatched(source, xt.clone()) {
+			return future::ready(Err(e)).boxed();
+		}
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
 		// assume that transaction may be valid, will be validated later.
@@ -523,7 +545,9 @@ where
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.views_count());
 		let xt = Arc::from(xt);
-		self.mempool.push_watched(source, xt.clone());
+		if let Err(e) = self.mempool.push_watched(source, xt.clone()) {
+			return future::ready(Err(e)).boxed();
+		}
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
 		let view_store = self.view_store.clone();
@@ -719,7 +743,13 @@ where
 			view
 		} else {
 			log::info!(target: LOG_TARGET, "creating non-cloned view: for: {at:?}");
-			View::new(self.api.clone(), at.clone(), self.options.clone(), self.metrics.clone(), self.is_validator.clone())
+			View::new(
+				self.api.clone(),
+				at.clone(),
+				self.options.clone(),
+				self.metrics.clone(),
+				self.is_validator.clone(),
+			)
 		};
 
 		//we need to capture all import notifiication from the very beginning

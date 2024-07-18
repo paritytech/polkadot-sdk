@@ -312,6 +312,31 @@ fn fatp_no_view_future_and_ready_submit_works() {
 }
 
 #[test]
+fn fatp_no_view_submit_already_imported_reports_error() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, _) = create_basic_pool(api.clone());
+
+	let header = api.push_block(1, vec![], true);
+
+	let xts0 = (215..220).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
+	let xts1 = xts0.clone();
+
+	let submission_ok = pool.submit_at(header.hash(), SOURCE, xts0.clone());
+	let results = block_on(submission_ok);
+	assert!(results.unwrap().into_iter().all(|r| r.is_ok()));
+
+	let submission_failing = pool.submit_at(header.hash(), SOURCE, xts1.clone());
+	let results = block_on(submission_failing);
+
+	assert!(results
+		.unwrap()
+		.into_iter()
+		.all(|r| { matches!(r.unwrap_err().0, TxPoolError::AlreadyImported(_)) }));
+}
+
+#[test]
 fn fatp_one_view_future_and_ready_submit_one_works() {
 	sp_tracing::try_init_simple();
 
@@ -568,6 +593,56 @@ fn fatp_two_views_future_and_ready_sumbit_many() {
 
 	assert_pool_status!(header01a.hash(), &pool, 10, 5);
 	assert_pool_status!(header01b.hash(), &pool, 5, 0);
+}
+
+#[test]
+fn fatp_two_views_submit_many_variations() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, _) = create_basic_pool(api.clone());
+
+	let xt0 = uxt(Alice, 206);
+	let xt1 = uxt(Alice, 206);
+
+	let result = block_on(pool.submit_one(invalid_hash(), SOURCE, xt1.clone()));
+	assert!(result.is_ok());
+
+	let header01a = api.push_block(1, vec![xt0.clone()], true);
+	let header01b = api.push_block(1, vec![xt0.clone()], true);
+
+	api.set_nonce(header01a.hash(), Alice.into(), 201);
+	api.set_nonce(header01b.hash(), Alice.into(), 202);
+
+	let event = new_best_block_event(&pool, None, header01a.hash());
+	block_on(pool.maintain(event));
+
+	let event = new_best_block_event(&pool, None, header01b.hash());
+	block_on(pool.maintain(event));
+
+	let mut xts = (199..204).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
+	xts.push(xt0);
+	xts.push(xt1);
+
+	let results = block_on(pool.submit_at(invalid_hash(), SOURCE, xts.clone())).unwrap();
+
+	log::info!(target:LOG_TARGET, "res: {:#?}", results);
+	log::info!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
+
+	(0..2).for_each(|i| {
+		assert!(matches!(
+			results[i].as_ref().unwrap_err().0,
+			TxPoolError::InvalidTransaction(InvalidTransaction::Stale,)
+		));
+	});
+	//note: tx at 2 is valid at header01a and invalid at header01b
+	(2..5).for_each(|i| {
+		assert_eq!(*results[i].as_ref().unwrap(), api.hash_and_length(&xts[i]).0);
+	});
+	//xt0 at index 5
+	assert!(matches!(results[5].as_ref().unwrap_err().0, TxPoolError::TemporarilyBanned));
+	//xt1 at index 6
+	assert!(matches!(results[6].as_ref().unwrap_err().0, TxPoolError::AlreadyImported(_)));
 }
 
 #[test]
@@ -2548,4 +2623,3 @@ fn fatp_ready_txs_are_provided_in_valid_order() {
 //todo: add test: check len of filter after finalization (!)
 //todo: broadcasted test?
 //todo: ready_at_with_timeout
-//todo: invalid txs on all views (should return invalid)
