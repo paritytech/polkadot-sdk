@@ -125,3 +125,10 @@ jobs:
         run: |
           chmod +x polkadot-parachain
           ./polkadot-parachain benchmark pallet --chain ${{ matrix.runtime }} --pallet "*" --extrinsic "*" --steps 2 --repeat 1
+  confirm-short-benchmarks-passed:
+    runs-on: ubuntu-latest
+    name: All migrations passed
+    # If any new job gets added, be sure to add it to this array
+    needs: [short-benchmark-parachain, short-benchmark-westend]
+    steps:
+      - run: echo '### Good job! All the benchmarks passed 🚀' >> $GITHUB_STEP_SUMMARY
