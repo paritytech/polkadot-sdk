@@ -160,7 +160,7 @@ pub struct Worker<Client, Block: BlockT, DhtEventStream> {
 	/// Set of in-flight lookups.
 	in_flight_lookups: HashMap<KademliaKey, AuthorityId>,
 
-	/// Set of lookups we can still received records.
+	/// Set of lookups we can still receive records.
 	/// These are the entries in the `in_flight_lookups` for which
 	/// we got at least one successfull result.
 	known_lookups: HashMap<KademliaKey, AuthorityId>,
