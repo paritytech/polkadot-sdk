@@ -149,7 +149,7 @@ xcm-runtime-apis = { workspace = true, default-features = true }
 polkadot-test-client = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
-env_logger = { workspace = true }
+sp-tracing = { workspace = true }
 assert_matches = { workspace = true }
 serial_test = { workspace = true }
 tempfile = { workspace = true }
