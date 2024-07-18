@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721258113523,
+  "lastUpdate": 1721296393960,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -11044,6 +11044,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.232552758729977,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jun Jiang",
+            "username": "jasl",
+            "email": "jasl9187@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "25d9b59e6d0bf74637796a99d1adf84725468e0a",
+          "message": "upgrade `wasm-bindgen` to 0.2.92 (#5056)\n\nThe rustc warns\n\n```\nThe package `wasm-bindgen v0.2.87` currently triggers the following future incompatibility lints:\n> warning: older versions of the `wasm-bindgen` crate will be incompatible with future versions of Rust; please update to `wasm-bindgen` v0.2.88\n>   |\n>   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!\n>   = note: for more information, see issue #71871 <https://github.com/rust-lang/rust/issues/71871>\n>\n```",
+          "timestamp": "2024-07-18T08:01:37Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/25d9b59e6d0bf74637796a99d1adf84725468e0a"
+        },
+        "date": 1721296363692,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63801.85,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52946.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.822086165830118,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.064041547480168,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.14934858894001,
             "unit": "seconds"
           }
         ]
