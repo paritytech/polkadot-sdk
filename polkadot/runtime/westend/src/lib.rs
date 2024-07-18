@@ -1662,6 +1662,7 @@ parameter_types! {
 	// a concern, it is recommended to set to (existing pools + 10) to also account for any new
 	// pools getting created before the migration is actually executed.
 	pub const MaxPoolsToMigrate: u32 = 250;
+	pub const MaxAgentsToMigrate: u32 = 300;
 }
 
 /// All migrations that will run on the next runtime upgrade.
@@ -1697,11 +1698,15 @@ pub mod migrations {
 	pub type Unreleased = (
 		// Migrate NominationPools to `DelegateStake` adapter. This is unversioned upgrade and
 		// should not be applied yet in Kusama/Polkadot.
-		pallet_nomination_pools::migration::unversioned::DelegationStakeMigration<
+		// pallet_nomination_pools::migration::unversioned::DelegationStakeMigration<
+		// 	Runtime,
+		// 	MaxPoolsToMigrate,
+		// >,
+		// pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
+		pallet_delegated_staking::migration::unversioned::ProxyDelegatorMigration<
 			Runtime,
-			MaxPoolsToMigrate,
+			MaxAgentsToMigrate,
 		>,
-		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
 	);
 }
 

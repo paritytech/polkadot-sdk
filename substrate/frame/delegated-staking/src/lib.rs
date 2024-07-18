@@ -126,6 +126,7 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 
 mod impls;
+pub mod migration;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -149,14 +150,26 @@ use frame_support::{
 		Defensive, DefensiveOption, Imbalance, OnUnbalanced,
 	},
 };
+use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{CheckedAdd, CheckedSub, Zero, TrailingZeroInput},
+	traits::{CheckedAdd, CheckedSub, TrailingZeroInput, Zero},
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 use sp_staking::{Agent, Delegator, EraIndex, StakingInterface, StakingUnchecked};
 use sp_std::{convert::TryInto, prelude::*};
-use sp_io::hashing::blake2_256;
 
+/// The log target of this pallet.
+pub const LOG_TARGET: &str = "runtime::delegated-staking";
+// syntactic sugar for logging.
+#[macro_export]
+macro_rules! log {
+	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+		log::$level!(
+			target: $crate::LOG_TARGET,
+			concat!("[{:?}] 🏊‍♂️ ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
+		)
+	};
+}
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
 
