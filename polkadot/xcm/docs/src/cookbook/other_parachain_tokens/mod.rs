@@ -18,7 +18,10 @@
 //!
 //! This example shows how to configure a parachain to be able to handle other parachain tokens.
 //!
-//! The most important configuration is the `AssetTransactor`.
+//! The most important item to configure is the `AssetTransactor`.
+//! This is the item that implements [`xcm_executor::traits::TransactAsset`].
+//! It's used for handling withdrawing, depositing and transferring assets.
+//!
 //! We need to reference other parachain tokens coming in XCMs.
 //! The assets coming in have an [`xcm::latest::AssetId`] which is just a wrapper around a
 //! [`xcm::latest::Location`].
@@ -29,7 +32,11 @@
 #![doc = docify::embed!("src/cookbook/other_parachain_tokens/parachain/mod.rs", foreign_assets)]
 //!
 //! Given that, we can configure the following `AssetTransactor`.
-//! It has one for managing the native token and another for these "foreign assets", other parachain tokens.
+//! It is the combination of 2 [`xcm_executor::traits::TransactAsset`] implementations:
+//! - One for managing the native token
+//! - Another for these "foreign assets", the other parachain tokens
+//! It has one for managing the native token and another for these "foreign assets", other parachain
+//! tokens.
 #![doc = docify::embed!("src/cookbook/other_parachain_tokens/parachain/xcm_config.rs", asset_transactor)]
 
 /// The parachain runtime for this example.

@@ -16,11 +16,7 @@
 
 //! Mock network
 
-use frame::deps::{
-	frame_system,
-	sp_io::TestExternalities,
-	sp_runtime::{AccountId32, BuildStorage},
-};
+use frame::{deps::sp_runtime::AccountId32, testing_prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
@@ -68,22 +64,22 @@ decl_test_network! {
 		relay_chain = Relay,
 		parachains = vec![
 			(1, ParaA),
-            (2, ParaB),
+			(2, ParaB),
 		],
 	}
 }
 
-pub fn para_ext(para_id: u32) -> TestExternalities {
+pub fn para_ext(para_id: u32) -> TestState {
 	use parachain::{MessageQueue, Runtime, System};
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
-    let account_with_starting_balance = match para_id {
-        1 => ALICE,
-        2 => BOB,
-        _ => panic!("Not a valid para id"),
-    };
+	let account_with_starting_balance = match para_id {
+		1 => ALICE,
+		2 => BOB,
+		_ => panic!("Not a valid para id"),
+	};
 
-    pallet_balances::GenesisConfig::<Runtime> {
+	pallet_balances::GenesisConfig::<Runtime> {
 		balances: vec![
 			(account_with_starting_balance, INITIAL_BALANCE),
 			(sibling_account_id(1), INITIAL_BALANCE),
@@ -94,7 +90,7 @@ pub fn para_ext(para_id: u32) -> TestExternalities {
 	.assimilate_storage(&mut t)
 	.unwrap();
 
-	let mut ext = frame::deps::sp_io::TestExternalities::new(t);
+	let mut ext = TestState::new(t);
 	ext.execute_with(|| {
 		System::set_block_number(1);
 		MessageQueue::set_para_id(para_id.into());
@@ -123,7 +119,7 @@ fn force_create_foreign_asset(para_id: u32) {
 	));
 }
 
-pub fn relay_ext() -> TestExternalities {
+pub fn relay_ext() -> TestState {
 	use relay_chain::{Runtime, System};
 
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
@@ -132,7 +128,7 @@ pub fn relay_ext() -> TestExternalities {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	let mut ext = TestExternalities::new(t);
+	let mut ext = TestState::new(t);
 	ext.execute_with(|| {
 		System::set_block_number(1);
 	});

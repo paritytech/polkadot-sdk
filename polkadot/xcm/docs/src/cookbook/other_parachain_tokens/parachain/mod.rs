@@ -16,7 +16,11 @@
 
 //! # Parachain runtime
 
-use frame::{deps::frame_system, prelude::*, runtime::prelude::*, traits::{IdentityLookup, EnsureOriginWithArg, Everything}};
+use frame::{
+	prelude::*,
+	runtime::prelude::*,
+	traits::{EnsureOriginWithArg, Everything, IdentityLookup},
+};
 use xcm::prelude::*;
 use xcm_executor::XcmExecutor;
 use xcm_simulator::mock_message_queue;
@@ -34,7 +38,7 @@ construct_runtime! {
 		MessageQueue: mock_message_queue,
 		Balances: pallet_balances,
 		PolkadotXcm: pallet_xcm,
-        ForeignAssets: pallet_assets,
+		ForeignAssets: pallet_assets,
 	}
 }
 
@@ -53,7 +57,7 @@ impl mock_message_queue::Config for Runtime {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-    type Balance = Balance;
+	type Balance = Balance;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 }
@@ -71,7 +75,9 @@ parameter_types! {
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
 impl pallet_assets::Config for Runtime {
 	type AssetId = xcm::v4::Location;
+	// ------------^^^ Note this line.
 	type AssetIdParameter = xcm::v4::Location;
+	// ---------------------^^^ And this one.
 	type Currency = Balances;
 	type Balance = Balance;
 	type CreateOrigin = ForeignCreators;
@@ -100,8 +106,7 @@ impl EnsureOriginWithArg<RuntimeOrigin, Location> for ForeignCreators {
 		if !a.starts_with(&origin_location) {
 			return Err(o);
 		}
-		xcm_config::LocationToAccountId::convert_location(&origin_location)
-			.ok_or(o)
+		xcm_config::LocationToAccountId::convert_location(&origin_location).ok_or(o)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

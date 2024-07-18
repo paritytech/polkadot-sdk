@@ -17,19 +17,22 @@
 //! # XCM Configuration
 
 use frame::{
-	deps::frame_system,
+	prelude::*,
 	runtime::prelude::*,
-	traits::{Everything, Nothing},
+	traits::{Everything, EverythingBut, Nothing},
 };
 use xcm::v4::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin,
-	FrameTransactionalProcessor, HashedDescription, IsConcrete,
-	SignedToAccountId32,
+	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
+	MatchedConvertedConcreteId, NoChecking, SignedToAccountId32, StartsWith,
 };
-use xcm_executor::XcmExecutor;
+use xcm_executor::{traits::Identity, XcmExecutor};
 
-use super::{AccountId, Balances, MessageQueue, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin};
+use super::{
+	AccountId, Balance, Balances, ForeignAssets, MessageQueue, PolkadotXcm, Runtime, RuntimeCall,
+	RuntimeEvent, RuntimeOrigin,
+};
 
 parameter_types! {
 	pub RelayLocation: Location = Location::parent();
@@ -45,17 +48,6 @@ pub type LocationToAccountId = (
 #[docify::export]
 mod asset_transactor {
 	use super::*;
-
-	use frame::traits::EverythingBut;
-	use xcm_builder::{
-		FungibleAdapter, FungiblesAdapter, IsConcrete, MatchedConvertedConcreteId, MintLocation,
-		NoChecking, StartsWith,
-	};
-	use xcm_executor::traits::Identity;
-
-	use super::super::{
-		AccountId, Balance, Balances, ForeignAssets, PolkadotXcm,
-	};
 
 	parameter_types! {
 		pub LocalPrefix: Location = Location::here();
@@ -80,11 +72,11 @@ mod asset_transactor {
 	/// We do this by matching on all possible Locations and excluding the ones
 	/// inside our local chain.
 	pub type ForeignAssetsMatcher = MatchedConvertedConcreteId<
-		Location, // Asset id.
-		Balance, // Balance type.
+		Location,                               // Asset id.
+		Balance,                                // Balance type.
 		EverythingBut<StartsWith<LocalPrefix>>, // Location matcher.
-		Identity, // How to convert from Location to AssetId.
-		Identity, // How to convert from u128 to Balance.
+		Identity,                               // How to convert from Location to AssetId.
+		Identity,                               // How to convert from u128 to Balance.
 	>;
 
 	/// AssetTransactor for handling other parachains' native tokens.
@@ -104,18 +96,18 @@ mod asset_transactor {
 		CheckingAccount,
 	>;
 
-    /// Actual configuration item that'll be used in the XCM config.
-    /// It's a tuple, which means the transactors will be tried one by one until
-    /// one of them matches the asset being handled.
+	/// Actual configuration item that'll be used in the XCM config.
+	/// It's a tuple, which means the transactors will be tried one by one until
+	/// one of them matches the asset being handled.
 	pub type AssetTransactor = (FungibleTransactor, ForeignFungiblesTransactor);
 }
 
 /// Configuration related to token reserves
 #[docify::export]
 mod is_reserve {
-    use xcm_builder::NativeAsset;
+	use xcm_builder::NativeAsset;
 
-    /// [`NativeAsset`] here means we trust any location as a reserve for their own native asset.
+	/// [`NativeAsset`] here means we trust any location as a reserve for their own native asset.
 	pub type IsReserve = NativeAsset;
 }
 

@@ -17,7 +17,7 @@
 //! Relay chain XCM configuration
 
 use frame::{
-	deps::frame_system,
+	prelude::*,
 	runtime::prelude::*,
 	traits::{Everything, Nothing},
 };

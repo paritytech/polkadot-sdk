@@ -46,8 +46,8 @@ impl frame_system::Config for Runtime {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-    type Balance = Balance;
-    type ExistentialDeposit = ConstU128<1>;
+	type Balance = Balance;
+	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 }
 
