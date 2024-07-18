@@ -873,7 +873,7 @@ where
 			self.last_known_records.insert(kademlia_key, new_record);
 			true
 		} else if new_record.creation_time == current_record_info.creation_time {
-			// Same record just update in case this is a record from old nods that don't have
+			// Same record just update in case this is a record from old nodes that don't have
 			// timestamp.
 			debug!(
 					target: LOG_TARGET,
