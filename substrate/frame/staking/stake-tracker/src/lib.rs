@@ -91,6 +91,7 @@ pub use pallet::*;
 
 extern crate alloc;
 
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
 	defensive,
@@ -101,7 +102,6 @@ use sp_runtime::traits::Zero;
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakerStatus, StakingInterface,
 };
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 
 #[cfg(test)]
 pub(crate) mod mock;
