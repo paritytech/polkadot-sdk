@@ -132,10 +132,13 @@ mod mock;
 mod tests;
 mod types;
 
+extern crate alloc;
+
 pub use pallet::*;
 
 use types::*;
 
+use core::convert::TryInto;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -154,7 +157,6 @@ use sp_runtime::{
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 use sp_staking::{Agent, Delegator, EraIndex, StakingInterface, StakingUnchecked};
-use sp_std::{convert::TryInto, prelude::*};
 
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -779,7 +781,7 @@ impl<T: Config> Pallet<T> {
 }
 
 #[cfg(any(test, feature = "try-runtime"))]
-use sp_std::collections::btree_map::BTreeMap;
+use alloc::collections::btree_map::BTreeMap;
 
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
@@ -823,10 +825,6 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		let mut delegation_aggregation = BTreeMap::<T::AccountId, BalanceOf<T>>::new();
 		for (delegator, delegation) in delegations.iter() {
-			ensure!(
-				T::CoreStaking::status(delegator).is_err(),
-				"delegator should not be directly staked"
-			);
 			ensure!(!Self::is_agent(delegator), "delegator cannot be an agent");
 
 			delegation_aggregation
