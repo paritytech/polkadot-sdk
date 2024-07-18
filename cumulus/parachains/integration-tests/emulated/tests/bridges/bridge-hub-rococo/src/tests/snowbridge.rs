@@ -395,6 +395,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 	AssetHubRococo::fund_accounts(vec![(AssetHubRococoReceiver::get(), INITIAL_FUND)]);
 
 	const WETH_AMOUNT: u128 = 1_000_000_000;
+	const WETH_FEE_AMOUNT: u128 = 1_000;
 
 	BridgeHubRococo::execute_with(|| {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
@@ -433,7 +434,17 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},
 			]
 		);
-		let assets = vec![Asset {
+		let weth_fee_asset = Asset {
+			id: AssetId(Location::new(
+				2,
+				[
+					GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
+					AccountKey20 { network: None, key: WETH },
+				],
+			)),
+			fun: Fungible(WETH_FEE_AMOUNT),
+		};
+		let weth_asset = Asset {
 			id: AssetId(Location::new(
 				2,
 				[
@@ -442,30 +453,44 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 				],
 			)),
 			fun: Fungible(WETH_AMOUNT),
-		}];
-		let multi_assets = VersionedAssets::V4(Assets::from(assets));
+		};
+		let assets = vec![weth_fee_asset.clone(), weth_asset.clone()];
 
-		let destination = VersionedLocation::V4(Location::new(
-			2,
-			[GlobalConsensus(Ethereum { chain_id: CHAIN_ID })],
-		));
+		let destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
 
-		let beneficiary = VersionedLocation::V4(Location::new(
+		let beneficiary = Location::new(
 			0,
 			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
-		));
+		);
 
+		let mut reanchored_fee = weth_fee_asset.clone();
+
+		let universal_location: InteriorLocation =
+			Junctions::from([GlobalConsensus(NetworkId::Rococo), Parachain(1000)]);
+
+		reanchored_fee = reanchored_fee.reanchored(&destination, &universal_location).unwrap();
+
+		let xcm_on_bh = Xcm(vec![
+			BuyExecution { fees: reanchored_fee.clone(), weight_limit: Unlimited },
+			DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
+		]);
+
+		let xcms = VersionedXcm::from(Xcm(vec![
+			WithdrawAsset(assets.clone().into()),
+			SetFeesMode { jit_withdraw: true },
+			InitiateReserveWithdraw {
+				assets: Wild(AllCounted(2)),
+				reserve: destination,
+				xcm: xcm_on_bh,
+			},
+		]));
 		let free_balance_before = <AssetHubRococo as AssetHubRococoPallet>::Balances::free_balance(
 			AssetHubRococoReceiver::get(),
 		);
-		// Send the Weth back to Ethereum
-		<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::limited_reserve_transfer_assets(
+		<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::execute(
 			RuntimeOrigin::signed(AssetHubRococoReceiver::get()),
-			Box::new(destination),
-			Box::new(beneficiary),
-			Box::new(multi_assets),
-			0,
-			Unlimited,
+			bx!(xcms),
+			Weight::from(8_000_000_000),
 		)
 		.unwrap();
 		let free_balance_after = <AssetHubRococo as AssetHubRococoPallet>::Balances::free_balance(
