@@ -27,6 +27,7 @@ env_logger = { workspace = true }
 hex = { workspace = true, default-features = true }
 array-bytes = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
+sp-tracing = { workspace = true }
 
 [features]
 default = ["std"]
