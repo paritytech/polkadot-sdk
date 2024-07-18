@@ -690,11 +690,11 @@ to = "21.0.0"
 bump = "major"
 reason = "changed"
 
-[[crate]]
+#[[crate]]
 # substrate/primitives/consensus/sassafras
-name = "sp-consensus-sassafras"
-from = "0.3.4"
-to = "0.3.4"
+#name = "sp-consensus-sassafras"
+#from = "0.3.4"
+#to = "0.3.4"
 
 [[crate]]
 # substrate/utils/wasm-builder
