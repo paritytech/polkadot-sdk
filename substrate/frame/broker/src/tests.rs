@@ -241,6 +241,49 @@ fn mutate_operations_work() {
 }
 
 #[test]
+fn mutate_operations_work_with_partitioned_region() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let (region1, _region2) = Broker::do_partition(region, None, 2).unwrap();
+		let record_1 = Regions::<Test>::get(region1).unwrap();
+
+		// 'withdraw' the region from user 1:
+		assert_ok!(<Broker as Mutate<_>>::burn(&region1.into(), Some(&1)));
+		assert_eq!(Regions::<Test>::get(region1).unwrap().owner, None);
+
+		// `mint_into` works after burning:
+		assert_ok!(<Broker as Mutate<_>>::mint_into(&region1.into(), &1));
+
+		// Ensure the region minted is the same as the one we burned previously:
+		assert_eq!(Regions::<Test>::get(region1).unwrap(), record_1);
+	});
+}
+
+#[test]
+fn mutate_operations_work_with_interlaced_region() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let (region1, _region2) =
+			Broker::do_interlace(region, None, CoreMask::from_chunk(0, 40)).unwrap();
+		let record_1 = Regions::<Test>::get(region1).unwrap();
+
+		// 'withdraw' the region from user 1:
+		assert_ok!(<Broker as Mutate<_>>::burn(&region1.into(), Some(&1)));
+		assert_eq!(Regions::<Test>::get(region1).unwrap().owner, None);
+
+		// `mint_into` works after burning:
+		assert_ok!(<Broker as Mutate<_>>::mint_into(&region1.into(), &1));
+
+		// Ensure the region minted is the same as the one we burned previously:
+		assert_eq!(Regions::<Test>::get(region1).unwrap(), record_1);
+	});
+}
+
+#[test]
 fn permanent_is_not_reassignable() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
