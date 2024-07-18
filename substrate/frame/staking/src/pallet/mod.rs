@@ -863,6 +863,8 @@ pub mod pallet {
 		ForceEra { mode: Forcing },
 		/// Report of a controller batch deprecation.
 		ControllerBatchDeprecated { failures: u32 },
+		/// Restore ledger resulted in a force unbound.
+		RestoreLedgerKill { new_locked: BalanceOf<T>, free_balance: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -2154,8 +2156,15 @@ pub mod pallet {
 
 			// if the current stash free balance is enough to lock after restore, force unbonding
 			// the ledger and clear all the data associated with the ledger.
-			if T::Currency::free_balance(&stash) < new_total {
+			let stash_free_balance = T::Currency::free_balance(&stash);
+			if stash_free_balance < new_total {
+				Self::chill_stash(&stash);
 				Self::kill_stash(&stash, maybe_slashing_spans.unwrap_or_default())?;
+
+				Self::deposit_event(Event::<T>::RestoreLedgerKill {
+					new_locked: new_total,
+					free_balance: stash_free_balance,
+				});
 			}
 
 			Ok(())
