@@ -181,11 +181,11 @@ pub struct Worker<Client, Block: BlockT, DhtEventStream> {
 
 #[derive(Debug, Clone)]
 struct RecordInfo {
-	// Time since UNIX_EPOCH in nanoseconds.
+	/// Time since UNIX_EPOCH in nanoseconds.
 	creation_time: u128,
-	// Peers that we know have this record.
+	/// Peers that we know have this record.
 	peers_with_record: HashSet<PeerId>,
-	// The record itself.
+	/// The record itself.
 	record: Record,
 }
 
