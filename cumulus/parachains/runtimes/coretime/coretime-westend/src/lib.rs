@@ -823,7 +823,7 @@ impl_runtime_apis! {
 					let begin = 0;
 					let end = 42;
 
-					let region_id = pallet_broker::Pallet::<Runtime>::issue(core, begin, end, None, None);
+					let region_id = pallet_broker::Pallet::<Runtime>::issue(core, begin, CoreMask::complete(), end, None, None);
 					Some((
 						Asset {
 							fun: NonFungible(Index(region_id.into())),
