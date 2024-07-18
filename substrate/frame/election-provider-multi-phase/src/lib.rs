@@ -229,6 +229,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_election_provider_support::{
 	bounds::{CountBound, ElectionBounds, ElectionBoundsBuilder, SizeBound},
@@ -256,7 +259,6 @@ use sp_runtime::{
 	},
 	DispatchError, ModuleError, PerThing, Perbill, RuntimeDebug, SaturatedConversion,
 };
-use sp_std::prelude::*;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -837,7 +839,7 @@ pub mod pallet {
 		}
 
 		fn integrity_test() {
-			use sp_std::mem::size_of;
+			use core::mem::size_of;
 			// The index type of both voters and targets need to be smaller than that of usize (very
 			// unlikely to be the case, but anyhow)..
 			assert!(size_of::<SolutionVoterIndexOf<T::MinerConfig>>() <= size_of::<usize>());
@@ -1354,7 +1356,7 @@ pub mod pallet {
 
 /// This wrapper is created for handling the synchronization of [`Snapshot`], [`SnapshotMetadata`]
 /// and [`DesiredTargets`] storage items.
-pub struct SnapshotWrapper<T>(sp_std::marker::PhantomData<T>);
+pub struct SnapshotWrapper<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> SnapshotWrapper<T> {
 	/// Kill all snapshot related storage items at the same time.

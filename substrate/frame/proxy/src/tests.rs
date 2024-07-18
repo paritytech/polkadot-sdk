@@ -22,6 +22,7 @@
 use super::*;
 
 use crate as proxy;
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_noop, assert_ok, derive_impl,
