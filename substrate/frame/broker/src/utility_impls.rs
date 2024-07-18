@@ -94,11 +94,12 @@ impl<T: Config> Pallet<T> {
 	pub fn issue(
 		core: CoreIndex,
 		begin: Timeslice,
+		mask: CoreMask,
 		end: Timeslice,
 		owner: Option<T::AccountId>,
 		paid: Option<BalanceOf<T>>,
 	) -> RegionId {
-		let id = RegionId { begin, core, mask: CoreMask::complete() };
+		let id = RegionId { begin, core, mask };
 		let record = RegionRecord { end, owner, paid };
 		Regions::<T>::insert(&id, &record);
 		id
