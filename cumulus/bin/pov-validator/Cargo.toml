@@ -6,6 +6,7 @@ edition.workspace = true
 repository.workspace = true
 license.workspace = true
 homepage.workspace = true
+description = "A tool for validating PoVs locally"
 
 [dependencies]
 codec.workspace = true
