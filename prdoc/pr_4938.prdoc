@@ -14,4 +14,8 @@ doc:
       chains, and other users are encouraged to provide their own implementation of `type
       EraPayout`.
 
-crates: [ ]
+crates:
+  - name: westend-runtime
+    bump: major
+  - name: polkadot-runtime-common
+    bump: major

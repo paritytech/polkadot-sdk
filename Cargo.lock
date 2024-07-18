@@ -13930,7 +13930,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-runtime-common"
-version = "7.0.0"
+version = "8.0.0"
 dependencies = [
  "bitvec",
  "frame-benchmarking",
