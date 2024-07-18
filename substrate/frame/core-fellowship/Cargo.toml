@@ -1,12 +1,12 @@
 [package]
 name = "pallet-core-fellowship"
-version = "12.0.0"
+version = "20.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Logic as per the description of The Fellowship for core Polkadot technology"
+description = "Logic as per the description of The Fellowship for core Polkadot technology (polkadot v1.15.0)"
 readme = "README.md"
 
 [lints]
@@ -20,12 +20,12 @@ codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-arithmetic.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
 pallet-ranked-collective = { optional = true, workspace = true }
 
 [features]

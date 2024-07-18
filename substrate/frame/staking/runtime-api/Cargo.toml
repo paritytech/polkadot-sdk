@@ -1,12 +1,12 @@
 [package]
 name = "pallet-staking-runtime-api"
-version = "14.0.0"
+version = "21.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "RPC runtime API for transaction payment FRAME pallet"
+description = "RPC runtime API for transaction payment FRAME pallet (polkadot v1.15.0)"
 readme = "README.md"
 
 [lints]
@@ -17,8 +17,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-sp-api = { workspace = true }
-sp-staking = { workspace = true }
+sp-api.workspace = true
+sp-staking.workspace = true
 
 [features]
 default = ["std"]

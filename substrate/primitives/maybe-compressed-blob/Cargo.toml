@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Handling of blobs, usually Wasm code, which may be compressed"
+description = "Handling of blobs, usually Wasm code, which may be compressed (polkadot v1.15.0)"
 documentation = "https://docs.rs/sp-maybe-compressed-blob"
 readme = "README.md"
 

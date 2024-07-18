@@ -1,12 +1,12 @@
 [package]
 name = "sp-consensus-grandpa"
-version = "13.0.0"
+version = "20.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Primitives for GRANDPA integration, suitable for WASM compilation."
+description = "Primitives for GRANDPA integration, suitable for WASM compilation. (polkadot v1.15.0)"
 documentation = "https://docs.rs/sp-consensus-grandpa"
 readme = "README.md"
 
@@ -22,11 +22,11 @@ finality-grandpa = { features = ["derive-codec"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
-sp-api = { workspace = true }
-sp-application-crypto = { workspace = true }
-sp-core = { workspace = true }
+sp-api.workspace = true
+sp-application-crypto.workspace = true
+sp-core.workspace = true
 sp-keystore = { optional = true, workspace = true }
-sp-runtime = { workspace = true }
+sp-runtime.workspace = true
 
 [features]
 default = ["std"]

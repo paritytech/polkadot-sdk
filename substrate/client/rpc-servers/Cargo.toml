@@ -1,12 +1,12 @@
 [package]
 name = "sc-rpc-server"
-version = "11.0.0"
+version = "16.0.2"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Substrate RPC servers."
+description = "Substrate RPC servers. (polkadot v1.15.0)"
 readme = "README.md"
 
 [lints]
@@ -24,7 +24,8 @@ http-body-util = { workspace = true }
 ip_network = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
 log = { workspace = true, default-features = true }
-prometheus-endpoint = { workspace = true, default-features = true }
+prometheus-endpoint.workspace = true
+prometheus-endpoint.default-features = true
 serde = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 tokio = { features = ["parking_lot"], workspace = true, default-features = true }

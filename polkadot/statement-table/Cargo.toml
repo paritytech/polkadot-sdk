@@ -1,16 +1,19 @@
 [package]
 name = "polkadot-statement-table"
-version = "7.0.0"
+version = "14.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Stores messages other authorities issue about candidates in Polkadot."
+description = "Stores messages other authorities issue about candidates in Polkadot. (polkadot v1.15.0)"
 
 [lints]
 workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-sp-core = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-gum = { workspace = true, default-features = true }
+sp-core.workspace = true
+sp-core.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+gum.workspace = true
+gum.default-features = true

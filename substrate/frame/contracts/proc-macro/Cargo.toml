@@ -1,12 +1,12 @@
 [package]
 name = "pallet-contracts-proc-macro"
-version = "18.0.0"
+version = "23.0.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Procedural macros used in pallet_contracts"
+description = "Procedural macros used in pallet_contracts (polkadot v1.15.0)"
 
 [lints]
 workspace = true

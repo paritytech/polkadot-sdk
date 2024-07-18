@@ -1,25 +1,21 @@
 [package]
 name = "cumulus-primitives-aura"
-version = "0.7.0"
+version = "0.14.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-description = "Core primitives for Aura in Cumulus"
+description = "Core primitives for Aura in Cumulus (polkadot v1.15.0)"
 
 [lints]
 workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-
-# Substrate
-sp-api = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-runtime = { workspace = true }
-
-# Polkadot
-polkadot-core-primitives = { workspace = true }
-polkadot-primitives = { workspace = true }
+sp-api.workspace = true
+sp-consensus-aura.workspace = true
+sp-runtime.workspace = true
+polkadot-core-primitives.workspace = true
+polkadot-primitives.workspace = true
 
 [features]
 default = ["std"]

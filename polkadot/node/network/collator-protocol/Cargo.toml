@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-collator-protocol"
-version = "7.0.0"
-description = "Polkadot Collator Protocol subsystem. Allows collators and validators to talk to each other."
+version = "16.0.0"
+description = "Polkadot Collator Protocol subsystem. Allows collators and validators to talk to each other. (polkadot v1.15.0)"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,17 +13,24 @@ workspace = true
 bitvec = { features = ["alloc"], workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum = { workspace = true, default-features = true }
-
-sp-core = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-node-network-protocol = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-keystore.workspace = true
+sp-keystore.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+polkadot-node-network-protocol.workspace = true
+polkadot-node-network-protocol.default-features = true
+polkadot-node-primitives.workspace = true
+polkadot-node-primitives.default-features = true
+polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem.default-features = true
 fatality = { workspace = true }
 thiserror = { workspace = true }
 tokio-util = { workspace = true }
@@ -34,14 +41,14 @@ env_logger = { workspace = true }
 assert_matches = { workspace = true }
 rstest = { workspace = true }
 
-sp-core = { features = ["std"], workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-sc-keystore = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
+sp-core = { features = ["std"], default-features = true, path = "../../../../substrate/primitives/core" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+sc-keystore = { default-features = true, path = "../../../../substrate/client/keystore" }
+sc-network = { default-features = true, path = "../../../../substrate/client/network" }
 codec = { features = ["std"], workspace = true, default-features = true }
 
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
 
 [features]
 default = []

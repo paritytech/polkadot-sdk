@@ -1,6 +1,6 @@
 [package]
 name = "zombienet-backchannel"
-description = "Zombienet backchannel to notify test runner and coordinate with malus actors."
+description = "Zombienet backchannel to notify test runner and coordinate with malus actors. (polkadot v1.15.0)"
 readme = "README.md"
 publish = false
 version = "1.0.0"
@@ -20,6 +20,7 @@ lazy_static = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 reqwest = { features = ["rustls-tls"], workspace = true }
 thiserror = { workspace = true }
-gum = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }

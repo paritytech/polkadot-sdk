@@ -1,12 +1,12 @@
 [package]
 name = "sp-wasm-interface"
-version = "20.0.0"
+version = "21.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Types and traits for interfacing between the host and the wasm runtime."
+description = "Types and traits for interfacing between the host and the wasm runtime. (polkadot v1.15.0)"
 documentation = "https://docs.rs/sp-wasm-interface"
 readme = "README.md"
 

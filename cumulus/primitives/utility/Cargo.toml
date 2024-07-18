@@ -1,10 +1,10 @@
 [package]
 name = "cumulus-primitives-utility"
-version = "0.7.0"
+version = "0.15.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-description = "Helper datatypes for Cumulus"
+description = "Helper datatypes for Cumulus (polkadot v1.15.0)"
 
 [lints]
 workspace = true
@@ -12,22 +12,16 @@ workspace = true
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
-
-# Substrate
-frame-support = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-pallet-asset-conversion = { workspace = true }
-
-# Polkadot
-polkadot-runtime-common = { workspace = true }
-polkadot-runtime-parachains = { workspace = true }
-xcm = { workspace = true }
-xcm-executor = { workspace = true }
-xcm-builder = { workspace = true }
-
-# Cumulus
-cumulus-primitives-core = { workspace = true }
+frame-support.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+pallet-asset-conversion.workspace = true
+polkadot-runtime-common.workspace = true
+polkadot-runtime-parachains.workspace = true
+xcm.workspace = true
+xcm-executor.workspace = true
+xcm-builder.workspace = true
+cumulus-primitives-core.workspace = true
 
 [features]
 default = ["std"]

@@ -6,6 +6,7 @@ edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 repository.workspace = true
 publish = false
+description = "relay-utils (polkadot v1.15.0)"
 
 [lints]
 workspace = true
@@ -28,12 +29,9 @@ sysinfo = { workspace = true }
 time = { features = ["formatting", "local-offset", "std"], workspace = true }
 tokio = { features = ["rt"], workspace = true, default-features = true }
 thiserror = { workspace = true }
-
-# Bridge dependencies
-
-bp-runtime = { workspace = true, default-features = true }
-
-# Substrate dependencies
-
-sp-runtime = { workspace = true, default-features = true }
-prometheus-endpoint = { workspace = true, default-features = true }
+bp-runtime.workspace = true
+bp-runtime.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+prometheus-endpoint.workspace = true
+prometheus-endpoint.default-features = true

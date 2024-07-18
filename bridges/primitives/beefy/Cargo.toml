@@ -1,6 +1,6 @@
 [package]
 name = "bp-beefy"
-description = "Primitives of pallet-bridge-beefy module."
+description = "Primitives of pallet-bridge-beefy module. (polkadot v1.15.0)"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -15,20 +15,14 @@ workspace = true
 codec = { features = ["bit-vec", "derive"], workspace = true }
 scale-info = { features = ["bit-vec", "derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
-
-# Bridge Dependencies
-
-bp-runtime = { workspace = true }
-
-# Substrate Dependencies
-
-binary-merkle-tree = { workspace = true }
-sp-consensus-beefy = { workspace = true }
-frame-support = { workspace = true }
-pallet-beefy-mmr = { workspace = true }
-pallet-mmr = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
+bp-runtime.workspace = true
+binary-merkle-tree.workspace = true
+sp-consensus-beefy.workspace = true
+frame-support.workspace = true
+pallet-beefy-mmr.workspace = true
+pallet-mmr.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
 
 [features]
 default = ["std"]

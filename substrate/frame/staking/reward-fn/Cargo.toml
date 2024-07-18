@@ -1,12 +1,12 @@
 [package]
 name = "pallet-staking-reward-fn"
-version = "19.0.0"
+version = "22.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Reward function for FRAME staking pallet"
+description = "Reward function for FRAME staking pallet (polkadot v1.15.0)"
 
 [lints]
 workspace = true
@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 log = { workspace = true }
-sp-arithmetic = { workspace = true }
+sp-arithmetic.workspace = true
 
 [features]
 default = ["std"]

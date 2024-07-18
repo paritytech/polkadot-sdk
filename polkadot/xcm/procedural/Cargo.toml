@@ -1,10 +1,10 @@
 [package]
 name = "xcm-procedural"
-description = "Procedural macros for XCM"
+description = "Procedural macros for XCM (polkadot v1.15.0)"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "7.0.0"
+version = "10.1.0"
 publish = true
 
 [lints]
@@ -21,4 +21,4 @@ Inflector = { workspace = true }
 
 [dev-dependencies]
 trybuild = { features = ["diff"], workspace = true }
-xcm = { workspace = true, default-features = true }
+xcm = { default-features = true, path = "..", package = "staging-xcm" }

@@ -6,7 +6,7 @@ edition.workspace = true
 license = "MIT-0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "FRAME example pallet demonstrating derive_impl / default_config in action"
+description = "FRAME example pallet demonstrating derive_impl / default_config in action (polkadot v1.15.0)"
 readme = "README.md"
 publish = false
 
@@ -20,11 +20,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
 
 [features]
 default = ["std"]

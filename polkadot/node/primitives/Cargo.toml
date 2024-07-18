@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-primitives"
-description = "Primitives types for the Node-side"
-version = "7.0.0"
+description = "Primitives types for the Node-side (polkadot v1.15.0)"
+version = "14.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,15 +12,22 @@ workspace = true
 [dependencies]
 bounded-vec = { workspace = true }
 futures = { workspace = true }
-polkadot-primitives = { workspace = true, default-features = true }
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 codec = { features = ["derive"], workspace = true }
-sp-core = { workspace = true, default-features = true }
-sp-application-crypto = { workspace = true, default-features = true }
-sp-consensus-babe = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-maybe-compressed-blob = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-polkadot-parachain-primitives = { workspace = true }
+sp-core.workspace = true
+sp-core.default-features = true
+sp-application-crypto.workspace = true
+sp-application-crypto.default-features = true
+sp-consensus-babe.workspace = true
+sp-consensus-babe.default-features = true
+sp-keystore.workspace = true
+sp-keystore.default-features = true
+sp-maybe-compressed-blob.workspace = true
+sp-maybe-compressed-blob.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+polkadot-parachain-primitives.workspace = true
 schnorrkel = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
@@ -30,4 +37,4 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 zstd = { version = "0.12.4", default-features = false }
 
 [dev-dependencies]
-polkadot-erasure-coding = { workspace = true, default-features = true }
+polkadot-erasure-coding = { default-features = true, path = "../../erasure-coding" }
