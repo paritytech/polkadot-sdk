@@ -24,7 +24,7 @@
 use super::metrics::MetricsLink as PrometheusMetrics;
 use crate::{
 	graph::{
-		self, watcher::Watcher, ExtrinsicFor, ExtrinsicHash, ValidatedTransaction,
+		self, watcher::Watcher, ExtrinsicFor, ExtrinsicHash, IsValidator, ValidatedTransaction,
 		ValidatedTransactionFor,
 	},
 	log_xt_debug, LOG_TARGET,
@@ -117,10 +117,11 @@ where
 		at: HashAndNumber<ChainApi::Block>,
 		options: graph::Options,
 		metrics: PrometheusMetrics,
+		is_validator: IsValidator,
 	) -> Self {
 		metrics.report(|metrics| metrics.non_cloned_views.inc());
 		Self {
-			pool: graph::Pool::new(options, true.into(), api),
+			pool: graph::Pool::new(options, is_validator, api),
 			at,
 			revalidation_worker_channels: Mutex::from(None),
 			metrics,

@@ -719,7 +719,7 @@ where
 			view
 		} else {
 			log::info!(target: LOG_TARGET, "creating non-cloned view: for: {at:?}");
-			View::new(self.api.clone(), at.clone(), self.options.clone(), self.metrics.clone())
+			View::new(self.api.clone(), at.clone(), self.options.clone(), self.metrics.clone(), self.is_validator.clone())
 		};
 
 		//we need to capture all import notifiication from the very beginning
