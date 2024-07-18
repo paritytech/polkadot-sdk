@@ -1887,15 +1887,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 </span><span class="kw">pub struct </span>PalletInfo {
 	<span class="attr">#[codec(compact)]
-	</span>index: u32,
-	name: BoundedVec&lt;u8, MaxPalletNameLen&gt;,
-	module_name: BoundedVec&lt;u8, MaxPalletNameLen&gt;,
+	</span><span class="kw">pub </span>index: u32,
+	<span class="kw">pub </span>name: BoundedVec&lt;u8, MaxPalletNameLen&gt;,
+	<span class="kw">pub </span>module_name: BoundedVec&lt;u8, MaxPalletNameLen&gt;,
 	<span class="attr">#[codec(compact)]
-	</span>major: u32,
+	</span><span class="kw">pub </span>major: u32,
 	<span class="attr">#[codec(compact)]
-	</span>minor: u32,
+	</span><span class="kw">pub </span>minor: u32,
 	<span class="attr">#[codec(compact)]
-	</span>patch: u32,
+	</span><span class="kw">pub </span>patch: u32,
 }
 
 <span class="kw">impl </span>TryInto&lt;OldPalletInfo&gt; <span class="kw">for </span>PalletInfo {
