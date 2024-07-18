@@ -16,15 +16,13 @@
 // limitations under the License.
 
 use super::*;
-use frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
-use sp_std::vec::Vec;
+use frame_support::traits::OnRuntimeUpgrade;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
 pub mod unversioned {
 	use super::*;
-	use frame_support::traits::tokens::Fortitude::Force;
 	use sp_runtime::traits::AccountIdConversion;
 
 	/// Migrates delegation from older derivation of [`AccountType::ProxyDelegator`] accounts
@@ -41,9 +39,10 @@ pub mod unversioned {
 
 			Agents::<T>::iter_keys().take(MaxAgents::get() as usize).for_each(|agent| {
 				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
-
 				let old_proxy = old_proxy_delegator(agent.clone());
-				Delegation::<T>::get(&old_proxy).map(|delegation| {
+
+				// if delegation does not exist, it does not need to be migrated.
+				if let Some(delegation) = Delegation::<T>::get(&old_proxy) {
 					weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
 
 					let new_proxy =
@@ -66,7 +65,7 @@ pub mod unversioned {
 								e,
 						);
 					});
-				});
+				};
 			});
 
 			log!(info, "Finished migrating old proxy delegator accounts to new ones",);
