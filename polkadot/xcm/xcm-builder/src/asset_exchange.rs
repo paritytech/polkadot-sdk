@@ -30,9 +30,9 @@ use xcm_executor::{
 /// An adapter from [`pallet_asset_conversion::SwapCredit`] and
 /// [`pallet_asset_conversion::QuoteExchangePrice`] to [`xcm_executor::traits::AssetExchange`].
 ///
-/// This adapter takes just one fungible asset in `give` and allows only one fungible asset in `want`.
-/// If you need to handle more assets in either `give` or `want`, then you should use another type
-/// that implements [`xcm_executor::traits::AssetExchange`] or build your own.
+/// This adapter takes just one fungible asset in `give` and allows only one fungible asset in
+/// `want`. If you need to handle more assets in either `give` or `want`, then you should use
+/// another type that implements [`xcm_executor::traits::AssetExchange`] or build your own.
 pub struct FungiblesPoolAdapter<AssetConversion, Fungibles, Matcher, AccountId>(
 	PhantomData<(AssetConversion, Fungibles, Matcher, AccountId)>,
 );
@@ -95,29 +95,31 @@ where
 
 		// Do the swap.
 		let credit_out = if maximal {
-			// If `maximal`, then we swap exactly `credit_in` to get as much of `want_asset_id` as we can,
-			// with a minimum of `want_amount`.
+			// If `maximal`, then we swap exactly `credit_in` to get as much of `want_asset_id` as
+			// we can, with a minimum of `want_amount`.
 			<AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
 				vec![swap_asset, want_asset_id],
 				credit_in,
 				Some(want_amount),
-			).map_err(|(credit_in, _error)| {
+			)
+			.map_err(|(credit_in, _error)| {
 				// TODO: Log error.
 				drop(credit_in);
 				give.clone()
 			})?
 		} else {
-			// If `minimal`, then we swap as little of `credit_in` as we can to get exactly `want_amount`
-			// of `want_asset_id`.
-			let (credit_out, credit_change) = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
-				vec![swap_asset, want_asset_id],
-				credit_in,
-				want_amount,
-			)
-			.map_err(|(credit_in, _)| {
-				drop(credit_in);
-				give.clone()
-			})?;
+			// If `minimal`, then we swap as little of `credit_in` as we can to get exactly
+			// `want_amount` of `want_asset_id`.
+			let (credit_out, credit_change) =
+				<AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
+					vec![swap_asset, want_asset_id],
+					credit_in,
+					want_amount,
+				)
+				.map_err(|(credit_in, _)| {
+					drop(credit_in);
+					give.clone()
+				})?;
 
 			// TODO: If we want to make this a generic adapter, this need not be 0. Handle it.
 			// Probably depositing it back to the holding.

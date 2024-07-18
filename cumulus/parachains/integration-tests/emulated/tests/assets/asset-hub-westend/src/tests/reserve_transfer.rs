@@ -1302,7 +1302,8 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	let sender = PenpalASender::get();
 	let asset_amount_to_send: Balance = WESTEND_ED * 10000;
 	let fee_amount_to_send: Balance = WESTEND_ED * 10000;
-	let sender_chain_as_seen_by_asset_hub = AssetHubWestend::sibling_location_of(PenpalA::para_id());
+	let sender_chain_as_seen_by_asset_hub =
+		AssetHubWestend::sibling_location_of(PenpalA::para_id());
 	let sov_of_sender_on_asset_hub =
 		AssetHubWestend::sovereign_account_id_of(sender_chain_as_seen_by_asset_hub);
 	let receiver_as_seen_by_asset_hub = AssetHubWestend::sibling_location_of(PenpalB::para_id());
