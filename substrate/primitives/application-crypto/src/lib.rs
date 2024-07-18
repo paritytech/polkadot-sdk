@@ -20,25 +20,29 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use sp_core::crypto::{key_types, CryptoTypeId, DeriveJunction, KeyTypeId, Ss58Codec};
 #[doc(hidden)]
 pub use sp_core::crypto::{DeriveError, Pair, SecretStringError};
 #[doc(hidden)]
 pub use sp_core::{
 	self,
-	crypto::{ByteArray, CryptoType, Derive, IsWrappedBy, Public, UncheckedFrom, Wraps},
+	crypto::{ByteArray, CryptoType, Derive, IsWrappedBy, Public, Signature, UncheckedFrom, Wraps},
 	RuntimeDebug,
 };
 
 #[doc(hidden)]
+pub use alloc::vec::Vec;
+#[doc(hidden)]
 pub use codec;
+#[doc(hidden)]
+pub use core::ops::Deref;
 #[doc(hidden)]
 pub use scale_info;
 #[doc(hidden)]
 #[cfg(feature = "serde")]
 pub use serde;
-#[doc(hidden)]
-pub use sp_std::{ops::Deref, vec::Vec};
 
 #[cfg(feature = "bandersnatch-experimental")]
 pub mod bandersnatch;
@@ -357,7 +361,7 @@ macro_rules! app_crypto_public_common {
 #[doc(hidden)]
 pub mod module_format_string_prelude {
 	#[cfg(all(not(feature = "std"), feature = "serde"))]
-	pub use sp_std::alloc::{format, string::String};
+	pub use alloc::{format, string::String};
 	#[cfg(feature = "std")]
 	pub use std::{format, string::String};
 }
@@ -505,6 +509,12 @@ macro_rules! app_crypto_signature_common {
 			}
 		}
 
+		impl AsMut<[u8]> for Signature {
+			fn as_mut(&mut self) -> &mut [u8] {
+				self.0.as_mut()
+			}
+		}
+
 		impl $crate::AppSignature for Signature {
 			type Generic = $sig;
 		}
@@ -523,6 +533,12 @@ macro_rules! app_crypto_signature_common {
 			fn try_from(data: $crate::Vec<u8>) -> Result<Self, Self::Error> {
 				Self::try_from(&data[..])
 			}
+		}
+
+		impl $crate::Signature for Signature {}
+
+		impl $crate::ByteArray for Signature {
+			const LEN: usize = <$sig>::LEN;
 		}
 
 		impl Signature {

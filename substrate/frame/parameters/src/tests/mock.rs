@@ -16,6 +16,7 @@
 // limitations under the License.
 
 #![cfg(any(test, feature = "runtime-benchmarks"))]
+#![allow(non_snake_case)]
 
 //! Mock runtime that configures the `pallet_example_basic` to use dynamic params for testing.
 
@@ -36,7 +37,6 @@ impl frame_system::Config for Runtime {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
 }
 
@@ -65,6 +65,20 @@ pub mod dynamic_params {
 		pub static Key2: u32 = 2;
 		#[codec(index = 0)]
 		pub static Key3: u128 = 4;
+	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 2)]
+	pub mod nis {
+		#[codec(index = 0)]
+		pub static Target: u64 = 0;
+	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 3)]
+	pub mod somE_weird_SPElLInG_s {
+		#[codec(index = 0)]
+		pub static V: u64 = 0;
 	}
 }
 
@@ -98,6 +112,8 @@ mod custom_origin {
 			}
 
 			match key {
+				RuntimeParametersKey::SomEWeirdSPElLInGS(_) |
+				RuntimeParametersKey::Nis(_) |
 				RuntimeParametersKey::Pallet1(_) => ensure_root(origin.clone()),
 				RuntimeParametersKey::Pallet2(_) => ensure_signed(origin.clone()).map(|_| ()),
 			}

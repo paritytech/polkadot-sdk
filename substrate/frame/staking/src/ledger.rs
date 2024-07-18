@@ -33,13 +33,13 @@
 
 use frame_support::{
 	defensive, ensure,
-	traits::{Defensive, LockableCurrency, WithdrawReasons},
+	traits::{Defensive, LockableCurrency},
 };
-use sp_staking::StakingAccount;
-use sp_std::prelude::*;
+use sp_staking::{StakingAccount, StakingInterface};
 
 use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger, STAKING_ID,
+	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger,
+	VirtualStakers, STAKING_ID,
 };
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -130,7 +130,7 @@ impl<T: Config> StakingLedger<T> {
 
 		// if ledger bond is in a bad state, return error to prevent applying operations that may
 		// further spoil the ledger's state. A bond is in bad state when the bonded controller is
-		// associted with a different ledger (i.e. a ledger with a different stash).
+		// associated with a different ledger (i.e. a ledger with a different stash).
 		//
 		// See <https://github.com/paritytech/polkadot-sdk/issues/3245> for more details.
 		ensure!(
@@ -187,7 +187,17 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
-		T::Currency::set_lock(STAKING_ID, &self.stash, self.total, WithdrawReasons::all());
+		// We skip locking virtual stakers.
+		if !Pallet::<T>::is_virtual_staker(&self.stash) {
+			// for direct stakers, update lock on stash based on ledger.
+			T::Currency::set_lock(
+				STAKING_ID,
+				&self.stash,
+				self.total,
+				frame_support::traits::WithdrawReasons::all(),
+			);
+		}
+
 		Ledger::<T>::insert(
 			&self.controller().ok_or_else(|| {
 				defensive!("update called on a ledger that is not bonded.");
@@ -204,22 +214,22 @@ impl<T: Config> StakingLedger<T> {
 	/// It sets the reward preferences for the bonded stash.
 	pub(crate) fn bond(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if <Bonded<T>>::contains_key(&self.stash) {
-			Err(Error::<T>::AlreadyBonded)
-		} else {
-			<Payee<T>>::insert(&self.stash, payee);
-			<Bonded<T>>::insert(&self.stash, &self.stash);
-			self.update()
+			return Err(Error::<T>::AlreadyBonded)
 		}
+
+		<Payee<T>>::insert(&self.stash, payee);
+		<Bonded<T>>::insert(&self.stash, &self.stash);
+		self.update()
 	}
 
 	/// Sets the ledger Payee.
 	pub(crate) fn set_payee(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
-			Err(Error::<T>::NotStash)
-		} else {
-			<Payee<T>>::insert(&self.stash, payee);
-			Ok(())
+			return Err(Error::<T>::NotStash)
 		}
+
+		<Payee<T>>::insert(&self.stash, payee);
+		Ok(())
 	}
 
 	/// Sets the ledger controller to its stash.
@@ -252,11 +262,15 @@ impl<T: Config> StakingLedger<T> {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
-			T::Currency::remove_lock(STAKING_ID, &ledger.stash);
 			Ledger::<T>::remove(controller);
-
 			<Bonded<T>>::remove(&stash);
 			<Payee<T>>::remove(&stash);
+
+			// kill virtual staker if it exists.
+			if <VirtualStakers<T>>::take(&stash).is_none() {
+				// if not virtual staker, clear locks.
+				T::Currency::remove_lock(STAKING_ID, &ledger.stash);
+			}
 
 			Ok(())
 		})?

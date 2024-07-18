@@ -17,9 +17,9 @@
 //! Common logic for implementation of worker processes.
 
 use crate::LOG_TARGET;
+use codec::Encode;
 use futures::FutureExt as _;
 use futures_timer::Delay;
-use parity_scale_codec::Encode;
 use pin_project::pin_project;
 use polkadot_node_core_pvf_common::{SecurityStatus, WorkerHandshake};
 use rand::Rng;
@@ -130,11 +130,11 @@ where
 		fn make_tmppath(prefix: &str, dir: &Path) -> PathBuf {
 			use rand::distributions::Alphanumeric;
 
-			const DESCRIMINATOR_LEN: usize = 10;
+			const DISCRIMINATOR_LEN: usize = 10;
 
-			let mut buf = Vec::with_capacity(prefix.len() + DESCRIMINATOR_LEN);
+			let mut buf = Vec::with_capacity(prefix.len() + DISCRIMINATOR_LEN);
 			buf.extend(prefix.as_bytes());
-			buf.extend(rand::thread_rng().sample_iter(&Alphanumeric).take(DESCRIMINATOR_LEN));
+			buf.extend(rand::thread_rng().sample_iter(&Alphanumeric).take(DISCRIMINATOR_LEN));
 
 			let s = std::str::from_utf8(&buf)
 				.expect("the string is collected from a valid utf-8 sequence; qed");

@@ -30,6 +30,7 @@ mod imports {
 		prelude::{AccountId32 as AccountId32Junction, *},
 		v3,
 	};
+	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
 	pub use asset_test_utils::xcm_helpers;
@@ -45,15 +46,33 @@ mod imports {
 	pub use parachains_common::{AccountId, Balance};
 	pub use westend_system_emulated_network::{
 		asset_hub_westend_emulated_chain::{
+			asset_hub_westend_runtime::{
+				xcm_config::{
+					self as ahw_xcm_config, WestendLocation as RelayLocation,
+					XcmConfig as AssetHubWestendXcmConfig,
+				},
+				AssetConversionOrigin as AssetHubWestendAssetConversionOrigin,
+			},
 			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		penpal_emulated_chain::{
+			penpal_runtime::xcm_config::{
+				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+				LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
+				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
+			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
 			PenpalBParaPallet as PenpalBPallet,
 		},
-		westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
+		westend_emulated_chain::{
+			genesis::ED as WESTEND_ED,
+			westend_runtime::xcm_config::{
+				UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
+			},
+			WestendRelayPallet as WestendPallet,
+		},
 		AssetHubWestendPara as AssetHubWestend,
 		AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 		AssetHubWestendParaSender as AssetHubWestendSender,
@@ -63,20 +82,6 @@ mod imports {
 		PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
 		PenpalBPara as PenpalB, PenpalBParaReceiver as PenpalBReceiver, WestendRelay as Westend,
 		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
-	};
-
-	// Runtimes
-	pub use asset_hub_westend_runtime::xcm_config::{
-		UniversalLocation as AssetHubWestendUniversalLocation, WestendLocation as RelayLocation,
-		XcmConfig as AssetHubWestendXcmConfig,
-	};
-	pub use penpal_runtime::xcm_config::{
-		LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
-		LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
-		UniversalLocation as PenpalUniversalLocation, XcmConfig as PenpalWestendXcmConfig,
-	};
-	pub use westend_runtime::xcm_config::{
-		UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
 	};
 
 	pub const ASSET_ID: u32 = 3;
@@ -89,6 +94,8 @@ mod imports {
 	pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalA>;
 	pub type ParaToSystemParaTest = Test<PenpalA, AssetHubWestend>;
 	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Westend>;
+	pub type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubWestend>;
+	pub type RelayToParaThroughAHTest = Test<Westend, PenpalA, AssetHubWestend>;
 }
 
 #[cfg(test)]

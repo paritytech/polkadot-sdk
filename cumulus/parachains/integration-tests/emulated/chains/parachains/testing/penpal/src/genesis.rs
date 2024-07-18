@@ -17,8 +17,6 @@
 use frame_support::parameter_types;
 use sp_core::{sr25519, storage::Storage};
 
-// Polkadot
-use xcm::v3::Location;
 // Cumulus
 use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, get_account_id_from_seed, SAFE_XCM_VERSION,
@@ -31,8 +29,8 @@ pub const PARA_ID_B: u32 = 2001;
 pub const ED: Balance = penpal_runtime::EXISTENTIAL_DEPOSIT;
 
 parameter_types! {
-	pub PenpalSudoAcccount: AccountId = get_account_id_from_seed::<sr25519::Public>("Alice");
-	pub PenpalAssetOwner: AccountId = PenpalSudoAcccount::get();
+	pub PenpalSudoAccount: AccountId = get_account_id_from_seed::<sr25519::Public>("Alice");
+	pub PenpalAssetOwner: AccountId = PenpalSudoAccount::get();
 }
 
 pub fn genesis(para_id: u32) -> Storage {
@@ -66,7 +64,7 @@ pub fn genesis(para_id: u32) -> Storage {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 			..Default::default()
 		},
-		sudo: penpal_runtime::SudoConfig { key: Some(PenpalSudoAcccount::get()) },
+		sudo: penpal_runtime::SudoConfig { key: Some(PenpalSudoAccount::get()) },
 		assets: penpal_runtime::AssetsConfig {
 			assets: vec![(
 				penpal_runtime::xcm_config::TELEPORTABLE_ASSET_ID,
@@ -79,20 +77,9 @@ pub fn genesis(para_id: u32) -> Storage {
 		foreign_assets: penpal_runtime::ForeignAssetsConfig {
 			assets: vec![
 				// Relay Native asset representation
-				(
-					Location::try_from(RelayLocation::get()).expect("conversion works"),
-					PenpalAssetOwner::get(),
-					true,
-					ED,
-				),
+				(RelayLocation::get(), PenpalAssetOwner::get(), true, ED),
 				// Sufficient AssetHub asset representation
-				(
-					Location::try_from(LocalReservableFromAssetHub::get())
-						.expect("conversion works"),
-					PenpalAssetOwner::get(),
-					true,
-					ED,
-				),
+				(LocalReservableFromAssetHub::get(), PenpalAssetOwner::get(), true, ED),
 			],
 			..Default::default()
 		},

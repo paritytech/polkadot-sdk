@@ -3,8 +3,8 @@ name: Check links
 on:
   pull_request:
     paths:
-      - "*.rs"
-      - "*.prdoc"
+      - "**.rs"
+      - "**.prdoc"
       - ".github/workflows/check-links.yml"
       - ".config/lychee.toml"
     types: [opened, synchronize, reopened, ready_for_review]

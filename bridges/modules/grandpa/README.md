@@ -10,7 +10,7 @@ It is used by the parachains light client (bridge parachains pallet) and by mess
 ## A Brief Introduction into GRANDPA Finality
 
 You can find detailed information on GRANDPA, by exploring its [repository](https://github.com/paritytech/finality-grandpa).
-Here is the minimal reqiuired GRANDPA information to understand how pallet works.
+Here is the minimal required GRANDPA information to understand how pallet works.
 
 Any Substrate chain may use different block authorship algorithms (like BABE or Aura) to determine block producers and
 generate blocks. This has nothing common with finality, though - the task of block authorship is to coordinate
@@ -87,7 +87,7 @@ It'd be better for anyone (for chain and for submitters) to reject all transacti
 already known headers to the pallet. This way, we leave block space to other useful transactions and
 we don't charge concurrent submitters for their honest actions.
 
-To deal with that, we have a [signed extension](./src/call_ext) that may be added to the runtime.
+To deal with that, we have a [signed extension](./src/call_ext.rs) that may be added to the runtime.
 It does exactly what is required - rejects all transactions with already known headers. The submitter
 pays nothing for such transactions - they're simply removed from the transaction pool, when the block
 is built.

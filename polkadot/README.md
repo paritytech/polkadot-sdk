@@ -11,7 +11,7 @@ guides, like how to run a validator node, see the [Polkadot Wiki](https://wiki.p
 
 If you just wish to run a Polkadot node without compiling it yourself, you may either:
 
-- run the latest binary from our [releases](https://github.com/paritytech/polkadot-sdk/releases) page (make sure to also
+- run the [latest released binary](https://github.com/paritytech/polkadot-sdk/releases/latest) (make sure to also
   download all the `worker` binaries and put them in the same directory as `polkadot`), or
 - install Polkadot from one of our package repositories.
 

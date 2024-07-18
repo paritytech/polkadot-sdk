@@ -19,6 +19,7 @@
 //! pallet.
 
 use crate::{PropIndex, Voting, DEMOCRACY_ID};
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use core::iter::Sum;
 use frame_support::{
 	pallet_prelude::ValueQuery,
@@ -29,7 +30,6 @@ use frame_support::{
 };
 use sp_core::Get;
 use sp_runtime::{traits::Zero, BoundedVec, Saturating};
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 const LOG_TARGET: &str = "runtime::democracy::migrations::unlock_and_unreserve_all_funds";
 
@@ -87,7 +87,7 @@ type VotingOf<T: UnlockConfig> = StorageMap<
 /// The pallet should be made inoperable before this migration is run.
 ///
 /// (See also [`RemovePallet`][frame_support::migrations::RemovePallet])
-pub struct UnlockAndUnreserveAllFunds<T: UnlockConfig>(sp_std::marker::PhantomData<T>);
+pub struct UnlockAndUnreserveAllFunds<T: UnlockConfig>(core::marker::PhantomData<T>);
 
 impl<T: UnlockConfig> UnlockAndUnreserveAllFunds<T> {
 	/// Calculates and returns the total amounts reserved by each account by this pallet, and all
@@ -170,8 +170,8 @@ where
 	/// the actual total reserved amount for any accounts.
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		use alloc::collections::btree_set::BTreeSet;
 		use codec::Encode;
-		use sp_std::collections::btree_set::BTreeSet;
 
 		// Get staked and deposited balances as reported by this pallet.
 		let (account_deposits, account_locks, _) = Self::get_account_deposits_and_locks();
@@ -321,40 +321,40 @@ mod test {
 	}
 
 	#[test]
-	fn unreserve_works_for_depositer() {
-		let depositer_0 = 10;
-		let depositer_1 = 11;
+	fn unreserve_works_for_depositor() {
+		let depositor_0 = 10;
+		let depositor_1 = 11;
 		let deposit = 25;
-		let depositer_0_initial_reserved = 0;
-		let depositer_1_initial_reserved = 15;
+		let depositor_0_initial_reserved = 0;
+		let depositor_1_initial_reserved = 15;
 		let initial_balance = 100_000;
 		new_test_ext().execute_with(|| {
 			// Set up initial state.
-			<Test as crate::Config>::Currency::make_free_balance_be(&depositer_0, initial_balance);
-			<Test as crate::Config>::Currency::make_free_balance_be(&depositer_1, initial_balance);
+			<Test as crate::Config>::Currency::make_free_balance_be(&depositor_0, initial_balance);
+			<Test as crate::Config>::Currency::make_free_balance_be(&depositor_1, initial_balance);
 			assert_ok!(<Test as crate::Config>::Currency::reserve(
-				&depositer_0,
-				depositer_0_initial_reserved + deposit
+				&depositor_0,
+				depositor_0_initial_reserved + deposit
 			));
 			assert_ok!(<Test as crate::Config>::Currency::reserve(
-				&depositer_1,
-				depositer_1_initial_reserved + deposit
+				&depositor_1,
+				depositor_1_initial_reserved + deposit
 			));
 			let depositors =
 				BoundedVec::<_, <Test as crate::Config>::MaxDeposits>::truncate_from(vec![
-					depositer_0,
-					depositer_1,
+					depositor_0,
+					depositor_1,
 				]);
 			DepositOf::<Test>::insert(0, (depositors, deposit));
 
 			// Sanity check: ensure initial reserved balance was set correctly.
 			assert_eq!(
-				<Test as crate::Config>::Currency::reserved_balance(&depositer_0),
-				depositer_0_initial_reserved + deposit
+				<Test as crate::Config>::Currency::reserved_balance(&depositor_0),
+				depositor_0_initial_reserved + deposit
 			);
 			assert_eq!(
-				<Test as crate::Config>::Currency::reserved_balance(&depositer_1),
-				depositer_1_initial_reserved + deposit
+				<Test as crate::Config>::Currency::reserved_balance(&depositor_1),
+				depositor_1_initial_reserved + deposit
 			);
 
 			// Run the migration.
@@ -365,12 +365,12 @@ mod test {
 
 			// Assert the reserved balance was reduced by the expected amount.
 			assert_eq!(
-				<Test as crate::Config>::Currency::reserved_balance(&depositer_0),
-				depositer_0_initial_reserved
+				<Test as crate::Config>::Currency::reserved_balance(&depositor_0),
+				depositor_0_initial_reserved
 			);
 			assert_eq!(
-				<Test as crate::Config>::Currency::reserved_balance(&depositer_1),
-				depositer_1_initial_reserved
+				<Test as crate::Config>::Currency::reserved_balance(&depositor_1),
+				depositor_1_initial_reserved
 			);
 		});
 	}

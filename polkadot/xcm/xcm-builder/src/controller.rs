@@ -18,11 +18,11 @@
 //! Controller traits defined in this module are high-level traits that will rely on other traits
 //! from `xcm-executor` to perform their tasks.
 
+use alloc::boxed::Box;
 use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, WithPostDispatchInfo},
 	pallet_prelude::DispatchError,
 };
-use sp_std::boxed::Box;
 use xcm::prelude::*;
 pub use xcm_executor::traits::QueryHandler;
 
@@ -132,7 +132,7 @@ pub trait QueryController<Origin, Timeout>: QueryHandler {
 		origin: Origin,
 		timeout: Timeout,
 		match_querier: VersionedLocation,
-	) -> Result<Self::QueryId, DispatchError>;
+	) -> Result<QueryId, DispatchError>;
 }
 
 impl<Origin, RuntimeCall> ExecuteController<Origin, RuntimeCall> for () {
@@ -186,7 +186,7 @@ impl<Origin, Timeout> QueryController<Origin, Timeout> for () {
 		_origin: Origin,
 		_timeout: Timeout,
 		_match_querier: VersionedLocation,
-	) -> Result<Self::QueryId, DispatchError> {
+	) -> Result<QueryId, DispatchError> {
 		Ok(Default::default())
 	}
 }

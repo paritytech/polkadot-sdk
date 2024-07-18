@@ -90,6 +90,8 @@ impl pallet_mmr::Config for Test {
 
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Test>;
 
+	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Test>;
+
 	type WeightInfo = ();
 }
 
@@ -99,6 +101,7 @@ impl pallet_beefy::Config for Test {
 	type MaxNominators = ConstU32<1000>;
 	type MaxSetIdSessionEntries = ConstU64<100>;
 	type OnNewValidatorSet = BeefyMmr;
+	type AncestryHelper = BeefyMmr;
 	type WeightInfo = ();
 	type KeyOwnerProof = sp_core::Void;
 	type EquivocationReportSystem = ();

@@ -17,12 +17,12 @@
 //! PVF host integration tests checking the chain production pipeline.
 
 use super::TestHost;
-use adder::{hash_state, BlockData, HeadData};
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::{
 	BlockData as GenericBlockData, HeadData as GenericHeadData, RelayChainBlockNumber,
 	ValidationParams,
 };
+use test_parachain_adder::{hash_state, BlockData, HeadData};
 
 #[tokio::test]
 async fn execute_good_block_on_parent() {
@@ -34,7 +34,7 @@ async fn execute_good_block_on_parent() {
 
 	let ret = host
 		.validate_candidate(
-			adder::wasm_binary_unwrap(),
+			test_parachain_adder::wasm_binary_unwrap(),
 			ValidationParams {
 				parent_head: GenericHeadData(parent_head.encode()),
 				block_data: GenericBlockData(block_data.encode()),
@@ -68,7 +68,7 @@ async fn execute_good_chain_on_parent() {
 
 		let ret = host
 			.validate_candidate(
-				adder::wasm_binary_unwrap(),
+				test_parachain_adder::wasm_binary_unwrap(),
 				ValidationParams {
 					parent_head: GenericHeadData(parent_head.encode()),
 					block_data: GenericBlockData(block_data.encode()),
@@ -104,7 +104,7 @@ async fn execute_bad_block_on_parent() {
 
 	let _err = host
 		.validate_candidate(
-			adder::wasm_binary_unwrap(),
+			test_parachain_adder::wasm_binary_unwrap(),
 			ValidationParams {
 				parent_head: GenericHeadData(parent_head.encode()),
 				block_data: GenericBlockData(block_data.encode()),
@@ -126,7 +126,7 @@ async fn stress_spawn() {
 		let block_data = BlockData { state: 0, add: 512 };
 		let ret = host
 			.validate_candidate(
-				adder::wasm_binary_unwrap(),
+				test_parachain_adder::wasm_binary_unwrap(),
 				ValidationParams {
 					parent_head: GenericHeadData(parent_head.encode()),
 					block_data: GenericBlockData(block_data.encode()),
@@ -163,7 +163,7 @@ async fn execute_can_run_serially() {
 		let block_data = BlockData { state: 0, add: 512 };
 		let ret = host
 			.validate_candidate(
-				adder::wasm_binary_unwrap(),
+				test_parachain_adder::wasm_binary_unwrap(),
 				ValidationParams {
 					parent_head: GenericHeadData(parent_head.encode()),
 					block_data: GenericBlockData(block_data.encode()),

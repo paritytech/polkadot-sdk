@@ -81,6 +81,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use core::marker::PhantomData;
+use frame_support::traits::TypedGet;
 pub use pallet::*;
 
 #[cfg(test)]
@@ -99,6 +103,7 @@ const LOG_TARGET: &str = "runtime::collator-selection";
 #[frame_support::pallet]
 pub mod pallet {
 	pub use crate::weights::WeightInfo;
+	use alloc::vec::Vec;
 	use core::ops::Div;
 	use frame_support::{
 		dispatch::{DispatchClass, DispatchResultWithPostInfo},
@@ -116,10 +121,9 @@ pub mod pallet {
 		RuntimeDebug,
 	};
 	use sp_staking::SessionIndex;
-	use sp_std::vec::Vec;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
@@ -242,7 +246,7 @@ pub mod pallet {
 			let duplicate_invulnerables = self
 				.invulnerables
 				.iter()
-				.collect::<sp_std::collections::btree_set::BTreeSet<_>>();
+				.collect::<alloc::collections::btree_set::BTreeSet<_>>();
 			assert!(
 				duplicate_invulnerables.len() == self.invulnerables.len(),
 				"duplicate invulnerables in genesis."
@@ -979,5 +983,17 @@ pub mod pallet {
 		fn end_session(_: SessionIndex) {
 			// we don't care.
 		}
+	}
+}
+
+/// [`TypedGet`] implementation to get the AccountId of the StakingPot.
+pub struct StakingPotAccountId<R>(PhantomData<R>);
+impl<R> TypedGet for StakingPotAccountId<R>
+where
+	R: crate::Config,
+{
+	type Type = <R as frame_system::Config>::AccountId;
+	fn get() -> Self::Type {
+		<crate::Pallet<R>>::account_id()
 	}
 }

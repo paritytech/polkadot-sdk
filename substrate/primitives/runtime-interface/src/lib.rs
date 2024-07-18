@@ -111,6 +111,8 @@
 
 extern crate self as sp_runtime_interface;
 
+extern crate alloc;
+
 #[doc(hidden)]
 #[cfg(feature = "std")]
 pub use sp_wasm_interface;
@@ -283,7 +285,7 @@ pub use sp_std;
 ///         /// `key` holds the pointer and the length to the `data` slice.
 ///         pub fn call(data: &[u8]) -> Vec<u8> {
 ///             extern "C" { pub fn ext_call_version_2(key: u64); }
-///             // Should call into extenal `ext_call_version_2(<[u8] as IntoFFIValue>::into_ffi_value(key))`
+///             // Should call into external `ext_call_version_2(<[u8] as IntoFFIValue>::into_ffi_value(key))`
 ///             // But this is too much to replicate in a doc test so here we just return a dummy vector.
 ///             // Note that we jump into the latest version not marked as `register_only` (i.e. version 2).
 ///             Vec::new()

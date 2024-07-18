@@ -82,6 +82,9 @@ mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	pallet_prelude::*,
@@ -104,10 +107,9 @@ use sp_runtime::{
 	PerThing, Perbill, Permill, RuntimeDebug, SaturatedConversion,
 };
 use sp_staking::{
-	offence::{DisableStrategy, Kind, Offence, ReportOffence},
+	offence::{Kind, Offence, ReportOffence},
 	SessionIndex,
 };
-use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 pub mod sr25519 {
@@ -196,8 +198,8 @@ enum OffchainErr<BlockNumber> {
 	SubmitTransaction,
 }
 
-impl<BlockNumber: sp_std::fmt::Debug> sp_std::fmt::Debug for OffchainErr<BlockNumber> {
-	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl<BlockNumber: core::fmt::Debug> core::fmt::Debug for OffchainErr<BlockNumber> {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		match *self {
 			OffchainErr::TooEarly => write!(fmt, "Too early to send heartbeat."),
 			OffchainErr::WaitingForInclusion(ref block) => {
@@ -845,10 +847,6 @@ impl<Offender: Clone> Offence<Offender> for UnresponsivenessOffence<Offender> {
 
 	fn time_slot(&self) -> Self::TimeSlot {
 		self.session_index
-	}
-
-	fn disable_strategy(&self) -> DisableStrategy {
-		DisableStrategy::Never
 	}
 
 	fn slash_fraction(&self, offenders: u32) -> Perbill {
