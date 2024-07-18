@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721317972344,
+  "lastUpdate": 1721337760822,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -5333,6 +5333,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03640216536600001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Juan Ignacio Rios",
+            "username": "JuaniRios",
+            "email": "54085674+JuaniRios@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ad9804f7b1e707d5144bcdc14b67c19db2975da8",
+          "message": "Add `pub` to xcm::v4::PalletInfo (#4976)\n\nv3 PalletInfo had the fields public, but not v4. Any reason why?\nI need the PalletInfo fields public so I can read the values and do some\nlogic based on that at Polimec\n@franciscoaguirre \n\nIf this could be backported would be highly appreciated 🙏🏻\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-07-18T19:35:00Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ad9804f7b1e707d5144bcdc14b67c19db2975da8"
+        },
+        "date": 1721337731104,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.91399999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04681781941000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03862951663399999,
             "unit": "seconds"
           }
         ]
