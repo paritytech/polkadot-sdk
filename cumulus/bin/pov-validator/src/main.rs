@@ -30,10 +30,16 @@ use tracing::level_filters::LevelFilter;
 #[derive(Parser)]
 struct Cli {
 	/// The path to the validation code that should be used to validate the `PoV`.
+	///
+	/// The validation code can either be downloaded from the relay chain that the parachain is
+	/// connected to or by building the runtime manually to obtain the WASM binary.
 	#[arg(long)]
 	validation_code: PathBuf,
 
 	/// The path to the `PoV` to validate.
+	///
+	/// The `PoV`'s can be obtained by running `polkadot-parachains --collator --chain YOUR_CHAIN
+	/// --export-pov-to-path PATH_TO_EXPORT` and then choose one of the exported `PoV`'s.
 	#[arg(long)]
 	pov: PathBuf,
 }
@@ -41,7 +47,8 @@ struct Cli {
 fn main() -> anyhow::Result<()> {
 	let _ = tracing_subscriber::fmt()
 		.with_env_filter(
-			tracing_subscriber::EnvFilter::from_default_env().add_directive(LevelFilter::INFO.into()),
+			tracing_subscriber::EnvFilter::from_default_env()
+				.add_directive(LevelFilter::INFO.into()),
 		)
 		.with_writer(std::io::stderr)
 		.try_init();

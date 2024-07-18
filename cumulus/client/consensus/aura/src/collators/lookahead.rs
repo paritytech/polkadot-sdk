@@ -40,13 +40,11 @@ use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::{PoV, SubmitCollationParams};
-use polkadot_node_subsystem::messages::{
-	CollationGenerationMessage, RuntimeApiMessage, RuntimeApiRequest,
-};
+use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
-	AsyncBackingParams, BlockNumber as RBlockNumber, CollatorPair, CoreIndex, CoreState,
-	Hash as RHash, HeadData, Id as ParaId, OccupiedCoreAssumption,
+	BlockNumber as RBlockNumber, CollatorPair, Hash as RHash, HeadData, Id as ParaId,
+	OccupiedCoreAssumption,
 };
 
 use futures::prelude::*;
@@ -60,7 +58,6 @@ use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, NumberFor};
-use sp_timestamp::Timestamp;
 use std::{
 	fs::{self, File},
 	path::PathBuf,
@@ -68,10 +65,7 @@ use std::{
 	time::Duration,
 };
 
-use crate::{
-	collator::{self as collator_util, SlotClaim},
-	LOG_TARGET,
-};
+use crate::{collator as collator_util, LOG_TARGET};
 
 /// Export the given `pov` to the file system at `path`.
 ///
@@ -171,16 +165,13 @@ where
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
-	run_with_export::<_, P, _, _, _, _, _, _, _, _, _>(ParamsWithExport {
-		params,
-		export_pov: None,
-	})
+	run_with_export::<_, P, _, _, _, _, _, _, _, _>(ParamsWithExport { params, export_pov: None })
 }
 
 /// Parameters for [`run_with_export`].
-pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS> {
+pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// The parameters.
-	pub params: Params<BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS>,
+	pub params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
 	/// When set, the collator will export every produced `POV` to this folder.
 	pub export_pov: Option<PathBuf>,
 }

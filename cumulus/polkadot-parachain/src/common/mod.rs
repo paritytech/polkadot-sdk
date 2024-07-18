@@ -26,6 +26,7 @@ use sp_block_builder::BlockBuilder;
 use sp_runtime::traits::Block as BlockT;
 use sp_session::SessionKeys;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
+use std::path::PathBuf;
 
 /// Convenience trait that defines the basic bounds for the `RuntimeApi` of a parachain node.
 pub trait NodeRuntimeApi<Block: BlockT>:
