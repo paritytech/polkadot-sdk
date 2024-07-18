@@ -21,7 +21,6 @@ use crate::{v3::MultiLocation as OldLocation, VersionedLocation};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::result;
 use scale_info::TypeInfo;
-use sp_runtime::AccountId32;
 
 /// A relative path between state-bearing consensus systems.
 ///
@@ -286,7 +285,7 @@ impl Location {
 	/// ```
 	pub fn match_and_split(&self, prefix: &Location) -> Option<&Junction> {
 		if self.parents != prefix.parents {
-			return None;
+			return None
 		}
 		self.interior.match_and_split(&prefix.interior)
 	}
@@ -410,7 +409,7 @@ impl Location {
 	pub fn simplify(&mut self, context: &Junctions) {
 		if context.len() < self.parents as usize {
 			// Not enough context
-			return;
+			return
 		}
 		while self.parents > 0 {
 			let maybe = context.at(context.len() - (self.parents as usize));
@@ -535,11 +534,9 @@ impl From<[u8; 32]> for Location {
 	}
 }
 
-impl From<AccountId32> for Location {
-	fn from(account: AccountId32) -> Self {
-		let bytes: [u8; 32] = account.into();
-		let junction: Junction = bytes.into();
-		junction.into()
+impl From<sp_runtime::AccountId32> for Location {
+	fn from(id: sp_runtime::AccountId32) -> Self {
+		Junction::AccountId32 { network: None, id: id.into() }.into()
 	}
 }
 
