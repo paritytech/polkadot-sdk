@@ -37,14 +37,14 @@ use ip_network::IpNetwork;
 use libp2p::kad::{PeerRecord, Record};
 use linked_hash_set::LinkedHashSet;
 
-use log::{debug, error, log_enabled};
+use log::{debug, error};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
 use prost::Message;
 use rand::{seq::SliceRandom, thread_rng};
 
 use sc_network::{
-	event::DhtEvent, multiaddr, KademliaKey, Multiaddr, NetworkDHTProvider, NetworkSigner,
-	NetworkStateInfo,
+	config::DEFAULT_KADEMLIA_REPLICATION_FACTOR, event::DhtEvent, multiaddr, KademliaKey,
+	Multiaddr, NetworkDHTProvider, NetworkSigner, NetworkStateInfo,
 };
 use sc_network_types::{multihash::Code, PeerId};
 use schema::PeerSignature;
@@ -183,7 +183,8 @@ pub struct Worker<Client, Block: BlockT, DhtEventStream> {
 struct RecordInfo {
 	/// Time since UNIX_EPOCH in nanoseconds.
 	creation_time: u128,
-	/// Peers that we know have this record.
+	/// Peers that we know have this record, bounded to no more than
+	/// DEFAULT_KADEMLIA_REPLICATION_FACTOR(20).
 	peers_with_record: HashSet<PeerId>,
 	/// The record itself.
 	record: Record,
@@ -566,9 +567,7 @@ where
 					metrics.dht_event_received.with_label_values(&["value_found"]).inc();
 				}
 
-				if log_enabled!(log::Level::Debug) {
-					debug!(target: LOG_TARGET, "Value for hash '{:?}' found on Dht.", v.record.key);
-				}
+				debug!(target: LOG_TARGET, "Value for hash '{:?}' found on Dht.", v.record.key);
 
 				if let Err(e) = self.handle_dht_value_found_event(v) {
 					if let Some(metrics) = &self.metrics {
@@ -758,14 +757,13 @@ where
 
 		let authority_id: AuthorityId =
 			if let Some(authority_id) = self.in_flight_lookups.remove(&remote_key) {
+				self.known_lookups.insert(remote_key.clone(), authority_id.clone());
 				authority_id
 			} else if let Some(authority_id) = self.known_lookups.get(&remote_key) {
 				authority_id.clone()
 			} else {
 				return Err(Error::ReceivingUnexpectedRecord);
 			};
-
-		self.known_lookups.insert(remote_key.clone(), authority_id.clone());
 
 		let local_peer_id = self.network.local_peer_id();
 
@@ -775,20 +773,19 @@ where
 				&authority_id,
 			)?;
 
-		let authority_record = schema::AuthorityRecord::decode(record.as_slice());
+		let authority_record =
+			schema::AuthorityRecord::decode(record.as_slice()).map_err(Error::DecodingProto)?;
 
 		let records_creation_time: u128 = authority_record
+			.creation_time
 			.as_ref()
-			.ok()
-			.and_then(|a| a.creation_time.as_ref())
 			.map(|creation_time| {
 				u128::decode(&mut &creation_time.timestamp[..]).unwrap_or_default()
 			})
 			.unwrap_or_default(); // 0 is a sane default for records that do not have creation time present.
 
 		let addresses: Vec<Multiaddr> = authority_record
-			.map(|a| a.addresses)
-			.map_err(Error::DecodingProto)?
+			.addresses
 			.into_iter()
 			.map(|a| a.try_into())
 			.collect::<std::result::Result<_, _>>()
@@ -858,6 +855,7 @@ where
 			.last_known_records
 			.entry(kademlia_key.clone())
 			.or_insert_with(|| new_record.clone());
+
 		if new_record.creation_time > current_record_info.creation_time {
 			let peers_that_need_updating = current_record_info.peers_with_record.clone();
 			self.network.put_record_to(
@@ -873,8 +871,10 @@ where
 					authority_id, new_record.creation_time, current_record_info.creation_time
 			);
 			self.last_known_records.insert(kademlia_key, new_record);
-			true
-		} else if new_record.creation_time == current_record_info.creation_time {
+			return true
+		}
+
+		if new_record.creation_time == current_record_info.creation_time {
 			// Same record just update in case this is a record from old nodes that don't have
 			// timestamp.
 			debug!(
@@ -882,23 +882,27 @@ where
 					"Found same record for {:?} record creation time {:?}",
 					authority_id, new_record.creation_time
 			);
-			current_record_info.peers_with_record.extend(new_record.peers_with_record);
-			true
-		} else {
-			debug!(
-					target: LOG_TARGET,
-					"Found old record for {:?} received record creation time {:?} current record creation time {:?}",
-					authority_id, new_record.creation_time, current_record_info.creation_time,
-			);
-			self.network.put_record_to(
-				current_record_info.record.clone(),
-				new_record.peers_with_record.clone(),
-				// If this is empty it means we received the answer from our node local
-				// storage, so we need to update that as well.
-				new_record.peers_with_record.is_empty(),
-			);
-			false
+			if current_record_info.peers_with_record.len() + new_record.peers_with_record.len() <=
+				DEFAULT_KADEMLIA_REPLICATION_FACTOR
+			{
+				current_record_info.peers_with_record.extend(new_record.peers_with_record);
+			}
+			return true
 		}
+
+		debug!(
+				target: LOG_TARGET,
+				"Found old record for {:?} received record creation time {:?} current record creation time {:?}",
+				authority_id, new_record.creation_time, current_record_info.creation_time,
+		);
+		self.network.put_record_to(
+			current_record_info.record.clone(),
+			new_record.peers_with_record.clone(),
+			// If this is empty it means we received the answer from our node local
+			// storage, so we need to update that as well.
+			new_record.peers_with_record.is_empty(),
+		);
+		return false
 	}
 
 	/// Retrieve our public keys within the current and next authority set.
