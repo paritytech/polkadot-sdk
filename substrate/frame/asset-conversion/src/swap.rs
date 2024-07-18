@@ -112,6 +112,7 @@ pub trait SwapCredit<AccountId> {
 	) -> Result<(Self::Credit, Self::Credit), (Self::Credit, DispatchError)>;
 }
 
+// TODO: Remove and use `QuotePrice` once https://github.com/paritytech/polkadot-sdk/pull/4488 gets merged.
 /// Trait providing methods for quoting the exchange price between different asset classes.
 pub trait QuoteExchangePrice {
 	/// Measure units of the asset classes for quoting.
@@ -119,16 +120,22 @@ pub trait QuoteExchangePrice {
 	/// Kind of assets that are going to be quoted.
 	type AssetKind;
 
-	/// Provides the amount of `asset2` exchangeable for an exact `amount` of `asset1`.
-	fn quote_price_exact_tokens_for_tokens(
+	/// Quotes the amount of `asset1` required to obtain the exact `amount` of `asset2`.
+	///
+	/// If `include_fee` is set to `true`, the price will include the pool's fee.
+	/// If the pool does not exist or the swap cannot be made, `None` is returned.
+	fn quote_price_tokens_for_exact_tokens(
 		asset1: Self::AssetKind,
 		asset2: Self::AssetKind,
 		amount: Self::Balance,
 		include_fee: bool,
 	) -> Option<Self::Balance>;
 
-	/// Provides the amount of `asset1` exchangeable for an exact amount of `asset2`.
-	fn quote_price_tokens_for_exact_tokens(
+	/// Quotes the amount of `asset2` resulting from swapping the exact `amount` of `asset1`.
+	///
+	/// If `include_fee` is set to `true`, the price will include the pool's fee.
+	/// If the pool does not exist or the swap cannot be made, `None` is returned.
+	fn quote_price_exact_tokens_for_tokens(
 		asset1: Self::AssetKind,
 		asset2: Self::AssetKind,
 		amount: Self::Balance,

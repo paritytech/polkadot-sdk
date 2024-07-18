@@ -491,6 +491,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			None => return Ok(()), // No delivery fees need to be paid.
 		};
 		// If `BuyExecution` was called, we know we can try to use that asset for fees.
+		// We get the asset the user wants to use to pay for fees.
 		let asset_to_pay_for_fees = if let Some(asset_used_for_fees) = &self.asset_used_for_fees {
 			if asset_used_for_fees != &asset_needed_for_fees.id {
 				match Config::AssetExchanger::quote_exchange_price(
@@ -518,7 +519,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			asset_needed_for_fees.clone()
 		};
 		tracing::trace!(target: "xcm::fees", ?asset_to_pay_for_fees);
-		let assets_to_swap = if self.fees_mode.jit_withdraw {
+		// We withdraw or take from holding the asset the user wants to use for fee payment.
+		let withdrawn_fee_asset = if self.fees_mode.jit_withdraw {
 			let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 			Config::AssetTransactor::withdraw_asset(
 				&asset_to_pay_for_fees,
@@ -537,10 +539,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			let asset = iter.next().ok_or(XcmError::NotHoldingFees)?;
 			asset.into()
 		};
+		// We perform the swap if we need to to pay fees in the correct asset.
 		let paid = if asset_to_pay_for_fees.id != asset_needed_for_fees.id {
 			let swapped_asset: Assets = Config::AssetExchanger::exchange_asset(
 				self.origin_ref(),
-				assets_to_swap,
+				withdrawn_fee_asset,
 				&asset_needed_for_fees.clone().into(),
 				false,
 			)
@@ -555,7 +558,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			.into();
 			swapped_asset
 		} else {
-			vec![asset_to_pay_for_fees].into()
+			// If the asset wanted to pay for fees is the one that was needed,
+			// we don't need to do any swap.
+			// We just use the assets withdrawn or taken from holding.
+			withdrawn_fee_asset.into()
 		};
 		Config::FeeManager::handle_fee(paid, Some(&self.context), reason);
 		Ok(())

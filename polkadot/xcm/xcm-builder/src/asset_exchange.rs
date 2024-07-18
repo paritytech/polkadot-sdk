@@ -30,7 +30,9 @@ use xcm_executor::{
 /// An adapter from [`pallet_asset_conversion::SwapCredit`] and
 /// [`pallet_asset_conversion::QuoteExchangePrice`] to [`xcm_executor::traits::AssetExchange`].
 ///
-/// Takes just one fungible asset in `give` and allows only one fungible asset in `want`.
+/// This adapter takes just one fungible asset in `give` and allows only one fungible asset in `want`.
+/// If you need to handle more assets in either `give` or `want`, then you should use another type
+/// that implements [`xcm_executor::traits::AssetExchange`] or build your own.
 pub struct FungiblesPoolAdapter<AssetConversion, Fungibles, Matcher, AccountId>(
 	PhantomData<(AssetConversion, Fungibles, Matcher, AccountId)>,
 );
@@ -50,7 +52,7 @@ where
 		_: Option<&Location>,
 		give: AssetsInHolding,
 		want: &Assets,
-		_: bool,
+		maximal: bool,
 	) -> Result<AssetsInHolding, AssetsInHolding> {
 		let give_asset = give.fungible_assets_iter().next().ok_or_else(|| {
 			log::trace!(
@@ -66,7 +68,7 @@ where
 			);
 			give.clone()
 		})?;
-		let (give_asset_id, balance) =
+		let (give_asset_id, give_amount) =
 			Matcher::matches_fungibles(&give_asset).map_err(|error| {
 				log::trace!(
 					target: "xcm::FungiblesPoolAdapter::exchange_asset",
@@ -89,11 +91,25 @@ where
 
 		// We have to do this to convert the XCM assets into credit the pool can use.
 		let swap_asset = give_asset_id.clone().into();
-		let credit_in = Fungibles::issue(give_asset_id, balance);
+		let credit_in = Fungibles::issue(give_asset_id, give_amount);
 
 		// Do the swap.
-		let (credit_out, credit_change) =
-			<AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
+		let credit_out = if maximal {
+			// If `maximal`, then we swap exactly `credit_in` to get as much of `want_asset_id` as we can,
+			// with a minimum of `want_amount`.
+			<AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
+				vec![swap_asset, want_asset_id],
+				credit_in,
+				Some(want_amount),
+			).map_err(|(credit_in, _error)| {
+				// TODO: Log error.
+				drop(credit_in);
+				give.clone()
+			})?
+		} else {
+			// If `minimal`, then we swap as little of `credit_in` as we can to get exactly `want_amount`
+			// of `want_asset_id`.
+			let (credit_out, credit_change) = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
 				vec![swap_asset, want_asset_id],
 				credit_in,
 				want_amount,
@@ -103,13 +119,19 @@ where
 				give.clone()
 			})?;
 
-		debug_assert!(credit_change.peek() == Zero::zero());
+			// TODO: If we want to make this a generic adapter, this need not be 0. Handle it.
+			// Probably depositing it back to the holding.
+			debug_assert!(credit_change.peek() == Zero::zero());
+
+			credit_out
+		};
 
 		let resulting_asset: Asset = (want_asset.id.clone(), credit_out.peek()).into();
 		Ok(resulting_asset.into())
 	}
 
-	fn quote_exchange_price(asset1: &Asset, asset2: &Asset, _: bool) -> Option<u128> {
+	fn quote_exchange_price(asset1: &Asset, asset2: &Asset, maximal: bool) -> Option<u128> {
+		// We first match both XCM assets to the asset ID types `AssetConversion` can handle.
 		let (asset1_id, _) = Matcher::matches_fungibles(asset1)
 			.map_err(|error| {
 				log::trace!(
@@ -121,6 +143,7 @@ where
 				()
 			})
 			.ok()?;
+		// For `asset2`, we also want the desired amount.
 		let (asset2_id, desired_asset2_amount) = Matcher::matches_fungibles(asset2)
 			.map_err(|error| {
 				log::trace!(
@@ -132,13 +155,22 @@ where
 				()
 			})
 			.ok()?;
-		let necessary_asset1_amount =
+		// We quote the price.
+		let necessary_asset1_amount = if maximal {
+			<AssetConversion as QuoteExchangePrice>::quote_price_exact_tokens_for_tokens(
+				asset1_id,
+				asset2_id,
+				desired_asset2_amount,
+				true,
+			)?
+		} else {
 			<AssetConversion as QuoteExchangePrice>::quote_price_tokens_for_exact_tokens(
 				asset1_id,
 				asset2_id,
 				desired_asset2_amount,
 				true,
-			)?;
+			)?
+		};
 		Some(necessary_asset1_amount)
 	}
 }

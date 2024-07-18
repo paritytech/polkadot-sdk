@@ -17,6 +17,7 @@ xcm = { workspace = true }
 xcm-executor = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-io = { workspace = true }
+sp-std = { workspace = true }
 sp-runtime = { workspace = true }
 sp-weights = { workspace = true }
 frame-support = { workspace = true }
@@ -66,6 +67,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"polkadot-parachain-primitives/std",
 	"scale-info/std",
+	"sp-std/std",
 	"sp-arithmetic/std",
 	"sp-io/std",
 	"sp-runtime/std",
