@@ -846,6 +846,8 @@ where
 		Ok(())
 	}
 
+	// Handles receiving a new DHT record for the authorithy.
+	// Returns true if the record was new, false if the record was older than the current one.
 	fn handle_new_record(
 		&mut self,
 		authority_id: &AuthorityId,
