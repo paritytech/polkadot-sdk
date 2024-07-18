@@ -1219,7 +1219,6 @@ impl<T: Config> CandidateCheckContext<T> {
 	///
 	/// Assures:
 	///  * relay-parent in-bounds
-	///  * collator signature check passes
 	///  * code hash of commitments matches current code hash
 	///  * para head in the descriptor and commitments match
 	///
