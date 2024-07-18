@@ -104,17 +104,6 @@ impl<
 /// logged and the fee burned.
 ///
 /// `ReceiverAccount` should implement `Get<Location>`.
-///
-/// In case you need to implement `Get<Location>` for a custom type,
-/// below is an example code piece for such a case:
-/// ```rust
-/// impl Get<Location> for TreasuryAccount {
-///     fn get() -> Location {
-///         const ID: PalletId = PalletId(*b"py/trsry");
-///         AccountIdConversion::<AccountId>::into_account_truncating(&ID).into()
-///     }
-/// }
-/// ```
 pub struct SendXcmFeeToAccount<AssetTransactor, ReceiverAccount>(
 	PhantomData<(AssetTransactor, ReceiverAccount)>,
 );
