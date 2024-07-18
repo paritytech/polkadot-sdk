@@ -475,7 +475,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Implements tree backend, cached header metadata and algorithms
 //! to compute routes efficiently over the tree of headers.
 
-</span><span class="kw">use </span>parking_lot::RwLock;
+</span><span class="kw">use </span>parking_lot::Mutex;
 <span class="kw">use </span>schnellru::{ByLength, LruMap};
 <span class="kw">use </span>sp_core::U256;
 <span class="kw">use </span>sp_runtime::{
@@ -705,33 +705,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Caches header metadata in an in-memory LRU cache.
 </span><span class="kw">pub struct </span>HeaderMetadataCache&lt;Block: BlockT&gt; {
-	cache: RwLock&lt;LruMap&lt;Block::Hash, CachedHeaderMetadata&lt;Block&gt;&gt;&gt;,
+	cache: Mutex&lt;LruMap&lt;Block::Hash, CachedHeaderMetadata&lt;Block&gt;&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;Block: BlockT&gt; HeaderMetadataCache&lt;Block&gt; {
 	<span class="doccomment">/// Creates a new LRU header metadata cache with `capacity`.
 	</span><span class="kw">pub fn </span>new(capacity: u32) -&gt; <span class="self">Self </span>{
-		HeaderMetadataCache { cache: RwLock::new(LruMap::new(ByLength::new(capacity))) }
+		HeaderMetadataCache { cache: Mutex::new(LruMap::new(ByLength::new(capacity))) }
 	}
 }
 
 <span class="kw">impl</span>&lt;Block: BlockT&gt; Default <span class="kw">for </span>HeaderMetadataCache&lt;Block&gt; {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-		HeaderMetadataCache { cache: RwLock::new(LruMap::new(ByLength::new(LRU_CACHE_SIZE))) }
+		<span class="self">Self</span>::new(LRU_CACHE_SIZE)
 	}
 }
 
 <span class="kw">impl</span>&lt;Block: BlockT&gt; HeaderMetadataCache&lt;Block&gt; {
 	<span class="kw">pub fn </span>header_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash) -&gt; <span class="prelude-ty">Option</span>&lt;CachedHeaderMetadata&lt;Block&gt;&gt; {
-		<span class="self">self</span>.cache.write().get(<span class="kw-2">&amp;</span>hash).cloned()
+		<span class="self">self</span>.cache.lock().get(<span class="kw-2">&amp;</span>hash).cloned()
 	}
 
 	<span class="kw">pub fn </span>insert_header_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash, metadata: CachedHeaderMetadata&lt;Block&gt;) {
-		<span class="self">self</span>.cache.write().insert(hash, metadata);
+		<span class="self">self</span>.cache.lock().insert(hash, metadata);
 	}
 
 	<span class="kw">pub fn </span>remove_header_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash) {
-		<span class="self">self</span>.cache.write().remove(<span class="kw-2">&amp;</span>hash);
+		<span class="self">self</span>.cache.lock().remove(<span class="kw-2">&amp;</span>hash);
 	}
 }
 
