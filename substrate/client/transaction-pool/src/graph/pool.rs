@@ -16,10 +16,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{collections::HashMap, sync::Arc, time::Duration};
-
 use crate::{log_xt_debug, LOG_TARGET};
 use futures::{channel::mpsc::Receiver, Future};
+use indexmap::IndexMap;
 use sc_transaction_pool_api::error;
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
@@ -29,7 +28,11 @@ use sp_runtime::{
 		TransactionSource, TransactionTag as Tag, TransactionValidity, TransactionValidityError,
 	},
 };
-use std::time::Instant;
+use std::{
+	collections::HashMap,
+	sync::Arc,
+	time::{Duration, Instant},
+};
 
 use super::{
 	base_pool as base,
@@ -384,7 +387,7 @@ impl<B: ChainApi> Pool<B> {
 		at: &HashAndNumber<B::Block>,
 		xts: impl IntoIterator<Item = (TransactionSource, ExtrinsicFor<B>)>,
 		check: CheckBannedBeforeVerify,
-	) -> HashMap<ExtrinsicHash<B>, ValidatedTransactionFor<B>> {
+	) -> IndexMap<ExtrinsicHash<B>, ValidatedTransactionFor<B>> {
 		let HashAndNumber { number, hash } = *at;
 
 		let res = futures::future::join_all(
@@ -393,7 +396,7 @@ impl<B: ChainApi> Pool<B> {
 		)
 		.await
 		.into_iter()
-		.collect::<HashMap<_, _>>();
+		.collect::<IndexMap<_, _>>();
 
 		res
 	}
@@ -508,6 +511,39 @@ mod tests {
 
 		// then
 		assert_eq!(pool.validated_pool().ready().map(|v| v.hash).collect::<Vec<_>>(), vec![hash]);
+	}
+
+	#[test]
+	fn submit_at_preservs_order() {
+		sp_tracing::try_init_simple();
+		// given
+		let (pool, api) = pool();
+
+		let txs = (0..10)
+			.map(|i| {
+				uxt(Transfer {
+					from: Alice.into(),
+					to: AccountId::from_h256(H256::from_low_u64_be(i)),
+					amount: 5,
+					nonce: i,
+				})
+				.into()
+			})
+			.collect::<Vec<_>>();
+
+		let initial_hashes = txs.iter().map(|t| api.hash_and_length(t).0).collect::<Vec<_>>();
+
+		// when
+		let txs = txs.into_iter().map(|x| Arc::from(x)).collect::<Vec<_>>();
+		let hashes = block_on(pool.submit_at(&api.expect_hash_and_number(0), SOURCE, txs));
+		log::info!("--> {hashes:#?}");
+
+		// then
+		hashes.into_iter().zip(initial_hashes.into_iter()).for_each(
+			|(result_hash, initial_hash)| {
+				assert_eq!(result_hash.unwrap(), initial_hash);
+			},
+		);
 	}
 
 	#[test]

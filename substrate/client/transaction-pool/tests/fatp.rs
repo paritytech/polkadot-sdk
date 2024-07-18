@@ -414,24 +414,16 @@ fn fatp_one_view_stale_submit_many_fails() {
 
 	let results = block_on(futures::future::join_all(submissions));
 
-	log::info!("{:#?}", results);
-
 	//xts2 contains one ready transaction (nonce:200)
-	//todo: submit_at result is not ordered as the input
-	assert_eq!(
-		results
-			.into_iter()
-			.flat_map(|x| x.unwrap())
-			.filter(Result::is_err)
-			.filter(|r| {
-				matches!(
-					&r.as_ref().unwrap_err().0,
-					TxPoolError::InvalidTransaction(InvalidTransaction::Stale,)
-				)
-			})
-			.count(),
-		xts0.len() + xts1.len() + xts2.len() - 1
-	);
+	let mut results = results.into_iter().flat_map(|x| x.unwrap()).collect::<Vec<_>>();
+	log::info!("{:#?}", results);
+	assert!(results.pop().unwrap().is_ok());
+	assert!(results.into_iter().all(|r| {
+		matches!(
+			&r.as_ref().unwrap_err().0,
+			TxPoolError::InvalidTransaction(InvalidTransaction::Stale,)
+		)
+	}));
 
 	assert_pool_status!(header.hash(), &pool, 1, 0);
 }
