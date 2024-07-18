@@ -17,7 +17,7 @@
 
 //! Offences pallet benchmarking.
 
-use sp_std::{prelude::*, vec};
+use alloc::{vec, vec::Vec};
 
 use frame_benchmarking::v1::{account, benchmarks};
 use frame_support::traits::{Currency, Get};
