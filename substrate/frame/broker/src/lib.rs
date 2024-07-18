@@ -47,25 +47,27 @@ pub use core_mask::*;
 pub use coretime_interface::*;
 pub use types::*;
 
+extern crate alloc;
+
 /// The log target for this pallet.
 const LOG_TARGET: &str = "runtime::broker";
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use alloc::vec::Vec;
 	use frame_support::{
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{
 			fungible::{Balanced, Credit, Mutate},
-			EnsureOrigin, OnUnbalanced,
+			BuildGenesisConfig, EnsureOrigin, OnUnbalanced,
 		},
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack};
-	use sp_std::vec::Vec;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -490,6 +492,20 @@ pub mod pallet {
 		InvalidConfig,
 		/// The revenue must be claimed for 1 or more timeslices.
 		NoClaimTimeslices,
+	}
+
+	#[derive(frame_support::DefaultNoBound)]
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		#[serde(skip)]
+		pub _config: core::marker::PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			frame_system::Pallet::<T>::inc_providers(&Pallet::<T>::account_id());
+		}
 	}
 
 	#[pallet::hooks]

@@ -18,6 +18,7 @@
 #![cfg(test)]
 
 use crate::{test_fungibles::TestFungibles, *};
+use alloc::collections::btree_map::BTreeMap;
 use frame_support::{
 	assert_ok, derive_impl, ensure, ord_parameter_types, parameter_types,
 	traits::{
@@ -34,7 +35,6 @@ use sp_runtime::{
 	traits::{BlockNumberProvider, Identity},
 	BuildStorage,
 };
-use sp_std::collections::btree_map::BTreeMap;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -103,7 +103,8 @@ impl CoretimeInterface for TestCoretimeProvider {
 				}
 			})
 		});
-		RevenueInbox::<Test>::set(Some(OnDemandRevenueRecord { until: when, amount: total }));
+		mint_to_pot(total);
+		RevenueInbox::<Test>::put(OnDemandRevenueRecord { until: when, amount: total });
 	}
 	fn credit_account(_who: Self::AccountId, _amount: Self::Balance) {
 		// Commented out code is from the reference mock implementation and should be uncommented as
@@ -133,13 +134,10 @@ impl CoretimeInterface for TestCoretimeProvider {
 
 impl TestCoretimeProvider {
 	pub fn spend_instantaneous(_who: u64, price: u64) -> Result<(), ()> {
-		// Commented out code is from the reference mock implementation and should be uncommented as
-		// soon as we have the credit system implemented
-
-		// let mut c = CoretimeCredit::get();
+		let c = CoretimeCredit::get();
 		ensure!(CoretimeInPool::get() > 0, ());
 		// c.insert(who, c.get(&who).ok_or(())?.checked_sub(price).ok_or(())?);
-		// CoretimeCredit::set(c);
+		CoretimeCredit::set(c);
 		CoretimeSpending::mutate(|v| {
 			v.push((RCBlockNumberProviderOf::<Self>::current_block_number() as u32, price))
 		});
@@ -222,6 +220,11 @@ pub fn advance_sale_period() {
 
 pub fn pot() -> u64 {
 	balance(Broker::account_id())
+}
+
+pub fn mint_to_pot(amount: u64) {
+	let imb = <Test as crate::Config>::Currency::issue(amount);
+	let _ = <Test as crate::Config>::Currency::resolve(&Broker::account_id(), imb);
 }
 
 pub fn revenue() -> u64 {

@@ -17,6 +17,12 @@
 use super::*;
 
 use crate::{
+	assigner_on_demand::{
+		self,
+		mock_helpers::GenesisConfigBuilder,
+		types::{QueueIndex, ReverseQueueIndex},
+		Error,
+	},
 	initializer::SessionChangeNotification,
 	mock::{
 		new_test_ext, Balances, OnDemand, Paras, ParasShared, RuntimeOrigin, Scheduler, System,
@@ -29,15 +35,14 @@ use crate::{
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 };
-use frame_support::{assert_noop, assert_ok, error::BadOrigin};
+use alloc::collections::btree_map::BTreeMap;
+use core::cmp::{Ord, Ordering};
+use frame_support::{assert_noop, assert_ok};
 use pallet_balances::Error as BalancesError;
 use polkadot_primitives::{
 	BlockNumber, SessionIndex, ValidationCode, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
-use sp_std::{
-	cmp::{Ord, Ordering},
-	collections::btree_map::BTreeMap,
-};
+use sp_runtime::traits::BadOrigin;
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
 	let validation_code: ValidationCode = vec![1, 2, 3].into();
@@ -766,5 +771,114 @@ fn revenue_information_fetching_works() {
 		}
 		let revenue = OnDemand::claim_revenue_until(36);
 		assert_eq!(revenue, 150_000);
+	});
+}
+
+#[test]
+fn revenue_information_fetching_works() {
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		let para_a = ParaId::from(111);
+		schedule_blank_para(para_a, ParaKind::Parathread);
+		// Mock assigner sets max revenue history to 10.
+		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		let revenue = OnDemandAssigner::claim_revenue_until(10);
+
+		// No revenue should be recorded.
+		assert_eq!(revenue, 0);
+
+		// Place one order
+		place_order_run_to_blocknumber(para_a, Some(11));
+		let revenue = OnDemandAssigner::get_revenue();
+		let claim = OnDemandAssigner::claim_revenue_until(11);
+
+		// Revenue until the current block is still zero as "until" is non-inclusive
+		assert_eq!(claim, 0);
+
+		run_to_block(12, |n| if n == 12 { Some(Default::default()) } else { None });
+		let claim = OnDemandAssigner::claim_revenue_until(12);
+
+		// Revenue for a single order should be recorded and shouldn't have been pruned by the
+		// previous call
+		assert_eq!(claim, revenue[0]);
+
+		// Place many orders
+		place_order(para_a);
+		place_order(para_a);
+
+		run_to_block(13, |n| if n == 13 { Some(Default::default()) } else { None });
+
+		place_order(para_a);
+
+		run_to_block(15, |n| if n == 14 { Some(Default::default()) } else { None });
+
+		let revenue = OnDemandAssigner::claim_revenue_until(15);
+
+		// All 3 orders should be accounted for.
+		assert_eq!(revenue, 30_000);
+
+		// Place one order
+		place_order_run_to_blocknumber(para_a, Some(16));
+
+		let revenue = OnDemandAssigner::claim_revenue_until(15);
+
+		// Order is not in range of  the revenue_until call
+		assert_eq!(revenue, 0);
+
+		run_to_block(21, |n| if n == 20 { Some(Default::default()) } else { None });
+		let revenue = OnDemandAssigner::claim_revenue_until(21);
+		assert_eq!(revenue, 10_000);
+
+		// Make sure overdue revenue is accumulated
+		for i in 21..=35 {
+			run_to_block(i, |n| if n % 10 == 0 { Some(Default::default()) } else { None });
+			place_order(para_a);
+		}
+		run_to_block(36, |_| None);
+		let revenue = OnDemandAssigner::claim_revenue_until(36);
+		assert_eq!(revenue, 150_000);
+	});
+}
+
+#[test]
+fn pot_account_is_immortal() {
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		let para_a = ParaId::from(111);
+		let pot = OnDemandAssigner::account_id();
+		assert!(!System::account_exists(&pot));
+		schedule_blank_para(para_a, ParaKind::Parathread);
+		// Mock assigner sets max revenue history to 10.
+
+		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		place_order_run_to_blocknumber(para_a, Some(12));
+		let purchase_revenue = Balances::free_balance(&pot);
+		assert!(purchase_revenue > 0);
+
+		run_to_block(15, |_| None);
+		let _imb = <Test as assigner_on_demand::Config>::Currency::withdraw(
+			&pot,
+			purchase_revenue,
+			WithdrawReasons::FEE,
+			ExistenceRequirement::AllowDeath,
+		);
+		assert_eq!(Balances::free_balance(&pot), 0);
+		assert!(System::account_exists(&pot));
+		assert_eq!(System::providers(&pot), 1);
+
+		// One more cycle to make sure providers are not increased on every transition from zero
+		run_to_block(20, |n| if n == 20 { Some(Default::default()) } else { None });
+		place_order_run_to_blocknumber(para_a, Some(22));
+		let purchase_revenue = Balances::free_balance(&pot);
+		assert!(purchase_revenue > 0);
+
+		run_to_block(25, |_| None);
+		let _imb = <Test as assigner_on_demand::Config>::Currency::withdraw(
+			&pot,
+			purchase_revenue,
+			WithdrawReasons::FEE,
+			ExistenceRequirement::AllowDeath,
+		);
+		assert_eq!(Balances::free_balance(&pot), 0);
+		assert!(System::account_exists(&pot));
+		assert_eq!(System::providers(&pot), 1);
 	});
 }

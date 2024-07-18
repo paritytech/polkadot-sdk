@@ -17,13 +17,16 @@
 
 #![deny(missing_docs)]
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::fmt::Debug;
 use frame_support::Parameter;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::BlockNumberProvider;
-use sp_std::{fmt::Debug, vec::Vec};
+
+use crate::Timeslice;
 
 /// Index of a Polkadot Core.
 pub type CoreIndex = u16;
@@ -106,6 +109,11 @@ pub trait CoretimeInterface {
 		assignment: Vec<(CoreAssignment, PartsOf57600)>,
 		end_hint: Option<RCBlockNumberOf<Self>>,
 	);
+
+	/// A hook supposed to be called right after a new timeslice has begun. Likely to be used for
+	/// batching different matters happened during the timeslice that may benifit from batched
+	/// processing.
+	fn on_new_timeslice(_timeslice: Timeslice) {}
 }
 
 impl CoretimeInterface for () {

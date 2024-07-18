@@ -31,6 +31,7 @@
 //! occupying multiple cores in on-demand, we will likely add a separate order type, where the
 //! intent can be made explicit.
 
+use sp_runtime::traits::Zero;
 mod benchmarking;
 pub mod migration;
 mod mock_helpers;
@@ -54,13 +55,12 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_system::pallet_prelude::*;
+use frame_system::{pallet_prelude::*, Pallet as System};
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use sp_runtime::{
-	traits::{AccountIdConversion, One, SaturatedConversion, Zero},
+	traits::{AccountIdConversion, One, SaturatedConversion},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
 };
-use sp_std::prelude::*;
 use types::{
 	BalanceOf, CoreAffinityCount, EnqueuedOrder, QueuePushDirection, QueueStatusType,
 	SpotTrafficCalculationErr,
@@ -125,12 +125,6 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 	}
 
-	/// Creates and empty revenue tracker if one isn't present in storage already.
-	#[pallet::type_value]
-	pub fn RevenueOnEmpty<T: Config>() -> BoundedVec<BalanceOf<T>, T::MaxHistoricalRevenue> {
-		BoundedVec::new()
-	}
-
 	/// Creates an empty queue status for an empty queue with initial traffic value.
 	#[pallet::type_value]
 	pub(super) fn QueueStatusOnEmpty<T: Config>() -> QueueStatusType {
@@ -172,12 +166,8 @@ pub mod pallet {
 
 	/// Keeps track of accumulated revenue from on demand order sales.
 	#[pallet::storage]
-	pub type Revenue<T: Config> = StorageValue<
-		_,
-		BoundedVec<BalanceOf<T>, T::MaxHistoricalRevenue>,
-		ValueQuery,
-		RevenueOnEmpty<T>,
-	>;
+	pub type Revenue<T: Config> =
+		StorageValue<_, BoundedVec<BalanceOf<T>, T::MaxHistoricalRevenue>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -205,8 +195,8 @@ pub mod pallet {
 				if let Some(overdue) =
 					revenue.force_insert_keep_left(0, 0u32.into()).defensive_unwrap_or(None)
 				{
-					// We have some overdue revenue not claimed by the parachain, let's accumulate
-					// it at the oldest stored block
+					// We have some overdue revenue not claimed by the Coretime Chain, let's
+					// accumulate it at the oldest stored block
 					if let Some(last) = revenue.last_mut() {
 						*last = last.saturating_add(overdue);
 					}
@@ -356,7 +346,7 @@ where
 
 	/// Helper function for `place_order_*` calls. Used to differentiate between placing orders
 	/// with a keep alive check or to allow the account to be reaped. The amount charged is
-	/// burnt from the `Currency` and stored to the pallet account.
+	/// stored to the pallet account to be later paid out as revenue.
 	///
 	/// Parameters:
 	/// - `sender`: The sender of the call, funds will be withdrawn from this account.
@@ -396,16 +386,22 @@ where
 				Error::<T>::QueueFull
 			);
 
-			// Charge the sending account the spot price. The amount will be burnt once the
-			// broker chain requests revenue information.
+			// Charge the sending account the spot price. The amount will be teleported to the
+			// broker chain once it requests revenue information.
 			let amt = T::Currency::withdraw(
 				&sender,
 				spot_price,
 				WithdrawReasons::FEE,
 				existence_requirement,
 			)?;
-			// Consume the negative imbalance and deposit it into the pallet account.
-			T::Currency::resolve_creating(&Self::account_id(), amt);
+
+			// Consume the negative imbalance and deposit it into the pallet account. Make sure the
+			// account preserves even without the existential deposit.
+			let pot = Self::account_id();
+			if !System::<T>::account_exists(&pot) {
+				System::<T>::inc_providers(&pot);
+			}
+			T::Currency::resolve_creating(&pot, amt);
 
 			// Add the amount to the current block's (index 0) revenue information.
 			Revenue::<T>::mutate(|bounded_revenue| {
@@ -413,9 +409,8 @@ where
 					*current_block = current_block.saturating_add(spot_price);
 				} else {
 					// Revenue has already been claimed in the same block, including the block
-					// itself. It shouldn't normally happen as the parachain part checks not to
-					// claim revenue in the future, but relay-chain-only implementations (e.g. mocks
-					// or some future implementations) may still do that.
+					// itself. It shouldn't normally happen as revenue claims in the future are
+					// not allowed.
 					bounded_revenue.try_push(spot_price).defensive_ok();
 				}
 			});
@@ -651,16 +646,10 @@ where
 			}
 		});
 
-		let imbalance = T::Currency::burn(amount);
-		let _ = T::Currency::settle(
-			&Self::account_id(),
-			imbalance,
-			WithdrawReasons::FEE,
-			ExistenceRequirement::AllowDeath,
-		);
 		amount
 	}
 
+	/// Account of the pallet pot, where the funds from instantaneous coretime sale are accumulated.
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
 	}

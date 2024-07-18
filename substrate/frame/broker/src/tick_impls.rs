@@ -16,14 +16,10 @@
 // limitations under the License.
 
 use super::*;
-use frame_support::{
-	pallet_prelude::*,
-	traits::{fungible::Balanced, DefensiveResult},
-	weights::WeightMeter,
-};
+use alloc::{vec, vec::Vec};
+use frame_support::{pallet_prelude::*, traits::defensive_prelude::*, weights::WeightMeter};
 use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
 use sp_runtime::traits::ConvertBack;
-use sp_std::{vec, vec::Vec};
 use CompletionStatus::Complete;
 
 impl<T: Config> Pallet<T> {
@@ -80,6 +76,8 @@ impl<T: Config> Pallet<T> {
 			let rc_block = T::TimeslicePeriod::get() * status.last_timeslice.into();
 			T::Coretime::request_revenue_info_at(rc_block);
 			meter.consume(T::WeightInfo::request_revenue_info_at());
+			T::Coretime::on_new_timeslice(status.last_timeslice);
+			meter.consume(T::WeightInfo::on_new_timeslice());
 		}
 
 		Status::<T>::put(&status);
@@ -114,10 +112,6 @@ impl<T: Config> Pallet<T> {
 			"Received {amount:?} from RC, converted into {revenue:?} revenue",
 		);
 
-		// Mint revenue amount on our end of the teleport
-		let revenue_imbalance = T::Currency::issue(revenue);
-		T::Currency::resolve(&Self::account_id(), revenue_imbalance).defensive_ok();
-
 		let mut r = InstaPoolHistory::<T>::get(when).unwrap_or_default();
 		if r.maybe_payout.is_some() {
 			Self::deposit_event(Event::<T>::HistoryIgnored { when, revenue });
@@ -128,7 +122,7 @@ impl<T: Config> Pallet<T> {
 		let system_payout = if !total_contrib.is_zero() {
 			let system_payout =
 				revenue.saturating_mul(r.system_contributions.into()) / total_contrib.into();
-			let _ = Self::charge(&Self::account_id(), system_payout);
+			Self::charge(&Self::account_id(), system_payout).defensive_ok();
 			revenue.saturating_reduce(system_payout);
 
 			system_payout

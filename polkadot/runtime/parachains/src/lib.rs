@@ -53,6 +53,8 @@ mod mock;
 #[cfg(test)]
 mod ump_tests;
 
+extern crate alloc;
+
 pub use origin::{ensure_parachain, Origin};
 pub use paras::{ParaLifecycle, UpgradeStrategy};
 use polkadot_primitives::{HeadData, Id as ParaId, ValidationCode};

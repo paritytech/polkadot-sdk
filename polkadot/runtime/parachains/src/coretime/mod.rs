@@ -18,16 +18,33 @@
 //!
 //! <https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md>
 
-use frame_support::{pallet_prelude::*, traits::Currency};
+use alloc::{vec, vec::Vec};
+use core::result;
+use frame_support::{
+	pallet_prelude::*,
+	traits::{defensive_prelude::*, Currency},
+};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use polkadot_primitives::{Balance, BlockNumber, CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
-use sp_std::{prelude::*, result};
-use xcm::prelude::{
-	send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm,
+use sp_runtime::traits::TryConvert;
+use xcm::{
+	prelude::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm},
+	v4::{
+		Asset,
+		AssetFilter::Wild,
+		AssetId, Assets, Error as XcmError,
+		Fungibility::Fungible,
+		Instruction::{DepositAsset, ReceiveTeleportedAsset},
+		Junctions::Here,
+		Reanchorable,
+		WildAsset::AllCounted,
+		XcmContext,
+	},
 };
+use xcm_executor::traits::TransactAsset;
 
 use crate::{
 	assigner_coretime::{self, PartsOf57600},
@@ -101,6 +118,9 @@ enum CoretimeCalls {
 pub mod pallet {
 
 	use crate::configuration;
+	use sp_runtime::traits::TryConvert;
+	use xcm::v4::InteriorLocation;
+	use xcm_executor::traits::TransactAsset;
 
 	use super::*;
 
@@ -118,9 +138,17 @@ pub mod pallet {
 		/// The ParaId of the coretime chain.
 		#[pallet::constant]
 		type BrokerId: Get<u32>;
+		/// The coretime chain pot location.
+		#[pallet::constant]
+		type BrokerPotLocation: Get<InteriorLocation>;
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
+		/// The XCM sender.
 		type SendXcm: SendXcm;
+		/// The asset transactor.
+		type AssetTransactor: TransactAsset;
+		/// AccountId to Location converter
+		type AccountToLocation: for<'a> TryConvert<&'a Self::AccountId, Location>;
 
 		/// Maximum weight for any XCM transact call that should be executed on the coretime chain.
 		///
@@ -144,6 +172,8 @@ pub mod pallet {
 		/// Requested revenue information `when` parameter was in the future from the current
 		/// block height.
 		RequestedFutureRevenue,
+		/// Failed to transfer assets to the coretime chain
+		AssetTransferFailed,
 	}
 
 	#[pallet::hooks]
@@ -166,18 +196,14 @@ pub mod pallet {
 			configuration::Pallet::<T>::set_coretime_cores_unchecked(u32::from(count))
 		}
 
-		/// Requests that the Relay-chain send a notify_revenue message back at or soon
-		/// after Relay-chain block number when whose until parameter is equal to `when`.
-		///
-		/// The period in to the past which when is allowed to be may be limited;
-		/// if so the limit should be understood on a channel outside of this proposal.
-		/// In the case that the request cannot be serviced because when is too old a block
-		/// then a `notify_revenue`` message must still be returned, but its `revenue` field
-		/// may be `None``.
+		/// Request to claim the instantaneous coretime sales revenue starting from the block it was
+		/// last claimed until and up to the block specified. The claimed amount value is sent back
+		/// to the Coretime chain in a `notify_revenue` message. At the same time, the amount is
+		/// teleported to the Coretime chain.
 		#[pallet::weight(<T as Config>::WeightInfo::request_revenue_at())]
 		#[pallet::call_index(2)]
 		pub fn request_revenue_at(origin: OriginFor<T>, when: BlockNumber) -> DispatchResult {
-			// Ignore requests not coming from the broker parachain or root.
+			// Ignore requests not coming from the Coretime Chain or Root.
 			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
 			Self::notify_revenue(when)
 		}
@@ -274,36 +300,25 @@ impl<T: Config> Pallet<T> {
 	///
 	/// The Relay-chain must be configured to ensure that only a single revenue information
 	/// destination exists.
-	pub fn notify_revenue(when: BlockNumber) -> DispatchResult {
+	pub fn notify_revenue(until: BlockNumber) -> DispatchResult {
 		let now = <frame_system::Pallet<T>>::block_number();
-		let when_bnf: BlockNumberFor<T> = when.into();
+		let until_bnf: BlockNumberFor<T> = until.into();
 
 		// When cannot be in the future.
-		ensure!(when_bnf <= now, Error::<T>::RequestedFutureRevenue);
+		ensure!(until_bnf <= now, Error::<T>::RequestedFutureRevenue);
 
-		let revenue = <on_demand::Pallet<T>>::claim_revenue_until(when_bnf);
-		log::debug!(target: LOG_TARGET, "Revenue info requested: {:?}", revenue);
-		match TryInto::<Balance>::try_into(revenue) {
-			Ok(raw_revenue) => {
-				log::trace!(target: LOG_TARGET, "Revenue into balance success: {:?}", raw_revenue);
-				let message = Xcm(vec![
-					Instruction::UnpaidExecution {
-						weight_limit: WeightLimit::Unlimited,
-						check_origin: None,
-					},
-					mk_coretime_call::<T>(CoretimeCalls::NotifyRevenue((when, raw_revenue))),
-				]);
-				if let Err(err) = send_xcm::<T::SendXcm>(
-					Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
-					message,
-				) {
-					log::error!(target: LOG_TARGET, "Sending `NotifyRevenue` to coretime chain failed: {:?}", err);
-				}
-			},
-			Err(_err) => {
-				log::error!(target: LOG_TARGET, "Converting on demand revenue for `NotifyRevenue`failed");
-			},
-		}
+		let amount = <on_demand::Pallet<T>>::claim_revenue_until(until_bnf);
+		log::debug!(target: LOG_TARGET, "Revenue info requested: {:?}", amount);
+
+		let raw_revenue: Balance = amount.try_into().map_err(|_| {
+			log::error!(target: LOG_TARGET, "Converting on demand revenue for `NotifyRevenue` failed");
+			Error::<T>::AssetTransferFailed
+		})?;
+
+		do_notify_revenue::<T>(until, raw_revenue).map_err(|err| {
+			log::error!(target: LOG_TARGET, "notify_revenue failed: {err:?}");
+			Error::<T>::AssetTransferFailed
+		})?;
 
 		Ok(())
 	}
@@ -339,4 +354,57 @@ fn mk_coretime_call<T: Config>(call: crate::coretime::CoretimeCalls) -> Instruct
 		require_weight_at_most: T::MaxXcmTransactWeight::get(),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
+}
+
+fn do_notify_revenue<T: Config>(when: BlockNumber, raw_revenue: Balance) -> Result<(), XcmError> {
+	let dest = Junction::Parachain(T::BrokerId::get()).into_location();
+	let mut message = Vec::new();
+	let asset = Asset { id: AssetId(Location::here()), fun: Fungible(raw_revenue) };
+	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
+
+	if raw_revenue > 0 {
+		let on_demand_pot =
+			T::AccountToLocation::try_convert(&<on_demand::Pallet<T>>::account_id()).map_err(
+				|err| {
+					log::error!(
+						target: LOG_TARGET,
+						"Failed to convert on-demand pot account to XCM location: {err:?}",
+					);
+					XcmError::InvalidLocation
+				},
+			)?;
+
+		let withdrawn = T::AssetTransactor::withdraw_asset(&asset, &on_demand_pot, None)?;
+
+		T::AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
+
+		let assets_reanchored = Into::<Assets>::into(withdrawn)
+			.reanchored(&dest, &Here.into())
+			.defensive_map_err(|_| XcmError::ReanchorFailed)?;
+
+		message.extend(
+			[
+				Instruction::UnpaidExecution {
+					weight_limit: WeightLimit::Unlimited,
+					check_origin: None,
+				},
+				ReceiveTeleportedAsset(assets_reanchored),
+				DepositAsset {
+					assets: Wild(AllCounted(1)),
+					beneficiary: T::BrokerPotLocation::get().into_location(),
+				},
+			]
+			.into_iter(),
+		);
+	}
+
+	message.push(mk_coretime_call::<T>(CoretimeCalls::NotifyRevenue((when, raw_revenue))));
+
+	send_xcm::<T::SendXcm>(dest.clone(), Xcm(message))?;
+
+	if raw_revenue > 0 {
+		T::AssetTransactor::check_out(&dest, &asset, &dummy_xcm_context);
+	}
+
+	Ok(())
 }

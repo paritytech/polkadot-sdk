@@ -18,9 +18,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::Encode;
 use frame_benchmarking::{account, BenchmarkError};
-use sp_std::prelude::*;
 use xcm::latest::prelude::*;
 use xcm_builder::EnsureDelivery;
 use xcm_executor::{traits::ConvertLocation, Config as XcmConfig};
