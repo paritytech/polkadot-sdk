@@ -45,7 +45,7 @@ fn mb_migration_target_list_simple_works() {
 		// allocate 3 steps per block to do the full migration in one step.
 		let limit = <T as pallet_migrations::Config>::WeightInfo::progress_mbms_none() +
 			pallet_migrations::Pallet::<T>::exec_migration_max_weight() +
-			SubstrateWeight::<T>::v13_mmb_step() * 3;
+			SubstrateWeight::<T>::v13_mmb_partial_step() * 3;
 		MigratorServiceWeight::set(&limit);
 
 		// migrate 3 nominators.
@@ -81,7 +81,7 @@ fn mb_migration_target_list_multiple_steps_works() {
 		// allocate 1 step (i.e. 1 nominator) per block.
 		let limit = <T as pallet_migrations::Config>::WeightInfo::progress_mbms_none() +
 			pallet_migrations::Pallet::<T>::exec_migration_max_weight() +
-			SubstrateWeight::<T>::v13_mmb_step();
+			SubstrateWeight::<T>::v13_mmb_partial_step();
 		MigratorServiceWeight::set(&limit);
 
 		AllPalletsWithSystem::on_runtime_upgrade(); // onboard MBMs

@@ -1158,16 +1158,19 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Multi-block step benchmark for v13 stake-tracker migration.
+	/// Multi-block (partial) step benchmark for v13 stake-tracker migration.
 	///
-	/// The setup benchmarks the worst case scenario of a *single-step* of the migration. A single
-	/// step of this MMB migration consists of migrating one nominator, i.e. fetch all the
+	/// The setup benchmarks the worst case scenario of a *partial-step* of the MMB migration. The
+	/// partial step of this MMB migration consists of migrating one nominator, i.e. fetch all the
 	/// nominated targets of one nominator and add them to the target list.
 	/// The worst case scenario case should consider potential rebaggings done internally by the
 	/// sorted list provider, thus we populate the target list with 1000 validators before the
 	/// migration.
+	///
+	/// Note: a MMB migration step may include *several* partial steps, so each block during MMBs
+	/// progresses as much as possible.
 	#[benchmark]
-	fn v13_mmb_step() {
+	fn v13_mmb_partial_step() {
 		let mut meter = WeightMeter::new();
 
 		let n_validators = 1000;

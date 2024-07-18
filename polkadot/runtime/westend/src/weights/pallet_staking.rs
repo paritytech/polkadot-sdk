@@ -972,7 +972,7 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 	/// Proof: `TargetList::ListBags` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
 	/// Storage: `TargetList::CounterForListNodes` (r:1 w:1)
 	/// Proof: `TargetList::CounterForListNodes` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn v13_mmb_step() -> Weight {
+	fn v13_mmb_partial_step() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `167522`
 		//  Estimated: `2645990`

@@ -96,15 +96,17 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> 
 		mut cursor: Option<Self::Cursor>,
 		meter: &mut frame_support::weights::WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		let required = W::v13_mmb_step();
+		// Worst-case scenario weight required to process one nominator or validator.
+		let partial_step_weight = W::v13_mmb_partial_step();
 
 		// If there's no enough weight left in the block for a migration step, return an error.
-		if meter.remaining().any_lt(required) {
-			return Err(SteppedMigrationError::InsufficientWeight { required });
+		if meter.remaining().any_lt(partial_step_weight) {
+			return Err(SteppedMigrationError::InsufficientWeight { required: partial_step_weight });
 		}
 
-		// do as much progress as possible per step.
-		while meter.try_consume(required).is_ok() {
+		// Do as much progress as possible per step. As far as the meter allows, keeps processing
+		// the partial steps (i.e. migrating one nominator/validator).
+		while meter.try_consume(partial_step_weight).is_ok() {
 			let new_cursor = match cursor {
 				None => {
 					// start processing first nominator.
