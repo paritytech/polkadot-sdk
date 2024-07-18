@@ -18454,6 +18454,7 @@ dependencies = [
  "criterion",
  "futures",
  "futures-timer",
+ "indexmap 2.2.3",
  "itertools 0.11.0",
  "linked-hash-map",
  "log",
