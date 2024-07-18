@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721317206888,
+  "lastUpdate": 1721336866635,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -11185,6 +11185,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.956062645920148,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Juan Ignacio Rios",
+            "username": "JuaniRios",
+            "email": "54085674+JuaniRios@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ad9804f7b1e707d5144bcdc14b67c19db2975da8",
+          "message": "Add `pub` to xcm::v4::PalletInfo (#4976)\n\nv3 PalletInfo had the fields public, but not v4. Any reason why?\nI need the PalletInfo fields public so I can read the values and do some\nlogic based on that at Polimec\n@franciscoaguirre \n\nIf this could be backported would be highly appreciated 🙏🏻\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-07-18T19:35:00Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ad9804f7b1e707d5144bcdc14b67c19db2975da8"
+        },
+        "date": 1721336835927,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63789.81999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.695657844690036,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.044847288740046,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.9596171705601693,
             "unit": "seconds"
           }
         ]
