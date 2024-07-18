@@ -26,7 +26,9 @@
     "/dns/boot.metaspan.io/tcp/25068/p2p/12D3KooWDoDLtLvQi8hhFVyubPZhaYuAwSAJrPFtyGWJ2NSfBiyP",
     "/dns/boot.metaspan.io/tcp/25069/wss/p2p/12D3KooWDoDLtLvQi8hhFVyubPZhaYuAwSAJrPFtyGWJ2NSfBiyP",
     "/dns/ibp-boot-kusama-people.luckyfriday.io/tcp/30342/p2p/12D3KooWM4bRafMH2StfBEQtyj5cMWfGLYbuikCZmvKv9m1MQVPn",
-    "/dns/ibp-boot-kusama-people.luckyfriday.io/tcp/443/wss/p2p/12D3KooWM4bRafMH2StfBEQtyj5cMWfGLYbuikCZmvKv9m1MQVPn"
+    "/dns/ibp-boot-kusama-people.luckyfriday.io/tcp/443/wss/p2p/12D3KooWM4bRafMH2StfBEQtyj5cMWfGLYbuikCZmvKv9m1MQVPn",
+    "/dns4/people-kusama.boot.stake.plus/tcp/30332/wss/p2p/12D3KooWRuKr3ogzXwD8zE2CTWenGdy8vSfViAjYMwGiwvFCsz8n",
+    "/dns/people-kusama.boot.stake.plus/tcp/31332/wss/p2p/12D3KooWFkDKdFxBJFyj9zumuJ4Mmctec2GqdYHcKYq8MTVe8dxf"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
