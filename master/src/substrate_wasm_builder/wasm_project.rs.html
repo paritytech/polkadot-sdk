@@ -1323,6 +1323,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1172" id="1172">1172</a>
 <a href="#1173" id="1173">1173</a>
 <a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1570,6 +1576,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				compact_blob_path.as_ref().and_then(|p| try_compress_blob(<span class="kw-2">&amp;</span>p.<span class="number">0</span>, blob_name));
 			(compact_blob_path, compact_compressed_blob_path)
 		} <span class="kw">else </span>{
+			<span class="comment">// We at least want to lower the `sign-ext` code to `mvp`.
+			</span>wasm_opt::OptimizationOptions::new_opt_level_0()
+				.add_pass(wasm_opt::Pass::SignextLowering)
+				.run(bloaty_blob_binary.bloaty_path(), bloaty_blob_binary.bloaty_path())
+				.expect(<span class="string">"Failed to lower sign-ext in WASM binary."</span>);
+
 			(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
 		};
 
@@ -2108,9 +2120,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>(<span class="prelude-val">None</span>, <span class="bool-val">false</span>) =&gt; {
 				<span class="kw">let </span>profile = Profile::Release;
 				<span class="macro">build_helper::warning!</span>(
-					<span class="string">"Unknown cargo profile `{}`. Defaulted to `{:?}` for the runtime build."</span>,
-					name,
-					profile,
+					<span class="string">"Unknown cargo profile `{name}`. Defaulted to `{profile:?}` for the runtime build."</span>,
 				);
 				profile
 			},
@@ -2118,8 +2128,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>(<span class="prelude-val">None</span>, <span class="bool-val">true</span>) =&gt; {
 				<span class="comment">// We use println! + exit instead of a panic in order to have a cleaner output.
 				</span><span class="macro">println!</span>(
-					<span class="string">"Unexpected profile name: `{}`. One of the following is expected: {:?}"</span>,
-					name,
+					<span class="string">"Unexpected profile name: `{name}`. One of the following is expected: {:?}"</span>,
 					Profile::iter().map(|p| p.directory()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 				);
 				process::exit(<span class="number">1</span>);
@@ -2288,13 +2297,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.mvp_features_only()
 		.debug_info(<span class="bool-val">true</span>)
 		.add_pass(wasm_opt::Pass::StripDwarf)
+		.add_pass(wasm_opt::Pass::SignextLowering)
 		.run(bloaty_binary.bloaty_path(), <span class="kw-2">&amp;</span>wasm_compact_path)
 		.expect(<span class="string">"Failed to compact generated WASM binary."</span>);
+
 	<span class="macro">println!</span>(
 		<span class="string">"{} {}"</span>,
 		colorize_info_message(<span class="string">"Compacted wasm in"</span>),
 		colorize_info_message(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, start.elapsed()).as_str())
 	);
+
 	<span class="prelude-val">Some</span>(WasmBinary(wasm_compact_path))
 }
 
