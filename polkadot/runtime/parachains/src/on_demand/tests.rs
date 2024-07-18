@@ -17,18 +17,13 @@
 use super::*;
 
 use crate::{
-	assigner_on_demand::{
-		self,
-		mock_helpers::GenesisConfigBuilder,
-		types::{QueueIndex, ReverseQueueIndex},
-		Error,
-	},
 	initializer::SessionChangeNotification,
 	mock::{
 		new_test_ext, Balances, OnDemand, Paras, ParasShared, RuntimeOrigin, Scheduler, System,
 		Test,
 	},
 	on_demand::{
+		self,
 		mock_helpers::GenesisConfigBuilder,
 		types::{QueueIndex, ReverseQueueIndex},
 		Error,
@@ -778,7 +773,7 @@ fn revenue_information_fetching_works() {
 fn pot_account_is_immortal() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let para_a = ParaId::from(111);
-		let pot = OnDemandAssigner::account_id();
+		let pot = OnDemand::account_id();
 		assert!(!System::account_exists(&pot));
 		schedule_blank_para(para_a, ParaKind::Parathread);
 		// Mock assigner sets max revenue history to 10.
@@ -789,7 +784,7 @@ fn pot_account_is_immortal() {
 		assert!(purchase_revenue > 0);
 
 		run_to_block(15, |_| None);
-		let _imb = <Test as assigner_on_demand::Config>::Currency::withdraw(
+		let _imb = <Test as on_demand::Config>::Currency::withdraw(
 			&pot,
 			purchase_revenue,
 			WithdrawReasons::FEE,
@@ -806,7 +801,7 @@ fn pot_account_is_immortal() {
 		assert!(purchase_revenue > 0);
 
 		run_to_block(25, |_| None);
-		let _imb = <Test as assigner_on_demand::Config>::Currency::withdraw(
+		let _imb = <Test as on_demand::Config>::Currency::withdraw(
 			&pot,
 			purchase_revenue,
 			WithdrawReasons::FEE,

@@ -33,7 +33,7 @@ use sp_arithmetic::Perbill;
 use sp_core::{ConstU32, ConstU64, Get};
 use sp_runtime::{
 	traits::{BlockNumberProvider, Identity},
-	BuildStorage,
+	BuildStorage, Saturating,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -64,11 +64,8 @@ pub enum CoretimeTraceItem {
 use CoretimeTraceItem::*;
 
 parameter_types! {
-	// Commented out code is from the reference mock implementation and should be uncommented as
-	// soon as we have the credit system implemented
-
 	pub static CoretimeTrace: Vec<(u32, CoretimeTraceItem)> = Default::default();
-	// pub static CoretimeCredit: BTreeMap<u64, u64> = Default::default();
+	pub static CoretimeCredit: BTreeMap<u64, u64> = Default::default();
 	pub static CoretimeSpending: Vec<(u32, u64)> = Default::default();
 	pub static CoretimeWorkplan: BTreeMap<(u32, CoreIndex), Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeUsage: BTreeMap<CoreIndex, Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
@@ -106,11 +103,8 @@ impl CoretimeInterface for TestCoretimeProvider {
 		mint_to_pot(total);
 		RevenueInbox::<Test>::put(OnDemandRevenueRecord { until: when, amount: total });
 	}
-	fn credit_account(_who: Self::AccountId, _amount: Self::Balance) {
-		// Commented out code is from the reference mock implementation and should be uncommented as
-		// soon as we have the credit system implemented
-
-		// CoretimeCredit::mutate(|c| c.entry(who).or_default().saturating_accrue(amount));
+	fn credit_account(who: Self::AccountId, amount: Self::Balance) {
+		CoretimeCredit::mutate(|c| c.entry(who).or_default().saturating_accrue(amount));
 	}
 	fn assign_core(
 		core: CoreIndex,
