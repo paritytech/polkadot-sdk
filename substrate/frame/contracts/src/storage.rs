@@ -335,7 +335,7 @@ impl<T: Config> ContractInfo<T> {
 }
 
 /// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(any(test, feature = "runtime-benchmarks"), derive(Debug, PartialEq))]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
 	New,
