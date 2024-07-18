@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::Encode;
+use codec::{Compact, Encode};
 use scale_info::{
 	form::{Form, MetaForm, PortableForm},
 	prelude::{collections::BTreeMap, vec::Vec},
@@ -505,7 +505,7 @@ pub enum DeprecationInfoIR<T: Form = MetaForm> {
 	/// Entry is partially deprecated.
 	/// For Errors and Events this means that only some of the variants are deprecated
 	/// For Calls only certain call indexes are deprecated
-	PartiallyDeprecated(BTreeMap<u8, DeprecationStatusIR<T>>),
+	PartiallyDeprecated(BTreeMap<Compact<u8>, DeprecationStatusIR<T>>),
 }
 impl IntoPortable for DeprecationInfoIR {
 	type Output = DeprecationInfoIR<PortableForm>;

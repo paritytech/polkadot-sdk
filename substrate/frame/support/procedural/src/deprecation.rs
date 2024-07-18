@@ -102,7 +102,7 @@ pub fn get_deprecation_enum<'a>(
 
 	let children = children_attrs
 		.filter_map(|(key, attributes)| {
-			let key = key as u8;
+			let key = quote::quote! { #path::__private::codec::Compact(#key as u8) };
 			let deprecation_status = parse_deprecation(path, attributes).transpose();
 			deprecation_status.map(|item| item.map(|item| quote::quote! { (#key, #item) }))
 		})
