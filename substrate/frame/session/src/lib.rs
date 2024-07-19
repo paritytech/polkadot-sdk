@@ -424,6 +424,9 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub keys: Vec<(T::AccountId, T::ValidatorId, T::Keys)>,
+		/// Keys injected for a validatorId, but that will not be considered
+		/// in the initial validators list
+		pub non_authority_keys: Vec<(T::AccountId, T::ValidatorId, T::Keys)>
 	}
 
 	#[pallet::genesis_build]
@@ -446,7 +449,7 @@ pub mod pallet {
 					}
 				});
 
-			for (account, val, keys) in self.keys.iter().cloned() {
+			for (account, val, keys) in self.keys.iter().cloned().chain(self.non_authority_keys.iter().cloned()) {
 				Pallet::<T>::inner_set_keys(&val, keys)
 					.expect("genesis config must not contain duplicates; qed");
 				if frame_system::Pallet::<T>::inc_consumers_without_limit(&account).is_err() {
