@@ -17,7 +17,9 @@ for line in output.splitlines():
 crates = list(set(crates))
 crates.sort()
 
-part = crates[:len(crates)//6]
+groups_total = int(sys.argv[2])
+
+part = crates[:len(crates)//groups_total]
 result = 'package('+part[0]+')'
 
 for pkg in part[1:]:
