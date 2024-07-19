@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721413499965,
+  "lastUpdate": 1721430862042,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -18459,6 +18459,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010288680153333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d649746e840ead01898957329b5f63ddad6e032c",
+          "message": "Implements `PoV` export and local validation (#4640)\n\nThis pull requests adds a new CLI flag to `polkadot-parachains`\n`--export-pov-to-path`. This CLI flag will instruct the node to export\nany `PoV` that it build locally to export to the given folder. Then\nthese `PoV` files can be validated using the introduced\n`cumulus-pov-validator`. The combination of export and validation can be\nused for debugging parachain validation issues that may happen on the\nrelay chain.",
+          "timestamp": "2024-07-19T21:23:06Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d649746e840ead01898957329b5f63ddad6e032c"
+        },
+        "date": 1721430833375,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16823105650666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012088460866666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.021978926079999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00907095277333334,
             "unit": "seconds"
           }
         ]
