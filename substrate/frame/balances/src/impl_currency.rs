@@ -210,8 +210,8 @@ mod imbalances {
 	impl<T: Config<I>, I: 'static> Drop for NegativeImbalance<T, I> {
 		/// Basic drop handler will just square up the total issuance.
 		fn drop(&mut self) {
-			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_sub(self.0));
 			if !self.0.is_zero() {
+				<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_sub(self.0));
 				Pallet::<T, I>::deposit_event(Event::<T, I>::Rescinded { amount: self.0 });
 			}
 		}
