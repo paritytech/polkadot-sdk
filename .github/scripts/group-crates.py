@@ -18,9 +18,9 @@ crates = list(set(crates))
 crates.sort()
 
 part = crates[:len(crates)//6]
-result = ""
+result = 'package('+part[0]+')'
 
-for pkg in part:
-    result += '+ package('+pkg+') '
+for pkg in part[1:]:
+    result += ' + package('+pkg+')'
 
 print(result)
