@@ -257,9 +257,12 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 						self.metrics,
 						beefy_on_demand_justification_no_peer_to_request_from
 					);
+
+					let num_cache = self.peers_cache.len();
+					let num_live = self.live_peers.lock().len();
 					warn!(
 						target: BEEFY_SYNC_LOG_TARGET,
-						"🥩 ran out of peers to request justif #{block:?} from, in flight err: {err:?}"
+						"🥩 ran out of peers to request justif #{block:?} from num_cache={num_cache} num_live={num_live} err={err:?}",
 					);
 				}
 				// Report peer based on error type.
