@@ -204,6 +204,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -221,12 +225,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">pub use </span>asset_hub_rococo_emulated_chain;
 <span class="kw">pub use </span>bridge_hub_rococo_emulated_chain;
+<span class="kw">pub use </span>coretime_rococo_emulated_chain;
 <span class="kw">pub use </span>penpal_emulated_chain;
 <span class="kw">pub use </span>people_rococo_emulated_chain;
 <span class="kw">pub use </span>rococo_emulated_chain;
 
 <span class="kw">use </span>asset_hub_rococo_emulated_chain::AssetHubRococo;
 <span class="kw">use </span>bridge_hub_rococo_emulated_chain::BridgeHubRococo;
+<span class="kw">use </span>coretime_rococo_emulated_chain::CoretimeRococo;
 <span class="kw">use </span>penpal_emulated_chain::{PenpalA, PenpalB};
 <span class="kw">use </span>people_rococo_emulated_chain::PeopleRococo;
 <span class="kw">use </span>rococo_emulated_chain::Rococo;
@@ -243,6 +249,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		parachains = <span class="macro">vec!</span>[
 			AssetHubRococo,
 			BridgeHubRococo,
+			CoretimeRococo,
 			PenpalA,
 			PenpalB,
 			PeopleRococo,
@@ -255,6 +262,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	RococoRelay { sender: ALICE, receiver: BOB },
 	AssetHubRococoPara { sender: ALICE, receiver: BOB },
 	BridgeHubRococoPara { sender: ALICE, receiver: BOB },
+	CoretimeRococoPara { sender: ALICE, receiver: BOB },
 	PenpalAPara { sender: ALICE, receiver: BOB },
 	PenpalBPara { sender: ALICE, receiver: BOB },
 	PeopleRococoPara { sender: ALICE, receiver: BOB }

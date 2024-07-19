@@ -212,6 +212,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -252,7 +255,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>,
 		people_westend_emulated_chain::{
 			genesis::ED <span class="kw">as </span>PEOPLE_WESTEND_ED,
-			people_westend_runtime::{people, xcm_config::XcmConfig <span class="kw">as </span>PeopleWestendXcmConfig},
+			people_westend_runtime::{
+				people, xcm_config::XcmConfig <span class="kw">as </span>PeopleWestendXcmConfig,
+				ExistentialDeposit <span class="kw">as </span>PeopleWestendExistentialDeposit,
+			},
 			PeopleWestendParaPallet <span class="kw">as </span>PeopleWestendPallet,
 		},
 		westend_emulated_chain::{

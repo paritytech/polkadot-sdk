@@ -208,6 +208,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -226,6 +230,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub use </span>asset_hub_westend_emulated_chain;
 <span class="kw">pub use </span>bridge_hub_westend_emulated_chain;
 <span class="kw">pub use </span>collectives_westend_emulated_chain;
+<span class="kw">pub use </span>coretime_westend_emulated_chain;
 <span class="kw">pub use </span>penpal_emulated_chain;
 <span class="kw">pub use </span>people_westend_emulated_chain;
 <span class="kw">pub use </span>westend_emulated_chain;
@@ -233,6 +238,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>asset_hub_westend_emulated_chain::AssetHubWestend;
 <span class="kw">use </span>bridge_hub_westend_emulated_chain::BridgeHubWestend;
 <span class="kw">use </span>collectives_westend_emulated_chain::CollectivesWestend;
+<span class="kw">use </span>coretime_westend_emulated_chain::CoretimeWestend;
 <span class="kw">use </span>penpal_emulated_chain::{PenpalA, PenpalB};
 <span class="kw">use </span>people_westend_emulated_chain::PeopleWestend;
 <span class="kw">use </span>westend_emulated_chain::Westend;
@@ -250,6 +256,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			AssetHubWestend,
 			BridgeHubWestend,
 			CollectivesWestend,
+			CoretimeWestend,
 			PeopleWestend,
 			PenpalA,
 			PenpalB,
@@ -263,6 +270,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AssetHubWestendPara { sender: ALICE, receiver: BOB },
 	BridgeHubWestendPara { sender: ALICE, receiver: BOB },
 	CollectivesWestendPara { sender: ALICE, receiver: BOB },
+	CoretimeWestendPara { sender: ALICE, receiver: BOB },
 	PeopleWestendPara { sender: ALICE, receiver: BOB },
 	PenpalAPara { sender: ALICE, receiver: BOB },
 	PenpalBPara { sender: ALICE, receiver: BOB }
