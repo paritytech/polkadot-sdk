@@ -17,5 +17,5 @@ for line in output.splitlines():
 crates = list(set(crates))
 crates.sort()
 
-part = crates[:len(crates)//5]
+part = crates[:len(crates)//7]
 print( ','.join(part) )
