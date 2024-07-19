@@ -99,6 +99,7 @@ jobs:
       
       - run: rustup component add llvm-tools-preview
       - run: mkdir -p target/coverage/result
+      - run: .github/scripts/group-crates.py 1 5
 
       - name: script
         run: >
