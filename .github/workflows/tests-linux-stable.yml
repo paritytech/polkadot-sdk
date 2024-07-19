@@ -124,7 +124,6 @@ jobs:
           - test(/tests::authoring_blocks/)
           - test(/rejects_missing_seals/)
           "
-        #--partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
 
       - run: cargo llvm-cov report --lcov --output-path lcov.info
       - run: ls -la
