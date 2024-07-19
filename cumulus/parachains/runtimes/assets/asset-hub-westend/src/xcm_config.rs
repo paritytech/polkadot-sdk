@@ -654,9 +654,9 @@ pub mod bridging {
 
 		parameter_types! {
 			/// User fee for ERC20 token transfer back to Ethereum.
-			/// (initially was calculated by test `OutboundQueue::calculate_fees` - ETH/ROC 1/400 and fee_per_gas 20 GWEI = 2200698000000 + *25%)
+			/// (initially was calculated by test `OutboundQueue::calculate_fees` - ETH/WND 1/400 and fee_per_gas 20 GWEI = 2200698000000 + *25%)
 			/// Needs to be more than fee calculated from DefaultFeeConfig FeeConfigRecord in snowbridge:parachain/pallets/outbound-queue/src/lib.rs
-			/// Polkadot uses 10 decimals, Kusama and Rococo 12 decimals.
+			/// Polkadot uses 10 decimals, Kusama,Rococo,Westend 12 decimals.
 			pub const DefaultBridgeHubEthereumBaseFee: Balance = 2_750_872_500_000;
 			pub storage BridgeHubEthereumBaseFee: Balance = DefaultBridgeHubEthereumBaseFee::get();
 			pub SiblingBridgeHubWithEthereumInboundQueueInstance: Location = Location::new(
