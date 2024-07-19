@@ -255,7 +255,7 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 				} else {
 					warn!(
 						target: BEEFY_SYNC_LOG_TARGET,
-						"🥩 ran out of peers to request justif #{:?} from", block
+						"🥩 ran out of peers to request justif #{block:?} from, in flight err: {err:?}"
 					);
 				}
 				// Report peer based on error type.
@@ -269,7 +269,7 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 				metric_inc!(self.metrics, beefy_on_demand_justification_good_proof);
 				debug!(
 					target: BEEFY_SYNC_LOG_TARGET,
-					"🥩 received valid on-demand justif #{:?} from {:?}", block, peer
+					"🥩 received valid on-demand justif #{block:?} from {peer:?}",
 				);
 				let peer_report = PeerReport { who: peer, cost_benefit: benefit::VALIDATED_PROOF };
 				ResponseInfo::ValidProof(proof, peer_report)
