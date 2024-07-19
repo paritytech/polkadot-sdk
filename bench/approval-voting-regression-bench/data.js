@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721413196637,
+  "lastUpdate": 1721430558919,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -11420,6 +11420,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.279399676370173,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d649746e840ead01898957329b5f63ddad6e032c",
+          "message": "Implements `PoV` export and local validation (#4640)\n\nThis pull requests adds a new CLI flag to `polkadot-parachains`\n`--export-pov-to-path`. This CLI flag will instruct the node to export\nany `PoV` that it build locally to export to the given folder. Then\nthese `PoV` files can be validated using the introduced\n`cumulus-pov-validator`. The combination of export and validation can be\nused for debugging parachain validation issues that may happen on the\nrelay chain.",
+          "timestamp": "2024-07-19T21:23:06Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d649746e840ead01898957329b5f63ddad6e032c"
+        },
+        "date": 1721430530359,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63804.219999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.909253429950045,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.294806107199987,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.178613848510085,
             "unit": "seconds"
           }
         ]
