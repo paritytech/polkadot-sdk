@@ -16,8 +16,8 @@
 
 //! Runtime metric primitives.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use sp_std::prelude::*;
 
 /// Runtime metric operations.
 #[derive(Encode, Decode)]
@@ -42,7 +42,7 @@ pub struct RuntimeMetricUpdate {
 }
 
 fn vec_to_str<'a>(v: &'a Vec<u8>, default: &'static str) -> &'a str {
-	return sp_std::str::from_utf8(v).unwrap_or(default)
+	return alloc::str::from_utf8(v).unwrap_or(default)
 }
 
 impl RuntimeMetricLabels {
@@ -99,7 +99,7 @@ pub trait AsStr {
 
 impl AsStr for RuntimeMetricLabel {
 	fn as_str(&self) -> Option<&str> {
-		sp_std::str::from_utf8(&self.0).ok()
+		alloc::str::from_utf8(&self.0).ok()
 	}
 }
 
