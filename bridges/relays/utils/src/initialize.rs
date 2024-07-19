@@ -41,6 +41,8 @@ pub fn initialize_logger(with_timestamp: bool) {
 	)
 	.expect("static format string is valid");
 
+	console::set_colors_enabled(true);
+
 	let mut builder = env_logger::Builder::new();
 	builder.filter_level(log::LevelFilter::Warn);
 	builder.filter_module("bridge", log::LevelFilter::Info);

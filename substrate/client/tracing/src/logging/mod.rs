@@ -182,6 +182,8 @@ where
 	let enable_color = force_colors.unwrap_or_else(|| io::stderr().is_terminal());
 	let timer = fast_local_time::FastLocalTime { with_fractional: detailed_output };
 
+	console::set_colors_enabled(enable_color);
+
 	let event_format = EventFormat {
 		timer,
 		display_target: detailed_output,
