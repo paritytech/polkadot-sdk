@@ -65,6 +65,7 @@ pub enum ExecutionMode {
 	Runtime,
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct InnerValue<V> {

@@ -813,7 +813,9 @@ where
 /// or an owned extension.
 #[cfg(feature = "std")]
 pub enum OverlayedExtension<'a> {
+	#[allow(missing_docs)]
 	MutRef(&'a mut Box<dyn Extension>),
+	#[allow(missing_docs)]
 	Owned(Box<dyn Extension>),
 }
 
