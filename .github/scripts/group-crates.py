@@ -21,6 +21,6 @@ part = crates[:len(crates)//6]
 result = ""
 
 for pkg in part:
-    result += '+package('+pkg+') '
+    result += '+ package('+pkg+') '
 
 print(result)
