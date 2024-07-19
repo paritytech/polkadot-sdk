@@ -742,13 +742,13 @@ frame = { path = "substrate/frame", default-features = false, package = "polkado
 frame-benchmarking = { path = "substrate/frame/benchmarking", default-features = false, version = "37.0.0" }
 frame-benchmarking-cli = { path = "substrate/utils/frame/benchmarking-cli", default-features = false, version = "42.0.0" }
 frame-benchmarking-pallet-pov = { default-features = false, path = "substrate/frame/benchmarking/pov" }
-frame-election-provider-solution-type = { path = "substrate/frame/election-provider-support/solution-type", default-features = false, version = "14.0.0" }
+frame-election-provider-solution-type = { path = "substrate/frame/election-provider-support/solution-type", default-features = false, version = "14.0.1" }
 frame-election-provider-support = { path = "substrate/frame/election-provider-support", default-features = false, version = "37.0.0" }
 frame-executive = { path = "substrate/frame/executive", default-features = false, version = "37.0.0" }
 frame-metadata = { version = "16.0.0", default-features = false }
 frame-metadata-hash-extension = { path = "substrate/frame/metadata-hash-extension", default-features = false, version = "0.5.0" }
 frame-support = { path = "substrate/frame/support", default-features = false, version = "37.0.0" }
-frame-support-procedural = { path = "substrate/frame/support/procedural", default-features = false, version = "30.0.1" }
+frame-support-procedural = { path = "substrate/frame/support/procedural", default-features = false, version = "30.0.2" }
 frame-support-procedural-tools = { path = "substrate/frame/support/procedural/tools", default-features = false, version = "13.0.0" }
 frame-support-procedural-tools-derive = { path = "substrate/frame/support/procedural/tools/derive", default-features = false, version = "12.0.0" }
 frame-support-test = { path = "substrate/frame/support/test" }

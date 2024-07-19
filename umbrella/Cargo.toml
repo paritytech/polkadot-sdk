@@ -814,7 +814,7 @@ version = "27.0.0"
 path = "../substrate/frame/election-provider-support/solution-type"
 default-features = false
 optional = true
-version = "14.0.0"
+version = "14.0.1"
 
 [dependencies.frame-election-provider-support]
 path = "../substrate/frame/election-provider-support"
@@ -844,7 +844,7 @@ version = "37.0.0"
 path = "../substrate/frame/support/procedural"
 default-features = false
 optional = true
-version = "30.0.1"
+version = "30.0.2"
 
 [dependencies.frame-support-procedural-tools-derive]
 path = "../substrate/frame/support/procedural/tools/derive"
