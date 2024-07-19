@@ -13,6 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod claim_assets;
-mod reap_identity;
-mod teleport;
+//! Tests related to claiming assets trapped during XCM execution.
+
+use crate::imports::*;
+
+use emulated_integration_tests_common::test_chain_can_claim_assets;
+use xcm_executor::traits::DropAssets;
+
+#[test]
+fn assets_can_be_claimed() {
+	let amount = PeopleWestendExistentialDeposit::get();
+	let assets: Assets = (Parent, amount).into();
+
+	test_chain_can_claim_assets!(PeopleWestend, RuntimeCall, NetworkId::Westend, assets, amount);
+}

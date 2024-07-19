@@ -14,5 +14,3 @@
 // limitations under the License.
 
 mod claim_assets;
-mod reap_identity;
-mod teleport;
