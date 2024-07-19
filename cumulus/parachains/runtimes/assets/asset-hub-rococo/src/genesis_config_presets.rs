@@ -79,8 +79,12 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<
 	let patch = match id.try_into() {
 		Ok("development") => asset_hub_rococo_development_genesis(1000.into()),
 		Ok("local_testnet") => asset_hub_rococo_local_testnet_genesis(1000.into()),
-		_ => return None,
+		_ => {
+			log::error!(target: "bencher::FAIL-CI", "get_preset: None!?");
+			return None
+		},
 	};
+	log::error!(target: "bencher::FAIL-CI", "get_preset: {patch:?}");
 	Some(
 		serde_json::to_string(&patch)
 			.expect("serialization to json is expected to work. qed.")
