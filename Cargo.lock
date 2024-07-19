@@ -13404,6 +13404,7 @@ dependencies = [
  "slotmap",
  "sp-core",
  "sp-maybe-compressed-blob",
+ "strum 0.26.2",
  "tempfile",
  "test-parachain-adder",
  "test-parachain-halt",
@@ -13671,6 +13672,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus-babe",
  "sp-runtime",
+ "strum 0.26.2",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]

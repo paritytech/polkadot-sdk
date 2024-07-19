@@ -43,6 +43,7 @@ use std::{
 	path::PathBuf,
 	time::{Duration, Instant},
 };
+use strum::IntoEnumIterator;
 
 /// The amount of time a job for which the queue does not have a compatible worker may wait in the
 /// queue. After that time passes, the queue will kill the first worker which becomes idle to

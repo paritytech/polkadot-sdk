@@ -24,6 +24,7 @@
 
 use futures::channel::oneshot;
 use sc_network::{Multiaddr, ReputationChange};
+use strum::EnumIter;
 use thiserror::Error;
 
 pub use sc_network::IfDisconnected;
@@ -204,9 +205,9 @@ pub enum CandidateValidationMessage {
 	},
 }
 
-/// Extends primitives::PvfExecKind to have a separate value for duspute requests
+/// Extends primitives::PvfExecKind to have a separate value for dispute requests
 /// which is important for prioritization.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]
 pub enum PvfExecPriority {
 	/// For dispute requests
 	Dispute,
@@ -225,25 +226,6 @@ impl From<PvfExecPriority> for PvfExecKind {
 			PvfExecPriority::Approval => PvfExecKind::Approval,
 			PvfExecPriority::BackingSystem => PvfExecKind::Backing,
 			PvfExecPriority::Backing => PvfExecKind::Backing,
-		}
-	}
-}
-
-impl PvfExecPriority {
-	/// Returns an iterator over the variants of `PvfExecPriorityKind` in order
-	pub fn iter() -> impl Iterator<Item = PvfExecPriority> {
-		[Self::Dispute, Self::Approval, Self::BackingSystem, Self::Backing]
-			.iter()
-			.copied()
-	}
-
-	/// Returns the next lower priority level, or `None` if no more levels.
-	pub fn lower(&self) -> Option<Self> {
-		match self {
-			Self::Dispute => Some(Self::Approval),
-			Self::Approval => Some(Self::BackingSystem),
-			Self::BackingSystem => Some(Self::Backing),
-			Self::Backing => None,
 		}
 	}
 }
