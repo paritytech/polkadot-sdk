@@ -449,7 +449,7 @@ pub mod pallet {
 					}
 				});
 
-			for (account, val, keys) in self.keys.iter().cloned().chain(self.non_authority_keys.iter().cloned()) {
+			for (account, val, keys) in self.keys.iter().chain(self.non_authority_keys.iter()).cloned() {
 				Pallet::<T>::inner_set_keys(&val, keys)
 					.expect("genesis config must not contain duplicates; qed");
 				if frame_system::Pallet::<T>::inc_consumers_without_limit(&account).is_err() {
