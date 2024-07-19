@@ -110,6 +110,7 @@ jobs:
           --features try-runtime,experimental,riscv,ci-only-tests     
           -E "
           package($PACKAGES)
+          +package(polkadot)
           - test(/.*benchmark.*/)
           - test(/recovers_from_only_chunks_if_pov_large::case_1/)
           - test(/participation_requests_reprioritized_for_newly_included/)
