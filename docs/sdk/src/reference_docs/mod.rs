@@ -45,6 +45,10 @@ pub mod signed_extensions;
 /// Learn about *Origins*, a topic in FRAME that enables complex account abstractions to be built.
 pub mod frame_origin;
 
+/// Learn about the details of what derives are needed for a type to be store-able in `frame`
+/// storage.
+pub mod frame_storage_derives;
+
 /// Learn about how to write safe and defensive code in your FRAME runtime.
 pub mod defensive_programming;
 
@@ -92,6 +96,9 @@ pub mod frame_offchain_workers;
 /// Learn about the different ways through which multiple [`frame`] pallets can be combined to work
 /// together.
 pub mod frame_pallet_coupling;
+
+/// Learn about how to do logging in FRAME-based runtimes.
+pub mod frame_logging;
 
 /// Learn about the Polkadot Umbrella crate that re-exports all other crates.
 pub mod umbrella_crate;
