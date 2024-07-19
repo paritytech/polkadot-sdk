@@ -798,7 +798,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#647" id="647">647</a>
 <a href="#648" id="648">648</a>
 <a href="#649" id="649">649</a>
-<a href="#650" id="650">650</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -852,11 +851,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
 	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
 	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
 	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
 	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
 };
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
@@ -1230,7 +1228,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>AssetExchanger = ();
 	<span class="kw">type </span>FeeManager = XcmFeeManagerFromComponents&lt;
 		WaivedLocations,
-		XcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, AccountId, TreasuryAccount&gt;,
+		SendXcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, TreasuryAccount&gt;,
 	&gt;;
 	<span class="kw">type </span>MessageExporter = ();
 	<span class="kw">type </span>UniversalAliases = (bridging::to_rococo::UniversalAliases,);

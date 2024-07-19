@@ -153,25 +153,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     fn <a href="#method.query_acceptable_payment_assets" class="fn">query_acceptable_payment_assets</a>(
         &amp;self,
         __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
-        xcm_version: <a class="type" href="../../staging_xcm/type.Version.html" title="type staging_xcm::Version">Version</a>
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../../staging_xcm/enum.VersionedAssetId.html" title="enum staging_xcm::VersionedAssetId">VersionedAssetId</a>&gt;, <a class="enum" href="enum.Error.html" title="enum xcm_runtime_apis::fees::Error">Error</a>&gt;, ApiError&gt; { ... }
+        xcm_version: Version
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;VersionedAssetId&gt;, <a class="enum" href="enum.Error.html" title="enum xcm_runtime_apis::fees::Error">Error</a>&gt;, ApiError&gt; { ... }
 <span class="item-spacer"></span>    fn <a href="#method.query_xcm_weight" class="fn">query_xcm_weight</a>(
         &amp;self,
         __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
-        message: <a class="enum" href="../../staging_xcm/enum.VersionedXcm.html" title="enum staging_xcm::VersionedXcm">VersionedXcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;
+        message: VersionedXcm&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>, <a class="enum" href="enum.Error.html" title="enum xcm_runtime_apis::fees::Error">Error</a>&gt;, ApiError&gt; { ... }
 <span class="item-spacer"></span>    fn <a href="#method.query_weight_to_asset_fee" class="fn">query_weight_to_asset_fee</a>(
         &amp;self,
         __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
         weight: <a class="struct" href="../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>,
-        asset: <a class="enum" href="../../staging_xcm/enum.VersionedAssetId.html" title="enum staging_xcm::VersionedAssetId">VersionedAssetId</a>
+        asset: VersionedAssetId
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u128.html">u128</a>, <a class="enum" href="enum.Error.html" title="enum xcm_runtime_apis::fees::Error">Error</a>&gt;, ApiError&gt; { ... }
 <span class="item-spacer"></span>    fn <a href="#method.query_delivery_fees" class="fn">query_delivery_fees</a>(
         &amp;self,
         __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
-        destination: <a class="enum" href="../../staging_xcm/enum.VersionedLocation.html" title="enum staging_xcm::VersionedLocation">VersionedLocation</a>,
-        message: <a class="enum" href="../../staging_xcm/enum.VersionedXcm.html" title="enum staging_xcm::VersionedXcm">VersionedXcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../staging_xcm/enum.VersionedAssets.html" title="enum staging_xcm::VersionedAssets">VersionedAssets</a>, <a class="enum" href="enum.Error.html" title="enum xcm_runtime_apis::fees::Error">Error</a>&gt;, ApiError&gt; { ... }
+        destination: VersionedLocation,
+        message: VersionedXcm&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;VersionedAssets, <a class="enum" href="enum.Error.html" title="enum xcm_runtime_apis::fees::Error">Error</a>&gt;, ApiError&gt; { ... }
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A trait of XCM payment API.</p>
 <p>API provides functionality for obtaining:</p>
 <ul>
@@ -181,12 +181,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <li>the fees for an XCM message delivery.</li>
 </ul>
 <p>To determine the execution weight of the calls required for
-<a href="../../staging_xcm/v4/enum.Instruction.html#variant.Transact" title="variant staging_xcm::v4::Instruction::Transact"><code>xcm::latest::Instruction::Transact</code></a> instruction, <code>TransactionPaymentCallApi</code> can be used.</p>
+[<code>xcm::latest::Instruction::Transact</code>] instruction, <code>TransactionPaymentCallApi</code> can be used.</p>
 </div></details><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.query_acceptable_payment_assets" class="method"><a class="src rightside" href="../../src/xcm_runtime_apis/fees.rs.html#25-70">source</a><h4 class="code-header">fn <a href="#method.query_acceptable_payment_assets" class="fn">query_acceptable_payment_assets</a>(
     &amp;self,
     __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
-    xcm_version: <a class="type" href="../../staging_xcm/type.Version.html" title="type staging_xcm::Version">Version</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../../staging_xcm/enum.VersionedAssetId.html" title="enum staging_xcm::VersionedAssetId">VersionedAssetId</a>&gt;, <a class="enum" href="enum.Error.html" title="enum xcm_runtime_apis::fees::Error">Error</a>&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns a list of acceptable payment assets.</p>
+    xcm_version: Version
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;VersionedAssetId&gt;, <a class="enum" href="enum.Error.html" title="enum xcm_runtime_apis::fees::Error">Error</a>&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns a list of acceptable payment assets.</p>
 <h5 id="arguments"><a class="doc-anchor" href="#arguments">§</a>Arguments</h5>
 <ul>
 <li><code>xcm_version</code>: Version.</li>
@@ -194,7 +194,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div></details><details class="toggle method-toggle" open><summary><section id="method.query_xcm_weight" class="method"><a class="src rightside" href="../../src/xcm_runtime_apis/fees.rs.html#25-70">source</a><h4 class="code-header">fn <a href="#method.query_xcm_weight" class="fn">query_xcm_weight</a>(
     &amp;self,
     __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
-    message: <a class="enum" href="../../staging_xcm/enum.VersionedXcm.html" title="enum staging_xcm::VersionedXcm">VersionedXcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;
+    message: VersionedXcm&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>, <a class="enum" href="enum.Error.html" title="enum xcm_runtime_apis::fees::Error">Error</a>&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns a weight needed to execute a XCM.</p>
 <h5 id="arguments-1"><a class="doc-anchor" href="#arguments-1">§</a>Arguments</h5>
 <ul>
@@ -204,7 +204,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     &amp;self,
     __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
     weight: <a class="struct" href="../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>,
-    asset: <a class="enum" href="../../staging_xcm/enum.VersionedAssetId.html" title="enum staging_xcm::VersionedAssetId">VersionedAssetId</a>
+    asset: VersionedAssetId
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u128.html">u128</a>, <a class="enum" href="enum.Error.html" title="enum xcm_runtime_apis::fees::Error">Error</a>&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Converts a weight into a fee for the specified <code>AssetId</code>.</p>
 <h5 id="arguments-2"><a class="doc-anchor" href="#arguments-2">§</a>Arguments</h5>
 <ul>
@@ -214,9 +214,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div></details><details class="toggle method-toggle" open><summary><section id="method.query_delivery_fees" class="method"><a class="src rightside" href="../../src/xcm_runtime_apis/fees.rs.html#25-70">source</a><h4 class="code-header">fn <a href="#method.query_delivery_fees" class="fn">query_delivery_fees</a>(
     &amp;self,
     __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
-    destination: <a class="enum" href="../../staging_xcm/enum.VersionedLocation.html" title="enum staging_xcm::VersionedLocation">VersionedLocation</a>,
-    message: <a class="enum" href="../../staging_xcm/enum.VersionedXcm.html" title="enum staging_xcm::VersionedXcm">VersionedXcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../staging_xcm/enum.VersionedAssets.html" title="enum staging_xcm::VersionedAssets">VersionedAssets</a>, <a class="enum" href="enum.Error.html" title="enum xcm_runtime_apis::fees::Error">Error</a>&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Get delivery fees for sending a specific <code>message</code> to a <code>destination</code>.
+    destination: VersionedLocation,
+    message: VersionedXcm&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;VersionedAssets, <a class="enum" href="enum.Error.html" title="enum xcm_runtime_apis::fees::Error">Error</a>&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Get delivery fees for sending a specific <code>message</code> to a <code>destination</code>.
 These always come in a specific asset, defined by the chain.</p>
 <h5 id="arguments-3"><a class="doc-anchor" href="#arguments-3">§</a>Arguments</h5>
 <ul>

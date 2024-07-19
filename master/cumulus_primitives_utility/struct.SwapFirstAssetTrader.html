@@ -159,7 +159,7 @@ the same <code>Target</code> asset through <code>SwapCredit</code>.</p>
 <li><code>SwapCredit</code>: mechanism used for the exchange of the user’s payment asset into the <code>Target</code>.</li>
 <li><code>WeightToFee</code>: weight to the <code>Target</code> asset fee calculator.</li>
 <li><code>Fungibles</code>: registry of fungible assets.</li>
-<li><code>FungiblesAssetMatcher</code>: utility for mapping <a href="../staging_xcm/v4/asset/struct.Asset.html" title="struct staging_xcm::v4::asset::Asset"><code>Asset</code></a> to <code>Fungibles::AssetId</code> and
+<li><code>FungiblesAssetMatcher</code>: utility for mapping [<code>Asset</code>] to <code>Fungibles::AssetId</code> and
 <code>Fungibles::Balance</code>.</li>
 <li><code>OnUnbalanced</code>: handler for the fee payment.</li>
 <li><code>AccountId</code>: the account identifier type.</li>
@@ -170,14 +170,14 @@ the same <code>Target</code> asset through <code>SwapCredit</code>.</p>
     &amp;mut self,
     weight: <a class="struct" href="../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>,
     payment: AssetsInHolding,
-    _context: &amp;<a class="struct" href="../staging_xcm/v4/struct.XcmContext.html" title="struct staging_xcm::v4::XcmContext">XcmContext</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;AssetsInHolding, <a class="enum" href="../staging_xcm/v3/traits/enum.Error.html" title="enum staging_xcm::v3::traits::Error">XcmError</a>&gt;</h4></section></summary><div class='docblock'>Purchase execution weight credit in return for up to a given <code>payment</code>. If less of the
+    _context: &amp;XcmContext
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;AssetsInHolding, XcmError&gt;</h4></section></summary><div class='docblock'>Purchase execution weight credit in return for up to a given <code>payment</code>. If less of the
 payment is required then the surplus is returned. If the <code>payment</code> cannot be used to pay
 for the <code>weight</code>, then an error is returned.</div></details><details class="toggle method-toggle" open><summary><section id="method.refund_weight" class="method trait-impl"><a class="src rightside" href="../src/cumulus_primitives_utility/lib.rs.html#451-502">source</a><a href="#method.refund_weight" class="anchor">§</a><h4 class="code-header">fn <a class="fn">refund_weight</a>(
     &amp;mut self,
     weight: <a class="struct" href="../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>,
-    _context: &amp;<a class="struct" href="../staging_xcm/v4/struct.XcmContext.html" title="struct staging_xcm::v4::XcmContext">XcmContext</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../staging_xcm/v4/asset/struct.Asset.html" title="struct staging_xcm::v4::asset::Asset">Asset</a>&gt;</h4></section></summary><div class='docblock'>Attempt a refund of <code>weight</code> into some asset. The caller does not guarantee that the weight
+    _context: &amp;XcmContext
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Asset&gt;</h4></section></summary><div class='docblock'>Attempt a refund of <code>weight</code> into some asset. The caller does not guarantee that the weight
 was purchased using <code>buy_weight</code>. <a>Read more</a></div></details></div></details></div><h2 id="synthetic-implementations" class="section-header">Auto Trait Implementations<a href="#synthetic-implementations" class="anchor">§</a></h2><div id="synthetic-implementations-list"><section id="impl-RefUnwindSafe-for-SwapFirstAssetTrader%3CTarget,+SwapCredit,+WeightToFee,+Fungibles,+FungiblesAssetMatcher,+OnUnbalanced,+AccountId%3E" class="impl"><a href="#impl-RefUnwindSafe-for-SwapFirstAssetTrader%3CTarget,+SwapCredit,+WeightToFee,+Fungibles,+FungiblesAssetMatcher,+OnUnbalanced,+AccountId%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Target, SwapCredit, WeightToFee, Fungibles, FungiblesAssetMatcher, OnUnbalanced, AccountId&gt; <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/panic/unwind_safe/trait.RefUnwindSafe.html" title="trait core::panic::unwind_safe::RefUnwindSafe">RefUnwindSafe</a> for <a class="struct" href="struct.SwapFirstAssetTrader.html" title="struct cumulus_primitives_utility::SwapFirstAssetTrader">SwapFirstAssetTrader</a>&lt;Target, SwapCredit, WeightToFee, Fungibles, FungiblesAssetMatcher, OnUnbalanced, AccountId&gt;<div class="where">where
     AccountId: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/panic/unwind_safe/trait.RefUnwindSafe.html" title="trait core::panic::unwind_safe::RefUnwindSafe">RefUnwindSafe</a>,
     Fungibles: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/panic/unwind_safe/trait.RefUnwindSafe.html" title="trait core::panic::unwind_safe::RefUnwindSafe">RefUnwindSafe</a>,

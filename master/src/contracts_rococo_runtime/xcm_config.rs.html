@@ -501,10 +501,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FixedWeightBounds,
 	FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NativeAsset, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents, XcmFeeToAccount,
+	ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
@@ -650,7 +650,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>AssetExchanger = ();
 	<span class="kw">type </span>FeeManager = XcmFeeManagerFromComponents&lt;
 		WaivedLocations,
-		XcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, AccountId, TreasuryAccount&gt;,
+		SendXcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, TreasuryAccount&gt;,
 	&gt;;
 	<span class="kw">type </span>MessageExporter = ();
 	<span class="kw">type </span>UniversalAliases = Nothing;

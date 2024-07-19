@@ -261,6 +261,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -331,23 +356,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Try to deposit the given fee in the specified account.
-/// Burns the fee in case of a failure.
-</span><span class="kw">pub fn </span>deposit_or_burn_fee&lt;AssetTransactor: TransactAsset, AccountId: Clone + Into&lt;[u8; <span class="number">32</span>]&gt;&gt;(
-	fee: Assets,
-	context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;,
-	receiver: AccountId,
-) {
-	<span class="kw">let </span>dest = AccountId32 { network: <span class="prelude-val">None</span>, id: receiver.into() }.into();
-	<span class="kw">for </span>asset <span class="kw">in </span>fee.into_inner() {
-		<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = AssetTransactor::deposit_asset(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>dest, context) {
-			<span class="macro">log::trace!</span>(
-				target: <span class="string">"xcm::fees"</span>,
-				<span class="string">"`AssetTransactor::deposit_asset` returned error: {:?}. Burning fee: {:?}. \
-				They might be burned."</span>,
-				e, asset,
-			);
-		}
+<span class="doccomment">/// A `HandleFee` implementation that simply deposits the fees into a specific on-chain
+/// `ReceiverAccount`.
+///
+/// It reuses the `AssetTransactor` configured on the XCM executor to deposit fee assets. If
+/// the `AssetTransactor` returns an error while calling `deposit_asset`, then a warning will be
+/// logged and the fee burned.
+</span><span class="attr">#[deprecated(
+	note = <span class="string">"`XcmFeeToAccount` will be removed in January 2025. Use `SendXcmFeeToAccount` instead."
+</span>)]
+</span><span class="kw">pub struct </span>XcmFeeToAccount&lt;AssetTransactor, AccountId, ReceiverAccount&gt;(
+	PhantomData&lt;(AssetTransactor, AccountId, ReceiverAccount)&gt;,
+);
+
+<span class="attr">#[allow(deprecated)]
+</span><span class="kw">impl</span>&lt;
+		AssetTransactor: TransactAsset,
+		AccountId: Clone + Into&lt;[u8; <span class="number">32</span>]&gt;,
+		ReceiverAccount: Get&lt;AccountId&gt;,
+	&gt; HandleFee <span class="kw">for </span>XcmFeeToAccount&lt;AssetTransactor, AccountId, ReceiverAccount&gt;
+{
+	<span class="kw">fn </span>handle_fee(fee: Assets, context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, _reason: FeeReason) -&gt; Assets {
+		<span class="kw">let </span>dest = AccountId32 { network: <span class="prelude-val">None</span>, id: ReceiverAccount::get().into() }.into();
+		deposit_or_burn_fee::&lt;AssetTransactor&gt;(fee, context, dest);
+
+		Assets::new()
 	}
 }
 
@@ -357,20 +390,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// It reuses the `AssetTransactor` configured on the XCM executor to deposit fee assets. If
 /// the `AssetTransactor` returns an error while calling `deposit_asset`, then a warning will be
 /// logged and the fee burned.
-</span><span class="kw">pub struct </span>XcmFeeToAccount&lt;AssetTransactor, AccountId, ReceiverAccount&gt;(
-	PhantomData&lt;(AssetTransactor, AccountId, ReceiverAccount)&gt;,
+///
+/// `ReceiverAccount` should implement `Get&lt;Location&gt;`.
+</span><span class="kw">pub struct </span>SendXcmFeeToAccount&lt;AssetTransactor, ReceiverAccount&gt;(
+	PhantomData&lt;(AssetTransactor, ReceiverAccount)&gt;,
 );
 
-<span class="kw">impl</span>&lt;
-		AssetTransactor: TransactAsset,
-		AccountId: Clone + Into&lt;[u8; <span class="number">32</span>]&gt;,
-		ReceiverAccount: Get&lt;AccountId&gt;,
-	&gt; HandleFee <span class="kw">for </span>XcmFeeToAccount&lt;AssetTransactor, AccountId, ReceiverAccount&gt;
+<span class="kw">impl</span>&lt;AssetTransactor: TransactAsset, ReceiverAccount: Get&lt;Location&gt;&gt; HandleFee
+	<span class="kw">for </span>SendXcmFeeToAccount&lt;AssetTransactor, ReceiverAccount&gt;
 {
 	<span class="kw">fn </span>handle_fee(fee: Assets, context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, _reason: FeeReason) -&gt; Assets {
-		deposit_or_burn_fee::&lt;AssetTransactor, <span class="kw">_</span>&gt;(fee, context, ReceiverAccount::get());
+		deposit_or_burn_fee::&lt;AssetTransactor&gt;(fee, context, ReceiverAccount::get());
 
 		Assets::new()
+	}
+}
+
+<span class="doccomment">/// Try to deposit the given fee in the specified account.
+/// Burns the fee in case of a failure.
+</span><span class="kw">pub fn </span>deposit_or_burn_fee&lt;AssetTransactor: TransactAsset&gt;(
+	fee: Assets,
+	context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;,
+	dest: Location,
+) {
+	<span class="kw">for </span>asset <span class="kw">in </span>fee.into_inner() {
+		<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = AssetTransactor::deposit_asset(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>dest, context) {
+			<span class="macro">log::trace!</span>(
+				target: <span class="string">"xcm::fees"</span>,
+				<span class="string">"`AssetTransactor::deposit_asset` returned error: {e:?}. Burning fee: {asset:?}. \
+				They might be burned."</span>,
+			);
+		}
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
