@@ -428,10 +428,10 @@ impl RequestResponseProtocol {
 							peer,
 						);
 
-						Some((RequestFailure::UnknownProtocol, "invalid-fallback-protocol"))
+						Some((RequestFailure::Refused, "invalid-fallback-protocol"))
 					},
 				},
-				None => Some((RequestFailure::UnknownProtocol, "unsupported-protocol")),
+				None => Some((RequestFailure::Refused, "unsupported-protocol")),
 			},
 		};
 
