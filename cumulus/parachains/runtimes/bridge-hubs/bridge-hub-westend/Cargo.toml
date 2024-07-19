@@ -107,7 +107,7 @@ snowbridge-system-runtime-api = { workspace = true }
 snowbridge-core = { workspace = true }
 snowbridge-pallet-ethereum-client = { workspace = true }
 snowbridge-pallet-inbound-queue = { workspace = true }
-snowbridge-pallet-outbound-queue = { workspace = true}
+snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-outbound-queue-runtime-api = { workspace = true }
 snowbridge-router-primitives = { workspace = true }
 snowbridge-runtime-common = { workspace = true }
@@ -118,7 +118,7 @@ static_assertions = { workspace = true, default-features = true }
 bridge-hub-test-utils = { workspace = true, default-features = true }
 bridge-runtime-common = { features = ["integrity-test"], workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
-snowbridge-runtime-test-common = { path = "../../../../../bridges/snowbridge/runtime/test-common" }
+snowbridge-runtime-test-common = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -240,10 +240,6 @@ runtime-benchmarks = [
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
-	"xcm-executor/runtime-benchmarks",
-	"xcm-runtime-apis/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue/runtime-benchmarks",
@@ -252,6 +248,10 @@ runtime-benchmarks = [
 	"snowbridge-router-primitives/runtime-benchmarks",
 	"snowbridge-runtime-common/runtime-benchmarks",
 	"snowbridge-runtime-test-common/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm-runtime-apis/runtime-benchmarks",
 ]
 
 try-runtime = [
