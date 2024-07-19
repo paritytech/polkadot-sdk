@@ -17,5 +17,7 @@ for line in output.splitlines():
 crates = list(set(crates))
 crates.sort()
 
-part = crates[:len(crates)//2]
-print( ' | '.join(part) )
+part = crates[:len(crates)//6]
+
+for pgk in part:
+    print ('+package('+pkg+') ')
