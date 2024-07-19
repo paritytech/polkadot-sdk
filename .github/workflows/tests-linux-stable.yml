@@ -84,7 +84,7 @@ jobs:
       # Enable debug assertions since we are running optimized builds for testing
       # but still want to have debug assertions.
       RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings -Cinstrument-coverage"
-      #LLVM_PROFILE_FILE: "target/coverage/cargo-test-${{ matrix.ci_node_index }}-%p-%m.profraw"
+      LLVM_PROFILE_FILE: "target/coverage/cargo-test-${{ matrix.ci_node_index }}-%p-%m.profraw"
     strategy: 
       fail-fast: false     
       matrix:
@@ -124,9 +124,6 @@ jobs:
           - test(/tests::authoring_blocks/)
           - test(/rejects_missing_seals/)
           "
-
-      - run: cargo llvm-cov report --lcov --output-path lcov.info
-      - run: ls -la
       
       - name: generate report
         run: >
