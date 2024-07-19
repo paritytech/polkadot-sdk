@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721392925893,
+  "lastUpdate": 1721407364533,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -11326,6 +11326,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.657041110580028,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "ordian",
+            "username": "ordian",
+            "email": "write@reusable.software"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "7f2a99fc03b58f7be4c62eb4ecd3fe2cb743fd1a",
+          "message": "beefy: put not only lease parachain heads into mmr (#4751)\n\nShort-term addresses\nhttps://github.com/paritytech/polkadot-sdk/issues/4737.\n\n- [x] Resolve benchmarking\nI've digged into benchmarking mentioned\nhttps://github.com/paritytech/polkadot-sdk/issues/4737#issuecomment-2155084660,\nbut it seemed to me that this code is different proof/path. @acatangiu\ncould you confirm? (btw, in this\n[bench](https://github.com/paritytech/polkadot-sdk/blob/b65313e81465dd730e48d4ce00deb76922618375/bridges/modules/parachains/src/benchmarking.rs#L57),\nwhere do you actually set the `fn parachains()` to a reasonable number?\ni've only seen 1)\n- [ ] Communicate to Snowfork team:\nThis seems to be the relevant code:\nhttps://github.com/Snowfork/snowbridge/blob/1e18e010331777042aa7e8fff3c118094af856ba/relayer/cmd/parachain_head_proof.go#L95-L120\n- [x] Is it preferred to iter() in some random order as suggested in\nhttps://github.com/paritytech/polkadot-sdk/issues/4737#issuecomment-2155084660\nor take lowest para ids instead as implemented here currently?\n- [x] PRDoc\n\n## Updating Polkadot and Kusama runtimes:\n\nNew weights need to be generated (`pallet_mmr`) and configs updated\nsimilar to Rococo/Westend:\n```patch\ndiff --git a/polkadot/runtime/rococo/src/lib.rs b/polkadot/runtime/rococo/src/lib.rs\nindex 5adffbd7422..c7da339b981 100644\n--- a/polkadot/runtime/rococo/src/lib.rs\n+++ b/polkadot/runtime/rococo/src/lib.rs\n@@ -1307,9 +1307,11 @@ impl pallet_mmr::Config for Runtime {\n        const INDEXING_PREFIX: &'static [u8] = mmr::INDEXING_PREFIX;\n        type Hashing = Keccak256;\n        type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;\n-       type WeightInfo = ();\n        type LeafData = pallet_beefy_mmr::Pallet<Runtime>;\n        type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Runtime>;\n+       type WeightInfo = weights::pallet_mmr::WeightInfo<Runtime>;\n+       #[cfg(feature = \"runtime-benchmarks\")]\n+       type BenchmarkHelper = parachains_paras::benchmarking::mmr_setup::MmrSetup<Runtime>;\n }\n\n parameter_types! {\n@@ -1319,13 +1321,8 @@ parameter_types! {\n pub struct ParaHeadsRootProvider;\n impl BeefyDataProvider<H256> for ParaHeadsRootProvider {\n        fn extra_data() -> H256 {\n-               let mut para_heads: Vec<(u32, Vec<u8>)> = parachains_paras::Parachains::<Runtime>::get()\n-                       .into_iter()\n-                       .filter_map(|id| {\n-                               parachains_paras::Heads::<Runtime>::get(&id).map(|head| (id.into(), head.0))\n-                       })\n-                       .collect();\n-               para_heads.sort();\n+               let para_heads: Vec<(u32, Vec<u8>)> =\n+                       parachains_paras::Pallet::<Runtime>::sorted_para_heads();\n                binary_merkle_tree::merkle_root::<mmr::Hashing, _>(\n                        para_heads.into_iter().map(|pair| pair.encode()),\n                )\n@@ -1746,6 +1743,7 @@ mod benches {\n                [pallet_identity, Identity]\n                [pallet_indices, Indices]\n                [pallet_message_queue, MessageQueue]\n+               [pallet_mmr, Mmr]\n                [pallet_multisig, Multisig]\n                [pallet_parameters, Parameters]\n                [pallet_preimage, Preimage]\n```\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
+          "timestamp": "2024-07-19T16:06:00Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7f2a99fc03b58f7be4c62eb4ecd3fe2cb743fd1a"
+        },
+        "date": 1721407334676,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63803.06,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.084079165989968,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.572328113870071,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.9927608010801436,
             "unit": "seconds"
           }
         ]
