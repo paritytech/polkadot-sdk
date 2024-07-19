@@ -1027,8 +1027,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// schedules have reached their unlocking era should allow more calls to this function.
 	</span><span class="kw">fn </span>unbond(stash: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, value: <span class="self">Self</span>::Balance) -&gt; DispatchResult;
 
-	<span class="doccomment">/// Update the reward destination for the ledger associated with the stash.
-	</span><span class="kw">fn </span>update_payee(stash: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, reward_acc: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; DispatchResult;
+	<span class="doccomment">/// Set the reward destination for the ledger associated with the stash.
+	</span><span class="kw">fn </span>set_payee(stash: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, reward_acc: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; DispatchResult;
 
 	<span class="doccomment">/// Unlock any funds schedule to unlock before or at the current era.
 	///

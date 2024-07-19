@@ -4101,6 +4101,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3950" id="3950">3950</a>
 <a href="#3951" id="3951">3951</a>
 <a href="#3952" id="3952">3952</a>
+<a href="#3953" id="3953">3953</a>
+<a href="#3954" id="3954">3954</a>
+<a href="#3955" id="3955">3955</a>
+<a href="#3956" id="3956">3956</a>
+<a href="#3957" id="3957">3957</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -6088,8 +6093,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::call]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-		<span class="doccomment">/// Stake funds with a pool. The amount to bond is transferred from the member to the
-		/// pools account and immediately increases the pools bond.
+		<span class="doccomment">/// Stake funds with a pool. The amount to bond is transferred from the member to the pool
+		/// account and immediately increases the pools bond.
+		///
+		/// The method of transferring the amount to the pool account is determined by
+		/// [`adapter::StakeStrategyType`]. If the pool is configured to use
+		/// [`adapter::StakeStrategyType::Delegate`], the funds remain in the account of
+		/// the `origin`, while the pool gains the right to use these funds for staking.
 		///
 		/// # Note
 		///

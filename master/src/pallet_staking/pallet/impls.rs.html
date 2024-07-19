@@ -4237,7 +4237,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(|<span class="kw">_</span>| ())
 	}
 
-	<span class="kw">fn </span>update_payee(stash: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, reward_acc: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; DispatchResult {
+	<span class="kw">fn </span>set_payee(stash: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, reward_acc: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; DispatchResult {
 		<span class="comment">// Since virtual stakers are not allowed to compound their rewards as this pallet does not
 		// manage their locks, we do not allow reward account to be set same as stash. For
 		// external pallets that manage the virtual bond, they can claim rewards and re-bond them.
@@ -4246,12 +4246,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Error::&lt;T&gt;::RewardDestinationRestricted
 		);
 
-		<span class="comment">// since controller is deprecated and this function is never used for old ledgers with
-		// distinct controllers, we can safely assume that stash is the controller.
-		</span><span class="self">Self</span>::set_payee(
-			RawOrigin::Signed(stash.clone()).into(),
-			RewardDestination::Account(reward_acc.clone()),
-		)
+		<span class="kw">let </span>ledger = <span class="self">Self</span>::ledger(Stash(stash.clone()))<span class="question-mark">?</span>;
+		<span class="kw">let _ </span>= ledger
+			.set_payee(RewardDestination::Account(reward_acc.clone()))
+			.defensive_proof(<span class="string">"ledger was retrieved from storage, thus its bonded; qed."</span>)<span class="question-mark">?</span>;
+
+		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="kw">fn </span>chill(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; DispatchResult {

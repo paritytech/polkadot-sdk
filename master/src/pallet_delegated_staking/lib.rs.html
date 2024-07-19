@@ -997,6 +997,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#846" id="846">846</a>
 <a href="#847" id="847">847</a>
 <a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1410,7 +1415,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Delegation::&lt;T&gt;::can_delegate(<span class="kw-2">&amp;</span>delegator, <span class="kw-2">&amp;</span>agent),
 				Error::&lt;T&gt;::InvalidDelegation
 			);
-			<span class="macro">ensure!</span>(!<span class="self">Self</span>::is_direct_staker(<span class="kw-2">&amp;</span>delegator), Error::&lt;T&gt;::AlreadyStaking);
+
+			<span class="comment">// Implementation note: Staking uses deprecated locks (similar to freeze) which are not
+			// mutually exclusive of holds. This means, if we allow delegating for existing stakers,
+			// already staked funds might be reused for delegation. We avoid that by just blocking
+			// this.
+			</span><span class="macro">ensure!</span>(!<span class="self">Self</span>::is_direct_staker(<span class="kw-2">&amp;</span>delegator), Error::&lt;T&gt;::AlreadyStaking);
 
 			<span class="comment">// ensure agent is sane.
 			</span><span class="macro">ensure!</span>(<span class="self">Self</span>::is_agent(<span class="kw-2">&amp;</span>agent), Error::&lt;T&gt;::NotAgent);
@@ -1504,7 +1514,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Preservation::Expendable,
 		)<span class="question-mark">?</span>;
 
-		T::CoreStaking::update_payee(who, reward_account)<span class="question-mark">?</span>;
+		T::CoreStaking::set_payee(who, reward_account)<span class="question-mark">?</span>;
 		<span class="comment">// delegate all transferred funds back to agent.
 		</span><span class="self">Self</span>::do_delegate(proxy_delegator, Agent::from(who.clone()), amount_to_transfer)<span class="question-mark">?</span>;
 

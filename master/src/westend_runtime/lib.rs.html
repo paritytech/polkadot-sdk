@@ -2870,8 +2870,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2719" id="2719">2719</a>
 <a href="#2720" id="2720">2720</a>
 <a href="#2721" id="2721">2721</a>
-<a href="#2722" id="2722">2722</a>
-<a href="#2723" id="2723">2723</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3216,9 +3214,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">const </span>INDEXING_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] = mmr::INDEXING_PREFIX;
 	<span class="kw">type </span>Hashing = Keccak256;
 	<span class="kw">type </span>OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest&lt;Runtime&gt;;
-	<span class="kw">type </span>WeightInfo = ();
 	<span class="kw">type </span>LeafData = pallet_beefy_mmr::Pallet&lt;Runtime&gt;;
 	<span class="kw">type </span>BlockHashProvider = pallet_mmr::DefaultBlockHashProvider&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::pallet_mmr::WeightInfo&lt;Runtime&gt;;
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+	</span><span class="kw">type </span>BenchmarkHelper = parachains_paras::benchmarking::mmr_setup::MmrSetup&lt;Runtime&gt;;
 }
 
 <span class="doccomment">/// MMR helper types.
@@ -3240,13 +3240,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>ParaHeadsRootProvider;
 <span class="kw">impl </span>BeefyDataProvider&lt;H256&gt; <span class="kw">for </span>ParaHeadsRootProvider {
 	<span class="kw">fn </span>extra_data() -&gt; H256 {
-		<span class="kw">let </span><span class="kw-2">mut </span>para_heads: Vec&lt;(u32, Vec&lt;u8&gt;)&gt; = parachains_paras::Parachains::&lt;Runtime&gt;::get()
-			.into_iter()
-			.filter_map(|id| {
-				parachains_paras::Heads::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>id).map(|head| (id.into(), head.<span class="number">0</span>))
-			})
-			.collect();
-		para_heads.sort_by_key(|k| k.<span class="number">0</span>);
+		<span class="kw">let </span>para_heads: Vec&lt;(u32, Vec&lt;u8&gt;)&gt; =
+			parachains_paras::Pallet::&lt;Runtime&gt;::sorted_para_heads();
 		binary_merkle_tree::merkle_root::&lt;mmr::Hashing, <span class="kw">_</span>&gt;(
 			para_heads.into_iter().map(|pair| pair.encode()),
 		)
@@ -4629,6 +4624,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		[pallet_identity, Identity]
 		[pallet_indices, Indices]
 		[pallet_message_queue, MessageQueue]
+		[pallet_mmr, Mmr]
 		[pallet_multisig, Multisig]
 		[pallet_nomination_pools, NominationPoolsBench::&lt;Runtime&gt;]
 		[pallet_offences, OffencesBench::&lt;Runtime&gt;]
