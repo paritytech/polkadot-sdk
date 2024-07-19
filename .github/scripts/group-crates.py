@@ -18,4 +18,4 @@ crates = list(set(crates))
 crates.sort()
 
 part = crates[:len(crates)//7]
-print( ','.join(part) )
+print( ' | '.join(part) )
