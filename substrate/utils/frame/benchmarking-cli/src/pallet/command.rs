@@ -214,9 +214,7 @@ impl PalletCmd {
 			return self.output_from_results(&batches)
 		}
 
-		let (genesis_storage, genesis_changes) =
-			self.genesis_storage::<Hasher, ExtraHostFunctions>(&chain_spec)?;
-		let mut changes = genesis_changes.clone();
+		let genesis_storage = self.genesis_storage::<Hasher, ExtraHostFunctions>(&chain_spec)?;
 
 		let cache_size = Some(self.database_cache_size as usize);
 		let state_with_tracking = BenchmarkingState::<Hasher>::new(
@@ -262,7 +260,7 @@ impl PalletCmd {
 			Self::exec_state_machine(
 				StateMachine::new(
 					state,
-					&mut changes,
+					&mut Default::default(),
 					&executor,
 					"Benchmark_benchmark_metadata",
 					&(self.extra).encode(),
@@ -347,7 +345,6 @@ impl PalletCmd {
 			for (s, selected_components) in all_components.iter().enumerate() {
 				// First we run a verification
 				if !self.no_verify {
-					let mut changes = genesis_changes.clone();
 					let state = &state_without_tracking;
 					// Don't use these results since verification code will add overhead.
 					let _batch: Vec<BenchmarkBatch> = match Self::exec_state_machine::<
@@ -357,7 +354,7 @@ impl PalletCmd {
 					>(
 						StateMachine::new(
 							state,
-							&mut changes,
+							&mut Default::default(),
 							&executor,
 							"Benchmark_dispatch_benchmark",
 							&(
@@ -389,7 +386,6 @@ impl PalletCmd {
 				}
 				// Do one loop of DB tracking.
 				{
-					let mut changes = genesis_changes.clone();
 					let state = &state_with_tracking;
 					let batch: Vec<BenchmarkBatch> = match Self::exec_state_machine::<
 						std::result::Result<Vec<BenchmarkBatch>, String>,
@@ -398,7 +394,7 @@ impl PalletCmd {
 					>(
 						StateMachine::new(
 							state, // todo remove tracking
-							&mut changes,
+							&mut Default::default(),
 							&executor,
 							"Benchmark_dispatch_benchmark",
 							&(
@@ -432,7 +428,6 @@ impl PalletCmd {
 				}
 				// Finally run a bunch of loops to get extrinsic timing information.
 				for r in 0..self.external_repeat {
-					let mut changes = genesis_changes.clone();
 					let state = &state_without_tracking;
 					let batch = match Self::exec_state_machine::<
 						std::result::Result<Vec<BenchmarkBatch>, String>,
@@ -441,7 +436,7 @@ impl PalletCmd {
 					>(
 						StateMachine::new(
 							state, // todo remove tracking
-							&mut changes,
+							&mut Default::default(),
 							&executor,
 							"Benchmark_dispatch_benchmark",
 							&(
@@ -567,16 +562,11 @@ impl PalletCmd {
 		Ok(benchmarks_to_run)
 	}
 
-	/// Produce a genesis storage and genesis changes.
-	///
-	/// It would be easier to only return one type, but there is no easy way to convert them.
-	// TODO: Re-write `BenchmarkingState` to not be such a clusterfuck and only accept
-	// `OverlayedChanges` instead of a mix between `OverlayedChanges` and `State`. But this can only
-	// be done once we deprecated and removed the legacy interface :(
+	/// Produce a genesis storage.
 	fn genesis_storage<H: Hash, F: HostFunctions>(
 		&self,
 		chain_spec: &Option<Box<dyn ChainSpec>>,
-	) -> Result<(sp_storage::Storage, OverlayedChanges<H>)> {
+	) -> Result<sp_storage::Storage> {
 		Ok(match (self.genesis_builder, self.runtime.is_some()) {
 			(Some(GenesisBuilder::None), _) => Default::default(),
 			(Some(GenesisBuilder::Spec), _) | (None, false) => {
@@ -589,11 +579,28 @@ impl PalletCmd {
 					.build_storage()
 					.map_err(|e| format!("{ERROR_CANNOT_BUILD_GENESIS}\nError: {e}"))?;
 
-				(storage, Default::default())
+				storage
 			},
 			(Some(GenesisBuilder::Runtime), _) | (None, true) =>
-				(Default::default(), self.genesis_from_runtime::<H, F>()?),
+				self.genesis_from_runtime::<H, F>().map(Self::changes_to_storage)?,
 		})
+	}
+
+	fn changes_to_storage<H: Hash>(changes: OverlayedChanges<H>) -> sp_storage::Storage {
+		let mut top = BTreeMap::<Vec<u8>, Vec<u8>>::new();
+
+		for (k, v) in changes.changes() {
+			let v = v.transactions[0].clone();
+			match &v.value {
+				sp_state_machine::overlayed_changes::changeset::StorageEntry::Set(v) => {
+					top.insert(k.clone(), v.clone());
+				},
+				_ => unreachable!("Only Set is expected"),
+			}
+		}
+
+		// TODO let child_changes =
+		sp_storage::Storage { top, children_default: Default::default() }
 	}
 
 	/// Generate the genesis changeset by the runtime API.
@@ -739,6 +746,7 @@ impl PalletCmd {
 	) -> Result<FetchedCode<'a, BenchmarkingState<H>, H>> {
 		if let Some(runtime) = &self.runtime {
 			log::info!("Loading WASM from {}", runtime.display());
+
 			let code = fs::read(runtime)?;
 			let hash = sp_core::blake2_256(&code).to_vec();
 			let wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
