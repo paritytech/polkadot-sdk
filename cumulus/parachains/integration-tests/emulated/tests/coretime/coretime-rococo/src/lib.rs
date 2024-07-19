@@ -13,6 +13,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod claim_assets;
-mod reap_identity;
-mod teleport;
+#[cfg(test)]
+mod imports {
+
+	// Substrate
+	pub use frame_support::assert_ok;
+
+	// Polkadot
+	pub use xcm::prelude::*;
+
+	// Cumulus
+	pub use emulated_integration_tests_common::xcm_emulator::{
+		assert_expected_events, bx, TestExt,
+	};
+	pub use rococo_system_emulated_network::{
+		coretime_rococo_emulated_chain::{
+			coretime_rococo_runtime::ExistentialDeposit as CoretimeRococoExistentialDeposit,
+			CoretimeRococoParaPallet as CoretimeRococoPallet,
+		},
+		CoretimeRococoPara as CoretimeRococo, CoretimeRococoParaReceiver as CoretimeRococoReceiver,
+		CoretimeRococoParaSender as CoretimeRococoSender,
+	};
+}
+
+#[cfg(test)]
+mod tests;
