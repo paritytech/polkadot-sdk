@@ -2738,19 +2738,33 @@ mod remote_tests {
 			.unwrap();
 
 		ext.execute_with(|| {
-			//let mut meter = WeightMeter::with_limit(Weight::from_parts(100_779_206_000,
-			// 10477090));
-			let mut meter = WeightMeter::new();
+			// unfilled meter, unrealistic scenario.
+			//let mut meter = WeightMeter::new();
+
+			// 80% of the block is available to perform the migration.
+			let mut meter = WeightMeter::with_limit(BlockWeights::get().max_block * Percent::from_percent(80));
+
 			let mut cursor = None;
+			let mut n_blocks = 0;
 
 			loop {
-				cursor = pallet_staking::migrations::v13_stake_tracker::MigrationV13::<
+				cursor = match pallet_staking::migrations::v13_stake_tracker::MigrationV13::<
 					Runtime,
 					weights::pallet_staking::WeightInfo<Runtime>,
-				>::step(cursor, &mut meter)
-				.unwrap();
+				>::step(cursor.clone(), &mut meter)
+				{
+					Ok(cursor) => cursor,
+					Err(_) => {
+						n_blocks += 1;
+						// re-initialize meter and return last cursor.
+						meter = WeightMeter::with_limit(BlockWeights::get().max_block * Percent::from_percent(80));
+						cursor
+					},
+				};
 
-				if cursor.is_none() {
+				if cursor.clone().is_none() {
+					log::info!("Migration took {} blocks", n_blocks);
+
 					// run the try-state at the end.
 					Staking::do_try_state(frame_system::Pallet::<Runtime>::block_number())
 						.map_err(|err| {

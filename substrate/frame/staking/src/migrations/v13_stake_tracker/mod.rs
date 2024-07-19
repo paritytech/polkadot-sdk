@@ -117,7 +117,7 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> 
 						Some((None, Processing::Validators))
 					}
 				},
-				Some((maybe_nominator, Processing::Nominators)) => {
+				Some((ref maybe_nominator, Processing::Nominators)) => {
 					let mut iter = if let Some(last_nominator) = maybe_nominator {
 						Nominators::<T>::iter_from(Nominators::<T>::hashed_key_for(last_nominator))
 					} else {
@@ -132,7 +132,7 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> 
 						Some((None, Processing::Validators))
 					}
 				},
-				Some((maybe_validator, Processing::Validators)) => {
+				Some((ref maybe_validator, Processing::Validators)) => {
 					// process validator.
 					let mut iter = if let Some(last_validator) = maybe_validator {
 						Validators::<T>::iter_from(Validators::<T>::hashed_key_for(last_validator))
@@ -158,7 +158,6 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for MigrationV13<T, W> 
 				cursor = new_cursor;
 			}
 		}
-
 		Ok(cursor)
 	}
 }

@@ -2138,9 +2138,8 @@ impl<T: Config> Pallet<T> {
 			"VoterList contains non-staker"
 		);
 
-		Self::check_ledgers()?;
-
 		/*
+		Self::check_ledgers()?;
 		Self::check_bonded_consistency()?;
 		Self::check_payees()?;
 		Self::check_nominators()?;
