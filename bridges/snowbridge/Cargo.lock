@@ -3073,6 +3073,7 @@ name = "pallet-migrations"
 version = "1.0.0"
 dependencies = [
  "docify",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",

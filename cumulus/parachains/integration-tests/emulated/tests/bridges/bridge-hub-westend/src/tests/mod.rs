@@ -17,6 +17,7 @@ use crate::imports::*;
 
 mod asset_transfers;
 mod send_xcm;
+mod snowbridge;
 mod teleport;
 
 pub(crate) fn asset_hub_rococo_location() -> Location {

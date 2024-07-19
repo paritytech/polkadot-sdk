@@ -11,6 +11,9 @@ publish = false
 workspace = true
 
 [dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+hex-literal = "0.4.1"
 
 # Substrate
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
@@ -18,6 +21,7 @@ pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-
 pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-conversion", default-features = false }
 pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false }
 pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue" }
+sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false }
 sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
 
 # Polkadot
@@ -34,3 +38,13 @@ cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", def
 bridge-hub-westend-runtime = { path = "../../../../../runtimes/bridge-hubs/bridge-hub-westend", default-features = false }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
 rococo-westend-system-emulated-network = { path = "../../../networks/rococo-westend-system" }
+testnet-parachains-constants = { path = "../../../../../runtimes/constants", features = ["westend"] }
+asset-hub-westend-runtime = { path = "../../../../../runtimes/assets/asset-hub-westend", default-features = false }
+
+# Snowbridge
+snowbridge-core = { path = "../../../../../../../bridges/snowbridge/primitives/core", default-features = false }
+snowbridge-router-primitives = { path = "../../../../../../../bridges/snowbridge/primitives/router", default-features = false }
+snowbridge-pallet-system = { path = "../../../../../../../bridges/snowbridge/pallets/system", default-features = false }
+snowbridge-pallet-outbound-queue = { path = "../../../../../../../bridges/snowbridge/pallets/outbound-queue", default-features = false }
+snowbridge-pallet-inbound-queue = { path = "../../../../../../../bridges/snowbridge/pallets/inbound-queue", default-features = false }
+snowbridge-pallet-inbound-queue-fixtures = { path = "../../../../../../../bridges/snowbridge/pallets/inbound-queue/fixtures" }
