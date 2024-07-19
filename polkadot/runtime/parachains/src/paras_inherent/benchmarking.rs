@@ -26,6 +26,22 @@ use polkadot_primitives::v7::GroupIndex;
 use crate::builder::BenchBuilder;
 
 benchmarks! {
+	enter_empty {
+		let v in 10..BenchBuilder::<T>::fallback_max_validators();
+
+		let scenario = BenchBuilder::<T>::new()
+			.build();
+
+		let mut benchmark = scenario.data.clone();
+
+		benchmark.bitfields.clear();
+		benchmark.backed_candidates.clear();
+		benchmark.disputes.clear();
+	}: enter(RawOrigin::None, benchmark)
+	verify {
+		// Assert that the block was not discarded
+		assert!(Included::<T>::get().is_some());
+	}
 	// Variant over `v`, the number of dispute statements in a dispute statement set. This gives the
 	// weight of a single dispute statement set.
 	enter_variable_disputes {

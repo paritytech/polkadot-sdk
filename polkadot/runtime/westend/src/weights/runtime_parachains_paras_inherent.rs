@@ -48,6 +48,9 @@ use core::marker::PhantomData;
 /// Weight functions for `runtime_parachains::paras_inherent`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> polkadot_runtime_parachains::paras_inherent::WeightInfo for WeightInfo<T> {
+    fn enter_empty() -> Weight {
+        Weight::zero()
+    }
 	/// Storage: `ParaInherent::Included` (r:1 w:1)
 	/// Proof: `ParaInherent::Included` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `System::ParentHash` (r:1 w:0)
