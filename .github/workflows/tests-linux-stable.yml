@@ -145,9 +145,10 @@ jobs:
       - name: runtime-api tests
         if: ${{ matrix.partition == '1/3' }}
         run: forklift cargo nextest run -p sp-api-test --features enable-staging-api
+
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
-    name: All migrations passed
+    name: All tests passed
     # If any new job gets added, be sure to add it to this array
     needs:
       [
