@@ -35,6 +35,7 @@ use kitchensink_runtime::{
 };
 use node_primitives::{Balance, Hash};
 use node_testing::keyring::*;
+use pretty_assertions::assert_eq;
 use wat;
 
 pub mod common;
@@ -475,7 +476,7 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
-					amount: fees * 2 / 10,
+					amount: fees - fees * 8 / 10,
 				}),
 				topics: vec![],
 			},
@@ -526,6 +527,13 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::Treasury(pallet_treasury::Event::Deposit {
 					value: fees * 8 / 10,
+				}),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(2),
+				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
+					amount: fees - fees * 8 / 10,
 				}),
 				topics: vec![],
 			},
