@@ -107,10 +107,10 @@ jobs:
           time cargo
           nextest run
           --workspace --locked --release --no-fail-fast
-          --features try-runtime,experimental,riscv,ci-only-tests
-          -p $PACKAGES       
+          --features try-runtime,experimental,riscv,ci-only-tests     
           -E "
-          !test(/.*benchmark.*/)
+          package(asset-hub-rococo-emulated-chain | asset-hub-rococo-integration-tests)
+          - test(/.*benchmark.*/)
           - test(/recovers_from_only_chunks_if_pov_large::case_1/)
           - test(/participation_requests_reprioritized_for_newly_included/)
           - test(/availability_is_recovered_from_chunks_if_no_group_provided::case_1/)
@@ -122,7 +122,7 @@ jobs:
           - test(/recovers_from_only_chunks_if_pov_large::case_3/)
           - test(/recovers_from_only_chunks_if_pov_large::case_2/)
           - test(/tests::authoring_blocks/)
-          - test(/rejects_missing_seals/)
+          - test(/rejects_missing_seals/)          
           "
       
       - name: generate report
