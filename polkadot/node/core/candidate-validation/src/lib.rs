@@ -395,7 +395,6 @@ where
 }
 
 // Returns true if the node is an authority in the next session.
-// TODO: Request only future keys
 async fn check_next_session_authority<Sender>(
 	sender: &mut Sender,
 	keystore: KeystorePtr,
