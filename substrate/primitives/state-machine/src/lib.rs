@@ -31,7 +31,7 @@ mod ext;
 pub mod fuzzing;
 #[cfg(feature = "std")]
 mod in_memory_backend;
-pub(crate) mod overlayed_changes;
+pub mod overlayed_changes; // FAIL-CI
 #[cfg(feature = "std")]
 mod read_only;
 mod stats;

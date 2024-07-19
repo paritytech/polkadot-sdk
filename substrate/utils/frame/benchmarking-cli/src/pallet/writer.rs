@@ -484,7 +484,12 @@ pub(crate) fn write_results(
 			benchmarks: results.clone(),
 		};
 
-		let mut output_file = fs::File::create(&file_path)?;
+		let file_path = std::path::absolute(&file_path).map_err(|e| {
+			format!("Could not get absolute path for: {:?}. Error: {:?}", &file_path, e)
+		})?;
+		let mut output_file = fs::File::create(&file_path).map_err(|e| {
+			format!("Could not write weight file to: {:?}. Error: {:?}", &file_path, e)
+		})?;
 		handlebars
 			.render_template_to_write(&template, &hbs_data, &mut output_file)
 			.map_err(|e| io_error(&e.to_string()))?;
