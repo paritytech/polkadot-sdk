@@ -110,9 +110,9 @@ use crate::{
 	exec::{
 		AccountIdOf, ErrorOrigin, ExecError, Executable, Ext, Key, MomentOf, Stack as ExecStack,
 	},
-	gas::GasMeter,
+	gas::{GasMeter, Token},
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
-	wasm::{CodeInfo, WasmBlob},
+	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
 };
 use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
 use environmental::*;
@@ -656,7 +656,64 @@ pub mod pallet {
 				"Debug buffer should have minimum size of {} (current setting is {})",
 				MIN_DEBUG_BUF_SIZE,
 				T::MaxDebugBufferLen::get(),
-			)
+			);
+
+			// Validators have configured runtime memory for 512MB. They need to keep in it
+			// max_runtime_mem, PoV in multiple copies (1x encoded + 2x decoded), and storage
+			// including events. The assumption is that max_runtime_mem + storage/events can be
+			// a maximum of half of the validator runtime memory.
+			let max_block_ref_time = T::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.max_total
+				.unwrap_or_else(|| T::BlockWeights::get().max_block)
+				.ref_time();
+			let max_payload_size = T::Schedule::get().limits.payload_len;
+			// Blake2_128Concat is being used.
+			let max_key_size = T::MaxStorageKeyLen::get().saturating_add(128);
+
+			// We can use storage to store items using the available block ref_time with the
+			// `set_storage` host function.
+			let max_storage_size: u32 = ((max_block_ref_time /
+				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
+					new_bytes: max_payload_size,
+					old_bytes: 0,
+				})
+				.ref_time()
+				.saturating_add(max_key_size as u64)))
+			.saturating_mul(max_payload_size as u64))
+			.try_into()
+			.expect("Storage size too big");
+
+			let max_validator_runtime_mem: u32 = T::Schedule::get().limits.validator_runtime_memory;
+			let storage_size_limit =
+				(max_validator_runtime_mem / 2).saturating_sub(max_runtime_mem);
+
+			assert!(
+				max_storage_size < storage_size_limit,
+				"Maximal storage size {} exceeds the storage limit {}",
+				max_storage_size,
+				storage_size_limit
+			);
+
+			// We can use storage to store events using the available block ref_time with the
+			// `deposit_event` host function.
+			let max_events_size: u32 = ((max_block_ref_time /
+				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
+					num_topic: 0,
+					len: max_payload_size,
+				})
+				.ref_time()
+				.saturating_add(max_key_size as u64)))
+			.saturating_mul(max_payload_size as u64))
+			.try_into()
+			.expect("Events size too big");
+
+			assert!(
+				max_events_size < storage_size_limit,
+				"Maximal events size {} exceeds the events limit {}",
+				max_events_size,
+				storage_size_limit
+			);
 		}
 	}
 
