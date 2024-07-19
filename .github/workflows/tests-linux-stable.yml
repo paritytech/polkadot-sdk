@@ -103,7 +103,7 @@ jobs:
 
       - name: script
         run: >
-          PACKAGES=`python3 .github/scripts/group-crates.py 1 5`
+          PACKAGES=`python3 .github/scripts/group-crates.py 1 5` &&
           time cargo
           nextest run
           --workspace --locked --release --no-fail-fast
