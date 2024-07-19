@@ -22,7 +22,6 @@ use snowbridge_core::outbound::OperatingMode;
 use snowbridge_router_primitives::inbound::{
 	Command, ConvertMessage, Destination, MessageV1, VersionedMessage,
 };
-use sp_core::H256;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 
 const INITIAL_FUND: u128 = 5_000_000_000_000_000_000;
