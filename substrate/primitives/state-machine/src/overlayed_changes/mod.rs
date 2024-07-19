@@ -17,7 +17,7 @@
 
 //! The overlayed changes to state.
 
-mod changeset;
+pub mod changeset; // FAIL-CI
 mod offchain;
 
 use self::changeset::OverlayedChangeSet;
