@@ -136,7 +136,7 @@ impl sp_staking::StakingInterface for StakingMock {
 		Ok(())
 	}
 
-	fn update_payee(_stash: &Self::AccountId, _reward_acc: &Self::AccountId) -> DispatchResult {
+	fn set_payee(_stash: &Self::AccountId, _reward_acc: &Self::AccountId) -> DispatchResult {
 		unimplemented!("method currently not used in testing")
 	}
 
