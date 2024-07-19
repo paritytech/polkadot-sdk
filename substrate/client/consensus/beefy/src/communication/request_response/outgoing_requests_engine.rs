@@ -101,7 +101,7 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 	/// Returns the next peer from the peers cache, if available.
 	///
 	/// If the optional block number if provided, the peers cache is
-	/// repopulated from the live peers that have vother on higher block numbers.
+	/// repopulated from the live peers that have voted on higher block numbers.
 	fn try_next_peer(&mut self, reset_cache: Option<NumberFor<B>>) -> Option<PeerId> {
 		let live = self.live_peers.lock();
 
