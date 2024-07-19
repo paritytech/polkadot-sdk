@@ -24,7 +24,7 @@ short-benchmark-westend: &short-bench
   tags:
     - benchmark
   script:
-    - ./artifacts/polkadot benchmark pallet --chain $RUNTIME-dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
+    - ./artifacts/polkadot benchmark pallet --chain $RUNTIME-dev --pallet "*" --extrinsic "*" --steps 2 --repeat 2
 
 # run short-benchmarks for system parachain runtimes from cumulus
 
@@ -47,7 +47,7 @@ short-benchmark-westend: &short-bench
   tags:
     - benchmark
   script:
-    - ./artifacts/polkadot-parachain benchmark pallet --chain $RUNTIME_CHAIN --pallet "*" --extrinsic "*" --steps 2 --repeat 1
+    - ./artifacts/polkadot-parachain benchmark pallet --chain $RUNTIME_CHAIN --pallet "*" --extrinsic "*" --steps 2 --repeat 2
 
 short-benchmark-asset-hub-rococo:
   <<: *short-bench-cumulus
