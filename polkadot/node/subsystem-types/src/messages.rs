@@ -205,8 +205,8 @@ pub enum CandidateValidationMessage {
 	},
 }
 
-/// Extends primitives::PvfExecKind to have a separate value for dispute requests
-/// which is important for prioritization.
+/// Extends primitives::PvfExecKind, which is a runtime parameter we don't want to change,
+/// to separate and prioritize execution jobs by request type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]
 pub enum PvfExecPriority {
 	/// For dispute requests
