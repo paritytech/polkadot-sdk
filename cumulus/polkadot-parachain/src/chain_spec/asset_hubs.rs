@@ -34,13 +34,6 @@ const ASSET_HUB_ROCOCO_ED: AssetHubBalance = asset_hub_rococo_runtime::Existenti
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn asset_hub_rococo_session_keys(keys: AuraId) -> asset_hub_rococo_runtime::SessionKeys {
-	asset_hub_rococo_runtime::SessionKeys { aura: keys }
-}
-
-/// Generate the session keys from individual elements.
-///
-/// The input must be a tuple of individual keys (a single arg for now since we have just one key).
 pub fn asset_hub_westend_session_keys(keys: AuraId) -> asset_hub_westend_runtime::SessionKeys {
 	asset_hub_westend_runtime::SessionKeys { aura: keys }
 }
