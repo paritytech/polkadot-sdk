@@ -110,7 +110,7 @@ use crate::{
 	exec::{
 		AccountIdOf, ErrorOrigin, ExecError, Executable, Ext, Key, MomentOf, Stack as ExecStack,
 	},
-	gas::{GasMeter, Token},
+	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
 };
@@ -678,9 +678,8 @@ pub mod pallet {
 					new_bytes: max_payload_size,
 					old_bytes: 0,
 				})
-				.ref_time()
-				.saturating_add(max_key_size as u64)))
-			.saturating_mul(max_payload_size as u64))
+				.ref_time()))
+			.saturating_mul(max_payload_size.saturating_add(max_key_size) as u64))
 			.try_into()
 			.expect("Storage size too big");
 
@@ -696,14 +695,14 @@ pub mod pallet {
 			);
 
 			// We can use storage to store events using the available block ref_time with the
-			// `deposit_event` host function.
+			// `deposit_event` host function. The overhead of stored events, which is around 100B,
+			// is not taken into account to simplify calculations, as it does not change much.
 			let max_events_size: u32 = ((max_block_ref_time /
 				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
 					num_topic: 0,
 					len: max_payload_size,
 				})
-				.ref_time()
-				.saturating_add(max_key_size as u64)))
+				.ref_time()))
 			.saturating_mul(max_payload_size as u64))
 			.try_into()
 			.expect("Events size too big");
