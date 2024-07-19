@@ -489,7 +489,7 @@ quick-benchmarks-omni-repeat-1-leave-intent:
     WASM_BUILD_RUSTFLAGS: "-C debug-assertions"
   script:
     - time cargo build --locked --quiet --release -p asset-hub-rococo-runtime --features runtime-benchmarks
-    - time cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/asset-hub-rococo-runtime/asset_hub_rococo_runtime.compact.compressed.wasm -pallet=$pallet --extrinsic=leave_intent --steps 2 --repeat 1
+    - time cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/asset-hub-rococo-runtime/asset_hub_rococo_runtime.compact.compressed.wasm -pallet=pallet_collator_selection  --extrinsic=leave_intent --steps 2 --repeat 1
 
 # FAIL-CI - remove when PR is fixed
 quick-benchmarks-omni-repeat-2-leave-intent:
@@ -507,7 +507,7 @@ quick-benchmarks-omni-repeat-2-leave-intent:
     WASM_BUILD_RUSTFLAGS: "-C debug-assertions"
   script:
     - time cargo build --locked --quiet --release -p asset-hub-rococo-runtime --features runtime-benchmarks
-    - time cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/asset-hub-rococo-runtime/asset_hub_rococo_runtime.compact.compressed.wasm -pallet=$pallet --extrinsic=leave_intent --steps 2 --repeat 2
+    - time cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/asset-hub-rococo-runtime/asset_hub_rococo_runtime.compact.compressed.wasm -pallet=pallet_collator_selection  --extrinsic=leave_intent --steps 2 --repeat 2
 
 test-frame-examples-compile-to-wasm:
   # into one job
