@@ -253,6 +253,10 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 				if let Some(peer) = self.try_next_peer(None) {
 					self.request_from_peer(peer, req_info);
 				} else {
+					metric_inc!(
+						self.metrics,
+						beefy_on_demand_justification_no_peer_to_request_from
+					);
 					warn!(
 						target: BEEFY_SYNC_LOG_TARGET,
 						"🥩 ran out of peers to request justif #{block:?} from, in flight err: {err:?}"
