@@ -649,30 +649,45 @@ impl Unscheduled {
 	fn select_next_priority(&self) -> PvfExecPriority {
 		use PvfExecPriority::*;
 
+		// Iterate over priorities starting with Dispute
 		for priority in PvfExecPriority::iter() {
 			if !self.has_pending(priority) {
 				continue;
 			}
 
-			match priority {
-				Approval => {
-					if !self.has_pending(Backing) && !self.has_pending(BackingSystem) {
-						return priority
-					}
+			let is_fulfilled = self.is_fulfilled(priority);
+			if priority == Approval {
+				// To run jobs from Approval queue we should either
+				// - have no backing jobs
+				// - be overworked but not yet fulfilled
+				let has_backing_jobs = self.has_pending(Backing) || self.has_pending(BackingSystem);
+				let queue_size_without_disputes = self.regular_jobs_count();
+				let queue_overworked = queue_size_without_disputes > Self::REGULAR_JOBS_THRESHOLD;
 
-					if self.regular_jobs_count() > Self::REGULAR_JOBS_THRESHOLD &&
-						!self.fulfilled(priority)
-					{
-						return priority
-					}
-				},
-				_ =>
-					if !self.fulfilled(priority) {
-						return priority
-					},
+				if !has_backing_jobs || queue_overworked && !is_fulfilled {
+					gum::debug!(
+						target: LOG_TARGET,
+						?has_backing_jobs,
+						?queue_size_without_disputes,
+						?queue_overworked,
+						"Chosen {} priority to run next",
+						priority
+					);
+					return priority
+				}
+			} else if !is_fulfilled {
+				// Other priorities require only to be not fulfilled to run next
+				gum::debug!(
+					target: LOG_TARGET,
+					"Chosen {} priority to run next, its limit is not yet fulfilled",
+					priority
+				);
+
+				return priority
 			}
 		}
 
+		// The lowest priority as a fallback
 		Backing
 	}
 
@@ -711,7 +726,7 @@ impl Unscheduled {
 		)
 	}
 
-	fn fulfilled(&self, priority: PvfExecPriority) -> bool {
+	fn is_fulfilled(&self, priority: PvfExecPriority) -> bool {
 		let Some(threshold) = Self::fulfilled_threshold(priority) else { return false };
 		let Some(count) = self.counter.get(&priority) else { return false };
 		// Every time we iterate by lower level priorities
