@@ -15,60 +15,54 @@
 
 //! # Asset Hub Rococo Runtime genesis config presets
 
+use crate::*;
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
-use parachains_common::{genesis_config_helpers::*, AccountId, AuraId, Balance as AssetHubBalance};
+use parachains_common::{genesis_config_helpers::*, AccountId, AuraId};
 use sp_core::{crypto::UncheckedInto, sr25519};
 use sp_genesis_builder::PresetId;
-use testnet_parachains_constants::rococo::xcm_version::SAFE_XCM_VERSION;
+use testnet_parachains_constants::rococo::{currency::UNITS as ROC, xcm_version::SAFE_XCM_VERSION};
 
-const ASSET_HUB_ROCOCO_ED: AssetHubBalance = crate::ExistentialDeposit::get();
-
-/// Generate the session keys from individual elements.
-///
-/// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn asset_hub_rococo_session_keys(keys: AuraId) -> crate::SessionKeys {
-	crate::SessionKeys { aura: keys }
-}
+const ASSET_HUB_ROCOCO_ED: Balance = ExistentialDeposit::get();
 
 fn asset_hub_rococo_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
-	endowment: AssetHubBalance,
+	endowment: Balance,
 	id: ParaId,
 ) -> serde_json::Value {
 	serde_json::json!({
-		"balances": crate::BalancesConfig {
+		"balances": BalancesConfig {
 			balances: endowed_accounts
 				.iter()
 				.cloned()
 				.map(|k| (k, endowment))
 				.collect(),
 		},
-		"parachainInfo": crate::ParachainInfoConfig {
+		"parachainInfo": ParachainInfoConfig {
 			parachain_id: id,
 			..Default::default()
 		},
-		"collatorSelection": crate::CollatorSelectionConfig {
+		"collatorSelection": CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: ASSET_HUB_ROCOCO_ED * 16,
 			..Default::default()
 		},
-		"session": crate::SessionConfig {
+		"session": SessionConfig {
 			keys: invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
 						acc.clone(),                         // account id
 						acc,                                 // validator id
-						asset_hub_rococo_session_keys(aura), // session keys
+						SessionKeys { aura }, 		     // session keys
 					)
 				})
 				.collect(),
 			..Default::default()
 		},
-		"polkadotXcm": crate::PolkadotXcmConfig {
+		"polkadotXcm": PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 			..Default::default()
 		}
@@ -144,7 +138,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 			],
-			testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
+			ROC * 1_000_000,
 			1000.into(),
 		),
 		Ok(PRESET_DEVELOPMENT) => asset_hub_rococo_genesis(
@@ -159,7 +153,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 			],
-			testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
+			ROC * 1_000_000,
 			1000.into(),
 		),
 		Err(_) | Ok(_) => return None,
