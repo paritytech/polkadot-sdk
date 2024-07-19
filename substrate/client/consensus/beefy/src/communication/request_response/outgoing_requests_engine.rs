@@ -98,12 +98,17 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 		}
 	}
 
-	fn reset_peers_cache_for_block(&mut self, block: NumberFor<B>) {
-		self.peers_cache = self.live_peers.lock().further_than(block);
-	}
-
-	fn try_next_peer(&mut self) -> Option<PeerId> {
+	/// Returns the next peer from the peers cache, if available.
+	///
+	/// If the optional block number if provided, the peers cache is
+	/// repopulated from the live peers that have voted on higher block numbers.
+	fn try_next_peer(&mut self, reset_cache: Option<NumberFor<B>>) -> Option<PeerId> {
 		let live = self.live_peers.lock();
+
+		if let Some(reset) = reset_cache {
+			self.peers_cache = live.further_than(reset);
+		}
+
 		while let Some(peer) = self.peers_cache.pop_front() {
 			if live.contains(&peer) {
 				return Some(peer);
@@ -142,11 +147,10 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 		if matches!(self.state, State::AwaitingResponse(_, _, _)) {
 			return;
 		}
-		self.reset_peers_cache_for_block(block);
 
 		// Start the requests engine - each unsuccessful received response will automatically
 		// trigger a new request to the next peer in the `peers_cache` until there are none left.
-		if let Some(peer) = self.try_next_peer() {
+		if let Some(peer) = self.try_next_peer(Some(block)) {
 			self.request_from_peer(peer, RequestInfo { block, active_set });
 		} else {
 			metric_inc!(self.metrics, beefy_on_demand_justification_no_peer_to_request_from);
@@ -246,12 +250,19 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 		match self.process_response(&peer, &req_info, resp) {
 			Err(err) => {
 				// No valid justification received, try next peer in our set.
-				if let Some(peer) = self.try_next_peer() {
+				if let Some(peer) = self.try_next_peer(None) {
 					self.request_from_peer(peer, req_info);
 				} else {
+					metric_inc!(
+						self.metrics,
+						beefy_on_demand_justification_no_peer_to_request_from
+					);
+
+					let num_cache = self.peers_cache.len();
+					let num_live = self.live_peers.lock().len();
 					warn!(
 						target: BEEFY_SYNC_LOG_TARGET,
-						"🥩 ran out of peers to request justif #{:?} from", block
+						"🥩 ran out of peers to request justif #{block:?} from num_cache={num_cache} num_live={num_live} err={err:?}",
 					);
 				}
 				// Report peer based on error type.
@@ -265,7 +276,7 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 				metric_inc!(self.metrics, beefy_on_demand_justification_good_proof);
 				debug!(
 					target: BEEFY_SYNC_LOG_TARGET,
-					"🥩 received valid on-demand justif #{:?} from {:?}", block, peer
+					"🥩 received valid on-demand justif #{block:?} from {peer:?}",
 				);
 				let peer_report = PeerReport { who: peer, cost_benefit: benefit::VALIDATED_PROOF };
 				ResponseInfo::ValidProof(proof, peer_report)
