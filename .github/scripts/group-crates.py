@@ -19,5 +19,5 @@ crates.sort()
 
 part = crates[:len(crates)//6]
 
-for pgk in part:
+for pkg in part:
     print ('+package('+pkg+') ')
