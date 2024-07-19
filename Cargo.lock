@@ -20917,6 +20917,7 @@ dependencies = [
  "parity-scale-codec",
  "platforms",
  "polkadot-sdk",
+ "pretty_assertions",
  "rand",
  "regex",
  "sc-service-test",
