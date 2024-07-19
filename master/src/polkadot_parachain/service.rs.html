@@ -1172,6 +1172,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1021" id="1021">1021</a>
 <a href="#1022" id="1022">1022</a>
 <a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1299,6 +1313,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		overseer_handle: OverseerHandle,
 		announce_block: Arc&lt;<span class="kw">dyn </span>Fn(Hash, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) + Send + Sync&gt;,
 		backend: Arc&lt;ParachainBackend&gt;,
+		node_extra_args: NodeExtraArgs,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sc_service::Error&gt;;
 }
 
@@ -1400,6 +1415,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		collator_options: CollatorOptions,
 		para_id: ParaId,
 		hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
+		node_extra_args: NodeExtraArgs,
 	) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = sc_service::error::Result&lt;TaskManager&gt;&gt;&gt;&gt;
 	<span class="kw">where
 		</span>Net: NetworkBackend&lt;Block, Hash&gt;,
@@ -1535,6 +1551,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					overseer_handle,
 					announce_block,
 					backend.clone(),
+					node_extra_args,
 				)<span class="question-mark">?</span>;
 			}
 
@@ -1698,7 +1715,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">const </span>SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
 }
 
-<span class="kw">pub fn </span>new_aura_node_spec&lt;RuntimeApi, AuraId&gt;(extra_args: NodeExtraArgs) -&gt; Box&lt;<span class="kw">dyn </span>DynNodeSpec&gt;
+<span class="kw">pub fn </span>new_aura_node_spec&lt;RuntimeApi, AuraId&gt;(extra_args: <span class="kw-2">&amp;</span>NodeExtraArgs) -&gt; Box&lt;<span class="kw">dyn </span>DynNodeSpec&gt;
 <span class="kw">where
 	</span>RuntimeApi: ConstructNodeRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi&lt;Block, AuraId&gt;
@@ -1741,6 +1758,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		overseer_handle: OverseerHandle,
 		announce_block: Arc&lt;<span class="kw">dyn </span>Fn(Hash, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) + Send + Sync&gt;,
 		_backend: Arc&lt;ParachainBackend&gt;,
+		_node_extra_args: NodeExtraArgs,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
@@ -1865,6 +1883,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_overseer_handle: OverseerHandle,
 		announce_block: Arc&lt;<span class="kw">dyn </span>Fn(Hash, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) + Send + Sync&gt;,
 		backend: Arc&lt;ParachainBackend&gt;,
+		_node_extra_args: NodeExtraArgs,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
@@ -1960,6 +1979,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		overseer_handle: OverseerHandle,
 		announce_block: Arc&lt;<span class="kw">dyn </span>Fn(Hash, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) + Send + Sync&gt;,
 		backend: Arc&lt;ParachainBackend&gt;,
+		node_extra_args: NodeExtraArgs,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
@@ -1976,33 +1996,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			client.clone(),
 		);
 
-		<span class="kw">let </span>params = AuraParams {
-			create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(()) },
-			block_import,
-			para_client: client.clone(),
-			para_backend: backend,
-			relay_client: relay_chain_interface,
-			code_hash_provider: {
-				<span class="kw">let </span>client = client.clone();
-				<span class="kw">move </span>|block_hash| {
-					client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
-				}
+		<span class="kw">let </span>params = aura::ParamsWithExport {
+			export_pov: node_extra_args.export_pov,
+			params: AuraParams {
+				create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(()) },
+				block_import,
+				para_client: client.clone(),
+				para_backend: backend,
+				relay_client: relay_chain_interface,
+				code_hash_provider: {
+					<span class="kw">let </span>client = client.clone();
+					<span class="kw">move </span>|block_hash| {
+						client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+					}
+				},
+				keystore,
+				collator_key,
+				para_id,
+				overseer_handle,
+				relay_chain_slot_duration,
+				proposer: Proposer::new(proposer_factory),
+				collator_service,
+				authoring_duration: Duration::from_millis(<span class="number">1500</span>),
+				reinitialize: <span class="bool-val">false</span>,
 			},
-			keystore,
-			collator_key,
-			para_id,
-			overseer_handle,
-			relay_chain_slot_duration,
-			proposer: Proposer::new(proposer_factory),
-			collator_service,
-			authoring_duration: Duration::from_millis(<span class="number">1500</span>),
-			reinitialize: <span class="bool-val">false</span>,
 		};
 
-		<span class="kw">let </span>fut = <span class="kw">async move </span>{
-			wait_for_aura(client).<span class="kw">await</span>;
-			aura::run::&lt;Block, &lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params).<span class="kw">await</span>;
-		};
+		<span class="kw">let </span>fut =
+			<span class="kw">async move </span>{
+				wait_for_aura(client).<span class="kw">await</span>;
+				aura::run_with_export::&lt;Block, &lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params).<span class="kw">await</span>;
+			};
 		task_manager.spawn_essential_handle().spawn(<span class="string">"aura"</span>, <span class="prelude-val">None</span>, fut);
 
 		<span class="prelude-val">Ok</span>(())
@@ -2084,6 +2108,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		collator_options: CollatorOptions,
 		para_id: ParaId,
 		hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
+		node_extra_args: NodeExtraArgs,
 	) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = sc_service::error::Result&lt;TaskManager&gt;&gt;&gt;&gt;;
 }
 
@@ -2174,6 +2199,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		collator_options: CollatorOptions,
 		para_id: ParaId,
 		hwbench: <span class="prelude-ty">Option</span>&lt;HwBench&gt;,
+		node_extra_args: NodeExtraArgs,
 	) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = sc_service::error::Result&lt;TaskManager&gt;&gt;&gt;&gt; {
 		<span class="kw">match </span>parachain_config.network.network_backend {
 			sc_network::config::NetworkBackendType::Libp2p =&gt;
@@ -2183,6 +2209,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					collator_options,
 					para_id,
 					hwbench,
+					node_extra_args,
 				),
 			sc_network::config::NetworkBackendType::Litep2p =&gt;
 				&lt;<span class="self">Self </span><span class="kw">as </span>NodeSpec&gt;::start_node::&lt;sc_network::Litep2pNetworkBackend&gt;(
@@ -2191,6 +2218,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					collator_options,
 					para_id,
 					hwbench,
+					node_extra_args,
 				),
 		}
 	}

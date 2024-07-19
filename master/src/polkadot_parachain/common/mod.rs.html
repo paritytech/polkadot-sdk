@@ -221,6 +221,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -249,6 +253,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 <span class="kw">use </span>sp_session::SessionKeys;
 <span class="kw">use </span>sp_transaction_pool::runtime_api::TaggedTransactionQueue;
+<span class="kw">use </span>std::path::PathBuf;
 
 <span class="doccomment">/// Convenience trait that defines the basic bounds for the `RuntimeApi` of a parachain node.
 </span><span class="kw">pub trait </span>NodeRuntimeApi&lt;Block: BlockT&gt;:
@@ -292,6 +297,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Extra args that are passed when creating a new node spec.
 </span><span class="kw">pub struct </span>NodeExtraArgs {
 	<span class="kw">pub </span>use_slot_based_consensus: bool,
+
+	<span class="doccomment">/// If set, each `PoV` build by the node will be exported to this folder.
+	</span><span class="kw">pub </span>export_pov: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

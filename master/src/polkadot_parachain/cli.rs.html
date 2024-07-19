@@ -294,6 +294,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -386,6 +396,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>no_hardware_benchmarks: bool,
 
+	<span class="doccomment">/// Export all `PoVs` build by this collator to the given folder.
+	///
+	/// This is useful for debugging issues that are occurring while validating these `PoVs` on the
+	/// relay chain.
+	</span><span class="attr">#[arg(long)]
+	</span><span class="kw">pub </span>export_pov_to_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+
 	<span class="doccomment">/// Relay chain arguments
 	</span><span class="attr">#[arg(raw = <span class="bool-val">true</span>)]
 	</span><span class="kw">pub </span>relay_chain_args: Vec&lt;String&gt;,
@@ -393,7 +410,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Cli {
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>node_extra_args(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NodeExtraArgs {
-		NodeExtraArgs { use_slot_based_consensus: <span class="self">self</span>.experimental_use_slot_based }
+		NodeExtraArgs {
+			use_slot_based_consensus: <span class="self">self</span>.experimental_use_slot_based,
+			export_pov: <span class="self">self</span>.export_pov_to_path.clone(),
+		}
 	}
 }
 

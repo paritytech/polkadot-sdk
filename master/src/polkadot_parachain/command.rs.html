@@ -1004,7 +1004,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#853" id="853">853</a>
 <a href="#854" id="854">854</a>
 <a href="#855" id="855">855</a>
-<a href="#856" id="856">856</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1024,8 +1023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::service::Block;
 <span class="kw">use crate</span>::{
-	chain_spec,
-	chain_spec::GenericChainSpec,
+	chain_spec::{<span class="self">self</span>, GenericChainSpec},
 	cli::{Cli, RelayChainCli, Subcommand},
 	common::NodeExtraArgs,
 	fake_runtime_api::{
@@ -1395,7 +1393,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>new_node_spec(
 	config: <span class="kw-2">&amp;</span>sc_service::Configuration,
-	extra_args: NodeExtraArgs,
+	extra_args: <span class="kw-2">&amp;</span>NodeExtraArgs,
 ) -&gt; std::result::Result&lt;Box&lt;<span class="kw">dyn </span>DynNodeSpec&gt;, sc_cli::Error&gt; {
 	<span class="prelude-val">Ok</span>(<span class="kw">match </span>config.chain_spec.runtime()<span class="question-mark">? </span>{
 		Runtime::AssetHubPolkadot =&gt;
@@ -1428,35 +1426,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Some</span>(Subcommand::CheckBlock(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			runner.async_run(|config| {
-				<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, cli.node_extra_args())<span class="question-mark">?</span>;
+				<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cli.node_extra_args())<span class="question-mark">?</span>;
 				node.prepare_check_block_cmd(config, cmd)
 			})
 		},
 		<span class="prelude-val">Some</span>(Subcommand::ExportBlocks(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			runner.async_run(|config| {
-				<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, cli.node_extra_args())<span class="question-mark">?</span>;
+				<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cli.node_extra_args())<span class="question-mark">?</span>;
 				node.prepare_export_blocks_cmd(config, cmd)
 			})
 		},
 		<span class="prelude-val">Some</span>(Subcommand::ExportState(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			runner.async_run(|config| {
-				<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, cli.node_extra_args())<span class="question-mark">?</span>;
+				<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cli.node_extra_args())<span class="question-mark">?</span>;
 				node.prepare_export_state_cmd(config, cmd)
 			})
 		},
 		<span class="prelude-val">Some</span>(Subcommand::ImportBlocks(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			runner.async_run(|config| {
-				<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, cli.node_extra_args())<span class="question-mark">?</span>;
+				<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cli.node_extra_args())<span class="question-mark">?</span>;
 				node.prepare_import_blocks_cmd(config, cmd)
 			})
 		},
 		<span class="prelude-val">Some</span>(Subcommand::Revert(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			runner.async_run(|config| {
-				<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, cli.node_extra_args())<span class="question-mark">?</span>;
+				<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cli.node_extra_args())<span class="question-mark">?</span>;
 				node.prepare_revert_cmd(config, cmd)
 			})
 		},
@@ -1478,7 +1476,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Some</span>(Subcommand::ExportGenesisHead(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			runner.sync_run(|config| {
-				<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, cli.node_extra_args())<span class="question-mark">?</span>;
+				<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cli.node_extra_args())<span class="question-mark">?</span>;
 				node.run_export_genesis_head_cmd(config, cmd)
 			})
 		},
@@ -1501,12 +1499,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					))
 				}),
 				BenchmarkCmd::Block(cmd) =&gt; runner.sync_run(|config| {
-					<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, cli.node_extra_args())<span class="question-mark">?</span>;
+					<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cli.node_extra_args())<span class="question-mark">?</span>;
 					node.run_benchmark_block_cmd(config, cmd)
 				}),
 				<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 				</span>BenchmarkCmd::Storage(cmd) =&gt; runner.sync_run(|config| {
-					<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, cli.node_extra_args())<span class="question-mark">?</span>;
+					<span class="kw">let </span>node = new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cli.node_extra_args())<span class="question-mark">?</span>;
 					node.run_benchmark_storage_cmd(config, cmd)
 				}),
 				BenchmarkCmd::Machine(cmd) =&gt;
@@ -1614,9 +1612,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	extra_args: NodeExtraArgs,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;sc_service::TaskManager&gt; {
-	<span class="kw">let </span>node_spec = new_node_spec(<span class="kw-2">&amp;</span>config, extra_args)<span class="question-mark">?</span>;
+	<span class="kw">let </span>node_spec = new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>extra_args)<span class="question-mark">?</span>;
 	node_spec
-		.start_node(config, polkadot_config, collator_options, id, hwbench)
+		.start_node(config, polkadot_config, collator_options, id, hwbench, extra_args)
 		.<span class="kw">await
 		</span>.map_err(Into::into)
 }
