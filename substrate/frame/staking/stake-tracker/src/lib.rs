@@ -478,7 +478,6 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		prev_nominations: Vec<T::AccountId>,
 		nominations: Vec<T::AccountId>,
 	) {
-		defensive_assert!(!Self::has_duplicate_nominations(prev_nominations.clone()));
 		defensive_assert!(!Self::has_duplicate_nominations(nominations.clone()));
 
 		let nominator_vote = Self::vote_of(who);
