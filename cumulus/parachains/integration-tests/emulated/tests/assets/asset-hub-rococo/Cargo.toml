@@ -30,6 +30,7 @@ pallet-xcm = { workspace = true }
 xcm-executor = { workspace = true }
 polkadot-runtime-common = { workspace = true, default-features = true }
 rococo-runtime-constants = { workspace = true, default-features = true }
+xcm-runtime-apis = { workspace = true }
 
 # Cumulus
 asset-test-utils = { workspace = true, default-features = true }

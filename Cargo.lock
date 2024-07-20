@@ -824,6 +824,7 @@ dependencies = [
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
+ "xcm-runtime-apis",
 ]
 
 [[package]]

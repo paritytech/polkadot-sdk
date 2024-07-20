@@ -17,6 +17,13 @@ use crate::imports::*;
 use emulated_integration_tests_common::{
 	test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
 };
+use frame_support::{
+	dispatch::RawOrigin, sp_runtime::traits::Dispatchable, traits::fungible::Mutate,
+};
+use xcm_runtime_apis::{
+	dry_run::runtime_decl_for_dry_run_api::DryRunApiV1,
+	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
+};
 
 fn relay_dest_assertions_fail(_t: SystemParaToRelayTest) {
 	Rococo::assert_ump_queue_processed(
@@ -208,7 +215,7 @@ fn system_para_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResul
 /// Limited Teleport of native asset from System Parachain to Relay Chain
 /// should work when there is enough balance in Relay Chain's `CheckAccount`
 #[test]
-fn limited_teleport_from_and_to_relay() {
+fn teleport_from_and_to_relay() {
 	let amount = ROCOCO_ED * 1000;
 	let native_asset: Assets = (Here, amount).into();
 
