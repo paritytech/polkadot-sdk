@@ -291,7 +291,6 @@ mod tests {
 				announce_block: true,
 				base_path: sc_service::BasePath::new(root.clone()),
 				data_path: root,
-				informant_output_format: Default::default(),
 				runtime_cache_size: 2,
 			},
 			runtime,

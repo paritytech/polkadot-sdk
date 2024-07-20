@@ -18,7 +18,7 @@
 
 //! Console informant. Prints sync progress and block events. Runs on the calling thread.
 
-use console::{style, Attribute, Color};
+use console::style;
 use futures::prelude::*;
 use futures_timer::Delay;
 use log::{debug, info, trace};
@@ -36,45 +36,15 @@ fn interval(duration: Duration) -> impl Stream<Item = ()> + Unpin {
 	futures::stream::unfold((), move |_| Delay::new(duration).map(|_| Some(((), ())))).map(drop)
 }
 
-/// The format to print telemetry output in.
-#[derive(Clone, Debug)]
-pub struct OutputFormat {
-	/// Enable color output in logs.
-	///
-	/// Is enabled by default.
-	pub enable_color: bool,
-}
-
-impl Default for OutputFormat {
-	fn default() -> Self {
-		Self { enable_color: true }
-	}
-}
-
-impl OutputFormat {
-	/// Print with color if `self.enable_color == true`.
-	fn print(&self, color: Color, attr: Option<Attribute>, data: impl Display) -> impl Display {
-		if self.enable_color {
-			let mut styled = style(data).fg(color);
-			if let Some(attr) = attr {
-				styled = styled.attr(attr);
-			}
-			styled.to_string()
-		} else {
-			data.to_string()
-		}
-	}
-}
-
 /// Builds the informant and returns a `Future` that drives the informant.
-pub async fn build<B: BlockT, C, N, S>(client: Arc<C>, network: N, syncing: S, format: OutputFormat)
+pub async fn build<B: BlockT, C, N, S>(client: Arc<C>, network: N, syncing: S)
 where
 	N: NetworkStatusProvider,
 	S: SyncStatusProvider<B>,
 	C: UsageProvider<B> + HeaderMetadata<B> + BlockchainEvents<B>,
 	<C as HeaderMetadata<B>>::Error: Display,
 {
-	let mut display = display::InformantDisplay::new(format.clone());
+	let mut display = display::InformantDisplay::new();
 
 	let client_1 = client.clone();
 
@@ -104,14 +74,11 @@ where
 
 	futures::select! {
 		() = display_notifications.fuse() => (),
-		() = display_block_import(client, format).fuse() => (),
+		() = display_block_import(client).fuse() => (),
 	};
 }
 
-fn display_block_import<B: BlockT, C>(
-	client: Arc<C>,
-	format: OutputFormat,
-) -> impl Future<Output = ()>
+fn display_block_import<B: BlockT, C>(client: Arc<C>) -> impl Future<Output = ()>
 where
 	C: UsageProvider<B> + HeaderMetadata<B> + BlockchainEvents<B>,
 	<C as HeaderMetadata<B>>::Error: Display,
@@ -135,11 +102,11 @@ where
 				match maybe_ancestor {
 					Ok(ref ancestor) if ancestor.hash != *last_hash => info!(
 						"♻️  Reorg on #{},{} to #{},{}, common ancestor #{},{}",
-						format.print(Color::Red, Some(Attribute::Bold), last_num),
+						style(last_num).red().bold().to_string(),
 						last_hash,
-						format.print(Color::Green, Some(Attribute::Bold), n.header.number()),
+						style(n.header.number()).green().bold().to_string(),
 						n.hash,
-						format.print(Color::White, Some(Attribute::Bold), ancestor.number),
+						style(ancestor.number).white().bold().to_string(),
 						ancestor.hash,
 					),
 					Ok(_) => {},
@@ -165,7 +132,7 @@ where
 			info!(
 				target: "substrate",
 				"{best_indicator} Imported #{} ({} → {})",
-				format.print(Color::White, Some(Attribute::Bold), n.header.number()),
+				style(n.header.number()).white().bold().to_string(),
 				n.header.parent_hash(),
 				n.hash,
 			);

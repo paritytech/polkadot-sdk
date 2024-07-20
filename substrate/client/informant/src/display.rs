@@ -16,8 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::OutputFormat;
-use console::{Attribute, Color};
+use console::style;
 use log::info;
 use sc_client_api::ClientInfo;
 use sc_network::NetworkStatus;
@@ -47,19 +46,16 @@ pub struct InformantDisplay<B: BlockT> {
 	last_total_bytes_inbound: u64,
 	/// The last seen total of bytes sent.
 	last_total_bytes_outbound: u64,
-	/// The format to print output in.
-	format: OutputFormat,
 }
 
 impl<B: BlockT> InformantDisplay<B> {
 	/// Builds a new informant display system.
-	pub fn new(format: OutputFormat) -> InformantDisplay<B> {
+	pub fn new() -> InformantDisplay<B> {
 		InformantDisplay {
 			last_number: None,
 			last_update: Instant::now(),
 			last_total_bytes_inbound: 0,
 			last_total_bytes_outbound: 0,
-			format,
 		}
 	}
 
@@ -146,15 +142,15 @@ impl<B: BlockT> InformantDisplay<B> {
 			target: "substrate",
 			"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}",
 			level,
-			self.format.print(Color::White, Some(Attribute::Bold), &status),
+			style(&status).white().bold().to_string(),
 			target,
-			self.format.print(Color::White, Some(Attribute::Bold), format!("{}", num_connected_peers)),
-			self.format.print(Color::White, Some(Attribute::Bold), format!("{}", best_number)),
+			style(format!("{}", num_connected_peers)).white().bold().to_string(),
+			style(format!("{}", best_number)).white().bold().to_string(),
 			best_hash,
-			self.format.print(Color::White, Some(Attribute::Bold), format!("{}", finalized_number)),
+			style(format!("{}", finalized_number)).white().bold().to_string(),
 			info.chain.finalized_hash,
-			self.format.print(Color::Green, None, format!("⬇ {}", TransferRateFormat(avg_bytes_per_sec_inbound))),
-			self.format.print(Color::Red, None, format!("⬆ {}", TransferRateFormat(avg_bytes_per_sec_outbound))),
+			style(format!("⬇ {}", TransferRateFormat(avg_bytes_per_sec_inbound))).green().to_string(),
+			style(format!("⬆ {}", TransferRateFormat(avg_bytes_per_sec_outbound))).red().to_string(),
 		)
 	}
 }

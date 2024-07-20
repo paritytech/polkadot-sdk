@@ -232,7 +232,6 @@ pub fn node_config(
 		announce_block: true,
 		data_path: root,
 		base_path,
-		informant_output_format: Default::default(),
 	}
 }
 

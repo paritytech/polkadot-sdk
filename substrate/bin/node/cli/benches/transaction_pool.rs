@@ -99,7 +99,6 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		announce_block: true,
 		data_path: base_path.path().into(),
 		base_path,
-		informant_output_format: Default::default(),
 		wasm_runtime_overrides: None,
 	};
 

@@ -24,7 +24,6 @@ lazy_static = { workspace = true }
 libc = { workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
-regex = { workspace = true }
 rustc-hash = { workspace = true }
 serde = { workspace = true, default-features = true }
 thiserror = { workspace = true }
@@ -42,6 +41,7 @@ sp-tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
+regex = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["chrono", "parking_lot"] }
 
 [[bench]]
