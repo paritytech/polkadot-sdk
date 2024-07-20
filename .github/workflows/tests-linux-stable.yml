@@ -142,20 +142,20 @@ jobs:
           name: coverage-report-${{ matrix.ci_node_index }}.lcov
           path: target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
 
-  #upload-reports:
-  #  needs: [test-linux-stable]
-  #  runs-on: ubuntu-latest
-  #  steps:
-  #    - name: Download artifacts
-  #      uses: actions/download-artifact@v4
-  #      with:
-  #        path: reports
-  #        pattern: coverage-report-*
-  #        merge-multiple: true    
-  #    - run: ls -al reports/      
-  #    - name: Upload to Codecov
-  #      uses: codecov/codecov-action@v2   
-  #      with:
-  #        token: ${{ secrets.CODECOV_TOKEN }}
-  #        verbose: true 
-  #        directory: reports
+  upload-reports:
+    needs: [test-linux-stable]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: reports
+          pattern: coverage-report-*
+          merge-multiple: true    
+      - run: ls -al reports/      
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v2   
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true 
+          directory: reports
