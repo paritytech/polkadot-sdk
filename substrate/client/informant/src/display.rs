@@ -140,17 +140,17 @@ impl<B: BlockT> InformantDisplay<B> {
 
 		info!(
 			target: "substrate",
-			"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}",
+			"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), ⬇ {} ⬆ {}",
 			level,
-			style(&status).white().bold().to_string(),
+			style(&status).white().bold(),
 			target,
-			style(format!("{}", num_connected_peers)).white().bold().to_string(),
-			style(format!("{}", best_number)).white().bold().to_string(),
+			style(num_connected_peers).white().bold(),
+			style(best_number).white().bold(),
 			best_hash,
-			style(format!("{}", finalized_number)).white().bold().to_string(),
+			style(finalized_number).white().bold(),
 			info.chain.finalized_hash,
-			style(format!("⬇ {}", TransferRateFormat(avg_bytes_per_sec_inbound))).green().to_string(),
-			style(format!("⬆ {}", TransferRateFormat(avg_bytes_per_sec_outbound))).red().to_string(),
+			style(TransferRateFormat(avg_bytes_per_sec_inbound)).green(),
+			style(TransferRateFormat(avg_bytes_per_sec_outbound)).red(),
 		)
 	}
 }

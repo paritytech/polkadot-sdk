@@ -12,3 +12,5 @@ crates:
     bump: patch
   - name: sc-tracing
     bump: patch
+  - name: sc-service
+    bump: major

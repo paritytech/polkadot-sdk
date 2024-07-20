@@ -102,11 +102,11 @@ where
 				match maybe_ancestor {
 					Ok(ref ancestor) if ancestor.hash != *last_hash => info!(
 						"♻️  Reorg on #{},{} to #{},{}, common ancestor #{},{}",
-						style(last_num).red().bold().to_string(),
+						style(last_num).red().bold(),
 						last_hash,
-						style(n.header.number()).green().bold().to_string(),
+						style(n.header.number()).green().bold(),
 						n.hash,
-						style(ancestor.number).white().bold().to_string(),
+						style(ancestor.number).white().bold(),
 						ancestor.hash,
 					),
 					Ok(_) => {},
@@ -132,7 +132,7 @@ where
 			info!(
 				target: "substrate",
 				"{best_indicator} Imported #{} ({} → {})",
-				style(n.header.number()).white().bold().to_string(),
+				style(n.header.number()).white().bold(),
 				n.header.parent_hash(),
 				n.hash,
 			);

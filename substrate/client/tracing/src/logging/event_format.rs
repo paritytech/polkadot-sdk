@@ -152,11 +152,11 @@ const ERROR_STR: &str = "ERROR";
 impl<'a> fmt::Display for FmtLevel<'a> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match *self.level {
-			Level::TRACE => write!(f, "{}", style(TRACE_STR).magenta().to_string()),
-			Level::DEBUG => write!(f, "{}", style(DEBUG_STR).blue().to_string()),
-			Level::INFO => write!(f, "{}", style(INFO_STR).green().to_string()),
-			Level::WARN => write!(f, "{}", style(WARN_STR).yellow().to_string()),
-			Level::ERROR => write!(f, "{}", style(ERROR_STR).red().to_string()),
+			Level::TRACE => write!(f, "{}", style(TRACE_STR).magenta()),
+			Level::DEBUG => write!(f, "{}", style(DEBUG_STR).blue()),
+			Level::INFO => write!(f, "{}", style(INFO_STR).green()),
+			Level::WARN => write!(f, "{}", style(WARN_STR).yellow()),
+			Level::ERROR => write!(f, "{}", style(ERROR_STR).red()),
 		}
 	}
 }

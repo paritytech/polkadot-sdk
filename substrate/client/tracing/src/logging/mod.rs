@@ -182,6 +182,7 @@ where
 	let enable_color = force_colors.unwrap_or_else(|| io::stderr().is_terminal());
 	let timer = fast_local_time::FastLocalTime { with_fractional: detailed_output };
 
+	// We need to set both together, because we are may printing to `stdout` and `stderr`.
 	console::set_colors_enabled(enable_color);
 	console::set_colors_enabled_stderr(enable_color);
 
@@ -496,7 +497,7 @@ mod tests {
 	fn do_not_write_with_colors_on_tty_entrypoint() {
 		if env::var("ENABLE_LOGGING").is_ok() {
 			let _guard = init_logger("");
-			log::info!("{}", console::style(EXPECTED_LOG_MESSAGE).yellow().to_string());
+			log::info!("{}", console::style(EXPECTED_LOG_MESSAGE).yellow());
 		}
 	}
 
