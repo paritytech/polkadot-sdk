@@ -19,15 +19,20 @@ crates.sort()
 
 #
 current_group = int(sys.argv[1]) - 1
-groups_total = int(sys.argv[2])
-cratesPerGroup = len(crates) // groups_total
+total_groups = int(sys.argv[2])
+
+cratesPerGroup = len(crates) // total_groups
+
+if current_group >= total_groups:
+	print("`current group` is greater than `total groups`")
+	sys.exit(1)
 
 #
 start = cratesPerGroup * current_group
 end = cratesPerGroup * (current_group + 1)
 
-if target_group + 1 == groups_total:
-	end = len(crates) - 1
+if current_group + 1 == total_groups:
+	end = len(crates)
 
 #
 part = crates[start : end]
