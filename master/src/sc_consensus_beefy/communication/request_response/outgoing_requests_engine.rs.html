@@ -424,6 +424,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -675,9 +682,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.try_next_peer() {
 					<span class="self">self</span>.request_from_peer(peer, req_info);
 				} <span class="kw">else </span>{
+					<span class="macro">metric_inc!</span>(
+						<span class="self">self</span>.metrics,
+						beefy_on_demand_justification_no_peer_to_request_from
+					);
+
+					<span class="kw">let </span>num_cache = <span class="self">self</span>.peers_cache.len();
+					<span class="kw">let </span>num_live = <span class="self">self</span>.live_peers.lock().len();
 					<span class="macro">warn!</span>(
 						target: BEEFY_SYNC_LOG_TARGET,
-						<span class="string">"🥩 ran out of peers to request justif #{:?} from"</span>, block
+						<span class="string">"🥩 ran out of peers to request justif #{block:?} from num_cache={num_cache} num_live={num_live} err={err:?}"</span>,
 					);
 				}
 				<span class="comment">// Report peer based on error type.
@@ -691,7 +705,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_on_demand_justification_good_proof);
 				<span class="macro">debug!</span>(
 					target: BEEFY_SYNC_LOG_TARGET,
-					<span class="string">"🥩 received valid on-demand justif #{:?} from {:?}"</span>, block, peer
+					<span class="string">"🥩 received valid on-demand justif #{block:?} from {peer:?}"</span>,
 				);
 				<span class="kw">let </span>peer_report = PeerReport { who: peer, cost_benefit: benefit::VALIDATED_PROOF };
 				ResponseInfo::ValidProof(proof, peer_report)
