@@ -89,8 +89,8 @@ jobs:
     strategy: 
       fail-fast: false     
       matrix:
-        ci_node_total: [1]
-        ci_node_index: [1]      
+        ci_node_total: [7]
+        ci_node_index: [1,2,3,4,5,6,7]      
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -100,15 +100,15 @@ jobs:
       
       - run: rustup component add llvm-tools-preview
       - run: mkdir -p target/coverage/result
-      - run: python3 .github/scripts/group-crates.py 1 20
+      - run: python3 .github/scripts/group-crates.py ${{ matrix.ci_node_index }} ${{ matrix.ci_node_total }}
 
       - name: script
         run: >
-          PACKAGES=`python3 .github/scripts/group-crates.py 1 10` &&
+          PACKAGES=`python3 .github/scripts/group-crates.py ${{ matrix.ci_node_index }} ${{ matrix.ci_node_total }}` &&
           time cargo
           nextest run
           --locked --release --no-fail-fast
-          --features try-runtime,ci-only-tests     
+          --features try-runtime,ci-only-tests,experimental,riscv
           -E "
           $PACKAGES
           - test(/.*benchmark.*/)
@@ -126,6 +126,7 @@ jobs:
           - test(/rejects_missing_seals/)          
           "
       - run: ls -al target/coverage
+      - run: ls -al /__w/polkadot-sdk/polkadot-sdk/
       - name: generate report
         run: >
           grcov

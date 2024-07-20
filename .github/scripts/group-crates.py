@@ -17,11 +17,22 @@ for line in output.splitlines():
 crates = list(set(crates))
 crates.sort()
 
+#
+current_group = int(sys.argv[1]) - 1
 groups_total = int(sys.argv[2])
+cratesPerGroup = len(crates) // groups_total
 
-part = crates[:len(crates)//groups_total]
+#
+start = cratesPerGroup * current_group
+end = cratesPerGroup * (current_group + 1)
+
+if target_group + 1 == groups_total:
+	end = len(crates) - 1
+
+#
+part = crates[start : end]
+
 result = 'package('+part[0]+')'
-
 for pkg in part[1:]:
     result += ' + package('+pkg+')'
 
