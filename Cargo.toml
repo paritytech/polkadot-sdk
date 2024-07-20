@@ -61,6 +61,7 @@ members = [
 	"bridges/snowbridge/primitives/router",
 	"bridges/snowbridge/runtime/runtime-common",
 	"bridges/snowbridge/runtime/test-common",
+	"cumulus/bin/pov-validator",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
 	"cumulus/client/consensus/aura",
