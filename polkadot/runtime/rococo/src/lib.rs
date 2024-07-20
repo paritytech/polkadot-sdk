@@ -20,7 +20,15 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit.
 #![recursion_limit = "512"]
 
+extern crate alloc;
+
+use alloc::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::cmp::Ordering;
 use frame_support::{
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	traits::FromContains,
@@ -68,11 +76,6 @@ use sp_consensus_beefy::{
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
 use sp_genesis_builder::PresetId;
-use sp_std::{
-	cmp::Ordering,
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-	prelude::*,
-};
 
 use frame_support::{
 	construct_runtime, derive_impl,
@@ -1304,9 +1307,11 @@ impl pallet_mmr::Config for Runtime {
 	const INDEXING_PREFIX: &'static [u8] = mmr::INDEXING_PREFIX;
 	type Hashing = Keccak256;
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;
-	type WeightInfo = ();
 	type LeafData = pallet_beefy_mmr::Pallet<Runtime>;
 	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Runtime>;
+	type WeightInfo = weights::pallet_mmr::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = parachains_paras::benchmarking::mmr_setup::MmrSetup<Runtime>;
 }
 
 parameter_types! {
@@ -1316,13 +1321,8 @@ parameter_types! {
 pub struct ParaHeadsRootProvider;
 impl BeefyDataProvider<H256> for ParaHeadsRootProvider {
 	fn extra_data() -> H256 {
-		let mut para_heads: Vec<(u32, Vec<u8>)> = parachains_paras::Parachains::<Runtime>::get()
-			.into_iter()
-			.filter_map(|id| {
-				parachains_paras::Heads::<Runtime>::get(&id).map(|head| (id.into(), head.0))
-			})
-			.collect();
-		para_heads.sort();
+		let para_heads: Vec<(u32, Vec<u8>)> =
+			parachains_paras::Pallet::<Runtime>::sorted_para_heads();
 		binary_merkle_tree::merkle_root::<mmr::Hashing, _>(
 			para_heads.into_iter().map(|pair| pair.encode()),
 		)
@@ -1743,6 +1743,7 @@ mod benches {
 		[pallet_identity, Identity]
 		[pallet_indices, Indices]
 		[pallet_message_queue, MessageQueue]
+		[pallet_mmr, Mmr]
 		[pallet_multisig, Multisig]
 		[pallet_parameters, Parameters]
 		[pallet_preimage, Preimage]
@@ -1845,7 +1846,7 @@ sp_api::impl_runtime_apis! {
 			Runtime::metadata_at_version(version)
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
 	}
@@ -2389,7 +2390,7 @@ sp_api::impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+				) -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					// Relay supports only native token, either reserve transfer it to non-system parachains,
 					// or teleport it to system parachain. Use the teleport case for benchmarking as it's
 					// slightly heavier.
