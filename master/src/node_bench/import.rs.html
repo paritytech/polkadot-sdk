@@ -326,6 +326,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -449,22 +450,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.inspect_state(|| {
 				<span class="kw">match </span><span class="self">self</span>.block_type {
 					BlockType::RandomTransfersKeepAlive =&gt; {
-						<span class="comment">// should be 8 per signed extrinsic + 1 per unsigned
+						<span class="comment">// should be 9 per signed extrinsic + 1 per unsigned
 						// we have 2 unsigned (timestamp and glutton bloat) while the rest are
 						// signed in the block.
-						// those 8 events per signed are:
+						// those 9 events per signed are:
 						//    - transaction paid for the transaction payment
 						//    - withdraw (Balances::Withdraw) for charging the transaction fee
 						//    - new account (System::NewAccount) as we always transfer fund to
 						//      non-existent account
 						//    - endowed (Balances::Endowed) for this new account
+						//    - issued (Balances::Issued) as total issuance is increased
 						//    - successful transfer (Event::Transfer) for this transfer operation
 						//    - 2x deposit (Balances::Deposit and Treasury::Deposit) for depositing
 						//      the transaction fee into the treasury
 						//    - extrinsic success
 						</span><span class="macro">assert_eq!</span>(
 							kitchensink_runtime::System::events().len(),
-							(<span class="self">self</span>.block.extrinsics.len() - <span class="number">2</span>) * <span class="number">8 </span>+ <span class="number">2</span>,
+							(<span class="self">self</span>.block.extrinsics.len() - <span class="number">2</span>) * <span class="number">9 </span>+ <span class="number">2</span>,
 						);
 					},
 					BlockType::Noop =&gt; {

@@ -1078,6 +1078,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#927" id="927">927</a>
 <a href="#928" id="928">928</a>
 <a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1114,11 +1125,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">pub use </span>imbalances::{NegativeImbalance, PositiveImbalance};
+<span class="kw">use </span>sp_runtime::traits::Bounded;
 
 <span class="comment">// wrapping these imbalances in a private module is necessary to ensure absolute privacy
 // of the inner member.
 </span><span class="kw">mod </span>imbalances {
-	<span class="kw">use super</span>::{result, Config, Imbalance, RuntimeDebug, Saturating, TryDrop, Zero};
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>core::mem;
 	<span class="kw">use </span>frame_support::traits::SameOrOther;
 
@@ -1279,14 +1291,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Drop <span class="kw">for </span>PositiveImbalance&lt;T, I&gt; {
 		<span class="doccomment">/// Basic drop handler will just square up the total issuance.
 		</span><span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-			&lt;<span class="kw">super</span>::TotalIssuance&lt;T, I&gt;&gt;::mutate(|v| <span class="kw-2">*</span>v = v.saturating_add(<span class="self">self</span>.<span class="number">0</span>));
+			<span class="kw">if </span>!<span class="self">self</span>.<span class="number">0</span>.is_zero() {
+				&lt;<span class="kw">super</span>::TotalIssuance&lt;T, I&gt;&gt;::mutate(|v| <span class="kw-2">*</span>v = v.saturating_add(<span class="self">self</span>.<span class="number">0</span>));
+				Pallet::&lt;T, I&gt;::deposit_event(Event::&lt;T, I&gt;::Issued { amount: <span class="self">self</span>.<span class="number">0 </span>});
+			}
 		}
 	}
 
 	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Drop <span class="kw">for </span>NegativeImbalance&lt;T, I&gt; {
 		<span class="doccomment">/// Basic drop handler will just square up the total issuance.
 		</span><span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-			&lt;<span class="kw">super</span>::TotalIssuance&lt;T, I&gt;&gt;::mutate(|v| <span class="kw-2">*</span>v = v.saturating_sub(<span class="self">self</span>.<span class="number">0</span>));
+			<span class="kw">if </span>!<span class="self">self</span>.<span class="number">0</span>.is_zero() {
+				&lt;<span class="kw">super</span>::TotalIssuance&lt;T, I&gt;&gt;::mutate(|v| <span class="kw-2">*</span>v = v.saturating_sub(<span class="self">self</span>.<span class="number">0</span>));
+				Pallet::&lt;T, I&gt;::deposit_event(Event::&lt;T, I&gt;::Rescinded { amount: <span class="self">self</span>.<span class="number">0 </span>});
+			}
 		}
 	}
 }
@@ -1343,6 +1361,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Zero::zero()
 			});
 		});
+
+		Pallet::&lt;T, I&gt;::deposit_event(Event::&lt;T, I&gt;::Rescinded { amount });
 		PositiveImbalance::new(amount)
 	}
 
@@ -1359,6 +1379,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">Self</span>::Balance::max_value()
 			})
 		});
+
+		Pallet::&lt;T, I&gt;::deposit_event(Event::&lt;T, I&gt;::Issued { amount });
 		NegativeImbalance::new(amount)
 	}
 
