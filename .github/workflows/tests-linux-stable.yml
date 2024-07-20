@@ -104,13 +104,13 @@ jobs:
 
       - name: script
         run: >
-          PACKAGES=`python3 .github/scripts/group-crates.py 1 5` &&
+          PACKAGES=`python3 .github/scripts/group-crates.py 1 10` &&
           time cargo
           nextest run
           --locked --release --no-fail-fast
           --features try-runtime,ci-only-tests     
           -E "
-          package(polkadot)
+          package($PACKAGES)
           - test(/.*benchmark.*/)
           - test(/recovers_from_only_chunks_if_pov_large::case_1/)
           - test(/participation_requests_reprioritized_for_newly_included/)
