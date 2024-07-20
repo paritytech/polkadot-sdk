@@ -85,6 +85,7 @@ jobs:
       # but still want to have debug assertions.
       RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings -Cinstrument-coverage"
       LLVM_PROFILE_FILE: "target/coverage/cargo-test-${{ matrix.ci_node_index }}-%p-%m.profraw"
+      #LLVM_PROFILE_FILE:"/__w/polkadot-sdk/polkadot-sdk/target/coverage/cargo-test-${{ matrix.ci_node_index }}-%p-%m.profraw"
     strategy: 
       fail-fast: false     
       matrix:
@@ -124,7 +125,7 @@ jobs:
           - test(/tests::authoring_blocks/)
           - test(/rejects_missing_seals/)          
           "
-      
+      - run: ls -al target/coverage
       - name: generate report
         run: >
           grcov
@@ -134,9 +135,6 @@ jobs:
           -t lcov
           --branch
           -o target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
-          --ignore "/*"
-          --log-level DEBUG
-          --ignore-not-existing
       - name: upload report
         uses: actions/upload-artifact@v4
         with:
