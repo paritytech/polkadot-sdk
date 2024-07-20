@@ -109,7 +109,7 @@ jobs:
           --workspace --locked --release --no-fail-fast
           --features try-runtime,experimental,riscv,ci-only-tests     
           -E "
-          $PACKAGES
+          package(polkadot)
           - test(/.*benchmark.*/)
           - test(/recovers_from_only_chunks_if_pov_large::case_1/)
           - test(/participation_requests_reprioritized_for_newly_included/)
@@ -134,9 +134,8 @@ jobs:
           -t lcov
           --branch
           -o target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
-          --ignore "/*,$HOME/.cargo/**,target/release/wbuild/*,target/release/build/*"
+          --ignore "/*"
           --log-level DEBUG
-          --llvm
           --ignore-not-existing
       - name: upload report
         uses: actions/upload-artifact@v4
