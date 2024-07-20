@@ -108,7 +108,7 @@ jobs:
           time cargo
           nextest run
           --locked --release --no-fail-fast
-          --features try-runtime,experimental,riscv,ci-only-tests     
+          --features try-runtime,ci-only-tests     
           -E "
           package(polkadot)
           - test(/.*benchmark.*/)
