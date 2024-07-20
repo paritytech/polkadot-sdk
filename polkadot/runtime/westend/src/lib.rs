@@ -20,6 +20,13 @@
 // `#[frame_support::runtime]!` does a lot of recursion and requires us to increase the limit.
 #![recursion_limit = "512"]
 
+extern crate alloc;
+
+use alloc::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
 use frame_support::{
@@ -95,10 +102,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill,
 };
 use sp_staking::SessionIndex;
-use sp_std::{
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-	prelude::*,
-};
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -339,9 +342,11 @@ impl pallet_mmr::Config for Runtime {
 	const INDEXING_PREFIX: &'static [u8] = mmr::INDEXING_PREFIX;
 	type Hashing = Keccak256;
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;
-	type WeightInfo = ();
 	type LeafData = pallet_beefy_mmr::Pallet<Runtime>;
 	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Runtime>;
+	type WeightInfo = weights::pallet_mmr::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = parachains_paras::benchmarking::mmr_setup::MmrSetup<Runtime>;
 }
 
 /// MMR helper types.
@@ -363,13 +368,8 @@ parameter_types! {
 pub struct ParaHeadsRootProvider;
 impl BeefyDataProvider<H256> for ParaHeadsRootProvider {
 	fn extra_data() -> H256 {
-		let mut para_heads: Vec<(u32, Vec<u8>)> = parachains_paras::Parachains::<Runtime>::get()
-			.into_iter()
-			.filter_map(|id| {
-				parachains_paras::Heads::<Runtime>::get(&id).map(|head| (id.into(), head.0))
-			})
-			.collect();
-		para_heads.sort_by_key(|k| k.0);
+		let para_heads: Vec<(u32, Vec<u8>)> =
+			parachains_paras::Pallet::<Runtime>::sorted_para_heads();
 		binary_merkle_tree::merkle_root::<mmr::Hashing, _>(
 			para_heads.into_iter().map(|pair| pair.encode()),
 		)
@@ -1752,6 +1752,7 @@ mod benches {
 		[pallet_identity, Identity]
 		[pallet_indices, Indices]
 		[pallet_message_queue, MessageQueue]
+		[pallet_mmr, Mmr]
 		[pallet_multisig, Multisig]
 		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 		[pallet_offences, OffencesBench::<Runtime>]
@@ -1802,7 +1803,7 @@ sp_api::impl_runtime_apis! {
 			Runtime::metadata_at_version(version)
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
 	}
@@ -2419,6 +2420,8 @@ sp_api::impl_runtime_apis! {
 			impl pallet_election_provider_support_benchmarking::Config for Runtime {}
 
 			use xcm_config::{AssetHub, TokenLocation};
+
+			use alloc::boxed::Box;
 
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
