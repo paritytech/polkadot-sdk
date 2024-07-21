@@ -315,6 +315,8 @@ struct PrepareValidationState {
 	already_prepared_code_hashes: HashSet<ValidationCodeHash>,
 	// How many PVFs per block we take to prepare themselves for the next session validation
 	per_block_limit: usize,
+	// For how many sessions validator was prepared
+	session_count: usize,
 }
 
 impl Default for PrepareValidationState {
@@ -324,6 +326,7 @@ impl Default for PrepareValidationState {
 			is_next_session_authority: false,
 			already_prepared_code_hashes: HashSet::new(),
 			per_block_limit: 1,
+			session_count: 0,
 		}
 	}
 }
@@ -337,10 +340,14 @@ async fn maybe_prepare_validation<Sender>(
 ) where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
+	// We need to prepare PVF only once after validator connected
+	if state.session_count >= 1 {
+		return
+	}
+
 	let Some(leaf) = update.activated else { return };
 	let new_session_index = new_session_index(sender, state.session_index, leaf.hash).await;
 	if new_session_index.is_some() {
-		state.session_index = new_session_index;
 		state.already_prepared_code_hashes.clear();
 		state.is_next_session_authority = check_next_session_authority(
 			sender,
@@ -349,6 +356,10 @@ async fn maybe_prepare_validation<Sender>(
 			state.session_index.expect("qed: just checked above"),
 		)
 		.await;
+		if state.session_index.is_some() && state.is_next_session_authority {
+			state.session_count += 1;
+		}
+		state.session_index = new_session_index;
 	}
 
 	// On every active leaf check candidates and prepare PVFs our node doesn't have yet.
