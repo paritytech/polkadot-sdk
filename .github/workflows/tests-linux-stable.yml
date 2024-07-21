@@ -109,7 +109,7 @@ jobs:
           time cargo
           nextest run
           --locked --release --no-fail-fast
-          --features try-runtime,ci-only-tests,experimental,riscv
+          --features try-runtime,ci-only-tests
           -E "
           $PACKAGES
           - test(/.*benchmark.*/)
