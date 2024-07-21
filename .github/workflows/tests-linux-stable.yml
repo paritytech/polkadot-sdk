@@ -84,13 +84,13 @@ jobs:
       # Enable debug assertions since we are running optimized builds for testing
       # but still want to have debug assertions.
       RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings -Cinstrument-coverage"
-      LLVM_PROFILE_FILE: "target/coverage/cargo-test-${{ matrix.ci_node_index }}-%p-%m.profraw"
-      #LLVM_PROFILE_FILE:"/__w/polkadot-sdk/polkadot-sdk/target/coverage/cargo-test-${{ matrix.ci_node_index }}-%p-%m.profraw"
+      #LLVM_PROFILE_FILE: "target/coverage/cargo-test-${{ matrix.ci_node_index }}-%p-%m.profraw"
+      LLVM_PROFILE_FILE: "/__w/polkadot-sdk/polkadot-sdk/target/coverage/cargo-test-${{ matrix.ci_node_index }}-%p-%m.profraw"
     strategy: 
       fail-fast: false     
       matrix:
-        ci_node_total: [7]
-        ci_node_index: [1,2,3,4,5,6,7]      
+        ci_node_total: [5]
+        ci_node_index: [1,2,3,4,5]      
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -104,14 +104,12 @@ jobs:
 
       - name: script
         run: >
-          PACKAGES=`python3 .github/scripts/group-crates.py ${{ matrix.ci_node_index }} ${{ matrix.ci_node_total }}` &&
-          echo $PACKAGES &&
           time cargo
           nextest run
+          --workspace
           --locked --release --no-fail-fast
           --features try-runtime,ci-only-tests
           -E "
-          $PACKAGES
           - test(/.*benchmark.*/)
           - test(/recovers_from_only_chunks_if_pov_large::case_1/)
           - test(/participation_requests_reprioritized_for_newly_included/)
@@ -126,22 +124,18 @@ jobs:
           - test(/tests::authoring_blocks/)
           - test(/rejects_missing_seals/)          
           "
+          --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
       - run: ls -al target/coverage
       - run: ls -al /__w/polkadot-sdk/polkadot-sdk/
       - name: generate report
         run: >
-          grcov
-          target/coverage/
-          --binary-path ./target/release/
-          -s .
-          -t lcov
-          --branch
-          -o target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
-      - name: upload report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report-${{ matrix.ci_node_index }}.lcov
-          path: target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
+          llvm-profdata-15 merge --sparse /__w/polkadot-sdk/polkadot-sdk/target/coverage/cargo-test-*.profraw -o json5format.profdata
+      - run: cat json5format.profdata
+      #- name: upload report
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: coverage-report-${{ matrix.ci_node_index }}.lcov
+      #    path: target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
 
   upload-reports:
     needs: [test-linux-stable]
