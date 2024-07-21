@@ -127,13 +127,18 @@ jobs:
       - run: ls -al /__w/polkadot-sdk/polkadot-sdk/
       - name: generate report
         run: >
-          llvm-profdata-15 merge --sparse /__w/polkadot-sdk/polkadot-sdk/target/coverage/cargo-test-*.profraw -o json5format.profdata
-      - run: cat json5format.profdata
-      #- name: upload report
-      #  uses: actions/upload-artifact@v4
-      #  with:
-      #    name: coverage-report-${{ matrix.ci_node_index }}.lcov
-      #    path: target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
+          grcov
+          /__w/polkadot-sdk/polkadot-sdk/target/coverage/
+          --binary-path ./target/release/deps/
+          -s .
+          -t lcov
+          --branch
+          -o target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
+      - name: upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.ci_node_index }}.lcov
+          path: target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
 
   upload-reports:
     needs: [test-linux-stable]
