@@ -1,7 +1,7 @@
 import subprocess, sys
 
 # Get all crates
-output = subprocess.check_output(["cargo", "tree", "--locked", "--workspace", "--depth", "0", "--prefix", "none". "--features", "try-runtime,ci-only-tests,experimental,riscv"])
+output = subprocess.check_output(["cargo", "tree", "--locked", "--workspace", "--depth", "0", "--prefix", "none", "--features", "try-runtime,ci-only-tests,experimental,riscv"])
 
 # Convert the output into a proper list
 crates = []
