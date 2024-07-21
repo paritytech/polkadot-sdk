@@ -14,3 +14,4 @@ doc:
 
 crates:
   - name: pallet-assets
+    bump: patch

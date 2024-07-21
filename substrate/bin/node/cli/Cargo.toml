@@ -71,6 +71,7 @@ wait-timeout = { workspace = true }
 wat = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
+pretty_assertions.workspace = true
 
 # These testing-only dependencies are not exported by the Polkadot-SDK crate:
 node-testing = { workspace = true }
