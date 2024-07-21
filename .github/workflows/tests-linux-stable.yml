@@ -100,8 +100,7 @@ jobs:
       
       - run: rustup component add llvm-tools-preview
       - run: mkdir -p target/coverage/result
-      - run: python3 .github/scripts/group-crates.py ${{ matrix.ci_node_index }} ${{ matrix.ci_node_total }}
-
+      #- run: python3 .github/scripts/group-crates.py ${{ matrix.ci_node_index }} ${{ matrix.ci_node_total }}
       - name: script
         run: >
           time cargo
