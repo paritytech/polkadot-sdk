@@ -17,7 +17,7 @@ for line in output.splitlines():
 crates = list(set(crates))
 crates.sort()
 
-print(f'total crates: {len(crates)}')
+#print(f'total crates: {len(crates)}')
 
 #
 current_group = int(sys.argv[1]) - 1
@@ -29,7 +29,7 @@ if current_group >= total_groups:
 	print("`current group` is greater than `total groups`")
 	sys.exit(1)
 
-print(f'group {current_group+1}/{total_groups}, {cratesPerGroup} crates per group')
+#print(f'group {current_group+1}/{total_groups}, {cratesPerGroup} crates per group')
 
 #
 start = cratesPerGroup * current_group
