@@ -1,0 +1,16 @@
+title: "Adds example for custom default configs"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR provides an example to create custom default configs for any pallet that could be
+      created externally and shared across runtimes.
+
+      It requires the following:
+      1. A trait that carries those configuration parameters for a pallet that should be shared
+      2. An implementation of that trait registered via `register_default_impl`
+      3. Usage of `derive_impl` at the actual impl site pointing to this default implementation
+
+crates:
+  - name: frame-support
+    bump: none

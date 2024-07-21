@@ -2582,7 +2582,24 @@ pub mod error {
 	pub use sp_runtime::traits::{BadOrigin, LookupError};
 }
 
-#[doc(inline)]
+/// Provides a mechanism to register a default implementation for a given trait.
+///
+/// This can then be used in tandem with [`#[derive_impl(..)]`](frame_support::derive_impl)
+/// to generate the combined impl for the trait.
+///
+/// In the context of `FRAME` pallets, this is generally used to register the default
+/// implementation of the `DefaultConfig` trait generated via
+/// [`#[pallet::config(with_default)]`](frame_support::pallet_macros::config).
+///
+/// However, this can also be used to register custom default configuration of any pallet. It
+/// requires the following:
+/// 1. A trait that carries those configuration parameters for a pallet that should be shared
+/// across runtimes:
+#[doc = docify::embed!("src/tests/custom_default_config.rs", custom_default_trait)]
+/// 2. An implementation of that trait registered via `register_default_impl`:
+#[doc = docify::embed!("src/tests/custom_default_config.rs", custom_default_impl)]
+/// 3. Usage of `derive_impl` at the actual impl site pointing to this default implementation:
+#[doc = docify::embed!("src/tests/custom_default_config.rs", custom_default_derive)]
 pub use frame_support_procedural::register_default_impl;
 
 // Generate a macro that will enable/disable code based on `std` feature being active.
