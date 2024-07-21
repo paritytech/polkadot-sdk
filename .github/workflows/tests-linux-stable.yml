@@ -105,6 +105,7 @@ jobs:
       - name: script
         run: >
           PACKAGES=`python3 .github/scripts/group-crates.py ${{ matrix.ci_node_index }} ${{ matrix.ci_node_total }}` &&
+          echo $PACKAGES &&
           time cargo
           nextest run
           --locked --release --no-fail-fast
