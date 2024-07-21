@@ -175,7 +175,7 @@ impl AccountStatus {
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct AssetAccount<Balance, DepositBalance, Extra, AccountId> {
 	/// The balance.
-	pub(super) balance: Balance,
+	pub balance: Balance,
 	/// The status of the account.
 	pub(super) status: AccountStatus,
 	/// The reason for the existence of the account.
