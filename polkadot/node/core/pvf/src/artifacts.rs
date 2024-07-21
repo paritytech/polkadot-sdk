@@ -58,7 +58,7 @@ use crate::{host::PrecheckResultSender, worker_interface::WORKER_DIR_PREFIX};
 use always_assert::always;
 use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData};
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
-use polkadot_primitives::ExecutorParamsPrepHash;
+use polkadot_primitives::{ExecutorParams, ExecutorParamsPrepHash};
 use std::{
 	collections::HashMap,
 	fs,
@@ -326,6 +326,24 @@ impl Artifacts {
 		}
 
 		to_remove
+	}
+
+	pub fn ensure(
+		&self,
+		code_hashes: Vec<ValidationCodeHash>,
+		executor_params: ExecutorParams,
+	) -> Vec<ValidationCodeHash> {
+		code_hashes
+			.into_iter()
+			.filter(|c| {
+				let artefact_id = ArtifactId::new(*c, executor_params.prep_hash());
+				match self.inner.get(&artefact_id) {
+					Some(ArtifactState::Prepared { .. }) |
+					Some(ArtifactState::Preparing { .. }) => false,
+					_ => true,
+				}
+			})
+			.collect()
 	}
 }
 

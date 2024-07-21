@@ -16,6 +16,7 @@
 
 use crate::prepare::{PrepareSuccess, PrepareWorkerSuccess};
 use codec::{Decode, Encode};
+use polkadot_primitives::ValidationCodeHash;
 pub use sc_executor_common::error::Error as ExecuteError;
 
 /// Result of PVF preparation from a worker, with checksum of the compiled PVF and stats of the
@@ -29,6 +30,8 @@ pub type PrepareResult = Result<PrepareSuccess, PrepareError>;
 /// Result of prechecking PVF performed by the validation host. Contains stats about the preparation
 /// if successful.
 pub type PrecheckResult = Result<(), PrepareError>;
+
+pub type EnsurePvfResult = Result<Vec<ValidationCodeHash>, String>;
 
 /// An error that occurred during the prepare part of the PVF pipeline.
 // Codec indexes are intended to stabilize pre-encoded payloads (see `OOM_PAYLOAD`)

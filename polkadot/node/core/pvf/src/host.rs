@@ -32,12 +32,13 @@ use futures::{
 	Future, FutureExt, SinkExt, StreamExt,
 };
 use polkadot_node_core_pvf_common::{
-	error::{PrecheckResult, PrepareError},
+	error::{EnsurePvfResult, PrecheckResult, PrepareError},
 	prepare::PrepareSuccess,
 	pvf::PvfPrepData,
 };
 use polkadot_node_subsystem::{SubsystemError, SubsystemResult};
 use polkadot_parachain_primitives::primitives::ValidationResult;
+use polkadot_primitives::{ExecutorParams, ValidationCodeHash};
 use std::{
 	collections::HashMap,
 	path::PathBuf,
@@ -68,6 +69,8 @@ pub(crate) type ResultSender = oneshot::Sender<Result<ValidationResult, Validati
 
 /// Transmission end used for sending the PVF preparation result.
 pub(crate) type PrecheckResultSender = oneshot::Sender<PrecheckResult>;
+
+pub(crate) type EnsurePvfResultSender = oneshot::Sender<EnsurePvfResult>;
 
 /// A handle to the async process serving the validation host requests.
 #[derive(Clone)]
@@ -136,12 +139,38 @@ impl ValidationHost {
 			.await
 			.map_err(|_| "the inner loop hung up".to_string())
 	}
+
+	/// Sends validation code hashes with executor params to the validation host to check if
+	/// appropriate artifacts were prepared. Hashes for unprepared artifacts are sent back.
+	///
+	/// Returns an error if the request cannot be sent to the validation host, i.e. if it shut down.
+	pub async fn ensure_pvf(
+		&mut self,
+		code_hashes: Vec<ValidationCodeHash>,
+		executor_params: ExecutorParams,
+		result_tx: EnsurePvfResultSender,
+	) -> Result<(), String> {
+		self.to_host_tx
+			.send(ToHost::EnsurePvf { code_hashes, executor_params, result_tx })
+			.await
+			.map_err(|_| "the inner loop hung up".to_string())
+	}
 }
 
 enum ToHost {
-	PrecheckPvf { pvf: PvfPrepData, result_tx: PrecheckResultSender },
+	PrecheckPvf {
+		pvf: PvfPrepData,
+		result_tx: PrecheckResultSender,
+	},
 	ExecutePvf(ExecutePvfInputs),
-	HeadsUp { active_pvfs: Vec<PvfPrepData> },
+	HeadsUp {
+		active_pvfs: Vec<PvfPrepData>,
+	},
+	EnsurePvf {
+		code_hashes: Vec<ValidationCodeHash>,
+		executor_params: ExecutorParams,
+		result_tx: EnsurePvfResultSender,
+	},
 }
 
 struct ExecutePvfInputs {
@@ -479,6 +508,8 @@ async fn handle_to_host(
 		},
 		ToHost::HeadsUp { active_pvfs } =>
 			handle_heads_up(artifacts, prepare_queue, active_pvfs).await?,
+		ToHost::EnsurePvf { code_hashes, executor_params, result_tx } =>
+			handle_ensure_pvf(artifacts, code_hashes, executor_params, result_tx).await?,
 	}
 
 	Ok(())
@@ -714,6 +745,17 @@ async fn handle_heads_up(
 		}
 	}
 
+	Ok(())
+}
+
+async fn handle_ensure_pvf(
+	artifacts: &mut Artifacts,
+	code_hashes: Vec<ValidationCodeHash>,
+	executor_params: ExecutorParams,
+	result_sender: EnsurePvfResultSender,
+) -> Result<(), Fatal> {
+	let unprepared_code_hashes = artifacts.ensure(code_hashes, executor_params);
+	let _ = result_sender.send(Ok(unprepared_code_hashes));
 	Ok(())
 }
 
