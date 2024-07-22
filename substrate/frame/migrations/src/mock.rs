@@ -113,6 +113,7 @@ pub fn run_to_block(n: u32) {
 	while System::block_number() < n as u64 {
 		log::debug!("Block {}", System::block_number());
 		System::set_block_number(System::block_number() + 1);
+		MockedBlockNumber::set(&(System::block_number() as u32));
 		System::on_initialize(System::block_number());
 		Migrations::on_initialize(System::block_number());
 		// Executive calls this:

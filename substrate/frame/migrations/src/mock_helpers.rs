@@ -56,6 +56,10 @@ frame_support::parameter_types! {
 	storage MIGRATIONS: Vec<(MockedMigrationKind, u32, u32)> = vec![];
 	/// Weight for a single step of a mocked migration.
 	storage MockedStepWeight: Weight = Weight::zero();
+	/// The migrations have no way to access the System pallet since they dont have any Config.
+	///
+	/// Now instead of using generics, just set the current block number here by `run_to_block`.
+	pub storage MockedBlockNumber: u32 = 0;
 }
 
 /// Allows to set the migrations to run at runtime instead of compile-time.
@@ -84,10 +88,11 @@ impl SteppedMigrations for MockedMigrations {
 		}
 		let (kind, max_blocks, max_steps) = MIGRATIONS::get()[n as usize];
 
-		let (mut took_blocks, mut took_steps): (u32, u32) = cursor
+		let (mut start_block, mut took_steps): (u32, u32) = cursor
 			.as_ref()
 			.and_then(|c| Decode::decode(&mut &c[..]).ok())
-			.unwrap_or_default();
+			.unwrap_or_else(|| (MockedBlockNumber::get(), 0));
+		let took_blocks = MockedBlockNumber::get() - start_block;
 
 		took_steps += 1;
 

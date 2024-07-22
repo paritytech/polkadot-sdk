@@ -349,7 +349,7 @@ fn runtime_upgrade_fails_when_mbm_in_progress() {
 	});
 }
 
-/// Migration takes more than `max_steps` steps. FAIL-CI: todo same for max_blocks
+/// Migration takes more than `max_steps` steps.
 #[test]
 fn migration_timeout_steps_errors() {
 	test_closure(|| {
@@ -367,6 +367,43 @@ fn migration_timeout_steps_errors() {
 			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 3 },
 			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 4 },
 			Event::MigrationFailed { index: 0, took_blocks: 1, took_steps: 4 },
+			Event::UpgradeFailed,
+		]);
+		assert_eq!(upgrades_started_completed_failed(), (1, 0, 1));
+
+		// Failed migrations are not black-listed.
+		assert!(historic().is_empty());
+		assert_eq!(Cursor::<T>::get(), Some(MigrationCursor::Stuck));
+
+		Migrations::on_runtime_upgrade();
+		run_to_block(6);
+
+		assert_events(vec![Event::UpgradeFailed]);
+		assert_eq!(Cursor::<T>::get(), Some(MigrationCursor::Stuck));
+		assert_eq!(upgrades_started_completed_failed(), (0, 0, 1));
+	});
+}
+
+/// Migration takes more than `max_blocks` blocks.
+#[test]
+fn migration_timeout_blocks_errors() {
+	test_closure(|| {
+		MockedMigrations::set(vec![(TimeoutAfter, 1, 2)]);
+		// Set up the weight so that it will not finish in a single block:
+		MockedMigrations::set_step_weight(Weight::from(
+			<Test as crate::Config>::MaxServiceWeight::get() / 2,
+		));
+
+		System::set_block_number(1);
+		Migrations::on_runtime_upgrade();
+		run_to_block(5);
+
+		// Times out after taking more than 3 steps.
+		assert_events(vec![
+			Event::UpgradeStarted { migrations: 1 },
+			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 1 },
+			Event::MigrationAdvanced { index: 0, took_blocks: 2, took_steps: 2 },
+			Event::MigrationFailed { index: 0, took_blocks: 2, took_steps: 2 },
 			Event::UpgradeFailed,
 		]);
 		assert_eq!(upgrades_started_completed_failed(), (1, 0, 1));
