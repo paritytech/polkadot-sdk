@@ -320,8 +320,8 @@ fn child_bounty_assign_curator() {
 		assert_eq!(Balances::reserved_balance(Bounties::bounty_account_id(0)), 0);
 
 		// Child-bounty account status.
-		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0, 0)), 10);
-		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0, 0)), 0);
+		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0)), 10);
+		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0)), 0);
 
 		let fee = 6u64;
 		assert_ok!(ChildBounties::propose_curator(RuntimeOrigin::signed(4), 0, 0, 8, fee));
@@ -370,8 +370,8 @@ fn child_bounty_assign_curator() {
 		assert_eq!(Balances::reserved_balance(Bounties::bounty_account_id(0)), 0);
 
 		// Child-bounty account status at exit.
-		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0, 0)), 10);
-		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0, 0)), 0);
+		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0)), 10);
+		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0)), 0);
 
 		// Treasury account status at exit.
 		assert_eq!(Balances::free_balance(Treasury::account_id()), 26);
@@ -462,8 +462,8 @@ fn award_claim_child_bounty() {
 		assert_eq!(Balances::reserved_balance(7), 0);
 
 		// Child-bounty account status.
-		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0, 0)), 0);
-		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0, 0)), 0);
+		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0)), 0);
+		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0)), 0);
 
 		// Check the child-bounty count.
 		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
@@ -522,8 +522,8 @@ fn close_child_bounty_added() {
 		assert_eq!(Balances::reserved_balance(Bounties::bounty_account_id(0)), 0);
 
 		// Child-bounty account status.
-		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0, 0)), 0);
-		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0, 0)), 0);
+		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0)), 0);
+		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0)), 0);
 	});
 }
 
@@ -580,8 +580,8 @@ fn close_child_bounty_active() {
 		assert_eq!(Balances::reserved_balance(Bounties::bounty_account_id(0)), 0);
 
 		// Child-bounty account status.
-		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0, 0)), 0);
-		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0, 0)), 0);
+		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0)), 0);
+		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0)), 0);
 	});
 }
 
@@ -641,8 +641,8 @@ fn close_child_bounty_pending() {
 		assert_eq!(Balances::free_balance(8), 101 - expected_child_deposit);
 
 		// Child-bounty account status.
-		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0, 0)), 10);
-		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0, 0)), 0);
+		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0)), 10);
+		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0)), 0);
 	});
 }
 
@@ -1425,7 +1425,6 @@ fn accept_curator_handles_different_deposit_calculations() {
 		));
 		System::set_block_number(5);
 		<Treasury as OnInitialize<u64>>::on_initialize(5);
-
 		assert_ok!(ChildBounties::propose_curator(
 			RuntimeOrigin::signed(parent_curator),
 			parent_index,

@@ -273,9 +273,8 @@ pub mod pallet {
 			)?;
 
 			// Get child-bounty ID.
-			let child_bounty_id = ParentChildBounties::<T>::get(parent_bounty_id);
-			let child_bounty_account =
-				Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
+			let child_bounty_id = ChildBountyCount::<T>::get();
+			let child_bounty_account = Self::child_bounty_account_id(child_bounty_id);
 
 			// Transfer funds from parent bounty to child-bounty.
 			T::Currency::transfer(&parent_bounty_account, &child_bounty_account, value, KeepAlive)?;
@@ -329,9 +328,6 @@ pub mod pallet {
 				parent_bounty_id,
 				child_bounty_id,
 				|maybe_child_bounty| -> DispatchResult {
-					if maybe_child_bounty.is_none() {
-						panic!("Child bounty should exist: parent_bounty_id: {:?}, child_bounty_id: {:?}", parent_bounty_id, child_bounty_id);
-					}
 					let child_bounty =
 						maybe_child_bounty.as_mut().ok_or(BountiesError::<T>::InvalidIndex)?;
 
@@ -672,8 +668,7 @@ pub mod pallet {
 						);
 
 						// Make curator fee payment.
-						let child_bounty_account =
-							Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
+						let child_bounty_account = Self::child_bounty_account_id(child_bounty_id);
 						let balance = T::Currency::free_balance(&child_bounty_account);
 						let curator_fee = child_bounty.fee.min(balance);
 						let payout = balance.saturating_sub(curator_fee);
@@ -791,11 +786,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// The account ID of a child-bounty account.
-	pub fn child_bounty_account_id(parent: BountyIndex, id: BountyIndex) -> T::AccountId {
+	pub fn child_bounty_account_id(id: BountyIndex) -> T::AccountId {
 		// This function is taken from the parent (bounties) pallet, but the
 		// prefix is changed to have different AccountId when the index of
 		// parent and child is same.
-		T::PalletId::get().into_sub_account_truncating(("cb", parent, id))
+		T::PalletId::get().into_sub_account_truncating(("cb", id))
 	}
 
 	fn create_child_bounty(
@@ -871,8 +866,7 @@ impl<T: Config> Pallet<T> {
 				// Transfer fund from child-bounty to parent bounty.
 				let parent_bounty_account =
 					pallet_bounties::Pallet::<T>::bounty_account_id(parent_bounty_id);
-				let child_bounty_account =
-					Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
+				let child_bounty_account = Self::child_bounty_account_id(child_bounty_id);
 				let balance = T::Currency::free_balance(&child_bounty_account);
 				let transfer_result = T::Currency::transfer(
 					&child_bounty_account,
