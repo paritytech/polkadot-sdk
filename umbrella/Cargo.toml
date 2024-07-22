@@ -269,6 +269,7 @@ runtime-benchmarks = [
 	"pallet-babe?/runtime-benchmarks",
 	"pallet-bags-list?/runtime-benchmarks",
 	"pallet-balances?/runtime-benchmarks",
+	"pallet-beefy-mmr?/runtime-benchmarks",
 	"pallet-bounties?/runtime-benchmarks",
 	"pallet-bridge-grandpa?/runtime-benchmarks",
 	"pallet-bridge-messages?/runtime-benchmarks",
