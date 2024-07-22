@@ -67,7 +67,7 @@ pub enum ExecutionMode {
 
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
-pub struct InnerValue<V> {
+struct InnerValue<V> {
 	/// Current value. None if value has been deleted.
 	pub value: V,
 	/// The set of extrinsic indices where the values has been changed.
@@ -80,7 +80,7 @@ pub struct InnerValue<V> {
 pub struct OverlayedEntry<V> {
 	/// The individual versions of that value.
 	/// One entry per transactions during that the value was actually written.
-	pub transactions: Transactions<V>,
+	transactions: Transactions<V>,
 }
 
 impl<V> Default for OverlayedEntry<V> {

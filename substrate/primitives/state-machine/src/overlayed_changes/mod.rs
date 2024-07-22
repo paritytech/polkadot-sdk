@@ -17,7 +17,7 @@
 
 //! The overlayed changes to state.
 
-pub mod changeset; // FAIL-CI
+mod changeset;
 mod offchain;
 
 use self::changeset::OverlayedChangeSet;
@@ -93,7 +93,7 @@ impl Extrinsics {
 /// It allows changes to be modified using nestable transactions.
 pub struct OverlayedChanges<H: Hasher> {
 	/// Top level storage changes.
-	top: OverlayedChangeSet,
+	pub top: OverlayedChangeSet,
 	/// Child storage changes. The map key is the child storage key without the common prefix.
 	children: Map<StorageKey, (OverlayedChangeSet, ChildInfo)>,
 	/// Offchain related changes.

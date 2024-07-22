@@ -582,25 +582,29 @@ impl PalletCmd {
 				storage
 			},
 			(Some(GenesisBuilder::Runtime), _) | (None, true) =>
-				self.genesis_from_runtime::<H, F>().map(Self::changes_to_storage)?,
+				self.genesis_from_runtime::<H, F>().and_then(Self::changes_to_storage)?,
 		})
 	}
 
-	fn changes_to_storage<H: Hash>(changes: OverlayedChanges<H>) -> sp_storage::Storage {
+	/// Convert some overlayed changes to a storage.
+	fn changes_to_storage<H: Hash>(
+		mut changes: OverlayedChanges<H>,
+	) -> Result<sp_storage::Storage> {
 		let mut top = BTreeMap::<Vec<u8>, Vec<u8>>::new();
+		// The backend state here does not matter:
+		let state = BenchmarkingState::<H>::new(Default::default(), None, false, false)?;
 
-		for (k, v) in changes.changes() {
-			let v = v.transactions[0].clone();
-			match &v.value {
-				sp_state_machine::overlayed_changes::changeset::StorageEntry::Set(v) => {
-					top.insert(k.clone(), v.clone());
-				},
-				_ => unreachable!("Only Set is expected"),
+		let changes = changes.drain_storage_changes(&state, sp_storage::StateVersion::V1)?;
+
+		for (k, v) in changes.main_storage_changes {
+			if let Some(v) = v {
+				top.insert(k, v);
+			} else {
+				top.remove(&k);
 			}
 		}
 
-		// TODO let child_changes =
-		sp_storage::Storage { top, children_default: Default::default() }
+		Ok(sp_storage::Storage { top, children_default: Default::default() })
 	}
 
 	/// Generate the genesis changeset by the runtime API.
