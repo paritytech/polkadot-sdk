@@ -270,7 +270,7 @@ For the top-level pallet docs, consider the following template:
 //! up>
 ```
 
-This template's details (heading 3s and beyond) are left flexible, and at the discretion of the developer to make the
+This template's details (Heading 3s and beyond) are left flexible, and at the discretion of the developer to make the
 best final choice about. For example, you might want to include `### Terminology` or not. Moreover, you might find it
 more useful to include it in `## Overview`.
 
