@@ -1084,7 +1084,7 @@ rand_distr = { version = "0.4.3" }
 rand_pcg = { version = "0.3.1" }
 rayon = { version = "1.5.1" }
 rbtag = { version = "0.3" }
-ref-cast = { version = "1.0.0" }
+ref-cast = { version = "1.0.23" }
 regex = { version = "1.10.2" }
 relay-substrate-client = { path = "bridges/relays/client-substrate" }
 relay-utils = { path = "bridges/relays/utils" }
