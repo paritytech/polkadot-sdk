@@ -629,12 +629,12 @@ struct Unscheduled {
 
 impl Unscheduled {
 	// A threshold reaching which we prioritize approval jobs
-	const REGULAR_JOBS_THRESHOLD: usize = 12;
-	const MAX_COUNT: usize = 1000;
+	const MAX_COUNT: usize = 12;
 	const FULFILLED_THRESHOLDS: &'static [(PvfExecPriority, usize)] = &[
 		(PvfExecPriority::Dispute, 70),
-		(PvfExecPriority::Approval, 87),
-		(PvfExecPriority::BackingSystem, 75),
+		(PvfExecPriority::Approval, 80),
+		(PvfExecPriority::BackingSystemParas, 100),
+		(PvfExecPriority::Backing, 100),
 	];
 
 	fn new() -> Self {
@@ -647,59 +647,10 @@ impl Unscheduled {
 	}
 
 	fn select_next_priority(&self) -> PvfExecPriority {
-		use PvfExecPriority::*;
-
-		// Iterate over priorities starting with Dispute
-		for priority in PvfExecPriority::iter() {
-			if !self.has_pending(priority) {
-				continue;
-			}
-
-			let is_fulfilled = self.is_fulfilled(priority);
-			if priority == Approval {
-				// To run jobs from Approval queue we should either
-				// - have no backing jobs
-				// - be overworked but not yet fulfilled
-				let has_backing_jobs = self.has_pending(Backing) || self.has_pending(BackingSystem);
-				let queue_size_without_disputes = self.regular_jobs_count();
-				let queue_overworked = queue_size_without_disputes > Self::REGULAR_JOBS_THRESHOLD;
-
-				if !has_backing_jobs || queue_overworked && !is_fulfilled {
-					gum::debug!(
-						target: LOG_TARGET,
-						?has_backing_jobs,
-						?queue_size_without_disputes,
-						?queue_overworked,
-						"Chosen {} priority to run next",
-						priority
-					);
-					return priority
-				}
-			} else if !is_fulfilled {
-				// Other priorities require only to be not fulfilled to run next
-				gum::debug!(
-					target: LOG_TARGET,
-					"Chosen {} priority to run next, its limit is not yet fulfilled",
-					priority
-				);
-
-				return priority
-			}
-		}
-
-		// The lowest priority as a fallback
-		Backing
-	}
-
-	// Number of jobs in all queues excluding disputes
-	fn regular_jobs_count(&self) -> usize {
-		let mut count = 0;
-		for (priority, queue) in self.unscheduled.iter() {
-			if *priority != PvfExecPriority::Dispute {
-				count += queue.len();
-			}
-		}
-		count
+		PvfExecPriority::iter()
+			.filter(|priority| self.has_pending(priority) && !self.is_fulfilled(priority))
+			.next()
+			.unwrap_or(PvfExecPriority::Backing)
 	}
 
 	fn get_mut(&mut self, priority: PvfExecPriority) -> Option<&mut VecDeque<ExecuteJob>> {
@@ -710,14 +661,14 @@ impl Unscheduled {
 		self.unscheduled.entry(priority).or_default().push_back(job);
 	}
 
-	fn has_pending(&self, priority: PvfExecPriority) -> bool {
-		!self.unscheduled.get(&priority).unwrap_or(&VecDeque::new()).is_empty()
+	fn has_pending(&self, priority: &PvfExecPriority) -> bool {
+		!self.unscheduled.get(priority).unwrap_or(&VecDeque::new()).is_empty()
 	}
 
-	fn fulfilled_threshold(priority: PvfExecPriority) -> Option<usize> {
+	fn fulfilled_threshold(priority: &PvfExecPriority) -> Option<usize> {
 		Self::FULFILLED_THRESHOLDS.iter().find_map(
 			|&(p, value)| {
-				if p == priority {
+				if p == *priority {
 					Some(value)
 				} else {
 					None
@@ -726,14 +677,14 @@ impl Unscheduled {
 		)
 	}
 
-	fn is_fulfilled(&self, priority: PvfExecPriority) -> bool {
+	fn is_fulfilled(&self, priority: &PvfExecPriority) -> bool {
 		let Some(threshold) = Self::fulfilled_threshold(priority) else { return false };
 		let Some(count) = self.counter.get(&priority) else { return false };
 		// Every time we iterate by lower level priorities
 		let total_count: usize = self
 			.counter
 			.iter()
-			.filter_map(|(p, c)| if *p >= priority { Some(c) } else { None })
+			.filter_map(|(p, c)| if *p >= *priority { Some(c) } else { None })
 			.sum();
 		if total_count == 0 {
 			return false
@@ -743,13 +694,12 @@ impl Unscheduled {
 	}
 
 	fn log(&mut self, priority: PvfExecPriority) {
-		let current = self.counter.entry(priority).or_default();
+		let current_count: &mut usize = self.counter.entry(priority).or_default();
+		*current_count += 1;
 
-		if *current >= Self::MAX_COUNT {
-			return self.reset_counter();
+		if self.counter.values().sum::<usize>() >= Self::MAX_COUNT {
+			self.reset_counter();
 		}
-
-		*current += 1;
 	}
 
 	fn reset_counter(&mut self) {
@@ -793,73 +743,39 @@ mod tests {
 	fn test_unscheduled_select_next_priority() {
 		use PvfExecPriority::*;
 
-		// With disputes
 		let mut unscheduled = Unscheduled::new();
-		unscheduled.add(create_execution_job(), Backing);
-		unscheduled.add(create_execution_job(), Dispute);
 
-		// Do disputes until fulfilled
-		let threshold = Unscheduled::fulfilled_threshold(Dispute).unwrap();
-		(1..=(100 - threshold)).for_each(|_| unscheduled.log(Backing));
-		(1..=(threshold - 1)).for_each(|_| unscheduled.log(Dispute));
-		assert_eq!(unscheduled.select_next_priority(), Dispute);
-		unscheduled.log(Dispute);
+		// With empty counter
 		assert_eq!(unscheduled.select_next_priority(), Backing);
+		unscheduled.add(create_execution_job(), Backing);
+		assert_eq!(unscheduled.select_next_priority(), Backing);
+		unscheduled.add(create_execution_job(), BackingSystemParas);
+		assert_eq!(unscheduled.select_next_priority(), BackingSystemParas);
+		unscheduled.add(create_execution_job(), Approval);
+		assert_eq!(unscheduled.select_next_priority(), Approval);
+		unscheduled.add(create_execution_job(), Dispute);
+		assert_eq!(unscheduled.select_next_priority(), Dispute);
 
-		// Without disputes and backing
+		// Fulfill dispute jobs
+		unscheduled.log(Dispute);
+		assert_eq!(unscheduled.select_next_priority(), Approval);
+
+		// Remove dispute jobs
 		unscheduled.reset_counter();
 		unscheduled.get_mut(Dispute).unwrap().clear();
-		unscheduled.get_mut(Backing).unwrap().clear();
-		unscheduled.add(create_execution_job(), Approval);
-
-		// Do approval
 		assert_eq!(unscheduled.select_next_priority(), Approval);
 
-		// But if no approvals
-		unscheduled.get_mut(Approval).unwrap().clear();
-
-		// // Fallback to Backing as the lowest value
-		assert_eq!(unscheduled.select_next_priority(), Backing);
-
-		// With long queue
-		for _ in 0..Unscheduled::REGULAR_JOBS_THRESHOLD {
-			unscheduled.add(create_execution_job(), Approval);
-		}
-		unscheduled.add(create_execution_job(), Backing);
-
-		// Do approval until fulfilled
-		let threshold = Unscheduled::fulfilled_threshold(Approval).unwrap();
-		(1..=(100 - threshold)).for_each(|_| unscheduled.log(Backing));
-		(1..=(threshold - 1)).for_each(|_| unscheduled.log(Approval));
-		assert_eq!(unscheduled.select_next_priority(), Approval);
+		// Fulfill approval jobs
 		unscheduled.log(Approval);
-		assert_eq!(unscheduled.select_next_priority(), Backing);
+		assert_eq!(unscheduled.select_next_priority(), BackingSystemParas);
 
-		// But if no approvals
-		unscheduled.get_mut(Approval).unwrap().clear();
-		for _ in 0..Unscheduled::REGULAR_JOBS_THRESHOLD {
-			unscheduled.add(create_execution_job(), BackingSystem);
-		}
-
-		// Fallback to next not empty queue priority
-		assert_eq!(unscheduled.select_next_priority(), BackingSystem);
-
-		// Otherwise
+		// Remove approval jobs
 		unscheduled.reset_counter();
 		unscheduled.get_mut(Approval).unwrap().clear();
+		assert_eq!(unscheduled.select_next_priority(), BackingSystemParas);
 
-		// Do system parachains backing until fulfilled
-		let threshold = Unscheduled::fulfilled_threshold(BackingSystem).unwrap();
-		(1..=(100 - threshold)).for_each(|_| unscheduled.log(Backing));
-		(1..=(threshold - 1)).for_each(|_| unscheduled.log(BackingSystem));
-		assert_eq!(unscheduled.select_next_priority(), BackingSystem);
-		unscheduled.log(BackingSystem);
-		assert_eq!(unscheduled.select_next_priority(), Backing);
-
-		// But if no system parachains backing
-		unscheduled.get_mut(BackingSystem).unwrap().clear();
-
-		// Fallback to next not empty queue priority
+		// Fulfill system parachains backing jobs
+		unscheduled.log(BackingSystemParas);
 		assert_eq!(unscheduled.select_next_priority(), Backing);
 	}
 }

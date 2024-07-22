@@ -214,7 +214,7 @@ pub enum PvfExecPriority {
 	/// For approval requests
 	Approval,
 	/// For backing requests from system parachains.
-	BackingSystem,
+	BackingSystemParas,
 	/// For backing requests.
 	Backing,
 }
@@ -224,7 +224,7 @@ impl From<PvfExecPriority> for PvfExecKind {
 		match exec {
 			PvfExecPriority::Dispute => PvfExecKind::Approval,
 			PvfExecPriority::Approval => PvfExecKind::Approval,
-			PvfExecPriority::BackingSystem => PvfExecKind::Backing,
+			PvfExecPriority::BackingSystemParas => PvfExecKind::Backing,
 			PvfExecPriority::Backing => PvfExecKind::Backing,
 		}
 	}

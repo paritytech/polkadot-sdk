@@ -43,7 +43,7 @@ impl From<PvfExecPriority> for PreparePriority {
 		match priority {
 			PvfExecPriority::Dispute => PreparePriority::Critical,
 			PvfExecPriority::Approval => PreparePriority::Critical,
-			PvfExecPriority::BackingSystem => PreparePriority::Normal,
+			PvfExecPriority::BackingSystemParas => PreparePriority::Normal,
 			PvfExecPriority::Backing => PreparePriority::Normal,
 		}
 	}

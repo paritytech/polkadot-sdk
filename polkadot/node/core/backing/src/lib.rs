@@ -637,7 +637,7 @@ async fn request_candidate_validation(
 			pov,
 			executor_params,
 			exec_kind: if is_system {
-				PvfExecPriority::BackingSystem
+				PvfExecPriority::BackingSystemParas
 			} else {
 				PvfExecPriority::Backing
 			},
