@@ -13,10 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests to ensure correct XCM fee estimation for cross-chain asset transfers.
+//! Tests for XCM fee estimation in the runtime.
 
 use crate::imports::*;
-
 use frame_support::{
 	dispatch::RawOrigin,
 	sp_runtime::{traits::Dispatchable, DispatchResult},
@@ -45,11 +44,11 @@ fn sender_assertions(test: ParaToParaThroughAHTest) {
 }
 
 fn hop_assertions(test: ParaToParaThroughAHTest) {
-	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-	AssetHubWestend::assert_xcmp_queue_success(None);
+	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+	AssetHubRococo::assert_xcmp_queue_success(None);
 
 	assert_expected_events!(
-		AssetHubWestend,
+		AssetHubRococo,
 		vec![
 			RuntimeEvent::Balances(
 				pallet_balances::Event::Burned { amount, .. }
@@ -100,7 +99,7 @@ fn transfer_assets_para_to_para_through_ah_call(
 ) -> <PenpalA as Chain>::RuntimeCall {
 	type RuntimeCall = <PenpalA as Chain>::RuntimeCall;
 
-	let asset_hub_location: Location = PenpalB::sibling_location_of(AssetHubWestend::para_id());
+	let asset_hub_location: Location = PenpalB::sibling_location_of(AssetHubRococo::para_id());
 	let custom_xcm_on_dest = Xcm::<()>(vec![DepositAsset {
 		assets: Wild(AllCounted(test.args.assets.len() as u32)),
 		beneficiary: test.args.beneficiary,
@@ -117,7 +116,7 @@ fn transfer_assets_para_to_para_through_ah_call(
 }
 
 /// We are able to dry-run and estimate the fees for a multi-hop XCM journey.
-/// Scenario: Alice on PenpalA has some WND and wants to send them to PenpalB.
+/// Scenario: Alice on PenpalA has some DOTs and wants to send them to PenpalB.
 /// We want to know the fees using the `DryRunApi` and `XcmPaymentApi`.
 #[test]
 fn multi_hop_works() {
@@ -127,9 +126,8 @@ fn multi_hop_works() {
 	let asset_owner = PenpalAssetOwner::get();
 	let assets: Assets = (Parent, amount_to_send).into();
 	let relay_native_asset_location = Location::parent();
-	let sender_as_seen_by_ah = AssetHubWestend::sibling_location_of(PenpalA::para_id());
-	let sov_of_sender_on_ah =
-		AssetHubWestend::sovereign_account_id_of(sender_as_seen_by_ah.clone());
+	let sender_as_seen_by_ah = AssetHubRococo::sibling_location_of(PenpalA::para_id());
+	let sov_of_sender_on_ah = AssetHubRococo::sovereign_account_id_of(sender_as_seen_by_ah.clone());
 
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
@@ -140,7 +138,7 @@ fn multi_hop_works() {
 	);
 
 	// fund the Parachain Origin's SA on AssetHub with the native tokens held in reserve.
-	AssetHubWestend::fund_accounts(vec![(sov_of_sender_on_ah.clone(), amount_to_send * 2)]);
+	AssetHubRococo::fund_accounts(vec![(sov_of_sender_on_ah.clone(), amount_to_send * 2)]);
 
 	// Init values for Parachain Destination
 	let beneficiary_id = PenpalBReceiver::get();
@@ -189,9 +187,9 @@ fn multi_hop_works() {
 	let mut intermediate_execution_fees = 0;
 	let mut intermediate_delivery_fees_amount = 0;
 	let mut intermediate_remote_message = VersionedXcm::V4(Xcm::<()>(Vec::new()));
-	<AssetHubWestend as TestExt>::execute_with(|| {
-		type Runtime = <AssetHubWestend as Chain>::Runtime;
-		type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
+	<AssetHubRococo as TestExt>::execute_with(|| {
+		type Runtime = <AssetHubRococo as Chain>::Runtime;
+		type RuntimeCall = <AssetHubRococo as Chain>::RuntimeCall;
 
 		// First we get the execution fees.
 		let weight = Runtime::query_xcm_weight(remote_message.clone()).unwrap();
@@ -242,7 +240,7 @@ fn multi_hop_works() {
 
 	// Dry-running is done.
 	PenpalA::reset_ext();
-	AssetHubWestend::reset_ext();
+	AssetHubRococo::reset_ext();
 	PenpalB::reset_ext();
 
 	// Fund accounts again.
@@ -252,7 +250,7 @@ fn multi_hop_works() {
 		sender.clone(),
 		amount_to_send * 2,
 	);
-	AssetHubWestend::fund_accounts(vec![(sov_of_sender_on_ah, amount_to_send * 2)]);
+	AssetHubRococo::fund_accounts(vec![(sov_of_sender_on_ah, amount_to_send * 2)]);
 
 	// Actually run the extrinsic.
 	let sender_assets_before = PenpalA::execute_with(|| {
@@ -265,7 +263,7 @@ fn multi_hop_works() {
 	});
 
 	test.set_assertion::<PenpalA>(sender_assertions);
-	test.set_assertion::<AssetHubWestend>(hop_assertions);
+	test.set_assertion::<AssetHubRococo>(hop_assertions);
 	test.set_assertion::<PenpalB>(receiver_assertions);
 	test.set_dispatchable::<PenpalA>(transfer_assets_para_to_para_through_ah_dispatchable);
 	test.assert();
