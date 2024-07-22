@@ -31,15 +31,12 @@ bp-header-chain = { workspace = true, default-features = true }
 bp-messages = { workspace = true, default-features = true }
 bp-polkadot-core = { workspace = true, default-features = true }
 bp-runtime = { workspace = true, default-features = true }
-pallet-bridge-messages = { workspace = true, default-features = true }
 finality-relay = { workspace = true }
 relay-utils = { workspace = true }
 
 # Substrate Dependencies
 
 frame-support = { workspace = true, default-features = true }
-frame-system = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }

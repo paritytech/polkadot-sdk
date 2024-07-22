@@ -24,6 +24,7 @@ hex-literal = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+docify = { workspace = true }
 
 # Local
 rococo-parachain-runtime = { workspace = true }
@@ -120,7 +121,7 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 assert_cmd = { workspace = true }
 nix = { features = ["signal"], workspace = true }
 tempfile = { workspace = true }
-tokio = { features = ["macros", "parking_lot", "time"], workspace = true, default-features = true }
+tokio = { version = "1.32.0", features = ["macros", "parking_lot", "time"] }
 wait-timeout = { workspace = true }
 
 [features]
