@@ -10,7 +10,7 @@ doc:
 
 crates: 
 - name: polkadot-runtime-parachains
-  bump: minor
+  bump: major
 - name: rococo-runtime
   bump: patch
 - name: westend-runtime
