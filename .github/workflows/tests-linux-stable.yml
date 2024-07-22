@@ -106,7 +106,6 @@ jobs:
           nextest run
           --workspace
           --locked --release --no-fail-fast
-          --bins --lib
           --features try-runtime,ci-only-tests
           -E "
           !test(/.*benchmark.*/)
