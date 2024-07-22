@@ -38,7 +38,10 @@ mod imports {
 		self,
 		people_westend_emulated_chain::{
 			genesis::ED as PEOPLE_WESTEND_ED,
-			people_westend_runtime::{people, xcm_config::XcmConfig as PeopleWestendXcmConfig},
+			people_westend_runtime::{
+				people, xcm_config::XcmConfig as PeopleWestendXcmConfig,
+				ExistentialDeposit as PeopleWestendExistentialDeposit,
+			},
 			PeopleWestendParaPallet as PeopleWestendPallet,
 		},
 		westend_emulated_chain::{
