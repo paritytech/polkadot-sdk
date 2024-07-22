@@ -47,7 +47,7 @@ mod v0 {
 mod v1 {
 	use super::*;
 
-	use crate::assigner_on_demand::LOG_TARGET;
+	use crate::on_demand::LOG_TARGET;
 
 	/// Migration to V1
 	pub struct UncheckedMigrateToV1<T>(core::marker::PhantomData<T>);
@@ -142,7 +142,7 @@ pub type MigrateV0ToV1<T> = VersionedMigration<
 #[cfg(test)]
 mod tests {
 	use super::{v0, v1, UncheckedOnRuntimeUpgrade, Weight};
-	use crate::mock::{new_test_ext, MockGenesisConfig, OnDemandAssigner, Test};
+	use crate::mock::{new_test_ext, MockGenesisConfig, OnDemand, Test};
 	use polkadot_primitives::Id as ParaId;
 
 	#[test]
@@ -159,7 +159,7 @@ mod tests {
 			let old_queue = v0::OnDemandQueue::<Test>::get();
 			assert_eq!(old_queue.len(), 5);
 			// New queue has 0 orders
-			assert_eq!(OnDemandAssigner::get_queue_status().size(), 0);
+			assert_eq!(OnDemand::get_queue_status().size(), 0);
 
 			// For tests, db weight is zero.
 			assert_eq!(
@@ -168,10 +168,10 @@ mod tests {
 			);
 
 			// New queue has 5 orders
-			assert_eq!(OnDemandAssigner::get_queue_status().size(), 5);
+			assert_eq!(OnDemand::get_queue_status().size(), 5);
 
 			// Compare each entry from the old queue with the entry in the new queue.
-			old_queue.iter().zip(OnDemandAssigner::get_free_entries().iter()).for_each(
+			old_queue.iter().zip(OnDemand::get_free_entries().iter()).for_each(
 				|(old_enq, new_enq)| {
 					assert_eq!(old_enq.para_id, new_enq.para_id);
 				},
