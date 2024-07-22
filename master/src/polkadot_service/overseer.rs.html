@@ -707,6 +707,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#556" id="556">556</a>
 <a href="#557" id="557">557</a>
 <a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -984,6 +985,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		))
 		.candidate_validation(CandidateValidationSubsystem::with_config(
 			candidate_validation_config,
+			keystore.clone(),
 			Metrics::register(registry)<span class="question-mark">?</span>, <span class="comment">// candidate-validation metrics
 			</span>Metrics::register(registry)<span class="question-mark">?</span>, <span class="comment">// validation host metrics
 		</span>))
