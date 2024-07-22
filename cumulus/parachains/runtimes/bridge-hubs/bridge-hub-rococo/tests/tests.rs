@@ -19,7 +19,7 @@
 use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
 	bridge_common_config, bridge_to_bulletin_config, bridge_to_westend_config,
-	xcm_config::{RelayNetwork, TokenLocation, XcmConfig},
+	xcm_config::{LocationToAccountId, RelayNetwork, TokenLocation, XcmConfig},
 	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, EthereumGatewayAddress,
 	Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall,
 	RuntimeEvent, RuntimeOrigin, SessionKeys, SignedExtra, TransactionPayment, UncheckedExtrinsic,
@@ -148,7 +148,7 @@ mod bridge_hub_westend_tests {
 	use bridge_hub_test_utils::test_cases::from_parachain;
 	use bridge_to_westend_config::{
 		BridgeHubWestendLocation, WestendGlobalConsensusNetwork,
-		WithBridgeHubWestendMessagesInstance,
+		WithBridgeHubWestendMessagesInstance, XcmOverBridgeHubWestendInstance,
 	};
 
 	// Para id of sibling chain used in tests.
@@ -445,6 +445,23 @@ mod bridge_hub_westend_tests {
 			),
 		)
 	}
+
+	#[test]
+	fn open_and_close_bridge_work() {
+		let source = Location::new(1, [Parachain(2053)]);
+		let destination = [GlobalConsensus(NetworkId::Westend), Parachain(1075)].into();
+
+		bridge_hub_test_utils::test_cases::open_and_close_bridge_work::<
+			Runtime,
+			XcmOverBridgeHubWestendInstance,
+			LocationToAccountId,
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+			source,
+			destination,
+		)
+	}
 }
 
 mod bridge_hub_bulletin_tests {
@@ -453,7 +470,7 @@ mod bridge_hub_bulletin_tests {
 	use bridge_hub_test_utils::test_cases::from_grandpa_chain;
 	use bridge_to_bulletin_config::{
 		RococoBulletinGlobalConsensusNetwork, RococoBulletinGlobalConsensusNetworkLocation,
-		WithRococoBulletinMessagesInstance, XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
+		WithRococoBulletinMessagesInstance, XcmOverPolkadotBulletinInstance,
 	};
 
 	// Para id of sibling chain used in tests.
@@ -584,6 +601,23 @@ mod bridge_hub_bulletin_tests {
 			Rococo,
 			|| XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
 			construct_and_apply_extrinsic,
+		)
+	}
+
+	#[test]
+	fn open_and_close_bridge_work() {
+		let source = Location::new(1, [Parachain(2053)]);
+		let destination = [GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())].into();
+
+		bridge_hub_test_utils::test_cases::open_and_close_bridge_work::<
+			Runtime,
+			XcmOverPolkadotBulletinInstance,
+			LocationToAccountId,
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			source,
+			destination,
 		)
 	}
 }

@@ -21,14 +21,14 @@ use bridge_common_config::{DeliveryRewardInBalance, RequiredStakeForStakeAndSlas
 use bridge_hub_test_utils::{test_cases::from_parachain, SlotDurations};
 use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
-	xcm_config::{RelayNetwork, WestendLocation, XcmConfig},
+	xcm_config::{LocationToAccountId, RelayNetwork, WestendLocation, XcmConfig},
 	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
 	SignedExtra, TransactionPayment, UncheckedExtrinsic,
 };
 use bridge_to_rococo_config::{
 	BridgeGrandpaRococoInstance, BridgeHubRococoLocation, BridgeParachainRococoInstance,
-	WithBridgeHubRococoMessagesInstance,
+	WithBridgeHubRococoMessagesInstance, XcmOverBridgeHubRococoInstance,
 };
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
@@ -324,5 +324,22 @@ pub fn can_calculate_fee_for_standalone_message_confirmation_transaction() {
 			"Estimate fee for `single message confirmation` for runtime: {:?}",
 			<Runtime as frame_system::Config>::Version::get()
 		),
+	)
+}
+
+#[test]
+fn open_and_close_bridge_work() {
+	let source = Location::new(1, [Parachain(2053)]);
+	let destination = [GlobalConsensus(NetworkId::Rococo), Parachain(1075)].into();
+
+	bridge_hub_test_utils::test_cases::open_and_close_bridge_work::<
+		Runtime,
+		XcmOverBridgeHubRococoInstance,
+		LocationToAccountId,
+	>(
+		collator_session_keys(),
+		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		source,
+		destination,
 	)
 }
