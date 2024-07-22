@@ -383,7 +383,7 @@ pub trait Backend<Block: BlockT>:
 				current_hash = ?current_header_metadata.hash,
 				current_num = ?current_header_metadata.number,
 				?finalized_block_number,
-				"Looking for path from current num to finalized block num"
+				"Looking for path from finalized block number to current leaf number"
 			);
 
 			// Collect the rest of the displaced blocks of leaf branch
