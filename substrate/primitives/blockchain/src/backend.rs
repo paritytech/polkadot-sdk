@@ -259,7 +259,7 @@ pub trait Backend<Block: BlockT>:
 		debug!(
 			target: crate::LOG_TARGET,
 			?leaves,
-			%finalized_block_hash,
+			?finalized_block_hash,
 			?finalized_block_number,
 			"Checking for displaced leaves after finalization."
 		);
@@ -282,7 +282,15 @@ pub trait Backend<Block: BlockT>:
 				);
 				return Ok(DisplacedLeavesAfterFinalization::default());
 			},
-			Err(e) => Err(e)?,
+			Err(e) => {
+				debug!(
+					target: crate::LOG_TARGET,
+					hash = ?finalized_block_hash,
+					err = ?e,
+					"Failed to fetch block"
+				);
+				return Err(e);
+			},
 		};
 		finalized_chain.push_front(MinimalBlockMetadata::from(&current_finalized));
 
@@ -310,8 +318,21 @@ pub trait Backend<Block: BlockT>:
 			}
 
 			let mut current_header_metadata =
-				MinimalBlockMetadata::from(&self.header_metadata(leaf_hash)?);
+				MinimalBlockMetadata::from(&self.header_metadata(leaf_hash).map_err(|err| {
+					debug!(
+						target: crate::LOG_TARGET,
+						?err,
+						"Failed to fetch header for {leaf_hash:?} (elapsed {:?})", now.elapsed(),
+					);
+					err
+				})?);
 			let leaf_number = current_header_metadata.number;
+
+			debug!(
+				target: crate::LOG_TARGET,
+				?leaf_number,
+				"Handle displaced leaf {leaf_hash:?} (elapsed {:?})", now.elapsed(),
+			);
 
 			// Collect all block hashes until the height of the finalized block
 			displaced_blocks_candidates.clear();
@@ -325,7 +346,15 @@ pub trait Backend<Block: BlockT>:
 					},
 					None => {
 						current_header_metadata =
-							MinimalBlockMetadata::from(&self.header_metadata(parent_hash)?);
+							MinimalBlockMetadata::from(&self.header_metadata(parent_hash).map_err(|err| {
+								debug!(
+									target: crate::LOG_TARGET,
+									?err,
+									"Failed to fetch header for parent hash {parent_hash:?} during leaf tracking (elapsed {:?})", now.elapsed(),
+								);
+
+								err
+							})?);
 						// Cache locally in case more branches above finalized block reference
 						// the same block hash
 						local_cache.insert(parent_hash, current_header_metadata);
@@ -336,6 +365,11 @@ pub trait Backend<Block: BlockT>:
 			// If points back to the finalized header then nothing left to do, this leaf will be
 			// checked again later
 			if current_header_metadata.hash == finalized_block_hash {
+				debug!(
+					target: crate::LOG_TARGET,
+					"Leaf points to the finalized header {leaf_hash:?}, skipping for now (elapsed {:?})", now.elapsed(),
+				);
+
 				continue;
 			}
 
@@ -364,7 +398,14 @@ pub trait Backend<Block: BlockT>:
 									);
 									break;
 								},
-								Err(e) => Err(e)?,
+								Err(e) => {
+									debug!(
+										target: crate::LOG_TARGET,
+										err = ?e,
+										"Failed to fetch header for parent hash {:?} during block collection (elapsed {:?})", to_fetch.parent, now.elapsed(),
+									);
+									return Err(e);
+								},
 							};
 							let metadata = MinimalBlockMetadata::from(&metadata);
 							let result = (metadata.number, metadata.hash);
@@ -376,6 +417,13 @@ pub trait Backend<Block: BlockT>:
 				if current_header_metadata.number <= finalized_chain_block_number {
 					// Skip more blocks until we get all blocks on finalized chain until the height
 					// of the parent block
+					debug!(
+						target: crate::LOG_TARGET,
+						current_hash = ?current_header_metadata.hash,
+						current_num = ?current_header_metadata.number,
+						finalized_num = ?finalized_chain_block_number,
+						"Skip more blocks until we get all blocks on finalized chain until the height of the parent block"
+					);
 					continue;
 				}
 
@@ -384,19 +432,43 @@ pub trait Backend<Block: BlockT>:
 					// Reached finalized chain, nothing left to do
 					result.displaced_blocks.extend(displaced_blocks_candidates.drain(..));
 					result.displaced_leaves.push((leaf_number, leaf_hash));
+
+					debug!(
+						target: crate::LOG_TARGET,
+						"Found displaced leaf {leaf_hash:?} (elapsed {:?})", now.elapsed(),
+					);
 					break;
 				}
 
 				// Store displaced block and look deeper for block on finalized chain
+				debug!(
+					target: crate::LOG_TARGET,
+					"Found displaced block {parent_hash:?} and look further... (elapsed {:?})", now.elapsed(),
+				);
 				displaced_blocks_candidates.push(parent_hash);
 				current_header_metadata =
-					MinimalBlockMetadata::from(&self.header_metadata(parent_hash)?);
+					MinimalBlockMetadata::from(&self.header_metadata(parent_hash).map_err(|err| {
+						debug!(
+							target: crate::LOG_TARGET,
+							?err,
+							"Failed to fetch header for parent {parent_hash:?} during displaced block collection (elapsed {:?})", now.elapsed(),
+						);
+						err
+					})?);
 			}
 		}
 
 		// There could be duplicates shared by multiple branches, clean them up
 		result.displaced_blocks.sort_unstable();
 		result.displaced_blocks.dedup();
+
+		debug!(
+			target: crate::LOG_TARGET,
+			%finalized_block_hash,
+			?finalized_block_number,
+			"Finished with result {result:?} (elapsed {:?})",
+			now.elapsed(),
+		);
 
 		return Ok(result);
 	}
