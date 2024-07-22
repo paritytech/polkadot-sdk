@@ -36,6 +36,8 @@ extern crate self as frame_support;
 #[doc(hidden)]
 extern crate alloc;
 
+pub type Hey; // FAIL-CI
+
 /// Private exports that are being used by macros.
 ///
 /// The exports are not stable and should not be relied on.
