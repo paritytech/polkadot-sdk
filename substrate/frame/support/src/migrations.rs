@@ -504,6 +504,11 @@ pub trait SteppedMigration {
 		None
 	}
 
+	/// The maximum number of blocks that this migration can take.
+	///
+	/// This can be used to enforce progress and prevent migrations becoming stuck forever. A
+	/// migration that exceeds its max blocks is treated as failed. `None` means that there is no
+	/// limit.
 	fn max_blocks() -> Option<u32> {
 		None
 	}

@@ -25,7 +25,6 @@ use frame_support::{
 	derive_impl,
 	migrations::*,
 	traits::{OnFinalize, OnInitialize},
-	weights::Weight,
 };
 use frame_system::EventRecord;
 use sp_core::H256;
