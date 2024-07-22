@@ -562,7 +562,9 @@ impl PalletCmd {
 		Ok(benchmarks_to_run)
 	}
 
-	/// Produce a genesis storage.
+	/// Build the genesis storage by either the Genesis Builder API, chain spec or nothing.
+	///
+	/// Behaviour can be controlled by the `--genesis-builder` flag.
 	fn genesis_storage<H: Hash, F: HostFunctions>(
 		&self,
 		chain_spec: &Option<Box<dyn ChainSpec>>,
@@ -677,9 +679,10 @@ impl PalletCmd {
 			})?;
 			json_merge(&mut genesis_json, dev);
 		} else {
-			log::warn!(
-				"Could not find genesis preset '{GENESIS_PRESET}'. Falling back to default."
-			);
+			return Err(format!(
+				"GenesisBuilder::get_preset returned no data for preset `{}`. Manually specify `--genesis-builder-preset` or use a different `--genesis-builder`.",
+				self.genesis_builder_preset).into()
+			)
 		}
 
 		let json_pretty_str = serde_json::to_string_pretty(&genesis_json)
@@ -749,9 +752,17 @@ impl PalletCmd {
 		state: &'a BenchmarkingState<H>,
 	) -> Result<FetchedCode<'a, BenchmarkingState<H>, H>> {
 		if let Some(runtime) = &self.runtime {
+			let runtime = std::path::absolute(runtime)
+				.map_err(|e| format!("Could not get absolute path for runtime file: {e}"))?;
 			log::info!("Loading WASM from {}", runtime.display());
 
-			let code = fs::read(runtime)?;
+			let code = fs::read(&runtime).map_err(|e| {
+				format!(
+					"Could not load runtime file from path: {}, error: {}",
+					runtime.display(),
+					e
+				)
+			})?;
 			let hash = sp_core::blake2_256(&code).to_vec();
 			let wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
 
@@ -1002,19 +1013,27 @@ impl PalletCmd {
 
 		if let Some(output_path) = &self.output {
 			if !output_path.is_dir() && output_path.file_name().is_none() {
-				return Err("Output file or path is invalid!".into())
+				return Err(format!(
+					"Output path is neither a directory nor a file: {:?}",
+					output_path
+				)
+				.into())
 			}
 		}
 
 		if let Some(header_file) = &self.header {
 			if !header_file.is_file() {
-				return Err("Header file is invalid!".into())
+				return Err(format!("Header file could not be found: {:?}", &header_file).into())
 			};
 		}
 
 		if let Some(handlebars_template_file) = &self.template {
 			if !handlebars_template_file.is_file() {
-				return Err("Handlebars template file is invalid!".into())
+				return Err(format!(
+					"Handlebars template file could not be found: {:?}",
+					&handlebars_template_file
+				)
+				.into())
 			};
 		}
 
