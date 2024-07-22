@@ -678,6 +678,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#527" id="527">527</a>
 <a href="#528" id="528">528</a>
 <a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -704,7 +706,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	peer_store::PeerStoreProvider,
 	request_responses::{IncomingRequest, OutgoingResponse},
 	service::{metrics::Metrics, traits::RequestResponseConfig <span class="kw">as </span>RequestResponseConfigT},
-	IfDisconnected, ProtocolName, RequestFailure,
+	IfDisconnected, OutboundFailure, ProtocolName, RequestFailure,
 };
 
 <span class="kw">use </span>futures::{channel::oneshot, future::BoxFuture, stream::FuturesUnordered, StreamExt};
@@ -1049,10 +1051,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return
 		</span>};
 
-		<span class="kw">let </span>error = <span class="kw">match </span>error {
-			RequestResponseError::NotConnected =&gt; <span class="prelude-val">Some</span>(RequestFailure::NotConnected),
-			RequestResponseError::Rejected | RequestResponseError::Timeout =&gt;
-				<span class="prelude-val">Some</span>(RequestFailure::Refused),
+		<span class="kw">let </span>status = <span class="kw">match </span>error {
+			RequestResponseError::NotConnected =&gt;
+				<span class="prelude-val">Some</span>((RequestFailure::NotConnected, <span class="string">"not-connected"</span>)),
+			RequestResponseError::Rejected =&gt; <span class="prelude-val">Some</span>((RequestFailure::Refused, <span class="string">"rejected"</span>)),
+			RequestResponseError::Timeout =&gt;
+				<span class="prelude-val">Some</span>((RequestFailure::Network(OutboundFailure::Timeout), <span class="string">"timeout"</span>)),
 			RequestResponseError::Canceled =&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
@@ -1067,7 +1071,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="string">"{}: tried to send too large request to {peer:?} ({request_id:?})"</span>,
 					<span class="self">self</span>.protocol,
 				);
-				<span class="prelude-val">Some</span>(RequestFailure::Refused)
+				<span class="prelude-val">Some</span>((RequestFailure::Refused, <span class="string">"payload-too-large"</span>))
 			},
 			RequestResponseError::UnsupportedProtocol =&gt; <span class="kw">match </span>fallback_request {
 				<span class="prelude-val">Some</span>((request, protocol)) =&gt; <span class="kw">match </span><span class="self">self</span>.request_tx.get(<span class="kw-2">&amp;</span>protocol) {
@@ -1106,15 +1110,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							peer,
 						);
 
-						<span class="prelude-val">Some</span>(RequestFailure::Refused)
+						<span class="prelude-val">Some</span>((RequestFailure::Refused, <span class="string">"invalid-fallback-protocol"</span>))
 					},
 				},
-				<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Some</span>(RequestFailure::Refused),
+				<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Some</span>((RequestFailure::Refused, <span class="string">"unsupported-protocol"</span>)),
 			},
 		};
 
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(error) = error {
-			<span class="self">self</span>.metrics.register_outbound_request_failure(error.to_string().as_ref());
+		<span class="kw">if let </span><span class="prelude-val">Some</span>((error, reason)) = status {
+			<span class="self">self</span>.metrics.register_outbound_request_failure(reason);
 			<span class="kw">let _ </span>= tx.send(<span class="prelude-val">Err</span>(error));
 		}
 	}
