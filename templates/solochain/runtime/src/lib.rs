@@ -13,11 +13,6 @@ use frame::{
 	traits::{StorageInfo, WhitelistedStorageKeys},
 };
 use pallet_grandpa::AuthorityId as GrandpaId;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::crypto::KeyTypeId;
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
-use sp_version::RuntimeVersion;
 
 use frame::{
 	deps::{
@@ -30,11 +25,17 @@ use frame::{
 				IdentityFee, Weight,
 			},
 		},
-		sp_runtime::{generic, impl_opaque_keys, MultiSignature},
+		sp_block_builder::{self},
+		sp_core::{H256, crypto::KeyTypeId, Void},
+		sp_runtime::{generic, impl_opaque_keys, MultiAddress, MultiSignature, Perbill},
+		sp_version::{RuntimeVersion, runtime_version},
 	},
 	prelude::*,
 	runtime::{
-		apis::{impl_runtime_apis, ApplyExtrinsicResult, OpaqueMetadata},
+		apis::{self, impl_runtime_apis, ApplyExtrinsicResult, AuthorityList, EquivocationProof, OpaqueMetadata, OpaqueKeyOwnershipProof,
+			SetId, SlotDuration, sr25519::AuthorityId as AuraId, PresetId, InherentData, CheckInherentsResult,
+			ExtrinsicInclusionMode
+		},
 		prelude::*,
 	},
 	traits::{
@@ -47,8 +48,7 @@ pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{ConstFeeMultiplier, FungibleAdapter, Multiplier};
 #[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{Perbill, Permill};
+pub use frame::deps::sp_runtime::BuildStorage;
 
 /// Import the template pallet.
 pub use pallet_template;
@@ -70,7 +70,7 @@ pub type Balance = u128;
 pub type Nonce = u32;
 
 /// A hash of some data used by the chain.
-pub type Hash = sp_core::H256;
+pub type Hash = H256;
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -79,7 +79,7 @@ pub type Hash = sp_core::H256;
 pub mod opaque {
 	use super::*;
 
-	pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
+	pub use frame::deps::sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 
 	/// Opaque block header type.
 	pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
@@ -98,7 +98,7 @@ pub mod opaque {
 
 // To learn more about runtime versioning, see:
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
-#[sp_version::runtime_version]
+#[runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("solochain-template-runtime"),
 	impl_name: create_runtime_str!("solochain-template-runtime"),
@@ -200,7 +200,7 @@ impl pallet_grandpa::Config for Runtime {
 	type MaxNominators = ConstU32<0>;
 	type MaxSetIdSessionEntries = ConstU64<0>;
 
-	type KeyOwnerProof = sp_core::Void;
+	type KeyOwnerProof = Void;
 	type EquivocationReportSystem = ();
 }
 
@@ -302,7 +302,7 @@ mod runtime {
 }
 
 /// The address format for describing accounts.
-pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
+pub type Address = MultiAddress<AccountId, ()>;
 /// Block header type as expected by this runtime.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 /// Block type as expected by this runtime.
@@ -354,7 +354,7 @@ mod benches {
 }
 
 impl_runtime_apis! {
-	impl sp_api::Core<Block> for Runtime {
+	impl apis::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
 			VERSION
 		}
@@ -363,12 +363,12 @@ impl_runtime_apis! {
 			RuntimeExecutive::execute_block(block);
 		}
 
-		fn initialize_block(header: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
+		fn initialize_block(header: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode {
 			RuntimeExecutive::initialize_block(header)
 		}
 	}
 
-	impl sp_api::Metadata<Block> for Runtime {
+	impl apis::Metadata<Block> for Runtime {
 		fn metadata() -> OpaqueMetadata {
 			OpaqueMetadata::new(Runtime::metadata().into())
 		}
@@ -391,19 +391,19 @@ impl_runtime_apis! {
 			RuntimeExecutive::finalize_block()
 		}
 
-		fn inherent_extrinsics(data: sp_inherents::InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
+		fn inherent_extrinsics(data: InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
 			data.create_extrinsics()
 		}
 
 		fn check_inherents(
 			block: Block,
-			data: sp_inherents::InherentData,
-		) -> sp_inherents::CheckInherentsResult {
+			data: InherentData,
+		) -> CheckInherentsResult {
 			data.check_extrinsics(&block)
 		}
 	}
 
-	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
+	impl apis::TaggedTransactionQueue<Block> for Runtime {
 		fn validate_transaction(
 			source: TransactionSource,
 			tx: <Block as BlockT>::Extrinsic,
@@ -413,15 +413,15 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
+	impl apis::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
 			RuntimeExecutive::offchain_worker(header)
 		}
 	}
 
-	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
-		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
+	impl apis::AuraApi<Block, AuraId> for Runtime {
+		fn slot_duration() -> SlotDuration {
+			SlotDuration::from_millis(Aura::slot_duration())
 		}
 
 		fn authorities() -> Vec<AuraId> {
@@ -429,7 +429,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_session::SessionKeys<Block> for Runtime {
+	impl apis::SessionKeys<Block> for Runtime {
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
 			opaque::SessionKeys::generate(seed)
 		}
@@ -441,29 +441,29 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_consensus_grandpa::GrandpaApi<Block> for Runtime {
-		fn grandpa_authorities() -> sp_consensus_grandpa::AuthorityList {
+	impl apis::GrandpaApi<Block> for Runtime {
+		fn grandpa_authorities() -> AuthorityList {
 			Grandpa::grandpa_authorities()
 		}
 
-		fn current_set_id() -> sp_consensus_grandpa::SetId {
+		fn current_set_id() -> SetId {
 			Grandpa::current_set_id()
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
-			_equivocation_proof: sp_consensus_grandpa::EquivocationProof<
+			_equivocation_proof: EquivocationProof<
 				<Block as BlockT>::Hash,
 				NumberFor<Block>,
 			>,
-			_key_owner_proof: sp_consensus_grandpa::OpaqueKeyOwnershipProof,
+			_key_owner_proof:OpaqueKeyOwnershipProof,
 		) -> Option<()> {
 			None
 		}
 
 		fn generate_key_ownership_proof(
-			_set_id: sp_consensus_grandpa::SetId,
+			_set_id: SetId,
 			_authority_id: GrandpaId,
-		) -> Option<sp_consensus_grandpa::OpaqueKeyOwnershipProof> {
+		) -> Option<OpaqueKeyOwnershipProof> {
 			// NOTE: this is the only implementation possible since we've
 			// defined our key owner proof type as a bottom type (i.e. a type
 			// with no values).
@@ -583,16 +583,16 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+	impl apis::GenesisBuilder<Block> for Runtime {
+		fn build_state(config: Vec<u8>) -> frame::deps::sp_genesis_builder::Result {
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+		fn get_preset(id: &Option<PresetId>) -> Option<Vec<u8>> {
 			get_preset::<RuntimeGenesisConfig>(id, |_| None)
 		}
 
-		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+		fn preset_names() -> Vec<PresetId> {
 			vec![]
 		}
 	}

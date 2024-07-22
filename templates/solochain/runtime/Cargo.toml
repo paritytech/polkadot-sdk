@@ -35,31 +35,6 @@ pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 
-# primitives
-sp-api = { workspace = true }
-sp-block-builder = { workspace = true }
-sp-consensus-aura = { features = [
-	"serde",
-], workspace = true }
-sp-consensus-grandpa = { features = [
-	"serde",
-], workspace = true }
-sp-core = { features = [
-	"serde",
-], workspace = true }
-sp-inherents = { workspace = true }
-sp-offchain = { workspace = true }
-sp-runtime = { features = [
-	"serde",
-], workspace = true }
-sp-session = { workspace = true }
-sp-storage = { workspace = true }
-sp-transaction-pool = { workspace = true }
-sp-version = { features = [
-	"serde",
-], workspace = true }
-sp-genesis-builder = { workspace = true }
-
 # RPC related
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
@@ -91,20 +66,6 @@ std = [
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 
-	"sp-api/std",
-	"sp-block-builder/std",
-	"sp-consensus-aura/std",
-	"sp-consensus-grandpa/std",
-	"sp-core/std",
-	"sp-genesis-builder/std",
-	"sp-inherents/std",
-	"sp-offchain/std",
-	"sp-runtime/std",
-	"sp-session/std",
-	"sp-storage/std",
-	"sp-transaction-pool/std",
-	"sp-version/std",
-
 	"substrate-wasm-builder",
 ]
 
@@ -115,7 +76,6 @@ runtime-benchmarks = [
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-template/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 ]
 
 try-runtime = [
@@ -127,5 +87,4 @@ try-runtime = [
 	"pallet-template/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
-	"sp-runtime/try-runtime",
 ]
