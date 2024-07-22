@@ -49,10 +49,9 @@ pub use impls::*;
 
 use crate::{
 	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, DisablingStrategy,
-	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
-	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing, MaxNominationsOf,
+	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
+	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -863,6 +862,8 @@ pub mod pallet {
 		ForceEra { mode: Forcing },
 		/// Report of a controller batch deprecation.
 		ControllerBatchDeprecated { failures: u32 },
+		/// Restore ledger resulted in a force unbound.
+		RestoreLedgerKill { new_locked: BalanceOf<T>, free_balance: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -2067,13 +2068,20 @@ pub mod pallet {
 			maybe_controller: Option<T::AccountId>,
 			maybe_total: Option<BalanceOf<T>>,
 			maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
+			maybe_slashing_spans: Option<u32>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 
 			// cannot restore ledger for virtual stakers.
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
-			Pallet::<T>::do_restore_ledger(stash, maybe_controller, maybe_total, maybe_unlocking)
+			Pallet::<T>::do_restore_ledger(
+				stash,
+				maybe_controller,
+				maybe_total,
+				maybe_unlocking,
+				maybe_slashing_spans,
+			)
 		}
 	}
 }

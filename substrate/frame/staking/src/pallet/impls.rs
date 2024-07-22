@@ -394,11 +394,23 @@ impl<T: Config> Pallet<T> {
 		Ok(Some(T::WeightInfo::payout_stakers_alive_staked(nominator_payout_count)).into())
 	}
 
+	/// Restores the state of a ledger which is in an inconsistent state.
+	///
+	/// The requirements to restore a ledger are the following:
+	/// * The stash is bonded; or
+	/// * The stash is not bonded but it has a staking lock left behind; or
+	/// * If the stash has an associated ledger and its state is inconsistent; or
+	/// * If the ledger is not corrupted *but* its staking lock is out of sync.
+	///
+	/// The `maybe_*` input parameters will overwrite the corresponding data and metadata of the
+	/// ledger associated with the stash. If the input parameters are not set, the ledger will
+	/// be reset values from on-chain state.
 	pub(crate) fn do_restore_ledger(
 		stash: T::AccountId,
 		maybe_controller: Option<T::AccountId>,
 		maybe_total: Option<BalanceOf<T>>,
 		maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
+		maybe_slashing_spans: Option<u32>,
 	) -> DispatchResult {
 		let current_lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
 		let stash_balance = T::Currency::free_balance(&stash);
@@ -467,6 +479,19 @@ impl<T: Config> Pallet<T> {
 		ledger.controller = Some(new_controller);
 		ledger.unlocking = maybe_unlocking.unwrap_or_default();
 		ledger.update()?;
+
+		// if the current stash free balance is enough to lock after restore, force unbonding
+		// the ledger and clear all the data associated with the ledger.
+		let stash_free_balance = T::Currency::free_balance(&stash);
+		if stash_free_balance < new_total {
+			Self::chill_stash(&stash);
+			Self::kill_stash(&stash, maybe_slashing_spans.unwrap_or_default())?;
+
+			Self::deposit_event(Event::<T>::RestoreLedgerKill {
+				new_locked: new_total,
+				free_balance: stash_free_balance,
+			});
+		}
 
 		ensure!(
 			Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),

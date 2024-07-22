@@ -74,7 +74,7 @@ pub mod v16 {
 			// iterate over all the bonded pairs and fix the corrupted stash/ledger.
 			for (_, stash) in Bonded::<T>::iter() {
 				if Pallet::<T>::inspect_bond_state(&stash).is_err() {
-					let _ = Pallet::<T>::do_restore_ledger(stash, None, None, None);
+					let _ = Pallet::<T>::do_restore_ledger(stash, None, None, None, None);
 					fixed_counter += 1;
 				}
 				read += 1;
@@ -83,7 +83,7 @@ pub mod v16 {
 			// iterate over all ledgers and check if the associated stash if their corrupted.
 			for (_, ledger) in Ledger::<T>::iter() {
 				if Pallet::<T>::inspect_bond_state(&ledger.stash).is_err() {
-					let _ = Pallet::<T>::do_restore_ledger(ledger.stash, None, None, None);
+					let _ = Pallet::<T>::do_restore_ledger(ledger.stash, None, None, None, None);
 					fixed_counter += 1;
 				}
 				read += 1;
