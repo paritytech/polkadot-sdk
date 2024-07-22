@@ -30,7 +30,6 @@ use alloc::{
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
 use frame_support::{
-	derive_impl,
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
@@ -198,7 +197,6 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
-#[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = EverythingBut<IsIdentityCall>;
 	type BlockWeights = BlockWeights;
@@ -214,6 +212,21 @@ impl frame_system::Config for Runtime {
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
 	type SS58Prefix = SS58Prefix;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
+    type RuntimeTask = RuntimeTask;
+	type PalletInfo = PalletInfo;
+	type SingleBlockMigrations = ();
+	type MultiBlockMigrator = ();
+	type PreInherents = ();
+	type PostInherents = ();
+	type PostTransactions = ();
+	type Hashing = sp_runtime::traits::BlakeTwo256;
+	type Lookup = sp_runtime::traits::AccountIdLookup<Self::AccountId, ()>;
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type OnSetCode = ();
 }
 
 parameter_types! {

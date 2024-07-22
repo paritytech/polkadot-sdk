@@ -130,12 +130,14 @@ parameter_types! {
 }
 
 /// Implements the types required for the system pallet.
-#[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type AccountId = sp_runtime::AccountId32;
 	type Block = Block;
 	type Version = Version;
 	// Use the account data from the balances pallet
 	type AccountData = pallet_balances::AccountData<<Runtime as pallet_balances::Config>::Balance>;
+	type Lookup = sp_runtime::traits::AccountIdLookup<Self::AccountId, ()>;
 }
 
 // Implements the types required for the balances pallet.
