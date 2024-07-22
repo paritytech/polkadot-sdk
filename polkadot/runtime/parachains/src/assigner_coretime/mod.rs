@@ -28,7 +28,7 @@ mod mock_helpers;
 mod tests;
 
 use crate::{
-	assigner_on_demand, configuration,
+	configuration, on_demand,
 	paras::AssignCoretime,
 	scheduler::common::{Assignment, AssignmentProvider},
 	ParaId,
@@ -201,10 +201,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config:
-		frame_system::Config + configuration::Config + assigner_on_demand::Config
-	{
-	}
+	pub trait Config: frame_system::Config + configuration::Config + on_demand::Config {}
 
 	/// Scheduled assignment sets.
 	///
@@ -281,8 +278,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 			match a_type {
 				CoreAssignment::Idle => None,
-				CoreAssignment::Pool =>
-					assigner_on_demand::Pallet::<T>::pop_assignment_for_core(core_idx),
+				CoreAssignment::Pool => on_demand::Pallet::<T>::pop_assignment_for_core(core_idx),
 				CoreAssignment::Task(para_id) => Some(Assignment::Bulk((*para_id).into())),
 			}
 		})
@@ -291,7 +287,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn report_processed(assignment: Assignment) {
 		match assignment {
 			Assignment::Pool { para_id, core_index } =>
-				assigner_on_demand::Pallet::<T>::report_processed(para_id, core_index),
+				on_demand::Pallet::<T>::report_processed(para_id, core_index),
 			Assignment::Bulk(_) => {},
 		}
 	}
@@ -304,7 +300,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn push_back_assignment(assignment: Assignment) {
 		match assignment {
 			Assignment::Pool { para_id, core_index } =>
-				assigner_on_demand::Pallet::<T>::push_back_assignment(para_id, core_index),
+				on_demand::Pallet::<T>::push_back_assignment(para_id, core_index),
 			Assignment::Bulk(_) => {
 				// Session changes are rough. We just drop assignments that did not make it on a
 				// session boundary. This seems sensible as bulk is region based. Meaning, even if
