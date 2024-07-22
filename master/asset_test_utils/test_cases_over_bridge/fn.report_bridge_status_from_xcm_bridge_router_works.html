@@ -163,7 +163,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     XcmConfig: Config,
     LocationToAccountId: ConvertLocation&lt;<a class="type" href="../type.AccountIdOf.html" title="type asset_test_utils::AccountIdOf">AccountIdOf</a>&lt;Runtime&gt;&gt;,
     &lt;Runtime as Config&gt;::AccountId: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;&lt;&lt;Runtime as Config&gt;::RuntimeOrigin as OriginTrait&gt;::AccountId&gt; + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;AccountId&gt;,
-    &lt;&lt;Runtime as Config&gt;::Lookup as <a class="trait" href="../../sp_runtime/traits/trait.StaticLookup.html" title="trait sp_runtime::traits::StaticLookup">StaticLookup</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.StaticLookup.html#associatedtype.Source" title="type sp_runtime::traits::StaticLookup::Source">Source</a>: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;&lt;Runtime as Config&gt;::AccountId&gt;,
+    &lt;&lt;Runtime as Config&gt;::Lookup as StaticLookup&gt;::Source: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;&lt;Runtime as Config&gt;::AccountId&gt;,
     XcmBridgeHubRouterInstance: 'static,</div></code></pre></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
