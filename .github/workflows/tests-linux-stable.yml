@@ -89,8 +89,8 @@ jobs:
     strategy: 
       fail-fast: false     
       matrix:
-        ci_node_total: [5]
-        ci_node_index: [1,2,3,4,5]      
+        ci_node_total: [3]
+        ci_node_index: [1,2,3]      
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -104,7 +104,6 @@ jobs:
         run: >
           time cargo
           nextest run
-          --workspace
           --locked --release --no-fail-fast
           --bins --lib
           --features try-runtime,ci-only-tests
