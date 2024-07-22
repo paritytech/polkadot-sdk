@@ -41,7 +41,6 @@ use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	SessionIndex,
 };
-use sp_std::prelude::*;
 use substrate_test_utils::assert_eq_uvec;
 
 #[test]
@@ -7158,7 +7157,7 @@ mod staking_unchecked {
 
 			// cannot set via set_payee as well.
 			assert_noop!(
-				<Staking as StakingInterface>::update_payee(&10, &10),
+				<Staking as StakingInterface>::set_payee(&10, &10),
 				Error::<Test>::RewardDestinationRestricted
 			);
 		});
@@ -7220,7 +7219,7 @@ mod staking_unchecked {
 			// migrate them to virtual staker
 			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&200);
 			// payee needs to be updated to a non-stash account.
-			assert_ok!(<Staking as StakingInterface>::update_payee(&200, &201));
+			assert_ok!(<Staking as StakingInterface>::set_payee(&200, &201));
 
 			// ensure the balance is not locked anymore
 			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 0);
@@ -7247,7 +7246,7 @@ mod staking_unchecked {
 				// make 101 a virtual nominator
 				<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
 				// set payee different to self.
-				assert_ok!(<Staking as StakingInterface>::update_payee(&101, &102));
+				assert_ok!(<Staking as StakingInterface>::set_payee(&101, &102));
 
 				// cache values
 				let nominator_stake = Staking::ledger(101.into()).unwrap().active;
@@ -7322,7 +7321,7 @@ mod staking_unchecked {
 				// make 101 a virtual nominator
 				<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
 				// set payee different to self.
-				assert_ok!(<Staking as StakingInterface>::update_payee(&101, &102));
+				assert_ok!(<Staking as StakingInterface>::set_payee(&101, &102));
 
 				// cache values
 				let validator_balance = Balances::free_balance(&11);

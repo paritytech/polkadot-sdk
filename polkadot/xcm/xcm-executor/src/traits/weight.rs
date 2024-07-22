@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::AssetsInHolding;
-use sp_std::result::Result;
+use core::result::Result;
 use xcm::latest::{prelude::*, Weight};
 
 /// Determine the weight of an XCM message.
@@ -80,18 +80,38 @@ impl WeightTrader for Tuple {
 		let mut too_expensive_error_found = false;
 		let mut last_error = None;
 		for_tuples!( #(
+			let weight_trader = core::any::type_name::<Tuple>();
+
 			match Tuple.buy_weight(weight, payment.clone(), context) {
-				Ok(assets) => return Ok(assets),
-				Err(e) => {
-					if let XcmError::TooExpensive = e {
+				Ok(assets) => {
+					tracing::trace!(
+						target: "xcm::buy_weight", 
+						%weight_trader,
+						"Buy weight succeeded",
+					);
+
+					return Ok(assets)
+				},
+				Err(error) => {
+					if let XcmError::TooExpensive = error {
 						too_expensive_error_found = true;
 					}
-					last_error = Some(e)
+					last_error = Some(error);
+
+					tracing::trace!(
+						target: "xcm::buy_weight", 
+						?error,
+						%weight_trader,
+						"Weight trader failed",
+					);
 				}
 			}
 		)* );
 
-		log::trace!(target: "xcm::buy_weight", "last_error: {:?}, too_expensive_error_found: {}", last_error, too_expensive_error_found);
+		tracing::trace!(
+			target: "xcm::buy_weight",
+			"Buy weight failed",
+		);
 
 		// if we have multiple traders, and first one returns `TooExpensive` and others fail e.g.
 		// `AssetNotFound` then it is more accurate to return `TooExpensive` then `AssetNotFound`

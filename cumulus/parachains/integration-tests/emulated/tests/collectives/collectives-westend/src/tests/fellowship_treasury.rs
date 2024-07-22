@@ -14,14 +14,11 @@
 // limitations under the License.
 
 use crate::*;
-use asset_hub_westend_runtime::xcm_config::LocationToAccountId as AssetHubLocationToAccountId;
-use emulated_integration_tests_common::accounts::ALICE;
 use frame_support::{
 	assert_ok, dispatch::RawOrigin, instances::Instance1, sp_runtime::traits::Dispatchable,
 	traits::fungible::Inspect,
 };
 use polkadot_runtime_common::impls::VersionedLocatableAsset;
-use westend_runtime::OriginCaller;
 use westend_runtime_constants::currency::UNITS;
 use xcm_executor::traits::ConvertLocation;
 
@@ -65,7 +62,7 @@ fn fellowship_treasury_spend() {
 		let treasury_location: Location = (Parent, PalletInstance(37)).into();
 
 		let teleport_call = RuntimeCall::Utility(pallet_utility::Call::<Runtime>::dispatch_as {
-			as_origin: bx!(OriginCaller::system(RawOrigin::Signed(treasury_account))),
+			as_origin: bx!(WestendOriginCaller::system(RawOrigin::Signed(treasury_account))),
 			call: bx!(RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::teleport_assets {
 				dest: bx!(VersionedLocation::V4(asset_hub_location.clone())),
 				beneficiary: bx!(VersionedLocation::V4(treasury_location)),
@@ -97,7 +94,7 @@ fn fellowship_treasury_spend() {
 		// Fund Fellowship Treasury from Westend Treasury.
 
 		let treasury_origin: RuntimeOrigin =
-			westend_runtime::governance::pallet_custom_origins::Origin::Treasurer.into();
+			westend_governance::pallet_custom_origins::Origin::Treasurer.into();
 		let fellowship_treasury_location: Location =
 			Location::new(1, [Parachain(1001), PalletInstance(65)]);
 		let asset_hub_location: Location = [Parachain(1000)].into();
@@ -170,8 +167,7 @@ fn fellowship_treasury_spend() {
 		// Fund Alice account from Fellowship Treasury.
 
 		let fellows_origin: RuntimeOrigin =
-			collectives_westend_runtime::fellowship::pallet_fellowship_origins::Origin::Fellows
-				.into();
+			collectives_fellowship::pallet_fellowship_origins::Origin::Fellows.into();
 		let asset_hub_location: Location = (Parent, Parachain(1000)).into();
 		let native_asset = Location::parent();
 
