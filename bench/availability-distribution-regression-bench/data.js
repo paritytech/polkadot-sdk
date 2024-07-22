@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721649291421,
+  "lastUpdate": 1721667586746,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -18719,6 +18719,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.17337059618666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Lulu",
+            "username": "Morganamilo",
+            "email": "morgan@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f13ed8de69bcfcccecf208211998b8af2ef882a2",
+          "message": "Update parity publish (#5105)",
+          "timestamp": "2024-07-22T15:12:59Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f13ed8de69bcfcccecf208211998b8af2ef882a2"
+        },
+        "date": 1721667555813,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17444496830666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02254174051333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01098285228,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012931509666666674,
             "unit": "seconds"
           }
         ]
