@@ -33,7 +33,7 @@ First, consider the case for all such crates, except for those that are pallets.
 
 The first question is, what should you document? Use this filter:
 
-1. In the crates assigned to `docs-audit` in [CODEOWNERS](./CODEOWNERS),
+1. In the crates assigned to `docs-audit` in [CODEOWNERS](/.github/CODEOWNERS),
 2. All `pub` items need to be documented. If not `pub`, it doesn't appear in the rust-docs, and is not public facing.
 
    - Within `pub` items, sometimes they are only `pub` to be used by another internal crate, and you can foresee that
