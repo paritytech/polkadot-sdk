@@ -428,7 +428,7 @@ pub mod pallet {
 		/// at least until session 2
 		pub keys: Vec<(T::AccountId, T::ValidatorId, T::Keys)>,
 		/// List of (AccountId, ValidatorId, Keys) that will be registered at genesis, but not as active validators.
-		/// These keys will be be valid at least until session 2
+		/// These keys are set, together with `keys`, as authority candidates for future sessions (enactable from session 2 onwards)
 		pub non_authority_keys: Vec<(T::AccountId, T::ValidatorId, T::Keys)>,
 	}
 
