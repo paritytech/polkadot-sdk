@@ -57,16 +57,6 @@ fn shuffle<T>(vector: &mut Vec<T>, random_seed: u64) {
 	}
 }
 
-// fn dummy_tickets(count: usize) -> Vec<TicketBody> {
-// 	(0..count)
-// 		.map(|i| {
-// 			let mut id = [0xff; 32];
-// 			id[..8].copy_from_slice(&i.to_be_bytes()[..]);
-// 			(TicketId(id), TicketBody { attempt_idx: i as u32, extra: Default::default() })
-// 		})
-// 		.collect()
-// }
-
 fn dummy_tickets(count: u8) -> Vec<TicketBody> {
 	make_ticket_bodies(count, None)
 }
