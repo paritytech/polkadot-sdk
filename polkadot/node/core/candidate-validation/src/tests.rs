@@ -1842,6 +1842,7 @@ fn maybe_prepare_validation_does_not_prepare_already_prepared_pvfs() {
 	let update = dummy_active_leaves_update(activated_hash);
 	let mut state = PrepareValidationState {
 		session_index: Some(1),
+		session_count: 0,
 		is_next_session_authority: true,
 		per_block_limit: 2,
 		already_prepared_code_hashes: HashSet::from_iter(vec![

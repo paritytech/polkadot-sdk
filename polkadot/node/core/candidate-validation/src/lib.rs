@@ -347,19 +347,14 @@ async fn maybe_prepare_validation<Sender>(
 
 	let Some(leaf) = update.activated else { return };
 	let new_session_index = new_session_index(sender, state.session_index, leaf.hash).await;
-	if new_session_index.is_some() {
+	if let Some(new_session_index) = new_session_index {
 		state.already_prepared_code_hashes.clear();
-		state.is_next_session_authority = check_next_session_authority(
-			sender,
-			keystore,
-			leaf.hash,
-			state.session_index.expect("qed: just checked above"),
-		)
-		.await;
+		state.is_next_session_authority =
+			check_next_session_authority(sender, keystore, leaf.hash, new_session_index).await;
 		if state.session_index.is_some() && state.is_next_session_authority {
 			state.session_count += 1;
 		}
-		state.session_index = new_session_index;
+		state.session_index = Some(new_session_index);
 	}
 
 	// On every active leaf check candidates and prepare PVFs our node doesn't have yet.
