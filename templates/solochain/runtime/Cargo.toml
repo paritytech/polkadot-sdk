@@ -25,6 +25,7 @@ scale-info = { features = [
 frame = { features = [
 	"experimental",
 	"runtime",
+	"serde",
 ], workspace = true }
 
 # frame pallets

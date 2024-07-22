@@ -43,8 +43,8 @@ sp-block-builder = { optional = true, workspace = true }
 sp-transaction-pool = { optional = true, workspace = true }
 sp-offchain = { optional = true, workspace = true }
 sp-session = { optional = true, workspace = true }
-sp-consensus-aura = { features = ["serde"], optional = true, workspace = true }
-sp-consensus-grandpa = { features = ["serde"], optional = true, workspace = true }
+sp-consensus-aura = { optional = true, workspace = true }
+sp-consensus-grandpa = { optional = true, workspace = true }
 sp-inherents = { optional = true, workspace = true }
 sp-storage = { optional = true, workspace = true }
 
@@ -82,6 +82,12 @@ runtime = [
 
 	"frame-executive",
 	"frame-system-rpc-runtime-api",
+]
+serde = [
+	"sp-consensus-aura?/serde",
+	"sp-consensus-grandpa?/serde",
+
+	"sp-runtime/serde",
 ]
 std = [
 	"codec/std",
