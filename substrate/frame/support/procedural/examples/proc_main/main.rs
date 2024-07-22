@@ -123,12 +123,10 @@ pub mod frame_system {
 	pub type OptionLinkedMap<T> = StorageMap<_, Blake2_128Concat, u32, u32, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn generic_data)]
 	pub type GenericData<T: Config> =
 		StorageMap<_, Identity, BlockNumberFor<T>, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn generic_data2)]
 	pub type GenericData2<T: Config> =
 		StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, BlockNumberFor<T>, OptionQuery>;
 
