@@ -279,20 +279,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>request_revenue_at() {
 		<span class="kw">let </span>root_origin = &lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin::root();
-		<span class="kw">let </span>mhr = &lt;T <span class="kw">as </span>assigner_on_demand::Config&gt;::MaxHistoricalRevenue::get();
+		<span class="kw">let </span>mhr = &lt;T <span class="kw">as </span>on_demand::Config&gt;::MaxHistoricalRevenue::get();
 		frame_system::Pallet::&lt;T&gt;::set_block_number((mhr + <span class="number">2</span>).into());
-		<span class="kw">let </span>minimum_balance = &lt;T <span class="kw">as </span>assigner_on_demand::Config&gt;::Currency::minimum_balance();
+		<span class="kw">let </span>minimum_balance = &lt;T <span class="kw">as </span>on_demand::Config&gt;::Currency::minimum_balance();
 		<span class="kw">let </span>rev: BoundedVec&lt;
-			&lt;&lt;T <span class="kw">as </span>assigner_on_demand::Config&gt;::Currency <span class="kw">as </span>frame_support::traits::Currency&lt;
+			&lt;&lt;T <span class="kw">as </span>on_demand::Config&gt;::Currency <span class="kw">as </span>frame_support::traits::Currency&lt;
 				T::AccountId,
 			&gt;&gt;::Balance,
 			T::MaxHistoricalRevenue,
 		&gt; = BoundedVec::try_from((<span class="number">1</span>..=mhr).map(|v| minimum_balance * v.into()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;())
 			.unwrap();
-		assigner_on_demand::Revenue::&lt;T&gt;::put(rev);
+		on_demand::Revenue::&lt;T&gt;::put(rev);
 
-		&lt;T <span class="kw">as </span>assigner_on_demand::Config&gt;::Currency::make_free_balance_be(
-			<span class="kw-2">&amp;</span>&lt;assigner_on_demand::Pallet&lt;T&gt;&gt;::account_id(),
+		&lt;T <span class="kw">as </span>on_demand::Config&gt;::Currency::make_free_balance_be(
+			<span class="kw-2">&amp;</span>&lt;on_demand::Pallet&lt;T&gt;&gt;::account_id(),
 			minimum_balance * (mhr * (mhr + <span class="number">1</span>)).into(),
 		);
 

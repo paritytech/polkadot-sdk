@@ -632,10 +632,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -666,7 +662,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 
 <span class="kw">use crate</span>::{
-	assigner_on_demand, configuration,
+	configuration, on_demand,
 	paras::AssignCoretime,
 	scheduler::common::{Assignment, AssignmentProvider},
 	ParaId,
@@ -839,10 +835,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config:
-		frame_system::Config + configuration::Config + assigner_on_demand::Config
-	{
-	}
+	</span><span class="kw">pub trait </span>Config: frame_system::Config + configuration::Config + on_demand::Config {}
 
 	<span class="doccomment">/// Scheduled assignment sets.
 	///
@@ -919,8 +912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">match </span>a_type {
 				CoreAssignment::Idle =&gt; <span class="prelude-val">None</span>,
-				CoreAssignment::Pool =&gt;
-					assigner_on_demand::Pallet::&lt;T&gt;::pop_assignment_for_core(core_idx),
+				CoreAssignment::Pool =&gt; on_demand::Pallet::&lt;T&gt;::pop_assignment_for_core(core_idx),
 				CoreAssignment::Task(para_id) =&gt; <span class="prelude-val">Some</span>(Assignment::Bulk((<span class="kw-2">*</span>para_id).into())),
 			}
 		})
@@ -929,7 +921,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>report_processed(assignment: Assignment) {
 		<span class="kw">match </span>assignment {
 			Assignment::Pool { para_id, core_index } =&gt;
-				assigner_on_demand::Pallet::&lt;T&gt;::report_processed(para_id, core_index),
+				on_demand::Pallet::&lt;T&gt;::report_processed(para_id, core_index),
 			Assignment::Bulk(<span class="kw">_</span>) =&gt; {},
 		}
 	}
@@ -942,7 +934,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>push_back_assignment(assignment: Assignment) {
 		<span class="kw">match </span>assignment {
 			Assignment::Pool { para_id, core_index } =&gt;
-				assigner_on_demand::Pallet::&lt;T&gt;::push_back_assignment(para_id, core_index),
+				on_demand::Pallet::&lt;T&gt;::push_back_assignment(para_id, core_index),
 			Assignment::Bulk(<span class="kw">_</span>) =&gt; {
 				<span class="comment">// Session changes are rough. We just drop assignments that did not make it on a
 				// session boundary. This seems sensible as bulk is region based. Meaning, even if

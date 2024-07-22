@@ -183,12 +183,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="item-spacer"></span>    fn <a href="#tymethod.run_benchmark_block_cmd" class="fn">run_benchmark_block_cmd</a>(
         self: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;Self&gt;,
         config: <a class="struct" href="../../sc_service/config/struct.Configuration.html" title="struct sc_service::config::Configuration">Configuration</a>,
-        cmd: &amp;<a class="struct" href="../../frame_benchmarking_cli/block/cmd/struct.BlockCmd.html" title="struct frame_benchmarking_cli::block::cmd::BlockCmd">BlockCmd</a>
+        cmd: &amp;BlockCmd
     ) -&gt; <a class="type" href="../../sc_cli/error/type.Result.html" title="type sc_cli::error::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.run_benchmark_storage_cmd" class="fn">run_benchmark_storage_cmd</a>(
         self: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;Self&gt;,
         config: <a class="struct" href="../../sc_service/config/struct.Configuration.html" title="struct sc_service::config::Configuration">Configuration</a>,
-        cmd: &amp;<a class="struct" href="../../frame_benchmarking_cli/storage/cmd/struct.StorageCmd.html" title="struct frame_benchmarking_cli::storage::cmd::StorageCmd">StorageCmd</a>
+        cmd: &amp;StorageCmd
     ) -&gt; <a class="type" href="../../sc_cli/error/type.Result.html" title="type sc_cli::error::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.start_node" class="fn">start_node</a>(
         self: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;Self&gt;,
@@ -226,11 +226,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <a class="type" href="../../sc_cli/error/type.Result.html" title="type sc_cli::error::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;</h4></section><section id="tymethod.run_benchmark_block_cmd" class="method"><a class="src rightside" href="../../src/polkadot_parachain/service.rs.html#903-907">source</a><h4 class="code-header">fn <a href="#tymethod.run_benchmark_block_cmd" class="fn">run_benchmark_block_cmd</a>(
     self: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;Self&gt;,
     config: <a class="struct" href="../../sc_service/config/struct.Configuration.html" title="struct sc_service::config::Configuration">Configuration</a>,
-    cmd: &amp;<a class="struct" href="../../frame_benchmarking_cli/block/cmd/struct.BlockCmd.html" title="struct frame_benchmarking_cli::block::cmd::BlockCmd">BlockCmd</a>
+    cmd: &amp;BlockCmd
 ) -&gt; <a class="type" href="../../sc_cli/error/type.Result.html" title="type sc_cli::error::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;</h4></section><section id="tymethod.run_benchmark_storage_cmd" class="method"><a class="src rightside" href="../../src/polkadot_parachain/service.rs.html#910-914">source</a><h4 class="code-header">fn <a href="#tymethod.run_benchmark_storage_cmd" class="fn">run_benchmark_storage_cmd</a>(
     self: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;Self&gt;,
     config: <a class="struct" href="../../sc_service/config/struct.Configuration.html" title="struct sc_service::config::Configuration">Configuration</a>,
-    cmd: &amp;<a class="struct" href="../../frame_benchmarking_cli/storage/cmd/struct.StorageCmd.html" title="struct frame_benchmarking_cli::storage::cmd::StorageCmd">StorageCmd</a>
+    cmd: &amp;StorageCmd
 ) -&gt; <a class="type" href="../../sc_cli/error/type.Result.html" title="type sc_cli::error::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;</h4></section><section id="tymethod.start_node" class="method"><a class="src rightside" href="../../src/polkadot_parachain/service.rs.html#916-924">source</a><h4 class="code-header">fn <a href="#tymethod.start_node" class="fn">start_node</a>(
     self: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;Self&gt;,
     parachain_config: <a class="struct" href="../../sc_service/config/struct.Configuration.html" title="struct sc_service::config::Configuration">Configuration</a>,

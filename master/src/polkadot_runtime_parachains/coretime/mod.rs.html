@@ -609,8 +609,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use crate</span>::{
 	assigner_coretime::{<span class="self">self</span>, PartsOf57600},
-	assigner_on_demand,
 	initializer::{OnNewSession, SessionChangeNotification},
+	on_demand,
 	origin::{ensure_parachain, Origin},
 };
 
@@ -677,6 +677,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
+
 	<span class="kw">use </span><span class="kw">crate</span>::configuration;
 	<span class="kw">use </span>sp_runtime::traits::TryConvert;
 	<span class="kw">use </span>xcm::v4::InteriorLocation;
@@ -689,9 +690,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config:
-		frame_system::Config + assigner_coretime::Config + assigner_on_demand::Config
-	{
+	</span><span class="kw">pub trait </span>Config: frame_system::Config + assigner_coretime::Config + on_demand::Config {
 		<span class="kw">type </span>RuntimeOrigin: From&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin&gt;
 			+ Into&lt;result::Result&lt;Origin, &lt;<span class="self">Self </span><span class="kw">as </span>Config&gt;::RuntimeOrigin&gt;&gt;;
 		<span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
@@ -869,7 +868,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// When cannot be in the future.
 		</span><span class="macro">ensure!</span>(until_bnf &lt;= now, Error::&lt;T&gt;::RequestedFutureRevenue);
 
-		<span class="kw">let </span>amount = &lt;assigner_on_demand::Pallet&lt;T&gt;&gt;::claim_revenue_until(until_bnf);
+		<span class="kw">let </span>amount = &lt;on_demand::Pallet&lt;T&gt;&gt;::claim_revenue_until(until_bnf);
 		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Revenue info requested: {:?}"</span>, amount);
 
 		<span class="kw">let </span>raw_revenue: Balance = amount.try_into().map_err(|<span class="kw">_</span>| {
@@ -926,14 +925,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">if </span>raw_revenue &gt; <span class="number">0 </span>{
 		<span class="kw">let </span>on_demand_pot =
-			T::AccountToLocation::try_convert(<span class="kw-2">&amp;</span>&lt;assigner_on_demand::Pallet&lt;T&gt;&gt;::account_id())
-				.map_err(|err| {
+			T::AccountToLocation::try_convert(<span class="kw-2">&amp;</span>&lt;on_demand::Pallet&lt;T&gt;&gt;::account_id()).map_err(
+				|err| {
 					<span class="macro">log::error!</span>(
 						target: LOG_TARGET,
 						<span class="string">"Failed to convert on-demand pot account to XCM location: {err:?}"</span>,
 					);
 					XcmError::InvalidLocation
-				})<span class="question-mark">?</span>;
+				},
+			)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>withdrawn = T::AssetTransactor::withdraw_asset(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>on_demand_pot, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 

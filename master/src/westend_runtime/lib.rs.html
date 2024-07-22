@@ -2940,14 +2940,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	U256ToBalance,
 };
 <span class="kw">use </span>polkadot_runtime_parachains::{
-	assigner_coretime <span class="kw">as </span>parachains_assigner_coretime,
-	assigner_on_demand <span class="kw">as </span>parachains_assigner_on_demand, configuration <span class="kw">as </span>parachains_configuration,
+	assigner_coretime <span class="kw">as </span>parachains_assigner_coretime, configuration <span class="kw">as </span>parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes <span class="kw">as </span>parachains_disputes,
 	disputes::slashing <span class="kw">as </span>parachains_slashing,
 	dmp <span class="kw">as </span>parachains_dmp, hrmp <span class="kw">as </span>parachains_hrmp, inclusion <span class="kw">as </span>parachains_inclusion,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
-	initializer <span class="kw">as </span>parachains_initializer, origin <span class="kw">as </span>parachains_origin, paras <span class="kw">as </span>parachains_paras,
+	initializer <span class="kw">as </span>parachains_initializer, on_demand <span class="kw">as </span>parachains_on_demand,
+	origin <span class="kw">as </span>parachains_origin, paras <span class="kw">as </span>parachains_paras,
 	paras_inherent <span class="kw">as </span>parachains_paras_inherent, reward_points <span class="kw">as </span>parachains_reward_points,
 	runtime_api_impl::{
 		v10 <span class="kw">as </span>parachains_runtime_api_impl, vstaging <span class="kw">as </span>vstaging_parachains_runtime_api_impl,
@@ -4098,11 +4098,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>OnDemandPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/ondmd"</span>);
 }
 
-<span class="kw">impl </span>parachains_assigner_on_demand::Config <span class="kw">for </span>Runtime {
+<span class="kw">impl </span>parachains_on_demand::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>TrafficDefaultValue = OnDemandTrafficDefaultValue;
-	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_on_demand::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>MaxHistoricalRevenue = MaxHistoricalRevenue;
 	<span class="kw">type </span>PalletId = OnDemandPalletId;
 }
@@ -4454,7 +4454,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[runtime::pallet_index(<span class="number">54</span>)]
 	</span><span class="kw">pub type </span>ParasSlashing = parachains_slashing;
 	<span class="attr">#[runtime::pallet_index(<span class="number">56</span>)]
-	</span><span class="kw">pub type </span>OnDemandAssignmentProvider = parachains_assigner_on_demand;
+	</span><span class="kw">pub type </span>OnDemandAssignmentProvider = parachains_on_demand;
 	<span class="attr">#[runtime::pallet_index(<span class="number">57</span>)]
 	</span><span class="kw">pub type </span>CoretimeAssignmentProvider = parachains_assigner_coretime;
 
@@ -4612,7 +4612,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		[polkadot_runtime_parachains::initializer, Initializer]
 		[polkadot_runtime_parachains::paras, Paras]
 		[polkadot_runtime_parachains::paras_inherent, ParaInherent]
-		[polkadot_runtime_parachains::assigner_on_demand, OnDemandAssignmentProvider]
+		[polkadot_runtime_parachains::on_demand, OnDemandAssignmentProvider]
 		[polkadot_runtime_parachains::coretime, Coretime]
 		<span class="comment">// Substrate
 		</span>[pallet_bags_list, VoterList]
