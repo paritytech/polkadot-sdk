@@ -37,6 +37,9 @@ regex = { workspace = true }
 [features]
 default = ["std"]
 std = ["sp-crypto-hashing/std"]
+# Generates the implementation for traits and methods available when frame-support is compiled with
+# `try-runtime` feature.
+try-runtime = []
 no-metadata-docs = []
 experimental = []
 # Generate impl-trait for tuples with the given number of tuples. Will be needed as the number of

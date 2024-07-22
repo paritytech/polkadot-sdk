@@ -829,7 +829,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 	let type_impl_gen = &def.type_impl_generics(proc_macro2::Span::call_site());
 	let type_use_gen = &def.type_use_generics(proc_macro2::Span::call_site());
 
-	let try_decode_entire_state = {
+	let try_decode_entire_state = if cfg!(feature = "try-runtime") {
 		let mut storage_names = def
 			.storages
 			.iter()
@@ -849,7 +849,6 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 		storage_names.sort_by_cached_key(|ident| ident.to_string());
 
 		quote::quote!(
-			#[cfg(feature = "try-runtime")]
 			impl<#type_impl_gen> #frame_support::traits::TryDecodeEntireStorage
 			for #pallet_ident<#type_use_gen> #completed_where_clause
 			{
@@ -886,6 +885,8 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 				}
 			}
 		)
+	} else {
+		proc_macro2::TokenStream::new()
 	};
 
 	quote::quote!(
