@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721649595998,
+  "lastUpdate": 1721667656218,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -14951,6 +14951,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.820185291266672,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Lulu",
+            "username": "Morganamilo",
+            "email": "morgan@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f13ed8de69bcfcccecf208211998b8af2ef882a2",
+          "message": "Update parity publish (#5105)",
+          "timestamp": "2024-07-22T15:12:59Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f13ed8de69bcfcccecf208211998b8af2ef882a2"
+        },
+        "date": 1721667625663,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.072283808333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1886168326,
             "unit": "seconds"
           }
         ]
