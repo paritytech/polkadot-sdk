@@ -24,8 +24,14 @@ use sp_std::vec::Vec;
 /// Invulnerable Collators
 pub fn invulnerables() -> Vec<(parachains_common::AccountId, AuraId)> {
 	Vec::from([
-		(get_account_id_from_seed::<sr25519::Public>("Alice"), get_collator_keys_from_seed::<AuraId>("Alice")),
-		(get_account_id_from_seed::<sr25519::Public>("Bob"), get_collator_keys_from_seed::<AuraId>("Bob")),
+		(
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_collator_keys_from_seed::<AuraId>("Alice"),
+		),
+		(
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_collator_keys_from_seed::<AuraId>("Bob"),
+		),
 	])
 }
 
