@@ -690,6 +690,9 @@ pub trait SteppedMigrations {
 	/// Is guaranteed to return `Some` if `n < Self::len()`.
 	fn nth_max_steps(n: u32) -> Option<Option<u32>>;
 
+	/// The [`SteppedMigration::max_blocks`] of the `n`th migration.
+	///
+	/// Is guaranteed to return `Some` if `n < Self::len()`.
 	fn nth_max_blocks(n: u32) -> Option<Option<u32>>;
 
 	/// Do a [`SteppedMigration::step`] on the `n`th migration.
