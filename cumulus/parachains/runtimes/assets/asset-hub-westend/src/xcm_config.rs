@@ -28,7 +28,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		tokens::imbalance::{ResolveAssetTo, ResolveTo},
-		ConstU32, Contains, Equals, Everything, Nothing, PalletInfoAccess,
+		ConstU32, Contains, ContainsPair, Equals, Everything, PalletInfoAccess,
 	},
 };
 use frame_system::EnsureRoot;
@@ -47,7 +47,7 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily, DescribePalletTerminal,
+	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
 	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
 	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
 	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
@@ -96,7 +96,7 @@ pub type LocationToAccountId = (
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	// Foreign chain account alias into local accounts according to a hash of their standard
 	// description.
-	HashedDescription<AccountId, DescribeFamily<DescribePalletTerminal>>,
+	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 	// Different global consensus parachain sovereign account.
 	// (Used for over-bridge transfers and reserve processing)
 	GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
@@ -349,6 +349,27 @@ pub type TrustedTeleporters = (
 	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
 );
 
+pub struct SystemAccountId32Aliases;
+impl ContainsPair<Location, Location> for SystemAccountId32Aliases {
+	fn contains(original: &Location, target: &Location) -> bool {
+		log::error!("original {:?}", original);
+		let original_id = match original.unpack() {
+			(1, [Parachain(1001), AccountId32 { network: None, id }]) => id,
+			(1, [Parachain(1001), AccountId32 { network, id }])
+				if *network == RelayNetwork::get() =>
+				id,
+			_ => return false,
+		};
+		match target.unpack() {
+			(0, [AccountId32 { network: None, id }]) if id == original_id => true,
+			(0, [AccountId32 { network, id }])
+				if *network == RelayNetwork::get() && id == original_id =>
+				true,
+			_ => false,
+		}
+	}
+}
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -435,7 +456,7 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalAliases = (bridging::to_rococo::UniversalAliases,);
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
-	type Aliasers = Nothing;
+	type Aliasers = SystemAccountId32Aliases;
 	type TransactionalProcessor = FrameTransactionalProcessor;
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();

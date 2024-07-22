@@ -2874,6 +2874,8 @@ name = "collectives-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
+ "asset-hub-westend-runtime",
+ "collectives-westend-runtime",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
@@ -2882,6 +2884,7 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-message-queue",
+ "pallet-proxy",
  "pallet-treasury",
  "pallet-utility",
  "pallet-xcm",

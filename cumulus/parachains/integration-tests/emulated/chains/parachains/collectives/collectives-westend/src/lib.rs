@@ -45,6 +45,7 @@ decl_test_parachains! {
 			Balances: collectives_westend_runtime::Balances,
 			FellowshipTreasury: collectives_westend_runtime::FellowshipTreasury,
 			AssetRate: collectives_westend_runtime::AssetRate,
+			Proxy: collectives_westend_runtime::Proxy,
 		}
 	},
 }

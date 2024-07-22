@@ -50,6 +50,7 @@ decl_test_parachains! {
 			ForeignAssets: asset_hub_westend_runtime::ForeignAssets,
 			PoolAssets: asset_hub_westend_runtime::PoolAssets,
 			AssetConversion: asset_hub_westend_runtime::AssetConversion,
+			Proxy: asset_hub_westend_runtime::Proxy,
 		}
 	},
 }
