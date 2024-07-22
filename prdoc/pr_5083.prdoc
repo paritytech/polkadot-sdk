@@ -1,0 +1,14 @@
+title: "[omni-bencher] Fist genesis storage setup"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      - Fix a bug in the `frame-omni-bencher` about incorrect genesis storage setup.
+      - Add `genesis-preset` flag to use custom prefix names.
+      - Print better error messages.
+
+crates:
+  - name: frame-benchmarking-cli
+    bump: minor
+  - name: frame-omni-bencher
+    bump: minor
