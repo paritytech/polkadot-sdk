@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721649598415,
+  "lastUpdate": 1721667053477,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -11655,6 +11655,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 6.621065355439981,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Lulu",
+            "username": "Morganamilo",
+            "email": "morgan@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f13ed8de69bcfcccecf208211998b8af2ef882a2",
+          "message": "Update parity publish (#5105)",
+          "timestamp": "2024-07-22T15:12:59Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f13ed8de69bcfcccecf208211998b8af2ef882a2"
+        },
+        "date": 1721667023633,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63817.990000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.530286685570014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.402192689419955,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.3962035078001462,
             "unit": "seconds"
           }
         ]
