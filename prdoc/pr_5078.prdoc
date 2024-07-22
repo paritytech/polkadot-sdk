@@ -1,0 +1,10 @@
+title: Add possibility to inject non-authorities session-keys in genesis
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Allows to inject a set of registered session-keys in pallet-session that are not
+      part of the first initial set of validators
+crates:
+- name: frame-session
+  bump: minor
