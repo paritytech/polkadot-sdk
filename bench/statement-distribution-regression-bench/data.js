@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721667961889,
+  "lastUpdate": 1721672980437,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -5711,6 +5711,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04966569385199998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Eres",
+            "username": "AndreiEres",
+            "email": "eresav@me.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "612c1bd3d51c7638fd078b632c57d6bb177e04c6",
+          "message": "Prepare PVFs if node is a validator in the next session (#4791)\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/4324\n- On every active leaf candidate-validation subsystem checks if the node\nis the next session authority.\n- If it is, it fetches backed candidates and prepares unknown PVFs.\n- We limit number of PVFs per block to not overload subsystem.",
+          "timestamp": "2024-07-22T16:35:05Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/612c1bd3d51c7638fd078b632c57d6bb177e04c6"
+        },
+        "date": 1721672949765,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.94199999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.05021944215800001,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.040126686292,
             "unit": "seconds"
           }
         ]
