@@ -378,6 +378,14 @@ pub trait Backend<Block: BlockT>:
 			// check for this gap later.
 			displaced_blocks_candidates.push(current_header_metadata.hash);
 
+			debug!(
+				target: crate::LOG_TARGET,
+				current_hash = ?current_header_metadata.hash,
+				current_num = ?current_header_metadata.number,
+				?finalized_block_number,
+				"Looking for path from current num to finalized block num"
+			);
+
 			// Collect the rest of the displaced blocks of leaf branch
 			for distance_from_finalized in 1_u32.. {
 				// Find block at `distance_from_finalized` from finalized block
@@ -417,13 +425,6 @@ pub trait Backend<Block: BlockT>:
 				if current_header_metadata.number <= finalized_chain_block_number {
 					// Skip more blocks until we get all blocks on finalized chain until the height
 					// of the parent block
-					debug!(
-						target: crate::LOG_TARGET,
-						current_hash = ?current_header_metadata.hash,
-						current_num = ?current_header_metadata.number,
-						finalized_num = ?finalized_chain_block_number,
-						"Skip more blocks until we get all blocks on finalized chain until the height of the parent block"
-					);
 					continue;
 				}
 
