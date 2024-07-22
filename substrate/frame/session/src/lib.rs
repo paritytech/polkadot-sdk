@@ -424,8 +424,11 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		/// Initial list of validator at genesis representing by their `(AccountId, ValidatorId, Keys)`.
+		/// These keys will be considered authorities for the first two sessions and they will be valid
+		/// at least until session 2
 		pub keys: Vec<(T::AccountId, T::ValidatorId, T::Keys)>,
 		/// List of (AccountId, ValidatorId, Keys) that will be registered at genesis, but not as active validators.
+		/// These keys will be be valid at least until session 2
 		pub non_authority_keys: Vec<(T::AccountId, T::ValidatorId, T::Keys)>,
 	}
 
