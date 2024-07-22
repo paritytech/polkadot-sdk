@@ -255,6 +255,7 @@ pub trait Backend<Block: BlockT>:
 	) -> std::result::Result<DisplacedLeavesAfterFinalization<Block>, Error> {
 		let leaves = self.leaves()?;
 
+		let now = std::time::Instant::now();
 		debug!(
 			target: crate::LOG_TARGET,
 			?leaves,
@@ -297,6 +298,17 @@ pub trait Backend<Block: BlockT>:
 		let mut displaced_blocks_candidates = Vec::new();
 
 		for leaf_hash in leaves {
+			let info = self.info();
+			if leaf_hash == info.genesis_hash {
+				// Genesis block is not displaced
+				debug!(
+					target: crate::LOG_TARGET,
+					"Skip genesis block {leaf_hash:?} reporterd as leaf (elapsed {:?})", now.elapsed(),
+				);
+
+				continue;
+			}
+
 			let mut current_header_metadata =
 				MinimalBlockMetadata::from(&self.header_metadata(leaf_hash)?);
 			let leaf_number = current_header_metadata.number;
