@@ -181,6 +181,13 @@ pub struct PalletCmd {
 	#[arg(long, value_enum)]
 	pub genesis_builder: Option<GenesisBuilder>,
 
+	/// The preset that we expect to find in the GenesisBuilder runtime API.
+	///
+	/// This can be useful when a runtime has a dedicated benchmarking preset instead of using the
+	/// default one.
+	#[arg(long, default_value = "development")]
+	pub genesis_builder_preset: String,
+
 	/// DEPRECATED: This argument has no effect.
 	#[arg(long = "execution")]
 	pub execution: Option<String>,

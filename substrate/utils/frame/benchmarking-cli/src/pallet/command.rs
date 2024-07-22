@@ -42,7 +42,7 @@ use sp_core::{
 use sp_externalities::Extensions;
 use sp_genesis_builder::{PresetId, Result as GenesisBuildResult};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
-use sp_runtime::traits::Hash;
+use sp_runtime::{traits::Hash, RuntimeString};
 use sp_state_machine::{OverlayedChanges, StateMachine};
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::Recorder};
 use sp_wasm_interface::HostFunctions;
@@ -161,9 +161,6 @@ const WARN_SPEC_GENESIS_CTOR: &'static str = "Using the chain spec instead of th
 generate the genesis state is deprecated. Please remove the `--chain`/`--dev`/`--local` argument, \
 point `--runtime` to your runtime blob and set `--genesis-builder=runtime`. This warning may \
 become a hard error any time after December 2024.";
-
-/// The preset that we expect to find in the GenesisBuilder runtime API.
-const GENESIS_PRESET: &str = "development";
 
 impl PalletCmd {
 	/// Runs the command and benchmarks a pallet.
@@ -656,13 +653,14 @@ impl PalletCmd {
 		let base_genesis_json = serde_json::from_slice::<serde_json::Value>(&base_genesis_json)
 			.map_err(|e| format!("GenesisBuilder::get_preset returned invalid JSON: {:?}", e))?;
 
+		let preset_name = RuntimeString::Owned(self.genesis_builder_preset.clone());
 		let dev_genesis_json: Option<Vec<u8>> = Self::exec_state_machine(
 			StateMachine::new(
 				&state,
 				&mut Default::default(),
 				&executor,
 				"GenesisBuilder_get_preset",
-				&Some::<PresetId>(GENESIS_PRESET.into()).encode(), // Use the default preset
+				&Some::<PresetId>(preset_name).encode(),
 				&mut Self::build_extensions(executor.clone(), state.recorder()),
 				&runtime_code,
 				CallContext::Offchain,
