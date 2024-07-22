@@ -1779,7 +1779,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			.map(|_| ())
 	}
 
-	fn update_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult {
+	fn set_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult {
 		// Since virtual stakers are not allowed to compound their rewards as this pallet does not
 		// manage their locks, we do not allow reward account to be set same as stash. For
 		// external pallets that manage the virtual bond, they can claim rewards and re-bond them.
@@ -1788,12 +1788,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			Error::<T>::RewardDestinationRestricted
 		);
 
-		// since controller is deprecated and this function is never used for old ledgers with
-		// distinct controllers, we can safely assume that stash is the controller.
-		Self::set_payee(
-			RawOrigin::Signed(stash.clone()).into(),
-			RewardDestination::Account(reward_acc.clone()),
-		)
+		let ledger = Self::ledger(Stash(stash.clone()))?;
+		let _ = ledger
+			.set_payee(RewardDestination::Account(reward_acc.clone()))
+			.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
+
+		Ok(())
 	}
 
 	fn chill(who: &Self::AccountId) -> DispatchResult {
