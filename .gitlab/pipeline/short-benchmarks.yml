@@ -25,6 +25,7 @@ short-benchmark-westend:
     - benchmark
   script:
     - ./artifacts/polkadot benchmark pallet --chain $RUNTIME-dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
+
 # run short-benchmarks for system parachain runtimes from cumulus
 
 .short-benchmark-cumulus: &short-bench-cumulus
