@@ -1580,10 +1580,10 @@ where
 
 				if viable_epoch.as_ref().duration != self.config.epoch_length {
 					warn!(
-					    target: LOG_TARGET,
-					    "👶 Epoch duration changed: from {} to {}",
-					    viable_epoch.as_ref().duration,
-					    self.config.epoch_length
+						target: LOG_TARGET,
+						"👶 Epoch duration changed: from {} to {}",
+						viable_epoch.as_ref().duration,
+						self.config.epoch_length
 					);
 					viable_epoch.as_mut().duration = self.config.epoch_length;
 				}
