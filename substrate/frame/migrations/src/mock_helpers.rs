@@ -88,7 +88,7 @@ impl SteppedMigrations for MockedMigrations {
 		}
 		let (kind, max_blocks, max_steps) = MIGRATIONS::get()[n as usize];
 
-		let (mut start_block, mut took_steps): (u32, u32) = cursor
+		let (start_block, mut took_steps): (u32, u32) = cursor
 			.as_ref()
 			.and_then(|c| Decode::decode(&mut &c[..]).ok())
 			.unwrap_or_else(|| (MockedBlockNumber::get(), 0));

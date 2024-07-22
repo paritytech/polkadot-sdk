@@ -761,7 +761,7 @@ impl<T: Config> Pallet<T> {
 					cursor.took_steps = took_steps; // TODO noop
 
 					if max_blocks.map_or(false, |max| took_blocks > max.into()) ||
-						max_steps.map_or(false, |max| took_steps > max.into())
+						max_steps.map_or(false, |max| took_steps > max)
 					{
 						Self::deposit_event(Event::MigrationFailed {
 							index: cursor.index,
