@@ -1,0 +1,23 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet_contracts] Add support for transient storage in contracts host functions"
+
+doc:
+  - audience: Runtime User
+    description: |
+      This PR implements transient storage, which behaves identically to regular storage
+      but is kept only in memory and discarded after every transaction.
+      This functionality is similar to the `TSTORE` and `TLOAD` operations used in Ethereum.
+      The following new host functions have been introduced: `get_transient_storage`,
+      `set_transient_storage`, `take_transient_storage`, `clear_transient_storage` and
+      `contains_transient_storage`.
+      These functions are declared as unstable and thus are not activated.
+
+crates:
+  - name: pallet-contracts
+    bump: major
+  - name: pallet-contracts-uapi
+    bump: major
+  - name: contracts-rococo-runtime
+    bump: minor

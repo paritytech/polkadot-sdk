@@ -53,13 +53,13 @@ mod enter {
 		},
 		session_info,
 	};
+	use alloc::collections::btree_map::BTreeMap;
 	use assert_matches::assert_matches;
 	use core::panic;
 	use frame_support::assert_ok;
 	use frame_system::limits;
 	use polkadot_primitives::{vstaging::SchedulerParams, AvailabilityBitfield, UncheckedSigned};
 	use sp_runtime::Perbill;
-	use sp_std::collections::btree_map::BTreeMap;
 
 	struct TestConfig {
 		dispute_statements: BTreeMap<u32, u32>,
@@ -1744,8 +1744,8 @@ mod sanitizers {
 			scheduler::{common::Assignment, ParasEntry},
 			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
 		};
+		use alloc::collections::vec_deque::VecDeque;
 		use polkadot_primitives::ValidationCode;
-		use sp_std::collections::vec_deque::VecDeque;
 
 		use super::*;
 

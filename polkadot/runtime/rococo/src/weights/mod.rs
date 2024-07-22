@@ -25,6 +25,7 @@ pub mod pallet_conviction_voting;
 pub mod pallet_identity;
 pub mod pallet_indices;
 pub mod pallet_message_queue;
+pub mod pallet_mmr;
 pub mod pallet_multisig;
 pub mod pallet_nis;
 pub mod pallet_parameters;

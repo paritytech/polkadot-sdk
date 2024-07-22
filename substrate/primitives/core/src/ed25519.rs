@@ -24,7 +24,7 @@ use crate::crypto::{
 
 use ed25519_zebra::{SigningKey, VerificationKey};
 
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// An identifier used to match public keys against ed25519 keys
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ed25");

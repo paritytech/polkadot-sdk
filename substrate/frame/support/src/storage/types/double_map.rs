@@ -26,11 +26,11 @@ use crate::{
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 	StorageHasher, Twox128,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use frame_support::storage::StorageDecodeNonDedupLength;
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
-use sp_std::prelude::*;
 
 /// A type representing a *double map* in storage. This structure associates a pair of keys with a
 /// value of a specified type stored on-chain.
@@ -91,7 +91,7 @@ use sp_std::prelude::*;
 /// When `Hasher1` and `Hasher2` implement the
 /// [`ReversibleStorageHasher`](frame_support::ReversibleStorageHasher) trait, the first key `k1`
 /// can be used to partially iterate over keys and values of the double map, and to delete items.
-// #[doc = docify::embed!("src/storage/types/double_map.rs", example_double_map_partial_operations)]
+#[doc = docify::embed!("src/storage/types/double_map.rs", example_double_map_partial_operations)]
 pub struct StorageDoubleMap<
 	Prefix,
 	Hasher1,
