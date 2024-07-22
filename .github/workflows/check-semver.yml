@@ -6,7 +6,7 @@ on:
     paths:
       - prdoc/*.prdoc
 env:
-  TOOLCHAIN: nightly-2024-03-01
+  TOOLCHAIN: nightly-2024-04-14
 
 jobs:
   check-semver:
@@ -27,7 +27,6 @@ jobs:
       - name: Rust compilation prerequisites
         run: |
           rustup default $TOOLCHAIN
-          rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN
           rustup component add rust-src --toolchain $TOOLCHAIN
 
       - name: extra git setup
