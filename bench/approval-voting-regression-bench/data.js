@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721524754468,
+  "lastUpdate": 1721649598415,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -11608,6 +11608,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.1061021143901337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "mail.guptanikhil@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d0d8e29197a783f3ea300569afc50244a280cafa",
+          "message": "Fixes doc links for `procedural` crate (#5023)\n\nThis PR fixes the documentation for FRAME Macros when pointed from\n`polkadot_sdk_docs` crate. This is achieved by referring to the examples\nin the `procedural` crate, embedded via `docify`.\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2024-07-22T10:13:21Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d0d8e29197a783f3ea300569afc50244a280cafa"
+        },
+        "date": 1721649567970,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63807.46,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.391623787819963,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.412886814700258,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.621065355439981,
             "unit": "seconds"
           }
         ]
