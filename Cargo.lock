@@ -8763,7 +8763,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
- "sp-runtime",
  "substrate-wasm-builder",
 ]
 
