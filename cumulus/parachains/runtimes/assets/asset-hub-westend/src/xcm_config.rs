@@ -49,7 +49,7 @@ use xcm_builder::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily, DescribePalletTerminal,
 	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
-	FungiblesPoolAdapter, GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete,
+	SingleAssetExchangeAdapter, GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete,
 	LocalMint, MatchedConvertedConcreteId, NetworkExportTableItem, NoChecking, NonFungiblesAdapter,
 	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
 	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
@@ -353,7 +353,7 @@ pub type TrustedTeleporters = (
 /// Used to convert assets in pools to the asset required for fee payment.
 /// The pool must be between the first asset and the one required for fee payment.
 /// This type allows paying fees with any asset in a pool with the asset required for fee payment.
-pub type PoolAssetsExchanger = FungiblesPoolAdapter<
+pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	crate::AssetConversion,
 	crate::NativeAndAssets,
 	(

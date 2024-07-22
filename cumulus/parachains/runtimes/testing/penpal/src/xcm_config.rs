@@ -334,7 +334,7 @@ pub type TrustBackedAssetsConvertedConcreteId =
 /// Used to convert assets in pools to the asset required for fee payment.
 /// The pool must be between the first asset and the one required for fee payment.
 /// This type allows paying fees with any asset in a pool with the asset required for fee payment.
-pub type PoolAssetsExchanger = FungiblesPoolAdapter<
+pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	crate::AssetConversion,
 	crate::NativeAndAssets,
 	(

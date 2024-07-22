@@ -36,7 +36,7 @@ pub use asset_conversion::{
 };
 
 mod asset_exchange;
-pub use asset_exchange::FungiblesPoolAdapter;
+pub use asset_exchange::SingleAssetExchangeAdapter;
 
 mod barriers;
 pub use barriers::{
