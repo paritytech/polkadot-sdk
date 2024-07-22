@@ -66,7 +66,7 @@ use types::{
 	SpotTrafficCalculationErr,
 };
 
-const LOG_TARGET: &str = "runtime::parachains::assigner-on-demand";
+const LOG_TARGET: &str = "runtime::parachains::on-demand";
 
 pub use pallet::*;
 
