@@ -18,7 +18,7 @@
 //! Implements tree backend, cached header metadata and algorithms
 //! to compute routes efficiently over the tree of headers.
 
-use parking_lot::RwLock;
+use parking_lot::Mutex;
 use schnellru::{ByLength, LruMap};
 use sp_core::U256;
 use sp_runtime::{
@@ -248,33 +248,33 @@ pub trait HeaderMetadata<Block: BlockT> {
 
 /// Caches header metadata in an in-memory LRU cache.
 pub struct HeaderMetadataCache<Block: BlockT> {
-	cache: RwLock<LruMap<Block::Hash, CachedHeaderMetadata<Block>>>,
+	cache: Mutex<LruMap<Block::Hash, CachedHeaderMetadata<Block>>>,
 }
 
 impl<Block: BlockT> HeaderMetadataCache<Block> {
 	/// Creates a new LRU header metadata cache with `capacity`.
 	pub fn new(capacity: u32) -> Self {
-		HeaderMetadataCache { cache: RwLock::new(LruMap::new(ByLength::new(capacity))) }
+		HeaderMetadataCache { cache: Mutex::new(LruMap::new(ByLength::new(capacity))) }
 	}
 }
 
 impl<Block: BlockT> Default for HeaderMetadataCache<Block> {
 	fn default() -> Self {
-		HeaderMetadataCache { cache: RwLock::new(LruMap::new(ByLength::new(LRU_CACHE_SIZE))) }
+		Self::new(LRU_CACHE_SIZE)
 	}
 }
 
 impl<Block: BlockT> HeaderMetadataCache<Block> {
 	pub fn header_metadata(&self, hash: Block::Hash) -> Option<CachedHeaderMetadata<Block>> {
-		self.cache.write().get(&hash).cloned()
+		self.cache.lock().get(&hash).cloned()
 	}
 
 	pub fn insert_header_metadata(&self, hash: Block::Hash, metadata: CachedHeaderMetadata<Block>) {
-		self.cache.write().insert(hash, metadata);
+		self.cache.lock().insert(hash, metadata);
 	}
 
 	pub fn remove_header_metadata(&self, hash: Block::Hash) {
-		self.cache.write().remove(&hash);
+		self.cache.lock().remove(&hash);
 	}
 }
 
