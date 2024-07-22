@@ -29,6 +29,7 @@ use frame_support::{
 	traits::{
 		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
 		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
+		WithdrawReasons,
 	},
 	weights::Weight,
 };
@@ -53,7 +54,8 @@ use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnlockChunk,
+	ValidatorPrefs,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -390,6 +392,87 @@ impl<T: Config> Pallet<T> {
 		debug_assert!(nominator_payout_count <= T::MaxExposurePageSize::get());
 
 		Ok(Some(T::WeightInfo::payout_stakers_alive_staked(nominator_payout_count)).into())
+	}
+
+	pub(crate) fn do_restore_ledger(
+		stash: T::AccountId,
+		maybe_controller: Option<T::AccountId>,
+		maybe_total: Option<BalanceOf<T>>,
+		maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
+	) -> DispatchResult {
+		let current_lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
+		let stash_balance = T::Currency::free_balance(&stash);
+
+		let (new_controller, new_total) = match Self::inspect_bond_state(&stash) {
+			Ok(LedgerIntegrityState::Corrupted) => {
+				let new_controller = maybe_controller.unwrap_or(stash.clone());
+
+				let new_total = if let Some(total) = maybe_total {
+					let new_total = total.min(stash_balance);
+					// enforce lock == ledger.amount.
+					T::Currency::set_lock(
+						crate::STAKING_ID,
+						&stash,
+						new_total,
+						WithdrawReasons::all(),
+					);
+					new_total
+				} else {
+					current_lock
+				};
+
+				Ok((new_controller, new_total))
+			},
+			Ok(LedgerIntegrityState::CorruptedKilled) => {
+				if current_lock == Zero::zero() {
+					// this case needs to restore both lock and ledger, so the new total needs
+					// to be given by the called since there's no way to restore the total
+					// on-chain.
+					ensure!(maybe_total.is_some(), Error::<T>::CannotRestoreLedger);
+					Ok((
+						stash.clone(),
+						maybe_total.expect("total exists as per the check above; qed."),
+					))
+				} else {
+					Ok((stash.clone(), current_lock))
+				}
+			},
+			Ok(LedgerIntegrityState::LockCorrupted) => {
+				// ledger is not corrupted but its locks are out of sync. In this case, we need
+				// to enforce a new ledger.total and staking lock for this stash.
+				let new_total =
+					maybe_total.ok_or(Error::<T>::CannotRestoreLedger)?.min(stash_balance);
+				T::Currency::set_lock(crate::STAKING_ID, &stash, new_total, WithdrawReasons::all());
+
+				Ok((stash.clone(), new_total))
+			},
+			Err(Error::<T>::BadState) => {
+				// the stash and ledger do not exist but lock is lingering.
+				T::Currency::remove_lock(crate::STAKING_ID, &stash);
+				ensure!(
+					Self::inspect_bond_state(&stash) == Err(Error::<T>::NotStash),
+					Error::<T>::BadState
+				);
+
+				return Ok(());
+			},
+			Ok(LedgerIntegrityState::Ok) | Err(_) => Err(Error::<T>::CannotRestoreLedger),
+		}?;
+
+		// re-bond stash and controller tuple.
+		Bonded::<T>::insert(&stash, &new_controller);
+
+		// resoter ledger state.
+		let mut ledger = StakingLedger::<T>::new(stash.clone(), new_total);
+		ledger.controller = Some(new_controller);
+		ledger.unlocking = maybe_unlocking.unwrap_or_default();
+		ledger.update()?;
+
+		ensure!(
+			Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
+			Error::<T>::BadState
+		);
+		Ok(())
 	}
 
 	/// Chill a stash account.

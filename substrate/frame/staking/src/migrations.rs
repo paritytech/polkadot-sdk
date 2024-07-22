@@ -60,6 +60,59 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
+/// Migration to fix all corrupted ledgers.
+pub mod v16 {
+	use super::*;
+
+	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
+
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut fixed_counter = 0;
+			let mut read = 0;
+
+			// iterate over all the bonded pairs and fix the corrupted stash/ledger.
+			for (_, stash) in Bonded::<T>::iter() {
+				if Pallet::<T>::inspect_bond_state(&stash).is_err() {
+					let _ = Pallet::<T>::do_restore_ledger(stash, None, None, None);
+					fixed_counter += 1;
+				}
+				read += 1;
+			}
+
+			// iterate over all ledgers and check if the associated stash if their corrupted.
+			for (_, ledger) in Ledger::<T>::iter() {
+				if Pallet::<T>::inspect_bond_state(&ledger.stash).is_err() {
+					let _ = Pallet::<T>::do_restore_ledger(ledger.stash, None, None, None);
+					fixed_counter += 1;
+				}
+				read += 1;
+			}
+
+			log!(info, "Fixed {} corrupted ledgers.", fixed_counter);
+
+			T::DbWeight::get().reads_writes(read, fixed_counter)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			frame_support::ensure!(
+				Pallet::<T>::on_chain_storage_version() >= 16,
+				"v16 not applied"
+			);
+			Ok(())
+		}
+	}
+
+	pub type Migratev15toV16<T> = VersionedMigration<
+		15,
+		16,
+		VersionUncheckedMigrateV15ToV16<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
+
 /// Migrating `OffendingValidators` from `Vec<(u32, bool)>` to `Vec<u32>`
 pub mod v15 {
 	use super::*;
