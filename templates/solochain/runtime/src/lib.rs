@@ -9,7 +9,10 @@ use alloc::{vec, vec::Vec};
 use frame::deps::frame_try_runtime;
 #[cfg(feature = "runtime-benchmarks")]
 use frame::{
-	deps::{frame_benchmarking, frame_system_benchmarking},
+	deps::{
+		frame_benchmarking, frame_system_benchmarking, sp_runtime::RuntimeString,
+		sp_storage::TrackedStorageKey,
+	},
 	traits::{StorageInfo, WhitelistedStorageKeys},
 };
 use pallet_grandpa::AuthorityId as GrandpaId;
@@ -35,7 +38,8 @@ use frame::{
 		apis::{
 			self, impl_runtime_apis, sr25519::AuthorityId as AuraId, ApplyExtrinsicResult,
 			AuthorityList, CheckInherentsResult, EquivocationProof, ExtrinsicInclusionMode,
-			InherentData, OpaqueKeyOwnershipProof, OpaqueMetadata, PresetId, SetId, SlotDuration,
+			InherentData, OpaqueKeyOwnershipProof, OpaqueMetadata, PresetId,
+			Result as GenesisBuilderResult, SetId, SlotDuration,
 		},
 		prelude::*,
 	},
@@ -543,9 +547,8 @@ impl_runtime_apis! {
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, RuntimeString> {
 			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
-			use sp_storage::TrackedStorageKey;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
 
@@ -585,7 +588,7 @@ impl_runtime_apis! {
 	}
 
 	impl apis::GenesisBuilder<Block> for Runtime {
-		fn build_state(config: Vec<u8>) -> frame::deps::sp_genesis_builder::Result {
+		fn build_state(config: Vec<u8>) -> GenesisBuilderResult {
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 

@@ -27,7 +27,6 @@ pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 
 # genesis builder that allows us to interact with runtime genesis config
-sp-genesis-builder = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 
 # local pallet templates
@@ -52,7 +51,6 @@ std = [
 
 	"pallet-minimal-template/std",
 
-	"sp-genesis-builder/std",
 	"sp-runtime/std",
 	"substrate-wasm-builder",
 ]

@@ -36,7 +36,7 @@ use frame::{
 	runtime::{
 		apis::{
 			self, impl_runtime_apis, ApplyExtrinsicResult, CheckInherentsResult,
-			ExtrinsicInclusionMode, OpaqueMetadata,
+			ExtrinsicInclusionMode, OpaqueMetadata, PresetId, Result as GenesisBuilderResult,
 		},
 		prelude::*,
 	},
@@ -274,16 +274,16 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+	impl apis::GenesisBuilder<Block> for Runtime {
+		fn build_state(config: Vec<u8>) -> GenesisBuilderResult {
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+		fn get_preset(id: &Option<PresetId>) -> Option<Vec<u8>> {
 			get_preset::<RuntimeGenesisConfig>(id, |_| None)
 		}
 
-		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+		fn preset_names() -> Vec<PresetId> {
 			vec![]
 		}
 	}
