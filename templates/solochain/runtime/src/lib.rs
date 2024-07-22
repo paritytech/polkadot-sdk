@@ -26,15 +26,16 @@ use frame::{
 			},
 		},
 		sp_block_builder::{self},
-		sp_core::{H256, crypto::KeyTypeId, Void},
+		sp_core::{crypto::KeyTypeId, Void, H256},
 		sp_runtime::{generic, impl_opaque_keys, MultiAddress, MultiSignature, Perbill},
-		sp_version::{RuntimeVersion, runtime_version},
+		sp_version::{runtime_version, RuntimeVersion},
 	},
 	prelude::*,
 	runtime::{
-		apis::{self, impl_runtime_apis, ApplyExtrinsicResult, AuthorityList, EquivocationProof, OpaqueMetadata, OpaqueKeyOwnershipProof,
-			SetId, SlotDuration, sr25519::AuthorityId as AuraId, PresetId, InherentData, CheckInherentsResult,
-			ExtrinsicInclusionMode
+		apis::{
+			self, impl_runtime_apis, sr25519::AuthorityId as AuraId, ApplyExtrinsicResult,
+			AuthorityList, CheckInherentsResult, EquivocationProof, ExtrinsicInclusionMode,
+			InherentData, OpaqueKeyOwnershipProof, OpaqueMetadata, PresetId, SetId, SlotDuration,
 		},
 		prelude::*,
 	},
@@ -43,12 +44,12 @@ use frame::{
 	},
 };
 
+#[cfg(any(feature = "std", test))]
+pub use frame::deps::sp_runtime::BuildStorage;
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{ConstFeeMultiplier, FungibleAdapter, Multiplier};
-#[cfg(any(feature = "std", test))]
-pub use frame::deps::sp_runtime::BuildStorage;
 
 /// Import the template pallet.
 pub use pallet_template;
