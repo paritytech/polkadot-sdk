@@ -720,6 +720,34 @@ where
 
 			View::start_background_revalidation(view, self.revalidation_queue.clone()).await;
 		}
+
+		// {
+		// 	let to_be_removed = {
+		// 		let mut to_be_removed = vec![];
+		// 		let views = self.view_store.views.read();
+		// 		if !views.is_empty() {
+		// 			let all = self.mempool.clone_all();
+		// 			for (tx_hash, _) in all {
+		// 				let mut statuses = views
+		// 					.values()
+		// 					.map(|v| v.pool.validated_pool().check_is_known(&tx_hash, false));
+		//
+		// 				if statuses.all(|status| {
+		// 					status.is_ok()
+		// 					// if let Err(error) = status {
+		// 					// 	matches!(error.into_pool_error(), Ok(Error::TemporarilyBanned))
+		// 					// } else {
+		// 					// 	false
+		// 					// }
+		// 				}) {
+		// 					to_be_removed.push(tx_hash);
+		// 				}
+		// 			}
+		// 		};
+		// 		to_be_removed
+		// 	};
+		// 	self.mempool.remove_transactions(&to_be_removed).await;
+		// }
 	}
 
 	async fn build_new_view(
