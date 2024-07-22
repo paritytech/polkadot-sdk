@@ -89,7 +89,7 @@ we will most likely not need to think about panic and safety in any runtime rela
 and will (almost) never panic.
 
 Use `# Examples` as much as possible. These are great ways to further demonstrate what your APIs are doing, and add free
-test coverage. As an additional benefit, any code in rust-docs is treated as an "integration test", not unit test,
+test coverage. As an additional benefit, any code in rust-docs is treated as an "integration test",
 which tests your crate in a different way than unit tests. So, it is both a win for "more documentation" and a win for
 "more test coverage".
 
