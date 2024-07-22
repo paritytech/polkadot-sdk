@@ -88,7 +88,7 @@ sections](https://web.mit.edu/rust-lang_v1.25/arch/amd64_ubuntu1404/share/doc/ru
 we will most likely not need to think about panic and safety in any runtime related code. Our code is never `unsafe`,
 and will (almost) never panic.
 
-Use `# Examples as much as possible. These are great ways to further demonstrate what your APIs are doing, and add free
+Use `# Examples` as much as possible. These are great ways to further demonstrate what your APIs are doing, and add free
 test coverage. As an additional benefit, any code in rust-docs is treated as an "integration tests", not unit tests,
 which tests your crate in a different way than unit tests. So, it is both a win for "more documentation" and a win for
 "more test coverage".
