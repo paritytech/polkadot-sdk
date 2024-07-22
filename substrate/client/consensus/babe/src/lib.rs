@@ -1578,6 +1578,16 @@ where
 					viable_epoch.as_ref().start_slot,
 				);
 
+				if viable_epoch.as_ref().duration != self.config.epoch_length {
+					warn!(
+					    target: LOG_TARGET,
+					    "👶 Epoch duration changed: from {} to {}",
+					    viable_epoch.as_ref().duration,
+					    self.config.epoch_length
+					);
+					viable_epoch.as_mut().duration = self.config.epoch_length;
+				}
+
 				let next_epoch = viable_epoch.increment((next_epoch_descriptor, epoch_config));
 
 				log!(
