@@ -8,7 +8,7 @@
 //! - [Polkadot Parachains](https://parachains.info/)
 //! - [Polkadot (multi-chain) Explorer: Subscan](https://subscan.io/)
 //! - Polkadot Fellowship
-//!     - [Manifesto](https://github.com/polkadot-fellows/manifesto)
+//!     - [Manifesto](https://github.com/polkadot-fellows/manifesto/blob/main/manifesto.pdf)
 //!     - [Runtimes](https://github.com/polkadot-fellows/runtimes)
 //!     - [RFCs](https://github.com/polkadot-fellows/rfcs)
 //! 	- [Dashboard](https://polkadot-fellows.github.io/dashboard/)
