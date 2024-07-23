@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721693663495,
+  "lastUpdate": 1721752685239,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -5795,6 +5795,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03622579330799999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jun Jiang",
+            "username": "jasl",
+            "email": "jasl9187@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "bbb8668672896b1952496b2dfe641a91defb2454",
+          "message": "Replace all ansi_term crates (#2923)\n\nNow Polkadot-SDK is ansi_term free\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-07-23T15:54:20Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bbb8668672896b1952496b2dfe641a91defb2454"
+        },
+        "date": 1721752654261,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.92599999999993,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04806456881199999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03886797865600001,
             "unit": "seconds"
           }
         ]
