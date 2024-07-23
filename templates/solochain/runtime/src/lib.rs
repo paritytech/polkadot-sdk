@@ -49,9 +49,6 @@ pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 
-use pallet_grandpa::AuthorityId as GrandpaId;
-use pallet_transaction_payment::FungibleAdapter;
-
 /// Import the template pallet.
 pub use pallet_template;
 
@@ -206,7 +203,7 @@ impl pallet_grandpa::Config for Runtime {
 	type EquivocationReportSystem = ();
 }
 
-// Implements the types required for the sudo pallet.
+// Implements the types required for the timestamp pallet.
 #[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
 impl pallet_timestamp::Config for Runtime {
 	type OnTimestampSet = Aura;
@@ -228,7 +225,7 @@ impl pallet_balances::Config for Runtime {
 // Implements the types required for the transaction payment pallet.
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
-	type OnChargeTransaction = FungibleAdapter<Balances, ()>;
+	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = IdentityFee<Balance>;
 }
@@ -447,7 +444,7 @@ impl_runtime_apis! {
 
 		fn generate_key_ownership_proof(
 			_set_id: SetId,
-			_authority_id: GrandpaId,
+			_authority_id: pallet_grandpa::AuthorityId,
 		) -> Option<OpaqueKeyOwnershipProof> {
 			// NOTE: this is the only implementation possible since we've
 			// defined our key owner proof type as a bottom type (i.e. a type
