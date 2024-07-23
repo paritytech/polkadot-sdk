@@ -787,7 +787,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&lt;R <span class="kw">as </span>frame_system::Config&gt;::AccountId: From&lt;polkadot_primitives::AccountId&gt;,
 	&lt;R <span class="kw">as </span>frame_system::Config&gt;::AccountId: Into&lt;polkadot_primitives::AccountId&gt;,
 {
-	<span class="kw">fn </span>on_unbalanceds&lt;B&gt;(
+	<span class="kw">fn </span>on_unbalanceds(
 		<span class="kw-2">mut </span>fees_then_tips: <span class="kw">impl </span>Iterator&lt;Item = Credit&lt;R::AccountId, pallet_balances::Pallet&lt;R&gt;&gt;&gt;,
 	) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(fees) = fees_then_tips.next() {

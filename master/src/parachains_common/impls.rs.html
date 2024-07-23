@@ -565,7 +565,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AccountIdOf&lt;R&gt;: From&lt;polkadot_primitives::AccountId&gt; + Into&lt;polkadot_primitives::AccountId&gt;,
 	&lt;R <span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent: From&lt;pallet_balances::Event&lt;R&gt;&gt;,
 {
-	<span class="kw">fn </span>on_unbalanceds&lt;B&gt;(
+	<span class="kw">fn </span>on_unbalanceds(
 		<span class="kw-2">mut </span>fees_then_tips: <span class="kw">impl </span>Iterator&lt;
 			Item = fungible::Credit&lt;R::AccountId, pallet_balances::Pallet&lt;R&gt;&gt;,
 		&gt;,

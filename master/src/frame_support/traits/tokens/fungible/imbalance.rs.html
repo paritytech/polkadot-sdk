@@ -345,6 +345,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -371,7 +379,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span><span class="kw">crate</span>::traits::{
 	fungibles,
 	misc::{SameOrOther, TryDrop},
-	tokens::{AssetId, Balance},
+	tokens::{imbalance::TryMerge, AssetId, Balance},
 };
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
@@ -501,6 +509,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 	<span class="kw">fn </span>peek(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; B {
 		<span class="self">self</span>.amount
+	}
+}
+
+<span class="kw">impl</span>&lt;B: Balance, OnDrop: HandleImbalanceDrop&lt;B&gt;, OppositeOnDrop: HandleImbalanceDrop&lt;B&gt;&gt; TryMerge
+	<span class="kw">for </span>Imbalance&lt;B, OnDrop, OppositeOnDrop&gt;
+{
+	<span class="kw">fn </span>try_merge(<span class="self">self</span>, other: <span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, (<span class="self">Self</span>, <span class="self">Self</span>)&gt; {
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.merge(other))
 	}
 }
 

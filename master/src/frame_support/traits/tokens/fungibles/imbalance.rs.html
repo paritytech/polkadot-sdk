@@ -391,6 +391,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#240" id="240">240</a>
 <a href="#241" id="241">241</a>
 <a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -417,7 +432,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span><span class="kw">crate</span>::traits::{
 	fungible,
 	misc::{SameOrOther, TryDrop},
-	tokens::{imbalance::Imbalance <span class="kw">as </span>ImbalanceT, AssetId, Balance},
+	tokens::{
+		imbalance::{Imbalance <span class="kw">as </span>ImbalanceT, TryMerge},
+		AssetId, Balance,
+	},
 };
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
@@ -566,6 +584,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub fn </span>asset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; A {
 		<span class="self">self</span>.asset.clone()
+	}
+}
+
+<span class="kw">impl</span>&lt;
+		A: AssetId,
+		B: Balance,
+		OnDrop: HandleImbalanceDrop&lt;A, B&gt;,
+		OppositeOnDrop: HandleImbalanceDrop&lt;A, B&gt;,
+	&gt; TryMerge <span class="kw">for </span>Imbalance&lt;A, B, OnDrop, OppositeOnDrop&gt;
+{
+	<span class="kw">fn </span>try_merge(<span class="self">self</span>, other: <span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, (<span class="self">Self</span>, <span class="self">Self</span>)&gt; {
+		<span class="self">self</span>.merge(other)
 	}
 }
 

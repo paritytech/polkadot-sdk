@@ -232,6 +232,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -269,11 +284,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Handler for some imbalances. The different imbalances might have different origins or
 	/// meanings, dependent on the context. Will default to simply calling on_unbalanced for all
 	/// of them. Infallible.
-	</span><span class="kw">fn </span>on_unbalanceds&lt;B&gt;(amounts: <span class="kw">impl </span>Iterator&lt;Item = Imbalance&gt;)
+	</span><span class="kw">fn </span>on_unbalanceds(<span class="kw-2">mut </span>amounts: <span class="kw">impl </span>Iterator&lt;Item = Imbalance&gt;)
 	<span class="kw">where
-		</span>Imbalance: <span class="kw">crate</span>::traits::Imbalance&lt;B&gt;,
+		</span>Imbalance: <span class="kw">crate</span>::traits::tokens::imbalance::TryMerge,
 	{
-		<span class="self">Self</span>::on_unbalanced(amounts.fold(Imbalance::zero(), |i, x| x.merge(i)))
+		<span class="kw">let </span><span class="kw-2">mut </span>sum: <span class="prelude-ty">Option</span>&lt;Imbalance&gt; = <span class="prelude-val">None</span>;
+		<span class="kw">while let </span><span class="prelude-val">Some</span>(next) = amounts.next() {
+			sum = <span class="kw">match </span>sum {
+				<span class="prelude-val">Some</span>(sum) =&gt; <span class="kw">match </span>sum.try_merge(next) {
+					<span class="prelude-val">Ok</span>(sum) =&gt; <span class="prelude-val">Some</span>(sum),
+					<span class="prelude-val">Err</span>((sum, next)) =&gt; {
+						<span class="self">Self</span>::on_unbalanced(next);
+						<span class="prelude-val">Some</span>(sum)
+					},
+				},
+				<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Some</span>(next),
+			}
+		}
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(sum) = sum {
+			<span class="self">Self</span>::on_unbalanced(sum)
+		}
 	}
 
 	<span class="doccomment">/// Handler for some imbalance. Infallible.

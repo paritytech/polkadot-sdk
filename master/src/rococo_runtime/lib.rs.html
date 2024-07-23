@@ -2735,6 +2735,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2584" id="2584">2584</a>
 <a href="#2585" id="2585">2585</a>
 <a href="#2586" id="2586">2586</a>
+<a href="#2587" id="2587">2587</a>
+<a href="#2588" id="2588">2588</a>
+<a href="#2589" id="2589">2589</a>
+<a href="#2590" id="2590">2590</a>
+<a href="#2591" id="2591">2591</a>
+<a href="#2592" id="2592">2592</a>
+<a href="#2593" id="2593">2593</a>
+<a href="#2594" id="2594">2594</a>
+<a href="#2595" id="2595">2595</a>
+<a href="#2596" id="2596">2596</a>
+<a href="#2597" id="2597">2597</a>
+<a href="#2598" id="2598">2598</a>
+<a href="#2599" id="2599">2599</a>
+<a href="#2600" id="2600">2600</a>
+<a href="#2601" id="2601">2601</a>
+<a href="#2602" id="2602">2602</a>
+<a href="#2603" id="2603">2603</a>
+<a href="#2604" id="2604">2604</a>
+<a href="#2605" id="2605">2605</a>
+<a href="#2606" id="2606">2606</a>
+<a href="#2607" id="2607">2607</a>
+<a href="#2608" id="2608">2608</a>
+<a href="#2609" id="2609">2609</a>
+<a href="#2610" id="2610">2610</a>
+<a href="#2611" id="2611">2611</a>
+<a href="#2612" id="2612">2612</a>
+<a href="#2613" id="2613">2613</a>
+<a href="#2614" id="2614">2614</a>
+<a href="#2615" id="2615">2615</a>
+<a href="#2616" id="2616">2616</a>
+<a href="#2617" id="2617">2617</a>
+<a href="#2618" id="2618">2618</a>
+<a href="#2619" id="2619">2619</a>
+<a href="#2620" id="2620">2620</a>
+<a href="#2621" id="2621">2621</a>
+<a href="#2622" id="2622">2622</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4791,7 +4827,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[api_version(<span class="number">4</span>)]
+	<span class="attr">#[api_version(<span class="number">5</span>)]
 	</span><span class="kw">impl </span>sp_consensus_beefy::BeefyApi&lt;Block, BeefyId&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>beefy_genesis() -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumber&gt; {
 			pallet_beefy::GenesisBlock::&lt;Runtime&gt;::get()
@@ -4817,6 +4853,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		}
 
+		<span class="kw">fn </span>submit_report_fork_voting_unsigned_extrinsic(
+			equivocation_proof:
+				sp_consensus_beefy::ForkVotingProof&lt;
+					&lt;Block <span class="kw">as </span>BlockT&gt;::Header,
+					BeefyId,
+					sp_runtime::OpaqueValue
+				&gt;,
+			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+			Beefy::submit_unsigned_fork_voting_report(
+				equivocation_proof.try_into()<span class="question-mark">?</span>,
+				key_owner_proof.decode()<span class="question-mark">?</span>,
+			)
+		}
+
+		<span class="kw">fn </span>submit_report_future_block_voting_unsigned_extrinsic(
+			equivocation_proof: sp_consensus_beefy::FutureBlockVotingProof&lt;BlockNumber, BeefyId&gt;,
+			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+			Beefy::submit_unsigned_future_block_voting_report(
+				equivocation_proof,
+				key_owner_proof.decode()<span class="question-mark">?</span>,
+			)
+		}
+
 		<span class="kw">fn </span>generate_key_ownership_proof(
 			_set_id: sp_consensus_beefy::ValidatorSetId,
 			authority_id: BeefyId,
@@ -4826,6 +4887,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Historical::prove((sp_consensus_beefy::KEY_TYPE, authority_id))
 				.map(|p| p.encode())
 				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
+		}
+
+		<span class="kw">fn </span>generate_ancestry_proof(
+			prev_block_number: BlockNumber,
+			best_known_block_number: <span class="prelude-ty">Option</span>&lt;BlockNumber&gt;,
+		) -&gt; <span class="prelude-ty">Option</span>&lt;sp_runtime::OpaqueValue&gt; {
+			<span class="kw">use </span>sp_consensus_beefy::AncestryHelper;
+
+			MmrLeaf::generate_proof(prev_block_number, best_known_block_number)
+				.map(|p| p.encode())
+				.map(sp_runtime::OpaqueValue::new)
 		}
 	}
 

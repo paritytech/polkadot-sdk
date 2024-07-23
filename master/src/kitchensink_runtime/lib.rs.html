@@ -3449,6 +3449,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3298" id="3298">3298</a>
 <a href="#3299" id="3299">3299</a>
 <a href="#3300" id="3300">3300</a>
+<a href="#3301" id="3301">3301</a>
+<a href="#3302" id="3302">3302</a>
+<a href="#3303" id="3303">3303</a>
+<a href="#3304" id="3304">3304</a>
+<a href="#3305" id="3305">3305</a>
+<a href="#3306" id="3306">3306</a>
+<a href="#3307" id="3307">3307</a>
+<a href="#3308" id="3308">3308</a>
+<a href="#3309" id="3309">3309</a>
+<a href="#3310" id="3310">3310</a>
+<a href="#3311" id="3311">3311</a>
+<a href="#3312" id="3312">3312</a>
+<a href="#3313" id="3313">3313</a>
+<a href="#3314" id="3314">3314</a>
+<a href="#3315" id="3315">3315</a>
+<a href="#3316" id="3316">3316</a>
+<a href="#3317" id="3317">3317</a>
+<a href="#3318" id="3318">3318</a>
+<a href="#3319" id="3319">3319</a>
+<a href="#3320" id="3320">3320</a>
+<a href="#3321" id="3321">3321</a>
+<a href="#3322" id="3322">3322</a>
+<a href="#3323" id="3323">3323</a>
+<a href="#3324" id="3324">3324</a>
+<a href="#3325" id="3325">3325</a>
+<a href="#3326" id="3326">3326</a>
+<a href="#3327" id="3327">3327</a>
+<a href="#3328" id="3328">3328</a>
+<a href="#3329" id="3329">3329</a>
+<a href="#3330" id="3330">3330</a>
+<a href="#3331" id="3331">3331</a>
+<a href="#3332" id="3332">3332</a>
+<a href="#3333" id="3333">3333</a>
+<a href="#3334" id="3334">3334</a>
+<a href="#3335" id="3335">3335</a>
+<a href="#3336" id="3336">3336</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3640,7 +3676,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub struct </span>DealWithFees;
 <span class="kw">impl </span>OnUnbalanced&lt;NegativeImbalance&gt; <span class="kw">for </span>DealWithFees {
-	<span class="kw">fn </span>on_unbalanceds&lt;B&gt;(<span class="kw-2">mut </span>fees_then_tips: <span class="kw">impl </span>Iterator&lt;Item = NegativeImbalance&gt;) {
+	<span class="kw">fn </span>on_unbalanceds(<span class="kw-2">mut </span>fees_then_tips: <span class="kw">impl </span>Iterator&lt;Item = NegativeImbalance&gt;) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(fees) = fees_then_tips.next() {
 			<span class="comment">// for fees, 80% to treasury, 20% to author
 			</span><span class="kw">let </span><span class="kw-2">mut </span>split = fees.ration(<span class="number">80</span>, <span class="number">20</span>);
@@ -6489,7 +6525,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[api_version(<span class="number">4</span>)]
+	<span class="attr">#[api_version(<span class="number">5</span>)]
 	</span><span class="kw">impl </span>sp_consensus_beefy::BeefyApi&lt;Block, BeefyId&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>beefy_genesis() -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumber&gt; {
 			pallet_beefy::GenesisBlock::&lt;Runtime&gt;::get()
@@ -6515,6 +6551,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		}
 
+		<span class="kw">fn </span>submit_report_fork_voting_unsigned_extrinsic(
+			equivocation_proof:
+				sp_consensus_beefy::ForkVotingProof&lt;
+					&lt;Block <span class="kw">as </span>BlockT&gt;::Header,
+					BeefyId,
+					sp_runtime::OpaqueValue
+				&gt;,
+			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+			Beefy::submit_unsigned_fork_voting_report(
+				equivocation_proof.try_into()<span class="question-mark">?</span>,
+				key_owner_proof.decode()<span class="question-mark">?</span>,
+			)
+		}
+
+		<span class="kw">fn </span>submit_report_future_block_voting_unsigned_extrinsic(
+			equivocation_proof: sp_consensus_beefy::FutureBlockVotingProof&lt;BlockNumber, BeefyId&gt;,
+			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+			Beefy::submit_unsigned_future_block_voting_report(
+				equivocation_proof,
+				key_owner_proof.decode()<span class="question-mark">?</span>,
+			)
+		}
+
 		<span class="kw">fn </span>generate_key_ownership_proof(
 			_set_id: sp_consensus_beefy::ValidatorSetId,
 			authority_id: BeefyId,
@@ -6522,6 +6583,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Historical::prove((sp_consensus_beefy::KEY_TYPE, authority_id))
 				.map(|p| p.encode())
 				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
+		}
+
+		<span class="kw">fn </span>generate_ancestry_proof(
+			prev_block_number: BlockNumber,
+			best_known_block_number: <span class="prelude-ty">Option</span>&lt;BlockNumber&gt;,
+		) -&gt; <span class="prelude-ty">Option</span>&lt;sp_runtime::OpaqueValue&gt; {
+			<span class="kw">use </span>sp_consensus_beefy::AncestryHelper;
+
+			MmrLeaf::generate_proof(prev_block_number, best_known_block_number)
+				.map(|p| p.encode())
+				.map(sp_runtime::OpaqueValue::new)
 		}
 	}
 

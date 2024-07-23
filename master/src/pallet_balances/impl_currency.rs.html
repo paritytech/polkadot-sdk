@@ -1089,6 +1089,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#938" id="938">938</a>
 <a href="#939" id="939">939</a>
 <a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1132,7 +1144,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>imbalances {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>core::mem;
-	<span class="kw">use </span>frame_support::traits::SameOrOther;
+	<span class="kw">use </span>frame_support::traits::{tokens::imbalance::TryMerge, SameOrOther};
 
 	<span class="doccomment">/// Opaque, move-only struct with private fields that serves as a token denoting that
 	/// funds have been created without any equal and opposite accounting.
@@ -1224,6 +1236,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>}
 	}
 
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; TryMerge <span class="kw">for </span>PositiveImbalance&lt;T, I&gt; {
+		<span class="kw">fn </span>try_merge(<span class="self">self</span>, other: <span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, (<span class="self">Self</span>, <span class="self">Self</span>)&gt; {
+			<span class="prelude-val">Ok</span>(<span class="self">self</span>.merge(other))
+		}
+	}
+
 	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; TryDrop <span class="kw">for </span>NegativeImbalance&lt;T, I&gt; {
 		<span class="kw">fn </span>try_drop(<span class="self">self</span>) -&gt; result::Result&lt;(), <span class="self">Self</span>&gt; {
 			<span class="self">self</span>.drop_zero()
@@ -1286,6 +1304,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>peek(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; T::Balance {
 			<span class="self">self</span>.<span class="number">0
 		</span>}
+	}
+
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; TryMerge <span class="kw">for </span>NegativeImbalance&lt;T, I&gt; {
+		<span class="kw">fn </span>try_merge(<span class="self">self</span>, other: <span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, (<span class="self">Self</span>, <span class="self">Self</span>)&gt; {
+			<span class="prelude-val">Ok</span>(<span class="self">self</span>.merge(other))
+		}
 	}
 
 	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Drop <span class="kw">for </span>PositiveImbalance&lt;T, I&gt; {

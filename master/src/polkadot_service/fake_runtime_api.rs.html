@@ -577,6 +577,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#426" id="426">426</a>
 <a href="#427" id="427">427</a>
 <a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -831,10 +856,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">unimplemented!</span>()
 		}
 
+		<span class="kw">fn </span>submit_report_fork_voting_unsigned_extrinsic(
+			<span class="kw">_</span>: sp_consensus_beefy::ForkVotingProof&lt;
+				&lt;Block <span class="kw">as </span>BlockT&gt;::Header,
+				BeefyId,
+				sp_runtime::OpaqueValue
+			&gt;,
+			<span class="kw">_</span>: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>submit_report_future_block_voting_unsigned_extrinsic(
+			<span class="kw">_</span>: sp_consensus_beefy::FutureBlockVotingProof&lt;BlockNumber, BeefyId&gt;,
+			<span class="kw">_</span>: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+			<span class="macro">unimplemented!</span>()
+		}
+
 		<span class="kw">fn </span>generate_key_ownership_proof(
 			<span class="kw">_</span>: sp_consensus_beefy::ValidatorSetId,
 			<span class="kw">_</span>: BeefyId,
 		) -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_beefy::OpaqueKeyOwnershipProof&gt; {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>generate_ancestry_proof(
+			<span class="kw">_</span>: BlockNumber,
+			<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;BlockNumber&gt;,
+		) -&gt; <span class="prelude-ty">Option</span>&lt;sp_runtime::OpaqueValue&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 	}

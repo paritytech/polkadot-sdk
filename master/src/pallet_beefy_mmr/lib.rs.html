@@ -458,6 +458,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#307" id="307">307</a>
 <a href="#308" id="308">308</a>
 <a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -642,6 +660,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">type </span>Proof = AncestryProof&lt;MerkleRootOf&lt;T&gt;&gt;;
 	<span class="kw">type </span>ValidationContext = MerkleRootOf&lt;T&gt;;
+
+	<span class="kw">fn </span>generate_proof(
+		prev_block_number: BlockNumberFor&lt;T&gt;,
+		best_known_block_number: <span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;,
+	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Proof&gt; {
+		pallet_mmr::Pallet::&lt;T&gt;::generate_ancestry_proof(prev_block_number, best_known_block_number)
+			.map_err(|e| {
+				<span class="macro">log::error!</span>(
+					target: <span class="string">"runtime::beefy"</span>,
+					<span class="string">"Failed to generate ancestry proof for block {:?} at {:?}: {:?}"</span>,
+					prev_block_number,
+					best_known_block_number,
+					e
+				);
+				e
+			})
+			.ok()
+	}
 
 	<span class="kw">fn </span>extract_validation_context(header: HeaderFor&lt;T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::ValidationContext&gt; {
 		<span class="comment">// Check if the provided header is canonical.

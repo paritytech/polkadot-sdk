@@ -872,6 +872,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#721" id="721">721</a>
 <a href="#722" id="722">722</a>
 <a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1412,8 +1443,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ValidatorSet::&lt;T::BeefyId&gt;::new(validators, id)
 	}
 
-	<span class="doccomment">/// Submits an extrinsic to report an equivocation. This method will create
-	/// an unsigned extrinsic with a call to `report_equivocation_unsigned` and
+	<span class="doccomment">/// Submits an extrinsic to report a double voting equivocation. This method will create
+	/// an unsigned extrinsic with a call to `report_double_voting_unsigned` and
 	/// will push the transaction to the pool. Only useful in an offchain context.
 	</span><span class="kw">pub fn </span>submit_unsigned_double_voting_report(
 		equivocation_proof: DoubleVotingProof&lt;
@@ -1427,6 +1458,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			equivocation_proof,
 			key_owner_proof,
 		))
+		.ok()
+	}
+
+	<span class="doccomment">/// Submits an extrinsic to report a fork voting equivocation. This method will create
+	/// an unsigned extrinsic with a call to `report_fork_voting_unsigned` and
+	/// will push the transaction to the pool. Only useful in an offchain context.
+	</span><span class="kw">pub fn </span>submit_unsigned_fork_voting_report(
+		equivocation_proof: ForkVotingProof&lt;
+			HeaderFor&lt;T&gt;,
+			T::BeefyId,
+			&lt;T::AncestryHelper <span class="kw">as </span>AncestryHelper&lt;HeaderFor&lt;T&gt;&gt;&gt;::Proof,
+		&gt;,
+		key_owner_proof: T::KeyOwnerProof,
+	) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+		T::EquivocationReportSystem::publish_evidence(EquivocationEvidenceFor::ForkVotingProof(
+			equivocation_proof,
+			key_owner_proof,
+		))
+		.ok()
+	}
+
+	<span class="doccomment">/// Submits an extrinsic to report a future block voting equivocation. This method will create
+	/// an unsigned extrinsic with a call to `report_future_block_voting_unsigned` and
+	/// will push the transaction to the pool. Only useful in an offchain context.
+	</span><span class="kw">pub fn </span>submit_unsigned_future_block_voting_report(
+		equivocation_proof: FutureBlockVotingProof&lt;BlockNumberFor&lt;T&gt;, T::BeefyId&gt;,
+		key_owner_proof: T::KeyOwnerProof,
+	) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+		T::EquivocationReportSystem::publish_evidence(
+			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, key_owner_proof),
+		)
 		.ok()
 	}
 
