@@ -257,7 +257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			genesis::ED <span class="kw">as </span>PEOPLE_WESTEND_ED,
 			people_westend_runtime::{
 				people, xcm_config::XcmConfig <span class="kw">as </span>PeopleWestendXcmConfig,
-				ExistentialDeposit <span class="kw">as </span>PeopleWestendExistentialDeposit,
+				ExistentialDeposit <span class="kw">as </span>PeopleWestendExistentialDeposit, Runtime <span class="kw">as </span>PeopleRuntime,
 			},
 			PeopleWestendParaPallet <span class="kw">as </span>PeopleWestendPallet,
 		},
@@ -265,8 +265,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			genesis::ED <span class="kw">as </span>WESTEND_ED,
 			westend_runtime::{
 				xcm_config::XcmConfig <span class="kw">as </span>WestendXcmConfig, BasicDeposit, ByteDeposit,
-				MaxAdditionalFields, MaxSubAccounts, RuntimeOrigin <span class="kw">as </span>WestendOrigin,
-				SubAccountDeposit,
+				MaxAdditionalFields, MaxSubAccounts, Runtime <span class="kw">as </span>WestendRuntime,
+				RuntimeOrigin <span class="kw">as </span>WestendOrigin, SubAccountDeposit,
 			},
 			WestendRelayPallet <span class="kw">as </span>WestendPallet,
 		},

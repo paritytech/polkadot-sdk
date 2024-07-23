@@ -527,7 +527,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;FieldLimit: Get&lt;u32&gt;&gt; IdentityInfo&lt;FieldLimit&gt; {
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fields(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BitFlags&lt;IdentityField&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>res = &lt;BitFlags&lt;IdentityField&gt;&gt;::empty();
+		<span class="kw">let </span><span class="kw-2">mut </span>res = BitFlags::&lt;IdentityField&gt;::empty();
 		<span class="kw">if </span>!<span class="self">self</span>.display.is_none() {
 			res.insert(IdentityField::Display);
 		}

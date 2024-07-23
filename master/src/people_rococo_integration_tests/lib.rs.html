@@ -257,7 +257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			genesis::ED <span class="kw">as </span>PEOPLE_ROCOCO_ED,
 			people_rococo_runtime::{
 				people, xcm_config::XcmConfig <span class="kw">as </span>PeopleRococoXcmConfig,
-				ExistentialDeposit <span class="kw">as </span>PeopleRococoExistentialDeposit,
+				ExistentialDeposit <span class="kw">as </span>PeopleRococoExistentialDeposit, Runtime <span class="kw">as </span>PeopleRuntime,
 			},
 			PeopleRococoParaPallet <span class="kw">as </span>PeopleRococoPallet,
 		},
@@ -265,8 +265,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			genesis::ED <span class="kw">as </span>ROCOCO_ED,
 			rococo_runtime::{
 				xcm_config::XcmConfig <span class="kw">as </span>RococoXcmConfig, BasicDeposit, ByteDeposit,
-				MaxAdditionalFields, MaxSubAccounts, RuntimeOrigin <span class="kw">as </span>RococoOrigin,
-				SubAccountDeposit,
+				MaxAdditionalFields, MaxSubAccounts, Runtime <span class="kw">as </span>RococoRuntime,
+				RuntimeOrigin <span class="kw">as </span>RococoOrigin, SubAccountDeposit,
 			},
 			RococoRelayPallet <span class="kw">as </span>RococoPallet,
 		},
