@@ -1,3 +1,20 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "std")]
@@ -31,12 +48,6 @@ use frame::{
 	},
 	traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, Verify},
 };
-
-#[cfg(any(feature = "std", test))]
-pub use frame::deps::sp_runtime::BuildStorage;
-
-/// Import the template pallet.
-pub use pallet_template;
 
 /// An index to a block.
 type BlockNumber = u32;
@@ -293,7 +304,7 @@ type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, RuntimeCall, Sign
 /// The payload being signed in transactions.
 type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
 /// RuntimeExecutive: handles dispatch to the various modules.
-pub type RuntimeExecutive = Executive<
+type RuntimeExecutive = Executive<
 	Runtime,
 	Block,
 	frame_system::ChainContext<Runtime>,
