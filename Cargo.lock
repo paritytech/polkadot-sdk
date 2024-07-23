@@ -19744,8 +19744,6 @@ dependencies = [
 name = "solochain-template-runtime"
 version = "0.0.0"
 dependencies = [
- "frame-benchmarking",
- "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "pallet-aura",
  "pallet-balances",
