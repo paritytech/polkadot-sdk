@@ -1,0 +1,7 @@
+error: unexpected end of input, Expected `all(..)`, `any(..)`, `not(..)`, `SomeFeature`, or `feature = ..`
+  --> tests/ui/wrong_input1.rs:20:1
+   |
+20 | #[with_features_try_runtime_and_runtime_benchmarks()]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `with_features_try_runtime_and_runtime_benchmarks` (in Nightly builds, run with -Z macro-backtrace for more info)

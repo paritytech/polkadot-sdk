@@ -1,0 +1,5 @@
+error: unexpected token
+  --> tests/ui/wrong_input12.rs:20:59
+   |
+20 | #[with_features_try_runtime_and_runtime_benchmarks(not(foo, bar))]
+   |                                                           ^

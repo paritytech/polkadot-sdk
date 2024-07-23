@@ -1,0 +1,5 @@
+error: expected string literal
+  --> tests/ui/wrong_input5.rs:20:62
+   |
+20 | #[with_features_try_runtime_and_runtime_benchmarks(feature = 3)]
+   |                                                              ^

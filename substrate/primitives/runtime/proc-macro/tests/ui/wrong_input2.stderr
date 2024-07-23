@@ -1,0 +1,5 @@
+error: unexpected token
+  --> tests/ui/wrong_input2.rs:20:55
+   |
+20 | #[with_features_try_runtime_and_runtime_benchmarks(cfg(feature = "std"))]
+   |                                                       ^^^^^^^^^^^^^^^^^

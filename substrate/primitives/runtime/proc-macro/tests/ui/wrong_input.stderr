@@ -1,0 +1,7 @@
+error: expected item after attributes
+  --> tests/ui/wrong_input.rs:20:1
+   |
+20 | sp_runtime_proc_macro::ttt! {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the macro `sp_runtime_proc_macro::ttt` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,0 +1,5 @@
+error: unexpected token
+  --> tests/ui/wrong_input7.rs:20:56
+   |
+20 | #[with_features_try_runtime_and_runtime_benchmarks(nota(feature = "std"))]
+   |                                                        ^^^^^^^^^^^^^^^^^

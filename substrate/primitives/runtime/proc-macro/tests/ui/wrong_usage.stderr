@@ -1,0 +1,10 @@
+error[E0428]: the name `foo` is defined multiple times
+  --> tests/ui/wrong_usage.rs:23:1
+   |
+20 | fn foo() {}
+   | -------- previous definition of the value `foo` here
+...
+23 | fn foo() {}
+   | ^^^^^^^^ `foo` redefined here
+   |
+   = note: `foo` must be defined only once in the value namespace of this module

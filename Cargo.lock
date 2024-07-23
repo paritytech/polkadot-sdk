@@ -20463,6 +20463,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-core",
  "sp-io",
+ "sp-runtime-proc-macro",
  "sp-state-machine",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
@@ -20573,6 +20574,18 @@ dependencies = [
  "sp-io",
  "sp-runtime-interface 24.0.0",
  "substrate-wasm-builder",
+]
+
+[[package]]
+name = "sp-runtime-proc-macro"
+version = "1.0.0"
+dependencies = [
+ "proc-macro2 1.0.82",
+ "quote 1.0.36",
+ "rustversion",
+ "sp-runtime",
+ "syn 2.0.61",
+ "trybuild",
 ]
 
 [[package]]

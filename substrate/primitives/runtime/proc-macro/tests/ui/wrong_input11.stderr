@@ -1,0 +1,5 @@
+error: unexpected end of input, Expected `all(..)`, `any(..)`, `not(..)`, `SomeFeature`, or `feature = ..`
+  --> tests/ui/wrong_input11.rs:20:56
+   |
+20 | #[with_features_try_runtime_and_runtime_benchmarks(not())]
+   |                                                        ^

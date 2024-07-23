@@ -35,6 +35,7 @@ sp-std = { workspace = true }
 sp-weights = { workspace = true }
 docify = { workspace = true }
 tracing = { workspace = true, features = ["log"], default-features = false }
+sp-runtime-proc-macro = { workspace = true }
 
 simple-mermaid = { version = "0.1.1", optional = true }
 

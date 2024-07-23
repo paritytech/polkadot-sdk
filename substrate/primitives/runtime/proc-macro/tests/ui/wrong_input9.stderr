@@ -1,0 +1,5 @@
+error: Expected `all(..)`, `any(..)`, `not(..)`, `SomeFeature`, or `feature = ..`
+  --> tests/ui/wrong_input9.rs:20:52
+   |
+20 | #[with_features_try_runtime_and_runtime_benchmarks(all[feature = "std"])]
+   |                                                    ^^^

@@ -1029,6 +1029,18 @@ impl OpaqueValue {
 	}
 }
 
+#[cfg(all(feature = "try-runtime", feature = "runtime-benchmarks"))]
+pub use sp_runtime_proc_macro::with_features_try_runtime_and_runtime_benchmarks as runtime_cfg;
+
+#[cfg(all(not(feature = "try-runtime"), feature = "runtime-benchmarks"))]
+pub use sp_runtime_proc_macro::with_features_not_try_runtime_and_runtime_benchmarks as runtime_cfg;
+
+#[cfg(all(feature = "try-runtime", not(feature = "runtime-benchmarks")))]
+pub use sp_runtime_proc_macro::with_features_try_runtime_and_not_runtime_benchmarks as runtime_cfg;
+
+#[cfg(all(not(feature = "try-runtime"), not(feature = "runtime-benchmarks")))]
+pub use sp_runtime_proc_macro::with_features_not_try_runtime_and_not_runtime_benchmarks as runtime_cfg;
+
 #[cfg(test)]
 mod tests {
 	use crate::traits::BlakeTwo256;

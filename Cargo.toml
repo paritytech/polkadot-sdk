@@ -479,6 +479,7 @@ members = [
 	"substrate/primitives/panic-handler",
 	"substrate/primitives/rpc",
 	"substrate/primitives/runtime",
+	"substrate/primitives/runtime/proc-macro",
 	"substrate/primitives/runtime-interface",
 	"substrate/primitives/runtime-interface/proc-macro",
 	"substrate/primitives/runtime-interface/test",
@@ -1243,6 +1244,7 @@ sp-offchain = { path = "substrate/primitives/offchain", default-features = false
 sp-panic-handler = { path = "substrate/primitives/panic-handler", default-features = false }
 sp-rpc = { path = "substrate/primitives/rpc", default-features = false }
 sp-runtime = { path = "substrate/primitives/runtime", default-features = false }
+sp-runtime-proc-macro = { path = "substrate/primitives/runtime/proc-macro", default-features = false }
 sp-runtime-interface = { path = "substrate/primitives/runtime-interface", default-features = false }
 sp-runtime-interface-proc-macro = { path = "substrate/primitives/runtime-interface/proc-macro", default-features = false }
 sp-runtime-interface-test-wasm = { path = "substrate/primitives/runtime-interface/test-wasm" }

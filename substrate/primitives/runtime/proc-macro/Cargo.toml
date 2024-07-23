@@ -1,0 +1,32 @@
+[package]
+name = "sp-runtime-proc-macro"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository.workspace = true
+description = "Macros for declaring and implementing runtime apis."
+documentation = "https://docs.rs/sp-api-proc-macro"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = { workspace = true }
+syn = { features = ["extra-traits", "fold", "full", "visit"], workspace = true }
+proc-macro2 = { workspace = true }
+
+[dev-dependencies]
+trybuild = { features = ["diff"], workspace = true }
+rustversion = { workspace = true }
+sp-runtime = { features = ["std"], workspace = true }
+
+[features]
+disable-ui-tests = []
