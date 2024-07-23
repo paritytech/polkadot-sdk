@@ -123,7 +123,7 @@ pub mod pallet {
 	#[pallet::event]
 	pub enum Event<T: Config> {}
 
-	/// A storage item that this pallet contains. This will be part of the state root trie/root
+	/// A storage item that this pallet contains. This will be part of the state root trie
 	/// of the blockchain.
 	#[pallet::storage]
 	pub type Value<T> = StorageValue<Value = u32>;
