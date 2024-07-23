@@ -39,8 +39,8 @@ mod imports {
 		people_rococo_emulated_chain::{
 			genesis::ED as PEOPLE_ROCOCO_ED,
 			people_rococo_runtime::{
-				people, xcm_config::XcmConfig as PeopleRococoXcmConfig, Runtime as PeopleRuntime,
-				ExistentialDeposit as PeopleRococoExistentialDeposit,
+				people, xcm_config::XcmConfig as PeopleRococoXcmConfig,
+				ExistentialDeposit as PeopleRococoExistentialDeposit, Runtime as PeopleRuntime,
 			},
 			PeopleRococoParaPallet as PeopleRococoPallet,
 		},
