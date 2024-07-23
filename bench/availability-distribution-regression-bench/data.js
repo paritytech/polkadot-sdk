@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721759034223,
+  "lastUpdate": 1721767768732,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -18979,6 +18979,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0093205518,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6b50637082bad5f8183876418059eb1327bbb2fd",
+          "message": "hotfix: blockchain/backend: Skip genesis leaf to unblock syncing (#5103)\n\nThis PR effectively skips over cases where the blockchain reports the\ngenesis block as leaf.\n\nThe issue manifests as the blockchain getting stuck and not importing\nblocks after a while.\nAlthough the root-cause of why the blockchain reports the genesis as\nleaf is not scoped, this hot-fix is unblocking the new release.\n\nWhile at it, added some extra debug logs to identify issues more easily\nin the future.\n\n### Issue\n\n```\n2024-07-22 10:06:08.708 DEBUG tokio-runtime-worker db::blockchain: Checking for displaced leaves after finalization. leaves=[0xd62aea69664b74c55b7e79ab5855b117d213156a5e9ab05ad0737772aaf42c14, 0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe] finalized_block_hash=0x8f8e…7f34 finalized_block_number=24148459\n2024-07-22 10:06:08.708 DEBUG tokio-runtime-worker db::blockchain: Handle displaced leaf 0xd62aea69664b74c55b7e79ab5855b117d213156a5e9ab05ad0737772aaf42c14 (elapsed 25.74µs) leaf_number=24148577\n2024-07-22 10:06:08.709 DEBUG tokio-runtime-worker db::blockchain: Leaf points to the finalized header 0xd62aea69664b74c55b7e79ab5855b117d213156a5e9ab05ad0737772aaf42c14, skipping for now (elapsed 70.72µs)\n\n\n// This is Kusama genesis\n2024-07-22 10:06:08.709 DEBUG tokio-runtime-worker db::blockchain: Handle displaced leaf 0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe (elapsed 127.271µs) leaf_number=0\n2024-07-22 10:06:08.709 DEBUG tokio-runtime-worker db::blockchain: Skip more blocks until we get all blocks on finalized chain until the height of the parent block current_hash=0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe current_num=0 finalized_num=24148458\n```\n\n### Before\n\n```\n2024-07-20 00:45:00.234  INFO tokio-runtime-worker substrate: ⚙️  Preparing  0.0 bps, target=#24116589 (50 peers), best: #24116498 (0xb846…8720), finalized #24116493 (0x50b6…2445), ⬇ 2.3MiB/s ⬆ 2.6kiB/s    \n   \n...\n\n2024-07-20 14:05:18.572  INFO tokio-runtime-worker substrate: ⚙️  Syncing  0.0 bps, target=#24124495 (51 peers), best: #24119976 (0x6970…aeb3), finalized #24119808 (0xd900…abe4), ⬇ 2.2MiB/s ⬆ 3.1kiB/s    \n2024-07-20 14:05:23.573  INFO tokio-runtime-worker substrate: ⚙️  Syncing  0.0 bps, target=#24124495 (51 peers), best: #24119976 (0x6970…aeb3), finalized #24119808 (0xd900…abe4), ⬇ 2.2MiB/s ⬆ 5.8kiB/s    \n```\n\n### After\n\n```\n2024-07-22 10:41:10.897 DEBUG tokio-runtime-worker db::blockchain: Handle displaced leaf 0x4e8cf3ff18e7d13ff7fec28f9fc8ce6eff5492ed8dc046e961b76dec5c0cfddf (elapsed 39.26µs) leaf_number=24150969\n2024-07-22 10:41:10.897 DEBUG tokio-runtime-worker db::blockchain: Leaf points to the finalized header 0x4e8cf3ff18e7d13ff7fec28f9fc8ce6eff5492ed8dc046e961b76dec5c0cfddf, skipping for now (elapsed 49.69µs)\n2024-07-22 10:41:10.897 DEBUG tokio-runtime-worker db::blockchain: Skip genesis block 0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe reporterd as leaf (elapsed 54.57µs)\n2024-07-22 10:41:10.897 DEBUG tokio-runtime-worker db::blockchain: Finished with result DisplacedLeavesAfterFinalization { displaced_leaves: [], displaced_blocks: [] } (elapsed 58.78µs) finalized_block_hash=0x02b3…5338 finalized_block_number=24150967\n2024-07-22 10:41:12.357  INFO tokio-runtime-worker substrate: 🏆 Imported #24150970 (0x4e8c…fddf → 0x3637…56bb)\n2024-07-22 10:41:12.862  INFO tokio-runtime-worker substrate: 💤 Idle (50 peers), best: #24150970 (0x3637…56bb), finalized #24150967 (0x02b3…5338), ⬇ 2.0MiB/s ⬆ 804.7kiB/s\n2024-07-22 10:41:14.772 DEBUG tokio-runtime-worker db::blockchain: Checking for displaced leaves after finalization. leaves=[0x363763b16c23fc20a84f38f67014fa7ae6ba9c708fc074890016699e5ca756bb, 0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe] finalized_block_hash=0xa1534a105b90e7036a18ac1c646cd2bd6c41c66cc055817f4f51209ab9070e5c finalized_block_number=24150968\n2024-07-22 10:41:14.772 DEBUG tokio-runtime-worker db::blockchain: Handle displaced leaf 0x363763b16c23fc20a84f38f67014fa7ae6ba9c708fc074890016699e5ca756bb (elapsed 62.48µs) leaf_number=24150970\n2024-07-22 10:41:14.772 DEBUG tokio-runtime-worker db::blockchain: Leaf points to the finalized header 0x363763b16c23fc20a84f38f67014fa7ae6ba9c708fc074890016699e5ca756bb, skipping for now (elapsed 71.76µs)\n2024-07-22 10:41:14.772 DEBUG tokio-runtime-worker db::blockchain: Skip genesis block 0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe reporterd as leaf (elapsed 75.96µs)\n2024-07-22 10:41:14.772 DEBUG tokio-runtime-worker db::blockchain: Finished with result DisplacedLeavesAfterFinalization { displaced_leaves: [], displaced_blocks: [] } (elapsed 80.27µs) finalized_block_hash=0xa153…0e5c finalized_block_number=24150968\n2024-07-22 10:41:14.795 DEBUG tokio-runtime-worker db::blockchain: Checking for displaced leaves after finalization. leaves=[0x363763b16c23fc20a84f38f67014fa7ae6ba9c708fc074890016699e5ca756bb, 0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe] finalized_block_hash=0xa1534a105b90e7036a18ac1c646cd2bd6c41c66cc055817f4f51209ab9070e5c finalized_block_number=24150968\n2024-07-22 10:41:14.795 DEBUG tokio-runtime-worker db::blockchain: Handle displaced leaf 0x363763b16c23fc20a84f38f67014fa7ae6ba9c708fc074890016699e5ca756bb (elapsed 39.67µs) leaf_number=24150970\n2024-07-22 10:41:14.795 DEBUG tokio-runtime-worker db::blockchain: Leaf points to the finalized header 0x363763b16c23fc20a84f38f67014fa7ae6ba9c708fc074890016699e5ca756bb, skipping for now (elapsed 50.3µs)\n2024-07-22 10:41:14.795 DEBUG tokio-runtime-worker db::blockchain: Skip genesis block 0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe reporterd as leaf (elapsed 54.52µs)\n2024-07-22 10:41:14.795 DEBUG tokio-runtime-worker db::blockchain: Finished with result DisplacedLeavesAfterFinalization { displaced_leaves: [], displaced_blocks: [] } (elapsed 58.66µs) finalized_block_hash=0xa153…0e5c finalized_block_number=24150968\n2024-07-22 10:41:17.863  INFO tokio-runtime-worker substrate: 💤 Idle (50 peers), best: #24150970 (0x3637…56bb), finalized #24150968 (0xa153…0e5c), ⬇ 1.2MiB/s ⬆ 815.0kiB/s\n2024-07-22 10:41:18.399  INFO tokio-runtime-worker substrate: 🏆 Imported #24150971 (0x3637…56bb → 0x4ee3…5f7c)\n```\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/5088\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-07-23T18:55:58Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6b50637082bad5f8183876418059eb1327bbb2fd"
+        },
+        "date": 1721767739023,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.021890372966666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01195256112,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00929701621333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16842952170000008,
             "unit": "seconds"
           }
         ]
