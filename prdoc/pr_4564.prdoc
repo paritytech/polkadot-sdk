@@ -11,7 +11,7 @@ crates:
   - name: frame-support
     bump: major
   - name: pallet-balances
-    bump: patch
+    bump: minor
   - name: pallet-asset-conversion-tx-payment
     bump: patch
   - name: pallet-transaction-payment
@@ -21,3 +21,4 @@ crates:
   - name: polkadot-runtime-common
     bump: patch
   - name: parachains-common
+    bump: minor
