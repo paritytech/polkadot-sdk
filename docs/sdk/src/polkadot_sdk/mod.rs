@@ -103,7 +103,7 @@
 //!
 //! ## Trophy Section: Notable Downstream Projects
 //!
-//! A list of projects and tools in the blockchain ecosystem that one way or another parts of the
+//! A list of projects and tools in the blockchain ecosystem that one way or another use parts of the
 //! Polkadot SDK:
 //!
 //! * [Polygon's spin-off, Avail](https://github.com/availproject/avail)
