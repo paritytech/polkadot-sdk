@@ -520,9 +520,8 @@ impl ConstraintModifications {
 /// The prospective candidate.
 ///
 /// This comprises the key information that represent a candidate
-/// without pinning it to a particular session. For example, everything
-/// to do with the collator's signature and commitments are represented
-/// here. But the erasure-root is not. This means that prospective candidates
+/// without pinning it to a particular session. For example commitments are
+/// represented here. But the erasure-root is not. This means that prospective candidates
 /// are not correlated to any session in particular.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProspectiveCandidate {
