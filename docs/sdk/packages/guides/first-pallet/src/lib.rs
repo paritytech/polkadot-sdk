@@ -114,7 +114,7 @@ pub mod pallet {
 
 			let sender_balance = Balances::<T>::get(&sender).ok_or("NonExistentAccount")?;
 			ensure!(sender_balance >= amount, "InsufficientBalance");
-			let reminder = sender_balance - amount;
+			let remainder = sender_balance - amount;
 
 			// .. snip
 			Ok(())
