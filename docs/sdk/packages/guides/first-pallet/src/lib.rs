@@ -21,8 +21,8 @@
 
 #[docify::export]
 #[frame::pallet(dev_mode)]
+/// A shell pallet. This is the bare minimum skeleton of any FRAME-based pallet.
 pub mod shell_pallet {
-	// a Shell pallet. This is the bare minimum skeleton of any FRAME-based pallet.
 	use frame::prelude::*;
 
 	/// A trait meant to configure the pallet over types and values. See
