@@ -34,7 +34,7 @@
 //! Repo](https://img.shields.io/badge/github-substrate-2324CC85)](https://github.com/paritytech/polkadot-sdk/blob/master/substrate)
 //!
 //! [`substrate`] is the base blockchain framework used to power the Polkadot SDK. It is a full
-//! toolkit to create sovereign blockchains, including but not limited to those who connect to
+//! toolkit to create sovereign blockchains, including but not limited to those which connect to
 //! Polkadot as parachains.
 //!
 //! #### FRAME
