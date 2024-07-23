@@ -119,7 +119,7 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
 
-	/// The events tha this pallet can emit.
+	/// The events that this pallet can emit.
 	#[pallet::event]
 	pub enum Event<T: Config> {}
 
