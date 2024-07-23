@@ -11,7 +11,7 @@
 //! 1. Society and technology evolves.
 //! 2. Humans are fallible.
 //!
-//! This, makes the task of designing a correct, safe and long-lasting blockchain system hard.
+//! This makes the task of designing a correct, safe and long-lasting blockchain system hard.
 //!
 //! Nonetheless, in strive towards achieve this goal, Substrate embraces the following:
 //!
