@@ -2988,6 +2988,8 @@ mod sanitizers {
 
 		// Para 1 scheduled on cores 0, 1 and 2. Three candidates are supplied but their relay
 		// parents look like this: 3, 2, 3.
+		// Para 2 scheduled on cores 3, 4 and 5. Three candidates are supplied and their relay
+		// parents look like this: 2, 3, 3.
 		fn get_test_data_for_relay_parent_ordering(core_index_enabled: bool) -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
 			let header = default_header();
@@ -3044,6 +3046,9 @@ mod sanitizers {
 				sp_keyring::Sr25519Keyring::Alice,
 				sp_keyring::Sr25519Keyring::Bob,
 				sp_keyring::Sr25519Keyring::Charlie,
+				sp_keyring::Sr25519Keyring::Dave,
+				sp_keyring::Sr25519Keyring::Eve,
+				sp_keyring::Sr25519Keyring::Ferdie,
 			];
 			for validator in validators.iter() {
 				Keystore::sr25519_generate_new(
@@ -3064,6 +3069,9 @@ mod sanitizers {
 				vec![ValidatorIndex(0)],
 				vec![ValidatorIndex(1)],
 				vec![ValidatorIndex(2)],
+				vec![ValidatorIndex(3)],
+				vec![ValidatorIndex(4)],
+				vec![ValidatorIndex(5)],
 			]);
 
 			// Update scheduler's claimqueue with the parachains
@@ -3089,10 +3097,31 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 					)]),
 				),
+				(
+					CoreIndex::from(3),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(3) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(4),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(4) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(5),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(5) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
 			]));
 
 			// Set the on-chain included head data and current code hash.
-			for id in 1..=1u32 {
+			for id in 1..=2u32 {
 				paras::Pallet::<Test>::set_current_head(ParaId::from(id), HeadData(vec![id as u8]));
 				paras::Pallet::<Test>::force_set_current_code(
 					RuntimeOrigin::root(),
@@ -3226,13 +3255,135 @@ mod sanitizers {
 				backed_candidates.push(backed.clone());
 			}
 
+			// Para 2
+			{
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(2),
+					relay_parent: prev_relay_parent,
+					pov_hash: Hash::repeat_byte(2 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+						ParaId::from(2),
+						RELAY_PARENT_NUM - 1,
+						Default::default(),
+					)
+					.unwrap()
+					.hash(),
+					head_data: HeadData(vec![2, 2]),
+					hrmp_watermark: RELAY_PARENT_NUM - 1,
+					validation_code: ValidationCode(vec![2]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let prev_candidate = candidate.clone();
+				let backed: BackedCandidate = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(3 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(3 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+				if core_index_enabled {
+					expected_backed_candidates_with_core
+						.entry(ParaId::from(2))
+						.or_insert(vec![])
+						.push((backed, CoreIndex(3)));
+				}
+
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(2),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(2 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data_with_parent::<
+						Test,
+					>(
+						RELAY_PARENT_NUM,
+						Default::default(),
+						prev_candidate.commitments.head_data,
+					)
+					.hash(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![2]),
+					head_data: HeadData(vec![2, 2, 2]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let prev_candidate = candidate.clone();
+				let backed = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(4 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(4 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+				if core_index_enabled {
+					expected_backed_candidates_with_core
+						.entry(ParaId::from(2))
+						.or_insert(vec![])
+						.push((backed, CoreIndex(4)));
+				}
+
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(2),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(2 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data_with_parent::<
+						Test,
+					>(
+						RELAY_PARENT_NUM,
+						Default::default(),
+						prev_candidate.commitments.head_data,
+					)
+					.hash(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![2]),
+					head_data: HeadData(vec![2, 2, 2, 2]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let backed = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(5 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(5 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+
+				if core_index_enabled {
+					expected_backed_candidates_with_core
+						.entry(ParaId::from(2))
+						.or_insert(vec![])
+						.push((backed, CoreIndex(5)));
+				}
+			}
+
 			// State sanity checks
 			assert_eq!(
 				scheduler::Pallet::<Test>::scheduled_paras().collect::<Vec<_>>(),
 				vec![
 					(CoreIndex(0), ParaId::from(1)),
 					(CoreIndex(1), ParaId::from(1)),
-					(CoreIndex(2), ParaId::from(1))
+					(CoreIndex(2), ParaId::from(1)),
+					(CoreIndex(3), ParaId::from(2)),
+					(CoreIndex(4), ParaId::from(2)),
+					(CoreIndex(5), ParaId::from(2)),
 				]
 			);
 			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
@@ -3242,7 +3393,14 @@ mod sanitizers {
 
 			assert_eq!(
 				shared::ActiveValidatorIndices::<Test>::get(),
-				vec![ValidatorIndex(0), ValidatorIndex(1), ValidatorIndex(2)]
+				vec![
+					ValidatorIndex(0),
+					ValidatorIndex(1),
+					ValidatorIndex(2),
+					ValidatorIndex(3),
+					ValidatorIndex(4),
+					ValidatorIndex(5)
+				]
 			);
 
 			TestData {
@@ -3332,6 +3490,10 @@ mod sanitizers {
 			// parents look like this: 3, 2, 3. There are no pending availability candidates and the
 			// latest on-chain relay parent for this para is 0.
 			// Therefore, only the first candidate will get picked.
+			//
+			// Para 2 scheduled on cores 3, 4 and 5. Three candidates are supplied and their relay
+			// parents look like this: 2, 3, 3. There are no pending availability candidates and the
+			// latest on-chain relay parent for this para is 0. Therefore, all 3 will get picked.
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData {
 					backed_candidates,
@@ -3351,13 +3513,20 @@ mod sanitizers {
 				);
 			});
 
-			// Para 1 scheduled on cores 0, 1 and 2. Three candidates are supplied but their relay
-			// parents look like this: 3, 2, 3. There are no pending availability candidates but the
-			// latest on-chain relay parent for this para is 4.
+			// Para 1 scheduled on cores 0, 1 and 2. Three candidates are supplied but their
+			// relay parents look like this: 3, 2, 3. There are no pending availability
+			// candidates but the latest on-chain relay parent for this para is 4.
 			// Therefore, no candidate will get picked.
+			//
+			// Para 2 scheduled on cores 3, 4 and 5. Three candidates are supplied and their relay
+			// parents look like this: 2, 3, 3. There are no pending availability candidates and the
+			// latest on-chain relay parent for this para is 2. Therefore, all 3 will get picked.
 			new_test_ext(default_config()).execute_with(|| {
-				let TestData { backed_candidates, scheduled_paras: scheduled, .. } =
-					get_test_data_for_relay_parent_ordering(core_index_enabled);
+				let TestData {
+					backed_candidates,
+					scheduled_paras: scheduled,
+					expected_backed_candidates_with_core,
+				} = get_test_data_for_relay_parent_ordering(core_index_enabled);
 
 				paras::Pallet::<Test>::force_set_most_recent_context(
 					RuntimeOrigin::root(),
@@ -3366,14 +3535,30 @@ mod sanitizers {
 				)
 				.unwrap();
 
-				assert!(sanitize_backed_candidates::<Test>(
+				paras::Pallet::<Test>::force_set_most_recent_context(
+					RuntimeOrigin::root(),
+					ParaId::from(2),
+					BlockNumberFor::<Test>::from(2u32),
+				)
+				.unwrap();
+
+				let res = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&shared::AllowedRelayParents::<Test>::get(),
 					BTreeSet::new(),
 					scheduled,
 					core_index_enabled,
-				)
-				.is_empty());
+				);
+
+				if core_index_enabled {
+					assert_eq!(res.len(), 1);
+					assert_eq!(
+						expected_backed_candidates_with_core.get(&ParaId::from(2)),
+						res.get(&ParaId::from(2)),
+					);
+				} else {
+					assert!(res.is_empty());
+				}
 			});
 
 			// Para 1 scheduled on cores 0, 1 and 2. Three candidates are supplied but their relay
@@ -3381,11 +3566,19 @@ mod sanitizers {
 			// The latest on-chain relay parent for this para is 0 but there is a pending
 			// availability candidate with relay parent 4. Therefore, no candidate will get
 			// picked.
+			//
+			// Para 2 scheduled on cores 3, 4 and 5. Three candidates are supplied and their relay
+			// parents look like this: 2, 3, 3.
+			// The latest on-chain relay parent for this para is 0 but there is a pending
+			// availability candidate with relay parent 2. Therefore, all 3 will get picked.
 			new_test_ext(default_config()).execute_with(|| {
-				let TestData { backed_candidates, scheduled_paras: scheduled, .. } =
-					get_test_data_for_relay_parent_ordering(core_index_enabled);
+				let TestData {
+					backed_candidates,
+					scheduled_paras: scheduled,
+					expected_backed_candidates_with_core,
+				} = get_test_data_for_relay_parent_ordering(core_index_enabled);
 
-				// Add a dummy pending candidate with relay parent 4.
+				// For para 1, add a dummy pending candidate with relay parent 4.
 				let mut candidates = VecDeque::new();
 				let mut commitments = backed_candidates[0].candidate().commitments.clone();
 				commitments.head_data = paras::Heads::<Test>::get(&ParaId::from(1)).unwrap();
@@ -3402,14 +3595,40 @@ mod sanitizers {
 				));
 				inclusion::PendingAvailability::<Test>::insert(ParaId::from(1), candidates);
 
-				assert!(sanitize_backed_candidates::<Test>(
+				// For para 2, add a dummy pending candidate with relay parent 2.
+				let mut candidates = VecDeque::new();
+				let mut commitments = backed_candidates[3].candidate().commitments.clone();
+				commitments.head_data = paras::Heads::<Test>::get(&ParaId::from(2)).unwrap();
+				candidates.push_back(inclusion::CandidatePendingAvailability::new(
+					CoreIndex(0),
+					CandidateHash(Hash::repeat_byte(2)),
+					backed_candidates[3].descriptor().clone(),
+					commitments,
+					Default::default(),
+					Default::default(),
+					2,
+					2,
+					GroupIndex(3),
+				));
+				inclusion::PendingAvailability::<Test>::insert(ParaId::from(2), candidates);
+
+				let res = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&shared::AllowedRelayParents::<Test>::get(),
 					BTreeSet::new(),
 					scheduled,
 					core_index_enabled,
-				)
-				.is_empty());
+				);
+
+				if core_index_enabled {
+					assert_eq!(res.len(), 1);
+					assert_eq!(
+						expected_backed_candidates_with_core.get(&ParaId::from(2)),
+						res.get(&ParaId::from(2)),
+					);
+				} else {
+					assert!(res.is_empty());
+				}
 			});
 		}
 

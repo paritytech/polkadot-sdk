@@ -721,7 +721,7 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	// Get the latest backed output head data of this para.
+	// Get the latest backed output head data of this para (including pending availability).
 	pub(crate) fn para_latest_head_data(para_id: &ParaId) -> Option<HeadData> {
 		match PendingAvailability::<T>::get(para_id).and_then(|pending_candidates| {
 			pending_candidates.back().map(|x| x.commitments.head_data.clone())
@@ -731,7 +731,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	// Get the relay parent number of the most recent candidate.
+	// Get the relay parent number of the most recent candidate (including pending availability).
 	pub(crate) fn para_most_recent_context(para_id: &ParaId) -> Option<BlockNumberFor<T>> {
 		match PendingAvailability::<T>::get(para_id)
 			.and_then(|pending_candidates| pending_candidates.back().map(|x| x.relay_parent_number))
