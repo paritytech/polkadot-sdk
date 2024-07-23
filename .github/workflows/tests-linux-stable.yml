@@ -123,7 +123,7 @@ jobs:
           - test(/recovers_from_only_chunks_if_pov_large::case_2/)
           - test(/authoring_blocks/)
           - test(/rejects_missing_seals/)       
-          - test(/chain_spec_builder_tests/)   
+          - test(/.*chain_spec_builder_tests.*/)   
           "
           --partition count:${{ matrix.ci_node_index }}/100
       - run: ls -al target/coverage
