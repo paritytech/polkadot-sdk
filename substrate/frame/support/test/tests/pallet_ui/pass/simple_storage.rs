@@ -15,23 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[deny(warnings)]
-
 #[frame_support::pallet]
 mod pallet {
 	use frame_support::pallet_prelude::*;
 
 	#[pallet::config(with_default)]
-	pub trait Config: frame_system::Config {
-		#[pallet::constant]
-		type MyGetParam2: Get<Self::AccountId>;
-	}
+	pub trait Config: frame_system::Config {}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	pub type MyStorage = StorageValue<u32>;
+	pub type MyStorage<T> = StorageValue<_, u32>;
 }
 
 fn main() {}
