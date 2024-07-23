@@ -124,7 +124,7 @@ pub fn get_deprecation_enum<'a>(
 				.iter()
 				.find(|a| a.path().is_ident("deprecated"))
 				.map(|x| x.span())
-				.expect("this can never fail");
+				.expect("this can never fail, because we have found the deprecated attribute above; qed");
 			Err(Error::new(span, "Invalid deprecation usage. Either deprecate variants/call indexes or the type as a whole"))
 		},
 	}
