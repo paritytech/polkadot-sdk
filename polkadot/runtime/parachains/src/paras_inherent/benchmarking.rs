@@ -27,8 +27,6 @@ use crate::builder::BenchBuilder;
 
 benchmarks! {
 	enter_empty {
-		let v in 10..BenchBuilder::<T>::fallback_max_validators();
-
 		let scenario = BenchBuilder::<T>::new()
 			.build();
 
