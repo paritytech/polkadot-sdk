@@ -51,15 +51,6 @@
     # After the issue is fixed, we should replace it with a pruned version of the DB.
     DB_SNAPSHOT: "https://storage.googleapis.com/zombienet-db-snaps/substrate/0001-basic-warp-sync/chains-9677807d738b951e9f6c82e5fd15518eb0ae0419.tgz"
     DB_BLOCK_HEIGHT: 56687
-    # The genesis hash of the snapshot. This can be determied by running the node over the snapshot using the following env variable for logs `RUST_LOG=state-db=trace".
-    #
-    # The logs will contain the genesis hash of the snapshot, similar to:
-    #
-    # ```
-    # INFO main sc_service::client::client: 🔨 Initializing Genesis block/state (state: 0x971d…f0c1, header-hash: 0xb3fe…356c)
-    # TRACE main state-db: Inserted uncanonicalized changeset 0.0 0xb3fe8367d5b079908c9f72cc43cd28f6fa50665e0137fac5fc1050ead4b8356c (248 inserted, 0 deleted)
-    # ```
-    DB_GENESIS_HASH: "0xb3fe8367d5b079908c9f72cc43cd28f6fa50665e0137fac5fc1050ead4b8356c"
 
 zombienet-substrate-0000-block-building:
   extends:
