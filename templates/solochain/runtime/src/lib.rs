@@ -5,6 +5,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 extern crate alloc;
 use alloc::{vec, vec::Vec};
+
 #[cfg(feature = "try-runtime")]
 use frame::deps::frame_try_runtime;
 #[cfg(feature = "runtime-benchmarks")]
@@ -15,23 +16,19 @@ use frame::{
 	},
 	traits::{StorageInfo, WhitelistedStorageKeys},
 };
-use pallet_grandpa::AuthorityId as GrandpaId;
 
 use frame::{
 	deps::{
 		frame_support::{
 			genesis_builder_helper::{build_state, get_preset},
 			runtime,
-			traits::{ConstBool, ConstU128, ConstU32, ConstU64, ConstU8},
 			weights::{
 				constants::{RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
 				IdentityFee, Weight,
 			},
 		},
-		sp_block_builder::{self},
 		sp_core::{crypto::KeyTypeId, Void, H256},
 		sp_runtime::{generic, impl_opaque_keys, MultiAddress, MultiSignature, Perbill},
-		sp_version::{runtime_version, RuntimeVersion},
 	},
 	prelude::*,
 	runtime::{
@@ -43,9 +40,7 @@ use frame::{
 		},
 		prelude::*,
 	},
-	traits::{
-		BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, One, VariantCountOf, Verify,
-	},
+	traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, Verify},
 };
 
 #[cfg(any(feature = "std", test))]
@@ -53,7 +48,9 @@ pub use frame::deps::sp_runtime::BuildStorage;
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_transaction_payment::{ConstFeeMultiplier, FungibleAdapter, Multiplier};
+
+use pallet_grandpa::AuthorityId as GrandpaId;
+use pallet_transaction_payment::FungibleAdapter;
 
 /// Import the template pallet.
 pub use pallet_template;
@@ -209,53 +206,36 @@ impl pallet_grandpa::Config for Runtime {
 	type EquivocationReportSystem = ();
 }
 
+// Implements the types required for the sudo pallet.
+#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
 impl pallet_timestamp::Config for Runtime {
-	/// A timestamp: milliseconds since the unix epoch.
-	type Moment = u64;
 	type OnTimestampSet = Aura;
 	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
-	type WeightInfo = ();
 }
 
 /// Existential deposit.
 pub const EXISTENTIAL_DEPOSIT: u128 = 500;
 
+// Implements the types required for the balances pallet.
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = ConstU32<50>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	/// The type for recording an account's balance.
 	type Balance = Balance;
-	/// The ubiquitous event type.
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
 	type AccountStore = System;
-	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeHoldReason;
 }
 
-parameter_types! {
-	pub FeeMultiplier: Multiplier = Multiplier::one();
-}
-
+// Implements the types required for the transaction payment pallet.
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = FungibleAdapter<Balances, ()>;
-	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = IdentityFee<Balance>;
-	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
 
-impl pallet_sudo::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
-	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
-}
+// Implements the types required for the sudo pallet.
+#[derive_impl(pallet_sudo::config_preludes::TestDefaultConfig)]
+impl pallet_sudo::Config for Runtime {}
 
 /// Configure the pallet-template in pallets/template.
 impl pallet_template::Config for Runtime {
@@ -387,7 +367,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_block_builder::BlockBuilder<Block> for Runtime {
+	impl apis::BlockBuilder<Block> for Runtime {
 		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
 			RuntimeExecutive::apply_extrinsic(extrinsic)
 		}
