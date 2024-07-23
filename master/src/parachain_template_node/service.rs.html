@@ -557,6 +557,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#406" id="406">406</a>
 <a href="#407" id="407">407</a>
 <a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 </span><span class="comment">// std
@@ -794,11 +795,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>params = new_partial(<span class="kw-2">&amp;</span>parachain_config)<span class="question-mark">?</span>;
 	<span class="kw">let </span>(block_import, <span class="kw-2">mut </span>telemetry, telemetry_worker_handle) = params.other;
+
+	<span class="kw">let </span>prometheus_registry = parachain_config.prometheus_registry().cloned();
 	<span class="kw">let </span>net_config = sc_network::config::FullNetworkConfiguration::&lt;
 		<span class="kw">_</span>,
 		<span class="kw">_</span>,
 		sc_network::NetworkWorker&lt;Block, Hash&gt;,
-	&gt;::new(<span class="kw-2">&amp;</span>parachain_config.network);
+	&gt;::new(<span class="kw-2">&amp;</span>parachain_config.network, prometheus_registry.clone());
 
 	<span class="kw">let </span>client = params.client.clone();
 	<span class="kw">let </span>backend = params.backend.clone();
@@ -816,7 +819,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>.map_err(|e| sc_service::Error::Application(Box::new(e) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;))<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>validator = parachain_config.role.is_authority();
-	<span class="kw">let </span>prometheus_registry = parachain_config.prometheus_registry().cloned();
 	<span class="kw">let </span>transaction_pool = params.transaction_pool.clone();
 	<span class="kw">let </span>import_queue_service = params.import_queue.service();
 

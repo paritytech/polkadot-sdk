@@ -1125,6 +1125,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#974" id="974">974</a>
 <a href="#975" id="975">975</a>
 <a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1917,13 +1921,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Handle to [`PeerStore`](crate::peer_store::PeerStore).
 	</span>peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
+
+	<span class="doccomment">/// Registry for recording prometheus metrics to.
+	</span><span class="kw">pub </span>metrics_registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;,
 }
 
 <span class="kw">impl</span>&lt;B: BlockT + <span class="lifetime">'static</span>, H: ExHashT, N: NetworkBackend&lt;B, H&gt;&gt; FullNetworkConfiguration&lt;B, H, N&gt; {
 	<span class="doccomment">/// Create new [`FullNetworkConfiguration`].
-	</span><span class="kw">pub fn </span>new(network_config: <span class="kw-2">&amp;</span>NetworkConfiguration) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(network_config: <span class="kw-2">&amp;</span>NetworkConfiguration, metrics_registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>bootnodes = network_config.boot_nodes.iter().map(|bootnode| bootnode.peer_id).collect();
-		<span class="kw">let </span>peer_store = N::peer_store(bootnodes);
+		<span class="kw">let </span>peer_store = N::peer_store(bootnodes, metrics_registry.clone());
 		<span class="kw">let </span>peer_store_handle = peer_store.handle();
 
 		<span class="self">Self </span>{
@@ -1932,6 +1939,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			notification_protocols: Vec::new(),
 			request_response_protocols: Vec::new(),
 			network_config: network_config.clone(),
+			metrics_registry,
 		}
 	}
 

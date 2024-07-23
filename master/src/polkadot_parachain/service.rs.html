@@ -1186,6 +1186,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1035" id="1035">1035</a>
 <a href="#1036" id="1036">1036</a>
 <a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1445,7 +1448,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>prometheus_registry = parachain_config.prometheus_registry().cloned();
 			<span class="kw">let </span>transaction_pool = params.transaction_pool.clone();
 			<span class="kw">let </span>import_queue_service = params.import_queue.service();
-			<span class="kw">let </span>net_config = FullNetworkConfiguration::&lt;<span class="kw">_</span>, <span class="kw">_</span>, Net&gt;::new(<span class="kw-2">&amp;</span>parachain_config.network);
+			<span class="kw">let </span>net_config = FullNetworkConfiguration::&lt;<span class="kw">_</span>, <span class="kw">_</span>, Net&gt;::new(
+				<span class="kw-2">&amp;</span>parachain_config.network,
+				prometheus_registry.clone(),
+			);
 
 			<span class="kw">let </span>(network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
 				build_network(BuildNetworkParams {

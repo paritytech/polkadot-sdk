@@ -441,6 +441,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -619,8 +621,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	relay_chain_rpc_client: Arc&lt;BlockChainRpcClient&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;NewMinimalNode, RelayChainError&gt; {
 	<span class="kw">let </span>role = config.role.clone();
-	<span class="kw">let </span><span class="kw-2">mut </span>net_config =
-		sc_network::config::FullNetworkConfiguration::&lt;<span class="kw">_</span>, <span class="kw">_</span>, Network&gt;::new(<span class="kw-2">&amp;</span>config.network);
+	<span class="kw">let </span><span class="kw-2">mut </span>net_config = sc_network::config::FullNetworkConfiguration::&lt;<span class="kw">_</span>, <span class="kw">_</span>, Network&gt;::new(
+		<span class="kw-2">&amp;</span>config.network,
+		config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
+	);
 	<span class="kw">let </span>metrics = Network::register_notification_metrics(
 		config.prometheus_config.as_ref().map(|cfg| <span class="kw-2">&amp;</span>cfg.registry),
 	);

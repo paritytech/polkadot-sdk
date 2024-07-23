@@ -2066,6 +2066,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1915" id="1915">1915</a>
 <a href="#1916" id="1916">1916</a>
 <a href="#1917" id="1917">1917</a>
+<a href="#1918" id="1918">1918</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2254,8 +2255,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Create `PeerStore`.
-	</span><span class="kw">fn </span>peer_store(bootnodes: Vec&lt;sc_network_types::PeerId&gt;) -&gt; <span class="self">Self</span>::PeerStore {
-		PeerStore::new(bootnodes.into_iter().map(From::from).collect())
+	</span><span class="kw">fn </span>peer_store(
+		bootnodes: Vec&lt;sc_network_types::PeerId&gt;,
+		metrics_registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;,
+	) -&gt; <span class="self">Self</span>::PeerStore {
+		PeerStore::new(bootnodes.into_iter().map(From::from).collect(), metrics_registry)
 	}
 
 	<span class="kw">fn </span>register_notification_metrics(registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;) -&gt; NotificationMetrics {
@@ -3088,7 +3092,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>report_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: sc_network_types::PeerId, cost_benefit: ReputationChange) {
-		<span class="self">self</span>.peer_store_handle.clone().report_peer(peer_id, cost_benefit);
+		<span class="self">self</span>.peer_store_handle.report_peer(peer_id, cost_benefit);
 	}
 
 	<span class="kw">fn </span>peer_reputation(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>sc_network_types::PeerId) -&gt; i32 {
@@ -3488,9 +3492,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			{
 				metrics.kademlia_records_sizes_total.set(num_entries <span class="kw">as </span>u64);
 			}
-			metrics
-				.peerset_num_discovered
-				.set(<span class="self">self</span>.peer_store_handle.num_known_peers() <span class="kw">as </span>u64);
+
 			metrics.pending_connections.set(
 				Swarm::network_info(<span class="kw-2">&amp;</span><span class="self">self</span>.network_service).connection_counters().num_pending()
 					<span class="kw">as </span>u64,

@@ -2195,7 +2195,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2044" id="2044">2044</a>
 <a href="#2045" id="2045">2045</a>
 <a href="#2046" id="2046">2046</a>
-<a href="#2047" id="2047">2047</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3076,7 +3075,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">fn </span>peer_reputation(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>sc_network_types::PeerId) -&gt; i32;
 			<span class="kw">fn </span>peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>sc_network_types::PeerId) -&gt; <span class="prelude-ty">Option</span>&lt;ObservedRole&gt;;
 			<span class="kw">fn </span>outgoing_candidates(<span class="kw-2">&amp;</span><span class="self">self</span>, count: usize, ignored: HashSet&lt;sc_network_types::PeerId&gt;) -&gt; Vec&lt;sc_network_types::PeerId&gt;;
-			<span class="kw">fn </span>num_known_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
 			<span class="kw">fn </span>add_known_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: sc_network_types::PeerId);
 		}
 	}

@@ -1174,6 +1174,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1023" id="1023">1023</a>
 <a href="#1024" id="1024">1024</a>
 <a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1798,8 +1801,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network_service)
 	}
 
-	<span class="kw">fn </span>peer_store(bootnodes: Vec&lt;sc_network_types::PeerId&gt;) -&gt; <span class="self">Self</span>::PeerStore {
-		Peerstore::new(bootnodes)
+	<span class="kw">fn </span>peer_store(
+		bootnodes: Vec&lt;sc_network_types::PeerId&gt;,
+		metrics_registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;,
+	) -&gt; <span class="self">Self</span>::PeerStore {
+		Peerstore::new(bootnodes, metrics_registry)
 	}
 
 	<span class="kw">fn </span>register_notification_metrics(registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;) -&gt; NotificationMetrics {

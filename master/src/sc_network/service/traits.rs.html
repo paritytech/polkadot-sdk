@@ -1216,7 +1216,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>network_service(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>NetworkService&gt;;
 
 	<span class="doccomment">/// Create [`PeerStore`].
-	</span><span class="kw">fn </span>peer_store(bootnodes: Vec&lt;PeerId&gt;) -&gt; <span class="self">Self</span>::PeerStore;
+	</span><span class="kw">fn </span>peer_store(bootnodes: Vec&lt;PeerId&gt;, metrics_registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;) -&gt; <span class="self">Self</span>::PeerStore;
 
 	<span class="doccomment">/// Register metrics that are used by the notification protocols.
 	</span><span class="kw">fn </span>register_notification_metrics(registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;) -&gt; NotificationMetrics;

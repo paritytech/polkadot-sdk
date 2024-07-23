@@ -627,7 +627,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Block,
 		&lt;Block <span class="kw">as </span>sp_runtime::traits::Block&gt;::Hash,
 		N,
-	&gt;::new(<span class="kw-2">&amp;</span>config.network);
+	&gt;::new(<span class="kw-2">&amp;</span>config.network, config.prometheus_registry().cloned());
 	<span class="kw">let </span>metrics = N::register_notification_metrics(config.prometheus_registry());
 
 	<span class="kw">let </span>peer_store_handle = net_config.peer_store_handle();

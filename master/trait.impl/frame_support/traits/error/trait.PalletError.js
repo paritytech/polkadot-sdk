@@ -74,7 +74,7 @@
 "pallet_session":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_session/pallet/enum.Error.html\" title=\"enum pallet_session::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_society":[["impl&lt;T, I&gt; PalletError for <a class=\"enum\" href=\"pallet_society/pallet/enum.Error.html\" title=\"enum pallet_society::pallet::Error\">Error</a>&lt;T, I&gt;"]],
 "pallet_staking":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_staking/enum.Error.html\" title=\"enum pallet_staking::Error\">Error</a>&lt;T&gt;"]],
-"pallet_state_trie_migration":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_state_trie_migration/pallet/enum.Error.html\" title=\"enum pallet_state_trie_migration::pallet::Error\">Error</a>&lt;T&gt;"]],
+"pallet_state_trie_migration":[["impl&lt;T&gt; <a class=\"trait\" href=\"frame_support/traits/error/trait.PalletError.html\" title=\"trait frame_support::traits::error::PalletError\">PalletError</a> for <a class=\"enum\" href=\"pallet_state_trie_migration/pallet/enum.Error.html\" title=\"enum pallet_state_trie_migration::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_sudo":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_sudo/pallet/enum.Error.html\" title=\"enum pallet_sudo::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_template":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_template/pallet/enum.Error.html\" title=\"enum pallet_template::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_tips":[["impl&lt;T, I&gt; PalletError for <a class=\"enum\" href=\"pallet_tips/pallet/enum.Error.html\" title=\"enum pallet_tips::pallet::Error\">Error</a>&lt;T, I&gt;"]],

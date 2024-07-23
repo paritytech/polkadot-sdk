@@ -555,6 +555,56 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#404" id="404">404</a>
 <a href="#405" id="405">405</a>
 <a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -580,11 +630,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use crate</span>::{
 	peer_store::{PeerStoreProvider, ProtocolHandle},
-	service::traits::PeerStore,
+	service::{metrics::PeerStoreMetrics, traits::PeerStore},
 	ObservedRole, ReputationChange,
 };
 
 <span class="kw">use </span>parking_lot::Mutex;
+<span class="kw">use </span>prometheus_endpoint::Registry;
 <span class="kw">use </span>wasm_timer::Delay;
 
 <span class="kw">use </span>sc_network_types::PeerId;
@@ -675,12 +726,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>PeerstoreHandleInner {
 	peers: HashMap&lt;PeerId, PeerInfo&gt;,
 	protocols: Vec&lt;Arc&lt;<span class="kw">dyn </span>ProtocolHandle&gt;&gt;,
+	metrics: <span class="prelude-ty">Option</span>&lt;PeerStoreMetrics&gt;,
 }
 
 <span class="attr">#[derive(Debug, Clone, Default)]
 </span><span class="kw">pub struct </span>PeerstoreHandle(Arc&lt;Mutex&lt;PeerstoreHandleInner&gt;&gt;);
 
 <span class="kw">impl </span>PeerstoreHandle {
+	<span class="doccomment">/// Constructs a new [`PeerstoreHandle`].
+	</span><span class="kw">fn </span>new(
+		peers: HashMap&lt;PeerId, PeerInfo&gt;,
+		protocols: Vec&lt;Arc&lt;<span class="kw">dyn </span>ProtocolHandle&gt;&gt;,
+		metrics: <span class="prelude-ty">Option</span>&lt;PeerStoreMetrics&gt;,
+	) -&gt; <span class="self">Self </span>{
+		<span class="self">Self</span>(Arc::new(Mutex::new(PeerstoreHandleInner { peers, protocols, metrics })))
+	}
+
 	<span class="doccomment">/// Add known peer to [`Peerstore`].
 	</span><span class="kw">pub fn </span>add_known_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: PeerId) {
 		<span class="self">self</span>.<span class="number">0
@@ -707,8 +768,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Retain only entries with non-zero reputation values or not expired ones.
 		</span><span class="kw">let </span>now = Instant::now();
-		lock.peers
-			.retain(|<span class="kw">_</span>, info| info.reputation != <span class="number">0 </span>|| info.last_updated + FORGET_AFTER &gt; now);
+		<span class="kw">let </span><span class="kw-2">mut </span>num_banned_peers = <span class="number">0</span>;
+		lock.peers.retain(|<span class="kw">_</span>, info| {
+			<span class="kw">if </span>info.is_banned() {
+				num_banned_peers += <span class="number">1</span>;
+			}
+			info.reputation != <span class="number">0 </span>|| info.last_updated + FORGET_AFTER &gt; now
+		});
+
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span>lock.metrics {
+			metrics.num_discovered.set(lock.peers.len() <span class="kw">as </span>u64);
+			metrics.num_banned_peers.set(num_banned_peers);
+		}
 	}
 }
 
@@ -797,14 +868,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 	}
 
-	<span class="doccomment">/// Get the number of known peers.
-	///
-	/// This number might not include some connected peers in rare cases when their reputation
-	/// was not updated for one hour, because their entries in [`PeerStore`] were dropped.
-	</span><span class="kw">fn </span>num_known_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-		<span class="self">self</span>.<span class="number">0</span>.lock().peers.len()
-	}
-
 	<span class="doccomment">/// Add known peer.
 	</span><span class="kw">fn </span>add_known_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: PeerId) {
 		<span class="self">self</span>.<span class="number">0</span>.lock().peers.entry(peer).or_default().last_updated = Instant::now();
@@ -827,21 +890,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Peerstore {
 	<span class="doccomment">/// Create new [`Peerstore`].
-	</span><span class="kw">pub fn </span>new(bootnodes: Vec&lt;PeerId&gt;) -&gt; <span class="self">Self </span>{
-		<span class="kw">let </span>peerstore_handle = PeerstoreHandle(Arc::new(Mutex::new(Default::default())));
+	</span><span class="kw">pub fn </span>new(bootnodes: Vec&lt;PeerId&gt;, metrics_registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;) -&gt; <span class="self">Self </span>{
+		<span class="kw">let </span>metrics = <span class="kw">if let </span><span class="prelude-val">Some</span>(registry) = <span class="kw-2">&amp;</span>metrics_registry {
+			PeerStoreMetrics::register(registry)
+				.map_err(|err| {
+					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Failed to register peer store metrics: {}"</span>, err);
+					err
+				})
+				.ok()
+		} <span class="kw">else </span>{
+			<span class="prelude-val">None
+		</span>};
 
-		<span class="kw">for </span>bootnode <span class="kw">in </span>bootnodes {
-			peerstore_handle.add_known_peer(bootnode);
-		}
-
-		<span class="self">Self </span>{ peerstore_handle }
-	}
-
-	<span class="doccomment">/// Create new [`Peerstore`] from a [`PeerstoreHandle`].
-	</span><span class="kw">pub fn </span>from_handle(peerstore_handle: PeerstoreHandle, bootnodes: Vec&lt;PeerId&gt;) -&gt; <span class="self">Self </span>{
-		<span class="kw">for </span>bootnode <span class="kw">in </span>bootnodes {
-			peerstore_handle.add_known_peer(bootnode);
-		}
+		<span class="kw">let </span>peerstore_handle = PeerstoreHandle::new(
+			bootnodes.iter().map(|peer_id| (<span class="kw-2">*</span>peer_id, PeerInfo::default())).collect(),
+			Vec::new(),
+			metrics,
+		);
 
 		<span class="self">Self </span>{ peerstore_handle }
 	}
@@ -893,7 +958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-	<span class="kw">use </span><span class="kw">super</span>::PeerInfo;
+	<span class="kw">use super</span>::{PeerInfo, PeerStoreProvider, Peerstore};
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>decaying_zero_reputation_yields_zero() {
@@ -959,6 +1024,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		peer_info.decay_reputation(SECONDS / <span class="number">2</span>);
 		<span class="macro">assert_eq!</span>(peer_info.reputation, <span class="number">0</span>);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>report_banned_peers() {
+		<span class="kw">let </span>peer_a = sc_network_types::PeerId::random();
+		<span class="kw">let </span>peer_b = sc_network_types::PeerId::random();
+		<span class="kw">let </span>peer_c = sc_network_types::PeerId::random();
+
+		<span class="kw">let </span>metrics_registry = prometheus_endpoint::Registry::new();
+		<span class="kw">let </span><span class="kw-2">mut </span>peerstore = Peerstore::new(
+			<span class="macro">vec!</span>[peer_a, peer_b, peer_c].into_iter().map(Into::into).collect(),
+			<span class="prelude-val">Some</span>(metrics_registry),
+		);
+		<span class="kw">let </span>metrics = peerstore.peerstore_handle.<span class="number">0</span>.lock().metrics.as_ref().unwrap().clone();
+		<span class="kw">let </span>handle = peerstore.handle();
+
+		<span class="comment">// Check initial state. Advance time to propagate peers.
+		</span>handle.progress_time(<span class="number">1</span>);
+		<span class="macro">assert_eq!</span>(metrics.num_discovered.get(), <span class="number">3</span>);
+		<span class="macro">assert_eq!</span>(metrics.num_banned_peers.get(), <span class="number">0</span>);
+
+		<span class="comment">// Report 2 peers with a negative reputation.
+		</span>handle.report_peer(
+			peer_a,
+			sc_network_common::types::ReputationChange { value: i32::MIN, reason: <span class="string">"test"</span>.into() },
+		);
+		handle.report_peer(
+			peer_b,
+			sc_network_common::types::ReputationChange { value: i32::MIN, reason: <span class="string">"test"</span>.into() },
+		);
+
+		<span class="comment">// Advance time to propagate peers.
+		</span>handle.progress_time(<span class="number">1</span>);
+		<span class="macro">assert_eq!</span>(metrics.num_discovered.get(), <span class="number">3</span>);
+		<span class="macro">assert_eq!</span>(metrics.num_banned_peers.get(), <span class="number">2</span>);
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

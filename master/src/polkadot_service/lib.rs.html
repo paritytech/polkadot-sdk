@@ -1693,6 +1693,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1542" id="1542">1542</a>
 <a href="#1543" id="1543">1543</a>
 <a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2533,8 +2535,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
 	<span class="kw">let </span>auth_disc_public_addresses = config.network.public_addresses.clone();
 
-	<span class="kw">let </span><span class="kw-2">mut </span>net_config =
-		sc_network::config::FullNetworkConfiguration::&lt;<span class="kw">_</span>, <span class="kw">_</span>, Network&gt;::new(<span class="kw-2">&amp;</span>config.network);
+	<span class="kw">let </span><span class="kw-2">mut </span>net_config = sc_network::config::FullNetworkConfiguration::&lt;<span class="kw">_</span>, <span class="kw">_</span>, Network&gt;::new(
+		<span class="kw-2">&amp;</span>config.network,
+		config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
+	);
 
 	<span class="kw">let </span>genesis_hash = client.block_hash(<span class="number">0</span>).ok().flatten().expect(<span class="string">"Genesis block exists; qed"</span>);
 	<span class="kw">let </span>peer_store_handle = net_config.peer_store_handle();
