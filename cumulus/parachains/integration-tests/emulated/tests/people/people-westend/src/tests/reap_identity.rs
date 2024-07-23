@@ -41,7 +41,7 @@
 use crate::imports::*;
 use frame_support::BoundedVec;
 use pallet_balances::Event as BalancesEvent;
-use pallet_identity::{legacy::IdentityInfo, Data, Event as IdentityEvent};
+use pallet_identity::{legacy::IdentityInfo, Data, Event as IdentityEvent, IdentityOf, SubsOf};
 use people::{
 	BasicDeposit as BasicDepositParachain, ByteDeposit as ByteDepositParachain,
 	IdentityInfo as IdentityInfoParachain, SubAccountDeposit as SubAccountDepositParachain,
@@ -266,9 +266,9 @@ fn assert_set_id_parachain(id: &Identity) {
 		// No amount should be reserved as deposit amounts are set to 0.
 		let reserved_balance = PeopleWestendBalances::reserved_balance(PeopleWestendSender::get());
 		assert_eq!(reserved_balance, 0);
-		assert!(PeopleWestendIdentity::identity(PeopleWestendSender::get()).is_some());
+		assert!(IdentityOf::<PeopleRuntime>::get(PeopleWestendSender::get()).is_some());
 
-		let (_, sub_accounts) = PeopleWestendIdentity::subs_of(PeopleWestendSender::get());
+		let (_, sub_accounts) = SubsOf::<PeopleRuntime>::get(PeopleWestendSender::get());
 
 		match id.subs {
 			Subs::Zero => assert_eq!(sub_accounts.len(), 0),
@@ -314,10 +314,10 @@ fn assert_reap_id_relay(total_deposit: Balance, id: &Identity) {
 			]
 		);
 		// Identity should be gone.
-		assert!(PeopleWestendIdentity::identity(WestendRelaySender::get()).is_none());
+		assert!(IdentityOf::<PeopleRuntime>::get(WestendRelaySender::get()).is_none());
 
 		// Subs should be gone.
-		let (_, sub_accounts) = WestendIdentity::subs_of(WestendRelaySender::get());
+		let (_, sub_accounts) = SubsOf::<WestendRuntime>::get(WestendRelaySender::get());
 		assert_eq!(sub_accounts.len(), 0);
 
 		let reserved_balance = WestendBalances::reserved_balance(WestendRelaySender::get());

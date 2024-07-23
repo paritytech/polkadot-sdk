@@ -40,7 +40,7 @@ mod imports {
 			genesis::ED as PEOPLE_ROCOCO_ED,
 			people_rococo_runtime::{
 				people, xcm_config::XcmConfig as PeopleRococoXcmConfig,
-				ExistentialDeposit as PeopleRococoExistentialDeposit,
+				ExistentialDeposit as PeopleRococoExistentialDeposit, Runtime as PeopleRuntime,
 			},
 			PeopleRococoParaPallet as PeopleRococoPallet,
 		},
@@ -48,8 +48,8 @@ mod imports {
 			genesis::ED as ROCOCO_ED,
 			rococo_runtime::{
 				xcm_config::XcmConfig as RococoXcmConfig, BasicDeposit, ByteDeposit,
-				MaxAdditionalFields, MaxSubAccounts, RuntimeOrigin as RococoOrigin,
-				SubAccountDeposit,
+				MaxAdditionalFields, MaxSubAccounts, Runtime as RococoRuntime,
+				RuntimeOrigin as RococoOrigin, SubAccountDeposit,
 			},
 			RococoRelayPallet as RococoPallet,
 		},
