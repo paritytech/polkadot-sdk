@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721693064497,
+  "lastUpdate": 1721752088308,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -18875,6 +18875,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022648004320000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Serban Iorga",
+            "username": "serban300",
+            "email": "serban@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "216e8fa126df9ee819d524834e75a82881681e02",
+          "message": "Beefy equivocation: add runtime API methods (#4993)\n\nRelated to https://github.com/paritytech/polkadot-sdk/issues/4523\n\nAdd runtime API methods for:\n- generating the ancestry proof\n- submiting a fork voting report\n- submitting a future voting report",
+          "timestamp": "2024-07-23T14:27:42Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/216e8fa126df9ee819d524834e75a82881681e02"
+        },
+        "date": 1721752057806,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012382497126666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010266818386666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02210694183333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16995381273999996,
             "unit": "seconds"
           }
         ]
