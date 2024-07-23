@@ -17,7 +17,7 @@
 //! On-demand Substrate -> Substrate parachain finality relay.
 
 use crate::{
-	messages_source::best_finalized_peer_header_at_self,
+	messages::source::best_finalized_peer_header_at_self,
 	on_demand::OnDemandRelay,
 	parachains::{
 		source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter,
@@ -681,7 +681,7 @@ impl<'a, P: SubstrateParachainsPipeline, SourceRelayClnt, TargetClnt>
 	async fn best_finalized_relay_block_at_target(
 		&self,
 	) -> Result<HeaderIdOf<P::SourceRelayChain>, SubstrateError> {
-		Ok(crate::messages_source::read_client_state::<P::TargetChain, P::SourceRelayChain>(
+		Ok(crate::messages::source::read_client_state::<P::TargetChain, P::SourceRelayChain>(
 			&self.0.target_client,
 		)
 		.await?
