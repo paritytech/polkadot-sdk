@@ -283,8 +283,6 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras_inherent::Weigh
 		// Minimum execution time: 5_519_381_000 picoseconds.
 		Weight::from_parts(1_341_041_627, 0)
 			.saturating_add(Weight::from_parts(0, 49243))
-			// Standard Error: 23_295
-			.saturating_add(Weight::from_parts(41_790_858, 0).saturating_mul(v.into()))
 			.saturating_add(T::DbWeight::get().reads(29))
 			.saturating_add(T::DbWeight::get().writes(16))
 	}
