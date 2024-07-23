@@ -43,7 +43,7 @@ where
 				Voting::<T>::insert(&who, voter);
 
 				let _ = T::Currency::set_freeze(
-					&FreezeReason::CandidacyLockedBond.into(),
+					&FreezeReason::PhragmenLockedBond.into(),
 					who,
 					balance,
 				);
