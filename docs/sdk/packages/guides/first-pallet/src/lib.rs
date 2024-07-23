@@ -92,11 +92,11 @@ pub mod pallet {
 			if sender_balance < amount {
 				return Err("InsufficientBalance".into())
 			}
-			let reminder = sender_balance - amount;
+			let remainder = sender_balance - amount;
 
 			// update sender and dest balances.
 			Balances::<T>::mutate(dest, |b| *b = Some(b.unwrap_or(0) + amount));
-			Balances::<T>::insert(&sender, reminder);
+			Balances::<T>::insert(&sender, remainder);
 
 			Ok(())
 		}
