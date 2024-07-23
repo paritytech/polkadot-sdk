@@ -326,6 +326,7 @@ pub trait Backend<Block: BlockT>:
 			debug!(
 				target: crate::LOG_TARGET,
 				?leaf_number,
+				?leaf_hash,
 				elapsed = ?now.elapsed(),
 				"Handle displaced leaf.",
 			);
