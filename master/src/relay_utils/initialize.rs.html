@@ -308,7 +308,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Relayer initialization functions.
 
-</span><span class="kw">use </span>parking_lot::Mutex;
+</span><span class="kw">use </span>console::style;
+<span class="kw">use </span>parking_lot::Mutex;
 <span class="kw">use </span>std::{cell::RefCell, fmt::Display, io::Write};
 
 <span class="doccomment">/// Relayer version that is provided as metric. Must be set by a binary
@@ -347,7 +348,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>timestamp = <span class="kw">if </span><span class="macro">cfg!</span>(windows) {
 				Either::Left(timestamp)
 			} <span class="kw">else </span>{
-				Either::Right(ansi_term::Colour::Fixed(<span class="number">8</span>).bold().paint(timestamp))
+				Either::Right(style(timestamp).black().bright().bold().to_string())
 			};
 
 			<span class="macro">writeln!</span>(
@@ -412,7 +413,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if </span><span class="macro">cfg!</span>(windows) {
 		Either::Left(target)
 	} <span class="kw">else </span>{
-		Either::Right(ansi_term::Colour::Fixed(<span class="number">8</span>).paint(target))
+		Either::Right(style(target).black().bright().to_string())
 	}
 }
 
@@ -421,13 +422,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Either::Left(level)
 	} <span class="kw">else </span>{
 		<span class="kw">let </span>s = level.to_string();
-		<span class="kw">use </span>ansi_term::Colour <span class="kw">as </span>Color;
 		Either::Right(<span class="kw">match </span>level {
-			log::Level::Error =&gt; Color::Fixed(<span class="number">9</span>).bold().paint(s),
-			log::Level::Warn =&gt; Color::Fixed(<span class="number">11</span>).bold().paint(s),
-			log::Level::Info =&gt; Color::Fixed(<span class="number">10</span>).paint(s),
-			log::Level::Debug =&gt; Color::Fixed(<span class="number">14</span>).paint(s),
-			log::Level::Trace =&gt; Color::Fixed(<span class="number">12</span>).paint(s),
+			log::Level::Error =&gt; style(s).red().bright().bold().to_string(),
+			log::Level::Warn =&gt; style(s).yellow().bright().bold().to_string(),
+			log::Level::Info =&gt; style(s).green().bright().to_string(),
+			log::Level::Debug =&gt; style(s).cyan().bright().to_string(),
+			log::Level::Trace =&gt; style(s).blue().bright().to_string(),
 		})
 	}
 }

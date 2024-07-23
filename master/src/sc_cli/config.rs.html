@@ -857,7 +857,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#706" id="706">706</a>
 <a href="#707" id="707">707</a>
 <a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -887,7 +886,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_service::{
 	config::{
 		BasePath, Configuration, DatabaseSource, IpNetwork, KeystoreConfig, NetworkConfiguration,
-		NodeKeyConfig, OffchainWorkerConfig, OutputFormat, PrometheusConfig, PruningMode, Role,
+		NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode, Role,
 		RpcBatchRequestConfig, RpcMethods, TelemetryEndpoints, TransactionPoolOptions,
 		WasmExecutionMethod,
 	},
@@ -1410,7 +1409,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			announce_block: <span class="self">self</span>.announce_block()<span class="question-mark">?</span>,
 			role,
 			base_path,
-			informant_output_format: OutputFormat { enable_color: !<span class="self">self</span>.disable_log_color()<span class="question-mark">? </span>},
 			runtime_cache_size,
 		})
 	}

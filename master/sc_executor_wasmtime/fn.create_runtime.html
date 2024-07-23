@@ -152,7 +152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     blob: <a class="struct" href="struct.RuntimeBlob.html" title="struct sc_executor_wasmtime::RuntimeBlob">RuntimeBlob</a>,
     config: <a class="struct" href="struct.Config.html" title="struct sc_executor_wasmtime::Config">Config</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.WasmtimeRuntime.html" title="struct sc_executor_wasmtime::WasmtimeRuntime">WasmtimeRuntime</a>, WasmError&gt;<div class="where">where
-    H: <a class="trait" href="../sp_wasm_interface/trait.HostFunctions.html" title="trait sp_wasm_interface::HostFunctions">HostFunctions</a>,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Create a new <code>WasmtimeRuntime</code> given the code. This function performs translation from Wasm to
+    H: HostFunctions,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Create a new <code>WasmtimeRuntime</code> given the code. This function performs translation from Wasm to
 machine code, which can be computationally heavy.</p>
 <p>The <code>H</code> generic parameter is used to statically pass a set of host functions which are exposed
 to the runtime.</p>

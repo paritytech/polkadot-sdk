@@ -374,10 +374,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -396,8 +392,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::OutputFormat;
-<span class="kw">use </span>ansi_term::Colour;
+</span><span class="kw">use </span>console::style;
 <span class="kw">use </span>log::info;
 <span class="kw">use </span>sc_client_api::ClientInfo;
 <span class="kw">use </span>sc_network::NetworkStatus;
@@ -427,19 +422,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>last_total_bytes_inbound: u64,
 	<span class="doccomment">/// The last seen total of bytes sent.
 	</span>last_total_bytes_outbound: u64,
-	<span class="doccomment">/// The format to print output in.
-	</span>format: OutputFormat,
 }
 
 <span class="kw">impl</span>&lt;B: BlockT&gt; InformantDisplay&lt;B&gt; {
 	<span class="doccomment">/// Builds a new informant display system.
-	</span><span class="kw">pub fn </span>new(format: OutputFormat) -&gt; InformantDisplay&lt;B&gt; {
+	</span><span class="kw">pub fn </span>new() -&gt; InformantDisplay&lt;B&gt; {
 		InformantDisplay {
 			last_number: <span class="prelude-val">None</span>,
 			last_update: Instant::now(),
 			last_total_bytes_inbound: <span class="number">0</span>,
 			last_total_bytes_outbound: <span class="number">0</span>,
-			format,
 		}
 	}
 
@@ -524,17 +516,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">info!</span>(
 			target: <span class="string">"substrate"</span>,
-			<span class="string">"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}"</span>,
+			<span class="string">"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), ⬇ {} ⬆ {}"</span>,
 			level,
-			<span class="self">self</span>.format.print_with_color(Colour::White.bold(), status),
+			style(<span class="kw-2">&amp;</span>status).white().bold(),
 			target,
-			<span class="self">self</span>.format.print_with_color(Colour::White.bold(), num_connected_peers),
-			<span class="self">self</span>.format.print_with_color(Colour::White.bold(), best_number),
+			style(num_connected_peers).white().bold(),
+			style(best_number).white().bold(),
 			best_hash,
-			<span class="self">self</span>.format.print_with_color(Colour::White.bold(), finalized_number),
+			style(finalized_number).white().bold(),
 			info.chain.finalized_hash,
-			<span class="self">self</span>.format.print_with_color(Colour::Green, <span class="macro">format!</span>(<span class="string">"⬇ {}"</span>, TransferRateFormat(avg_bytes_per_sec_inbound))),
-			<span class="self">self</span>.format.print_with_color(Colour::Red, <span class="macro">format!</span>(<span class="string">"⬆ {}"</span>, TransferRateFormat(avg_bytes_per_sec_outbound))),
+			style(TransferRateFormat(avg_bytes_per_sec_inbound)).green(),
+			style(TransferRateFormat(avg_bytes_per_sec_outbound)).red(),
 		)
 	}
 }
