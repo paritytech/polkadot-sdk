@@ -853,6 +853,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									"`PUT_VALUE` for {key:?} ({query_id:?}) succeeded",
 								);
 
+								self.event_streams.send(Event::Dht(
+									DhtEvent::ValuePut(libp2p::kad::RecordKey::new(&key))
+								));
+
 								if let Some(ref metrics) = self.metrics {
 									metrics
 										.kademlia_query_duration

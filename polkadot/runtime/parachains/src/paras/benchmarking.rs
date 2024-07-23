@@ -16,6 +16,7 @@
 
 use super::*;
 use crate::configuration::HostConfiguration;
+use alloc::vec;
 use frame_benchmarking::benchmarks;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use polkadot_primitives::{
@@ -23,6 +24,7 @@ use polkadot_primitives::{
 };
 use sp_runtime::traits::{One, Saturating};
 
+pub mod mmr_setup;
 mod pvf_check;
 
 use self::pvf_check::{VoteCause, VoteOutcome};

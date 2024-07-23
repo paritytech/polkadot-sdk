@@ -18,10 +18,10 @@
 //! Presets for the chain-spec demo runtime.
 
 use crate::pallets::{FooEnum, SomeFooData1, SomeFooData2};
+use alloc::vec;
 use serde_json::{json, to_string, Value};
 use sp_application_crypto::Ss58Codec;
 use sp_keyring::AccountKeyring;
-use sp_std::vec;
 
 /// A demo preset with strings only.
 pub const PRESET_1: &str = "preset_1";
@@ -122,7 +122,7 @@ fn preset_invalid() -> Value {
 ///
 /// If no preset with given `id` exits `None` is returned.
 #[docify::export]
-pub fn get_builtin_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>> {
+pub fn get_builtin_preset(id: &sp_genesis_builder::PresetId) -> Option<alloc::vec::Vec<u8>> {
 	let preset = match id.try_into() {
 		Ok(PRESET_1) => preset_1(),
 		Ok(PRESET_2) => preset_2(),

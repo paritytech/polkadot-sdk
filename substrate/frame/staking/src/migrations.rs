@@ -67,7 +67,7 @@ pub mod v15 {
 	// The disabling strategy used by staking pallet
 	type DefaultDisablingStrategy = UpToLimitDisablingStrategy;
 
-	pub struct VersionUncheckedMigrateV14ToV15<T>(sp_std::marker::PhantomData<T>);
+	pub struct VersionUncheckedMigrateV14ToV15<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut migrated = v14::OffendingValidators::<T>::take()
@@ -382,14 +382,14 @@ pub mod v10 {
 pub mod v9 {
 	use super::*;
 	#[cfg(feature = "try-runtime")]
-	use codec::{Decode, Encode};
+	use alloc::vec::Vec;
 	#[cfg(feature = "try-runtime")]
-	use sp_std::vec::Vec;
+	use codec::{Decode, Encode};
 
 	/// Migration implementation that injects all validators into sorted list.
 	///
 	/// This is only useful for chains that started their `VoterList` just based on nominators.
-	pub struct InjectValidatorsIntoVoterList<T>(sp_std::marker::PhantomData<T>);
+	pub struct InjectValidatorsIntoVoterList<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for InjectValidatorsIntoVoterList<T> {
 		fn on_runtime_upgrade() -> Weight {
 			if StorageVersion::<T>::get() == ObsoleteReleases::V8_0_0 {
