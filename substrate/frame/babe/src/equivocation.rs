@@ -33,6 +33,7 @@
 //! that the `ValidateUnsigned` for the BABE pallet is used in the runtime
 //! definition.
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use frame_support::traits::{Get, KeyOwnerProofSystem};
 use frame_system::pallet_prelude::HeaderFor;
 use log::{error, info};
@@ -50,7 +51,6 @@ use sp_staking::{
 	offence::{Kind, Offence, OffenceReportSystem, ReportOffence},
 	SessionIndex,
 };
-use sp_std::prelude::*;
 
 use crate::{Call, Config, Error, Pallet, LOG_TARGET};
 
@@ -104,7 +104,7 @@ impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 /// - On-chain validity checks and processing are mostly delegated to the user provided generic
 ///   types implementing `KeyOwnerProofSystem` and `ReportOffence` traits.
 /// - Offence reporter for unsigned transactions is fetched via the the authorship pallet.
-pub struct EquivocationReportSystem<T, R, P, L>(sp_std::marker::PhantomData<(T, R, P, L)>);
+pub struct EquivocationReportSystem<T, R, P, L>(core::marker::PhantomData<(T, R, P, L)>);
 
 impl<T, R, P, L>
 	OffenceReportSystem<Option<T::AccountId>, (EquivocationProof<HeaderFor<T>>, T::KeyOwnerProof)>

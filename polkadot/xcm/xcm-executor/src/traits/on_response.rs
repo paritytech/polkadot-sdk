@@ -16,10 +16,9 @@
 
 use crate::{Junctions::Here, Xcm};
 use codec::{Decode, Encode};
-use core::result;
+use core::{fmt::Debug, result};
 use frame_support::{pallet_prelude::Get, parameter_types};
 use sp_arithmetic::traits::Zero;
-use sp_std::fmt::Debug;
 use xcm::latest::{
 	Error as XcmError, InteriorLocation, Location, QueryId, Response, Result as XcmResult, Weight,
 	XcmContext,
