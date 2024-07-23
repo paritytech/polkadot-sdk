@@ -561,7 +561,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			Self::contribute_decision_deposit(index, who, None)
+			Self::contribute_decision_deposit_impl(index, who, None)
 		}
 
 		/// Refund the Decision Deposit for a closed referendum back to the depositor.
@@ -771,6 +771,25 @@ pub mod pallet {
 				Ok(())
 			}
 		}
+
+		/// Contribute towards the Decision Deposit of a referendum.
+		///
+		/// - `origin`: must be `Signed` and the account must have funds available for the
+		///   referendum's track's Decision Deposit.
+		/// - `index`: The index of the submitted referendum whose Decision Deposit is yet to be
+		///   posted.
+		/// - `deposit`: The amount to be contributed to towards the Decision Deposit.
+		#[pallet::call_index(9)]
+		#[pallet::weight(ServiceBranch::max_weight_of_deposit::<T, I>())]
+		pub fn contribute_decision_deposit(
+			origin: OriginFor<T>,
+			index: ReferendumIndex,
+			amount: BalanceOf<T, I>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+
+			Self::contribute_decision_deposit_impl(index, who, Some(amount))
+		}
 	}
 }
 
@@ -897,7 +916,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// The `deposit` will be locked for `contributor`. If `deposit` is `None`, the required
 	/// `decision_deposit` of the track will be locked.
-	fn contribute_decision_deposit(
+	fn contribute_decision_deposit_impl(
 		index: ReferendumIndex,
 		contributor: T::AccountId,
 		deposit: Option<BalanceOf<T, I>>,
