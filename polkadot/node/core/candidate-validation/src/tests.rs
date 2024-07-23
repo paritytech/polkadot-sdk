@@ -1325,10 +1325,10 @@ impl ValidationBackend for MockHeadsUp {
 
 	async fn ensure_pvf(
 		&mut self,
-		_code_hashes: Vec<ValidationCodeHash>,
+		code_hashes: Vec<ValidationCodeHash>,
 		_executor_params: ExecutorParams,
 	) -> Result<Vec<ValidationCodeHash>, String> {
-		Ok(vec![])
+		Ok(code_hashes)
 	}
 }
 
