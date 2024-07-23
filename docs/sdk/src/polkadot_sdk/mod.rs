@@ -82,7 +82,7 @@
 //!
 //! A Substrate-based chain is a blockchain composed of a runtime and a node. As noted above, the
 //! runtime is the application logic of the blockchain, and the node is everything else.
-//! See [`crate::reference_docs::wasm_meta_protocol`] for an in-depth explanation of this. The
+//! See [`reference_docs::wasm_meta_protocol`] for an in-depth explanation of this. The
 //! former is built with [`frame`], and the latter is built with rest of Substrate.
 //!
 //! > You can think of a Substrate-based chain as a white-labeled blockchain.
