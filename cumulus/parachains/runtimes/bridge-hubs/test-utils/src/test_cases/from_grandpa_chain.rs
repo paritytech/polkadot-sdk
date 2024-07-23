@@ -141,7 +141,6 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 				test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
 					BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 					ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-					(),
 				>(
 					lane_id,
 					xcm.into(),
@@ -266,7 +265,6 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 				test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
 					BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 					ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-					(),
 				>(
 					lane_id,
 					xcm.into(),
@@ -377,7 +375,6 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 				test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
 					BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 					ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-					(),
 				>(
 					lane_id,
 					xcm.into(),
@@ -452,7 +449,6 @@ where
 			test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-				(),
 			>(
 				LaneId::default(),
 				vec![Instruction::<()>::ClearOrigin; 1_024].into(),
@@ -557,7 +553,6 @@ where
 			test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-				(),
 			>(
 				LaneId::default(),
 				vec![Instruction::<()>::ClearOrigin; 1_024].into(),

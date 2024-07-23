@@ -162,7 +162,6 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 				<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-				(),
 			>(
 				lane_id,
 				xcm.into(),
@@ -315,7 +314,6 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 				<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-				(),
 			>(
 				lane_id,
 				xcm.into(),
@@ -459,7 +457,6 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 				<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-				(),
 			>(
 				lane_id,
 				xcm.into(),
@@ -557,7 +554,6 @@ where
 			<RuntimeHelper::Runtime as pallet_bridge_grandpa::Config<RuntimeHelper::GPI>>::BridgedChain,
 			BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-			(),
 		>(
 			LaneId::default(),
 			vec![Instruction::<()>::ClearOrigin; 1_024].into(),
@@ -628,7 +624,6 @@ where
 			<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
 			BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-			(),
 		>(
 			LaneId::default(),
 			1,
@@ -691,7 +686,6 @@ where
 			<RuntimeHelper::Runtime as pallet_bridge_grandpa::Config<RuntimeHelper::GPI>>::BridgedChain,
 			BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-			(),
 		>(
 			LaneId::default(),
 			vec![Instruction::<()>::ClearOrigin; 1_024].into(),
@@ -747,7 +741,6 @@ where
 				<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
-				(),
 			>(
 				LaneId::default(),
 				1,
