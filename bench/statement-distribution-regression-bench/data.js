@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721768373018,
+  "lastUpdate": 1721777879545,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -5921,6 +5921,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.036331609424000016,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "604f56f03db847a90aa4fdb13be6b80482a4dcd6",
+          "message": "Remove not-audited warning (#5114)\n\nPallet tx-pause and safe-mode are both audited, see: #4445\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-07-23T21:11:32Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/604f56f03db847a90aa4fdb13be6b80482a4dcd6"
+        },
+        "date": 1721777849983,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.93599999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03643041962,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04535562995000003,
             "unit": "seconds"
           }
         ]
