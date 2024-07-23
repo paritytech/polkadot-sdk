@@ -145,17 +145,19 @@ impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId,
 	}
 }
 
-pub struct DealWithFee;
-impl OnUnbalanced<fungibles::Credit<AccountId, NativeAndAssets>> for DealWithFee {
-	fn on_nonzero_unbalanced(fee: fungibles::Credit<AccountId, NativeAndAssets>) {
-		FeeUnbalancedAmount::mutate(|a| *a += fee.peek());
-	}
-}
-
-pub struct DealWithTip;
-impl OnUnbalanced<fungibles::Credit<AccountId, NativeAndAssets>> for DealWithTip {
-	fn on_nonzero_unbalanced(tip: fungibles::Credit<AccountId, NativeAndAssets>) {
-		TipUnbalancedAmount::mutate(|a| *a += tip.peek());
+pub struct DealWithFungiblesFees;
+impl OnUnbalanced<fungibles::Credit<AccountId, NativeAndAssets>> for DealWithFungiblesFees {
+	fn on_unbalanceds(
+		mut fees_then_tips: impl Iterator<
+			Item = fungibles::Credit<<Runtime as frame_system::Config>::AccountId, NativeAndAssets>,
+		>,
+	) {
+		if let Some(fees) = fees_then_tips.next() {
+			FeeUnbalancedAmount::mutate(|a| *a += fees.peek());
+			if let Some(tips) = fees_then_tips.next() {
+				TipUnbalancedAmount::mutate(|a| *a += tips.peek());
+			}
+		}
 	}
 }
 
@@ -268,5 +270,5 @@ impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AssetId = NativeOrWithId<u32>;
 	type OnChargeAssetTransaction =
-		SwapAssetAdapter<Native, NativeAndAssets, AssetConversion, DealWithFee, DealWithTip>;
+		SwapAssetAdapter<Native, NativeAndAssets, AssetConversion, DealWithFungiblesFees>;
 }

@@ -536,7 +536,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Utility { .. } |
 						RuntimeCall::Multisig { .. } |
 						RuntimeCall::NftFractionalization { .. } |
-						RuntimeCall::Nfts { .. } | RuntimeCall::Uniques { .. }
+						RuntimeCall::Nfts { .. } |
+						RuntimeCall::Uniques { .. }
 				)
 			},
 			ProxyType::AssetOwner => matches!(
@@ -798,7 +799,6 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 		WestendLocationV3,
 		NativeAndAssets,
 		AssetConversion,
-		ResolveAssetTo<StakingPot, NativeAndAssets>,
 		ResolveAssetTo<StakingPot, NativeAndAssets>,
 	>;
 }

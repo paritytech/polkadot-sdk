@@ -583,7 +583,6 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 		NativeAndAssets,
 		AssetConversion,
 		ResolveAssetTo<TreasuryAccount, NativeAndAssets>,
-		ResolveAssetTo<TreasuryAccount, NativeAndAssets>,
 	>;
 }
 

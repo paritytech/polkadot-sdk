@@ -82,12 +82,12 @@ pub trait OnChargeAssetTransaction<T: Config> {
 /// - `A`: The asset identifier that system accepts as a fee payment (eg. native asset).
 /// - `F`: The fungibles registry that can handle assets provided by user and the `A` asset.
 /// - `S`: The swap implementation that can swap assets provided by user for the `A` asset.
-/// - `OUF`: The handler for the fee payment.
-/// - `OUT`: The handler for the tip payment.
+/// - OU: The handler for withdrawn `fee` and `tip`, passed in the respective order to
+///   [OnUnbalanced::on_unbalanceds].
 /// - `T`: The pallet's configuration.
-pub struct SwapAssetAdapter<A, F, S, OUF, OUT>(PhantomData<(A, F, S, OUF, OUT)>);
+pub struct SwapAssetAdapter<A, F, S, OU>(PhantomData<(A, F, S, OU)>);
 
-impl<A, F, S, OUF, OUT, T> OnChargeAssetTransaction<T> for SwapAssetAdapter<A, F, S, OUF, OUT>
+impl<A, F, S, OU, T> OnChargeAssetTransaction<T> for SwapAssetAdapter<A, F, S, OU>
 where
 	A: Get<T::AssetId>,
 	F: fungibles::Balanced<T::AccountId, Balance = BalanceOf<T>, AssetId = T::AssetId>,
@@ -97,8 +97,7 @@ where
 			AssetKind = T::AssetId,
 			Credit = fungibles::Credit<T::AccountId, F>,
 		> + QuotePrice<Balance = BalanceOf<T>, AssetKind = T::AssetId>,
-	OUF: OnUnbalanced<fungibles::Credit<T::AccountId, F>>,
-	OUT: OnUnbalanced<fungibles::Credit<T::AccountId, F>>,
+	OU: OnUnbalanced<fungibles::Credit<T::AccountId, F>>,
 	T: Config,
 {
 	type AssetId = T::AssetId;
@@ -264,8 +263,7 @@ where
 
 		// Handle the imbalance (fee and tip separately).
 		let (tip, fee) = adjusted_paid.split(tip);
-		OUF::on_unbalanced(fee);
-		OUT::on_unbalanced(tip);
+		OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
 		Ok(fee_in_asset)
 	}
 }
