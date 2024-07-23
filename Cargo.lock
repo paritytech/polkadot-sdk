@@ -16192,12 +16192,12 @@ dependencies = [
 name = "relay-utils"
 version = "0.1.0"
 dependencies = [
- "ansi_term",
  "anyhow",
  "async-std",
  "async-trait",
  "backoff",
  "bp-runtime",
+ "console",
  "env_logger 0.11.3",
  "futures",
  "isahc",
@@ -17668,7 +17668,7 @@ dependencies = [
 name = "sc-informant"
 version = "0.33.0"
 dependencies = [
- "ansi_term",
+ "console",
  "futures",
  "futures-timer",
  "log",
@@ -18364,8 +18364,8 @@ dependencies = [
 name = "sc-tracing"
 version = "28.0.0"
 dependencies = [
- "ansi_term",
  "chrono",
+ "console",
  "criterion",
  "is-terminal",
  "lazy_static",

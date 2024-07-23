@@ -16,6 +16,7 @@
 
 //! Relayer initialization functions.
 
+use console::style;
 use parking_lot::Mutex;
 use std::{cell::RefCell, fmt::Display, io::Write};
 
@@ -55,7 +56,7 @@ pub fn initialize_logger(with_timestamp: bool) {
 			let timestamp = if cfg!(windows) {
 				Either::Left(timestamp)
 			} else {
-				Either::Right(ansi_term::Colour::Fixed(8).bold().paint(timestamp))
+				Either::Right(style(timestamp).black().bright().bold().to_string())
 			};
 
 			writeln!(
@@ -120,7 +121,7 @@ fn color_target(target: &str) -> impl Display + '_ {
 	if cfg!(windows) {
 		Either::Left(target)
 	} else {
-		Either::Right(ansi_term::Colour::Fixed(8).paint(target))
+		Either::Right(style(target).black().bright().to_string())
 	}
 }
 
@@ -129,13 +130,12 @@ fn color_level(level: log::Level) -> impl Display {
 		Either::Left(level)
 	} else {
 		let s = level.to_string();
-		use ansi_term::Colour as Color;
 		Either::Right(match level {
-			log::Level::Error => Color::Fixed(9).bold().paint(s),
-			log::Level::Warn => Color::Fixed(11).bold().paint(s),
-			log::Level::Info => Color::Fixed(10).paint(s),
-			log::Level::Debug => Color::Fixed(14).paint(s),
-			log::Level::Trace => Color::Fixed(12).paint(s),
+			log::Level::Error => style(s).red().bright().bold().to_string(),
+			log::Level::Warn => style(s).yellow().bright().bold().to_string(),
+			log::Level::Info => style(s).green().bright().to_string(),
+			log::Level::Debug => style(s).cyan().bright().to_string(),
+			log::Level::Trace => style(s).blue().bright().to_string(),
 		})
 	}
 }
