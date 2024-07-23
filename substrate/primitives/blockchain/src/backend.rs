@@ -17,7 +17,6 @@
 
 //! Substrate blockchain trait
 
-use log::warn;
 use parking_lot::RwLock;
 use sp_runtime::{
 	generic::BlockId,
@@ -25,6 +24,7 @@ use sp_runtime::{
 	Justifications,
 };
 use std::collections::{btree_set::BTreeSet, HashMap, VecDeque};
+use tracing::{debug, warn};
 
 use crate::{
 	error::{Error, Result},
@@ -228,6 +228,7 @@ pub trait Backend<Block: BlockT>:
 		//
 		// FIXME #1558 only issue this warning when not on a dead fork
 		warn!(
+			target: crate::LOG_TARGET,
 			"Block {:?} exists in chain but not found when following all leaves backwards",
 			base_hash,
 		);
@@ -254,16 +255,35 @@ pub trait Backend<Block: BlockT>:
 	) -> std::result::Result<DisplacedLeavesAfterFinalization<Block>, Error> {
 		let leaves = self.leaves()?;
 
+		debug!(
+			target: crate::LOG_TARGET,
+			?leaves,
+			%finalized_block_hash,
+			?finalized_block_number,
+			"Checking for displaced leaves after finalization."
+		);
+
 		// If we have only one leaf there are no forks, and we can return early.
 		if finalized_block_number == Zero::zero() || leaves.len() == 1 {
 			return Ok(DisplacedLeavesAfterFinalization::default())
 		}
 
-		// Store hashes of finalized blocks for quick checking later, the last block if the
+		// Store hashes of finalized blocks for quick checking later, the last block is the
 		// finalized one
 		let mut finalized_chain = VecDeque::new();
-		finalized_chain
-			.push_front(MinimalBlockMetadata::from(&self.header_metadata(finalized_block_hash)?));
+		let current_finalized = match self.header_metadata(finalized_block_hash) {
+			Ok(metadata) => metadata,
+			Err(Error::UnknownBlock(_)) => {
+				debug!(
+					target: crate::LOG_TARGET,
+					hash = ?finalized_block_hash,
+					"Tried to fetch unknown block, block ancestry has gaps."
+				);
+				return Ok(DisplacedLeavesAfterFinalization::default());
+			},
+			Err(e) => Err(e)?,
+		};
+		finalized_chain.push_front(MinimalBlockMetadata::from(&current_finalized));
 
 		// Local cache is a performance optimization in case of finalized block deep below the
 		// tip of the chain with a lot of leaves above finalized block
@@ -273,6 +293,7 @@ pub trait Backend<Block: BlockT>:
 			displaced_leaves: Vec::with_capacity(leaves.len()),
 			displaced_blocks: Vec::with_capacity(leaves.len()),
 		};
+
 		let mut displaced_blocks_candidates = Vec::new();
 
 		for leaf_hash in leaves {
@@ -306,11 +327,11 @@ pub trait Backend<Block: BlockT>:
 				continue;
 			}
 
-			// Otherwise the whole leaf branch needs to be pruned, track it all the way to the
-			// point of branching from the finalized chain
-			result.displaced_leaves.push((leaf_number, leaf_hash));
-			result.displaced_blocks.extend(displaced_blocks_candidates.drain(..));
-			result.displaced_blocks.push(current_header_metadata.hash);
+			// We reuse `displaced_blocks_candidates` to store the current metadata.
+			// This block is not displaced if there is a gap in the ancestry. We
+			// check for this gap later.
+			displaced_blocks_candidates.push(current_header_metadata.hash);
+
 			// Collect the rest of the displaced blocks of leaf branch
 			for distance_from_finalized in 1_u32.. {
 				// Find block at `distance_from_finalized` from finalized block
@@ -318,9 +339,22 @@ pub trait Backend<Block: BlockT>:
 					match finalized_chain.iter().rev().nth(distance_from_finalized as usize) {
 						Some(header) => (header.number, header.hash),
 						None => {
-							let metadata = MinimalBlockMetadata::from(&self.header_metadata(
-								finalized_chain.front().expect("Not empty; qed").parent,
-							)?);
+							let to_fetch = finalized_chain.front().expect("Not empty; qed");
+							let metadata = match self.header_metadata(to_fetch.parent) {
+								Ok(metadata) => metadata,
+								Err(Error::UnknownBlock(_)) => {
+									debug!(
+										target: crate::LOG_TARGET,
+										distance_from_finalized,
+										hash = ?to_fetch.parent,
+										number = ?to_fetch.number,
+										"Tried to fetch unknown block, block ancestry has gaps."
+									);
+									break;
+								},
+								Err(e) => Err(e)?,
+							};
+							let metadata = MinimalBlockMetadata::from(&metadata);
 							let result = (metadata.number, metadata.hash);
 							finalized_chain.push_front(metadata);
 							result
@@ -336,11 +370,13 @@ pub trait Backend<Block: BlockT>:
 				let parent_hash = current_header_metadata.parent;
 				if finalized_chain_block_hash == parent_hash {
 					// Reached finalized chain, nothing left to do
+					result.displaced_blocks.extend(displaced_blocks_candidates.drain(..));
+					result.displaced_leaves.push((leaf_number, leaf_hash));
 					break;
 				}
 
 				// Store displaced block and look deeper for block on finalized chain
-				result.displaced_blocks.push(parent_hash);
+				displaced_blocks_candidates.push(parent_hash);
 				current_header_metadata =
 					MinimalBlockMetadata::from(&self.header_metadata(parent_hash)?);
 			}

@@ -20,8 +20,8 @@ use crate::{
 	assigner_coretime::{mock_helpers::GenesisConfigBuilder, pallet::Error, Schedule},
 	initializer::SessionChangeNotification,
 	mock::{
-		new_test_ext, Balances, CoretimeAssigner, OnDemandAssigner, Paras, ParasShared,
-		RuntimeOrigin, Scheduler, System, Test,
+		new_test_ext, Balances, CoretimeAssigner, OnDemand, Paras, ParasShared, RuntimeOrigin,
+		Scheduler, System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 	scheduler::common::Assignment,
@@ -75,7 +75,7 @@ fn run_to_block(
 		Scheduler::initializer_initialize(b + 1);
 
 		// Update the spot traffic and revenue on every block.
-		OnDemandAssigner::on_initialize(b + 1);
+		OnDemand::on_initialize(b + 1);
 
 		// In the real runtime this is expected to be called by the `InclusionInherent` pallet.
 		Scheduler::free_cores_and_fill_claim_queue(BTreeMap::new(), b + 1);
@@ -527,11 +527,7 @@ fn pop_assignment_for_core_works() {
 		schedule_blank_para(para_id, ParaKind::Parathread);
 		Balances::make_free_balance_be(&alice, amt);
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
-		assert_ok!(OnDemandAssigner::place_order_allow_death(
-			RuntimeOrigin::signed(alice),
-			amt,
-			para_id
-		));
+		assert_ok!(OnDemand::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id));
 
 		// Case 1: Assignment idle
 		assert_ok!(CoretimeAssigner::assign_core(

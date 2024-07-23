@@ -17,16 +17,16 @@
 use super::*;
 
 use crate::{
-	assigner_on_demand::{
+	initializer::SessionChangeNotification,
+	mock::{
+		new_test_ext, Balances, OnDemand, Paras, ParasShared, RuntimeOrigin, Scheduler, System,
+		Test,
+	},
+	on_demand::{
 		self,
 		mock_helpers::GenesisConfigBuilder,
 		types::{QueueIndex, ReverseQueueIndex},
 		Error,
-	},
-	initializer::SessionChangeNotification,
-	mock::{
-		new_test_ext, Balances, OnDemandAssigner, Paras, ParasShared, RuntimeOrigin, Scheduler,
-		System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 };
@@ -83,7 +83,7 @@ fn run_to_block(
 		Scheduler::initializer_initialize(b + 1);
 
 		// Update the spot traffic and revenue on every block.
-		OnDemandAssigner::on_initialize(b + 1);
+		OnDemand::on_initialize(b + 1);
 
 		// In the real runtime this is expected to be called by the `InclusionInherent` pallet.
 		Scheduler::free_cores_and_fill_claim_queue(BTreeMap::new(), b + 1);
@@ -99,7 +99,7 @@ fn place_order_run_to_blocknumber(para_id: ParaId, blocknumber: Option<BlockNumb
 	if let Some(bn) = blocknumber {
 		run_to_block(bn, |n| if n == bn { Some(Default::default()) } else { None });
 	}
-	OnDemandAssigner::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id).unwrap()
+	OnDemand::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id).unwrap()
 }
 
 fn place_order_run_to_101(para_id: ParaId) {
@@ -112,7 +112,7 @@ fn place_order(para_id: ParaId) {
 
 #[test]
 fn spot_traffic_capacity_zero_returns_none() {
-	match OnDemandAssigner::calculate_spot_traffic(
+	match OnDemand::calculate_spot_traffic(
 		FixedU128::from(u128::MAX),
 		0u32,
 		u32::MAX,
@@ -126,7 +126,7 @@ fn spot_traffic_capacity_zero_returns_none() {
 
 #[test]
 fn spot_traffic_queue_size_larger_than_capacity_returns_none() {
-	match OnDemandAssigner::calculate_spot_traffic(
+	match OnDemand::calculate_spot_traffic(
 		FixedU128::from(u128::MAX),
 		1u32,
 		2u32,
@@ -140,7 +140,7 @@ fn spot_traffic_queue_size_larger_than_capacity_returns_none() {
 
 #[test]
 fn spot_traffic_calculation_identity() {
-	match OnDemandAssigner::calculate_spot_traffic(
+	match OnDemand::calculate_spot_traffic(
 		FixedU128::from_u32(1),
 		1000,
 		100,
@@ -156,7 +156,7 @@ fn spot_traffic_calculation_identity() {
 
 #[test]
 fn spot_traffic_calculation_u32_max() {
-	match OnDemandAssigner::calculate_spot_traffic(
+	match OnDemand::calculate_spot_traffic(
 		FixedU128::from_u32(1),
 		u32::MAX,
 		u32::MAX,
@@ -172,7 +172,7 @@ fn spot_traffic_calculation_u32_max() {
 
 #[test]
 fn spot_traffic_calculation_u32_traffic_max() {
-	match OnDemandAssigner::calculate_spot_traffic(
+	match OnDemand::calculate_spot_traffic(
 		FixedU128::from(u128::MAX),
 		u32::MAX,
 		u32::MAX,
@@ -188,7 +188,7 @@ fn spot_traffic_calculation_u32_traffic_max() {
 fn sustained_target_increases_spot_traffic() {
 	let mut traffic = FixedU128::from_u32(1u32);
 	for _ in 0..50 {
-		traffic = OnDemandAssigner::calculate_spot_traffic(
+		traffic = OnDemand::calculate_spot_traffic(
 			traffic,
 			100,
 			12,
@@ -203,7 +203,7 @@ fn sustained_target_increases_spot_traffic() {
 #[test]
 fn spot_traffic_can_decrease() {
 	let traffic = FixedU128::from_u32(100u32);
-	match OnDemandAssigner::calculate_spot_traffic(
+	match OnDemand::calculate_spot_traffic(
 		traffic,
 		100u32,
 		0u32,
@@ -220,7 +220,7 @@ fn spot_traffic_can_decrease() {
 fn spot_traffic_decreases_over_time() {
 	let mut traffic = FixedU128::from_u32(100u32);
 	for _ in 0..5 {
-		traffic = OnDemandAssigner::calculate_spot_traffic(
+		traffic = OnDemand::calculate_spot_traffic(
 			traffic,
 			100u32,
 			0u32,
@@ -249,23 +249,20 @@ fn spot_traffic_decreases_between_idle_blocks() {
 		assert!(Paras::is_parathread(para_id));
 
 		// Set the spot traffic to a large number
-		OnDemandAssigner::set_queue_status(QueueStatusType {
+		OnDemand::set_queue_status(QueueStatusType {
 			traffic: FixedU128::from_u32(10),
 			..Default::default()
 		});
 
-		assert_eq!(OnDemandAssigner::get_queue_status().traffic, FixedU128::from_u32(10));
+		assert_eq!(OnDemand::get_queue_status().traffic, FixedU128::from_u32(10));
 
 		// Run to block 101 and ensure that the traffic decreases.
 		run_to_block(101, |n| if n == 100 { Some(Default::default()) } else { None });
-		assert!(OnDemandAssigner::get_queue_status().traffic < FixedU128::from_u32(10));
+		assert!(OnDemand::get_queue_status().traffic < FixedU128::from_u32(10));
 
 		// Run to block 102 and observe that we've hit the default traffic value.
 		run_to_block(102, |n| if n == 100 { Some(Default::default()) } else { None });
-		assert_eq!(
-			OnDemandAssigner::get_queue_status().traffic,
-			OnDemandAssigner::get_traffic_default_value()
-		);
+		assert_eq!(OnDemand::get_queue_status().traffic, OnDemand::get_traffic_default_value());
 	})
 }
 
@@ -287,35 +284,27 @@ fn place_order_works() {
 
 		// Does not work unsigned
 		assert_noop!(
-			OnDemandAssigner::place_order_allow_death(RuntimeOrigin::none(), amt, para_id),
+			OnDemand::place_order_allow_death(RuntimeOrigin::none(), amt, para_id),
 			BadOrigin
 		);
 
 		// Does not work with max_amount lower than fee
 		let low_max_amt = 1u128;
 		assert_noop!(
-			OnDemandAssigner::place_order_allow_death(
-				RuntimeOrigin::signed(alice),
-				low_max_amt,
-				para_id,
-			),
+			OnDemand::place_order_allow_death(RuntimeOrigin::signed(alice), low_max_amt, para_id,),
 			Error::<Test>::SpotPriceHigherThanMaxAmount,
 		);
 
 		// Does not work with insufficient balance
 		assert_noop!(
-			OnDemandAssigner::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id),
+			OnDemand::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id),
 			BalancesError::<Test, _>::InsufficientBalance
 		);
 
 		// Works
 		Balances::make_free_balance_be(&alice, amt);
 		run_to_block(101, |n| if n == 101 { Some(Default::default()) } else { None });
-		assert_ok!(OnDemandAssigner::place_order_allow_death(
-			RuntimeOrigin::signed(alice),
-			amt,
-			para_id
-		));
+		assert_ok!(OnDemand::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id));
 	});
 }
 
@@ -336,11 +325,7 @@ fn place_order_keep_alive_keeps_alive() {
 		assert!(Paras::is_parathread(para_id));
 
 		assert_noop!(
-			OnDemandAssigner::place_order_keep_alive(
-				RuntimeOrigin::signed(alice),
-				max_amt,
-				para_id
-			),
+			OnDemand::place_order_keep_alive(RuntimeOrigin::signed(alice), max_amt, para_id),
 			BalancesError::<Test, _>::InsufficientBalance
 		);
 	});
@@ -357,7 +342,7 @@ fn pop_assignment_for_core_works() {
 		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
 		// Pop should return none with empty queue
-		assert_eq!(OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)), None);
+		assert_eq!(OnDemand::pop_assignment_for_core(CoreIndex(0)), None);
 
 		// Add enough assignments to the order queue.
 		for _ in 0..2 {
@@ -367,19 +352,19 @@ fn pop_assignment_for_core_works() {
 
 		// Popped assignments should be for the correct paras and cores
 		assert_eq!(
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)).map(|a| a.para_id()),
+			OnDemand::pop_assignment_for_core(CoreIndex(0)).map(|a| a.para_id()),
 			Some(para_a)
 		);
 		assert_eq!(
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(1)).map(|a| a.para_id()),
+			OnDemand::pop_assignment_for_core(CoreIndex(1)).map(|a| a.para_id()),
 			Some(para_b)
 		);
 		assert_eq!(
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)).map(|a| a.para_id()),
+			OnDemand::pop_assignment_for_core(CoreIndex(0)).map(|a| a.para_id()),
 			Some(para_a)
 		);
 		assert_eq!(
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(1)).map(|a| a.para_id()),
+			OnDemand::pop_assignment_for_core(CoreIndex(1)).map(|a| a.para_id()),
 			Some(para_b)
 		);
 	});
@@ -400,30 +385,21 @@ fn push_back_assignment_works() {
 		place_order_run_to_101(para_b);
 
 		// Pop order a
-		assert_eq!(
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)).unwrap().para_id(),
-			para_a
-		);
+		assert_eq!(OnDemand::pop_assignment_for_core(CoreIndex(0)).unwrap().para_id(), para_a);
 
 		// Para a should have affinity for core 0
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 1);
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().core_index, CoreIndex(0));
+		assert_eq!(OnDemand::get_affinity_map(para_a).unwrap().count, 1);
+		assert_eq!(OnDemand::get_affinity_map(para_a).unwrap().core_index, CoreIndex(0));
 
 		// Push back order a
-		OnDemandAssigner::push_back_assignment(para_a, CoreIndex(0));
+		OnDemand::push_back_assignment(para_a, CoreIndex(0));
 
 		// Para a should have no affinity
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).is_none(), true);
+		assert_eq!(OnDemand::get_affinity_map(para_a).is_none(), true);
 
 		// Queue should contain orders a, b. A in front of b.
-		assert_eq!(
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)).unwrap().para_id(),
-			para_a
-		);
-		assert_eq!(
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)).unwrap().para_id(),
-			para_b
-		);
+		assert_eq!(OnDemand::pop_assignment_for_core(CoreIndex(0)).unwrap().para_id(), para_a);
+		assert_eq!(OnDemand::pop_assignment_for_core(CoreIndex(0)).unwrap().para_id(), para_b);
 	});
 }
 
@@ -439,8 +415,8 @@ fn affinity_prohibits_parallel_scheduling() {
 		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
 		// There should be no affinity before starting.
-		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
-		assert!(OnDemandAssigner::get_affinity_map(para_b).is_none());
+		assert!(OnDemand::get_affinity_map(para_a).is_none());
+		assert!(OnDemand::get_affinity_map(para_b).is_none());
 
 		// Add 2 assignments for para_a for every para_b.
 		place_order_run_to_101(para_a);
@@ -449,22 +425,22 @@ fn affinity_prohibits_parallel_scheduling() {
 
 		// Approximate having 1 core.
 		for _ in 0..3 {
-			assert!(OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)).is_some());
+			assert!(OnDemand::pop_assignment_for_core(CoreIndex(0)).is_some());
 		}
-		assert!(OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)).is_none());
+		assert!(OnDemand::pop_assignment_for_core(CoreIndex(0)).is_none());
 
 		// Affinity on one core is meaningless.
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 2);
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_b).unwrap().count, 1);
+		assert_eq!(OnDemand::get_affinity_map(para_a).unwrap().count, 2);
+		assert_eq!(OnDemand::get_affinity_map(para_b).unwrap().count, 1);
 		assert_eq!(
-			OnDemandAssigner::get_affinity_map(para_a).unwrap().core_index,
-			OnDemandAssigner::get_affinity_map(para_b).unwrap().core_index,
+			OnDemand::get_affinity_map(para_a).unwrap().core_index,
+			OnDemand::get_affinity_map(para_b).unwrap().core_index,
 		);
 
 		// Clear affinity
-		OnDemandAssigner::report_processed(para_a, 0.into());
-		OnDemandAssigner::report_processed(para_a, 0.into());
-		OnDemandAssigner::report_processed(para_b, 0.into());
+		OnDemand::report_processed(para_a, 0.into());
+		OnDemand::report_processed(para_a, 0.into());
+		OnDemand::report_processed(para_b, 0.into());
 
 		// Add 2 assignments for para_a for every para_b.
 		place_order_run_to_101(para_a);
@@ -473,25 +449,25 @@ fn affinity_prohibits_parallel_scheduling() {
 
 		// Approximate having 3 cores. CoreIndex 2 should be unable to obtain an assignment
 		for _ in 0..3 {
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0));
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(1));
-			assert!(OnDemandAssigner::pop_assignment_for_core(CoreIndex(2)).is_none());
+			OnDemand::pop_assignment_for_core(CoreIndex(0));
+			OnDemand::pop_assignment_for_core(CoreIndex(1));
+			assert!(OnDemand::pop_assignment_for_core(CoreIndex(2)).is_none());
 		}
 
 		// Affinity should be the same as before, but on different cores.
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 2);
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_b).unwrap().count, 1);
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().core_index, CoreIndex(0));
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_b).unwrap().core_index, CoreIndex(1));
+		assert_eq!(OnDemand::get_affinity_map(para_a).unwrap().count, 2);
+		assert_eq!(OnDemand::get_affinity_map(para_b).unwrap().count, 1);
+		assert_eq!(OnDemand::get_affinity_map(para_a).unwrap().core_index, CoreIndex(0));
+		assert_eq!(OnDemand::get_affinity_map(para_b).unwrap().core_index, CoreIndex(1));
 
 		// Clear affinity
-		OnDemandAssigner::report_processed(para_a, CoreIndex(0));
-		OnDemandAssigner::report_processed(para_a, CoreIndex(0));
-		OnDemandAssigner::report_processed(para_b, CoreIndex(1));
+		OnDemand::report_processed(para_a, CoreIndex(0));
+		OnDemand::report_processed(para_a, CoreIndex(0));
+		OnDemand::report_processed(para_b, CoreIndex(1));
 
 		// There should be no affinity after clearing.
-		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
-		assert!(OnDemandAssigner::get_affinity_map(para_b).is_none());
+		assert!(OnDemand::get_affinity_map(para_a).is_none());
+		assert!(OnDemand::get_affinity_map(para_b).is_none());
 	});
 }
 
@@ -505,7 +481,7 @@ fn affinity_changes_work() {
 		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
 		// There should be no affinity before starting.
-		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
+		assert!(OnDemand::get_affinity_map(para_a).is_none());
 
 		// Add enough assignments to the order queue.
 		for _ in 0..10 {
@@ -513,46 +489,46 @@ fn affinity_changes_work() {
 		}
 
 		// There should be no affinity before the scheduler pops.
-		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
+		assert!(OnDemand::get_affinity_map(para_a).is_none());
 
-		OnDemandAssigner::pop_assignment_for_core(core_index);
+		OnDemand::pop_assignment_for_core(core_index);
 
 		// Affinity count is 1 after popping.
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 1);
+		assert_eq!(OnDemand::get_affinity_map(para_a).unwrap().count, 1);
 
-		OnDemandAssigner::report_processed(para_a, 0.into());
-		OnDemandAssigner::pop_assignment_for_core(core_index);
+		OnDemand::report_processed(para_a, 0.into());
+		OnDemand::pop_assignment_for_core(core_index);
 
 		// Affinity count is 1 after popping with a previous para.
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 1);
+		assert_eq!(OnDemand::get_affinity_map(para_a).unwrap().count, 1);
 
 		for _ in 0..3 {
-			OnDemandAssigner::pop_assignment_for_core(core_index);
+			OnDemand::pop_assignment_for_core(core_index);
 		}
 
 		// Affinity count is 4 after popping 3 times without a previous para.
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 4);
+		assert_eq!(OnDemand::get_affinity_map(para_a).unwrap().count, 4);
 
 		for _ in 0..5 {
-			OnDemandAssigner::report_processed(para_a, 0.into());
-			assert!(OnDemandAssigner::pop_assignment_for_core(core_index).is_some());
+			OnDemand::report_processed(para_a, 0.into());
+			assert!(OnDemand::pop_assignment_for_core(core_index).is_some());
 		}
 
 		// Affinity count should still be 4 but queue should be empty.
-		assert!(OnDemandAssigner::pop_assignment_for_core(core_index).is_none());
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 4);
+		assert!(OnDemand::pop_assignment_for_core(core_index).is_none());
+		assert_eq!(OnDemand::get_affinity_map(para_a).unwrap().count, 4);
 
 		// Pop 4 times and get to exactly 0 (None) affinity.
 		for _ in 0..4 {
-			OnDemandAssigner::report_processed(para_a, 0.into());
-			assert!(OnDemandAssigner::pop_assignment_for_core(core_index).is_none());
+			OnDemand::report_processed(para_a, 0.into());
+			assert!(OnDemand::pop_assignment_for_core(core_index).is_none());
 		}
-		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
+		assert!(OnDemand::get_affinity_map(para_a).is_none());
 
 		// Decreasing affinity beyond 0 should still be None.
-		OnDemandAssigner::report_processed(para_a, 0.into());
-		assert!(OnDemandAssigner::pop_assignment_for_core(core_index).is_none());
-		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
+		OnDemand::report_processed(para_a, 0.into());
+		assert!(OnDemand::pop_assignment_for_core(core_index).is_none());
+		assert!(OnDemand::get_affinity_map(para_a).is_none());
 	});
 }
 
@@ -577,28 +553,25 @@ fn new_affinity_for_a_core_must_come_from_free_entries() {
 		});
 
 		// There are 4 entries in free_entries.
-		let start_free_entries = OnDemandAssigner::get_free_entries().len();
+		let start_free_entries = OnDemand::get_free_entries().len();
 		assert_eq!(start_free_entries, 4);
 
 		// Pop assignments on all cores.
 		core_indices.iter().enumerate().for_each(|(n, core_index)| {
 			// There is no affinity on the core prior to popping.
-			assert!(OnDemandAssigner::get_affinity_entries(*core_index).is_empty());
+			assert!(OnDemand::get_affinity_entries(*core_index).is_empty());
 
 			// There's always an order to be popped for each core.
-			let free_entries = OnDemandAssigner::get_free_entries();
+			let free_entries = OnDemand::get_free_entries();
 			let next_order = free_entries.peek();
 
 			// There is no affinity on the paraid prior to popping.
-			assert!(OnDemandAssigner::get_affinity_map(next_order.unwrap().para_id).is_none());
+			assert!(OnDemand::get_affinity_map(next_order.unwrap().para_id).is_none());
 
-			match OnDemandAssigner::pop_assignment_for_core(*core_index) {
+			match OnDemand::pop_assignment_for_core(*core_index) {
 				Some(assignment) => {
 					// The popped assignment came from free entries.
-					assert_eq!(
-						start_free_entries - 1 - n,
-						OnDemandAssigner::get_free_entries().len()
-					);
+					assert_eq!(start_free_entries - 1 - n, OnDemand::get_free_entries().len());
 					// The popped assignment has the same para id as the next order.
 					assert_eq!(assignment.para_id(), next_order.unwrap().para_id);
 				},
@@ -607,11 +580,11 @@ fn new_affinity_for_a_core_must_come_from_free_entries() {
 		});
 
 		// All entries have been removed from free_entries.
-		assert!(OnDemandAssigner::get_free_entries().is_empty());
+		assert!(OnDemand::get_free_entries().is_empty());
 
 		// All chains have an affinity count of 1.
 		parachains.iter().for_each(|chain| {
-			assert_eq!(OnDemandAssigner::get_affinity_map(*chain).unwrap().count, 1);
+			assert_eq!(OnDemand::get_affinity_map(*chain).unwrap().count, 1);
 		});
 	});
 }
@@ -691,7 +664,7 @@ fn queue_status_size_fn_works() {
 			schedule_blank_para(*chain, ParaKind::Parathread);
 		});
 
-		assert_eq!(OnDemandAssigner::get_queue_status().size(), 0);
+		assert_eq!(OnDemand::get_queue_status().size(), 0);
 
 		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
@@ -703,27 +676,27 @@ fn queue_status_size_fn_works() {
 		});
 
 		// 6 orders in free entries
-		assert_eq!(OnDemandAssigner::get_free_entries().len(), 6);
+		assert_eq!(OnDemand::get_free_entries().len(), 6);
 		// 6 orders via queue status size
 		assert_eq!(
-			OnDemandAssigner::get_free_entries().len(),
-			OnDemandAssigner::get_queue_status().size() as usize
+			OnDemand::get_free_entries().len(),
+			OnDemand::get_queue_status().size() as usize
 		);
 
 		core_indices.iter().for_each(|core_index| {
-			OnDemandAssigner::pop_assignment_for_core(*core_index);
+			OnDemand::pop_assignment_for_core(*core_index);
 		});
 
 		// There should be 2 orders in the scheduler's claimqueue,
 		// 2 in assorted AffinityMaps and 2 in free.
 		// ParaId 111
-		assert_eq!(OnDemandAssigner::get_affinity_entries(core_indices[0]).len(), 1);
+		assert_eq!(OnDemand::get_affinity_entries(core_indices[0]).len(), 1);
 		// ParaId 222
-		assert_eq!(OnDemandAssigner::get_affinity_entries(core_indices[1]).len(), 1);
+		assert_eq!(OnDemand::get_affinity_entries(core_indices[1]).len(), 1);
 		// Free entries are from ParaId 333
-		assert_eq!(OnDemandAssigner::get_free_entries().len(), 2);
+		assert_eq!(OnDemand::get_free_entries().len(), 2);
 		// For a total size of 4.
-		assert_eq!(OnDemandAssigner::get_queue_status().size(), 4)
+		assert_eq!(OnDemand::get_queue_status().size(), 4)
 	});
 }
 
@@ -734,25 +707,30 @@ fn revenue_information_fetching_works() {
 		schedule_blank_para(para_a, ParaKind::Parathread);
 		// Mock assigner sets max revenue history to 10.
 		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
-		let revenue = OnDemandAssigner::claim_revenue_until(10);
+		let revenue = OnDemand::claim_revenue_until(10);
 
 		// No revenue should be recorded.
 		assert_eq!(revenue, 0);
 
 		// Place one order
 		place_order_run_to_blocknumber(para_a, Some(11));
-		let revenue = OnDemandAssigner::get_revenue();
-		let claim = OnDemandAssigner::claim_revenue_until(11);
+		let revenue = OnDemand::get_revenue();
+		let amt = OnDemand::claim_revenue_until(11);
 
 		// Revenue until the current block is still zero as "until" is non-inclusive
-		assert_eq!(claim, 0);
+		assert_eq!(amt, 0);
 
-		run_to_block(12, |n| if n == 12 { Some(Default::default()) } else { None });
-		let claim = OnDemandAssigner::claim_revenue_until(12);
+		let amt = OnDemand::claim_revenue_until(12);
 
 		// Revenue for a single order should be recorded and shouldn't have been pruned by the
 		// previous call
-		assert_eq!(claim, revenue[0]);
+		assert_eq!(amt, revenue[0]);
+
+		run_to_block(12, |n| if n == 12 { Some(Default::default()) } else { None });
+		let revenue = OnDemand::claim_revenue_until(13);
+
+		// No revenue should be recorded.
+		assert_eq!(revenue, 0);
 
 		// Place many orders
 		place_order(para_a);
@@ -762,9 +740,9 @@ fn revenue_information_fetching_works() {
 
 		place_order(para_a);
 
-		run_to_block(15, |n| if n == 14 { Some(Default::default()) } else { None });
+		run_to_block(14, |n| if n == 14 { Some(Default::default()) } else { None });
 
-		let revenue = OnDemandAssigner::claim_revenue_until(15);
+		let revenue = OnDemand::claim_revenue_until(15);
 
 		// All 3 orders should be accounted for.
 		assert_eq!(revenue, 30_000);
@@ -772,13 +750,13 @@ fn revenue_information_fetching_works() {
 		// Place one order
 		place_order_run_to_blocknumber(para_a, Some(16));
 
-		let revenue = OnDemandAssigner::claim_revenue_until(15);
+		let revenue = OnDemand::claim_revenue_until(15);
 
 		// Order is not in range of  the revenue_until call
 		assert_eq!(revenue, 0);
 
-		run_to_block(21, |n| if n == 20 { Some(Default::default()) } else { None });
-		let revenue = OnDemandAssigner::claim_revenue_until(21);
+		run_to_block(20, |n| if n == 20 { Some(Default::default()) } else { None });
+		let revenue = OnDemand::claim_revenue_until(21);
 		assert_eq!(revenue, 10_000);
 
 		// Make sure overdue revenue is accumulated
@@ -786,8 +764,7 @@ fn revenue_information_fetching_works() {
 			run_to_block(i, |n| if n % 10 == 0 { Some(Default::default()) } else { None });
 			place_order(para_a);
 		}
-		run_to_block(36, |_| None);
-		let revenue = OnDemandAssigner::claim_revenue_until(36);
+		let revenue = OnDemand::claim_revenue_until(36);
 		assert_eq!(revenue, 150_000);
 	});
 }
@@ -796,7 +773,7 @@ fn revenue_information_fetching_works() {
 fn pot_account_is_immortal() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let para_a = ParaId::from(111);
-		let pot = OnDemandAssigner::account_id();
+		let pot = OnDemand::account_id();
 		assert!(!System::account_exists(&pot));
 		schedule_blank_para(para_a, ParaKind::Parathread);
 		// Mock assigner sets max revenue history to 10.
@@ -807,7 +784,7 @@ fn pot_account_is_immortal() {
 		assert!(purchase_revenue > 0);
 
 		run_to_block(15, |_| None);
-		let _imb = <Test as assigner_on_demand::Config>::Currency::withdraw(
+		let _imb = <Test as on_demand::Config>::Currency::withdraw(
 			&pot,
 			purchase_revenue,
 			WithdrawReasons::FEE,
@@ -824,7 +801,7 @@ fn pot_account_is_immortal() {
 		assert!(purchase_revenue > 0);
 
 		run_to_block(25, |_| None);
-		let _imb = <Test as assigner_on_demand::Config>::Currency::withdraw(
+		let _imb = <Test as on_demand::Config>::Currency::withdraw(
 			&pot,
 			purchase_revenue,
 			WithdrawReasons::FEE,

@@ -411,6 +411,11 @@ pub mod pallet {
 				Delegation::<T>::can_delegate(&delegator, &agent),
 				Error::<T>::InvalidDelegation
 			);
+
+			// Implementation note: Staking uses deprecated locks (similar to freeze) which are not
+			// mutually exclusive of holds. This means, if we allow delegating for existing stakers,
+			// already staked funds might be reused for delegation. We avoid that by just blocking
+			// this.
 			ensure!(!Self::is_direct_staker(&delegator), Error::<T>::AlreadyStaking);
 
 			// ensure agent is sane.
@@ -505,7 +510,7 @@ impl<T: Config> Pallet<T> {
 			Preservation::Expendable,
 		)?;
 
-		T::CoreStaking::update_payee(who, reward_account)?;
+		T::CoreStaking::set_payee(who, reward_account)?;
 		// delegate all transferred funds back to agent.
 		Self::do_delegate(proxy_delegator, Agent::from(who.clone()), amount_to_transfer)?;
 
