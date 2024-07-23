@@ -45,7 +45,7 @@
 //! > their execution and governance sovereignty. These chains are called "Parachains".
 //!
 //! * Shared Security: The idea of shared economic security sits at the core of Polkadot. Polkadot
-//!   enables different parachains* to pool their economic security from Polkadot (i.e. "*Relay
+//!   enables different parachains to pool their economic security from Polkadot (i.e. "*Relay
 //!   Chain*").
 //! * (heterogenous) Sharded Execution: Yet, each parachain is free to have its own execution logic
 //!   (runtime), which also encompasses governance and sovereignty. Moreover, Polkadot ensures the
