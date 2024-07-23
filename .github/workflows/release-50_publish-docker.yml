@@ -179,6 +179,7 @@ jobs:
           release=$( echo $VERSION | cut -f1 -d- )
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
+          echo "stable=stable" >> $GITHUB_OUTPUT
 
       - name: Build Injected Container image for polkadot rc or chain-spec-builder
         if: ${{ env.BINARY == 'polkadot' || env.BINARY == 'chain-spec-builder' }}
@@ -294,6 +295,7 @@ jobs:
           # TODO: The owner should be used below but buildx does not resolve the VARs
           # TODO: It would be good to get rid of this GHA that we don't really need.
           tags: |
+            parity/polkadot:stable
             parity/polkadot:latest
             parity/polkadot:${{ needs.fetch-latest-debian-package-version.outputs.polkadot_container_tag }}
           build-args: |

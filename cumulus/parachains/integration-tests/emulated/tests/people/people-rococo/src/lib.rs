@@ -38,7 +38,10 @@ mod imports {
 	pub use rococo_system_emulated_network::{
 		people_rococo_emulated_chain::{
 			genesis::ED as PEOPLE_ROCOCO_ED,
-			people_rococo_runtime::{people, xcm_config::XcmConfig as PeopleRococoXcmConfig},
+			people_rococo_runtime::{
+				people, xcm_config::XcmConfig as PeopleRococoXcmConfig,
+				ExistentialDeposit as PeopleRococoExistentialDeposit,
+			},
 			PeopleRococoParaPallet as PeopleRococoPallet,
 		},
 		rococo_emulated_chain::{
