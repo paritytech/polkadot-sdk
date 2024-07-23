@@ -80,7 +80,7 @@
 //! Within the scope of Polkadot 1.x, two main scheduling ways have been considered:
 //!
 //! * Long term Parachains, obtained through locking a sum of DOT in an auction system.
-//! * on-demand Parachains, purchased through paying DOT to the relay-chain whenever needed.
+//! * On-demand Parachains, purchased through paying DOT to the relay-chain whenever needed.
 //!
 //! ### The Future
 //!
