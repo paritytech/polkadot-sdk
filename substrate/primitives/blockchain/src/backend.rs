@@ -253,9 +253,7 @@ pub trait Backend<Block: BlockT>:
 		finalized_block_hash: Block::Hash,
 		finalized_block_number: NumberFor<Block>,
 	) -> std::result::Result<DisplacedLeavesAfterFinalization<Block>, Error> {
-		// The genesis block is never displaced, as it is part of the canonical chain.
-		let genesis_hash = self.info().genesis_hash;
-		let leaves = self.leaves()?.into_iter().filter(|h| *h != genesis_hash).collect::<Vec<_>>();
+		let leaves = self.leaves()?;
 
 		let now = std::time::Instant::now();
 		debug!(
@@ -322,6 +320,19 @@ pub trait Backend<Block: BlockT>:
 					err
 				})?);
 			let leaf_number = current_header_metadata.number;
+
+			// The genesis block is part of the canonical chain.
+			let genesis_hash = self.info().genesis_hash;
+			if leaf_hash == genesis_hash {
+				result.displaced_leaves.push((leaf_number, leaf_hash));
+				debug!(
+					target: crate::LOG_TARGET,
+					?leaf_hash,
+					elapsed = ?now.elapsed(),
+					"Added genesis leaf to displaced leaves."
+				);
+				continue
+			}
 
 			debug!(
 				target: crate::LOG_TARGET,
