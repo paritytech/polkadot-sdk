@@ -7,4 +7,4 @@ doc:
 
 crates:
   - name: pallet-conviction-voting
-    bump: patch
+    bump: major
