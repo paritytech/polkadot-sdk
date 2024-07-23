@@ -648,8 +648,7 @@ impl Unscheduled {
 
 	fn select_next_priority(&self) -> PvfExecPriority {
 		PvfExecPriority::iter()
-			.filter(|priority| self.has_pending(priority) && !self.is_fulfilled(priority))
-			.next()
+			.find(|priority| self.has_pending(priority) && !self.is_fulfilled(priority))
 			.unwrap_or(PvfExecPriority::Backing)
 	}
 
