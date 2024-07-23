@@ -733,9 +733,9 @@ impl<T: Config> Pallet<T> {
 
 	// Get the relay parent number of the most recent candidate.
 	pub(crate) fn para_most_recent_context(para_id: &ParaId) -> Option<BlockNumberFor<T>> {
-		match PendingAvailability::<T>::get(para_id).and_then(|pending_candidates| {
-			pending_candidates.back().map(|x| x.relay_parent_number.clone())
-		}) {
+		match PendingAvailability::<T>::get(para_id)
+			.and_then(|pending_candidates| pending_candidates.back().map(|x| x.relay_parent_number))
+		{
 			Some(relay_parent_number) => Some(relay_parent_number),
 			None => paras::MostRecentContext::<T>::get(para_id),
 		}
