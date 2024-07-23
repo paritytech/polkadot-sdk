@@ -108,7 +108,7 @@ jobs:
           --no-report
           --workspace
           --locked --release --no-fail-fast
-          --features try-runtime,ci-only-tests
+          --features try-runtime,ci-only-tests,experimental,riscv
           --filter-expr "
           !test(/.*benchmark.*/)
           - test(/recovers_from_only_chunks_if_pov_large::case_1/)
@@ -123,7 +123,7 @@ jobs:
           - test(/recovers_from_only_chunks_if_pov_large::case_2/)
           - test(/authoring_blocks/)
           - test(/rejects_missing_seals/)       
-          - test(/.*chain_spec_builder_tests.*/)   
+          - test(/generate_chain_spec/)   
           "
           --partition count:${{ matrix.ci_node_index }}/100
       - run: ls -al target/coverage
