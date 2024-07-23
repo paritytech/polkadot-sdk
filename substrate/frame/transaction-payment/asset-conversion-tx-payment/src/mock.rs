@@ -128,9 +128,13 @@ parameter_types! {
 }
 
 pub struct DealWithFees;
-impl OnUnbalanced<fungible::Credit<AccountId, Balances>> for DealWithFees {
-	fn on_unbalanceds<B>(
-		mut fees_then_tips: impl Iterator<Item = fungible::Credit<AccountId, Balances>>,
+impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>>
+	for DealWithFees
+{
+	fn on_unbalanceds(
+		mut fees_then_tips: impl Iterator<
+			Item = fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>,
+		>,
 	) {
 		if let Some(fees) = fees_then_tips.next() {
 			FeeUnbalancedAmount::mutate(|a| *a += fees.peek());
