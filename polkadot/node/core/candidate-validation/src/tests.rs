@@ -17,6 +17,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::*;
+use crate::PvfExecPriority;
 use assert_matches::assert_matches;
 use futures::executor;
 use polkadot_node_core_pvf::PrepareError;
@@ -1295,7 +1296,8 @@ impl ValidationBackend for MockHeadsUp {
 		_pvf: PvfPrepData,
 		_timeout: Duration,
 		_encoded_params: Vec<u8>,
-		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_prepare_priority: polkadot_node_core_pvf::PreparePriority,
+		_execute_priority: PvfExecPriority,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}
