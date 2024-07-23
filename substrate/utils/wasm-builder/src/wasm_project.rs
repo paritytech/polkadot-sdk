@@ -1181,7 +1181,7 @@ fn copy_blob_to_target_directory(cargo_manifest: &Path, blob_binary: &WasmBinary
 }
 
 // Get jobserver from parent cargo command
-fn get_jobserver() -> &'static Option<jobserver::Client> {
+pub fn get_jobserver() -> &'static Option<jobserver::Client> {
 	static JOBSERVER: OnceLock<Option<jobserver::Client>> = OnceLock::new();
 
 	JOBSERVER.get_or_init(|| {
