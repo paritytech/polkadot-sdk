@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721692761057,
+  "lastUpdate": 1721751784322,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -11796,6 +11796,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.778266370890128,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Serban Iorga",
+            "username": "serban300",
+            "email": "serban@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "216e8fa126df9ee819d524834e75a82881681e02",
+          "message": "Beefy equivocation: add runtime API methods (#4993)\n\nRelated to https://github.com/paritytech/polkadot-sdk/issues/4523\n\nAdd runtime API methods for:\n- generating the ancestry proof\n- submiting a fork voting report\n- submitting a future voting report",
+          "timestamp": "2024-07-23T14:27:42Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/216e8fa126df9ee819d524834e75a82881681e02"
+        },
+        "date": 1721751754167,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63792.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.087636641880125,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.82994988239003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.193312426419957,
             "unit": "seconds"
           }
         ]
