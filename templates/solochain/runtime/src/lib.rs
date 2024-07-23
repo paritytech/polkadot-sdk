@@ -95,7 +95,7 @@ pub mod opaque {
 // To learn more about runtime versioning, see:
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
 #[runtime_version]
-pub const VERSION: RuntimeVersion = RuntimeVersion {
+const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("solochain-template-runtime"),
 	impl_name: create_runtime_str!("solochain-template-runtime"),
 	authoring_version: 1,
@@ -603,4 +603,6 @@ pub mod interface {
 	pub type RuntimeCall = super::RuntimeCall;
 
 	pub const EXISTENTIAL_DEPOSIT: u128 = super::EXISTENTIAL_DEPOSIT;
+
+	pub const VERSION: super::RuntimeVersion = super::VERSION;
 }

@@ -6,7 +6,7 @@ use crate::service::FullClient;
 
 use runtime::interface::{
 	AccountId, Balance, BalancesCall, BlockHashCount, Runtime, RuntimeCall, Signature, SignedExtra,
-	SignedPayload, SystemCall, UncheckedExtrinsic,
+	SignedPayload, SystemCall, UncheckedExtrinsic, VERSION,
 };
 use sc_cli::Result;
 use sc_client_api::BlockBackend;
@@ -129,8 +129,8 @@ pub fn create_benchmark_extrinsic(
 		extra.clone(),
 		(
 			(),
-			runtime::VERSION.spec_version,
-			runtime::VERSION.transaction_version,
+			VERSION.spec_version,
+			VERSION.transaction_version,
 			genesis_hash,
 			best_hash,
 			(),
