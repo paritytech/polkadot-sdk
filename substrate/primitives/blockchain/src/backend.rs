@@ -253,7 +253,9 @@ pub trait Backend<Block: BlockT>:
 		finalized_block_hash: Block::Hash,
 		finalized_block_number: NumberFor<Block>,
 	) -> std::result::Result<DisplacedLeavesAfterFinalization<Block>, Error> {
-		let leaves = self.leaves()?;
+		// The genesis block is never displaced, as it is part of the canonical chain.
+		let genesis_hash = self.info().genesis_hash;
+		let leaves = self.leaves()?.into_iter().filter(|h| *h != genesis_hash).collect::<Vec<_>>();
 
 		let now = std::time::Instant::now();
 		debug!(
