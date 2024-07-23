@@ -3,7 +3,7 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 repository = "https://github.com/paritytech/polkadot-sdk.git"
 license = "GPL-3.0-only"
-homepage = "https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html"
+homepage = "https://paritytech.github.io/polkadot-sdk/"
 
 [workspace]
 resolver = "2"

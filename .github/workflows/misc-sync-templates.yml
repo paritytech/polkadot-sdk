@@ -69,7 +69,7 @@ jobs:
             protobuf-compiler
           rustup target add wasm32-unknown-unknown
           rustup component add rustfmt clippy rust-src
-      
+
       # 2. Yanking the template out of the monorepo workspace.
 
       - name: Use psvm to replace git references with released creates.
@@ -81,7 +81,7 @@ jobs:
           [workspace.package]
           license = "MIT-0"
           authors = ["Parity Technologies <admin@parity.io>"]
-          homepage = "https://substrate.io"
+          homepage = "https://paritytech.github.io/polkadot-sdk/"
 
           [workspace]
           members = [
