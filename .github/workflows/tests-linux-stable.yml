@@ -106,26 +106,8 @@ jobs:
         run: >
           time cargo llvm-cov nextest
           --no-report
-          --workspace
+          -p polkadot
           --locked --release --no-fail-fast
-          --features try-runtime,ci-only-tests,experimental,riscv
-          --filter-expr "
-          !test(/.*benchmark.*/)
-          - test(/recovers_from_only_chunks_if_pov_large::case_1/)
-          - test(/participation_requests_reprioritized_for_newly_included/)
-          - test(/availability_is_recovered_from_chunks_if_no_group_provided::case_1/)
-          - test(/rejects_missing_inherent_digest/)
-          - test(/availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunks_only::case_1/)
-          - test(/availability_is_recovered_from_chunks_if_no_group_provided::case_2/)
-          - test(/all_security_features_work/)
-          - test(/nonexistent_cache_dir/)
-          - test(/recovers_from_only_chunks_if_pov_large::case_3/)
-          - test(/recovers_from_only_chunks_if_pov_large::case_2/)
-          - test(/authoring_blocks/)
-          - test(/rejects_missing_seals/)       
-          - test(/generate_chain_spec/) 
-          - test(/chain_spec_builder_tests/)  
-          "
           --partition count:${{ matrix.ci_node_index }}/100
       - run: ls -al target/coverage
       - run: ls -al /__w/polkadot-sdk/polkadot-sdk/
