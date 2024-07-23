@@ -147,7 +147,7 @@ mod bridge_hub_westend_tests {
 	};
 	use bridge_hub_test_utils::test_cases::from_parachain;
 	use bridge_to_westend_config::{
-		BridgeHubWestendChainId, BridgeHubWestendLocation, WestendGlobalConsensusNetwork,
+		BridgeHubWestendLocation, WestendGlobalConsensusNetwork,
 		WithBridgeHubWestendMessagesInstance, XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
 	};
 
@@ -363,7 +363,6 @@ mod bridge_hub_westend_tests {
 			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
-			BridgeHubWestendChainId::get(),
 			SIBLING_PARACHAIN_ID,
 			Rococo,
 			XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
@@ -380,7 +379,6 @@ mod bridge_hub_westend_tests {
 			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
-			BridgeHubWestendChainId::get(),
 			SIBLING_PARACHAIN_ID,
 			Rococo,
 			XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
@@ -454,9 +452,8 @@ mod bridge_hub_bulletin_tests {
 	use bridge_common_config::BridgeGrandpaRococoBulletinInstance;
 	use bridge_hub_test_utils::test_cases::from_grandpa_chain;
 	use bridge_to_bulletin_config::{
-		RococoBulletinChainId, RococoBulletinGlobalConsensusNetwork,
-		RococoBulletinGlobalConsensusNetworkLocation, WithRococoBulletinMessagesInstance,
-		XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
+		RococoBulletinGlobalConsensusNetwork, RococoBulletinGlobalConsensusNetworkLocation,
+		WithRococoBulletinMessagesInstance, XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
 	};
 
 	// Para id of sibling chain used in tests.
@@ -567,7 +564,6 @@ mod bridge_hub_bulletin_tests {
 			collator_session_keys(),
 			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-			RococoBulletinChainId::get(),
 			SIBLING_PARACHAIN_ID,
 			Rococo,
 			XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
@@ -583,7 +579,6 @@ mod bridge_hub_bulletin_tests {
 			collator_session_keys(),
 			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-			RococoBulletinChainId::get(),
 			SIBLING_PARACHAIN_ID,
 			Rococo,
 			XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,

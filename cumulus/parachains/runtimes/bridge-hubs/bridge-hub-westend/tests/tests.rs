@@ -27,9 +27,8 @@ use bridge_hub_westend_runtime::{
 	SignedExtra, TransactionPayment, UncheckedExtrinsic,
 };
 use bridge_to_rococo_config::{
-	BridgeGrandpaRococoInstance, BridgeHubRococoChainId, BridgeHubRococoLocation,
-	BridgeParachainRococoInstance, WithBridgeHubRococoMessagesInstance,
-	XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
+	BridgeGrandpaRococoInstance, BridgeHubRococoLocation, BridgeParachainRococoInstance,
+	WithBridgeHubRococoMessagesInstance, XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
 };
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
@@ -260,7 +259,6 @@ fn relayed_incoming_message_works() {
 		slot_durations(),
 		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-		BridgeHubRococoChainId::get(),
 		SIBLING_PARACHAIN_ID,
 		Westend,
 		XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,

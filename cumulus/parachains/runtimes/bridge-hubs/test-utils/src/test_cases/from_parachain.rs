@@ -104,7 +104,6 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	bridged_para_id: u32,
-	bridged_chain_id: bp_runtime::ChainId,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
 	lane_id: LaneId,
@@ -138,7 +137,8 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 		 relayer_id_at_bridged_chain,
 		 message_destination,
 		 message_nonce,
-		 xcm| {
+		 xcm,
+		 bridged_chain_id| {
 			let para_header_number = 5;
 			let relay_header_number = 1;
 
@@ -234,7 +234,6 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	bridged_para_id: u32,
-	bridged_chain_id: bp_runtime::ChainId,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
 	lane_id: LaneId,
@@ -275,7 +274,8 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 		 relayer_id_at_bridged_chain,
 		 message_destination,
 		 message_nonce,
-		 xcm| {
+		 xcm,
+		 bridged_chain_id| {
 			prepare_configuration();
 
 			// start with bridged relay chain block#0
@@ -399,7 +399,6 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 	runtime_para_id: u32,
 	bridged_para_id: u32,
 	sibling_parachain_id: u32,
-	bridged_chain_id: bp_runtime::ChainId,
 	local_relay_chain_id: NetworkId,
 	lane_id: LaneId,
 	prepare_configuration: impl Fn(),
@@ -435,7 +434,8 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 		 relayer_id_at_bridged_chain,
 		 message_destination,
 		 message_nonce,
-		 xcm| {
+		 xcm,
+		 bridged_chain_id| {
 			let para_header_number = 5;
 			let relay_header_number = 1;
 
