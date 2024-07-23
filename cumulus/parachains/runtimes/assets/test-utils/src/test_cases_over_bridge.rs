@@ -548,7 +548,9 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 					local_bridge_hub_location,
 					xcm,
 					&mut hash,
-					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::xcm_max_weight(XcmReceivedFrom::Sibling),
+					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::xcm_max_weight(
+						XcmReceivedFrom::Sibling,
+					),
 					Weight::zero(),
 				);
 				assert_ok!(outcome.ensure_complete());

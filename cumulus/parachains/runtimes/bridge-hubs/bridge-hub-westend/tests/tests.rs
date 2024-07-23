@@ -21,6 +21,7 @@ use bridge_common_config::{DeliveryRewardInBalance, RequiredStakeForStakeAndSlas
 use bridge_hub_test_utils::{test_cases::from_parachain, SlotDurations};
 use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
+	bridge_to_rococo_config::RococoGlobalConsensusNetwork,
 	xcm_config::{LocationToAccountId, RelayNetwork, WestendLocation, XcmConfig},
 	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
@@ -42,8 +43,13 @@ use sp_runtime::{
 use testnet_parachains_constants::westend::{consensus::*, fee::WeightToFee};
 use xcm::latest::prelude::*;
 
-// Para id of sibling chain used in tests.
-pub const SIBLING_PARACHAIN_ID: u32 = 1000;
+// Random para id of sibling chain used in tests.
+pub const SIBLING_PARACHAIN_ID: u32 = 2053;
+
+parameter_types! {
+	pub SiblingParachainLocation: Location = Location::new(1, [Parachain(SIBLING_PARACHAIN_ID)]);
+	pub BridgedLocation: InteriorLocation = [GlobalConsensus(RococoGlobalConsensusNetwork::get()), Parachain(1075)].into();
+}
 
 // Runtime from tests PoV
 type RuntimeTestsAdapter = from_parachain::WithRemoteParachainHelperAdapter<
@@ -263,7 +269,40 @@ fn relayed_incoming_message_works() {
 		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 		SIBLING_PARACHAIN_ID,
 		Westend,
-		|| XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
+		|| {
+			// we need to create lane between sibling parachain and remote destination
+			bridge_hub_test_utils::ensure_opened_bridge::<
+				Runtime,
+				XcmOverBridgeHubRococoInstance,
+				LocationToAccountId,
+			>(SiblingParachainLocation::get(), BridgedLocation::get())
+			.bridge_id
+			.lane_id()
+		},
+		construct_and_apply_extrinsic,
+	)
+}
+
+#[test]
+fn free_relay_extrinsic_works() {
+	// from Rococo
+	from_parachain::free_relay_extrinsic_works::<RuntimeTestsAdapter>(
+		collator_session_keys(),
+		slot_durations(),
+		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+		SIBLING_PARACHAIN_ID,
+		Westend,
+		|| {
+			// we need to create lane between sibling parachain and remote destination
+			bridge_hub_test_utils::ensure_opened_bridge::<
+				Runtime,
+				XcmOverBridgeHubRococoInstance,
+				LocationToAccountId,
+			>(SiblingParachainLocation::get(), BridgedLocation::get())
+			.bridge_id
+			.lane_id()
+		},
 		construct_and_apply_extrinsic,
 	)
 }
@@ -329,8 +368,8 @@ pub fn can_calculate_fee_for_standalone_message_confirmation_transaction() {
 
 #[test]
 fn open_and_close_bridge_work() {
-	let source = Location::new(1, [Parachain(2053)]);
-	let destination = [GlobalConsensus(NetworkId::Rococo), Parachain(1075)].into();
+	let source = SiblingParachainLocation::get();
+	let destination = BridgedLocation::get();
 
 	bridge_hub_test_utils::test_cases::open_and_close_bridge_work::<
 		Runtime,

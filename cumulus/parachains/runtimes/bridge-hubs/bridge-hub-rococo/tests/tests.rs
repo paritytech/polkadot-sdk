@@ -151,8 +151,13 @@ mod bridge_hub_westend_tests {
 		WithBridgeHubWestendMessagesInstance, XcmOverBridgeHubWestendInstance,
 	};
 
-	// Para id of sibling chain used in tests.
-	pub const SIBLING_PARACHAIN_ID: u32 = 1000;
+	// Random para id of sibling chain used in tests.
+	pub const SIBLING_PARACHAIN_ID: u32 = 2053;
+
+	parameter_types! {
+		pub SiblingParachainLocation: Location = Location::new(1, [Parachain(SIBLING_PARACHAIN_ID)]);
+		pub BridgedLocation: InteriorLocation = [GlobalConsensus(WestendGlobalConsensusNetwork::get()), Parachain(1075)].into();
+	}
 
 	// Runtime from tests PoV
 	type RuntimeTestsAdapter = from_parachain::WithRemoteParachainHelperAdapter<
@@ -367,7 +372,16 @@ mod bridge_hub_westend_tests {
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
 			Rococo,
-			|| XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
+			|| {
+				// we need to create lane between sibling parachain and remote destination
+				bridge_hub_test_utils::ensure_opened_bridge::<
+					Runtime,
+					XcmOverBridgeHubWestendInstance,
+					LocationToAccountId,
+				>(SiblingParachainLocation::get(), BridgedLocation::get())
+				.bridge_id
+				.lane_id()
+			},
 			construct_and_apply_extrinsic,
 		)
 	}
@@ -382,7 +396,16 @@ mod bridge_hub_westend_tests {
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
 			Rococo,
-			|| XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
+			|| {
+				// we need to create lane between sibling parachain and remote destination
+				bridge_hub_test_utils::ensure_opened_bridge::<
+					Runtime,
+					XcmOverBridgeHubWestendInstance,
+					LocationToAccountId,
+				>(SiblingParachainLocation::get(), BridgedLocation::get())
+				.bridge_id
+				.lane_id()
+			},
 			construct_and_apply_extrinsic,
 		)
 	}
@@ -448,8 +471,8 @@ mod bridge_hub_westend_tests {
 
 	#[test]
 	fn open_and_close_bridge_work() {
-		let source = Location::new(1, [Parachain(2053)]);
-		let destination = [GlobalConsensus(NetworkId::Westend), Parachain(1075)].into();
+		let source = SiblingParachainLocation::get();
+		let destination = BridgedLocation::get();
 
 		bridge_hub_test_utils::test_cases::open_and_close_bridge_work::<
 			Runtime,
@@ -457,7 +480,7 @@ mod bridge_hub_westend_tests {
 			LocationToAccountId,
 		>(
 			collator_session_keys(),
-			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			source,
 			destination,
 		)
@@ -473,8 +496,13 @@ mod bridge_hub_bulletin_tests {
 		WithRococoBulletinMessagesInstance, XcmOverPolkadotBulletinInstance,
 	};
 
-	// Para id of sibling chain used in tests.
+	// Para id of RococoPeople sibling parachain used in tests.
 	pub const SIBLING_PARACHAIN_ID: u32 = rococo_runtime_constants::system_parachain::PEOPLE_ID;
+
+	parameter_types! {
+		pub SiblingParachainLocation: Location = Location::new(1, [Parachain(SIBLING_PARACHAIN_ID)]);
+		pub BridgedBulletinLocation: InteriorLocation = [GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())].into();
+	}
 
 	// Runtime from tests PoV
 	type RuntimeTestsAdapter = from_grandpa_chain::WithRemoteGrandpaChainHelperAdapter<
@@ -585,7 +613,16 @@ mod bridge_hub_bulletin_tests {
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
 			Rococo,
-			|| XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
+			|| {
+				// we need to create lane between RococoPeople and RococoBulletin
+				bridge_hub_test_utils::ensure_opened_bridge::<
+					Runtime,
+					XcmOverPolkadotBulletinInstance,
+					LocationToAccountId,
+				>(SiblingParachainLocation::get(), BridgedBulletinLocation::get())
+				.bridge_id
+				.lane_id()
+			},
 			construct_and_apply_extrinsic,
 		)
 	}
@@ -599,15 +636,24 @@ mod bridge_hub_bulletin_tests {
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
 			Rococo,
-			|| XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
+			|| {
+				// we need to create lane between RococoPeople and RococoBulletin
+				bridge_hub_test_utils::ensure_opened_bridge::<
+					Runtime,
+					XcmOverPolkadotBulletinInstance,
+					LocationToAccountId,
+				>(SiblingParachainLocation::get(), BridgedBulletinLocation::get())
+				.bridge_id
+				.lane_id()
+			},
 			construct_and_apply_extrinsic,
 		)
 	}
 
 	#[test]
 	fn open_and_close_bridge_work() {
-		let source = Location::new(1, [Parachain(2053)]);
-		let destination = [GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())].into();
+		let source = SiblingParachainLocation::get();
+		let destination = BridgedBulletinLocation::get();
 
 		bridge_hub_test_utils::test_cases::open_and_close_bridge_work::<
 			Runtime,
