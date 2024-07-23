@@ -156,6 +156,9 @@ pub use pallet::*;
 pub mod migrations;
 #[doc(hidden)]
 mod mock;
+
+extern crate alloc;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::StorageVersion;
 use sp_runtime::RuntimeDebug;

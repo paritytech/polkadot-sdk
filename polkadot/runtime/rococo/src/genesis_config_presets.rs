@@ -17,17 +17,19 @@
 //! Genesis configs presets for the Rococo runtime
 
 use crate::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
-use authority_discovery_primitives::AuthorityId as AuthorityDiscoveryId;
-use babe_primitives::AuthorityId as BabeId;
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
-use grandpa_primitives::AuthorityId as GrandpaId;
-use primitives::{vstaging::SchedulerParams, AccountId, AccountPublic, AssignmentId, ValidatorId};
+#[cfg(not(feature = "std"))]
+use alloc::format;
+use alloc::vec::Vec;
+use polkadot_primitives::{
+	vstaging::SchedulerParams, AccountId, AccountPublic, AssignmentId, ValidatorId,
+};
 use rococo_runtime_constants::currency::UNITS as ROC;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
+use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::IdentifyAccount;
-#[cfg(not(feature = "std"))]
-use sp_std::alloc::format;
-use sp_std::vec::Vec;
 
 /// Helper function to generate a crypto pair from seed
 fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -105,12 +107,13 @@ fn rococo_session_keys(
 }
 
 fn default_parachains_host_configuration(
-) -> runtime_parachains::configuration::HostConfiguration<primitives::BlockNumber> {
-	use primitives::{
+) -> polkadot_runtime_parachains::configuration::HostConfiguration<polkadot_primitives::BlockNumber>
+{
+	use polkadot_primitives::{
 		node_features::FeatureIndex, AsyncBackingParams, MAX_CODE_SIZE, MAX_POV_SIZE,
 	};
 
-	runtime_parachains::configuration::HostConfiguration {
+	polkadot_runtime_parachains::configuration::HostConfiguration {
 		validation_upgrade_cooldown: 2u32,
 		validation_upgrade_delay: 2,
 		code_retention_period: 1200,
@@ -205,7 +208,7 @@ fn rococo_testnet_genesis(
 		},
 		"sudo": { "key": Some(root_key.clone()) },
 		"configuration": {
-			"config": runtime_parachains::configuration::HostConfiguration {
+			"config": polkadot_runtime_parachains::configuration::HostConfiguration {
 				scheduler_params: SchedulerParams {
 					max_validators_per_core: Some(1),
 					..default_parachains_host_configuration().scheduler_params
@@ -214,7 +217,7 @@ fn rococo_testnet_genesis(
 			},
 		},
 		"registrar": {
-			"nextFreeParaId": primitives::LOWEST_PUBLIC_ID,
+			"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
 		}
 	})
 }
@@ -473,7 +476,7 @@ fn rococo_staging_testnet_config_genesis() -> serde_json::Value {
 			"config": default_parachains_host_configuration(),
 		},
 		"registrar": {
-			"nextFreeParaId": primitives::LOWEST_PUBLIC_ID,
+			"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
 		},
 	})
 }
@@ -527,7 +530,7 @@ fn wococo_local_testnet_genesis() -> serde_json::Value {
 }
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
-pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>> {
+pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<alloc::vec::Vec<u8>> {
 	let patch = match id.try_into() {
 		Ok("local_testnet") => rococo_local_testnet_genesis(),
 		Ok("development") => rococo_development_config_genesis(),

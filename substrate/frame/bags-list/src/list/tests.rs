@@ -777,7 +777,8 @@ mod bags {
 			assert_eq!(bag_1000.tail, Some(4));
 			assert_eq!(bag_1000.iter().count(), 3);
 			bag_1000.insert_node_unchecked(node(4, None, None, bag_1000.bag_upper)); // panics in debug
-			assert_eq!(bag_1000.iter().count(), 3); // in release we expect it to silently ignore the request.
+			assert_eq!(bag_1000.iter().count(), 3); // in release we expect it to silently ignore the
+			                            // request.
 		});
 	}
 

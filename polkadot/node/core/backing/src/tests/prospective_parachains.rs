@@ -67,15 +67,6 @@ async fn activate_leaf(
 		.min()
 		.unwrap_or(&leaf_number);
 
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::ProspectiveParachains(
-			ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
-		) if parent == leaf_hash => {
-			tx.send(min_relay_parents).unwrap();
-		}
-	);
-
 	let ancestry_len = leaf_number + 1 - min_min;
 
 	let ancestry_hashes = std::iter::successors(Some(leaf_hash), |h| Some(get_parent_hash(*h)))
@@ -117,6 +108,18 @@ async fn activate_leaf(
 					tx.send(Ok(Some(header))).unwrap();
 				}
 			);
+
+			if requested_len == 0 {
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::ProspectiveParachains(
+						ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
+					) if parent == leaf_hash => {
+						tx.send(min_relay_parents.clone()).unwrap();
+					}
+				);
+			}
+
 			requested_len += 1;
 		}
 	}
@@ -207,6 +210,26 @@ async fn activate_leaf(
 				RuntimeApiMessage::Request(parent, RuntimeApiRequest::DisabledValidators(tx))
 			) if parent == hash => {
 				tx.send(Ok(Vec::new())).unwrap();
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::Version(tx))
+			) if parent == hash => {
+				tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)).unwrap();
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::ClaimQueue(tx))
+			) if parent == hash => {
+				tx.send(Ok(
+					test_state.claim_queue.clone()
+				)).unwrap();
 			}
 		);
 	}
@@ -1432,7 +1455,13 @@ fn concurrent_dependent_candidates() {
 				)) => {
 					tx.send(Ok(test_state.validator_groups.clone())).unwrap();
 				},
-
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::NodeFeatures(sess_idx, tx),
+				)) => {
+					assert_eq!(sess_idx, 1);
+					tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_parent,
 					RuntimeApiRequest::AvailabilityCores(tx),
@@ -1598,7 +1627,8 @@ fn occupied_core_assignment() {
 		let previous_para_id = test_state.chain_ids[1];
 
 		// Set the core state to occupied.
-		let mut candidate_descriptor = ::test_helpers::dummy_candidate_descriptor(Hash::zero());
+		let mut candidate_descriptor =
+			polkadot_primitives_test_helpers::dummy_candidate_descriptor(Hash::zero());
 		candidate_descriptor.para_id = previous_para_id;
 		test_state.availability_cores[0] = CoreState::Occupied(OccupiedCore {
 			group_responsible: Default::default(),

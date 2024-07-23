@@ -28,7 +28,7 @@ use crate::{
 	request_responses::{IfDisconnected, RequestFailure},
 	service::{metrics::NotificationMetrics, signature::Signature, PeerStoreProvider},
 	types::ProtocolName,
-	Multiaddr, ReputationChange,
+	ReputationChange,
 };
 
 use futures::{channel::oneshot, Stream};
@@ -36,10 +36,17 @@ use prometheus_endpoint::Registry;
 
 use sc_client_api::BlockBackend;
 use sc_network_common::{role::ObservedRole, ExHashT};
-use sc_network_types::PeerId;
+use sc_network_types::{multiaddr::Multiaddr, PeerId};
 use sp_runtime::traits::Block as BlockT;
 
-use std::{collections::HashSet, fmt::Debug, future::Future, pin::Pin, sync::Arc, time::Duration};
+use std::{
+	collections::HashSet,
+	fmt::Debug,
+	future::Future,
+	pin::Pin,
+	sync::Arc,
+	time::{Duration, Instant},
+};
 
 pub use libp2p::{identity::SigningError, kad::record::Key as KademliaKey};
 
@@ -209,6 +216,15 @@ pub trait NetworkDHTProvider {
 
 	/// Start putting a value in the DHT.
 	fn put_value(&self, key: KademliaKey, value: Vec<u8>);
+
+	/// Store a record in the DHT memory store.
+	fn store_record(
+		&self,
+		key: KademliaKey,
+		value: Vec<u8>,
+		publisher: Option<PeerId>,
+		expires: Option<Instant>,
+	);
 }
 
 impl<T> NetworkDHTProvider for Arc<T>
@@ -222,6 +238,16 @@ where
 
 	fn put_value(&self, key: KademliaKey, value: Vec<u8>) {
 		T::put_value(self, key, value)
+	}
+
+	fn store_record(
+		&self,
+		key: KademliaKey,
+		value: Vec<u8>,
+		publisher: Option<PeerId>,
+		expires: Option<Instant>,
+	) {
+		T::store_record(self, key, value, publisher, expires)
 	}
 }
 

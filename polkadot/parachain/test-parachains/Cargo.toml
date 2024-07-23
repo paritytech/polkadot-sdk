@@ -11,15 +11,15 @@ publish = false
 workspace = true
 
 [dependencies]
-tiny-keccak = { version = "2.0.2", features = ["keccak"] }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
+tiny-keccak = { features = ["keccak"], workspace = true }
+codec = { features = ["derive"], workspace = true }
 
-adder = { package = "test-parachain-adder", path = "adder" }
-halt = { package = "test-parachain-halt", path = "halt" }
+test-parachain-adder = { workspace = true }
+test-parachain-halt = { workspace = true }
 
 [dev-dependencies]
-sp-core = { path = "../../../substrate/primitives/core" }
+sp-core = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-std = ["adder/std", "halt/std", "parity-scale-codec/std"]
+std = ["codec/std", "test-parachain-adder/std", "test-parachain-halt/std"]

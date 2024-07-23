@@ -17,16 +17,18 @@
 
 use crate::{
 	benchmarking::{Contract, WasmModule},
-	exec::Stack,
+	exec::{Ext, Key, Stack},
 	storage::meter::Meter,
+	transient_storage::MeterEntry,
 	wasm::Runtime,
-	BalanceOf, Config, DebugBufferVec, Determinism, ExecReturnValue, GasMeter, Origin, Schedule,
-	TypeInfo, WasmBlob, Weight,
+	BalanceOf, Config, DebugBufferVec, Determinism, Error, ExecReturnValue, GasMeter, Origin,
+	Schedule, TypeInfo, WasmBlob, Weight,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Encode, HasCompact};
 use core::fmt::Debug;
+use frame_benchmarking::benchmarking;
 use sp_core::Get;
-use sp_std::prelude::*;
 
 type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
 
@@ -55,6 +57,17 @@ pub struct CallSetup<T: Config> {
 	debug_message: Option<DebugBufferVec<T>>,
 	determinism: Determinism,
 	data: Vec<u8>,
+	transient_storage_size: u32,
+}
+
+impl<T> Default for CallSetup<T>
+where
+	T: Config + pallet_balances::Config,
+	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+{
+	fn default() -> Self {
+		Self::new(WasmModule::dummy())
+	}
 }
 
 impl<T> CallSetup<T>
@@ -70,6 +83,17 @@ where
 
 		let storage_meter = Meter::new(&origin, None, 0u32.into()).unwrap();
 
+		// Whitelist contract account, as it is already accounted for in the call benchmark
+		benchmarking::add_to_whitelist(
+			frame_system::Account::<T>::hashed_key_for(&contract.account_id).into(),
+		);
+
+		// Whitelist the contract's contractInfo as it is already accounted for in the call
+		// benchmark
+		benchmarking::add_to_whitelist(
+			crate::ContractInfoOf::<T>::hashed_key_for(&contract.account_id).into(),
+		);
+
 		Self {
 			contract,
 			dest,
@@ -81,6 +105,7 @@ where
 			debug_message: None,
 			determinism: Determinism::Enforced,
 			data: vec![],
+			transient_storage_size: 0,
 		}
 	}
 
@@ -102,6 +127,11 @@ where
 	/// Set the call's input data.
 	pub fn set_data(&mut self, value: Vec<u8>) {
 		self.data = value;
+	}
+
+	/// Set the transient storage size.
+	pub fn set_transient_storage_size(&mut self, size: u32) {
+		self.transient_storage_size = size;
 	}
 
 	/// Set the debug message.
@@ -126,7 +156,7 @@ where
 
 	/// Build the call stack.
 	pub fn ext(&mut self) -> (StackExt<'_, T>, WasmBlob<T>) {
-		StackExt::bench_new_call(
+		let mut ext = StackExt::bench_new_call(
 			self.dest.clone(),
 			self.origin.clone(),
 			&mut self.gas_meter,
@@ -135,7 +165,11 @@ where
 			self.value,
 			self.debug_message.as_mut(),
 			self.determinism,
-		)
+		);
+		if self.transient_storage_size > 0 {
+			Self::with_transient_storage(&mut ext.0, self.transient_storage_size).unwrap();
+		}
+		ext
 	}
 
 	/// Prepare a call to the module.
@@ -147,24 +181,56 @@ where
 		let (func, store) = module.bench_prepare_call(ext, input);
 		PreparedCall { func, store }
 	}
+
+	/// Add transient_storage
+	fn with_transient_storage(ext: &mut StackExt<T>, size: u32) -> Result<(), &'static str> {
+		let &MeterEntry { amount, limit } = ext.transient_storage().meter().current();
+		ext.transient_storage().meter().current_mut().limit = size;
+		for i in 1u32.. {
+			let mut key_data = i.to_le_bytes().to_vec();
+			while key_data.last() == Some(&0) {
+				key_data.pop();
+			}
+			let key = Key::<T>::try_from_var(key_data).unwrap();
+			if let Err(e) = ext.set_transient_storage(&key, Some(Vec::new()), false) {
+				// Restore previous settings.
+				ext.transient_storage().meter().current_mut().limit = limit;
+				ext.transient_storage().meter().current_mut().amount = amount;
+				if e == Error::<T>::OutOfTransientStorage.into() {
+					break;
+				} else {
+					return Err("Initialization of the transient storage failed");
+				}
+			}
+		}
+		Ok(())
+	}
 }
 
 #[macro_export]
-macro_rules! call_builder(
-	($func: ident, $module:expr) => {
-		$crate::call_builder!($func, _contract, $module);
+macro_rules! memory(
+	($($bytes:expr,)*) => {
+		 vec![]
+		    .into_iter()
+		    $(.chain($bytes))*
+		    .collect::<Vec<_>>()
 	};
-	($func: ident, $contract: ident, $module:expr) => {
-		let mut setup = CallSetup::<T>::new($module);
-		$crate::call_builder!($func, $contract, setup: setup);
+);
+
+#[macro_export]
+macro_rules! build_runtime(
+	($runtime:ident, $memory:ident: [$($segment:expr,)*]) => {
+		$crate::build_runtime!($runtime, _contract, $memory: [$($segment,)*]);
 	};
-    ($func:ident, setup: $setup: ident) => {
-		$crate::call_builder!($func, _contract, setup: $setup);
+	($runtime:ident, $contract:ident, $memory:ident: [$($bytes:expr,)*]) => {
+		$crate::build_runtime!($runtime, $contract);
+		let mut $memory = $crate::memory!($($bytes,)*);
 	};
-    ($func:ident, $contract: ident, setup: $setup: ident) => {
-		let data = $setup.data();
-		let $contract = $setup.contract();
-		let (mut ext, module) = $setup.ext();
-		let $func = CallSetup::<T>::prepare_call(&mut ext, module, data);
+	($runtime:ident, $contract:ident) => {
+		let mut setup = CallSetup::<T>::default();
+		let $contract = setup.contract();
+		let input = setup.data();
+		let (mut ext, _) = setup.ext();
+		let mut $runtime = crate::wasm::Runtime::new(&mut ext, input);
 	};
 );

@@ -5,6 +5,8 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - prdoc/*.prdoc
+env:
+  TOOLCHAIN: nightly-2024-06-01
 
 jobs:
   check-semver:
@@ -19,14 +21,14 @@ jobs:
         with:
           cache-on-failure: true
 
+      - name: install parity-publish
+        run: cargo install parity-publish@0.7.0
+
       - name: Rust compilation prerequisites
         run: |
-          rustup default nightly-2024-03-01
-          rustup target add wasm32-unknown-unknown --toolchain nightly-2024-03-01
-          rustup component add rust-src --toolchain nightly-2024-03-01
-
-      - name: install parity-publish
-        run: cargo install parity-publish@0.5.1
+          rustup default $TOOLCHAIN
+          rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN
+          rustup component add rust-src --toolchain $TOOLCHAIN
 
       - name: extra git setup
         run: |
@@ -38,7 +40,8 @@ jobs:
         run: |
           export CARGO_TARGET_DIR=target
           export RUSTFLAGS='-A warnings -A missing_docs'
-          if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc --toolchain nightly-2024-03-01 -v; then
+          export SKIP_WASM_BUILD=1
+          if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc -v --toolchain $TOOLCHAIN; then
             cat <<EOF
           👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
 

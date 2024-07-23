@@ -280,7 +280,7 @@ impl Default for RpcMethods {
 static mut BASE_PATH_TEMP: Option<TempDir> = None;
 
 /// The base path that is used for everything that needs to be written on disk to run a node.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BasePath {
 	path: PathBuf,
 }

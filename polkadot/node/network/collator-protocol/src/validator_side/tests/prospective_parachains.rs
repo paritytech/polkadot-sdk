@@ -72,6 +72,26 @@ async fn assert_assign_incoming(
 			tx.send(Ok(test_state.cores.clone())).unwrap();
 		}
 	);
+
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			parent,
+			RuntimeApiRequest::Version(tx),
+		)) if parent == hash => {
+			let _ = tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT));
+		}
+	);
+
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			parent,
+			RuntimeApiRequest::ClaimQueue(tx),
+		)) if parent == hash => {
+			let _ = tx.send(Ok(test_state.claim_queue.clone()));
+		}
+	);
 }
 
 /// Handle a view update.
@@ -116,15 +136,6 @@ pub(super) async fn update_view(
 
 		let min_number = leaf_number.saturating_sub(ASYNC_BACKING_PARAMETERS.allowed_ancestry_len);
 
-		assert_matches!(
-			overseer_recv(virtual_overseer).await,
-			AllMessages::ProspectiveParachains(
-				ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx),
-			) if parent == leaf_hash => {
-				tx.send(test_state.chain_ids.iter().map(|para_id| (*para_id, min_number)).collect()).unwrap();
-			}
-		);
-
 		let ancestry_len = leaf_number + 1 - min_number;
 		let ancestry_hashes = std::iter::successors(Some(leaf_hash), |h| Some(get_parent_hash(*h)))
 			.take(ancestry_len as usize);
@@ -165,6 +176,17 @@ pub(super) async fn update_view(
 						tx.send(Ok(Some(header))).unwrap();
 					}
 				);
+
+				if requested_len == 0 {
+					assert_matches!(
+						overseer_recv(virtual_overseer).await,
+						AllMessages::ProspectiveParachains(
+							ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx),
+						) if parent == leaf_hash => {
+							tx.send(test_state.chain_ids.iter().map(|para_id| (*para_id, min_number)).collect()).unwrap();
+						}
+					);
+				}
 
 				requested_len += 1;
 			}

@@ -101,7 +101,10 @@ mod tests;
 mod types;
 pub mod weights;
 
+extern crate alloc;
+
 use crate::types::{AuthorityPropertiesOf, Suffix, Username};
+use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
 use frame_support::{
 	ensure,
@@ -113,7 +116,6 @@ pub use pallet::*;
 use sp_runtime::traits::{
 	AppendZerosInput, Hash, IdentifyAccount, Saturating, StaticLookup, Verify, Zero,
 };
-use sp_std::prelude::*;
 pub use types::{
 	Data, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo, Registration,
 };
@@ -1116,8 +1118,7 @@ pub mod pallet {
 			if let Some(s) = signature {
 				// Account has pre-signed an authorization. Verify the signature provided and grant
 				// the username directly.
-				let encoded = Encode::encode(&bounded_username.to_vec());
-				Self::validate_signature(&encoded, &s, &who)?;
+				Self::validate_signature(&bounded_username[..], &s, &who)?;
 				Self::insert_username(&who, bounded_username);
 			} else {
 				// The user must accept the username, therefore, queue it.
@@ -1169,7 +1170,9 @@ pub mod pallet {
 		pub fn set_primary_username(origin: OriginFor<T>, username: Username<T>) -> DispatchResult {
 			// ensure `username` maps to `origin` (i.e. has already been set by an authority).
 			let who = ensure_signed(origin)?;
-			ensure!(AccountOfUsername::<T>::contains_key(&username), Error::<T>::NoUsername);
+			let account_of_username =
+				AccountOfUsername::<T>::get(&username).ok_or(Error::<T>::NoUsername)?;
+			ensure!(who == account_of_username, Error::<T>::InvalidUsername);
 			let (registration, _maybe_username) =
 				IdentityOf::<T>::get(&who).ok_or(Error::<T>::NoIdentity)?;
 			IdentityOf::<T>::insert(&who, (registration, Some(username.clone())));
@@ -1265,12 +1268,12 @@ impl<T: Config> Pallet<T> {
 
 	/// Validate a signature. Supports signatures on raw `data` or `data` wrapped in HTML `<Bytes>`.
 	pub fn validate_signature(
-		data: &Vec<u8>,
+		data: &[u8],
 		signature: &T::OffchainSignature,
 		signer: &T::AccountId,
 	) -> DispatchResult {
 		// Happy path, user has signed the raw data.
-		if signature.verify(&data[..], &signer) {
+		if signature.verify(data, &signer) {
 			return Ok(())
 		}
 		// NOTE: for security reasons modern UIs implicitly wrap the data requested to sign into

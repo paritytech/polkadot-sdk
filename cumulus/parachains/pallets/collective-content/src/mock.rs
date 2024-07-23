@@ -18,9 +18,7 @@
 pub use crate as pallet_collective_content;
 use crate::WeightInfo;
 use frame_support::{
-	derive_impl, ord_parameter_types, parameter_types,
-	traits::{ConstU32, ConstU64},
-	weights::Weight,
+	derive_impl, ord_parameter_types, parameter_types, traits::ConstU32, weights::Weight,
 };
 use frame_system::EnsureSignedBy;
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
@@ -70,7 +68,6 @@ impl frame_system::Config for Test {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = ();

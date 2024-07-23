@@ -41,7 +41,7 @@ use sp_runtime::{
 /// - `AssetKind` is a superset type encompassing asset kinds from `Left` and `Right` sets.
 /// - `AccountId` is an account identifier type.
 pub struct UnionOf<Left, Right, Criterion, AssetKind, AccountId>(
-	sp_std::marker::PhantomData<(Left, Right, Criterion, AssetKind, AccountId)>,
+	core::marker::PhantomData<(Left, Right, Criterion, AssetKind, AccountId)>,
 );
 
 impl<
@@ -622,7 +622,7 @@ pub struct ConvertImbalanceDropHandler<
 	Balance,
 	AccountId,
 >(
-	sp_std::marker::PhantomData<(
+	core::marker::PhantomData<(
 		Left,
 		Right,
 		LeftAssetId,

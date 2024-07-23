@@ -56,7 +56,7 @@ fn default_stake<T: Config>(num_votes: u32) -> BalanceOf<T> {
 
 /// Get the current number of candidates.
 fn candidate_count<T: Config>() -> u32 {
-	<Candidates<T>>::decode_len().unwrap_or(0usize) as u32
+	Candidates::<T>::decode_len().unwrap_or(0usize) as u32
 }
 
 /// Add `c` new candidates.
@@ -67,7 +67,7 @@ fn submit_candidates<T: Config>(
 	(0..c)
 		.map(|i| {
 			let account = endowed_account::<T>(prefix, i);
-			<Elections<T>>::submit_candidacy(
+			Elections::<T>::submit_candidacy(
 				RawOrigin::Signed(account.clone()).into(),
 				candidate_count::<T>(),
 			)
@@ -96,7 +96,7 @@ fn submit_voter<T: Config>(
 	votes: Vec<T::AccountId>,
 	stake: BalanceOf<T>,
 ) -> DispatchResultWithPostInfo {
-	<Elections<T>>::vote(RawOrigin::Signed(caller).into(), votes, stake)
+	Elections::<T>::vote(RawOrigin::Signed(caller).into(), votes, stake)
 }
 
 /// create `num_voter` voters who randomly vote for at most `votes` of `all_candidates` if
@@ -121,28 +121,28 @@ fn distribute_voters<T: Config>(
 /// members, or members and runners-up.
 fn fill_seats_up_to<T: Config>(m: u32) -> Result<Vec<T::AccountId>, &'static str> {
 	let _ = submit_candidates_with_self_vote::<T>(m, "fill_seats_up_to")?;
-	assert_eq!(<Elections<T>>::candidates().len() as u32, m, "wrong number of candidates.");
-	<Elections<T>>::do_phragmen();
-	assert_eq!(<Elections<T>>::candidates().len(), 0, "some candidates remaining.");
+	assert_eq!(Candidates::<T>::get().len() as u32, m, "wrong number of candidates.");
+	Elections::<T>::do_phragmen();
+	assert_eq!(Candidates::<T>::get().len(), 0, "some candidates remaining.");
 	assert_eq!(
-		<Elections<T>>::members().len() + <Elections<T>>::runners_up().len(),
+		Members::<T>::get().len() + RunnersUp::<T>::get().len(),
 		m as usize,
 		"wrong number of members and runners-up",
 	);
-	Ok(<Elections<T>>::members()
+	Ok(Members::<T>::get()
 		.into_iter()
 		.map(|m| m.who)
-		.chain(<Elections<T>>::runners_up().into_iter().map(|r| r.who))
+		.chain(RunnersUp::<T>::get().into_iter().map(|r| r.who))
 		.collect())
 }
 
 /// removes all the storage items to reverse any genesis state.
 fn clean<T: Config>() {
-	<Members<T>>::kill();
-	<Candidates<T>>::kill();
-	<RunnersUp<T>>::kill();
+	Members::<T>::kill();
+	Candidates::<T>::kill();
+	RunnersUp::<T>::kill();
 	#[allow(deprecated)]
-	<Voting<T>>::remove_all(None);
+	Voting::<T>::remove_all(None);
 }
 
 benchmarks! {
@@ -180,14 +180,14 @@ benchmarks! {
 
 		// original votes.
 		let mut votes = all_candidates.iter().skip(1).cloned().collect::<Vec<_>>();
-		submit_voter::<T>(caller.clone(), votes.clone(), stake / <BalanceOf<T>>::from(10u32))?;
+		submit_voter::<T>(caller.clone(), votes.clone(), stake / BalanceOf::<T>::from(10u32))?;
 
 		// new votes.
 		votes = all_candidates;
-		assert!(votes.len() > <Voting<T>>::get(caller.clone()).votes.len());
+		assert!(votes.len() > Voting::<T>::get(caller.clone()).votes.len());
 
 		whitelist!(caller);
-	}: vote(RawOrigin::Signed(caller), votes, stake / <BalanceOf<T>>::from(10u32))
+	}: vote(RawOrigin::Signed(caller), votes, stake / BalanceOf::<T>::from(10u32))
 
 	vote_less {
 		let v in 2 .. T::MaxVotesPerVoter::get();
@@ -205,7 +205,7 @@ benchmarks! {
 
 		// new votes.
 		votes = votes.into_iter().skip(1).collect::<Vec<_>>();
-		assert!(votes.len() < <Voting<T>>::get(caller.clone()).votes.len());
+		assert!(votes.len() < Voting::<T>::get(caller.clone()).votes.len());
 
 		whitelist!(caller);
 	}: vote(RawOrigin::Signed(caller), votes, stake)
@@ -294,7 +294,7 @@ benchmarks! {
 		let members_and_runners_up = fill_seats_up_to::<T>(m)?;
 
 		let bailing = members_and_runners_up[0].clone();
-		assert!(<Elections<T>>::is_member(&bailing));
+		assert!(Elections::<T>::is_member(&bailing));
 
 		whitelist!(bailing);
 	}: renounce_candidacy(RawOrigin::Signed(bailing.clone()), Renouncing::Member)
@@ -318,7 +318,7 @@ benchmarks! {
 		let members_and_runners_up = fill_seats_up_to::<T>(m)?;
 
 		let bailing = members_and_runners_up[T::DesiredMembers::get() as usize + 1].clone();
-		assert!(<Elections<T>>::is_runner_up(&bailing));
+		assert!(Elections::<T>::is_runner_up(&bailing));
 
 		whitelist!(bailing);
 	}: renounce_candidacy(RawOrigin::Signed(bailing.clone()), Renouncing::RunnerUp)
@@ -345,11 +345,11 @@ benchmarks! {
 		clean::<T>();
 
 		let _ = fill_seats_up_to::<T>(m)?;
-		let removing = as_lookup::<T>(<Elections<T>>::members_ids()[0].clone());
+		let removing = as_lookup::<T>(Elections::<T>::members_ids()[0].clone());
 	}: remove_member(RawOrigin::Root, removing, true, false)
 	verify {
 		// must still have enough members.
-		assert_eq!(<Elections<T>>::members().len() as u32, T::DesiredMembers::get());
+		assert_eq!(Members::<T>::get().len() as u32, T::DesiredMembers::get());
 		#[cfg(test)]
 		{
 			// reset members in between benchmark tests.
@@ -371,15 +371,15 @@ benchmarks! {
 		distribute_voters::<T>(all_candidates, v, T::MaxVotesPerVoter::get() as usize)?;
 
 		// all candidates leave.
-		<Candidates<T>>::kill();
+		Candidates::<T>::kill();
 
 		// now everyone is defunct
-		assert!(<Voting<T>>::iter().all(|(_, v)| <Elections<T>>::is_defunct_voter(&v.votes)));
-		assert_eq!(<Voting<T>>::iter().count() as u32, v);
+		assert!(Voting::<T>::iter().all(|(_, v)| Elections::<T>::is_defunct_voter(&v.votes)));
+		assert_eq!(Voting::<T>::iter().count() as u32, v);
 		let root = RawOrigin::Root;
 	}: _(root, v, d)
 	verify {
-		assert_eq!(<Voting<T>>::iter().count() as u32, v - d);
+		assert_eq!(Voting::<T>::iter().count() as u32, v - d);
 	}
 
 	election_phragmen {
@@ -404,12 +404,12 @@ benchmarks! {
 		let all_candidates = submit_candidates_with_self_vote::<T>(c, "candidates")?;
 		let _ = distribute_voters::<T>(all_candidates, v.saturating_sub(c), votes_per_voter as usize)?;
 	}: {
-		<Elections<T>>::on_initialize(T::TermDuration::get());
+		Elections::<T>::on_initialize(T::TermDuration::get());
 	}
 	verify {
-		assert_eq!(<Elections<T>>::members().len() as u32, T::DesiredMembers::get().min(c));
+		assert_eq!(Members::<T>::get().len() as u32, T::DesiredMembers::get().min(c));
 		assert_eq!(
-			<Elections<T>>::runners_up().len() as u32,
+			RunnersUp::<T>::get().len() as u32,
 			T::DesiredRunnersUp::get().min(c.saturating_sub(T::DesiredMembers::get())),
 		);
 

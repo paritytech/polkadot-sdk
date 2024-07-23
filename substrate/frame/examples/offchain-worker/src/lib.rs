@@ -45,6 +45,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::traits::Get;
 use frame_system::{
@@ -67,7 +70,6 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 	RuntimeDebug,
 };
-use sp_std::vec::Vec;
 
 #[cfg(test)]
 mod tests;
@@ -606,7 +608,7 @@ impl<T: Config> Pallet<T> {
 		let body = response.body().collect::<Vec<u8>>();
 
 		// Create a str slice from the body.
-		let body_str = sp_std::str::from_utf8(&body).map_err(|_| {
+		let body_str = alloc::str::from_utf8(&body).map_err(|_| {
 			log::warn!("No UTF8 body");
 			http::Error::Unknown
 		})?;

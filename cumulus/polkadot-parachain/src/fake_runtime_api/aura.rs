@@ -53,7 +53,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> Vec<u32> {
 			unimplemented!()
 		}
 	}
@@ -101,12 +101,6 @@ sp_api::impl_runtime_apis! {
 			_: <Block as BlockT>::Extrinsic,
 			_: <Block as BlockT>::Hash,
 		) -> TransactionValidity {
-			unimplemented!()
-		}
-	}
-
-	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
-		fn offchain_worker(_: &<Block as BlockT>::Header) {
 			unimplemented!()
 		}
 	}

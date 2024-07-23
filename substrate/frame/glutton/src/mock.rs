@@ -50,10 +50,14 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
-/// Set the `compute` and `storage` limits.
+/// Set the `compute`, `storage` and `block_length` limits.
 ///
 /// `1.0` corresponds to `100%`.
-pub fn set_limits(compute: f64, storage: f64) {
+pub fn set_limits(compute: f64, storage: f64, block_length: f64) {
 	assert_ok!(Glutton::set_compute(RuntimeOrigin::root(), FixedU64::from_float(compute)));
 	assert_ok!(Glutton::set_storage(RuntimeOrigin::root(), FixedU64::from_float(storage)));
+	assert_ok!(Glutton::set_block_length(
+		RuntimeOrigin::root(),
+		FixedU64::from_float(block_length)
+	));
 }

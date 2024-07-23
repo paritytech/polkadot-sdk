@@ -270,7 +270,7 @@ impl Collations {
 			// We don't need to fetch any other collation when we already have seconded one.
 			CollationStatus::Seconded => None,
 			CollationStatus::Waiting =>
-				if !self.is_seconded_limit_reached(relay_parent_mode) {
+				if self.is_seconded_limit_reached(relay_parent_mode) {
 					None
 				} else {
 					self.waiting_queue.pop_front()
@@ -280,7 +280,7 @@ impl Collations {
 		}
 	}
 
-	/// Checks the limit of seconded candidates for a given para.
+	/// Checks the limit of seconded candidates.
 	pub(super) fn is_seconded_limit_reached(
 		&self,
 		relay_parent_mode: ProspectiveParachainsMode,
@@ -293,7 +293,7 @@ impl Collations {
 			} else {
 				1
 			};
-		self.seconded_count < seconded_limit
+		self.seconded_count >= seconded_limit
 	}
 }
 

@@ -1,0 +1,16 @@
+[relaychain]
+default_command = "polkadot"
+chain = "dev"
+
+[[relaychain.nodes]]
+name = "alice"
+validator = true
+ws_port = 9944
+
+[[parachains]]
+id = 1000
+
+[parachains.collator]
+name = "alice"
+ws_port = 9988
+command = "parachain-template-node"

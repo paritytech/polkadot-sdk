@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+extern crate alloc;
+
 pub use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 pub use lazy_static::lazy_static;
 pub use log;
@@ -24,6 +26,8 @@ pub use std::{
 };
 
 // Substrate
+pub use alloc::collections::vec_deque::VecDeque;
+pub use core::{cell::RefCell, fmt::Debug};
 pub use cumulus_primitives_core::AggregateMessageOrigin as CumulusAggregateMessageOrigin;
 pub use frame_support::{
 	assert_ok,
@@ -44,7 +48,6 @@ pub use sp_core::{parameter_types, sr25519, storage::Storage, Pair};
 pub use sp_crypto_hashing::blake2_256;
 pub use sp_io::TestExternalities;
 pub use sp_runtime::BoundedSlice;
-pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, fmt::Debug};
 pub use sp_tracing;
 
 // Cumulus
@@ -215,6 +218,7 @@ pub trait Chain: TestExt {
 	type RuntimeOrigin;
 	type RuntimeEvent;
 	type System;
+	type OriginCaller;
 
 	fn account_id_of(seed: &str) -> AccountId {
 		helpers::get_account_id_from_seed::<sr25519::Public>(seed)
@@ -366,6 +370,7 @@ macro_rules! decl_test_relay_chains {
 				type RuntimeOrigin = $runtime::RuntimeOrigin;
 				type RuntimeEvent = $runtime::RuntimeEvent;
 				type System = $crate::SystemPallet::<Self::Runtime>;
+				type OriginCaller = $runtime::OriginCaller;
 
 				fn account_data_of(account: $crate::AccountIdOf<Self::Runtime>) -> $crate::AccountData<$crate::Balance> {
 					<Self as $crate::TestExt>::ext_wrapper(|| $crate::SystemPallet::<Self::Runtime>::account(account).data.into())
@@ -600,6 +605,7 @@ macro_rules! decl_test_parachains {
 				type RuntimeOrigin = $runtime::RuntimeOrigin;
 				type RuntimeEvent = $runtime::RuntimeEvent;
 				type System = $crate::SystemPallet::<Self::Runtime>;
+				type OriginCaller = $runtime::OriginCaller;
 				type Network = N;
 
 				fn account_data_of(account: $crate::AccountIdOf<Self::Runtime>) -> $crate::AccountData<$crate::Balance> {

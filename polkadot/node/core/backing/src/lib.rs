@@ -102,6 +102,7 @@ use polkadot_node_subsystem_util::{
 	runtime::{
 		self, prospective_parachains_mode, request_min_backing_votes, ProspectiveParachainsMode,
 	},
+	vstaging::{fetch_claim_queue, ClaimQueueSnapshot},
 	Validator,
 };
 use polkadot_primitives::{
@@ -111,8 +112,7 @@ use polkadot_primitives::{
 	PvfExecKind, SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex,
 	ValidatorSignature, ValidityAttestation,
 };
-use sp_keystore::KeystorePtr;
-use statement_table::{
+use polkadot_statement_table::{
 	generic::AttestedCandidate as TableAttestedCandidate,
 	v2::{
 		SignedStatement as TableSignedStatement, Statement as TableStatement,
@@ -120,6 +120,7 @@ use statement_table::{
 	},
 	Config as TableConfig, Context as TableContextTrait, Table,
 };
+use sp_keystore::KeystorePtr;
 use util::{runtime::request_node_features, vstaging::get_disabled_validators_with_fallback};
 
 mod error;
@@ -210,8 +211,8 @@ struct PerRelayParentState {
 	prospective_parachains_mode: ProspectiveParachainsMode,
 	/// The hash of the relay parent on top of which this job is doing it's work.
 	parent: Hash,
-	/// The `ParaId` assigned to the local validator at this relay parent.
-	assigned_para: Option<ParaId>,
+	/// Session index.
+	session_index: SessionIndex,
 	/// The `CoreIndex` assigned to the local validator at this relay parent.
 	assigned_core: Option<CoreIndex>,
 	/// The candidates that are backed by enough validators in their group, by hash.
@@ -231,8 +232,11 @@ struct PerRelayParentState {
 	/// If true, we're appending extra bits in the BackedCandidate validator indices bitfield,
 	/// which represent the assigned core index. True if ElasticScalingMVP is enabled.
 	inject_core_index: bool,
-	/// The core states for all cores.
-	cores: Vec<CoreState>,
+	/// The number of cores.
+	n_cores: u32,
+	/// Claim queue state. If the runtime API is not available, it'll be populated with info from
+	/// availability cores.
+	claim_queue: ClaimQueueSnapshot,
 	/// The validator index -> group mapping at this relay parent.
 	validator_to_group: Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>,
 	/// The associated group rotation information.
@@ -534,6 +538,8 @@ async fn store_available_data(
 	candidate_hash: CandidateHash,
 	available_data: AvailableData,
 	expected_erasure_root: Hash,
+	core_index: CoreIndex,
+	node_features: NodeFeatures,
 ) -> Result<(), Error> {
 	let (tx, rx) = oneshot::channel();
 	// Important: the `av-store` subsystem will check if the erasure root of the `available_data`
@@ -546,6 +552,8 @@ async fn store_available_data(
 			n_validators,
 			available_data,
 			expected_erasure_root,
+			core_index,
+			node_features,
 			tx,
 		})
 		.await;
@@ -569,6 +577,8 @@ async fn make_pov_available(
 	candidate_hash: CandidateHash,
 	validation_data: PersistedValidationData,
 	expected_erasure_root: Hash,
+	core_index: CoreIndex,
+	node_features: NodeFeatures,
 ) -> Result<(), Error> {
 	store_available_data(
 		sender,
@@ -576,6 +586,8 @@ async fn make_pov_available(
 		candidate_hash,
 		AvailableData { pov, validation_data },
 		expected_erasure_root,
+		core_index,
+		node_features,
 	)
 	.await
 }
@@ -646,6 +658,7 @@ struct BackgroundValidationParams<S: overseer::CandidateBackingSenderTrait, F> {
 	tx_command: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	candidate: CandidateReceipt,
 	relay_parent: Hash,
+	session_index: SessionIndex,
 	persisted_validation_data: PersistedValidationData,
 	pov: PoVData,
 	n_validators: usize,
@@ -657,12 +670,14 @@ async fn validate_and_make_available(
 		impl overseer::CandidateBackingSenderTrait,
 		impl Fn(BackgroundValidationResult) -> ValidatedCandidateCommand + Sync,
 	>,
+	core_index: CoreIndex,
 ) -> Result<(), Error> {
 	let BackgroundValidationParams {
 		mut sender,
 		mut tx_command,
 		candidate,
 		relay_parent,
+		session_index,
 		persisted_validation_data,
 		pov,
 		n_validators,
@@ -691,6 +706,10 @@ async fn validate_and_make_available(
 		Ok(ep) => ep,
 		Err(e) => return Err(Error::UtilError(e)),
 	};
+
+	let node_features = request_node_features(relay_parent, session_index, &mut sender)
+		.await?
+		.unwrap_or(NodeFeatures::EMPTY);
 
 	let pov = match pov {
 		PoVData::Ready(pov) => pov,
@@ -747,6 +766,8 @@ async fn validate_and_make_available(
 				candidate.hash(),
 				validation_data.clone(),
 				candidate.descriptor.erasure_root,
+				core_index,
+				node_features,
 			)
 			.await;
 
@@ -806,8 +827,8 @@ async fn handle_communication<Context>(
 		CandidateBackingMessage::Statement(relay_parent, statement) => {
 			handle_statement_message(ctx, state, relay_parent, statement, metrics).await?;
 		},
-		CandidateBackingMessage::GetBackedCandidates(requested_candidates, tx) =>
-			handle_get_backed_candidates_message(state, requested_candidates, tx, metrics)?,
+		CandidateBackingMessage::GetBackableCandidates(requested_candidates, tx) =>
+			handle_get_backable_candidates_message(state, requested_candidates, tx, metrics)?,
 		CandidateBackingMessage::CanSecond(request, tx) =>
 			handle_can_second_request(ctx, state, request, tx).await,
 	}
@@ -985,20 +1006,19 @@ macro_rules! try_runtime_api {
 fn core_index_from_statement(
 	validator_to_group: &IndexedVec<ValidatorIndex, Option<GroupIndex>>,
 	group_rotation_info: &GroupRotationInfo,
-	cores: &[CoreState],
+	n_cores: u32,
+	claim_queue: &ClaimQueueSnapshot,
 	statement: &SignedFullStatementWithPVD,
 ) -> Option<CoreIndex> {
 	let compact_statement = statement.as_unchecked();
 	let candidate_hash = CandidateHash(*compact_statement.unchecked_payload().candidate_hash());
-
-	let n_cores = cores.len();
 
 	gum::trace!(
 		target:LOG_TARGET,
 		?group_rotation_info,
 		?statement,
 		?validator_to_group,
-		n_cores = ?cores.len(),
+		n_cores,
 		?candidate_hash,
 		"Extracting core index from statement"
 	);
@@ -1010,7 +1030,7 @@ fn core_index_from_statement(
 			?group_rotation_info,
 			?statement,
 			?validator_to_group,
-			n_cores = ?cores.len() ,
+			n_cores,
 			?candidate_hash,
 			"Invalid validator index: {:?}",
 			statement_validator_index
@@ -1019,37 +1039,25 @@ fn core_index_from_statement(
 	};
 
 	// First check if the statement para id matches the core assignment.
-	let core_index = group_rotation_info.core_for_group(*group_index, n_cores);
+	let core_index = group_rotation_info.core_for_group(*group_index, n_cores as _);
 
-	if core_index.0 as usize > n_cores {
+	if core_index.0 > n_cores {
 		gum::warn!(target: LOG_TARGET, ?candidate_hash, ?core_index, n_cores, "Invalid CoreIndex");
 		return None
 	}
 
 	if let StatementWithPVD::Seconded(candidate, _pvd) = statement.payload() {
 		let candidate_para_id = candidate.descriptor.para_id;
-		let assigned_para_id = match &cores[core_index.0 as usize] {
-			CoreState::Free => {
-				gum::debug!(target: LOG_TARGET, ?candidate_hash, "Invalid CoreIndex, core is not assigned to any para_id");
-				return None
-			},
-			CoreState::Occupied(occupied) =>
-				if let Some(next) = &occupied.next_up_on_available {
-					next.para_id
-				} else {
-					return None
-				},
-			CoreState::Scheduled(scheduled) => scheduled.para_id,
-		};
+		let mut assigned_paras = claim_queue.iter_claims_for_core(&core_index);
 
-		if assigned_para_id != candidate_para_id {
+		if !assigned_paras.any(|id| id == &candidate_para_id) {
 			gum::debug!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?core_index,
-				?assigned_para_id,
+				assigned_paras = ?claim_queue.iter_claims_for_core(&core_index).collect::<Vec<_>>(),
 				?candidate_para_id,
-				"Invalid CoreIndex, core is assigned to a different para_id"
+				"Invalid CoreIndex, core is not assigned to this para_id"
 			);
 			return None
 		}
@@ -1110,6 +1118,8 @@ async fn construct_per_relay_parent_state<Context>(
 			Error::UtilError(TryFrom::try_from(e).expect("the conversion is infallible; qed"))
 		})?;
 
+	let maybe_claim_queue = try_runtime_api!(fetch_claim_queue(ctx.sender(), parent).await);
+
 	let signing_context = SigningContext { parent_hash: parent, session_index };
 	let validator = match Validator::construct(
 		&validators,
@@ -1134,31 +1144,35 @@ async fn construct_per_relay_parent_state<Context>(
 
 	let mut groups = HashMap::<CoreIndex, Vec<ValidatorIndex>>::new();
 	let mut assigned_core = None;
-	let mut assigned_para = None;
+
+	let has_claim_queue = maybe_claim_queue.is_some();
+	let mut claim_queue = maybe_claim_queue.unwrap_or_default().0;
 
 	for (idx, core) in cores.iter().enumerate() {
-		let core_para_id = match core {
-			CoreState::Scheduled(scheduled) => scheduled.para_id,
-			CoreState::Occupied(occupied) =>
-				if mode.is_enabled() {
+		let core_index = CoreIndex(idx as _);
+
+		if !has_claim_queue {
+			match core {
+				CoreState::Scheduled(scheduled) =>
+					claim_queue.insert(core_index, [scheduled.para_id].into_iter().collect()),
+				CoreState::Occupied(occupied) if mode.is_enabled() => {
 					// Async backing makes it legal to build on top of
 					// occupied core.
 					if let Some(next) = &occupied.next_up_on_available {
-						next.para_id
+						claim_queue.insert(core_index, [next.para_id].into_iter().collect())
 					} else {
 						continue
 					}
-				} else {
-					continue
 				},
-			CoreState::Free => continue,
-		};
+				_ => continue,
+			};
+		} else if !claim_queue.contains_key(&core_index) {
+			continue
+		}
 
-		let core_index = CoreIndex(idx as _);
 		let group_index = group_rotation_info.group_for_core(core_index, n_cores);
 		if let Some(g) = validator_groups.get(group_index.0 as usize) {
 			if validator.as_ref().map_or(false, |v| g.contains(&v.index())) {
-				assigned_para = Some(core_para_id);
 				assigned_core = Some(core_index);
 			}
 			groups.insert(core_index, g.clone());
@@ -1191,8 +1205,8 @@ async fn construct_per_relay_parent_state<Context>(
 	Ok(Some(PerRelayParentState {
 		prospective_parachains_mode: mode,
 		parent,
+		session_index,
 		assigned_core,
-		assigned_para,
 		backed: HashSet::new(),
 		table: Table::new(table_config),
 		table_context,
@@ -1201,7 +1215,8 @@ async fn construct_per_relay_parent_state<Context>(
 		fallbacks: HashMap::new(),
 		minimum_backing_votes,
 		inject_core_index,
-		cores,
+		n_cores: cores.len() as u32,
+		claim_queue: ClaimQueueSnapshot::from(claim_queue),
 		validator_to_group: validator_to_group.clone(),
 		group_rotation_info,
 	}))
@@ -1654,7 +1669,8 @@ async fn import_statement<Context>(
 	let core = core_index_from_statement(
 		&rp_state.validator_to_group,
 		&rp_state.group_rotation_info,
-		&rp_state.cores,
+		rp_state.n_cores,
+		&rp_state.claim_queue,
 		statement,
 	)
 	.ok_or(Error::CoreIndexUnavailable)?;
@@ -1788,10 +1804,11 @@ async fn background_validate_and_make_available<Context>(
 	>,
 ) -> Result<(), Error> {
 	let candidate_hash = params.candidate.hash();
+	let Some(core_index) = rp_state.assigned_core else { return Ok(()) };
 	if rp_state.awaiting_validation.insert(candidate_hash) {
 		// spawn background task.
 		let bg = async move {
-			if let Err(error) = validate_and_make_available(params).await {
+			if let Err(error) = validate_and_make_available(params, core_index).await {
 				if let Error::BackgroundValidationMpsc(error) = error {
 					gum::debug!(
 						target: LOG_TARGET,
@@ -1866,6 +1883,7 @@ async fn kick_off_validation_work<Context>(
 			tx_command: background_validation_tx.clone(),
 			candidate: attesting.candidate,
 			relay_parent: rp_state.parent,
+			session_index: rp_state.session_index,
 			persisted_validation_data,
 			pov,
 			n_validators: rp_state.table_context.validators.len(),
@@ -2019,6 +2037,7 @@ async fn validate_and_second<Context>(
 			tx_command: background_validation_tx.clone(),
 			candidate: candidate.clone(),
 			relay_parent: rp_state.parent,
+			session_index: rp_state.session_index,
 			persisted_validation_data,
 			pov: PoVData::Ready(pov),
 			n_validators: rp_state.table_context.validators.len(),
@@ -2075,23 +2094,24 @@ async fn handle_second_message<Context>(
 		return Ok(())
 	}
 
+	let assigned_paras = rp_state.assigned_core.and_then(|core| rp_state.claim_queue.0.get(&core));
+
 	// Sanity check that candidate is from our assignment.
-	if Some(candidate.descriptor().para_id) != rp_state.assigned_para {
+	if !matches!(assigned_paras, Some(paras) if paras.contains(&candidate.descriptor().para_id)) {
 		gum::debug!(
 			target: LOG_TARGET,
 			our_assignment_core = ?rp_state.assigned_core,
-			our_assignment_para = ?rp_state.assigned_para,
+			our_assignment_paras = ?assigned_paras,
 			collation = ?candidate.descriptor().para_id,
 			"Subsystem asked to second for para outside of our assignment",
 		);
-
-		return Ok(())
+		return Ok(());
 	}
 
 	gum::debug!(
 		target: LOG_TARGET,
 		our_assignment_core = ?rp_state.assigned_core,
-		our_assignment_para = ?rp_state.assigned_para,
+		our_assignment_paras = ?assigned_paras,
 		collation = ?candidate.descriptor().para_id,
 		"Current assignments vs collation",
 	);
@@ -2138,7 +2158,7 @@ async fn handle_statement_message<Context>(
 	}
 }
 
-fn handle_get_backed_candidates_message(
+fn handle_get_backable_candidates_message(
 	state: &State,
 	requested_candidates: HashMap<ParaId, Vec<(CandidateHash, Hash)>>,
 	tx: oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,

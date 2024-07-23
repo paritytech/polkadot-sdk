@@ -25,9 +25,13 @@ workflows:
         '--show-path',
         '--quiet',
       ]
-  # Same as `check`, but with the `--fix` flag.
+  # The umbrella crate uses more features, so we to check those too:
+  check_umbrella:
+    - [ $check.0, '--features=serde,experimental,with-tracing,tuples-96,with-tracing', '-p=polkadot-sdk' ]
+  # Same as `check_*`, but with the `--fix` flag.
   default:
     - [ $check.0, '--fix' ]
+    - [ $check_umbrella.0, '--fix' ]
 
 # Will be displayed when any workflow fails:
 help:
