@@ -19,10 +19,6 @@
 //!
 //! Allows dynamic, chain-state-based pausing and unpausing of specific extrinsics via call filters.
 //!
-//! ## WARNING
-//!
-//! NOT YET AUDITED. DO NOT USE IN PRODUCTION.
-//!
 //! ## Pallet API
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
