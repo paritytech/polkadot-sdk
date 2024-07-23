@@ -19859,6 +19859,7 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-io",
+ "sp-std 14.0.0",
 ]
 
 [[package]]

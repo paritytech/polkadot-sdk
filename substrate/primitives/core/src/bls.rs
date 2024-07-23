@@ -28,7 +28,7 @@ use crate::crypto::{
 	SignatureBytes, UncheckedFrom,
 };
 
-use alloc::vec::Vec;
+use sp_std::vec::Vec;
 
 use w3f_bls::{
 	DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
@@ -308,11 +308,10 @@ mod tests {
 			Public::unchecked_from(array_bytes::hex2array_unchecked(hex_expected_pub_key))
 		);
 		let message = b"";
-		let signature = array_bytes::hex2array_unchecked(hex_expected_signature);
+		let expected_signature_bytes = array_bytes::hex2array_unchecked(hex_expected_signature);
 
-		let expected_signature = Signature::unchecked_from(signature);
+		let expected_signature = Signature::unchecked_from(expected_signature_bytes);
 		let signature = pair.sign(&message[..]);
-		let signature_bytes: &[u8] = signature.as_ref();
 		assert!(signature == expected_signature);
 		assert!(Pair::verify(&signature, &message[..], &public));
 	}
