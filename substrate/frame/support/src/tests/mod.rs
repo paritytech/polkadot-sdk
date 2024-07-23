@@ -600,7 +600,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0, 0, 0, 0, 0, 0, 0, 0],
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::DeprecatedWithoutNote,
+				deprecation_info: sp_metadata_ir::DeprecationStatusIR::DeprecatedWithoutNote,
 			},
 			StorageEntryMetadataIR {
 				name: "OptionLinkedMap",
@@ -612,7 +612,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::Deprecated {
+				deprecation_info: sp_metadata_ir::DeprecationStatusIR::Deprecated {
 					note: "test",
 					since: None,
 				},
@@ -627,7 +627,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0, 0, 0, 0],
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::Deprecated {
+				deprecation_info: sp_metadata_ir::DeprecationStatusIR::Deprecated {
 					note: "test",
 					since: Some("test"),
 				},
@@ -642,7 +642,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::Deprecated {
+				deprecation_info: sp_metadata_ir::DeprecationStatusIR::Deprecated {
 					note: "test",
 					since: None,
 				},
@@ -657,7 +657,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0, 0, 0, 0, 0, 0, 0, 0],
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "GenericDataDM",
@@ -669,7 +669,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0, 0, 0, 0],
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "GenericData2DM",
@@ -681,7 +681,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "AppendableDM",
@@ -696,7 +696,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "Total",
@@ -704,7 +704,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<(u32, u32)>()),
 				default: vec![0, 0, 0, 0, 0, 0, 0, 0],
 				docs: vec![" Some running total."],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "Numbers",
@@ -716,7 +716,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![" Numbers to be added into the total."],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 			},
 		],
 	}
@@ -739,7 +739,7 @@ fn constant_metadata() {
 			ty: scale_info::meta_type::<()>(),
 			value: vec![],
 			docs: vec![],
-			deprecation_info: sp_metadata_ir::DeprecationStatus::Deprecated {
+			deprecation_info: sp_metadata_ir::DeprecationStatusIR::Deprecated {
 				note: "this constant is deprecated",
 				since: None
 			}

@@ -49,7 +49,7 @@ fn parse_deprecated_meta(path: &TokenStream, attr: &syn::Attribute) -> Result<To
 					} else {
 						quote! { None }
 					};
-					let doc = quote! { #path::__private::metadata_ir::DeprecationStatus::Deprecated { note: #note, since: #since }};
+					let doc = quote! { #path::__private::metadata_ir::DeprecationStatusIR::Deprecated { note: #note, since: #since }};
 					Ok(doc)
 				},
 			)
@@ -59,12 +59,12 @@ fn parse_deprecated_meta(path: &TokenStream, attr: &syn::Attribute) -> Result<To
 			..
 		}) => {
 			// #[deprecated = "lit"]
-			let doc = quote! { #path::__private::metadata_ir::DeprecationStatus::Deprecated { note: #lit, since: None } };
+			let doc = quote! { #path::__private::metadata_ir::DeprecationStatusIR::Deprecated { note: #lit, since: None } };
 			Ok(doc)
 		},
 		Meta::Path(_) => {
 			// #[deprecated]
-			Ok(quote! { #path::__private::metadata_ir::DeprecationStatus::DeprecatedWithoutNote })
+			Ok(quote! { #path::__private::metadata_ir::DeprecationStatusIR::DeprecatedWithoutNote })
 		},
 		_ => Err(Error::new(attr.span(), "Invalid deprecation attribute")),
 	}
@@ -77,14 +77,15 @@ pub fn get_deprecation(path: &TokenStream, attrs: &[syn::Attribute]) -> Result<T
 		.find(|a| a.path().is_ident("deprecated"))
 		.map(|a| parse_deprecated_meta(path, a))
 		.unwrap_or_else(|| {
-			Ok(quote! {#path::__private::metadata_ir::DeprecationStatus::NotDeprecated})
+			Ok(quote! {#path::__private::metadata_ir::DeprecationStatusIR::NotDeprecated})
 		})
 }
 
 /// collects deprecation attribute if its present for enum-like types
 pub fn get_deprecation_enum<'a>(
 	path: &TokenStream,
-	attrs: impl Iterator<Item = (u8, &'a [syn::Attribute])>,
+	parent_attrs: &[syn::Attribute],
+	children_attrs: impl Iterator<Item = (u8, &'a [syn::Attribute])>,
 ) -> Result<TokenStream> {
 	fn parse_deprecation(
 		path: &TokenStream,
@@ -97,15 +98,34 @@ pub fn get_deprecation_enum<'a>(
 			.unwrap_or_else(|| Ok(None))
 	}
 
-	let children = attrs
+	let parent_deprecation = parse_deprecation(path, parent_attrs)?;
+
+	let children = children_attrs
 		.filter_map(|(key, attributes)| {
-			let key = key as u8;
+			let key = quote::quote! { #path::__private::codec::Compact(#key as u8) };
 			let deprecation_status = parse_deprecation(path, attributes).transpose();
 			deprecation_status.map(|item| item.map(|item| quote::quote! { (#key, #item) }))
 		})
 		.collect::<Result<Vec<TokenStream>>>()?;
-
-	Ok(
-		quote::quote! { #path::__private::scale_info::prelude::collections::BTreeMap::from([#( #children),*]) },
-	)
+	match (parent_deprecation, children.as_slice()) {
+		(None, []) =>
+			Ok(quote::quote! { #path::__private::metadata_ir::DeprecationInfoIR::NotDeprecated }),
+		(None, _) => {
+			let children = quote::quote! { #path::__private::scale_info::prelude::collections::BTreeMap::from([#( #children),*]) };
+			Ok(
+				quote::quote! { #path::__private::metadata_ir::DeprecationInfoIR::PartiallyDeprecated(#children) },
+			)
+		},
+		(Some(depr), []) => Ok(
+			quote::quote! { #path::__private::metadata_ir::DeprecationInfoIR::FullyDeprecated(#depr) },
+		),
+		(Some(_), _) => {
+			let span = parent_attrs
+				.iter()
+				.find(|a| a.path().is_ident("deprecated"))
+				.map(|x| x.span())
+				.expect("this can never fail, because we have found the deprecated attribute above; qed");
+			Err(Error::new(span, "Invalid deprecation usage. Either deprecate variants/call indexes or the type as a whole"))
+		},
+	}
 }

@@ -245,19 +245,19 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		});
 
-	let deprecation_status = if let Some(call) = def.call.as_ref() {
-		crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &call.attrs)
+	let deprecation = if let Some(call) = def.call.as_ref() {
+		crate::deprecation::get_deprecation_enum(
+			&quote::quote! {#frame_support},
+			call.attrs.as_ref(),
+			methods.iter().map(|item| (item.call_index as u8, item.attrs.as_ref())),
+		)
 	} else {
-		Ok(
-			quote::quote! { #frame_support::__private::metadata_ir::DeprecationStatus::NotDeprecated },
+		crate::deprecation::get_deprecation_enum(
+			&quote::quote! {#frame_support},
+			&[],
+			methods.iter().map(|item| (item.call_index as u8, item.attrs.as_ref())),
 		)
 	}
-	.unwrap_or_else(syn::Error::into_compile_error);
-
-	let indexes = crate::deprecation::get_deprecation_enum(
-		&quote::quote! {#frame_support},
-		methods.iter().map(|item| (item.call_index as u8, item.attrs.as_ref())),
-	)
 	.unwrap_or_else(syn::Error::into_compile_error);
 
 	quote::quote_spanned!(span =>
@@ -462,8 +462,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			pub fn call_functions() -> #frame_support::__private::metadata_ir::PalletCallMetadataIR {
 				#frame_support::__private::metadata_ir::PalletCallMetadataIR  {
 					ty: #frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>(),
-					deprecation_info: #deprecation_status,
-					deprecated_indexes: #indexes,
+					deprecation_info: #deprecation,
 				}
 			}
 		}

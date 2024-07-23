@@ -142,7 +142,7 @@ where
 pub trait StorageEntryMetadataBuilder {
 	/// Build into `entries` the storage metadata entries of a storage given some `docs`.
 	fn build_metadata(
-		deprecation_status: sp_metadata_ir::DeprecationStatus,
+		deprecation_status: sp_metadata_ir::DeprecationStatusIR,
 		doc: Vec<&'static str>,
 		entries: &mut Vec<StorageEntryMetadataIR>,
 	);

@@ -290,7 +290,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 		impl<#type_use_gen> #pallet_ident<#type_use_gen> {
 			#[allow(dead_code)]
 			#[doc(hidden)]
-			pub fn deprecation_info() -> #frame_support::__private::metadata_ir::DeprecationStatus {
+			pub fn deprecation_info() -> #frame_support::__private::metadata_ir::DeprecationStatusIR {
 				#deprecation_status
 			}
 		}

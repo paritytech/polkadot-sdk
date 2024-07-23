@@ -95,12 +95,9 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 		event_item.variants.push(variant);
 	}
 
-	let deprecation_status =
-		crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &event.attrs)
-			.unwrap_or_else(syn::Error::into_compile_error);
-
-	let variants = crate::deprecation::get_deprecation_enum(
+	let deprecation = crate::deprecation::get_deprecation_enum(
 		&quote::quote! {#frame_support},
+		&event.attrs,
 		event_item
 			.variants
 			.iter()
@@ -190,8 +187,7 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 			pub fn event_metadata<W: #frame_support::__private::scale_info::TypeInfo + 'static>() -> #frame_support::__private::metadata_ir::PalletEventMetadataIR {
 				#frame_support::__private::metadata_ir::PalletEventMetadataIR {
 					ty: #frame_support::__private::scale_info::meta_type::<W>(),
-					deprecation_info: #deprecation_status,
-					deprecated_variants: #variants
+					deprecation_info: #deprecation,
 				}
 			}
 		}

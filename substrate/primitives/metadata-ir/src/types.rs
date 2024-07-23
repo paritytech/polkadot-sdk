@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::Encode;
+use codec::{Compact, Encode};
 use scale_info::{
 	form::{Form, MetaForm, PortableForm},
 	prelude::{collections::BTreeMap, vec::Vec},
@@ -53,7 +53,7 @@ pub struct RuntimeApiMetadataIR<T: Form = MetaForm> {
 	/// Trait documentation.
 	pub docs: Vec<T::String>,
 	/// Deprecation info
-	pub deprecation_info: DeprecationStatus<T>,
+	pub deprecation_info: DeprecationStatusIR<T>,
 }
 
 impl IntoPortable for RuntimeApiMetadataIR {
@@ -81,7 +81,7 @@ pub struct RuntimeApiMethodMetadataIR<T: Form = MetaForm> {
 	/// Method documentation.
 	pub docs: Vec<T::String>,
 	/// Deprecation info
-	pub deprecation_info: DeprecationStatus<T>,
+	pub deprecation_info: DeprecationStatusIR<T>,
 }
 
 impl IntoPortable for RuntimeApiMethodMetadataIR {
@@ -139,7 +139,7 @@ pub struct PalletMetadataIR<T: Form = MetaForm> {
 	/// Pallet documentation.
 	pub docs: Vec<T::String>,
 	/// Deprecation info
-	pub deprecation_info: DeprecationStatus<T>,
+	pub deprecation_info: DeprecationStatusIR<T>,
 }
 
 impl IntoPortable for PalletMetadataIR {
@@ -255,7 +255,7 @@ pub struct StorageEntryMetadataIR<T: Form = MetaForm> {
 	/// Storage entry documentation.
 	pub docs: Vec<T::String>,
 	/// Deprecation info
-	pub deprecation_info: DeprecationStatus<T>,
+	pub deprecation_info: DeprecationStatusIR<T>,
 }
 
 impl IntoPortable for StorageEntryMetadataIR {
@@ -343,10 +343,8 @@ impl IntoPortable for StorageEntryTypeIR {
 pub struct PalletCallMetadataIR<T: Form = MetaForm> {
 	/// The corresponding enum type for the pallet call.
 	pub ty: T::Type,
-	/// Deprecation status of the pallet call itself
-	pub deprecation_info: DeprecationStatus<T>,
-	/// Deprecation status of the call indexes
-	pub deprecated_indexes: BTreeMap<u8, DeprecationStatus<T>>,
+	/// Deprecation status of the pallet call
+	pub deprecation_info: DeprecationInfoIR<T>,
 }
 
 impl IntoPortable for PalletCallMetadataIR {
@@ -355,15 +353,6 @@ impl IntoPortable for PalletCallMetadataIR {
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
 		PalletCallMetadataIR {
 			ty: registry.register_type(&self.ty),
-			deprecated_indexes: self
-				.deprecated_indexes
-				.into_iter()
-				.map(|(k, v)| {
-					let key = k;
-					let value = v.into_portable(registry);
-					(key, value)
-				})
-				.collect(),
 			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
@@ -374,10 +363,8 @@ impl IntoPortable for PalletCallMetadataIR {
 pub struct PalletEventMetadataIR<T: Form = MetaForm> {
 	/// The Event type.
 	pub ty: T::Type,
-	/// Deprecation status of the event itself
-	pub deprecation_info: DeprecationStatus<T>,
-	/// Deprecation status of the variants
-	pub deprecated_variants: BTreeMap<u8, DeprecationStatus<T>>,
+	/// Deprecation info of the event
+	pub deprecation_info: DeprecationInfoIR<T>,
 }
 
 impl IntoPortable for PalletEventMetadataIR {
@@ -386,14 +373,6 @@ impl IntoPortable for PalletEventMetadataIR {
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
 		PalletEventMetadataIR {
 			ty: registry.register_type(&self.ty),
-			deprecated_variants: self
-				.deprecated_variants
-				.into_iter()
-				.map(|(k, v)| {
-					let value = v.into_portable(registry);
-					(k, value)
-				})
-				.collect(),
 			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
@@ -411,7 +390,7 @@ pub struct PalletConstantMetadataIR<T: Form = MetaForm> {
 	/// Documentation of the constant.
 	pub docs: Vec<T::String>,
 	/// Deprecation info
-	pub deprecation_info: DeprecationStatus<T>,
+	pub deprecation_info: DeprecationStatusIR<T>,
 }
 
 impl IntoPortable for PalletConstantMetadataIR {
@@ -433,10 +412,8 @@ impl IntoPortable for PalletConstantMetadataIR {
 pub struct PalletErrorMetadataIR<T: Form = MetaForm> {
 	/// The error type information.
 	pub ty: T::Type,
-	/// Deprecation status of the error itself
-	pub deprecation_info: DeprecationStatus<T>,
-	/// Deprecation status of the variants
-	pub deprecated_variants: BTreeMap<u8, DeprecationStatus<T>>,
+	/// Deprecation info
+	pub deprecation_info: DeprecationInfoIR<T>,
 }
 
 impl IntoPortable for PalletErrorMetadataIR {
@@ -445,14 +422,6 @@ impl IntoPortable for PalletErrorMetadataIR {
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
 		PalletErrorMetadataIR {
 			ty: registry.register_type(&self.ty),
-			deprecated_variants: self
-				.deprecated_variants
-				.into_iter()
-				.map(|(k, v)| {
-					let value = v.into_portable(registry);
-					(k, value)
-				})
-				.collect(),
 			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
@@ -497,7 +466,7 @@ impl IntoPortable for OuterEnumsIR {
 
 /// Deprecation status for an entry inside MetadataIR
 #[derive(Clone, PartialEq, Eq, Encode, Debug)]
-pub enum DeprecationStatus<T: Form = MetaForm> {
+pub enum DeprecationStatusIR<T: Form = MetaForm> {
 	/// Entry is not deprecated
 	NotDeprecated,
 	/// Deprecated without a note.
@@ -510,18 +479,47 @@ pub enum DeprecationStatus<T: Form = MetaForm> {
 		since: Option<T::String>,
 	},
 }
-impl IntoPortable for DeprecationStatus {
-	type Output = DeprecationStatus<PortableForm>;
+impl IntoPortable for DeprecationStatusIR {
+	type Output = DeprecationStatusIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
 		match self {
 			Self::Deprecated { note, since } => {
 				let note = note.into_portable(registry);
 				let since = since.map(|x| x.into_portable(registry));
-				DeprecationStatus::Deprecated { note, since }
+				DeprecationStatusIR::Deprecated { note, since }
 			},
-			Self::DeprecatedWithoutNote => DeprecationStatus::DeprecatedWithoutNote,
-			Self::NotDeprecated => DeprecationStatus::NotDeprecated,
+			Self::DeprecatedWithoutNote => DeprecationStatusIR::DeprecatedWithoutNote,
+			Self::NotDeprecated => DeprecationStatusIR::NotDeprecated,
+		}
+	}
+}
+/// Deprecation info for an enums/errors/calls.
+/// Denotes full/partial deprecation of the type
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+pub enum DeprecationInfoIR<T: Form = MetaForm> {
+	/// Type is not deprecated
+	NotDeprecated,
+	/// Entry is fully deprecated.
+	FullyDeprecated(DeprecationStatusIR<T>),
+	/// Entry is partially deprecated.
+	/// For Errors and Events this means that only some of the variants are deprecated
+	/// For Calls only certain call indexes are deprecated
+	PartiallyDeprecated(BTreeMap<Compact<u8>, DeprecationStatusIR<T>>),
+}
+impl IntoPortable for DeprecationInfoIR {
+	type Output = DeprecationInfoIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		match self {
+			Self::PartiallyDeprecated(entries) => {
+				let entries =
+					entries.into_iter().map(|(k, entry)| (k, entry.into_portable(registry)));
+				DeprecationInfoIR::PartiallyDeprecated(entries.collect())
+			},
+			Self::FullyDeprecated(deprecation) =>
+				DeprecationInfoIR::FullyDeprecated(deprecation.into_portable(registry)),
+			Self::NotDeprecated => DeprecationInfoIR::NotDeprecated,
 		}
 	}
 }
