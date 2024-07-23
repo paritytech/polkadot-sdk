@@ -8,6 +8,5 @@ doc:
 crates:
 - name: pallet-session
   bump: major
-crates:
 - name: parachains-runtimes-test-utils
   bump: None
