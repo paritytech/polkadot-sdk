@@ -307,6 +307,8 @@ pub trait Backend<Block: BlockT>:
 
 		let mut displaced_blocks_candidates = Vec::new();
 
+		let genesis_hash = self.info().genesis_hash;
+
 		for leaf_hash in leaves {
 			let mut current_header_metadata =
 				MinimalBlockMetadata::from(&self.header_metadata(leaf_hash).map_err(|err| {
