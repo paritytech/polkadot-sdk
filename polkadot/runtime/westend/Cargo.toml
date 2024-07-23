@@ -71,6 +71,7 @@ pallet-multisig = { workspace = true }
 pallet-nomination-pools = { workspace = true }
 pallet-conviction-voting = { workspace = true }
 pallet-offences = { workspace = true }
+pallet-parameters = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-recovery = { workspace = true }
@@ -79,7 +80,6 @@ pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
 pallet-society = { workspace = true }
 pallet-staking = { workspace = true }
-pallet-staking-reward-curve = { workspace = true, default-features = true }
 pallet-staking-runtime-api = { workspace = true }
 pallet-delegated-staking = { workspace = true }
 pallet-state-trie-migration = { workspace = true }
@@ -173,6 +173,7 @@ std = [
 	"pallet-nomination-pools/std",
 	"pallet-offences-benchmarking?/std",
 	"pallet-offences/std",
+	"pallet-parameters/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
 	"pallet-recovery/std",
@@ -240,6 +241,7 @@ runtime-benchmarks = [
 	"pallet-babe/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-beefy-mmr/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
 	"pallet-delegated-staking/runtime-benchmarks",
@@ -259,6 +261,7 @@ runtime-benchmarks = [
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-offences-benchmarking/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
+	"pallet-parameters/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-recovery/runtime-benchmarks",
@@ -317,6 +320,7 @@ try-runtime = [
 	"pallet-multisig/try-runtime",
 	"pallet-nomination-pools/try-runtime",
 	"pallet-offences/try-runtime",
+	"pallet-parameters/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-recovery/try-runtime",
@@ -346,7 +350,10 @@ metadata-hash = ["substrate-wasm-builder/metadata-hash"]
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
 fast-runtime = []
 
-runtime-metrics = ["polkadot-runtime-parachains/runtime-metrics", "sp-io/with-tracing"]
+runtime-metrics = [
+	"polkadot-runtime-parachains/runtime-metrics",
+	"sp-io/with-tracing",
+]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
