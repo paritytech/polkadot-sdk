@@ -105,7 +105,6 @@ runtime-benchmarks = [
 	"sp-staking/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-support-procedural/try-runtime",
 	"frame-system/try-runtime",
 	"sp-debug-derive/force-debug",
 	"sp-runtime/try-runtime",

@@ -140,66 +140,6 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 		}
 	};
 
-	let pre_upgrade_post_upgrade = if cfg!(feature = "try-runtime") {
-		quote::quote_spanned!(span =>
-			fn pre_upgrade() -> Result<#frame_support::__private::Vec<u8>, #frame_support::sp_runtime::TryRuntimeError> {
-				<
-					Self
-					as
-					#frame_support::traits::Hooks<#frame_system::pallet_prelude::BlockNumberFor::<T>>
-				>::pre_upgrade()
-			}
-
-			fn post_upgrade(state: #frame_support::__private::Vec<u8>) -> Result<(), #frame_support::sp_runtime::TryRuntimeError> {
-				#post_storage_version_check
-
-				<
-					Self
-					as
-					#frame_support::traits::Hooks<#frame_system::pallet_prelude::BlockNumberFor::<T>>
-				>::post_upgrade(state)
-			}
-		)
-	} else {
-		proc_macro2::TokenStream::new()
-	};
-
-	let try_state = if cfg!(feature = "try-runtime") {
-		quote::quote_spanned!(span =>
-			impl<#type_impl_gen>
-				#frame_support::traits::TryState<#frame_system::pallet_prelude::BlockNumberFor::<T>>
-				for #pallet_ident<#type_use_gen> #where_clause
-			{
-				fn try_state(
-					n: #frame_system::pallet_prelude::BlockNumberFor::<T>,
-					_s: #frame_support::traits::TryStateSelect
-				) -> Result<(), #frame_support::sp_runtime::TryRuntimeError> {
-					#frame_support::__private::log::info!(
-						target: #frame_support::LOG_TARGET,
-						"🩺 Running {:?} try-state checks",
-						#pallet_name,
-					);
-					<
-						Self as #frame_support::traits::Hooks<
-							#frame_system::pallet_prelude::BlockNumberFor::<T>
-						>
-					>::try_state(n).map_err(|err| {
-						#frame_support::__private::log::error!(
-							target: #frame_support::LOG_TARGET,
-							"❌ {:?} try_state checks failed: {:?}",
-							#pallet_name,
-							err
-						);
-
-						err
-					})
-				}
-			}
-		)
-	} else {
-		proc_macro2::TokenStream::new()
-	};
-
 	quote::quote_spanned!(span =>
 		#hooks_impl
 
@@ -314,7 +254,25 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 				>::on_runtime_upgrade()
 			}
 
-			#pre_upgrade_post_upgrade
+			#frame_support::try_runtime_enabled! {
+				fn pre_upgrade() -> Result<#frame_support::__private::Vec<u8>, #frame_support::sp_runtime::TryRuntimeError> {
+					<
+						Self
+						as
+						#frame_support::traits::Hooks<#frame_system::pallet_prelude::BlockNumberFor::<T>>
+					>::pre_upgrade()
+				}
+
+				fn post_upgrade(state: #frame_support::__private::Vec<u8>) -> Result<(), #frame_support::sp_runtime::TryRuntimeError> {
+					#post_storage_version_check
+
+					<
+						Self
+						as
+						#frame_support::traits::Hooks<#frame_system::pallet_prelude::BlockNumberFor::<T>>
+					>::post_upgrade(state)
+				}
+			}
 		}
 
 		impl<#type_impl_gen>
@@ -348,6 +306,36 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 
-		#try_state
+		#frame_support::try_runtime_enabled! {
+			impl<#type_impl_gen>
+				#frame_support::traits::TryState<#frame_system::pallet_prelude::BlockNumberFor::<T>>
+				for #pallet_ident<#type_use_gen> #where_clause
+			{
+				fn try_state(
+					n: #frame_system::pallet_prelude::BlockNumberFor::<T>,
+					_s: #frame_support::traits::TryStateSelect
+				) -> Result<(), #frame_support::sp_runtime::TryRuntimeError> {
+					#frame_support::__private::log::info!(
+						target: #frame_support::LOG_TARGET,
+						"🩺 Running {:?} try-state checks",
+						#pallet_name,
+					);
+					<
+						Self as #frame_support::traits::Hooks<
+							#frame_system::pallet_prelude::BlockNumberFor::<T>
+						>
+					>::try_state(n).map_err(|err| {
+						#frame_support::__private::log::error!(
+							target: #frame_support::LOG_TARGET,
+							"❌ {:?} try_state checks failed: {:?}",
+							#pallet_name,
+							err
+						);
+
+						err
+					})
+				}
+			}
+		}
 	)
 }
