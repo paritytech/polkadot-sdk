@@ -17,10 +17,9 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_coretime, assigner_on_demand, assigner_parachains, configuration, coretime, disputes,
-	dmp, hrmp,
+	assigner_coretime, assigner_parachains, configuration, coretime, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
-	initializer, origin, paras,
+	initializer, on_demand, origin, paras,
 	paras::ParaKind,
 	paras_inherent, scheduler,
 	scheduler::common::AssignmentProvider,
@@ -78,7 +77,7 @@ frame_support::construct_runtime!(
 		Scheduler: scheduler,
 		MockAssigner: mock_assigner,
 		ParachainsAssigner: assigner_parachains,
-		OnDemandAssigner: assigner_on_demand,
+		OnDemand: on_demand,
 		CoretimeAssigner: assigner_coretime,
 		Coretime: coretime,
 		Initializer: initializer,
@@ -401,11 +400,11 @@ parameter_types! {
 	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
 }
 
-impl assigner_on_demand::Config for Test {
+impl on_demand::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
-	type WeightInfo = crate::assigner_on_demand::TestWeightInfo;
+	type WeightInfo = crate::on_demand::TestWeightInfo;
 	type MaxHistoricalRevenue = MaxHistoricalRevenue;
 	type PalletId = OnDemandPalletId;
 }
@@ -540,7 +539,7 @@ pub mod mock_assigner {
 		// We don't care about core affinity in the test assigner
 		fn report_processed(_assignment: Assignment) {}
 
-		// The results of this are tested in assigner_on_demand tests. No need to represent it
+		// The results of this are tested in on_demand tests. No need to represent it
 		// in the mock assigner.
 		fn push_back_assignment(_assignment: Assignment) {}
 

@@ -94,7 +94,7 @@ mod benchmarks {
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::new_test_ext(
-			crate::assigner_on_demand::mock_helpers::GenesisConfigBuilder::default().build()
+			crate::on_demand::mock_helpers::GenesisConfigBuilder::default().build()
 		),
 		crate::mock::Test
 	);
