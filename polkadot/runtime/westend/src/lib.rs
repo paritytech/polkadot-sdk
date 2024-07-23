@@ -31,12 +31,14 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
 use frame_support::{
 	derive_impl,
+	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EverythingBut, FromContains, InstanceFilter, KeyOwnerProofSystem,
-		LinearStoragePrice, ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons,
+		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter,
+		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
+		VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -59,8 +61,8 @@ use polkadot_runtime_common::{
 	elections::OnChainAccuracy,
 	identity_migrator, impl_runtime_weights,
 	impls::{
-		ContainsParts, LocatableAssetConverter, ToAuthor, VersionedLocatableAsset,
-		VersionedLocationConverter,
+		relay_era_payout, ContainsParts, EraPayoutParams, LocatableAssetConverter, ToAuthor,
+		VersionedLocatableAsset, VersionedLocationConverter,
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
 	traits::{Leaser, OnSwap},
@@ -91,9 +93,7 @@ use sp_consensus_beefy::{
 };
 use sp_core::{ConstU8, OpaqueMetadata, RuntimeDebug, H256};
 use sp_runtime::{
-	create_runtime_str,
-	curve::PiecewiseLinear,
-	generic, impl_opaque_keys,
+	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
 		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic as ExtrinsicT,
 		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
@@ -242,6 +242,80 @@ parameter_types! {
 	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
 	pub const PreimageByteDeposit: Balance = deposit(0, 1);
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
+}
+
+/// Dynamic params that can be adjusted at runtime.
+#[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Runtime>)]
+pub mod dynamic_params {
+	use super::*;
+
+	/// Parameters used to calculate era payouts, see
+	/// [`polkadot_runtime_common::impls::EraPayoutParams`].
+	#[dynamic_pallet_params]
+	#[codec(index = 0)]
+	pub mod inflation {
+		/// Minimum inflation rate used to calculate era payouts.
+		#[codec(index = 0)]
+		pub static MinInflation: Perquintill = Perquintill::from_rational(25u64, 1000u64);
+
+		/// Maximum inflation rate used to calculate era payouts.
+		#[codec(index = 1)]
+		pub static MaxInflation: Perquintill = Perquintill::from_rational(10u64, 100u64);
+
+		/// Ideal stake ratio used to calculate era payouts.
+		#[codec(index = 2)]
+		pub static IdealStake: Perquintill = Perquintill::from_rational(50u64, 100u64);
+
+		/// Falloff used to calculate era payouts.
+		#[codec(index = 3)]
+		pub static Falloff: Perquintill = Perquintill::from_rational(50u64, 1000u64);
+
+		/// Whether to use auction slots or not in the calculation of era payouts. If set to true,
+		/// the `legacy_auction_proportion` of 60% will be used in the calculation of era payouts.
+		#[codec(index = 4)]
+		pub static UseAuctionSlots: bool = false;
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl Default for RuntimeParameters {
+	fn default() -> Self {
+		RuntimeParameters::Inflation(dynamic_params::inflation::Parameters::MinInflation(
+			dynamic_params::inflation::MinInflation,
+			Some(Perquintill::from_rational(25u64, 1000u64)),
+		))
+	}
+}
+
+impl pallet_parameters::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeParameters = RuntimeParameters;
+	type AdminOrigin = DynamicParameterOrigin;
+	type WeightInfo = weights::pallet_parameters::WeightInfo<Runtime>;
+}
+
+/// Defines what origin can modify which dynamic parameters.
+pub struct DynamicParameterOrigin;
+impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParameterOrigin {
+	type Success = ();
+
+	fn try_origin(
+		origin: RuntimeOrigin,
+		key: &RuntimeParametersKey,
+	) -> Result<Self::Success, RuntimeOrigin> {
+		use crate::RuntimeParametersKey::*;
+
+		match key {
+			Inflation(_) => frame_system::ensure_root(origin.clone()),
+		}
+		.map_err(|_| origin)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_key: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
+		// Provide the origin for the parameter returned by `Default`:
+		Ok(RuntimeOrigin::root())
+	}
 }
 
 impl pallet_preimage::Config for Runtime {
@@ -596,15 +670,37 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type Score = sp_npos_elections::VoteWeight;
 }
 
-pallet_staking_reward_curve::build! {
-	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000,
-		max_inflation: 0_100_000,
-		ideal_stake: 0_500_000,
-		falloff: 0_050_000,
-		max_piece_count: 40,
-		test_precision: 0_005_000,
-	);
+pub struct EraPayout;
+impl pallet_staking::EraPayout<Balance> for EraPayout {
+	fn era_payout(
+		total_staked: Balance,
+		total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
+
+		let params = EraPayoutParams {
+			total_staked,
+			total_stakable: total_issuance,
+			ideal_stake: dynamic_params::inflation::IdealStake::get(),
+			max_annual_inflation: dynamic_params::inflation::MaxInflation::get(),
+			min_annual_inflation: dynamic_params::inflation::MinInflation::get(),
+			falloff: dynamic_params::inflation::Falloff::get(),
+			period_fraction: Perquintill::from_rational(era_duration_millis, MILLISECONDS_PER_YEAR),
+			legacy_auction_proportion: if dynamic_params::inflation::UseAuctionSlots::get() {
+				let auctioned_slots = parachains_paras::Parachains::<Runtime>::get()
+					.into_iter()
+					// all active para-ids that do not belong to a system chain is the number of
+					// parachains that we should take into account for inflation.
+					.filter(|i| *i >= 2000.into())
+					.count() as u64;
+				Some(Perquintill::from_rational(auctioned_slots.min(60), 200u64))
+			} else {
+				None
+			},
+		};
+		relay_era_payout(params)
+	}
 }
 
 parameter_types! {
@@ -614,7 +710,6 @@ parameter_types! {
 	pub const BondingDuration: sp_staking::EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
-	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxExposurePageSize: u32 = 64;
 	// Note: this is not really correct as Max Nominators is (MaxExposurePageSize * page_count) but
 	// this is an unbounded number. We just set it to a reasonably high value, 1 full page
@@ -638,7 +733,7 @@ impl pallet_staking::Config for Runtime {
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type SessionInterface = Self;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type NextNewSession = Session;
 	type ElectionProvider = ElectionProviderMultiPhase;
@@ -1475,6 +1570,8 @@ mod runtime {
 	pub type Offences = pallet_offences;
 	#[runtime::pallet_index(27)]
 	pub type Historical = session_historical;
+	#[runtime::pallet_index(70)]
+	pub type Parameters = pallet_parameters;
 
 	#[runtime::pallet_index(8)]
 	pub type Session = pallet_session;
@@ -1756,6 +1853,7 @@ mod benches {
 		[pallet_multisig, Multisig]
 		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 		[pallet_offences, OffencesBench::<Runtime>]
+		[pallet_parameters, Parameters]
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
 		[pallet_recovery, Recovery]
