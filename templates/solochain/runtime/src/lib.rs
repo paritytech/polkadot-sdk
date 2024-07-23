@@ -513,7 +513,6 @@ impl_runtime_apis! {
 			Vec<StorageInfo>,
 		) {
 			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
-			use StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
 
