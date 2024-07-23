@@ -54,7 +54,7 @@
 //!
 //! ### Example
 //!
-//! The following examples showcases a minimal pallet.
+//! The following example showcases a minimal pallet.
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", pallet)]
 //!
 //!
