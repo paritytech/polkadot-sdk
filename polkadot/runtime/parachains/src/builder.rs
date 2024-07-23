@@ -37,7 +37,7 @@ use polkadot_primitives::{
 	PersistedValidationData, SessionIndex, SigningContext, UncheckedSigned,
 	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,
 };
-use sp_core::{sr25519, H256};
+use sp_core::{sr25519, ByteArray, H256};
 use sp_runtime::{
 	generic::Digest,
 	traits::{Header as HeaderT, One, TrailingZeroInput, Zero},

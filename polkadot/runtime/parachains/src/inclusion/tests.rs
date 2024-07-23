@@ -34,9 +34,9 @@ use assert_matches::assert_matches;
 use codec::DecodeAll;
 use frame_support::assert_noop;
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CandidateDescriptor, CollatorId,
-	CompactStatement as Statement, Hash, SignedAvailabilityBitfield, SignedStatement,
-	ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID,
+	BlockNumber, CandidateCommitments, CandidateDescriptor, CompactStatement as Statement, Hash,
+	SignedAvailabilityBitfield, SignedStatement, ValidationCode, ValidatorId, ValidityAttestation,
+	PARACHAIN_KEY_TYPE_ID,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_collator, dummy_collator_signature, dummy_validation_code,
@@ -1223,11 +1223,9 @@ fn candidate_checks() {
 		];
 		Scheduler::set_validator_groups(validator_groups);
 
-		let thread_collator: CollatorId = Sr25519Keyring::Two.public().into();
 		let chain_a_assignment = (chain_a, CoreIndex::from(0));
 		let chain_b_assignment = (chain_b, CoreIndex::from(1));
 
-		let thread_a_assignment = (thread_a, CoreIndex::from(2));
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 
 		// no candidates.
@@ -1514,47 +1512,6 @@ fn candidate_checks() {
 					false
 				),
 				Error::<Test>::DisallowedRelayParent
-			);
-		}
-
-		// candidate not well-signed by collator.
-		{
-			let mut candidate = TestCandidateBuilder {
-				para_id: thread_a,
-				relay_parent: System::parent_hash(),
-				pov_hash: Hash::repeat_byte(1),
-				persisted_validation_data_hash: make_vdata_hash(thread_a).unwrap(),
-				hrmp_watermark: RELAY_PARENT_NUM,
-				..Default::default()
-			}
-			.build();
-
-			assert_eq!(CollatorId::from(Sr25519Keyring::Two.public()), thread_collator);
-			collator_sign_candidate(Sr25519Keyring::Two, &mut candidate);
-
-			// change the candidate after signing.
-			candidate.descriptor.pov_hash = Hash::repeat_byte(2);
-
-			let backed = back_candidate(
-				candidate,
-				&validators,
-				group_validators(GroupIndex::from(2)).unwrap().as_ref(),
-				&keystore,
-				&signing_context,
-				BackingKind::Threshold,
-				None,
-			);
-
-			assert_noop!(
-				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
-					&vec![(thread_a_assignment.0, vec![(backed, thread_a_assignment.1)])]
-						.into_iter()
-						.collect(),
-					&group_validators,
-					false
-				),
-				Error::<Test>::NotCollatorSigned
 			);
 		}
 
