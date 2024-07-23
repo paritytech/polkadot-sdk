@@ -286,6 +286,21 @@ pub fn filter_cfg_attributes(attrs: &[syn::Attribute]) -> Vec<syn::Attribute> {
 	attrs.iter().filter(|a| a.path().is_ident("cfg")).cloned().collect()
 }
 
+fn deprecation_msg_formatter(msg: &str) -> String {
+	format!(
+		"{msg}\n{helper}",
+		msg = msg,
+		helper = r#"help: the following are the possible correct uses
+|
+|     #[deprecated = "reason"]
+|
+|     #[deprecated(/*opt*/ since = "version", /*opt*/ note = "reason")]
+|
+|     #[deprecated]
+|"#
+	)
+}
+
 fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<TokenStream> {
 	match &attr.meta {
 		Meta::List(meta_list) => {
@@ -295,7 +310,12 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 			let (note, since) = parsed.iter().try_fold((None, None), |mut acc, item| {
 				let value = match &item.value {
 					Expr::Lit(ExprLit { lit: lit @ Lit::Str(_), .. }) => Ok(lit),
-					_ => Err(Error::new(attr.span(), "Invalid deprecation attribute")),
+					_ => Err(Error::new(
+						attr.span(),
+						deprecation_msg_formatter(
+							"Invalid deprecation attribute: expected string literal",
+						),
+					)),
 				}?;
 				if item.path.is_ident("note") {
 					acc.0.replace(value);
@@ -306,7 +326,8 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 				Ok::<(Option<&syn::Lit>, Option<&syn::Lit>), Error>(acc)
 			})?;
 			note.map_or_else(
-				|| Err(Error::new(attr.span(), "Invalid deprecation attribute: missing `note`")),
+				|| Err(Error::new(attr.span(), 						deprecation_msg_formatter(
+					"Invalid deprecation attribute: missing `note`"))),
 				|note| {
 					let since = if let Some(str) = since {
 						quote! { Some(#str) }
@@ -330,7 +351,10 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 			// #[deprecated]
 			Ok(quote! { #crate_::metadata_ir::DeprecationStatusIR::DeprecatedWithoutNote })
 		},
-		_ => Err(Error::new(attr.span(), "Invalid deprecation attribute")),
+		_ => Err(Error::new(
+			attr.span(),
+			deprecation_msg_formatter("Invalid deprecation attribute: expected string literal"),
+		)),
 	}
 }
 
