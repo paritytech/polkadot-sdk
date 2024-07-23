@@ -322,7 +322,6 @@ pub trait Backend<Block: BlockT>:
 			let leaf_number = current_header_metadata.number;
 
 			// The genesis block is part of the canonical chain.
-			let genesis_hash = self.info().genesis_hash;
 			if leaf_hash == genesis_hash {
 				result.displaced_leaves.push((leaf_number, leaf_hash));
 				debug!(
