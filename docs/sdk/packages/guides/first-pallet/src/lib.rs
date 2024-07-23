@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Pallets use din the `your_first_pallet` guide.
+//! Pallets used in the `your_first_pallet` guide.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
