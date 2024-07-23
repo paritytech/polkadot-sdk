@@ -28,7 +28,7 @@ use polkadot_primitives::{
 	ValidationCode, ValidationCodeHash, ValidatorId,
 };
 pub use rand;
-use sp_application_crypto::{sr25519, ByteArray};
+use sp_application_crypto::sr25519;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::generic::Digest;
 
@@ -136,7 +136,7 @@ pub fn dummy_head_data() -> HeadData {
 
 /// Create a meaningless collator id.
 pub fn dummy_collator() -> CollatorId {
-	CollatorId::from_slice(&vec![0u8; 32]).expect("32 bytes; qed")
+	CollatorId::from(sr25519::Public::default())
 }
 
 /// Create a meaningless validator id.
@@ -146,7 +146,7 @@ pub fn dummy_validator() -> ValidatorId {
 
 /// Create a meaningless collator signature.
 pub fn dummy_collator_signature() -> CollatorSignature {
-	CollatorSignature::from_slice(&vec![0u8; 64]).expect("64 bytes; qed")
+	CollatorSignature::from(sr25519::Signature::default())
 }
 
 /// Create a meaningless persisted validation data.
@@ -228,6 +228,7 @@ pub fn make_valid_candidate_descriptor<H: AsRef<[u8]>>(
 		validation_code_hash,
 	};
 
+	assert!(descriptor.check_collator_signature().is_ok());
 	descriptor
 }
 

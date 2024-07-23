@@ -958,6 +958,10 @@ fn perform_basic_checks(
 		return Err(InvalidCandidate::CodeHashMismatch)
 	}
 
+	if let Err(()) = candidate.check_collator_signature() {
+		return Err(InvalidCandidate::BadSignature)
+	}
+
 	Ok(())
 }
 
