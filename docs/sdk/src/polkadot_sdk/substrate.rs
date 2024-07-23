@@ -63,7 +63,7 @@
 //! categories:
 //!
 //! * `sc-*` (short for *Substrate-client*) crates, located under `./client` folder. These are all
-//!   the crates that lead to the node software. Notable examples [`sc_network`], various consensus
+//!   the crates that lead to the node software. Notable examples are [`sc_network`], various consensus
 //!   crates, RPC ([`sc_rpc_api`]) and database ([`sc_client_db`]), all of which are expected to
 //!   reside in the node side.
 //! * `sp-*` (short for *substrate-primitives*) crates, located under `./primitives` folder. These
