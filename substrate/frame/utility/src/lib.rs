@@ -185,7 +185,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
 			let dispatch_weight = dispatch_infos.iter()
-				.map(|di| di.weight)
+				.map(|di| di.call_weight)
 				.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
 				.saturating_add(T::WeightInfo::batch(calls.len() as u32));
 			let dispatch_class = {
@@ -262,7 +262,7 @@ pub mod pallet {
 				T::WeightInfo::as_derivative()
 					// AccountData for inner call origin accountdata.
 					.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-					.saturating_add(dispatch_info.weight),
+					.saturating_add(dispatch_info.call_weight),
 				dispatch_info.class,
 			)
 		})]
@@ -307,7 +307,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
 			let dispatch_weight = dispatch_infos.iter()
-				.map(|di| di.weight)
+				.map(|di| di.call_weight)
 				.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
 				.saturating_add(T::WeightInfo::batch_all(calls.len() as u32));
 			let dispatch_class = {
@@ -380,7 +380,7 @@ pub mod pallet {
 			let dispatch_info = call.get_dispatch_info();
 			(
 				T::WeightInfo::dispatch_as()
-					.saturating_add(dispatch_info.weight),
+					.saturating_add(dispatch_info.call_weight),
 				dispatch_info.class,
 			)
 		})]
@@ -416,7 +416,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
 			let dispatch_weight = dispatch_infos.iter()
-				.map(|di| di.weight)
+				.map(|di| di.call_weight)
 				.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
 				.saturating_add(T::WeightInfo::force_batch(calls.len() as u32));
 			let dispatch_class = {

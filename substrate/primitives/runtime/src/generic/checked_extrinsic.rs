@@ -19,11 +19,13 @@
 //! stage.
 
 use codec::Encode;
+use sp_weights::Weight;
 
 use crate::{
 	traits::{
 		self, transaction_extension::TransactionExtension, DispatchInfoOf, DispatchTransaction,
-		Dispatchable, MaybeDisplay, Member, PostDispatchInfoOf, ValidateUnsigned,
+		Dispatchable, MaybeDisplay, Member, PostDispatchInfoOf, TransactionExtensionBase,
+		ValidateUnsigned,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
@@ -127,6 +129,19 @@ where
 				extension.dispatch_transaction(Some(signer).into(), self.function, info, len),
 			ExtrinsicFormat::General(extension) =>
 				extension.dispatch_transaction(None.into(), self.function, info, len),
+		}
+	}
+}
+
+impl<AccountId, Call, Extension: TransactionExtensionBase>
+	CheckedExtrinsic<AccountId, Call, Extension>
+{
+	/// Returns the weight of the extension of this transaction, if present. If the transaction
+	/// doesn't use any extension, the weight returned is equal to zero.
+	pub fn extension_weight(&self) -> Weight {
+		match &self.format {
+			ExtrinsicFormat::Bare => Weight::zero(),
+			ExtrinsicFormat::Signed(_, _) | ExtrinsicFormat::General(_) => Extension::weight(),
 		}
 	}
 }

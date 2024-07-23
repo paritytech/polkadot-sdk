@@ -59,7 +59,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckGenesis<T> {
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(<Pallet<T>>::block_hash(BlockNumberFor::<T>::zero()))
 	}
-	fn weight(&self) -> sp_weights::Weight {
+	fn weight() -> sp_weights::Weight {
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_genesis()
 	}
 }

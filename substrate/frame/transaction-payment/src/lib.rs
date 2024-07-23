@@ -61,8 +61,8 @@ pub use pallet::*;
 pub use payment::*;
 use sp_runtime::{
 	traits::{
-		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
-		Saturating, TransactionExtension, TransactionExtensionBase, Zero,
+		AccrueWeight, Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf,
+		SaturatedConversion, Saturating, TransactionExtension, TransactionExtensionBase, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidityError, ValidTransaction,
@@ -522,9 +522,9 @@ impl<T: Config> Pallet<T> {
 			Self::compute_fee(len, &dispatch_info, 0u32.into())
 		};
 
-		let DispatchInfo { weight, class, .. } = dispatch_info;
+		let DispatchInfo { class, .. } = dispatch_info;
 
-		RuntimeDispatchInfo { weight, class, partial_fee }
+		RuntimeDispatchInfo { weight: dispatch_info.total_weight(), class, partial_fee }
 	}
 
 	/// Query the detailed fee of a given `call`.
@@ -553,10 +553,10 @@ impl<T: Config> Pallet<T> {
 		T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
 	{
 		let dispatch_info = <T::RuntimeCall as GetDispatchInfo>::get_dispatch_info(&call);
-		let DispatchInfo { weight, class, .. } = dispatch_info;
+		let DispatchInfo { class, .. } = dispatch_info;
 
 		RuntimeDispatchInfo {
-			weight,
+			weight: dispatch_info.total_weight(),
 			class,
 			partial_fee: Self::compute_fee(len, &dispatch_info, 0u32.into()),
 		}
@@ -594,7 +594,7 @@ impl<T: Config> Pallet<T> {
 	where
 		T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	{
-		Self::compute_fee_raw(len, info.weight, tip, info.pays_fee, info.class)
+		Self::compute_fee_raw(len, info.total_weight(), tip, info.pays_fee, info.class)
 	}
 
 	/// Compute the actual post dispatch fee for a particular transaction.
@@ -779,7 +779,8 @@ where
 		let max_block_length = *T::BlockLength::get().max.get(info.class) as u64;
 
 		// bounded_weight is used as a divisor later so we keep it non-zero.
-		let bounded_weight = info.weight.max(Weight::from_parts(1, 1)).min(max_block_weight);
+		let bounded_weight =
+			info.total_weight().max(Weight::from_parts(1, 1)).min(max_block_weight);
 		let bounded_length = (len as u64).clamp(1, max_block_length);
 
 		// returns the scarce resource, i.e. the one that is limiting the number of transactions.
@@ -844,7 +845,7 @@ impl<T: Config> TransactionExtensionBase for ChargeTransactionPayment<T> {
 	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
 	type Implicit = ();
 
-	fn weight(&self) -> Weight {
+	fn weight() -> Weight {
 		T::WeightInfo::charge_transaction_payment()
 	}
 }
@@ -921,13 +922,23 @@ where
 		len: usize,
 		_result: &DispatchResult,
 		_context: &Context,
-	) -> Result<(), TransactionValidityError> {
-		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
+	) -> Result<Option<Weight>, TransactionValidityError> {
+		// Take into account the weight used by this extension before calculating the
+		// refund.
+		let actual_ext_weight = <T as Config>::WeightInfo::charge_transaction_payment();
+		let mut actual_post_info = post_info.clone();
+		actual_post_info.accrue(actual_ext_weight);
+		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, &actual_post_info, tip);
 		T::OnChargeTransaction::correct_and_deposit_fee(
-			&who, info, post_info, actual_fee, tip, imbalance,
+			&who,
+			info,
+			&actual_post_info,
+			actual_fee,
+			tip,
+			imbalance,
 		)?;
 		Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid { who, actual_fee, tip });
-		Ok(())
+		Ok(Some(actual_ext_weight))
 	}
 }
 

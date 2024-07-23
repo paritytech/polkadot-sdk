@@ -48,7 +48,7 @@ mod benchmarks {
 	fn check_genesis() -> Result<(), BenchmarkError> {
 		let len = 0_usize;
 		let caller = account("caller", 0, 0);
-		let info = DispatchInfo { weight: Weight::zero(), ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::zero(), ..Default::default() };
 		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
 
 		#[block]
@@ -73,7 +73,7 @@ mod benchmarks {
 		frame_system::BlockHash::<T>::insert(prev_block, default_hash);
 		let caller = account("caller", 0, 0);
 		let info = DispatchInfo {
-			weight: Weight::from_parts(100, 0),
+			call_weight: Weight::from_parts(100, 0),
 			class: DispatchClass::Normal,
 			..Default::default()
 		};
@@ -93,7 +93,7 @@ mod benchmarks {
 		let len = 0_usize;
 		let ext = CheckNonZeroSender::<T>::new();
 		let caller = account("caller", 0, 0);
-		let info = DispatchInfo { weight: Weight::zero(), ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::zero(), ..Default::default() };
 		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
 
 		#[block]
@@ -115,7 +115,7 @@ mod benchmarks {
 		frame_system::Account::<T>::insert(caller.clone(), info);
 		let len = 0_usize;
 		let ext = CheckNonce::<T>::from(1u32.into());
-		let info = DispatchInfo { weight: Weight::zero(), ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::zero(), ..Default::default() };
 		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
 
 		#[block]
@@ -136,7 +136,7 @@ mod benchmarks {
 	fn check_spec_version() -> Result<(), BenchmarkError> {
 		let len = 0_usize;
 		let caller = account("caller", 0, 0);
-		let info = DispatchInfo { weight: Weight::zero(), ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::zero(), ..Default::default() };
 		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
 
 		#[block]
@@ -153,7 +153,7 @@ mod benchmarks {
 	fn check_tx_version() -> Result<(), BenchmarkError> {
 		let len = 0_usize;
 		let caller = account("caller", 0, 0);
-		let info = DispatchInfo { weight: Weight::zero(), ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::zero(), ..Default::default() };
 		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
 
 		#[block]
@@ -173,7 +173,7 @@ mod benchmarks {
 			.get(DispatchClass::Normal)
 			.base_extrinsic;
 		let info = DispatchInfo {
-			weight: Weight::from_parts(base_extrinsic.ref_time() * 5, 0),
+			call_weight: Weight::from_parts(base_extrinsic.ref_time() * 5, 0),
 			class: DispatchClass::Normal,
 			..Default::default()
 		};

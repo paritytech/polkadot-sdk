@@ -300,7 +300,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(
 			T::WeightInfo::buy_ticket()
-				.saturating_add(call.get_dispatch_info().weight)
+				.saturating_add(call.get_dispatch_info().call_weight)
 		)]
 		pub fn buy_ticket(
 			origin: OriginFor<T>,

@@ -64,7 +64,7 @@ impl<T: Config> core::fmt::Debug for CheckNonce<T> {
 impl<T: Config> TransactionExtensionBase for CheckNonce<T> {
 	const IDENTIFIER: &'static str = "CheckNonce";
 	type Implicit = ();
-	fn weight(&self) -> sp_weights::Weight {
+	fn weight() -> sp_weights::Weight {
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_nonce()
 	}
 }

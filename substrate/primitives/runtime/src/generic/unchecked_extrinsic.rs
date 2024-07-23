@@ -34,6 +34,7 @@ use codec::{Compact, Decode, Encode, EncodeLike, Error, Input};
 use core::fmt;
 use scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter};
 use sp_io::hashing::blake2_256;
+use sp_weights::Weight;
 
 /// Current version of the [`UncheckedExtrinsic`] encoded format.
 ///
@@ -300,6 +301,19 @@ impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Cal
 {
 	const VERSION: u8 = EXTRINSIC_FORMAT_VERSION;
 	type SignedExtensions = Extension;
+}
+
+impl<Address, Call, Signature, Extension: TransactionExtensionBase>
+	UncheckedExtrinsic<Address, Call, Signature, Extension>
+{
+	/// Returns the weight of the extension of this transaction, if present. If the transaction
+	/// doesn't use any extension, the weight returned is equal to zero.
+	pub fn extension_weight(&self) -> Weight {
+		match &self.preamble {
+			Preamble::Bare => Weight::zero(),
+			Preamble::Signed(_, _, _) | Preamble::General(_) => Extension::weight(),
+		}
+	}
 }
 
 impl<Address, Call, Signature, Extension> Decode

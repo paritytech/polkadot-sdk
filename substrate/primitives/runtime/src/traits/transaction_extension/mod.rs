@@ -30,7 +30,7 @@ use sp_std::{self, fmt::Debug, prelude::*};
 use sp_weights::Weight;
 use tuplex::{PopFront, PushBack};
 
-use super::{DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf};
+use super::{AccrueWeight, DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf};
 
 mod as_transaction_extension;
 mod dispatch_transaction;
@@ -68,7 +68,7 @@ pub trait TransactionExtensionBase:
 	}
 
 	/// The weight consumed by executing this extension instance fully during transaction dispatch.
-	fn weight(&self) -> Weight {
+	fn weight() -> Weight {
 		Weight::zero()
 	}
 
@@ -267,6 +267,14 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	/// introduce a `TransactionValidityError`, causing the block to become invalid for including
 	/// it.
 	///
+	/// On success, the caller can return the actual amount of weight consumed by this extension
+	/// during dispatch.
+	///
+	/// WARNING: This function does not automatically keep track of accumulated "actual" weight.
+	/// Unless this weight is handled at the call site, use
+	/// [post_dispatch_with_weight_accrual](TransactionExtension::post_dispatch_with_weight_accrual)
+	/// instead.
+	///
 	/// Parameters:
 	/// - `pre`: `Self::Pre` returned by the result of the `prepare` call prior to dispatch.
 	/// - `info`: Information concerning, and inherent to, the transaction's call.
@@ -287,7 +295,31 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 		_len: usize,
 		_result: &DispatchResult,
 		_context: &Context,
+	) -> Result<Option<Weight>, TransactionValidityError> {
+		Ok(None)
+	}
+
+	/// A wrapper for [post_dispatch](TransactionExtension::post_dispatch) that accrues the weight
+	/// consumed by this extension into the post dispatch information.
+	///
+	/// If `post_dispatch` returns a consumed weight, which should be less than the worst case
+	/// weight provided by [weight](TransactionExtensionBase::weight), that is the value accrued in
+	/// `post_info`.
+	///
+	/// If no weight is returned by `post_dispatch`, this function accrues the worst case weight.
+	///
+	/// For more information, look into [post_dispatch](TransactionExtension::post_dispatch).
+	fn post_dispatch_with_weight_accrual(
+		pre: Self::Pre,
+		info: &DispatchInfoOf<Call>,
+		post_info: &mut PostDispatchInfoOf<Call>,
+		len: usize,
+		result: &DispatchResult,
+		context: &Context,
 	) -> Result<(), TransactionValidityError> {
+		let weight = Self::post_dispatch(pre, info, &post_info, len, result, context)?
+			.unwrap_or_else(|| Self::weight());
+		post_info.accrue(weight);
 		Ok(())
 	}
 
@@ -423,9 +455,9 @@ impl TransactionExtensionBase for Tuple {
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(for_tuples!( ( #( Tuple.implicit()? ),* ) ))
 	}
-	fn weight(&self) -> Weight {
+	fn weight() -> Weight {
 		let mut weight = Weight::zero();
-		for_tuples!( #( weight += Tuple.weight(); )* );
+		for_tuples!( #( weight += Tuple::weight(); )* );
 		weight
 	}
 	fn metadata() -> Vec<TransactionExtensionMetadata> {
@@ -504,9 +536,14 @@ impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for Tuple 
 		len: usize,
 		result: &DispatchResult,
 		context: &Context,
-	) -> Result<(), TransactionValidityError> {
-		for_tuples!( #( Tuple::post_dispatch(pre.Tuple, info, post_info, len, result, context)?; )* );
-		Ok(())
+	) -> Result<Option<Weight>, TransactionValidityError> {
+		let mut weight = Weight::zero();
+		for_tuples!( #( 
+			let maybe_weight = Tuple::post_dispatch(pre.Tuple, info, post_info, len, result, context)?;
+			let weight = maybe_weight.unwrap_or_else(|| Tuple::weight());
+			weight.saturating_add(weight); 
+		)* );
+		Ok(Some(weight))
 	}
 }
 
@@ -516,7 +553,7 @@ impl TransactionExtensionBase for () {
 	fn implicit(&self) -> sp_std::result::Result<Self::Implicit, TransactionValidityError> {
 		Ok(())
 	}
-	fn weight(&self) -> Weight {
+	fn weight() -> Weight {
 		Weight::zero()
 	}
 }

@@ -40,6 +40,7 @@ use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{CheckIfFeeless, DispatchResult},
 	traits::{IsType, OriginTrait},
+	weights::Weight,
 };
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
@@ -129,8 +130,8 @@ impl<T: Config + Send + Sync, S: TransactionExtensionBase> TransactionExtensionB
 		self.0.implicit()
 	}
 
-	fn weight(&self) -> frame_support::weights::Weight {
-		self.0.weight()
+	fn weight() -> frame_support::weights::Weight {
+		S::weight()
 	}
 }
 
@@ -190,12 +191,12 @@ where
 		len: usize,
 		result: &DispatchResult,
 		context: &Context,
-	) -> Result<(), TransactionValidityError> {
+	) -> Result<Option<Weight>, TransactionValidityError> {
 		match pre {
 			Apply(pre) => S::post_dispatch(pre, info, post_info, len, result, context),
 			Skip(origin) => {
 				Pallet::<T>::deposit_event(Event::<T>::FeeSkipped { origin });
-				Ok(())
+				Ok(None)
 			},
 		}
 	}

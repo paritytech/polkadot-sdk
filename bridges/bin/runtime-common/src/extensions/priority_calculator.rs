@@ -216,7 +216,8 @@ mod integrity_tests {
 
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::get_priority(
 				&DispatchInfo {
-					weight: transaction_weight,
+					call_weight: transaction_weight,
+					extension_weight: Default::default(),
 					class: DispatchClass::Normal,
 					pays_fee: Pays::Yes,
 				},
@@ -306,7 +307,8 @@ mod integrity_tests {
 
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::get_priority(
 				&DispatchInfo {
-					weight: transaction_weight,
+					call_weight: transaction_weight,
+					extension_weight: Default::default(),
 					class: DispatchClass::Normal,
 					pays_fee: Pays::Yes,
 				},
@@ -404,7 +406,8 @@ mod integrity_tests {
 
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::get_priority(
 				&DispatchInfo {
-					weight: transaction_weight,
+					call_weight: transaction_weight,
+					extension_weight: Default::default(),
 					class: DispatchClass::Normal,
 					pays_fee: Pays::Yes,
 				},

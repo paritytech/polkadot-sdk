@@ -112,10 +112,13 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 		len: usize,
 	) -> Self::Result {
 		let (pre, origin) = self.validate_and_prepare(origin, &call, info, len)?;
-		let res = call.dispatch(origin);
-		let post_info = res.unwrap_or_else(|err| err.post_info);
+		let mut res = call.dispatch(origin);
 		let pd_res = res.map(|_| ()).map_err(|e| e.error);
-		T::post_dispatch(pre, info, &post_info, len, &pd_res, &())?;
+		let post_info = match &mut res {
+			Ok(info) => info,
+			Err(err) => &mut err.post_info,
+		};
+		T::post_dispatch_with_weight_accrual(pre, info, post_info, len, &pd_res, &())?;
 		Ok(res)
 	}
 	fn test_run(
@@ -129,13 +132,13 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 		) -> crate::DispatchResultWithInfo<<Call as Dispatchable>::PostInfo>,
 	) -> Self::Result {
 		let (pre, origin) = self.validate_and_prepare(origin, &call, info, len)?;
-		let res = substitute(origin);
-		let post_info = match res {
-			Ok(info) => info,
-			Err(err) => err.post_info,
-		};
+		let mut res = substitute(origin);
 		let pd_res = res.map(|_| ()).map_err(|e| e.error);
-		T::post_dispatch(pre, info, &post_info, len, &pd_res, &())?;
+		let post_info = match &mut res {
+			Ok(info) => info,
+			Err(err) => &mut err.post_info,
+		};
+		T::post_dispatch_with_weight_accrual(pre, info, post_info, len, &pd_res, &())?;
 		Ok(res)
 	}
 }

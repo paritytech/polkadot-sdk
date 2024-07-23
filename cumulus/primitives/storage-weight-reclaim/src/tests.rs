@@ -82,7 +82,7 @@ fn basic_refund() {
 		set_current_storage_weight(1000);
 
 		// Benchmarked storage weight: 500
-		let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::from_parts(0, 500), ..Default::default() };
 		let post_info = PostDispatchInfo::default();
 
 		// Should add 500 + 150 (len) to weight.
@@ -118,7 +118,7 @@ fn does_nothing_without_extension() {
 		set_current_storage_weight(1000);
 
 		// Benchmarked storage weight: 500
-		let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::from_parts(0, 500), ..Default::default() };
 		let post_info = PostDispatchInfo::default();
 
 		// Adds 500 + 150 (len) weight
@@ -151,7 +151,7 @@ fn negative_refund_is_added_to_weight() {
 	test_ext.execute_with(|| {
 		set_current_storage_weight(1000);
 		// Benchmarked storage weight: 100
-		let info = DispatchInfo { weight: Weight::from_parts(0, 100), ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::from_parts(0, 100), ..Default::default() };
 		let post_info = PostDispatchInfo::default();
 
 		// Weight added should be 100 + 150 (len)
@@ -176,7 +176,7 @@ fn negative_refund_is_added_to_weight() {
 
 		assert_eq!(
 			get_storage_weight().total().proof_size(),
-			1100 + LEN as u64 + info.weight.proof_size()
+			1100 + LEN as u64 + info.total_weight().proof_size()
 		);
 	})
 }
@@ -186,7 +186,7 @@ fn test_zero_proof_size() {
 	let mut test_ext = setup_test_externalities(&[0, 0]);
 
 	test_ext.execute_with(|| {
-		let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::from_parts(0, 500), ..Default::default() };
 		let post_info = PostDispatchInfo::default();
 
 		let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
@@ -219,7 +219,7 @@ fn test_larger_pre_dispatch_proof_size() {
 	test_ext.execute_with(|| {
 		set_current_storage_weight(1300);
 
-		let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::from_parts(0, 500), ..Default::default() };
 		let post_info = PostDispatchInfo::default();
 
 		// Adds 500 + 150 (len) weight, total weight is 1950
@@ -255,7 +255,7 @@ fn test_incorporates_check_weight_unspent_weight() {
 		set_current_storage_weight(1000);
 
 		// Benchmarked storage weight: 300
-		let info = DispatchInfo { weight: Weight::from_parts(100, 300), ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::from_parts(100, 300), ..Default::default() };
 
 		// Actual weight is 50
 		let post_info = PostDispatchInfo {
@@ -296,7 +296,7 @@ fn test_incorporates_check_weight_unspent_weight_on_negative() {
 	test_ext.execute_with(|| {
 		set_current_storage_weight(1000);
 		// Benchmarked storage weight: 50
-		let info = DispatchInfo { weight: Weight::from_parts(100, 50), ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::from_parts(100, 50), ..Default::default() };
 
 		// Actual weight is 25
 		let post_info = PostDispatchInfo {
@@ -338,7 +338,7 @@ fn test_nothing_relcaimed() {
 	test_ext.execute_with(|| {
 		set_current_storage_weight(0);
 		// Benchmarked storage weight: 100
-		let info = DispatchInfo { weight: Weight::from_parts(100, 100), ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::from_parts(100, 100), ..Default::default() };
 
 		// Actual proof size is 100
 		let post_info = PostDispatchInfo {
@@ -389,7 +389,7 @@ fn test_incorporates_check_weight_unspent_weight_reverse_order() {
 		set_current_storage_weight(1000);
 
 		// Benchmarked storage weight: 300
-		let info = DispatchInfo { weight: Weight::from_parts(100, 300), ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::from_parts(100, 300), ..Default::default() };
 
 		// Actual weight is 50
 		let post_info = PostDispatchInfo {
@@ -432,7 +432,7 @@ fn test_incorporates_check_weight_unspent_weight_on_negative_reverse_order() {
 	test_ext.execute_with(|| {
 		set_current_storage_weight(1000);
 		// Benchmarked storage weight: 50
-		let info = DispatchInfo { weight: Weight::from_parts(100, 50), ..Default::default() };
+		let info = DispatchInfo { call_weight: Weight::from_parts(100, 50), ..Default::default() };
 
 		// Actual weight is 25
 		let post_info = PostDispatchInfo {

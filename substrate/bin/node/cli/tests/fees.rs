@@ -174,7 +174,7 @@ fn transaction_fee_is_correct() {
 		let length_fee = TransactionByteFee::get() * (xt.clone().encode().len() as Balance);
 		balance_alice -= length_fee;
 
-		let weight = default_transfer_call().get_dispatch_info().weight;
+		let weight = default_transfer_call().get_dispatch_info().call_weight;
 		let weight_fee = IdentityFee::<Balance>::weight_to_fee(&weight);
 
 		// we know that weight to fee multiplier is effect-less in block 1.

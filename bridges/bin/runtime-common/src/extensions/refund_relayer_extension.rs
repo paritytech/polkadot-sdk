@@ -368,8 +368,10 @@ pub trait RefundTransactionExtension:
 
 		// decrease post-dispatch weight/size using extra weight/size that we know now
 		let post_info_len = len.saturating_sub(extra_size as usize);
-		let mut post_info_weight =
-			post_info.actual_weight.unwrap_or(info.weight).saturating_sub(extra_weight);
+		let mut post_info_weight = post_info
+			.actual_weight
+			.unwrap_or(info.total_weight())
+			.saturating_sub(extra_weight);
 
 		// let's also replace the weight of slashing relayer with the weight of rewarding relayer
 		if call_info.is_receive_messages_proof_call() {
@@ -534,7 +536,7 @@ where
 		len: usize,
 		result: &DispatchResult,
 		_context: &Context,
-	) -> Result<(), TransactionValidityError> {
+	) -> Result<Option<Weight>, TransactionValidityError> {
 		let call_result = T::analyze_call_result(Some(pre), info, post_info, len, result);
 
 		match call_result {
@@ -562,7 +564,7 @@ where
 				),
 		}
 
-		Ok(())
+		Ok(None)
 	}
 }
 
@@ -1652,10 +1654,11 @@ pub(crate) mod tests {
 
 	fn dispatch_info() -> DispatchInfo {
 		DispatchInfo {
-			weight: Weight::from_parts(
+			call_weight: Weight::from_parts(
 				frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 				0,
 			),
+			extension_weight: Weight::zero(),
 			class: frame_support::dispatch::DispatchClass::Normal,
 			pays_fee: frame_support::dispatch::Pays::Yes,
 		}
@@ -1677,14 +1680,14 @@ pub(crate) mod tests {
 			&dispatch_result,
 			&(),
 		);
-		assert_eq!(post_dispatch_result, Ok(()));
+		assert_eq!(post_dispatch_result, Ok(None));
 	}
 
 	fn expected_delivery_reward() -> ThisChainBalance {
 		let mut post_dispatch_info = post_dispatch_info();
 		let extra_weight = <TestRuntime as RelayersConfig>::WeightInfo::extra_weight_of_successful_receive_messages_proof_call();
 		post_dispatch_info.actual_weight =
-			Some(dispatch_info().weight.saturating_sub(extra_weight));
+			Some(dispatch_info().call_weight.saturating_sub(extra_weight));
 		pallet_transaction_payment::Pallet::<TestRuntime>::compute_actual_fee(
 			1024,
 			&dispatch_info(),
@@ -2288,7 +2291,7 @@ pub(crate) mod tests {
 			initialize_environment(200, 200, 200);
 
 			let mut dispatch_info = dispatch_info();
-			dispatch_info.weight = Weight::from_parts(
+			dispatch_info.call_weight = Weight::from_parts(
 				frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND * 2,
 				0,
 			);

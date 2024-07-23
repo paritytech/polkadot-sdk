@@ -26,7 +26,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
 	generic::{CheckedExtrinsic, UncheckedExtrinsic},
-	traits::Dispatchable,
+	traits::{AccrueWeight, Dispatchable, TransactionExtensionBase},
 	DispatchError, RuntimeDebug,
 };
 use sp_weights::Weight;
@@ -236,12 +236,21 @@ impl<'a> OneOrMany<DispatchClass> for &'a [DispatchClass] {
 /// A bundle of static information collected from the `#[pallet::weight]` attributes.
 #[derive(Clone, Copy, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
 pub struct DispatchInfo {
-	/// Weight of this transaction.
-	pub weight: Weight,
+	/// Weight of this transaction's call.
+	pub call_weight: Weight,
+	/// Weight of this transaction's extension.
+	pub extension_weight: Weight,
 	/// Class of this transaction.
 	pub class: DispatchClass,
 	/// Does this transaction pay fees.
 	pub pays_fee: Pays,
+}
+
+impl DispatchInfo {
+	/// Returns the weight used by this extrinsic's extension and call when applied.
+	pub fn total_weight(&self) -> Weight {
+		self.call_weight.saturating_add(self.extension_weight)
+	}
 }
 
 /// A `Dispatchable` function (aka transaction) that can carry some static information along with
@@ -291,15 +300,15 @@ pub struct PostDispatchInfo {
 impl PostDispatchInfo {
 	/// Calculate how much (if any) weight was not used by the `Dispatchable`.
 	pub fn calc_unspent(&self, info: &DispatchInfo) -> Weight {
-		info.weight - self.calc_actual_weight(info)
+		info.total_weight() - self.calc_actual_weight(info)
 	}
 
 	/// Calculate how much weight was actually spent by the `Dispatchable`.
 	pub fn calc_actual_weight(&self, info: &DispatchInfo) -> Weight {
 		if let Some(actual_weight) = self.actual_weight {
-			actual_weight.min(info.weight)
+			actual_weight.min(info.total_weight())
 		} else {
-			info.weight
+			info.total_weight()
 		}
 	}
 
@@ -373,9 +382,12 @@ impl<Address, Call, Signature, Extension> GetDispatchInfo
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 where
 	Call: GetDispatchInfo + Dispatchable,
+	Extension: TransactionExtensionBase,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
-		self.function.get_dispatch_info()
+		let mut info = self.function.get_dispatch_info();
+		info.extension_weight = self.extension_weight();
+		info
 	}
 }
 
@@ -383,9 +395,12 @@ where
 impl<AccountId, Call, Extension> GetDispatchInfo for CheckedExtrinsic<AccountId, Call, Extension>
 where
 	Call: GetDispatchInfo,
+	Extension: TransactionExtensionBase,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
-		self.function.get_dispatch_info()
+		let mut info = self.function.get_dispatch_info();
+		info.extension_weight = self.extension_weight();
+		info
 	}
 }
 
@@ -564,6 +579,14 @@ impl<T> ClassifyDispatch<T> for (Weight, DispatchClass, Pays) {
 	}
 }
 
+impl AccrueWeight for PostDispatchInfo {
+	fn accrue(&mut self, weight: Weight) {
+		if let Some(actual_weight) = self.actual_weight.as_mut() {
+			*actual_weight = actual_weight.saturating_add(weight);
+		}
+	}
+}
+
 // TODO: Eventually remove these
 
 impl<T> ClassifyDispatch<T> for u64 {
@@ -685,6 +708,23 @@ mod weight_tests {
 			type DbWeight: Get<crate::weights::RuntimeDbWeight>;
 		}
 
+		#[pallet::genesis_config]
+		pub struct GenesisConfig<T: Config> {
+			#[serde(skip)]
+			pub _config: core::marker::PhantomData<T>,
+		}
+
+		impl<T: Config> Default for GenesisConfig<T> {
+			fn default() -> Self {
+				Self { _config: Default::default() }
+			}
+		}
+
+		#[pallet::genesis_build]
+		impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+			fn build(&self) {}
+		}
+
 		#[pallet::error]
 		pub enum Error<T> {
 			/// Required by construct_runtime
@@ -737,6 +777,19 @@ mod weight_tests {
 			pub fn f21(_origin: OriginFor<T>) -> DispatchResult {
 				unimplemented!();
 			}
+
+			#[pallet::weight(1000)]
+			pub fn f99(_origin: OriginFor<T>) -> DispatchResult {
+				Ok(())
+			}
+
+			#[pallet::weight(1000)]
+			pub fn f100(_origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+				Ok(crate::dispatch::PostDispatchInfo {
+					actual_weight: Some(Weight::from_parts(500, 0)),
+					pays_fee: Pays::Yes,
+				})
+			}
 		}
 
 		pub mod pallet_prelude {
@@ -786,57 +839,61 @@ mod weight_tests {
 	fn weights_are_correct() {
 		// #[pallet::weight(1000)]
 		let info = Call::<Runtime>::f00 {}.get_dispatch_info();
-		assert_eq!(info.weight, Weight::from_parts(1000, 0));
+		assert_eq!(info.total_weight(), Weight::from_parts(1000, 0));
 		assert_eq!(info.class, DispatchClass::Normal);
 		assert_eq!(info.pays_fee, Pays::Yes);
 
 		// #[pallet::weight((1000, DispatchClass::Mandatory))]
 		let info = Call::<Runtime>::f01 {}.get_dispatch_info();
-		assert_eq!(info.weight, Weight::from_parts(1000, 0));
+		assert_eq!(info.total_weight(), Weight::from_parts(1000, 0));
 		assert_eq!(info.class, DispatchClass::Mandatory);
 		assert_eq!(info.pays_fee, Pays::Yes);
 
 		// #[pallet::weight((1000, Pays::No))]
 		let info = Call::<Runtime>::f02 {}.get_dispatch_info();
-		assert_eq!(info.weight, Weight::from_parts(1000, 0));
+		assert_eq!(info.total_weight(), Weight::from_parts(1000, 0));
 		assert_eq!(info.class, DispatchClass::Normal);
 		assert_eq!(info.pays_fee, Pays::No);
 
 		// #[pallet::weight((1000, DispatchClass::Operational, Pays::No))]
 		let info = Call::<Runtime>::f03 {}.get_dispatch_info();
-		assert_eq!(info.weight, Weight::from_parts(1000, 0));
+		assert_eq!(info.total_weight(), Weight::from_parts(1000, 0));
 		assert_eq!(info.class, DispatchClass::Operational);
 		assert_eq!(info.pays_fee, Pays::No);
 
 		// #[pallet::weight(((_a * 10 + _eb * 1) as u64, DispatchClass::Normal, Pays::Yes))]
 		let info = Call::<Runtime>::f11 { a: 13, eb: 20 }.get_dispatch_info();
-		assert_eq!(info.weight, Weight::from_parts(150, 0)); // 13*10 + 20
+		assert_eq!(info.total_weight(), Weight::from_parts(150, 0)); // 13*10 + 20
 		assert_eq!(info.class, DispatchClass::Normal);
 		assert_eq!(info.pays_fee, Pays::Yes);
 
 		// #[pallet::weight((0, DispatchClass::Operational, Pays::Yes))]
 		let info = Call::<Runtime>::f12 { a: 10, eb: 20 }.get_dispatch_info();
-		assert_eq!(info.weight, Weight::zero());
+		assert_eq!(info.total_weight(), Weight::zero());
 		assert_eq!(info.class, DispatchClass::Operational);
 		assert_eq!(info.pays_fee, Pays::Yes);
 
 		// #[pallet::weight(T::DbWeight::get().reads(3) + T::DbWeight::get().writes(2) +
 		// Weight::from_all(10_000))]
 		let info = Call::<Runtime>::f20 {}.get_dispatch_info();
-		assert_eq!(info.weight, Weight::from_parts(12300, 10000)); // 100*3 + 1000*2 + 10_1000
+		assert_eq!(info.total_weight(), Weight::from_parts(12300, 10000)); // 100*3 + 1000*2 + 10_1000
 		assert_eq!(info.class, DispatchClass::Normal);
 		assert_eq!(info.pays_fee, Pays::Yes);
 
 		// #[pallet::weight(T::DbWeight::get().reads_writes(6, 5) + Weight::from_all(40_000))]
 		let info = Call::<Runtime>::f21 {}.get_dispatch_info();
-		assert_eq!(info.weight, Weight::from_parts(45600, 40000)); // 100*6 + 1000*5 + 40_1000
+		assert_eq!(info.total_weight(), Weight::from_parts(45600, 40000)); // 100*6 + 1000*5 + 40_1000
 		assert_eq!(info.class, DispatchClass::Normal);
 		assert_eq!(info.pays_fee, Pays::Yes);
 	}
 
 	#[test]
 	fn extract_actual_weight_works() {
-		let pre = DispatchInfo { weight: Weight::from_parts(1000, 0), ..Default::default() };
+		let pre = DispatchInfo {
+			call_weight: Weight::from_parts(1000, 0),
+			extension_weight: Weight::zero(),
+			..Default::default()
+		};
 		assert_eq!(
 			extract_actual_weight(&Ok(from_actual_ref_time(Some(7))), &pre),
 			Weight::from_parts(7, 0)
@@ -856,7 +913,11 @@ mod weight_tests {
 
 	#[test]
 	fn extract_actual_weight_caps_at_pre_weight() {
-		let pre = DispatchInfo { weight: Weight::from_parts(1000, 0), ..Default::default() };
+		let pre = DispatchInfo {
+			call_weight: Weight::from_parts(1000, 0),
+			extension_weight: Weight::zero(),
+			..Default::default()
+		};
 		assert_eq!(
 			extract_actual_weight(&Ok(from_actual_ref_time(Some(1250))), &pre),
 			Weight::from_parts(1000, 0)
@@ -872,7 +933,11 @@ mod weight_tests {
 
 	#[test]
 	fn extract_actual_pays_fee_works() {
-		let pre = DispatchInfo { weight: Weight::from_parts(1000, 0), ..Default::default() };
+		let pre = DispatchInfo {
+			call_weight: Weight::from_parts(1000, 0),
+			extension_weight: Weight::zero(),
+			..Default::default()
+		};
 		assert_eq!(extract_actual_pays_fee(&Ok(from_actual_ref_time(Some(7))), &pre), Pays::Yes);
 		assert_eq!(
 			extract_actual_pays_fee(&Ok(from_actual_ref_time(Some(1000)).into()), &pre),
@@ -905,7 +970,8 @@ mod weight_tests {
 		);
 
 		let pre = DispatchInfo {
-			weight: Weight::from_parts(1000, 0),
+			call_weight: Weight::from_parts(1000, 0),
+			extension_weight: Weight::zero(),
 			pays_fee: Pays::No,
 			..Default::default()
 		};
@@ -915,6 +981,26 @@ mod weight_tests {
 			extract_actual_pays_fee(&Ok(from_post_weight_info(Some(1000), Pays::Yes)), &pre),
 			Pays::No
 		);
+	}
+
+	#[test]
+	fn weight_accrue_works() {
+		let mut post_dispatch = PostDispatchInfo {
+			actual_weight: Some(Weight::from_parts(1000, 10)),
+			pays_fee: Pays::Yes,
+		};
+		post_dispatch.accrue(Weight::from_parts(100, 15));
+		assert_eq!(
+			post_dispatch,
+			PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(1100, 25)),
+				pays_fee: Pays::Yes
+			}
+		);
+
+		let mut post_dispatch = PostDispatchInfo { actual_weight: None, pays_fee: Pays::Yes };
+		post_dispatch.accrue(Weight::from_parts(100, 15));
+		assert_eq!(post_dispatch, PostDispatchInfo { actual_weight: None, pays_fee: Pays::Yes });
 	}
 }
 
@@ -1090,5 +1176,283 @@ mod per_dispatch_class_tests {
 			.total(),
 			(u64::MAX - 3, u64::MAX).into()
 		);
+	}
+}
+
+#[cfg(test)]
+mod test_extensions {
+	use codec::{Decode, Encode};
+	use scale_info::TypeInfo;
+	use sp_runtime::{
+		impl_tx_ext_default,
+		traits::{
+			DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf, TransactionExtension,
+			TransactionExtensionBase,
+		},
+		transaction_validity::TransactionValidityError,
+	};
+	use sp_weights::Weight;
+
+	use super::{DispatchResult, PostDispatchInfo};
+
+	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+	pub struct DummyOne(pub bool);
+
+	impl TransactionExtensionBase for DummyOne {
+		const IDENTIFIER: &'static str = "DummyOne";
+		type Implicit = ();
+		fn weight() -> sp_weights::Weight {
+			Weight::from_parts(100, 0)
+		}
+	}
+	impl<C, RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall, C> for DummyOne {
+		type Val = ();
+		type Pre = bool;
+
+		fn prepare(
+			self,
+			_val: Self::Val,
+			_origin: &OriginOf<RuntimeCall>,
+			_call: &RuntimeCall,
+			_info: &DispatchInfoOf<RuntimeCall>,
+			_len: usize,
+			_context: &C,
+		) -> Result<Self::Pre, TransactionValidityError> {
+			Ok(self.0)
+		}
+
+		fn post_dispatch(
+			pre: Self::Pre,
+			_info: &DispatchInfoOf<RuntimeCall>,
+			_post_info: &PostDispatchInfoOf<RuntimeCall>,
+			_len: usize,
+			_result: &DispatchResult,
+			_context: &C,
+		) -> Result<Option<Weight>, TransactionValidityError> {
+			if pre {
+				Ok(Some(Self::weight().saturating_div(2)))
+			} else {
+				Ok(Some(Self::weight()))
+			}
+		}
+		impl_tx_ext_default!(RuntimeCall; C; validate);
+	}
+
+	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+	pub struct DummyTwo(pub u64);
+
+	impl TransactionExtensionBase for DummyTwo {
+		const IDENTIFIER: &'static str = "DummyTwo";
+		type Implicit = ();
+		fn weight() -> sp_weights::Weight {
+			Weight::from_parts(200, 0)
+		}
+	}
+	impl<C, RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall, C> for DummyTwo
+	where
+		RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo>,
+	{
+		type Val = ();
+		type Pre = u64;
+
+		fn prepare(
+			self,
+			_val: Self::Val,
+			_origin: &OriginOf<RuntimeCall>,
+			_call: &RuntimeCall,
+			_info: &DispatchInfoOf<RuntimeCall>,
+			_len: usize,
+			_context: &C,
+		) -> Result<Self::Pre, TransactionValidityError> {
+			Ok(self.0)
+		}
+
+		fn post_dispatch(
+			pre: Self::Pre,
+			_info: &DispatchInfoOf<RuntimeCall>,
+			post_info: &PostDispatchInfoOf<RuntimeCall>,
+			_len: usize,
+			_result: &DispatchResult,
+			_context: &C,
+		) -> Result<Option<Weight>, TransactionValidityError> {
+			if let Some(actual) = post_info.actual_weight {
+				if pre > actual.ref_time() {
+					return Ok(Some(Weight::zero()));
+				}
+			}
+			Ok(None)
+		}
+		impl_tx_ext_default!(RuntimeCall; C; validate);
+	}
+
+	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+	pub struct DummyThree(pub u64);
+
+	impl TransactionExtensionBase for DummyThree {
+		const IDENTIFIER: &'static str = "DummyThree";
+		type Implicit = ();
+		fn weight() -> sp_weights::Weight {
+			Weight::from_parts(300, 0)
+		}
+	}
+	impl<C, RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall, C> for DummyThree {
+		type Val = ();
+		type Pre = u64;
+
+		fn prepare(
+			self,
+			_val: Self::Val,
+			_origin: &OriginOf<RuntimeCall>,
+			_call: &RuntimeCall,
+			_info: &DispatchInfoOf<RuntimeCall>,
+			_len: usize,
+			_context: &C,
+		) -> Result<Self::Pre, TransactionValidityError> {
+			Ok(self.0)
+		}
+
+		fn post_dispatch(
+			pre: Self::Pre,
+			_info: &DispatchInfoOf<RuntimeCall>,
+			_post_info: &PostDispatchInfoOf<RuntimeCall>,
+			_len: usize,
+			_result: &DispatchResult,
+			_context: &C,
+		) -> Result<Option<Weight>, TransactionValidityError> {
+			Ok(Some(Weight::from_parts(pre, 0)))
+		}
+		impl_tx_ext_default!(RuntimeCall; C; validate);
+	}
+}
+
+#[cfg(test)]
+// Do not complain about unused `dispatch` and `dispatch_aux`.
+#[allow(dead_code)]
+mod extension_weight_tests {
+	use crate::assert_ok;
+
+	use super::*;
+	use sp_core::parameter_types;
+	use sp_runtime::{
+		generic,
+		traits::{
+			BlakeTwo256, DispatchTransaction, TransactionExtension, TransactionExtensionBase,
+		},
+		BuildStorage,
+	};
+	use sp_weights::RuntimeDbWeight;
+	use test_extensions::{DummyOne, DummyThree, DummyTwo};
+
+	use super::weight_tests::{frame_system, frame_system::pallet_prelude::*};
+	use frame_support::construct_runtime;
+
+	pub type TxExtension = (DummyOne, DummyTwo, DummyThree);
+	pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u64, RuntimeCall, (), TxExtension>;
+	pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+	pub type AccountId = u64;
+	pub type Balance = u32;
+	pub type BlockNumber = u32;
+
+	construct_runtime!(
+		pub enum ExtRuntime {
+			System: frame_system,
+		}
+	);
+
+	impl frame_system::Config for ExtRuntime {
+		type Block = Block;
+		type AccountId = AccountId;
+		type Balance = Balance;
+		type BaseCallFilter = crate::traits::Everything;
+		type RuntimeOrigin = RuntimeOrigin;
+		type RuntimeCall = RuntimeCall;
+		type RuntimeTask = RuntimeTask;
+		type DbWeight = DbWeight;
+		type PalletInfo = PalletInfo;
+	}
+
+	parameter_types! {
+		pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight {
+			read: 100,
+			write: 1000,
+		};
+	}
+
+	pub struct ExtBuilder {}
+
+	impl Default for ExtBuilder {
+		fn default() -> Self {
+			Self {}
+		}
+	}
+
+	impl ExtBuilder {
+		pub fn build(self) -> sp_io::TestExternalities {
+			let t = frame_system::GenesisConfig::<ExtRuntime>::default().build_storage().unwrap();
+			let mut ext = sp_io::TestExternalities::new(t);
+			ext.execute_with(|| {});
+			ext
+		}
+
+		pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+			self.build().execute_with(|| {
+				test();
+			})
+		}
+	}
+
+	#[test]
+	fn no_post_dispatch_with_no_refund() {
+		ExtBuilder::default().build_and_execute(|| {
+			let call = RuntimeCall::System(frame_system::Call::<ExtRuntime>::f99 {});
+			let ext: TxExtension = (DummyOne(false), DummyTwo(1500), DummyThree(0));
+			let uxt = UncheckedExtrinsic::new_signed(call.clone(), 0, (), ext.clone());
+			assert_eq!(uxt.extension_weight(), Weight::from_parts(600, 0));
+
+			let mut info = call.get_dispatch_info();
+			assert_eq!(info.total_weight(), Weight::from_parts(1000, 0));
+			info.extension_weight = TxExtension::weight();
+			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
+			let res = call.dispatch(Some(0).into());
+			let mut post_info = res.clone().unwrap();
+			assert!(post_info.actual_weight.is_none());
+			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch_with_weight_accrual(
+				pre,
+				&info,
+				&mut post_info,
+				0,
+				&Ok(()),
+				&(),
+			));
+			assert!(post_info.actual_weight.is_none());
+		});
+	}
+
+	#[test]
+	fn post_dispatch_with_no_refund() {
+		ExtBuilder::default().build_and_execute(|| {
+			let call = RuntimeCall::System(frame_system::Call::<ExtRuntime>::f100 {});
+			let ext: TxExtension = (DummyOne(false), DummyTwo(1500), DummyThree(0));
+			let uxt = UncheckedExtrinsic::new_signed(call.clone(), 0, (), ext.clone());
+			assert_eq!(uxt.extension_weight(), Weight::from_parts(600, 0));
+
+			let mut info = call.get_dispatch_info();
+			assert_eq!(info.total_weight(), Weight::from_parts(1000, 0));
+			info.extension_weight = TxExtension::weight();
+			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
+			let res = call.dispatch(Some(0).into());
+			let mut post_info = res.clone().unwrap();
+			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
+			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch_with_weight_accrual(
+				pre,
+				&info,
+				&mut post_info,
+				0,
+				&Ok(()),
+				&(),
+			));
+			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(1100, 0)));
+		});
 	}
 }

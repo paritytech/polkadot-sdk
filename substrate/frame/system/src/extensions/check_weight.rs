@@ -53,11 +53,11 @@ where
 	) -> Result<(), TransactionValidityError> {
 		let max = T::BlockWeights::get().get(info.class).max_extrinsic;
 		match max {
-			Some(max) if info.weight.any_gt(max) => {
+			Some(max) if info.total_weight().any_gt(max) => {
 				log::debug!(
 					target: LOG_TARGET,
 					"Extrinsic {} is greater than the max extrinsic {}",
-					info.weight,
+					info.total_weight(),
 					max,
 				);
 
@@ -150,7 +150,7 @@ where
 {
 	// Also Consider extrinsic length as proof weight.
 	let extrinsic_weight = info
-		.weight
+		.total_weight()
 		.saturating_add(maximum_weight.get(info.class).base_extrinsic)
 		.saturating_add(Weight::from_parts(0, len as u64));
 	let limit_per_class = maximum_weight.get(info.class);
@@ -212,7 +212,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckWeight<T> {
 	const IDENTIFIER: &'static str = "CheckWeight";
 	type Implicit = ();
 
-	fn weight(&self) -> Weight {
+	fn weight() -> Weight {
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_weight()
 	}
 }
@@ -257,7 +257,7 @@ where
 		_len: usize,
 		_result: &DispatchResult,
 		_context: &Context,
-	) -> Result<(), TransactionValidityError> {
+	) -> Result<Option<Weight>, TransactionValidityError> {
 		let unspent = post_info.calc_unspent(info);
 		if unspent.any_gt(Weight::zero()) {
 			crate::BlockWeight::<T>::mutate(|current_weight| {
@@ -277,7 +277,7 @@ where
 			Pallet::<T>::all_extrinsics_len(),
 		);
 
-		Ok(())
+		Ok(None)
 	}
 }
 
@@ -328,7 +328,7 @@ mod tests {
 		fn check(call: impl FnOnce(&DispatchInfo, usize)) {
 			new_test_ext().execute_with(|| {
 				let max = DispatchInfo {
-					weight: Weight::MAX,
+					call_weight: Weight::MAX,
 					class: DispatchClass::Mandatory,
 					..Default::default()
 				};
@@ -353,7 +353,7 @@ mod tests {
 	fn normal_extrinsic_limited_by_maximum_extrinsic_weight() {
 		new_test_ext().execute_with(|| {
 			let max = DispatchInfo {
-				weight: block_weights().get(DispatchClass::Normal).max_extrinsic.unwrap() +
+				call_weight: block_weights().get(DispatchClass::Normal).max_extrinsic.unwrap() +
 					Weight::from_parts(1, 0),
 				class: DispatchClass::Normal,
 				..Default::default()
@@ -376,11 +376,14 @@ mod tests {
 				.unwrap_or_else(|| weights.max_block);
 			let base_weight = weights.get(DispatchClass::Operational).base_extrinsic;
 
-			let weight = operational_limit - base_weight;
-			let okay =
-				DispatchInfo { weight, class: DispatchClass::Operational, ..Default::default() };
+			let call_weight = operational_limit - base_weight;
+			let okay = DispatchInfo {
+				call_weight,
+				class: DispatchClass::Operational,
+				..Default::default()
+			};
 			let max = DispatchInfo {
-				weight: weight + Weight::from_parts(1, 0),
+				call_weight: call_weight + Weight::from_parts(1, 0),
 				class: DispatchClass::Operational,
 				..Default::default()
 			};
@@ -412,9 +415,9 @@ mod tests {
 			// So normal extrinsic can be 758 weight (-5 for base extrinsic weight)
 			// And Operational can be 246 to produce a full block (-10 for base)
 			let max_normal =
-				DispatchInfo { weight: Weight::from_parts(753, 0), ..Default::default() };
+				DispatchInfo { call_weight: Weight::from_parts(753, 0), ..Default::default() };
 			let rest_operational = DispatchInfo {
-				weight: Weight::from_parts(246, 0),
+				call_weight: Weight::from_parts(246, 0),
 				class: DispatchClass::Operational,
 				..Default::default()
 			};
@@ -438,9 +441,9 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			// We switch the order of `full_block_with_normal_and_operational`
 			let max_normal =
-				DispatchInfo { weight: Weight::from_parts(753, 0), ..Default::default() };
+				DispatchInfo { call_weight: Weight::from_parts(753, 0), ..Default::default() };
 			let rest_operational = DispatchInfo {
-				weight: Weight::from_parts(246, 0),
+				call_weight: Weight::from_parts(246, 0),
 				class: DispatchClass::Operational,
 				..Default::default()
 			};
@@ -464,12 +467,12 @@ mod tests {
 			// An on_initialize takes up the whole block! (Every time!)
 			System::register_extra_weight_unchecked(Weight::MAX, DispatchClass::Mandatory);
 			let dispatch_normal = DispatchInfo {
-				weight: Weight::from_parts(251, 0),
+				call_weight: Weight::from_parts(251, 0),
 				class: DispatchClass::Normal,
 				..Default::default()
 			};
 			let dispatch_operational = DispatchInfo {
-				weight: Weight::from_parts(246, 0),
+				call_weight: Weight::from_parts(246, 0),
 				class: DispatchClass::Operational,
 				..Default::default()
 			};
@@ -498,9 +501,11 @@ mod tests {
 	#[test]
 	fn signed_ext_check_weight_works_operational_tx() {
 		new_test_ext().execute_with(|| {
-			let normal = DispatchInfo { weight: Weight::from_parts(100, 0), ..Default::default() };
+			let normal =
+				DispatchInfo { call_weight: Weight::from_parts(100, 0), ..Default::default() };
 			let op = DispatchInfo {
-				weight: Weight::from_parts(100, 0),
+				call_weight: Weight::from_parts(100, 0),
+				extension_weight: Weight::zero(),
 				class: DispatchClass::Operational,
 				pays_fee: Pays::Yes,
 			};
@@ -570,7 +575,8 @@ mod tests {
 
 			// Operational ones don't have this limit.
 			let op = DispatchInfo {
-				weight: Weight::zero(),
+				call_weight: Weight::zero(),
+				extension_weight: Weight::zero(),
 				class: DispatchClass::Operational,
 				pays_fee: Pays::Yes,
 			};
@@ -585,12 +591,13 @@ mod tests {
 	fn signed_ext_check_weight_works_normal_tx() {
 		new_test_ext().execute_with(|| {
 			let normal_limit = normal_weight_limit();
-			let small = DispatchInfo { weight: Weight::from_parts(100, 0), ..Default::default() };
+			let small =
+				DispatchInfo { call_weight: Weight::from_parts(100, 0), ..Default::default() };
 			let base_extrinsic = block_weights().get(DispatchClass::Normal).base_extrinsic;
 			let medium =
-				DispatchInfo { weight: normal_limit - base_extrinsic, ..Default::default() };
+				DispatchInfo { call_weight: normal_limit - base_extrinsic, ..Default::default() };
 			let big = DispatchInfo {
-				weight: normal_limit - base_extrinsic + Weight::from_parts(1, 0),
+				call_weight: normal_limit - base_extrinsic + Weight::from_parts(1, 0),
 				..Default::default()
 			};
 			let len = 0_usize;
@@ -622,7 +629,8 @@ mod tests {
 	fn signed_ext_check_weight_refund_works() {
 		new_test_ext().execute_with(|| {
 			// This is half of the max block weight
-			let info = DispatchInfo { weight: Weight::from_parts(512, 0), ..Default::default() };
+			let info =
+				DispatchInfo { call_weight: Weight::from_parts(512, 0), ..Default::default() };
 			let post_info = PostDispatchInfo {
 				actual_weight: Some(Weight::from_parts(128, 0)),
 				pays_fee: Default::default(),
@@ -643,7 +651,7 @@ mod tests {
 				.0;
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
-				info.weight + Weight::from_parts(256, 0)
+				info.total_weight() + Weight::from_parts(256, 0)
 			);
 
 			assert_ok!(CheckWeight::<Test>::post_dispatch(
@@ -664,7 +672,8 @@ mod tests {
 	#[test]
 	fn signed_ext_check_weight_actual_weight_higher_than_max_is_capped() {
 		new_test_ext().execute_with(|| {
-			let info = DispatchInfo { weight: Weight::from_parts(512, 0), ..Default::default() };
+			let info =
+				DispatchInfo { call_weight: Weight::from_parts(512, 0), ..Default::default() };
 			let post_info = PostDispatchInfo {
 				actual_weight: Some(Weight::from_parts(700, 0)),
 				pays_fee: Default::default(),
@@ -682,7 +691,7 @@ mod tests {
 				.0;
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
-				info.weight +
+				info.total_weight() +
 					Weight::from_parts(128, 0) +
 					block_weights().get(DispatchClass::Normal).base_extrinsic,
 			);
@@ -697,7 +706,7 @@ mod tests {
 			));
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
-				info.weight +
+				info.total_weight() +
 					Weight::from_parts(128, 0) +
 					block_weights().get(DispatchClass::Normal).base_extrinsic,
 			);
@@ -708,7 +717,7 @@ mod tests {
 	fn zero_weight_extrinsic_still_has_base_weight() {
 		new_test_ext().execute_with(|| {
 			let weights = block_weights();
-			let free = DispatchInfo { weight: Weight::zero(), ..Default::default() };
+			let free = DispatchInfo { call_weight: Weight::zero(), ..Default::default() };
 			let len = 0_usize;
 
 			// Initial weight from `weights.base_block`
@@ -733,9 +742,9 @@ mod tests {
 			// Max normal is 768 (75%)
 			// Max mandatory is unlimited
 			let max_normal =
-				DispatchInfo { weight: Weight::from_parts(753, 0), ..Default::default() };
+				DispatchInfo { call_weight: Weight::from_parts(753, 0), ..Default::default() };
 			let mandatory = DispatchInfo {
-				weight: Weight::from_parts(1019, 0),
+				call_weight: Weight::from_parts(1019, 0),
 				class: DispatchClass::Mandatory,
 				..Default::default()
 			};
@@ -777,13 +786,13 @@ mod tests {
 
 		// fits into reserved
 		let mandatory1 = DispatchInfo {
-			weight: Weight::from_parts(5, 0),
+			call_weight: Weight::from_parts(5, 0),
 			class: DispatchClass::Mandatory,
 			..Default::default()
 		};
 		// does not fit into reserved and the block is full.
 		let mandatory2 = DispatchInfo {
-			weight: Weight::from_parts(6, 0),
+			call_weight: Weight::from_parts(6, 0),
 			class: DispatchClass::Mandatory,
 			..Default::default()
 		};
@@ -826,13 +835,13 @@ mod tests {
 		});
 
 		let normal = DispatchInfo {
-			weight: Weight::from_parts(5, 0),
+			call_weight: Weight::from_parts(5, 0),
 			class: DispatchClass::Normal,
 			..Default::default()
 		};
 
 		let mandatory = DispatchInfo {
-			weight: Weight::from_parts(5, 0),
+			call_weight: Weight::from_parts(5, 0),
 			class: DispatchClass::Mandatory,
 			..Default::default()
 		};
@@ -846,7 +855,7 @@ mod tests {
 		)
 		.unwrap();
 
-		assert_eq!(consumed.total().saturating_sub(all_weight.total()), normal.weight);
+		assert_eq!(consumed.total().saturating_sub(all_weight.total()), normal.total_weight());
 
 		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
 			&maximum_weight,
@@ -855,7 +864,7 @@ mod tests {
 			0,
 		)
 		.unwrap();
-		assert_eq!(consumed.total().saturating_sub(all_weight.total()), mandatory.weight);
+		assert_eq!(consumed.total().saturating_sub(all_weight.total()), mandatory.total_weight());
 
 		// Using non zero length extrinsics.
 		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
@@ -868,7 +877,7 @@ mod tests {
 		// Must account for the len in the proof size
 		assert_eq!(
 			consumed.total().saturating_sub(all_weight.total()),
-			normal.weight.add_proof_size(100)
+			normal.total_weight().add_proof_size(100)
 		);
 
 		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
@@ -881,7 +890,7 @@ mod tests {
 		// Must account for the len in the proof size
 		assert_eq!(
 			consumed.total().saturating_sub(all_weight.total()),
-			mandatory.weight.add_proof_size(100)
+			mandatory.total_weight().add_proof_size(100)
 		);
 
 		// Using oversized zero length extrinsics.

@@ -316,14 +316,14 @@ fn full_native_block_import_works() {
 	let mut alice_last_known_balance: Balance = Default::default();
 	let mut fees = t.execute_with(|| transfer_fee(&xt()));
 
-	let transfer_weight = default_transfer_call().get_dispatch_info().weight.saturating_add(
+	let transfer_weight = default_transfer_call().get_dispatch_info().call_weight.saturating_add(
 		<Runtime as frame_system::Config>::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.base_extrinsic,
 	);
 	let timestamp_weight = pallet_timestamp::Call::set::<Runtime> { now: Default::default() }
 		.get_dispatch_info()
-		.weight
+		.call_weight
 		.saturating_add(
 			<Runtime as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Mandatory)
@@ -341,7 +341,7 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(0),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					dispatch_info: DispatchInfo {
-						weight: timestamp_weight,
+						call_weight: timestamp_weight,
 						class: DispatchClass::Mandatory,
 						..Default::default()
 					},
@@ -394,7 +394,10 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo { weight: transfer_weight, ..Default::default() },
+					dispatch_info: DispatchInfo {
+						call_weight: transfer_weight,
+						..Default::default()
+					},
 				}),
 				topics: vec![],
 			},
@@ -426,7 +429,7 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(0),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					dispatch_info: DispatchInfo {
-						weight: timestamp_weight,
+						call_weight: timestamp_weight,
 						class: DispatchClass::Mandatory,
 						..Default::default()
 					},
@@ -479,7 +482,10 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo { weight: transfer_weight, ..Default::default() },
+					dispatch_info: DispatchInfo {
+						call_weight: transfer_weight,
+						..Default::default()
+					},
 				}),
 				topics: vec![],
 			},
@@ -529,7 +535,10 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo { weight: transfer_weight, ..Default::default() },
+					dispatch_info: DispatchInfo {
+						call_weight: transfer_weight,
+						..Default::default()
+					},
 				}),
 				topics: vec![],
 			},

@@ -73,7 +73,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckOnlySudoAccount<
 	const IDENTIFIER: &'static str = "CheckOnlySudoAccount";
 	type Implicit = ();
 
-	fn weight(&self) -> frame_support::weights::Weight {
+	fn weight() -> frame_support::weights::Weight {
 		use crate::weights::WeightInfo;
 		T::WeightInfo::check_only_sudo_account()
 	}
@@ -111,7 +111,7 @@ where
 
 		Ok((
 			ValidTransaction {
-				priority: info.weight.ref_time() as TransactionPriority,
+				priority: info.total_weight().ref_time() as TransactionPriority,
 				..Default::default()
 			},
 			(),

@@ -105,6 +105,14 @@ impl WeightToFeeT for TransactionByteFee {
 	}
 }
 
+pub struct MockTxPaymentWeights;
+
+impl pallet_transaction_payment::WeightInfo for MockTxPaymentWeights {
+	fn charge_transaction_payment() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+}
+
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -112,6 +120,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
 	type OperationalFeeMultiplier = ConstU8<5>;
+	type WeightInfo = MockTxPaymentWeights;
 }
 
 type AssetId = u32;
@@ -167,6 +176,23 @@ impl HandleCredit<AccountId, Assets> for CreditToBlockAuthor {
 	}
 }
 
+/// Weights used in testing.
+pub struct MockWeights;
+
+impl WeightInfo for MockWeights {
+	fn charge_asset_tx_payment_zero() -> Weight {
+		Weight::from_parts(0, 0)
+	}
+
+	fn charge_asset_tx_payment_native() -> Weight {
+		Weight::from_parts(15, 0)
+	}
+
+	fn charge_asset_tx_payment_asset() -> Weight {
+		Weight::from_parts(20, 0)
+	}
+}
+
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Fungibles = Assets;
@@ -174,7 +200,7 @@ impl Config for Runtime {
 		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto>,
 		CreditToBlockAuthor,
 	>;
-	type WeightInfo = ();
+	type WeightInfo = MockWeights;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = Helper;
 }

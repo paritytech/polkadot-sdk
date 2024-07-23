@@ -102,8 +102,9 @@ where
 		len: usize,
 		result: &DispatchResult,
 		_context: &Context,
-	) -> Result<(), TransactionValidityError> {
-		SE::post_dispatch(Some(pre), info, post_info, len, result)
+	) -> Result<Option<Weight>, TransactionValidityError> {
+		SE::post_dispatch(Some(pre), info, post_info, len, result)?;
+		Ok(None)
 	}
 
 	fn validate_bare_compat(

@@ -100,13 +100,13 @@ impl Dispatchable for TestCall {
 
 impl GetDispatchInfo for TestCall {
 	fn get_dispatch_info(&self) -> DispatchInfo {
-		let weight = *match self {
+		let call_weight = *match self {
 			TestCall::OnlyRoot(estimate, ..) |
 			TestCall::OnlyParachain(estimate, ..) |
 			TestCall::OnlySigned(estimate, ..) |
 			TestCall::Any(estimate, ..) => estimate,
 		};
-		DispatchInfo { weight, ..Default::default() }
+		DispatchInfo { call_weight, ..Default::default() }
 	}
 }
 

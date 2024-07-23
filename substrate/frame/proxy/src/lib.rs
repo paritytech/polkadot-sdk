@@ -194,7 +194,7 @@ pub mod pallet {
 			(T::WeightInfo::proxy(T::MaxProxies::get())
 				 // AccountData for inner call origin accountdata.
 				.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-				.saturating_add(di.weight),
+				.saturating_add(di.call_weight),
 			di.class)
 		})]
 		pub fn proxy(
@@ -486,7 +486,7 @@ pub mod pallet {
 			(T::WeightInfo::proxy_announced(T::MaxPending::get(), T::MaxProxies::get())
 				 // AccountData for inner call origin accountdata.
 				.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-				.saturating_add(di.weight),
+				.saturating_add(di.call_weight),
 			di.class)
 		})]
 		pub fn proxy_announced(

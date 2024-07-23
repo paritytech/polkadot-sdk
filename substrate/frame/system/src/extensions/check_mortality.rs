@@ -72,7 +72,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckMortality<T> {
 			Ok(<Pallet<T>>::block_hash(n))
 		}
 	}
-	fn weight(&self) -> sp_weights::Weight {
+	fn weight() -> sp_weights::Weight {
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality()
 	}
 }
@@ -137,7 +137,8 @@ mod tests {
 	fn signed_ext_check_era_should_change_longevity() {
 		new_test_ext().execute_with(|| {
 			let normal = DispatchInfo {
-				weight: Weight::from_parts(100, 0),
+				call_weight: Weight::from_parts(100, 0),
+				extension_weight: Weight::zero(),
 				class: DispatchClass::Normal,
 				pays_fee: Pays::Yes,
 			};

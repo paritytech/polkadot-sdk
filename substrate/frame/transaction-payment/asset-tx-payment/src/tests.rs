@@ -91,7 +91,7 @@ impl ExtBuilder {
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: Weight) -> DispatchInfo {
 	// pays_fee: Pays::Yes -- class: DispatchClass::Normal
-	DispatchInfo { weight: w, ..Default::default() }
+	DispatchInfo { call_weight: w, ..Default::default() }
 }
 
 fn post_info_from_weight(w: Weight) -> PostDispatchInfo {
@@ -119,47 +119,45 @@ fn transaction_payment_in_native_possible() {
 		.build()
 		.execute_with(|| {
 			let len = 10;
+			let mut info = info_from_weight(Weight::from_parts(5, 0));
+			info.extension_weight = ChargeAssetTxPayment::<Runtime>::weight();
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, None)
-				.validate_and_prepare(
-					Some(1).into(),
-					CALL,
-					&info_from_weight(Weight::from_parts(5, 0)),
-					len,
-				)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len)
 				.unwrap();
 			let initial_balance = 10 * balance_factor;
-			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 10);
+			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 20 - 10);
 
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 				pre,
-				&info_from_weight(Weight::from_parts(5, 0)),
+				&info,
 				&default_post_info(),
 				len,
 				&Ok(()),
 				&()
 			));
-			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 10);
+			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 20 - 10);
 
+			let mut info = info_from_weight(Weight::from_parts(100, 0));
+			info.extension_weight = ChargeAssetTxPayment::<Runtime>::weight();
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(5 /* tipped */, None)
-				.validate_and_prepare(
-					Some(2).into(),
-					CALL,
-					&info_from_weight(Weight::from_parts(100, 0)),
-					len,
-				)
+				.validate_and_prepare(Some(2).into(), CALL, &info, len)
 				.unwrap();
 			let initial_balance_for_2 = 20 * balance_factor;
-			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 100 - 5);
+			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 100 - 20 - 5);
 
+			let call_actual_weight = Weight::from_parts(50, 0);
+			// The extension weight refund should be taken into account in `post_dispatch`.
+			let post_info =
+				post_info_from_weight(info.call_weight.saturating_sub(call_actual_weight));
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 				pre,
-				&info_from_weight(Weight::from_parts(100, 0)),
-				&post_info_from_weight(Weight::from_parts(50, 0)),
+				&info,
+				&post_info,
 				len,
 				&Ok(()),
 				&()
 			));
-			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 50 - 5);
+			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 50 - 15 - 5);
 		});
 }
 
@@ -324,19 +322,17 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 			let weight = 100;
+			let ext_weight = ChargeAssetTxPayment::<Runtime>::weight();
 			let tip = 5;
 			let len = 10;
 			// we convert the from weight to fee based on the ratio between asset min balance and
 			// existential deposit
-			let fee_with_tip =
-				(base_weight + weight + len as u64 + tip) * min_balance / ExistentialDeposit::get();
+			let fee_with_tip = (base_weight + weight + ext_weight.ref_time() + len as u64 + tip) *
+				min_balance / ExistentialDeposit::get();
+			let mut info = info_from_weight(Weight::from_parts(weight, 0));
+			info.extension_weight = ext_weight;
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id))
-				.validate_and_prepare(
-					Some(caller).into(),
-					CALL,
-					&info_from_weight(Weight::from_parts(weight, 0)),
-					len,
-				)
+				.validate_and_prepare(Some(caller).into(), CALL, &info, len)
 				.unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_with_tip);
 
@@ -349,14 +345,16 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			let final_weight = 50;
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 				pre,
-				&info_from_weight(Weight::from_parts(weight, 0)),
+				&info,
 				&post_info_from_weight(Weight::from_parts(final_weight, 0)),
 				len,
 				&Ok(()),
 				&()
 			));
-			let final_fee =
-				fee_with_tip - (weight - final_weight) * min_balance / ExistentialDeposit::get();
+			let final_fee = fee_with_tip -
+				(weight - final_weight + ext_weight.ref_time() -
+					MockWeights::charge_asset_tx_payment_asset().ref_time()) *
+					min_balance / ExistentialDeposit::get();
 			assert_eq!(Assets::balance(asset_id, caller), balance - (final_fee));
 			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), final_fee);
 

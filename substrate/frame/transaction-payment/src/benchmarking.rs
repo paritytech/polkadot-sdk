@@ -24,7 +24,7 @@ use crate::Pallet;
 use frame_benchmarking::v2::*;
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_system::{EventRecord, RawOrigin};
-use sp_runtime::traits::{DispatchTransaction, Dispatchable};
+use sp_runtime::traits::{AccrueWeight, DispatchTransaction, Dispatchable};
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	let events = frame_system::Pallet::<T>::events();
@@ -51,14 +51,16 @@ mod benchmarks {
 		);
 		let tip = <T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance();
 		let ext: ChargeTransactionPayment<T> = ChargeTransactionPayment::from(tip);
+		let ext_weight = ChargeTransactionPayment::<T>::weight();
 		let inner = frame_system::Call::remark { remark: alloc::vec![] };
 		let call = T::RuntimeCall::from(inner);
 		let info = DispatchInfo {
-			weight: Weight::from_parts(100, 0),
+			call_weight: Weight::from_parts(100, 0),
+			extension_weight: ChargeTransactionPayment::<T>::weight(),
 			class: DispatchClass::Operational,
 			pays_fee: Pays::Yes,
 		};
-		let post_info = PostDispatchInfo {
+		let mut post_info = PostDispatchInfo {
 			actual_weight: Some(Weight::from_parts(10, 0)),
 			pays_fee: Pays::Yes,
 		};
@@ -73,6 +75,7 @@ mod benchmarks {
 				.is_ok());
 		}
 
+		post_info.accrue(ext_weight);
 		let actual_fee = Pallet::<T>::compute_actual_fee(10, &info, &post_info, tip);
 		assert_last_event::<T>(
 			Event::<T>::TransactionFeePaid { who: caller, actual_fee, tip }.into(),

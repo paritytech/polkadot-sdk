@@ -2367,6 +2367,7 @@ dependencies = [
  "sp-runtime",
  "sp-std 14.0.0",
  "sp-trie",
+ "sp-weights",
  "staging-xcm",
  "staging-xcm-builder",
  "static_assertions",

@@ -94,7 +94,7 @@ impl ExtBuilder {
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: Weight) -> DispatchInfo {
 	// pays_fee: Pays::Yes -- class: DispatchClass::Normal
-	DispatchInfo { weight: w, ..Default::default() }
+	DispatchInfo { call_weight: w, ..Default::default() }
 }
 
 fn post_info_from_weight(w: Weight) -> PostDispatchInfo {
@@ -163,37 +163,45 @@ fn transaction_payment_in_native_possible() {
 		.build()
 		.execute_with(|| {
 			let len = 10;
+			let mut info = info_from_weight(WEIGHT_5);
+			info.extension_weight = ChargeAssetTxPayment::<Runtime>::weight();
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, None)
-				.validate_and_prepare(Some(1).into(), CALL, &info_from_weight(WEIGHT_5), len)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len)
 				.unwrap();
 			let initial_balance = 10 * balance_factor;
-			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 10);
+			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 20 - 10);
 
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 				pre,
-				&info_from_weight(WEIGHT_5),
+				&info,
 				&default_post_info(),
 				len,
 				&Ok(()),
 				&()
 			));
-			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 10);
+			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 20 - 10);
 
+			let mut info = info_from_weight(WEIGHT_100);
+			info.extension_weight = ChargeAssetTxPayment::<Runtime>::weight();
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(5 /* tipped */, None)
-				.validate_and_prepare(Some(2).into(), CALL, &info_from_weight(WEIGHT_100), len)
+				.validate_and_prepare(Some(2).into(), CALL, &info, len)
 				.unwrap();
 			let initial_balance_for_2 = 20 * balance_factor;
 
-			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 100 - 5);
+			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 100 - 20 - 5);
+			let call_actual_weight = WEIGHT_50;
+			let post_info =
+				post_info_from_weight(info.call_weight.saturating_sub(call_actual_weight));
+			// The extension weight refund should be taken into account in `post_dispatch`.
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 				pre,
-				&info_from_weight(WEIGHT_100),
-				&post_info_from_weight(WEIGHT_50),
+				&info,
+				&post_info,
 				len,
 				&Ok(()),
 				&()
 			));
-			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 50 - 5);
+			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 50 - 15 - 5);
 		});
 }
 
@@ -420,25 +428,30 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 
 			let weight = 100;
+			let ext_weight = ChargeAssetTxPayment::<Runtime>::weight();
 			let tip = 5;
 			let len = 10;
-			let fee_in_native = base_weight + weight + len as u64 + tip;
+			let fee_in_native = base_weight + weight + ext_weight.ref_time() + len as u64 + tip;
 			let input_quote = AssetConversion::quote_price_tokens_for_exact_tokens(
 				NativeOrWithId::WithId(asset_id),
 				NativeOrWithId::Native,
 				fee_in_native,
 				true,
 			);
-			assert_eq!(input_quote, Some(1206));
+			assert_eq!(input_quote, Some(1407));
 
 			let fee_in_asset = input_quote.unwrap();
+			let mut info = info_from_weight(WEIGHT_100);
+			info.extension_weight = ext_weight;
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id))
-				.validate_and_prepare(Some(caller).into(), CALL, &info_from_weight(WEIGHT_100), len)
+				.validate_and_prepare(Some(caller).into(), CALL, &info, len)
 				.unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 
 			let final_weight = 50;
-			let expected_fee = fee_in_native - final_weight - tip;
+			let weight_refund = weight - final_weight;
+			let ext_weight_refund = ext_weight - MockWeights::charge_asset_tx_payment_asset();
+			let expected_fee = fee_in_native - weight_refund - ext_weight_refund.ref_time() - tip;
 			let expected_token_refund = AssetConversion::quote_price_exact_tokens_for_tokens(
 				NativeOrWithId::Native,
 				NativeOrWithId::WithId(asset_id),
@@ -455,7 +468,7 @@ fn asset_transaction_payment_with_tip_and_refund() {
 
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 				pre,
-				&info_from_weight(WEIGHT_100),
+				&info,
 				&post_info_from_weight(WEIGHT_50),
 				len,
 				&Ok(()),
