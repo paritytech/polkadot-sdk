@@ -307,6 +307,8 @@ pub trait Backend<Block: BlockT>:
 
 		let mut displaced_blocks_candidates = Vec::new();
 
+		let genesis_hash = self.info().genesis_hash;
+
 		for leaf_hash in leaves {
 			let mut current_header_metadata =
 				MinimalBlockMetadata::from(&self.header_metadata(leaf_hash).map_err(|err| {
@@ -322,7 +324,6 @@ pub trait Backend<Block: BlockT>:
 			let leaf_number = current_header_metadata.number;
 
 			// The genesis block is part of the canonical chain.
-			let genesis_hash = self.info().genesis_hash;
 			if leaf_hash == genesis_hash {
 				result.displaced_leaves.push((leaf_number, leaf_hash));
 				debug!(
