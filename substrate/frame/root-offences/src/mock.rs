@@ -246,6 +246,7 @@ impl ExtBuilder {
 				.into_iter()
 				.map(|(id, ..)| (id, id, SessionKeys { other: id.into() }))
 				.collect(),
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 
