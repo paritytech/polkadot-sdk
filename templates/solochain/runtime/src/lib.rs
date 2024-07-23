@@ -145,9 +145,7 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
-/// The default types are being injected by [`derive_impl`](`frame_support::derive_impl`) from
-/// [`SoloChainDefaultConfig`](`struct@frame_system::config_preludes::SolochainDefaultConfig`),
-/// but overridden as needed.
+/// Implements the types required for the system pallet.
 #[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	/// The block type for the runtime.

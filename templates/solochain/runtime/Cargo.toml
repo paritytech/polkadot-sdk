@@ -40,10 +40,6 @@ pallet-transaction-payment = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 
-# Used for runtime benchmarking
-frame-benchmarking = { optional = true, workspace = true }
-frame-system-benchmarking = { optional = true, workspace = true }
-
 # The pallet in this template.
 pallet-template = { workspace = true }
 
@@ -68,6 +64,7 @@ std = [
 	"pallet-transaction-payment/std",
 
 	"substrate-wasm-builder",
+	"frame-system-rpc-runtime-api/std"
 ]
 
 runtime-benchmarks = [

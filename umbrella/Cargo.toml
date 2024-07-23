@@ -525,6 +525,7 @@ serde = [
 	"sp-storage?/serde",
 	"sp-version?/serde",
 	"sp-weights?/serde",
+	"polkadot-sdk-frame?/serde"
 ]
 experimental = [
 	"frame-support-procedural?/experimental",
