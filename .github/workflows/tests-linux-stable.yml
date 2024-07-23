@@ -99,11 +99,13 @@ jobs:
       - run: chmod +x .forklift/forklift && .forklift/forklift version
       
       - run: rustup component add llvm-tools-preview
+      - run: cargo install cargo-llvm-cov
+
       - run: mkdir -p target/coverage/result
       - name: script
         run: >
-          time cargo
-          nextest run
+          time cargo llvm-cov nextest
+          --no-report
           --workspace
           --locked --release --no-fail-fast
           --features try-runtime,ci-only-tests
@@ -124,22 +126,15 @@ jobs:
           "
           --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
       - run: ls -al target/coverage
+      - run: ls -al target/lvm-cov-target
       - run: ls -al /__w/polkadot-sdk/polkadot-sdk/
-      - run: llvm-profdata-15 merge --sparse /__w/polkadot-sdk/polkadot-sdk/target/coverage/cargo-test-${{ matrix.ci_node_index }}-1*.profraw -o json5format.profdata
       - name: generate report
-        run: >
-          grcov
-          /__w/polkadot-sdk/polkadot-sdk/target/coverage/
-          --binary-path ./target/release/deps/
-          -s .
-          -t lcov
-          --branch
-          -o target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
-      - name: upload report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report-${{ matrix.ci_node_index }}.lcov
-          path: target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
+        run: cargo llvm-cov report --lcov --output-path lcov.info
+      #- name: upload report
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: coverage-report-${{ matrix.ci_node_index }}.lcov
+      #    path: target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
 
   upload-reports:
     needs: [test-linux-stable]
