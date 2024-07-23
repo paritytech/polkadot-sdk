@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721752685239,
+  "lastUpdate": 1721759633818,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -5837,6 +5837,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03886797865600001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "polka.dom",
+            "username": "PolkadotDom",
+            "email": "polkadotdom@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9974a68ca16ddd4d7ee822edb9baf48e6b93906e",
+          "message": "Remove pallet::getter macro from pallet-identity (#4586)\n\nAs per #3326, removes pallet::getter macro usage from the\npallet-identity. The syntax `StorageItem::<T, I>::get()` should be used\ninstead.\n\nAlso makes all storage values public\n\ncc @muraca\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-07-23T17:42:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9974a68ca16ddd4d7ee822edb9baf48e6b93906e"
+        },
+        "date": 1721759604252,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.93799999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40599999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.036226317056,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04507921291000003,
             "unit": "seconds"
           }
         ]
