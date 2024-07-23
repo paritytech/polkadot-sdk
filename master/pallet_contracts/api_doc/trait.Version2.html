@@ -167,7 +167,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         input_data_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
         output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
         output_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../pallet_contracts_uapi/enum.ReturnErrorCode.html" title="enum pallet_contracts_uapi::ReturnErrorCode">ReturnErrorCode</a>, TrapReason&gt;;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;ReturnErrorCode, TrapReason&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.instantiate" class="fn">instantiate</a>(
         code_hash_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
         ref_time_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
@@ -182,7 +182,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         output_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
         salt_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
         salt_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../pallet_contracts_uapi/enum.ReturnErrorCode.html" title="enum pallet_contracts_uapi::ReturnErrorCode">ReturnErrorCode</a>, TrapReason&gt;;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;ReturnErrorCode, TrapReason&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.seal_set_storage" class="fn">seal_set_storage</a>(
         key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
         key_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
@@ -209,7 +209,7 @@ See [<code>pallet_contracts_uapi::HostFn::set_storage_v2</code>]</p>
     input_data_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     output_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     output_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../pallet_contracts_uapi/enum.ReturnErrorCode.html" title="enum pallet_contracts_uapi::ReturnErrorCode">ReturnErrorCode</a>, TrapReason&gt;</h4></section></summary><div class="docblock"><p>Make a call to another contract.
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;ReturnErrorCode, TrapReason&gt;</h4></section></summary><div class="docblock"><p>Make a call to another contract.
 See [<code>pallet_contracts_uapi::HostFn::call_v2</code>].</p>
 <h5 id="wasm-import-statement-1"><a class="doc-anchor" href="#wasm-import-statement-1">§</a>Wasm Import Statement</h5><div class="example-wrap"><pre class="language-wat"><code>(import &quot;seal2&quot; &quot;call&quot; (func ...))
 </code></pre></div></div></details><details class="toggle method-toggle" open><summary><section id="tymethod.instantiate" class="method"><a class="src rightside" href="../../src/pallet_contracts/wasm/runtime.rs.html#1118">source</a><h4 class="code-header">fn <a href="#tymethod.instantiate" class="fn">instantiate</a>(
@@ -226,7 +226,7 @@ See [<code>pallet_contracts_uapi::HostFn::call_v2</code>].</p>
     output_len_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     salt_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     salt_len: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../pallet_contracts_uapi/enum.ReturnErrorCode.html" title="enum pallet_contracts_uapi::ReturnErrorCode">ReturnErrorCode</a>, TrapReason&gt;</h4></section></summary><div class="docblock"><p>Instantiate a contract with the specified code hash.
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;ReturnErrorCode, TrapReason&gt;</h4></section></summary><div class="docblock"><p>Instantiate a contract with the specified code hash.
 See [<code>pallet_contracts_uapi::HostFn::instantiate_v2</code>].</p>
 <h5 id="wasm-import-statement-2"><a class="doc-anchor" href="#wasm-import-statement-2">§</a>Wasm Import Statement</h5><div class="example-wrap"><pre class="language-wat"><code>(import &quot;seal2&quot; &quot;instantiate&quot; (func ...))
 </code></pre></div></div></details><details class="toggle method-toggle" open><summary><section id="tymethod.seal_set_storage" class="method"><a class="src rightside" href="../../src/pallet_contracts/wasm/runtime.rs.html#1118">source</a><h4 class="code-header">fn <a href="#tymethod.seal_set_storage" class="fn">seal_set_storage</a>(

@@ -156,7 +156,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     message_proof: FromBridgedChainMessagesProof&lt;ParaHash&gt;,
     relayer_id_at_bridged_chain: AccountIdOf&lt;BridgedChainOf&lt;Runtime, MPI&gt;&gt;
 ) -&gt; Call&lt;Runtime&gt;<div class="where">where
-    Runtime: Config&lt;GPI&gt; + Config&lt;PPI&gt; + Config&lt;MPI, InboundPayload = <a class="type" href="../../../bp_xcm_bridge_hub/type.XcmAsPlainPayload.html" title="type bp_xcm_bridge_hub::XcmAsPlainPayload">XcmAsPlainPayload</a>&gt; + Config,
+    Runtime: Config&lt;GPI&gt; + Config&lt;PPI&gt; + Config&lt;MPI, InboundPayload = XcmAsPlainPayload&gt; + Config,
     GPI: 'static,
     PPI: 'static,
     MPI: 'static,

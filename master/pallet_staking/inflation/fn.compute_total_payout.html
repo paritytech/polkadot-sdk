@@ -154,7 +154,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     total_tokens: N,
     era_duration: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>
 ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.tuple.html">(N, N)</a><div class="where">where
-    N: <a class="trait" href="../../sp_arithmetic/traits/trait.AtLeast32BitUnsigned.html" title="trait sp_arithmetic::traits::AtLeast32BitUnsigned">AtLeast32BitUnsigned</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The total payout to all validators (and their nominators) per era and maximum payout.</p>
+    N: AtLeast32BitUnsigned + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The total payout to all validators (and their nominators) per era and maximum payout.</p>
 <p>Defined as such:
 <code>staker-payout = yearly_inflation(npos_token_staked / total_tokens) * total_tokens / era_per_year</code> <code>maximum-payout = max_yearly_inflation * total_tokens / era_per_year</code></p>
 <p><code>era_duration</code> is expressed in millisecond.</p>

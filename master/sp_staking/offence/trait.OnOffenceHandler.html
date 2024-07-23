@@ -152,7 +152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     // Required method
     fn <a href="#tymethod.on_offence" class="fn">on_offence</a>(
         offenders: &amp;[<a class="struct" href="struct.OffenceDetails.html" title="struct sp_staking::offence::OffenceDetails">OffenceDetails</a>&lt;Reporter, Offender&gt;],
-        slash_fraction: &amp;[<a class="struct" href="../../sp_arithmetic/per_things/struct.Perbill.html" title="struct sp_arithmetic::per_things::Perbill">Perbill</a>],
+        slash_fraction: &amp;[Perbill],
         session: <a class="type" href="../type.SessionIndex.html" title="type sp_staking::SessionIndex">SessionIndex</a>
     ) -&gt; Res;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A trait to take action on an offence.</p>
@@ -160,7 +160,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 the one that should punish for those offences.</p>
 </div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.on_offence" class="method"><a class="src rightside" href="../../src/sp_staking/offence.rs.html#154-158">source</a><h4 class="code-header">fn <a href="#tymethod.on_offence" class="fn">on_offence</a>(
     offenders: &amp;[<a class="struct" href="struct.OffenceDetails.html" title="struct sp_staking::offence::OffenceDetails">OffenceDetails</a>&lt;Reporter, Offender&gt;],
-    slash_fraction: &amp;[<a class="struct" href="../../sp_arithmetic/per_things/struct.Perbill.html" title="struct sp_arithmetic::per_things::Perbill">Perbill</a>],
+    slash_fraction: &amp;[Perbill],
     session: <a class="type" href="../type.SessionIndex.html" title="type sp_staking::SessionIndex">SessionIndex</a>
 ) -&gt; Res</h4></section></summary><div class="docblock"><p>A handler for an offence of a particular kind.</p>
 <p>Note that this contains a list of all previous offenders
@@ -176,7 +176,7 @@ Zero is a valid value for a fraction.</p>
 responsible for queuing the report and re-submitting again.</p>
 </div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.77.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-OnOffenceHandler%3CReporter,+Offender,+Res%3E-for-()" class="impl"><a class="src rightside" href="../../src/sp_staking/offence.rs.html#161-169">source</a><a href="#impl-OnOffenceHandler%3CReporter,+Offender,+Res%3E-for-()" class="anchor">§</a><h3 class="code-header">impl&lt;Reporter, Offender, Res: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a>&gt; <a class="trait" href="trait.OnOffenceHandler.html" title="trait sp_staking::offence::OnOffenceHandler">OnOffenceHandler</a>&lt;Reporter, Offender, Res&gt; for <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><section id="method.on_offence" class="method trait-impl"><a class="src rightside" href="../../src/sp_staking/offence.rs.html#162-168">source</a><a href="#method.on_offence" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.on_offence" class="fn">on_offence</a>(
     _offenders: &amp;[<a class="struct" href="struct.OffenceDetails.html" title="struct sp_staking::offence::OffenceDetails">OffenceDetails</a>&lt;Reporter, Offender&gt;],
-    _slash_fraction: &amp;[<a class="struct" href="../../sp_arithmetic/per_things/struct.Perbill.html" title="struct sp_arithmetic::per_things::Perbill">Perbill</a>],
+    _slash_fraction: &amp;[Perbill],
     _session: <a class="type" href="../type.SessionIndex.html" title="type sp_staking::SessionIndex">SessionIndex</a>
 ) -&gt; Res</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/sp_staking/offence/trait.OnOffenceHandler.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

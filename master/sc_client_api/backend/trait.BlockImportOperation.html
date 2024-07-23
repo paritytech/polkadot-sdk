@@ -167,14 +167,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     ) -&gt; Result&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.set_genesis_state" class="fn">set_genesis_state</a>(
         &amp;mut self,
-        storage: <a class="struct" href="../../sp_storage/struct.Storage.html" title="struct sp_storage::Storage">Storage</a>,
+        storage: Storage,
         commit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>,
-        state_version: <a class="enum" href="../../sp_storage/enum.StateVersion.html" title="enum sp_storage::StateVersion">StateVersion</a>
+        state_version: StateVersion
     ) -&gt; Result&lt;Block::Hash&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.reset_storage" class="fn">reset_storage</a>(
         &amp;mut self,
-        storage: <a class="struct" href="../../sp_storage/struct.Storage.html" title="struct sp_storage::Storage">Storage</a>,
-        state_version: <a class="enum" href="../../sp_storage/enum.StateVersion.html" title="enum sp_storage::StateVersion">StateVersion</a>
+        storage: Storage,
+        state_version: StateVersion
     ) -&gt; Result&lt;Block::Hash&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.update_storage" class="fn">update_storage</a>(
         &amp;mut self,
@@ -218,15 +218,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; Result&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Inject storage data into the database.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_genesis_state" class="method"><a class="src rightside" href="../../src/sc_client_api/backend.rs.html#184-189">source</a><h4 class="code-header">fn <a href="#tymethod.set_genesis_state" class="fn">set_genesis_state</a>(
     &amp;mut self,
-    storage: <a class="struct" href="../../sp_storage/struct.Storage.html" title="struct sp_storage::Storage">Storage</a>,
+    storage: Storage,
     commit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>,
-    state_version: <a class="enum" href="../../sp_storage/enum.StateVersion.html" title="enum sp_storage::StateVersion">StateVersion</a>
+    state_version: StateVersion
 ) -&gt; Result&lt;Block::Hash&gt;</h4></section></summary><div class="docblock"><p>Set genesis state. If <code>commit</code> is <code>false</code> the state is saved in memory, but is not written
 to the database.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.reset_storage" class="method"><a class="src rightside" href="../../src/sc_client_api/backend.rs.html#192-196">source</a><h4 class="code-header">fn <a href="#tymethod.reset_storage" class="fn">reset_storage</a>(
     &amp;mut self,
-    storage: <a class="struct" href="../../sp_storage/struct.Storage.html" title="struct sp_storage::Storage">Storage</a>,
-    state_version: <a class="enum" href="../../sp_storage/enum.StateVersion.html" title="enum sp_storage::StateVersion">StateVersion</a>
+    storage: Storage,
+    state_version: StateVersion
 ) -&gt; Result&lt;Block::Hash&gt;</h4></section></summary><div class="docblock"><p>Inject storage data into the database replacing any existing data.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.update_storage" class="method"><a class="src rightside" href="../../src/sc_client_api/backend.rs.html#199-203">source</a><h4 class="code-header">fn <a href="#tymethod.update_storage" class="fn">update_storage</a>(
     &amp;mut self,

@@ -154,7 +154,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     message_delivery_proof: FromBridgedChainMessagesDeliveryProof&lt;HashOf&lt;BridgedChain&lt;Runtime, GPI&gt;&gt;&gt;,
     relayers_state: UnrewardedRelayersState
 ) -&gt; Call&lt;Runtime&gt;<div class="where">where
-    Runtime: Config&lt;GPI&gt; + Config&lt;MPI, OutboundPayload = <a class="type" href="../../../bp_xcm_bridge_hub/type.XcmAsPlainPayload.html" title="type bp_xcm_bridge_hub::XcmAsPlainPayload">XcmAsPlainPayload</a>&gt; + Config,
+    Runtime: Config&lt;GPI&gt; + Config&lt;MPI, OutboundPayload = XcmAsPlainPayload&gt; + Config,
     GPI: 'static,
     MPI: 'static,
     &lt;Runtime as Config&gt;::RuntimeCall: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Call&lt;Runtime, GPI&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Call&lt;Runtime, MPI&gt;&gt;,

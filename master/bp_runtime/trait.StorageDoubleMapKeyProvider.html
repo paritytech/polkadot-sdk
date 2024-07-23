@@ -162,7 +162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         pallet_prefix: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.str.html">str</a>,
         key1: &amp;Self::<a class="associatedtype" href="trait.StorageDoubleMapKeyProvider.html#associatedtype.Key1" title="type bp_runtime::StorageDoubleMapKeyProvider::Key1">Key1</a>,
         key2: &amp;Self::<a class="associatedtype" href="trait.StorageDoubleMapKeyProvider.html#associatedtype.Key2" title="type bp_runtime::StorageDoubleMapKeyProvider::Key2">Key2</a>
-    ) -&gt; <a class="struct" href="../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a> { ... }
+    ) -&gt; StorageKey { ... }
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Can be use to access the runtime storage key of a <code>StorageDoubleMap</code>.</p>
 </div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Hasher1" class="method"><a class="src rightside" href="../src/bp_runtime/lib.rs.html#281">source</a><h4 class="code-header">type <a href="#associatedtype.Hasher1" class="associatedtype">Hasher1</a>: StorageHasher</h4></section></summary><div class="docblock"><p>The same as <code>StorageDoubleMap::Hasher1</code>.</p>
 </div></details><details class="toggle" open><summary><section id="associatedtype.Key1" class="method"><a class="src rightside" href="../src/bp_runtime/lib.rs.html#283">source</a><h4 class="code-header">type <a href="#associatedtype.Key1" class="associatedtype">Key1</a>: FullCodec + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a></h4></section></summary><div class="docblock"><p>The same as <code>StorageDoubleMap::Key1</code>.</p>
@@ -174,7 +174,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     pallet_prefix: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.str.html">str</a>,
     key1: &amp;Self::<a class="associatedtype" href="trait.StorageDoubleMapKeyProvider.html#associatedtype.Key1" title="type bp_runtime::StorageDoubleMapKeyProvider::Key1">Key1</a>,
     key2: &amp;Self::<a class="associatedtype" href="trait.StorageDoubleMapKeyProvider.html#associatedtype.Key2" title="type bp_runtime::StorageDoubleMapKeyProvider::Key2">Key2</a>
-) -&gt; <a class="struct" href="../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a></h4></section></summary><div class="docblock"><p>This is a copy of the
+) -&gt; StorageKey</h4></section></summary><div class="docblock"><p>This is a copy of the
 <code>frame_support::storage::generator::StorageDoubleMap::storage_double_map_final_key</code>.</p>
 <p>We’re using it because to call <code>storage_double_map_final_key</code> directly, we need access
 to the runtime and pallet instance, which (sometimes) is impossible.</p>
