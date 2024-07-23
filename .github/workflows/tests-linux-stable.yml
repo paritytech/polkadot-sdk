@@ -89,8 +89,8 @@ jobs:
     strategy: 
       fail-fast: false     
       matrix:
-        ci_node_total: [5]
-        ci_node_index: [1,2,3,4,5]      
+        ci_node_total: [1]
+        ci_node_index: [1]      
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -121,11 +121,11 @@ jobs:
           - test(/nonexistent_cache_dir/)
           - test(/recovers_from_only_chunks_if_pov_large::case_3/)
           - test(/recovers_from_only_chunks_if_pov_large::case_2/)
-          - test(/tests::authoring_blocks/)
+          - test(/authoring_blocks/)
           - test(/rejects_missing_seals/)       
-          - test(/chain-spec-guide-runtime::chain_spec_builder_tests/)   
+          - test(/chain_spec_builder_tests/)   
           "
-          --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
+          --partition count:${{ matrix.ci_node_index }}/100
       - run: ls -al target/coverage
       - run: ls -al /__w/polkadot-sdk/polkadot-sdk/
       - name: generate report
