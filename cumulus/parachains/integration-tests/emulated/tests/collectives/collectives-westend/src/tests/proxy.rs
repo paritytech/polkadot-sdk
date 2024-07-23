@@ -68,7 +68,7 @@ fn cross_chain_pure_proxy() {
 			<Balances as Inspect<_>>::minimum_balance() * 100
 		));
 
-		let transfer_proxy_call = RuntimeCall::Proxy(pallet_proxy::Call::<Runtime>::add_proxy {
+		let add_proxy_call = RuntimeCall::Proxy(pallet_proxy::Call::<Runtime>::add_proxy {
 			delegate: alice.clone().into(),
 			proxy_type: CollectivesProxyType::Any,
 			delay: 0,
@@ -78,7 +78,7 @@ fn cross_chain_pure_proxy() {
 			RuntimeOrigin::signed(bob.clone()),
 			pure.clone().into(),
 			None,
-			bx!(transfer_proxy_call),
+			bx!(add_proxy_call),
 		));
 
 		let events = CollectivesWestend::events();
@@ -149,7 +149,7 @@ fn cross_chain_pure_proxy() {
 		type AssetHubBalances = <AssetHubWestend as AssetHubWestendPallet>::Balances;
 
 		// Add proxy call to be executed on the Asset Hub on behalf of the pure account.
-		let transfer_proxy_call =
+		let add_proxy_call =
 			AssetHubRuntimeCall::Proxy(pallet_proxy::Call::<AssetHubRuntime>::add_proxy {
 				delegate: alice.clone().into(),
 				proxy_type: AssetHubProxyType::Any,
@@ -176,7 +176,7 @@ fn cross_chain_pure_proxy() {
 				Transact {
 					origin_kind: OriginKind::SovereignAccount,
 					require_weight_at_most: Weight::from_parts(1_000_000_000, 10_000),
-					call: transfer_proxy_call.encode().into(),
+					call: add_proxy_call.encode().into(),
 				},
 			]))),
 		});
