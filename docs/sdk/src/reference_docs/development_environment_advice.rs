@@ -145,7 +145,7 @@
 //! }
 //! ```
 //!
-//! //! and the same in Lua for `neovim/nvim-lspconfig`:
+//! and the same in Lua for `neovim/nvim-lspconfig`:
 //!
 //! ```lua
 //! ["rust-analyzer"] = {
