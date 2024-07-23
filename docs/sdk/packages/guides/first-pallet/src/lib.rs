@@ -68,7 +68,7 @@ pub mod pallet {
 			dest: T::AccountId,
 			amount: Balance,
 		) -> DispatchResult {
-			// ensure that this is a signed account, but we don't really check `_anyone`.
+			// ensure that this is a signed extrinsic, but we don't check who signed it (`_anyone`).
 			let _anyone = ensure_signed(origin)?;
 
 			// update the balances map. Notice how all `<T: Config>` remains as `<T>`.
