@@ -12,5 +12,7 @@ doc:
 crates: 
 - name: polkadot-node-subsystem-util
   bump: minor
+- name: polkadot-node-core-prospective-parachains
+  bump: patch
 - name: polkadot-runtime-parachains
   bump: patch
