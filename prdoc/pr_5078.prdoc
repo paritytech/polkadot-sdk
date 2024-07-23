@@ -6,5 +6,8 @@ doc:
       Allows to inject a set of registered session-keys in pallet-session that are not
       part of the first initial set of validators
 crates:
-- name: frame-session
+- name: pallet-session
   bump: major
+crates:
+- name: parachains-runtimes-test-utils
+  bump: None
