@@ -1,11 +1,19 @@
-title: "Make `on_unbalanceds` work with `fungibles` `imbalances`"
+title: "Make `OnUnbalanced::on_unbalanceds` work with `fungibles` `imbalances`"
 
 doc:
-  - audience: Node Operator
+  - audience: Runtime Dev
     description: |
-        The `fungibles` `imbalances` cannot be handled by the default implementation of `on_unbalanceds` from the `OnUnbalanced` trait. This is because the `fungibles` `imbalances` types do not implement the `Imbalance` trait (and cannot with its current semantics). The `on_unbalanceds` function requires only the `merge` function for the imbalance type. In this PR, we provide the `TryMerge` trait, which can be implemented by all imbalance types and make `OnUnbalanced` require it instead `Imbalance`.
+        The `on_unbalanceds` function of `OnUnbalanced` trait accepts the `fungibles` `imbalances` 
+        imbalances. This is done by replacing the `Imbalance` trait bound on imbalance type with 
+        the `TryMerge` trait bound. The `TryMerge` trait is implemented for all imbalance types.
 
-        This introduces a breaking change to the `OnUnbalanced` trait, but it only requires the removal of an unnecessary type parameter.
+        ### Migration for `OnUnbalanced` trait implementations:
+        In case if you have a custom implementation of `on_unbalanceds` trait function, remove 
+        it's `<B>` type argument.
+
+        ### Migration for custom imbalance types:
+        If you have your own imbalance types implementations, implement the `TryMerge` trait for it 
+        introduced with this update.
 
 crates:
   - name: frame-support
