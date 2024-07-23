@@ -348,6 +348,7 @@ pub trait Backend<Block: BlockT>:
 									target: crate::LOG_TARGET,
 									?err,
 									?parent_hash,
+									?leaf_hash,
 									elapsed = ?now.elapsed(),
 									"Failed to fetch parent header during leaf tracking.",
 								);
