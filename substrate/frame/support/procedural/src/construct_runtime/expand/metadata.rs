@@ -58,12 +58,7 @@ pub fn expand_runtime_metadata(
 					#attr
 				}
 			});
-			let deprecation_info = {
-				let path = &decl.path;
-				let instance = decl.instance.as_ref().into_iter();
-
-				quote! { #path::Pallet::<#runtime #(, #path::#instance)*>::deprecation_info() }
-			};
+			let deprecation_info = expand_pallet_metadata_deprecation(runtime, decl);
 			quote! {
 				#attr
 				#scrate::__private::metadata_ir::PalletMetadataIR {
@@ -231,6 +226,13 @@ fn expand_pallet_metadata_events(
 	} else {
 		quote!(None)
 	}
+}
+
+fn expand_pallet_metadata_deprecation(runtime: &Ident, decl: &Pallet) -> TokenStream {
+	let path = &decl.path;
+	let instance = decl.instance.as_ref().into_iter();
+
+	quote! { #path::Pallet::<#runtime #(, #path::#instance)*>::deprecation_info() }
 }
 
 fn expand_pallet_metadata_constants(runtime: &Ident, decl: &Pallet) -> TokenStream {
