@@ -16,36 +16,37 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = {features=["derive"],workspace=true}
+codec = { workspace = true, default-features = false }
 log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true , default-features = false }
 
 
-
-frame-benchmarking = { version = "34.0.0", default-features = false, optional = true }
-frame-support = { version = "34.0.0", default-features = false }
-frame-system = { version = "34.0.0", default-features = false }
-pallet-balances = { version = "35.0.0", default-features = false }
-pallet-timestamp = { version = "33.0.0", default-features = false }
-pallet-sudo = { version = "34.0.0", default-features = false }
-pallet-transaction-payment = { version = "34.0.0", default-features = false }
-pallet-transaction-payment-rpc-runtime-api = { version = "34.0.0", default-features = false }
-
-pallet-assets = { version = "35.0.0", default-features = false }
+frame-benchmarking = { optional = true, workspace = true , default-features = false }
+frame-support = { workspace = true , default-features = false }
+frame-system = { workspace = true , default-features = false }
 
 
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
+pallet-assets = { workspace = true, default-features = false }
 
+
+sp-io = { workspace = true , default-features = false }
+sp-runtime = { workspace = true , default-features = false }
+sp-core = { workspace = true , default-features = false }
+
+
+pallet-balances = { workspace = true, default-features = false }
+pallet-timestamp = { workspace = true, default-features = false }
+pallet-sudo = { workspace = true, default-features = false }
+pallet-transaction-payment = { workspace = true, default-features = false }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking?/std",
 	"log/std",
 	"scale-info/std",
-	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
@@ -60,7 +61,10 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime"

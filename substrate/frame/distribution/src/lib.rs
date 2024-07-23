@@ -8,9 +8,12 @@ pub use pallet::*;
 mod types;
 pub use types::*;
 
-#[frame_support::pallet]
+#[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -52,7 +55,10 @@ pub mod pallet {
 		#[codec(index = 0)]
 		ProposalBond,
 	}
-	
+
+	#[pallet::storage]
+	pub type Something<T> = StorageValue<_, u32>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -60,6 +66,37 @@ pub mod pallet {
 		SomethingStored { something: u32, who: T::AccountId },
 	}
 
-	#[pallet::pallet]
-	pub struct Pallet<T>(_);
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Error names should be descriptive.
+		NoneValue,
+		/// There was an attempt to increment the value in storage over `u32::MAX`.
+		StorageOverflow,
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+
+
+		#[pallet::call_index(0)]
+		pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+
+			// Update storage.
+			Something::<T>::put(something);
+
+			// Emit an event.
+			Self::deposit_event(Event::SomethingStored { something, who });
+
+			// Return a successful `DispatchResult`
+			Ok(())
+		}
+
+	}
+
+
+
+
+	
 }
