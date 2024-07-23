@@ -20,8 +20,11 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(test)]
 mod tests;
+
 use frame_support::pallet;
+use pallet_multisig::Timepoint;
 pub use pallet::*;
 pub use pallet_multisig::{self as Multisig, Call as MultisigCall};
 pub use pallet_contracts::{self as Contracts, Call as ContractsCall};
@@ -134,9 +137,11 @@ pub mod pallet {
                 call,
                 Weight::zero(),
             );
-			// T::Currency::transfer(&sender, dest, value, existence_requirement);
 
-			// pallet_balances::Preserve;
+			// let account: T::AccountId = 2;
+
+			// let cancel_as_multi_call = Multisig::Pallet::<T>::cancel_as_multi(frame_system::RawOrigin::Signed(sender).into(), 3, vec![2, 3], None, hash);
+
 			Ok(())
 		}
 	}

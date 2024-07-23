@@ -1,12 +1,12 @@
 [package]
 name = "multisig-reentrancy-attack"
-version = "0.0.1"
+description = "Pallet for simulation of reentrancy attack"
 authors.workspace = true
 edition.workspace = true
+repository.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository.workspace = true
-description = "Pallet for simulation of reentrancy attack"
+version = "0.0.1"
 readme = "README.md"
 
 [lints]
@@ -22,6 +22,7 @@ frame-benchmarking = { path = "../../frame/benchmarking", default-features = fal
 pallet-multisig = { path = "../../frame/multisig", workspace = true, default-features = true, optional = true }
 pallet-balances = { path = "../../frame/balances", default-features = true, optional = true }
 pallet-contracts = { path = "../../frame/contracts", default-features = true, optional = true }
+pallet-proxy = { path = "../../frame/proxy", default-features = true, optional = true }
 frame-support = { path = "../../frame/support", default-features = false }
 frame-system = { path = "../../frame/system", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
