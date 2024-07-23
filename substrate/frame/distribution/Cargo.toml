@@ -1,0 +1,67 @@
+[package]
+name = "pallet-distribution"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository.workspace = true
+description = "FRAME pallet to distribute funds to elected projects"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = {features=["derive"],workspace=true}
+log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+
+
+
+frame-benchmarking = { version = "34.0.0", default-features = false, optional = true }
+frame-support = { version = "34.0.0", default-features = false }
+frame-system = { version = "34.0.0", default-features = false }
+pallet-balances = { version = "35.0.0", default-features = false }
+pallet-timestamp = { version = "33.0.0", default-features = false }
+pallet-sudo = { version = "34.0.0", default-features = false }
+pallet-transaction-payment = { version = "34.0.0", default-features = false }
+pallet-transaction-payment-rpc-runtime-api = { version = "34.0.0", default-features = false }
+
+pallet-assets = { version = "35.0.0", default-features = false }
+
+
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"log/std",
+	"scale-info/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-balances/std",
+	"pallet-timestamp/std",
+	"pallet-sudo/std",
+	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-transaction-payment/std",
+	"pallet-assets/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime"
+]

@@ -89,6 +89,7 @@ pallet-scheduler = { workspace = true, default-features = true }
 pallet-referenda = { workspace = true, default-features = true }
 pallet-broker = { workspace = true, default-features = true }
 pallet-babe = { workspace = true, default-features = true }
+pallet-distribution = { workspace = true, default-features = true }
 
 # Primitives
 sp-io = { workspace = true, default-features = true }

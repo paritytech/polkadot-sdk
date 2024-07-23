@@ -338,6 +338,7 @@ members = [
 	"substrate/frame/core-fellowship",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
+	"substrate/frame/distribution",
 	"substrate/frame/election-provider-multi-phase",
 	"substrate/frame/election-provider-multi-phase/test-staking-e2e",
 	"substrate/frame/election-provider-support",
@@ -902,6 +903,7 @@ pallet-default-config-example = { path = "substrate/frame/examples/default-confi
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false }
 pallet-dev-mode = { path = "substrate/frame/examples/dev-mode", default-features = false }
+pallet-distribution = { path = "substrate/frame/distribution", default-features = false }
 pallet-election-provider-multi-phase = { path = "substrate/frame/election-provider-multi-phase", default-features = false }
 pallet-election-provider-support-benchmarking = { path = "substrate/frame/election-provider-support/benchmarking", default-features = false }
 pallet-elections-phragmen = { path = "substrate/frame/elections-phragmen", default-features = false }

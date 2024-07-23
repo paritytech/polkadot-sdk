@@ -2134,6 +2134,31 @@ impl pallet_broker::Config for Runtime {
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 }
 
+impl pallet_distribution::Config for Runtime {
+	type Runtime = RuntimeEvent;
+	type NativeBalance = Balances;
+
+	// Treasury PalletId
+	type TreasuryAccount = TreasuryPalletId;
+
+	// Existential deposit used for Fungibles
+	type Existential = Existential;
+
+	// Amount of native asset to bond required to make a proposal
+	type ProposalBond = ProposalBond;
+
+	// Time period between each check Spending requests status
+	type SpendCheck = SpendCheck;
+
+	type RuntimeHoldReason = RuntimeHoldReason;
+
+	// This the required time period between request approval
+	// and first payment from the treasury.
+	// It is also used to calculate the time period between
+	// multiple payments of a same proposal.
+	type PaymentPeriod = Period;
+}
+
 parameter_types! {
 	pub const MixnetNumCoverToCurrentBlocks: BlockNumber = 3;
 	pub const MixnetNumRequestsToCurrentBlocks: BlockNumber = 3;
@@ -2476,6 +2501,9 @@ mod runtime {
 
 	#[runtime::pallet_index(79)]
 	pub type AssetConversionMigration = pallet_asset_conversion_ops::Pallet<Runtime>;
+
+	#[runtime::pallet_index(80)]
+	pub type Distribution = pallet_distribution::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
