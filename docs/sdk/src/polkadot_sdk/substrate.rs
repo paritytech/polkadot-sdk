@@ -13,7 +13,7 @@
 //!
 //! This makes the task of designing a correct, safe and long-lasting blockchain system hard.
 //!
-//! Nonetheless, in strive towards achieve this goal, Substrate embraces the following:
+//! Nonetheless, in strive towards achieving this goal, Substrate embraces the following:
 //!
 //! 1. Use of **Rust** as a modern and safe programming language, which limits human error through
 //!    various means, most notably memory and type safety.
