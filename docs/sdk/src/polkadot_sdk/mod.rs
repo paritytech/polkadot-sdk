@@ -116,7 +116,7 @@
 //! [`polkadot`]: crate::polkadot_sdk::polkadot
 //! [`xcm`]: crate::polkadot_sdk::xcm
 
-/// Lean about Cumulus, the framework that transforms [`substrate`]-based chains into
+/// Learn about Cumulus, the framework that transforms [`substrate`]-based chains into
 /// [`polkadot`]-enabled parachains.
 pub mod cumulus;
 /// Learn about FRAME, the framework used to build Substrate runtimes.
