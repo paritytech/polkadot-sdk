@@ -6,17 +6,6 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 extern crate alloc;
 use alloc::{vec, vec::Vec};
 
-#[cfg(feature = "try-runtime")]
-use frame::deps::frame_try_runtime;
-#[cfg(feature = "runtime-benchmarks")]
-use frame::{
-	deps::{
-		frame_benchmarking, frame_system_benchmarking, sp_runtime::RuntimeString,
-		sp_storage::TrackedStorageKey,
-	},
-	traits::{StorageInfo, WhitelistedStorageKeys},
-};
-
 use frame::{
 	deps::{
 		frame_support::{
@@ -45,31 +34,28 @@ use frame::{
 
 #[cfg(any(feature = "std", test))]
 pub use frame::deps::sp_runtime::BuildStorage;
-pub use frame_system::Call as SystemCall;
-pub use pallet_balances::Call as BalancesCall;
-pub use pallet_timestamp::Call as TimestampCall;
 
 /// Import the template pallet.
 pub use pallet_template;
 
 /// An index to a block.
-pub type BlockNumber = u32;
+type BlockNumber = u32;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = MultiSignature;
+type Signature = MultiSignature;
 
 /// Some way of identifying an account on the chain. We intentionally make it equivalent
 /// to the public key of our transaction signing scheme.
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 /// Balance of an account.
-pub type Balance = u128;
+type Balance = u128;
 
 /// Index of a transaction in the chain.
-pub type Nonce = u32;
+type Nonce = u32;
 
 /// A hash of some data used by the chain.
-pub type Hash = H256;
+type Hash = H256;
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -120,16 +106,11 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 /// up by `pallet_aura` to implement `fn slot_duration()`.
 ///
 /// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
+const MILLISECS_PER_BLOCK: u64 = 6000;
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-
-// Time is measured by number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
+const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -211,7 +192,7 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 /// Existential deposit.
-pub const EXISTENTIAL_DEPOSIT: u128 = 500;
+const EXISTENTIAL_DEPOSIT: u128 = 500;
 
 // Implements the types required for the balances pallet.
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -284,13 +265,13 @@ mod runtime {
 }
 
 /// The address format for describing accounts.
-pub type Address = MultiAddress<AccountId, ()>;
+type Address = MultiAddress<AccountId, ()>;
 /// Block header type as expected by this runtime.
-pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+type Header = generic::Header<BlockNumber, BlakeTwo256>;
 /// Block type as expected by this runtime.
-pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+type Block = generic::Block<Header, UncheckedExtrinsic>;
 /// The SignedExtension to the basic transaction logic.
-pub type SignedExtra = (
+type SignedExtra = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -308,10 +289,9 @@ pub type SignedExtra = (
 type Migrations = ();
 
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 /// The payload being signed in transactions.
-pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
+type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
 /// RuntimeExecutive: handles dispatch to the various modules.
 pub type RuntimeExecutive = Executive<
 	Runtime,
@@ -321,6 +301,17 @@ pub type RuntimeExecutive = Executive<
 	AllPalletsWithSystem,
 	Migrations,
 >;
+
+#[cfg(feature = "try-runtime")]
+use frame::deps::frame_try_runtime;
+#[cfg(feature = "runtime-benchmarks")]
+use frame::{
+	deps::{
+		frame_benchmarking, frame_system_benchmarking, sp_runtime::RuntimeString,
+		sp_storage::TrackedStorageKey,
+	},
+	traits::{StorageInfo, WhitelistedStorageKeys},
+};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
@@ -576,4 +567,29 @@ impl_runtime_apis! {
 			vec![]
 		}
 	}
+}
+
+pub mod interface {
+	pub type AccountId = super::AccountId;
+	pub type Balance = super::Balance;
+	pub type Nonce = super::Nonce;
+
+	pub type Block = super::Block;
+	pub type OpaqueBlock = super::opaque::Block;
+	pub type BlockHashCount = super::BlockHashCount;
+
+	pub type UncheckedExtrinsic = super::UncheckedExtrinsic;
+
+	pub type Signature = super::Signature;
+	pub type SignedExtra = super::SignedExtra;
+	pub type SignedPayload = super::SignedPayload;
+
+	pub use frame::deps::frame_system::Call as SystemCall;
+	pub use pallet_balances::Call as BalancesCall;
+	pub use pallet_timestamp::Call as TimestampCall;
+
+	pub type Runtime = super::Runtime;
+	pub type RuntimeCall = super::RuntimeCall;
+
+	pub const EXISTENTIAL_DEPOSIT: u128 = super::EXISTENTIAL_DEPOSIT;
 }
