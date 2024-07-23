@@ -134,7 +134,7 @@ pub trait NetworkBackend<B: BlockT + 'static, H: ExHashT>: Send + 'static {
 	fn network_service(&self) -> Arc<dyn NetworkService>;
 
 	/// Create [`PeerStore`].
-	fn peer_store(bootnodes: Vec<PeerId>) -> Self::PeerStore;
+	fn peer_store(bootnodes: Vec<PeerId>, metrics_registry: Option<Registry>) -> Self::PeerStore;
 
 	/// Register metrics that are used by the notification protocols.
 	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics;
