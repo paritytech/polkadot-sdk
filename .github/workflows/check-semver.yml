@@ -6,7 +6,7 @@ on:
     paths:
       - prdoc/*.prdoc
 env:
-  TOOLCHAIN: nightly-2024-03-01
+  TOOLCHAIN: nightly-2024-06-01
 
 jobs:
   check-semver:
@@ -22,7 +22,7 @@ jobs:
           cache-on-failure: true
 
       - name: install parity-publish
-        run: cargo install parity-publish@0.6.0
+        run: cargo install parity-publish@0.7.0
 
       - name: Rust compilation prerequisites
         run: |

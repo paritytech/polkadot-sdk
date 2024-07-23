@@ -15,8 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(test)]
 use super::{Config, Runtime};
+#[cfg(test)]
 use crate::{derive_impl, pallet_prelude::inject_runtime_type};
+#[cfg(test)]
 use static_assertions::assert_type_eq_all;
 
 #[docify::export]
