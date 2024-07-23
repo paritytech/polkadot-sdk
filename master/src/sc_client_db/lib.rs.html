@@ -8015,7 +8015,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>displaced =
 				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
 			<span class="macro">assert_eq!</span>(blockchain.leaves().unwrap(), <span class="macro">vec!</span>[a4_hash, genesis_hash]);
-			<span class="macro">assert_eq!</span>(displaced.displaced_leaves, <span class="macro">vec!</span>[]);
+			<span class="macro">assert_eq!</span>(displaced.displaced_leaves, <span class="macro">vec!</span>[(genesis_number, genesis_hash)]);
 			<span class="macro">assert_eq!</span>(displaced.displaced_blocks, <span class="macro">vec!</span>[]);
 		}
 
@@ -8023,7 +8023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>displaced =
 				blockchain.displaced_leaves_after_finalizing(a4_hash, a4_number).unwrap();
 			<span class="macro">assert_eq!</span>(blockchain.leaves().unwrap(), <span class="macro">vec!</span>[a4_hash, genesis_hash]);
-			<span class="macro">assert_eq!</span>(displaced.displaced_leaves, <span class="macro">vec!</span>[]);
+			<span class="macro">assert_eq!</span>(displaced.displaced_leaves, <span class="macro">vec!</span>[(genesis_number, genesis_hash)]);
 			<span class="macro">assert_eq!</span>(displaced.displaced_blocks, <span class="macro">vec!</span>[]);
 		}
 
