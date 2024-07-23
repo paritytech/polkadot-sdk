@@ -495,7 +495,7 @@ impl IntoPortable for DeprecationStatusIR {
 	}
 }
 /// Deprecation info for an enums/errors/calls.
-/// Denotes full/partial deprecation of the typ
+/// Denotes full/partial deprecation of the type
 #[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub enum DeprecationInfoIR<T: Form = MetaForm> {
 	/// Type is not deprecated
