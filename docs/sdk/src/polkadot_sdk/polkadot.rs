@@ -19,7 +19,7 @@
 //!
 //! ## Alternative Node Implementations 🌈
 //!
-//! - [Smoldot](https://crates.io/crates/smoldot-light). Polkadot light node/client.
+//! - [Smoldot](https://docs.rs/crate/smoldot-light/latest). Polkadot light node/client.
 //! - [KAGOME](https://github.com/qdrvm/kagome). C++ implementation of the Polkadot host.
 //! - [Gossamer](https://github.com/ChainSafe/gossamer). Golang implementation of the Polkadot host.
 //!
