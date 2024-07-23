@@ -245,6 +245,12 @@ fn maybe_compact_and_compress_wasm(
 				compact_blob_path.as_ref().and_then(|p| try_compress_blob(&p.0, blob_name));
 			(compact_blob_path, compact_compressed_blob_path)
 		} else {
+			// We at least want to lower the `sign-ext` code to `mvp`.
+			wasm_opt::OptimizationOptions::new_opt_level_0()
+				.add_pass(wasm_opt::Pass::SignextLowering)
+				.run(bloaty_blob_binary.bloaty_path(), bloaty_blob_binary.bloaty_path())
+				.expect("Failed to lower sign-ext in WASM binary.");
+
 			(None, None)
 		};
 
@@ -783,9 +789,7 @@ impl BuildConfiguration {
 			(None, false) => {
 				let profile = Profile::Release;
 				build_helper::warning!(
-					"Unknown cargo profile `{}`. Defaulted to `{:?}` for the runtime build.",
-					name,
-					profile,
+					"Unknown cargo profile `{name}`. Defaulted to `{profile:?}` for the runtime build.",
 				);
 				profile
 			},
@@ -793,8 +797,7 @@ impl BuildConfiguration {
 			(None, true) => {
 				// We use println! + exit instead of a panic in order to have a cleaner output.
 				println!(
-					"Unexpected profile name: `{}`. One of the following is expected: {:?}",
-					name,
+					"Unexpected profile name: `{name}`. One of the following is expected: {:?}",
 					Profile::iter().map(|p| p.directory()).collect::<Vec<_>>(),
 				);
 				process::exit(1);
@@ -963,13 +966,16 @@ fn compact_wasm(
 		.mvp_features_only()
 		.debug_info(true)
 		.add_pass(wasm_opt::Pass::StripDwarf)
+		.add_pass(wasm_opt::Pass::SignextLowering)
 		.run(bloaty_binary.bloaty_path(), &wasm_compact_path)
 		.expect("Failed to compact generated WASM binary.");
+
 	println!(
 		"{} {}",
 		colorize_info_message("Compacted wasm in"),
 		colorize_info_message(format!("{:?}", start.elapsed()).as_str())
 	);
+
 	Some(WasmBinary(wasm_compact_path))
 }
 

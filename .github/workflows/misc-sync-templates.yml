@@ -90,7 +90,12 @@ jobs:
               "runtime",
           ]
           resolver = "2"
+
+          [workspace.dependencies]
           EOF
+
+          echo "$(toml get -r ./runtime/Cargo.toml 'package.name') = { path = \"./runtime\", default-features = false }" >> Cargo.toml
+          echo "$(toml get -r ./pallets/template/Cargo.toml 'package.name') = { path = \"./pallets/template\", default-features = false }" >> Cargo.toml
         shell: bash
         working-directory: polkadot-sdk/templates/${{ matrix.template }}/
       - name: Update workspace configuration
@@ -116,9 +121,12 @@ jobs:
       - name: Copy over the new changes
         run: |
           cp -r polkadot-sdk/templates/${{ matrix.template }}/* "${{ env.template-path }}/"
+
+      - name: Run psvm on monorepo workspace dependencies
+        run: psvm -o -v ${{ github.event.inputs.crate_release_version }} -p ./Cargo.toml
+        working-directory: polkadot-sdk/
       - name: Copy over required workspace dependencies
         run: |
-          echo -e "\n[workspace.dependencies]" >> Cargo.toml
           set +e
           # If a workspace dependency is required..
           while cargo tree --depth 1 --prefix none --no-dedupe 2>&1 | grep 'was not found in `workspace.dependencies`'; do

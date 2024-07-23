@@ -40,6 +40,7 @@ mod imports {
 			genesis::ED as PEOPLE_ROCOCO_ED,
 			people_rococo_runtime::{
 				people, xcm_config::XcmConfig as PeopleRococoXcmConfig, Runtime as PeopleRuntime,
+				ExistentialDeposit as PeopleRococoExistentialDeposit,
 			},
 			PeopleRococoParaPallet as PeopleRococoPallet,
 		},

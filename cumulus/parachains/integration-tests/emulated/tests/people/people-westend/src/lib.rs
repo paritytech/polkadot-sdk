@@ -40,6 +40,7 @@ mod imports {
 			genesis::ED as PEOPLE_WESTEND_ED,
 			people_westend_runtime::{
 				people, xcm_config::XcmConfig as PeopleWestendXcmConfig, Runtime as PeopleRuntime,
+				ExistentialDeposit as PeopleWestendExistentialDeposit,
 			},
 			PeopleWestendParaPallet as PeopleWestendPallet,
 		},
