@@ -1043,6 +1043,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#892" id="892">892</a>
 <a href="#893" id="893">893</a>
 <a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1252,7 +1256,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// the computed ratio is only among the normal class.
 		</span><span class="kw">let </span>normal_max_weight =
 			weights.get(DispatchClass::Normal).max_total.unwrap_or(weights.max_block);
-		<span class="kw">let </span>current_block_weight = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_weight();
+		<span class="kw">let </span>current_block_weight = frame_system::Pallet::&lt;T&gt;::block_weight();
 		<span class="kw">let </span>normal_block_weight =
 			current_block_weight.get(DispatchClass::Normal).min(normal_max_weight);
 
@@ -1336,7 +1340,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Storage releases of the pallet.
 </span><span class="attr">#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-</span><span class="kw">enum </span>Releases {
+</span><span class="kw">pub enum </span>Releases {
 	<span class="doccomment">/// Original version of the pallet.
 	</span>V1Ancient,
 	<span class="doccomment">/// One that bumps the usage to FixedU128 from FixedI128.
@@ -1439,12 +1443,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>next_fee_multiplier)]
 	</span><span class="kw">pub type </span>NextFeeMultiplier&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, Multiplier, ValueQuery, NextFeeMultiplierOnEmpty&gt;;
 
 	<span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>StorageVersion&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Releases, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>StorageVersion&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Releases, ValueQuery&gt;;
 
 	<span class="attr">#[pallet::genesis_config]
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
@@ -1478,7 +1481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::hooks]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 		<span class="kw">fn </span>on_finalize(<span class="kw">_</span>: frame_system::pallet_prelude::BlockNumberFor&lt;T&gt;) {
-			&lt;NextFeeMultiplier&lt;T&gt;&gt;::mutate(|fm| {
+			NextFeeMultiplier::&lt;T&gt;::mutate(|fm| {
 				<span class="kw-2">*</span>fm = T::FeeMultiplierUpdate::convert(<span class="kw-2">*</span>fm);
 			});
 		}
@@ -1516,7 +1519,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>min_value = T::FeeMultiplierUpdate::min();
 			<span class="kw">let </span>target = target + addition;
 
-			&lt;frame_system::Pallet&lt;T&gt;&gt;::set_block_consumed_resources(target, <span class="number">0</span>);
+			frame_system::Pallet::&lt;T&gt;::set_block_consumed_resources(target, <span class="number">0</span>);
 			<span class="kw">let </span>next = T::FeeMultiplierUpdate::convert(min_value);
 			<span class="macro">assert!</span>(
 				next &gt; min_value,
@@ -1529,6 +1532,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+	<span class="doccomment">/// Public function to access the next fee multiplier.
+	</span><span class="kw">pub fn </span>next_fee_multiplier() -&gt; Multiplier {
+		NextFeeMultiplier::&lt;T&gt;::get()
+	}
+
 	<span class="doccomment">/// Query the data that we know about the fee of a given `call`.
 	///
 	/// This pallet is not and cannot be aware of the internals of a signed extension, for example
@@ -1678,7 +1686,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>pays_fee == Pays::Yes {
 			<span class="comment">// the adjustable part of the fee.
 			</span><span class="kw">let </span>unadjusted_weight_fee = <span class="self">Self</span>::weight_to_fee(weight);
-			<span class="kw">let </span>multiplier = <span class="self">Self</span>::next_fee_multiplier();
+			<span class="kw">let </span>multiplier = NextFeeMultiplier::&lt;T&gt;::get();
 			<span class="comment">// final adjusted weight fee.
 			</span><span class="kw">let </span>adjusted_weight_fee = multiplier.saturating_mul_int(unadjusted_weight_fee);
 
@@ -1720,7 +1728,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// share that the weight contributes to the overall fee of a transaction. It is mainly
 	/// for informational purposes and not used in the actual fee calculation.
 	</span><span class="kw">fn </span>convert(weight: Weight) -&gt; BalanceOf&lt;T&gt; {
-		&lt;NextFeeMultiplier&lt;T&gt;&gt;::get().saturating_mul_int(<span class="self">Self</span>::weight_to_fee(weight))
+		NextFeeMultiplier::&lt;T&gt;::get().saturating_mul_int(<span class="self">Self</span>::weight_to_fee(weight))
 	}
 }
 
