@@ -803,6 +803,7 @@ is-terminal = { version = "0.4.9" }
 is_executable = { version = "1.0.1" }
 isahc = { version = "1.2" }
 itertools = { version = "0.11" }
+jobserver = { version = "0.1.26" }
 jsonpath_lib = { version = "0.3" }
 jsonrpsee = { version = "0.23.2" }
 jsonrpsee-core = { version = "0.23.2" }

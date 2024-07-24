@@ -27,6 +27,7 @@ filetime = { workspace = true }
 wasm-opt = { workspace = true }
 parity-wasm = { workspace = true }
 polkavm-linker = { workspace = true }
+jobserver = { workspace = true }
 
 # Dependencies required for the `metadata-hash` feature.
 merkleized-metadata = { optional = true, workspace = true }

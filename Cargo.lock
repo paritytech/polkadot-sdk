@@ -21520,6 +21520,7 @@ dependencies = [
  "console",
  "filetime",
  "frame-metadata",
+ "jobserver",
  "merkleized-metadata",
  "parity-scale-codec",
  "parity-wasm",
