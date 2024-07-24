@@ -76,7 +76,7 @@ fn simple_works_limited_by_blocks() {
 		MockedMigrations::set(vec![(SucceedAfter, 2, 8), (SucceedAfter, 1, 8)]);
 		// These limits (minus overhead) give us enough weight for 4 steps per block:
 		let limit = <Test as Config>::MaxServiceWeight::get().div(5);
-		MockedMigrations::set_step_weight(Weight::from(limit));
+		MockedMigrations::set_step_weight(limit);
 
 		run_to_block(1);
 		Migrations::on_runtime_upgrade();
@@ -324,9 +324,7 @@ fn runtime_upgrade_fails_when_mbm_in_progress() {
 	test_closure(|| {
 		MockedMigrations::set(vec![(SucceedAfter, 2, 10)]);
 		// Set up the weight so that it will not finish in a single block:
-		MockedMigrations::set_step_weight(Weight::from(
-			<Test as crate::Config>::MaxServiceWeight::get() / 2,
-		));
+		MockedMigrations::set_step_weight(<Test as crate::Config>::MaxServiceWeight::get() / 2);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -390,9 +388,7 @@ fn migration_timeout_blocks_errors() {
 	test_closure(|| {
 		MockedMigrations::set(vec![(TimeoutAfter, 1, 2)]);
 		// Set up the weight so that it will not finish in a single block:
-		MockedMigrations::set_step_weight(Weight::from(
-			<Test as crate::Config>::MaxServiceWeight::get() / 2,
-		));
+		MockedMigrations::set_step_weight(<Test as crate::Config>::MaxServiceWeight::get() / 2);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
