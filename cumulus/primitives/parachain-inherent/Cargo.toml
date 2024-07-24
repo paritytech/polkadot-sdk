@@ -19,7 +19,6 @@ sp-core = { workspace = true }
 sp-inherents = { workspace = true }
 sp-runtime = { optional = true, workspace = true }
 sp-state-machine = { optional = true, workspace = true }
-sp-std = { workspace = true }
 sp-trie = { workspace = true }
 
 # Cumulus
@@ -36,6 +35,5 @@ std = [
 	"sp-inherents/std",
 	"sp-runtime?/std",
 	"sp-state-machine?/std",
-	"sp-std/std",
 	"sp-trie/std",
 ]

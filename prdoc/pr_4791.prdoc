@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Prepare PVFs if node is a validator in the next session
+
+doc:
+  - audience: Node Operator
+    description: |
+      - On every active leaf candidate-validation subsystem checks if the node is the next session authority.
+      - If it is, it fetches backed candidates and prepares unknown PVFs.
+      - Number of PVF preparations per block is limited to not overload subsystem.
+
+crates:
+  - name: polkadot
+    bump: patch
+  - name: polkadot-service
+    bump: patch
+  - name: polkadot-node-core-candidate-validation
+    bump: major

@@ -20,6 +20,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use sp_core::crypto::{key_types, CryptoTypeId, DeriveJunction, KeyTypeId, Ss58Codec};
 #[doc(hidden)]
 pub use sp_core::crypto::{DeriveError, Pair, SecretStringError};
@@ -31,24 +33,24 @@ pub use sp_core::{
 };
 
 #[doc(hidden)]
+pub use alloc::vec::Vec;
+#[doc(hidden)]
 pub use codec;
+#[doc(hidden)]
+pub use core::ops::Deref;
 #[doc(hidden)]
 pub use scale_info;
 #[doc(hidden)]
 #[cfg(feature = "serde")]
 pub use serde;
-#[doc(hidden)]
-pub use sp_std::{ops::Deref, vec::Vec};
 
 #[cfg(feature = "bandersnatch-experimental")]
 pub mod bandersnatch;
 #[cfg(feature = "bls-experimental")]
-pub mod bls377;
-#[cfg(feature = "bls-experimental")]
 pub mod bls381;
 pub mod ecdsa;
 #[cfg(feature = "bls-experimental")]
-pub mod ecdsa_bls377;
+pub mod ecdsa_bls381;
 pub mod ed25519;
 pub mod sr25519;
 mod traits;
@@ -357,7 +359,7 @@ macro_rules! app_crypto_public_common {
 #[doc(hidden)]
 pub mod module_format_string_prelude {
 	#[cfg(all(not(feature = "std"), feature = "serde"))]
-	pub use sp_std::alloc::{format, string::String};
+	pub use alloc::{format, string::String};
 	#[cfg(feature = "std")]
 	pub use std::{format, string::String};
 }

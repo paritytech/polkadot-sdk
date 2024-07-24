@@ -87,8 +87,6 @@
 //! * writing a runtime in pure Rust, as done in [this template](https://github.com/JoshOrndorff/frameless-node-template).
 //! * writing a runtime in AssemblyScript,as explored in [this project](https://github.com/LimeChain/subsembly).
 
-use frame::prelude::*;
-
 /// A FRAME based pallet. This `mod` is the entry point for everything else. All
 /// `#[pallet::xxx]` macros must be defined in this `mod`. Although, frame also provides an
 /// experimental feature to break these parts into different `mod`s. See [`pallet_examples`] for
@@ -96,7 +94,7 @@ use frame::prelude::*;
 #[docify::export]
 #[frame::pallet(dev_mode)]
 pub mod pallet {
-	use super::*;
+	use frame::prelude::*;
 
 	/// The configuration trait of a pallet. Mandatory. Allows a pallet to receive types at a
 	/// later point from the runtime that wishes to contain it. It allows the pallet to be

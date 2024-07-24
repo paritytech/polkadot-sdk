@@ -30,7 +30,7 @@ command = "polkadot"
 [[parachains]]
 id = 2100
 chain = "elastic-scaling"
-add_to_genesis = true
+add_to_genesis = false
 
   # Slot based authoring with 3 cores and 2s slot duration
   [[parachains.collators]]

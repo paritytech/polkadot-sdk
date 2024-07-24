@@ -15,7 +15,6 @@ futures = { workspace = true }
 
 # Substrate
 sp-inherents = { workspace = true }
-sp-std = { workspace = true }
 sp-timestamp = { workspace = true }
 
 # Cumulus
@@ -27,6 +26,5 @@ std = [
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"sp-inherents/std",
-	"sp-std/std",
 	"sp-timestamp/std",
 ]

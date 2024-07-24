@@ -16,7 +16,6 @@ codec = { features = ["derive"], workspace = true }
 sp-api = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 # Polkadot
 polkadot-core-primitives = { workspace = true }
@@ -31,5 +30,4 @@ std = [
 	"sp-api/std",
 	"sp-consensus-aura/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]

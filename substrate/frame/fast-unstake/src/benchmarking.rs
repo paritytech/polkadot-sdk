@@ -20,6 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::{types::*, Pallet as FastUnstake, *};
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{benchmarks, whitelist_account, BenchmarkError};
 use frame_support::{
 	assert_ok,
@@ -28,7 +29,6 @@ use frame_support::{
 use frame_system::RawOrigin;
 use sp_runtime::traits::Zero;
 use sp_staking::{EraIndex, StakingInterface};
-use sp_std::prelude::*;
 
 const USER_SEED: u32 = 0;
 

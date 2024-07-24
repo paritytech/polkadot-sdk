@@ -17,6 +17,7 @@
 //! A module that is responsible for migration of storage.
 
 use crate::configuration::{Config, Pallet};
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, UncheckedOnRuntimeUpgrade},
@@ -28,7 +29,6 @@ use polkadot_primitives::{
 	LEGACY_MIN_BACKING_VOTES, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::Perbill;
-use sp_std::vec::Vec;
 
 use super::v9::V9HostConfiguration;
 // All configuration of the runtime with respect to paras.
@@ -164,7 +164,7 @@ mod v10 {
 	>;
 }
 
-pub struct VersionUncheckedMigrateToV10<T>(sp_std::marker::PhantomData<T>);
+pub struct VersionUncheckedMigrateToV10<T>(core::marker::PhantomData<T>);
 impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV10<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {

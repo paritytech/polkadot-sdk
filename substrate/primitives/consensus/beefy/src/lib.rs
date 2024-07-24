@@ -142,10 +142,10 @@ pub mod ecdsa_crypto {
 #[cfg(feature = "bls-experimental")]
 pub mod bls_crypto {
 	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
-	use sp_application_crypto::{app_crypto, bls377};
-	use sp_core::{bls377::Pair as BlsPair, crypto::Wraps, Pair as _};
+	use sp_application_crypto::{app_crypto, bls381};
+	use sp_core::{bls381::Pair as BlsPair, crypto::Wraps, Pair as _};
 
-	app_crypto!(bls377, KEY_TYPE);
+	app_crypto!(bls381, KEY_TYPE);
 
 	/// Identity of a BEEFY authority using BLS as its crypto.
 	pub type AuthorityId = Public;
@@ -184,10 +184,10 @@ pub mod bls_crypto {
 #[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls_crypto {
 	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
-	use sp_application_crypto::{app_crypto, ecdsa_bls377};
-	use sp_core::{crypto::Wraps, ecdsa_bls377::Pair as EcdsaBlsPair};
+	use sp_application_crypto::{app_crypto, ecdsa_bls381};
+	use sp_core::{crypto::Wraps, ecdsa_bls381::Pair as EcdsaBlsPair};
 
-	app_crypto!(ecdsa_bls377, KEY_TYPE);
+	app_crypto!(ecdsa_bls381, KEY_TYPE);
 
 	/// Identity of a BEEFY authority using (ECDSA,BLS) as its crypto.
 	pub type AuthorityId = Public;
@@ -349,6 +349,19 @@ pub struct ForkVotingProof<Header: HeaderT, Id: RuntimeAppPublic, AncestryProof>
 	pub header: Header,
 }
 
+impl<Header: HeaderT, Id: RuntimeAppPublic> ForkVotingProof<Header, Id, OpaqueValue> {
+	/// Try to decode the `AncestryProof`.
+	pub fn try_into<AncestryProof: Decode>(
+		self,
+	) -> Option<ForkVotingProof<Header, Id, AncestryProof>> {
+		Some(ForkVotingProof::<Header, Id, AncestryProof> {
+			vote: self.vote,
+			ancestry_proof: self.ancestry_proof.decode()?,
+			header: self.header,
+		})
+	}
+}
+
 /// Proof showing that an authority voted for a future block.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 pub struct FutureBlockVotingProof<Number, Id: RuntimeAppPublic> {
@@ -428,6 +441,13 @@ pub trait AncestryHelper<Header: HeaderT> {
 	/// The data needed for validating the proof.
 	type ValidationContext;
 
+	/// Generates a proof that the `prev_block_number` is part of the canonical chain at
+	/// `best_known_block_number`.
+	fn generate_proof(
+		prev_block_number: Header::Number,
+		best_known_block_number: Option<Header::Number>,
+	) -> Option<Self::Proof>;
+
 	/// Extract the validation context from the provided header.
 	fn extract_validation_context(header: Header) -> Option<Self::ValidationContext>;
 
@@ -450,7 +470,7 @@ pub type OpaqueKeyOwnershipProof = OpaqueValue;
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for BEEFY voters.
-	#[api_version(4)]
+	#[api_version(5)]
 	pub trait BeefyApi<AuthorityId> where
 		AuthorityId : Codec + RuntimeAppPublic,
 	{
@@ -474,6 +494,34 @@ sp_api::decl_runtime_apis! {
 			key_owner_proof: OpaqueKeyOwnershipProof,
 		) -> Option<()>;
 
+		/// Submits an unsigned extrinsic to report a fork voting equivocation. The caller
+		/// must provide the fork voting proof (the ancestry proof should be obtained using
+		/// `generate_ancestry_proof`) and a key ownership proof (should be obtained using
+		/// `generate_key_ownership_proof`). The extrinsic will be unsigned and should only
+		/// be accepted for local authorship (not to be broadcast to the network). This method
+		/// returns `None` when creation of the extrinsic fails, e.g. if equivocation
+		/// reporting is disabled for the given runtime (i.e. this method is
+		/// hardcoded to return `None`). Only useful in an offchain context.
+		fn submit_report_fork_voting_unsigned_extrinsic(
+			equivocation_proof:
+				ForkVotingProof<Block::Header, AuthorityId, OpaqueValue>,
+			key_owner_proof: OpaqueKeyOwnershipProof,
+		) -> Option<()>;
+
+		/// Submits an unsigned extrinsic to report a future block voting equivocation. The caller
+		/// must provide the future block voting proof and a key ownership proof
+		/// (should be obtained using `generate_key_ownership_proof`).
+		/// The extrinsic will be unsigned and should only be accepted for local
+		/// authorship (not to be broadcast to the network). This method returns
+		/// `None` when creation of the extrinsic fails, e.g. if equivocation
+		/// reporting is disabled for the given runtime (i.e. this method is
+		/// hardcoded to return `None`). Only useful in an offchain context.
+		fn submit_report_future_block_voting_unsigned_extrinsic(
+			equivocation_proof:
+				FutureBlockVotingProof<NumberFor<Block>, AuthorityId>,
+			key_owner_proof: OpaqueKeyOwnershipProof,
+		) -> Option<()>;
+
 		/// Generates a proof of key ownership for the given authority in the
 		/// given set. An example usage of this module is coupled with the
 		/// session historical module to prove that a given authority key is
@@ -489,6 +537,13 @@ sp_api::decl_runtime_apis! {
 			set_id: ValidatorSetId,
 			authority_id: AuthorityId,
 		) -> Option<OpaqueKeyOwnershipProof>;
+
+		/// Generates a proof that the `prev_block_number` is part of the canonical chain at
+		/// `best_known_block_number`.
+		fn generate_ancestry_proof(
+			prev_block_number: NumberFor<Block>,
+			best_known_block_number: Option<NumberFor<Block>>,
+		) -> Option<OpaqueValue>;
 	}
 
 }

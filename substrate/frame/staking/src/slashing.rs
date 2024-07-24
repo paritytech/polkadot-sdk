@@ -54,6 +54,7 @@ use crate::{
 	NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash, UnappliedSlash,
 	ValidatorSlashInEra,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
@@ -65,7 +66,6 @@ use sp_runtime::{
 	DispatchResult, RuntimeDebug,
 };
 use sp_staking::{EraIndex, StakingInterface};
-use sp_std::vec::Vec;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
@@ -148,7 +148,7 @@ impl SlashingSpans {
 			SlashingSpan { index, start, length: Some(length) }
 		});
 
-		sp_std::iter::once(last).chain(prior)
+		core::iter::once(last).chain(prior)
 	}
 
 	/// Yields the era index where the most recent non-zero slash occurred.
@@ -182,7 +182,7 @@ impl SlashingSpans {
 		};
 
 		// readjust the ongoing span, if it started before the beginning of the window.
-		self.last_start = sp_std::cmp::max(self.last_start, window_start);
+		self.last_start = core::cmp::max(self.last_start, window_start);
 		pruned
 	}
 }
@@ -408,7 +408,7 @@ struct InspectingSpans<'a, T: Config + 'a> {
 	paid_out: &'a mut BalanceOf<T>,
 	slash_of: &'a mut BalanceOf<T>,
 	reward_proportion: Perbill,
-	_marker: sp_std::marker::PhantomData<T>,
+	_marker: core::marker::PhantomData<T>,
 }
 
 // fetches the slashing spans record for a stash account, initializing it if necessary.
@@ -433,7 +433,7 @@ fn fetch_spans<'a, T: Config + 'a>(
 		slash_of,
 		paid_out,
 		reward_proportion,
-		_marker: sp_std::marker::PhantomData,
+		_marker: core::marker::PhantomData,
 	}
 }
 
@@ -451,7 +451,7 @@ impl<'a, T: 'a + Config> InspectingSpans<'a, T> {
 	// although `amount` may be zero, as it is only a difference.
 	fn add_slash(&mut self, amount: BalanceOf<T>, slash_era: EraIndex) {
 		*self.slash_of += amount;
-		self.spans.last_nonzero_slash = sp_std::cmp::max(self.spans.last_nonzero_slash, slash_era);
+		self.spans.last_nonzero_slash = core::cmp::max(self.spans.last_nonzero_slash, slash_era);
 	}
 
 	// find the span index of the given era, if covered.

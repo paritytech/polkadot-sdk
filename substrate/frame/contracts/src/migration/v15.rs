@@ -28,6 +28,8 @@ use crate::{
 	AccountIdOf, BalanceOf, CodeHash, Config, HoldReason, Pallet, TrieId, Weight, LOG_TARGET,
 };
 #[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+#[cfg(feature = "try-runtime")]
 use frame_support::traits::fungible::InspectHold;
 use frame_support::{
 	pallet_prelude::*,
@@ -44,8 +46,6 @@ use sp_core::hexdisplay::HexDisplay;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 use sp_runtime::{traits::Zero, Saturating};
-#[cfg(feature = "try-runtime")]
-use sp_std::vec::Vec;
 
 mod v14 {
 	use super::*;

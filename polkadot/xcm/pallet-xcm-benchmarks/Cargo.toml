@@ -18,7 +18,6 @@ scale-info = { features = ["derive"], workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 sp-io = { workspace = true }
 xcm-executor = { workspace = true }
 frame-benchmarking = { workspace = true }
@@ -48,7 +47,6 @@ std = [
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 ]

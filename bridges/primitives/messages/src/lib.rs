@@ -38,6 +38,9 @@ pub mod source_chain;
 pub mod storage_keys;
 pub mod target_chain;
 
+/// Hard limit on message size that can be sent over the bridge.
+pub const HARD_MESSAGE_SIZE_LIMIT: u32 = 64 * 1024;
+
 /// Substrate-based chain with messaging support.
 pub trait ChainWithMessages: Chain {
 	/// Name of the bridge messages pallet (used in `construct_runtime` macro call) that is
@@ -48,11 +51,63 @@ pub trait ChainWithMessages: Chain {
 	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str;
 
 	/// Maximal number of unrewarded relayers in a single confirmation transaction at this
-	/// `ChainWithMessages`.
+	/// `ChainWithMessages`. Unrewarded means that the relayer has delivered messages, but
+	/// either confirmations haven't been delivered back to the source chain, or we haven't
+	/// received reward confirmations yet.
+	///
+	/// This constant limits maximal number of entries in the `InboundLaneData::relayers`. Keep
+	/// in mind that the same relayer account may take several (non-consecutive) entries in this
+	/// set.
 	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce;
 	/// Maximal number of unconfirmed messages in a single confirmation transaction at this
-	/// `ChainWithMessages`.
+	/// `ChainWithMessages`. Unconfirmed means that the
+	/// message has been delivered, but either confirmations haven't been delivered back to the
+	/// source chain, or we haven't received reward confirmations for these messages yet.
+	///
+	/// This constant limits difference between last message from last entry of the
+	/// `InboundLaneData::relayers` and first message at the first entry.
+	///
+	/// There is no point of making this parameter lesser than
+	/// `MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX`, because then maximal number of relayer entries
+	/// will be limited by maximal number of messages.
+	///
+	/// This value also represents maximal number of messages in single delivery transaction.
+	/// Transaction that is declaring more messages than this value, will be rejected. Even if
+	/// these messages are from different lanes.
 	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce;
+
+	/// Return maximal dispatch weight of the message we're able to receive.
+	fn maximal_incoming_message_dispatch_weight() -> Weight {
+		// we leave 1/2 of `max_extrinsic_weight` for the delivery transaction itself
+		Self::max_extrinsic_weight() / 2
+	}
+
+	/// Return maximal size of the message we're able to receive.
+	fn maximal_incoming_message_size() -> u32 {
+		maximal_incoming_message_size(Self::max_extrinsic_size())
+	}
+}
+
+/// Return maximal size of the message the chain with `max_extrinsic_size` is able to receive.
+pub fn maximal_incoming_message_size(max_extrinsic_size: u32) -> u32 {
+	// The maximal size of extrinsic at Substrate-based chain depends on the
+	// `frame_system::Config::MaximumBlockLength` and
+	// `frame_system::Config::AvailableBlockRatio` constants. This check is here to be sure that
+	// the lane won't stuck because message is too large to fit into delivery transaction.
+	//
+	// **IMPORTANT NOTE**: the delivery transaction contains storage proof of the message, not
+	// the message itself. The proof is always larger than the message. But unless chain state
+	// is enormously large, it should be several dozens/hundreds of bytes. The delivery
+	// transaction also contains signatures and signed extensions. Because of this, we reserve
+	// 1/3 of the the maximal extrinsic size for this data.
+	//
+	// **ANOTHER IMPORTANT NOTE**: large message means not only larger proofs and heavier
+	// proof verification, but also heavier message decoding and dispatch. So we have a hard
+	// limit of `64Kb`, which in practice limits the message size on all chains. Without this
+	// limit the **weight** (not the size) of the message will be higher than the
+	// `Self::maximal_incoming_message_dispatch_weight()`.
+
+	sp_std::cmp::min(max_extrinsic_size / 3 * 2, HARD_MESSAGE_SIZE_LIMIT)
 }
 
 impl<T> ChainWithMessages for T
@@ -112,7 +167,19 @@ impl OperatingMode for MessagesOperatingMode {
 
 /// Lane id which implements `TypeId`.
 #[derive(
-	Clone, Copy, Decode, Default, Encode, Eq, Ord, PartialOrd, PartialEq, TypeInfo, MaxEncodedLen,
+	Clone,
+	Copy,
+	Decode,
+	Default,
+	Encode,
+	Eq,
+	Ord,
+	PartialOrd,
+	PartialEq,
+	TypeInfo,
+	MaxEncodedLen,
+	Serialize,
+	Deserialize,
 )]
 pub struct LaneId(pub [u8; 4]);
 
@@ -435,7 +502,7 @@ where
 	AccountId: sp_std::cmp::Ord,
 {
 	// remember to reward relayers that have delivered messages
-	// this loop is bounded by `T::MaxUnrewardedRelayerEntriesAtInboundLane` on the bridged chain
+	// this loop is bounded by `T::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX` on the bridged chain
 	let mut relayers_rewards = RelayersRewards::new();
 	for entry in messages_relayers {
 		let nonce_begin = sp_std::cmp::max(entry.messages.begin, *received_range.start());
@@ -486,11 +553,11 @@ pub enum VerificationError {
 	InvalidMessageWeight,
 	/// Declared messages count doesn't match actual value.
 	MessagesCountMismatch,
-	/// Error returned while reading/decoding message data from the storage proof.
+	/// Error returned while reading/decoding message data from the `VerifiedStorageProof`.
 	MessageStorage(StorageProofError),
 	/// The message is too large.
 	MessageTooLarge,
-	/// Error returned while reading/decoding outbound lane data from the storage proof.
+	/// Error returned while reading/decoding outbound lane data from the `VerifiedStorageProof`.
 	OutboundLaneStorage(StorageProofError),
 	/// Storage proof related error.
 	StorageProof(StorageProofError),
