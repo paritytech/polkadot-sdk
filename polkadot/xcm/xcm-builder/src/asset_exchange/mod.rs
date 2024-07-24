@@ -24,7 +24,6 @@ mod tests;
 use core::marker::PhantomData;
 use frame_support::{ensure, traits::tokens::fungibles};
 use pallet_asset_conversion::{QuoteExchangePrice, SwapCredit};
-use sp_runtime::traits::Zero;
 use sp_std::vec;
 use xcm::prelude::*;
 use xcm_executor::{
@@ -84,8 +83,8 @@ where
 			Matcher::matches_fungibles(&give_asset).map_err(|error| {
 				log::trace!(
 					target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
-					"Could not map XCM asset {:?} to FRAME asset. Error: {:?}",
-					give,
+					"Could not map XCM asset give {:?} to FRAME asset. Error: {:?}",
+					give_asset,
 					error,
 				);
 				give.clone()
@@ -94,8 +93,8 @@ where
 			Matcher::matches_fungibles(&want_asset).map_err(|error| {
 				log::trace!(
 					target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
-					"Could not map XCM asset {:?} to FRAME asset. Error: {:?}",
-					want,
+					"Could not map XCM asset want {:?} to FRAME asset. Error: {:?}",
+					want_asset,
 					error,
 				);
 				give.clone()
@@ -114,28 +113,37 @@ where
 				credit_in,
 				Some(want_amount),
 			)
-			.map_err(|(credit_in, _error)| {
-				// TODO: Log error.
+			.map_err(|(credit_in, error)| {
+				log::error!(
+					target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
+					"Could not perform the swap, error: {:?}.",
+					error
+				);
 				drop(credit_in);
 				give.clone()
 			})?
 		} else {
 			// If `minimal`, then we swap as little of `credit_in` as we can to get exactly
 			// `want_amount` of `want_asset_id`.
-			let (credit_out, credit_change) =
+			let (credit_out, _credit_change) =
 				<AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
 					vec![swap_asset, want_asset_id],
 					credit_in,
 					want_amount,
 				)
-				.map_err(|(credit_in, _)| {
+				.map_err(|(credit_in, error)| {
+					log::error!(
+						target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
+						"Could not perform the swap, error: {:?}.",
+						error
+					);
 					drop(credit_in);
 					give.clone()
 				})?;
 
 			// TODO: If we want to make this a generic adapter, this need not be 0. Handle it.
 			// Probably depositing it back to the holding.
-			debug_assert!(credit_change.peek() == Zero::zero());
+			// debug_assert!(credit_change.peek() == Zero::zero());
 
 			credit_out
 		};

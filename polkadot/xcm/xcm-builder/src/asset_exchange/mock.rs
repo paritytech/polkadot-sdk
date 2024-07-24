@@ -18,30 +18,34 @@
 
 use core::marker::PhantomData;
 use frame_support::{
-	construct_runtime, derive_impl, ord_parameter_types, parameter_types,
+	assert_ok, construct_runtime, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		fungible, tokens::imbalance::ResolveAssetTo, AsEnsureOriginWithArg, Everything, Nothing,
-		OriginTrait,
+		fungible::{self, NativeFromLeft, NativeOrWithId},
+		fungibles::Mutate,
+		tokens::imbalance::ResolveAssetTo,
+		AsEnsureOriginWithArg, Equals, Everything, Nothing, OriginTrait, PalletInfoAccess,
 	},
 	PalletId,
 };
-use sp_core::{ConstU32, ConstU64, Get};
+use sp_core::{ConstU128, ConstU32, Get};
 use sp_runtime::{
-	traits::{AccountIdConversion, IdentityLookup, TryConvert},
-	Permill,
+	traits::{AccountIdConversion, IdentityLookup, MaybeEquivalence, TryConvert, TryConvertInto},
+	BuildStorage, Permill,
 };
 use xcm::prelude::*;
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
+use crate::{FungibleAdapter, IsConcrete, MatchedConvertedConcreteId, StartsWith};
+
 pub type Block = frame_system::mocking::MockBlock<Runtime>;
 pub type AccountId = u64;
-pub type Balance = u64;
+pub type Balance = u128;
 
 construct_runtime! {
 	pub struct Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
-		Assets: pallet_assets::<Instance1>,
+		AssetsPallet: pallet_assets::<Instance1>,
 		PoolAssets: pallet_assets::<Instance2>,
 		XcmPallet: pallet_xcm,
 		AssetConversion: pallet_asset_conversion,
@@ -58,10 +62,10 @@ impl frame_system::Config for Runtime {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
+	type Balance = Balance;
 	type AccountStore = System;
+	type ExistentialDeposit = ConstU128<1>;
 }
-
-const UNITS: u64 = 1_000_000_000_000;
 
 pub type TrustBackedAssetsInstance = pallet_assets::Instance1;
 pub type PoolAssetsInstance = pallet_assets::Instance2;
@@ -69,8 +73,14 @@ pub type PoolAssetsInstance = pallet_assets::Instance2;
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
 impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Currency = Balances;
-	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
-	type ForceOrigin = frame_system::EnsureRoot<u64>;
+	type Balance = Balance;
+	type AssetDeposit = ConstU128<1>;
+	type AssetAccountDeposit = ConstU128<10>;
+	type MetadataDepositBase = ConstU128<1>;
+	type MetadataDepositPerByte = ConstU128<1>;
+	type ApprovalDeposit = ConstU128<1>;
+	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type Freezer = ();
 	type CallbackHandle = ();
 }
@@ -78,19 +88,25 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
 impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type Currency = Balances;
-	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
-	type ForceOrigin = frame_system::EnsureRoot<u64>;
+	type Balance = Balance;
+	type AssetDeposit = ConstU128<1>;
+	type AssetAccountDeposit = ConstU128<10>;
+	type MetadataDepositBase = ConstU128<1>;
+	type MetadataDepositPerByte = ConstU128<1>;
+	type ApprovalDeposit = ConstU128<1>;
+	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type Freezer = ();
 	type CallbackHandle = ();
 }
 
 /// Union fungibles implementation for `Assets` and `Balances`.
 pub type NativeAndAssets =
-	fungible::UnionOf<Balances, Assets, fungible::NativeFromLeft, fungible::NativeOrWithId<u32>, AccountId>;
+	fungible::UnionOf<Balances, AssetsPallet, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
 
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
-	pub const Native: fungible::NativeOrWithId<u32> = fungible::NativeOrWithId::Native;
+	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -99,14 +115,16 @@ ord_parameter_types! {
 		AccountIdConversion::<AccountId>::into_account_truncating(&AssetConversionPalletId::get());
 }
 
-pub type PoolIdToAccountId =
-	pallet_asset_conversion::AccountIdConverter<AssetConversionPalletId, (fungible::NativeOrWithId<u32>, fungible::NativeOrWithId<u32>)>;
+pub type PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter<
+	AssetConversionPalletId,
+	(NativeOrWithId<u32>, NativeOrWithId<u32>),
+>;
 
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type HigherPrecisionBalance = sp_core::U256;
-	type AssetKind = fungible::NativeOrWithId<u32>;
+	type AssetKind = NativeOrWithId<u32>;
 	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = pallet_asset_conversion::WithFirstAsset<
@@ -117,14 +135,14 @@ impl pallet_asset_conversion::Config for Runtime {
 	>;
 	type PoolAssetId = u32;
 	type PoolAssets = PoolAssets;
-	type PoolSetupFee = ConstU64<0>; // Asset class deposit fees are sufficient to prevent spam
+	type PoolSetupFee = ConstU128<100>; // Asset class deposit fees are sufficient to prevent spam
 	type PoolSetupFeeAsset = Native;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type LPFee = ConstU32<3>;
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
-	type MintMinLiquidity = ConstU64<100>;
+	type MintMinLiquidity = ConstU128<100>;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
@@ -143,15 +161,17 @@ parameter_types! {
 	pub WeightPerInstruction: Weight = Weight::from_parts(1, 1);
 	pub MaxInstructions: u32 = 100;
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(Polkadot), Parachain(1000)].into();
+	pub TrustBackedAssetsPalletIndex: u8 = <AssetsPallet as PalletInfoAccess>::index() as u8;
+	pub TrustBackedAssetsPalletLocation: Location =	PalletInstance(TrustBackedAssetsPalletIndex::get()).into();
 }
 
 /// Adapter for the native token.
-pub type FungibleTransactor = crate::FungibleAdapter<
+pub type FungibleTransactor = FungibleAdapter<
 	// Use this implementation of the `fungible::*` traits.
 	// `Balances` is the name given to the balances pallet
 	Balances,
 	// This transactor deals with the native token.
-	crate::IsConcrete<HereLocation>,
+	IsConcrete<HereLocation>,
 	// How to convert an XCM Location into a local account id.
 	// This is also something that's configured in the XCM executor.
 	LocationToAccountId,
@@ -162,6 +182,41 @@ pub type FungibleTransactor = crate::FungibleAdapter<
 >;
 
 pub type Weigher = crate::FixedWeightBounds<WeightPerInstruction, RuntimeCall, MaxInstructions>;
+
+pub struct LocationToAssetId;
+impl MaybeEquivalence<Location, NativeOrWithId<u32>> for LocationToAssetId {
+	fn convert(location: &Location) -> Option<NativeOrWithId<u32>> {
+		let pallet_instance = TrustBackedAssetsPalletIndex::get();
+		match location.unpack() {
+			(0, [PalletInstance(pallet_instance), GeneralIndex(index)]) =>
+				Some(NativeOrWithId::WithId(*index as u32)),
+			(0, []) => Some(NativeOrWithId::Native),
+			_ => None,
+		}
+	}
+
+	fn convert_back(asset_id: &NativeOrWithId<u32>) -> Option<Location> {
+		let pallet_instance = TrustBackedAssetsPalletIndex::get();
+		Some(match asset_id {
+			NativeOrWithId::WithId(id) =>
+				Location::new(0, [PalletInstance(pallet_instance), GeneralIndex((*id).into())]),
+			NativeOrWithId::Native => Location::new(0, []),
+		})
+	}
+}
+
+pub type PoolAssetsExchanger = crate::SingleAssetExchangeAdapter<
+	AssetConversion,
+	NativeAndAssets,
+	MatchedConvertedConcreteId<
+		NativeOrWithId<u32>,
+		Balance,
+		(StartsWith<TrustBackedAssetsPalletLocation>, Equals<HereLocation>),
+		LocationToAssetId,
+		TryConvertInto,
+	>,
+	AccountId,
+>;
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -180,7 +235,7 @@ impl xcm_executor::Config for XcmConfig {
 	type ResponseHandler = ();
 	type AssetTrap = ();
 	type AssetLocker = ();
-	type AssetExchanger = ();
+	type AssetExchanger = PoolAssetsExchanger;
 	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
@@ -291,4 +346,41 @@ impl pallet_xcm::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
+}
+
+pub const INITIAL_BALANCE: Balance = 1_000_000_000;
+
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+
+	pallet_balances::GenesisConfig::<Runtime> {
+		balances: vec![(0, INITIAL_BALANCE), (1, INITIAL_BALANCE), (2, INITIAL_BALANCE)],
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+
+	let owner = 0;
+
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| {
+		System::set_block_number(1);
+		assert_ok!(AssetsPallet::force_create(RuntimeOrigin::root(), 1, owner, false, 1,));
+		assert_ok!(AssetsPallet::mint_into(1, &owner, INITIAL_BALANCE,));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(owner),
+			Box::new(NativeOrWithId::Native),
+			Box::new(NativeOrWithId::WithId(1)),
+		));
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(owner),
+			Box::new(NativeOrWithId::Native),
+			Box::new(NativeOrWithId::WithId(1)),
+			50_000_000,
+			1,
+			100_000_000,
+			1,
+			owner,
+		));
+	});
+	ext
 }
