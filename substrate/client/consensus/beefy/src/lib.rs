@@ -90,7 +90,7 @@ const LOG_TARGET: &str = "beefy";
 
 const HEADER_SYNC_DELAY: Duration = Duration::from_secs(60);
 
-pub type FinalityNotifications<Block> =
+type FinalityNotifications<Block> =
 	sc_utils::mpsc::TracingUnboundedReceiver<UnpinnedFinalityNotification<Block>>;
 /// A convenience BEEFY client trait that defines all the type bounds a BEEFY client
 /// has to satisfy. Ideally that should actually be a trait alias. Unfortunately as
@@ -492,7 +492,7 @@ where
 /// Finality notification for consumption by BEEFY worker.
 /// This is a stripped down version of `sc_client_api::FinalityNotification` which does not keep
 /// blocks pinned.
-pub struct UnpinnedFinalityNotification<B: Block> {
+struct UnpinnedFinalityNotification<B: Block> {
 	/// Finalized block header hash.
 	pub hash: B::Hash,
 	/// Finalized block header.
