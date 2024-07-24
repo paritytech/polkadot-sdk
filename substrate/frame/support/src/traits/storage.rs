@@ -177,6 +177,10 @@ impl Footprint {
 	pub fn from_encodable(e: impl Encode) -> Self {
 		Self::from_parts(1, e.encoded_size())
 	}
+
+	pub fn from_mel<E: MaxEncodedLen>() -> Self {
+		Self::from_parts(1, E::max_encoded_len())
+	}
 }
 
 /// A storage price that increases linearly with the number of elements and their size.
@@ -288,7 +292,8 @@ impl_incrementable!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_core::ConstU64;
+	use sp_core::{ConstU32, ConstU64};
+		use crate::BoundedVec;
 
 	#[test]
 	fn linear_storage_price_works() {
@@ -304,5 +309,18 @@ mod tests {
 		assert_eq!(p(1, 8), 31);
 
 		assert_eq!(p(u64::MAX, u64::MAX), u64::MAX);
+	}
+
+	#[test]
+	fn footprint_from_mel_works() {
+		let footprint = Footprint::from_mel::<(u8, BoundedVec<u8, ConstU32<9>>)>();
+		let expected_size = BoundedVec::<u8, ConstU32<9>>::max_encoded_len() as u64;
+		assert_eq!(expected_size, 10);
+		assert_eq!(footprint, Footprint { count: 1, size: expected_size + 1 });
+
+		let footprint = Footprint::from_mel::<(u8, BoundedVec<u8, ConstU32<999>>)>();
+		let expected_size = BoundedVec::<u8, ConstU32<999>>::max_encoded_len() as u64;
+		assert_eq!(expected_size, 1001);
+		assert_eq!(footprint, Footprint { count: 1, size: expected_size + 1 });
 	}
 }
