@@ -117,7 +117,7 @@
 //! ergonomic.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", transfer_better_checked)]
 //!
-//! This is more or less all the logic that there is this basic currency pallet!
+//! This is more or less all the logic that there is in this basic currency pallet!
 //!
 //! ### Your First (Test) Runtime
 //!
