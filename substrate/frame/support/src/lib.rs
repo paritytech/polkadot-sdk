@@ -869,7 +869,7 @@ macro_rules! hypothetically_ok {
 pub use serde::{Deserialize, Serialize};
 
 #[doc(hidden)]
-#[cfg(feature = "std")]
+#[cfg(not(no_std))]
 pub use macro_magic;
 
 /// Prelude to be used for pallet testing, for ease of use.
