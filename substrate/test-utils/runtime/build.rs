@@ -25,6 +25,7 @@ fn main() {
 			// to this value by default. This is because some of our tests
 			// (`restoration_of_globals`) depend on the stack-size.
 			.append_to_rust_flags("-Clink-arg=-zstack-size=1048576")
+			.enable_metadata_hash("TOKEN", 10)
 			.import_memory()
 			.build();
 	}

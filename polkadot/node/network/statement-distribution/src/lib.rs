@@ -19,7 +19,6 @@
 //! This is responsible for distributing signed statements about candidate
 //! validity among validators.
 
-// #![deny(unused_crate_dependencies)]
 #![warn(missing_docs)]
 
 use error::{log_error, FatalResult};
@@ -27,7 +26,7 @@ use std::time::Duration;
 
 use polkadot_node_network_protocol::{
 	request_response::{v1 as request_v1, v2::AttestedCandidateRequest, IncomingRequestReceiver},
-	v2 as protocol_v2, Versioned,
+	v2 as protocol_v2, v3 as protocol_v3, Versioned,
 };
 use polkadot_node_primitives::StatementWithPVD;
 use polkadot_node_subsystem::{
@@ -207,6 +206,7 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 			v2::respond_task(
 				self.req_receiver.take().expect("Mandatory argument to new. qed"),
 				res_sender.clone(),
+				self.metrics.clone(),
 			)
 			.boxed(),
 		)
@@ -284,7 +284,14 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 					);
 				},
 				MuxedMessage::Response(result) => {
-					v2::handle_response(&mut ctx, &mut state, result, &mut self.reputation).await;
+					v2::handle_response(
+						&mut ctx,
+						&mut state,
+						result,
+						&mut self.reputation,
+						&self.metrics,
+					)
+					.await;
 				},
 				MuxedMessage::RetryRequest(()) => {
 					// A pending request is ready to retry. This is only a signal to call
@@ -319,7 +326,13 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 				if let Some(ref activated) = activated {
 					let mode = prospective_parachains_mode(ctx.sender(), activated.hash).await?;
 					if let ProspectiveParachainsMode::Enabled { .. } = mode {
-						v2::handle_active_leaves_update(ctx, state, activated, mode).await?;
+						let res =
+							v2::handle_active_leaves_update(ctx, state, activated, mode, &metrics)
+								.await;
+						// Regardless of the result of leaf activation, we always prune before
+						// handling it to avoid leaks.
+						v2::handle_deactivate_leaves(state, &deactivated);
+						res?;
 					} else if let ProspectiveParachainsMode::Disabled = mode {
 						for deactivated in &deactivated {
 							crate::legacy_v1::handle_deactivate_leaf(legacy_v1_state, *deactivated);
@@ -365,6 +378,7 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 							relay_parent,
 							statement,
 							&mut self.reputation,
+							&self.metrics,
 						)
 						.await?;
 					}
@@ -398,9 +412,12 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 						NetworkBridgeEvent::PeerMessage(_, message) => match message {
 							Versioned::V2(
 								protocol_v2::StatementDistributionMessage::V1Compatibility(_),
+							) |
+							Versioned::V3(
+								protocol_v3::StatementDistributionMessage::V1Compatibility(_),
 							) => VersionTarget::Legacy,
 							Versioned::V1(_) => VersionTarget::Legacy,
-							Versioned::V2(_) => VersionTarget::Current,
+							Versioned::V2(_) | Versioned::V3(_) => VersionTarget::Current,
 						},
 						_ => VersionTarget::Both,
 					};
@@ -420,11 +437,24 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 
 					if target.targets_current() {
 						// pass to v2.
-						v2::handle_network_update(ctx, state, event, &mut self.reputation).await;
+						v2::handle_network_update(
+							ctx,
+							state,
+							event,
+							&mut self.reputation,
+							&self.metrics,
+						)
+						.await;
 					}
 				},
 				StatementDistributionMessage::Backed(candidate_hash) => {
-					crate::v2::handle_backed_candidate_message(ctx, state, candidate_hash).await;
+					crate::v2::handle_backed_candidate_message(
+						ctx,
+						state,
+						candidate_hash,
+						&self.metrics,
+					)
+					.await;
 				},
 			},
 		}

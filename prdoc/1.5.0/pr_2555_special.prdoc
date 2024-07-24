@@ -1,0 +1,10 @@
+title: Remove dependency on rand's SliceRandom shuffle implementation in `gossip-support`
+
+author: rphmeier
+topic: node
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

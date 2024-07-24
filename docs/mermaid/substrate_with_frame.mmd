@@ -1,0 +1,20 @@
+graph TB
+subgraph Substrate
+	direction LR
+	subgraph Node
+		Database
+		Networking
+		Consensus
+	end
+	subgraph Runtime
+		subgraph FRAME
+			direction LR
+			Governance
+			Currency
+			Staking
+			Identity
+		end
+	end
+	Node --runtime-api--> Runtime
+	Runtime --host-functions--> Node
+end

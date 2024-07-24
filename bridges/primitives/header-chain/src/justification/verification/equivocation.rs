@@ -101,6 +101,13 @@ impl<'a, Header: HeaderT> EquivocationsCollector<'a, Header> {
 }
 
 impl<'a, Header: HeaderT> JustificationVerifier<Header> for EquivocationsCollector<'a, Header> {
+	fn process_duplicate_votes_ancestries(
+		&mut self,
+		_duplicate_votes_ancestries: Vec<usize>,
+	) -> Result<(), JustificationVerificationError> {
+		Ok(())
+	}
+
 	fn process_redundant_vote(
 		&mut self,
 		_precommit_idx: usize,

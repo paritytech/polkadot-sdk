@@ -1,0 +1,21 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[frame] `#[pallet::composite_enum]` improved variant count handling + removed `pallet_balances`'s `MaxHolds` config"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The implementation of the `VariantCount` trait for aggregate composite enums,
+      such as `RuntimeHoldReason` and `RuntimeFreezeReason`, has been fixed.
+      It is now calculated as the sum of `VariantCount::VARIANT_COUNT` for all corresponding `#[pallet::composite_enum]`.
+      The `Balances` pallet's `Config` item `type MaxHolds` has been removed,
+      and `type Holds` is now bound to the variant count of the composite enum `RuntimeHoldReason`.
+      Consequently, the runtime does not need to consider setting the correct value for `MaxHolds`.
+
+      notes:
+      - Remove `type MaxHolds` from the `impl pallet_balances::Config for Runtime` in the runtime.
+      - When holds are expected to be used, ensure that `type RuntimeHoldReason = RuntimeHoldReason` is set for `impl pallet_balances::Config for Runtime`.
+
+crates:
+  - name: pallet-balances

@@ -183,7 +183,7 @@ pub fn generate_thresholds<T: pallet_staking::Config>(
 	total_issuance: u128,
 	minimum_balance: u128,
 ) -> Result<(), std::io::Error> {
-	// ensure the file is accessable
+	// ensure the file is accessible
 	if let Some(parent) = output.parent() {
 		if !parent.exists() {
 			std::fs::create_dir_all(parent)?;

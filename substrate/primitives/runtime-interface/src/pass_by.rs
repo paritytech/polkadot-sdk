@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Provides the [`PassBy`](PassBy) trait to simplify the implementation of the
+//! Provides the [`PassBy`] trait to simplify the implementation of the
 //! runtime interface traits for custom types.
 //!
 //! [`Codec`], [`Inner`] and [`Enum`] are the provided strategy implementations.
@@ -33,10 +33,10 @@ use crate::wasm::*;
 #[cfg(feature = "std")]
 use sp_wasm_interface::{FunctionContext, Pointer, Result};
 
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 #[cfg(not(feature = "std"))]
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// Derive macro for implementing [`PassBy`] with the [`Codec`] strategy.
 ///

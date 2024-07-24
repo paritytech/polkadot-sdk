@@ -8,7 +8,7 @@ This is available [here](https://paritytech.github.io/polkadot-sdk/book/).
 
 ## Local build
 
-To view it locally from the repo root:
+To view it locally, run the following (from the `polkadot/` directory):
 
 Ensure graphviz is installed:
 

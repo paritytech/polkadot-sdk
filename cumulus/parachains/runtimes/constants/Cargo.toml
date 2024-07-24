@@ -1,0 +1,45 @@
+[package]
+name = "testnet-parachains-constants"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+description = "Common constants for Testnet Parachains runtimes"
+license = "Apache-2.0"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+smallvec = { workspace = true, default-features = true }
+
+# Substrate
+frame-support = { workspace = true }
+sp-runtime = { workspace = true }
+
+# Polkadot
+polkadot-core-primitives = { workspace = true }
+rococo-runtime-constants = { optional = true, workspace = true }
+westend-runtime-constants = { optional = true, workspace = true }
+xcm = { workspace = true }
+
+# Cumulus
+cumulus-primitives-core = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"cumulus-primitives-core/std",
+	"frame-support/std",
+	"polkadot-core-primitives/std",
+	"rococo-runtime-constants?/std",
+	"sp-runtime/std",
+	"westend-runtime-constants?/std",
+	"xcm/std",
+]
+
+# Test runtimes specific features.
+rococo = ["rococo-runtime-constants"]
+westend = ["westend-runtime-constants"]

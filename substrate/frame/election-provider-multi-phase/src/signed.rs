@@ -24,7 +24,12 @@ use crate::{
 	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
 	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec::Vec,
+};
 use codec::{Decode, Encode, HasCompact};
+use core::cmp::Ordering;
 use frame_election_provider_support::NposSolution;
 use frame_support::traits::{
 	defensive_prelude::*, Currency, Get, OnUnbalanced, ReservableCurrency,
@@ -36,11 +41,6 @@ use sp_npos_elections::ElectionScore;
 use sp_runtime::{
 	traits::{Convert, Saturating, Zero},
 	FixedPointNumber, FixedPointOperand, FixedU128, Percent, RuntimeDebug,
-};
-use sp_std::{
-	cmp::Ordering,
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	vec::Vec,
 };
 
 /// A raw, unchecked signed submission.
@@ -570,6 +570,40 @@ mod tests {
 	};
 	use frame_support::{assert_noop, assert_ok, assert_storage_noop};
 	use sp_runtime::Percent;
+
+	#[test]
+	fn cannot_submit_on_different_round() {
+		ExtBuilder::default().build_and_execute(|| {
+			// roll to a few rounds ahead.
+			roll_to_round(5);
+			assert_eq!(MultiPhase::round(), 5);
+
+			roll_to_signed();
+			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
+
+			// create a temp snapshot only for this test.
+			MultiPhase::create_snapshot().unwrap();
+			let mut solution = raw_solution();
+
+			// try a solution prepared in a previous round.
+			solution.round = MultiPhase::round() - 1;
+
+			assert_noop!(
+				MultiPhase::submit(RuntimeOrigin::signed(10), Box::new(solution)),
+				Error::<Runtime>::PreDispatchDifferentRound,
+			);
+
+			// try a solution prepared in a later round (not expected to happen, but in any case).
+			MultiPhase::create_snapshot().unwrap();
+			let mut solution = raw_solution();
+			solution.round = MultiPhase::round() + 1;
+
+			assert_noop!(
+				MultiPhase::submit(RuntimeOrigin::signed(10), Box::new(solution)),
+				Error::<Runtime>::PreDispatchDifferentRound,
+			);
+		})
+	}
 
 	#[test]
 	fn cannot_submit_too_early() {

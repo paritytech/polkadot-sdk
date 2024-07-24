@@ -19,7 +19,7 @@
 use proc_macro2::{Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
-use syn::{DeriveInput, Error, Ident};
+use syn::{DeriveInput, Error, Ident, Path};
 
 const CRATE_NAME: &str = "sc-chain-spec";
 const ATTRIBUTE_NAME: &str = "forks";
@@ -143,7 +143,7 @@ pub fn group_derive(ast: &DeriveInput) -> proc_macro::TokenStream {
 pub fn derive(
 	ast: &DeriveInput,
 	derive: impl Fn(
-		&Ident,
+		&Path,
 		&Ident,
 		&syn::Generics,
 		Vec<&Ident>,
@@ -171,25 +171,28 @@ pub fn derive(
 	};
 
 	let name = &ast.ident;
-	let crate_name = match crate_name(CRATE_NAME) {
+	let crate_path = match crate_name(CRATE_NAME) {
 		Ok(FoundCrate::Itself) => CRATE_NAME.replace("-", "_"),
 		Ok(FoundCrate::Name(chain_spec_name)) => chain_spec_name,
-		Err(e) => {
-			let err = Error::new(Span::call_site(), &e).to_compile_error();
-			return quote!( #err ).into()
+		Err(e) => match crate_name("polkadot-sdk") {
+			Ok(FoundCrate::Name(sdk)) => format!("{sdk}::{CRATE_NAME}").replace("-", "_"),
+			_ => {
+				return Error::new(Span::call_site(), &e).to_compile_error().into();
+			},
 		},
 	};
-	let crate_name = Ident::new(&crate_name, Span::call_site());
+	let crate_path =
+		syn::parse_str::<Path>(&crate_path).expect("crate_name returns valid path; qed");
 	let field_names = fields.named.iter().flat_map(|x| x.ident.as_ref()).collect::<Vec<_>>();
 	let field_types = fields.named.iter().map(|x| &x.ty).collect::<Vec<_>>();
 
-	derive(&crate_name, name, &ast.generics, field_names, field_types, fields).into()
+	derive(&crate_path, name, &ast.generics, field_names, field_types, fields).into()
 }
 
-fn generate_fork_fields(crate_name: &Ident, names: &[&Ident], types: &[&syn::Type]) -> TokenStream {
-	let crate_name = std::iter::repeat(crate_name);
+fn generate_fork_fields(crate_path: &Path, names: &[&Ident], types: &[&syn::Type]) -> TokenStream {
+	let crate_path = std::iter::repeat(crate_path);
 	quote! {
-		#( pub #names: Option<<#types as #crate_name::Group>::Fork>, )*
+		#( pub #names: Option<<#types as #crate_path::Group>::Fork>, )*
 	}
 }
 

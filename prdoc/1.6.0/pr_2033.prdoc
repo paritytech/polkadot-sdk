@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "`UnionOf` types for merged `fungible` and `fungibles` implementations"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Introduces `UnionOf` types, crafted to merge `fungible` and `fungibles` implementations or two
+      `fungibles` implementations into a single type implementing `fungibles`. This also addresses
+      an issue where `ItemOf` initiates a double drop for an imbalance type, leading to inaccurate
+      total issuance accounting.
+
+crates: [ ]

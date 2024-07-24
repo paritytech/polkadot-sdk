@@ -29,9 +29,9 @@ use crate::{
 	dispatch::{DispatchResult, Parameter},
 	traits::Get,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_runtime::TokenError;
-use sp_std::prelude::*;
 
 /// Trait for providing an interface to a read-only NFT-like item.
 pub trait Inspect<AccountId> {
@@ -207,7 +207,7 @@ pub struct ItemOf<
 	F: nonfungibles::Inspect<AccountId>,
 	A: Get<<F as nonfungibles::Inspect<AccountId>>::CollectionId>,
 	AccountId,
->(sp_std::marker::PhantomData<(F, A, AccountId)>);
+>(core::marker::PhantomData<(F, A, AccountId)>);
 
 impl<
 		F: nonfungibles::Inspect<AccountId>,
@@ -226,7 +226,7 @@ impl<
 		<F as nonfungibles::Inspect<AccountId>>::custom_attribute(account, &A::get(), item, key)
 	}
 	fn system_attribute(item: &Self::ItemId, key: &[u8]) -> Option<Vec<u8>> {
-		<F as nonfungibles::Inspect<AccountId>>::system_attribute(&A::get(), item, key)
+		<F as nonfungibles::Inspect<AccountId>>::system_attribute(&A::get(), Some(item), key)
 	}
 	fn typed_attribute<K: Encode, V: Decode>(item: &Self::ItemId, key: &K) -> Option<V> {
 		<F as nonfungibles::Inspect<AccountId>>::typed_attribute(&A::get(), item, key)
@@ -244,7 +244,7 @@ impl<
 		)
 	}
 	fn typed_system_attribute<K: Encode, V: Decode>(item: &Self::ItemId, key: &K) -> Option<V> {
-		<F as nonfungibles::Inspect<AccountId>>::typed_system_attribute(&A::get(), item, key)
+		<F as nonfungibles::Inspect<AccountId>>::typed_system_attribute(&A::get(), Some(item), key)
 	}
 	fn can_transfer(item: &Self::ItemId) -> bool {
 		<F as nonfungibles::Inspect<AccountId>>::can_transfer(&A::get(), item)

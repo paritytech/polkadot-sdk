@@ -1,0 +1,124 @@
+[package]
+name = "polkadot-sdk-frame"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition.workspace = true
+license = "Apache-2.0"
+homepage = "https://paritytech.github.io"
+repository.workspace = true
+description = "Experimental: The single package to get you started with building frame pallets and runtimes"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+# enable `experimental` feature for docs
+features = ["experimental"]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+# external deps
+codec = { features = [
+	"derive",
+], workspace = true }
+scale-info = { features = [
+	"derive",
+], workspace = true }
+
+# primitive deps, used for developing FRAME pallets.
+sp-runtime = { workspace = true }
+sp-io = { workspace = true }
+sp-core = { workspace = true }
+sp-arithmetic = { workspace = true }
+
+# frame deps, for developing FRAME pallets.
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+
+# primitive types used for developing FRAME runtimes.
+sp-version = { optional = true, workspace = true }
+sp-api = { optional = true, workspace = true }
+sp-block-builder = { optional = true, workspace = true }
+sp-transaction-pool = { optional = true, workspace = true }
+sp-offchain = { optional = true, workspace = true }
+sp-session = { optional = true, workspace = true }
+sp-consensus-aura = { optional = true, workspace = true }
+sp-consensus-grandpa = { optional = true, workspace = true }
+sp-inherents = { optional = true, workspace = true }
+sp-storage = { optional = true, workspace = true }
+
+frame-executive = { optional = true, workspace = true }
+frame-system-rpc-runtime-api = { optional = true, workspace = true }
+
+# Used for runtime benchmarking
+frame-benchmarking = { optional = true, workspace = true }
+frame-system-benchmarking = { optional = true, workspace = true }
+
+# Used for try-runtime
+frame-try-runtime = { optional = true, workspace = true }
+
+docify = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
+pallet-examples = { workspace = true }
+
+[features]
+default = ["runtime", "std"]
+experimental = ["frame-support/experimental"]
+runtime = [
+	"sp-api",
+	"sp-block-builder",
+	"sp-consensus-aura",
+	"sp-consensus-grandpa",
+	"sp-inherents",
+	"sp-offchain",
+	"sp-session",
+	"sp-storage",
+	"sp-transaction-pool",
+	"sp-version",
+
+	"frame-executive",
+	"frame-system-rpc-runtime-api",
+]
+std = [
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-executive?/std",
+	"frame-support/std",
+	"frame-system-benchmarking?/std",
+	"frame-system-rpc-runtime-api?/std",
+	"frame-system/std",
+	"frame-try-runtime?/std",
+	"log/std",
+	"scale-info/std",
+	"sp-api?/std",
+	"sp-arithmetic/std",
+	"sp-block-builder?/std",
+	"sp-consensus-aura?/std",
+	"sp-consensus-grandpa?/std",
+	"sp-core/std",
+	"sp-inherents?/std",
+	"sp-io/std",
+	"sp-offchain?/std",
+	"sp-runtime/std",
+	"sp-session?/std",
+	"sp-storage/std",
+	"sp-transaction-pool?/std",
+	"sp-version?/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system-benchmarking/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"frame-try-runtime/try-runtime",
+	"pallet-examples/try-runtime",
+	"sp-runtime/try-runtime",
+]

@@ -46,7 +46,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_common::paras_registrar`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_common::paras_registrar::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> polkadot_runtime_common::paras_registrar::WeightInfo for WeightInfo<T> {
 	/// Storage: Registrar NextFreeParaId (r:1 w:1)
 	/// Proof Skipped: Registrar NextFreeParaId (max_values: Some(1), max_size: None, mode: Measured)
 	/// Storage: Registrar Paras (r:1 w:1)

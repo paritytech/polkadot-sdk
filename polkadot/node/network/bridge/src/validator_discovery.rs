@@ -88,16 +88,6 @@ impl<N: Network, AD: AuthorityDiscovery> Service<N, AD> {
 		{
 			gum::warn!(target: LOG_TARGET, err = ?e, "AuthorityDiscoveryService returned an invalid multiaddress");
 		}
-		// the addresses are known to be valid
-		//
-		// for peer-set management, the main protocol name should be used regardless of
-		// the negotiated version.
-		let _ = network_service
-			.remove_from_peers_set(
-				self.peerset_protocol_names.get_main_name(peer_set),
-				peers_to_remove,
-			)
-			.await;
 
 		network_service
 	}
@@ -169,13 +159,12 @@ mod tests {
 	use crate::network::Network;
 
 	use async_trait::async_trait;
-	use futures::stream::BoxStream;
 	use polkadot_node_network_protocol::{
 		request_response::{outgoing::Requests, ReqProtocolNames},
 		PeerId,
 	};
 	use polkadot_primitives::Hash;
-	use sc_network::{Event as NetworkEvent, IfDisconnected, ProtocolName, ReputationChange};
+	use sc_network::{IfDisconnected, ProtocolName, ReputationChange};
 	use sp_keyring::Sr25519Keyring;
 	use std::collections::{HashMap, HashSet};
 
@@ -224,10 +213,6 @@ mod tests {
 
 	#[async_trait]
 	impl Network for TestNetwork {
-		fn event_stream(&mut self) -> BoxStream<'static, NetworkEvent> {
-			panic!()
-		}
-
 		async fn set_reserved_peers(
 			&mut self,
 			_protocol: ProtocolName,
@@ -263,7 +248,11 @@ mod tests {
 			panic!()
 		}
 
-		fn write_notification(&self, _: PeerId, _: ProtocolName, _: Vec<u8>) {
+		fn peer_role(
+			&self,
+			_peer_id: PeerId,
+			_handshake: Vec<u8>,
+		) -> Option<sc_network::ObservedRole> {
 			panic!()
 		}
 	}

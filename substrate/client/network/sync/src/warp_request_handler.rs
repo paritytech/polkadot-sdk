@@ -20,13 +20,15 @@ use codec::Decode;
 use futures::{channel::oneshot, stream::StreamExt};
 use log::debug;
 
+use crate::{
+	strategy::warp::{EncodedProof, WarpProofRequest, WarpSyncProvider},
+	LOG_TARGET,
+};
 use sc_network::{
 	config::ProtocolId,
-	request_responses::{
-		IncomingRequest, OutgoingResponse, ProtocolConfig as RequestResponseConfig,
-	},
+	request_responses::{IncomingRequest, OutgoingResponse},
+	NetworkBackend,
 };
-use sc_network_common::sync::warp::{EncodedProof, WarpProofRequest, WarpSyncProvider};
 use sp_runtime::traits::Block as BlockT;
 
 use std::{sync::Arc, time::Duration};
@@ -36,25 +38,29 @@ const MAX_RESPONSE_SIZE: u64 = 16 * 1024 * 1024;
 /// Incoming warp requests bounded queue size.
 const MAX_WARP_REQUEST_QUEUE: usize = 20;
 
-/// Generates a [`RequestResponseConfig`] for the grandpa warp sync request protocol, refusing
+/// Generates a `RequestResponseProtocolConfig` for the grandpa warp sync request protocol, refusing
 /// incoming requests.
-pub fn generate_request_response_config<Hash: AsRef<[u8]>>(
+pub fn generate_request_response_config<
+	Hash: AsRef<[u8]>,
+	B: BlockT,
+	N: NetworkBackend<B, <B as BlockT>::Hash>,
+>(
 	protocol_id: ProtocolId,
 	genesis_hash: Hash,
 	fork_id: Option<&str>,
-) -> RequestResponseConfig {
-	RequestResponseConfig {
-		name: generate_protocol_name(genesis_hash, fork_id).into(),
-		fallback_names: std::iter::once(generate_legacy_protocol_name(protocol_id).into())
-			.collect(),
-		max_request_size: 32,
-		max_response_size: MAX_RESPONSE_SIZE,
-		request_timeout: Duration::from_secs(10),
-		inbound_queue: None,
-	}
+	inbound_queue: async_channel::Sender<IncomingRequest>,
+) -> N::RequestResponseProtocolConfig {
+	N::request_response_config(
+		generate_protocol_name(genesis_hash, fork_id).into(),
+		std::iter::once(generate_legacy_protocol_name(protocol_id).into()).collect(),
+		32,
+		MAX_RESPONSE_SIZE,
+		Duration::from_secs(10),
+		Some(inbound_queue),
+	)
 }
 
-/// Generate the grandpa warp sync protocol name from the genesi hash and fork id.
+/// Generate the grandpa warp sync protocol name from the genesis hash and fork id.
 fn generate_protocol_name<Hash: AsRef<[u8]>>(genesis_hash: Hash, fork_id: Option<&str>) -> String {
 	let genesis_hash = genesis_hash.as_ref();
 	if let Some(fork_id) = fork_id {
@@ -77,17 +83,20 @@ pub struct RequestHandler<TBlock: BlockT> {
 
 impl<TBlock: BlockT> RequestHandler<TBlock> {
 	/// Create a new [`RequestHandler`].
-	pub fn new<Hash: AsRef<[u8]>>(
+	pub fn new<Hash: AsRef<[u8]>, N: NetworkBackend<TBlock, <TBlock as BlockT>::Hash>>(
 		protocol_id: ProtocolId,
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
 		backend: Arc<dyn WarpSyncProvider<TBlock>>,
-	) -> (Self, RequestResponseConfig) {
+	) -> (Self, N::RequestResponseProtocolConfig) {
 		let (tx, request_receiver) = async_channel::bounded(MAX_WARP_REQUEST_QUEUE);
 
-		let mut request_response_config =
-			generate_request_response_config(protocol_id, genesis_hash, fork_id);
-		request_response_config.inbound_queue = Some(tx);
+		let request_response_config = generate_request_response_config::<_, TBlock, N>(
+			protocol_id,
+			genesis_hash,
+			fork_id,
+			tx,
+		);
 
 		(Self { backend, request_receiver }, request_response_config)
 	}
@@ -120,10 +129,10 @@ impl<TBlock: BlockT> RequestHandler<TBlock> {
 
 			match self.handle_request(payload, pending_response) {
 				Ok(()) => {
-					debug!(target: "sync", "Handled grandpa warp sync request from {}.", peer)
+					debug!(target: LOG_TARGET, "Handled grandpa warp sync request from {}.", peer)
 				},
 				Err(e) => debug!(
-					target: "sync",
+					target: LOG_TARGET,
 					"Failed to handle grandpa warp sync request from {}: {}",
 					peer, e,
 				),

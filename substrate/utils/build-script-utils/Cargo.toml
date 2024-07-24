@@ -1,6 +1,6 @@
 [package]
 name = "substrate-build-script-utils"
-version = "3.0.0"
+version = "11.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,6 +8,9 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "Crate with utility functions for `build.rs` scripts."
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

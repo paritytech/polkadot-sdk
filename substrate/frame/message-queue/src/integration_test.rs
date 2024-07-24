@@ -17,27 +17,29 @@
 
 //! Stress tests pallet-message-queue. Defines its own runtime config to use larger constants for
 //! `HeapSize` and `MaxStale`.
+//!
+//! The tests in this file are ignored by default, since they are quite slow. You can run them
+//! manually like this:
+//!
+//! ```sh
+//! RUST_LOG=info cargo test -p pallet-message-queue --profile testnet -- --ignored
+//! ```
 
 #![cfg(test)]
 
 use crate::{
 	mock::{
-		build_and_execute, CountingMessageProcessor, IntoWeight, MockedWeightInfo,
-		NumMessagesProcessed, YieldingQueues,
+		build_and_execute, gen_seed, Callback, CountingMessageProcessor, IntoWeight,
+		MessagesProcessed, MockedWeightInfo, NumMessagesProcessed, YieldingQueues,
 	},
 	mock_helpers::MessageOrigin,
 	*,
 };
 
 use crate as pallet_message_queue;
-use frame_support::{
-	parameter_types,
-	traits::{ConstU32, ConstU64},
-};
+use frame_support::{derive_impl, parameter_types};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use rand_distr::Pareto;
-use sp_core::H256;
-use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
 use std::collections::{BTreeMap, BTreeSet};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -45,35 +47,14 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		MessageQueue: pallet_message_queue,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -92,12 +73,10 @@ impl Config for Test {
 	type HeapSize = HeapSize;
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
+	type IdleMaxServiceWeight = ();
 }
 
 /// Simulates heavy usage by enqueueing and processing large amounts of messages.
-///
-/// Best to run with `RUST_LOG=info RUSTFLAGS='-Cdebug-assertions=y' cargo test -r -p
-/// pallet-message-queue -- --ignored`.
 ///
 /// # Example output
 ///
@@ -115,13 +94,13 @@ impl Config for Test {
 /// Processing all remaining 28639 messages
 /// ```
 #[test]
-#[ignore] // Only run in the CI.
+#[ignore] // Only run in the CI, otherwise its too slow.
 fn stress_test_enqueue_and_service() {
 	let blocks = 20;
 	let max_queues = 10_000;
 	let max_messages_per_queue = 10_000;
 	let max_msg_len = MaxMessageLenOf::<Test>::get();
-	let mut rng = StdRng::seed_from_u64(42);
+	let mut rng = StdRng::seed_from_u64(gen_seed());
 
 	build_and_execute::<Test>(|| {
 		let mut msgs_remaining = 0;
@@ -143,10 +122,75 @@ fn stress_test_enqueue_and_service() {
 	});
 }
 
+/// Very similar to `stress_test_enqueue_and_service`, but enqueues messages while processing them.
+#[test]
+#[ignore] // Only run in the CI, otherwise its too slow.
+fn stress_test_recursive() {
+	let blocks = 20;
+	let mut rng = StdRng::seed_from_u64(gen_seed());
+
+	// We need to use thread-locals since the callback cannot capture anything.
+	parameter_types! {
+		pub static TotalEnqueued: u32 = 0;
+		pub static Enqueued: u32 = 0;
+		pub static Called: u32 = 0;
+	}
+
+	Called::take();
+	Enqueued::take();
+	TotalEnqueued::take();
+
+	Callback::set(Box::new(|_, _| {
+		let mut rng = StdRng::seed_from_u64(Enqueued::get() as u64);
+		let max_queues = 1_000;
+		let max_messages_per_queue = 1_000;
+		let max_msg_len = MaxMessageLenOf::<Test>::get();
+
+		// Instead of directly enqueueing, we enqueue inside a `service` call.
+		let enqueued = enqueue_messages(max_queues, max_messages_per_queue, max_msg_len, &mut rng);
+		TotalEnqueued::set(TotalEnqueued::get() + enqueued);
+		Enqueued::set(Enqueued::get() + enqueued);
+		Called::set(Called::get() + 1);
+	}));
+
+	build_and_execute::<Test>(|| {
+		let mut msgs_remaining = 0;
+		for b in 0..blocks {
+			log::info!("Block #{}", b);
+			MessageQueue::enqueue_message(
+				BoundedSlice::defensive_truncate_from(format!("callback={b}").as_bytes()),
+				b.into(),
+			);
+
+			msgs_remaining += Enqueued::take() + 1;
+			// Pick a fraction of all messages currently in queue and process them.
+			let processed = rng.gen_range(1..=msgs_remaining);
+			log::info!("Processing {} of all messages {}", processed, msgs_remaining);
+			process_some_messages(processed); // This also advances the block.
+			msgs_remaining -= processed;
+			TotalEnqueued::set(TotalEnqueued::get() - processed + 1);
+			MessageQueue::do_try_state().unwrap();
+		}
+		while Called::get() < blocks {
+			msgs_remaining += Enqueued::take();
+			// Pick a fraction of all messages currently in queue and process them.
+			let processed = rng.gen_range(1..=msgs_remaining);
+			log::info!("Processing {} of all messages {}", processed, msgs_remaining);
+			process_some_messages(processed); // This also advances the block.
+			msgs_remaining -= processed;
+			TotalEnqueued::set(TotalEnqueued::get() - processed);
+			MessageQueue::do_try_state().unwrap();
+		}
+
+		let msgs_remaining = TotalEnqueued::take();
+		log::info!("Processing all remaining {} messages", msgs_remaining);
+		process_all_messages(msgs_remaining);
+		assert_eq!(Called::get(), blocks);
+		post_conditions();
+	});
+}
+
 /// Simulates heavy usage of the suspension logic via `Yield`.
-///
-/// Best to run with `RUST_LOG=info RUSTFLAGS='-Cdebug-assertions=y' cargo test -r -p
-/// pallet-message-queue -- --ignored`.
 ///
 /// # Example output
 ///
@@ -162,14 +206,14 @@ fn stress_test_enqueue_and_service() {
 /// Processing all remaining 430 messages
 /// ```
 #[test]
-#[ignore] // Only run in the CI.
+#[ignore] // Only run in the CI, otherwise its too slow.
 fn stress_test_queue_suspension() {
 	let blocks = 20;
 	let max_queues = 10_000;
 	let max_messages_per_queue = 10_000;
 	let (max_suspend_per_block, max_resume_per_block) = (100, 50);
 	let max_msg_len = MaxMessageLenOf::<Test>::get();
-	let mut rng = StdRng::seed_from_u64(41);
+	let mut rng = StdRng::seed_from_u64(gen_seed());
 
 	build_and_execute::<Test>(|| {
 		let mut suspended = BTreeSet::<u32>::new();
@@ -287,6 +331,11 @@ fn process_some_messages(num_msgs: u32) {
 	ServiceWeight::set(Some(weight));
 	let consumed = next_block();
 
+	for origin in BookStateFor::<Test>::iter_keys() {
+		let fp = MessageQueue::footprint(origin);
+		assert_eq!(fp.pages, fp.ready_pages);
+	}
+
 	assert_eq!(consumed, weight, "\n{}", MessageQueue::debug_info());
 	assert_eq!(NumMessagesProcessed::take(), num_msgs as usize);
 }
@@ -298,6 +347,7 @@ fn process_all_messages(expected: u32) {
 
 	assert_eq!(consumed, Weight::from_all(expected as u64));
 	assert_eq!(NumMessagesProcessed::take(), expected as usize);
+	MessagesProcessed::take();
 }
 
 /// Returns the weight consumed by `MessageQueue::on_initialize()`.
@@ -325,5 +375,6 @@ fn post_conditions() {
 	assert!(ServiceHead::<Test>::get().is_none());
 	// This still works fine.
 	assert_eq!(MessageQueue::service_queues(Weight::MAX), Weight::zero(), "Nothing left");
+	MessageQueue::do_try_state().unwrap();
 	next_block();
 }

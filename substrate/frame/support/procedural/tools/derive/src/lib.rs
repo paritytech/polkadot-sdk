@@ -19,8 +19,6 @@
 //! Use to derive parsing for parsing struct.
 // end::description[]
 
-#![recursion_limit = "128"]
-
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;

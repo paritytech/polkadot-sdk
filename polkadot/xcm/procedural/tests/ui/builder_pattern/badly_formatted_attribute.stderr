@@ -1,0 +1,5 @@
+error: Expected `builder(loads_holding)`
+  --> tests/ui/builder_pattern/badly_formatted_attribute.rs:25:5
+   |
+25 |     #[builder(funds_holding = 2)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

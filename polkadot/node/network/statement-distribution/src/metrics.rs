@@ -24,14 +24,19 @@ const HISTOGRAM_LATENCY_BUCKETS: &[f64] = &[
 
 #[derive(Clone)]
 struct MetricsInner {
-	statements_distributed: prometheus::Counter<prometheus::U64>,
+	// V1
 	sent_requests: prometheus::Counter<prometheus::U64>,
 	received_responses: prometheus::CounterVec<prometheus::U64>,
-	active_leaves_update: prometheus::Histogram,
-	share: prometheus::Histogram,
 	network_bridge_update: prometheus::HistogramVec,
 	statements_unexpected: prometheus::CounterVec<prometheus::U64>,
 	created_message_size: prometheus::Gauge<prometheus::U64>,
+	// V1+
+	statements_distributed: prometheus::Counter<prometheus::U64>,
+	active_leaves_update: prometheus::Histogram,
+	share: prometheus::Histogram,
+	// V2+
+	peer_rate_limit_request_drop: prometheus::Counter<prometheus::U64>,
+	max_parallel_requests_reached: prometheus::Counter<prometheus::U64>,
 }
 
 /// Statement Distribution metrics.
@@ -43,6 +48,13 @@ impl Metrics {
 	pub fn on_statement_distributed(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.statements_distributed.inc();
+		}
+	}
+
+	/// Update statements distributed counter by an amount
+	pub fn on_statements_distributed(&self, n: usize) {
+		if let Some(metrics) = &self.0 {
+			metrics.statements_distributed.inc_by(n as u64);
 		}
 	}
 
@@ -112,6 +124,23 @@ impl Metrics {
 	pub fn on_created_message(&self, size: usize) {
 		if let Some(metrics) = &self.0 {
 			metrics.created_message_size.set(size as u64);
+		}
+	}
+
+	/// Update sent dropped requests counter when request dropped because
+	/// of peer rate limit
+	pub fn on_request_dropped_peer_rate_limit(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.peer_rate_limit_request_drop.inc();
+		}
+	}
+
+	/// Update max parallel requests reached counter
+	/// This counter is updated when the maximum number of parallel requests is reached
+	/// and we are waiting for one of the requests to finish
+	pub fn on_max_parallel_requests_reached(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.max_parallel_requests_reached.inc();
 		}
 	}
 }
@@ -191,6 +220,20 @@ impl metrics::Metrics for Metrics {
 					"polkadot_parachain_statement_distribution_created_message_size",
 					"Size of created messages containing Seconded statements.",
 				))?,
+				registry,
+			)?,
+			peer_rate_limit_request_drop: prometheus::register(
+				prometheus::Counter::new(
+					"polkadot_parachain_statement_distribution_peer_rate_limit_request_drop_total",
+					"Number of statement distribution requests dropped because of the peer rate limiting.",
+				)?,
+				registry,
+			)?,
+			max_parallel_requests_reached: prometheus::register(
+				prometheus::Counter::new(
+					"polkadot_parachain_statement_distribution_max_parallel_requests_reached_total",
+					"Number of times the maximum number of parallel requests was reached.",
+				)?,
 				registry,
 			)?,
 		};

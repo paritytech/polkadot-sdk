@@ -1,4 +1,4 @@
-error: expected `extra` or `skip_meta`
+error: expected one of: `extra`, `skip_meta`, `pov_mode`
   --> tests/benchmark_ui/unrecognized_option.rs:26:32
    |
 26 |     #[benchmark(skip_meta, extra, bad)]

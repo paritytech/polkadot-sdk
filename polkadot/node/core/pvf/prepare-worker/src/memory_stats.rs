@@ -122,7 +122,7 @@ pub mod memory_tracker {
 	}
 
 	/// Helper function to get the stats from the memory tracker. Helps isolate this error handling.
-	pub async fn get_memory_tracker_loop_stats(
+	pub fn get_memory_tracker_loop_stats(
 		thread: JoinHandle<Result<MemoryAllocationStats, String>>,
 		worker_pid: u32,
 	) -> Option<MemoryAllocationStats> {

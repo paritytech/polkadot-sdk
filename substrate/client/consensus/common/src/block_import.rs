@@ -43,7 +43,7 @@ pub enum ImportResult {
 }
 
 /// Auxiliary data associated with an imported block result.
-#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImportedAux {
 	/// Only the header has been imported. Block body verification was skipped.
 	pub header_only: bool,
@@ -307,10 +307,7 @@ pub trait BlockImport<B: BlockT> {
 	type Error: std::error::Error + Send + 'static;
 
 	/// Check block preconditions.
-	async fn check_block(
-		&mut self,
-		block: BlockCheckParams<B>,
-	) -> Result<ImportResult, Self::Error>;
+	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error>;
 
 	/// Import a block.
 	async fn import_block(
@@ -324,10 +321,7 @@ impl<B: BlockT> BlockImport<B> for crate::import_queue::BoxBlockImport<B> {
 	type Error = sp_consensus::error::Error;
 
 	/// Check block preconditions.
-	async fn check_block(
-		&mut self,
-		block: BlockCheckParams<B>,
-	) -> Result<ImportResult, Self::Error> {
+	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
 		(**self).check_block(block).await
 	}
 
@@ -348,10 +342,7 @@ where
 {
 	type Error = E;
 
-	async fn check_block(
-		&mut self,
-		block: BlockCheckParams<B>,
-	) -> Result<ImportResult, Self::Error> {
+	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
 		(&**self).check_block(block).await
 	}
 

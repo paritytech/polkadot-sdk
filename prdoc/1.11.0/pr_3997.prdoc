@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet-broker] Fix claim revenue behaviour for zero timeslices"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Add a check in the `claim_revenue` broker call to ensure that max_timeslices > 0 and errors if
+      not. This mitigates an issue where an attacker could call claim_revenue for an existing region
+      that is owed a revenue, with max_timeslices set to 0 for free indefinitely, which would
+      represent an unbounded spam attack.
+
+crates:
+- name: pallet-broker
+  bump: patch

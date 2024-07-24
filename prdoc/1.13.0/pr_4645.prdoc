@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: make all storage items in parachain-system public
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      All storage items in cumulus-pallet-parachain-systemare now public. This allows
+      the usage of these storage items from within other runtime-pallets
+      or the runtime itself. For instance, it should allow to read the latests
+      relay state proof to read a certain well-known-key.
+
+crates:
+  - name: cumulus-pallet-parachain-system
+    bump: minor

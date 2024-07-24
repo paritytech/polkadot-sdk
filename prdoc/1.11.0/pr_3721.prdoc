@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: New call `hrmp.establish_channel_with_system` to allow parachains to establish a channel with a system parachain
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds a new call `hrmp.establish_channel_with_system` that allows a parachain origin to open a bidirectional channel with a system parachain.
+
+crates: 
+- name: polkadot-runtime-parachains
+  bump: minor

@@ -1,0 +1,12 @@
+title: "Adds Snowbridge to Rococo runtime"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds the snowbridge pallets as a git subtree under the bridges directory. Adds Snowbridge
+      to the Rococo Asset Hub and Bridge Hub runtimes.
+
+
+crates:
+  - name: asset-hub-rococo-runtime
+  - name: bridge-hub-rococo-runtime

@@ -19,21 +19,21 @@ use core::time::Duration;
 use cumulus_primitives_core::{
 	relay_chain::{
 		CommittedCandidateReceipt, Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, SessionIndex, ValidatorId,
+		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{
-	PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
+	BlockNumber, CoreState, PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
 };
 use futures::{FutureExt, Stream, StreamExt};
 use polkadot_overseer::Handle;
 
 use sc_client_api::StorageProof;
-use sp_core::sp_std::collections::btree_map::BTreeMap;
 use sp_state_machine::StorageValue;
 use sp_storage::StorageKey;
-use std::pin::Pin;
+use sp_version::RuntimeVersion;
+use std::{collections::btree_map::BTreeMap, pin::Pin};
 
 use cumulus_primitives_core::relay_chain::BlockId;
 pub use url::Url;
@@ -107,6 +107,17 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	) -> RelayChainResult<Option<PersistedValidationData>> {
 		self.rpc_client
 			.parachain_host_persisted_validation_data(hash, para_id, occupied_core_assumption)
+			.await
+	}
+
+	async fn validation_code_hash(
+		&self,
+		hash: RelayHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> RelayChainResult<Option<ValidationCodeHash>> {
+		self.rpc_client
+			.validation_code_hash(hash, para_id, occupied_core_assumption)
 			.await
 	}
 
@@ -225,5 +236,26 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	) -> RelayChainResult<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>> {
 		let imported_headers_stream = self.rpc_client.get_best_heads_stream()?;
 		Ok(imported_headers_stream.boxed())
+	}
+
+	async fn candidates_pending_availability(
+		&self,
+		hash: RelayHash,
+		para_id: ParaId,
+	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
+		self.rpc_client
+			.parachain_host_candidates_pending_availability(hash, para_id)
+			.await
+	}
+
+	async fn version(&self, relay_parent: RelayHash) -> RelayChainResult<RuntimeVersion> {
+		self.rpc_client.runtime_version(relay_parent).await
+	}
+
+	async fn availability_cores(
+		&self,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<Vec<CoreState<RelayHash, BlockNumber>>> {
+		self.rpc_client.parachain_host_availability_cores(relay_parent).await
 	}
 }
