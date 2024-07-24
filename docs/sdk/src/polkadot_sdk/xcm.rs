@@ -34,12 +34,11 @@
 //! but will be moved to its own repo in the future.
 //!
 //! Its main components are:
-//! - `src`: the definition of the basic types and instructions
-//! - [`xcm-executor`](https://paritytech.github.io/polkadot-sdk/master/staging_xcm_executor/struct.XcmExecutor.html):
-//!   an implementation of the virtual machine to execute instructions
-//! - `pallet-xcm`: A FRAME pallet for interacting with the executor
-//! - `xcm-builder`: a collection of types to configure the executor
-//! - `xcm-simulator`: a playground for trying out different XCM programs and executor
+//! - [`xcm`](::xcm): the definition of the basic types and instructions
+//! - [`xcm_executor`]: an implementation of the virtual machine to execute instructions
+//! - [`pallet_xcm`]: A FRAME pallet for interacting with the executor
+//! - [`xcm_builder`]: a collection of types to configure the executor
+//! - [`xcm_simulator`]: a playground for trying out different XCM programs and executor
 //!   configurations
 //!
 //! ## Example

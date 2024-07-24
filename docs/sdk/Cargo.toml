@@ -107,7 +107,11 @@ sp-version = { workspace = true, default-features = true }
 
 # XCM
 xcm = { workspace = true, default-features = true }
+xcm-builder = { workspace = true }
 xcm-docs = { workspace = true }
+xcm-executor = { workspace = true }
+xcm-simulator = { workspace = true }
+pallet-xcm = { workspace = true }
 
 # runtime guides
 chain-spec-guide-runtime = { workspace = true }

@@ -14572,6 +14572,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-uniques",
  "pallet-utility",
+ "pallet-xcm",
  "parachain-template-runtime",
  "parity-scale-codec",
  "polkadot-sdk",
@@ -14609,9 +14610,12 @@ dependencies = [
  "staging-node-cli",
  "staging-parachain-info",
  "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "subkey",
  "substrate-wasm-builder",
  "xcm-docs",
+ "xcm-simulator",
 ]
 
 [[package]]
