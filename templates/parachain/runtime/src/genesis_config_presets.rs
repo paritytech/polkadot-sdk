@@ -1,14 +1,12 @@
 use cumulus_primitives_core::ParaId;
-use sp_std::prelude::*;
 
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 
 use crate::{AccountId, SessionKeys, Signature, EXISTENTIAL_DEPOSIT};
+use alloc::{format, vec, vec::Vec};
 use serde_json::Value;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
-#[cfg(not(feature = "std"))]
-use sp_std::alloc::format;
 
 /// Preset configuration name for a local testnet environment.
 pub const PRESET_LOCAL_TESTNET: &str = "local_testnet";
@@ -151,7 +149,7 @@ fn development_config_genesis() -> Value {
 }
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
-pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>> {
+pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<vec::Vec<u8>> {
 	let patch = match id.try_into() {
 		Ok(PRESET_LOCAL_TESTNET) => local_testnet_genesis(),
 		Ok(PRESET_DEVELOPMENT) => development_config_genesis(),
