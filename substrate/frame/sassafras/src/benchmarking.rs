@@ -86,11 +86,11 @@ mod benchmarks {
 
 		// Makes the epoch change legit
 		let post_init_cache = EphemeralData {
-			prev_slot: Slot::from(config.epoch_length as u64 - 1),
+			prev_slot: Slot::from(config.epoch_duration as u64 - 1),
 			block_randomness: Randomness::default(),
 		};
 		TemporaryData::<T>::put(post_init_cache);
-		CurrentSlot::<T>::set(Slot::from(config.epoch_length as u64));
+		CurrentSlot::<T>::set(Slot::from(config.epoch_duration as u64));
 
 		// Force ring verifier key re-computation
 		let next_authorities: Vec<_> =

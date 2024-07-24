@@ -97,10 +97,12 @@ pub type Randomness = [u8; RANDOMNESS_LENGTH];
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Configuration {
-	/// Epoch length.
-	pub epoch_length: u32,
-	/// Epoch's tail duration.
-	pub epoch_tail_length: u32,
+	/// Epoch duration in slots.
+	pub epoch_duration: u32,
+	/// Epoch's tickets' lottery duration in slots.
+	///
+	/// This determines the period during which is allowed to submit new tickets on-chain.
+	pub lottery_duration: u32,
 	/// Max number of authorities allowed.
 	pub max_authorities: u32,
 	/// Tickets redundancy factor.
@@ -113,7 +115,7 @@ pub struct Configuration {
 	/// Influences the anonymity of block producers. As all published tickets have a public
 	/// attempt number less than `attempts_number` if two tickets share an attempt number
 	/// then they must belong to two different validators, which reduces anonymity late as
-	/// we approach the epoch tail.
+	/// we approach the epoch's tail.
 	///
 	/// This anonymity loss already becomes small when `attempts_number = 64` or `128`.
 	pub attempts_number: u8,

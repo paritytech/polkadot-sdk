@@ -55,10 +55,7 @@ use scale_info::TypeInfo;
 
 use alloc::vec::Vec;
 use frame_support::{
-	dispatch::DispatchResult,
-	traits::{ConstU32, Get},
-	weights::Weight,
-	BoundedVec, WeakBoundedVec,
+	dispatch::DispatchResult, traits::Get, weights::Weight, BoundedVec, WeakBoundedVec,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_consensus_sassafras::{
@@ -71,7 +68,7 @@ use sp_io::hashing;
 use sp_runtime::{
 	generic::DigestItem,
 	traits::{One, Zero},
-	BoundToRuntimeAppPublic,
+	BoundToRuntimeAppPublic, Percent,
 };
 
 pub use pallet::*;
@@ -90,17 +87,6 @@ const LOG_TARGET: &str = "sassafras::runtime";
 
 // Contextual string used by the VRF to generate per-block randomness.
 const RANDOMNESS_VRF_CONTEXT: &[u8] = b"SassafrasOnChainRandomness";
-
-// Epoch tail is the section of the epoch where no tickets are allowed to be submitted.
-// As the name implies, this section is at the end of an epoch.
-//
-// Length of the epoch's tail is computed as `Config::EpochLength / EPOCH_TAIL_FRACTION`
-// TODO: make this part of `Config`?
-const EPOCH_TAIL_FRACTION: u32 = 6;
-
-/// Max number of tickets that can be submitted in one block.
-// TODO: make this part of `Config`?
-const TICKETS_CHUNK_MAX_LENGTH: u32 = 16;
 
 /// Randomness buffer.
 pub type RandomnessBuffer = [Randomness; 4];
@@ -149,7 +135,7 @@ impl From<TicketId> for TicketKey {
 pub type AuthoritiesVec<T> = WeakBoundedVec<AuthorityId, <T as Config>::MaxAuthorities>;
 
 /// Tickets sequence.
-pub type TicketsVec = BoundedVec<TicketEnvelope, ConstU32<TICKETS_CHUNK_MAX_LENGTH>>;
+pub type TicketsVec<T> = BoundedVec<TicketEnvelope, <T as Config>::TicketsChunkLength>;
 
 trait EpochTag {
 	fn tag(&self) -> u8;
@@ -183,7 +169,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// Amount of slots that each epoch should last.
 		#[pallet::constant]
-		type EpochLength: Get<u32>;
+		type EpochDuration: Get<u32>;
 
 		/// Max number of authorities allowed.
 		#[pallet::constant]
@@ -196,6 +182,17 @@ pub mod pallet {
 		/// Max attempts number
 		#[pallet::constant]
 		type AttemptsNumber: Get<u8>;
+
+		/// Max number of tickets that can be submitted in one block.
+		#[pallet::constant]
+		type TicketsChunkLength: Get<u32>;
+
+		/// Epoch lottery duration percent relative to the epoch `EpochDuration`.
+		///
+		/// Tickets lottery starts with the start of an epoch.
+		/// When epoch lottery ends no more tickets are allowed to be submitted on-chain.
+		#[pallet::constant]
+		type LotteryDurationPercent: Get<Percent>;
 
 		/// Epoch change trigger.
 		///
@@ -285,7 +282,7 @@ pub mod pallet {
 	#[pallet::getter(fn ring_verifier_key)]
 	pub type RingVerifierKey<T: Config> = StorageValue<_, vrf::RingVerifierKey>;
 
-	/// Ephemeral data we retain until the block finalization.
+	/// Ephemeral data we retain until block finalization.
 	#[pallet::storage]
 	pub(crate) type TemporaryData<T> = StorageValue<_, EphemeralData>;
 
@@ -369,15 +366,13 @@ pub mod pallet {
 				.block_randomness;
 			Self::deposit_randomness(block_randomness);
 
-			// Check if we are in the epoch's tail.
-			// If so, start sorting the next epoch tickets.
-			let epoch_length = T::EpochLength::get();
+			// Check if tickets lottery is over, and if so, start sorting the next epoch tickets.
+			let epoch_duration = T::EpochDuration::get();
+			let lottery_over_idx = T::LotteryDurationPercent::get() * epoch_duration;
 			let current_slot_idx = Self::current_slot_index();
 			let mut outstanding_count = TicketsAccumulator::<T>::count() as usize;
-			if current_slot_idx >= epoch_length - epoch_length / EPOCH_TAIL_FRACTION &&
-				outstanding_count != 0
-			{
-				let slots_left = epoch_length.checked_sub(current_slot_idx + 1).unwrap_or(1);
+			if current_slot_idx >= lottery_over_idx && outstanding_count != 0 {
+				let slots_left = epoch_duration.checked_sub(current_slot_idx).unwrap_or(1);
 				if slots_left > 0 {
 					outstanding_count = outstanding_count.div_ceil(slots_left as usize);
 				}
@@ -390,21 +385,19 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Submit next epoch tickets candidates.
-		///
-		/// The number of tickets allowed to be submitted in one call is equal to the epoch length.
 		#[pallet::call_index(0)]
 		#[pallet::weight((
 			T::WeightInfo::submit_tickets(envelopes.len() as u32),
 			DispatchClass::Mandatory
 		))]
-		pub fn submit_tickets(origin: OriginFor<T>, envelopes: TicketsVec) -> DispatchResult {
+		pub fn submit_tickets(origin: OriginFor<T>, envelopes: TicketsVec<T>) -> DispatchResult {
 			ensure_none(origin)?;
 
 			debug!(target: LOG_TARGET, "Received {} tickets", envelopes.len());
 
-			let epoch_length = T::EpochLength::get();
+			let epoch_duration = T::EpochDuration::get();
 			let current_slot_idx = Self::current_slot_index();
-			if current_slot_idx > epoch_length / 2 {
+			if current_slot_idx > epoch_duration / 2 {
 				warn!(target: LOG_TARGET, "Tickets shall be submitted in the first epoch half",);
 				return Err("Tickets shall be submitted in the first epoch half".into())
 			}
@@ -420,7 +413,7 @@ pub mod pallet {
 
 			// Compute tickets threshold
 			let ticket_threshold = sp_consensus_sassafras::ticket_id_threshold(
-				epoch_length as u32,
+				epoch_duration as u32,
 				authorities.len() as u32,
 				T::AttemptsNumber::get(),
 				T::RedundancyFactor::get(),
@@ -585,7 +578,7 @@ impl<T: Config> Pallet<T> {
 		if count != prev_count + tickets.len() as u32 {
 			return Err(Error::TicketDuplicate)
 		}
-		let diff = count.saturating_sub(T::EpochLength::get());
+		let diff = count.saturating_sub(T::EpochDuration::get());
 		if diff > 0 {
 			let dropped_entries: Vec<_> =
 				TicketsAccumulator::<T>::iter().take(diff as usize).collect();
@@ -721,7 +714,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let mut epoch_tag = slot_epoch_idx.tag();
-		let epoch_len = T::EpochLength::get();
+		let epoch_len = T::EpochDuration::get();
 		let mut slot_idx = Self::slot_index(slot);
 
 		if epoch_len <= slot_idx && slot_idx < 2 * epoch_len {
@@ -772,9 +765,11 @@ impl<T: Config> Pallet<T> {
 	/// Static protocol configuration.
 	#[inline(always)]
 	pub fn protocol_config() -> Configuration {
+		let epoch_duration = T::EpochDuration::get();
+		let lottery_duration = T::LotteryDurationPercent::get() * epoch_duration;
 		Configuration {
-			epoch_length: T::EpochLength::get(),
-			epoch_tail_length: T::EpochLength::get() / EPOCH_TAIL_FRACTION,
+			epoch_duration,
+			lottery_duration,
 			max_authorities: T::MaxAuthorities::get(),
 			redundancy_factor: T::RedundancyFactor::get(),
 			attempts_number: T::AttemptsNumber::get(),
@@ -846,7 +841,7 @@ impl<T: Config> Pallet<T> {
 	/// Slot index relative to the current epoch.
 	#[inline(always)]
 	fn slot_index(slot: Slot) -> u32 {
-		(*slot % <T as Config>::EpochLength::get() as u64) as u32
+		(*slot % <T as Config>::EpochDuration::get() as u64) as u32
 	}
 
 	/// Current epoch index.
@@ -858,15 +853,14 @@ impl<T: Config> Pallet<T> {
 	/// Epoch's index from slot.
 	#[inline(always)]
 	fn epoch_index(slot: Slot) -> u64 {
-		*slot / <T as Config>::EpochLength::get() as u64
+		*slot / <T as Config>::EpochDuration::get() as u64
 	}
 
-	/// Epoch length
 	/// Get current epoch first slot.
 	#[inline(always)]
 	fn current_epoch_start() -> Slot {
 		let curr_slot = *Self::current_slot();
-		let epoch_start = curr_slot - curr_slot % <T as Config>::EpochLength::get() as u64;
+		let epoch_start = curr_slot - curr_slot % <T as Config>::EpochDuration::get() as u64;
 		Slot::from(epoch_start)
 	}
 
@@ -875,12 +869,13 @@ impl<T: Config> Pallet<T> {
 	fn epoch_start(epoch_index: u64) -> Slot {
 		const PROOF: &str = "slot number is u64; it should relate in some way to wall clock time; \
 							 if u64 is not enough we should crash for safety; qed.";
-		epoch_index.checked_mul(T::EpochLength::get() as u64).expect(PROOF).into()
+		epoch_index.checked_mul(T::EpochDuration::get() as u64).expect(PROOF).into()
 	}
 
+	/// Epoch duration.
 	#[inline(always)]
-	fn epoch_length() -> u32 {
-		T::EpochLength::get()
+	fn epoch_duration() -> u32 {
+		T::EpochDuration::get()
 	}
 }
 
@@ -920,7 +915,7 @@ impl EpochChangeTrigger for EpochChangeInternalTrigger {
 			let next_authorities = authorities.clone();
 			let len = next_authorities.len() as u32;
 			Pallet::<T>::enact_epoch_change(authorities, next_authorities);
-			T::WeightInfo::enact_epoch_change(len, T::EpochLength::get())
+			T::WeightInfo::enact_epoch_change(len, T::EpochDuration::get())
 		} else {
 			Weight::zero()
 		}

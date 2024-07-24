@@ -264,8 +264,8 @@ fn on_normal_block() {
 		initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
 
 		// We don't want to trigger an epoch change in this test.
-		let epoch_length = Sassafras::epoch_length() as u64;
-		assert!(epoch_length > end_block);
+		let epoch_duration = Sassafras::epoch_duration() as u64;
+		assert!(epoch_duration > end_block);
 
 		// Progress to block 2
 		let digest = progress_to_block(end_block, &pairs[0]).unwrap();
@@ -313,11 +313,11 @@ fn produce_epoch_change_digest() {
 		initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
 
 		// We want to trigger an epoch change in this test.
-		let epoch_length = Sassafras::epoch_length() as u64;
-		let end_block = start_block + epoch_length - 1;
+		let epoch_duration = Sassafras::epoch_duration() as u64;
+		let end_block = start_block + epoch_duration - 1;
 
 		let common_assertions = |initialized| {
-			assert_eq!(Sassafras::current_slot(), GENESIS_SLOT + epoch_length);
+			assert_eq!(Sassafras::current_slot(), GENESIS_SLOT + epoch_duration);
 			assert_eq!(Sassafras::current_slot_index(), 0);
 			assert_eq!(TemporaryData::<Test>::exists(), initialized);
 		};
@@ -429,8 +429,8 @@ fn slot_and_epoch_helpers_works() {
 	let (pairs, mut ext) = new_test_ext_with_pairs(1, false);
 
 	ext.execute_with(|| {
-		let epoch_length = Sassafras::epoch_length() as u64;
-		assert_eq!(epoch_length, 10);
+		let epoch_duration = Sassafras::epoch_duration() as u64;
+		assert_eq!(epoch_duration, 10);
 
 		let check = |slot, slot_idx, epoch_slot, epoch_idx| {
 			assert_eq!(Sassafras::current_slot(), Slot::from(slot));
@@ -447,7 +447,7 @@ fn slot_and_epoch_helpers_works() {
 		check(101, 1, 100, 10);
 
 		// Progress to epoch N last block
-		let end_block = start_block + epoch_length - 2;
+		let end_block = start_block + epoch_duration - 2;
 		progress_to_block(end_block, &pairs[0]).unwrap();
 		check(109, 9, 100, 10);
 
@@ -456,7 +456,7 @@ fn slot_and_epoch_helpers_works() {
 		check(110, 0, 110, 11);
 
 		// Progress to epoch N+1 last block
-		let end_block = end_block + epoch_length;
+		let end_block = end_block + epoch_duration;
 		progress_to_block(end_block, &pairs[0]).unwrap();
 		check(119, 9, 110, 11);
 
@@ -479,7 +479,7 @@ fn tickets_accumulator_works() {
 	let (pairs, mut ext) = new_test_ext_with_pairs(1, false);
 
 	ext.execute_with(|| {
-		let epoch_length = Sassafras::epoch_length() as u64;
+		let epoch_duration = Sassafras::epoch_duration() as u64;
 
 		let epoch_idx = Sassafras::current_epoch_index();
 		let epoch_tag = (epoch_idx % 2) as u8;
@@ -493,12 +493,15 @@ fn tickets_accumulator_works() {
 			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.id), t));
 
 		// Progress to epoch's last block
-		let end_block = start_block + epoch_length - 2;
+		let end_block = start_block + epoch_duration - 2;
 		progress_to_block(end_block, &pairs[0]).unwrap();
 
 		let tickets_count = TicketsCount::<Test>::get();
 		assert_eq!(tickets_count[epoch_tag as usize], 0);
-		assert_eq!(tickets_count[next_epoch_tag as usize], 0);
+		assert!(
+			0 < tickets_count[next_epoch_tag as usize] &&
+				tickets_count[next_epoch_tag as usize] < e1_count as u32
+		);
 
 		finalize_block(end_block);
 
@@ -527,12 +530,15 @@ fn tickets_accumulator_works() {
 			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.id), t));
 
 		// Progress to epoch's last block
-		let end_block = end_block + epoch_length;
+		let end_block = end_block + epoch_duration;
 		progress_to_block(end_block, &pairs[0]).unwrap();
 
 		let tickets_count = TicketsCount::<Test>::get();
 		assert_eq!(tickets_count[epoch_tag as usize], e1_count as u32);
-		assert_eq!(tickets_count[next_epoch_tag as usize], 0);
+		assert!(
+			0 < tickets_count[next_epoch_tag as usize] &&
+				tickets_count[next_epoch_tag as usize] < e2_count as u32
+		);
 
 		finalize_block(end_block);
 

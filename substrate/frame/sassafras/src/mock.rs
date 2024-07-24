@@ -20,7 +20,7 @@
 use crate::{self as pallet_sassafras, EpochChangeInternalTrigger, *};
 
 use frame_support::{
-	derive_impl,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU8, OnFinalize, OnInitialize},
 };
 use sp_consensus_sassafras::{
@@ -39,8 +39,13 @@ use sp_runtime::{
 
 const LOG_TARGET: &str = "sassafras::tests";
 
-const EPOCH_LENGTH: u32 = 10;
+// Configuration constants
+const EPOCH_DURATION: u32 = 10;
+const LOTTERY_PERCENT: u8 = 85;
 const MAX_AUTHORITIES: u32 = 100;
+const REDUNDANCY_FACTOR: u8 = 32;
+const ATTEMPTS_NUMBER: u8 = 2;
+const TICKETS_CHUNK_LENGTH: u32 = 16;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -55,11 +60,17 @@ where
 	type Extrinsic = TestXt<RuntimeCall, ()>;
 }
 
+parameter_types! {
+	pub const LotteryPercent: Percent = Percent::from_percent(LOTTERY_PERCENT);
+}
+
 impl pallet_sassafras::Config for Test {
-	type EpochLength = ConstU32<EPOCH_LENGTH>;
+	type EpochDuration = ConstU32<EPOCH_DURATION>;
 	type MaxAuthorities = ConstU32<MAX_AUTHORITIES>;
-	type RedundancyFactor = ConstU8<32>;
-	type AttemptsNumber = ConstU8<2>;
+	type RedundancyFactor = ConstU8<REDUNDANCY_FACTOR>;
+	type AttemptsNumber = ConstU8<ATTEMPTS_NUMBER>;
+	type TicketsChunkLength = ConstU32<TICKETS_CHUNK_LENGTH>;
+	type LotteryDurationPercent = LotteryPercent;
 	type EpochChangeTrigger = EpochChangeInternalTrigger;
 	type WeightInfo = ();
 }
