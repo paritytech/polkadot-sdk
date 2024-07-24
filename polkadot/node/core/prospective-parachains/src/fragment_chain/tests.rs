@@ -588,6 +588,41 @@ fn populate_with_empty_best_chain() {
 	assert!(chain.best_chain_vec().is_empty());
 	assert_eq!(chain.unconnected_len(), 0);
 
+	// Parachain cycle is not allowed. Make C have the same parent as A.
+	let mut modified_storage = storage.clone();
+	modified_storage.remove_candidate(&candidate_c_hash);
+	let (wrong_pvd_c, wrong_candidate_c) = make_committed_candidate(
+		para_id,
+		relay_parent_z_info.hash,
+		relay_parent_z_info.number,
+		vec![0x0c].into(),
+		vec![0x0a].into(),
+		relay_parent_z_info.number,
+	);
+	modified_storage
+		.add_candidate_entry(
+			CandidateEntry::new(
+				wrong_candidate_c.hash(),
+				wrong_candidate_c,
+				wrong_pvd_c,
+				CandidateState::Backed,
+			)
+			.unwrap(),
+		)
+		.unwrap();
+	let scope = Scope::with_ancestors(
+		relay_parent_z_info.clone(),
+		base_constraints.clone(),
+		pending_availability.clone(),
+		4,
+		ancestors.clone(),
+	)
+	.unwrap();
+
+	let chain = FragmentChain::populate(scope, modified_storage);
+	assert_eq!(chain.best_chain_vec(), vec![candidate_a_hash, candidate_b_hash]);
+	assert_eq!(chain.unconnected_len(), 0);
+
 	// Candidate C has the same relay parent as candidate A's parent. Relay parent not allowed
 	// to move backwards
 	let mut modified_storage = storage.clone();
@@ -705,21 +740,20 @@ fn populate_with_empty_best_chain() {
 	assert_eq!(chain.best_chain_vec(), vec![modified_candidate_a_hash, candidate_b_hash]);
 	assert_eq!(chain.unconnected_len(), 0);
 
-	// Parachain cycle is not allowed. Make C have the same parent as A.
-	let mut modified_storage = storage.clone();
-	modified_storage.remove_candidate(&candidate_c_hash);
+	// Not allowed to fork from a candidate pending availability
 	let (wrong_pvd_c, wrong_candidate_c) = make_committed_candidate(
 		para_id,
-		relay_parent_z_info.hash,
-		relay_parent_z_info.number,
-		vec![0x0c].into(),
+		relay_parent_y_info.hash,
+		relay_parent_y_info.number,
 		vec![0x0a].into(),
-		relay_parent_z_info.number,
+		vec![0x0b2].into(),
+		0,
 	);
+	let wrong_candidate_c_hash = wrong_candidate_c.hash();
 	modified_storage
 		.add_candidate_entry(
 			CandidateEntry::new(
-				wrong_candidate_c.hash(),
+				wrong_candidate_c_hash,
 				wrong_candidate_c,
 				wrong_pvd_c,
 				CandidateState::Backed,
@@ -727,17 +761,26 @@ fn populate_with_empty_best_chain() {
 			.unwrap(),
 		)
 		.unwrap();
+
+	assert_eq!(
+		fork_selection_rule(&wrong_candidate_c_hash, &modified_candidate_a_hash),
+		Ordering::Less
+	);
+
 	let scope = Scope::with_ancestors(
 		relay_parent_z_info.clone(),
 		base_constraints.clone(),
-		pending_availability.clone(),
+		vec![PendingAvailability {
+			candidate_hash: modified_candidate_a_hash,
+			relay_parent: relay_parent_y_info.clone(),
+		}],
 		4,
 		ancestors.clone(),
 	)
 	.unwrap();
 
-	let chain = FragmentChain::populate(scope, modified_storage);
-	assert_eq!(chain.best_chain_vec(), vec![candidate_a_hash, candidate_b_hash]);
+	let chain = FragmentChain::populate(scope, modified_storage.clone());
+	assert_eq!(chain.best_chain_vec(), vec![modified_candidate_a_hash, candidate_b_hash]);
 	assert_eq!(chain.unconnected_len(), 0);
 
 	// Test with candidates pending availability
@@ -1019,7 +1062,6 @@ fn populate_with_empty_best_chain() {
 			.collect()
 	);
 
-	// TODO: add test for ForkWithCandidatePendingAvailability
 	// TODO: add test for the complete candidate checks
 }
 
