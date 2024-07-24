@@ -25,11 +25,35 @@ Each command will have the same two required values, but it could have more.
 
 GitHub's official documentation: [Manually running a workflow](https://docs.github.com/en/actions/using-workflows/manually-running-a-workflow)
 
+#### Running from CLI
+
+You can use [`gh cli`](https://cli.github.com/) to run the commands too. Refers to the [`gh workflow run`](https://cli.github.com/manual/gh_workflow_run) section from the documentation for more information.
+
 ### Number of the Pull Request
 
 The number of the pull request. Required so the action can fetch the correct branch and comment if it fails.
 
 ## Action configurations
+
+### FMT
+
+For FMT you only need the PR number.
+
+You can use the following [`gh cli`](https://cli.github.com/) inside the repo:
+
+```bash
+gh workflow run command-fmt.yml -f pr=1000
+```
+
+### Update UI
+
+For Update UI you only need the PR number.
+
+You can use the following [`gh cli`](https://cli.github.com/) inside the repo:
+
+```bash
+gh workflow run command-update-ui.yml -f pr=1000
+```
 
 ### Bench
 
@@ -136,6 +160,12 @@ Posible combinations based on the `benchmark` dropdown.
   - Requires `Runtime Dir` to be `testing`
   - Requires `Target Directory` to be `cumulus`
 
+You can use the following [`gh cli`](https://cli.github.com/) inside the repo:
+
+```bash
+gh workflow run command-bench.yml -f pr=1000 -f benchmark=polkadot-pallet -f subcommand=pallet -f runtime=rococo -f pallet=pallet_name -f target_dir=polkadot
+```
+
 ### Bench-all
 
 This is a wrapper to run `bench` for all pallets.
@@ -174,6 +204,12 @@ Posible combinations based on the `benchmark` dropdown.
     - `people-westend`
   - Requires `Target Directory` to be `cumulus`
 
+You can use the following [`gh cli`](https://cli.github.com/) inside the repo:
+
+```bash
+gh workflow run command-bench-all.yml -f pr=1000 -f benchmark=pallet -f pallet=pallet_name -f target_dir=polkadot -f runtime=rococo
+```
+
 ### Bench-overhead
 
 Run benchmarks overhead and commit back results to PR.
@@ -192,6 +228,35 @@ Posible combinations based on the `benchmark` dropdown.
     - `asset-hub-rococo`
     - `asset-hub-westend`
   - Requires `Target directory` to be `cumulus`
+
+You can use the following [`gh cli`](https://cli.github.com/) inside the repo:
+
+```bash
+gh workflow run command-bench-overheard.yml -f pr=1000 -f benchmark=substrate -f runtime=rococo -f target_dir=substrate
+```
+
+### Sync
+
+Run sync and commit back results to PR.
+
+Posible combinations based on the `benchmark` dropdown.
+
+- `chain`
+  - Requires one of the following:
+    - `rococo`
+    - `westend`
+- `sync-type`
+  - Requires one of the following:
+    - `warp`
+    - `full`
+    - `fast`
+    - `fast-unsafe`
+
+You can use the following [`gh cli`](https://cli.github.com/) inside the repo:
+
+```bash
+gh workflow run command-sync.yml -f pr=1000 -f chain=rococo -f sync-type=full
+```
 
 ## How to modify an action
 
