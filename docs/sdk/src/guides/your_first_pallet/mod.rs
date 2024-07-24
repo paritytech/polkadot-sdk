@@ -83,7 +83,7 @@
 //!   document ([`crate::reference_docs::frame_origin`]). For now, you should only know the
 //!   signature of the function: it takes a generic `T::RuntimeOrigin` and returns a
 //!   `Result<T::AccountId, _>`. So by the end of this function call, we know that this dispatchable
-//!   was signed by `who`.
+//!   was signed by `sender`.
 #![doc = docify::embed!("../../substrate/frame/system/src/lib.rs", ensure_signed)]
 //!
 //! - Where does `mutate`, `get` and `insert` and other storage APIs come from? All of them are
