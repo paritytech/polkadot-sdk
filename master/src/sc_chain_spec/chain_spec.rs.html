@@ -1671,7 +1671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			name: <span class="string">"Development"</span>.to_string(),
 			id: <span class="string">"dev"</span>.to_string(),
 			chain_type: ChainType::Local,
-			genesis_build_action: GenesisBuildAction::Patch(Default::default()),
+			genesis_build_action: GenesisBuildAction::Patch(<span class="macro">json::json!</span>({})),
 			boot_nodes: <span class="prelude-val">None</span>,
 			telemetry_endpoints: <span class="prelude-val">None</span>,
 			protocol_id: <span class="prelude-val">None</span>,

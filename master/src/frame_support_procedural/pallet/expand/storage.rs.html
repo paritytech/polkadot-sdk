@@ -1068,6 +1068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#917" id="917">917</a>
 <a href="#918" id="918">918</a>
 <a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1919,39 +1920,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		storage_names.sort_by_cached_key(|ident| ident.to_string());
 
 		<span class="macro">quote::quote!</span>(
-			<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-			</span><span class="kw">impl</span>&lt;#type_impl_gen&gt; #frame_support::traits::TryDecodeEntireStorage
-			<span class="kw">for </span>#pallet_ident&lt;#type_use_gen&gt; #completed_where_clause
-			{
-				<span class="kw">fn </span>try_decode_entire_state() -&gt; <span class="prelude-ty">Result</span>&lt;usize, #frame_support::__private::Vec&lt;#frame_support::traits::TryDecodeEntireStorageError&gt;&gt; {
-					<span class="kw">let </span>pallet_name = &lt;&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo	<span class="kw">as </span>#frame_support::traits::PalletInfo&gt;
-						::name::&lt;#pallet_ident&lt;#type_use_gen&gt;&gt;()
-						.expect(<span class="string">"Every active pallet has a name in the runtime; qed"</span>);
+			#<span class="macro">frame_support::try_runtime_enabled! </span>{
+				<span class="kw">impl</span>&lt;#type_impl_gen&gt; #frame_support::traits::TryDecodeEntireStorage
+				<span class="kw">for </span>#pallet_ident&lt;#type_use_gen&gt; #completed_where_clause
+				{
+					<span class="kw">fn </span>try_decode_entire_state() -&gt; <span class="prelude-ty">Result</span>&lt;usize, #frame_support::__private::Vec&lt;#frame_support::traits::TryDecodeEntireStorageError&gt;&gt; {
+						<span class="kw">let </span>pallet_name = &lt;&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo	<span class="kw">as </span>#frame_support::traits::PalletInfo&gt;
+							::name::&lt;#pallet_ident&lt;#type_use_gen&gt;&gt;()
+							.expect(<span class="string">"Every active pallet has a name in the runtime; qed"</span>);
 
-					#<span class="macro">frame_support::__private::log::debug!</span>(target: <span class="string">"runtime::try-decode-state"</span>, <span class="string">"trying to decode pallet: {pallet_name}"</span>);
+						#<span class="macro">frame_support::__private::log::debug!</span>(target: <span class="string">"runtime::try-decode-state"</span>, <span class="string">"trying to decode pallet: {pallet_name}"</span>);
 
-					<span class="comment">// NOTE: for now, we have to exclude storage items that are feature gated.
-					</span><span class="kw">let </span><span class="kw-2">mut </span>errors = #frame_support::__private::Vec::new();
-					<span class="kw">let </span><span class="kw-2">mut </span>decoded = <span class="number">0usize</span>;
+						<span class="comment">// NOTE: for now, we have to exclude storage items that are feature gated.
+						</span><span class="kw">let </span><span class="kw-2">mut </span>errors = #frame_support::__private::Vec::new();
+						<span class="kw">let </span><span class="kw-2">mut </span>decoded = <span class="number">0usize</span>;
 
-					#(
-						#<span class="macro">frame_support::__private::log::debug!</span>(target: <span class="string">"runtime::try-decode-state"</span>, <span class="string">"trying to decode storage: \
-						{pallet_name}::{}"</span>, <span class="macro">stringify!</span>(#storage_names));
+						#(
+							#<span class="macro">frame_support::__private::log::debug!</span>(target: <span class="string">"runtime::try-decode-state"</span>, <span class="string">"trying to decode storage: \
+							{pallet_name}::{}"</span>, <span class="macro">stringify!</span>(#storage_names));
 
-						<span class="kw">match </span>&lt;#storage_names <span class="kw">as </span>#frame_support::traits::TryDecodeEntireStorage&gt;::try_decode_entire_state() {
-							<span class="prelude-val">Ok</span>(count) =&gt; {
-								decoded += count;
-							},
-							<span class="prelude-val">Err</span>(err) =&gt; {
-								errors.extend(err);
-							},
+							<span class="kw">match </span>&lt;#storage_names <span class="kw">as </span>#frame_support::traits::TryDecodeEntireStorage&gt;::try_decode_entire_state() {
+								<span class="prelude-val">Ok</span>(count) =&gt; {
+									decoded += count;
+								},
+								<span class="prelude-val">Err</span>(err) =&gt; {
+									errors.extend(err);
+								},
+							}
+						)*
+
+						<span class="kw">if </span>errors.is_empty() {
+							<span class="prelude-val">Ok</span>(decoded)
+						} <span class="kw">else </span>{
+							<span class="prelude-val">Err</span>(errors)
 						}
-					)*
-
-					<span class="kw">if </span>errors.is_empty() {
-						<span class="prelude-val">Ok</span>(decoded)
-					} <span class="kw">else </span>{
-						<span class="prelude-val">Err</span>(errors)
 					}
 				}
 			}

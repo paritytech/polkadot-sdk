@@ -2224,7 +2224,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-</span><span class="kw">use </span>sp_core::{bls377, ecdsa_bls377};
+</span><span class="kw">use </span>sp_core::{bls381, ecdsa_bls381};
 
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
@@ -3320,38 +3320,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(pubkey.serialize())
 	}
 
-	<span class="doccomment">/// Generate an `bls12-377` key for the given key type using an optional `seed` and
+	<span class="doccomment">/// Generate an `bls12-381` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
 	</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>bls377_generate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: KeyTypeId, seed: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) -&gt; bls377::Public {
+	</span><span class="kw">fn </span>bls381_generate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: KeyTypeId, seed: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) -&gt; bls381::Public {
 		<span class="kw">let </span>seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect(<span class="string">"Seed is valid utf8!"</span>));
 		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
 			.expect(<span class="string">"No `keystore` associated for the current context!"</span>)
-			.bls377_generate_new(id, seed)
-			.expect(<span class="string">"`bls377_generate` failed"</span>)
+			.bls381_generate_new(id, seed)
+			.expect(<span class="string">"`bls381_generate` failed"</span>)
 	}
 
-	<span class="doccomment">/// Generate an `(ecdsa,bls12-377)` key for the given key type using an optional `seed` and
+	<span class="doccomment">/// Generate an `(ecdsa,bls12-381)` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
 	</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>ecdsa_bls377_generate(
+	</span><span class="kw">fn </span>ecdsa_bls381_generate(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		id: KeyTypeId,
 		seed: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
-	) -&gt; ecdsa_bls377::Public {
+	) -&gt; ecdsa_bls381::Public {
 		<span class="kw">let </span>seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect(<span class="string">"Seed is valid utf8!"</span>));
 		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
 			.expect(<span class="string">"No `keystore` associated for the current context!"</span>)
-			.ecdsa_bls377_generate_new(id, seed)
-			.expect(<span class="string">"`ecdsa_bls377_generate` failed"</span>)
+			.ecdsa_bls381_generate_new(id, seed)
+			.expect(<span class="string">"`ecdsa_bls381_generate` failed"</span>)
 	}
 
 	<span class="doccomment">/// Generate a `bandersnatch` key pair for the given key type using an optional

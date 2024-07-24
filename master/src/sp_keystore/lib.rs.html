@@ -837,69 +837,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#686" id="686">686</a>
 <a href="#687" id="687">687</a>
 <a href="#688" id="688">688</a>
-<a href="#689" id="689">689</a>
-<a href="#690" id="690">690</a>
-<a href="#691" id="691">691</a>
-<a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a>
-<a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a>
-<a href="#700" id="700">700</a>
-<a href="#701" id="701">701</a>
-<a href="#702" id="702">702</a>
-<a href="#703" id="703">703</a>
-<a href="#704" id="704">704</a>
-<a href="#705" id="705">705</a>
-<a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
-<a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -929,7 +866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">"bandersnatch-experimental"</span>)]
 </span><span class="kw">use </span>sp_core::bandersnatch;
 <span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-</span><span class="kw">use </span>sp_core::{bls377, bls381, ecdsa_bls377};
+</span><span class="kw">use </span>sp_core::{bls381, ecdsa_bls381};
 <span class="kw">use </span>sp_core::{
 	crypto::{ByteArray, CryptoTypeId, KeyTypeId},
 	ecdsa, ed25519, sr25519,
@@ -1182,13 +1119,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>bls381_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, id: KeyTypeId) -&gt; Vec&lt;bls381::Public&gt;;
 
-	<span class="doccomment">/// Returns all bls12-377 public keys for the given key type.
+	<span class="doccomment">/// Returns all (ecdsa,bls12-381) paired public keys for the given key type.
 	</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>bls377_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, id: KeyTypeId) -&gt; Vec&lt;bls377::Public&gt;;
-
-	<span class="doccomment">/// Returns all (ecdsa,bls12-377) paired public keys for the given key type.
-	</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>ecdsa_bls377_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, id: KeyTypeId) -&gt; Vec&lt;ecdsa_bls377::Public&gt;;
+	</span><span class="kw">fn </span>ecdsa_bls381_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, id: KeyTypeId) -&gt; Vec&lt;ecdsa_bls381::Public&gt;;
 
 	<span class="doccomment">/// Generate a new bls381 key pair for the given key type and an optional seed.
 	///
@@ -1201,27 +1134,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		seed: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;bls381::Public, Error&gt;;
 
-	<span class="doccomment">/// Generate a new bls377 key pair for the given key type and an optional seed.
+	<span class="doccomment">/// Generate a new (ecdsa,bls381) key pair for the given key type and an optional seed.
 	///
-	/// Returns an `bls377::Public` key of the generated key pair or an `Err` if
+	/// Returns an `ecdsa_bls381::Public` key of the generated key pair or an `Err` if
 	/// something failed during key generation.
 	</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>bls377_generate_new(
+	</span><span class="kw">fn </span>ecdsa_bls381_generate_new(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
 		seed: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;bls377::Public, Error&gt;;
-
-	<span class="doccomment">/// Generate a new (ecdsa,bls377) key pair for the given key type and an optional seed.
-	///
-	/// Returns an `ecdsa_bls377::Public` key of the generated key pair or an `Err` if
-	/// something failed during key generation.
-	</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>ecdsa_bls377_generate_new(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		key_type: KeyTypeId,
-		seed: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;ecdsa_bls377::Public, Error&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;ecdsa_bls381::Public, Error&gt;;
 
 	<span class="doccomment">/// Generate a bls381 signature for a given message.
 	///
@@ -1239,55 +1161,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		msg: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bls381::Signature&gt;, Error&gt;;
 
-	<span class="doccomment">/// Generate a bls377 signature for a given message.
+	<span class="doccomment">/// Generate a (ecdsa,bls381) signature pair for a given message.
 	///
-	/// Receives [`KeyTypeId`] and a [`bls377::Public`] key to be able to map
+	/// Receives [`KeyTypeId`] and a [`ecdsa_bls381::Public`] key to be able to map
 	/// them to a private key that exists in the keystore.
 	///
-	/// Returns an [`bls377::Signature`] or `None` in case the given `key_type`
+	/// Returns an [`ecdsa_bls381::Signature`] or `None` in case the given `key_type`
 	/// and `public` combination doesn't exist in the keystore.
 	/// An `Err` will be returned if generating the signature itself failed.
 	</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>bls377_sign(
+	</span><span class="kw">fn </span>ecdsa_bls381_sign(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
-		public: <span class="kw-2">&amp;</span>bls377::Public,
+		public: <span class="kw-2">&amp;</span>ecdsa_bls381::Public,
 		msg: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bls377::Signature&gt;, Error&gt;;
-
-	<span class="doccomment">/// Generate a (ecdsa,bls377) signature pair for a given message.
-	///
-	/// Receives [`KeyTypeId`] and a [`ecdsa_bls377::Public`] key to be able to map
-	/// them to a private key that exists in the keystore.
-	///
-	/// Returns an [`ecdsa_bls377::Signature`] or `None` in case the given `key_type`
-	/// and `public` combination doesn't exist in the keystore.
-	/// An `Err` will be returned if generating the signature itself failed.
-	</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>ecdsa_bls377_sign(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		key_type: KeyTypeId,
-		public: <span class="kw-2">&amp;</span>ecdsa_bls377::Public,
-		msg: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, Error&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls381::Signature&gt;, Error&gt;;
 
 	<span class="doccomment">/// Hashes the `message` using keccak256 and then signs it using ECDSA
-	/// algorithm. It does not affect the behavior of BLS12-377 component. It generates
-	/// BLS12-377 Signature according to IETF standard.
+	/// algorithm. It does not affect the behavior of BLS12-381 component. It generates
+	/// BLS12-381 Signature according to IETF standard.
 	///
-	/// Receives [`KeyTypeId`] and a [`ecdsa_bls377::Public`] key to be able to map
+	/// Receives [`KeyTypeId`] and a [`ecdsa_bls381::Public`] key to be able to map
 	/// them to a private key that exists in the keystore.
 	///
-	/// Returns an [`ecdsa_bls377::Signature`] or `None` in case the given `key_type`
+	/// Returns an [`ecdsa_bls381::Signature`] or `None` in case the given `key_type`
 	/// and `public` combination doesn't exist in the keystore.
 	/// An `Err` will be returned if generating the signature itself failed.
 	</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>ecdsa_bls377_sign_with_keccak256(
+	</span><span class="kw">fn </span>ecdsa_bls381_sign_with_keccak256(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
-		public: <span class="kw-2">&amp;</span>ecdsa_bls377::Public,
+		public: <span class="kw-2">&amp;</span>ecdsa_bls381::Public,
 		msg: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, Error&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls381::Signature&gt;, Error&gt;;
 
 	<span class="doccomment">/// Insert a new secret key.
 	</span><span class="kw">fn </span>insert(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId, suri: <span class="kw-2">&amp;</span>str, public: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt;;
@@ -1313,8 +1219,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - ecdsa
 	/// - bandersnatch
 	/// - bls381
-	/// - bls377
-	/// - (ecdsa,bls377) paired keys
+	/// - (ecdsa,bls381) paired keys
 	///
 	/// To support more schemes you can overwrite this method.
 	///
@@ -1359,18 +1264,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.bls381_sign(id, <span class="kw-2">&amp;</span>public, msg)<span class="question-mark">?</span>.map(|s| s.encode())
 			},
 			<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-			</span>bls377::CRYPTO_ID =&gt; {
-				<span class="kw">let </span>public = bls377::Public::from_slice(public)
+			</span>ecdsa_bls381::CRYPTO_ID =&gt; {
+				<span class="kw">let </span>public = ecdsa_bls381::Public::from_slice(public)
 					.map_err(|<span class="kw">_</span>| Error::ValidationError(<span class="string">"Invalid public key format"</span>.into()))<span class="question-mark">?</span>;
-				<span class="self">self</span>.bls377_sign(id, <span class="kw-2">&amp;</span>public, msg)<span class="question-mark">?</span>.map(|s| s.encode())
+				<span class="self">self</span>.ecdsa_bls381_sign(id, <span class="kw-2">&amp;</span>public, msg)<span class="question-mark">?</span>.map(|s| s.encode())
 			},
-			<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-			</span>ecdsa_bls377::CRYPTO_ID =&gt; {
-				<span class="kw">let </span>public = ecdsa_bls377::Public::from_slice(public)
-					.map_err(|<span class="kw">_</span>| Error::ValidationError(<span class="string">"Invalid public key format"</span>.into()))<span class="question-mark">?</span>;
-				<span class="self">self</span>.ecdsa_bls377_sign(id, <span class="kw-2">&amp;</span>public, msg)<span class="question-mark">?</span>.map(|s| s.encode())
-			},
-
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::KeyNotSupported(id)),
 		};
 		<span class="prelude-val">Ok</span>(signature)
@@ -1529,13 +1427,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>bls377_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, id: KeyTypeId) -&gt; Vec&lt;bls377::Public&gt; {
-		(<span class="kw-2">**</span><span class="self">self</span>).bls377_public_keys(id)
-	}
-
-	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>ecdsa_bls377_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, id: KeyTypeId) -&gt; Vec&lt;ecdsa_bls377::Public&gt; {
-		(<span class="kw-2">**</span><span class="self">self</span>).ecdsa_bls377_public_keys(id)
+	</span><span class="kw">fn </span>ecdsa_bls381_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, id: KeyTypeId) -&gt; Vec&lt;ecdsa_bls381::Public&gt; {
+		(<span class="kw-2">**</span><span class="self">self</span>).ecdsa_bls381_public_keys(id)
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
@@ -1548,21 +1441,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>bls377_generate_new(
+	</span><span class="kw">fn </span>ecdsa_bls381_generate_new(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
 		seed: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;bls377::Public, Error&gt; {
-		(<span class="kw-2">**</span><span class="self">self</span>).bls377_generate_new(key_type, seed)
-	}
-
-	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>ecdsa_bls377_generate_new(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		key_type: KeyTypeId,
-		seed: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;ecdsa_bls377::Public, Error&gt; {
-		(<span class="kw-2">**</span><span class="self">self</span>).ecdsa_bls377_generate_new(key_type, seed)
+	) -&gt; <span class="prelude-ty">Result</span>&lt;ecdsa_bls381::Public, Error&gt; {
+		(<span class="kw-2">**</span><span class="self">self</span>).ecdsa_bls381_generate_new(key_type, seed)
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
@@ -1576,33 +1460,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>bls377_sign(
+	</span><span class="kw">fn </span>ecdsa_bls381_sign(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
-		public: <span class="kw-2">&amp;</span>bls377::Public,
+		public: <span class="kw-2">&amp;</span>ecdsa_bls381::Public,
 		msg: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bls377::Signature&gt;, Error&gt; {
-		(<span class="kw-2">**</span><span class="self">self</span>).bls377_sign(key_type, public, msg)
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls381::Signature&gt;, Error&gt; {
+		(<span class="kw-2">**</span><span class="self">self</span>).ecdsa_bls381_sign(key_type, public, msg)
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>ecdsa_bls377_sign(
+	</span><span class="kw">fn </span>ecdsa_bls381_sign_with_keccak256(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
-		public: <span class="kw-2">&amp;</span>ecdsa_bls377::Public,
+		public: <span class="kw-2">&amp;</span>ecdsa_bls381::Public,
 		msg: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, Error&gt; {
-		(<span class="kw-2">**</span><span class="self">self</span>).ecdsa_bls377_sign(key_type, public, msg)
-	}
-
-	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>ecdsa_bls377_sign_with_keccak256(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		key_type: KeyTypeId,
-		public: <span class="kw-2">&amp;</span>ecdsa_bls377::Public,
-		msg: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, Error&gt; {
-		(<span class="kw-2">**</span><span class="self">self</span>).ecdsa_bls377_sign_with_keccak256(key_type, public, msg)
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls381::Signature&gt;, Error&gt; {
+		(<span class="kw-2">**</span><span class="self">self</span>).ecdsa_bls381_sign_with_keccak256(key_type, public, msg)
 	}
 
 	<span class="kw">fn </span>insert(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId, suri: <span class="kw-2">&amp;</span>str, public: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {

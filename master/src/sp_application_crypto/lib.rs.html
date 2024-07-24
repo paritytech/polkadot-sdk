@@ -770,8 +770,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#619" id="619">619</a>
 <a href="#620" id="620">620</a>
 <a href="#621" id="621">621</a>
-<a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -821,12 +819,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">"bandersnatch-experimental"</span>)]
 </span><span class="kw">pub mod </span>bandersnatch;
 <span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-</span><span class="kw">pub mod </span>bls377;
-<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 </span><span class="kw">pub mod </span>bls381;
 <span class="kw">pub mod </span>ecdsa;
 <span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-</span><span class="kw">pub mod </span>ecdsa_bls377;
+</span><span class="kw">pub mod </span>ecdsa_bls381;
 <span class="kw">pub mod </span>ed25519;
 <span class="kw">pub mod </span>sr25519;
 <span class="kw">mod </span>traits;

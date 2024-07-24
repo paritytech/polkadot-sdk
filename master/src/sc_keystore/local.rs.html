@@ -969,32 +969,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#818" id="818">818</a>
 <a href="#819" id="819">819</a>
 <a href="#820" id="820">820</a>
-<a href="#821" id="821">821</a>
-<a href="#822" id="822">822</a>
-<a href="#823" id="823">823</a>
-<a href="#824" id="824">824</a>
-<a href="#825" id="825">825</a>
-<a href="#826" id="826">826</a>
-<a href="#827" id="827">827</a>
-<a href="#828" id="828">828</a>
-<a href="#829" id="829">829</a>
-<a href="#830" id="830">830</a>
-<a href="#831" id="831">831</a>
-<a href="#832" id="832">832</a>
-<a href="#833" id="833">833</a>
-<a href="#834" id="834">834</a>
-<a href="#835" id="835">835</a>
-<a href="#836" id="836">836</a>
-<a href="#837" id="837">837</a>
-<a href="#838" id="838">838</a>
-<a href="#839" id="839">839</a>
-<a href="#840" id="840">840</a>
-<a href="#841" id="841">841</a>
-<a href="#842" id="842">842</a>
-<a href="#843" id="843">843</a>
-<a href="#844" id="844">844</a>
-<a href="#845" id="845">845</a>
-<a href="#846" id="846">846</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1034,7 +1008,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">sp_keystore::bls_experimental_enabled! </span>{
-<span class="kw">use </span>sp_core::{bls377, bls381, ecdsa_bls377, KeccakHasher};
+<span class="kw">use </span>sp_core::{bls381, ecdsa_bls381, KeccakHasher};
 }
 
 <span class="kw">use crate</span>::{Error, <span class="prelude-ty">Result</span>};
@@ -1354,68 +1328,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.sign::&lt;bls381::Pair&gt;(key_type, public, msg)
 		}
 
-		<span class="kw">fn </span>bls377_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;bls377::Public&gt; {
-			<span class="self">self</span>.public_keys::&lt;bls377::Pair&gt;(key_type)
+		<span class="kw">fn </span>ecdsa_bls381_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;ecdsa_bls381::Public&gt; {
+			<span class="self">self</span>.public_keys::&lt;ecdsa_bls381::Pair&gt;(key_type)
 		}
 
-		<span class="doccomment">/// Generate a new pair compatible with the 'bls377' signature scheme.
+		<span class="doccomment">/// Generate a new pair of paired-keys compatible with the '(ecdsa,bls381)' signature scheme.
 		///
 		/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
-		</span><span class="kw">fn </span>bls377_generate_new(
+		</span><span class="kw">fn </span>ecdsa_bls381_generate_new(
 			<span class="kw-2">&amp;</span><span class="self">self</span>,
 			key_type: KeyTypeId,
 			seed: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-		) -&gt; std::result::Result&lt;bls377::Public, TraitError&gt; {
-			<span class="self">self</span>.generate_new::&lt;bls377::Pair&gt;(key_type, seed)
+		) -&gt; std::result::Result&lt;ecdsa_bls381::Public, TraitError&gt; {
+			<span class="self">self</span>.generate_new::&lt;ecdsa_bls381::Pair&gt;(key_type, seed)
 		}
 
-		<span class="kw">fn </span>bls377_sign(
+		<span class="kw">fn </span>ecdsa_bls381_sign(
 			<span class="kw-2">&amp;</span><span class="self">self</span>,
 			key_type: KeyTypeId,
-			public: <span class="kw-2">&amp;</span>bls377::Public,
+			public: <span class="kw-2">&amp;</span>ecdsa_bls381::Public,
 			msg: <span class="kw-2">&amp;</span>[u8],
-		) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;bls377::Signature&gt;, TraitError&gt; {
-			<span class="self">self</span>.sign::&lt;bls377::Pair&gt;(key_type, public, msg)
+		) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls381::Signature&gt;, TraitError&gt; {
+			<span class="self">self</span>.sign::&lt;ecdsa_bls381::Pair&gt;(key_type, public, msg)
 		}
 
-		<span class="kw">fn </span>ecdsa_bls377_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;ecdsa_bls377::Public&gt; {
-			<span class="self">self</span>.public_keys::&lt;ecdsa_bls377::Pair&gt;(key_type)
-		}
-
-		<span class="doccomment">/// Generate a new pair of paired-keys compatible with the '(ecdsa,bls377)' signature scheme.
-		///
-		/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
-		</span><span class="kw">fn </span>ecdsa_bls377_generate_new(
+		<span class="kw">fn </span>ecdsa_bls381_sign_with_keccak256(
 			<span class="kw-2">&amp;</span><span class="self">self</span>,
 			key_type: KeyTypeId,
-			seed: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-		) -&gt; std::result::Result&lt;ecdsa_bls377::Public, TraitError&gt; {
-			<span class="self">self</span>.generate_new::&lt;ecdsa_bls377::Pair&gt;(key_type, seed)
-		}
-
-		<span class="kw">fn </span>ecdsa_bls377_sign(
-			<span class="kw-2">&amp;</span><span class="self">self</span>,
-			key_type: KeyTypeId,
-			public: <span class="kw-2">&amp;</span>ecdsa_bls377::Public,
+			public: <span class="kw-2">&amp;</span>ecdsa_bls381::Public,
 			msg: <span class="kw-2">&amp;</span>[u8],
-		) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, TraitError&gt; {
-			<span class="self">self</span>.sign::&lt;ecdsa_bls377::Pair&gt;(key_type, public, msg)
-		}
-
-			<span class="kw">fn </span>ecdsa_bls377_sign_with_keccak256(
-			<span class="kw-2">&amp;</span><span class="self">self</span>,
-			key_type: KeyTypeId,
-			public: <span class="kw-2">&amp;</span>ecdsa_bls377::Public,
-			msg: <span class="kw-2">&amp;</span>[u8],
-		) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, TraitError&gt; {
+		) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls381::Signature&gt;, TraitError&gt; {
 			 <span class="kw">let </span>sig = <span class="self">self</span>.<span class="number">0
 			</span>.read()
-			.key_pair_by_type::&lt;ecdsa_bls377::Pair&gt;(public, key_type)<span class="question-mark">?
+			.key_pair_by_type::&lt;ecdsa_bls381::Pair&gt;(public, key_type)<span class="question-mark">?
 			</span>.map(|pair| pair.sign_with_hasher::&lt;KeccakHasher&gt;(msg));
 			<span class="prelude-val">Ok</span>(sig)
 		}
-
-
 	}
 }
 

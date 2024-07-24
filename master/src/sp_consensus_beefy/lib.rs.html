@@ -940,10 +940,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 </span><span class="kw">pub mod </span>bls_crypto {
 	<span class="kw">use super</span>::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
-	<span class="kw">use </span>sp_application_crypto::{app_crypto, bls377};
-	<span class="kw">use </span>sp_core::{bls377::Pair <span class="kw">as </span>BlsPair, crypto::Wraps, Pair <span class="kw">as _</span>};
+	<span class="kw">use </span>sp_application_crypto::{app_crypto, bls381};
+	<span class="kw">use </span>sp_core::{bls381::Pair <span class="kw">as </span>BlsPair, crypto::Wraps, Pair <span class="kw">as _</span>};
 
-	<span class="macro">app_crypto!</span>(bls377, KEY_TYPE);
+	<span class="macro">app_crypto!</span>(bls381, KEY_TYPE);
 
 	<span class="doccomment">/// Identity of a BEEFY authority using BLS as its crypto.
 	</span><span class="kw">pub type </span>AuthorityId = Public;
@@ -982,10 +982,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 </span><span class="kw">pub mod </span>ecdsa_bls_crypto {
 	<span class="kw">use super</span>::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
-	<span class="kw">use </span>sp_application_crypto::{app_crypto, ecdsa_bls377};
-	<span class="kw">use </span>sp_core::{crypto::Wraps, ecdsa_bls377::Pair <span class="kw">as </span>EcdsaBlsPair};
+	<span class="kw">use </span>sp_application_crypto::{app_crypto, ecdsa_bls381};
+	<span class="kw">use </span>sp_core::{crypto::Wraps, ecdsa_bls381::Pair <span class="kw">as </span>EcdsaBlsPair};
 
-	<span class="macro">app_crypto!</span>(ecdsa_bls377, KEY_TYPE);
+	<span class="macro">app_crypto!</span>(ecdsa_bls381, KEY_TYPE);
 
 	<span class="doccomment">/// Identity of a BEEFY authority using (ECDSA,BLS) as its crypto.
 	</span><span class="kw">pub type </span>AuthorityId = Public;

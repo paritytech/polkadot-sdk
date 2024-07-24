@@ -429,7 +429,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["solochain_template_runtime",["",[],["lib.rs"]]],\
 ["sp_api",["",[],["lib.rs"]]],\
 ["sp_api_proc_macro",["",[],["common.rs","decl_runtime_apis.rs","impl_runtime_apis.rs","lib.rs","mock_impl_runtime_apis.rs","runtime_metadata.rs","utils.rs"]]],\
-["sp_application_crypto",["",[],["bandersnatch.rs","bls377.rs","bls381.rs","ecdsa.rs","ecdsa_bls377.rs","ed25519.rs","lib.rs","sr25519.rs","traits.rs"]]],\
+["sp_application_crypto",["",[],["bandersnatch.rs","bls381.rs","ecdsa.rs","ecdsa_bls381.rs","ed25519.rs","lib.rs","sr25519.rs","traits.rs"]]],\
 ["sp_application_crypto_test",["",[],["lib.rs"]]],\
 ["sp_arithmetic",["",[],["biguint.rs","fixed_point.rs","helpers_128bit.rs","lib.rs","per_things.rs","rational.rs","traits.rs"]]],\
 ["sp_authority_discovery",["",[],["lib.rs"]]],\

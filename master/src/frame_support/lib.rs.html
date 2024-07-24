@@ -2729,6 +2729,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2578" id="2578">2578</a>
 <a href="#2579" id="2579">2579</a>
 <a href="#2580" id="2580">2580</a>
+<a href="#2581" id="2581">2581</a>
+<a href="#2582" id="2582">2582</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -5211,6 +5213,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Generate a macro that will enable/disable code based on `std` feature being active.
 </span><span class="macro">sp_core::generate_feature_enabled_macro!</span>(std_enabled, feature = <span class="string">"std"</span>, $);
+<span class="comment">// Generate a macro that will enable/disable code based on `try-runtime` feature being active.
+</span><span class="macro">sp_core::generate_feature_enabled_macro!</span>(try_runtime_enabled, feature = <span class="string">"try-runtime"</span>, $);
 
 <span class="comment">// Helper for implementing GenesisBuilder runtime API
 </span><span class="kw">pub mod </span>genesis_builder_helper;

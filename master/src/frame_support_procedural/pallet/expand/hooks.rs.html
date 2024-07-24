@@ -489,6 +489,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -745,24 +746,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				&gt;::on_runtime_upgrade()
 			}
 
-			<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-			</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;#frame_support::__private::Vec&lt;u8&gt;, #frame_support::sp_runtime::TryRuntimeError&gt; {
-				&lt;
-					<span class="self">Self
-					</span><span class="kw">as
-					</span>#frame_support::traits::Hooks&lt;#frame_system::pallet_prelude::BlockNumberFor::&lt;T&gt;&gt;
-				&gt;::pre_upgrade()
-			}
+			#<span class="macro">frame_support::try_runtime_enabled! </span>{
+				<span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;#frame_support::__private::Vec&lt;u8&gt;, #frame_support::sp_runtime::TryRuntimeError&gt; {
+					&lt;
+						<span class="self">Self
+						</span><span class="kw">as
+						</span>#frame_support::traits::Hooks&lt;#frame_system::pallet_prelude::BlockNumberFor::&lt;T&gt;&gt;
+					&gt;::pre_upgrade()
+				}
 
-			<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-			</span><span class="kw">fn </span>post_upgrade(state: #frame_support::__private::Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), #frame_support::sp_runtime::TryRuntimeError&gt; {
-				#post_storage_version_check
+				<span class="kw">fn </span>post_upgrade(state: #frame_support::__private::Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), #frame_support::sp_runtime::TryRuntimeError&gt; {
+					#post_storage_version_check
 
-				&lt;
-					<span class="self">Self
-					</span><span class="kw">as
-					</span>#frame_support::traits::Hooks&lt;#frame_system::pallet_prelude::BlockNumberFor::&lt;T&gt;&gt;
-				&gt;::post_upgrade(state)
+					&lt;
+						<span class="self">Self
+						</span><span class="kw">as
+						</span>#frame_support::traits::Hooks&lt;#frame_system::pallet_prelude::BlockNumberFor::&lt;T&gt;&gt;
+					&gt;::post_upgrade(state)
+				}
 			}
 		}
 
@@ -797,34 +798,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-		</span><span class="kw">impl</span>&lt;#type_impl_gen&gt;
-			#frame_support::traits::TryState&lt;#frame_system::pallet_prelude::BlockNumberFor::&lt;T&gt;&gt;
-			<span class="kw">for </span>#pallet_ident&lt;#type_use_gen&gt; #where_clause
-		{
-			<span class="kw">fn </span>try_state(
-				n: #frame_system::pallet_prelude::BlockNumberFor::&lt;T&gt;,
-				_s: #frame_support::traits::TryStateSelect
-			) -&gt; <span class="prelude-ty">Result</span>&lt;(), #frame_support::sp_runtime::TryRuntimeError&gt; {
-				#<span class="macro">frame_support::__private::log::info!</span>(
-					target: #frame_support::LOG_TARGET,
-					<span class="string">"🩺 Running {:?} try-state checks"</span>,
-					#pallet_name,
-				);
-				&lt;
-					<span class="self">Self </span><span class="kw">as </span>#frame_support::traits::Hooks&lt;
-						#frame_system::pallet_prelude::BlockNumberFor::&lt;T&gt;
-					&gt;
-				&gt;::try_state(n).map_err(|err| {
-					#<span class="macro">frame_support::__private::log::error!</span>(
+		#<span class="macro">frame_support::try_runtime_enabled! </span>{
+			<span class="kw">impl</span>&lt;#type_impl_gen&gt;
+				#frame_support::traits::TryState&lt;#frame_system::pallet_prelude::BlockNumberFor::&lt;T&gt;&gt;
+				<span class="kw">for </span>#pallet_ident&lt;#type_use_gen&gt; #where_clause
+			{
+				<span class="kw">fn </span>try_state(
+					n: #frame_system::pallet_prelude::BlockNumberFor::&lt;T&gt;,
+					_s: #frame_support::traits::TryStateSelect
+				) -&gt; <span class="prelude-ty">Result</span>&lt;(), #frame_support::sp_runtime::TryRuntimeError&gt; {
+					#<span class="macro">frame_support::__private::log::info!</span>(
 						target: #frame_support::LOG_TARGET,
-						<span class="string">"❌ {:?} try_state checks failed: {:?}"</span>,
+						<span class="string">"🩺 Running {:?} try-state checks"</span>,
 						#pallet_name,
-						err
 					);
+					&lt;
+						<span class="self">Self </span><span class="kw">as </span>#frame_support::traits::Hooks&lt;
+							#frame_system::pallet_prelude::BlockNumberFor::&lt;T&gt;
+						&gt;
+					&gt;::try_state(n).map_err(|err| {
+						#<span class="macro">frame_support::__private::log::error!</span>(
+							target: #frame_support::LOG_TARGET,
+							<span class="string">"❌ {:?} try_state checks failed: {:?}"</span>,
+							#pallet_name,
+							err
+						);
 
-					err
-				})
+						err
+					})
+				}
 			}
 		}
 	)

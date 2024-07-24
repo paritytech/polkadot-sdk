@@ -348,6 +348,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -383,6 +385,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub const </span>BLS381: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"bls8"</span>);
 <span class="doccomment">/// Key type for (ECDSA,BLS12-377) key pair
 </span><span class="kw">pub const </span>ECDSA_BLS377: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"ecb7"</span>);
+<span class="doccomment">/// Key type for (ECDSA,BLS12-381) key pair
+</span><span class="kw">pub const </span>ECDSA_BLS381: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"ecb8"</span>);
 
 <span class="doccomment">/// Macro for exporting functions from wasm in with the expected signature for using it with the
 /// wasm executor. This is useful for tests where you need to call a function in wasm.

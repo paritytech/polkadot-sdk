@@ -495,7 +495,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">use </span>w3f_bls::{
 		single_pop_aggregator::SignatureAggregatorAssumingPoP, Message, SerializableToBytes,
-		Signed, TinyBLS377,
+		Signed, TinyBLS381,
 	};
 
 	<span class="kw">type </span>TestCommitment = Commitment&lt;u128&gt;;
@@ -603,7 +603,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// from signed take a function as the aggregator 
 			</span>TestBlsSignedCommitmentWitness::from_signed::&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;(signed, |sigs| {
 				<span class="comment">// we are going to aggregate the signatures here
-				</span><span class="kw">let </span><span class="kw-2">mut </span>aggregatedsigs: SignatureAggregatorAssumingPoP&lt;TinyBLS377&gt; =
+				</span><span class="kw">let </span><span class="kw-2">mut </span>aggregatedsigs: SignatureAggregatorAssumingPoP&lt;TinyBLS381&gt; =
 					SignatureAggregatorAssumingPoP::new(Message::new(<span class="string">b""</span>, <span class="string">b"mock payload"</span>));
 
 				<span class="kw">for </span>sig <span class="kw">in </span>sigs {
@@ -611,7 +611,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Some</span>(sig) =&gt; {
 							<span class="kw">let </span>serialized_sig : Vec&lt;u8&gt; = (<span class="kw-2">*</span>sig.<span class="number">1</span>).to_vec();
 							aggregatedsigs.add_signature(
-								<span class="kw-2">&amp;</span>w3f_bls::Signature::&lt;TinyBLS377&gt;::from_bytes(
+								<span class="kw-2">&amp;</span>w3f_bls::Signature::&lt;TinyBLS381&gt;::from_bytes(
 									serialized_sig.as_slice()
 								).unwrap()
 							);
@@ -624,7 +624,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// We can't use BlsSignature::try_from because it expected 112Bytes (CP (64) + BLS 48)
 		// single signature while we are having a BLS aggregated signature corresponding to no CP.
-		</span>w3f_bls::Signature::&lt;TinyBLS377&gt;::from_bytes(witness.signature_accumulator.as_slice())
+		</span>w3f_bls::Signature::&lt;TinyBLS381&gt;::from_bytes(witness.signature_accumulator.as_slice())
 			.unwrap();
 	}
 

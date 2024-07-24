@@ -730,30 +730,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
 <a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -778,7 +754,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">"bandersnatch-experimental"</span>)]
 </span><span class="kw">use </span>sp_core::bandersnatch;
 <span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-</span><span class="kw">use </span>sp_core::{bls377, bls381, ecdsa_bls377, KeccakHasher};
+</span><span class="kw">use </span>sp_core::{bls381, ecdsa_bls381, KeccakHasher};
 <span class="kw">use </span>sp_core::{
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
 	ecdsa, ed25519, sr25519,
@@ -1055,62 +1031,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>bls377_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;bls377::Public&gt; {
-		<span class="self">self</span>.public_keys::&lt;bls377::Pair&gt;(key_type)
+	</span><span class="kw">fn </span>ecdsa_bls381_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;ecdsa_bls381::Public&gt; {
+		<span class="self">self</span>.public_keys::&lt;ecdsa_bls381::Pair&gt;(key_type)
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>bls377_generate_new(
+	</span><span class="kw">fn </span>ecdsa_bls381_generate_new(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
 		seed: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;bls377::Public, Error&gt; {
-		<span class="self">self</span>.generate_new::&lt;bls377::Pair&gt;(key_type, seed)
+	) -&gt; <span class="prelude-ty">Result</span>&lt;ecdsa_bls381::Public, Error&gt; {
+		<span class="self">self</span>.generate_new::&lt;ecdsa_bls381::Pair&gt;(key_type, seed)
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>bls377_sign(
+	</span><span class="kw">fn </span>ecdsa_bls381_sign(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
-		public: <span class="kw-2">&amp;</span>bls377::Public,
+		public: <span class="kw-2">&amp;</span>ecdsa_bls381::Public,
 		msg: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bls377::Signature&gt;, Error&gt; {
-		<span class="self">self</span>.sign::&lt;bls377::Pair&gt;(key_type, public, msg)
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls381::Signature&gt;, Error&gt; {
+		<span class="self">self</span>.sign::&lt;ecdsa_bls381::Pair&gt;(key_type, public, msg)
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>ecdsa_bls377_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;ecdsa_bls377::Public&gt; {
-		<span class="self">self</span>.public_keys::&lt;ecdsa_bls377::Pair&gt;(key_type)
-	}
-
-	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>ecdsa_bls377_generate_new(
+	</span><span class="kw">fn </span>ecdsa_bls381_sign_with_keccak256(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
-		seed: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;ecdsa_bls377::Public, Error&gt; {
-		<span class="self">self</span>.generate_new::&lt;ecdsa_bls377::Pair&gt;(key_type, seed)
-	}
-
-	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>ecdsa_bls377_sign(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		key_type: KeyTypeId,
-		public: <span class="kw-2">&amp;</span>ecdsa_bls377::Public,
+		public: <span class="kw-2">&amp;</span>ecdsa_bls381::Public,
 		msg: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, Error&gt; {
-		<span class="self">self</span>.sign::&lt;ecdsa_bls377::Pair&gt;(key_type, public, msg)
-	}
-
-	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>ecdsa_bls377_sign_with_keccak256(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		key_type: KeyTypeId,
-		public: <span class="kw-2">&amp;</span>ecdsa_bls377::Public,
-		msg: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, Error&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls381::Signature&gt;, Error&gt; {
 		<span class="kw">let </span>sig = <span class="self">self
-			</span>.pair::&lt;ecdsa_bls377::Pair&gt;(key_type, public)
+			</span>.pair::&lt;ecdsa_bls381::Pair&gt;(key_type, public)
 			.map(|pair| pair.sign_with_hasher::&lt;KeccakHasher&gt;(msg));
 		<span class="prelude-val">Ok</span>(sig)
 	}
@@ -1264,13 +1216,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	#[cfg(feature = <span class="string">"bls-experimental"</span>)]
-	</span><span class="kw">fn </span>ecdsa_bls377_sign_with_keccak_works() {
+	</span><span class="kw">fn </span>ecdsa_bls381_sign_with_keccak_works() {
 		<span class="kw">use </span>sp_core::testing::ECDSA_BLS377;
 
 		<span class="kw">let </span>store = MemoryKeystore::new();
 
 		<span class="kw">let </span>suri = <span class="string">"//Alice"</span>;
-		<span class="kw">let </span>pair = ecdsa_bls377::Pair::from_string(suri, <span class="prelude-val">None</span>).unwrap();
+		<span class="kw">let </span>pair = ecdsa_bls381::Pair::from_string(suri, <span class="prelude-val">None</span>).unwrap();
 
 		<span class="kw">let </span>msg = <span class="string">b"this should be a normal unhashed message not a hash of a message because bls scheme comes with its own hashing"</span>;
 
@@ -1278,16 +1230,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>store.insert(ECDSA_BLS377, suri, pair.public().as_ref()).unwrap();
 
 		<span class="kw">let </span>res = store
-			.ecdsa_bls377_sign_with_keccak256(ECDSA_BLS377, <span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>msg[..])
+			.ecdsa_bls381_sign_with_keccak256(ECDSA_BLS377, <span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>msg[..])
 			.unwrap();
 
 		<span class="macro">assert!</span>(res.is_some());
 
 		<span class="comment">// does not verify with default out-of-the-box verification
-		</span><span class="macro">assert!</span>(!ecdsa_bls377::Pair::verify(<span class="kw-2">&amp;</span>res.unwrap(), <span class="kw-2">&amp;</span>msg[..], <span class="kw-2">&amp;</span>pair.public()));
+		</span><span class="macro">assert!</span>(!ecdsa_bls381::Pair::verify(<span class="kw-2">&amp;</span>res.unwrap(), <span class="kw-2">&amp;</span>msg[..], <span class="kw-2">&amp;</span>pair.public()));
 
 		<span class="comment">// should verify using keccak256 as hasher
-		</span><span class="macro">assert!</span>(ecdsa_bls377::Pair::verify_with_hasher::&lt;KeccakHasher&gt;(
+		</span><span class="macro">assert!</span>(ecdsa_bls381::Pair::verify_with_hasher::&lt;KeccakHasher&gt;(
 			<span class="kw-2">&amp;</span>res.unwrap(),
 			msg,
 			<span class="kw-2">&amp;</span>pair.public()
