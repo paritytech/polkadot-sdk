@@ -18,7 +18,7 @@
 //!
 //! To get started, use one of the templates mentioned in [`crate::polkadot_sdk::templates`]. We
 //! recommend using the `polkadot-sdk-minimal-template`. You might need to change small parts of
-//! this guide, namely the crate/package names, based on which tutorial you use.
+//! this guide, namely the crate/package names, based on which template you use.
 //!
 //! > Be aware that you can read the entire source code backing this tutorial by clicking on the
 //! > [`source`](./mod.rs.html) button at the top right of the page.
