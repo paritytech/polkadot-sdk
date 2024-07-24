@@ -85,7 +85,7 @@
 //! [`crate::reference_docs::wasm_meta_protocol`]). Notable examples are:
 //!
 //! * writing a runtime in pure Rust, as done in [this template](https://github.com/JoshOrndorff/frameless-node-template).
-//! * writing a runtime in AssemblyScript,as explored in [this project](https://github.com/LimeChain/subsembly).
+//! * writing a runtime in AssemblyScript, as explored in [this project](https://github.com/LimeChain/subsembly).
 
 /// A FRAME based pallet. This `mod` is the entry point for everything else. All
 /// `#[pallet::xxx]` macros must be defined in this `mod`. Although, frame also provides an
