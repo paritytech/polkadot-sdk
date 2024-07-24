@@ -124,35 +124,35 @@ jobs:
           - test(/authoring_blocks/)
           - test(/rejects_missing_seals/)       
           - test(/generate_chain_spec/) 
-          - test(/chain_spec_builder_tests/)  
+          - test(/chain-spec-guide-runtime::chain_spec_builder_tests/)  
           "          
-          --partition count:${{ matrix.ci_node_index }}/5
+          --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
       - run: ls -al target/coverage
       - run: ls -al /__w/polkadot-sdk/polkadot-sdk/target
       - run: ls -al /__w/polkadot-sdk/polkadot-sdk/target/llvm-cov-target
       - name: generate report
-        run: cargo llvm-cov report --release --codecov --output-path coverage.info
+        run: cargo llvm-cov report --release --codecov --output-path coverage-${{ matrix.ci_node_index }}.info
       - run: ls -al
-      #- name: upload report
-      #  uses: actions/upload-artifact@v4
-      #  with:
-      #    name: coverage-report-${{ matrix.ci_node_index }}.lcov
-      #    path: target/coverage/result/report-${{ matrix.ci_node_index }}.lcov
+      - name: upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.ci_node_index }}.lcov
+          path: coverage-${{ matrix.ci_node_index }}.info
 #
-  #upload-reports:
-  #  needs: [test-linux-stable]
-  #  runs-on: ubuntu-latest
-  #  steps:
-  #    - name: Download artifacts
-  #      uses: actions/download-artifact@v4
-  #      with:
-  #        path: reports
-  #        pattern: coverage-report-*
-  #        merge-multiple: true    
-  #    - run: ls -al reports/      
-  #    - name: Upload to Codecov
-  #      uses: codecov/codecov-action@v2   
-  #      with:
-  #        token: ${{ secrets.CODECOV_TOKEN }}
-  #        verbose: true 
-  #        directory: reports
+  upload-reports:
+    needs: [test-linux-stable]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: reports
+          pattern: coverage-report-*
+          merge-multiple: true    
+      - run: ls -al reports/      
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v2   
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true 
+          directory: reports
