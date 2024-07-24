@@ -21,7 +21,6 @@ pallet-timestamp = { workspace = true }
 pallet-session = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true }
@@ -68,7 +67,6 @@ std = [
 	"parachains-runtimes-test-utils/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

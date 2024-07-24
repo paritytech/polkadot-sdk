@@ -70,6 +70,9 @@ pub use swap::*;
 pub use types::*;
 pub use weights::WeightInfo;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use codec::Codec;
 use frame_support::{
 	storage::{with_storage_layer, with_transaction},
@@ -93,7 +96,6 @@ use sp_runtime::{
 	},
 	DispatchError, Saturating, TokenError, TransactionOutcome,
 };
-use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 
 #[frame_support::pallet]
 pub mod pallet {

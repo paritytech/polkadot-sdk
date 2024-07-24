@@ -29,7 +29,6 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-balances = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 sp-core = { optional = true, workspace = true }
 
 [dev-dependencies]
@@ -51,7 +50,6 @@ std = [
 	"sp-core?/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"dep:sp-core",

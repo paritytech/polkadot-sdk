@@ -30,7 +30,6 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
-sp-trie = { workspace = true }
 
 [dev-dependencies]
 bp-header-chain = { workspace = true, default-features = true }
@@ -54,7 +53,6 @@ std = [
 	"scale-info/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"sp-trie/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

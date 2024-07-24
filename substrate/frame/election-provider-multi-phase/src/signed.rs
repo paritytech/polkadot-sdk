@@ -24,7 +24,12 @@ use crate::{
 	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
 	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec::Vec,
+};
 use codec::{Decode, Encode, HasCompact};
+use core::cmp::Ordering;
 use frame_election_provider_support::NposSolution;
 use frame_support::traits::{
 	defensive_prelude::*, Currency, Get, OnUnbalanced, ReservableCurrency,
@@ -36,11 +41,6 @@ use sp_npos_elections::ElectionScore;
 use sp_runtime::{
 	traits::{Convert, Saturating, Zero},
 	FixedPointNumber, FixedPointOperand, FixedU128, Percent, RuntimeDebug,
-};
-use sp_std::{
-	cmp::Ordering,
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	vec::Vec,
 };
 
 /// A raw, unchecked signed submission.

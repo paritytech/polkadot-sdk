@@ -27,8 +27,15 @@ use crate::{
 	shared::{self, AllowedRelayParentsTracker},
 	util::make_persisted_validation_data_with_parent,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use core::fmt;
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
@@ -46,12 +53,6 @@ use polkadot_primitives::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
-#[cfg(feature = "std")]
-use sp_std::fmt;
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
-	prelude::*,
-};
 
 pub use pallet::*;
 

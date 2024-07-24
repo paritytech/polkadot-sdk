@@ -45,6 +45,10 @@ pub mod signed_extensions;
 /// Learn about *Origins*, a topic in FRAME that enables complex account abstractions to be built.
 pub mod frame_origin;
 
+/// Learn about the details of what derives are needed for a type to be store-able in `frame`
+/// storage.
+pub mod frame_storage_derives;
+
 /// Learn about how to write safe and defensive code in your FRAME runtime.
 pub mod defensive_programming;
 

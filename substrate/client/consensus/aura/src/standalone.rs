@@ -24,7 +24,7 @@ use log::trace;
 
 use codec::Codec;
 
-use sc_client_api::{backend::AuxStore, UsageProvider};
+use sc_client_api::UsageProvider;
 use sp_api::{Core, ProvideRuntimeApi};
 use sp_application_crypto::{AppCrypto, AppPublic};
 use sp_blockchain::Result as CResult;
@@ -48,7 +48,7 @@ pub fn slot_duration<A, B, C>(client: &C) -> CResult<SlotDuration>
 where
 	A: Codec,
 	B: BlockT,
-	C: AuxStore + ProvideRuntimeApi<B> + UsageProvider<B>,
+	C: ProvideRuntimeApi<B> + UsageProvider<B>,
 	C::Api: AuraApi<B, A>,
 {
 	slot_duration_at(client, client.usage_info().chain.best_hash)
@@ -59,7 +59,7 @@ pub fn slot_duration_at<A, B, C>(client: &C, block_hash: B::Hash) -> CResult<Slo
 where
 	A: Codec,
 	B: BlockT,
-	C: AuxStore + ProvideRuntimeApi<B>,
+	C: ProvideRuntimeApi<B>,
 	C::Api: AuraApi<B, A>,
 {
 	client.runtime_api().slot_duration(block_hash).map_err(|err| err.into())

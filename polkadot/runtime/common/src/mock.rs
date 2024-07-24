@@ -37,7 +37,7 @@ thread_local! {
 	static MANAGERS: RefCell<HashMap<ParaId, Vec<u8>>> = RefCell::new(HashMap::new());
 }
 
-pub struct TestRegistrar<T>(sp_std::marker::PhantomData<T>);
+pub struct TestRegistrar<T>(core::marker::PhantomData<T>);
 
 impl<T: frame_system::Config> Registrar for TestRegistrar<T> {
 	type AccountId = T::AccountId;

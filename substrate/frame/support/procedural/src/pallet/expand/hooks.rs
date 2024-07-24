@@ -255,7 +255,7 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 
 			#[cfg(feature = "try-runtime")]
-			fn pre_upgrade() -> Result<#frame_support::__private::sp_std::vec::Vec<u8>, #frame_support::sp_runtime::TryRuntimeError> {
+			fn pre_upgrade() -> Result<#frame_support::__private::Vec<u8>, #frame_support::sp_runtime::TryRuntimeError> {
 				<
 					Self
 					as
@@ -264,7 +264,7 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 
 			#[cfg(feature = "try-runtime")]
-			fn post_upgrade(state: #frame_support::__private::sp_std::vec::Vec<u8>) -> Result<(), #frame_support::sp_runtime::TryRuntimeError> {
+			fn post_upgrade(state: #frame_support::__private::Vec<u8>) -> Result<(), #frame_support::sp_runtime::TryRuntimeError> {
 				#post_storage_version_check
 
 				<
