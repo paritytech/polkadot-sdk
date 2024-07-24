@@ -104,7 +104,7 @@ jobs:
       - run: mkdir -p target/coverage/result
       - name: script
         run: >
-          time cargo llvm-cov nextest
+          time cargo llvm-cov --release nextest
           --no-report
           -p polkadot
           --locked --release --no-fail-fast
