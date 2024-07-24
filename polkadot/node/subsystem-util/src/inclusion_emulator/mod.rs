@@ -1156,11 +1156,6 @@ mod tests {
 		constraints: &Constraints,
 		relay_parent: &RelayChainBlockInfo,
 	) -> ProspectiveCandidate {
-		let collator_pair = CollatorPair::generate().0;
-		let collator = collator_pair.public();
-
-		let sig = collator_pair.sign(b"blabla".as_slice());
-
 		ProspectiveCandidate {
 			commitments: CandidateCommitments {
 				upward_messages: Default::default(),
@@ -1170,7 +1165,6 @@ mod tests {
 				processed_downward_messages: 0,
 				hrmp_watermark: relay_parent.number,
 			},
-			collator,
 			persisted_validation_data: PersistedValidationData {
 				parent_head: constraints.required_parent.clone(),
 				relay_parent_number: relay_parent.number,
