@@ -935,7 +935,7 @@ pub mod pallet_prelude {
 ///
 /// # 1 - Pallet module declaration
 ///
-/// The module to declare a pallet is organized as follow:
+/// The module to declare a pallet is organized as follows:
 /// ```
 /// #[frame_support::pallet]    // <- the macro
 /// mod pallet {
