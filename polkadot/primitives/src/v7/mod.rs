@@ -2040,10 +2040,14 @@ pub mod node_features {
 		/// Must not be enabled unless all validators and collators have stopped using `req_chunk`
 		/// protocol version 1. If it is enabled, validators can start systematic chunk recovery.
 		AvailabilityChunkMapping = 2,
+		/// Enables node side support of `CoreIndex` committed candidate receipts.
+		/// See [RFC-103](https://github.com/polkadot-fellows/RFCs/pull/103) for details.
+		/// Only enable if at least 2/3 of nodes support the feature.
+		CandidateReceiptV2 = 3,
 		/// First unassigned feature bit.
 		/// Every time a new feature flag is assigned it should take this value.
 		/// and this should be incremented.
-		FirstUnassigned = 3,
+		FirstUnassigned = 4,
 	}
 }
 

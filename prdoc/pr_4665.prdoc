@@ -7,9 +7,12 @@ doc:
   - audience: [Runtime Dev, Node Dev]
     description: |
       Removes runtime collator signature checks, but these are still being done on the node. Remove collator 
-      and signature from the `ProspectiveCandidate` definition in the inclusion emulator.
+      and signature from the `ProspectiveCandidate` definition in the inclusion emulator. Add 
+      `CandidateReceiptV2` node feature bit.
 
 crates: 
+- name: polkadot-primitives
+  bump: minor
 - name: polkadot-node-subsystem-util
   bump: minor
 - name: polkadot-node-core-prospective-parachains
