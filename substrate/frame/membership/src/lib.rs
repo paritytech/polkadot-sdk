@@ -23,12 +23,14 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use frame_support::{
 	traits::{ChangeMembers, Contains, ContainsLengthBound, Get, InitializeMembers, SortedMembers},
 	BoundedVec,
 };
 use sp_runtime::traits::{StaticLookup, UniqueSaturatedInto};
-use sp_std::prelude::*;
 
 pub mod migrations;
 pub mod weights;
@@ -104,13 +106,11 @@ pub mod pallet {
 
 	/// The current membership, stored as an ordered Vec.
 	#[pallet::storage]
-	#[pallet::getter(fn members)]
 	pub type Members<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<T::AccountId, T::MaxMembers>, ValueQuery>;
 
 	/// The current prime member, if one exists.
 	#[pallet::storage]
-	#[pallet::getter(fn prime)]
 	pub type Prime<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::genesis_config]
@@ -124,7 +124,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
 		fn build(&self) {
-			use sp_std::collections::btree_set::BTreeSet;
+			use alloc::collections::btree_set::BTreeSet;
 			let members_set: BTreeSet<_> = self.members.iter().collect();
 			assert_eq!(
 				members_set.len(),
@@ -135,7 +135,7 @@ pub mod pallet {
 			let mut members = self.members.clone();
 			members.sort();
 			T::MembershipInitialized::initialize_members(&members);
-			<Members<T, I>>::put(members);
+			Members::<T, I>::put(members);
 		}
 	}
 
@@ -180,14 +180,14 @@ pub mod pallet {
 			T::AddOrigin::ensure_origin(origin)?;
 			let who = T::Lookup::lookup(who)?;
 
-			let mut members = <Members<T, I>>::get();
+			let mut members = Members::<T, I>::get();
 			let init_length = members.len();
 			let location = members.binary_search(&who).err().ok_or(Error::<T, I>::AlreadyMember)?;
 			members
 				.try_insert(location, who.clone())
 				.map_err(|_| Error::<T, I>::TooManyMembers)?;
 
-			<Members<T, I>>::put(&members);
+			Members::<T, I>::put(&members);
 
 			T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
 
@@ -208,12 +208,12 @@ pub mod pallet {
 			T::RemoveOrigin::ensure_origin(origin)?;
 			let who = T::Lookup::lookup(who)?;
 
-			let mut members = <Members<T, I>>::get();
+			let mut members = Members::<T, I>::get();
 			let init_length = members.len();
 			let location = members.binary_search(&who).ok().ok_or(Error::<T, I>::NotMember)?;
 			members.remove(location);
 
-			<Members<T, I>>::put(&members);
+			Members::<T, I>::put(&members);
 
 			T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
 			Self::rejig_prime(&members);
@@ -242,13 +242,13 @@ pub mod pallet {
 				return Ok(().into());
 			}
 
-			let mut members = <Members<T, I>>::get();
+			let mut members = Members::<T, I>::get();
 			let location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NotMember)?;
 			let _ = members.binary_search(&add).err().ok_or(Error::<T, I>::AlreadyMember)?;
 			members[location] = add.clone();
 			members.sort();
 
-			<Members<T, I>>::put(&members);
+			Members::<T, I>::put(&members);
 
 			T::MembershipChanged::change_members_sorted(&[add], &[remove], &members[..]);
 			Self::rejig_prime(&members);
@@ -269,7 +269,7 @@ pub mod pallet {
 			let mut members: BoundedVec<T::AccountId, T::MaxMembers> =
 				BoundedVec::try_from(members).map_err(|_| Error::<T, I>::TooManyMembers)?;
 			members.sort();
-			<Members<T, I>>::mutate(|m| {
+			Members::<T, I>::mutate(|m| {
 				T::MembershipChanged::set_members_sorted(&members[..], m);
 				Self::rejig_prime(&members);
 				*m = members;
@@ -297,14 +297,14 @@ pub mod pallet {
 				return Ok(().into());
 			}
 
-			let mut members = <Members<T, I>>::get();
+			let mut members = Members::<T, I>::get();
 			let members_length = members.len() as u32;
 			let location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NotMember)?;
 			let _ = members.binary_search(&new).err().ok_or(Error::<T, I>::AlreadyMember)?;
 			members[location] = new.clone();
 			members.sort();
 
-			<Members<T, I>>::put(&members);
+			Members::<T, I>::put(&members);
 
 			T::MembershipChanged::change_members_sorted(
 				&[new.clone()],
@@ -332,7 +332,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			T::PrimeOrigin::ensure_origin(origin)?;
 			let who = T::Lookup::lookup(who)?;
-			let members = Self::members();
+			let members = Members::<T, I>::get();
 			members.binary_search(&who).ok().ok_or(Error::<T, I>::NotMember)?;
 			Prime::<T, I>::put(&who);
 			T::MembershipChanged::set_prime(Some(who));
@@ -354,6 +354,16 @@ pub mod pallet {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// The current membership, stored as an ordered `Vec`.
+	pub fn members() -> BoundedVec<T::AccountId, T::MaxMembers> {
+		Members::<T, I>::get()
+	}
+
+	/// The current prime member, if one exists.
+	pub fn prime() -> Option<T::AccountId> {
+		Prime::<T, I>::get()
+	}
+
 	fn rejig_prime(members: &[T::AccountId]) {
 		if let Some(prime) = Prime::<T, I>::get() {
 			match members.binary_search(&prime) {
@@ -366,7 +376,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 impl<T: Config<I>, I: 'static> Contains<T::AccountId> for Pallet<T, I> {
 	fn contains(t: &T::AccountId) -> bool {
-		Self::members().binary_search(t).is_ok()
+		Members::<T, I>::get().binary_search(t).is_ok()
 	}
 }
 
@@ -383,7 +393,7 @@ impl<T: Config> ContainsLengthBound for Pallet<T> {
 
 impl<T: Config<I>, I: 'static> SortedMembers<T::AccountId> for Pallet<T, I> {
 	fn sorted_members() -> Vec<T::AccountId> {
-		Self::members().to_vec()
+		Members::<T, I>::get().to_vec()
 	}
 
 	fn count() -> usize {

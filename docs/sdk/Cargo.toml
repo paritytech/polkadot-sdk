@@ -74,6 +74,9 @@ pallet-balances = { workspace = true, default-features = true }
 pallet-assets = { workspace = true, default-features = true }
 pallet-preimage = { workspace = true, default-features = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
+pallet-asset-tx-payment = { workspace = true, default-features = true }
+pallet-skip-feeless-payment = { workspace = true, default-features = true }
+pallet-asset-conversion-tx-payment = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }
 pallet-multisig = { workspace = true, default-features = true }
 pallet-proxy = { workspace = true, default-features = true }

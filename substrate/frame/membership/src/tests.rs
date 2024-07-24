@@ -17,208 +17,296 @@
 
 //! Tests for the module.
 
+use super::*;
 use crate as pallet_membership;
-use crate::{mock::*, Error};
 
 use sp_runtime::{bounded_vec, traits::BadOrigin, BuildStorage};
 
 use frame_support::{
-    assert_noop, assert_ok, assert_storage_noop, 
-    traits::{StorageVersion},
+	assert_noop, assert_ok, assert_storage_noop, derive_impl, ord_parameter_types, parameter_types,
+	traits::{ConstU32, StorageVersion},
 };
-use frame_support::traits::PalletInfo;
+use frame_system::EnsureSignedBy;
+
+type Block = frame_system::mocking::MockBlock<Test>;
+
+frame_support::construct_runtime!(
+	pub enum Test
+	{
+		System: frame_system,
+		Membership: pallet_membership,
+	}
+);
+
+parameter_types! {
+	pub static Members: Vec<u64> = vec![];
+	pub static Prime: Option<u64> = None;
+}
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl frame_system::Config for Test {
+	type Block = Block;
+}
+ord_parameter_types! {
+	pub const One: u64 = 1;
+	pub const Two: u64 = 2;
+	pub const Three: u64 = 3;
+	pub const Four: u64 = 4;
+	pub const Five: u64 = 5;
+}
+
+pub struct TestChangeMembers;
+impl ChangeMembers<u64> for TestChangeMembers {
+	fn change_members_sorted(incoming: &[u64], outgoing: &[u64], new: &[u64]) {
+		let mut old_plus_incoming = Members::get();
+		old_plus_incoming.extend_from_slice(incoming);
+		old_plus_incoming.sort();
+		let mut new_plus_outgoing = new.to_vec();
+		new_plus_outgoing.extend_from_slice(outgoing);
+		new_plus_outgoing.sort();
+		assert_eq!(old_plus_incoming, new_plus_outgoing);
+
+		Members::set(new.to_vec());
+		Prime::set(None);
+	}
+	fn set_prime(who: Option<u64>) {
+		Prime::set(who);
+	}
+	fn get_prime() -> Option<u64> {
+		Prime::get()
+	}
+}
+
+impl InitializeMembers<u64> for TestChangeMembers {
+	fn initialize_members(members: &[u64]) {
+		MEMBERS.with(|m| *m.borrow_mut() = members.to_vec());
+	}
+}
+
+impl Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type AddOrigin = EnsureSignedBy<One, u64>;
+	type RemoveOrigin = EnsureSignedBy<Two, u64>;
+	type SwapOrigin = EnsureSignedBy<Three, u64>;
+	type ResetOrigin = EnsureSignedBy<Four, u64>;
+	type PrimeOrigin = EnsureSignedBy<Five, u64>;
+	type MembershipInitialized = TestChangeMembers;
+	type MembershipChanged = TestChangeMembers;
+	type MaxMembers = ConstU32<10>;
+	type WeightInfo = ();
+}
+
+pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+	// We use default for brevity, but you can configure as desired if needed.
+	pallet_membership::GenesisConfig::<Test> {
+		members: bounded_vec![10, 20, 30],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+	t.into()
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub(crate) fn new_bench_ext() -> sp_io::TestExternalities {
+	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub(crate) fn clean() {
+	Members::set(vec![]);
+	Prime::set(None);
+}
 
 #[test]
 fn query_membership_works() {
-    new_test_ext().execute_with(|| {
-        assert_eq!(Membership::members(), vec![10, 20, 30]);
-        assert_eq!(MEMBERS.with(|m| m.borrow().clone()), vec![10, 20, 30]);
-    });
+	new_test_ext().execute_with(|| {
+		assert_eq!(crate::Members::<Test>::get(), vec![10, 20, 30]);
+		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), vec![10, 20, 30]);
+	});
 }
 
 #[test]
 fn prime_member_works() {
-    new_test_ext().execute_with(|| {
-        assert_noop!(Membership::set_prime(RuntimeOrigin::signed(4), 20), BadOrigin);
-        assert_noop!(
-            Membership::set_prime(RuntimeOrigin::signed(5), 15),
-            Error::<Test, _>::NotMember
-        );
-        assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
-        assert_eq!(Membership::prime(), Some(20));
-        assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
+	new_test_ext().execute_with(|| {
+		assert_noop!(Membership::set_prime(RuntimeOrigin::signed(4), 20), BadOrigin);
+		assert_noop!(
+			Membership::set_prime(RuntimeOrigin::signed(5), 15),
+			Error::<Test, _>::NotMember
+		);
+		assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
+		assert_eq!(crate::Prime::<Test>::get(), Some(20));
+		assert_eq!(PRIME.with(|m| *m.borrow()), crate::Prime::<Test>::get());
 
-        assert_ok!(Membership::clear_prime(RuntimeOrigin::signed(5)));
-        assert_eq!(Membership::prime(), None);
-        assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
-    });
+		assert_ok!(Membership::clear_prime(RuntimeOrigin::signed(5)));
+		assert_eq!(crate::Prime::<Test>::get(), None);
+		assert_eq!(PRIME.with(|m| *m.borrow()), crate::Prime::<Test>::get());
+	});
 }
 
 #[test]
 fn add_member_works() {
-    new_test_ext().execute_with(|| {
-        assert_noop!(Membership::add_member(RuntimeOrigin::signed(5), 15), BadOrigin);
-        assert_noop!(
-            Membership::add_member(RuntimeOrigin::signed(1), 10),
-            Error::<Test, _>::AlreadyMember
-        );
-        assert_ok!(Membership::add_member(RuntimeOrigin::signed(1), 15));
-        assert_eq!(Membership::members(), vec![10, 15, 20, 30]);
-        assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
-    });
+	new_test_ext().execute_with(|| {
+		assert_noop!(Membership::add_member(RuntimeOrigin::signed(5), 15), BadOrigin);
+		assert_noop!(
+			Membership::add_member(RuntimeOrigin::signed(1), 10),
+			Error::<Test, _>::AlreadyMember
+		);
+		assert_ok!(Membership::add_member(RuntimeOrigin::signed(1), 15));
+		assert_eq!(crate::Members::<Test>::get(), vec![10, 15, 20, 30]);
+		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
+	});
 }
 
 #[test]
 fn remove_member_works() {
-    new_test_ext().execute_with(|| {
-        assert_noop!(Membership::remove_member(RuntimeOrigin::signed(5), 20), BadOrigin);
-        assert_noop!(
-            Membership::remove_member(RuntimeOrigin::signed(2), 15),
-            Error::<Test, _>::NotMember
-        );
-        assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
-        assert_ok!(Membership::remove_member(RuntimeOrigin::signed(2), 20));
-        assert_eq!(Membership::members(), vec![10, 30]);
-        assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
-        assert_eq!(Membership::prime(), None);
-        assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
-    });
+	new_test_ext().execute_with(|| {
+		assert_noop!(Membership::remove_member(RuntimeOrigin::signed(5), 20), BadOrigin);
+		assert_noop!(
+			Membership::remove_member(RuntimeOrigin::signed(2), 15),
+			Error::<Test, _>::NotMember
+		);
+		assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
+		assert_ok!(Membership::remove_member(RuntimeOrigin::signed(2), 20));
+		assert_eq!(crate::Members::<Test>::get(), vec![10, 30]);
+		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
+		assert_eq!(crate::Prime::<Test>::get(), None);
+		assert_eq!(PRIME.with(|m| *m.borrow()), crate::Prime::<Test>::get());
+	});
 }
 
 #[test]
 fn swap_member_works() {
-    new_test_ext().execute_with(|| {
-        assert_noop!(Membership::swap_member(RuntimeOrigin::signed(5), 10, 25), BadOrigin);
-        assert_noop!(
-            Membership::swap_member(RuntimeOrigin::signed(3), 15, 25),
-            Error::<Test, _>::NotMember
-        );
-        assert_noop!(
-            Membership::swap_member(RuntimeOrigin::signed(3), 10, 30),
-            Error::<Test, _>::AlreadyMember
-        );
+	new_test_ext().execute_with(|| {
+		assert_noop!(Membership::swap_member(RuntimeOrigin::signed(5), 10, 25), BadOrigin);
+		assert_noop!(
+			Membership::swap_member(RuntimeOrigin::signed(3), 15, 25),
+			Error::<Test, _>::NotMember
+		);
+		assert_noop!(
+			Membership::swap_member(RuntimeOrigin::signed(3), 10, 30),
+			Error::<Test, _>::AlreadyMember
+		);
 
-        assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
-        assert_ok!(Membership::swap_member(RuntimeOrigin::signed(3), 20, 20));
-        assert_eq!(Membership::members(), vec![10, 20, 30]);
-        assert_eq!(Membership::prime(), Some(20));
-        assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
+		assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
+		assert_ok!(Membership::swap_member(RuntimeOrigin::signed(3), 20, 20));
+		assert_eq!(crate::Members::<Test>::get(), vec![10, 20, 30]);
+		assert_eq!(crate::Prime::<Test>::get(), Some(20));
+		assert_eq!(PRIME.with(|m| *m.borrow()), crate::Prime::<Test>::get());
 
-        assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 10));
-        assert_ok!(Membership::swap_member(RuntimeOrigin::signed(3), 10, 25));
-        assert_eq!(Membership::members(), vec![20, 25, 30]);
-        assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
-        assert_eq!(Membership::prime(), None);
-        assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
-    });
+		assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 10));
+		assert_ok!(Membership::swap_member(RuntimeOrigin::signed(3), 10, 25));
+		assert_eq!(crate::Members::<Test>::get(), vec![20, 25, 30]);
+		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
+		assert_eq!(crate::Prime::<Test>::get(), None);
+		assert_eq!(PRIME.with(|m| *m.borrow()), crate::Prime::<Test>::get());
+	});
 }
 
 #[test]
 fn swap_member_works_that_does_not_change_order() {
-    new_test_ext().execute_with(|| {
-        assert_ok!(Membership::swap_member(RuntimeOrigin::signed(3), 10, 5));
-        assert_eq!(Membership::members(), vec![5, 20, 30]);
-        assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
-    });
+	new_test_ext().execute_with(|| {
+		assert_ok!(Membership::swap_member(RuntimeOrigin::signed(3), 10, 5));
+		assert_eq!(crate::Members::<Test>::get(), vec![5, 20, 30]);
+		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
+	});
 }
 
 #[test]
 fn swap_member_with_identical_arguments_changes_nothing() {
-    new_test_ext().execute_with(|| {
-        assert_storage_noop!(assert_ok!(Membership::swap_member(
-            RuntimeOrigin::signed(3),
-            10,
-            10
-        )));
-    });
+	new_test_ext().execute_with(|| {
+		assert_storage_noop!(assert_ok!(Membership::swap_member(RuntimeOrigin::signed(3), 10, 10)));
+	});
 }
 
 #[test]
 fn change_key_works() {
-    new_test_ext().execute_with(|| {
-        assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 10));
-        assert_noop!(
-            Membership::change_key(RuntimeOrigin::signed(3), 25),
-            Error::<Test, _>::NotMember
-        );
-        assert_noop!(
-            Membership::change_key(RuntimeOrigin::signed(10), 20),
-            Error::<Test, _>::AlreadyMember
-        );
-        assert_ok!(Membership::change_key(RuntimeOrigin::signed(10), 40));
-        assert_eq!(Membership::members(), vec![20, 30, 40]);
-        assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
-        assert_eq!(Membership::prime(), Some(40));
-        assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
-    });
+	new_test_ext().execute_with(|| {
+		assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 10));
+		assert_noop!(
+			Membership::change_key(RuntimeOrigin::signed(3), 25),
+			Error::<Test, _>::NotMember
+		);
+		assert_noop!(
+			Membership::change_key(RuntimeOrigin::signed(10), 20),
+			Error::<Test, _>::AlreadyMember
+		);
+		assert_ok!(Membership::change_key(RuntimeOrigin::signed(10), 40));
+		assert_eq!(crate::Members::<Test>::get(), vec![20, 30, 40]);
+		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
+		assert_eq!(crate::Prime::<Test>::get(), Some(40));
+		assert_eq!(PRIME.with(|m| *m.borrow()), crate::Prime::<Test>::get());
+	});
 }
 
 #[test]
 fn change_key_works_that_does_not_change_order() {
-    new_test_ext().execute_with(|| {
-        assert_ok!(Membership::change_key(RuntimeOrigin::signed(10), 5));
-        assert_eq!(Membership::members(), vec![5, 20, 30]);
-        assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
-    });
+	new_test_ext().execute_with(|| {
+		assert_ok!(Membership::change_key(RuntimeOrigin::signed(10), 5));
+		assert_eq!(crate::Members::<Test>::get(), vec![5, 20, 30]);
+		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
+	});
 }
 
 #[test]
 fn change_key_with_same_caller_as_argument_changes_nothing() {
-    new_test_ext().execute_with(|| {
-        assert_storage_noop!(assert_ok!(Membership::change_key(RuntimeOrigin::signed(10), 10)));
-    });
+	new_test_ext().execute_with(|| {
+		assert_storage_noop!(assert_ok!(Membership::change_key(RuntimeOrigin::signed(10), 10)));
+	});
 }
 
 #[test]
 fn reset_members_works() {
-    new_test_ext().execute_with(|| {
-        assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
-        assert_noop!(
-            Membership::reset_members(RuntimeOrigin::signed(1), bounded_vec![20, 40, 30]),
-            BadOrigin
-        );
+	new_test_ext().execute_with(|| {
+		assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
+		assert_noop!(
+			Membership::reset_members(RuntimeOrigin::signed(1), bounded_vec![20, 40, 30]),
+			BadOrigin
+		);
 
-        assert_ok!(Membership::reset_members(RuntimeOrigin::signed(4), vec![20, 40, 30]));
-        assert_eq!(Membership::members(), vec![20, 30, 40]);
-        assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
-        assert_eq!(Membership::prime(), Some(20));
-        assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
+		assert_ok!(Membership::reset_members(RuntimeOrigin::signed(4), vec![20, 40, 30]));
+		assert_eq!(crate::Members::<Test>::get(), vec![20, 30, 40]);
+		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
+		assert_eq!(crate::Prime::<Test>::get(), Some(20));
+		assert_eq!(PRIME.with(|m| *m.borrow()), crate::Prime::<Test>::get());
 
-        assert_ok!(Membership::reset_members(RuntimeOrigin::signed(4), vec![10, 40, 30]));
-        assert_eq!(Membership::members(), vec![10, 30, 40]);
-        assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
-        assert_eq!(Membership::prime(), None);
-        assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
-    });
+		assert_ok!(Membership::reset_members(RuntimeOrigin::signed(4), vec![10, 40, 30]));
+		assert_eq!(crate::Members::<Test>::get(), vec![10, 30, 40]);
+		assert_eq!(MEMBERS.with(|m| m.borrow().clone()), crate::Members::<Test>::get().to_vec());
+		assert_eq!(crate::Prime::<Test>::get(), None);
+		assert_eq!(PRIME.with(|m| *m.borrow()), crate::Prime::<Test>::get());
+	});
 }
 
 #[test]
 #[should_panic(expected = "Members cannot contain duplicate accounts.")]
 fn genesis_build_panics_with_duplicate_members() {
-    pallet_membership::GenesisConfig::<Test> {
-        members: bounded_vec![1, 2, 3, 1],
-        phantom: Default::default(),
-    }
-    .build_storage()
-    .unwrap();
+	pallet_membership::GenesisConfig::<Test> {
+		members: bounded_vec![1, 2, 3, 1],
+		phantom: Default::default(),
+	}
+	.build_storage()
+	.unwrap();
 }
 
 #[test]
 fn migration_v4() {
-    new_test_ext().execute_with(|| {
-        let old_pallet_name = "OldMembership";
-        let new_pallet_name =
-            <Test as frame_system::Config>::PalletInfo::name::<Membership>().unwrap();
+	new_test_ext().execute_with(|| {
+		use frame_support::traits::PalletInfo;
+		let old_pallet_name = "OldMembership";
+		let new_pallet_name =
+			<Test as frame_system::Config>::PalletInfo::name::<Membership>().unwrap();
 
-        frame_support::storage::migration::move_pallet(
-            new_pallet_name.as_bytes(),
-            old_pallet_name.as_bytes(),
-        );
+		frame_support::storage::migration::move_pallet(
+			new_pallet_name.as_bytes(),
+			old_pallet_name.as_bytes(),
+		);
 
-        StorageVersion::new(0).put::<Membership>();
+		StorageVersion::new(0).put::<Membership>();
 
-        crate::migrations::v4::pre_migrate::<Membership, _>(old_pallet_name, new_pallet_name);
-        crate::migrations::v4::migrate::<Test, Membership, _>(old_pallet_name, new_pallet_name);
-        crate::migrations::v4::post_migrate::<Membership, _>(old_pallet_name, new_pallet_name);
-    });
+		crate::migrations::v4::pre_migrate::<Membership, _>(old_pallet_name, new_pallet_name);
+		crate::migrations::v4::migrate::<Test, Membership, _>(old_pallet_name, new_pallet_name);
+		crate::migrations::v4::post_migrate::<Membership, _>(old_pallet_name, new_pallet_name);
+	});
 }

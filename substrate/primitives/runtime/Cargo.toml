@@ -34,6 +34,7 @@ sp-io = { workspace = true }
 sp-std = { workspace = true }
 sp-weights = { workspace = true }
 docify = { workspace = true }
+tracing = { workspace = true, features = ["log"], default-features = false }
 
 simple-mermaid = { version = "0.1.1", optional = true }
 
@@ -69,6 +70,7 @@ std = [
 	"sp-std/std",
 	"sp-tracing/std",
 	"sp-weights/std",
+	"tracing/std",
 ]
 
 # Serde support without relying on std features.

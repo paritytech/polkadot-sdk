@@ -27,8 +27,10 @@ use std::{
 
 use futures::future::FutureExt;
 use http::{HeaderValue, Method, StatusCode, Uri};
-use hyper::Body;
-use jsonrpsee::types::{Response as RpcResponse, ResponseSuccess as RpcResponseSuccess};
+use jsonrpsee::{
+	server::{HttpBody, HttpRequest, HttpResponse},
+	types::{Response as RpcResponse, ResponseSuccess as RpcResponseSuccess},
+};
 use tower::Service;
 
 const RPC_SYSTEM_HEALTH_CALL: &str = r#"{"jsonrpc":"2.0","method":"system_health","id":0}"#;
@@ -57,9 +59,9 @@ impl<S> NodeHealthProxy<S> {
 	}
 }
 
-impl<S> tower::Service<http::Request<Body>> for NodeHealthProxy<S>
+impl<S> tower::Service<http::Request<hyper::body::Incoming>> for NodeHealthProxy<S>
 where
-	S: Service<http::Request<Body>, Response = http::Response<Body>>,
+	S: Service<HttpRequest, Response = HttpResponse>,
 	S::Response: 'static,
 	S::Error: Into<Box<dyn Error + Send + Sync>> + 'static,
 	S::Future: Send + 'static,
@@ -73,7 +75,8 @@ where
 		self.0.poll_ready(cx).map_err(Into::into)
 	}
 
-	fn call(&mut self, mut req: http::Request<Body>) -> Self::Future {
+	fn call(&mut self, req: http::Request<hyper::body::Incoming>) -> Self::Future {
+		let mut req = req.map(|body| HttpBody::new(body));
 		let maybe_intercept = InterceptRequest::from_http(&req);
 
 		// Modify the request and proxy it to `system_health`
@@ -88,7 +91,7 @@ where
 			req.headers_mut().insert(http::header::ACCEPT, HEADER_VALUE_JSON);
 
 			// Adjust the body to reflect the method call.
-			req = req.map(|_| Body::from(RPC_SYSTEM_HEALTH_CALL));
+			req = req.map(|_| HttpBody::from(RPC_SYSTEM_HEALTH_CALL));
 		}
 
 		// Call the inner service and get a future that resolves to the response.
@@ -99,7 +102,7 @@ where
 
 			Ok(match maybe_intercept {
 				InterceptRequest::Deny =>
-					http_response(StatusCode::METHOD_NOT_ALLOWED, Body::empty()),
+					http_response(StatusCode::METHOD_NOT_ALLOWED, HttpBody::empty()),
 				InterceptRequest::No => res,
 				InterceptRequest::Health => {
 					let health = parse_rpc_response(res.into_body()).await?;
@@ -108,7 +111,7 @@ where
 				InterceptRequest::Readiness => {
 					let health = parse_rpc_response(res.into_body()).await?;
 					if (!health.is_syncing && health.peers > 0) || !health.should_have_peers {
-						http_ok_response(Body::empty())
+						http_ok_response(HttpBody::empty())
 					} else {
 						http_internal_error()
 					}
@@ -133,27 +136,28 @@ struct Health {
 	pub should_have_peers: bool,
 }
 
-fn http_ok_response<S: Into<hyper::Body>>(body: S) -> hyper::Response<hyper::Body> {
+fn http_ok_response<S: Into<HttpBody>>(body: S) -> HttpResponse {
 	http_response(StatusCode::OK, body)
 }
 
-fn http_response<S: Into<hyper::Body>>(
-	status_code: StatusCode,
-	body: S,
-) -> hyper::Response<hyper::Body> {
-	hyper::Response::builder()
+fn http_response<S: Into<HttpBody>>(status_code: StatusCode, body: S) -> HttpResponse {
+	HttpResponse::builder()
 		.status(status_code)
 		.header(http::header::CONTENT_TYPE, HEADER_VALUE_JSON)
 		.body(body.into())
 		.expect("Header is valid; qed")
 }
 
-fn http_internal_error() -> hyper::Response<hyper::Body> {
-	http_response(hyper::StatusCode::INTERNAL_SERVER_ERROR, Body::empty())
+fn http_internal_error() -> HttpResponse {
+	http_response(hyper::StatusCode::INTERNAL_SERVER_ERROR, HttpBody::empty())
 }
 
-async fn parse_rpc_response(body: Body) -> Result<Health, Box<dyn Error + Send + Sync + 'static>> {
-	let bytes = hyper::body::to_bytes(body).await?;
+async fn parse_rpc_response(
+	body: HttpBody,
+) -> Result<Health, Box<dyn Error + Send + Sync + 'static>> {
+	use http_body_util::BodyExt;
+
+	let bytes = body.collect().await?.to_bytes();
 
 	let raw_rp = serde_json::from_slice::<RpcResponse<Health>>(&bytes)?;
 	let rp = RpcResponseSuccess::<Health>::try_from(raw_rp)?;
@@ -178,7 +182,7 @@ enum InterceptRequest {
 }
 
 impl InterceptRequest {
-	fn from_http(req: &http::Request<Body>) -> InterceptRequest {
+	fn from_http(req: &HttpRequest) -> InterceptRequest {
 		match req.uri().path() {
 			"/health" =>
 				if req.method() == http::Method::GET {

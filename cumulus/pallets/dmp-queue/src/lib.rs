@@ -23,6 +23,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(deprecated)] // The pallet itself is deprecated.
 
+extern crate alloc;
+
 use migration::*;
 pub use pallet::*;
 

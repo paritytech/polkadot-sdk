@@ -14,7 +14,7 @@
 * 🤏 This template is a minimal (in terms of complexity and the number of components)
 template for building a blockchain node.
 
-* 🔧 Its runtime is configured of a single custom pallet as a starting point, and a handful of ready-made pallets
+* 🔧 Its runtime is configured with a single custom pallet as a starting point, and a handful of ready-made pallets
 such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
 
 * 👤 The template has no consensus configured - it is best for experimenting with a single node network.
@@ -42,7 +42,7 @@ packages required to compile this template - please take note of the Rust compil
 🔨 Use the following command to build the node without launching it:
 
 ```sh
-cargo build --release
+cargo build --package minimal-template-node --release
 ```
 
 🐳 Alternatively, build the docker image:
@@ -65,8 +65,8 @@ docker run --rm polkadot-sdk-minimal-template --dev
 Development chains:
 
 * 🧹 Do not persist the state.
-* 💰 Are preconfigured with a genesis state that includes several prefunded development accounts.
-* 🧑‍⚖️ Development accounts are used as `sudo` accounts.
+* 💰 Are pre-configured with a genesis state that includes several pre-funded development accounts.
+* 🧑‍⚖️ One development account (`ALICE`) is used as `sudo` accounts.
 
 ### Connect with the Polkadot-JS Apps Front-End
 

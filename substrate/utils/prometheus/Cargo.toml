@@ -16,12 +16,14 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-hyper = { features = ["http1", "server", "tcp"], workspace = true }
+http-body-util = { workspace = true }
+hyper = { features = ["http1", "server"], workspace = true }
+hyper-util = { features = ["server-auto", "tokio"], workspace = true }
 log = { workspace = true, default-features = true }
 prometheus = { workspace = true }
 thiserror = { workspace = true }
 tokio = { features = ["parking_lot"], workspace = true, default-features = true }
 
 [dev-dependencies]
-hyper = { features = ["client"], workspace = true, default-features = true }
-tokio = { features = ["rt-multi-thread"], workspace = true, default-features = true }
+hyper-util = { features = ["client-legacy", "tokio"], workspace = true, default-features = true }
+tokio = { features = ["macros", "rt-multi-thread"], workspace = true, default-features = true }

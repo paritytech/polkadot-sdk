@@ -17,7 +17,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true }
-sp-std = { workspace = true }
 sp-runtime = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -39,5 +38,4 @@ std = [
 	"frame-system/std",
 	"pallet-session/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]

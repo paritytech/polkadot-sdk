@@ -61,6 +61,7 @@ members = [
 	"bridges/snowbridge/primitives/router",
 	"bridges/snowbridge/runtime/runtime-common",
 	"bridges/snowbridge/runtime/test-common",
+	"cumulus/bin/pov-validator",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
 	"cumulus/client/consensus/aura",
@@ -90,6 +91,8 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/collectives/collectives-westend",
+	"cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-rococo",
+	"cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-westend",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-rococo",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-westend",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/testing/penpal",
@@ -104,6 +107,8 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/tests/collectives/collectives-westend",
+	"cumulus/parachains/integration-tests/emulated/tests/coretime/coretime-rococo",
+	"cumulus/parachains/integration-tests/emulated/tests/coretime/coretime-westend",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-westend",
 	"cumulus/parachains/pallets/collective-content",
@@ -226,7 +231,7 @@ members = [
 	"polkadot/xcm/xcm-builder",
 	"polkadot/xcm/xcm-executor",
 	"polkadot/xcm/xcm-executor/integration-tests",
-	"polkadot/xcm/xcm-fee-payment-runtime-api",
+	"polkadot/xcm/xcm-runtime-apis",
 	"polkadot/xcm/xcm-simulator",
 	"polkadot/xcm/xcm-simulator/example",
 	"polkadot/xcm/xcm-simulator/fuzzer",
@@ -571,7 +576,6 @@ ahash = { version = "0.8.2" }
 alloy-primitives = { version = "0.4.2", default-features = false }
 alloy-sol-types = { version = "0.4.2", default-features = false }
 always-assert = { version = "0.1" }
-ansi_term = { version = "0.12.1" }
 anyhow = { version = "1.0.81" }
 aquamarine = { version = "0.5.0" }
 arbitrary = { version = "1.3.2" }
@@ -589,7 +593,7 @@ ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.4.1", default-features = f
 ark-scale = { version = "0.0.12", default-features = false }
 array-bytes = { version = "6.2.2", default-features = false }
 arrayvec = { version = "0.7.4" }
-assert_cmd = { version = "2.0.10" }
+assert_cmd = { version = "2.0.14" }
 assert_matches = { version = "1.5.0" }
 asset-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo" }
 asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false }
@@ -602,7 +606,7 @@ async-std = { version = "1.9.0" }
 async-trait = { version = "0.1.79" }
 asynchronous-codec = { version = "0.6" }
 backoff = { version = "0.4" }
-backtrace = { version = "0.3.64" }
+backtrace = { version = "0.3.71" }
 binary-merkle-tree = { path = "substrate/utils/binary-merkle-tree", default-features = false }
 bincode = { version = "1.3.3" }
 bip39 = { version = "2.0.0" }
@@ -654,7 +658,7 @@ chain-spec-builder = { path = "substrate/bin/utils/chain-spec-builder", default-
 chain-spec-guide-runtime = { path = "docs/sdk/src/reference_docs/chain_spec_runtime" }
 chrono = { version = "0.4.31" }
 cid = { version = "0.9.0" }
-clap = { version = "4.5.3" }
+clap = { version = "4.5.9" }
 clap-num = { version = "1.0.2" }
 clap_complete = { version = "4.0.2" }
 coarsetime = { version = "0.1.22" }
@@ -667,7 +671,9 @@ colored = { version = "2.0.4" }
 comfy-table = { version = "7.1.0", default-features = false }
 console = { version = "0.15.8" }
 contracts-rococo-runtime = { path = "cumulus/parachains/runtimes/contracts/contracts-rococo" }
+coretime-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-rococo" }
 coretime-rococo-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-rococo" }
+coretime-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-westend" }
 coretime-westend-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-westend" }
 cpu-time = { version = "1.0.0" }
 criterion = { version = "0.5.1", default-features = false }
@@ -720,7 +726,7 @@ ed25519-zebra = { version = "4.0.3", default-features = false }
 either = { version = "1.8.1", default-features = false }
 emulated-integration-tests-common = { path = "cumulus/parachains/integration-tests/emulated/common", default-features = false }
 enumflags2 = { version = "0.7.7" }
-enumn = { version = "0.1.12" }
+enumn = { version = "0.1.13" }
 env_logger = { version = "0.11.3" }
 environmental = { version = "1.1.4", default-features = false }
 equivocation-detector = { path = "bridges/relays/equivocation" }
@@ -779,9 +785,14 @@ hex-literal = { version = "0.4.1", default-features = false }
 hkdf = { version = "0.12.0" }
 hmac = { version = "0.12.1" }
 honggfuzz = { version = "0.5.55" }
-http = { version = "0.2.8" }
-hyper = { version = "0.14.27", default-features = false }
-hyper-rustls = { version = "0.24.0" }
+http = { version = "1.1" }
+http-body = { version = "1", default-features = false }
+http-body-util = { version = "0.1.2", default-features = false }
+hyper = { version = "1.3.1", default-features = false }
+hyper-rustls = { version = "0.24.2" }
+hyper-util = { version = "0.1.5", default-features = false }
+# TODO: remove hyper v0.14 https://github.com/paritytech/polkadot-sdk/issues/4896
+hyperv14 = { package = "hyper", version = "0.14.29", default-features = false }
 impl-serde = { version = "0.4.0", default-features = false }
 impl-trait-for-tuples = { version = "0.2.2" }
 indexmap = { version = "2.0.0" }
@@ -793,8 +804,8 @@ is_executable = { version = "1.0.1" }
 isahc = { version = "1.2" }
 itertools = { version = "0.11" }
 jsonpath_lib = { version = "0.3" }
-jsonrpsee = { version = "0.22.5" }
-jsonrpsee-core = { version = "0.22" }
+jsonrpsee = { version = "0.23.2" }
+jsonrpsee-core = { version = "0.23.2" }
 k256 = { version = "0.13.3", default-features = false }
 kitchensink-runtime = { path = "substrate/bin/node/runtime" }
 kvdb = { version = "0.13.0" }
@@ -803,7 +814,7 @@ kvdb-rocksdb = { version = "0.19.0" }
 kvdb-shared-tests = { version = "0.11.0" }
 landlock = { version = "0.3.0" }
 lazy_static = { version = "1.4.0" }
-libc = { version = "0.2.153" }
+libc = { version = "0.2.155" }
 libfuzzer-sys = { version = "0.4" }
 libp2p = { version = "0.52.4" }
 libp2p-identity = { version = "0.2.3" }
@@ -812,9 +823,9 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.5.0" }
-log = { version = "0.4.21", default-features = false }
-macro_magic = { version = "0.5.0" }
+litep2p = { version = "0.6.2" }
+log = { version = "0.4.22", default-features = false }
+macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
 memory-db = { version = "0.32.0", default-features = false }
@@ -850,7 +861,7 @@ num-rational = { version = "0.4.1" }
 num-traits = { version = "0.2.17", default-features = false }
 num_cpus = { version = "1.13.1" }
 once_cell = { version = "1.19.0" }
-orchestra = { version = "0.3.5", default-features = false }
+orchestra = { version = "0.4.0", default-features = false }
 pallet-alliance = { path = "substrate/frame/alliance", default-features = false }
 pallet-asset-conversion = { path = "substrate/frame/asset-conversion", default-features = false }
 pallet-asset-conversion-ops = { path = "substrate/frame/asset-conversion/ops", default-features = false }
@@ -981,7 +992,7 @@ parity-util-mem = { version = "0.12.0" }
 parity-wasm = { version = "0.45.0" }
 parking_lot = { version = "0.12.1", default-features = false }
 partial_sort = { version = "0.2.0" }
-paste = { version = "1.0.14", default-features = false }
+paste = { version = "1.0.15", default-features = false }
 pbkdf2 = { version = "0.12.2", default-features = false }
 penpal-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/testing/penpal" }
 penpal-runtime = { path = "cumulus/parachains/runtimes/testing/penpal" }
@@ -1064,7 +1075,7 @@ pyroscope = { version = "0.5.7" }
 pyroscope_pprofrs = { version = "0.2.7" }
 quick_cache = { version = "0.3" }
 quickcheck = { version = "1.0.3", default-features = false }
-quote = { version = "1.0.33" }
+quote = { version = "1.0.36" }
 rand = { version = "0.8.5", default-features = false }
 rand_chacha = { version = "0.3.1", default-features = false }
 rand_core = { version = "0.6.2" }
@@ -1159,10 +1170,10 @@ secp256k1 = { version = "0.28.0", default-features = false }
 secrecy = { version = "0.8.0", default-features = false }
 seedling-runtime = { path = "cumulus/parachains/runtimes/starters/seedling" }
 separator = { version = "0.4.1" }
-serde = { version = "1.0.197", default-features = false }
+serde = { version = "1.0.204", default-features = false }
 serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }
-serde_json = { version = "1.0.114", default-features = false }
+serde_json = { version = "1.0.120", default-features = false }
 serde_yaml = { version = "0.9" }
 serial_test = { version = "2.0.0" }
 sha1 = { version = "0.10.6" }
@@ -1298,7 +1309,7 @@ tokio-util = { version = "0.7.8" }
 toml = { version = "0.8.8" }
 toml_edit = { version = "0.19" }
 tower = { version = "0.4.13" }
-tower-http = { version = "0.4.0" }
+tower-http = { version = "0.5.2" }
 tracing = { version = "0.1.37", default-features = false }
 tracing-core = { version = "0.1.32", default-features = false }
 tracing-futures = { version = "0.2.4" }
@@ -1336,8 +1347,8 @@ xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, pac
 xcm-docs = { path = "polkadot/xcm/docs" }
 xcm-emulator = { path = "cumulus/xcm/xcm-emulator", default-features = false }
 xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor" }
-xcm-fee-payment-runtime-api = { path = "polkadot/xcm/xcm-fee-payment-runtime-api", default-features = false }
 xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
+xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
 zstd = { version = "0.12.4", default-features = false }

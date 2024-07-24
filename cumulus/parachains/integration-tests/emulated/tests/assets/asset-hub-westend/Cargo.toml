@@ -34,13 +34,10 @@ polkadot-runtime-common = { workspace = true, default-features = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 pallet-xcm = { workspace = true }
-xcm-fee-payment-runtime-api = { workspace = true }
-westend-runtime = { workspace = true }
+xcm-runtime-apis = { workspace = true }
 
 # Cumulus
 parachains-common = { workspace = true, default-features = true }
-penpal-runtime = { workspace = true }
-asset-hub-westend-runtime = { workspace = true }
 asset-test-utils = { workspace = true, default-features = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }

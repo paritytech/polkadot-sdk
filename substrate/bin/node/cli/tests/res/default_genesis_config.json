@@ -16,6 +16,7 @@
   "balances": {
     "balances": []
   },
+  "broker": {},
   "transactionPayment": {
     "multiplier": "1000000000000000000"
   },
@@ -80,12 +81,14 @@
   "assets": {
     "assets": [],
     "metadata": [],
-    "accounts": []
+    "accounts": [],
+    "nextAssetId": null
   },
   "poolAssets": {
     "assets": [],
     "metadata": [],
-    "accounts": []
+    "accounts": [],
+    "nextAssetId": null
   },
   "transactionStorage": {
     "byteFee": 10,

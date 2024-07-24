@@ -52,7 +52,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block_params: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		block_params.fork_choice = Some(sc_consensus::ForkChoiceStrategy::Custom(

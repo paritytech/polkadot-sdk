@@ -11,6 +11,7 @@ publish = false
 workspace = true
 
 [dependencies]
+hex-literal = { workspace = true, default-features = true }
 
 # Substrate
 frame-support = { workspace = true }
@@ -29,8 +30,7 @@ xcm-executor = { workspace = true }
 pallet-bridge-messages = { workspace = true }
 
 # Cumulus
-parachains-common = { workspace = true, default-features = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
-bridge-hub-westend-runtime = { workspace = true }
 emulated-integration-tests-common = { workspace = true }
+parachains-common = { workspace = true, default-features = true }
 rococo-westend-system-emulated-network = { workspace = true }
