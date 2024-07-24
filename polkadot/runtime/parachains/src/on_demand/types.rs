@@ -116,7 +116,7 @@ impl QueueStatusType {
 	pub fn consume_index(&mut self, removed_index: QueueIndex) {
 		if removed_index != self.smallest_index {
 			self.freed_indices.push(removed_index.reverse());
-			return;
+			return
 		}
 		let mut index = self.smallest_index.0.overflowing_add(1).0;
 		// Even more to advance?

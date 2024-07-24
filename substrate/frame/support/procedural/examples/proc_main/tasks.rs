@@ -15,12 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
+#[cfg(test)]
+use super::{
 	assert_ok,
-	tests::{
-		frame_system::{Numbers, Total},
-		new_test_ext, Runtime, RuntimeOrigin, RuntimeTask, System,
-	},
+	frame_system::{Numbers, Total},
+	Runtime, RuntimeOrigin, RuntimeTask, System,
 };
 use frame_support_procedural::pallet_section;
 
@@ -48,7 +47,7 @@ mod tasks_example {
 #[docify::export]
 #[test]
 fn tasks_work() {
-	new_test_ext().execute_with(|| {
+	super::new_test_ext().execute_with(|| {
 		Numbers::<Runtime>::insert(0, 1);
 
 		let task = RuntimeTask::System(super::frame_system::Task::<Runtime>::AddNumberIntoTotal {
