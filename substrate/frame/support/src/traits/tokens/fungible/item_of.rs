@@ -39,7 +39,7 @@ pub struct ItemOf<
 	F: fungibles::Inspect<AccountId>,
 	A: Get<<F as fungibles::Inspect<AccountId>>::AssetId>,
 	AccountId,
->(sp_std::marker::PhantomData<(F, A, AccountId)>);
+>(core::marker::PhantomData<(F, A, AccountId)>);
 
 impl<
 		F: fungibles::Inspect<AccountId>,
@@ -361,7 +361,7 @@ impl<
 }
 
 pub struct ConvertImbalanceDropHandler<AccountId, Balance, AssetIdType, AssetId, Handler>(
-	sp_std::marker::PhantomData<(AccountId, Balance, AssetIdType, AssetId, Handler)>,
+	core::marker::PhantomData<(AccountId, Balance, AssetIdType, AssetId, Handler)>,
 );
 
 impl<

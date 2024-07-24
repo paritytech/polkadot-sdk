@@ -16,11 +16,11 @@
 
 // Shared test utilities and implementations for the XCM Builder.
 
+use alloc::vec::Vec;
 use frame_support::{
 	parameter_types,
 	traits::{Contains, CrateVersion, PalletInfoData, PalletsInfoAccess},
 };
-use sp_std::vec::Vec;
 pub use xcm::latest::{prelude::*, Weight};
 use xcm_executor::traits::{ClaimAssets, DropAssets, VersionChangeNotifier};
 pub use xcm_executor::{

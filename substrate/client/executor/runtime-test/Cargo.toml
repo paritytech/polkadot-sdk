@@ -20,7 +20,6 @@ sp-core = { workspace = true }
 sp-io = { features = ["improved_panic_error_reporting"], workspace = true }
 sp-runtime = { workspace = true }
 sp-runtime-interface = { workspace = true }
-sp-std = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -32,6 +31,5 @@ std = [
 	"sp-io/std",
 	"sp-runtime-interface/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"substrate-wasm-builder",
 ]

@@ -20,6 +20,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+extern crate alloc;
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod inner;
 
