@@ -40,6 +40,9 @@ mod tests;
 pub mod weights;
 pub use weights::WeightInfo;
 
+extern crate alloc;
+
+use alloc::boxed::Box;
 use codec::{DecodeLimit, Encode, FullCodec};
 use frame_support::{
 	dispatch::{GetDispatchInfo, PostDispatchInfo},
@@ -49,7 +52,6 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Dispatchable, Hash};
-use sp_std::prelude::*;
 
 pub use pallet::*;
 

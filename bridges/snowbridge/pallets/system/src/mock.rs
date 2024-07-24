@@ -3,7 +3,7 @@
 use crate as snowbridge_system;
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{tokens::fungible::Mutate, ConstU128, ConstU64, ConstU8},
+	traits::{tokens::fungible::Mutate, ConstU128, ConstU8},
 	weights::IdentityFee,
 	PalletId,
 };
@@ -106,27 +106,17 @@ impl frame_system::Config for Test {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
 	type Nonce = u64;
 	type Block = Block;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 impl pallet_xcm_origin::Config for Test {

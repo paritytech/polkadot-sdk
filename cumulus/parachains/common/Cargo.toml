@@ -13,42 +13,41 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"], default-features = false }
+codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+scale-info = { features = ["derive"], workspace = true }
 
 # Substrate
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-pallet-asset-tx-payment = { path = "../../../substrate/frame/transaction-payment/asset-tx-payment", default-features = false }
-pallet-assets = { path = "../../../substrate/frame/assets", default-features = false }
-pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
-pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
-pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
-sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false }
-sp-io = { path = "../../../substrate/primitives/io", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-asset-tx-payment = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-authorship = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-message-queue = { workspace = true }
+sp-consensus-aura = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
 
 # Polkadot
-pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false }
-polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false }
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false }
+pallet-xcm = { workspace = true }
+polkadot-primitives = { workspace = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
 
 # Cumulus
-pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }
-cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
-cumulus-primitives-utility = { path = "../../primitives/utility", default-features = false }
-parachain-info = { package = "staging-parachain-info", path = "../pallets/parachain-info", default-features = false }
+pallet-collator-selection = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+cumulus-primitives-utility = { workspace = true }
+parachain-info = { workspace = true }
 
 [dev-dependencies]
-pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
-sp-io = { path = "../../../substrate/primitives/io", default-features = false }
+pallet-authorship = { workspace = true }
+sp-io = { workspace = true }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder" }
+substrate-wasm-builder = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -73,7 +72,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]

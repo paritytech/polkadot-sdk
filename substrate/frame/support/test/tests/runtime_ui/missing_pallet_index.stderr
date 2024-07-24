@@ -1,0 +1,5 @@
+error: Missing pallet index for pallet declaration. Please add `#[runtime::pallet_index(...)]`
+  --> tests/runtime_ui/missing_pallet_index.rs:24:5
+   |
+24 |     pub type System = frame_system;
+   |     ^^^

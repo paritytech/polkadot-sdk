@@ -176,8 +176,10 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 	relay_chain_rpc_client: Arc<BlockChainRpcClient>,
 ) -> Result<NewMinimalNode, RelayChainError> {
 	let role = config.role.clone();
-	let mut net_config =
-		sc_network::config::FullNetworkConfiguration::<_, _, Network>::new(&config.network);
+	let mut net_config = sc_network::config::FullNetworkConfiguration::<_, _, Network>::new(
+		&config.network,
+		config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
+	);
 	let metrics = Network::register_notification_metrics(
 		config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
 	);
@@ -190,7 +192,7 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 		task_manager.spawn_handle().spawn(
 			"prometheus-endpoint",
 			None,
-			substrate_prometheus_endpoint::init_prometheus(port, registry).map(drop),
+			prometheus_endpoint::init_prometheus(port, registry).map(drop),
 		);
 	}
 
@@ -284,6 +286,9 @@ fn build_request_response_protocol_receivers<
 	config.add_request_response_protocol(cfg);
 	let cfg =
 		Protocol::ChunkFetchingV1.get_outbound_only_config::<_, Network>(request_protocol_names);
+	config.add_request_response_protocol(cfg);
+	let cfg =
+		Protocol::ChunkFetchingV2.get_outbound_only_config::<_, Network>(request_protocol_names);
 	config.add_request_response_protocol(cfg);
 	(collation_req_v1_receiver, collation_req_v2_receiver, available_data_req_receiver)
 }

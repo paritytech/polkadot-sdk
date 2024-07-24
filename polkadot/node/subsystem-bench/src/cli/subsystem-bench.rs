@@ -20,7 +20,7 @@
 use clap::Parser;
 use color_eyre::eyre;
 use colored::Colorize;
-use polkadot_subsystem_bench::{approval, availability, configuration};
+use polkadot_subsystem_bench::{approval, availability, configuration, statement};
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use serde::{Deserialize, Serialize};
@@ -40,6 +40,8 @@ pub enum TestObjective {
 	DataAvailabilityWrite,
 	/// Benchmark the approval-voting and approval-distribution subsystems.
 	ApprovalVoting(approval::ApprovalsOptions),
+	// Benchmark the statement-distribution subsystem
+	StatementDistribution,
 }
 
 impl std::fmt::Display for TestObjective {
@@ -51,6 +53,7 @@ impl std::fmt::Display for TestObjective {
 				Self::DataAvailabilityRead(_) => "DataAvailabilityRead",
 				Self::DataAvailabilityWrite => "DataAvailabilityWrite",
 				Self::ApprovalVoting(_) => "ApprovalVoting",
+				Self::StatementDistribution => "StatementDistribution",
 			}
 		)
 	}
@@ -142,11 +145,8 @@ impl BenchCli {
 						availability::TestDataAvailability::Read(opts),
 						true,
 					);
-					env.runtime().block_on(availability::benchmark_availability_read(
-						&benchmark_name,
-						&mut env,
-						&state,
-					))
+					env.runtime()
+						.block_on(availability::benchmark_availability_read(&mut env, &state))
 				},
 				TestObjective::DataAvailabilityWrite => {
 					let state = availability::TestState::new(&test_config);
@@ -155,23 +155,22 @@ impl BenchCli {
 						availability::TestDataAvailability::Write,
 						true,
 					);
-					env.runtime().block_on(availability::benchmark_availability_write(
-						&benchmark_name,
-						&mut env,
-						&state,
-					))
+					env.runtime()
+						.block_on(availability::benchmark_availability_write(&mut env, &state))
 				},
 				TestObjective::ApprovalVoting(ref options) => {
 					let (mut env, state) =
 						approval::prepare_test(test_config.clone(), options.clone(), true);
-					env.runtime().block_on(approval::bench_approvals(
-						&benchmark_name,
-						&mut env,
-						state,
-					))
+					env.runtime().block_on(approval::bench_approvals(&mut env, state))
+				},
+				TestObjective::StatementDistribution => {
+					let state = statement::TestState::new(&test_config);
+					let (mut env, _protocol_config) = statement::prepare_test(&state, true);
+					env.runtime()
+						.block_on(statement::benchmark_statement_distribution(&mut env, &state))
 				},
 			};
-			println!("{}", usage);
+			println!("\n{}\n{}", benchmark_name.purple(), usage);
 		}
 
 		if let Some(agent_running) = agent_running {

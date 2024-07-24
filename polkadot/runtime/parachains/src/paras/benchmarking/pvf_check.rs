@@ -17,9 +17,10 @@
 //! This module focuses on the benchmarking of the `include_pvf_check_statement` dispatchable.
 
 use crate::{configuration, paras::*, shared::Pallet as ParasShared};
+use alloc::{vec, vec::Vec};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use primitives::{HeadData, Id as ParaId, ValidationCode, ValidatorId, ValidatorIndex};
+use polkadot_primitives::{HeadData, Id as ParaId, ValidationCode, ValidatorId, ValidatorIndex};
 use sp_application_crypto::RuntimeAppPublic;
 
 // Constants for the benchmarking
@@ -204,7 +205,7 @@ where
 {
 	let validators = shared::ActiveValidatorKeys::<T>::get();
 
-	let accept_threshold = primitives::supermajority_threshold(validators.len());
+	let accept_threshold = polkadot_primitives::supermajority_threshold(validators.len());
 	let required_votes = match vote_outcome {
 		VoteOutcome::Accept => accept_threshold,
 		VoteOutcome::Reject => validators.len() - accept_threshold,

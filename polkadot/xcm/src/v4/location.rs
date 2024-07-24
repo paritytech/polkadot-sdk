@@ -18,8 +18,8 @@
 
 use super::{traits::Reanchorable, Junction, Junctions};
 use crate::{v3::MultiLocation as OldLocation, VersionedLocation};
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::result;
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 /// A relative path between state-bearing consensus systems.
@@ -534,12 +534,18 @@ impl From<[u8; 32]> for Location {
 	}
 }
 
+impl From<sp_runtime::AccountId32> for Location {
+	fn from(id: sp_runtime::AccountId32) -> Self {
+		Junction::AccountId32 { network: None, id: id.into() }.into()
+	}
+}
+
 xcm_procedural::impl_conversion_functions_for_location_v4!();
 
 #[cfg(test)]
 mod tests {
 	use crate::v4::prelude::*;
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	#[test]
 	fn conversion_works() {

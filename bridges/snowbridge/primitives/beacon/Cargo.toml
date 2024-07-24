@@ -13,26 +13,26 @@ workspace = true
 
 [dependencies]
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
-hex = { version = "0.4", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
-rlp = { version = "0.5", default-features = false }
+hex = { workspace = true }
+codec = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+rlp = { workspace = true }
 
-frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
-sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
-sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
+frame-support = { workspace = true }
+sp-runtime = { workspace = true }
+sp-core = { workspace = true }
+sp-std = { workspace = true }
+sp-io = { workspace = true }
 
-ssz_rs = { version = "0.9.0", default-features = false }
-ssz_rs_derive = { version = "0.9.0", default-features = false }
-byte-slice-cast = { version = "1.2.1", default-features = false }
+ssz_rs = { workspace = true }
+ssz_rs_derive = { workspace = true }
+byte-slice-cast = { workspace = true }
 
-snowbridge-ethereum = { path = "../ethereum", default-features = false }
-milagro-bls = { package = "snowbridge-milagro-bls", version = "1.5.4", default-features = false }
+snowbridge-ethereum = { workspace = true }
+milagro-bls = { workspace = true }
 
 [dev-dependencies]
-hex-literal = { version = "0.4.1" }
+hex-literal = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

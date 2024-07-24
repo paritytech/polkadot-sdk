@@ -10,60 +10,60 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-futures = "0.3.30"
-hex = "0.4.3"
-gum = { package = "tracing-gum", path = "../../gum" }
-rand = "0.8.5"
+futures = { workspace = true }
+hex = { workspace = true, default-features = true }
+gum = { workspace = true, default-features = true }
+rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-tempfile = "3.2.0"
-tokio = "1.37"
+tempfile = { workspace = true }
+tokio = { workspace = true, default-features = true }
 
 # Polkadot dependencies
-polkadot-overseer = { path = "../../overseer" }
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-parachain-primitives = { path = "../../../parachain" }
-polkadot-rpc = { path = "../../../rpc" }
-polkadot-runtime-common = { path = "../../../runtime/common" }
-polkadot-service = { path = "../../service" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-test-runtime = { path = "../../../runtime/test-runtime" }
-test-runtime-constants = { path = "../../../runtime/test-runtime/constants" }
-polkadot-runtime-parachains = { path = "../../../runtime/parachains" }
+polkadot-overseer = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-rpc = { workspace = true, default-features = true }
+polkadot-runtime-common = { workspace = true, default-features = true }
+polkadot-service = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-test-runtime = { workspace = true }
+test-runtime-constants = { workspace = true, default-features = true }
+polkadot-runtime-parachains = { workspace = true, default-features = true }
 
 # Substrate dependencies
-sp-authority-discovery = { path = "../../../../substrate/primitives/authority-discovery" }
-sc-authority-discovery = { path = "../../../../substrate/client/authority-discovery" }
-babe = { package = "sc-consensus-babe", path = "../../../../substrate/client/consensus/babe" }
-babe-primitives = { package = "sp-consensus-babe", path = "../../../../substrate/primitives/consensus/babe" }
-consensus_common = { package = "sp-consensus", path = "../../../../substrate/primitives/consensus/common" }
-frame-system = { path = "../../../../substrate/frame/system" }
-grandpa = { package = "sc-consensus-grandpa", path = "../../../../substrate/client/consensus/grandpa" }
-grandpa_primitives = { package = "sp-consensus-grandpa", path = "../../../../substrate/primitives/consensus/grandpa" }
-inherents = { package = "sp-inherents", path = "../../../../substrate/primitives/inherents" }
-pallet-staking = { path = "../../../../substrate/frame/staking" }
-pallet-balances = { path = "../../../../substrate/frame/balances" }
-pallet-transaction-payment = { path = "../../../../substrate/frame/transaction-payment" }
-sc-chain-spec = { path = "../../../../substrate/client/chain-spec" }
-sc-cli = { path = "../../../../substrate/client/cli" }
-sc-client-api = { path = "../../../../substrate/client/api" }
-sc-consensus = { path = "../../../../substrate/client/consensus/common" }
-sc-network = { path = "../../../../substrate/client/network" }
-sc-tracing = { path = "../../../../substrate/client/tracing" }
-sc-transaction-pool = { path = "../../../../substrate/client/transaction-pool" }
-sc-service = { path = "../../../../substrate/client/service", default-features = false }
-sp-arithmetic = { path = "../../../../substrate/primitives/arithmetic" }
-sp-blockchain = { path = "../../../../substrate/primitives/blockchain" }
-sp-core = { path = "../../../../substrate/primitives/core" }
-sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-sp-runtime = { path = "../../../../substrate/primitives/runtime" }
-sp-state-machine = { path = "../../../../substrate/primitives/state-machine" }
-substrate-test-client = { path = "../../../../substrate/test-utils/client" }
+sp-authority-discovery = { workspace = true, default-features = true }
+sc-authority-discovery = { workspace = true, default-features = true }
+sc-consensus-babe = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
+sc-consensus-grandpa = { workspace = true, default-features = true }
+sp-consensus-grandpa = { workspace = true, default-features = true }
+sp-inherents = { workspace = true, default-features = true }
+pallet-staking = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-transaction-payment = { workspace = true, default-features = true }
+sc-chain-spec = { workspace = true, default-features = true }
+sc-cli = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-consensus = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-tracing = { workspace = true, default-features = true }
+sc-transaction-pool = { workspace = true, default-features = true }
+sc-service = { workspace = true }
+sp-arithmetic = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+substrate-test-client = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { path = "../../../../substrate/frame/balances", default-features = false }
-substrate-test-utils = { path = "../../../../substrate/test-utils" }
-tokio = { version = "1.37", features = ["macros"] }
+pallet-balances = { workspace = true }
+substrate-test-utils = { workspace = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [features]
 runtime-metrics = ["polkadot-test-runtime/runtime-metrics"]

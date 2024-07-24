@@ -18,7 +18,7 @@
 
 use crate::{
 	cli::{bridge::*, chain_schema::*, HexLaneId, PrometheusParams},
-	messages_lane::MessagesRelayParams,
+	messages::MessagesRelayParams,
 	TransactionParams,
 };
 
@@ -29,7 +29,8 @@ use structopt::StructOpt;
 use bp_messages::MessageNonce;
 use bp_runtime::HeaderIdProvider;
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, Chain, ChainWithRuntimeVersion, ChainWithTransactions,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, Chain, ChainWithRuntimeVersion,
+	ChainWithTransactions, Client,
 };
 use relay_utils::UniqueSaturatedInto;
 
@@ -80,6 +81,24 @@ pub struct RelayMessagesRangeParams {
 	target_sign: TargetSigningParams,
 }
 
+/// Messages delivery confirmation relaying params.
+#[derive(StructOpt)]
+pub struct RelayMessagesDeliveryConfirmationParams {
+	/// Number of the target chain header that we will use to prepare a messages
+	/// delivery proof. This header must be previously proved to the source chain.
+	#[structopt(long)]
+	at_target_block: u128,
+	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
+	#[structopt(long, default_value = "00000000")]
+	lane: HexLaneId,
+	#[structopt(flatten)]
+	source: SourceConnectionParams,
+	#[structopt(flatten)]
+	source_sign: SourceSigningParams,
+	#[structopt(flatten)]
+	target: TargetConnectionParams,
+}
+
 /// Trait used for relaying messages between 2 chains.
 #[async_trait]
 pub trait MessagesRelayer: MessagesCliBridge
@@ -98,7 +117,7 @@ where
 		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
 		let target_transactions_mortality = data.target_sign.transactions_mortality()?;
 
-		crate::messages_lane::run::<Self::MessagesLane>(MessagesRelayParams {
+		crate::messages::run::<Self::MessagesLane, _, _>(MessagesRelayParams {
 			source_client,
 			source_transaction_params: TransactionParams {
 				signer: source_sign,
@@ -142,7 +161,7 @@ where
 			})?
 			.id();
 
-		crate::messages_lane::relay_messages_range::<Self::MessagesLane>(
+		crate::messages::relay_messages_range::<Self::MessagesLane>(
 			source_client,
 			target_client,
 			TransactionParams { signer: source_sign, mortality: source_transactions_mortality },
@@ -151,6 +170,39 @@ where
 			data.lane.into(),
 			data.messages_start..=data.messages_end,
 			data.outbound_state_proof_required,
+		)
+		.await
+	}
+
+	/// Relay a messages delivery confirmation.
+	async fn relay_messages_delivery_confirmation(
+		data: RelayMessagesDeliveryConfirmationParams,
+	) -> anyhow::Result<()> {
+		let source_client = data.source.into_client::<Self::Source>().await?;
+		let target_client = data.target.into_client::<Self::Target>().await?;
+		let source_sign = data.source_sign.to_keypair::<Self::Source>()?;
+		let source_transactions_mortality = data.source_sign.transactions_mortality()?;
+
+		let at_target_block = target_client
+			.header_by_number(data.at_target_block.unique_saturated_into())
+			.await
+			.map_err(|e| {
+				log::trace!(
+					target: "bridge",
+					"Failed to read {} header with number {}: {e:?}",
+					Self::Target::NAME,
+					data.at_target_block,
+				);
+				anyhow::format_err!("The command has failed")
+			})?
+			.id();
+
+		crate::messages::relay_messages_delivery_confirmation::<Self::MessagesLane>(
+			source_client,
+			target_client,
+			TransactionParams { signer: source_sign, mortality: source_transactions_mortality },
+			at_target_block,
+			data.lane.into(),
 		)
 		.await
 	}

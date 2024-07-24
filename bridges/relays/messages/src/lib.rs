@@ -37,3 +37,4 @@ mod message_race_receiving;
 mod message_race_strategy;
 
 pub use message_race_delivery::relay_messages_range;
+pub use message_race_receiving::relay_messages_delivery_confirmation;

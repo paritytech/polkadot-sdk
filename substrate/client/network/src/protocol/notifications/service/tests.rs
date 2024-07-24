@@ -200,7 +200,7 @@ async fn send_async_notification_to_non_existent_peer() {
 	if let Err(error::Error::PeerDoesntExist(peer_id)) =
 		notif.send_async_notification(&peer.into(), vec![1, 3, 3, 7]).await
 	{
-		assert_eq!(peer, peer_id);
+		assert_eq!(peer, peer_id.into());
 	} else {
 		panic!("invalid error received from `send_async_notification()`");
 	}

@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Improving on_demand_assigner emitted events
+
+doc:
+  - audience: Runtime User
+    description: |
+      Registering OnDemandOrderPlaced event that is useful for indexers to save data related to on demand orders. Adds SpotPriceSet as a new event to monitor on-demand spot prices. It updates whenever the price changes due to traffic.
+
+crates:
+  - name: polkadot-runtime-parachains
+    bump: minor

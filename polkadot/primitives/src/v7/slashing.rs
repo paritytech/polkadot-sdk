@@ -17,9 +17,9 @@
 //! Primitives types used for dispute slashing.
 
 use crate::{CandidateHash, SessionIndex, ValidatorId, ValidatorIndex};
-use parity_scale_codec::{Decode, Encode};
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 /// The kind of the dispute offence.
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo, Debug)]

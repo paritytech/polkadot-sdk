@@ -69,23 +69,11 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 parameter_types! {
-	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub TreasuryAccount: u128 = Treasury::account_id();
@@ -95,13 +83,8 @@ parameter_types! {
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Currency = pallet_balances::Pallet<Test>;
-	type ApproveOrigin = frame_system::EnsureRoot<u128>;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSlash = ();
-	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ConstU64<1>;
-	type ProposalBondMaximum = ();
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = ();
@@ -138,6 +121,7 @@ impl pallet_bounties::Config for Test {
 	type MaximumReasonLength = ConstU32<300>;
 	type WeightInfo = ();
 	type ChildBountyManager = ChildBounties;
+	type OnSlash = ();
 }
 impl pallet_child_bounties::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

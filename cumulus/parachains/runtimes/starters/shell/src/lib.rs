@@ -31,6 +31,9 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod xcm_config;
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::AggregateMessageOrigin;
@@ -45,7 +48,6 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
-use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -280,7 +282,7 @@ impl sp_runtime::traits::SignedExtension for DisallowSigned {
 	type Pre = ();
 	fn additional_signed(
 		&self,
-	) -> sp_std::result::Result<(), sp_runtime::transaction_validity::TransactionValidityError> {
+	) -> core::result::Result<(), sp_runtime::transaction_validity::TransactionValidityError> {
 		Ok(())
 	}
 	fn pre_dispatch(
@@ -368,7 +370,7 @@ impl_runtime_apis! {
 			Runtime::metadata_at_version(version)
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
 	}

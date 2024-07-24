@@ -10,19 +10,18 @@ description = "Mocked relay state proof builder for testing Cumulus."
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
 
 # Substrate
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-state-machine = { path = "../../../substrate/primitives/state-machine", default-features = false }
-sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+sp-runtime = { workspace = true }
+sp-state-machine = { workspace = true }
+sp-trie = { workspace = true }
 
 # Polkadot
-polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false }
+polkadot-primitives = { workspace = true }
 
 # Cumulus
-cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
+cumulus-primitives-core = { workspace = true }
 
 [features]
 default = ["std"]
@@ -32,6 +31,5 @@ std = [
 	"polkadot-primitives/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 	"sp-trie/std",
 ]

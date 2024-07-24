@@ -301,7 +301,15 @@ where
 
 			for req in reqs {
 				match req {
-					Requests::ChunkFetchingV1(_) => metrics.on_message("chunk_fetching_v1"),
+					Requests::ChunkFetching(ref req) => {
+						// This is not the actual request that will succeed, as we don't know yet
+						// what that will be. It's only the primary request we tried.
+						if req.fallback_request.is_some() {
+							metrics.on_message("chunk_fetching_v2")
+						} else {
+							metrics.on_message("chunk_fetching_v1")
+						}
+					},
 					Requests::AvailableDataFetchingV1(_) =>
 						metrics.on_message("available_data_fetching_v1"),
 					Requests::CollationFetchingV1(_) => metrics.on_message("collation_fetching_v1"),

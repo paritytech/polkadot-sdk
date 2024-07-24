@@ -142,6 +142,8 @@ pub enum ArtifactState {
 		/// This is updated when we get the heads up for this artifact or when we just discover
 		/// this file.
 		last_time_needed: SystemTime,
+		/// Size in bytes
+		size: u64,
 		/// Stats produced by successful preparation.
 		prepare_stats: PrepareStats,
 	},
@@ -169,6 +171,33 @@ pub struct Artifacts {
 	inner: HashMap<ArtifactId, ArtifactState>,
 }
 
+/// Parameters we use to cleanup artifacts
+/// After we hit the cache limit we remove the least used artifacts
+/// but only if they are stale more than minimum stale time
+#[derive(Debug)]
+pub struct ArtifactsCleanupConfig {
+	// Max size in bytes. Reaching it the least used artefacts are deleted
+	cache_limit: u64,
+	// Inactive time after which artefact is allowed to be deleted
+	min_stale_time: Duration,
+}
+
+impl Default for ArtifactsCleanupConfig {
+	fn default() -> Self {
+		Self {
+			cache_limit: 10 * 1024 * 1024 * 1024,              // 10 GiB
+			min_stale_time: Duration::from_secs(24 * 60 * 60), // 24 hours
+		}
+	}
+}
+
+#[cfg(test)]
+impl ArtifactsCleanupConfig {
+	pub fn new(cache_limit: u64, min_stale_time: Duration) -> Self {
+		Self { cache_limit, min_stale_time }
+	}
+}
+
 impl Artifacts {
 	#[cfg(test)]
 	pub(crate) fn empty() -> Self {
@@ -178,6 +207,11 @@ impl Artifacts {
 	#[cfg(test)]
 	fn len(&self) -> usize {
 		self.inner.len()
+	}
+
+	#[cfg(test)]
+	fn artifact_ids(&self) -> Vec<ArtifactId> {
+		self.inner.keys().cloned().collect()
 	}
 
 	/// Create an empty table and the cache directory on-disk if it doesn't exist.
@@ -234,12 +268,16 @@ impl Artifacts {
 		artifact_id: ArtifactId,
 		path: PathBuf,
 		last_time_needed: SystemTime,
+		size: u64,
 		prepare_stats: PrepareStats,
 	) {
 		// See the precondition.
 		always!(self
 			.inner
-			.insert(artifact_id, ArtifactState::Prepared { path, last_time_needed, prepare_stats })
+			.insert(
+				artifact_id,
+				ArtifactState::Prepared { path, last_time_needed, size, prepare_stats }
+			)
 			.is_none());
 	}
 
@@ -251,25 +289,40 @@ impl Artifacts {
 		})
 	}
 
-	/// Remove artifacts older than the given TTL and return id and path of the removed ones.
-	pub fn prune(&mut self, artifact_ttl: Duration) -> Vec<(ArtifactId, PathBuf)> {
+	/// Remove artifacts older than the given TTL when the total artifact size reaches the limit
+	/// and return id and path of the removed ones
+	pub fn prune(&mut self, cleanup_config: &ArtifactsCleanupConfig) -> Vec<(ArtifactId, PathBuf)> {
+		let mut to_remove = vec![];
 		let now = SystemTime::now();
 
-		let mut to_remove = vec![];
+		let mut total_size = 0;
+		let mut artifact_sizes = vec![];
+
 		for (k, v) in self.inner.iter() {
-			if let ArtifactState::Prepared { last_time_needed, ref path, .. } = *v {
-				if now
-					.duration_since(last_time_needed)
-					.map(|age| age > artifact_ttl)
-					.unwrap_or(false)
-				{
-					to_remove.push((k.clone(), path.clone()));
-				}
+			if let ArtifactState::Prepared { ref path, last_time_needed, size, .. } = *v {
+				total_size += size;
+				artifact_sizes.push((k.clone(), path.clone(), size, last_time_needed));
 			}
 		}
+		artifact_sizes
+			.sort_by_key(|&(_, _, _, last_time_needed)| std::cmp::Reverse(last_time_needed));
 
-		for artifact in &to_remove {
-			self.inner.remove(&artifact.0);
+		while total_size > cleanup_config.cache_limit {
+			let Some((artifact_id, path, size, last_time_needed)) = artifact_sizes.pop() else {
+				break
+			};
+
+			let used_recently = now
+				.duration_since(last_time_needed)
+				.map(|stale_time| stale_time < cleanup_config.min_stale_time)
+				.unwrap_or(true);
+			if used_recently {
+				break;
+			}
+
+			self.inner.remove(&artifact_id);
+			to_remove.push((artifact_id, path));
+			total_size -= size;
 		}
 
 		to_remove
@@ -278,6 +331,8 @@ impl Artifacts {
 
 #[cfg(test)]
 mod tests {
+	use crate::testing::artifact_id;
+
 	use super::*;
 
 	#[tokio::test]
@@ -306,5 +361,101 @@ mod tests {
 		assert!(entries.contains(&String::from("polkadot_...")));
 		assert!(entries.contains(&String::from("worker-prepare-test")));
 		assert_eq!(artifacts.len(), 0);
+	}
+
+	#[tokio::test]
+	async fn test_pruned_by_cache_size() {
+		let mock_now = SystemTime::now();
+		let tempdir = tempfile::tempdir().unwrap();
+		let cache_path = tempdir.path();
+
+		let path1 = generate_artifact_path(cache_path);
+		let path2 = generate_artifact_path(cache_path);
+		let path3 = generate_artifact_path(cache_path);
+		let artifact_id1 = artifact_id(1);
+		let artifact_id2 = artifact_id(2);
+		let artifact_id3 = artifact_id(3);
+
+		let mut artifacts = Artifacts::new(cache_path).await;
+		let cleanup_config = ArtifactsCleanupConfig::new(1500, Duration::from_secs(0));
+
+		artifacts.insert_prepared(
+			artifact_id1.clone(),
+			path1.clone(),
+			mock_now - Duration::from_secs(5),
+			1024,
+			PrepareStats::default(),
+		);
+		artifacts.insert_prepared(
+			artifact_id2.clone(),
+			path2.clone(),
+			mock_now - Duration::from_secs(10),
+			1024,
+			PrepareStats::default(),
+		);
+		artifacts.insert_prepared(
+			artifact_id3.clone(),
+			path3.clone(),
+			mock_now - Duration::from_secs(15),
+			1024,
+			PrepareStats::default(),
+		);
+
+		let pruned = artifacts.prune(&cleanup_config);
+
+		assert!(artifacts.artifact_ids().contains(&artifact_id1));
+		assert!(!pruned.contains(&(artifact_id1, path1)));
+		assert!(!artifacts.artifact_ids().contains(&artifact_id2));
+		assert!(pruned.contains(&(artifact_id2, path2)));
+		assert!(!artifacts.artifact_ids().contains(&artifact_id3));
+		assert!(pruned.contains(&(artifact_id3, path3)));
+	}
+
+	#[tokio::test]
+	async fn test_did_not_prune_by_cache_size_because_of_stale_time() {
+		let mock_now = SystemTime::now();
+		let tempdir = tempfile::tempdir().unwrap();
+		let cache_path = tempdir.path();
+
+		let path1 = generate_artifact_path(cache_path);
+		let path2 = generate_artifact_path(cache_path);
+		let path3 = generate_artifact_path(cache_path);
+		let artifact_id1 = artifact_id(1);
+		let artifact_id2 = artifact_id(2);
+		let artifact_id3 = artifact_id(3);
+
+		let mut artifacts = Artifacts::new(cache_path).await;
+		let cleanup_config = ArtifactsCleanupConfig::new(1500, Duration::from_secs(12));
+
+		artifacts.insert_prepared(
+			artifact_id1.clone(),
+			path1.clone(),
+			mock_now - Duration::from_secs(5),
+			1024,
+			PrepareStats::default(),
+		);
+		artifacts.insert_prepared(
+			artifact_id2.clone(),
+			path2.clone(),
+			mock_now - Duration::from_secs(10),
+			1024,
+			PrepareStats::default(),
+		);
+		artifacts.insert_prepared(
+			artifact_id3.clone(),
+			path3.clone(),
+			mock_now - Duration::from_secs(15),
+			1024,
+			PrepareStats::default(),
+		);
+
+		let pruned = artifacts.prune(&cleanup_config);
+
+		assert!(artifacts.artifact_ids().contains(&artifact_id1));
+		assert!(!pruned.contains(&(artifact_id1, path1)));
+		assert!(artifacts.artifact_ids().contains(&artifact_id2));
+		assert!(!pruned.contains(&(artifact_id2, path2)));
+		assert!(!artifacts.artifact_ids().contains(&artifact_id3));
+		assert!(pruned.contains(&(artifact_id3, path3)));
 	}
 }

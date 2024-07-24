@@ -1198,7 +1198,7 @@ impl Notifications {
 
 impl NetworkBehaviour for Notifications {
 	type ConnectionHandler = NotifsHandler;
-	type OutEvent = NotificationsOut;
+	type ToSwarm = NotificationsOut;
 
 	fn handle_pending_inbound_connection(
 		&mut self,
@@ -1678,10 +1678,11 @@ impl NetworkBehaviour for Notifications {
 			FromSwarm::ListenerClosed(_) => {},
 			FromSwarm::ListenFailure(_) => {},
 			FromSwarm::ListenerError(_) => {},
-			FromSwarm::ExpiredExternalAddr(_) => {},
+			FromSwarm::ExternalAddrExpired(_) => {},
 			FromSwarm::NewListener(_) => {},
 			FromSwarm::ExpiredListenAddr(_) => {},
-			FromSwarm::NewExternalAddr(_) => {},
+			FromSwarm::NewExternalAddrCandidate(_) => {},
+			FromSwarm::ExternalAddrConfirmed(_) => {},
 			FromSwarm::AddressChange(_) => {},
 			FromSwarm::NewListenAddr(_) => {},
 		}
@@ -2239,7 +2240,7 @@ impl NetworkBehaviour for Notifications {
 		&mut self,
 		cx: &mut Context,
 		_params: &mut impl PollParameters,
-	) -> Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
+	) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
 		if let Some(event) = self.events.pop_front() {
 			return Poll::Ready(event)
 		}
@@ -2382,7 +2383,6 @@ mod tests {
 		protocol::notifications::handler::tests::*,
 		protocol_controller::{IncomingIndex, ProtoSetConfig, ProtocolController},
 	};
-	use libp2p::swarm::AddressRecord;
 	use sc_utils::mpsc::tracing_unbounded;
 	use std::{collections::HashSet, iter};
 
@@ -2402,30 +2402,13 @@ mod tests {
 	}
 
 	#[derive(Clone)]
-	struct MockPollParams {
-		peer_id: PeerId,
-		addr: Multiaddr,
-	}
+	struct MockPollParams {}
 
 	impl PollParameters for MockPollParams {
 		type SupportedProtocolsIter = std::vec::IntoIter<Vec<u8>>;
-		type ListenedAddressesIter = std::vec::IntoIter<Multiaddr>;
-		type ExternalAddressesIter = std::vec::IntoIter<AddressRecord>;
 
 		fn supported_protocols(&self) -> Self::SupportedProtocolsIter {
 			vec![].into_iter()
-		}
-
-		fn listened_addresses(&self) -> Self::ListenedAddressesIter {
-			vec![self.addr.clone()].into_iter()
-		}
-
-		fn external_addresses(&self) -> Self::ExternalAddressesIter {
-			vec![].into_iter()
-		}
-
-		fn local_peer_id(&self) -> &PeerId {
-			&self.peer_id
 		}
 	}
 
@@ -3331,7 +3314,7 @@ mod tests {
 
 		notif.on_swarm_event(FromSwarm::DialFailure(libp2p::swarm::behaviour::DialFailure {
 			peer_id: Some(peer),
-			error: &libp2p::swarm::DialError::Banned,
+			error: &libp2p::swarm::DialError::Aborted,
 			connection_id: ConnectionId::new_unchecked(1337),
 		}));
 
@@ -3877,7 +3860,7 @@ mod tests {
 		let now = Instant::now();
 		notif.on_swarm_event(FromSwarm::DialFailure(libp2p::swarm::behaviour::DialFailure {
 			peer_id: Some(peer),
-			error: &libp2p::swarm::DialError::Banned,
+			error: &libp2p::swarm::DialError::Aborted,
 			connection_id: ConnectionId::new_unchecked(0),
 		}));
 
@@ -4003,7 +3986,7 @@ mod tests {
 		assert!(notif.peers.get(&(peer, set_id)).is_some());
 
 		if tokio::time::timeout(Duration::from_secs(5), async {
-			let mut params = MockPollParams { peer_id: PeerId::random(), addr: Multiaddr::empty() };
+			let mut params = MockPollParams {};
 
 			loop {
 				futures::future::poll_fn(|cx| {
@@ -4115,7 +4098,7 @@ mod tests {
 		// verify that the code continues to keep the peer disabled by resetting the timer
 		// after the first one expired.
 		if tokio::time::timeout(Duration::from_secs(5), async {
-			let mut params = MockPollParams { peer_id: PeerId::random(), addr: Multiaddr::empty() };
+			let mut params = MockPollParams {};
 
 			loop {
 				futures::future::poll_fn(|cx| {

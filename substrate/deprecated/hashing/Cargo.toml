@@ -16,7 +16,7 @@ maintenance = { status = "deprecated" }
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
+sp-crypto-hashing = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

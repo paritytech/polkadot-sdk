@@ -109,3 +109,35 @@ fn regression_historic_acc_does_not_evaporate_reserve() {
 		});
 	});
 }
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn try_state_works() {
+	use crate::{Config, Freezes, Holds};
+	use frame_support::{
+		storage,
+		traits::{Get, Hooks, VariantCount},
+	};
+
+	ExtBuilder::default().build_and_execute_with(|| {
+		storage::unhashed::put(
+			&Holds::<Test>::hashed_key_for(1),
+			&vec![0u8; <Test as Config>::RuntimeHoldReason::VARIANT_COUNT as usize + 1],
+		);
+
+		assert!(format!("{:?}", Balances::try_state(0).unwrap_err())
+			.contains("Found `Hold` with too many elements"));
+	});
+
+	ExtBuilder::default().build_and_execute_with(|| {
+		let max_freezes: u32 = <Test as Config>::MaxFreezes::get();
+
+		storage::unhashed::put(
+			&Freezes::<Test>::hashed_key_for(1),
+			&vec![0u8; max_freezes as usize + 1],
+		);
+
+		assert!(format!("{:?}", Balances::try_state(0).unwrap_err())
+			.contains("Found `Freeze` with too many elements"));
+	});
+}

@@ -130,7 +130,7 @@ async fn inner_pipe_from_stream<S, T>(
 						"Subscription buffer limit={} exceeded for subscription={} conn_id={}; dropping subscription",
 						buf.max_cap,
 						sink.method_name(),
-						sink.connection_id()
+						sink.connection_id().0
 					);
 					return
 				}
@@ -143,7 +143,7 @@ async fn inner_pipe_from_stream<S, T>(
 			//
 			// Process remaining items and terminate.
 			Either::Right((Either::Right((None, pending_fut)), _)) => {
-				if pending_fut.await.is_err() {
+				if !pending_fut.is_terminated() && pending_fut.await.is_err() {
 					return;
 				}
 
@@ -189,7 +189,7 @@ mod tests {
 	async fn subscribe() -> Subscription {
 		let mut module = RpcModule::new(());
 		module
-			.register_subscription("sub", "my_sub", "unsub", |_, pending, _| async move {
+			.register_subscription("sub", "my_sub", "unsub", |_, pending, _, _| async move {
 				let stream = futures::stream::iter([0; 16]);
 				pipe_from_stream(pending, stream).await;
 				Ok(())
@@ -217,7 +217,7 @@ mod tests {
 
 		let mut module = RpcModule::new(tx);
 		module
-			.register_subscription("sub", "my_sub", "unsub", |_, pending, ctx| async move {
+			.register_subscription("sub", "my_sub", "unsub", |_, pending, ctx, _| async move {
 				let stream = futures::stream::iter([0; 32]);
 				pipe_from_stream(pending, stream).await;
 				_ = ctx.unbounded_send(());
@@ -230,5 +230,34 @@ mod tests {
 		// When the 17th item arrives the subscription is dropped
 		_ = rx.next().await.unwrap();
 		assert!(sub.next::<usize>().await.is_none());
+	}
+
+	#[tokio::test]
+	async fn subscription_is_dropped_when_stream_is_empty() {
+		let notify_rx = std::sync::Arc::new(tokio::sync::Notify::new());
+		let notify_tx = notify_rx.clone();
+
+		let mut module = RpcModule::new(notify_tx);
+		module
+			.register_subscription(
+				"sub",
+				"my_sub",
+				"unsub",
+				|_, pending, notify_tx, _| async move {
+					// emulate empty stream for simplicity: otherwise we need some mechanism
+					// to sync buffer and channel send operations
+					let stream = futures::stream::empty::<()>();
+					// this should exit immediately
+					pipe_from_stream(pending, stream).await;
+					// notify that the `pipe_from_stream` has returned
+					notify_tx.notify_one();
+					Ok(())
+				},
+			)
+			.unwrap();
+		module.subscribe("sub", EmptyServerParams::new(), 1).await.unwrap();
+
+		// it should fire once `pipe_from_stream` returns
+		notify_rx.notified().await;
 	}
 }

@@ -14,15 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+#[cfg(feature = "runtime-benchmarks")]
+use crate::service::Block;
 use crate::{
-	chain_spec,
-	chain_spec::GenericChainSpec,
+	chain_spec::{self, GenericChainSpec},
 	cli::{Cli, RelayChainCli, Subcommand},
+	common::NodeExtraArgs,
 	fake_runtime_api::{
-		asset_hub_polkadot_aura::RuntimeApi as AssetHubPolkadotRuntimeApi, aura::RuntimeApi,
+		asset_hub_polkadot_aura::RuntimeApi as AssetHubPolkadotRuntimeApi,
+		aura::RuntimeApi as AuraRuntimeApi,
 	},
-	service::{new_partial, Block, Hash},
+	service::{new_aura_node_spec, DynNodeSpec, ShellNode},
 };
+#[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
@@ -34,27 +38,39 @@ use sc_cli::{
 };
 use sc_service::config::{BasePath, PrometheusConfig};
 use sp_runtime::traits::AccountIdConversion;
+#[cfg(feature = "runtime-benchmarks")]
+use sp_runtime::traits::HashingFor;
 use std::{net::SocketAddr, path::PathBuf};
+
+/// The choice of consensus for the parachain omni-node.
+#[derive(PartialEq, Eq, Debug, Default)]
+pub enum Consensus {
+	/// Aura consensus.
+	#[default]
+	Aura,
+	/// Use the relay chain consensus.
+	// TODO: atm this is just a demonstration, not really reach-able. We can add it to the CLI,
+	// env, or the chain spec. Or, just don't, and when we properly refactor this mess we will
+	// re-introduce it.
+	#[allow(unused)]
+	Relay,
+}
 
 /// Helper enum that is used for better distinction of different parachain/runtime configuration
 /// (it is based/calculated on ChainSpec's ID attribute)
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, PartialEq)]
 enum Runtime {
-	/// This is the default runtime (actually based on rococo)
-	#[default]
-	Default,
+	/// None of the system-chain runtimes, rather the node will act agnostic to the runtime ie. be
+	/// an omni-node, and simply run a node with the given consensus algorithm.
+	Omni(Consensus),
 	Shell,
 	Seedling,
 	AssetHubPolkadot,
-	AssetHubKusama,
-	AssetHubRococo,
-	AssetHubWestend,
+	AssetHub,
 	Penpal(ParaId),
 	ContractsRococo,
-	CollectivesPolkadot,
-	CollectivesWestend,
+	Collectives,
 	Glutton,
-	GluttonWestend,
 	BridgeHub(chain_spec::bridge_hubs::BridgeHubRuntimeType),
 	Coretime(chain_spec::coretime::CoretimeRuntimeType),
 	People(chain_spec::people::PeopleRuntimeType),
@@ -97,20 +113,20 @@ fn runtime(id: &str) -> Runtime {
 		Runtime::Seedling
 	} else if id.starts_with("asset-hub-polkadot") | id.starts_with("statemint") {
 		Runtime::AssetHubPolkadot
-	} else if id.starts_with("asset-hub-kusama") | id.starts_with("statemine") {
-		Runtime::AssetHubKusama
-	} else if id.starts_with("asset-hub-rococo") {
-		Runtime::AssetHubRococo
-	} else if id.starts_with("asset-hub-westend") | id.starts_with("westmint") {
-		Runtime::AssetHubWestend
+	} else if id.starts_with("asset-hub-kusama") |
+		id.starts_with("statemine") |
+		id.starts_with("asset-hub-rococo") |
+		id.starts_with("rockmine") |
+		id.starts_with("asset-hub-westend") |
+		id.starts_with("westmint")
+	{
+		Runtime::AssetHub
 	} else if id.starts_with("penpal") {
 		Runtime::Penpal(para_id.unwrap_or(ParaId::new(0)))
 	} else if id.starts_with("contracts-rococo") {
 		Runtime::ContractsRococo
-	} else if id.starts_with("collectives-polkadot") {
-		Runtime::CollectivesPolkadot
-	} else if id.starts_with("collectives-westend") {
-		Runtime::CollectivesWestend
+	} else if id.starts_with("collectives-polkadot") || id.starts_with("collectives-westend") {
+		Runtime::Collectives
 	} else if id.starts_with(chain_spec::bridge_hubs::BridgeHubRuntimeType::ID_PREFIX) {
 		Runtime::BridgeHub(
 			id.parse::<chain_spec::bridge_hubs::BridgeHubRuntimeType>()
@@ -120,15 +136,17 @@ fn runtime(id: &str) -> Runtime {
 		Runtime::Coretime(
 			id.parse::<chain_spec::coretime::CoretimeRuntimeType>().expect("Invalid value"),
 		)
-	} else if id.starts_with("glutton-westend") {
-		Runtime::GluttonWestend
 	} else if id.starts_with("glutton") {
 		Runtime::Glutton
 	} else if id.starts_with(chain_spec::people::PeopleRuntimeType::ID_PREFIX) {
 		Runtime::People(id.parse::<chain_spec::people::PeopleRuntimeType>().expect("Invalid value"))
 	} else {
-		log::warn!("No specific runtime was recognized for ChainSpec's id: '{}', so Runtime::default() will be used", id);
-		Runtime::default()
+		log::warn!(
+			"No specific runtime was recognized for ChainSpec's id: '{}', \
+			so Runtime::Omni(Consensus::Aura) will be used",
+			id
+		);
+		Runtime::Omni(Consensus::Aura)
 	}
 }
 
@@ -274,55 +292,34 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 /// (H/T to Phala for the idea)
 /// E.g. "penpal-kusama-2004" yields ("penpal-kusama", Some(2004))
 fn extract_parachain_id(id: &str) -> (&str, &str, Option<ParaId>) {
-	const ROCOCO_TEST_PARA_PREFIX: &str = "penpal-rococo-";
-	const KUSAMA_TEST_PARA_PREFIX: &str = "penpal-kusama-";
-	const POLKADOT_TEST_PARA_PREFIX: &str = "penpal-polkadot-";
+	let para_prefixes = [
+		// Penpal
+		"penpal-rococo-",
+		"penpal-kusama-",
+		"penpal-polkadot-",
+		// Glutton Kusama
+		"glutton-kusama-dev-",
+		"glutton-kusama-local-",
+		"glutton-kusama-genesis-",
+		// Glutton Westend
+		"glutton-westend-dev-",
+		"glutton-westend-local-",
+		"glutton-westend-genesis-",
+	];
 
-	const GLUTTON_PARA_DEV_PREFIX: &str = "glutton-kusama-dev-";
-	const GLUTTON_PARA_LOCAL_PREFIX: &str = "glutton-kusama-local-";
-	const GLUTTON_PARA_GENESIS_PREFIX: &str = "glutton-kusama-genesis-";
+	for para_prefix in para_prefixes {
+		if let Some(suffix) = id.strip_prefix(para_prefix) {
+			let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
+			return (&id[..para_prefix.len() - 1], id, Some(para_id.into()))
+		}
+	}
 
-	const GLUTTON_WESTEND_PARA_DEV_PREFIX: &str = "glutton-westend-dev-";
-	const GLUTTON_WESTEND_PARA_LOCAL_PREFIX: &str = "glutton-westend-local-";
-	const GLUTTON_WESTEND_PARA_GENESIS_PREFIX: &str = "glutton-westend-genesis-";
-
-	let (norm_id, orig_id, para) = if let Some(suffix) = id.strip_prefix(ROCOCO_TEST_PARA_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..ROCOCO_TEST_PARA_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(KUSAMA_TEST_PARA_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..KUSAMA_TEST_PARA_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(POLKADOT_TEST_PARA_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..POLKADOT_TEST_PARA_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(GLUTTON_PARA_DEV_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..GLUTTON_PARA_DEV_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(GLUTTON_PARA_LOCAL_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..GLUTTON_PARA_LOCAL_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(GLUTTON_PARA_GENESIS_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..GLUTTON_PARA_GENESIS_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_DEV_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..GLUTTON_WESTEND_PARA_DEV_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_LOCAL_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..GLUTTON_WESTEND_PARA_LOCAL_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_GENESIS_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..GLUTTON_WESTEND_PARA_GENESIS_PREFIX.len() - 1], id, Some(para_id))
-	} else {
-		(id, id, None)
-	};
-
-	(norm_id, orig_id, para.map(Into::into))
+	(id, id, None)
 }
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Polkadot parachain".into()
+		Self::executable_name()
 	}
 
 	fn impl_version() -> String {
@@ -331,10 +328,12 @@ impl SubstrateCli for Cli {
 
 	fn description() -> String {
 		format!(
-			"Polkadot parachain\n\nThe command-line arguments provided first will be \
-		passed to the parachain node, while the arguments provided after -- will be passed \
-		to the relaychain node.\n\n\
-		{} [parachain-args] -- [relaychain-args]",
+			"The command-line arguments provided first will be passed to the parachain node, \n\
+			and the arguments provided after -- will be passed to the relay chain node. \n\
+			\n\
+			Example: \n\
+			\n\
+			{} [parachain-args] -- [relay-chain-args]",
 			Self::executable_name()
 		)
 	}
@@ -358,33 +357,27 @@ impl SubstrateCli for Cli {
 
 impl SubstrateCli for RelayChainCli {
 	fn impl_name() -> String {
-		"Polkadot parachain".into()
+		Cli::impl_name()
 	}
 
 	fn impl_version() -> String {
-		env!("SUBSTRATE_CLI_IMPL_VERSION").into()
+		Cli::impl_version()
 	}
 
 	fn description() -> String {
-		format!(
-			"Polkadot parachain\n\nThe command-line arguments provided first will be \
-		passed to the parachain node, while the arguments provided after -- will be passed \
-		to the relay chain node.\n\n\
-		{} [parachain-args] -- [relay_chain-args]",
-			Self::executable_name()
-		)
+		Cli::description()
 	}
 
 	fn author() -> String {
-		env!("CARGO_PKG_AUTHORS").into()
+		Cli::author()
 	}
 
 	fn support_url() -> String {
-		"https://github.com/paritytech/polkadot-sdk/issues/new".into()
+		Cli::support_url()
 	}
 
 	fn copyright_start_year() -> i32 {
-		2017
+		Cli::copyright_start_year()
 	}
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
@@ -392,108 +385,27 @@ impl SubstrateCli for RelayChainCli {
 	}
 }
 
-/// Creates partial components for the runtimes that are supported by the benchmarks.
-macro_rules! construct_partials {
-	($config:expr, |$partials:ident| $code:expr) => {
-		match $config.chain_spec.runtime()? {
-			Runtime::AssetHubPolkadot => {
-				let $partials = new_partial::<AssetHubPolkadotRuntimeApi, _>(
-					&$config,
-					crate::service::build_relay_to_aura_import_queue::<_, AssetHubPolkadotAuraId>,
-				)?;
-				$code
-			},
-			Runtime::AssetHubKusama |
-			Runtime::AssetHubRococo |
-			Runtime::AssetHubWestend |
-			Runtime::BridgeHub(_) |
-			Runtime::CollectivesPolkadot |
-			Runtime::CollectivesWestend |
-			Runtime::Coretime(_) |
-			Runtime::People(_) => {
-				let $partials = new_partial::<RuntimeApi, _>(
-					&$config,
-					crate::service::build_relay_to_aura_import_queue::<_, AuraId>,
-				)?;
-				$code
-			},
-			Runtime::GluttonWestend | Runtime::Glutton | Runtime::Shell | Runtime::Seedling => {
-				let $partials = new_partial::<RuntimeApi, _>(
-					&$config,
-					crate::service::build_shell_import_queue,
-				)?;
-				$code
-			},
-			Runtime::ContractsRococo | Runtime::Penpal(_) | Runtime::Default => {
-				let $partials = new_partial::<RuntimeApi, _>(
-					&$config,
-					crate::service::build_aura_import_queue,
-				)?;
-				$code
-			},
-		}
-	};
-}
-
-macro_rules! construct_async_run {
-	(|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
-		let runner = $cli.create_runner($cmd)?;
-		match runner.config().chain_spec.runtime()? {
-			Runtime::AssetHubPolkadot => {
-				runner.async_run(|$config| {
-					let $components = new_partial::<AssetHubPolkadotRuntimeApi, _>(
-						&$config,
-						crate::service::build_relay_to_aura_import_queue::<_, AssetHubPolkadotAuraId>,
-					)?;
-					let task_manager = $components.task_manager;
-					{ $( $code )* }.map(|v| (v, task_manager))
-				})
-			},
-			Runtime::AssetHubKusama |
-			Runtime::AssetHubRococo |
-			Runtime::AssetHubWestend |
-			Runtime::BridgeHub(_) |
-			Runtime::CollectivesPolkadot |
-			Runtime::CollectivesWestend |
-			Runtime::Coretime(_) |
-			Runtime::People(_) => {
-				runner.async_run(|$config| {
-					let $components = new_partial::<RuntimeApi, _>(
-						&$config,
-						crate::service::build_relay_to_aura_import_queue::<_, AuraId>,
-					)?;
-					let task_manager = $components.task_manager;
-					{ $( $code )* }.map(|v| (v, task_manager))
-				})
-			},
-			Runtime::Shell |
-			Runtime::Seedling |
-			Runtime::GluttonWestend |
-			Runtime::Glutton => {
-				runner.async_run(|$config| {
-					let $components = new_partial::<RuntimeApi, _>(
-						&$config,
-						crate::service::build_shell_import_queue,
-					)?;
-					let task_manager = $components.task_manager;
-					{ $( $code )* }.map(|v| (v, task_manager))
-				})
-			}
-			Runtime::ContractsRococo | Runtime::Penpal(_) | Runtime::Default => {
-				runner.async_run(|$config| {
-					let $components = new_partial::<
-						RuntimeApi,
-						_,
-					>(
-						&$config,
-						crate::service::build_aura_import_queue,
-					)?;
-					let task_manager = $components.task_manager;
-					{ $( $code )* }.map(|v| (v, task_manager))
-				})
-			},
-		}
-	}}
+fn new_node_spec(
+	config: &sc_service::Configuration,
+	extra_args: &NodeExtraArgs,
+) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
+	Ok(match config.chain_spec.runtime()? {
+		Runtime::AssetHubPolkadot =>
+			new_aura_node_spec::<AssetHubPolkadotRuntimeApi, AssetHubPolkadotAuraId>(extra_args),
+		Runtime::AssetHub |
+		Runtime::BridgeHub(_) |
+		Runtime::Collectives |
+		Runtime::Coretime(_) |
+		Runtime::People(_) |
+		Runtime::ContractsRococo |
+		Runtime::Glutton |
+		Runtime::Penpal(_) => new_aura_node_spec::<AuraRuntimeApi, AuraId>(extra_args),
+		Runtime::Shell | Runtime::Seedling => Box::new(ShellNode),
+		Runtime::Omni(consensus) => match consensus {
+			Consensus::Aura => new_aura_node_spec::<AuraRuntimeApi, AuraId>(extra_args),
+			Consensus::Relay => Box::new(ShellNode),
+		},
+	})
 }
 
 /// Parse command line arguments into service configuration.
@@ -506,37 +418,45 @@ pub fn run() -> Result<()> {
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
 		},
 		Some(Subcommand::CheckBlock(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, components.import_queue))
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let node = new_node_spec(&config, &cli.node_extra_args())?;
+				node.prepare_check_block_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, config.database))
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let node = new_node_spec(&config, &cli.node_extra_args())?;
+				node.prepare_export_blocks_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ExportState(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, config.chain_spec))
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let node = new_node_spec(&config, &cli.node_extra_args())?;
+				node.prepare_export_state_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ImportBlocks(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, components.import_queue))
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let node = new_node_spec(&config, &cli.node_extra_args())?;
+				node.prepare_import_blocks_cmd(config, cmd)
 			})
 		},
-		Some(Subcommand::Revert(cmd)) => construct_async_run!(|components, cli, cmd, config| {
-			Ok(cmd.run(components.client, components.backend, None))
-		}),
+		Some(Subcommand::Revert(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let node = new_node_spec(&config, &cli.node_extra_args())?;
+				node.prepare_revert_cmd(config, cmd)
+			})
+		},
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
+			let polkadot_cli = RelayChainCli::new(runner.config(), cli.relay_chain_args.iter());
 
 			runner.sync_run(|config| {
-				let polkadot_cli = RelayChainCli::new(
-					&config,
-					[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args.iter()),
-				);
-
 				let polkadot_config = SubstrateCli::create_configuration(
 					&polkadot_cli,
 					&polkadot_cli,
@@ -549,8 +469,10 @@ pub fn run() -> Result<()> {
 		},
 		Some(Subcommand::ExportGenesisHead(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner
-				.sync_run(|config| construct_partials!(config, |partials| cmd.run(partials.client)))
+			runner.sync_run(|config| {
+				let node = new_node_spec(&config, &cli.node_extra_args())?;
+				node.run_export_genesis_head_cmd(config, cmd)
+			})
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -564,45 +486,34 @@ pub fn run() -> Result<()> {
 
 			// Switch on the concrete benchmark sub-command-
 			match cmd {
-				BenchmarkCmd::Pallet(cmd) =>
-					if cfg!(feature = "runtime-benchmarks") {
-						runner.sync_run(|config| cmd.run_with_spec::<sp_runtime::traits::HashingFor<Block>, ReclaimHostFunctions>(Some(config.chain_spec)))
-					} else {
-						Err("Benchmarking wasn't enabled when building the node. \
-				You can enable it with `--features runtime-benchmarks`."
-							.into())
-					},
-				BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
-					construct_partials!(config, |partials| cmd.run(partials.client))
+				#[cfg(feature = "runtime-benchmarks")]
+				BenchmarkCmd::Pallet(cmd) => runner.sync_run(|config| {
+					cmd.run_with_spec::<HashingFor<Block>, ReclaimHostFunctions>(Some(
+						config.chain_spec,
+					))
 				}),
-				#[cfg(not(feature = "runtime-benchmarks"))]
-				BenchmarkCmd::Storage(_) =>
-					return Err(sc_cli::Error::Input(
-						"Compile with --features=runtime-benchmarks \
-						to enable storage benchmarks."
-							.into(),
-					)
-					.into()),
+				BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
+					let node = new_node_spec(&config, &cli.node_extra_args())?;
+					node.run_benchmark_block_cmd(config, cmd)
+				}),
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
-					construct_partials!(config, |partials| {
-						let db = partials.backend.expose_db();
-						let storage = partials.backend.expose_storage();
-
-						cmd.run(config, partials.client.clone(), db, storage)
-					})
+					let node = new_node_spec(&config, &cli.node_extra_args())?;
+					node.run_benchmark_storage_cmd(config, cmd)
 				}),
 				BenchmarkCmd::Machine(cmd) =>
 					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())),
-				// NOTE: this allows the Client to leniently implement
-				// new benchmark commands without requiring a companion MR.
 				#[allow(unreachable_patterns)]
-				_ => Err("Benchmarking sub-command unsupported".into()),
+				_ => Err("Benchmarking sub-command unsupported or compilation feature missing. \
+					Make sure to compile with --features=runtime-benchmarks \
+					to enable all supported benchmarks."
+					.into()),
 			}
 		},
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
+			let polkadot_cli = RelayChainCli::new(runner.config(), cli.relay_chain_args.iter());
 			let collator_options = cli.run.collator_options();
 
 			runner.run_node_until_exit(|config| async move {
@@ -624,230 +535,82 @@ pub fn run() -> Result<()> {
 
 					if old_path.exists() && new_path.exists() {
 						return Err(format!(
-							"Found legacy {} path {} and new asset-hub path {}. Delete one path such that only one exists.",
-							old_name, old_path.display(), new_path.display()
-						).into())
+							"Found legacy {} path {} and new Asset Hub path {}. \
+							Delete one path such that only one exists.",
+							old_name,
+							old_path.display(),
+							new_path.display()
+						)
+						.into())
 					}
 
 					if old_path.exists() {
 						std::fs::rename(old_path.clone(), new_path.clone())?;
 						info!(
-							"Statemint renamed to Asset Hub. The filepath with associated data on disk has been renamed from {} to {}.",
-							old_path.display(), new_path.display()
+							"{} was renamed to Asset Hub. The filepath with associated data on disk \
+							has been renamed from {} to {}.",
+							old_name,
+							old_path.display(),
+							new_path.display()
 						);
 					}
 				}
 
-				let hwbench = (!cli.no_hardware_benchmarks).then_some(
-					config.database.path().map(|database_path| {
+				let hwbench = (!cli.no_hardware_benchmarks)
+					.then_some(config.database.path().map(|database_path| {
 						let _ = std::fs::create_dir_all(database_path);
 						sc_sysinfo::gather_hwbench(Some(database_path))
-					})).flatten();
+					}))
+					.flatten();
 
 				let para_id = chain_spec::Extensions::try_get(&*config.chain_spec)
 					.map(|e| e.para_id)
 					.ok_or("Could not find parachain extension in chain-spec.")?;
 
-				let polkadot_cli = RelayChainCli::new(
-					&config,
-					[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args.iter()),
-				);
-
 				let id = ParaId::from(para_id);
 
 				let parachain_account =
-					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(&id);
+					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
+						&id,
+					);
 
 				let tokio_handle = config.tokio_handle.clone();
 				let polkadot_config =
 					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
 						.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
-				info!("Parachain id: {:?}", id);
-				info!("Parachain Account: {}", parachain_account);
-				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
+				info!("🪪 Parachain id: {:?}", id);
+				info!("🧾 Parachain Account: {}", parachain_account);
+				info!("✍️ Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
-				match polkadot_config.network.network_backend {
-					sc_network::config::NetworkBackendType::Libp2p =>
-						start_node::<sc_network::NetworkWorker<_, _>>(
-							config,
-							polkadot_config,
-							collator_options,
-							id,
-							hwbench,
-						)
-						.await,
-					sc_network::config::NetworkBackendType::Litep2p =>
-						start_node::<sc_network::Litep2pNetworkBackend>(
-							config,
-							polkadot_config,
-							collator_options,
-							id,
-							hwbench,
-						)
-						.await,
-				}
+				start_node(
+					config,
+					polkadot_config,
+					collator_options,
+					id,
+					cli.node_extra_args(),
+					hwbench,
+				)
+				.await
 			})
 		},
 	}
 }
 
-async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
+#[sc_tracing::logging::prefix_logs_with("Parachain")]
+async fn start_node(
 	config: sc_service::Configuration,
 	polkadot_config: sc_service::Configuration,
 	collator_options: cumulus_client_cli::CollatorOptions,
 	id: ParaId,
+	extra_args: NodeExtraArgs,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> Result<sc_service::TaskManager> {
-	match config.chain_spec.runtime()? {
-		Runtime::AssetHubPolkadot => crate::service::start_asset_hub_lookahead_node::<
-			AssetHubPolkadotRuntimeApi,
-			AssetHubPolkadotAuraId,
-			Network,
-		>(config, polkadot_config, collator_options, id, hwbench)
+	let node_spec = new_node_spec(&config, &extra_args)?;
+	node_spec
+		.start_node(config, polkadot_config, collator_options, id, hwbench, extra_args)
 		.await
-		.map(|r| r.0)
-		.map_err(Into::into),
-
-		Runtime::AssetHubRococo | Runtime::AssetHubWestend | Runtime::AssetHubKusama =>
-			crate::service::start_asset_hub_lookahead_node::<RuntimeApi, AuraId, Network>(
-				config,
-				polkadot_config,
-				collator_options,
-				id,
-				hwbench,
-			)
-			.await
-			.map(|r| r.0)
-			.map_err(Into::into),
-
-		Runtime::CollectivesWestend | Runtime::CollectivesPolkadot =>
-			crate::service::start_generic_aura_lookahead_node::<Network>(
-				config,
-				polkadot_config,
-				collator_options,
-				id,
-				hwbench,
-			)
-			.await
-			.map(|r| r.0)
-			.map_err(Into::into),
-
-		Runtime::Seedling | Runtime::Shell => crate::service::start_shell_node::<Network>(
-			config,
-			polkadot_config,
-			collator_options,
-			id,
-			hwbench,
-		)
-		.await
-		.map(|r| r.0)
-		.map_err(Into::into),
-
-		Runtime::ContractsRococo => crate::service::start_contracts_rococo_node::<Network>(
-			config,
-			polkadot_config,
-			collator_options,
-			id,
-			hwbench,
-		)
-		.await
-		.map(|r| r.0)
-		.map_err(Into::into),
-
-		Runtime::BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaLocal |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::Rococo |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoLocal |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment =>
-				crate::service::start_generic_aura_lookahead_node::<Network>(
-					config,
-					polkadot_config,
-					collator_options,
-					id,
-					hwbench,
-				)
-				.await
-				.map(|r| r.0),
-		}
-		.map_err(Into::into),
-
-		Runtime::Coretime(coretime_runtime_type) => match coretime_runtime_type {
-			chain_spec::coretime::CoretimeRuntimeType::Kusama |
-			chain_spec::coretime::CoretimeRuntimeType::KusamaLocal |
-			chain_spec::coretime::CoretimeRuntimeType::Polkadot |
-			chain_spec::coretime::CoretimeRuntimeType::PolkadotLocal |
-			chain_spec::coretime::CoretimeRuntimeType::Rococo |
-			chain_spec::coretime::CoretimeRuntimeType::RococoLocal |
-			chain_spec::coretime::CoretimeRuntimeType::RococoDevelopment |
-			chain_spec::coretime::CoretimeRuntimeType::Westend |
-			chain_spec::coretime::CoretimeRuntimeType::WestendLocal |
-			chain_spec::coretime::CoretimeRuntimeType::WestendDevelopment =>
-				crate::service::start_generic_aura_lookahead_node::<Network>(
-					config,
-					polkadot_config,
-					collator_options,
-					id,
-					hwbench,
-				)
-				.await
-				.map(|r| r.0),
-		}
-		.map_err(Into::into),
-
-		Runtime::Penpal(_) | Runtime::Default =>
-			crate::service::start_rococo_parachain_node::<Network>(
-				config,
-				polkadot_config,
-				collator_options,
-				id,
-				hwbench,
-			)
-			.await
-			.map(|r| r.0)
-			.map_err(Into::into),
-
-		Runtime::Glutton | Runtime::GluttonWestend =>
-			crate::service::start_basic_lookahead_node::<Network>(
-				config,
-				polkadot_config,
-				collator_options,
-				id,
-				hwbench,
-			)
-			.await
-			.map(|r| r.0)
-			.map_err(Into::into),
-
-		Runtime::People(people_runtime_type) => match people_runtime_type {
-			chain_spec::people::PeopleRuntimeType::Kusama |
-			chain_spec::people::PeopleRuntimeType::KusamaLocal |
-			chain_spec::people::PeopleRuntimeType::Polkadot |
-			chain_spec::people::PeopleRuntimeType::PolkadotLocal |
-			chain_spec::people::PeopleRuntimeType::Rococo |
-			chain_spec::people::PeopleRuntimeType::RococoLocal |
-			chain_spec::people::PeopleRuntimeType::RococoDevelopment |
-			chain_spec::people::PeopleRuntimeType::Westend |
-			chain_spec::people::PeopleRuntimeType::WestendLocal |
-			chain_spec::people::PeopleRuntimeType::WestendDevelopment =>
-				crate::service::start_generic_aura_lookahead_node::<Network>(
-					config,
-					polkadot_config,
-					collator_options,
-					id,
-					hwbench,
-				)
-				.await
-				.map(|r| r.0),
-		}
-		.map_err(Into::into),
-	}
+		.map_err(Into::into)
 }
 
 impl DefaultConfigurationValues for RelayChainCli {
@@ -979,7 +742,7 @@ impl CliConfiguration<Self> for RelayChainCli {
 mod tests {
 	use crate::{
 		chain_spec::{get_account_id_from_seed, get_from_seed},
-		command::{Runtime, RuntimeResolver},
+		command::{Consensus, Runtime, RuntimeResolver},
 	};
 	use sc_chain_spec::{ChainSpec, ChainSpecExtension, ChainSpecGroup, ChainType, Extension};
 	use serde::{Deserialize, Serialize};
@@ -1006,9 +769,9 @@ mod tests {
 		pub attribute_z: u32,
 	}
 
-	fn store_configuration(dir: &TempDir, spec: Box<dyn ChainSpec>) -> PathBuf {
+	fn store_configuration(dir: &TempDir, spec: &dyn ChainSpec) -> PathBuf {
 		let raw_output = true;
-		let json = sc_service::chain_ops::build_spec(&*spec, raw_output)
+		let json = sc_service::chain_ops::build_spec(spec, raw_output)
 			.expect("Failed to build json string");
 		let mut cfg_file_path = dir.path().to_path_buf();
 		cfg_file_path.push(spec.id());
@@ -1017,7 +780,7 @@ mod tests {
 		cfg_file_path
 	}
 
-	pub type DummyChainSpec<E> = sc_service::GenericChainSpec<(), E>;
+	pub type DummyChainSpec<E> = sc_service::GenericChainSpec<E>;
 
 	pub fn create_default_with_extensions<E: Extension>(
 		id: &str,
@@ -1049,32 +812,44 @@ mod tests {
 
 		let path = store_configuration(
 			&temp_dir,
-			Box::new(create_default_with_extensions("shell-1", Extensions1::default())),
+			&create_default_with_extensions("shell-1", Extensions1::default()),
 		);
 		assert_eq!(Runtime::Shell, path.runtime().unwrap());
 
 		let path = store_configuration(
 			&temp_dir,
-			Box::new(create_default_with_extensions("shell-2", Extensions2::default())),
+			&create_default_with_extensions("shell-2", Extensions2::default()),
 		);
 		assert_eq!(Runtime::Shell, path.runtime().unwrap());
 
 		let path = store_configuration(
 			&temp_dir,
-			Box::new(create_default_with_extensions("seedling", Extensions2::default())),
+			&create_default_with_extensions("seedling", Extensions2::default()),
 		);
 		assert_eq!(Runtime::Seedling, path.runtime().unwrap());
 
 		let path = store_configuration(
 			&temp_dir,
-			Box::new(crate::chain_spec::rococo_parachain::rococo_parachain_local_config()),
+			&create_default_with_extensions("penpal-rococo-1000", Extensions2::default()),
 		);
-		assert_eq!(Runtime::Default, path.runtime().unwrap());
+		assert_eq!(Runtime::Penpal(1000.into()), path.runtime().unwrap());
 
 		let path = store_configuration(
 			&temp_dir,
-			Box::new(crate::chain_spec::contracts::contracts_rococo_local_config()),
+			&create_default_with_extensions("penpal-polkadot-2000", Extensions2::default()),
+		);
+		assert_eq!(Runtime::Penpal(2000.into()), path.runtime().unwrap());
+
+		let path = store_configuration(
+			&temp_dir,
+			&crate::chain_spec::contracts::contracts_rococo_local_config(),
 		);
 		assert_eq!(Runtime::ContractsRococo, path.runtime().unwrap());
+
+		let path = store_configuration(
+			&temp_dir,
+			&crate::chain_spec::rococo_parachain::rococo_parachain_local_config(),
+		);
+		assert_eq!(Runtime::Omni(Consensus::Aura), path.runtime().unwrap());
 	}
 }

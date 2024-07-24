@@ -39,8 +39,8 @@ pub fn prepare_inbound_xcm<InnerXcmRuntimeCall>(
 	xcm_message: Xcm<InnerXcmRuntimeCall>,
 	destination: InteriorLocation,
 ) -> Vec<u8> {
-	let location = xcm::VersionedInteriorLocation::V4(destination);
-	let xcm = xcm::VersionedXcm::<InnerXcmRuntimeCall>::V4(xcm_message);
+	let location = xcm::VersionedInteriorLocation::from(destination);
+	let xcm = xcm::VersionedXcm::<InnerXcmRuntimeCall>::from(xcm_message);
 	// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
 	// or public fields, so just tuple
 	// (double encoding, because `.encode()` is called on original Xcm BLOB when it is pushed

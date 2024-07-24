@@ -23,10 +23,10 @@ use sc_network::{
 	config::MultiaddrWithPeerId,
 	request_responses::{IfDisconnected, RequestFailure},
 	types::ProtocolName,
-	Multiaddr, NetworkPeers, NetworkRequest, NetworkSyncForkRequest, ReputationChange,
+	NetworkPeers, NetworkRequest, NetworkSyncForkRequest, ReputationChange,
 };
 use sc_network_common::role::ObservedRole;
-use sc_network_types::PeerId;
+use sc_network_types::{multiaddr::Multiaddr, PeerId};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use std::collections::HashSet;

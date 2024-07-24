@@ -16,3 +16,6 @@ TestConfiguration:
   peer_bandwidth: 524288000000
   bandwidth: 524288000000
   num_blocks: 10
+  connectivity: 100
+  latency: null
+
