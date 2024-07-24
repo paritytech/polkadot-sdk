@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721777286289,
+  "lastUpdate": 1721822187386,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -19083,6 +19083,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.011909881573333331,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "8a96d07e5c0d9479f857b0c3053d3e68497f4430",
+          "message": "pallet macro: do not generate try-runtime related code when frame-support doesn't have try-runtime. (#5099)\n\nStatus: Ready for review\n\nFix https://github.com/paritytech/polkadot-sdk/issues/5092\n\nIntroduce a new macro in frame-support which discard content if\n`try-runtime` is not enabled.\n\nUse this macro inside `frame-support-procedural` to generate code only\nwhen `frame-support` is compiled with `try-runtime`.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-07-24T10:02:23Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8a96d07e5c0d9479f857b0c3053d3e68497f4430"
+        },
+        "date": 1721822157236,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17262506923999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02260749758666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012462246426666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010642611413333336,
             "unit": "seconds"
           }
         ]
