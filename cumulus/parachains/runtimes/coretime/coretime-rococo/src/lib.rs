@@ -51,8 +51,6 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
 };
-#[cfg(feature = "runtime-benchmarks")]
-use pallet_broker::CoreMask;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::{
 	impls::DealWithFees,
