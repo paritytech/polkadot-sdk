@@ -690,13 +690,16 @@ mod benchmarks {
 	fn payout_stakers_alive_staked(
 		n: Linear<0, { T::MaxExposurePageSize::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let (validator, nominators) = create_validator_with_nominators::<T>(
-			n,
-			T::MaxExposurePageSize::get() as u32,
-			false,
-			true,
-			RewardDestination::Staked,
+		create_validators_with_nominators_for_era::<T>(
+			1500, // 1500 validators/targets.
+			1000, // 1000 nominators.
+			16,   // nominations per nominator.
+			true, // randomize stake.
+			None,
 		)?;
+
+		// get one validator.
+		let validator = Validators::<T>::iter().map(|(v, _)| v).next().unwrap();
 
 		let current_era = CurrentEra::<T>::get().unwrap();
 		// set the commission for this particular era as well.
