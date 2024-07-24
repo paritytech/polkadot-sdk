@@ -167,14 +167,22 @@ pub fn make_dummy_ticket_body(attempt: u8) -> TicketBody {
 	TicketBody { id, attempt, extra }
 }
 
-pub fn make_ticket_bodies(attempts: u8, pair: Option<&AuthorityPair>) -> Vec<TicketBody> {
-	(0..attempts)
+pub fn make_ticket_bodies(
+	attempts: u8,
+	pair: Option<&AuthorityPair>,
+	sort: bool,
+) -> Vec<TicketBody> {
+	let mut bodies: Vec<_> = (0..attempts)
 		.into_iter()
 		.map(|i| match pair {
 			Some(pair) => make_ticket_body(i, pair),
 			None => make_dummy_ticket_body(i),
 		})
-		.collect()
+		.collect();
+	if sort {
+		bodies.sort_unstable();
+	}
+	bodies
 }
 
 pub fn initialize_block(

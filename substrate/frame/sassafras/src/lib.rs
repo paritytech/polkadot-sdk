@@ -593,6 +593,9 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	// Consumes the tickets accumulator relative to `epoch_tag` by depositing at most
+	// `max_items` into the `Tickets` map. Ticket bodies are stored in the `Tickets`
+	// map from smaller to bigger wrt ticket identifier (as required by the protocol).
 	fn consume_tickets_accumulator(max_items: usize, epoch_tag: u8) {
 		let mut tickets_count = TicketsCount::<T>::get();
 		let mut accumulator_count = TicketsAccumulator::<T>::count();
@@ -616,7 +619,7 @@ impl<T: Config> Pallet<T> {
 		announce
 	}
 
-	// Deposit per-slot randomness.
+	// Deposit per-block randomness.
 	fn deposit_randomness(randomness: Randomness) {
 		let mut accumulator = RandomnessBuf::<T>::get();
 		let mut buf = [0; 2 * RANDOMNESS_LENGTH];
@@ -714,36 +717,26 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let mut epoch_tag = slot_epoch_idx.tag();
-		let epoch_len = T::EpochDuration::get();
-		let mut slot_idx = Self::slot_index(slot);
+		let slot_idx = Self::slot_index(slot);
 
-		if epoch_len <= slot_idx && slot_idx < 2 * epoch_len {
-			// Try to get a ticket for the next epoch. Since its state values were not enacted yet,
-			// we may have to finish sorting the tickets.
-			epoch_tag = slot_epoch_idx.next_tag();
-			slot_idx -= epoch_len;
-			if TicketsAccumulator::<T>::count() != 0 {
-				Self::consume_tickets_accumulator(usize::MAX, epoch_tag);
-			}
-		} else if slot_idx >= 2 * epoch_len {
-			return None
+		if slot_epoch_idx == curr_epoch_idx + 1 && TicketsAccumulator::<T>::count() != 0 {
+			// JIT enactment of next epoch tickets when the accumulator has not been
+			// fully consumed yet. Drain and enact the accumulator for next epoch.
+			Self::consume_tickets_accumulator(usize::MAX, epoch_tag);
 		}
 
-		let mut tickets_count = TicketsCount::<T>::get();
-		let tickets_count = tickets_count[epoch_tag as usize];
+		let tickets_count = TicketsCount::<T>::get()[epoch_tag as usize];
 		if tickets_count <= slot_idx {
+			// Slot not bound to a ticket.
 			return None
 		}
 
-		let get_ticket_index = |slot_index: u32| {
-			let mut ticket_index = slot_idx / 2;
-			if slot_index & 1 != 0 {
-				ticket_index = tickets_count - (ticket_index + 1);
-			}
-			ticket_index as u32
-		};
+		// Outside-in sort.
+		let mut ticket_idx = slot_idx / 2;
+		if slot_idx & 1 != 0 {
+			ticket_idx = tickets_count - (ticket_idx + 1);
+		}
 
-		let ticket_idx = get_ticket_index(slot_idx);
 		debug!(
 			target: LOG_TARGET,
 			"slot-idx {} <-> ticket-idx {}",
