@@ -110,7 +110,7 @@ jobs:
           --locked --no-fail-fast
           --partition count:${{ matrix.ci_node_index }}/100
       - run: ls -al target/coverage
-      - run: ls -al /__w/polkadot-sdk/polkadot-sdk/
+      - run: ls -al /__w/polkadot-sdk/polkadot-sdk/target
       - name: generate report
         run: cargo llvm-cov report --lcov --output-path lcov.info
       #- name: upload report
