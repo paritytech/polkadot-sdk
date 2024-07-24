@@ -3169,7 +3169,7 @@ pub(crate) mod tests {
 			let displaced =
 				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
-			assert_eq!(displaced.displaced_leaves, vec![]);
+			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
 
@@ -3177,7 +3177,7 @@ pub(crate) mod tests {
 			let displaced =
 				blockchain.displaced_leaves_after_finalizing(a4_hash, a4_number).unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
-			assert_eq!(displaced.displaced_leaves, vec![]);
+			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
 

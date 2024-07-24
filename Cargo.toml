@@ -576,7 +576,6 @@ ahash = { version = "0.8.2" }
 alloy-primitives = { version = "0.4.2", default-features = false }
 alloy-sol-types = { version = "0.4.2", default-features = false }
 always-assert = { version = "0.1" }
-ansi_term = { version = "0.12.1" }
 anyhow = { version = "1.0.81" }
 aquamarine = { version = "0.5.0" }
 arbitrary = { version = "1.3.2" }
@@ -607,7 +606,7 @@ async-std = { version = "1.9.0" }
 async-trait = { version = "0.1.79" }
 asynchronous-codec = { version = "0.6" }
 backoff = { version = "0.4" }
-backtrace = { version = "0.3.64" }
+backtrace = { version = "0.3.71" }
 binary-merkle-tree = { path = "substrate/utils/binary-merkle-tree", default-features = false }
 bincode = { version = "1.3.3" }
 bip39 = { version = "2.0.0" }
