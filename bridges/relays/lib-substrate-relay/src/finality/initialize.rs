@@ -39,8 +39,8 @@ pub async fn initialize<
 	TargetChain: ChainWithTransactions,
 	F,
 >(
-	source_client: Client<SourceChain>,
-	target_client: Client<TargetChain>,
+	source_client: impl Client<SourceChain>,
+	target_client: impl Client<TargetChain>,
 	target_signer: AccountKeyPairOf<TargetChain>,
 	prepare_initialize_transaction: F,
 	dry_run: bool,
@@ -101,8 +101,8 @@ async fn do_initialize<
 	TargetChain: ChainWithTransactions,
 	F,
 >(
-	source_client: Client<SourceChain>,
-	target_client: Client<TargetChain>,
+	source_client: impl Client<SourceChain>,
+	target_client: impl Client<TargetChain>,
 	target_signer: AccountKeyPairOf<TargetChain>,
 	prepare_initialize_transaction: F,
 	dry_run: bool,

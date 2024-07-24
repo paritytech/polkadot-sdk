@@ -360,6 +360,10 @@ pub use pallet_asset_tx_payment;
 #[cfg(feature = "pallet-assets")]
 pub use pallet_assets;
 
+/// Provides freezing features to `pallet-assets`.
+#[cfg(feature = "pallet-assets-freezer")]
+pub use pallet_assets_freezer;
+
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
 pub use pallet_atomic_swap;
@@ -1556,13 +1560,13 @@ pub use westend_runtime_constants;
 #[cfg(feature = "xcm-emulator")]
 pub use xcm_emulator;
 
-/// XCM fee payment runtime API.
-#[cfg(feature = "xcm-fee-payment-runtime-api")]
-pub use xcm_fee_payment_runtime_api;
-
 /// Procedural macros for XCM.
 #[cfg(feature = "xcm-procedural")]
 pub use xcm_procedural;
+
+/// XCM runtime APIs.
+#[cfg(feature = "xcm-runtime-apis")]
+pub use xcm_runtime_apis;
 
 /// Test kit to simulate cross-chain message passing and XCM execution.
 #[cfg(feature = "xcm-simulator")]

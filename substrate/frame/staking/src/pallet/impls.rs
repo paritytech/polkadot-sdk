@@ -48,7 +48,6 @@ use sp_staking::{
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
-use sp_std::prelude::*;
 
 use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
@@ -56,6 +55,7 @@ use crate::{
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
 };
+use alloc::{boxed::Box, vec, vec::Vec};
 
 use super::pallet::*;
 
@@ -1584,14 +1584,14 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 		let imbalance = T::Currency::burn(T::Currency::total_issuance());
 		// kinda ugly, but gets the job done. The fact that this works here is a HUGE exception.
 		// Don't try this pattern in other places.
-		sp_std::mem::forget(imbalance);
+		core::mem::forget(imbalance);
 	}
 }
 
 /// A simple sorted list implementation that does not require any additional pallets. Note, this
 /// does not provide validators in sorted order. If you desire nominators in a sorted order take
 /// a look at [`pallet-bags-list`].
-pub struct UseValidatorsMap<T>(sp_std::marker::PhantomData<T>);
+pub struct UseValidatorsMap<T>(core::marker::PhantomData<T>);
 impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 	type Score = BalanceOf<T>;
 	type Error = ();
@@ -1657,7 +1657,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 /// A simple voter list implementation that does not require any additional pallets. Note, this
 /// does not provided nominators in sorted ordered. If you desire nominators in a sorted order take
 /// a look at [`pallet-bags-list].
-pub struct UseNominatorsAndValidatorsMap<T>(sp_std::marker::PhantomData<T>);
+pub struct UseNominatorsAndValidatorsMap<T>(core::marker::PhantomData<T>);
 impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsMap<T> {
 	type Error = ();
 	type Score = VoteWeight;
@@ -1779,7 +1779,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			.map(|_| ())
 	}
 
-	fn update_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult {
+	fn set_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult {
 		// Since virtual stakers are not allowed to compound their rewards as this pallet does not
 		// manage their locks, we do not allow reward account to be set same as stash. For
 		// external pallets that manage the virtual bond, they can claim rewards and re-bond them.
@@ -1788,12 +1788,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			Error::<T>::RewardDestinationRestricted
 		);
 
-		// since controller is deprecated and this function is never used for old ledgers with
-		// distinct controllers, we can safely assume that stash is the controller.
-		Self::set_payee(
-			RawOrigin::Signed(stash.clone()).into(),
-			RewardDestination::Account(reward_acc.clone()),
-		)
+		let ledger = Self::ledger(Stash(stash.clone()))?;
+		let _ = ledger
+			.set_payee(RewardDestination::Account(reward_acc.clone()))
+			.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
+
+		Ok(())
 	}
 
 	fn chill(who: &Self::AccountId) -> DispatchResult {
@@ -1995,7 +1995,7 @@ impl<T: Config> Pallet<T> {
 	/// <https://github.com/paritytech/polkadot-sdk/issues/3245> is resolved, turn warns into check
 	/// failures.
 	fn check_bonded_consistency() -> Result<(), TryRuntimeError> {
-		use sp_std::collections::btree_set::BTreeSet;
+		use alloc::collections::btree_set::BTreeSet;
 
 		let mut count_controller_double = 0;
 		let mut count_double = 0;
@@ -2159,8 +2159,8 @@ impl<T: Config> Pallet<T> {
 	/// = exposure.own + exposure.own).
 	/// * Paged exposures metadata (`ErasStakersOverview`) matches the paged exposures state.
 	fn check_paged_exposures() -> Result<(), TryRuntimeError> {
+		use alloc::collections::btree_map::BTreeMap;
 		use sp_staking::PagedExposureMetadata;
-		use sp_std::collections::btree_map::BTreeMap;
 
 		// Sanity check for the paged exposure of the active era.
 		let mut exposures: BTreeMap<T::AccountId, PagedExposureMetadata<BalanceOf<T>>> =

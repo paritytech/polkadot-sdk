@@ -31,7 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        binary: [ frame-omni-bencher, chain-spec-builder ]
+        # Tuples of [package, binary-name]
+        binary: [ [frame-omni-bencher, frame-omni-bencher], [staging-chain-spec-builder, chain-spec-builder] ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
@@ -41,21 +42,16 @@ jobs:
           sudo apt update
           sudo apt install -y protobuf-compiler
 
-      - name: Build ${{ matrix.binary }} binary
+      - name: Build ${{ matrix.binary[1] }} binary
         run: |
-          if [[ ${{ matrix.binary }} =~ chain-spec-builder ]]; then
-            cargo build --locked --profile=production -p staging-${{ matrix.binary }} --bin ${{ matrix.binary }}
-            target/production/${{ matrix.binary }} -h
-          else
-            cargo build --locked --profile=production -p ${{ matrix.binary }}
-            target/production/${{ matrix.binary }} --version
-          fi
+          cargo build --locked --profile=production -p ${{ matrix.binary[0] }} --bin ${{ matrix.binary[1] }}
+          target/production/${{ matrix.binary[1] }} --version
 
-      - name: Upload ${{ matrix.binary }} binary
+      - name: Upload ${{ matrix.binary[1] }} binary
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
-          name: ${{ matrix.binary }}
-          path: target/production/${{ matrix.binary }}
+          name: ${{ matrix.binary[1] }}
+          path: target/production/${{ matrix.binary[1] }}
 
 
   publish-release-draft:

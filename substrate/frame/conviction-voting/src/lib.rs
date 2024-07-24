@@ -27,6 +27,8 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -40,7 +42,6 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, Perbill,
 };
-use sp_std::prelude::*;
 
 mod conviction;
 mod types;
@@ -559,7 +560,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(balance <= T::Currency::total_balance(&who), Error::<T, I>::InsufficientFunds);
 		let votes =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
-				let old = sp_std::mem::replace(
+				let old = core::mem::replace(
 					voting,
 					Voting::Delegating(Delegating {
 						balance,
@@ -596,7 +597,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn try_undelegate(who: T::AccountId, class: ClassOf<T, I>) -> Result<u32, DispatchError> {
 		let votes =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
-				match sp_std::mem::replace(voting, Voting::default()) {
+				match core::mem::replace(voting, Voting::default()) {
 					Voting::Delegating(Delegating {
 						balance,
 						target,

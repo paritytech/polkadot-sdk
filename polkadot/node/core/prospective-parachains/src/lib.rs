@@ -44,6 +44,7 @@ use polkadot_node_subsystem_util::{
 	inclusion_emulator::{Constraints, RelayChainBlockInfo},
 	request_session_index_for_child,
 	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
+	vstaging::fetch_claim_queue,
 };
 use polkadot_primitives::{
 	async_backing::CandidatePendingAvailability, BlockNumber, CandidateHash,
@@ -870,37 +871,51 @@ async fn fetch_backing_state<Context>(
 async fn fetch_upcoming_paras<Context>(
 	ctx: &mut Context,
 	relay_parent: Hash,
-) -> JfyiErrorResult<Vec<ParaId>> {
-	let (tx, rx) = oneshot::channel();
+) -> JfyiErrorResult<HashSet<ParaId>> {
+	Ok(match fetch_claim_queue(ctx.sender(), relay_parent).await? {
+		Some(claim_queue) => {
+			// Runtime supports claim queue - use it
+			claim_queue
+				.iter_all_claims()
+				.flat_map(|(_, paras)| paras.into_iter())
+				.copied()
+				.collect()
+		},
+		None => {
+			// fallback to availability cores - remove this branch once claim queue is released
+			// everywhere
+			let (tx, rx) = oneshot::channel();
+			ctx.send_message(RuntimeApiMessage::Request(
+				relay_parent,
+				RuntimeApiRequest::AvailabilityCores(tx),
+			))
+			.await;
 
-	// This'll have to get more sophisticated with parathreads,
-	// but for now we can just use the `AvailabilityCores`.
-	ctx.send_message(RuntimeApiMessage::Request(
-		relay_parent,
-		RuntimeApiRequest::AvailabilityCores(tx),
-	))
-	.await;
+			let cores = rx.await.map_err(JfyiError::RuntimeApiRequestCanceled)??;
 
-	let cores = rx.await.map_err(JfyiError::RuntimeApiRequestCanceled)??;
-	let mut upcoming = HashSet::new();
-	for core in cores {
-		match core {
-			CoreState::Occupied(occupied) => {
-				if let Some(next_up_on_available) = occupied.next_up_on_available {
-					upcoming.insert(next_up_on_available.para_id);
+			let mut upcoming = HashSet::with_capacity(cores.len());
+			for core in cores {
+				match core {
+					CoreState::Occupied(occupied) => {
+						// core sharing won't work optimally with this branch because the collations
+						// can't be prepared in advance.
+						if let Some(next_up_on_available) = occupied.next_up_on_available {
+							upcoming.insert(next_up_on_available.para_id);
+						}
+						if let Some(next_up_on_time_out) = occupied.next_up_on_time_out {
+							upcoming.insert(next_up_on_time_out.para_id);
+						}
+					},
+					CoreState::Scheduled(scheduled) => {
+						upcoming.insert(scheduled.para_id);
+					},
+					CoreState::Free => {},
 				}
-				if let Some(next_up_on_time_out) = occupied.next_up_on_time_out {
-					upcoming.insert(next_up_on_time_out.para_id);
-				}
-			},
-			CoreState::Scheduled(scheduled) => {
-				upcoming.insert(scheduled.para_id);
-			},
-			CoreState::Free => {},
-		}
-	}
+			}
 
-	Ok(upcoming.into_iter().collect())
+			upcoming
+		},
+	})
 }
 
 // Fetch ancestors in descending order, up to the amount requested.

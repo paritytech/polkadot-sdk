@@ -451,6 +451,8 @@ fn renewals_affect_price() {
 
 #[test]
 fn instapool_payouts_work() {
+	// Commented out code is from the reference test implementation and should be uncommented as
+	// soon as we have the credit system implemented
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
@@ -458,11 +460,13 @@ fn instapool_payouts_work() {
 		advance_to(2);
 		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_pool(region, None, 2, Final));
-		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
+		// assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(11);
-		assert_eq!(pot(), 14);
+		// Should get revenue amount 10 from RC, from which 6 is system payout (goes to account0
+		// instantly) and the rest is private (kept in the pot until claimed)
+		assert_eq!(pot(), 4);
 		assert_eq!(revenue(), 106);
 
 		// Cannot claim for 0 timeslices.
@@ -470,13 +474,15 @@ fn instapool_payouts_work() {
 
 		// Revenue can be claimed.
 		assert_ok!(Broker::do_claim_revenue(region, 100));
-		assert_eq!(pot(), 10);
+		assert_eq!(pot(), 0);
 		assert_eq!(balance(2), 4);
 	});
 }
 
 #[test]
 fn instapool_partial_core_payouts_work() {
+	// Commented out code is from the reference test implementation and should be uncommented as
+	// soon as we have the credit system implemented
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
@@ -487,7 +493,7 @@ fn instapool_partial_core_payouts_work() {
 			Broker::do_interlace(region, None, CoreMask::from_chunk(0, 20)).unwrap();
 		assert_ok!(Broker::do_pool(region1, None, 2, Final));
 		assert_ok!(Broker::do_pool(region2, None, 3, Final));
-		assert_ok!(Broker::do_purchase_credit(1, 40, 1));
+		// assert_ok!(Broker::do_purchase_credit(1, 40, 1));
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 40));
 		advance_to(11);
@@ -502,6 +508,8 @@ fn instapool_partial_core_payouts_work() {
 
 #[test]
 fn instapool_core_payouts_work_with_partitioned_region() {
+	// Commented out code is from the reference test implementation and should be uncommented as
+	// soon as we have the credit system implemented
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);
@@ -514,14 +522,14 @@ fn instapool_core_payouts_work_with_partitioned_region() {
 		// coretime will be purchased from `region2`.
 		assert_ok!(Broker::do_pool(region1, None, 2, Final));
 		assert_ok!(Broker::do_pool(region2, None, 3, Final));
-		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
+		// assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(11);
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 10);
 		assert_eq!(revenue(), 100);
 		assert_ok!(Broker::do_claim_revenue(region1, 100));
-		assert_eq!(pot(), 10);
+		assert_eq!(pot(), 0);
 		assert_eq!(balance(2), 10);
 		advance_to(12);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));

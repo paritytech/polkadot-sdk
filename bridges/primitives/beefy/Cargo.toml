@@ -12,23 +12,23 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["bit-vec", "derive"] }
-serde = { default-features = false, features = ["alloc", "derive"], workspace = true }
+codec = { features = ["bit-vec", "derive"], workspace = true }
+scale-info = { features = ["bit-vec", "derive"], workspace = true }
+serde = { features = ["alloc", "derive"], workspace = true }
 
 # Bridge Dependencies
 
-bp-runtime = { path = "../runtime", default-features = false }
+bp-runtime = { workspace = true }
 
 # Substrate Dependencies
 
-binary-merkle-tree = { path = "../../../substrate/utils/binary-merkle-tree", default-features = false }
-sp-consensus-beefy = { path = "../../../substrate/primitives/consensus/beefy", default-features = false }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-pallet-beefy-mmr = { path = "../../../substrate/frame/beefy-mmr", default-features = false }
-pallet-mmr = { path = "../../../substrate/frame/merkle-mountain-range", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+binary-merkle-tree = { workspace = true }
+sp-consensus-beefy = { workspace = true }
+frame-support = { workspace = true }
+pallet-beefy-mmr = { workspace = true }
+pallet-mmr = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
 
 [features]
 default = ["std"]

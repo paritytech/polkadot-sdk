@@ -19,8 +19,10 @@
 use crate::{
 	configuration, initializer::SessionChangeNotification, metrics::METRICS, session_info,
 };
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use bitvec::{bitvec, order::Lsb0 as BitOrderLsb0};
 use codec::{Decode, Encode};
+use core::cmp::Ordering;
 use frame_support::{ensure, weights::Weight};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
@@ -36,7 +38,6 @@ use sp_runtime::{
 	traits::{AppVerify, One, Saturating, Zero},
 	DispatchError, RuntimeDebug, SaturatedConversion,
 };
-use sp_std::{cmp::Ordering, collections::btree_set::BTreeSet, prelude::*};
 
 #[cfg(test)]
 #[allow(unused_imports)]

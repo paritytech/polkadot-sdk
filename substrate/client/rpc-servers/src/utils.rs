@@ -25,10 +25,7 @@ use std::{
 };
 
 use forwarded_header_value::ForwardedHeaderValue;
-use hyper::{
-	header::{HeaderName, HeaderValue},
-	Request,
-};
+use http::header::{HeaderName, HeaderValue};
 use jsonrpsee::{server::middleware::http::HostFilterLayer, RpcModule};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
@@ -57,7 +54,7 @@ pub(crate) fn build_rpc_api<M: Send + Sync + 'static>(mut rpc_api: RpcModule<M>)
 	available_methods.sort();
 
 	rpc_api
-		.register_method("rpc_methods", move |_, _| {
+		.register_method("rpc_methods", move |_, _, _| {
 			serde_json::json!({
 				"methods": available_methods,
 			})
@@ -96,7 +93,7 @@ pub(crate) fn format_cors(maybe_cors: Option<&Vec<String>>) -> String {
 /// 1. `Forwarded` header.
 /// 2. `X-Forwarded-For` header.
 /// 3. `X-Real-Ip`.
-pub(crate) fn get_proxy_ip(req: &Request<hyper::Body>) -> Option<IpAddr> {
+pub(crate) fn get_proxy_ip<B>(req: &http::Request<B>) -> Option<IpAddr> {
 	if let Some(ip) = req
 		.headers()
 		.get(&FORWARDED)
@@ -133,9 +130,10 @@ pub(crate) fn get_proxy_ip(req: &Request<hyper::Body>) -> Option<IpAddr> {
 mod tests {
 	use super::*;
 	use hyper::header::HeaderValue;
+	use jsonrpsee::server::{HttpBody, HttpRequest};
 
-	fn request() -> hyper::Request<hyper::Body> {
-		hyper::Request::builder().body(hyper::Body::empty()).unwrap()
+	fn request() -> http::Request<HttpBody> {
+		HttpRequest::builder().body(HttpBody::empty()).unwrap()
 	}
 
 	#[test]

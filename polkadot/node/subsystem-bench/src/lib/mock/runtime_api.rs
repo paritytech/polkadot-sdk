@@ -28,7 +28,7 @@ use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{
 	node_features, AsyncBackingParams, CandidateEvent, CandidateReceipt, CoreState, GroupIndex,
 	GroupRotationInfo, IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex,
-	SessionInfo, ValidatorIndex,
+	SessionInfo, ValidationCode, ValidatorIndex,
 };
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
@@ -287,6 +287,15 @@ impl MockRuntimeApi {
 								now: 1,
 							};
 							tx.send(Ok((groups, group_rotation_info))).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::ValidationCodeByHash(_, tx),
+						) => {
+							let validation_code = ValidationCode(Vec::new());
+							if let Err(err) = tx.send(Ok(Some(validation_code))) {
+								gum::error!(target: LOG_TARGET, ?err, "validation code wasn't received");
+							}
 						},
 						// Long term TODO: implement more as needed.
 						message => {

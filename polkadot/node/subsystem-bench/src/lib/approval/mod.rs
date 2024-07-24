@@ -60,7 +60,7 @@ use polkadot_node_subsystem_util::metrics::Metrics;
 use polkadot_overseer::Handle as OverseerHandleReal;
 use polkadot_primitives::{
 	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceipt, Hash, Header, Slot,
-	ValidatorIndex,
+	ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
 };
 use prometheus::Registry;
 use sc_keystore::LocalKeystore;
@@ -68,6 +68,7 @@ use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
+use sp_keystore::Keystore;
 use std::{
 	cmp::max,
 	collections::{HashMap, HashSet},
@@ -697,12 +698,12 @@ impl PeerMessageProducer {
 			.expect("We can't handle unknown peers")
 			.clone();
 
-		self.network
-			.send_message_from_peer(
-				&peer_authority_id,
-				protocol_v3::ValidationProtocol::ApprovalDistribution(message.msg).into(),
-			)
-			.unwrap_or_else(|_| panic!("Network should be up and running {:?}", sent_by));
+		if let Err(err) = self.network.send_message_from_peer(
+			&peer_authority_id,
+			protocol_v3::ValidationProtocol::ApprovalDistribution(message.msg).into(),
+		) {
+			gum::warn!(target: LOG_TARGET, ?sent_by, ?err, "Validator can not send message");
+		}
 	}
 
 	// Queues a message to be sent by the peer identified by the `sent_by` value.
@@ -785,6 +786,12 @@ fn build_overseer(
 	let db: polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter<kvdb_memorydb::InMemory> =
 		polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[]);
 	let keystore = LocalKeystore::in_memory();
+	keystore
+		.sr25519_generate_new(
+			ASSIGNMENT_KEY_TYPE_ID,
+			Some(state.test_authorities.key_seeds.get(NODE_UNDER_TEST as usize).unwrap().as_str()),
+		)
+		.unwrap();
 
 	let system_clock =
 		PastSystemClock::new(SystemClock {}, state.delta_tick_from_generated.clone());
@@ -987,11 +994,12 @@ pub async fn bench_approvals_run(
 		"polkadot_parachain_subsystem_bounded_received",
 		Some(("subsystem_name", "approval-distribution-subsystem")),
 		|value| {
-			gum::info!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
+			gum::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
 			value >= at_least_messages as f64
 		},
 	)
 	.await;
+
 	gum::info!("Requesting approval votes ms");
 
 	for info in &state.blocks {
@@ -1031,7 +1039,7 @@ pub async fn bench_approvals_run(
 		"polkadot_parachain_subsystem_bounded_received",
 		Some(("subsystem_name", "approval-distribution-subsystem")),
 		|value| {
-			gum::info!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
+			gum::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
 			value >= at_least_messages as f64
 		},
 	)

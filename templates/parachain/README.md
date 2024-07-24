@@ -16,7 +16,7 @@
 * ☁️ It is based on the
 [Cumulus](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/cumulus/index.html) framework.
 
-* 🔧 Its runtime is configured of a single custom pallet as a starting point, and a handful of ready-made pallets
+* 🔧 Its runtime is configured with a single custom pallet as a starting point, and a handful of ready-made pallets
 such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
 
 * 👉 Learn more about parachains [here](https://wiki.polkadot.network/docs/learn-parachains)
@@ -44,7 +44,7 @@ packages required to compile this template - please take note of the Rust compil
 🔨 Use the following command to build the node without launching it:
 
 ```sh
-cargo build --release
+cargo build --package parachain-template-node --release
 ```
 
 🐳 Alternatively, build the docker image:
@@ -70,7 +70,7 @@ and `zombienet` - into `PATH` like so:
 export PATH="./target/release/:$PATH"
 ```
 
-This way, we can conveniently use them un the following steps.
+This way, we can conveniently use them in the following steps.
 
 👥 The following command starts a local development chain, with a single relay chain node and a single parachain collator:
 

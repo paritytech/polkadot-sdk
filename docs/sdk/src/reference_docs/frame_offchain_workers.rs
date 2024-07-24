@@ -58,7 +58,6 @@
 //! [`frame::pallet_macros::hooks`].
 //!
 //! ```
-//! 
 //! #[frame::pallet]
 //! pub mod pallet {
 //! 	use frame::prelude::*;

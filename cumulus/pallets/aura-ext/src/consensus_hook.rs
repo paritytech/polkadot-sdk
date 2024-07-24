@@ -20,6 +20,7 @@
 //! The velocity `V` refers to the rate of block processing by the relay chain.
 
 use super::{pallet, Aura};
+use core::{marker::PhantomData, num::NonZeroU32};
 use cumulus_pallet_parachain_system::{
 	self as parachain_system,
 	consensus_hook::{ConsensusHook, UnincludedSegmentCapacity},
@@ -27,7 +28,6 @@ use cumulus_pallet_parachain_system::{
 };
 use frame_support::pallet_prelude::*;
 use sp_consensus_aura::{Slot, SlotDuration};
-use sp_std::{marker::PhantomData, num::NonZeroU32};
 
 /// A consensus hook for a fixed block processing velocity and unincluded segment capacity.
 ///
@@ -65,16 +65,26 @@ where
 		let para_slot_from_relay =
 			Slot::from_timestamp(relay_chain_timestamp.into(), para_slot_duration);
 
-		// Perform checks.
-		assert_eq!(slot, para_slot_from_relay, "slot number mismatch");
-		if authored > velocity + 1 {
+		// Check that we are not too far in the future. Since we expect `V` parachain blocks
+		// during the relay chain slot, we can allow for `V` parachain slots into the future.
+		if *slot > *para_slot_from_relay + u64::from(velocity) {
+			panic!(
+				"Parachain slot is too far in the future: parachain_slot: {:?}, derived_from_relay_slot: {:?} velocity: {:?}",
+				slot,
+				para_slot_from_relay,
+				velocity
+			);
+		}
+
+		// We need to allow authoring multiple blocks in the same slot.
+		if slot != para_slot_from_relay && authored > velocity {
 			panic!("authored blocks limit is reached for the slot")
 		}
 		let weight = T::DbWeight::get().reads(1);
 
 		(
 			weight,
-			NonZeroU32::new(sp_std::cmp::max(C, 1))
+			NonZeroU32::new(core::cmp::max(C, 1))
 				.expect("1 is the minimum value and non-zero; qed")
 				.into(),
 		)
@@ -113,6 +123,11 @@ impl<
 			return false
 		}
 
+		// TODO: This logic needs to be adjusted.
+		// It checks that we have not authored more than `V + 1` blocks in the slot.
+		// As a slot however, we take the parachain slot here. Velocity should
+		// be measured in relation to the relay chain slot.
+		// https://github.com/paritytech/polkadot-sdk/issues/3967
 		if last_slot == new_slot {
 			authored_so_far < velocity + 1
 		} else {

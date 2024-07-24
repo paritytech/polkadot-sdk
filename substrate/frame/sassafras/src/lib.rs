@@ -47,10 +47,13 @@
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use log::{debug, error, trace, warn};
 use scale_info::TypeInfo;
 
+use alloc::vec::Vec;
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{ConstU32, Get},
@@ -70,7 +73,6 @@ use sp_runtime::{
 	traits::{One, Zero},
 	BoundToRuntimeAppPublic,
 };
-use sp_std::prelude::Vec;
 
 pub use pallet::*;
 
@@ -295,7 +297,7 @@ pub mod pallet {
 		pub authorities: Vec<AuthorityId>,
 		/// Phantom config
 		#[serde(skip)]
-		pub _phantom: sp_std::marker::PhantomData<T>,
+		pub _phantom: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]

@@ -18,6 +18,7 @@
 //! Storage migrations for the im-online pallet.
 
 use super::*;
+use alloc::vec::Vec;
 use frame_support::{storage_alias, traits::OnRuntimeUpgrade};
 
 #[cfg(feature = "try-runtime")]

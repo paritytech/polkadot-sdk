@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Network event types. These are are not the part of the protocol, but rather
+//! Network event types. These are not the part of the protocol, but rather
 //! events that happen on the network like DHT get/put results received.
 
 use crate::types::ProtocolName;

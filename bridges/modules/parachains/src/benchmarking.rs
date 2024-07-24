@@ -22,7 +22,7 @@ use crate::{
 };
 
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
-use bp_runtime::StorageProofSize;
+use bp_runtime::UnverifiedStorageProofParams;
 use frame_benchmarking::{account, benchmarks_instance_pallet};
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
@@ -38,7 +38,7 @@ pub trait Config<I: 'static>: crate::Config<I> {
 	fn prepare_parachain_heads_proof(
 		parachains: &[ParaId],
 		parachain_head_size: u32,
-		proof_size: StorageProofSize,
+		proof_params: UnverifiedStorageProofParams,
 	) -> (RelayBlockNumber, RelayBlockHash, ParaHeadsProof, Vec<(ParaId, ParaHash)>);
 }
 
@@ -68,7 +68,7 @@ benchmarks_instance_pallet! {
 		let (relay_block_number, relay_block_hash, parachain_heads_proof, parachains_heads) = T::prepare_parachain_heads_proof(
 			&parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,
-			StorageProofSize::Minimal(0),
+			UnverifiedStorageProofParams::default(),
 		);
 		let at_relay_block = (relay_block_number, relay_block_hash);
 	}: submit_parachain_heads(RawOrigin::Signed(sender), at_relay_block, parachains_heads, parachain_heads_proof)
@@ -85,7 +85,7 @@ benchmarks_instance_pallet! {
 		let (relay_block_number, relay_block_hash, parachain_heads_proof, parachains_heads) = T::prepare_parachain_heads_proof(
 			&parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,
-			StorageProofSize::HasLargeLeaf(1024),
+			UnverifiedStorageProofParams::from_db_size(1024),
 		);
 		let at_relay_block = (relay_block_number, relay_block_hash);
 	}: submit_parachain_heads(RawOrigin::Signed(sender), at_relay_block, parachains_heads, parachain_heads_proof)
@@ -102,7 +102,7 @@ benchmarks_instance_pallet! {
 		let (relay_block_number, relay_block_hash, parachain_heads_proof, parachains_heads) = T::prepare_parachain_heads_proof(
 			&parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,
-			StorageProofSize::HasLargeLeaf(16 * 1024),
+			UnverifiedStorageProofParams::from_db_size(16 * 1024),
 		);
 		let at_relay_block = (relay_block_number, relay_block_hash);
 	}: submit_parachain_heads(RawOrigin::Signed(sender), at_relay_block, parachains_heads, parachain_heads_proof)

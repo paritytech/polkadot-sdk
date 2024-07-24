@@ -116,6 +116,17 @@ pub mod system_parachain {
 
 	/// All system parachains of Westend.
 	pub type SystemParachains = IsChildSystemParachain<Id>;
+
+	/// Coretime constants
+	pub mod coretime {
+		/// Coretime timeslice period in blocks
+		/// WARNING: This constant is used accross chains, so additional care should be taken
+		/// when changing it.
+		#[cfg(feature = "fast-runtime")]
+		pub const TIMESLICE_PERIOD: u32 = 20;
+		#[cfg(not(feature = "fast-runtime"))]
+		pub const TIMESLICE_PERIOD: u32 = 80;
+	}
 }
 
 /// Westend Treasury pallet instance.

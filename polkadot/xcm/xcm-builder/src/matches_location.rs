@@ -17,14 +17,14 @@
 //! Various implementations and utilities for matching and filtering `Location` and
 //! `InteriorLocation` types.
 
+use core::marker::PhantomData;
 use frame_support::traits::{Contains, Get};
 use sp_runtime::traits::MaybeEquivalence;
-use sp_std::marker::PhantomData;
 use xcm::latest::{InteriorLocation, Location, NetworkId};
 
 /// An implementation of `Contains` that checks for `Location` or
 /// `InteriorLocation` if starts with the provided type `T`.
-pub struct StartsWith<T, L = Location>(sp_std::marker::PhantomData<(T, L)>);
+pub struct StartsWith<T, L = Location>(core::marker::PhantomData<(T, L)>);
 impl<T: Get<L>, L: TryInto<Location> + Clone> Contains<L> for StartsWith<T, L> {
 	fn contains(location: &L) -> bool {
 		let latest_location: Location =
@@ -42,7 +42,7 @@ impl<T: Get<InteriorLocation>> Contains<InteriorLocation> for StartsWith<T> {
 /// An implementation of `Contains` that checks for `Location` or
 /// `InteriorLocation` if starts with expected `GlobalConsensus(NetworkId)` provided as type
 /// `T`.
-pub struct StartsWithExplicitGlobalConsensus<T>(sp_std::marker::PhantomData<T>);
+pub struct StartsWithExplicitGlobalConsensus<T>(core::marker::PhantomData<T>);
 impl<T: Get<NetworkId>> Contains<Location> for StartsWithExplicitGlobalConsensus<T> {
 	fn contains(location: &Location) -> bool {
 		matches!(location.interior().global_consensus(), Ok(requested_network) if requested_network.eq(&T::get()))
