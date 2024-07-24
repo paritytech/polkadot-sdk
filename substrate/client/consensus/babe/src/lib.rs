@@ -1578,7 +1578,9 @@ where
 					viable_epoch.as_ref().start_slot,
 				);
 
-				if viable_epoch.as_ref().duration != self.config.epoch_length {
+				let epoch_duration_changed =
+					viable_epoch.as_ref().duration != self.config.epoch_length;
+				if epoch_duration_changed {
 					warn!(
 						target: LOG_TARGET,
 						"👶 Epoch duration changed: from {} to {}",
@@ -1590,10 +1592,20 @@ where
 
 				let next_epoch = viable_epoch.increment((next_epoch_descriptor, epoch_config));
 
+				let mut current_viable_epoch = viable_epoch.into_cloned();
+				current_viable_epoch.as_mut().epoch_index -= 1;
+				current_viable_epoch.as_mut().start_slot = current_viable_epoch
+					.as_ref()
+					.start_slot
+					.saturating_sub(Slot::from(current_viable_epoch.as_ref().duration));
+				let current_epoch = current_viable_epoch
+					.increment((next_epoch_descriptor.clone(), epoch_config.clone()));
+
 				log!(
 					target: LOG_TARGET,
 					log_level,
-					"👶 Next epoch starts at slot {}",
+					"👶 Current epoch starts at slot {}, Next epoch starts at slot {}",
+					current_epoch.as_ref().start_slot,
 					next_epoch.as_ref().start_slot,
 				);
 
@@ -1606,6 +1618,23 @@ where
 				// imported.
 				let prune_and_import = || {
 					prune_finalized(self.client.clone(), &mut epoch_changes)?;
+
+					if epoch_duration_changed {
+						epoch_changes
+							.import(
+								descendent_query(&*self.client),
+								parent_header.hash(),
+								*parent_header.number(),
+								*parent_header.parent_hash(),
+								current_epoch,
+							)
+							.map_err(|e| {
+								ConsensusError::ClientImport(format!(
+									"Error importing epoch changes: {}",
+									e
+								))
+							})?;
+					}
 
 					epoch_changes
 						.import(
