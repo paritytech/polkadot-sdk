@@ -5,7 +5,7 @@
 //!
 //! ## Overview
 //!
-//! XCM is a standard, whose specification lives in the [xcm format repo](https://github.com/paritytech/xcm-format).
+//! XCM is a standard, specification of which lives in the [xcm format repo](https://github.com/paritytech/xcm-format).
 //! It's agnostic both in programming language and blockchain platform, which means it could be used
 //! in Rust in Polkadot, or in Go or C++ in any other platform like Cosmos or Ethereum.
 //!
