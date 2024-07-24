@@ -23,7 +23,6 @@
 use crate::{Config, Pallet, LOG_TARGET};
 
 use bp_messages::source_chain::MessagesBridge;
-use bp_runtime::RangeInclusiveExt;
 use bp_xcm_bridge_hub::XcmAsPlainPayload;
 use bridge_runtime_common::messages_xcm_extension::{LocalXcmQueueManager, SenderAndLane};
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, Pallet as BridgeMessagesPallet};
@@ -132,6 +131,7 @@ impl HaulBlob for DummyHaulBlob {
 mod tests {
 	use super::*;
 	use crate::mock::*;
+	use bp_runtime::RangeInclusiveExt;
 	use frame_support::assert_ok;
 	use xcm_executor::traits::export_xcm;
 
