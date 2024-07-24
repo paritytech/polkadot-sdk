@@ -17,20 +17,20 @@
 
 pub mod v1 {
 	use crate::{types::BalanceOf, *};
+	use alloc::vec::Vec;
 	use frame_support::{
 		storage::unhashed,
 		traits::{Defensive, Get, GetStorageVersion, OnRuntimeUpgrade},
 		weights::Weight,
 	};
 	use sp_staking::EraIndex;
-	use sp_std::prelude::*;
 
 	#[cfg(feature = "try-runtime")]
 	use frame_support::ensure;
 	#[cfg(feature = "try-runtime")]
 	use sp_runtime::TryRuntimeError;
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let current = Pallet::<T>::in_code_storage_version();

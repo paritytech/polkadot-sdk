@@ -18,7 +18,8 @@
 use super::*;
 use crate::{self as pools};
 use frame_support::{
-	assert_ok, derive_impl, ord_parameter_types, parameter_types, traits::fungible::Mutate,
+	assert_ok, derive_impl, ord_parameter_types, parameter_types,
+	traits::{fungible::Mutate, VariantCountOf},
 	PalletId,
 };
 use frame_system::{EnsureSignedBy, RawOrigin};
@@ -135,7 +136,7 @@ impl sp_staking::StakingInterface for StakingMock {
 		Ok(())
 	}
 
-	fn update_payee(_stash: &Self::AccountId, _reward_acc: &Self::AccountId) -> DispatchResult {
+	fn set_payee(_stash: &Self::AccountId, _reward_acc: &Self::AccountId) -> DispatchResult {
 		unimplemented!("method currently not used in testing")
 	}
 
@@ -251,20 +252,14 @@ parameter_types! {
 	pub static ExistentialDeposit: Balance = 5;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = frame_support::traits::ConstU32<1024>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<1>;
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
 pub struct BalanceToU256;

@@ -5068,6 +5068,7 @@ fn test_gathering_assignments_statements() {
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),
+		no_show_stats: NoShowStats::default(),
 	};
 
 	for i in 0..200i32 {
@@ -5162,6 +5163,7 @@ fn test_observe_assignment_gathering_status() {
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),
+		no_show_stats: NoShowStats::default(),
 	};
 
 	let metrics_inner = MetricsInner {

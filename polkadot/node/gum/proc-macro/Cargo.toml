@@ -18,12 +18,12 @@ proc-macro = true
 [dependencies]
 syn = { features = ["extra-traits", "full"], workspace = true }
 quote = { workspace = true }
-proc-macro2 = "1.0.56"
-proc-macro-crate = "3.0.0"
-expander = "2.0.0"
+proc-macro2 = { workspace = true }
+proc-macro-crate = { workspace = true }
+expander = { workspace = true }
 
 [dev-dependencies]
-assert_matches = "1.5.0"
+assert_matches = { workspace = true }
 
 
 [features]

@@ -79,3 +79,24 @@ fn default_builder_requires_buy_execution() {
 		])
 	);
 }
+
+#[test]
+fn default_builder_allows_clear_origin_before_buy_execution() {
+	let asset: Asset = (Here, 100u128).into();
+	let beneficiary: Location = [0u8; 32].into();
+	let message: Xcm<()> = Xcm::builder()
+		.receive_teleported_asset(asset.clone())
+		.clear_origin()
+		.buy_execution(asset.clone(), Unlimited)
+		.deposit_asset(asset.clone(), beneficiary.clone())
+		.build();
+	assert_eq!(
+		message,
+		Xcm(vec![
+			ReceiveTeleportedAsset(asset.clone().into()),
+			ClearOrigin,
+			BuyExecution { fees: asset.clone(), weight_limit: Unlimited },
+			DepositAsset { assets: asset.into(), beneficiary },
+		])
+	);
+}

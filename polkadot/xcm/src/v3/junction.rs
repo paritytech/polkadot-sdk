@@ -241,7 +241,7 @@ pub enum BodyPart {
 		#[codec(compact)]
 		denom: u32,
 	},
-	/// More than than the given proportion of members of the body.
+	/// More than the given proportion of members of the body.
 	MoreThanProportion {
 		#[codec(compact)]
 		nom: u32,

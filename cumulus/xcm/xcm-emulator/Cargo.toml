@@ -10,36 +10,36 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-paste = "1.0.14"
+codec = { workspace = true, default-features = true }
+paste = { workspace = true, default-features = true }
 log = { workspace = true }
-lazy_static = "1.4.0"
-impl-trait-for-tuples = "0.2.2"
+lazy_static = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
 
 # Substrate
-frame-support = { path = "../../../substrate/frame/support" }
-frame-system = { path = "../../../substrate/frame/system" }
-sp-io = { path = "../../../substrate/primitives/io" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
-sp-std = { path = "../../../substrate/primitives/std" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-arithmetic = { path = "../../../substrate/primitives/arithmetic" }
-sp-tracing = { path = "../../../substrate/primitives/tracing" }
-pallet-balances = { path = "../../../substrate/frame/balances" }
-pallet-message-queue = { path = "../../../substrate/frame/message-queue" }
+frame-support = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-std = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-arithmetic = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-message-queue = { workspace = true, default-features = true }
 
 # Cumulus
-cumulus-primitives-core = { path = "../../primitives/core" }
-cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue" }
-cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system" }
-cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
-cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
-parachains-common = { path = "../../parachains/common" }
+cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-pallet-xcmp-queue = { workspace = true, default-features = true }
+cumulus-pallet-parachain-system = { workspace = true, default-features = true }
+cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }
+cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
+parachains-common = { workspace = true, default-features = true }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor" }
-polkadot-primitives = { path = "../../../polkadot/primitives" }
-polkadot-parachain-primitives = { path = "../../../polkadot/parachain" }
-polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains" }
+xcm = { workspace = true, default-features = true }
+xcm-executor = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-runtime-parachains = { workspace = true, default-features = true }

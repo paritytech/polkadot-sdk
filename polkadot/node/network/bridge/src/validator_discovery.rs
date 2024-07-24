@@ -88,16 +88,6 @@ impl<N: Network, AD: AuthorityDiscovery> Service<N, AD> {
 		{
 			gum::warn!(target: LOG_TARGET, err = ?e, "AuthorityDiscoveryService returned an invalid multiaddress");
 		}
-		// the addresses are known to be valid
-		//
-		// for peer-set management, the main protocol name should be used regardless of
-		// the negotiated version.
-		let _ = network_service
-			.remove_from_peers_set(
-				self.peerset_protocol_names.get_main_name(peer_set),
-				peers_to_remove,
-			)
-			.await;
 
 		network_service
 	}

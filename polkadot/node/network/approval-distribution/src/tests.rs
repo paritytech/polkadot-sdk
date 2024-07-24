@@ -2404,7 +2404,7 @@ fn propagates_locally_generated_assignment_to_both_dimensions() {
 		let assignments = vec![(cert.clone(), candidate_index)];
 		let approvals = vec![approval.clone()];
 
-		let assignment_sent_peers = assert_matches!(
+		let mut assignment_sent_peers = assert_matches!(
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				sent_peers,
@@ -2428,12 +2428,14 @@ fn propagates_locally_generated_assignment_to_both_dimensions() {
 		assert_matches!(
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
-				sent_peers,
+				mut sent_peers,
 				Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
 					protocol_v1::ApprovalDistributionMessage::Approvals(sent_approvals)
 				))
 			)) => {
 				// Random sampling is reused from the assignment.
+				sent_peers.sort();
+				assignment_sent_peers.sort();
 				assert_eq!(sent_peers, assignment_sent_peers);
 				assert_eq!(sent_approvals, approvals);
 			}
@@ -2678,7 +2680,7 @@ fn propagates_to_required_after_connect() {
 		let assignments = vec![(cert.clone(), candidate_index)];
 		let approvals = vec![approval.clone()];
 
-		let assignment_sent_peers = assert_matches!(
+		let mut assignment_sent_peers = assert_matches!(
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				sent_peers,
@@ -2702,12 +2704,14 @@ fn propagates_to_required_after_connect() {
 		assert_matches!(
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
-				sent_peers,
+				mut sent_peers,
 				Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
 					protocol_v1::ApprovalDistributionMessage::Approvals(sent_approvals)
 				))
 			)) => {
 				// Random sampling is reused from the assignment.
+				sent_peers.sort();
+				assignment_sent_peers.sort();
 				assert_eq!(sent_peers, assignment_sent_peers);
 				assert_eq!(sent_approvals, approvals);
 			}

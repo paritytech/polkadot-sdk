@@ -23,6 +23,7 @@ use crate::{
 	weights::WeightInfo,
 	AccountIdOf, BalanceOf, CodeHash, Config, Determinism, Pallet, Weight, LOG_TARGET,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{
 	pallet_prelude::*, storage_alias, traits::ReservableCurrency, weights::WeightMeter,
@@ -33,7 +34,6 @@ use sp_core::hexdisplay::HexDisplay;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 use sp_runtime::{traits::Zero, FixedPointNumber, FixedU128, Saturating};
-use sp_std::prelude::*;
 
 mod v11 {
 	use super::*;
@@ -109,7 +109,7 @@ where
 {
 	use sp_runtime::traits::Hash;
 
-	let code = vec![42u8; len];
+	let code = alloc::vec![42u8; len];
 	let hash = T::Hashing::hash(&code);
 	PristineCode::<T>::insert(hash, code.clone());
 

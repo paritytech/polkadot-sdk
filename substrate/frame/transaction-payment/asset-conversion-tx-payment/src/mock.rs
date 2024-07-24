@@ -98,20 +98,10 @@ parameter_types! {
 	pub const ExistentialDeposit: u64 = 10;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ConstU64<10>;
 	type AccountStore = System;
-	type MaxLocks = ();
-	type WeightInfo = ();
-	type MaxReserves = ConstU32<50>;
-	type ReserveIdentifier = [u8; 8];
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 impl WeightToFeeT for WeightToFee {
@@ -141,7 +131,7 @@ pub struct DealWithFees;
 impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>>
 	for DealWithFees
 {
-	fn on_unbalanceds<B>(
+	fn on_unbalanceds(
 		mut fees_then_tips: impl Iterator<
 			Item = fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>,
 		>,

@@ -446,7 +446,7 @@ pub mod pallet {
 		T::AccountId: From<SomeType1> + SomeAssociation1 + From<SomeType4>,
 	{
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<T>,
+		_config: core::marker::PhantomData<T>,
 		_myfield: u32,
 	}
 

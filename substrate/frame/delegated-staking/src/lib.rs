@@ -132,10 +132,13 @@ mod mock;
 mod tests;
 mod types;
 
+extern crate alloc;
+
 pub use pallet::*;
 
 use types::*;
 
+use core::convert::TryInto;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -154,7 +157,6 @@ use sp_runtime::{
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 use sp_staking::{Agent, Delegator, EraIndex, StakingInterface, StakingUnchecked};
-use sp_std::{convert::TryInto, prelude::*};
 
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -409,6 +411,11 @@ pub mod pallet {
 				Delegation::<T>::can_delegate(&delegator, &agent),
 				Error::<T>::InvalidDelegation
 			);
+
+			// Implementation note: Staking uses deprecated locks (similar to freeze) which are not
+			// mutually exclusive of holds. This means, if we allow delegating for existing stakers,
+			// already staked funds might be reused for delegation. We avoid that by just blocking
+			// this.
 			ensure!(!Self::is_direct_staker(&delegator), Error::<T>::AlreadyStaking);
 
 			// ensure agent is sane.
@@ -503,7 +510,7 @@ impl<T: Config> Pallet<T> {
 			Preservation::Expendable,
 		)?;
 
-		T::CoreStaking::update_payee(who, reward_account)?;
+		T::CoreStaking::set_payee(who, reward_account)?;
 		// delegate all transferred funds back to agent.
 		Self::do_delegate(proxy_delegator, Agent::from(who.clone()), amount_to_transfer)?;
 
@@ -779,7 +786,7 @@ impl<T: Config> Pallet<T> {
 }
 
 #[cfg(any(test, feature = "try-runtime"))]
-use sp_std::collections::btree_map::BTreeMap;
+use alloc::collections::btree_map::BTreeMap;
 
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
@@ -823,10 +830,6 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		let mut delegation_aggregation = BTreeMap::<T::AccountId, BalanceOf<T>>::new();
 		for (delegator, delegation) in delegations.iter() {
-			ensure!(
-				T::CoreStaking::status(delegator).is_err(),
-				"delegator should not be directly staked"
-			);
 			ensure!(!Self::is_agent(delegator), "delegator cannot be an agent");
 
 			delegation_aggregation

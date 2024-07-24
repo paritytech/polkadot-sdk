@@ -17,9 +17,9 @@ name = "pallet-paged-list-fuzzer"
 path = "src/paged_list.rs"
 
 [dependencies]
-arbitrary = "1.3.2"
-honggfuzz = "0.5.49"
+arbitrary = { workspace = true }
+honggfuzz = { workspace = true }
 
-frame-support = { path = "../../support", default-features = false, features = ["std"] }
-sp-io = { path = "../../../primitives/io", default-features = false, features = ["std"] }
-pallet-paged-list = { path = "..", default-features = false, features = ["std"] }
+frame-support = { features = ["std"], workspace = true }
+sp-io = { features = ["std"], workspace = true }
+pallet-paged-list = { features = ["std"], workspace = true }
