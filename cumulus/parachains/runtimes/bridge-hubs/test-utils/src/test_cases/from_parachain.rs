@@ -106,8 +106,7 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 	bridged_para_id: u32,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
-	lane_id: LaneId,
-	prepare_configuration: impl Fn(),
+	prepare_configuration: impl Fn() -> LaneId,
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
@@ -142,7 +141,7 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 			let para_header_number = 5;
 			let relay_header_number = 1;
 
-			prepare_configuration();
+			let lane_id = prepare_configuration();
 
 			// start with bridged relay chain block#0
 			helpers::initialize_bridge_grandpa_pallet::<RuntimeHelper::Runtime, RuntimeHelper::GPI>(
@@ -235,8 +234,7 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 	bridged_para_id: u32,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
-	lane_id: LaneId,
-	prepare_configuration: impl Fn(),
+	prepare_configuration: impl Fn() -> LaneId,
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
@@ -275,7 +273,7 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 		 message_nonce,
 		 xcm,
 		 bridged_chain_id| {
-			prepare_configuration();
+			let lane_id = prepare_configuration();
 
 			// start with bridged relay chain block#0
 			let initial_block_number = 0;
@@ -398,8 +396,7 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 	bridged_para_id: u32,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
-	lane_id: LaneId,
-	prepare_configuration: impl Fn(),
+	prepare_configuration: impl Fn() -> LaneId,
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
@@ -437,7 +434,7 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 			let para_header_number = 5;
 			let relay_header_number = 1;
 
-			prepare_configuration();
+			let lane_id = prepare_configuration();
 
 			// start with bridged relay chain block#0
 			helpers::initialize_bridge_grandpa_pallet::<RuntimeHelper::Runtime, RuntimeHelper::GPI>(
