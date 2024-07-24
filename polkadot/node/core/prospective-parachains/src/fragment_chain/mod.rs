@@ -958,7 +958,7 @@ impl FragmentChain {
 			}
 
 			// If the candidate is backed and in the current chain, accept only a candidate
-			// according to the fork selection rul.
+			// according to the fork selection rule.
 			if fork_selection_rule(other_candidate, &candidate.candidate_hash()) == Ordering::Less {
 				return Err(Error::ForkChoiceRule(*other_candidate))
 			}
@@ -966,7 +966,7 @@ impl FragmentChain {
 
 		// Try seeing if the parent candidate is in the current chain or if it is the latest
 		// included candidate. If so, get the constraints the candidate must satisfy.
-		let constraints =
+		let (constraints, maybe_min_relay_parent_number) =
 			if let Some(parent_candidate) = self.best_chain.by_output_head.get(&parent_head_hash) {
 				let Some(parent_candidate) =
 					self.best_chain.chain.iter().find(|c| &c.candidate_hash == parent_candidate)
@@ -975,13 +975,16 @@ impl FragmentChain {
 					return Err(Error::ParentCandidateNotFound)
 				};
 
-				self.scope
-					.base_constraints
-					.apply_modifications(&parent_candidate.cumulative_modifications)
-					.map_err(Error::ComputeConstraints)?
+				(
+					self.scope
+						.base_constraints
+						.apply_modifications(&parent_candidate.cumulative_modifications)
+						.map_err(Error::ComputeConstraints)?,
+					self.scope.ancestor(&parent_candidate.relay_parent()).map(|rp| rp.number),
+				)
 			} else if self.scope.base_constraints.required_parent.hash() == parent_head_hash {
 				// It builds on the latest included candidate.
-				self.scope.base_constraints.clone()
+				(self.scope.base_constraints.clone(), None)
 			} else {
 				// If the parent is not yet part of the chain, there's nothing else we can check for
 				// now.
@@ -1013,8 +1016,8 @@ impl FragmentChain {
 			return Err(Error::RelayParentMovedBackwards)
 		}
 
-		if let Some(earliest_rp) = self.earliest_relay_parent() {
-			if relay_parent.number < earliest_rp.number {
+		if let Some(earliest_rp) = maybe_min_relay_parent_number {
+			if relay_parent.number < earliest_rp {
 				return Err(Error::RelayParentMovedBackwards)
 			}
 		}
