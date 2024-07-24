@@ -325,7 +325,7 @@ impl<E, EHF> ChainSpecBuilder<E, EHF> {
 			name: "Development".to_string(),
 			id: "dev".to_string(),
 			chain_type: ChainType::Local,
-			genesis_build_action: GenesisBuildAction::Patch(Default::default()),
+			genesis_build_action: GenesisBuildAction::Patch(json::json!({})),
 			boot_nodes: None,
 			telemetry_endpoints: None,
 			protocol_id: None,
