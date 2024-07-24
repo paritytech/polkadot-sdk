@@ -196,7 +196,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["pallet_indices",["",[],["benchmarking.rs","lib.rs","weights.rs"]]],\
 ["pallet_insecure_randomness_collective_flip",["",[],["lib.rs"]]],\
 ["pallet_lottery",["",[],["benchmarking.rs","lib.rs","weights.rs"]]],\
-["pallet_membership",["",[["migrations",[],["mod.rs","v4.rs"]]],["lib.rs","weights.rs"]]],\
+["pallet_membership",["",[["migrations",[],["mod.rs","v4.rs"]]],["benchmarking.rs","lib.rs","weights.rs"]]],\
 ["pallet_message_queue",["",[],["benchmarking.rs","lib.rs","mock_helpers.rs","weights.rs"]]],\
 ["pallet_migrations",["",[],["benchmarking.rs","lib.rs","mock_helpers.rs","weights.rs"]]],\
 ["pallet_minimal_template",["",[],["lib.rs"]]],\

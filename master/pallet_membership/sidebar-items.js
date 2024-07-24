@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["migrations","pallet","weights"]};
+window.SIDEBAR_ITEMS = {"mod":["benchmarking","migrations","pallet","weights"]};
