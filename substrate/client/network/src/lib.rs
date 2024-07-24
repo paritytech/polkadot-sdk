@@ -272,6 +272,10 @@ pub use sc_network_common::{
 	role::{ObservedRole, Roles},
 	types::ReputationChange,
 };
+pub use sc_network_types::{
+	multiaddr::{self, Multiaddr},
+	PeerId,
+};
 pub use service::{
 	metrics::NotificationMetrics,
 	signature::Signature,
@@ -285,7 +289,7 @@ pub use service::{
 	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender, OutboundFailure,
 	PublicKey,
 };
-pub use types::{multiaddr, Multiaddr, PeerId, ProtocolName};
+pub use types::ProtocolName;
 
 /// The maximum allowed number of established connections per peer.
 ///

@@ -26,8 +26,8 @@ use log::warn;
 use names::{Generator, Name};
 use sc_service::{
 	config::{
-		BasePath, Configuration, DatabaseSource, KeystoreConfig, NetworkConfiguration,
-		NodeKeyConfig, OffchainWorkerConfig, OutputFormat, PrometheusConfig, PruningMode, Role,
+		BasePath, Configuration, DatabaseSource, IpNetwork, KeystoreConfig, NetworkConfiguration,
+		NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode, Role,
 		RpcBatchRequestConfig, RpcMethods, TelemetryEndpoints, TransactionPoolOptions,
 		WasmExecutionMethod,
 	},
@@ -349,6 +349,16 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(None)
 	}
 
+	/// RPC rate limit whitelisted ip addresses.
+	fn rpc_rate_limit_whitelisted_ips(&self) -> Result<Vec<IpNetwork>> {
+		Ok(vec![])
+	}
+
+	/// RPC rate limit trust proxy headers.
+	fn rpc_rate_limit_trust_proxy_headers(&self) -> Result<bool> {
+		Ok(false)
+	}
+
 	/// Get the prometheus configuration (`None` if disabled)
 	///
 	/// By default this is `None`.
@@ -523,6 +533,8 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			rpc_message_buffer_capacity: self.rpc_buffer_capacity_per_connection()?,
 			rpc_batch_config: self.rpc_batch_config()?,
 			rpc_rate_limit: self.rpc_rate_limit()?,
+			rpc_rate_limit_whitelisted_ips: self.rpc_rate_limit_whitelisted_ips()?,
+			rpc_rate_limit_trust_proxy_headers: self.rpc_rate_limit_trust_proxy_headers()?,
 			prometheus_config: self
 				.prometheus_config(DCV::prometheus_listen_port(), &chain_spec)?,
 			telemetry_endpoints,
@@ -538,7 +550,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			announce_block: self.announce_block()?,
 			role,
 			base_path,
-			informant_output_format: OutputFormat { enable_color: !self.disable_log_color()? },
 			runtime_cache_size,
 		})
 	}

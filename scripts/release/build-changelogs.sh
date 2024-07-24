@@ -51,7 +51,7 @@ for tuple in "${aud_desc_array[@]}"; do
 
     echo "Processing audience: $audience ($audience_id)"
     export TARGET_AUDIENCE="$audience"
-    export AUDIENCE_DESC="**These changes are relevant to:** $description"
+    export AUDIENCE_DESC="**ℹ️ These changes are relevant to:** $description"
 
     tera -t "${TEMPLATE_AUDIENCE}" --env --env-key env "${CONTEXT_JSON}" > "$OUTPUT/relnote_${audience_id}.md"
     cat "$OUTPUT/relnote_${audience_id}.md" >> "$PROJECT_ROOT/scripts/release/templates/changelog.md"

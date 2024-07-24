@@ -35,7 +35,7 @@ use std::{
 };
 
 use futures::{channel::oneshot, future::BoxFuture, pin_mut, prelude::*};
-use libp2p::{build_multiaddr, PeerId};
+use libp2p::PeerId;
 use log::trace;
 use parking_lot::Mutex;
 use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
@@ -57,8 +57,8 @@ use sc_network::{
 	peer_store::PeerStore,
 	request_responses::ProtocolConfig as RequestResponseConfig,
 	types::ProtocolName,
-	Multiaddr, NetworkBlock, NetworkService, NetworkStateInfo, NetworkSyncForkRequest,
-	NetworkWorker, NotificationMetrics, NotificationService,
+	NetworkBlock, NetworkService, NetworkStateInfo, NetworkSyncForkRequest, NetworkWorker,
+	NotificationMetrics, NotificationService,
 };
 use sc_network_common::role::Roles;
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
@@ -71,6 +71,7 @@ use sc_network_sync::{
 	},
 	warp_request_handler,
 };
+use sc_network_types::{build_multiaddr, multiaddr::Multiaddr};
 use sc_service::client::Client;
 use sp_blockchain::{
 	Backend as BlockchainBackend, HeaderBackend, Info as BlockchainInfo, Result as ClientResult,
@@ -113,7 +114,7 @@ impl PassThroughVerifier {
 #[async_trait::async_trait]
 impl<B: BlockT> Verifier<B> for PassThroughVerifier {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<B>,
 	) -> Result<BlockImportParams<B>, String> {
 		if block.fork_choice.is_none() {
@@ -209,7 +210,7 @@ impl BlockImport<Block> for PeersClient {
 	type Error = ConsensusError;
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.client.check_block(block).await
@@ -599,7 +600,7 @@ where
 	type Error = ConsensusError;
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await
@@ -621,10 +622,7 @@ struct VerifierAdapter<B: BlockT> {
 
 #[async_trait::async_trait]
 impl<B: BlockT> Verifier<B> for VerifierAdapter<B> {
-	async fn verify(
-		&mut self,
-		block: BlockImportParams<B>,
-	) -> Result<BlockImportParams<B>, String> {
+	async fn verify(&self, block: BlockImportParams<B>) -> Result<BlockImportParams<B>, String> {
 		let hash = block.header.hash();
 		self.verifier.lock().await.verify(block).await.map_err(|e| {
 			self.failed_verifications.lock().insert(hash, e.clone());
@@ -826,7 +824,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			network_config.default_peers_set.reserved_nodes = addrs;
 			network_config.default_peers_set.non_reserved_mode = NonReservedPeerMode::Deny;
 		}
-		let mut full_net_config = FullNetworkConfiguration::new(&network_config);
+		let mut full_net_config = FullNetworkConfiguration::new(&network_config, None);
 
 		let protocol_id = ProtocolId::from("test-protocol-name");
 
@@ -898,6 +896,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				.iter()
 				.map(|bootnode| bootnode.peer_id.into())
 				.collect(),
+			None,
 		);
 		let peer_store_handle = Arc::new(peer_store.handle());
 		self.spawn_task(peer_store.run().boxed());
@@ -985,7 +984,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			for peer in peers.iter_mut() {
 				peer.network.add_known_address(
 					network.service().local_peer_id().into(),
-					listen_addr.clone(),
+					listen_addr.clone().into(),
 				);
 			}
 

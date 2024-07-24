@@ -23,7 +23,7 @@ pub mod v1 {
 		Randomness, Slot, VrfPreOutput, VrfProof, VrfSignature, VrfTranscript,
 	};
 
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 	use polkadot_primitives::{
 		BlockNumber, CandidateHash, CandidateIndex, CoreIndex, Hash, Header, SessionIndex,
 		ValidatorIndex, ValidatorSignature,
@@ -212,7 +212,7 @@ pub mod v1 {
 
 /// A list of primitives introduced by v2.
 pub mod v2 {
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 	pub use sp_consensus_babe::{
 		Randomness, Slot, VrfPreOutput, VrfProof, VrfSignature, VrfTranscript,
 	};

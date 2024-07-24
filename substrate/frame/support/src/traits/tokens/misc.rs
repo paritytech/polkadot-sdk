@@ -17,15 +17,15 @@
 
 //! Miscellaneous types.
 
-use crate::traits::Contains;
+use crate::{traits::Contains, TypeInfo};
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+use core::fmt::Debug;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_core::RuntimeDebug;
 use sp_runtime::{
 	traits::{Convert, MaybeSerializeDeserialize},
 	ArithmeticError, DispatchError, TokenError,
 };
-use sp_std::fmt::Debug;
 
 /// The origin of funds to be used for a deposit operation.
 #[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
@@ -351,9 +351,18 @@ pub trait GetSalary<Rank, AccountId, Balance> {
 }
 
 /// Adapter for a rank-to-salary `Convert` implementation into a `GetSalary` implementation.
-pub struct ConvertRank<C>(sp_std::marker::PhantomData<C>);
+pub struct ConvertRank<C>(core::marker::PhantomData<C>);
 impl<A, R, B, C: Convert<R, B>> GetSalary<R, A, B> for ConvertRank<C> {
 	fn get_salary(rank: R, _: &A) -> B {
 		C::convert(rank)
 	}
+}
+
+/// An identifier and balance.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+pub struct IdAmount<Id, Balance> {
+	/// An identifier for this item.
+	pub id: Id,
+	/// Some amount for this item.
+	pub amount: Balance,
 }

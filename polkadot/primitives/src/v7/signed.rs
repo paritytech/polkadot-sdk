@@ -14,17 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
+use alloc::vec::Vec;
 #[cfg(feature = "std")]
-use application_crypto::AppCrypto;
+use sp_application_crypto::AppCrypto;
 #[cfg(feature = "std")]
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
-use sp_std::prelude::Vec;
 
-use primitives::RuntimeDebug;
-use runtime_primitives::traits::AppVerify;
+use sp_core::RuntimeDebug;
+use sp_runtime::traits::AppVerify;
 
 use super::{SigningContext, ValidatorId, ValidatorIndex, ValidatorSignature};
 
@@ -57,7 +57,7 @@ pub struct UncheckedSigned<Payload, RealPayload = Payload> {
 	/// The signature by the validator of the signed payload.
 	signature: ValidatorSignature,
 	/// This ensures the real payload is tracked at the typesystem level.
-	real_payload: sp_std::marker::PhantomData<RealPayload>,
+	real_payload: core::marker::PhantomData<RealPayload>,
 }
 
 impl<Payload: EncodeAs<RealPayload>, RealPayload: Encode> Signed<Payload, RealPayload> {
@@ -163,7 +163,7 @@ impl<Payload: EncodeAs<RealPayload>, RealPayload: Encode> Signed<Payload, RealPa
 				payload: claimed,
 				validator_index: self.0.validator_index,
 				signature: self.0.signature,
-				real_payload: sp_std::marker::PhantomData,
+				real_payload: core::marker::PhantomData,
 			}))
 		} else {
 			Err((self, claimed))
@@ -191,7 +191,7 @@ impl<Payload: EncodeAs<RealPayload>, RealPayload: Encode> Signed<Payload, RealPa
 				payload: converted,
 				validator_index: self.0.validator_index,
 				signature: self.0.signature,
-				real_payload: sp_std::marker::PhantomData,
+				real_payload: core::marker::PhantomData,
 			}))
 		} else {
 			Err(converted)
@@ -258,7 +258,7 @@ impl<Payload: EncodeAs<RealPayload>, RealPayload: Encode> UncheckedSigned<Payloa
 			signature: self.signature.clone(),
 			validator_index: self.validator_index,
 			payload: (&self.payload).into(),
-			real_payload: sp_std::marker::PhantomData,
+			real_payload: core::marker::PhantomData,
 		}
 	}
 
@@ -312,11 +312,11 @@ impl<Payload: EncodeAs<RealPayload>, RealPayload: Encode> UncheckedSigned<Payloa
 		context: &SigningContext<H>,
 		validator_index: ValidatorIndex,
 	) -> Self {
-		use application_crypto::RuntimeAppPublic;
+		use sp_application_crypto::RuntimeAppPublic;
 		let data = Self::payload_data(&payload, context);
 		let signature = public.sign(&data).unwrap();
 
-		Self { payload, validator_index, signature, real_payload: sp_std::marker::PhantomData }
+		Self { payload, validator_index, signature, real_payload: core::marker::PhantomData }
 	}
 
 	/// Immutably access the signature.
@@ -343,7 +343,7 @@ impl<Payload, RealPayload> From<Signed<Payload, RealPayload>>
 /// This helper trait ensures that we can encode `Statement` as `CompactStatement`,
 /// and anything as itself.
 ///
-/// This resembles `parity_scale_codec::EncodeLike`, but it's distinct:
+/// This resembles `codec::EncodeLike`, but it's distinct:
 /// `EncodeLike` is a marker trait which asserts at the typesystem level that
 /// one type's encoding is a valid encoding for another type. It doesn't
 /// perform any type conversion when encoding.

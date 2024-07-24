@@ -42,6 +42,9 @@ pub mod weights;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+extern crate alloc;
+
+use alloc::boxed::Box;
 use frame_support::traits::{
 	fungible::{Inspect as FungibleInspect, Mutate as FungibleMutate},
 	fungibles::{roles::ResetTeam, Inspect, Mutate, Refund},
@@ -50,7 +53,6 @@ use frame_support::traits::{
 };
 use pallet_asset_conversion::{PoolLocator, Pools};
 use sp_runtime::traits::{TryConvert, Zero};
-use sp_std::boxed::Box;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -248,6 +250,7 @@ pub mod pallet {
 				T::DepositAsset::burn_from(
 					&depositor,
 					deposit + deposit_asset_ed,
+					Preservation::Expendable,
 					Precision::Exact,
 					Fortitude::Force,
 				)?;
@@ -260,6 +263,7 @@ pub mod pallet {
 				T::DepositAsset::burn_from(
 					&depositor,
 					deposit + deposit_asset_ed,
+					Preservation::Expendable,
 					Precision::Exact,
 					Fortitude::Force,
 				)?;
@@ -272,6 +276,7 @@ pub mod pallet {
 				T::DepositAsset::burn_from(
 					&depositor,
 					deposit + deposit_asset_ed,
+					Preservation::Expendable,
 					Precision::Exact,
 					Fortitude::Force,
 				)?;

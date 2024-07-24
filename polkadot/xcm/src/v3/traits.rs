@@ -17,13 +17,18 @@
 //! Cross-Consensus Message format data structures.
 
 use crate::v2::Error as OldError;
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::result;
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 pub use sp_weights::Weight;
 
 use super::*;
+
+// A simple trait to get the weight of some object.
+pub trait GetWeight<W> {
+	fn weight(&self) -> sp_weights::Weight;
+}
 
 /// Error codes used in XCM. The first errors codes have explicit indices and are part of the XCM
 /// format. Those trailing are merely part of the XCM implementation; there is no expectation that
@@ -402,7 +407,7 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 ///
 /// # Example
 /// ```rust
-/// # use parity_scale_codec::Encode;
+/// # use codec::Encode;
 /// # use staging_xcm::v3::{prelude::*, Weight};
 /// # use staging_xcm::VersionedXcm;
 /// # use std::convert::Infallible;

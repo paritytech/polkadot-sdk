@@ -19,7 +19,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use codec::Encode;
+use core::marker::PhantomData;
 use cumulus_primitives_core::{MessageSendError, UpwardMessageSender};
 use frame_support::{
 	defensive,
@@ -33,9 +37,8 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	SaturatedConversion,
 };
-use sp_std::{marker::PhantomData, prelude::*};
-use xcm::{latest::prelude::*, WrapVersion};
-use xcm_builder::TakeRevenue;
+use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion};
+use xcm_builder::{InspectMessageQueues, TakeRevenue};
 use xcm_executor::{
 	traits::{MatchesFungibles, TransactAsset, WeightTrader},
 	AssetsInHolding,
@@ -90,6 +93,14 @@ where
 		})?;
 
 		Ok(hash)
+	}
+}
+
+impl<T: UpwardMessageSender + InspectMessageQueues, W, P> InspectMessageQueues
+	for ParentAsUmp<T, W, P>
+{
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		T::get_messages()
 	}
 }
 
@@ -795,7 +806,7 @@ mod test_trader {
 /// needed.
 #[cfg(feature = "runtime-benchmarks")]
 pub struct ToParentDeliveryHelper<XcmConfig, ExistentialDeposit, PriceForDelivery>(
-	sp_std::marker::PhantomData<(XcmConfig, ExistentialDeposit, PriceForDelivery)>,
+	core::marker::PhantomData<(XcmConfig, ExistentialDeposit, PriceForDelivery)>,
 );
 
 #[cfg(feature = "runtime-benchmarks")]

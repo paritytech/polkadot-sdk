@@ -53,11 +53,7 @@ fn main() -> Result<(), String> {
 				polkadot_subsystem_bench::availability::TestDataAvailability::Write,
 				false,
 			);
-			env.runtime().block_on(benchmark_availability_write(
-				"data_availability_write",
-				&mut env,
-				&state,
-			))
+			env.runtime().block_on(benchmark_availability_write(&mut env, &state))
 		})
 		.collect();
 	println!("\rDone!{}", " ".repeat(BENCH_COUNT));
@@ -77,9 +73,9 @@ fn main() -> Result<(), String> {
 		("Sent to peers", 18479.9000, 0.001),
 	]));
 	messages.extend(average_usage.check_cpu_usage(&[
-		("availability-distribution", 0.0123, 0.1),
-		("availability-store", 0.1597, 0.1),
-		("bitfield-distribution", 0.0223, 0.1),
+		("availability-distribution", 0.0127, 0.1),
+		("availability-store", 0.1626, 0.1),
+		("bitfield-distribution", 0.0224, 0.1),
 	]));
 
 	if messages.is_empty() {

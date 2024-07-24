@@ -51,11 +51,10 @@ use xcm_builder::{
 	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
 	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
 	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
 	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
 	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
 };
 use xcm_executor::XcmExecutor;
 
@@ -357,9 +356,9 @@ impl xcm_executor::Config for XcmConfig {
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	// Asset Hub trusts only particular, pre-configured bridged locations from a different consensus
 	// as reserve locations (we trust the Bridge Hub to relay the message that a reserve is being
-	// held). Asset Hub may _act_ as a reserve location for WND and assets created
-	// under `pallet-assets`. Users must use teleport where allowed (e.g. WND with the Relay Chain).
-	type IsReserve = (bridging::to_rococo::IsTrustedBridgedReserveLocationForConcreteAsset,);
+	// held). On Westend Asset Hub, we allow Rococo Asset Hub to act as reserve for any asset native
+	// to the Rococo or Ethereum ecosystems.
+	type IsReserve = (bridging::to_rococo::RococoOrEthereumAssetFromAssetHubRococo,);
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
@@ -429,7 +428,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetExchanger = ();
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = (bridging::to_rococo::UniversalAliases,);
@@ -440,6 +439,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = PolkadotXcm;
 }
 
 /// Local origins on this chain are allowed to dispatch XCM sends/executions.
@@ -518,8 +518,8 @@ impl pallet_assets::BenchmarkHelper<xcm::v3::Location> for XcmBenchmarkHelper {
 /// All configuration related to bridging
 pub mod bridging {
 	use super::*;
+	use alloc::collections::btree_set::BTreeSet;
 	use assets_common::matching;
-	use sp_std::collections::btree_set::BTreeSet;
 
 	parameter_types! {
 		/// Base price of every byte of the Westend -> Rococo message. Can be adjusted via
@@ -547,8 +547,8 @@ pub mod bridging {
 		/// (`AssetId` has to be aligned with `BridgeTable`)
 		pub XcmBridgeHubRouterFeeAssetId: AssetId = WestendLocation::get().into();
 
-		pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> =
-			sp_std::vec::Vec::new().into_iter()
+		pub BridgeTable: alloc::vec::Vec<NetworkExportTableItem> =
+			alloc::vec::Vec::new().into_iter()
 			.chain(to_rococo::BridgeTable::get())
 			.collect();
 	}
@@ -568,20 +568,21 @@ pub mod bridging {
 			);
 
 			pub const RococoNetwork: NetworkId = NetworkId::Rococo;
-			pub AssetHubRococo: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get()), Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)]);
+			pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
+			pub RococoEcosystem: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
 			pub RocLocation: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
-
-			pub RocFromAssetHubRococo: (AssetFilter, Location) = (
-				Wild(AllOf { fun: WildFungible, id: AssetId(RocLocation::get()) }),
-				AssetHubRococo::get()
-			);
+			pub EthereumEcosystem: Location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
+			pub AssetHubRococo: Location = Location::new(2, [
+				GlobalConsensus(RococoNetwork::get()),
+				Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)
+			]);
 
 			/// Set up exporters configuration.
 			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
-			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+			pub BridgeTable: alloc::vec::Vec<NetworkExportTableItem> = alloc::vec![
 				NetworkExportTableItem::new(
 					RococoNetwork::get(),
-					Some(sp_std::vec![
+					Some(alloc::vec![
 						AssetHubRococo::get().interior.split_global().expect("invalid configuration for AssetHubRococo").1,
 					]),
 					SiblingBridgeHub::get(),
@@ -595,7 +596,7 @@ pub mod bridging {
 
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
-				sp_std::vec![
+				alloc::vec![
 					(SiblingBridgeHubWithBridgeHubRococoInstance::get(), GlobalConsensus(RococoNetwork::get()))
 				]
 			);
@@ -607,17 +608,12 @@ pub mod bridging {
 			}
 		}
 
-		/// Reserve locations filter for `xcm_executor::Config::IsReserve`.
-		/// Locations from which the runtime accepts reserved assets.
-		pub type IsTrustedBridgedReserveLocationForConcreteAsset =
-			matching::IsTrustedBridgedReserveLocationForConcreteAsset<
-				UniversalLocation,
-				(
-					// allow receive ROC from AssetHubRococo
-					xcm_builder::Case<RocFromAssetHubRococo>,
-					// and nothing else
-				),
-			>;
+		/// Allow any asset native to the Rococo or Ethereum ecosystems if it comes from Rococo
+		/// Asset Hub.
+		pub type RococoOrEthereumAssetFromAssetHubRococo = matching::RemoteAssetFromLocation<
+			(StartsWith<RococoEcosystem>, StartsWith<EthereumEcosystem>),
+			AssetHubRococo,
+		>;
 
 		impl Contains<RuntimeCall> for ToRococoXcmRouter {
 			fn contains(call: &RuntimeCall) -> bool {
@@ -647,8 +643,7 @@ pub mod bridging {
 						false => None,
 					}
 				});
-			assert!(alias.is_some(), "we expect here BridgeHubWestend to Rococo mapping at least");
-			Some(alias.unwrap())
+			Some(alias.expect("we expect here BridgeHubWestend to Rococo mapping at least"))
 		}
 	}
 }

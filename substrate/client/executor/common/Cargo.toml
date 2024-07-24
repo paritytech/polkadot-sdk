@@ -18,10 +18,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 thiserror = { workspace = true }
-wasm-instrument = "0.4"
-sc-allocator = { path = "../../allocator" }
-sp-maybe-compressed-blob = { path = "../../../primitives/maybe-compressed-blob" }
-sp-wasm-interface = { path = "../../../primitives/wasm-interface" }
+wasm-instrument = { workspace = true, default-features = true }
+sc-allocator = { workspace = true, default-features = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
+sp-wasm-interface = { workspace = true, default-features = true }
 polkavm = { workspace = true }
 
 [features]

@@ -21,7 +21,7 @@
 
 use crate as pallet_whitelist;
 
-use frame_support::{construct_runtime, derive_impl, traits::ConstU64};
+use frame_support::{construct_runtime, derive_impl};
 use frame_system::EnsureRoot;
 use sp_runtime::BuildStorage;
 
@@ -43,20 +43,9 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 impl pallet_preimage::Config for Test {

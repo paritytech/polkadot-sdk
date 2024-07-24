@@ -257,6 +257,9 @@ pub mod weights;
 
 pub mod migrations;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use frame_support::{
 	impl_ensure_origin_with_arg_ignoring_arg,
 	pallet_prelude::*,
@@ -282,7 +285,6 @@ use sp_runtime::{
 	ArithmeticError::Overflow,
 	Percent, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 pub use weights::WeightInfo;
 
@@ -1362,7 +1364,7 @@ pub mod pallet {
 }
 
 /// Simple ensure origin struct to filter for the founder account.
-pub struct EnsureFounder<T>(sp_std::marker::PhantomData<T>);
+pub struct EnsureFounder<T>(core::marker::PhantomData<T>);
 impl<T: Config> EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureFounder<T> {
 	type Success = T::AccountId;
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {

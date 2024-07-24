@@ -21,13 +21,18 @@
 //
 // Hence, `no_std` rather than sp-runtime.
 #![cfg_attr(not(feature = "std"), no_std)]
+// Because of XCMv2.
+#![allow(deprecated)]
 
 extern crate alloc;
 
+use codec::{Decode, DecodeLimit, Encode, Error as CodecError, Input, MaxEncodedLen};
 use derivative::Derivative;
-use parity_scale_codec::{Decode, DecodeLimit, Encode, Error as CodecError, Input, MaxEncodedLen};
 use scale_info::TypeInfo;
 
+#[deprecated(
+	note = "XCMv2 will be removed once XCMv5 is released. Please use XCMv3 or XCMv4 instead."
+)]
 pub mod v2;
 pub mod v3;
 pub mod v4;
@@ -434,6 +439,7 @@ versioned_type! {
 
 #[deprecated(note = "Use `VersionedAssets` instead")]
 pub type VersionedMultiAssets = VersionedAssets;
+
 
 versioned_type! {
 	pub enum VersionedXcm<RuntimeCall> {

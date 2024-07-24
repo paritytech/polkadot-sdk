@@ -304,6 +304,9 @@ pub mod weights;
 
 mod pallet;
 
+extern crate alloc;
+
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, defensive_assert,
@@ -325,7 +328,6 @@ use sp_staking::{
 	StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
@@ -361,7 +363,7 @@ pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
@@ -376,7 +378,7 @@ pub struct ActiveEraInfo {
 	///
 	/// Start can be none if start hasn't been set for the era yet,
 	/// Start is set on the first on_finalize of the era to guarantee usage of `Time`.
-	start: Option<u64>,
+	pub start: Option<u64>,
 }
 
 /// Reward points of an era. Used to split era total payout between validators.
@@ -674,7 +676,7 @@ impl<T: Config> StakingLedger<T> {
 				// slightly under-slashed, by at most `MaxUnlockingChunks * ED`, which is not a big
 				// deal.
 				slash_from_target =
-					sp_std::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
+					core::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
 			}
 
 			self.total = self.total.saturating_sub(slash_from_target);
@@ -916,7 +918,7 @@ impl<Balance: Default> EraPayout<Balance> for () {
 
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
-pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
+pub struct ConvertCurve<T>(core::marker::PhantomData<T>);
 impl<Balance, T> EraPayout<Balance> for ConvertCurve<T>
 where
 	Balance: AtLeast32BitUnsigned + Clone + Copy,
@@ -974,7 +976,7 @@ impl Default for Forcing {
 
 /// A `Convert` implementation that finds the stash of the given controller account,
 /// if any.
-pub struct StashOf<T>(sp_std::marker::PhantomData<T>);
+pub struct StashOf<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 	fn convert(controller: T::AccountId) -> Option<T::AccountId> {
@@ -987,7 +989,7 @@ impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 ///
 /// Active exposure is the exposure of the validator set currently validating, i.e. in
 /// `active_era`. It can differ from the latest planned exposure in `current_era`.
-pub struct ExposureOf<T>(sp_std::marker::PhantomData<T>);
+pub struct ExposureOf<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>>
 	for ExposureOf<T>
@@ -1000,7 +1002,7 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 
 /// Filter historical offences out and only allow those from the bonding period.
 pub struct FilterHistoricalOffences<T, R> {
-	_inner: sp_std::marker::PhantomData<(T, R)>,
+	_inner: core::marker::PhantomData<(T, R)>,
 }
 
 impl<T, Reporter, Offender, R, O> ReportOffence<Reporter, Offender, O>
@@ -1033,7 +1035,7 @@ where
 /// Wrapper struct for Era related information. It is not a pure encapsulation as these storage
 /// items can be accessed directly but nevertheless, its recommended to use `EraInfo` where we
 /// can and add more functions to it as needed.
-pub struct EraInfo<T>(sp_std::marker::PhantomData<T>);
+pub struct EraInfo<T>(core::marker::PhantomData<T>);
 impl<T: Config> EraInfo<T> {
 	/// Returns true if validator has one or more page of era rewards not claimed yet.
 	// Also looks at legacy storage that can be cleaned up after #433.

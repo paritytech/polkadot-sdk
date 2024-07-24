@@ -40,11 +40,14 @@ pub mod runtime_vs_smart_contract;
 pub mod extrinsic_encoding;
 
 /// Learn about the signed extensions that form a part of extrinsics.
-// TODO: @jsdw https://github.com/paritytech/polkadot-sdk-docs/issues/42
 pub mod signed_extensions;
 
 /// Learn about *Origins*, a topic in FRAME that enables complex account abstractions to be built.
 pub mod frame_origin;
+
+/// Learn about the details of what derives are needed for a type to be store-able in `frame`
+/// storage.
+pub mod frame_storage_derives;
 
 /// Learn about how to write safe and defensive code in your FRAME runtime.
 pub mod defensive_programming;
@@ -59,8 +62,10 @@ pub mod fee_less_runtime;
 
 /// Learn about metadata, the main means through which an upgradeable runtime communicates its
 /// properties to the outside world.
-// TODO: @jsdw https://github.com/paritytech/polkadot-sdk-docs/issues/47
 pub mod metadata;
+
+/// Learn about how to add custom host functions to the node.
+pub mod custom_host_functions;
 
 /// Learn about how frame-system handles `account-ids`, nonces, consumers and providers.
 pub mod frame_system_accounts;
@@ -76,28 +81,13 @@ pub mod frame_benchmarking_weight;
 pub mod frame_tokens;
 
 /// Learn about chain specification file and the genesis state of the blockchain.
-// TODO: @michalkucharczyk https://github.com/paritytech/polkadot-sdk-docs/issues/51
 pub mod chain_spec_genesis;
 
-/// Learn about all the memory limitations of the WASM runtime when it comes to memory usage.
-// TODO: @kianenigma https://github.com/paritytech/polkadot-sdk-docs/issues/52
-pub mod wasm_memory;
-
 /// Learn about Substrate's CLI, and how it can be extended.
-// TODO: @kianenigma https://github.com/paritytech/polkadot-sdk-docs/issues/53
 pub mod cli;
-
-/// Learn about Substrate's consensus algorithms, and how you can switch between two.
-// TODO: @JoshOrndorff @kianenigma https://github.com/paritytech/polkadot-sdk-docs/issues/54
-pub mod consensus_swapping;
 
 /// Learn about Runtime Upgrades and best practices for writing Migrations.
 pub mod frame_runtime_upgrades_and_migrations;
-
-/// Learn about light nodes, how they function, and how Substrate-based chains come
-/// light-node-first out of the box.
-// TODO: @jsdw @josepot https://github.com/paritytech/polkadot-sdk-docs/issues/68
-pub mod light_nodes;
 
 /// Learn about the offchain workers, how they function, and how to use them, as provided by the
 /// [`frame`] APIs.
@@ -106,3 +96,12 @@ pub mod frame_offchain_workers;
 /// Learn about the different ways through which multiple [`frame`] pallets can be combined to work
 /// together.
 pub mod frame_pallet_coupling;
+
+/// Learn about how to do logging in FRAME-based runtimes.
+pub mod frame_logging;
+
+/// Learn about the Polkadot Umbrella crate that re-exports all other crates.
+pub mod umbrella_crate;
+
+/// Learn about how to create custom RPC endpoints and runtime APIs.
+pub mod custom_runtime_api_rpc;

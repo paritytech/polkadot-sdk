@@ -27,9 +27,15 @@ mod tests;
 
 pub mod migration;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+use core::{marker::PhantomData, result::Result};
 use frame_support::{
-	dispatch::{DispatchErrorWithPostInfo, GetDispatchInfo, WithPostDispatchInfo},
+	dispatch::{
+		DispatchErrorWithPostInfo, GetDispatchInfo, PostDispatchInfo, WithPostDispatchInfo,
+	},
 	pallet_prelude::*,
 	traits::{
 		Contains, ContainsPair, Currency, Defensive, EnsureOrigin, Get, LockableCurrency,
@@ -47,21 +53,24 @@ use sp_runtime::{
 	},
 	Either, RuntimeDebug,
 };
-use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::{
-	ExecuteController, ExecuteControllerWeightInfo, QueryController, QueryControllerWeightInfo,
-	SendController, SendControllerWeightInfo,
+	ExecuteController, ExecuteControllerWeightInfo, InspectMessageQueues, QueryController,
+	QueryControllerWeightInfo, SendController, SendControllerWeightInfo,
 };
 use xcm_executor::{
 	traits::{
 		AssetTransferError, CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin,
 		DropAssets, MatchesFungible, OnResponse, Properties, QueryHandler, QueryResponseStatus,
-		TransactAsset, TransferType, VersionChangeNotifier, WeightBounds, XcmAssetTransfers,
+		RecordXcm, TransactAsset, TransferType, VersionChangeNotifier, WeightBounds,
+		XcmAssetTransfers,
 	},
 	AssetsInHolding,
 };
-use xcm_fee_payment_runtime_api::Error as FeePaymentError;
+use xcm_runtime_apis::{
+	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
+	fees::Error as XcmPaymentApiError,
+};
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
@@ -764,10 +773,29 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type XcmExecutionSuspended<T: Config> = StorageValue<_, bool, ValueQuery>;
 
+	/// Whether or not incoming XCMs (both executed locally and received) should be recorded.
+	/// Only one XCM program will be recorded at a time.
+	/// This is meant to be used in runtime APIs, and it's advised it stays false
+	/// for all other use cases, so as to not degrade regular performance.
+	///
+	/// Only relevant if this pallet is being used as the [`xcm_executor::traits::RecordXcm`]
+	/// implementation in the XCM executor configuration.
+	#[pallet::storage]
+	pub(crate) type ShouldRecordXcm<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+	/// If [`ShouldRecordXcm`] is set to true, then the last XCM program executed locally
+	/// will be stored here.
+	/// Runtime APIs can fetch the XCM that was executed by accessing this value.
+	///
+	/// Only relevant if this pallet is being used as the [`xcm_executor::traits::RecordXcm`]
+	/// implementation in the XCM executor configuration.
+	#[pallet::storage]
+	pub(crate) type RecordedXcm<T: Config> = StorageValue<_, Xcm<()>>;
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 		/// The default version to encode outgoing XCM messages with.
 		pub safe_xcm_version: Option<XcmVersion>,
 	}
@@ -1351,7 +1379,7 @@ pub mod pallet {
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` (and possibly reserve) chains.
 		/// - `assets_transfer_type`: The XCM `TransferType` used to transfer the `assets`.
-		/// - `remote_fees_id`: One of the included `assets` to be be used to pay fees.
+		/// - `remote_fees_id`: One of the included `assets` to be used to pay fees.
 		/// - `fees_transfer_type`: The XCM `TransferType` used to transfer the `fees` assets.
 		/// - `custom_xcm_on_dest`: The XCM to be executed on `dest` chain as the last step of the
 		///   transfer, which also determines what happens to the assets on the destination chain.
@@ -1413,8 +1441,8 @@ enum FeesHandling<T: Config> {
 	Separate { local_xcm: Xcm<<T as Config>::RuntimeCall>, remote_xcm: Xcm<()> },
 }
 
-impl<T: Config> sp_std::fmt::Debug for FeesHandling<T> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl<T: Config> core::fmt::Debug for FeesHandling<T> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		match self {
 			Self::Batched { fees } => write!(f, "FeesHandling::Batched({:?})", fees),
 			Self::Separate { local_xcm, remote_xcm } => write!(
@@ -1815,8 +1843,8 @@ impl<T: Config> Pallet<T> {
 			FeesHandling::Separate { local_xcm: mut local_fees, remote_xcm: mut remote_fees } => {
 				// fees are handled by separate XCM instructions, prepend fees instructions (for
 				// remote XCM they have to be prepended instead of appended to pass barriers).
-				sp_std::mem::swap(local, &mut local_fees);
-				sp_std::mem::swap(remote, &mut remote_fees);
+				core::mem::swap(local, &mut local_fees);
+				core::mem::swap(remote, &mut remote_fees);
 				// these are now swapped so fees actually go first
 				local.inner_mut().append(&mut local_fees.into_inner());
 				remote.inner_mut().append(&mut remote_fees.into_inner());
@@ -2413,35 +2441,131 @@ impl<T: Config> Pallet<T> {
 		AccountIdConversion::<T::AccountId>::into_account_truncating(&ID)
 	}
 
-	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, FeePaymentError> {
-		let message =
-			Xcm::<()>::try_from(message).map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+	/// Dry-runs `call` with the given `origin`.
+	///
+	/// Returns not only the call result and events, but also the local XCM, if any,
+	/// and any XCMs forwarded to other locations.
+	/// Meant to be used in the `xcm_runtime_apis::dry_run::DryRunApi` runtime API.
+	pub fn dry_run_call<Runtime, Router, OriginCaller, RuntimeCall>(
+		origin: OriginCaller,
+		call: RuntimeCall,
+	) -> Result<CallDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
+	where
+		Runtime: crate::Config,
+		Router: InspectMessageQueues,
+		RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo>,
+		<RuntimeCall as Dispatchable>::RuntimeOrigin: From<OriginCaller>,
+	{
+		crate::Pallet::<Runtime>::set_record_xcm(true);
+		frame_system::Pallet::<Runtime>::reset_events(); // To make sure we only record events from current call.
+		let result = call.dispatch(origin.into());
+		crate::Pallet::<Runtime>::set_record_xcm(false);
+		let local_xcm = crate::Pallet::<Runtime>::recorded_xcm();
+		let forwarded_xcms = Router::get_messages();
+		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
+			frame_system::Pallet::<Runtime>::read_events_no_consensus()
+				.map(|record| record.event.clone())
+				.collect();
+		Ok(CallDryRunEffects {
+			local_xcm: local_xcm.map(VersionedXcm::<()>::from),
+			forwarded_xcms,
+			emitted_events: events,
+			execution_result: result,
+		})
+	}
+
+	/// Dry-runs `xcm` with the given `origin_location`.
+	///
+	/// Returns execution result, events, and any forwarded XCMs to other locations.
+	/// Meant to be used in the `xcm_runtime_apis::dry_run::DryRunApi` runtime API.
+	pub fn dry_run_xcm<Runtime, Router, RuntimeCall, XcmConfig>(
+		origin_location: VersionedLocation,
+		xcm: VersionedXcm<RuntimeCall>,
+	) -> Result<XcmDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
+	where
+		Runtime: frame_system::Config,
+		Router: InspectMessageQueues,
+		XcmConfig: xcm_executor::Config<RuntimeCall = RuntimeCall>,
+	{
+		let origin_location: Location = origin_location.try_into().map_err(|error| {
+			log::error!(
+				target: "xcm::DryRunApi::dry_run_xcm",
+				"Location version conversion failed with error: {:?}",
+				error,
+			);
+			XcmDryRunApiError::VersionedConversionFailed
+		})?;
+		let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
+			log::error!(
+				target: "xcm::DryRunApi::dry_run_xcm",
+				"Xcm version conversion failed with error {:?}",
+				error,
+			);
+			XcmDryRunApiError::VersionedConversionFailed
+		})?;
+		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		frame_system::Pallet::<Runtime>::reset_events(); // To make sure we only record events from current call.
+		let result = xcm_executor::XcmExecutor::<XcmConfig>::prepare_and_execute(
+			origin_location,
+			xcm,
+			&mut hash,
+			Weight::MAX, // Max limit available for execution.
+			Weight::zero(),
+		);
+		let forwarded_xcms = Router::get_messages();
+		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
+			frame_system::Pallet::<Runtime>::read_events_no_consensus()
+				.map(|record| record.event.clone())
+				.collect();
+		Ok(XcmDryRunEffects { forwarded_xcms, emitted_events: events, execution_result: result })
+	}
+
+	/// Given a list of asset ids, returns the correct API response for
+	/// `XcmPaymentApi::query_acceptable_payment_assets`.
+	///
+	/// The assets passed in have to be supported for fee payment.
+	pub fn query_acceptable_payment_assets(
+		version: xcm::Version,
+		asset_ids: Vec<AssetId>,
+	) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
+		Ok(asset_ids
+			.into_iter()
+			.map(|asset_id| VersionedAssetId::from(asset_id))
+			.filter_map(|asset_id| asset_id.into_version(version).ok())
+			.collect())
+	}
+
+	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
+		let message = Xcm::<()>::try_from(message)
+			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
 
 		T::Weigher::weight(&mut message.into()).map_err(|()| {
 			log::error!(target: "xcm::pallet_xcm::query_xcm_weight", "Error when querying XCM weight");
-			FeePaymentError::WeightNotComputable
+			XcmPaymentApiError::WeightNotComputable
 		})
 	}
 
 	pub fn query_delivery_fees(
 		destination: VersionedLocation,
 		message: VersionedXcm<()>,
-	) -> Result<VersionedAssets, FeePaymentError> {
+	) -> Result<VersionedAssets, XcmPaymentApiError> {
 		let result_version = destination.identify_version().max(message.identify_version());
 
-		let destination =
-			destination.try_into().map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+		let destination = destination
+			.try_into()
+			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
 
-		let message = message.try_into().map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+		let message =
+			message.try_into().map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
 
 		let (_, fees) = validate_send::<T::XcmRouter>(destination, message).map_err(|error| {
 			log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Error when querying delivery fees: {:?}", error);
-			FeePaymentError::Unroutable
+			XcmPaymentApiError::Unroutable
 		})?;
 
 		VersionedAssets::from(fees)
 			.into_version(result_version)
-			.map_err(|_| FeePaymentError::VersionedConversionFailed)
+			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)
 	}
 
 	/// Create a new expectation of a query response with the querier being here.
@@ -3102,6 +3226,24 @@ impl<T: Config> CheckSuspension for Pallet<T> {
 		_properties: &mut Properties,
 	) -> bool {
 		XcmExecutionSuspended::<T>::get()
+	}
+}
+
+impl<T: Config> RecordXcm for Pallet<T> {
+	fn should_record() -> bool {
+		ShouldRecordXcm::<T>::get()
+	}
+
+	fn set_record_xcm(enabled: bool) {
+		ShouldRecordXcm::<T>::put(enabled);
+	}
+
+	fn recorded_xcm() -> Option<Xcm<()>> {
+		RecordedXcm::<T>::get()
+	}
+
+	fn record(xcm: Xcm<()>) {
+		RecordedXcm::<T>::put(xcm);
 	}
 }
 

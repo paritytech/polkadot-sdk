@@ -23,7 +23,6 @@ use prometheus_endpoint::Registry;
 use sc_chain_spec::ChainSpec;
 pub use sc_client_db::{BlocksPruning, Database, DatabaseSource, PruningMode};
 pub use sc_executor::{WasmExecutionMethod, WasmtimeInstantiationStrategy};
-pub use sc_informant::OutputFormat;
 pub use sc_network::{
 	config::{
 		MultiaddrWithPeerId, NetworkConfiguration, NodeKeyConfig, NonDefaultSetConfig, ProtocolId,
@@ -34,6 +33,7 @@ pub use sc_network::{
 	},
 	Multiaddr,
 };
+pub use sc_rpc_server::IpNetwork;
 pub use sc_telemetry::TelemetryEndpoints;
 pub use sc_transaction_pool::Options as TransactionPoolOptions;
 use sp_core::crypto::SecretString;
@@ -108,6 +108,10 @@ pub struct Configuration {
 	pub rpc_batch_config: RpcBatchRequestConfig,
 	/// RPC rate limit per minute.
 	pub rpc_rate_limit: Option<NonZeroU32>,
+	/// RPC rate limit whitelisted ip addresses.
+	pub rpc_rate_limit_whitelisted_ips: Vec<IpNetwork>,
+	/// RPC rate limit trust proxy headers.
+	pub rpc_rate_limit_trust_proxy_headers: bool,
 	/// Prometheus endpoint configuration. `None` if disabled.
 	pub prometheus_config: Option<PrometheusConfig>,
 	/// Telemetry service URL. `None` if disabled.
@@ -141,8 +145,6 @@ pub struct Configuration {
 	pub data_path: PathBuf,
 	/// Base path of the configuration. This is shared between chains.
 	pub base_path: BasePath,
-	/// Configuration of the output format that the informant uses.
-	pub informant_output_format: OutputFormat,
 	/// Maximum number of different runtime versions that can be cached.
 	pub runtime_cache_size: u8,
 }
@@ -275,7 +277,7 @@ impl Default for RpcMethods {
 static mut BASE_PATH_TEMP: Option<TempDir> = None;
 
 /// The base path that is used for everything that needs to be written on disk to run a node.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BasePath {
 	path: PathBuf,
 }

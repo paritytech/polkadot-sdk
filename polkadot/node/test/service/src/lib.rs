@@ -216,6 +216,8 @@ pub fn node_config(
 		rpc_message_buffer_capacity: Default::default(),
 		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
 		rpc_rate_limit: None,
+		rpc_rate_limit_whitelisted_ips: Default::default(),
+		rpc_rate_limit_trust_proxy_headers: Default::default(),
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,
@@ -230,7 +232,6 @@ pub fn node_config(
 		announce_block: true,
 		data_path: root,
 		base_path,
-		informant_output_format: Default::default(),
 	}
 }
 

@@ -32,12 +32,10 @@ exclude = [
 	"https://github.com/paritytech/polkadot-sdk/substrate/frame/timestamp",
 	"https://github.com/paritytech/substrate/frame/fast-unstake",
 	"https://github.com/zkcrypto/bls12_381/blob/e224ad4ea1babfc582ccd751c2bf128611d10936/src/test-data/mod.rs",
+	"https://polkadot-try-runtime-node.parity-chains.parity.io/",
 	"https://polkadot.network/the-path-of-a-parachain-block/",
-	"https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results",
 	"https://research.web3.foundation/en/latest/polkadot/NPoS/3.%20Balancing.html",
 	"https://research.web3.foundation/en/latest/polkadot/Token%20Economics.html#inflation-model",
-	"https://research.web3.foundation/en/latest/polkadot/block-production/Babe.html",
-	"https://research.web3.foundation/en/latest/polkadot/block-production/Babe.html#-6.-practical-results",
 	"https://research.web3.foundation/en/latest/polkadot/networking/3-avail-valid.html#topology",
 	"https://research.web3.foundation/en/latest/polkadot/overview/2-token-economics.html",
 	"https://research.web3.foundation/en/latest/polkadot/overview/2-token-economics.html#inflation-model",
@@ -53,5 +51,6 @@ exclude = [
 	"https://www.reddit.com/r/rust/comments/3spfh1/does_collect_allocate_more_than_once_while/",
 	# 403 rate limited:
 	"https://etherscan.io/block/11090290",
+	"https://subscan.io/",
 	"https://substrate.stackexchange.com/.*",
 ]

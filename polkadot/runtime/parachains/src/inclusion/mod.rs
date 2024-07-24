@@ -27,7 +27,15 @@ use crate::{
 	shared::{self, AllowedRelayParentsTracker},
 	util::make_persisted_validation_data_with_parent,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
+use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use core::fmt;
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
@@ -36,8 +44,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use pallet_message_queue::OnQueueChanged;
-use parity_scale_codec::{Decode, Encode};
-use primitives::{
+use polkadot_primitives::{
 	effective_minimum_backing_votes, supermajority_threshold, well_known_keys, BackedCandidate,
 	CandidateCommitments, CandidateDescriptor, CandidateHash, CandidateReceipt,
 	CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId,
@@ -46,12 +53,6 @@ use primitives::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
-#[cfg(feature = "std")]
-use sp_std::fmt;
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
-	prelude::*,
-};
 
 pub use pallet::*;
 
@@ -421,6 +422,7 @@ impl From<hrmp::OutboundHrmpAcceptanceErr> for AcceptanceCheckErr {
 /// An error returned by [`Pallet::check_upward_messages`] that indicates a violation of one of
 /// acceptance criteria rules.
 #[cfg_attr(test, derive(PartialEq))]
+#[allow(dead_code)]
 pub(crate) enum UmpAcceptanceCheckErr {
 	/// The maximal number of messages that can be submitted in one batch was exceeded.
 	MoreMessagesThanPermitted { sent: u32, permitted: u32 },
@@ -745,7 +747,7 @@ impl<T: Config> Pallet<T> {
 			backed_candidate.validator_indices_and_core_index(core_index_enabled);
 
 		// check the signatures in the backing and that it is a majority.
-		let maybe_amount_validated = primitives::check_candidate_backing(
+		let maybe_amount_validated = polkadot_primitives::check_candidate_backing(
 			backed_candidate.candidate().hash(),
 			backed_candidate.validity_votes(),
 			validator_indices,
@@ -794,7 +796,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn check_validation_outputs_for_runtime_api(
 		para_id: ParaId,
 		relay_parent_number: BlockNumberFor<T>,
-		validation_outputs: primitives::CandidateCommitments,
+		validation_outputs: polkadot_primitives::CandidateCommitments,
 	) -> bool {
 		let prev_context = paras::MostRecentContext::<T>::get(para_id);
 		let check_ctx = CandidateCheckContext::<T>::new(prev_context);
@@ -1318,11 +1320,11 @@ impl<T: Config> CandidateCheckContext<T> {
 		para_id: ParaId,
 		relay_parent_number: BlockNumberFor<T>,
 		head_data: &HeadData,
-		new_validation_code: &Option<primitives::ValidationCode>,
+		new_validation_code: &Option<polkadot_primitives::ValidationCode>,
 		processed_downward_messages: u32,
-		upward_messages: &[primitives::UpwardMessage],
+		upward_messages: &[polkadot_primitives::UpwardMessage],
 		hrmp_watermark: BlockNumberFor<T>,
-		horizontal_messages: &[primitives::OutboundHrmpMessage<ParaId>],
+		horizontal_messages: &[polkadot_primitives::OutboundHrmpMessage<ParaId>],
 	) -> Result<(), AcceptanceCheckErr> {
 		ensure!(
 			head_data.0.len() <= self.config.max_head_data_size as _,

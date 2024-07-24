@@ -1,0 +1,15 @@
+title: "Remove warning about `BadCertificate`"
+
+doc:
+  - audience: Node Operator
+    description: |
+      The node was printing the following warning from time to time:
+      ```
+      Sending fatal alert BadCertificate
+      ```
+
+      This is not an user error and thus, the warning will now not be printed
+      anymore.
+
+crates:
+  - name: sc-cli

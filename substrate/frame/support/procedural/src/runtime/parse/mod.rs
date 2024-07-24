@@ -109,7 +109,6 @@ pub enum AllPalletsDeclaration {
 /// Declaration of a runtime with some pallet with implicit declaration of parts.
 #[derive(Debug, Clone)]
 pub struct ImplicitAllPalletsDeclaration {
-	pub name: Ident,
 	pub pallet_decls: Vec<PalletDeclaration>,
 	pub pallet_count: usize,
 }
@@ -123,7 +122,6 @@ pub struct ExplicitAllPalletsDeclaration {
 
 pub struct Def {
 	pub input: TokenStream2,
-	pub item: syn::ItemMod,
 	pub runtime_struct: runtime_struct::RuntimeStructDef,
 	pub pallets: AllPalletsDeclaration,
 	pub runtime_types: Vec<RuntimeType>,
@@ -152,8 +150,7 @@ impl Def {
 		let mut pallets = vec![];
 
 		for item in items.iter_mut() {
-			let mut pallet_item = None;
-			let mut pallet_index = 0;
+			let mut pallet_index_and_item = None;
 
 			let mut disable_call = false;
 			let mut disable_unsigned = false;
@@ -162,17 +159,16 @@ impl Def {
 				helper::take_first_item_runtime_attr::<RuntimeAttr>(item)?
 			{
 				match runtime_attr {
-					RuntimeAttr::Runtime(span) if runtime_struct.is_none() => {
-						let p = runtime_struct::RuntimeStructDef::try_from(span, item)?;
+					RuntimeAttr::Runtime(_) if runtime_struct.is_none() => {
+						let p = runtime_struct::RuntimeStructDef::try_from(item)?;
 						runtime_struct = Some(p);
 					},
 					RuntimeAttr::Derive(_, types) if runtime_types.is_none() => {
 						runtime_types = Some(types);
 					},
 					RuntimeAttr::PalletIndex(span, index) => {
-						pallet_index = index;
-						pallet_item = if let syn::Item::Type(item) = item {
-							Some(item.clone())
+						pallet_index_and_item = if let syn::Item::Type(item) = item {
+							Some((index, item.clone()))
 						} else {
 							let msg = "Invalid runtime::pallet_index, expected type definition";
 							return Err(syn::Error::new(span, msg))
@@ -187,11 +183,11 @@ impl Def {
 				}
 			}
 
-			if let Some(pallet_item) = pallet_item {
+			if let Some((pallet_index, pallet_item)) = pallet_index_and_item {
 				match *pallet_item.ty.clone() {
 					syn::Type::Path(ref path) => {
 						let pallet_decl =
-							PalletDeclaration::try_from(item.span(), &pallet_item, path)?;
+							PalletDeclaration::try_from(item.span(), &pallet_item, &path.path)?;
 
 						if let Some(used_pallet) =
 							names.insert(pallet_decl.name.clone(), pallet_decl.name.span())
@@ -230,6 +226,11 @@ impl Def {
 					},
 					_ => continue,
 				}
+			} else {
+				if let syn::Item::Type(item) = item {
+					let msg = "Missing pallet index for pallet declaration. Please add `#[runtime::pallet_index(...)]`";
+					return Err(syn::Error::new(item.span(), &msg))
+				}
 			}
 		}
 
@@ -237,7 +238,6 @@ impl Def {
 		let decl_count = pallet_decls.len();
 		let pallets = if decl_count > 0 {
 			AllPalletsDeclaration::Implicit(ImplicitAllPalletsDeclaration {
-				name,
 				pallet_decls,
 				pallet_count: decl_count.saturating_add(pallets.len()),
 			})
@@ -247,7 +247,6 @@ impl Def {
 
 		let def = Def {
 			input,
-			item,
 			runtime_struct: runtime_struct.ok_or_else(|| {
 				syn::Error::new(item_span,
 					"Missing Runtime. Please add a struct inside the module and annotate it with `#[runtime::runtime]`"
@@ -263,4 +262,25 @@ impl Def {
 
 		Ok(def)
 	}
+}
+
+#[test]
+fn runtime_parsing_works() {
+	let def = Def::try_from(syn::parse_quote! {
+		#[runtime::runtime]
+		mod runtime {
+			#[runtime::derive(RuntimeCall, RuntimeEvent)]
+			#[runtime::runtime]
+			pub struct Runtime;
+
+			#[runtime::pallet_index(0)]
+			pub type System = frame_system::Pallet<Runtime>;
+
+			#[runtime::pallet_index(1)]
+			pub type Pallet1 = pallet1<Instance1>;
+		}
+	})
+	.expect("Failed to parse runtime definition");
+
+	assert_eq!(def.runtime_struct.ident, "Runtime");
 }
