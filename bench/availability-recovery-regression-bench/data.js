@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721822483208,
+  "lastUpdate": 1721830691677,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -15287,6 +15287,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.18423839133333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Parth Mittal",
+            "username": "mittal-parth",
+            "email": "76661350+mittal-parth@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "71109c5fa3f7f4446d859d2b53d1b90d79aa13a1",
+          "message": "Remove `pallet-getter` usage from pallet-transaction-payment (#4970)\n\nAs per #3326, removes usage of the `pallet::getter` macro from the\n`transaction-payment` pallet. The syntax `StorageItem::<T, I>::get()`\nshould be used instead.\n\nAlso, adds public functions for compatibility.\n\nNOTE: The `Releases` enum has been made public to transition\n`StorageVersion` from `pub(super) type` to `pub type`.\n\ncc @muraca\n\npolkadot address: 5GsLutpKjbzsbTphebs9Uy4YK6gTN47MAaz6njPktidjR5cp\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-07-24T12:21:35Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/71109c5fa3f7f4446d859d2b53d1b90d79aa13a1"
+        },
+        "date": 1721830660856,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.20555664166666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.024513653866666,
             "unit": "seconds"
           }
         ]
