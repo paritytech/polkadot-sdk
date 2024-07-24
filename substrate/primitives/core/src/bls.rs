@@ -28,7 +28,7 @@ use crate::crypto::{
 	SignatureBytes, UncheckedFrom,
 };
 
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 use w3f_bls::{
 	DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
