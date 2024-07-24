@@ -658,7 +658,7 @@ chain-spec-builder = { path = "substrate/bin/utils/chain-spec-builder", default-
 chain-spec-guide-runtime = { path = "docs/sdk/src/reference_docs/chain_spec_runtime" }
 chrono = { version = "0.4.31" }
 cid = { version = "0.9.0" }
-clap = { version = "4.5.9" }
+clap = { version = "4.5.10" }
 clap-num = { version = "1.0.2" }
 clap_complete = { version = "4.0.2" }
 coarsetime = { version = "0.1.22" }
