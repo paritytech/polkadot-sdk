@@ -36,7 +36,7 @@ use frame::{
 	runtime::{
 		apis::{
 			self, impl_runtime_apis, ApplyExtrinsicResult, CheckInherentsResult,
-			ExtrinsicInclusionMode, OpaqueMetadata, PresetId, Result as GenesisBuilderResult,
+			ExtrinsicInclusionMode, GenesisBuilderResult, OpaqueMetadata, PresetId,
 		},
 		prelude::*,
 	},
