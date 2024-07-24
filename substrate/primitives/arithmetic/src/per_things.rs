@@ -531,7 +531,8 @@ where
 	(x / maximum) * part_n + c
 }
 
-/// Unchecked computation of the error due to integer division in the expression `x / denom * numer`.
+/// Unchecked computation of the error due to integer division in the expression `x / denom *
+/// numer`.
 fn rational_mul_correction<N, P>(x: N, numer: P::Inner, denom: P::Inner, rounding: Rounding) -> N
 where
 	N: MultiplyArg + UniqueSaturatedInto<P::Inner>,
