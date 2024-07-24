@@ -1328,7 +1328,6 @@ impl ValidationBackend for MockHeadsUp {
 		code_hashes: Vec<ValidationCodeHash>,
 		_executor_params: ExecutorParams,
 	) -> Result<Vec<ValidationCodeHash>, String> {
-		println!("code_hashes {:?}", code_hashes);
 		Ok(code_hashes)
 	}
 }

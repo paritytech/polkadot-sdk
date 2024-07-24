@@ -328,6 +328,8 @@ impl Artifacts {
 		to_remove
 	}
 
+	/// Checks if artifacts by provided validation code hashes and executor parameters are either
+	/// prepared or preparing, and returns the hashes of artifacts that do not meet this criterion.
 	pub fn ensure(
 		&self,
 		code_hashes: Vec<ValidationCodeHash>,
