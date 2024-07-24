@@ -38,6 +38,8 @@ xcm-executor = { workspace = true }
 bp-header-chain = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
+bp-runtime = { features = ["test-helpers"], workspace = true }
+pallet-xcm-bridge-hub-router = { workspace = true }
 
 [features]
 default = ["std"]

@@ -11991,6 +11991,7 @@ dependencies = [
  "log",
  "pallet-balances",
  "pallet-bridge-messages",
+ "pallet-xcm-bridge-hub-router",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
