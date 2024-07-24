@@ -1,6 +1,6 @@
 //! # Currency Pallet
 //!
-//! By the end of this guide, you will write a small FRAME pallet (see
+//! By the end of this guide, you will have written a small FRAME pallet (see
 //! [`crate::polkadot_sdk::frame_runtime`]) that is capable of handling a simple crypto-currency.
 //! This pallet will:
 //!
