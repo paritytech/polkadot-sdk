@@ -458,45 +458,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#307" id="307">307</a>
 <a href="#308" id="308">308</a>
 <a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -522,7 +483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! This pallet provides a `SignedExtension` with an optional `AssetId` that specifies the asset
 //! to be used for payment (defaulting to the native token on `None`). It expects an
 //! [`OnChargeAssetTransaction`] implementation analogous to [`pallet-transaction-payment`]. The
-//! included [`AssetConversionAdapter`] (implementing [`OnChargeAssetTransaction`]) determines the
+//! included [`SwapAssetAdapter`] (implementing [`OnChargeAssetTransaction`]) determines the
 //! fee amount by converting the fee calculated by [`pallet-transaction-payment`] in the native
 //! asset into the amount required of the specified asset.
 //!
@@ -546,19 +507,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
-	traits::{
-		fungibles::{Balanced, Inspect},
-		IsType,
-	},
+	traits::IsType,
 	DefaultNoBound,
 };
 <span class="kw">use </span>pallet_transaction_payment::OnChargeTransaction;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, Zero},
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
-	},
+	transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
 };
 
 <span class="attr">#[cfg(test)]
@@ -570,30 +526,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::traits::tokens::AssetId;
 <span class="kw">pub use </span>payment::<span class="kw-2">*</span>;
 
+<span class="doccomment">/// Balance type alias for balances of the chain's native asset.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>BalanceOf&lt;T&gt; = &lt;OnChargeTransactionOf&lt;T&gt; <span class="kw">as </span>OnChargeTransaction&lt;T&gt;&gt;::Balance;
+
 <span class="doccomment">/// Type aliases used for interaction with `OnChargeTransaction`.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>OnChargeTransactionOf&lt;T&gt; =
 	&lt;T <span class="kw">as </span>pallet_transaction_payment::Config&gt;::OnChargeTransaction;
-<span class="doccomment">/// Balance type alias for balances of the chain's native asset.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>BalanceOf&lt;T&gt; = &lt;OnChargeTransactionOf&lt;T&gt; <span class="kw">as </span>OnChargeTransaction&lt;T&gt;&gt;::Balance;
-<span class="doccomment">/// Liquidity info type alias.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>LiquidityInfoOf&lt;T&gt; =
+
+<span class="doccomment">/// Liquidity info type alias for the chain's native asset.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>NativeLiquidityInfoOf&lt;T&gt; =
 	&lt;OnChargeTransactionOf&lt;T&gt; <span class="kw">as </span>OnChargeTransaction&lt;T&gt;&gt;::LiquidityInfo;
 
-<span class="doccomment">/// Balance type alias for balances of assets that implement the `fungibles` trait.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>AssetBalanceOf&lt;T&gt; =
-	&lt;&lt;T <span class="kw">as </span>Config&gt;::Fungibles <span class="kw">as </span>Inspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
-<span class="doccomment">/// Type alias for Asset IDs.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>AssetIdOf&lt;T&gt; =
-	&lt;&lt;T <span class="kw">as </span>Config&gt;::Fungibles <span class="kw">as </span>Inspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::AssetId;
-
-<span class="doccomment">/// Type alias for the interaction of balances with `OnChargeAssetTransaction`.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ChargeAssetBalanceOf&lt;T&gt; =
-	&lt;&lt;T <span class="kw">as </span>Config&gt;::OnChargeAssetTransaction <span class="kw">as </span>OnChargeAssetTransaction&lt;T&gt;&gt;::Balance;
-<span class="doccomment">/// Type alias for Asset IDs in their interaction with `OnChargeAssetTransaction`.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ChargeAssetIdOf&lt;T&gt; =
-	&lt;&lt;T <span class="kw">as </span>Config&gt;::OnChargeAssetTransaction <span class="kw">as </span>OnChargeAssetTransaction&lt;T&gt;&gt;::AssetId;
-<span class="doccomment">/// Liquidity info type alias for interaction with `OnChargeAssetTransaction`.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ChargeAssetLiquidityOf&lt;T&gt; =
+<span class="doccomment">/// Liquidity info type alias for the chain's assets.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>AssetLiquidityInfoOf&lt;T&gt; =
 	&lt;&lt;T <span class="kw">as </span>Config&gt;::OnChargeAssetTransaction <span class="kw">as </span>OnChargeAssetTransaction&lt;T&gt;&gt;::LiquidityInfo;
 
 <span class="doccomment">/// Used to pass the initial payment info from pre- to post-dispatch.
@@ -603,9 +548,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[default]
 	</span>Nothing,
 	<span class="doccomment">/// The initial fee was paid in the native currency.
-	</span>Native(LiquidityInfoOf&lt;T&gt;),
+	</span>Native(NativeLiquidityInfoOf&lt;T&gt;),
 	<span class="doccomment">/// The initial fee was paid in an asset.
-	</span>Asset((LiquidityInfoOf&lt;T&gt;, BalanceOf&lt;T&gt;, AssetBalanceOf&lt;T&gt;)),
+	</span>Asset((T::AssetId, AssetLiquidityInfoOf&lt;T&gt;)),
 }
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
@@ -615,15 +560,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config:
-		frame_system::Config + pallet_transaction_payment::Config + pallet_asset_conversion::Config
-	{
+	</span><span class="kw">pub trait </span>Config: frame_system::Config + pallet_transaction_payment::Config {
 		<span class="doccomment">/// The overarching event type.
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
-		<span class="doccomment">/// The fungibles instance used to pay for transactions in assets.
-		</span><span class="kw">type </span>Fungibles: Balanced&lt;<span class="self">Self</span>::AccountId&gt;;
+		<span class="doccomment">/// The asset ID type that can be used for transaction payments in addition to a
+		/// native asset.
+		</span><span class="kw">type </span>AssetId: AssetId;
 		<span class="doccomment">/// The actual transaction charging logic that charges the fees.
-		</span><span class="kw">type </span>OnChargeAssetTransaction: OnChargeAssetTransaction&lt;<span class="self">Self</span>&gt;;
+		</span><span class="kw">type </span>OnChargeAssetTransaction: OnChargeAssetTransaction&lt;
+			<span class="self">Self</span>,
+			Balance = BalanceOf&lt;<span class="self">Self</span>&gt;,
+			AssetId = <span class="self">Self</span>::AssetId,
+		&gt;;
 	}
 
 	<span class="attr">#[pallet::pallet]
@@ -636,9 +584,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// has been paid by `who` in an asset `asset_id`.
 		</span>AssetTxFeePaid {
 			who: T::AccountId,
-			actual_fee: AssetBalanceOf&lt;T&gt;,
+			actual_fee: BalanceOf&lt;T&gt;,
 			tip: BalanceOf&lt;T&gt;,
-			asset_id: ChargeAssetIdOf&lt;T&gt;,
+			asset_id: T::AssetId,
 		},
 		<span class="doccomment">/// A swap of the refund in native currency back to asset failed.
 		</span>AssetRefundFailed { native_amount_kept: BalanceOf&lt;T&gt; },
@@ -646,33 +594,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Require payment for transaction inclusion and optionally include a tip to gain additional
-/// priority in the queue. Allows paying via both `Currency` as well as `fungibles::Balanced`.
+/// priority in the queue.
 ///
 /// Wraps the transaction logic in [`pallet_transaction_payment`] and extends it with assets.
 /// An asset ID of `None` falls back to the underlying transaction payment logic via the native
 /// currency.
+///
+/// Transaction payments are processed using different handlers based on the asset type:
+/// - Payments with a native asset are charged by
+///   [pallet_transaction_payment::Config::OnChargeTransaction].
+/// - Payments with other assets are charged by [Config::OnChargeAssetTransaction].
 </span><span class="attr">#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 </span><span class="kw">pub struct </span>ChargeAssetTxPayment&lt;T: Config&gt; {
 	<span class="attr">#[codec(compact)]
 	</span>tip: BalanceOf&lt;T&gt;,
-	asset_id: <span class="prelude-ty">Option</span>&lt;ChargeAssetIdOf&lt;T&gt;&gt;,
+	asset_id: <span class="prelude-ty">Option</span>&lt;T::AssetId&gt;,
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; ChargeAssetTxPayment&lt;T&gt;
 <span class="kw">where
 	</span>T::RuntimeCall: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
-	AssetBalanceOf&lt;T&gt;: Send + Sync,
-	BalanceOf&lt;T&gt;: Send + Sync + Into&lt;ChargeAssetBalanceOf&lt;T&gt;&gt; + From&lt;ChargeAssetLiquidityOf&lt;T&gt;&gt;,
-	ChargeAssetIdOf&lt;T&gt;: Send + Sync,
 {
 	<span class="doccomment">/// Utility constructor. Used only in client/factory code.
-	</span><span class="kw">pub fn </span>from(tip: BalanceOf&lt;T&gt;, asset_id: <span class="prelude-ty">Option</span>&lt;ChargeAssetIdOf&lt;T&gt;&gt;) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>from(tip: BalanceOf&lt;T&gt;, asset_id: <span class="prelude-ty">Option</span>&lt;T::AssetId&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ tip, asset_id }
 	}
 
-	<span class="doccomment">/// Fee withdrawal logic that dispatches to either `OnChargeAssetTransaction` or
-	/// `OnChargeTransaction`.
+	<span class="doccomment">/// Fee withdrawal logic that dispatches to either [`Config::OnChargeAssetTransaction`] or
+	/// [`pallet_transaction_payment::Config::OnChargeTransaction`].
 	</span><span class="kw">fn </span>withdraw_fee(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		who: <span class="kw-2">&amp;</span>T::AccountId,
@@ -690,25 +640,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				call,
 				info,
 				asset_id.clone(),
-				fee.into(),
-				<span class="self">self</span>.tip.into(),
+				fee,
+				<span class="self">self</span>.tip,
 			)
-			.map(|(used_for_fee, received_exchanged, asset_consumed)| {
-				(
-					fee,
-					InitialPayment::Asset((
-						used_for_fee.into(),
-						received_exchanged.into(),
-						asset_consumed.into(),
-					)),
-				)
-			})
+			.map(|payment| (fee, InitialPayment::Asset((asset_id.clone(), payment))))
 		} <span class="kw">else </span>{
-			&lt;OnChargeTransactionOf&lt;T&gt; <span class="kw">as </span>OnChargeTransaction&lt;T&gt;&gt;::withdraw_fee(
-				who, call, info, fee, <span class="self">self</span>.tip,
-			)
-			.map(|i| (fee, InitialPayment::Native(i)))
-			.map_err(|<span class="kw">_</span>| -&gt; TransactionValidityError { InvalidTransaction::Payment.into() })
+			T::OnChargeTransaction::withdraw_fee(who, call, info, fee, <span class="self">self</span>.tip)
+				.map(|payment| (fee, InitialPayment::Native(payment)))
 		}
 	}
 }
@@ -727,14 +665,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: Config&gt; SignedExtension <span class="kw">for </span>ChargeAssetTxPayment&lt;T&gt;
 <span class="kw">where
 	</span>T::RuntimeCall: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
-	AssetBalanceOf&lt;T&gt;: Send + Sync,
-	BalanceOf&lt;T&gt;: Send
-		+ Sync
-		+ From&lt;u64&gt;
-		+ Into&lt;ChargeAssetBalanceOf&lt;T&gt;&gt;
-		+ Into&lt;ChargeAssetLiquidityOf&lt;T&gt;&gt;
-		+ From&lt;ChargeAssetLiquidityOf&lt;T&gt;&gt;,
-	ChargeAssetIdOf&lt;T&gt;: Send + Sync,
+	BalanceOf&lt;T&gt;: Send + Sync,
+	T::AssetId: Send + Sync,
 {
 	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"ChargeAssetTxPayment"</span>;
 	<span class="kw">type </span>AccountId = T::AccountId;
@@ -747,8 +679,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="self">Self</span>::AccountId,
 		<span class="comment">// imbalance resulting from withdrawing the fee
 		</span>InitialPayment&lt;T&gt;,
-		<span class="comment">// asset_id for the transaction payment
-		</span><span class="prelude-ty">Option</span>&lt;ChargeAssetIdOf&lt;T&gt;&gt;,
 	);
 
 	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; core::result::Result&lt;(), TransactionValidityError&gt; {
@@ -776,7 +706,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		len: usize,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
 		<span class="kw">let </span>(_fee, initial_payment) = <span class="self">self</span>.withdraw_fee(who, call, info, len)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>((<span class="self">self</span>.tip, who.clone(), initial_payment, <span class="self">self</span>.asset_id))
+		<span class="prelude-val">Ok</span>((<span class="self">self</span>.tip, who.clone(), initial_payment))
 	}
 
 	<span class="kw">fn </span>post_dispatch(
@@ -784,53 +714,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
 		post_info: <span class="kw-2">&amp;</span>PostDispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
 		len: usize,
-		result: <span class="kw-2">&amp;</span>DispatchResult,
+		_result: <span class="kw-2">&amp;</span>DispatchResult,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>((tip, who, initial_payment, asset_id)) = pre {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>((tip, who, initial_payment)) = pre {
 			<span class="kw">match </span>initial_payment {
 				InitialPayment::Native(already_withdrawn) =&gt; {
-					<span class="macro">debug_assert!</span>(
-						asset_id.is_none(),
-						<span class="string">"For that payment type the `asset_id` should be None"
-					</span>);
-					pallet_transaction_payment::ChargeTransactionPayment::&lt;T&gt;::post_dispatch(
-						<span class="prelude-val">Some</span>((tip, who, already_withdrawn)),
-						info,
-						post_info,
-						len,
-						result,
-					)<span class="question-mark">?</span>;
-				},
-				InitialPayment::Asset(already_withdrawn) =&gt; {
-					<span class="macro">debug_assert!</span>(
-						asset_id.is_some(),
-						<span class="string">"For that payment type the `asset_id` should be set"
-					</span>);
 					<span class="kw">let </span>actual_fee = pallet_transaction_payment::Pallet::&lt;T&gt;::compute_actual_fee(
 						len <span class="kw">as </span>u32, info, post_info, tip,
 					);
-
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(asset_id) = asset_id {
-						<span class="kw">let </span>(used_for_fee, received_exchanged, asset_consumed) = already_withdrawn;
-						<span class="kw">let </span>converted_fee = T::OnChargeAssetTransaction::correct_and_deposit_fee(
-							<span class="kw-2">&amp;</span>who,
-							info,
-							post_info,
-							actual_fee.into(),
-							tip.into(),
-							used_for_fee.into(),
-							received_exchanged.into(),
-							asset_id.clone(),
-							asset_consumed.into(),
-						)<span class="question-mark">?</span>;
-
-						Pallet::&lt;T&gt;::deposit_event(Event::&lt;T&gt;::AssetTxFeePaid {
-							who,
-							actual_fee: converted_fee,
-							tip,
-							asset_id,
-						});
-					}
+					T::OnChargeTransaction::correct_and_deposit_fee(
+						<span class="kw-2">&amp;</span>who,
+						info,
+						post_info,
+						actual_fee,
+						tip,
+						already_withdrawn,
+					)<span class="question-mark">?</span>;
+					pallet_transaction_payment::Pallet::&lt;T&gt;::deposit_fee_paid_event(
+						who, actual_fee, tip,
+					);
+				},
+				InitialPayment::Asset((asset_id, already_withdrawn)) =&gt; {
+					<span class="kw">let </span>actual_fee = pallet_transaction_payment::Pallet::&lt;T&gt;::compute_actual_fee(
+						len <span class="kw">as </span>u32, info, post_info, tip,
+					);
+					<span class="kw">let </span>converted_fee = T::OnChargeAssetTransaction::correct_and_deposit_fee(
+						<span class="kw-2">&amp;</span>who,
+						info,
+						post_info,
+						actual_fee,
+						tip,
+						asset_id.clone(),
+						already_withdrawn,
+					)<span class="question-mark">?</span>;
+					Pallet::&lt;T&gt;::deposit_event(Event::&lt;T&gt;::AssetTxFeePaid {
+						who,
+						actual_fee: converted_fee,
+						tip,
+						asset_id,
+					});
 				},
 				InitialPayment::Nothing =&gt; {
 					<span class="comment">// `actual_fee` should be zero here for any signed extrinsic. It would be

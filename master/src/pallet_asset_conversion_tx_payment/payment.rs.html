@@ -348,6 +348,76 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -370,11 +440,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>alloc::vec;
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::{
-	ensure,
-	traits::{fungible::Inspect, tokens::Balance},
+	defensive, ensure,
+	traits::{
+		fungibles,
+		tokens::{Balance, Fortitude, Precision, Preservation},
+		Defensive, OnUnbalanced, SameOrOther,
+	},
 	unsigned::TransactionValidityError,
 };
-<span class="kw">use </span>pallet_asset_conversion::Swap;
+<span class="kw">use </span>pallet_asset_conversion::{QuotePrice, SwapCredit};
 <span class="kw">use </span>sp_runtime::{
 	traits::{DispatchInfoOf, Get, PostDispatchInfoOf, Zero},
 	transaction_validity::InvalidTransaction,
@@ -400,151 +474,217 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		asset_id: <span class="self">Self</span>::AssetId,
 		fee: <span class="self">Self</span>::Balance,
 		tip: <span class="self">Self</span>::Balance,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;
-		(LiquidityInfoOf&lt;T&gt;, <span class="self">Self</span>::LiquidityInfo, AssetBalanceOf&lt;T&gt;),
-		TransactionValidityError,
-	&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::LiquidityInfo, TransactionValidityError&gt;;
 
 	<span class="doccomment">/// Refund any overpaid fees and deposit the corrected amount.
 	/// The actual fee gets calculated once the transaction is executed.
 	///
 	/// Note: The `fee` already includes the `tip`.
 	///
-	/// Returns the fee and tip in the asset used for payment as (fee, tip).
+	/// Returns the amount of `asset_id` that was used for the payment.
 	</span><span class="kw">fn </span>correct_and_deposit_fee(
 		who: <span class="kw-2">&amp;</span>T::AccountId,
 		dispatch_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
 		post_info: <span class="kw-2">&amp;</span>PostDispatchInfoOf&lt;T::RuntimeCall&gt;,
 		corrected_fee: <span class="self">Self</span>::Balance,
 		tip: <span class="self">Self</span>::Balance,
-		fee_paid: LiquidityInfoOf&lt;T&gt;,
-		received_exchanged: <span class="self">Self</span>::LiquidityInfo,
 		asset_id: <span class="self">Self</span>::AssetId,
-		initial_asset_consumed: AssetBalanceOf&lt;T&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;AssetBalanceOf&lt;T&gt;, TransactionValidityError&gt;;
+		already_withdraw: <span class="self">Self</span>::LiquidityInfo,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, TransactionValidityError&gt;;
 }
 
-<span class="doccomment">/// Implements the asset transaction for a balance to asset converter (implementing [`Swap`]).
+<span class="doccomment">/// Means to withdraw, correct and deposit fees in the asset accepted by the system.
 ///
-/// The converter is given the complete fee in terms of the asset used for the transaction.
-</span><span class="kw">pub struct </span>AssetConversionAdapter&lt;C, CON, N&gt;(PhantomData&lt;(C, CON, N)&gt;);
+/// The type uses the [`SwapCredit`] implementation to swap the asset used by a user for the fee
+/// payment for the asset accepted as a fee payment be the system.
+///
+/// Parameters:
+/// - `A`: The asset identifier that system accepts as a fee payment (eg. native asset).
+/// - `F`: The fungibles registry that can handle assets provided by user and the `A` asset.
+/// - `S`: The swap implementation that can swap assets provided by user for the `A` asset.
+/// - OU: The handler for withdrawn `fee` and `tip`, passed in the respective order to
+///   [OnUnbalanced::on_unbalanceds].
+/// - `T`: The pallet's configuration.
+</span><span class="kw">pub struct </span>SwapAssetAdapter&lt;A, F, S, OU&gt;(PhantomData&lt;(A, F, S, OU)&gt;);
 
-<span class="doccomment">/// Default implementation for a runtime instantiating this pallet, an asset to native swapper.
-</span><span class="kw">impl</span>&lt;T, C, CON, N&gt; OnChargeAssetTransaction&lt;T&gt; <span class="kw">for </span>AssetConversionAdapter&lt;C, CON, N&gt;
+<span class="kw">impl</span>&lt;A, F, S, OU, T&gt; OnChargeAssetTransaction&lt;T&gt; <span class="kw">for </span>SwapAssetAdapter&lt;A, F, S, OU&gt;
 <span class="kw">where
-	</span>N: Get&lt;CON::AssetKind&gt;,
+	</span>A: Get&lt;T::AssetId&gt;,
+	F: fungibles::Balanced&lt;T::AccountId, Balance = BalanceOf&lt;T&gt;, AssetId = T::AssetId&gt;,
+	S: SwapCredit&lt;
+			T::AccountId,
+			Balance = BalanceOf&lt;T&gt;,
+			AssetKind = T::AssetId,
+			Credit = fungibles::Credit&lt;T::AccountId, F&gt;,
+		&gt; + QuotePrice&lt;Balance = BalanceOf&lt;T&gt;, AssetKind = T::AssetId&gt;,
+	OU: OnUnbalanced&lt;fungibles::Credit&lt;T::AccountId, F&gt;&gt;,
 	T: Config,
-	C: Inspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;,
-	CON: Swap&lt;T::AccountId, Balance = BalanceOf&lt;T&gt;, AssetKind = T::AssetKind&gt;,
-	BalanceOf&lt;T&gt;: Into&lt;AssetBalanceOf&lt;T&gt;&gt;,
-	T::AssetKind: From&lt;AssetIdOf&lt;T&gt;&gt;,
-	BalanceOf&lt;T&gt;: IsType&lt;&lt;C <span class="kw">as </span>Inspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance&gt;,
 {
+	<span class="kw">type </span>AssetId = T::AssetId;
 	<span class="kw">type </span>Balance = BalanceOf&lt;T&gt;;
-	<span class="kw">type </span>AssetId = AssetIdOf&lt;T&gt;;
-	<span class="kw">type </span>LiquidityInfo = BalanceOf&lt;T&gt;;
+	<span class="kw">type </span>LiquidityInfo = (fungibles::Credit&lt;T::AccountId, F&gt;, BalanceOf&lt;T&gt;);
 
-	<span class="doccomment">/// Swap &amp; withdraw the predicted fee from the transaction origin.
-	///
-	/// Note: The `fee` already includes the `tip`.
-	///
-	/// Returns the total amount in native currency received by exchanging the `asset_id` and the
-	/// amount in native currency used to pay the fee.
-	</span><span class="kw">fn </span>withdraw_fee(
+	<span class="kw">fn </span>withdraw_fee(
 		who: <span class="kw-2">&amp;</span>T::AccountId,
-		call: <span class="kw-2">&amp;</span>T::RuntimeCall,
-		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+		_call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+		_dispatch_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;&lt;T&gt;::RuntimeCall&gt;,
 		asset_id: <span class="self">Self</span>::AssetId,
-		fee: BalanceOf&lt;T&gt;,
-		tip: BalanceOf&lt;T&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;
-		(LiquidityInfoOf&lt;T&gt;, <span class="self">Self</span>::LiquidityInfo, AssetBalanceOf&lt;T&gt;),
-		TransactionValidityError,
-	&gt; {
-		<span class="comment">// convert the asset into native currency
-		</span><span class="kw">let </span>ed = C::minimum_balance();
-		<span class="kw">let </span>native_asset_required =
-			<span class="kw">if </span>C::balance(<span class="kw-2">&amp;</span>who) &gt;= ed.saturating_add(fee.into()) { fee } <span class="kw">else </span>{ fee + ed.into() };
+		fee: <span class="self">Self</span>::Balance,
+		_tip: <span class="self">Self</span>::Balance,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::LiquidityInfo, TransactionValidityError&gt; {
+		<span class="kw">if </span>asset_id == A::get() {
+			<span class="comment">// The `asset_id` is the target asset, we do not need to swap.
+			</span><span class="kw">let </span>fee_credit = F::withdraw(
+				asset_id.clone(),
+				who,
+				fee,
+				Precision::Exact,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			)
+			.map_err(|<span class="kw">_</span>| InvalidTransaction::Payment)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>asset_consumed = CON::swap_tokens_for_exact_tokens(
-			who.clone(),
-			<span class="macro">vec!</span>[asset_id.into(), N::get()],
-			native_asset_required,
-			<span class="prelude-val">None</span>,
-			who.clone(),
-			<span class="bool-val">true</span>,
-		)
-		.map_err(|<span class="kw">_</span>| TransactionValidityError::from(InvalidTransaction::Payment))<span class="question-mark">?</span>;
-
-		<span class="macro">ensure!</span>(asset_consumed &gt; Zero::zero(), InvalidTransaction::Payment);
-
-		<span class="comment">// charge the fee in native currency
-		</span>&lt;T::OnChargeTransaction&gt;::withdraw_fee(who, call, info, fee, tip)
-			.map(|r| (r, native_asset_required, asset_consumed.into()))
-	}
-
-	<span class="doccomment">/// Correct the fee and swap the refund back to asset.
-	///
-	/// Note: The `corrected_fee` already includes the `tip`.
-	/// Note: Is the ED wasn't needed, the `received_exchanged` will be equal to `fee_paid`, or
-	/// `fee_paid + ed` otherwise.
-	</span><span class="kw">fn </span>correct_and_deposit_fee(
-		who: <span class="kw-2">&amp;</span>T::AccountId,
-		dispatch_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
-		post_info: <span class="kw-2">&amp;</span>PostDispatchInfoOf&lt;T::RuntimeCall&gt;,
-		corrected_fee: BalanceOf&lt;T&gt;,
-		tip: BalanceOf&lt;T&gt;,
-		fee_paid: LiquidityInfoOf&lt;T&gt;,
-		received_exchanged: <span class="self">Self</span>::LiquidityInfo,
-		asset_id: <span class="self">Self</span>::AssetId,
-		initial_asset_consumed: AssetBalanceOf&lt;T&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;AssetBalanceOf&lt;T&gt;, TransactionValidityError&gt; {
-		<span class="comment">// Refund the native asset to the account that paid the fees (`who`).
-		// The `who` account will receive the "fee_paid - corrected_fee" refund.
-		</span>&lt;T::OnChargeTransaction&gt;::correct_and_deposit_fee(
-			who,
-			dispatch_info,
-			post_info,
-			corrected_fee,
-			tip,
-			fee_paid,
-		)<span class="question-mark">?</span>;
-
-		<span class="comment">// calculate the refund in native asset, to swap back to the desired `asset_id`
-		</span><span class="kw">let </span>swap_back = received_exchanged.saturating_sub(corrected_fee);
-		<span class="kw">let </span><span class="kw-2">mut </span>asset_refund = Zero::zero();
-		<span class="kw">if </span>!swap_back.is_zero() {
-			<span class="comment">// If this fails, the account might have dropped below the existential balance or there
-			// is not enough liquidity left in the pool. In that case we don't throw an error and
-			// the account will keep the native currency.
-			</span><span class="kw">match </span>CON::swap_exact_tokens_for_tokens(
-				who.clone(), <span class="comment">// we already deposited the native to `who`
-				</span><span class="macro">vec!</span>[
-					N::get(),        <span class="comment">// we provide the native
-					</span>asset_id.into(), <span class="comment">// we want asset_id back
-				</span>],
-				swap_back,   <span class="comment">// amount of the native asset to convert to `asset_id`
-				</span><span class="prelude-val">None</span>,        <span class="comment">// no minimum amount back
-				</span>who.clone(), <span class="comment">// we will refund to `who`
-				</span><span class="bool-val">false</span>,       <span class="comment">// no need to keep alive
-			</span>)
-			.ok()
-			{
-				<span class="prelude-val">Some</span>(acquired) =&gt; {
-					asset_refund = acquired
-						.try_into()
-						.map_err(|<span class="kw">_</span>| TransactionValidityError::from(InvalidTransaction::Payment))<span class="question-mark">?</span>;
-				},
-				<span class="prelude-val">None </span>=&gt; {
-					Pallet::&lt;T&gt;::deposit_event(Event::&lt;T&gt;::AssetRefundFailed {
-						native_amount_kept: swap_back,
-					});
-				},
-			}
+			<span class="kw">return </span><span class="prelude-val">Ok</span>((fee_credit, fee));
 		}
 
-		<span class="kw">let </span>actual_paid = initial_asset_consumed.saturating_sub(asset_refund);
-		<span class="prelude-val">Ok</span>(actual_paid)
+		<span class="comment">// Quote the amount of the `asset_id` needed to pay the fee in the asset `A`.
+		</span><span class="kw">let </span>asset_fee =
+			S::quote_price_tokens_for_exact_tokens(asset_id.clone(), A::get(), fee, <span class="bool-val">true</span>)
+				.ok_or(InvalidTransaction::Payment)<span class="question-mark">?</span>;
+
+		<span class="comment">// Withdraw the `asset_id` credit for the swap.
+		</span><span class="kw">let </span>asset_fee_credit = F::withdraw(
+			asset_id.clone(),
+			who,
+			asset_fee,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		)
+		.map_err(|<span class="kw">_</span>| InvalidTransaction::Payment)<span class="question-mark">?</span>;
+
+		<span class="kw">let </span>(fee_credit, change) = <span class="kw">match </span>S::swap_tokens_for_exact_tokens(
+			<span class="macro">vec!</span>[asset_id, A::get()],
+			asset_fee_credit,
+			fee,
+		) {
+			<span class="prelude-val">Ok</span>((fee_credit, change)) =&gt; (fee_credit, change),
+			<span class="prelude-val">Err</span>((credit_in, <span class="kw">_</span>)) =&gt; {
+				<span class="macro">defensive!</span>(<span class="string">"Fee swap should pass for the quoted amount"</span>);
+				<span class="kw">let _ </span>= F::resolve(who, credit_in).defensive_proof(<span class="string">"Should resolve the credit"</span>);
+				<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidTransaction::Payment.into())
+			},
+		};
+
+		<span class="comment">// Since the exact price for `fee` has been quoted, the change should be zero.
+		</span><span class="macro">ensure!</span>(change.peek().is_zero(), InvalidTransaction::Payment);
+
+		<span class="prelude-val">Ok</span>((fee_credit, asset_fee))
+	}
+
+	<span class="kw">fn </span>correct_and_deposit_fee(
+		who: <span class="kw-2">&amp;</span>T::AccountId,
+		_dispatch_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;&lt;T&gt;::RuntimeCall&gt;,
+		_post_info: <span class="kw-2">&amp;</span>PostDispatchInfoOf&lt;&lt;T&gt;::RuntimeCall&gt;,
+		corrected_fee: <span class="self">Self</span>::Balance,
+		tip: <span class="self">Self</span>::Balance,
+		asset_id: <span class="self">Self</span>::AssetId,
+		already_withdrawn: <span class="self">Self</span>::LiquidityInfo,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, TransactionValidityError&gt; {
+		<span class="kw">let </span>(fee_paid, initial_asset_consumed) = already_withdrawn;
+		<span class="kw">let </span>refund_amount = fee_paid.peek().saturating_sub(corrected_fee);
+		<span class="kw">let </span>(fee_in_asset, adjusted_paid) = <span class="kw">if </span>refund_amount.is_zero() ||
+			F::total_balance(asset_id.clone(), who).is_zero()
+		{
+			<span class="comment">// Nothing to refund or the account was removed be the dispatched function.
+			</span>(initial_asset_consumed, fee_paid)
+		} <span class="kw">else if </span>asset_id == A::get() {
+			<span class="comment">// The `asset_id` is the target asset, we do not need to swap.
+			</span><span class="kw">let </span>(refund, fee_paid) = fee_paid.split(refund_amount);
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(refund) = F::resolve(who, refund) {
+				<span class="kw">let </span>fee_paid = fee_paid.merge(refund).map_err(|<span class="kw">_</span>| {
+					<span class="macro">defensive!</span>(<span class="string">"`fee_paid` and `refund` are credits of the same asset."</span>);
+					InvalidTransaction::Payment
+				})<span class="question-mark">?</span>;
+				(initial_asset_consumed, fee_paid)
+			} <span class="kw">else </span>{
+				(fee_paid.peek().saturating_sub(refund_amount), fee_paid)
+			}
+		} <span class="kw">else </span>{
+			<span class="comment">// Check if the refund amount can be swapped back into the asset used by `who` for fee
+			// payment.
+			</span><span class="kw">let </span>refund_asset_amount = S::quote_price_exact_tokens_for_tokens(
+				A::get(),
+				asset_id.clone(),
+				refund_amount,
+				<span class="bool-val">true</span>,
+			)
+			<span class="comment">// No refund given if it cannot be swapped back.
+			</span>.unwrap_or(Zero::zero());
+
+			<span class="kw">let </span>debt = <span class="kw">if </span>refund_asset_amount.is_zero() {
+				fungibles::Debt::&lt;T::AccountId, F&gt;::zero(asset_id.clone())
+			} <span class="kw">else </span>{
+				<span class="comment">// Deposit the refund before the swap to ensure it can be processed.
+				</span><span class="kw">match </span>F::deposit(asset_id.clone(), <span class="kw-2">&amp;</span>who, refund_asset_amount, Precision::BestEffort)
+				{
+					<span class="prelude-val">Ok</span>(debt) =&gt; debt,
+					<span class="comment">// No refund given since it cannot be deposited.
+					</span><span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; fungibles::Debt::&lt;T::AccountId, F&gt;::zero(asset_id.clone()),
+				}
+			};
+
+			<span class="kw">if </span>debt.peek().is_zero() {
+				<span class="comment">// No refund given.
+				</span>(initial_asset_consumed, fee_paid)
+			} <span class="kw">else </span>{
+				<span class="kw">let </span>(refund, adjusted_paid) = fee_paid.split(refund_amount);
+				<span class="kw">match </span>S::swap_exact_tokens_for_tokens(
+					<span class="macro">vec!</span>[A::get(), asset_id],
+					refund,
+					<span class="prelude-val">Some</span>(refund_asset_amount),
+				) {
+					<span class="prelude-val">Ok</span>(refund_asset) =&gt; {
+						<span class="kw">match </span>refund_asset.offset(debt) {
+							<span class="prelude-val">Ok</span>(SameOrOther::None) =&gt; {},
+							<span class="comment">// This arm should never be reached, as the  amount of `debt` is
+							// expected to be exactly equal to the amount of `refund_asset` credit.
+							</span><span class="kw">_ </span>=&gt; {
+								<span class="macro">defensive!</span>(<span class="string">"Debt should be equal to the refund credit"</span>);
+								<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidTransaction::Payment.into())
+							},
+						};
+						(
+							initial_asset_consumed.saturating_sub(refund_asset_amount.into()),
+							adjusted_paid,
+						)
+					},
+					<span class="comment">// The error should not occur since swap was quoted before.
+					</span><span class="prelude-val">Err</span>((refund, <span class="kw">_</span>)) =&gt; {
+						<span class="macro">defensive!</span>(<span class="string">"Refund swap should pass for the quoted amount"</span>);
+						<span class="kw">match </span>F::settle(who, debt, Preservation::Expendable) {
+							<span class="prelude-val">Ok</span>(dust) =&gt; <span class="macro">ensure!</span>(dust.peek().is_zero(), InvalidTransaction::Payment),
+							<span class="comment">// The error should not occur as the `debt` was just withdrawn above.
+							</span><span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+								<span class="macro">defensive!</span>(<span class="string">"Should settle the debt"</span>);
+								<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidTransaction::Payment.into())
+							},
+						};
+						<span class="kw">let </span>adjusted_paid = adjusted_paid.merge(refund).map_err(|<span class="kw">_</span>| {
+							<span class="comment">// The error should never occur since `adjusted_paid` and `refund` are
+							// credits of the same asset.
+							</span>InvalidTransaction::Payment
+						})<span class="question-mark">?</span>;
+						(initial_asset_consumed, adjusted_paid)
+					},
+				}
+			}
+		};
+
+		<span class="comment">// Handle the imbalance (fee and tip separately).
+		</span><span class="kw">let </span>(tip, fee) = adjusted_paid.split(tip);
+		OU::on_unbalanceds(<span class="prelude-val">Some</span>(fee).into_iter().chain(<span class="prelude-val">Some</span>(tip)));
+		<span class="prelude-val">Ok</span>(fee_in_asset)
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

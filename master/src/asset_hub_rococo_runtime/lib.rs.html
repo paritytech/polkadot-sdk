@@ -1985,6 +1985,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1834" id="1834">1834</a>
 <a href="#1835" id="1835">1835</a>
 <a href="#1836" id="1836">1836</a>
+<a href="#1837" id="1837">1837</a>
+<a href="#1838" id="1838">1838</a>
+<a href="#1839" id="1839">1839</a>
+<a href="#1840" id="1840">1840</a>
+<a href="#1841" id="1841">1841</a>
+<a href="#1842" id="1842">1842</a>
+<a href="#1843" id="1843">1843</a>
+<a href="#1844" id="1844">1844</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2058,7 +2066,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
-<span class="kw">use </span>pallet_asset_conversion_tx_payment::AssetConversionAdapter;
+<span class="kw">use </span>pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 <span class="kw">use </span>pallet_nfts::PalletFeatures;
 <span class="kw">use </span>parachains_common::{
 	impls::DealWithFees,
@@ -2785,11 +2793,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightInfo = weights::pallet_collator_selection::WeightInfo&lt;Runtime&gt;;
 }
 
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub </span>StakingPot: AccountId = CollatorSelection::account_id();
+}
+
 <span class="kw">impl </span>pallet_asset_conversion_tx_payment::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>Fungibles = LocalAndForeignAssets;
-	<span class="kw">type </span>OnChargeAssetTransaction =
-		AssetConversionAdapter&lt;Balances, AssetConversion, TokenLocationV3&gt;;
+	<span class="kw">type </span>AssetId = xcm::v3::Location;
+	<span class="kw">type </span>OnChargeAssetTransaction = SwapAssetAdapter&lt;
+		TokenLocationV3,
+		NativeAndAssets,
+		AssetConversion,
+		ResolveAssetTo&lt;StakingPot, NativeAndAssets&gt;,
+	&gt;;
 }
 
 <span class="macro">parameter_types! </span>{

@@ -2056,6 +2056,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1905" id="1905">1905</a>
 <a href="#1906" id="1906">1906</a>
 <a href="#1907" id="1907">1907</a>
+<a href="#1908" id="1908">1908</a>
+<a href="#1909" id="1909">1909</a>
+<a href="#1910" id="1910">1910</a>
+<a href="#1911" id="1911">1911</a>
+<a href="#1912" id="1912">1912</a>
+<a href="#1913" id="1913">1913</a>
+<a href="#1914" id="1914">1914</a>
+<a href="#1915" id="1915">1915</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2113,7 +2121,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
-<span class="kw">use </span>pallet_asset_conversion_tx_payment::AssetConversionAdapter;
+<span class="kw">use </span>pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 <span class="kw">use </span>pallet_nfts::{DestroyWitness, PalletFeatures};
 <span class="kw">use </span>pallet_xcm::EnsureXcm;
 <span class="kw">use </span>parachains_common::{
@@ -2845,11 +2853,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightInfo = weights::pallet_collator_selection::WeightInfo&lt;Runtime&gt;;
 }
 
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub </span>StakingPot: AccountId = CollatorSelection::account_id();
+}
+
 <span class="kw">impl </span>pallet_asset_conversion_tx_payment::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>Fungibles = LocalAndForeignAssets;
-	<span class="kw">type </span>OnChargeAssetTransaction =
-		AssetConversionAdapter&lt;Balances, AssetConversion, WestendLocationV3&gt;;
+	<span class="kw">type </span>AssetId = xcm::v3::Location;
+	<span class="kw">type </span>OnChargeAssetTransaction = SwapAssetAdapter&lt;
+		WestendLocationV3,
+		NativeAndAssets,
+		AssetConversion,
+		ResolveAssetTo&lt;StakingPot, NativeAndAssets&gt;,
+	&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
