@@ -1590,7 +1590,7 @@ where
 					viable_epoch.as_ref().start_slot,
 				);
 
-				let next_epoch = viable_epoch.increment((next_epoch_descriptor, epoch_config));
+				let next_epoch = viable_epoch.increment((next_epoch_descriptor.clone(), epoch_config.clone()));
 
 				let mut current_viable_epoch = viable_epoch.into_cloned();
 				current_viable_epoch.as_mut().epoch_index -= 1;
@@ -1599,7 +1599,7 @@ where
 					.start_slot
 					.saturating_sub(Slot::from(current_viable_epoch.as_ref().duration));
 				let current_epoch = current_viable_epoch
-					.increment((next_epoch_descriptor.clone(), epoch_config.clone()));
+					.increment((next_epoch_descriptor, epoch_config));
 
 				log!(
 					target: LOG_TARGET,
