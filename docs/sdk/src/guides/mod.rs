@@ -15,7 +15,7 @@
 /// Write your first simple pallet, learning the most most basic features of FRAME along the way.
 pub mod your_first_pallet;
 
-/// Writing your first real [runtime](`crate::reference_docs::wasm_meta_protocol`), and successfully
+/// Write your first real [runtime](`crate::reference_docs::wasm_meta_protocol`),
 /// compiling it to [WASM](crate::polkadot_sdk::substrate#wasm-build).
 pub mod your_first_runtime;
 
