@@ -51,7 +51,7 @@ where
 	<R as frame_system::Config>::AccountId: From<polkadot_primitives::AccountId>,
 	<R as frame_system::Config>::AccountId: Into<polkadot_primitives::AccountId>,
 {
-	fn on_unbalanceds<B>(
+	fn on_unbalanceds(
 		mut fees_then_tips: impl Iterator<Item = Credit<R::AccountId, pallet_balances::Pallet<R>>>,
 	) {
 		if let Some(fees) = fees_then_tips.next() {
