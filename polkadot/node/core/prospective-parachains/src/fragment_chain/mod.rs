@@ -37,18 +37,18 @@
 //! The unconnected storage keeps a record of seconded/backable candidates that may be
 //! added to the best chain in the future.
 //!	Once a candidate is seconded, it becomes part of this unconnected storage.
-//! Only after it is backed it may be added to the best chain (but not neccessarily). It's only
+//! Only after it is backed it may be added to the best chain (but not necessarily). It's only
 //! added if it builds on the latest candidate in the chain and if there isn't a better backable
 //! candidate according to the fork selection rule.
 //!
 //! An important thing to note is that the candidates present in the unconnected storage may have
 //! any/no relationship between them. In other words, they may form N trees and may even form
 //! cycles. This is needed so that we may begin validating candidates for which we don't yet know
-//! their parent (so we may parallelise the backing process across different groups for elastic
+//! their parent (so we may parallelize the backing process across different groups for elastic
 //! scaling) and so that we accept parachain forks.
 //!
 //! We accept parachain forks only until reaching the backing quorum. After that, we assume all
-//! validators pick the same fork accroding to the fork selection rule. If we decided to not accept
+//! validators pick the same fork according to the fork selection rule. If we decided to not accept
 //! parachain forks, candidates could end up getting only half of the backing votes or even less
 //! (for forks of larger arity). This would affect the validator rewards. Still, we don't guarantee
 //! that a fork-producing parachains will be able to fully use elastic scaling.
@@ -837,7 +837,7 @@ impl FragmentChain {
 	}
 
 	/// Checks if this candidate could be added in the future to this chain.
-	/// This will return `Error::CandidateAlreadyKnown` if the candidate is alrady in the chain or
+	/// This will return `Error::CandidateAlreadyKnown` if the candidate is already in the chain or
 	/// the unconnected candidate storage. It will return
 	/// `Error::CandidateAlreadyPendingAvailability` if the candidate is already pending
 	/// availability.
@@ -1075,7 +1075,7 @@ impl FragmentChain {
 
 	// Populate the fragment chain with candidates from the supplied `CandidateStorage`.
 	// Can be called by the constructor or when backing a new candidate.
-	// When this is called, it may cause a the previous chain to be completely erased or it may add
+	// When this is called, it may cause the previous chain to be completely erased or it may add
 	// more than one candidate.
 	fn populate_chain(&mut self, storage: &mut CandidateStorage) {
 		let mut cumulative_modifications =
