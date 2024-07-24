@@ -73,9 +73,13 @@ pub use libp2p::request_response::{Config, InboundFailure, OutboundFailure, Requ
 #[allow(missing_docs)]
 #[error("dial-failure")]
 pub enum CustomOutboundFailure{
+	/// The request could not be sent because a dialing attempt failed.
 	DialFailure,
+	/// The request timed out before a response was received.
     Timeout,
+	/// The connection closed before a response was received.
     ConnectionClosed,
+	/// The remote supports none of the requested protocols.
     UnsupportedProtocols,
 }
 
@@ -84,9 +88,13 @@ pub enum CustomOutboundFailure{
 #[allow(missing_docs)]
 #[error("dial-failure")]
 pub enum CustomInboundFailure{
+	/// The inbound request timed out, either while reading the incoming request or before a response is sent
 	Timeout,
+	/// The connection closed before a response could be send.
     ConnectionClosed,
+	/// The local peer supports none of the protocols requested by the remote.
     UnsupportedProtocols,
+	/// The local peer failed to respond to an inbound request 
     ResponseOmission,
 }
 
@@ -127,7 +135,7 @@ pub enum RequestFailure{
 	#[error("The remote replied, but the local node is no longer interested in the response.")]
 	Obsolete,
 	#[error("Problem on the network: {0}")]
-	Network2(CustomOutboundFailure),
+	Network(CustomOutboundFailure),
 }
 
 /// Configuration for a single request-response protocol.
@@ -512,10 +520,10 @@ impl RequestResponsesBehaviour {
 	}
 }
 
-impl<TResponse, TRequest> NetworkBehaviour for RequestResponsesBehaviour {
+impl NetworkBehaviour for RequestResponsesBehaviour {
 	type ConnectionHandler =
 		MultiHandler<String, <Behaviour<GenericCodec> as NetworkBehaviour>::ConnectionHandler>;
-	type ToSwarm = Event0<TRequest, TResponse>;
+	type ToSwarm = Event;
 
 	fn handle_pending_inbound_connection(
 		&mut self,
@@ -918,7 +926,7 @@ impl<TResponse, TRequest> NetworkBehaviour for RequestResponsesBehaviour {
 									}
 
 									if response_tx
-										.send(Err(RequestFailure::Network2(CustomOutboundFailure::Timeout)))
+										.send(Err(RequestFailure::Network(CustomOutboundFailure::Timeout)))
 										.is_err()
 									{
 										log::debug!(
@@ -945,7 +953,7 @@ impl<TResponse, TRequest> NetworkBehaviour for RequestResponsesBehaviour {
 								peer,
 								protocol: protocol.clone(),
 								duration: started.elapsed(),
-								result: Err(RequestFailure::Network2(error)),
+								result: Err(RequestFailure::Network(error)),
 							};
 
 							return Poll::Ready(ToSwarm::GenerateEvent(out))
@@ -962,7 +970,7 @@ impl<TResponse, TRequest> NetworkBehaviour for RequestResponsesBehaviour {
 							let out = Event::InboundRequest {
 								peer,
 								protocol: protocol.clone(),
-								result: Err(ResponseFailure::Network2(error)),
+								result: Err(ResponseFailure::Network(error)),
 							};
 							return Poll::Ready(ToSwarm::GenerateEvent(out))
 						},
@@ -1036,7 +1044,7 @@ pub enum RegisterError {
 pub enum ResponseFailure {
 	/// Problem on the network.
 	#[error("Problem on the network: {0}")]
-	Network2(CustomInboundFailure),
+	Network(CustomInboundFailure),
 }
 
 /// Implements the libp2p [`Codec`] trait. Defines how streams of bytes are turned
@@ -1419,7 +1427,7 @@ mod tests {
 			}
 
 			match response_receiver.unwrap().await.unwrap().unwrap_err() {
-				RequestFailure::Network2(CustomOutboundFailure::ConnectionClosed) => {},
+				RequestFailure::Network(CustomOutboundFailure::ConnectionClosed) => {},
 				_ => panic!(),
 			}
 		});
@@ -1790,7 +1798,7 @@ mod tests {
 					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
 						assert_matches!(
 							result.unwrap_err(),
-							RequestFailure::Network2(CustomOutboundFailure::UnsupportedProtocols)
+							RequestFailure::Network(CustomOutboundFailure::UnsupportedProtocols)
 						);
 						break
 					},

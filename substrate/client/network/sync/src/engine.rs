@@ -1271,19 +1271,19 @@ where
 			Ok(Err(e)) => {
 				debug!(target: LOG_TARGET, "Request to peer {peer_id:?} failed: {e:?}.");
 
-				// Using Our custom type Network2(CustomOutboundFailure)
+				// Using Our custom type Network(CustomOutboundFailure)
 				match e {
-					RequestFailure::Network2(CustomOutboundFailure::Timeout) => {
+					RequestFailure::Network(CustomOutboundFailure::Timeout) => {
 						self.network_service.report_peer(peer_id, rep::TIMEOUT);
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
-					RequestFailure::Network2(CustomOutboundFailure::UnsupportedProtocols) => {
+					RequestFailure::Network(CustomOutboundFailure::UnsupportedProtocols) => {
 						self.network_service.report_peer(peer_id, rep::BAD_PROTOCOL);
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
-					RequestFailure::Network2(CustomOutboundFailure::DialFailure) => {
+					RequestFailure::Network(CustomOutboundFailure::DialFailure) => {
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
@@ -1292,7 +1292,7 @@ where
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
-					RequestFailure::Network2(CustomOutboundFailure::ConnectionClosed) |
+					RequestFailure::Network(CustomOutboundFailure::ConnectionClosed) |
 					RequestFailure::NotConnected => {
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
@@ -1308,7 +1308,7 @@ where
 						);
 					},
 					//If OutboundFailure is used, 
-					RequestFailure::Network2(_) => {debug_assert!(false, "Don't use deprecated Network");},
+					RequestFailure::Network(_) => {debug_assert!(false, "Don't use deprecated Network");},
 				}
 			},
 			Err(oneshot::Canceled) => {

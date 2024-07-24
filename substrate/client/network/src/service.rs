@@ -1219,7 +1219,7 @@ where
 			// The channel can only be closed if the network worker no longer exists. If the
 			// network worker no longer exists, then all connections to `target` are necessarily
 			// closed, and we legitimately report this situation as a "ConnectionClosed".
-			Err(_) => Err(RequestFailure::Network2(CustomOutboundFailure::ConnectionClosed)),
+			Err(_) => Err(RequestFailure::Network(CustomOutboundFailure::ConnectionClosed)),
 		}
 	}
 
@@ -1495,17 +1495,17 @@ where
 						},
 						Err(err) => {
 							let reason = match err {
-								ResponseFailure::Network2(CustomInboundFailure::Timeout) =>
+								ResponseFailure::Network(CustomInboundFailure::Timeout) =>
 									Some("timeout"),
-								ResponseFailure::Network2(CustomInboundFailure::UnsupportedProtocols) =>
+								ResponseFailure::Network(CustomInboundFailure::UnsupportedProtocols) =>
 								// `UnsupportedProtocols` is reported for every single
 								// inbound request whenever a request with an unsupported
 								// protocol is received. This is not reported in order to
 								// avoid confusions.
 									None,
-								ResponseFailure::Network2(CustomInboundFailure::ResponseOmission) =>
+								ResponseFailure::Network(CustomInboundFailure::ResponseOmission) =>
 									Some("busy-omitted"),
-								ResponseFailure::Network2(CustomInboundFailure::ConnectionClosed) =>
+								ResponseFailure::Network(CustomInboundFailure::ConnectionClosed) =>
 									Some("connection-closed"),
 							};
 
@@ -1541,12 +1541,12 @@ where
 								RequestFailure::Refused => "refused",
 								RequestFailure::Obsolete => "obsolete",
 								
-								RequestFailure::Network2(CustomOutboundFailure::DialFailure) =>
+								RequestFailure::Network(CustomOutboundFailure::DialFailure) =>
 									"dial-failure",
-								RequestFailure::Network2(CustomOutboundFailure::Timeout) => "timeout",
-								RequestFailure::Network2(CustomOutboundFailure::ConnectionClosed) =>
+								RequestFailure::Network(CustomOutboundFailure::Timeout) => "timeout",
+								RequestFailure::Network(CustomOutboundFailure::ConnectionClosed) =>
 									"connection-closed",
-								RequestFailure::Network2(CustomOutboundFailure::UnsupportedProtocols) =>
+								RequestFailure::Network(CustomOutboundFailure::UnsupportedProtocols) =>
 									"unsupported",
 								
 							};
