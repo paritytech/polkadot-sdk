@@ -219,7 +219,7 @@ async fn handle_active_leaves_update<Context>(
 
 		let requested_ancestry_len = if allowed_ancestry_len == 0 {
 			1
-			// We should try requesting at least one, so that we can know the previous leaf.
+		// We should try requesting at least one, so that we can know the previous leaf.
 		} else {
 			allowed_ancestry_len
 		};
