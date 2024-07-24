@@ -1329,6 +1329,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1178" id="1178">1178</a>
 <a href="#1179" id="1179">1179</a>
 <a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1362,6 +1379,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ops::Deref,
 	path::{Path, PathBuf},
 	process,
+	sync::OnceLock,
 };
 <span class="kw">use </span>strum::{EnumIter, IntoEnumIterator};
 <span class="kw">use </span>toml::value::Table;
@@ -2230,6 +2248,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
+	<span class="comment">// Inherit jobserver in child cargo command to ensure we don't try to use more concurrency than
+	// available
+	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(c) = get_jobserver() {
+		c.configure(<span class="kw-2">&amp;mut </span>build_cmd);
+	}
+
 	<span class="macro">println!</span>(<span class="string">"{}"</span>, colorize_info_message(<span class="string">"Information that should be included in a bug report."</span>));
 	<span class="macro">println!</span>(<span class="string">"{} {:?}"</span>, colorize_info_message(<span class="string">"Executing build command:"</span>), build_cmd);
 	<span class="macro">println!</span>(<span class="string">"{} {}"</span>, colorize_info_message(<span class="string">"Using rustc version:"</span>), cargo_cmd.rustc_version());
@@ -2508,6 +2532,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target_dir.join(<span class="macro">format!</span>(<span class="string">"{}.wasm"</span>, get_blob_name(RuntimeTarget::Wasm, cargo_manifest))),
 	)
 	.expect(<span class="string">"Copies blob binary to `WASM_TARGET_DIRECTORY`."</span>);
+}
+
+<span class="comment">// Get jobserver from parent cargo command
+</span><span class="kw">pub fn </span>get_jobserver() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="prelude-ty">Option</span>&lt;jobserver::Client&gt; {
+	<span class="kw">static </span>JOBSERVER: OnceLock&lt;<span class="prelude-ty">Option</span>&lt;jobserver::Client&gt;&gt; = OnceLock::new();
+
+	JOBSERVER.get_or_init(|| {
+		<span class="comment">// Unsafe because it deals with raw fds
+		</span><span class="kw">unsafe </span>{ jobserver::Client::from_env() }
+	})
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

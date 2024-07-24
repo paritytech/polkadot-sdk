@@ -535,6 +535,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#384" id="384">384</a>
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -883,6 +885,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	check_for_runtime_version_section: bool,
 	<span class="attr">#[cfg(feature = <span class="string">"metadata-hash"</span>)] </span>enable_metadata_hash: <span class="prelude-ty">Option</span>&lt;MetadataExtraInfo&gt;,
 ) {
+	<span class="comment">// Init jobserver as soon as possible
+	</span><span class="kw">crate</span>::wasm_project::get_jobserver();
 	<span class="kw">let </span>cargo_cmd = <span class="kw">match </span><span class="kw">crate</span>::prerequisites::check(target) {
 		<span class="prelude-val">Ok</span>(cmd) =&gt; cmd,
 		<span class="prelude-val">Err</span>(err_msg) =&gt; {
