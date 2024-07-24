@@ -33,8 +33,6 @@ xcm-executor = { workspace = true }
 pallet-bridge-messages = { workspace = true }
 
 # Cumulus
-parachains-common = { workspace = true }
-testnet-parachains-constants = { workspace = true, features = ["rococo"] }
 cumulus-pallet-xcmp-queue = { workspace = true }
 emulated-integration-tests-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }

@@ -55,7 +55,6 @@ jobs:
           rustup component add rustfmt --toolchain nightly
           rustup show
       - name: format
-        working-directory: bridges/snowbridge
         run: cargo +nightly fmt -- --check
       - name: install taplo
         run: |
@@ -146,17 +145,33 @@ jobs:
       - run: sudo prlimit --pid $$ --stack=32768
       # Run tests for runtime-benchmarks feature
       - name: Tests for runtime-benchmarks
-        working-directory: bridges/snowbridge
         run: >
           cargo test
-          --workspace
+          -p snowbridge-pallet-ethereum-client
+          -p snowbridge-pallet-inbound-queue
+          -p snowbridge-pallet-outbound-queue
+          -p snowbridge-outbound-queue-merkle-tree
+          -p snowbridge-pallet-system
+          -p snowbridge-beacon-primitives
+          -p snowbridge-core
+          -p snowbridge-ethereum
+          -p snowbridge-router-primitives
+          -p snowbridge-runtime-common
           --features runtime-benchmarks
       # Run tests for all features
       - name: Tests for all features
-        working-directory: bridges/snowbridge
         run: >
           cargo test
-          --workspace
+          -p snowbridge-pallet-ethereum-client
+          -p snowbridge-pallet-inbound-queue
+          -p snowbridge-pallet-outbound-queue
+          -p snowbridge-outbound-queue-merkle-tree
+          -p snowbridge-pallet-system
+          -p snowbridge-beacon-primitives
+          -p snowbridge-core
+          -p snowbridge-ethereum
+          -p snowbridge-router-primitives
+          -p snowbridge-runtime-common
           --all-features
 
   coverage:
@@ -179,7 +194,6 @@ jobs:
       - name: setup rust toolchain
         run: rustup show
       - name: run coverage test
-        working-directory: bridges/snowbridge
         run: >
           cargo install cargo-tarpaulin@0.27.0 &&
           cargo tarpaulin

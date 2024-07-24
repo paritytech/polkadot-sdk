@@ -3,7 +3,6 @@
 use crate as ethereum_beacon_client;
 use crate::config;
 use frame_support::{derive_impl, dispatch::DispatchResult, pallet_prelude::Weight, parameter_types};
-use pallet_timestamp;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::inbound::{Log, Proof};
 use sp_std::default::Default;
