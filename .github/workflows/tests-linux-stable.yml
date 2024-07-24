@@ -107,7 +107,7 @@ jobs:
           time cargo llvm-cov --release nextest
           --no-report
           -p polkadot
-          --locked --release --no-fail-fast
+          --locked --no-fail-fast
           --partition count:${{ matrix.ci_node_index }}/100
       - run: ls -al target/coverage
       - run: ls -al /__w/polkadot-sdk/polkadot-sdk/
