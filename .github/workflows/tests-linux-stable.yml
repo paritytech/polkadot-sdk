@@ -106,7 +106,7 @@ jobs:
         run: >
           time cargo llvm-cov --release nextest
           --no-report
-          -p polkadot
+          --workspace
           --locked --no-fail-fast
           --partition count:${{ matrix.ci_node_index }}/100
       - run: ls -al target/coverage
