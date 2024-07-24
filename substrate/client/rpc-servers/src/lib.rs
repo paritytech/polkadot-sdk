@@ -181,7 +181,7 @@ where
 
 			let ip = remote_addr.ip();
 			let cfg2 = cfg.clone();
-			let svc = tower::service_fn(move |req: http::Request<hyper::body::Incoming>| {
+			let svc = tower::service_fn(move |mut req: http::Request<hyper::body::Incoming>| {
 				let PerConnection {
 					methods,
 					service_builder,
@@ -193,6 +193,8 @@ where
 
 				let proxy_ip =
 					if rate_limit_trust_proxy_headers { get_proxy_ip(&req) } else { None };
+
+				req.extensions_mut().insert(proxy_ip.unwrap_or(ip));
 
 				let rate_limit_cfg = if rate_limit_whitelisted_ips
 					.iter()

@@ -24,7 +24,9 @@ use parking_lot::RwLock;
 use sp_consensus_beefy::AuthorityIdBound;
 use std::sync::Arc;
 
-use sc_rpc::{utils::pipe_from_stream, SubscriptionTaskExecutor};
+use sc_rpc::{
+	utils::pipe_from_stream, SubscriptionMetrics, SubscriptionParams, SubscriptionTaskExecutor,
+};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_runtime::traits::Block as BlockT;
 
@@ -33,7 +35,7 @@ use jsonrpsee::{
 	core::async_trait,
 	proc_macros::rpc,
 	types::{ErrorObject, ErrorObjectOwned},
-	PendingSubscriptionSink,
+	ConnectionId, Extensions, PendingSubscriptionSink,
 };
 use log::warn;
 
@@ -87,6 +89,7 @@ pub trait BeefyApi<Notification, Hash> {
 		name = "beefy_subscribeJustifications" => "beefy_justifications",
 		unsubscribe = "beefy_unsubscribeJustifications",
 		item = Notification,
+		with_extensions
 	)]
 	fn subscribe_justifications(&self);
 
@@ -104,6 +107,7 @@ pub struct Beefy<Block: BlockT, AuthorityId: AuthorityIdBound> {
 	finality_proof_stream: BeefyVersionedFinalityProofStream<Block, AuthorityId>,
 	beefy_best_block: Arc<RwLock<Option<Block::Hash>>>,
 	executor: SubscriptionTaskExecutor,
+	metrics: SubscriptionMetrics,
 }
 
 impl<Block, AuthorityId> Beefy<Block, AuthorityId>
@@ -116,6 +120,7 @@ where
 		finality_proof_stream: BeefyVersionedFinalityProofStream<Block, AuthorityId>,
 		best_block_stream: BeefyBestBlockStream<Block>,
 		executor: SubscriptionTaskExecutor,
+		metrics: SubscriptionMetrics,
 	) -> Result<Self, Error> {
 		let beefy_best_block = Arc::new(RwLock::new(None));
 
@@ -127,7 +132,7 @@ where
 		});
 
 		executor.spawn("substrate-rpc-subscription", Some("rpc"), future.map(drop).boxed());
-		Ok(Self { finality_proof_stream, beefy_best_block, executor })
+		Ok(Self { finality_proof_stream, beefy_best_block, executor, metrics })
 	}
 }
 
@@ -139,13 +144,23 @@ where
 	AuthorityId: AuthorityIdBound,
 	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
-	fn subscribe_justifications(&self, pending: PendingSubscriptionSink) {
+	fn subscribe_justifications(&self, pending: PendingSubscriptionSink, ext: &Extensions) {
+		let params = SubscriptionParams {
+			conn_id: *ext.get::<ConnectionId>().expect("ConnectionId is set"),
+			ip_addr: *ext.get::<std::net::IpAddr>().expect("IpAddr is set"),
+			method: "beefy_subscribeJustifications",
+			metrics: self.metrics.clone(),
+		};
+
 		let stream = self
 			.finality_proof_stream
 			.subscribe(100_000)
 			.map(|vfp| notification::EncodedVersionedFinalityProof::new::<Block, AuthorityId>(vfp));
 
-		sc_rpc::utils::spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
+		sc_rpc::utils::spawn_subscription_task(
+			&self.executor,
+			pipe_from_stream(pending, stream, params),
+		);
 	}
 
 	async fn latest_finalized(&self) -> Result<Block::Hash, Error> {
@@ -163,6 +178,7 @@ mod tests {
 		communication::notification::BeefyVersionedFinalityProofSender,
 		justification::BeefyVersionedFinalityProof,
 	};
+	use sc_rpc::SubscriptionMetrics;
 	use sp_consensus_beefy::{ecdsa_crypto, known_payloads, Payload, SignedCommitment};
 	use sp_runtime::traits::{BlakeTwo256, Hash};
 	use substrate_test_runtime_client::runtime::Block;
@@ -184,9 +200,13 @@ mod tests {
 		let (finality_proof_sender, finality_proof_stream) =
 			BeefyVersionedFinalityProofStream::<Block, ecdsa_crypto::AuthorityId>::channel();
 
-		let handler =
-			Beefy::new(finality_proof_stream, best_block_stream, sc_rpc::testing::test_executor())
-				.expect("Setting up the BEEFY RPC handler works");
+		let handler = Beefy::new(
+			finality_proof_stream,
+			best_block_stream,
+			sc_rpc::testing::test_executor(),
+			SubscriptionMetrics::disabled(),
+		)
+		.expect("Setting up the BEEFY RPC handler works");
 
 		(handler.into_rpc(), finality_proof_sender)
 	}

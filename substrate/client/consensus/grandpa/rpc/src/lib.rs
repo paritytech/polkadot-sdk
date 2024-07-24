@@ -26,6 +26,7 @@ use std::sync::Arc;
 use jsonrpsee::{
 	core::{async_trait, server::PendingSubscriptionSink},
 	proc_macros::rpc,
+	ConnectionId, Extensions,
 };
 
 mod error;
@@ -38,7 +39,9 @@ use finality::{EncodedFinalityProof, RpcFinalityProofProvider};
 use notification::JustificationNotification;
 use report::{ReportAuthoritySet, ReportVoterState, ReportedRoundStates};
 use sc_consensus_grandpa::GrandpaJustificationStream;
-use sc_rpc::{utils::pipe_from_stream, SubscriptionTaskExecutor};
+use sc_rpc::{
+	utils::pipe_from_stream, SubscriptionMetrics, SubscriptionParams, SubscriptionTaskExecutor,
+};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 /// Provides RPC methods for interacting with GRANDPA.
@@ -54,7 +57,8 @@ pub trait GrandpaApi<Notification, Hash, Number> {
 	#[subscription(
 		name = "grandpa_subscribeJustifications" => "grandpa_justifications",
 		unsubscribe = "grandpa_unsubscribeJustifications",
-		item = Notification
+		item = Notification,
+		with_extensions
 	)]
 	fn subscribe_justifications(&self);
 
@@ -71,6 +75,7 @@ pub struct Grandpa<AuthoritySet, VoterState, Block: BlockT, ProofProvider> {
 	voter_state: VoterState,
 	justification_stream: GrandpaJustificationStream<Block>,
 	finality_proof_provider: Arc<ProofProvider>,
+	metrics: SubscriptionMetrics,
 }
 impl<AuthoritySet, VoterState, Block: BlockT, ProofProvider>
 	Grandpa<AuthoritySet, VoterState, Block, ProofProvider>
@@ -82,8 +87,16 @@ impl<AuthoritySet, VoterState, Block: BlockT, ProofProvider>
 		voter_state: VoterState,
 		justification_stream: GrandpaJustificationStream<Block>,
 		finality_proof_provider: Arc<ProofProvider>,
+		metrics: SubscriptionMetrics,
 	) -> Self {
-		Self { executor, authority_set, voter_state, justification_stream, finality_proof_provider }
+		Self {
+			executor,
+			authority_set,
+			voter_state,
+			justification_stream,
+			finality_proof_provider,
+			metrics,
+		}
 	}
 }
 
@@ -101,14 +114,24 @@ where
 		ReportedRoundStates::from(&self.authority_set, &self.voter_state)
 	}
 
-	fn subscribe_justifications(&self, pending: PendingSubscriptionSink) {
+	fn subscribe_justifications(&self, pending: PendingSubscriptionSink, ext: &Extensions) {
+		let params = SubscriptionParams {
+			conn_id: *ext.get::<ConnectionId>().expect("ConnectionId is set"),
+			ip_addr: *ext.get::<std::net::IpAddr>().expect("IpAddr is set"),
+			method: "grandpa_subscribeJustifications",
+			metrics: self.metrics.clone(),
+		};
+
 		let stream = self.justification_stream.subscribe(100_000).map(
 			|x: sc_consensus_grandpa::GrandpaJustification<Block>| {
 				JustificationNotification::from(x)
 			},
 		);
 
-		sc_rpc::utils::spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
+		sc_rpc::utils::spawn_subscription_task(
+			&self.executor,
+			pipe_from_stream(pending, stream, params),
+		);
 	}
 
 	async fn prove_finality(
@@ -260,6 +283,7 @@ mod tests {
 			voter_state,
 			justification_stream,
 			finality_proof_provider,
+			SubscriptionMetrics::disabled(),
 		)
 		.into_rpc();
 

@@ -29,8 +29,11 @@ use crate::{
 
 use codec::Decode;
 use futures::{StreamExt, TryFutureExt};
-use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
-use sc_rpc::utils::{pipe_from_stream, to_sub_message};
+use jsonrpsee::{core::async_trait, ConnectionId, Extensions, PendingSubscriptionSink};
+use sc_rpc::{
+	utils::{pipe_from_stream, to_sub_message},
+	SubscriptionMetrics, SubscriptionParams,
+};
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, TransactionFor, TransactionPool, TransactionSource,
 	TransactionStatus,
@@ -50,12 +53,19 @@ pub struct Transaction<Pool, Client> {
 	pool: Arc<Pool>,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
+	/// Subscription metrics.
+	metrics: SubscriptionMetrics,
 }
 
 impl<Pool, Client> Transaction<Pool, Client> {
 	/// Creates a new [`Transaction`].
-	pub fn new(client: Arc<Client>, pool: Arc<Pool>, executor: SubscriptionTaskExecutor) -> Self {
-		Transaction { client, pool, executor }
+	pub fn new(
+		client: Arc<Client>,
+		pool: Arc<Pool>,
+		executor: SubscriptionTaskExecutor,
+		metrics: SubscriptionMetrics,
+	) -> Self {
+		Transaction { client, pool, executor, metrics }
 	}
 }
 
@@ -74,7 +84,14 @@ where
 	<Pool::Block as BlockT>::Hash: Unpin,
 	Client: HeaderBackend<Pool::Block> + Send + Sync + 'static,
 {
-	fn submit_and_watch(&self, pending: PendingSubscriptionSink, xt: Bytes) {
+	fn submit_and_watch(&self, pending: PendingSubscriptionSink, ext: &Extensions, xt: Bytes) {
+		let params = SubscriptionParams {
+			method: "transactionWatch_v1_submitAndWatch",
+			ip_addr: *ext.get::<std::net::IpAddr>().expect("IpAddr is always set"),
+			conn_id: *ext.get::<ConnectionId>().expect("ConnectionId is always set"),
+			metrics: self.metrics.clone(),
+		};
+
 		let client = self.client.clone();
 		let pool = self.pool.clone();
 
@@ -111,13 +128,18 @@ where
 			match submit.await {
 				Ok(stream) => {
 					let stream = stream.filter_map(move |event| async move { handle_event(event) });
-					pipe_from_stream(pending, stream.boxed()).await;
+					pipe_from_stream(pending, stream.boxed(), params).await;
 				},
 				Err(err) => {
 					// We have not created an `Watcher` for the tx. Make sure the
 					// error is still propagated as an event.
 					let event: TransactionEvent<<Pool::Block as BlockT>::Hash> = err.into();
-					pipe_from_stream(pending, futures::stream::once(async { event }).boxed()).await;
+					pipe_from_stream(
+						pending,
+						futures::stream::once(async { event }).boxed(),
+						params,
+					)
+					.await;
 				},
 			};
 		};

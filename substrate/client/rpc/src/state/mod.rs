@@ -24,8 +24,8 @@ mod utils;
 #[cfg(test)]
 mod tests;
 
-use crate::SubscriptionTaskExecutor;
-use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
+use crate::{SubscriptionMetrics, SubscriptionParams, SubscriptionTaskExecutor};
+use jsonrpsee::{core::async_trait, ConnectionId, Extensions, PendingSubscriptionSink};
 use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, ExecutorProvider, ProofProvider, StorageProvider,
 };
@@ -149,7 +149,11 @@ where
 	) -> Result<sp_rpc::tracing::TraceBlockResponse, Error>;
 
 	/// New runtime version subscription
-	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink);
+	fn subscribe_runtime_version(
+		&self,
+		pending: PendingSubscriptionSink,
+		params: SubscriptionParams,
+	);
 
 	/// New storage subscription
 	fn subscribe_storage(
@@ -157,6 +161,7 @@ where
 		pending: PendingSubscriptionSink,
 		keys: Option<Vec<StorageKey>>,
 		deny_unsafe: DenyUnsafe,
+		params: SubscriptionParams,
 	);
 }
 
@@ -165,6 +170,7 @@ pub fn new_full<BE, Block: BlockT, Client>(
 	client: Arc<Client>,
 	executor: SubscriptionTaskExecutor,
 	deny_unsafe: DenyUnsafe,
+	metrics: SubscriptionMetrics,
 ) -> (State<Block, Client>, ChildState<Block, Client>)
 where
 	Block: BlockT + 'static,
@@ -187,7 +193,7 @@ where
 	let child_backend =
 		Box::new(self::state_full::FullState::new(client.clone(), executor.clone()));
 	let backend = Box::new(self::state_full::FullState::new(client, executor));
-	(State { backend, deny_unsafe }, ChildState { backend: child_backend })
+	(State { backend, deny_unsafe, metrics }, ChildState { backend: child_backend })
 }
 
 /// State API with subscriptions support.
@@ -195,6 +201,8 @@ pub struct State<Block, Client> {
 	backend: Box<dyn StateBackend<Block, Client>>,
 	/// Whether to deny unsafe calls
 	deny_unsafe: DenyUnsafe,
+	/// Metrics for subscriptions
+	metrics: SubscriptionMetrics,
 }
 
 #[async_trait]
@@ -323,12 +331,31 @@ where
 			.map_err(Into::into)
 	}
 
-	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink) {
-		self.backend.subscribe_runtime_version(pending)
+	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink, ext: &Extensions) {
+		let params = SubscriptionParams {
+			method: "state_subscribeRuntimeVersion",
+			ip_addr: *ext.get::<std::net::IpAddr>().expect("IpAddr is set"),
+			conn_id: *ext.get::<ConnectionId>().expect("ConnectionId is set"),
+			metrics: self.metrics.clone(),
+		};
+
+		self.backend.subscribe_runtime_version(pending, params)
 	}
 
-	fn subscribe_storage(&self, pending: PendingSubscriptionSink, keys: Option<Vec<StorageKey>>) {
-		self.backend.subscribe_storage(pending, keys, self.deny_unsafe)
+	fn subscribe_storage(
+		&self,
+		pending: PendingSubscriptionSink,
+		ext: &Extensions,
+		keys: Option<Vec<StorageKey>>,
+	) {
+		let params = SubscriptionParams {
+			method: "state_subscribeStorage",
+			ip_addr: *ext.get::<std::net::IpAddr>().expect("IpAddr is set"),
+			conn_id: *ext.get::<ConnectionId>().expect("ConnectionId is set"),
+			metrics: self.metrics.clone(),
+		};
+
+		self.backend.subscribe_storage(pending, keys, self.deny_unsafe, params)
 	}
 }
 

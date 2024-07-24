@@ -36,6 +36,7 @@ pub trait TransactionApi<Hash: Clone> {
 		name = "transactionWatch_v1_submitAndWatch" => "transactionWatch_v1_watchEvent",
 		unsubscribe = "transactionWatch_v1_unwatch",
 		item = TransactionEvent<Hash>,
+		with_extensions,
 	)]
 	fn submit_and_watch(&self, bytes: Bytes);
 }

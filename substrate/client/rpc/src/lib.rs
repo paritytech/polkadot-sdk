@@ -30,6 +30,7 @@ pub use jsonrpsee::core::{
 	traits::IdProvider as RpcSubscriptionIdProvider,
 };
 pub use sc_rpc_api::DenyUnsafe;
+pub use utils::{SubscriptionMetrics, SubscriptionParams};
 
 pub mod author;
 pub mod chain;

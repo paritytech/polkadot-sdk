@@ -491,6 +491,10 @@ where
 	);
 
 	let rpc_id_provider = config.rpc_id_provider.take();
+	let rpc_metrics = sc_rpc::SubscriptionMetrics::new(
+		config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
+	)
+	.map_err(|e| Error::Application(e))?;
 
 	// jsonrpsee RPC
 	let gen_rpc_module = |deny_unsafe: DenyUnsafe| {
@@ -504,6 +508,7 @@ where
 			&config,
 			backend.clone(),
 			&*rpc_builder,
+			rpc_metrics.clone(),
 		)
 	};
 
@@ -601,6 +606,7 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 	config: &Configuration,
 	backend: Arc<TBackend>,
 	rpc_builder: &(dyn Fn(DenyUnsafe, SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>),
+	metrics: sc_rpc::SubscriptionMetrics,
 ) -> Result<RpcModule<()>, Error>
 where
 	TBl: BlockT,
@@ -635,8 +641,12 @@ where
 
 	let (chain, state, child_state) = {
 		let chain = sc_rpc::chain::new_full(client.clone(), task_executor.clone()).into_rpc();
-		let (state, child_state) =
-			sc_rpc::state::new_full(client.clone(), task_executor.clone(), deny_unsafe);
+		let (state, child_state) = sc_rpc::state::new_full(
+			client.clone(),
+			task_executor.clone(),
+			deny_unsafe,
+			metrics.clone(),
+		);
 		let state = state.into_rpc();
 		let child_state = child_state.into_rpc();
 
@@ -657,6 +667,7 @@ where
 		client.clone(),
 		transaction_pool.clone(),
 		task_executor.clone(),
+		metrics.clone(),
 	)
 	.into_rpc();
 
@@ -695,6 +706,7 @@ where
 		keystore,
 		deny_unsafe,
 		task_executor.clone(),
+		metrics.clone(),
 	)
 	.into_rpc();
 

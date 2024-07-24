@@ -41,6 +41,7 @@ sp-session = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
 tokio = { workspace = true, default-features = true }
+prometheus = { version = "0.13.0", default-features = false }
 
 [dev-dependencies]
 env_logger = { workspace = true }

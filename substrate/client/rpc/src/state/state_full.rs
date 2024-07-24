@@ -27,7 +27,7 @@ use super::{
 };
 use crate::{
 	utils::{pipe_from_stream, spawn_subscription_task},
-	DenyUnsafe, SubscriptionTaskExecutor,
+	DenyUnsafe, SubscriptionParams, SubscriptionTaskExecutor,
 };
 
 use futures::{future, stream, StreamExt};
@@ -371,7 +371,11 @@ where
 			.map_err(client_err)
 	}
 
-	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink) {
+	fn subscribe_runtime_version(
+		&self,
+		pending: PendingSubscriptionSink,
+		params: SubscriptionParams,
+	) {
 		let initial = match self
 			.block_or_best(None)
 			.and_then(|block| self.client.runtime_version_at(block).map_err(Into::into))
@@ -405,7 +409,7 @@ where
 			});
 
 		let stream = futures::stream::once(future::ready(initial)).chain(version_stream);
-		spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
+		spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream, params));
 	}
 
 	fn subscribe_storage(
@@ -413,6 +417,7 @@ where
 		pending: PendingSubscriptionSink,
 		keys: Option<Vec<StorageKey>>,
 		deny_unsafe: DenyUnsafe,
+		params: SubscriptionParams,
 	) {
 		if keys.is_none() {
 			if let Err(err) = deny_unsafe.check_if_safe() {
@@ -457,7 +462,7 @@ where
 			.chain(storage_stream)
 			.filter(|storage| future::ready(!storage.changes.is_empty()));
 
-		spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
+		spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream, params));
 	}
 
 	fn trace_block(
