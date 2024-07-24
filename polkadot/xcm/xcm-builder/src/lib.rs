@@ -20,6 +20,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(test)]
 mod tests;
 
@@ -54,7 +56,7 @@ pub use currency_adapter::CurrencyAdapter;
 
 mod fee_handling;
 pub use fee_handling::{
-	deposit_or_burn_fee, HandleFee, XcmFeeManagerFromComponents, XcmFeeToAccount,
+	deposit_or_burn_fee, HandleFee, SendXcmFeeToAccount, XcmFeeManagerFromComponents,
 };
 
 mod filter_asset_location;

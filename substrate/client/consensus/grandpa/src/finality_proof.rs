@@ -39,7 +39,7 @@
 use log::{trace, warn};
 use std::sync::Arc;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use sc_client_api::backend::Backend;
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus_grandpa::GRANDPA_ENGINE_ID;

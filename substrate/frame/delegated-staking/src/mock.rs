@@ -15,12 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{self as delegated_staking, types::Agent};
+use crate::{self as delegated_staking, types::AgentLedgerOuter};
 use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, Currency},
+	traits::{ConstU64, Currency, VariantCountOf},
 	PalletId,
 };
 
@@ -34,7 +34,7 @@ use frame_support::dispatch::RawOrigin;
 use pallet_staking::{ActiveEra, ActiveEraInfo, CurrentEra};
 use sp_core::U256;
 use sp_runtime::traits::Convert;
-use sp_staking::{Stake, StakingInterface};
+use sp_staking::{Agent, Stake, StakingInterface};
 
 pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -44,7 +44,7 @@ pub const GENESIS_VALIDATOR: AccountId = 1;
 pub const GENESIS_NOMINATOR_ONE: AccountId = 101;
 pub const GENESIS_NOMINATOR_TWO: AccountId = 102;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
@@ -64,19 +64,14 @@ pub type Balance = u128;
 parameter_types! {
 	pub static ExistentialDeposit: Balance = 1;
 }
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = ConstU32<128>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<1>;
-	type RuntimeHoldReason = RuntimeHoldReason;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
@@ -93,7 +88,6 @@ pallet_staking_reward_curve::build! {
 
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
-	pub static BondingDuration: u32 = 3;
 	pub static ElectionsBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
 pub struct OnChainSeqPhragmen;
@@ -106,35 +100,17 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Bounds = ElectionsBoundsOnChain;
 }
 
+#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
-	type CurrencyBalance = Balance;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
-	type CurrencyToVote = ();
-	type RewardRemainder = ();
-	type RuntimeEvent = RuntimeEvent;
-	type Slash = ();
-	type Reward = ();
-	type SessionsPerEra = ConstU32<1>;
-	type SlashDeferDuration = ();
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type BondingDuration = BondingDuration;
-	type SessionInterface = ();
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type NextNewSession = ();
-	type HistoryDepth = ConstU32<84>;
-	type MaxExposurePageSize = ConstU32<64>;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
-	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
-	type MaxUnlockingChunks = ConstU32<10>;
-	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type EventListeners = (Pools, DelegatedStaking);
-	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
-	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 parameter_types! {
@@ -309,8 +285,8 @@ pub(crate) fn setup_delegation_stake(
 	}
 
 	// sanity checks
-	assert_eq!(DelegatedStaking::stakeable_balance(&agent), delegated_amount);
-	assert_eq!(Agent::<T>::get(&agent).unwrap().available_to_bond(), 0);
+	assert_eq!(DelegatedStaking::stakeable_balance(Agent::from(agent)), delegated_amount);
+	assert_eq!(AgentLedgerOuter::<T>::get(&agent).unwrap().available_to_bond(), 0);
 
 	delegated_amount
 }
@@ -322,11 +298,11 @@ pub(crate) fn start_era(era: sp_staking::EraIndex) {
 
 pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool {
 	Staking::stake(&who).unwrap() == Stake { total, active } &&
-		get_agent(&who).ledger.stakeable_balance() == total
+		get_agent_ledger(&who).ledger.stakeable_balance() == total
 }
 
-pub(crate) fn get_agent(agent: &AccountId) -> Agent<T> {
-	Agent::<T>::get(agent).expect("delegate should exist")
+pub(crate) fn get_agent_ledger(agent: &AccountId) -> AgentLedgerOuter<T> {
+	AgentLedgerOuter::<T>::get(agent).expect("delegate should exist")
 }
 
 parameter_types! {

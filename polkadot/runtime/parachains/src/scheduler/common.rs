@@ -22,7 +22,7 @@ use sp_runtime::{
 	RuntimeDebug,
 };
 
-use primitives::{CoreIndex, Id as ParaId};
+use polkadot_primitives::{CoreIndex, Id as ParaId};
 
 /// Assignment (ParaId -> CoreIndex).
 #[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq)]

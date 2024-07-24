@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::Client;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_primitives::{Block, InherentData as ParachainsInherentData};
 use polkadot_test_runtime::UncheckedExtrinsic;
 use polkadot_test_service::GetLastTimestamp;

@@ -356,6 +356,7 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	type MinRankOfClass = sp_runtime::traits::Identity;
 	type MemberSwappedHandler = ();
 	type VoteWeight = pallet_ranked_collective::Geometric;
+	type MaxMemberCount = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = ();
 }

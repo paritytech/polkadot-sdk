@@ -10,25 +10,25 @@ description = "Primitives types for the Node-side"
 workspace = true
 
 [dependencies]
-async-channel = "1.8.0"
-async-trait = "0.1.79"
-hex = "0.4.3"
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-jaeger = { path = "../../jaeger" }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
-sc-network = { path = "../../../../substrate/client/network" }
-sc-network-types = { path = "../../../../substrate/client/network/types" }
-sc-authority-discovery = { path = "../../../../substrate/client/authority-discovery" }
-sp-runtime = { path = "../../../../substrate/primitives/runtime" }
-strum = { version = "0.26.2", features = ["derive"] }
-futures = "0.3.30"
+async-channel = { workspace = true }
+async-trait = { workspace = true }
+hex = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-node-jaeger = { workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
+sc-authority-discovery = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+strum = { features = ["derive"], workspace = true, default-features = true }
+futures = { workspace = true }
 thiserror = { workspace = true }
-fatality = "0.1.1"
-rand = "0.8"
-derive_more = "0.99"
-gum = { package = "tracing-gum", path = "../../gum" }
-bitvec = "1"
+fatality = { workspace = true }
+rand = { workspace = true, default-features = true }
+derive_more = { workspace = true, default-features = true }
+gum = { workspace = true, default-features = true }
+bitvec = { workspace = true, default-features = true }
 
 [dev-dependencies]
-rand_chacha = "0.3.1"
+rand_chacha = { workspace = true, default-features = true }

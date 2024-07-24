@@ -26,8 +26,8 @@
 
 extern crate alloc;
 
+use codec::{Decode, DecodeLimit, Encode, Error as CodecError, Input, MaxEncodedLen};
 use derivative::Derivative;
-use parity_scale_codec::{Decode, DecodeLimit, Encode, Error as CodecError, Input, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 #[deprecated(
