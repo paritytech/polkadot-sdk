@@ -618,7 +618,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let migrations = T::Migrations::len();
-		log::debug!("Onboarding {migrations} new MB migrations");
+		log::debug!("Onboarding {migrations} new Multi-Block-Migrations");
 
 		if migrations > 0 {
 			// Set the cursor to the first migration:
@@ -758,7 +758,6 @@ impl<T: Config> Pallet<T> {
 						took_steps,
 					});
 					cursor.inner_cursor = Some(bound_next_cursor);
-					cursor.took_steps = took_steps; // TODO noop
 
 					if max_blocks.map_or(false, |max| took_blocks > max.into()) ||
 						max_steps.map_or(false, |max| took_steps > max)
@@ -795,7 +794,7 @@ impl<T: Config> Pallet<T> {
 						Self::upgrade_failed(Some(cursor.index));
 						return None
 					} else {
-						// It should have reverted since we used `nth_transactional_step`.
+						// This step got reverted, hence we decrement again:
 						cursor.took_steps.saturating_dec();
 						// Retry and hope that there is more weight in the next block.
 						return Some(ControlFlow::Break(cursor))
