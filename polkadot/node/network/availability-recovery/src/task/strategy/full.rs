@@ -153,7 +153,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 						RequestError::InvalidResponse(_) =>
 							common_params.metrics.on_full_request_invalid(),
 						RequestError::NetworkError(req_failure) => {
-							if let RequestFailure::Network2(CustomOutboundFailure::Timeout) = req_failure {
+							if let RequestFailure::Network(CustomOutboundFailure::Timeout) = req_failure {
 								common_params.metrics.on_full_request_timeout();
 							} else {
 								common_params.metrics.on_full_request_error();

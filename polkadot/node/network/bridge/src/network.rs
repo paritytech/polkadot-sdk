@@ -300,7 +300,7 @@ impl Network for Arc<dyn NetworkService> {
 			None => {
 				gum::debug!(target: LOG_TARGET, "Discovering authority failed");
 				match pending_response
-					.send(Err(RequestFailure::Network2(CustomOutboundFailure::DialFailure)))
+					.send(Err(RequestFailure::Network(CustomOutboundFailure::DialFailure)))
 				{
 					Err(_) => {
 						gum::debug!(target: LOG_TARGET, "Sending failed request response failed.")

@@ -97,7 +97,7 @@ impl RequestError {
 		match self {
 			Self::Canceled(_) |
 			Self::NetworkError(network::RequestFailure::Obsolete) |
-			Self::NetworkError(network::RequestFailure::Network2(
+			Self::NetworkError(network::RequestFailure::Network(
 				CustomOutboundFailure::Timeout,
 			)) => true,
 			_ => false,
