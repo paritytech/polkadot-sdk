@@ -22,7 +22,7 @@ use std::{
 use async_trait::async_trait;
 use parking_lot::Mutex;
 
-use parity_scale_codec::Encode;
+use codec::Encode;
 
 use sc_network::{
 	config::parse_addr, multiaddr::Multiaddr, service::traits::NetworkService, types::ProtocolName,

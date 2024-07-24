@@ -10,35 +10,35 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-futures = "0.3.30"
-gum = { package = "tracing-gum", path = "../../gum" }
-parity-scale-codec = { version = "3.6.12", features = ["std"] }
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-erasure-coding = { path = "../../../erasure-coding" }
-polkadot-node-network-protocol = { path = "../protocol" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-node-primitives = { path = "../../primitives" }
-sc-network = { path = "../../../../substrate/client/network" }
-sp-core = { path = "../../../../substrate/primitives/core", features = ["std"] }
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
+futures = { workspace = true }
+gum = { workspace = true, default-features = true }
+codec = { features = ["std"], workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-erasure-coding = { workspace = true, default-features = true }
+polkadot-node-network-protocol = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sp-core = { features = ["std"], workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-rand = "0.8.5"
-derive_more = "0.99.17"
-schnellru = "0.2.1"
-fatality = "0.1.1"
+rand = { workspace = true, default-features = true }
+derive_more = { workspace = true, default-features = true }
+schnellru = { workspace = true }
+fatality = { workspace = true }
 
 [dev-dependencies]
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-sp-core = { path = "../../../../substrate/primitives/core", features = ["std"] }
-sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-sp-tracing = { path = "../../../../substrate/primitives/tracing" }
-sc-network = { path = "../../../../substrate/client/network" }
-futures-timer = "3.0.2"
-assert_matches = "1.4.0"
-polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
-rstest = "0.18.2"
-polkadot-subsystem-bench = { path = "../../subsystem-bench" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+sp-core = { features = ["std"], workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+futures-timer = { workspace = true }
+assert_matches = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+rstest = { workspace = true }
+polkadot-subsystem-bench = { workspace = true }
 
 
 [[bench]]

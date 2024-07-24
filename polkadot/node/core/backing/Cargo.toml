@@ -10,28 +10,28 @@ description = "The Candidate Backing Subsystem. Tracks parachain candidates that
 workspace = true
 
 [dependencies]
-futures = "0.3.30"
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-erasure-coding = { package = "polkadot-erasure-coding", path = "../../../erasure-coding" }
-statement-table = { package = "polkadot-statement-table", path = "../../../statement-table" }
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
-gum = { package = "tracing-gum", path = "../../gum" }
+futures = { workspace = true }
+sp-keystore = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-erasure-coding = { workspace = true, default-features = true }
+polkadot-statement-table = { workspace = true, default-features = true }
+bitvec = { features = ["alloc"], workspace = true }
+gum = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-fatality = "0.1.1"
-schnellru = "0.2.1"
+fatality = { workspace = true }
+schnellru = { workspace = true }
 
 [dev-dependencies]
-sp-core = { path = "../../../../substrate/primitives/core" }
-sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
-sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-sc-keystore = { path = "../../../../substrate/client/keystore" }
-sp-tracing = { path = "../../../../substrate/primitives/tracing" }
-futures = { version = "0.3.30", features = ["thread-pool"] }
-assert_matches = "1.4.0"
-rstest = "0.18.2"
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
+sp-core = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sc-keystore = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+futures = { features = ["thread-pool"], workspace = true }
+assert_matches = { workspace = true }
+rstest = { workspace = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }

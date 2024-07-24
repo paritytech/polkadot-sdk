@@ -37,8 +37,8 @@ use polkadot_node_subsystem::{
 
 pub use polkadot_node_metrics::{metrics, Metronome};
 
+use codec::Encode;
 use futures::channel::{mpsc, oneshot};
-use parity_scale_codec::Encode;
 
 use polkadot_primitives::{
 	async_backing::BackingState, slashing, AsyncBackingParams, AuthorityDiscoveryId,

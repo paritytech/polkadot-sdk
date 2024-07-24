@@ -45,9 +45,10 @@ use xcm_builder::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FrameTransactionalProcessor,
 	FungibleAdapter, HandleFee, IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeToAccount,
+	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents,
 };
 use xcm_executor::{
 	traits::{FeeManager, FeeReason, FeeReason::Export},
@@ -200,6 +201,7 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = XcmFeeManagerFromComponentsBridgeHub<
 		WaivedLocations,
+		WaivedLocations,
 		(
 			XcmExportFeeToSibling<
 				bp_westend::Balance,
@@ -209,7 +211,7 @@ impl xcm_executor::Config for XcmConfig {
 				Self::AssetTransactor,
 				crate::EthereumOutboundQueue,
 			>,
-			XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 		),
 	>;
 	type MessageExporter = (

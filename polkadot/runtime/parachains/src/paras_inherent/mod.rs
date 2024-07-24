@@ -32,6 +32,11 @@ use crate::{
 	shared::{self, AllowedRelayParentsTracker},
 	ParaId,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
 use bitvec::prelude::BitVec;
 use frame_support::{
 	defensive,
@@ -42,7 +47,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
-use primitives::{
+use polkadot_primitives::{
 	effective_minimum_backing_votes, node_features::FeatureIndex, BackedCandidate, CandidateHash,
 	CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
 	DisputeStatementSet, HeadData, InherentData as ParachainsInherentData,
@@ -53,11 +58,6 @@ use primitives::{
 use rand::{seq::SliceRandom, SeedableRng};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Header as HeaderT, One};
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	prelude::*,
-	vec::Vec,
-};
 
 mod misc;
 mod weights;
@@ -295,7 +295,7 @@ impl<T: Config> Pallet<T> {
 	fn process_inherent_data(
 		data: ParachainsInherentData<HeaderFor<T>>,
 		context: ProcessInherentDataContext,
-	) -> sp_std::result::Result<
+	) -> core::result::Result<
 		(ParachainsInherentData<HeaderFor<T>>, PostDispatchInfo),
 		DispatchErrorWithPostInfo,
 	> {
@@ -560,7 +560,7 @@ impl<T: Config> Pallet<T> {
 			.chain(freed_disputed.into_iter().map(|core| (core, FreedReason::Concluded)))
 			.chain(freed_timeout.into_iter().map(|c| (c, FreedReason::TimedOut)))
 			.collect::<BTreeMap<CoreIndex, FreedReason>>();
-		scheduler::Pallet::<T>::free_cores_and_fill_claimqueue(freed, now);
+		scheduler::Pallet::<T>::free_cores_and_fill_claim_queue(freed, now);
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
 
@@ -570,12 +570,13 @@ impl<T: Config> Pallet<T> {
 			.map(|b| *b)
 			.unwrap_or(false);
 
-		let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-		let mut total_scheduled_cores = 0;
+		let mut eligible: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
+		let mut total_eligible_cores = 0;
 
-		for (core_idx, para_id) in scheduler::Pallet::<T>::scheduled_paras() {
-			total_scheduled_cores += 1;
-			scheduled.entry(para_id).or_default().insert(core_idx);
+		for (core_idx, para_id) in scheduler::Pallet::<T>::eligible_paras() {
+			total_eligible_cores += 1;
+			log::trace!(target: LOG_TARGET, "Found eligible para {:?} on core {:?}", para_id, core_idx);
+			eligible.entry(para_id).or_default().insert(core_idx);
 		}
 
 		let initial_candidate_count = backed_candidates.len();
@@ -583,12 +584,12 @@ impl<T: Config> Pallet<T> {
 			backed_candidates,
 			&allowed_relay_parents,
 			concluded_invalid_hashes,
-			scheduled,
+			eligible,
 			core_index_enabled,
 		);
 		let count = count_backed_candidates(&backed_candidates_with_core);
 
-		ensure!(count <= total_scheduled_cores, Error::<T>::UnscheduledCandidate);
+		ensure!(count <= total_eligible_cores, Error::<T>::UnscheduledCandidate);
 
 		METRICS.on_candidates_sanitized(count as u64);
 
@@ -761,7 +762,7 @@ pub(crate) fn apply_weight_limit<T: Config + inclusion::Config>(
 	let mut chained_candidates: Vec<Vec<_>> = Vec::new();
 	let mut current_para_id = None;
 
-	for candidate in sp_std::mem::take(candidates).into_iter() {
+	for candidate in core::mem::take(candidates).into_iter() {
 		let candidate_para_id = candidate.descriptor().para_id;
 		if Some(candidate_para_id) == current_para_id {
 			let chain = chained_candidates
@@ -1422,7 +1423,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 		} else {
 			log::debug!(
 				target: LOG_TARGET,
-				"Paraid: {:?} has no scheduled cores but {} candidates were supplied.",
+				"Paraid: {:?} has no entry in scheduled cores but {} candidates were supplied.",
 				para_id,
 				backed_candidates.len()
 			);

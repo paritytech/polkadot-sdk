@@ -16,7 +16,8 @@
 //! Tests.
 
 use super::{mock::*, *};
-use frame_support::{assert_noop, assert_ok, error::BadOrigin, pallet_prelude::Pays};
+use frame_support::{assert_noop, assert_ok, pallet_prelude::Pays};
+use sp_runtime::traits::BadOrigin;
 
 /// returns CID hash of 68 bytes of given `i`.
 fn create_cid(i: u8) -> OpaqueCid {

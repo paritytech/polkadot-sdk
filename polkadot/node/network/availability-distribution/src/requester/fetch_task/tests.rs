@@ -16,7 +16,7 @@
 
 use std::collections::HashMap;
 
-use parity_scale_codec::Encode;
+use codec::Encode;
 
 use futures::{
 	channel::{mpsc, oneshot},

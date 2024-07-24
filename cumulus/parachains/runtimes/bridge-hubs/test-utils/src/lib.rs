@@ -19,6 +19,8 @@
 pub mod test_cases;
 pub mod test_data;
 
+extern crate alloc;
+
 pub use bp_test_utils::test_header;
 pub use parachains_runtimes_test_utils::*;
 use sp_runtime::Perbill;

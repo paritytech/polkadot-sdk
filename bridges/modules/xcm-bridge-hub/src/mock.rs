@@ -20,23 +20,17 @@ use crate as pallet_xcm_bridge_hub;
 
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
-	LaneId,
+	ChainWithMessages, LaneId, MessageNonce,
 };
-use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, UnderlyingChainProvider};
-use bridge_runtime_common::{
-	messages::{
-		source::TargetHeaderChainAdapter, target::SourceHeaderChainAdapter,
-		BridgedChainWithMessages, HashOf, MessageBridge, ThisChainWithMessages,
-	},
-	messages_xcm_extension::{SenderAndLane, XcmBlobHauler},
-};
+use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, HashOf};
+use bridge_runtime_common::messages_xcm_extension::{SenderAndLane, XcmBlobHauler};
 use codec::Encode;
-use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::RuntimeDbWeight};
+use frame_support::{derive_impl, parameter_types, weights::RuntimeDbWeight};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
 	traits::{BlakeTwo256, IdentityLookup},
-	AccountId32, BuildStorage,
+	AccountId32, BuildStorage, StateVersion,
 };
 use xcm::prelude::*;
 
@@ -85,20 +79,17 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = TestMessagesWeights;
 
-	type BridgedChainId = ();
 	type ActiveOutboundLanes = ActiveOutboundLanes;
-	type MaxUnrewardedRelayerEntriesAtInboundLane = ();
-	type MaxUnconfirmedMessagesAtInboundLane = ();
-	type MaximalOutboundPayloadSize = ConstU32<2048>;
 	type OutboundPayload = Vec<u8>;
 	type InboundPayload = Vec<u8>;
-	type InboundRelayer = ();
 	type DeliveryPayments = ();
-	type TargetHeaderChain = TargetHeaderChainAdapter<OnThisChainBridge>;
 	type DeliveryConfirmationPayments = ();
 	type OnMessagesDelivered = ();
-	type SourceHeaderChain = SourceHeaderChainAdapter<OnThisChainBridge>;
 	type MessageDispatch = TestMessageDispatch;
+
+	type ThisChain = ThisUnderlyingChain;
+	type BridgedChain = BridgedUnderlyingChain;
+	type BridgedHeaderChain = BridgedHeaderChain;
 }
 
 pub struct TestMessagesWeights;
@@ -107,7 +98,13 @@ impl pallet_bridge_messages::WeightInfo for TestMessagesWeights {
 	fn receive_single_message_proof() -> Weight {
 		Weight::zero()
 	}
+	fn receive_n_messages_proof(_: u32) -> Weight {
+		Weight::zero()
+	}
 	fn receive_single_message_proof_with_outbound_lane_state() -> Weight {
+		Weight::zero()
+	}
+	fn receive_single_n_bytes_message_proof(_: u32) -> Weight {
 		Weight::zero()
 	}
 	fn receive_delivery_proof_for_single_message() -> Weight {
@@ -119,21 +116,8 @@ impl pallet_bridge_messages::WeightInfo for TestMessagesWeights {
 	fn receive_delivery_proof_for_two_messages_by_two_relayers() -> Weight {
 		Weight::zero()
 	}
-
-	fn receive_two_messages_proof() -> Weight {
+	fn receive_single_n_bytes_message_proof_with_dispatch(_: u32) -> Weight {
 		Weight::zero()
-	}
-
-	fn receive_single_message_proof_1_kb() -> Weight {
-		Weight::zero()
-	}
-
-	fn receive_single_message_proof_16_kb() -> Weight {
-		Weight::zero()
-	}
-
-	fn receive_single_message_proof_with_dispatch(_: u32) -> Weight {
-		Weight::from_parts(1, 0)
 	}
 }
 
@@ -198,9 +182,9 @@ impl XcmBlobHauler for TestXcmBlobHauler {
 	type UncongestedMessage = ();
 }
 
-pub struct ThisChain;
+pub struct ThisUnderlyingChain;
 
-impl Chain for ThisChain {
+impl Chain for ThisUnderlyingChain {
 	const ID: ChainId = *b"tuch";
 	type BlockNumber = u64;
 	type Hash = H256;
@@ -211,6 +195,8 @@ impl Chain for ThisChain {
 	type Nonce = u64;
 	type Signature = sp_runtime::MultiSignature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		u32::MAX
 	}
@@ -220,12 +206,19 @@ impl Chain for ThisChain {
 	}
 }
 
-pub struct BridgedChain;
+impl ChainWithMessages for ThisUnderlyingChain {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str = "";
+
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 16;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 1000;
+}
+
+pub struct BridgedUnderlyingChain;
 pub type BridgedHeaderHash = H256;
 pub type BridgedChainHeader = SubstrateHeader;
 
-impl Chain for BridgedChain {
-	const ID: ChainId = *b"tuch";
+impl Chain for BridgedUnderlyingChain {
+	const ID: ChainId = *b"bgdc";
 	type BlockNumber = u64;
 	type Hash = BridgedHeaderHash;
 	type Hasher = BlakeTwo256;
@@ -235,6 +228,8 @@ impl Chain for BridgedChain {
 	type Nonce = u64;
 	type Signature = sp_runtime::MultiSignature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		4096
 	}
@@ -242,6 +237,12 @@ impl Chain for BridgedChain {
 	fn max_extrinsic_weight() -> Weight {
 		Weight::MAX
 	}
+}
+
+impl ChainWithMessages for BridgedUnderlyingChain {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str = "";
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 16;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 1000;
 }
 
 /// Test message dispatcher.
@@ -272,40 +273,13 @@ impl MessageDispatch for TestMessageDispatch {
 	}
 }
 
-pub struct WrappedThisChain;
-impl UnderlyingChainProvider for WrappedThisChain {
-	type Chain = ThisChain;
-}
-impl ThisChainWithMessages for WrappedThisChain {
-	type RuntimeOrigin = RuntimeOrigin;
-}
-
-pub struct WrappedBridgedChain;
-impl UnderlyingChainProvider for WrappedBridgedChain {
-	type Chain = BridgedChain;
-}
-impl BridgedChainWithMessages for WrappedBridgedChain {}
-
 pub struct BridgedHeaderChain;
-impl bp_header_chain::HeaderChain<BridgedChain> for BridgedHeaderChain {
+impl bp_header_chain::HeaderChain<BridgedUnderlyingChain> for BridgedHeaderChain {
 	fn finalized_header_state_root(
-		_hash: HashOf<WrappedBridgedChain>,
-	) -> Option<HashOf<WrappedBridgedChain>> {
+		_hash: HashOf<BridgedUnderlyingChain>,
+	) -> Option<HashOf<BridgedUnderlyingChain>> {
 		unreachable!()
 	}
-}
-
-/// Bridge that is deployed on `ThisChain` and allows sending/receiving messages to/from
-/// `BridgedChain`.
-#[derive(Debug, PartialEq, Eq)]
-pub struct OnThisChainBridge;
-
-impl MessageBridge for OnThisChainBridge {
-	const BRIDGED_MESSAGES_PALLET_NAME: &'static str = "";
-
-	type ThisChain = WrappedThisChain;
-	type BridgedChain = WrappedBridgedChain;
-	type BridgedHeaderChain = BridgedHeaderChain;
 }
 
 /// Run pallet test.

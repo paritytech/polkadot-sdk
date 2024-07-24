@@ -25,8 +25,8 @@ use frame_support::{
 	traits::{ConstU32, Everything},
 };
 use frame_system::{EnsureRoot, EnsureSigned};
+use polkadot_primitives::{AccountIndex, BlakeTwo256, Signature};
 use polkadot_test_runtime::SignedExtra;
-use primitives::{AccountIndex, BlakeTwo256, Signature};
 use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
@@ -299,6 +299,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(1, TreasuryAccountId::get(), INITIAL_BALANCE),
 			(100, TreasuryAccountId::get(), INITIAL_BALANCE),
 		],
+		next_asset_id: None,
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
