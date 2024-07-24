@@ -73,7 +73,7 @@
 //! as normal `fn`s attached to `struct Pallet`.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", impl_pallet)]
 //!
-//! The logic of the functions is self-explanatory. Instead, we will focus on the FRAME-related
+//! The logic of these functions is self-explanatory. Instead, we will focus on the FRAME-related
 //! details:
 //!
 //! - Where do `T::AccountId` and `T::RuntimeOrigin` come from? These are both defined in
