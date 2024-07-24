@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721851690014,
+  "lastUpdate": 1721863939900,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -6131,6 +6131,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.050130263882,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "btwiuse",
+            "username": "btwiuse",
+            "email": "54848194+btwiuse@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "240b374e052e0d000d24d8e88f9bd9092147646a",
+          "message": "Fix misleading comment about RewardHandler in epm config (#3095)\n\nIn pallet_election_provider_multi_phase::Config, the effect of\n\n       type RewardHandler = ()\n\nis to mint rewards from the void, not \"nothing to do upon rewards\"\n\nCo-authored-by: navigaid <navigaid@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-07-24T21:03:57Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/240b374e052e0d000d24d8e88f9bd9092147646a"
+        },
+        "date": 1721863909968,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.96199999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038267107864000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.048701009150000016,
             "unit": "seconds"
           }
         ]
