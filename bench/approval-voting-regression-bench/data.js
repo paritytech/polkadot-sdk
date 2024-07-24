@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721830093368,
+  "lastUpdate": 1721836287777,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -12078,6 +12078,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.375836038329932,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]",
+            "email": "49699333+dependabot[bot]@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a164639f7f1223634fb01cf38dab49622ab940ef",
+          "message": "Bump paritytech/review-bot from 2.4.0 to 2.5.0 (#5057)\n\nBumps [paritytech/review-bot](https://github.com/paritytech/review-bot)\nfrom 2.4.0 to 2.5.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/paritytech/review-bot/releases\">paritytech/review-bot's\nreleases</a>.</em></p>\n<blockquote>\n<h2>v2.5.0</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>Upgraded dependencies of actions by <a\nhref=\"https://github.com/Bullrich\"><code>@​Bullrich</code></a> in <a\nhref=\"https://redirect.github.com/paritytech/review-bot/pull/120\">paritytech/review-bot#120</a></li>\n<li>Bump ws from 8.16.0 to 8.17.1 by <a\nhref=\"https://github.com/dependabot\"><code>@​dependabot</code></a> in <a\nhref=\"https://redirect.github.com/paritytech/review-bot/pull/124\">paritytech/review-bot#124</a></li>\n<li>Bump braces from 3.0.2 to 3.0.3 by <a\nhref=\"https://github.com/dependabot\"><code>@​dependabot</code></a> in <a\nhref=\"https://redirect.github.com/paritytech/review-bot/pull/125\">paritytech/review-bot#125</a></li>\n<li>Yarn &amp; Node.js upgrade by <a\nhref=\"https://github.com/mutantcornholio\"><code>@​mutantcornholio</code></a>\nin <a\nhref=\"https://redirect.github.com/paritytech/review-bot/pull/126\">paritytech/review-bot#126</a></li>\n<li>v2.5.0 by <a\nhref=\"https://github.com/mutantcornholio\"><code>@​mutantcornholio</code></a>\nin <a\nhref=\"https://redirect.github.com/paritytech/review-bot/pull/127\">paritytech/review-bot#127</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a\nhref=\"https://github.com/paritytech/review-bot/compare/v2.4.1...v2.5.0\">https://github.com/paritytech/review-bot/compare/v2.4.1...v2.5.0</a></p>\n<h2>v2.4.1</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>Bump undici from 5.26.3 to 5.28.3 by <a\nhref=\"https://github.com/dependabot\"><code>@​dependabot</code></a> in <a\nhref=\"https://redirect.github.com/paritytech/review-bot/pull/114\">paritytech/review-bot#114</a></li>\n<li>Add terminating dots in sentences. by <a\nhref=\"https://github.com/rzadp\"><code>@​rzadp</code></a> in <a\nhref=\"https://redirect.github.com/paritytech/review-bot/pull/116\">paritytech/review-bot#116</a></li>\n<li>Bump undici from 5.28.3 to 5.28.4 by <a\nhref=\"https://github.com/dependabot\"><code>@​dependabot</code></a> in <a\nhref=\"https://redirect.github.com/paritytech/review-bot/pull/117\">paritytech/review-bot#117</a></li>\n<li>Fix IdentityOf tuple introduced in v1.2.0 by <a\nhref=\"https://github.com/Bullrich\"><code>@​Bullrich</code></a> in <a\nhref=\"https://redirect.github.com/paritytech/review-bot/pull/119\">paritytech/review-bot#119</a></li>\n</ul>\n<h2>New Contributors</h2>\n<ul>\n<li><a href=\"https://github.com/rzadp\"><code>@​rzadp</code></a> made\ntheir first contribution in <a\nhref=\"https://redirect.github.com/paritytech/review-bot/pull/116\">paritytech/review-bot#116</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a\nhref=\"https://github.com/paritytech/review-bot/compare/v2.4.0...v2.4.1\">https://github.com/paritytech/review-bot/compare/v2.4.0...v2.4.1</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/paritytech/review-bot/commit/04d633ea6b1edb748974d192e55b168b870150e2\"><code>04d633e</code></a>\nv2.5.0 (<a\nhref=\"https://redirect.github.com/paritytech/review-bot/issues/127\">#127</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/review-bot/commit/6132aa29f3544fc49319d37d612354e8c2e759b3\"><code>6132aa2</code></a>\nYarn &amp; Node.js upgrade (<a\nhref=\"https://redirect.github.com/paritytech/review-bot/issues/126\">#126</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/review-bot/commit/8c7a2842e0074af1af5e64e4033be3d896f2f444\"><code>8c7a284</code></a>\nBump braces from 3.0.2 to 3.0.3 (<a\nhref=\"https://redirect.github.com/paritytech/review-bot/issues/125\">#125</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/review-bot/commit/625303e5cf93a079e0e3c1f73e7b3f6eeab24648\"><code>625303e</code></a>\nBump ws from 8.16.0 to 8.17.1 (<a\nhref=\"https://redirect.github.com/paritytech/review-bot/issues/124\">#124</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/review-bot/commit/8a67d67e39f16cd92bae100a02fe7f0b230a6e31\"><code>8a67d67</code></a>\nUpgraded dependencies of actions (<a\nhref=\"https://redirect.github.com/paritytech/review-bot/issues/120\">#120</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/review-bot/commit/29e944c422279d1d648428375fbcb2d1d48e2c10\"><code>29e944c</code></a>\nFix IdentityOf tuple introduced in v1.2.0 (<a\nhref=\"https://redirect.github.com/paritytech/review-bot/issues/119\">#119</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/review-bot/commit/6134083c1cb95c0d5e617230848051765f8e8c40\"><code>6134083</code></a>\nBump undici from 5.28.3 to 5.28.4 (<a\nhref=\"https://redirect.github.com/paritytech/review-bot/issues/117\">#117</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/review-bot/commit/876731de3f8c4ecebf1969baddd99a9fa84dd6ee\"><code>876731d</code></a>\nAdd terminating dots in sentences. (<a\nhref=\"https://redirect.github.com/paritytech/review-bot/issues/116\">#116</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/review-bot/commit/80d543ce060632fbcd2fa05a8148d23e1ace62b0\"><code>80d543c</code></a>\nBump undici from 5.26.3 to 5.28.3 (<a\nhref=\"https://redirect.github.com/paritytech/review-bot/issues/114\">#114</a>)</li>\n<li>See full diff in <a\nhref=\"https://github.com/paritytech/review-bot/compare/v2.4.0...v2.5.0\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility\nscore](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=paritytech/review-bot&package-manager=github_actions&previous-version=2.4.0&new-version=2.5.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't\nalter it yourself. You can also trigger a rebase manually by commenting\n`@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits\nthat have been made to it\n- `@dependabot merge` will merge this PR after your CI passes on it\n- `@dependabot squash and merge` will squash and merge this PR after\nyour CI passes on it\n- `@dependabot cancel merge` will cancel a previously requested merge\nand block automerging\n- `@dependabot reopen` will reopen this PR if it is closed\n- `@dependabot close` will close this PR and stop Dependabot recreating\nit. You can achieve the same result by closing it manually\n- `@dependabot show <dependency name> ignore conditions` will show all\nof the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop\nDependabot creating any more for this major version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop\nDependabot creating any more for this minor version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop\nDependabot creating any more for this dependency (unless you reopen the\nPR or upgrade to it yourself)\n\n\n</details>\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+          "timestamp": "2024-07-24T14:13:38Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a164639f7f1223634fb01cf38dab49622ab940ef"
+        },
+        "date": 1721836257364,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52937.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 64069.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.730845707689921,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 11.40663879093999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.059841770510236,
             "unit": "seconds"
           }
         ]
