@@ -15,13 +15,16 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use cumulus_client_cli::{CollatorOptions, ExportGenesisHeadCommand};
-use cumulus_client_collator::service::CollatorService;
-use cumulus_client_consensus_aura::collators::{
-	lookahead::{self as aura, Params as AuraParams},
-	slot_based::{self as slot_based, Params as SlotBasedParams},
+use cumulus_client_collator::service::{
+	CollatorService, ServiceInterface as CollatorServiceInterface,
+};
+use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
+#[docify::export(slot_based_colator_import)]
+use cumulus_client_consensus_aura::collators::slot_based::{
+	self as slot_based, Params as SlotBasedParams,
 };
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
-use cumulus_client_consensus_proposer::Proposer;
+use cumulus_client_consensus_proposer::{Proposer, ProposerInterface};
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 #[allow(deprecated)]
 use cumulus_client_service::old_consensus;
@@ -62,6 +65,7 @@ use sc_sysinfo::HwBench;
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sc_transaction_pool::FullPool;
 use sp_api::ProvideRuntimeApi;
+use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{app_crypto::AppCrypto, traits::Header as HeaderT};
 use std::{marker::PhantomData, pin::Pin, sync::Arc, time::Duration};
@@ -121,6 +125,7 @@ where
 		overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend>,
+		node_extra_args: NodeExtraArgs,
 	) -> Result<(), sc_service::Error>;
 }
 
@@ -222,6 +227,7 @@ pub(crate) trait NodeSpec {
 		collator_options: CollatorOptions,
 		para_id: ParaId,
 		hwbench: Option<sc_sysinfo::HwBench>,
+		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>>
 	where
 		Net: NetworkBackend<Block, Hash>,
@@ -251,7 +257,10 @@ pub(crate) trait NodeSpec {
 			let prometheus_registry = parachain_config.prometheus_registry().cloned();
 			let transaction_pool = params.transaction_pool.clone();
 			let import_queue_service = params.import_queue.service();
-			let net_config = FullNetworkConfiguration::<_, _, Net>::new(&parachain_config.network);
+			let net_config = FullNetworkConfiguration::<_, _, Net>::new(
+				&parachain_config.network,
+				prometheus_registry.clone(),
+			);
 
 			let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
 				build_network(BuildNetworkParams {
@@ -357,6 +366,7 @@ pub(crate) trait NodeSpec {
 					overseer_handle,
 					announce_block,
 					backend.clone(),
+					node_extra_args,
 				)?;
 			}
 
@@ -520,7 +530,7 @@ where
 	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
 }
 
-pub fn new_aura_node_spec<RuntimeApi, AuraId>(extra_args: NodeExtraArgs) -> Box<dyn DynNodeSpec>
+pub fn new_aura_node_spec<RuntimeApi, AuraId>(extra_args: &NodeExtraArgs) -> Box<dyn DynNodeSpec>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
@@ -563,6 +573,7 @@ impl StartConsensus<FakeRuntimeApi> for StartRelayChainConsensus {
 		overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		_backend: Arc<ParachainBackend>,
+		_node_extra_args: NodeExtraArgs,
 	) -> Result<(), Error> {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
@@ -623,6 +634,48 @@ pub(crate) struct StartSlotBasedAuraConsensus<RuntimeApi, AuraId>(
 	PhantomData<(RuntimeApi, AuraId)>,
 );
 
+impl<RuntimeApi, AuraId> StartSlotBasedAuraConsensus<RuntimeApi, AuraId>
+where
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	AuraId: AuraIdT + Sync,
+{
+	#[docify::export_content]
+	fn launch_slot_based_collator<CIDP, CHP, Proposer, CS>(
+		params: SlotBasedParams<
+			ParachainBlockImport<RuntimeApi>,
+			CIDP,
+			ParachainClient<RuntimeApi>,
+			ParachainBackend,
+			Arc<dyn RelayChainInterface>,
+			CHP,
+			Proposer,
+			CS,
+		>,
+		task_manager: &TaskManager,
+	) where
+		CIDP: CreateInherentDataProviders<Block, ()> + 'static,
+		CIDP::InherentDataProviders: Send,
+		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash> + Send + 'static,
+		Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+		CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
+	{
+		let (collation_future, block_builder_future) =
+			slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params);
+
+		task_manager.spawn_essential_handle().spawn(
+			"collation-task",
+			Some("parachain-block-authoring"),
+			collation_future,
+		);
+		task_manager.spawn_essential_handle().spawn(
+			"block-builder-task",
+			Some("parachain-block-authoring"),
+			block_builder_future,
+		);
+	}
+}
+
 impl<RuntimeApi, AuraId> StartConsensus<RuntimeApi>
 	for StartSlotBasedAuraConsensus<RuntimeApi, AuraId>
 where
@@ -645,6 +698,7 @@ where
 		_overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend>,
+		_node_extra_args: NodeExtraArgs,
 	) -> Result<(), Error> {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
@@ -683,19 +737,10 @@ where
 			slot_drift: Duration::from_secs(1),
 		};
 
-		let (collation_future, block_builder_future) =
-			slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params);
+		// We have a separate function only to be able to use `docify::export` on this piece of
+		// code.
+		Self::launch_slot_based_collator(params, task_manager);
 
-		task_manager.spawn_essential_handle().spawn(
-			"collation-task",
-			Some("parachain-block-authoring"),
-			collation_future,
-		);
-		task_manager.spawn_essential_handle().spawn(
-			"block-builder-task",
-			Some("parachain-block-authoring"),
-			block_builder_future,
-		);
 		Ok(())
 	}
 }
@@ -749,6 +794,7 @@ where
 		overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend>,
+		node_extra_args: NodeExtraArgs,
 	) -> Result<(), Error> {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
@@ -765,33 +811,37 @@ where
 			client.clone(),
 		);
 
-		let params = AuraParams {
-			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-			block_import,
-			para_client: client.clone(),
-			para_backend: backend,
-			relay_client: relay_chain_interface,
-			code_hash_provider: {
-				let client = client.clone();
-				move |block_hash| {
-					client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
-				}
+		let params = aura::ParamsWithExport {
+			export_pov: node_extra_args.export_pov,
+			params: AuraParams {
+				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+				block_import,
+				para_client: client.clone(),
+				para_backend: backend,
+				relay_client: relay_chain_interface,
+				code_hash_provider: {
+					let client = client.clone();
+					move |block_hash| {
+						client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+					}
+				},
+				keystore,
+				collator_key,
+				para_id,
+				overseer_handle,
+				relay_chain_slot_duration,
+				proposer: Proposer::new(proposer_factory),
+				collator_service,
+				authoring_duration: Duration::from_millis(1500),
+				reinitialize: false,
 			},
-			keystore,
-			collator_key,
-			para_id,
-			overseer_handle,
-			relay_chain_slot_duration,
-			proposer: Proposer::new(proposer_factory),
-			collator_service,
-			authoring_duration: Duration::from_millis(1500),
-			reinitialize: false,
 		};
 
-		let fut = async move {
-			wait_for_aura(client).await;
-			aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params).await;
-		};
+		let fut =
+			async move {
+				wait_for_aura(client).await;
+				aura::run_with_export::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params).await;
+			};
 		task_manager.spawn_essential_handle().spawn("aura", None, fut);
 
 		Ok(())
@@ -873,6 +923,7 @@ pub(crate) trait DynNodeSpec {
 		collator_options: CollatorOptions,
 		para_id: ParaId,
 		hwbench: Option<sc_sysinfo::HwBench>,
+		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>>;
 }
 
@@ -963,6 +1014,7 @@ where
 		collator_options: CollatorOptions,
 		para_id: ParaId,
 		hwbench: Option<HwBench>,
+		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>> {
 		match parachain_config.network.network_backend {
 			sc_network::config::NetworkBackendType::Libp2p =>
@@ -972,6 +1024,7 @@ where
 					collator_options,
 					para_id,
 					hwbench,
+					node_extra_args,
 				),
 			sc_network::config::NetworkBackendType::Litep2p =>
 				<Self as NodeSpec>::start_node::<sc_network::Litep2pNetworkBackend>(
@@ -980,6 +1033,7 @@ where
 					collator_options,
 					para_id,
 					hwbench,
+					node_extra_args,
 				),
 		}
 	}

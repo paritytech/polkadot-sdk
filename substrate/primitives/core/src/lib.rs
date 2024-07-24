@@ -31,15 +31,18 @@ macro_rules! map {
 	);
 }
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 #[doc(hidden)]
 pub use codec::{Decode, Encode, MaxEncodedLen};
+use core::ops::Deref;
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 pub use serde;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_runtime_interface::pass_by::{PassByEnum, PassByInner};
-use sp_std::{ops::Deref, prelude::*};
 
 pub use sp_debug_derive::RuntimeDebug;
 
@@ -137,7 +140,7 @@ impl codec::WrapperTypeDecode for Bytes {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::str::FromStr for Bytes {
+impl alloc::str::FromStr for Bytes {
 	type Err = bytes::FromHexError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -156,7 +159,7 @@ impl OpaqueMetadata {
 	}
 }
 
-impl sp_std::ops::Deref for OpaqueMetadata {
+impl Deref for OpaqueMetadata {
 	type Target = Vec<u8>;
 
 	fn deref(&self) -> &Self::Target {
@@ -313,7 +316,7 @@ pub fn to_substrate_wasm_fn_return_value(value: &impl Encode) -> u64 {
 	// Leak the output vector to avoid it being freed.
 	// This is fine in a WASM context since the heap
 	// will be discarded after the call.
-	sp_std::mem::forget(encoded);
+	core::mem::forget(encoded);
 
 	res
 }
@@ -456,7 +459,7 @@ macro_rules! generate_feature_enabled_macro {
 			/// // Will add the code depending on the feature being enabled or not.
 			#[doc = concat!(stringify!($macro_name), "!( println!(\"Hello\") )")]
 			/// ```
-			// https://github.com/rust-lang/rust/pull/52234			
+			// https://github.com/rust-lang/rust/pull/52234
  			pub use [<_ $macro_name>] as $macro_name;
 		}
 	};

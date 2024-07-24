@@ -50,6 +50,12 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 
+use alloc::{
+	boxed::Box,
+	collections::{btree_map::Entry, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
 use polkadot_primitives::{
 	slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes, SlashingOffenceKind},
 	CandidateHash, SessionIndex, ValidatorId, ValidatorIndex,
@@ -65,10 +71,6 @@ use sp_runtime::{
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::offence::{Kind, Offence, OffenceError, ReportOffence};
-use sp_std::{
-	collections::{btree_map::Entry, btree_set::BTreeSet},
-	prelude::*,
-};
 
 const LOG_TARGET: &str = "runtime::parachains::slashing";
 
@@ -158,7 +160,7 @@ impl<KeyOwnerIdentification> SlashingOffence<KeyOwnerIdentification> {
 
 /// This type implements `SlashingHandler`.
 pub struct SlashValidatorsForDisputes<C> {
-	_phantom: sp_std::marker::PhantomData<C>,
+	_phantom: core::marker::PhantomData<C>,
 }
 
 impl<C> Default for SlashValidatorsForDisputes<C> {
@@ -640,7 +642,7 @@ fn is_known_offence<T: Config>(
 /// When configured properly, should be instantiated with
 /// `T::KeyOwnerIdentification, Offences, ReportLongevity` parameters.
 pub struct SlashingReportHandler<I, R, L> {
-	_phantom: sp_std::marker::PhantomData<(I, R, L)>,
+	_phantom: core::marker::PhantomData<(I, R, L)>,
 }
 
 impl<I, R, L> Default for SlashingReportHandler<I, R, L> {

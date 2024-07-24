@@ -18,6 +18,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 /// Exposes runtime APIs for various XCM-related conversions.
 pub mod conversions;
 

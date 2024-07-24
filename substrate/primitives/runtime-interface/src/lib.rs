@@ -111,6 +111,8 @@
 
 extern crate self as sp_runtime_interface;
 
+extern crate alloc;
+
 #[doc(hidden)]
 #[cfg(feature = "std")]
 pub use sp_wasm_interface;

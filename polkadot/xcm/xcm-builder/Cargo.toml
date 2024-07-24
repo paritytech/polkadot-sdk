@@ -15,7 +15,6 @@ codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
-sp-std = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
@@ -66,7 +65,6 @@ std = [
 	"sp-arithmetic/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-weights/std",
 	"xcm-executor/std",
 	"xcm/std",

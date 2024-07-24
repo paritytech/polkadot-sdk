@@ -21,7 +21,6 @@ use crate::{mock::*, Event, *};
 use frame_support::{assert_noop, assert_ok, traits::Currency};
 use pallet_balances::Error as BalancesError;
 use sp_runtime::traits::Dispatchable;
-use sp_std::prelude::*;
 
 fn items() -> Vec<(u64, u32, u32)> {
 	let mut r: Vec<_> = Account::<Test>::iter().map(|x| x.0).collect();

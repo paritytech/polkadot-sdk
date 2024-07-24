@@ -444,3 +444,16 @@ get_latest_release_tag() {
     latest_release_tag=$(curl -s -H "$TOKEN" $api_base/paritytech/polkadot-sdk/releases/latest | jq -r '.tag_name')
     printf $latest_release_tag
 }
+
+function get_polkadot_node_version_from_code() {
+   # list all the files with node version
+  git grep -e "\(NODE_VERSION[^=]*= \)\".*\"" |
+  # fetch only the one we need
+  grep  "primitives/src/lib.rs:" |
+  # Print only the version
+  awk '{ print $7 }' |
+  # Remove the quotes
+  sed 's/"//g' |
+  # Remove the semicolon
+  sed 's/;//g'
+}

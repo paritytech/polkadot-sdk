@@ -21,13 +21,13 @@ use crate::{ExecutionLimit, HwBench};
 use sc_telemetry::SysInfo;
 use sp_core::{sr25519, Pair};
 use sp_io::crypto::sr25519_verify;
-use sp_std::{fmt, fmt::Formatter, prelude::*};
 
 use derive_more::From;
 use rand::{seq::SliceRandom, Rng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
-	fmt::Display,
+	fmt,
+	fmt::{Display, Formatter},
 	fs::File,
 	io::{Seek, SeekFrom, Write},
 	ops::{Deref, DerefMut},
