@@ -393,8 +393,12 @@ async fn maybe_prepare_validation<Sender>(
 			state.waiting_to_vec(),
 			executor_params.clone(),
 		)
-		.await;
-		state.pending = HashSet::from_iter(missing);
+		.await
+		.into_iter()
+		.collect();
+
+		state.processed.extend(state.waiting.difference(&missing));
+		state.pending = missing;
 		state.waiting.clear();
 	}
 
