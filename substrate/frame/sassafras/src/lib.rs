@@ -369,7 +369,7 @@ pub mod pallet {
 				.block_randomness;
 			Self::deposit_randomness(block_randomness);
 
-			// Check if we are in the epoch's second half.
+			// Check if we are in the epoch's tail.
 			// If so, start sorting the next epoch tickets.
 			let epoch_length = T::EpochLength::get();
 			let current_slot_idx = Self::current_slot_index();

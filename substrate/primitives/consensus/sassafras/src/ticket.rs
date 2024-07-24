@@ -131,7 +131,7 @@ mod tests {
 		let base = max_u128 + 1.0;
 		let max = max_u128 * (base + 1.0);
 
-		// Extract four u128 segments from the byte array
+		// Extract two u128 segments from the byte array
 		let h = u128::from_be_bytes(bytes[..16].try_into().unwrap()) as f64;
 		let l = u128::from_be_bytes(bytes[16..].try_into().unwrap()) as f64;
 		(h * base + l) / max
