@@ -124,7 +124,8 @@ jobs:
           - test(/authoring_blocks/)
           - test(/rejects_missing_seals/)       
           - test(/generate_chain_spec/) 
-          - test(/chain-spec-guide-runtime::chain_spec_builder_tests/)  
+          - test(/get_preset/)
+          - test(/list_presets/)  
           "          
           --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
       - run: ls -al target/coverage
