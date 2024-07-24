@@ -12,4 +12,4 @@ doc:
 
 crates:
   - name: staging-xcm
-    bump: minor
+    bump: patch
