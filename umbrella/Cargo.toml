@@ -503,6 +503,7 @@ serde = [
 	"pallet-transaction-storage?/serde",
 	"pallet-treasury?/serde",
 	"pallet-xcm?/serde",
+	"polkadot-sdk-frame?/serde",
 	"snowbridge-beacon-primitives?/serde",
 	"snowbridge-core?/serde",
 	"snowbridge-ethereum?/serde",
@@ -525,7 +526,6 @@ serde = [
 	"sp-storage?/serde",
 	"sp-version?/serde",
 	"sp-weights?/serde",
-	"polkadot-sdk-frame?/serde"
 ]
 experimental = [
 	"frame-support-procedural?/experimental",

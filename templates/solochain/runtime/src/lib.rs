@@ -1,20 +1,3 @@
-// This file is part of Substrate.
-
-// Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "std")]
@@ -41,13 +24,16 @@ use frame::{
 		apis::{
 			self, impl_runtime_apis, sr25519::AuthorityId as AuraId, ApplyExtrinsicResult,
 			AuthorityList, CheckInherentsResult, EquivocationProof, ExtrinsicInclusionMode,
-			InherentData, OpaqueKeyOwnershipProof, OpaqueMetadata, PresetId,
-			Result as GenesisBuilderResult, SetId, SlotDuration,
+			GenesisBuilderResult, InherentData, OpaqueKeyOwnershipProof, OpaqueMetadata, PresetId,
+			SetId, SlotDuration,
 		},
 		prelude::*,
 	},
-	traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, Verify},
+	traits::{
+		BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, One, VariantCountOf, Verify,
+	},
 };
+use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 
 /// An index to a block.
 type BlockNumber = u32;
@@ -194,35 +180,56 @@ impl pallet_grandpa::Config for Runtime {
 }
 
 // Implements the types required for the timestamp pallet.
-#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
 impl pallet_timestamp::Config for Runtime {
+	/// A timestamp: milliseconds since the unix epoch.
+	type Moment = u64;
 	type OnTimestampSet = Aura;
 	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
+	type WeightInfo = ();
 }
 
 /// Existential deposit.
 const EXISTENTIAL_DEPOSIT: u128 = 500;
 
 // Implements the types required for the balances pallet.
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
+	type MaxLocks = ConstU32<50>;
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
 	/// The type for recording an account's balance.
 	type Balance = Balance;
+	/// The ubiquitous event type.
+	type RuntimeEvent = RuntimeEvent;
+	type DustRemoval = ();
 	type ExistentialDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
 	type AccountStore = System;
+	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeHoldReason;
+}
+
+parameter_types! {
+	pub FeeMultiplier: Multiplier = Multiplier::one();
 }
 
 // Implements the types required for the transaction payment pallet.
-#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OperationalFeeMultiplier = ConstU8<5>;
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = IdentityFee<Balance>;
+	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
 
 // Implements the types required for the sudo pallet.
-#[derive_impl(pallet_sudo::config_preludes::TestDefaultConfig)]
-impl pallet_sudo::Config for Runtime {}
+impl pallet_sudo::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
+}
 
 /// Configure the pallet-template in pallets/template.
 impl pallet_template::Config for Runtime {

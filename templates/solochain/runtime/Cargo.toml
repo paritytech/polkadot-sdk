@@ -63,8 +63,8 @@ std = [
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 
+	"frame-system-rpc-runtime-api/std",
 	"substrate-wasm-builder",
-	"frame-system-rpc-runtime-api/std"
 ]
 
 runtime-benchmarks = [
