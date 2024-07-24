@@ -620,7 +620,7 @@ fn incremental_accumulator_drain() {
 }
 
 #[test]
-fn submit_tickets_with_ring_proof_check_works() {
+fn submit_tickets_works() {
 	use sp_core::Pair as _;
 	let _ = env_logger::try_init();
 	let start_block = 1;
@@ -631,6 +631,8 @@ fn submit_tickets_with_ring_proof_check_works() {
 		Vec<AuthorityId>,
 		Vec<TicketEnvelope>,
 	) = data_read(TICKETS_FILE);
+
+	let config = Sassafras::protocol_config();
 
 	// Also checks that duplicates are discarded
 
@@ -657,11 +659,18 @@ fn submit_tickets_with_ring_proof_check_works() {
 			.collect();
 		assert_eq!(chunks.len(), 5);
 
-		// Submit an invalid candidate
+		// Try to submit a candidate with an invalid signature.
 		let mut chunk = chunks[2].clone();
-		chunk[0].attempt += 1;
+		chunk[0].signature.signature[0] ^= 1;
 		let e = Sassafras::submit_tickets(RuntimeOrigin::none(), chunk).unwrap_err();
 		assert_eq!(e, DispatchError::from(Error::<Test>::TicketBadProof));
+		assert_eq!(TicketsAccumulator::<Test>::count(), 0);
+
+		// Try to submit with invalid attempt number.
+		let mut chunk = chunks[2].clone();
+		chunk[0].attempt = u8::MAX;
+		let e = Sassafras::submit_tickets(RuntimeOrigin::none(), chunk).unwrap_err();
+		assert_eq!(e, DispatchError::from(Error::<Test>::TicketBadAttempt));
 		assert_eq!(TicketsAccumulator::<Test>::count(), 0);
 
 		// Start submitting from the mid valued chunks.
@@ -672,7 +681,7 @@ fn submit_tickets_with_ring_proof_check_works() {
 		Sassafras::submit_tickets(RuntimeOrigin::none(), chunks[3].clone()).unwrap();
 		assert_eq!(TicketsAccumulator::<Test>::count(), 8);
 
-		// Try to submit duplicates
+		// Try to submit a ticket duplicate
 		let e = Sassafras::submit_tickets(RuntimeOrigin::none(), chunks[2].clone()).unwrap_err();
 		assert_eq!(e, DispatchError::from(Error::<Test>::TicketDuplicate));
 		assert_eq!(TicketsAccumulator::<Test>::count(), 8);
@@ -683,12 +692,17 @@ fn submit_tickets_with_ring_proof_check_works() {
 
 		// Try to submit a chunk with bigger tickets. This is discarded
 		let e = Sassafras::submit_tickets(RuntimeOrigin::none(), chunks[4].clone()).unwrap_err();
-		assert_eq!(e, DispatchError::from(Error::<Test>::TicketInvalid));
+		assert_eq!(e, DispatchError::from(Error::<Test>::TicketDropped));
 		assert_eq!(TicketsAccumulator::<Test>::count(), 10);
 
 		// Submit the smaller candidates chunks. This is accepted (4 old tickets removed).
 		Sassafras::submit_tickets(RuntimeOrigin::none(), chunks[0].clone()).unwrap();
 		assert_eq!(TicketsAccumulator::<Test>::count(), 10);
+
+		// Try to submit a chunk after when the contest is over.
+		progress_to_block(start_block + (config.epoch_duration as u64 - 2), &pairs[0]).unwrap();
+		let e = Sassafras::submit_tickets(RuntimeOrigin::none(), chunks[0].clone()).unwrap_err();
+		assert_eq!(e, DispatchError::from(Error::<Test>::TicketUnexpected));
 	})
 }
 

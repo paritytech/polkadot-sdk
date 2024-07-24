@@ -207,16 +207,24 @@ pub mod pallet {
 	/// Sassafras runtime errors.
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Tickets were found after the lottery is over.
+		TicketUnexpected,
 		/// Ticket identifier is too big.
 		TicketOverThreshold,
-		/// Duplicate ticket
-		TicketDuplicate,
-		/// Bad ticket order
+		/// Bad ticket order.
 		TicketBadOrder,
-		/// Invalid ticket
-		TicketInvalid,
-		/// Invalid ticket signature
+		/// Invalid ticket signature.
 		TicketBadProof,
+		/// Invalid ticket attempt number.
+		TicketBadAttempt,
+		/// Some submitted ticket has not been persisted because of its score.
+		TicketDropped,
+		/// Duplicate ticket.
+		TicketDuplicate,
+		/// Invalid VRF output.
+		TicketBadVrfOutput,
+		/// Uninitialized Ring Verifier
+		TicketVerifierNotInitialized,
 	}
 
 	/// Current epoch authorities.
@@ -397,14 +405,16 @@ pub mod pallet {
 
 			let epoch_duration = T::EpochDuration::get();
 			let current_slot_idx = Self::current_slot_index();
-			if current_slot_idx > epoch_duration / 2 {
-				warn!(target: LOG_TARGET, "Tickets shall be submitted in the first epoch half",);
-				return Err("Tickets shall be submitted in the first epoch half".into())
+			let lottery_over_idx = T::LotteryDurationPercent::get() * epoch_duration;
+
+			if current_slot_idx >= lottery_over_idx {
+				warn!(target: LOG_TARGET, "Lottery is over, tickets must be submitted before slot index {}", lottery_over_idx);
+				return Err(Error::<T>::TicketUnexpected.into())
 			}
 
 			let Some(verifier) = RingVerifierKey::<T>::get().map(|v| v.into()) else {
 				warn!(target: LOG_TARGET, "Ring verifier key not initialized");
-				return Err("Ring verifier key not initialized".into())
+				return Err(Error::<T>::TicketVerifierNotInitialized.into())
 			};
 
 			// Get next epoch parameters
@@ -419,11 +429,18 @@ pub mod pallet {
 				T::RedundancyFactor::get(),
 			);
 
+			let attempts_num = T::AttemptsNumber::get();
+
 			let mut candidates = Vec::new();
 			for envelope in envelopes {
+				if envelope.attempt >= attempts_num {
+					debug!(target: LOG_TARGET, "Bad ticket attempt");
+					return Err(Error::<T>::TicketBadAttempt.into())
+				}
+
 				let Some(ticket_id_pre_output) = envelope.signature.pre_outputs.get(0) else {
 					debug!(target: LOG_TARGET, "Missing ticket VRF pre-output from ring signature");
-					return Err(Error::<T>::TicketInvalid.into())
+					return Err(Error::<T>::TicketBadVrfOutput.into())
 				};
 				let ticket_id_input = vrf::ticket_id_input(&randomness, envelope.attempt);
 
@@ -585,7 +602,7 @@ impl<T: Config> Pallet<T> {
 			// Assess that no new ticket has been dropped
 			for (key, ticket) in dropped_entries {
 				if tickets.binary_search_by_key(&ticket.id, |t| t.id).is_ok() {
-					return Err(Error::TicketInvalid)
+					return Err(Error::TicketDropped)
 				}
 				TicketsAccumulator::<T>::remove(key);
 			}
