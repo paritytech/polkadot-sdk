@@ -68,7 +68,6 @@ where
 		let mut from_queue = from_queue.fuse();
 
 		loop {
-			// Using `fuse()` in here is okay, because we reset the interval when it has fired.
 			let Some(payload) = from_queue.next().await else {
 				// R.I.P. worker!
 				break;

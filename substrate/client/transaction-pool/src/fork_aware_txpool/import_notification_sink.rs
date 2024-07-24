@@ -73,14 +73,14 @@ where
 
 		let ctx = Self { stream_map: stream_map.fuse(), controller: receiver.fuse() };
 
-		let stream_map = futures::stream::unfold(ctx, |mut ctx| async move {
+		let output_stream = futures::stream::unfold(ctx, |mut ctx| async move {
 			loop {
 				tokio::select! {
 					biased;
 					cmd = ctx.controller.next() => {
 						match cmd {
 							Some(Command::AddView(key,stream)) => {
-								debug!(target: LOG_TARGET,"Command::addView {key:?}");
+								debug!(target: LOG_TARGET,"Command::AddView {key:?}");
 								ctx.stream_map.get_mut().insert(key,stream);
 							},
 							//controller sender is terminated, terminate the map as well
@@ -97,7 +97,7 @@ where
 		})
 		.boxed();
 
-		(stream_map, sender)
+		(output_stream, sender)
 	}
 }
 
@@ -117,12 +117,12 @@ where
 	I: 'static + Clone + Send + Debug + Sync + PartialEq + Eq + Hash,
 {
 	pub fn new_with_worker() -> (MultiViewImportNotificationSink<K, I>, ImportNotificationTask) {
-		let (stream_map, ctrl) = MulitSinksContext::<K, I>::event_stream();
+		let (output_stream, ctrl) = MulitSinksContext::<K, I>::event_stream();
 		let ctrl = Self { ctrl, external_sinks: Default::default(), filter: Default::default() };
 		let external_sinks = ctrl.external_sinks.clone();
 		let filter = ctrl.filter.clone();
 
-		let f = stream_map
+		let f = output_stream
 			.for_each(move |event| {
 				let external_sinks = external_sinks.clone();
 				let filter = filter.clone();

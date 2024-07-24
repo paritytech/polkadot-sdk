@@ -33,7 +33,7 @@ use substrate_test_runtime_client::{
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
 const LOG_TARGET: &str = "txpool";
 
-use sc_transaction_pool::{ForkAwareTxPool, ImportNotificationTask};
+use sc_transaction_pool::{ForkAwareTxPool, ForkAwareTxPoolTask};
 
 fn invalid_hash() -> Hash {
 	Default::default()
@@ -70,7 +70,7 @@ fn finalized_block_event(
 
 fn create_basic_pool_with_genesis(
 	test_api: Arc<TestApi>,
-) -> (ForkAwareTxPool<TestApi, Block>, ImportNotificationTask) {
+) -> (ForkAwareTxPool<TestApi, Block>, ForkAwareTxPoolTask) {
 	let genesis_hash = test_api
 		.chain()
 		.read()
@@ -85,9 +85,9 @@ fn create_basic_pool_with_genesis(
 fn create_basic_pool(
 	test_api: Arc<TestApi>,
 ) -> (ForkAwareTxPool<TestApi, Block>, futures::executor::ThreadPool) {
-	let (pool, import_notification_task) = create_basic_pool_with_genesis(test_api);
+	let (pool, txpool_task) = create_basic_pool_with_genesis(test_api);
 	let thread_pool = futures::executor::ThreadPool::new().unwrap();
-	thread_pool.spawn_ok(import_notification_task);
+	thread_pool.spawn_ok(txpool_task);
 	(pool, thread_pool)
 }
 

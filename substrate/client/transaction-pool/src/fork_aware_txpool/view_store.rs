@@ -18,20 +18,22 @@
 
 //! Transaction pool view store. Basically block hash to view map with some utitlity methods.
 
-use crate::graph;
+use super::{
+	multi_view_listener::{MultiViewListener, TxStatusStream},
+	view::View,
+};
+use crate::{
+	fork_aware_txpool::dropped_watcher::MultiViewDroppedWatcher,
+	graph,
+	graph::{base_pool::Transaction, ExtrinsicFor, ExtrinsicHash, TransactionFor},
+	ReadyIteratorFor, LOG_TARGET,
+};
 use futures::prelude::*;
 use parking_lot::RwLock;
-use std::{collections::HashMap, sync::Arc, time::Instant};
-
-use crate::graph::{base_pool::Transaction, ExtrinsicFor, ExtrinsicHash, TransactionFor};
 use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus, TransactionSource};
-
-use super::multi_view_listener::{MultiViewListener, TxStatusStream};
-use crate::{ReadyIteratorFor, LOG_TARGET};
 use sp_blockchain::TreeRoute;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
-
-use super::view::View;
+use std::{collections::HashMap, sync::Arc, time::Instant};
 
 /// The helper structure encapsulates all the views.
 pub(super) struct ViewStore<ChainApi, Block>
@@ -51,6 +53,7 @@ where
 	/// Most recent block processed by tx-pool. Used on in API functions that were not changed to
 	/// add at parameter.
 	pub(super) most_recent_view: RwLock<Option<Block::Hash>>,
+	pub(super) dropped_stream_controller: MultiViewDroppedWatcher<ChainApi>,
 }
 
 impl<ChainApi, Block> ViewStore<ChainApi, Block>
@@ -59,13 +62,18 @@ where
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
-	pub(super) fn new(api: Arc<ChainApi>, listener: Arc<MultiViewListener<ChainApi>>) -> Self {
+	pub(super) fn new(
+		api: Arc<ChainApi>,
+		listener: Arc<MultiViewListener<ChainApi>>,
+		dropped_stream_controller: MultiViewDroppedWatcher<ChainApi>,
+	) -> Self {
 		Self {
 			api,
 			views: Default::default(),
 			retracted_views: Default::default(),
 			listener,
 			most_recent_view: RwLock::from(None),
+			dropped_stream_controller,
 		}
 	}
 
@@ -327,6 +335,7 @@ where
 		}
 		for hash in &views_to_be_removed {
 			self.listener.remove_view(*hash);
+			self.dropped_stream_controller.remove_view(*hash);
 		}
 	}
 

@@ -21,6 +21,8 @@ use std::{collections::HashMap, fmt::Debug, hash};
 // use crate::LOG_TARGET;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, trace};
+use sc_transaction_pool_api::TransactionStatus;
+use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use serde::Serialize;
 use sp_runtime::traits;
 
@@ -28,10 +30,20 @@ use super::{watcher, BlockHash, ChainApi, ExtrinsicHash};
 
 static LOG_TARGET: &str = "txpool::watcher";
 
+/// Single event used in dropped by limits stream. It is one of Ready/Future/Dropped.
+pub type DroppedByLimitsEvent<H, BH> = (H, TransactionStatus<H, BH>);
+/// Stream of events used to determine if transaction was dropped.
+pub type DroppedByLimitsStream<H, BH> = TracingUnboundedReceiver<DroppedByLimitsEvent<H, BH>>;
+
 /// Extrinsic pool default listener.
 pub struct Listener<H: hash::Hash + Eq, C: ChainApi> {
-	watchers: HashMap<H, watcher::Sender<H, ExtrinsicHash<C>>>,
+	watchers: HashMap<H, watcher::Sender<H, BlockHash<C>>>,
 	finality_watchers: LinkedHashMap<ExtrinsicHash<C>, Vec<H>>,
+
+	/// The sink used to notify dropped-by-enforcing-limits transactions. Also ready and future
+	/// statuses are reported via this channel to allow consumer of the stream tracking actual
+	/// drops.
+	dropped_by_limits_sink: Option<TracingUnboundedSender<DroppedByLimitsEvent<H, BlockHash<C>>>>,
 }
 
 /// Maximum number of blocks awaiting finality at any time.
@@ -39,11 +51,15 @@ const MAX_FINALITY_WATCHERS: usize = 512;
 
 impl<H: hash::Hash + Eq + Debug, C: ChainApi> Default for Listener<H, C> {
 	fn default() -> Self {
-		Self { watchers: Default::default(), finality_watchers: Default::default() }
+		Self {
+			watchers: Default::default(),
+			finality_watchers: Default::default(),
+			dropped_by_limits_sink: None,
+		}
 	}
 }
 
-impl<H: hash::Hash + traits::Member + Serialize, C: ChainApi> Listener<H, C> {
+impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H, C> {
 	fn fire<F>(&mut self, hash: &H, fun: F)
 	where
 		F: FnOnce(&mut watcher::Sender<H, ExtrinsicHash<C>>),
@@ -68,6 +84,15 @@ impl<H: hash::Hash + traits::Member + Serialize, C: ChainApi> Listener<H, C> {
 		sender.new_watcher(hash)
 	}
 
+	/// Creates a new single stream for entire pool.
+	///
+	/// The stream can be used to subscribe to life-cycle events of all extrinsics in the pool.
+	pub fn create_dropped_by_litmis_stream(&mut self) -> DroppedByLimitsStream<H, BlockHash<C>> {
+		let (sender, single_stream) = tracing_unbounded("mpsc_txpool_watcher", 100_000);
+		self.dropped_by_limits_sink = Some(sender);
+		single_stream
+	}
+
 	/// Notify the listeners about extrinsic broadcast.
 	pub fn broadcasted(&mut self, hash: &H, peers: Vec<String>) {
 		trace!(target: LOG_TARGET, "[{:?}] Broadcasted", hash);
@@ -90,12 +115,21 @@ impl<H: hash::Hash + traits::Member + Serialize, C: ChainApi> Listener<H, C> {
 	}
 
 	/// Transaction was dropped from the pool because of the limit.
-	pub fn dropped(&mut self, tx: &H, by: Option<&H>) {
+	// todo: we can do better,
+	// note: well, above documentation is not really accurate, so we need bool indicate the drop
+	// reason.
+	pub fn dropped(&mut self, tx: &H, by: Option<&H>, limits_enforced: bool) {
 		trace!(target: LOG_TARGET, "[{:?}] Dropped (replaced with {:?})", tx, by);
 		self.fire(tx, |watcher| match by {
 			Some(t) => watcher.usurped(t.clone()),
 			None => watcher.dropped(),
-		})
+		});
+
+		if limits_enforced {
+			if let Some(ref sink) = self.dropped_by_limits_sink {
+				sink.unbounded_send((tx.clone(), TransactionStatus::Dropped));
+			}
+		}
 	}
 
 	/// Transaction was removed as invalid.

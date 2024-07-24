@@ -19,6 +19,7 @@
 //! Substrate fork-aware transaction pool implementation.
 
 use super::{
+	dropped_watcher::{MultiViewDroppedWatcher, StreamOfDropped},
 	import_notification_sink::MultiViewImportNotificationSink,
 	metrics::MetricsLink as PrometheusMetrics,
 	multi_view_listener::MultiViewListener,
@@ -65,8 +66,10 @@ use std::{
 };
 use tokio::select;
 
-pub use super::import_notification_sink::ImportNotificationTask;
 pub type FullPool<Block, Client> = ForkAwareTxPool<FullChainApi<Client, Block>, Block>;
+
+/// Fork aware transaction pool task, that needs to be polled.
+pub type ForkAwareTxPoolTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 
 struct ReadyPoll<T, Block>
 where
@@ -139,21 +142,35 @@ where
 		pool_api: Arc<ChainApi>,
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
-	) -> (Self, ImportNotificationTask) {
+	) -> (Self, ForkAwareTxPoolTask) {
 		let listener = Arc::from(MultiViewListener::new());
 		let (import_notification_sink, import_notification_sink_task) =
 			MultiViewImportNotificationSink::new_with_worker();
 
+		let mempool = Arc::from(TxMemPool::new(
+			pool_api.clone(),
+			listener.clone(),
+			Default::default(),
+			usize::MAX,
+		));
+
+		let (dropped_stream_controller, dropped_stream) =
+			MultiViewDroppedWatcher::<ChainApi>::new();
+		let dropped_monitor_task = Self::dropped_monitor_task(dropped_stream, mempool.clone());
+
+		let combined_tasks = async move {
+			tokio::select! {
+				_ = import_notification_sink_task => {},
+				_ = dropped_monitor_task => {}
+			}
+		}
+		.boxed();
+
 		(
 			Self {
-				mempool: Arc::from(TxMemPool::new(
-					pool_api.clone(),
-					listener.clone(),
-					Default::default(),
-					usize::MAX,
-				)),
+				mempool,
 				api: pool_api.clone(),
-				view_store: Arc::new(ViewStore::new(pool_api, listener)),
+				view_store: Arc::new(ViewStore::new(pool_api, listener, dropped_stream_controller)),
 				ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
 				enactment_state: Arc::new(Mutex::new(EnactmentState::new(
 					best_block_hash,
@@ -165,8 +182,22 @@ where
 				is_validator: false.into(),
 				metrics: Default::default(),
 			},
-			import_notification_sink_task,
+			combined_tasks,
 		)
+	}
+
+	async fn dropped_monitor_task(
+		mut dropped_stream: StreamOfDropped<ChainApi>,
+		mempool: Arc<TxMemPool<ChainApi, Block>>,
+	) {
+		loop {
+			let Some(dropped) = dropped_stream.next().await else {
+				log::info!("fatp::dropped_monitor_task: terminated...");
+				break;
+			};
+			log::debug!("[{:?}] fatp::dropped notification, removing", dropped);
+			mempool.remove_transactions(&vec![dropped]).await;
+		}
 	}
 
 	/// Create new fork aware transaction pool with provided api.
@@ -190,25 +221,31 @@ where
 		let (import_notification_sink, import_notification_sink_task) =
 			MultiViewImportNotificationSink::new_with_worker();
 
+		let mempool = Arc::from(TxMemPool::new(
+			pool_api.clone(),
+			listener.clone(),
+			metrics.clone(),
+			TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER * (options.ready.count + options.future.count),
+		));
+
+		let (dropped_stream_controller, dropped_stream) =
+			MultiViewDroppedWatcher::<ChainApi>::new();
+		let dropped_monitor_task = Self::dropped_monitor_task(dropped_stream, mempool.clone());
+
 		let combined_tasks = async move {
 			tokio::select! {
 				_ = revalidation_task => {},
 				_ = import_notification_sink_task => {},
+				_ = dropped_monitor_task => {}
 			}
 		}
 		.boxed();
 		spawner.spawn_essential("txpool-background", Some("transaction-pool"), combined_tasks);
 
 		Self {
-			mempool: Arc::from(TxMemPool::new(
-				pool_api.clone(),
-				listener.clone(),
-				metrics.clone(),
-				TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER *
-					(options.ready.count + options.future.count),
-			)),
+			mempool,
 			api: pool_api.clone(),
-			view_store: Arc::new(ViewStore::new(pool_api, listener)),
+			view_store: Arc::new(ViewStore::new(pool_api, listener, dropped_stream_controller)),
 			ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
 			enactment_state: Arc::new(Mutex::new(EnactmentState::new(
 				best_block_hash,
@@ -489,6 +526,8 @@ where
 			let mut results_map = view_store.submit_at(source, to_be_submitted.into_iter()).await;
 			let mut submission_result = reduce_multiview_result(&mut results_map).into_iter();
 
+			//todo: ImmediatelyDropped txs shall be removed from the mempoool (or maybe order of sending
+			//shall be swapped).
 			Ok(mempool_result
 				.into_iter()
 				.map(|result| {
@@ -531,6 +570,7 @@ where
 					}
 					r
 				})
+				//todo: unwrap_or
 				.expect("there is at least one entry in input");
 			results
 		}
@@ -720,34 +760,6 @@ where
 
 			View::start_background_revalidation(view, self.revalidation_queue.clone()).await;
 		}
-
-		// {
-		// 	let to_be_removed = {
-		// 		let mut to_be_removed = vec![];
-		// 		let views = self.view_store.views.read();
-		// 		if !views.is_empty() {
-		// 			let all = self.mempool.clone_all();
-		// 			for (tx_hash, _) in all {
-		// 				let mut statuses = views
-		// 					.values()
-		// 					.map(|v| v.pool.validated_pool().check_is_known(&tx_hash, false));
-		//
-		// 				if statuses.all(|status| {
-		// 					status.is_ok()
-		// 					// if let Err(error) = status {
-		// 					// 	matches!(error.into_pool_error(), Ok(Error::TemporarilyBanned))
-		// 					// } else {
-		// 					// 	false
-		// 					// }
-		// 				}) {
-		// 					to_be_removed.push(tx_hash);
-		// 				}
-		// 			}
-		// 		};
-		// 		to_be_removed
-		// 	};
-		// 	self.mempool.remove_transactions(&to_be_removed).await;
-		// }
 	}
 
 	async fn build_new_view(
@@ -784,6 +796,12 @@ where
 		self.import_notification_sink.add_view(
 			view.at.hash,
 			view.pool.validated_pool().import_notification_stream().boxed(),
+		);
+
+		//we need to capture all dropped transactions from the very beginning
+		self.view_store.dropped_stream_controller.add_view(
+			view.at.hash,
+			view.pool.validated_pool().create_dropped_by_limits_stream().boxed(),
 		);
 
 		let start = Instant::now();

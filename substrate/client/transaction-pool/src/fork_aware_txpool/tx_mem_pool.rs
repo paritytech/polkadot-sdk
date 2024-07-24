@@ -234,10 +234,6 @@ where
 		.map(|_| ())
 	}
 
-	pub(super) fn clone_all(&self) -> InternalMap<ChainApi, Block> {
-		self.transactions.read().clone()
-	}
-
 	pub(super) async fn remove_transactions(&self, to_be_removed: &Vec<ExtrinsicHash<ChainApi>>) {
 		log::info!(target: LOG_TARGET, "remove_transactions count:{:?}", to_be_removed.len());
 		log_xt_debug!(target: LOG_TARGET, to_be_removed, "[{:?}] mempool::remove_transactions");

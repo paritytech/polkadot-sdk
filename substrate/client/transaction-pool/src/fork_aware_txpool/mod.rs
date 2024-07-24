@@ -18,6 +18,7 @@
 
 //! Substrate single state transaction pool implementation.
 
+mod dropped_watcher;
 pub(crate) mod fork_aware_txpool;
 mod import_notification_sink;
 mod metrics;
@@ -28,4 +29,4 @@ mod view_revalidation;
 mod view_store;
 
 pub(crate) use fork_aware_txpool::FullPool;
-pub use fork_aware_txpool::{ForkAwareTxPool, ImportNotificationTask};
+pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
