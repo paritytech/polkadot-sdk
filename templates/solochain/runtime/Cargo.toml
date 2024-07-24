@@ -23,7 +23,6 @@ scale-info = { features = [
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
 frame = { features = [
-	"experimental",
 	"runtime",
 	"serde",
 ], workspace = true }
