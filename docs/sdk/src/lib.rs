@@ -36,7 +36,7 @@
 pub mod meta_contributing;
 
 /// In-depth guides about the most common components of the Polkadot SDK. They are slightly more
-/// high level and broad than reference docs.
+/// high level and broad than [`reference_docs`].
 pub mod guides;
 /// An introduction to the Polkadot SDK. Read this module to learn about the structure of the SDK,
 /// the tools that are provided as a part of it, and to gain a high level understanding of each.
