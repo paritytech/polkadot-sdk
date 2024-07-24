@@ -1231,6 +1231,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1080" id="1080">1080</a>
 <a href="#1081" id="1081">1081</a>
 <a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1261,6 +1272,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	dummy_builder,
 	environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
 	mock::{
+		availability_recovery::MockAvailabilityRecovery,
+		candidate_validation::MockCandidateValidation,
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
 		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
@@ -1292,13 +1305,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_node_subsystem_util::metrics::Metrics;
 <span class="kw">use </span>polkadot_overseer::Handle <span class="kw">as </span>OverseerHandleReal;
 <span class="kw">use </span>polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceipt, Hash, Header, Slot,
+	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceipt, Hash, Header, Slot, ValidatorId,
 	ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
 };
 <span class="kw">use </span>prometheus::Registry;
 <span class="kw">use </span>sc_keystore::LocalKeystore;
 <span class="kw">use </span>sc_service::SpawnTaskHandle;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>sp_application_crypto::AppCrypto;
 <span class="kw">use </span>sp_consensus_babe::Epoch <span class="kw">as </span>BabeEpoch;
 <span class="kw">use </span>sp_core::H256;
 <span class="kw">use </span>sp_keystore::Keystore;
@@ -2025,6 +2039,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(state.test_authorities.key_seeds.get(NODE_UNDER_TEST <span class="kw">as </span>usize).unwrap().as_str()),
 		)
 		.unwrap();
+	keystore
+		.sr25519_generate_new(
+			ValidatorId::ID,
+			<span class="prelude-val">Some</span>(state.test_authorities.key_seeds.get(NODE_UNDER_TEST <span class="kw">as </span>usize).unwrap().as_str()),
+		)
+		.unwrap();
 
 	<span class="kw">let </span>system_clock =
 		PastSystemClock::new(SystemClock {}, state.delta_tick_from_generated.clone());
@@ -2064,7 +2084,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.replace_chain_selection(|<span class="kw">_</span>| mock_chain_selection)
 		.replace_runtime_api(|<span class="kw">_</span>| mock_runtime_api)
 		.replace_network_bridge_tx(|<span class="kw">_</span>| mock_tx_bridge)
-		.replace_network_bridge_rx(|<span class="kw">_</span>| mock_rx_bridge);
+		.replace_network_bridge_rx(|<span class="kw">_</span>| mock_rx_bridge)
+		.replace_availability_recovery(|<span class="kw">_</span>| MockAvailabilityRecovery::new())
+		.replace_candidate_validation(|<span class="kw">_</span>| MockCandidateValidation::new());
 
 	<span class="kw">let </span>(overseer, raw_handle) =
 		dummy.build_with_connector(overseer_connector).expect(<span class="string">"Should not fail"</span>);

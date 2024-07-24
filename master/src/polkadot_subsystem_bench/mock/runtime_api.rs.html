@@ -465,6 +465,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#314" id="314">314</a>
 <a href="#315" id="315">315</a>
 <a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -493,9 +500,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>polkadot_node_subsystem_types::OverseerSignal;
 <span class="kw">use </span>polkadot_primitives::{
-	node_features, AsyncBackingParams, CandidateEvent, CandidateReceipt, CoreState, GroupIndex,
-	GroupRotationInfo, IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex,
-	SessionInfo, ValidationCode, ValidatorIndex,
+	node_features, ApprovalVotingParams, AsyncBackingParams, CandidateEvent, CandidateReceipt,
+	CoreState, GroupIndex, GroupRotationInfo, IndexedVec, NodeFeatures, OccupiedCore,
+	ScheduledCore, SessionIndex, SessionInfo, ValidationCode, ValidatorIndex,
 };
 <span class="kw">use </span>sp_consensus_babe::Epoch <span class="kw">as </span>BabeEpoch;
 <span class="kw">use </span>sp_core::H256;
@@ -764,6 +771,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"validation code wasn't received"</span>);
 							}
 						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::ApprovalVotingParams(<span class="kw">_</span>, tx),
+						) =&gt;
+							<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = tx.send(<span class="prelude-val">Ok</span>(ApprovalVotingParams::default())) {
+								<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Voting params weren't received"</span>);
+							},
 						<span class="comment">// Long term TODO: implement more as needed.
 						</span>message =&gt; {
 							<span class="macro">unimplemented!</span>(<span class="string">"Unexpected runtime-api message: {:?}"</span>, message)
