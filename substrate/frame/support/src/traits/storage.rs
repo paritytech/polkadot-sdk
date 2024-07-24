@@ -180,7 +180,7 @@ impl Footprint {
 		Self::from_parts(1, e.encoded_size())
 	}
 
-	/// Construct a footprint with one item, and size equal to the generic type `E`.
+	/// Construct a footprint with one item, and size equal to the max encoded length of `E`.
 	pub fn from_mel<E: MaxEncodedLen>() -> Self {
 		Self::from_parts(1, E::max_encoded_len())
 	}
