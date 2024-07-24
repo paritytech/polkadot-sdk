@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721836876903,
+  "lastUpdate": 1721851392128,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -15371,6 +15371,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1915109088333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "60d21e9c4314d5144c9ebdd4fd851ee5f06b0f0d",
+          "message": "Introduce a workflow updating the wishlist leaderboards (#5085)\n\n- Closes https://github.com/paritytech/eng-automation/issues/11\n\nThe workflow periodically updates the leaderboards of the wishlist\nissues: https://github.com/paritytech/polkadot-sdk/issues/3900 and\nhttps://github.com/paritytech/polkadot-sdk/issues/3901\n\nThe code is adopted from\n[here](https://github.com/kianenigma/wishlist-tracker), with slight\nmodifications.\n\nPreviously, the score could be increased by the same person adding\ndifferent reactions. Also, some wishes have a score of 0 - even thought\nthere is a wish for them, because the author was not counted.\n\nNow, the score is a unique count of upvoters of the desired issue,\nupvoters of the wish comment, and the author of the wish comment.\n\nI changed the format to include the `Last updated:` at the bottom - it\nwill be automatically updated.",
+          "timestamp": "2024-07-24T18:18:58Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/60d21e9c4314d5144c9ebdd4fd851ee5f06b0f0d"
+        },
+        "date": 1721851361546,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.519295725266668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.25571254720000003,
             "unit": "seconds"
           }
         ]
