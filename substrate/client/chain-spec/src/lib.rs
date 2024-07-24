@@ -406,7 +406,7 @@ pub trait ChainSpec: BuildStorage + Send + Sync {
 	fn add_boot_node(&mut self, addr: MultiaddrWithPeerId);
 	/// Return spec as JSON.
 	fn as_json(&self, raw: bool) -> Result<String, String>;
-	/// Return StorageBuilder for this spec.
+	/// Return `StorageBuilder` for this spec.
 	fn as_storage_builder(&self) -> &dyn BuildStorage;
 	/// Returns a cloned `Box<dyn ChainSpec>`.
 	fn cloned_box(&self) -> Box<dyn ChainSpec>;

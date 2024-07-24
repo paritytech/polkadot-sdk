@@ -75,6 +75,29 @@ impl SubstrateCli for Cli {
 		};
 		Ok(spec)
 	}
+
+	fn load_spec_from_runtime(
+		&self,
+		runtime: &[u8],
+		maybe_preset: Option<&str>,
+	) -> std::result::Result<Box<dyn sc_cli::ChainSpec>, String> {
+		use sc_service::{ChainType, Properties};
+		let mut properties = Properties::new();
+		properties.insert("tokenDecimals".to_string(), 12.into());
+		properties.insert("tokenSymbol".to_string(), "SUB-DEV".into());
+
+		let mut builder = chain_spec::ChainSpec::builder(runtime.as_ref(), Default::default())
+			.with_name("Development")
+			.with_id("dev")
+			.with_chain_type(ChainType::Development)
+			.with_properties(properties);
+
+		if let Some(preset) = maybe_preset {
+			builder = builder.with_genesis_config_preset_name(preset);
+		}
+
+		Ok(Box::new(builder.build()))
+	}
 }
 
 /// Parse command line arguments into service configuration.

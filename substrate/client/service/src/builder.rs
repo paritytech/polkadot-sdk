@@ -148,12 +148,15 @@ where
 {
 	let backend = new_db_backend(config.db_config())?;
 
+	// println!("Creating genesis block builder");
+	// println!("chain_spec {:?}", config.chain_spec);
 	let genesis_block_builder = GenesisBlockBuilder::new(
 		config.chain_spec.as_storage_builder(),
 		!config.no_genesis(),
 		backend.clone(),
 		executor.clone(),
-	)?;
+	)
+	.unwrap();
 
 	new_full_parts_with_genesis_builder(
 		config,

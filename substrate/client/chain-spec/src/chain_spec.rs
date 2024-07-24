@@ -47,6 +47,16 @@ enum GenesisBuildAction<EHF> {
 	NamedPreset(String, PhantomData<EHF>),
 }
 
+impl<T> std::fmt::Debug for GenesisBuildAction<T> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::Patch(_) => write!(f, "Patch)"),
+			Self::Full(_) => write!(f, "Full"),
+			Self::NamedPreset(ref p, _) => write!(f, "NamedPreset({:?})", p),
+		}
+	}
+}
+
 impl<EHF> Clone for GenesisBuildAction<EHF> {
 	fn clone(&self) -> Self {
 		match self {
@@ -66,6 +76,17 @@ enum GenesisSource<EHF> {
 	GenesisBuilderApi(GenesisBuildAction<EHF>, Vec<u8>),
 }
 
+impl<T> std::fmt::Debug for GenesisSource<T> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::File(ref path) => write!(f, "File({:?})", path),
+			Self::Binary(_) => write!(f, "Binary"),
+			Self::Storage(_) => write!(f, "Storage"),
+			Self::GenesisBuilderApi(_, _) => write!(f, "GenesisBuilderApi"),
+		}
+	}
+}
+
 impl<EHF> Clone for GenesisSource<EHF> {
 	fn clone(&self) -> Self {
 		match *self {
@@ -79,6 +100,7 @@ impl<EHF> Clone for GenesisSource<EHF> {
 
 impl<EHF: HostFunctions> GenesisSource<EHF> {
 	fn resolve(&self) -> Result<Genesis, String> {
+		// println!("self = {:?}", self);
 		/// helper container for deserializing genesis from the JSON file (ChainSpec JSON file is
 		/// also supported here)
 		#[derive(Serialize, Deserialize)]

@@ -45,6 +45,10 @@ pub(crate) const DEFAULT_NETWORK_CONFIG_PATH: &str = "network";
 /// The recommended open file descriptor limit to be configured for the process.
 const RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT: u64 = 10_000;
 
+/// The default 'development' preset used to communicate with the runtime via
+/// [`sp_genesis_builder`].
+pub const DEV_RUNTIME_PRESET: &'static str = "dev";
+
 /// The default port.
 pub const RPC_DEFAULT_PORT: u16 = 9944;
 /// The default max number of subscriptions per connection.
@@ -466,6 +470,20 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(true)
 	}
 
+	/// The genesis preset to use when `--runtime` is being used.
+	fn genesis_preset(&self, is_dev: bool) -> Option<&str> {
+		self.shared_params().genesis_preset.as_ref().map_or_else(
+			|| {
+				if is_dev {
+					Some(DEV_RUNTIME_PRESET.as_ref())
+				} else {
+					None
+				}
+			},
+			|p| Some(p.as_str()),
+		)
+	}
+
 	/// Create a Configuration object from the current object
 	fn create_configuration<C: SubstrateCli>(
 		&self,
@@ -474,7 +492,13 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	) -> Result<Configuration> {
 		let is_dev = self.is_dev()?;
 		let chain_id = self.chain_id(is_dev)?;
-		let chain_spec = cli.load_spec(&chain_id)?;
+		let chain_spec = if let Some(runtime_path) = self.shared_params().runtime.as_ref() {
+			let runtime = std::fs::read(runtime_path)
+				.map_err(|e| format!("Failed to read runtime: {}", e))?;
+			cli.load_spec_from_runtime(&runtime, self.genesis_preset(is_dev))?
+		} else {
+			cli.load_spec(&chain_id)?
+		};
 		let base_path = base_path_or_default(self.base_path()?, &C::executable_name());
 		let config_dir = build_config_dir(&base_path, chain_spec.id());
 		let net_config_dir = build_net_config_dir(&config_dir);

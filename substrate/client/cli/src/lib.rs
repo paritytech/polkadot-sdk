@@ -38,7 +38,7 @@ mod signals;
 pub use arg_enums::*;
 pub use clap;
 pub use commands::*;
-pub use config::*;
+pub use config::{DEV_RUNTIME_PRESET, *};
 pub use error::*;
 pub use params::*;
 pub use runner::*;
@@ -89,8 +89,43 @@ pub trait SubstrateCli: Sized {
 	/// Copyright starting year (x-current year)
 	fn copyright_start_year() -> i32;
 
-	/// Chain spec factory
+	/// Build the chain spec of a chain, with the given "chain-id".
+	///
+	/// This function is exposed to substrate-based-nodes so that they can specify their own special
+	/// chain-id -> chain-spec mappings. For example, a bitcoin chain might specify
+	///
+	/// ```
+	/// fn main() {
+	/// 	# let chain_id = "something";
+	/// 	match chain_id
+	/// 		"bitcoin" => { todo!() }
+	/// 		"bitcoing-dev" => { todo!() }
+	/// 		"bitcoing-local" => { todo!() }
+	/// 		_ => { todo!("we interpret the chain-id as a path to a pre-generated chain-spec") }
+	/// 	}
+	/// }
+	/// ```
+	///
+	/// By convention, many substrate-based chains follow a similar pattern here, and expose `-dev`
+	/// and `-local` as special expected chain-ids.
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn ChainSpec>, String>;
+
+	/// Construct a chain-spec on the fly, from the given runtime and preset name.
+	///
+	/// This is the other counter-part of [`load_spec`], and can be used to create chain-specs from
+	/// a wam blob, and a given preset name. Not all fields of the chain-spec are configurable in
+	/// this mode.
+	///
+	/// For now, this is only reasonably useful for testing and local development, when you don't
+	/// want the hassle of re-generating a chain-spec. For any production chain, using `--chain` and
+	/// a proper chain-spec is suggested.
+	fn load_spec_from_runtime(
+		&self,
+		_runtime: &[u8],
+		_preset: Option<&str>,
+	) -> std::result::Result<Box<dyn ChainSpec>, String> {
+		panic!("🫵🏻 unsupported: This node does not support on-the-fly chain-spec generation. The code must be updated to provide an impl for `SubstrateCli::load_spec_from_runtime`.\n Try `--chain` instead.")
+	}
 
 	/// Helper function used to parse the command line arguments. This is the equivalent of
 	/// [`clap::Parser::parse()`].

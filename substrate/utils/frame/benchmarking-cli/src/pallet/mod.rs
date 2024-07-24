@@ -167,10 +167,6 @@ pub struct PalletCmd {
 	)]
 	pub wasmtime_instantiation_strategy: WasmtimeInstantiationStrategy,
 
-	/// Optional runtime blob to use instead of the one from the genesis config.
-	#[arg(long, conflicts_with = "chain")]
-	pub runtime: Option<PathBuf>,
-
 	/// Do not fail if there are unknown but also unused host functions in the runtime.
 	#[arg(long)]
 	pub allow_missing_host_functions: bool,

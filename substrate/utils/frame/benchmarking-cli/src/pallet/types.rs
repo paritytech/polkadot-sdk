@@ -31,6 +31,8 @@ pub enum GenesisBuilder {
 	/// state. However, to keep backwards compatibility, this is not the default.
 	None,
 	/// Let the runtime build the genesis state through its `BuildGenesisConfig` runtime API.
+	///
+	/// This uses [`sc_cli::DEV_RUNTIME_PRESET`] preset.
 	Runtime,
 	/// Use the spec file to build the genesis state. This fails when there is no spec.
 	Spec,

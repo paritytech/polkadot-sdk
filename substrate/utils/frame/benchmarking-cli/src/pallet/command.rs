@@ -28,7 +28,10 @@ use frame_benchmarking::{
 use frame_support::traits::StorageInfo;
 use linked_hash_map::LinkedHashMap;
 use sc_chain_spec::json_patch::merge as json_merge;
-use sc_cli::{execution_method_from_cli, ChainSpec, CliConfiguration, Result, SharedParams};
+use sc_cli::{
+	execution_method_from_cli, ChainSpec, CliConfiguration, Result, SharedParams,
+	DEV_RUNTIME_PRESET,
+};
 use sc_client_db::BenchmarkingState;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sp_core::{
@@ -159,9 +162,6 @@ const WARN_SPEC_GENESIS_CTOR: &'static str = "Using the chain spec instead of th
 generate the genesis state is deprecated. Please remove the `--chain`/`--dev`/`--local` argument, \
 point `--runtime` to your runtime blob and set `--genesis-builder=runtime`. This warning may \
 become a hard error any time after December 2024.";
-
-/// The preset that we expect to find in the GenesisBuilder runtime API.
-const GENESIS_PRESET: &str = "development";
 
 impl PalletCmd {
 	/// Runs the command and benchmarks a pallet.
@@ -574,7 +574,7 @@ impl PalletCmd {
 		&self,
 		chain_spec: &Option<Box<dyn ChainSpec>>,
 	) -> Result<(sp_storage::Storage, OverlayedChanges<H>)> {
-		Ok(match (self.genesis_builder, self.runtime.is_some()) {
+		Ok(match (self.genesis_builder, self.shared_params().runtime.is_some()) {
 			(Some(GenesisBuilder::None), _) => Default::default(),
 			(Some(GenesisBuilder::Spec), _) | (None, false) => {
 				log::warn!("{WARN_SPEC_GENESIS_CTOR}");
@@ -646,7 +646,7 @@ impl PalletCmd {
 				&mut Default::default(),
 				&executor,
 				"GenesisBuilder_get_preset",
-				&Some::<PresetId>(GENESIS_PRESET.into()).encode(), // Use the default preset
+				&self.genesis_preset(false).encode(),
 				&mut Self::build_extensions(executor.clone()),
 				&runtime_code,
 				CallContext::Offchain,
@@ -664,7 +664,7 @@ impl PalletCmd {
 			json_merge(&mut genesis_json, dev);
 		} else {
 			log::warn!(
-				"Could not find genesis preset '{GENESIS_PRESET}'. Falling back to default."
+				"Could not find genesis preset '{DEV_RUNTIME_PRESET}'. Falling back to default."
 			);
 		}
 
@@ -728,7 +728,7 @@ impl PalletCmd {
 		&self,
 		state: &'a BenchmarkingState<H>,
 	) -> Result<FetchedCode<'a, BenchmarkingState<H>, H>> {
-		if let Some(runtime) = &self.runtime {
+		if let Some(runtime) = &self.shared_params().runtime {
 			log::info!("Loading WASM from {}", runtime.display());
 			let code = fs::read(runtime)?;
 			let hash = sp_core::blake2_256(&code).to_vec();
@@ -975,8 +975,10 @@ impl PalletCmd {
 
 	/// Sanity check the CLI arguments.
 	fn check_args(&self) -> Result<()> {
-		if self.runtime.is_some() && self.shared_params.chain.is_some() {
-			unreachable!("Clap should not allow both `--runtime` and `--chain` to be provided.")
+		if (self.shared_params().runtime.is_some() || self.shared_params().genesis_preset.is_some()) &&
+			self.shared_params.chain.is_some()
+		{
+			unreachable!("Clap should not allow both (`--runtime` or `--genesis-preset`) and `--chain` to be provided.")
 		}
 
 		if let Some(output_path) = &self.output {

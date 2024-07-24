@@ -27,15 +27,32 @@ pub struct SharedParams {
 	/// Specify the chain specification.
 	///
 	/// It can be one of the predefined ones (dev, local, or staging) or it can be a path to
-	/// a file with the chainspec (such as one exported by the `build-spec` subcommand).
-	#[arg(long, value_name = "CHAIN_SPEC")]
+	/// a file with the chain-spec (such as one exported by the `build-spec` subcommand).
+	#[arg(long, value_name = "CHAIN_SPEC", conflicts_with_all = &["runtime", "genesis_preset"])]
 	pub chain: Option<String>,
+
+	/// Path to a `.wasm` runtime blob.
+	///
+	/// This, possibly with `--genesis-preset`, can be used as an alternative to `--chain`.
+	#[arg(long, value_name = "RUNTIME")]
+	pub runtime: Option<PathBuf>,
+
+	/// A genesis preset to use.
+	///
+	/// If not specified, the `Default` preset is used. If `--dev` is preset, it imp
+	///
+	/// This, combined with  `--runtime`, can be used as an alternative to `--chain`.
+	#[arg(long, value_name = "GENESIS_PRESET")]
+	pub genesis_preset: Option<String>,
 
 	/// Specify the development chain.
 	///
-	/// This flag sets `--chain=dev`, `--force-authoring`, `--rpc-cors=all`,
-	/// `--alice`, and `--tmp` flags, unless explicitly overridden.
-	/// It also disables local peer discovery (see --no-mdns and --discover-local)
+	/// This flag sets `--force-authoring`, `--rpc-cors=all`, `--alice`, and `--tmp` flags, unless
+	/// explicitly overridden. It also disables local peer discovery (see --no-mdns and
+	/// --discover-local).
+	///
+	/// If combined with `--runtime`, it sets `--genesis-preset=dev`. Otherwise, it implies
+	/// `--chain=dev`.
 	#[arg(long, conflicts_with_all = &["chain"])]
 	pub dev: bool,
 
