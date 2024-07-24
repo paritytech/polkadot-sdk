@@ -9,6 +9,9 @@ doc:
         This achieved by using `SwapCredit` implementation of asset conversion, which works with
         imbalances and does not require a temporary balance account within the transaction payment.
 
+        This is a breaking change for the `pallet-asset-conversion-tx-payment` pallet, use examples 
+        from PR for the migration.
+
 crates:
   - name: pallet-asset-conversion-tx-payment
     bump: major
