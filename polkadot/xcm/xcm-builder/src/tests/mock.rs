@@ -695,6 +695,10 @@ impl AssetExchange for TestAssetExchange {
 		EXCHANGE_ASSETS.with(|l| l.replace(have));
 		Ok(get)
 	}
+
+	fn quote_exchange_price(_: &Asset, _: &Asset, _: bool) -> Option<u128> {
+		None
+	}
 }
 
 pub struct SiblingPrefix;
