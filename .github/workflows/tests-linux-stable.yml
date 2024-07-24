@@ -89,8 +89,8 @@ jobs:
     strategy: 
       fail-fast: false     
       matrix:
-        ci_node_total: [1]
-        ci_node_index: [1]      
+        ci_node_total: [5]
+        ci_node_index: [1,2,3,4,5]      
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -126,7 +126,7 @@ jobs:
           - test(/generate_chain_spec/) 
           - test(/chain_spec_builder_tests/)  
           "          
-          --partition count:${{ matrix.ci_node_index }}/100
+          --partition count:${{ matrix.ci_node_index }}/5
       - run: ls -al target/coverage
       - run: ls -al /__w/polkadot-sdk/polkadot-sdk/target
       - run: ls -al /__w/polkadot-sdk/polkadot-sdk/target/llvm-cov-target
