@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721850789890,
+  "lastUpdate": 1721863043053,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -12219,6 +12219,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.9232605662701947,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "btwiuse",
+            "username": "btwiuse",
+            "email": "54848194+btwiuse@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "240b374e052e0d000d24d8e88f9bd9092147646a",
+          "message": "Fix misleading comment about RewardHandler in epm config (#3095)\n\nIn pallet_election_provider_multi_phase::Config, the effect of\n\n       type RewardHandler = ()\n\nis to mint rewards from the void, not \"nothing to do upon rewards\"\n\nCo-authored-by: navigaid <navigaid@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-07-24T21:03:57Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/240b374e052e0d000d24d8e88f9bd9092147646a"
+        },
+        "date": 1721863012964,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52946.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 64061.340000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.8198089474402552,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 11.338013864280052,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.386957127770027,
             "unit": "seconds"
           }
         ]
