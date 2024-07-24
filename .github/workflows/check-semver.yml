@@ -23,22 +23,6 @@ jobs:
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
-        with:
-          cache-on-failure: true
-
-      - name: install parity-publish
-        run: cargo install parity-publish@0.7.0
-
-      - name: Rust compilation prerequisites
-        run: |
-          rustup default $TOOLCHAIN
-          rustup component add rust-src --toolchain $TOOLCHAIN
-
-      - name: install parity-publish
-        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.6.0 -q
-
       - name: extra git setup
         run: |
           git config --global --add safe.directory '*'
@@ -46,7 +30,7 @@ jobs:
           git branch old origin/master
 
       - name: Comment If Backport
-        if: github.event.pull_request.base.ref == 'stable'
+        if: ${{ startsWith(github.event.pull_request.base.ref, 'stable') }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
@@ -58,14 +42,39 @@ jobs:
           chmod +x /usr/local/bin/gh
 
             cat > msg.txt <<EOF
-          This is treated as a backport since it targets the 'stable' branch. Please proceed with caution to not impact teams that rely on the stability of our current release. Some things to consider:
-          - Must only declare 'patch' or 'minor' changes in its PrDoc.
-          - Should be a legit *fix* for some  bug, not add tons of new features.
-          - Must either be audited or trivial.
+            This pull request is amending an existing release. Please proceed with extreme caution,
+            as to not impact downstream teams that rely on the stability of it. Some things to consider:
+            - Backports are only for 'patch' or 'minor' changes. No 'major' or other breaking change.
+            - Should be a legit *fix* for some  bug, not adding tons of new features.
+            - Must either be already audited or trivial (not sure audit).
+
+            <details><summary><i>Emergency Bypass</i></summary>
+            <p>
+
+            If you really need to bypass this check: add <code>validate: false</code> to each crate
+            in the Prdoc where a breaking change is introduced. This will release a new major
+            version of that crate and all its reverse dependencies and basically break the release.
+
+            </p>
+            </details> 
           EOF
           gh issue comment $PR --edit-last -F msg.txt || gh issue comment $PR -F msg.txt
 
-          echo "PRDOC_EXTRA_ARGS=--max-allowed-bump minor" >> $GITHUB_ENV
+          echo "PRDOC_EXTRA_ARGS=--max-bump minor" >> $GITHUB_ENV
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
+        with:
+          cache-on-failure: true
+
+      - name: Rust compilation prerequisites
+        run: |
+          rustup default $TOOLCHAIN
+          rustup component add rust-src --toolchain $TOOLCHAIN
+
+      - name: install parity-publish
+        # Set the target dir to cache the build.
+        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish -q
 
       - name: check semver
         run: |

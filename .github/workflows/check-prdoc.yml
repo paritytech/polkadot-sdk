@@ -38,6 +38,13 @@ jobs:
           echo "Checking PRdoc version"
           $ENGINE run --rm -v $PWD:/repo $IMAGE --version
 
+      - name: Forbid R0 on backports
+        if: ${{ contains(steps.get-labels.outputs.labels, 'R0') && startsWith(github.event.pull_request.base.ref, 'stable') }}
+        run: |
+          echo "Backports into stable are currently not allowed to declare R0-silent. Please provide
+          a minimal Prdoc and remove the R0-silent label."
+          exit 1
+
       - name: Early exit if PR is silent
         if: ${{ contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
@@ -52,7 +59,6 @@ jobs:
           exit 0
 
       - name: PRdoc check for PR#${{ github.event.pull_request.number }}
-        if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
           echo "Checking for PR#${GITHUB_PR}"
           echo "You can find more information about PRDoc at $PRDOC_DOC"
