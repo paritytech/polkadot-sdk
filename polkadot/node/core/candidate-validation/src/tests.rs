@@ -1328,6 +1328,7 @@ impl ValidationBackend for MockHeadsUp {
 		code_hashes: Vec<ValidationCodeHash>,
 		_executor_params: ExecutorParams,
 	) -> Result<Vec<ValidationCodeHash>, String> {
+		println!("code_hashes {:?}", code_hashes);
 		Ok(code_hashes)
 	}
 }
@@ -1480,6 +1481,9 @@ fn maybe_prepare_validation_golden_path() {
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
 	assert!(state.session_index.is_some());
 	assert!(state.is_next_session_authority);
+	assert!(state.waiting.is_empty());
+	assert!(state.pending.is_empty());
+	assert_eq!(*state.processed.iter().next().unwrap(), dummy_hash().into());
 }
 
 #[test]
@@ -1516,6 +1520,9 @@ fn maybe_prepare_validation_checkes_authority_once_per_session() {
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
 	assert!(state.session_index.is_some());
 	assert!(!state.is_next_session_authority);
+	assert!(state.waiting.is_empty());
+	assert!(state.pending.is_empty());
+	assert!(state.processed.is_empty());
 }
 
 #[test]
@@ -1568,11 +1575,15 @@ fn maybe_prepare_validation_resets_state_on_a_new_session() {
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
 	assert_eq!(state.session_index.unwrap(), 2);
 	assert!(!state.is_next_session_authority);
+	assert!(state.executor_params.is_none());
+	assert!(state.waiting.is_empty());
+	assert!(state.pending.is_empty());
 	assert!(state.processed.is_empty());
 }
 
 #[test]
-fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_and_not_a_validator() {
+fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_and_not_a_next_session_authority(
+) {
 	let pool = TaskExecutor::new();
 	let (mut ctx, mut ctx_handle) =
 		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
@@ -1601,10 +1612,13 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_and_not_a_va
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
 	assert!(state.session_index.is_some());
 	assert!(!state.is_next_session_authority);
+	assert!(state.waiting.is_empty());
+	assert!(state.pending.is_empty());
+	assert!(state.processed.is_empty());
 }
 
 #[test]
-fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_but_a_validator() {
+fn maybe_prepare_validation_prepares_pvfs_if_no_new_session_but_a_next_session_authority() {
 	let pool = TaskExecutor::new();
 	let (mut ctx, mut ctx_handle) =
 		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
@@ -1616,6 +1630,7 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_but_a_valida
 	let mut state = PrepareValidationState {
 		session_index: Some(1),
 		is_next_session_authority: true,
+		executor_params: Some(ExecutorParams::default()),
 		..Default::default()
 	};
 
@@ -1627,21 +1642,6 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_but_a_valida
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
 				let _ = tx.send(Ok(1));
-			}
-		);
-
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
-				let _ = tx.send(Ok(1));
-			}
-		);
-
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
-				assert_eq!(index, 1);
-				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
 
@@ -1667,10 +1667,13 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_but_a_valida
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
 	assert!(state.session_index.is_some());
 	assert!(state.is_next_session_authority);
+	assert!(state.waiting.is_empty());
+	assert!(state.pending.is_empty());
+	assert_eq!(state.processed.len(), 1);
 }
 
 #[test]
-fn maybe_prepare_validation_does_not_prepare_pvfs_if_not_a_validator_in_the_next_session() {
+fn maybe_prepare_validation_does_not_prepare_pvfs_if_not_a_next_session_authority() {
 	let pool = TaskExecutor::new();
 	let (mut ctx, mut ctx_handle) =
 		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
@@ -1714,10 +1717,13 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_not_a_validator_in_the_next
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
 	assert!(state.session_index.is_some());
 	assert!(!state.is_next_session_authority);
+	assert!(state.waiting.is_empty());
+	assert!(state.pending.is_empty());
+	assert!(state.processed.is_empty());
 }
 
 #[test]
-fn maybe_prepare_validation_does_not_prepare_pvfs_if_a_validator_in_the_current_session() {
+fn maybe_prepare_validation_does_not_prepare_pvfs_if_a_current_session_authority() {
 	let pool = TaskExecutor::new();
 	let (mut ctx, mut ctx_handle) =
 		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
@@ -1761,6 +1767,9 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_a_validator_in_the_current_
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
 	assert!(state.session_index.is_some());
 	assert!(!state.is_next_session_authority);
+	assert!(state.waiting.is_empty());
+	assert!(state.pending.is_empty());
+	assert!(state.processed.is_empty());
 }
 
 #[test]
@@ -1856,6 +1865,8 @@ fn maybe_prepare_validation_prepares_a_limited_number_of_pvfs() {
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
 	assert!(state.session_index.is_some());
 	assert!(state.is_next_session_authority);
+	assert!(state.waiting.is_empty());
+	assert_eq!(state.pending.len(), 1);
 	assert_eq!(state.processed.len(), 2);
 }
 
@@ -1873,7 +1884,7 @@ fn maybe_prepare_validation_does_not_prepare_already_prepared_pvfs() {
 		session_index: Some(1),
 		is_next_session_authority: true,
 		per_block_limit: 2,
-		executor_params: None,
+		executor_params: Some(ExecutorParams::default()),
 		waiting: HashSet::new(),
 		pending: HashSet::new(),
 		processed: HashSet::from_iter(vec![
@@ -1890,21 +1901,6 @@ fn maybe_prepare_validation_does_not_prepare_already_prepared_pvfs() {
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
 				let _ = tx.send(Ok(1));
-			}
-		);
-
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
-				let _ = tx.send(Ok(1));
-			}
-		);
-
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
-				assert_eq!(index, 1);
-				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
 
@@ -1935,5 +1931,7 @@ fn maybe_prepare_validation_does_not_prepare_already_prepared_pvfs() {
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
 	assert!(state.session_index.is_some());
 	assert!(state.is_next_session_authority);
+	assert!(state.waiting.is_empty());
+	assert!(state.pending.is_empty());
 	assert_eq!(state.processed.len(), 3);
 }

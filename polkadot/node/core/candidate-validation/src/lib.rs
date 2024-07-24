@@ -311,12 +311,26 @@ async fn run<Context>(
 struct PrepareValidationState {
 	session_index: Option<SessionIndex>,
 	is_next_session_authority: bool,
-	// How many PVFs per block we take to prepare themselves for the next session validation
-	per_block_limit: usize,
 	executor_params: Option<ExecutorParams>,
 	waiting: HashSet<ValidationCodeHash>,
 	pending: HashSet<ValidationCodeHash>,
 	processed: HashSet<ValidationCodeHash>,
+	// How many PVFs per block we take to prepare themselves for the next session validation
+	per_block_limit: usize,
+}
+
+impl PrepareValidationState {
+	fn waiting_to_vec(&self) -> Vec<ValidationCodeHash> {
+		self.waiting.iter().cloned().collect()
+	}
+
+	fn pending_chunk_to_vec(&self) -> Vec<ValidationCodeHash> {
+		self.pending.iter().cloned().take(self.per_block_limit).collect()
+	}
+
+	fn is_queued(&self, code_hash: &ValidationCodeHash) -> bool {
+		self.pending.contains(code_hash) || self.processed.contains(code_hash)
+	}
 }
 
 impl Default for PrepareValidationState {
@@ -343,100 +357,80 @@ async fn maybe_prepare_validation<Sender>(
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
 	let Some(leaf) = update.activated else { return };
-	let new_session_index = new_session_index(sender, state.session_index, leaf.hash).await;
-	if let Some(new_session_index) = new_session_index {
-		state.session_index = Some(new_session_index);
-		state.executor_params = None;
+	let relay_parent = leaf.hash;
+
+	let Some(session_index) = session_index(sender, relay_parent).await else { return };
+	if state.session_index.map_or(true, |i| session_index > i) {
 		state.waiting.clear();
 		state.pending.clear();
 		state.processed.clear();
+		state.session_index = Some(session_index);
 		state.is_next_session_authority =
-			check_next_session_authority(sender, keystore, leaf.hash, new_session_index).await;
-	}
-
-	if state.is_next_session_authority && state.executor_params.is_none() {
-		if let Ok(executor_params) = util::executor_params_at_relay_parent(leaf.hash, sender).await
-		{
-			state.executor_params = Some(executor_params);
+			is_next_session_authority(sender, keystore, relay_parent, session_index).await;
+		state.executor_params = if state.is_next_session_authority {
+			executor_params(sender, relay_parent).await
 		} else {
-			gum::warn!(
-				target: LOG_TARGET,
-				relay_parent = ?leaf.hash,
-				"cannot fetch executor params for the session",
-			);
+			None
 		};
 	}
 
-	// On every active leaf check candidates and prepare PVFs our node doesn't have yet.
-	if state.is_next_session_authority {
-		let Some(ref executor_params) = state.executor_params else { return };
-		let waiting_code_hashes =
-			collect_waiting_validation_code_hashes(sender, leaf.hash, &state).await;
-		state.waiting.extend(waiting_code_hashes);
+	if !state.is_next_session_authority {
+		return
+	};
+	let Some(ref executor_params) = state.executor_params else { return };
 
-		if state.pending.is_empty() {
-			let waiting = state.waiting.iter().cloned().collect();
-			let Ok(pending) = validation_backend.ensure_pvf(waiting, executor_params.clone()).await
-			else {
-				gum::warn!(
-					target: LOG_TARGET,
-					relay_parent = ?leaf.hash,
-					"cannot ensure prepared PVF",
-				);
-				return
-			};
-			state.pending = HashSet::from_iter(pending);
-			state.waiting.clear();
+	for event in candidate_events(sender, relay_parent).await {
+		let CandidateEvent::CandidateBacked(receipt, ..) = event else { continue };
+		let code_hash = receipt.descriptor.validation_code_hash;
+		if !state.is_queued(&code_hash) {
+			let _ = state.waiting.insert(code_hash);
 		}
+	}
 
-		let code_hashes_to_process =
-			state.pending.iter().cloned().take(state.per_block_limit).collect::<Vec<_>>();
-		let processed_code_hashes = prepare_pvfs_for_backed_candidates(
-			sender,
-			validation_backend,
-			leaf.hash,
-			code_hashes_to_process,
-			&state,
+	if state.pending.is_empty() {
+		let missing = missing_validation_code_hashes(
+			&mut validation_backend,
+			state.waiting_to_vec(),
+			executor_params.clone(),
 		)
 		.await;
-		for processed in processed_code_hashes {
-			let _ = state.pending.remove(&processed);
-			let _ = state.processed.insert(processed);
-		}
+		state.pending = HashSet::from_iter(missing);
+		state.waiting.clear();
+	}
+
+	let code_hashes = prepare_pvfs_for_backed_candidates(
+		sender,
+		&mut validation_backend,
+		relay_parent,
+		state.pending_chunk_to_vec(),
+		executor_params.clone(),
+	)
+	.await;
+	for hash in code_hashes {
+		let _ = state.pending.remove(&hash);
+		let _ = state.processed.insert(hash);
 	}
 }
 
-// Returns the new session index if it is greater than the current one.
-async fn new_session_index<Sender>(
-	sender: &mut Sender,
-	session_index: Option<SessionIndex>,
-	relay_parent: Hash,
-) -> Option<SessionIndex>
+async fn session_index<Sender>(sender: &mut Sender, relay_parent: Hash) -> Option<SessionIndex>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	let Ok(Ok(new_session_index)) =
-		util::request_session_index_for_child(relay_parent, sender).await.await
-	else {
-		gum::warn!(
-			target: LOG_TARGET,
-			?relay_parent,
-			"cannot fetch session index from runtime API",
-		);
-		return None
-	};
-
-	session_index.map_or(Some(new_session_index), |index| {
-		if new_session_index > index {
-			Some(new_session_index)
-		} else {
+	match util::request_session_index_for_child(relay_parent, sender).await.await {
+		Ok(Ok(index)) => Some(index),
+		_ => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?relay_parent,
+				"cannot fetch session index from runtime API",
+			);
 			None
-		}
-	})
+		},
+	}
 }
 
 // Returns true if the node is an authority in the next session.
-async fn check_next_session_authority<Sender>(
+async fn is_next_session_authority<Sender>(
 	sender: &mut Sender,
 	keystore: KeystorePtr,
 	relay_parent: Hash,
@@ -482,57 +476,65 @@ where
 	is_past_present_or_future_authority && !is_present_authority
 }
 
-async fn collect_waiting_validation_code_hashes<Sender>(
-	sender: &mut Sender,
-	relay_parent: Hash,
-	state: &PrepareValidationState,
-) -> Vec<ValidationCodeHash>
+async fn executor_params<Sender>(sender: &mut Sender, relay_parent: Hash) -> Option<ExecutorParams>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	let Ok(Ok(events)) = util::request_candidate_events(relay_parent, sender).await.await else {
+	if let Ok(executor_params) = util::executor_params_at_relay_parent(relay_parent, sender).await {
+		Some(executor_params)
+	} else {
 		gum::warn!(
 			target: LOG_TARGET,
 			?relay_parent,
-			"cannot fetch candidate events from runtime API",
+			"cannot fetch executor params for the session",
 		);
-		return vec![];
-	};
-	let code_hashes = events
-		.into_iter()
-		.filter_map(|e| match e {
-			CandidateEvent::CandidateBacked(receipt, ..) => {
-				let h = receipt.descriptor.validation_code_hash;
-				if state.waiting.contains(&h) ||
-					state.pending.contains(&h) ||
-					state.processed.contains(&h)
-				{
-					None
-				} else {
-					Some(h)
-				}
-			},
-			_ => None,
-		})
-		.collect::<Vec<_>>();
+		None
+	}
+}
 
-	code_hashes
+async fn candidate_events<Sender>(sender: &mut Sender, relay_parent: Hash) -> Vec<CandidateEvent>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	match util::request_candidate_events(relay_parent, sender).await.await {
+		Ok(Ok(events)) => events,
+		_ => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?relay_parent,
+				"cannot fetch candidate events from runtime API",
+			);
+			vec![]
+		},
+	}
+}
+
+async fn missing_validation_code_hashes(
+	validation_backend: &mut impl ValidationBackend,
+	code_hashes: Vec<ValidationCodeHash>,
+	executor_params: ExecutorParams,
+) -> Vec<ValidationCodeHash> {
+	validation_backend
+		.ensure_pvf(code_hashes, executor_params)
+		.await
+		.unwrap_or_else(|err| {
+			gum::warn!(target: LOG_TARGET, ?err, "cannot ensure prepared PVF");
+			vec![]
+		})
 }
 
 // Sends PVF with unknown code hashes to the validation host returning the list of code hashes sent.
 async fn prepare_pvfs_for_backed_candidates<Sender>(
 	sender: &mut Sender,
-	mut validation_backend: impl ValidationBackend,
+	validation_backend: &mut impl ValidationBackend,
 	relay_parent: Hash,
 	code_hashes: Vec<ValidationCodeHash>,
-	state: &PrepareValidationState,
+	executor_params: ExecutorParams,
 ) -> Vec<ValidationCodeHash>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	let Some(ref executor_params) = state.executor_params else { return vec![] };
-
-	let timeout = pvf_prep_timeout(executor_params, PvfPrepKind::Prepare);
+	let timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 
 	let mut active_pvfs = vec![];
 	let mut processed_code_hashes = vec![];
