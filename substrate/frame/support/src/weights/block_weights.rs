@@ -15,24 +15,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
-//! DATE: 2023-06-16 (Y/M/D)
-//! HOSTNAME: `runner-e8ezs4ez-project-145-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
+//! DATE: 2024-04-08 (Y/M/D)
+//! HOSTNAME: `runner-anb7yjbi-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //!
 //! SHORT-NAME: `block`, LONG-NAME: `BlockExecution`, RUNTIME: `Development`
 //! WARMUPS: `10`, REPEAT: `100`
-//! WEIGHT-PATH: `./frame/support/src/weights/`
+//! WEIGHT-PATH: `./substrate/frame/support/src/weights/`
 //! WEIGHT-METRIC: `Average`, WEIGHT-MUL: `1.0`, WEIGHT-ADD: `0`
 
 // Executed Command:
-//   ./target/production/substrate
+//   ./target/production/substrate-node
 //   benchmark
 //   overhead
 //   --chain=dev
-//   --execution=wasm
 //   --wasm-execution=compiled
-//   --weight-path=./frame/support/src/weights/
-//   --header=./HEADER-APACHE2
+//   --weight-path=./substrate/frame/support/src/weights/
+//   --header=./substrate/HEADER-APACHE2
 //   --warmup=10
 //   --repeat=100
 
@@ -44,17 +43,17 @@ parameter_types! {
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 376_949, 622_462
-	///   Average:  390_584
-	///   Median:   386_322
-	///   Std-Dev:  24792.0
+	///   Min, Max: 440_235, 661_535
+	///   Average:  453_383
+	///   Median:   449_925
+	///   Std-Dev:  22021.99
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 433_299
-	///   95th: 402_688
-	///   75th: 391_645
+	///   99th: 474_045
+	///   95th: 466_455
+	///   75th: 455_056
 	pub const BlockExecutionWeight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(390_584), 0);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(453_383), 0);
 }
 
 #[cfg(test)]

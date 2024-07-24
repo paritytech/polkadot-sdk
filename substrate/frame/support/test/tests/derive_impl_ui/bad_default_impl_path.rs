@@ -50,14 +50,14 @@ impl Animal for FourLeggedAnimal {
 	}
 }
 
-pub struct AcquaticMammal {}
+pub struct AquaticMammal {}
 
 // Should throw: `error: cannot find macro `__export_tokens_tt_tiger` in this scope`
 //
 // Note that there is really no better way to clean up this error, tt_call suffers from the
 // same downside but this is really the only rough edge when using macro magic.
 #[derive_impl(Tiger as Animal)]
-impl Animal for AcquaticMammal {
+impl Animal for AquaticMammal {
 	type Locomotion = (Swims, RunsOnFourLegs);
 	type Environment = (Land, Sea);
 }

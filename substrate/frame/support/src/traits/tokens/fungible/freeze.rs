@@ -16,6 +16,9 @@
 // limitations under the License.
 
 //! The traits for putting freezes within a single fungible token class.
+//!
+//! See the [`crate::traits::fungible`] doc for more information about fungible traits
+//! including the place of the Freezes in FRAME.
 
 use scale_info::TypeInfo;
 use sp_arithmetic::{
@@ -35,7 +38,7 @@ pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 	/// An identifier for a freeze.
 	type Id: codec::Encode + TypeInfo + 'static;
 
-	/// Amount of funds held in reserve by `who` for the given `id`.
+	/// Amount of funds frozen in reserve by `who` for the given `id`.
 	fn balance_frozen(id: &Self::Id, who: &AccountId) -> Self::Balance;
 
 	/// The amount of the balance which can become frozen. Defaults to `total_balance()`.
@@ -45,11 +48,11 @@ pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 
 	/// Returns `true` if it's possible to introduce a freeze for the given `id` onto the
 	/// account of `who`. This will be true as long as the implementor supports as many
-	/// concurrent freeze locks as there are possible values of `id`.
+	/// concurrent freezes as there are possible values of `id`.
 	fn can_freeze(id: &Self::Id, who: &AccountId) -> bool;
 }
 
-/// Trait for introducing, altering and removing locks to freeze an account's funds so they never
+/// Trait for introducing, altering and removing freezes for an account for its funds never
 /// go below a set minimum.
 pub trait Mutate<AccountId>: Inspect<AccountId> {
 	/// Prevent actions which would reduce the balance of the account of `who` below the given
@@ -66,16 +69,16 @@ pub trait Mutate<AccountId>: Inspect<AccountId> {
 	/// counteract any pre-existing freezes in place for `who` under the `id`. Also unlike
 	/// `set_freeze`, in the case that `amount` is zero, this is no-op and never fails.
 	///
-	/// Note that more funds can be locked than the total balance, if desired.
+	/// Note that more funds can be frozen than the total balance, if desired.
 	fn extend_freeze(id: &Self::Id, who: &AccountId, amount: Self::Balance) -> DispatchResult;
 
-	/// Remove an existing lock.
+	/// Remove an existing freeze.
 	fn thaw(id: &Self::Id, who: &AccountId) -> DispatchResult;
 
 	/// Attempt to alter the amount frozen under the given `id` to `amount`.
 	///
 	/// Fail if the account of `who` has fewer freezable funds than `amount`, unless `fortitude` is
-	/// `Fortitude::Force`.
+	/// [`Fortitude::Force`].
 	fn set_frozen(
 		id: &Self::Id,
 		who: &AccountId,
@@ -91,7 +94,7 @@ pub trait Mutate<AccountId>: Inspect<AccountId> {
 	/// the amount frozen under `id`. Do nothing otherwise.
 	///
 	/// Fail if the account of `who` has fewer freezable funds than `amount`, unless `fortitude` is
-	/// `Fortitude::Force`.
+	/// [`Fortitude::Force`].
 	fn ensure_frozen(
 		id: &Self::Id,
 		who: &AccountId,

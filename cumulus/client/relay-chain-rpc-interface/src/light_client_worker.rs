@@ -19,12 +19,9 @@
 //! we treat the light-client as a normal JsonRPC target.
 
 use futures::{channel::mpsc::Sender, prelude::*, stream::FuturesUnordered};
-use jsonrpsee::core::{
-	client::{
-		Client as JsonRpseeClient, ClientBuilder, ClientT, ReceivedMessage, TransportReceiverT,
-		TransportSenderT,
-	},
-	Error,
+use jsonrpsee::core::client::{
+	Client as JsonRpseeClient, ClientBuilder, ClientT, ReceivedMessage, TransportReceiverT,
+	TransportSenderT,
 };
 use smoldot_light::{ChainId, Client as SmoldotClient, JsonRpcResponses};
 use std::{num::NonZeroU32, sync::Arc};
@@ -127,7 +124,7 @@ pub struct LightClientRpcWorker {
 }
 
 fn handle_notification(
-	maybe_header: Option<Result<RelayHeader, Error>>,
+	maybe_header: Option<Result<RelayHeader, serde_json::Error>>,
 	senders: &mut Vec<Sender<RelayHeader>>,
 ) -> Result<(), ()> {
 	match maybe_header {

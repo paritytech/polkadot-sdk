@@ -44,7 +44,7 @@ mod tests;
 /// and identify the mpsc channels.
 pub trait TracingKeyStr {
 	/// Const `str` representing the "tracing key" used to tag and identify
-	/// the mpsc channels owned by the object implemeting this trait.
+	/// the mpsc channels owned by the object implementing this trait.
 	const TRACING_KEY: &'static str;
 }
 

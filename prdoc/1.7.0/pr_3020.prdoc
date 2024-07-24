@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Para registration deposit covering max code size
+
+doc:
+  - audience: Runtime User
+    description: |
+      With this PR all newly registered parachains must pay a deposit equivalent to the cost of 
+      registering validation code of the maximum size. Consequently, they can upgrade their code
+      to the maximum size at any point without additional cost.
+
+crates: 
+  - name: polkadot-runtime-common

@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Allow for 0 existential deposit in benchmarks for pallet_staking, pallet_session, and pallet_balances
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Changes were made to benchmarks for `pallet_staking`, `pallet_session`, and `pallet-balances` to accommodate runtimes with 0 existential deposit. This should not affect the vast majority of runtimes. For runtimes with 0 existential deposit, the benchmarks for `pallet_staking` and `pallet_session` will still fail when using `U128CurrencyToVote` in the `pallet-staking` config; developers can use or write another `CurrencyToVote` implementation for benchmarking to work around this.
+
+crates:
+  - name: pallet-staking
+    bump: patch
+  - name: pallet-session-benchmarking
+    bump: patch
+  - name: pallet-balances
+    bump: patch

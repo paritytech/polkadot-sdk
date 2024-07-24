@@ -1,0 +1,20 @@
+title: Introduce tool for validating PoVs locally
+
+doc:
+  - audience:
+    - Runtime Dev
+    - Node Dev
+    description: |
+      Introduces the `cumulus-pov-validator` for running PoVs locally. This can be helpful for debugging issues that are
+      only happening when the PoV gets validated on the relay chain or for example to profile the validation code. 
+      Besides that the `polkadot-parachain` was extended with the CLI flag `--export-pov-to-path` to let a collator export 
+      all its build PoV's to the given directory. These PoV's can then be feed into the `cumulus-pov-validator`.
+
+crates: 
+  - name: polkadot-parachain-bin
+    bump: minor
+  - name: cumulus-client-consensus-aura
+    bump: minor
+  - name: cumulus-pov-validator
+    bump: patch
+    validate: false

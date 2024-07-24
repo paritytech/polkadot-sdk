@@ -18,17 +18,18 @@
 fn main() {
 	use substrate_wasm_builder::WasmBuilder;
 
-	WasmBuilder::new()
-		.with_current_project()
-		.export_heap_base()
-		.import_memory()
+	WasmBuilder::build_using_defaults();
+
+	WasmBuilder::init_with_defaults()
+		.enable_feature("increment-spec-version")
+		.set_file_name("wasm_binary_spec_version_incremented.rs")
 		.build();
 
 	WasmBuilder::new()
 		.with_current_project()
-		.enable_feature("increment-spec-version")
+		.enable_feature("elastic-scaling")
 		.import_memory()
-		.set_file_name("wasm_binary_spec_version_incremented.rs")
+		.set_file_name("wasm_binary_elastic_scaling.rs")
 		.build();
 }
 

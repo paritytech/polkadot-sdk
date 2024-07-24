@@ -16,13 +16,14 @@
 
 //! Requests and responses as sent over the wire for the individual protocols.
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use polkadot_node_primitives::{
 	AvailableData, DisputeMessage, ErasureChunk, PoV, Proof, UncheckedDisputeMessage,
 };
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, Hash, Id as ParaId, ValidatorIndex,
+	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, Hash, HeadData, Id as ParaId,
+	ValidatorIndex,
 };
 
 use super::{IsRequest, Protocol};
@@ -32,7 +33,8 @@ use super::{IsRequest, Protocol};
 pub struct ChunkFetchingRequest {
 	/// Hash of candidate we want a chunk for.
 	pub candidate_hash: CandidateHash,
-	/// The index of the chunk to fetch.
+	/// The validator index we are requesting from. This must be identical to the index of the
+	/// chunk we'll receive. For v2, this may not be the case.
 	pub index: ValidatorIndex,
 }
 
@@ -52,6 +54,15 @@ impl From<Option<ChunkResponse>> for ChunkFetchingResponse {
 		match x {
 			Some(c) => ChunkFetchingResponse::Chunk(c),
 			None => ChunkFetchingResponse::NoSuchChunk,
+		}
+	}
+}
+
+impl From<ChunkFetchingResponse> for Option<ChunkResponse> {
+	fn from(x: ChunkFetchingResponse) -> Self {
+		match x {
+			ChunkFetchingResponse::Chunk(c) => Some(c),
+			ChunkFetchingResponse::NoSuchChunk => None,
 		}
 	}
 }
@@ -79,7 +90,7 @@ impl From<ErasureChunk> for ChunkResponse {
 impl ChunkResponse {
 	/// Re-build an `ErasureChunk` from response and request.
 	pub fn recombine_into_chunk(self, req: &ChunkFetchingRequest) -> ErasureChunk {
-		ErasureChunk { chunk: self.chunk, proof: self.proof, index: req.index }
+		ErasureChunk { chunk: self.chunk, proof: self.proof, index: req.index.into() }
 	}
 }
 
@@ -103,6 +114,18 @@ pub enum CollationFetchingResponse {
 	/// Deliver requested collation.
 	#[codec(index = 0)]
 	Collation(CandidateReceipt, PoV),
+
+	/// Deliver requested collation along with parent head data.
+	#[codec(index = 1)]
+	CollationWithParentHeadData {
+		/// The receipt of the candidate.
+		receipt: CandidateReceipt,
+		/// Candidate's proof of validity.
+		pov: PoV,
+		/// The head data of the candidate's parent.
+		/// This is needed for elastic scaling to work.
+		parent_head_data: HeadData,
+	},
 }
 
 impl IsRequest for CollationFetchingRequest {
@@ -170,7 +193,7 @@ impl IsRequest for AvailableDataFetchingRequest {
 pub struct StatementFetchingRequest {
 	/// Data needed to locate and identify the needed statement.
 	pub relay_parent: Hash,
-	/// Hash of candidate that was used create the `CommitedCandidateRecept`.
+	/// Hash of candidate that was used create the `CommittedCandidateReceipt`.
 	pub candidate_hash: CandidateHash,
 }
 

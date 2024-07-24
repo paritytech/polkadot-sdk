@@ -1,0 +1,12 @@
+title: "Rococo and Westend Asset-Hub: XCM Transfers with Pallet-Uniques"
+
+doc:
+  - audience: Runtime User
+    description: |
+      With the added `UniquesTransactor` Rococo and Westend Asset-Hub are now capable of handling
+      XCM transfers with pallet-uniques. 
+
+crates:
+  - name: "asset-hub-rococo-runtime"
+  - name: "asset-hub-westend-runtime"
+  - name: "assets-common"

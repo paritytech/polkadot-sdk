@@ -1,0 +1,10 @@
+title: Add missing glossary to ref docs
+
+author: juangirini
+topic: documentation
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

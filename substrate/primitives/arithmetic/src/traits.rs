@@ -18,6 +18,9 @@
 //! Primitive traits for the runtime arithmetic.
 
 use codec::HasCompact;
+use core::ops::{
+	Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Shl, Shr, Sub, SubAssign,
+};
 pub use ensure::{
 	ensure_pow, Ensure, EnsureAdd, EnsureAddAssign, EnsureDiv, EnsureDivAssign,
 	EnsureFixedPointNumber, EnsureFrom, EnsureInto, EnsureMul, EnsureMulAssign, EnsureOp,
@@ -27,9 +30,6 @@ pub use integer_sqrt::IntegerSquareRoot;
 pub use num_traits::{
 	checked_pow, Bounded, CheckedAdd, CheckedDiv, CheckedMul, CheckedNeg, CheckedRem, CheckedShl,
 	CheckedShr, CheckedSub, One, Signed, Unsigned, Zero,
-};
-use sp_std::ops::{
-	Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Shl, Shr, Sub, SubAssign,
 };
 
 use crate::MultiplyRational;
@@ -262,7 +262,7 @@ pub trait Saturating {
 		Self: One,
 	{
 		let mut o = Self::one();
-		sp_std::mem::swap(&mut o, self);
+		core::mem::swap(&mut o, self);
 		*self = o.saturating_add(One::one());
 	}
 
@@ -272,7 +272,7 @@ pub trait Saturating {
 		Self: One,
 	{
 		let mut o = Self::one();
-		sp_std::mem::swap(&mut o, self);
+		core::mem::swap(&mut o, self);
 		*self = o.saturating_sub(One::one());
 	}
 
@@ -282,7 +282,7 @@ pub trait Saturating {
 		Self: One,
 	{
 		let mut o = Self::one();
-		sp_std::mem::swap(&mut o, self);
+		core::mem::swap(&mut o, self);
 		*self = o.saturating_add(amount);
 	}
 
@@ -292,7 +292,7 @@ pub trait Saturating {
 		Self: One,
 	{
 		let mut o = Self::one();
-		sp_std::mem::swap(&mut o, self);
+		core::mem::swap(&mut o, self);
 		*self = o.saturating_sub(amount);
 	}
 }
@@ -949,7 +949,7 @@ mod ensure {
 			}
 		}
 
-		impl sp_std::ops::Mul for Signum {
+		impl core::ops::Mul for Signum {
 			type Output = Self;
 
 			fn mul(self, rhs: Self) -> Self {

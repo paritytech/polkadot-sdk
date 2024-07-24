@@ -14,10 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use proc_macro2::{Span, TokenStream};
+use quote::{format_ident, quote};
+use syn::{Result, Token};
+
 pub mod multilocation {
-	use proc_macro2::{Span, TokenStream};
-	use quote::{format_ident, quote};
-	use syn::{Result, Token};
+	use super::*;
 
 	pub fn generate_conversion_functions(input: proc_macro::TokenStream) -> Result<TokenStream> {
 		if !input.is_empty() {
@@ -178,6 +180,47 @@ pub mod multilocation {
 					})
 				}
 			}
+		}
+	}
+}
+
+pub mod junctions {
+	use super::*;
+
+	pub fn generate_conversion_functions(input: proc_macro::TokenStream) -> Result<TokenStream> {
+		if !input.is_empty() {
+			return Err(syn::Error::new(Span::call_site(), "No arguments expected"))
+		}
+
+		let from_slice_syntax = generate_conversion_from_slice_syntax();
+
+		Ok(quote! {
+			#from_slice_syntax
+		})
+	}
+
+	fn generate_conversion_from_slice_syntax() -> TokenStream {
+		quote! {
+			macro_rules! impl_junction {
+				($count:expr, $variant:ident, ($($index:literal),+)) => {
+					/// Additional helper for building junctions
+					/// Useful for converting to future XCM versions
+					impl From<[Junction; $count]> for Junctions {
+						fn from(junctions: [Junction; $count]) -> Self {
+							Self::$variant($(junctions[$index].clone()),*)
+						}
+					}
+				};
+			}
+
+			impl_junction!(1, X1, (0));
+			impl_junction!(2, X2, (0, 1));
+			impl_junction!(3, X3, (0, 1, 2));
+			impl_junction!(4, X4, (0, 1, 2, 3));
+			impl_junction!(5, X5, (0, 1, 2, 3, 4));
+			impl_junction!(6, X6, (0, 1, 2, 3, 4, 5));
+			impl_junction!(7, X7, (0, 1, 2, 3, 4, 5, 6));
+			impl_junction!(8, X8, (0, 1, 2, 3, 4, 5, 6, 7));
 		}
 	}
 }

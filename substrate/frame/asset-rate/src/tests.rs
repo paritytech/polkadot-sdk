@@ -131,12 +131,19 @@ fn convert_works() {
 			FixedU128::from_float(2.51)
 		));
 
-		let conversion = <AssetRate as ConversionFromAssetBalance<
+		let conversion_from_asset = <AssetRate as ConversionFromAssetBalance<
 			BalanceOf<Test>,
 			<Test as pallet_asset_rate::Config>::AssetKind,
 			BalanceOf<Test>,
 		>>::from_asset_balance(10, ASSET_ID);
-		assert_eq!(conversion.expect("Conversion rate exists for asset"), 25);
+		assert_eq!(conversion_from_asset.expect("Conversion rate exists for asset"), 25);
+
+		let conversion_to_asset = <AssetRate as ConversionToAssetBalance<
+			BalanceOf<Test>,
+			<Test as pallet_asset_rate::Config>::AssetKind,
+			BalanceOf<Test>,
+		>>::to_asset_balance(25, ASSET_ID);
+		assert_eq!(conversion_to_asset.expect("Conversion rate exists for asset"), 9);
 	});
 }
 
@@ -148,6 +155,24 @@ fn convert_unknown_throws() {
 			<Test as pallet_asset_rate::Config>::AssetKind,
 			BalanceOf<Test>,
 		>>::from_asset_balance(10, ASSET_ID);
+		assert!(conversion.is_err());
+	});
+}
+
+#[test]
+fn convert_overflow_throws() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(AssetRate::create(
+			RuntimeOrigin::root(),
+			Box::new(ASSET_ID),
+			FixedU128::from_u32(0)
+		));
+
+		let conversion = <AssetRate as ConversionToAssetBalance<
+			BalanceOf<Test>,
+			<Test as pallet_asset_rate::Config>::AssetKind,
+			BalanceOf<Test>,
+		>>::to_asset_balance(10, ASSET_ID);
 		assert!(conversion.is_err());
 	});
 }

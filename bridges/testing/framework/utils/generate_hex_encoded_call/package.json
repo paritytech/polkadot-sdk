@@ -1,0 +1,11 @@
+{
+  "name": "y",
+  "version": "y",
+  "description": "create a scale hex-encoded call values from given message",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@polkadot/api": "^10.11",
+    "@polkadot/util": "^12.6"
+  }
+}

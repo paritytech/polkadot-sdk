@@ -30,10 +30,10 @@ use cumulus_client_consensus_common::{
 	self as consensus_common, ParachainBlockImportMarker, ParachainCandidate,
 };
 use cumulus_client_consensus_proposer::ProposerInterface;
+use cumulus_client_parachain_inherent::{ParachainInherentData, ParachainInherentDataProvider};
 use cumulus_primitives_core::{
 	relay_chain::Hash as PHash, DigestItem, ParachainBlockData, PersistedValidationData,
 };
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::{Collation, MaybeCompressedPoV};
@@ -55,7 +55,7 @@ use sp_runtime::{
 };
 use sp_state_machine::StorageChanges;
 use sp_timestamp::Timestamp;
-use std::{convert::TryFrom, error::Error, time::Duration};
+use std::{error::Error, time::Duration};
 
 /// Parameters for instantiating a [`Collator`].
 pub struct Params<BI, CIDP, RClient, Proposer, CS> {
@@ -124,7 +124,7 @@ where
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
-		let paras_inherent_data = ParachainInherentData::create_at(
+		let paras_inherent_data = ParachainInherentDataProvider::create_at(
 			relay_parent,
 			&self.relay_client,
 			validation_data,
@@ -156,7 +156,63 @@ where
 		Ok((paras_inherent_data, other_inherent_data))
 	}
 
-	/// Propose, seal, and import a block, packaging it into a collation.
+	/// Build and import a parachain block on the given parent header, using the given slot claim.
+	pub async fn build_block_and_import(
+		&mut self,
+		parent_header: &Block::Header,
+		slot_claim: &SlotClaim<P::Public>,
+		additional_pre_digest: impl Into<Option<Vec<DigestItem>>>,
+		inherent_data: (ParachainInherentData, InherentData),
+		proposal_duration: Duration,
+		max_pov_size: usize,
+	) -> Result<Option<ParachainCandidate<Block>>, Box<dyn Error + Send + 'static>> {
+		let mut digest = additional_pre_digest.into().unwrap_or_default();
+		digest.push(slot_claim.pre_digest.clone());
+
+		let maybe_proposal = self
+			.proposer
+			.propose(
+				&parent_header,
+				&inherent_data.0,
+				inherent_data.1,
+				Digest { logs: digest },
+				proposal_duration,
+				Some(max_pov_size),
+			)
+			.await
+			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
+
+		let proposal = match maybe_proposal {
+			None => return Ok(None),
+			Some(p) => p,
+		};
+
+		let sealed_importable = seal::<_, P>(
+			proposal.block,
+			proposal.storage_changes,
+			&slot_claim.author_pub,
+			&self.keystore,
+		)
+		.map_err(|e| e as Box<dyn Error + Send>)?;
+
+		let block = Block::new(
+			sealed_importable.post_header(),
+			sealed_importable
+				.body
+				.as_ref()
+				.expect("body always created with this `propose` fn; qed")
+				.clone(),
+		);
+
+		self.block_import
+			.import_block(sealed_importable)
+			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)
+			.await?;
+
+		Ok(Some(ParachainCandidate { block, proof: proposal.proof }))
+	}
+
+	/// Propose, seal, import a block and packaging it into a collation.
 	///
 	/// Provide the slot to build at as well as any other necessary pre-digest logs,
 	/// the inherent data, and the proposal duration and PoV size limits.
@@ -172,52 +228,27 @@ where
 		inherent_data: (ParachainInherentData, InherentData),
 		proposal_duration: Duration,
 		max_pov_size: usize,
-	) -> Result<(Collation, ParachainBlockData<Block>, Block::Hash), Box<dyn Error + Send + 'static>>
-	{
-		let mut digest = additional_pre_digest.into().unwrap_or_default();
-		digest.push(slot_claim.pre_digest.clone());
-
-		let proposal = self
-			.proposer
-			.propose(
-				&parent_header,
-				&inherent_data.0,
-				inherent_data.1,
-				Digest { logs: digest },
+	) -> Result<
+		Option<(Collation, ParachainBlockData<Block>, Block::Hash)>,
+		Box<dyn Error + Send + 'static>,
+	> {
+		let maybe_candidate = self
+			.build_block_and_import(
+				parent_header,
+				slot_claim,
+				additional_pre_digest,
+				inherent_data,
 				proposal_duration,
-				Some(max_pov_size),
+				max_pov_size,
 			)
-			.await
-			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
-
-		let sealed_importable = seal::<_, P>(
-			proposal.block,
-			proposal.storage_changes,
-			&slot_claim.author_pub,
-			&self.keystore,
-		)
-		.map_err(|e| e as Box<dyn Error + Send>)?;
-
-		let post_hash = sealed_importable.post_hash();
-		let block = Block::new(
-			sealed_importable.post_header(),
-			sealed_importable
-				.body
-				.as_ref()
-				.expect("body always created with this `propose` fn; qed")
-				.clone(),
-		);
-
-		self.block_import
-			.import_block(sealed_importable)
-			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)
 			.await?;
 
-		if let Some((collation, block_data)) = self.collator_service.build_collation(
-			parent_header,
-			post_hash,
-			ParachainCandidate { block, proof: proposal.proof },
-		) {
+		let Some(candidate) = maybe_candidate else { return Ok(None) };
+
+		let hash = candidate.block.header().hash();
+		if let Some((collation, block_data)) =
+			self.collator_service.build_collation(parent_header, hash, candidate)
+		{
 			tracing::info!(
 				target: crate::LOG_TARGET,
 				"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}",
@@ -234,7 +265,7 @@ where
 				);
 			}
 
-			Ok((collation, block_data, post_hash))
+			Ok(Some((collation, block_data, hash)))
 		} else {
 			Err(Box::<dyn Error + Send + Sync>::from("Unable to produce collation")
 				as Box<dyn Error + Send>)
@@ -251,6 +282,7 @@ where
 pub struct SlotClaim<Pub> {
 	author_pub: Pub,
 	pre_digest: DigestItem,
+	slot: Slot,
 	timestamp: Timestamp,
 }
 
@@ -265,7 +297,7 @@ impl<Pub> SlotClaim<Pub> {
 		P::Public: Codec,
 		P::Signature: Codec,
 	{
-		SlotClaim { author_pub, timestamp, pre_digest: aura_internal::pre_digest::<P>(slot) }
+		SlotClaim { author_pub, timestamp, pre_digest: aura_internal::pre_digest::<P>(slot), slot }
 	}
 
 	/// Get the author's public key.
@@ -276,6 +308,11 @@ impl<Pub> SlotClaim<Pub> {
 	/// Get the Aura pre-digest for this slot.
 	pub fn pre_digest(&self) -> &DigestItem {
 		&self.pre_digest
+	}
+
+	/// Get the slot assigned to this claim.
+	pub fn slot(&self) -> Slot {
+		self.slot
 	}
 
 	/// Get the timestamp corresponding to the relay-chain slot this claim was

@@ -32,6 +32,8 @@ alice: parachain 2005 block height is at least 10 within 300 seconds
 alice: parachain 2006 block height is at least 10 within 300 seconds
 alice: parachain 2007 block height is at least 10 within 300 seconds
 
+alice: reports substrate_block_height{status="finalized"} is at least 30 within 400 seconds
+
 # Check preparation time is under 10s.
 # Check all buckets <= 10.
 alice: reports histogram polkadot_pvf_preparation_time has at least 1 samples in buckets ["0.1", "0.5", "1", "2", "3", "10"] within 10 seconds
@@ -54,8 +56,8 @@ one: reports histogram polkadot_pvf_preparation_time has 0 samples in buckets ["
 two: reports histogram polkadot_pvf_preparation_time has 0 samples in buckets ["20", "30", "60", "120", "+Inf"] within 10 seconds
 
 # Check execution time.
-# There are two different timeout conditions: BACKING_EXECUTION_TIMEOUT(2s) and
-# APPROVAL_EXECUTION_TIMEOUT(6s). Currently these are not differentiated by metrics
+# There are two different timeout conditions: DEFAULT_BACKING_EXECUTION_TIMEOUT(2s) and
+# DEFAULT_APPROVAL_EXECUTION_TIMEOUT(12s). Currently these are not differentiated by metrics
 # because the metrics are defined in `polkadot-node-core-pvf` which is a level below
 # the relevant subsystems.
 # That being said, we will take the simplifying assumption of testing only the

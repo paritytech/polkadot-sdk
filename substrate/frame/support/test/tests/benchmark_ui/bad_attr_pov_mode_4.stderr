@@ -1,0 +1,5 @@
+error: unexpected end of input, expected one of: `MaxEncodedLen`, `Measured`, `Ignored`
+  --> tests/benchmark_ui/bad_attr_pov_mode_4.rs:24:24
+   |
+24 |     #[benchmark(pov_mode =)]
+   |                           ^

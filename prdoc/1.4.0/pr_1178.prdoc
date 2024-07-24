@@ -1,0 +1,22 @@
+title: tranche0 assignments in one certificate part1
+
+doc:
+  - audience: Node Operator
+    description: |
+      Changed approval-voting, approval-distribution to send all messages tranche0 assignments in one message.
+      This required:
+      * A new parachains_db version.
+      * A new validation protocol to support the new message types.
+      The new logic will be disabled and will be enabled at a later date after all validators have upgraded.
+
+migrations:
+  db:
+    - name: Parachains database change from v3 to v4.
+      description: |
+        Approval-voting column format has been updated with several new fields. All existing data will be automatically
+        be migrated to the new values.
+
+crates:
+  - name: "polkadot"
+
+host_functions: []
