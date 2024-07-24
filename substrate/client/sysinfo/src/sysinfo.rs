@@ -844,6 +844,7 @@ mod tests {
 	fn hwbench_serialize_works() {
 		let hwbench = HwBench {
 			cpu_hashrate_score: Throughput::from_gibs(1.32),
+			parallel_cpu_hashrate_score: Throughput::from_gibs(1.32),
 			memory_memcpy_score: Throughput::from_kibs(9342.432),
 			disk_sequential_write_score: Some(Throughput::from_kibs(4332.12)),
 			disk_random_write_score: None,
@@ -851,6 +852,6 @@ mod tests {
 
 		let serialized = serde_json::to_string(&hwbench).unwrap();
 		// Throughput from all of the benchmarks should be converted to MiBs.
-		assert_eq!(serialized, "{\"cpu_hashrate_score\":1351,\"memory_memcpy_score\":9,\"disk_sequential_write_score\":4}");
+		assert_eq!(serialized, "{\"cpu_hashrate_score\":1351,\"parallel_cpu_hashrate_score\":1351,\"memory_memcpy_score\":9,\"disk_sequential_write_score\":4}");
 	}
 }
