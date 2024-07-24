@@ -4,6 +4,10 @@
 		"minimum": 783.27
 	},
 	{
+		"metric": "Blake2256Parallel",
+		"minimum": 783.27
+	},
+	{
 		"metric": "Sr25519Verify",
 		"minimum": 0.547529297
 	},

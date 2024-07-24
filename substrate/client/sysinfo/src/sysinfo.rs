@@ -22,16 +22,17 @@ use sc_telemetry::SysInfo;
 use sp_core::{sr25519, Pair};
 use sp_io::crypto::sr25519_verify;
 
+use core::f64;
 use derive_more::From;
 use rand::{seq::SliceRandom, Rng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
-	fmt,
-	fmt::{Display, Formatter},
+	fmt::{self, Display, Formatter},
 	fs::File,
 	io::{Seek, SeekFrom, Write},
 	ops::{Deref, DerefMut},
 	path::{Path, PathBuf},
+	sync::{Arc, Barrier},
 	time::{Duration, Instant},
 };
 
@@ -42,6 +43,8 @@ pub enum Metric {
 	Sr25519Verify,
 	/// Blake2-256 hashing algorithm.
 	Blake2256,
+	/// Blake2-256 hashing algorithm executed in parallel.
+	Blake2256Parallel,
 	/// Copying data in RAM.
 	MemCopy,
 	/// Disk sequential write.
@@ -85,7 +88,7 @@ impl Metric {
 	/// The category of the metric.
 	pub fn category(&self) -> &'static str {
 		match self {
-			Self::Sr25519Verify | Self::Blake2256 => "CPU",
+			Self::Sr25519Verify | Self::Blake2256 | Self::Blake2256Parallel => "CPU",
 			Self::MemCopy => "Memory",
 			Self::DiskSeqWrite | Self::DiskRndWrite => "Disk",
 		}
@@ -96,6 +99,7 @@ impl Metric {
 		match self {
 			Self::Sr25519Verify => "SR25519-Verify",
 			Self::Blake2256 => "BLAKE2-256",
+			Self::Blake2256Parallel => "BLAKE2-256-Parallel",
 			Self::MemCopy => "Copy",
 			Self::DiskSeqWrite => "Seq Write",
 			Self::DiskRndWrite => "Rnd Write",
@@ -375,6 +379,49 @@ pub fn benchmark_cpu(limit: ExecutionLimit) -> Throughput {
 		.expect("benchmark cannot fail; qed")
 }
 
+// This benchmarks the entire CPU speed as measured by calculating BLAKE2b-256 hashes, in bytes per
+// second. It spawns multiple threads to measure the throughput of the entire CPU and averages the
+// score obtained by each thread. If we have at least `EXPECTED_NUM_CORES` available then the
+// average throughput should be relatively close to the single core performance as measured by
+// `benchmark_cpu`.
+pub fn benchmark_cpu_parallelism(limit: ExecutionLimit) -> Throughput {
+	const SIZE: usize = 32 * 1024;
+	const EXPECTED_NUM_CORES: usize = 8;
+
+	let ready_to_run_benchmark = Arc::new(Barrier::new(EXPECTED_NUM_CORES));
+	let mut benchmark_threads = Vec::new();
+
+	// Spawn a thread for each expected core and average the throughput for each of them.
+	for _ in 0..EXPECTED_NUM_CORES {
+		let ready_to_run_benchmark = ready_to_run_benchmark.clone();
+
+		let handle = std::thread::spawn(move || {
+			let mut buffer = Vec::new();
+			buffer.resize(SIZE, 0x66);
+			let mut hash = Default::default();
+
+			let run = || -> Result<(), ()> {
+				clobber_slice(&mut buffer);
+				hash = sp_crypto_hashing::blake2_256(&buffer);
+				clobber_slice(&mut hash);
+
+				Ok(())
+			};
+			ready_to_run_benchmark.wait();
+			benchmark("CPU score", SIZE, limit.max_iterations(), limit.max_duration(), run)
+				.expect("benchmark cannot fail; qed")
+		});
+		benchmark_threads.push(handle);
+	}
+
+	let average_score = benchmark_threads
+		.into_iter()
+		.map(|thread| thread.join().map(|throughput| throughput.as_kibs()).unwrap_or(f64::MIN))
+		.sum::<f64>() /
+		EXPECTED_NUM_CORES as f64;
+	Throughput::from_kibs(average_score)
+}
+
 /// A default [`ExecutionLimit`] that can be used to call [`benchmark_memory`].
 pub const DEFAULT_MEMORY_EXECUTION_LIMIT: ExecutionLimit =
 	ExecutionLimit::Both { max_iterations: 32, max_duration: Duration::from_millis(100) };
@@ -628,6 +675,7 @@ pub fn gather_hwbench(scratch_directory: Option<&Path>) -> HwBench {
 	#[allow(unused_mut)]
 	let mut hwbench = HwBench {
 		cpu_hashrate_score: benchmark_cpu(DEFAULT_CPU_EXECUTION_LIMIT),
+		parallel_cpu_hashrate_score: benchmark_cpu_parallelism(DEFAULT_CPU_EXECUTION_LIMIT),
 		memory_memcpy_score: benchmark_memory(DEFAULT_MEMORY_EXECUTION_LIMIT),
 		disk_sequential_write_score: None,
 		disk_random_write_score: None,
@@ -669,6 +717,14 @@ impl Requirements {
 							metric: requirement.metric,
 							expected: requirement.minimum,
 							found: hwbench.cpu_hashrate_score,
+						});
+					},
+				Metric::Blake2256Parallel =>
+					if requirement.minimum > hwbench.parallel_cpu_hashrate_score {
+						failures.push(CheckFailure {
+							metric: requirement.metric,
+							expected: requirement.minimum,
+							found: hwbench.parallel_cpu_hashrate_score,
 						});
 					},
 				Metric::MemCopy =>
@@ -730,6 +786,13 @@ mod tests {
 	#[test]
 	fn test_benchmark_cpu() {
 		assert!(benchmark_cpu(DEFAULT_CPU_EXECUTION_LIMIT) > Throughput::from_mibs(0.0));
+	}
+
+	#[test]
+	fn test_benchmark_parallel_cpu() {
+		assert!(
+			benchmark_cpu_parallelism(DEFAULT_CPU_EXECUTION_LIMIT) > Throughput::from_mibs(0.0)
+		);
 	}
 
 	#[test]
