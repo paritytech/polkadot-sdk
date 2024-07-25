@@ -628,8 +628,15 @@ struct Unscheduled {
 }
 
 impl Unscheduled {
-	// A threshold reaching which we prioritize approval jobs
+	// A threshold reaching which we reset counted jobs.
+	// Max number of jobs per block assuming 6s window, 2 CPU cores, and 2s for a run.
 	const MAX_COUNT: usize = 12;
+	// A threshold in percentages, the portion a current priority can "steal" from lower ones.
+	// For example:
+	// Disputes take 70%, leaving 30% for approvals and all backings.
+	// 80% of the remaining goes to approvals, which is 30% * 80% = 24% of the original 100%.
+	// If we used parts of the original 100%, approvals can't take more than 24%,
+	// even if there are no disputes.
 	const FULFILLED_THRESHOLDS: &'static [(PvfExecPriority, usize)] = &[
 		(PvfExecPriority::Dispute, 70),
 		(PvfExecPriority::Approval, 80),
@@ -689,7 +696,9 @@ impl Unscheduled {
 			return false
 		}
 
-		count * 100 / total_count >= threshold
+		// Because we operate through a small range, we can't let a priority go over the
+		// threshold, so we check fulfillment by adding one more run
+		(count + 1) * 100 / total_count >= threshold
 	}
 
 	fn log(&mut self, priority: PvfExecPriority) {
