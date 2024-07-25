@@ -28,7 +28,6 @@ use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::FromBridgedChainMessagesProof, LaneId,
 };
-use bp_runtime::Chain;
 use bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
@@ -48,8 +47,6 @@ use xcm::{
 use xcm_builder::BridgeBlobDispatcher;
 
 parameter_types! {
-	/// Bridge specific chain (network) identifier of the Rococo Bulletin Chain.
-	pub const RococoBulletinChainId: bp_runtime::ChainId = bp_polkadot_bulletin::PolkadotBulletin::ID;
 	/// Interior location (relative to this runtime) of the with-RococoBulletin messages pallet.
 	pub BridgeRococoToRococoBulletinMessagesPalletInstance: InteriorLocation = [
 		PalletInstance(<BridgeRococoBulletinMessages as PalletInfoAccess>::index() as u8)

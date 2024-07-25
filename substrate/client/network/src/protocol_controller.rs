@@ -878,7 +878,6 @@ mod tests {
 			fn peer_reputation(&self, peer_id: &sc_network_types::PeerId) -> i32;
 			fn peer_role(&self, peer_id: &sc_network_types::PeerId) -> Option<ObservedRole>;
 			fn outgoing_candidates(&self, count: usize, ignored: HashSet<sc_network_types::PeerId>) -> Vec<sc_network_types::PeerId>;
-			fn num_known_peers(&self) -> usize;
 			fn add_known_peer(&self, peer_id: sc_network_types::PeerId);
 		}
 	}

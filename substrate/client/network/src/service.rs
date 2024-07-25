@@ -186,8 +186,11 @@ where
 	}
 
 	/// Create `PeerStore`.
-	fn peer_store(bootnodes: Vec<sc_network_types::PeerId>) -> Self::PeerStore {
-		PeerStore::new(bootnodes.into_iter().map(From::from).collect())
+	fn peer_store(
+		bootnodes: Vec<sc_network_types::PeerId>,
+		metrics_registry: Option<Registry>,
+	) -> Self::PeerStore {
+		PeerStore::new(bootnodes.into_iter().map(From::from).collect(), metrics_registry)
 	}
 
 	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics {
@@ -1020,7 +1023,7 @@ where
 	}
 
 	fn report_peer(&self, peer_id: sc_network_types::PeerId, cost_benefit: ReputationChange) {
-		self.peer_store_handle.clone().report_peer(peer_id, cost_benefit);
+		self.peer_store_handle.report_peer(peer_id, cost_benefit);
 	}
 
 	fn peer_reputation(&self, peer_id: &sc_network_types::PeerId) -> i32 {
@@ -1420,9 +1423,7 @@ where
 			{
 				metrics.kademlia_records_sizes_total.set(num_entries as u64);
 			}
-			metrics
-				.peerset_num_discovered
-				.set(self.peer_store_handle.num_known_peers() as u64);
+
 			metrics.pending_connections.set(
 				Swarm::network_info(&self.network_service).connection_counters().num_pending()
 					as u64,
