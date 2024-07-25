@@ -1019,7 +1019,7 @@ trait ValidationBackend {
 		encoded_params: Vec<u8>,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The priority for the preparation job.
+		// The priority for the execution job.
 		execute_priority: PvfExecPriority,
 	) -> Result<WasmValidationResult, ValidationError>;
 
@@ -1168,7 +1168,7 @@ impl ValidationBackend for ValidationHost {
 		encoded_params: Vec<u8>,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The priority for the preparation job.
+		// The priority for the execution job.
 		execute_priority: PvfExecPriority,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let (tx, rx) = oneshot::channel();
