@@ -126,6 +126,7 @@ jobs:
           - test(/generate_chain_spec/) 
           - test(/get_preset/)
           - test(/list_presets/)  
+          - test(/tests::receive_rate_limit_is_enforced/)
           "          
           --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
       - run: ls -al target/coverage
