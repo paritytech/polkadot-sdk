@@ -462,10 +462,10 @@ impl<T: Config> Pallet<T> {
 	/// during that session.
 	///
 	/// TWOX-NOTE: `SetId` is not under user control.
-	pub fn session_for_set(set_id : SetId) -> Option<SessionIndex> {
+	pub fn session_for_set(set_id: SetId) -> Option<SessionIndex> {
 		SetIdSession::<T>::get(set_id)
 	}
-	
+
 	/// Get the current set of authorities, along with their respective weights.
 	pub fn grandpa_authorities() -> AuthorityList {
 		Authorities::<T>::get().into_inner()
