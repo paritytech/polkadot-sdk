@@ -22,16 +22,20 @@ use super::{
 use crate::pallet::{types::FetchedCode, GenesisBuilder};
 use codec::{Decode, Encode};
 use frame_benchmarking::{
-	Analysis, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList, BenchmarkParameter,
-	BenchmarkResult, BenchmarkSelector,
+	Analysis, AnalysisChoice, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList,
+	BenchmarkParameter, BenchmarkResult, BenchmarkSelector, RuntimeBenchmarkInfo,
 };
-use frame_support::traits::StorageInfo;
+use frame_support::{
+	traits::StorageInfo,
+	weights::{RuntimeDbWeight, Weight},
+};
 use linked_hash_map::LinkedHashMap;
 use sc_chain_spec::json_patch::merge as json_merge;
 use sc_cli::{execution_method_from_cli, ChainSpec, CliConfiguration, Result, SharedParams};
 use sc_client_db::BenchmarkingState;
-use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
+use sc_executor::{HeapAllocStrategy, RuntimeVersion, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sp_core::{
+	blake2_64,
 	offchain::{
 		testing::{TestOffchainExt, TestTransactionPoolExt},
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
@@ -53,7 +57,6 @@ use std::{
 	time,
 };
 
-/// Logging target
 const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::pallet";
 
 /// How the PoV size of a storage item should be estimated.
@@ -160,6 +163,10 @@ generate the genesis state is deprecated. Please remove the `--chain`/`--dev`/`-
 point `--runtime` to your runtime blob and set `--genesis-builder=runtime`. This warning may \
 become a hard error any time after December 2024.";
 
+/// Could not query `RuntimeVersion`, which is required
+const ERROR_RUNTIME_VERSION_NOT_FOUND: &'static str = "Could not query the runtime version. \
+This should never happen, please report this issue.";
+
 /// The preset that we expect to find in the GenesisBuilder runtime API.
 const GENESIS_PRESET: &str = "development";
 
@@ -197,20 +204,6 @@ impl PalletCmd {
 				)
 			})
 		});
-
-		if let Some(json_input) = &self.json_input {
-			let raw_data = match std::fs::read(json_input) {
-				Ok(raw_data) => raw_data,
-				Err(error) =>
-					return Err(format!("Failed to read {:?}: {}", json_input, error).into()),
-			};
-			let batches: Vec<BenchmarkBatchSplitResults> = match serde_json::from_slice(&raw_data) {
-				Ok(batches) => batches,
-				Err(error) =>
-					return Err(format!("Failed to deserialize {:?}: {}", json_input, error).into()),
-			};
-			return self.output_from_results(&batches)
-		}
 
 		let (genesis_storage, genesis_changes) =
 			self.genesis_storage::<Hasher, ExtraHostFunctions>(&chain_spec)?;
@@ -255,20 +248,75 @@ impl PalletCmd {
 		.with_runtime_cache_size(2)
 		.build();
 
-		let (list, storage_info): (Vec<BenchmarkList>, Vec<StorageInfo>) =
-			Self::exec_state_machine(
-				StateMachine::new(
-					state,
-					&mut changes,
-					&executor,
-					"Benchmark_benchmark_metadata",
-					&(self.extra).encode(),
-					&mut Self::build_extensions(executor.clone()),
-					&runtime_code,
-					CallContext::Offchain,
-				),
-				ERROR_METADATA_NOT_FOUND,
-			)?;
+		let runtime_version: RuntimeVersion = Self::exec_state_machine(
+			StateMachine::new(
+				state,
+				&mut changes,
+				&executor,
+				"Core_version",
+				&[],
+				&mut Self::build_extensions(executor.clone()),
+				&runtime_code,
+				CallContext::Offchain,
+			),
+			ERROR_RUNTIME_VERSION_NOT_FOUND,
+		)?;
+
+		// Get the version of `Benchmark` runtime API.
+		let (_, version) = runtime_version
+			.apis
+			.iter()
+			.find(|(name, _)| name == &blake2_64(b"Benchmark"))
+			.ok_or("Benchmark API not found in runtime version apis")?;
+
+		let RuntimeBenchmarkInfo { list, storage_info, max_extrinsic_weight, db_weight } = {
+			if *version == 1 {
+				// This ensures that we don't run sanity checks on API v1.
+				let old_benchmark_data: (Vec<BenchmarkList>, Vec<StorageInfo>) =
+					Self::exec_state_machine(
+						StateMachine::new(
+							state,
+							&mut changes,
+							&executor,
+							"Benchmark_benchmark_metadata",
+							&(self.extra).encode(),
+							&mut Self::build_extensions(executor.clone()),
+							&runtime_code,
+							CallContext::Offchain,
+						),
+						ERROR_METADATA_NOT_FOUND,
+					)?;
+				old_benchmark_data.into()
+			} else {
+				Self::exec_state_machine(
+					StateMachine::new(
+						state,
+						&mut changes,
+						&executor,
+						"Benchmark_benchmark_metadata",
+						&(self.extra).encode(),
+						&mut Self::build_extensions(executor.clone()),
+						&runtime_code,
+						CallContext::Offchain,
+					),
+					ERROR_METADATA_NOT_FOUND,
+				)?
+			}
+		};
+
+		if let Some(json_input) = &self.json_input {
+			let raw_data = match std::fs::read(json_input) {
+				Ok(raw_data) => raw_data,
+				Err(error) =>
+					return Err(format!("Failed to read {:?}: {}", json_input, error).into()),
+			};
+			let batches: Vec<BenchmarkBatchSplitResults> = match serde_json::from_slice(&raw_data) {
+				Ok(batches) => batches,
+				Err(error) =>
+					return Err(format!("Failed to deserialize {:?}: {}", json_input, error).into()),
+			};
+			return self.output_from_results(&batches, max_extrinsic_weight, db_weight)
+		}
 
 		// Use the benchmark list and the user input to determine the set of benchmarks to run.
 		let benchmarks_to_run = self.select_benchmarks_to_run(list)?;
@@ -504,7 +552,14 @@ impl PalletCmd {
 		// Combine all of the benchmark results, so that benchmarks of the same pallet/function
 		// are together.
 		let batches = combine_batches(batches, batches_db);
-		self.output(&batches, &storage_info, &component_ranges, pov_modes)
+		self.output(
+			&batches,
+			&storage_info,
+			&component_ranges,
+			pov_modes,
+			max_extrinsic_weight,
+			db_weight,
+		)
 	}
 
 	fn select_benchmarks_to_run(&self, list: Vec<BenchmarkList>) -> Result<Vec<SelectedBenchmark>> {
@@ -756,6 +811,8 @@ impl PalletCmd {
 		storage_info: &[StorageInfo],
 		component_ranges: &ComponentRangeMap,
 		pov_modes: PovModesMap,
+		max_extrinsic_weight: Option<Weight>,
+		db_weight: Option<RuntimeDbWeight>,
 	) -> Result<()> {
 		// Jsonify the result and write it to a file or stdout if desired.
 		if !self.jsonify(&batches)? && !self.quiet {
@@ -763,16 +820,37 @@ impl PalletCmd {
 			self.print_summary(&batches, &storage_info, pov_modes.clone())
 		}
 
+		// Which analysis function should be used when outputting benchmarks
+		let analysis_choice: AnalysisChoice =
+			self.output_analysis.clone().try_into().map_err(writer::io_error)?;
+		let pov_analysis_choice: AnalysisChoice =
+			self.output_pov_analysis.clone().try_into().map_err(writer::io_error)?;
+
+		// Organize results by pallet into a JSON map
+		let all_results = writer::map_results(
+			&batches,
+			&storage_info,
+			&component_ranges,
+			pov_modes.clone(),
+			self.default_pov_mode,
+			&analysis_choice,
+			&pov_analysis_choice,
+			self.worst_case_map_values,
+			self.additional_trie_layers,
+		)?;
+
 		// Create the weights.rs file.
 		if let Some(output_path) = &self.output {
-			writer::write_results(
-				&batches,
-				&storage_info,
-				&component_ranges,
-				pov_modes,
-				self.default_pov_mode,
-				output_path,
-				self,
+			writer::write_results(output_path, self, analysis_choice, &all_results)?;
+		}
+
+		if let (Some(max_extrinsic_weight), Some(db_weight)) = (max_extrinsic_weight, db_weight) {
+			// Execute sanity weight check.
+			writer::sanity_weight_check(
+				all_results,
+				max_extrinsic_weight,
+				db_weight,
+				self.shared_params.sanity_weight_check,
 			)?;
 		}
 
@@ -780,7 +858,12 @@ impl PalletCmd {
 	}
 
 	/// Re-analyze a batch historic benchmark timing data. Will not take the PoV into account.
-	fn output_from_results(&self, batches: &[BenchmarkBatchSplitResults]) -> Result<()> {
+	fn output_from_results(
+		&self,
+		batches: &[BenchmarkBatchSplitResults],
+		max_extrinsic_weight: Option<Weight>,
+		db_weight: Option<RuntimeDbWeight>,
+	) -> Result<()> {
 		let mut component_ranges = HashMap::<(String, String), HashMap<String, (u32, u32)>>::new();
 		for batch in batches {
 			let range = component_ranges
@@ -814,7 +897,14 @@ impl PalletCmd {
 			})
 			.collect();
 
-		self.output(batches, &[], &component_ranges, Default::default())
+		self.output(
+			batches,
+			&[],
+			&component_ranges,
+			Default::default(),
+			max_extrinsic_weight,
+			db_weight,
+		)
 	}
 
 	/// Jsonifies the passed batches and writes them to stdout or into a file.
