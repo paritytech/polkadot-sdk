@@ -76,6 +76,21 @@ pub enum NetworkServiceCommand {
 		value: Vec<u8>,
 	},
 
+	/// Store record in the local DHT store.
+	StoreRecord {
+		/// Record key.
+		key: KademliaKey,
+
+		/// Record value.
+		value: Vec<u8>,
+
+		/// Original publisher of the record.
+		publisher: Option<PeerId>,
+
+		/// Record expiration time as measured by a local, monothonic clock.
+		expires: Option<Instant>,
+	},
+
 	/// Query network status.
 	Status {
 		/// `oneshot::Sender` for sending the status.
@@ -240,13 +255,17 @@ impl NetworkDHTProvider for Litep2pNetworkService {
 
 	fn store_record(
 		&self,
-		_key: KademliaKey,
-		_value: Vec<u8>,
-		_publisher: Option<PeerId>,
-		_expires: Option<Instant>,
+		key: KademliaKey,
+		value: Vec<u8>,
+		publisher: Option<PeerId>,
+		expires: Option<Instant>,
 	) {
-		// Will be added once litep2p is released with: https://github.com/paritytech/litep2p/pull/135
-		log::warn!(target: LOG_TARGET, "Store record is not implemented for litep2p");
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::StoreRecord {
+			key,
+			value,
+			publisher,
+			expires,
+		});
 	}
 }
 
@@ -264,8 +283,20 @@ impl NetworkStatusProvider for Litep2pNetworkService {
 	async fn network_state(&self) -> Result<NetworkState, ()> {
 		Ok(NetworkState {
 			peer_id: self.local_peer_id.to_base58(),
-			listened_addresses: self.listen_addresses.read().iter().cloned().collect(),
-			external_addresses: self.external_addresses.read().iter().cloned().collect(),
+			listened_addresses: self
+				.listen_addresses
+				.read()
+				.iter()
+				.cloned()
+				.map(|a| Multiaddr::from(a).into())
+				.collect(),
+			external_addresses: self
+				.external_addresses
+				.read()
+				.iter()
+				.cloned()
+				.map(|a| Multiaddr::from(a).into())
+				.collect(),
 			connected_peers: HashMap::new(),
 			not_connected_peers: HashMap::new(),
 			// TODO: Check what info we can include here.

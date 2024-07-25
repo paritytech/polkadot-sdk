@@ -16,7 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
+codec = { features = ["derive"], workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
-parking_lot = "0.12.1"
-sp-core = { path = "../../primitives/core" }
+parking_lot = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }

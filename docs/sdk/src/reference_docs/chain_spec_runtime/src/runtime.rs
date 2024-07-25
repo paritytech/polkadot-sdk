@@ -25,6 +25,7 @@ use crate::{
 	pallets::{pallet_bar, pallet_foo},
 	presets::*,
 };
+use alloc::{vec, vec::Vec};
 use frame::{
 	deps::frame_support::{
 		genesis_builder_helper::{build_state, get_preset},

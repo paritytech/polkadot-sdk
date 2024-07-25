@@ -17,6 +17,7 @@
 //! This module focuses on the benchmarking of the `include_pvf_check_statement` dispatchable.
 
 use crate::{configuration, paras::*, shared::Pallet as ParasShared};
+use alloc::{vec, vec::Vec};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use polkadot_primitives::{HeadData, Id as ParaId, ValidationCode, ValidatorId, ValidatorIndex};

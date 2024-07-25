@@ -289,7 +289,7 @@ mod tests {
 		RuntimeCall::Parachains(crate::Call::<TestRuntime, ()>::submit_parachain_heads_ex {
 			at_relay_block: (num, [num as u8; 32].into()),
 			parachains,
-			parachain_heads_proof: ParaHeadsProof { storage_proof: Vec::new() },
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 			is_free_execution_expected: false,
 		})
 		.check_obsolete_submit_parachain_heads()
@@ -303,7 +303,7 @@ mod tests {
 		RuntimeCall::Parachains(crate::Call::<TestRuntime, ()>::submit_parachain_heads_ex {
 			at_relay_block: (num, [num as u8; 32].into()),
 			parachains,
-			parachain_heads_proof: ParaHeadsProof { storage_proof: Vec::new() },
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 			is_free_execution_expected: true,
 		})
 		.check_obsolete_submit_parachain_heads()

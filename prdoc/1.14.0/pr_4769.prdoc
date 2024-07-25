@@ -1,0 +1,20 @@
+title: Use real rust type for pallet alias in `runtime` macro
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds the ability to use a real rust type for pallet alias in the new `runtime` macro:
+      ```rust
+      #[runtime::pallet_index(0)]
+      pub type System = frame_system::Pallet<Runtime>;
+      ```
+
+      Please note that the current syntax still continues to be supported.
+
+crates:
+  - name: frame-support-procedural
+    bump: patch
+  - name: frame-support
+    bump: patch
+  - name: minimal-template-runtime
+    bump: patch

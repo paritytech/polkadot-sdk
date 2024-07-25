@@ -16,11 +16,11 @@
 
 //! Primitives of messages module, that are used on the source chain.
 
-use crate::{InboundLaneData, LaneId, MessageNonce, VerificationError};
+use crate::{LaneId, MessageNonce, UnrewardedRelayer};
 
-use crate::UnrewardedRelayer;
-use bp_runtime::Size;
-use frame_support::Parameter;
+use bp_runtime::{raw_storage_proof_size, RawStorageProof, Size};
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
 use sp_std::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
@@ -28,41 +28,35 @@ use sp_std::{
 	ops::RangeInclusive,
 };
 
+/// Messages delivery proof from the bridged chain.
+///
+/// It contains everything required to prove that our (this chain) messages have been
+/// delivered to the bridged (target) chain:
+///
+/// - hash of finalized header;
+///
+/// - storage proof of the inbound lane state;
+///
+/// - lane id.
+#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+pub struct FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash> {
+	/// Hash of the bridge header the proof is for.
+	pub bridged_header_hash: BridgedHeaderHash,
+	/// Storage trie proof generated for [`Self::bridged_header_hash`].
+	pub storage_proof: RawStorageProof,
+	/// Lane id of which messages were delivered and the proof is for.
+	pub lane: LaneId,
+}
+
+impl<BridgedHeaderHash> Size for FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash> {
+	fn size(&self) -> u32 {
+		use frame_support::sp_runtime::SaturatedConversion;
+		raw_storage_proof_size(&self.storage_proof).saturated_into()
+	}
+}
+
 /// Number of messages, delivered by relayers.
 pub type RelayersRewards<AccountId> = BTreeMap<AccountId, MessageNonce>;
-
-/// Target chain API. Used by source chain to verify target chain proofs.
-///
-/// All implementations of this trait should only work with finalized data that
-/// can't change. Wrong implementation may lead to invalid lane states (i.e. lane
-/// that's stuck) and/or processing messages without paying fees.
-///
-/// The `Payload` type here means the payload of the message that is sent from the
-/// source chain to the target chain. The `AccountId` type here means the account
-/// type used by the source chain.
-pub trait TargetHeaderChain<Payload, AccountId> {
-	/// Proof that messages have been received by target chain.
-	type MessagesDeliveryProof: Parameter + Size;
-
-	/// Verify message payload before we accept it.
-	///
-	/// **CAUTION**: this is very important function. Incorrect implementation may lead
-	/// to stuck lanes and/or relayers loses.
-	///
-	/// The proper implementation must ensure that the delivery-transaction with this
-	/// payload would (at least) be accepted into target chain transaction pool AND
-	/// eventually will be successfully mined. The most obvious incorrect implementation
-	/// example would be implementation for BTC chain that accepts payloads larger than
-	/// 1MB. BTC nodes aren't accepting transactions that are larger than 1MB, so relayer
-	/// will be unable to craft valid transaction => this (and all subsequent) messages will
-	/// never be delivered.
-	fn verify_message(payload: &Payload) -> Result<(), VerificationError>;
-
-	/// Verify messages delivery proof and return lane && nonce of the latest received message.
-	fn verify_messages_delivery_proof(
-		proof: Self::MessagesDeliveryProof,
-	) -> Result<(LaneId, InboundLaneData<AccountId>), VerificationError>;
-}
 
 /// Manages payments that are happening at the source chain during delivery confirmation
 /// transaction.
@@ -143,27 +137,9 @@ pub trait MessagesBridge<Payload> {
 	fn send_message(message: Self::SendMessageArgs) -> SendMessageArtifacts;
 }
 
-/// Structure that may be used in place of `TargetHeaderChain` and
-/// `MessageDeliveryAndDispatchPayment` on chains, where outbound messages are forbidden.
+/// Structure that may be used in place `MessageDeliveryAndDispatchPayment` on chains,
+/// where outbound messages are forbidden.
 pub struct ForbidOutboundMessages;
-
-/// Error message that is used in `ForbidOutboundMessages` implementation.
-const ALL_OUTBOUND_MESSAGES_REJECTED: &str =
-	"This chain is configured to reject all outbound messages";
-
-impl<Payload, AccountId> TargetHeaderChain<Payload, AccountId> for ForbidOutboundMessages {
-	type MessagesDeliveryProof = ();
-
-	fn verify_message(_payload: &Payload) -> Result<(), VerificationError> {
-		Err(VerificationError::Other(ALL_OUTBOUND_MESSAGES_REJECTED))
-	}
-
-	fn verify_messages_delivery_proof(
-		_proof: Self::MessagesDeliveryProof,
-	) -> Result<(LaneId, InboundLaneData<AccountId>), VerificationError> {
-		Err(VerificationError::Other(ALL_OUTBOUND_MESSAGES_REJECTED))
-	}
-}
 
 impl<AccountId> DeliveryConfirmationPayments<AccountId> for ForbidOutboundMessages {
 	type Error = &'static str;

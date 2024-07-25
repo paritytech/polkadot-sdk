@@ -58,7 +58,7 @@ use litep2p::{
 	protocol::{
 		libp2p::{
 			bitswap::Config as BitswapConfig,
-			kademlia::{QueryId, RecordsType},
+			kademlia::{QueryId, Record, RecordsType},
 		},
 		request_response::ConfigBuilder as RequestResponseConfigBuilder,
 	},
@@ -369,11 +369,13 @@ impl Litep2pNetworkBackend {
 			.with_websocket(WebSocketTransportConfig {
 				listen_addresses: websocket.into_iter().flatten().map(Into::into).collect(),
 				yamux_config: yamux_config.clone(),
+				nodelay: true,
 				..Default::default()
 			})
 			.with_tcp(TcpTransportConfig {
 				listen_addresses: tcp.into_iter().flatten().map(Into::into).collect(),
 				yamux_config,
+				nodelay: true,
 				..Default::default()
 			})
 	}
@@ -620,8 +622,11 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		Arc::clone(&self.network_service)
 	}
 
-	fn peer_store(bootnodes: Vec<sc_network_types::PeerId>) -> Self::PeerStore {
-		Peerstore::new(bootnodes)
+	fn peer_store(
+		bootnodes: Vec<sc_network_types::PeerId>,
+		metrics_registry: Option<Registry>,
+	) -> Self::PeerStore {
+		Peerstore::new(bootnodes, metrics_registry)
 	}
 
 	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics {
@@ -697,6 +702,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						NetworkServiceCommand::PutValue { key, value } => {
 							let query_id = self.discovery.put_value(key.clone(), value).await;
 							self.pending_put_values.insert(query_id, (key, Instant::now()));
+						}
+						NetworkServiceCommand::StoreRecord { key, value, publisher, expires } => {
+							self.discovery.store_record(key, value, publisher.map(Into::into), expires).await;
 						}
 						NetworkServiceCommand::EventStream { tx } => {
 							self.event_streams.push(tx);
@@ -846,6 +854,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									"`PUT_VALUE` for {key:?} ({query_id:?}) succeeded",
 								);
 
+								self.event_streams.send(Event::Dht(
+									DhtEvent::ValuePut(libp2p::kad::RecordKey::new(&key))
+								));
+
 								if let Some(ref metrics) = self.metrics {
 									metrics
 										.kademlia_query_duration
@@ -914,6 +926,22 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							target: LOG_TARGET,
 							"ping time with {peer:?}: {rtt:?}",
 						);
+					}
+					Some(DiscoveryEvent::IncomingRecord { record: Record { key, value, publisher, expires }} ) => {
+						self.event_streams.send(Event::Dht(
+							DhtEvent::PutRecordRequest(
+								libp2p::kad::RecordKey::new(&key),
+								value,
+								publisher.map(Into::into),
+								expires,
+							)
+						));
+					},
+
+					Some(DiscoveryEvent::RandomKademliaStarted) => {
+						if let Some(metrics) = self.metrics.as_ref() {
+							metrics.kademlia_random_queries_total.inc();
+						}
 					}
 				},
 				event = self.litep2p.next_event() => match event {

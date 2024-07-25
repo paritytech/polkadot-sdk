@@ -11,19 +11,19 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-bp-header-chain = { path = "../header-chain", default-features = false }
-bp-parachains = { path = "../parachains", default-features = false }
-bp-polkadot-core = { path = "../polkadot-core", default-features = false }
-bp-runtime = { path = "../runtime", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
-ed25519-dalek = { version = "2.1", default-features = false }
-finality-grandpa = { version = "0.16.2", default-features = false }
-sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false }
-sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa", default-features = false }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
-sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
+bp-header-chain = { workspace = true }
+bp-parachains = { workspace = true }
+bp-polkadot-core = { workspace = true }
+bp-runtime = { features = ["test-helpers"], workspace = true }
+codec = { workspace = true }
+ed25519-dalek = { workspace = true }
+finality-grandpa = { workspace = true }
+sp-application-crypto = { workspace = true }
+sp-consensus-grandpa = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+sp-trie = { workspace = true }
 
 [features]
 default = ["std"]

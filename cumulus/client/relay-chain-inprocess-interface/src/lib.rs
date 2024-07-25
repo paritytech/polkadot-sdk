@@ -14,14 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{pin::Pin, sync::Arc, time::Duration};
+use std::{collections::btree_map::BTreeMap, pin::Pin, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use cumulus_primitives_core::{
 	relay_chain::{
-		runtime_api::ParachainHost, Block as PBlock, BlockId, CommittedCandidateReceipt,
-		Hash as PHash, Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
-		ValidationCodeHash, ValidatorId,
+		runtime_api::ParachainHost, Block as PBlock, BlockId, BlockNumber,
+		CommittedCandidateReceipt, CoreState, Hash as PHash, Header as PHeader, InboundHrmpMessage,
+		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -38,7 +38,7 @@ use sc_client_api::{
 use sc_telemetry::TelemetryWorkerHandle;
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
-use sp_core::{sp_std::collections::btree_map::BTreeMap, Pair};
+use sp_core::Pair;
 use sp_state_machine::{Backend as StateBackend, StorageValue};
 
 /// The timeout in seconds after that the waiting for a block should be aborted.
@@ -254,6 +254,13 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 					notification.is_new_best.then_some(notification.header)
 				});
 		Ok(Box::pin(notifications_stream))
+	}
+
+	async fn availability_cores(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
+		Ok(self.full_client.runtime_api().availability_cores(relay_parent)?)
 	}
 
 	async fn candidates_pending_availability(

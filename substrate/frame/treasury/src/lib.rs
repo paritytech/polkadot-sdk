@@ -81,14 +81,16 @@ use core::marker::PhantomData;
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::ArgumentsFactory;
 
+extern crate alloc;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
+use alloc::{boxed::Box, collections::btree_map::BTreeMap};
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
 	Permill, RuntimeDebug,
 };
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
@@ -205,18 +207,12 @@ pub mod pallet {
 		/// The staking balance.
 		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 
-		/// Origin from which approvals must come.
-		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
 		/// Origin from which rejections must come.
 		type RejectOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-		/// Handler for the unbalanced decrease when slashing for a rejected proposal or bounty.
-		type OnSlash: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
 
 		/// Period between successive spends.
 		#[pallet::constant]
@@ -332,7 +328,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<(T, I)>,
+		_config: core::marker::PhantomData<(T, I)>,
 	}
 
 	#[pallet::genesis_build]

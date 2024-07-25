@@ -12,9 +12,9 @@ homepage = "https://substrate.io"
 workspace = true
 
 [dependencies]
-clap = { version = "4.5.3", features = ["derive", "string"] }
+clap = { features = ["derive", "string"], workspace = true }
 log = { workspace = true, default-features = true }
-fs4 = "0.7.0"
-sp-core = { path = "../../primitives/core" }
-tokio = { version = "1.22.0", features = ["time"] }
+fs4 = { workspace = true }
+sp-core = { workspace = true, default-features = true }
+tokio = { features = ["time"], workspace = true, default-features = true }
 thiserror = { workspace = true }

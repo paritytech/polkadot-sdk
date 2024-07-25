@@ -18,13 +18,13 @@
 //! Traits for dealing with validation and validators.
 
 use crate::{dispatch::Parameter, weights::Weight};
+use alloc::{vec, vec::Vec};
 use codec::{Codec, Decode, MaxEncodedLen};
 use sp_runtime::{
 	traits::{Convert, Zero},
 	BoundToRuntimeAppPublic, ConsensusEngineId, Permill, RuntimeAppPublic,
 };
 use sp_staking::SessionIndex;
-use sp_std::prelude::*;
 
 /// A trait for online node inspection in a session.
 ///

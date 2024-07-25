@@ -31,8 +31,8 @@ use crate::{
 
 use futures::channel::oneshot;
 use libp2p::{
-	core::Multiaddr, identify::Info as IdentifyInfo, identity::PublicKey, kad::RecordKey,
-	swarm::NetworkBehaviour, PeerId,
+	connection_limits::ConnectionLimits, core::Multiaddr, identify::Info as IdentifyInfo,
+	identity::PublicKey, kad::RecordKey, swarm::NetworkBehaviour, PeerId, StreamProtocol,
 };
 
 use parking_lot::Mutex;
@@ -47,8 +47,10 @@ pub use crate::request_responses::{InboundFailure, OutboundFailure, ResponseFail
 
 /// General behaviour of the network. Combines all protocols together.
 #[derive(NetworkBehaviour)]
-#[behaviour(out_event = "BehaviourOut")]
+#[behaviour(to_swarm = "BehaviourOut")]
 pub struct Behaviour<B: BlockT> {
+	/// Connection limits.
+	connection_limits: libp2p::connection_limits::Behaviour,
 	/// All the substrate-specific protocols.
 	substrate: Protocol<B>,
 	/// Periodically pings and identifies the nodes we are connected to, and store information in a
@@ -180,6 +182,7 @@ impl<B: BlockT> Behaviour<B> {
 		request_response_protocols: Vec<ProtocolConfig>,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
 		external_addresses: Arc<Mutex<HashSet<Multiaddr>>>,
+		connection_limits: ConnectionLimits,
 	) -> Result<Self, request_responses::RegisterError> {
 		Ok(Self {
 			substrate,
@@ -193,6 +196,7 @@ impl<B: BlockT> Behaviour<B> {
 				request_response_protocols.into_iter(),
 				peer_store_handle,
 			)?,
+			connection_limits: libp2p::connection_limits::Behaviour::new(connection_limits),
 		})
 	}
 
@@ -267,7 +271,7 @@ impl<B: BlockT> Behaviour<B> {
 	pub fn add_self_reported_address_to_dht(
 		&mut self,
 		peer_id: &PeerId,
-		supported_protocols: &[impl AsRef<[u8]>],
+		supported_protocols: &[StreamProtocol],
 		addr: Multiaddr,
 	) {
 		self.discovery.add_self_reported_address(peer_id, supported_protocols, addr);
@@ -374,5 +378,11 @@ impl From<DiscoveryOut> for BehaviourOut {
 				BehaviourOut::Dht(DhtEvent::ValuePutFailed(key), Some(duration)),
 			DiscoveryOut::RandomKademliaStarted => BehaviourOut::RandomKademliaStarted,
 		}
+	}
+}
+
+impl From<void::Void> for BehaviourOut {
+	fn from(e: void::Void) -> Self {
+		void::unreachable(e)
 	}
 }
