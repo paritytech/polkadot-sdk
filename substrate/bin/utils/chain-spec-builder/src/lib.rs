@@ -143,6 +143,7 @@ pub enum ChainSpecBuilderCmd {
 	ConvertToRaw(ConvertToRawCmd),
 	ListPresets(ListPresetsCmd),
 	DisplayPreset(DisplayPresetCmd),
+	AddCodeSubstitute(AddCodeSubstituteCmd),
 }
 
 /// Create a new chain spec by interacting with the provided runtime wasm blob.
@@ -220,6 +221,25 @@ pub struct UpdateCodeCmd {
 	pub input_chain_spec: PathBuf,
 	/// The path to new runtime wasm blob to be stored into chain-spec.
 	pub runtime_wasm_path: PathBuf,
+}
+
+/// Add a code substitute in the chain spec.
+///
+/// The `codeSubstitute` object of the chain spec will be updated with the block height as key and
+/// runtime code as value. This operation supports both plain and raw formats. The `codeSubstitute`
+/// field instructs the node to use the provided runtime code at the given block height. This is
+/// useful when the chain can not progress on its own due to a bug that prevents block-building.
+///
+/// Note: For parachains, the validation function on the relaychain needs to be adjusted too,
+/// otherwise blocks built using the substituted parachain runtime will be rejected.
+#[derive(Parser, Debug, Clone)]
+pub struct AddCodeSubstituteCmd {
+	/// Chain spec to be updated.
+	pub input_chain_spec: PathBuf,
+	/// New runtime wasm blob that should replace the existing code.
+	pub runtime_wasm_path: PathBuf,
+	/// The block height at which the code should be substituted.
+	pub block_height: u64,
 }
 
 /// Converts the given chain spec into the raw format.

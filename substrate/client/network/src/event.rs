@@ -16,13 +16,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Network event types. These are are not the part of the protocol, but rather
+//! Network event types. These are not the part of the protocol, but rather
 //! events that happen on the network like DHT get/put results received.
 
 use crate::types::ProtocolName;
 
 use bytes::Bytes;
-use libp2p::{kad::record::Key, PeerId};
+use libp2p::{
+	kad::{record::Key, PeerRecord},
+	PeerId,
+};
 
 use sc_network_common::role::ObservedRole;
 
@@ -31,7 +34,7 @@ use sc_network_common::role::ObservedRole;
 #[must_use]
 pub enum DhtEvent {
 	/// The value was found.
-	ValueFound(Vec<(Key, Vec<u8>)>),
+	ValueFound(PeerRecord),
 
 	/// The requested record has not been found in the DHT.
 	ValueNotFound(Key),

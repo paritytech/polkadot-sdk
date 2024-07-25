@@ -16,27 +16,27 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 serde = { features = ["alloc", "derive"], workspace = true }
-codec = { version = "3.6.12", package = "parity-scale-codec", default-features = false, features = ["derive"] }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
-frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
-frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../substrate/frame/system", default-features = false }
-sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
-sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
-sp-arithmetic = { path = "../../../../substrate/primitives/arithmetic", default-features = false }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-std = { workspace = true }
+sp-runtime = { workspace = true }
+sp-io = { workspace = true }
+sp-arithmetic = { workspace = true }
 
-bridge-hub-common = { path = "../../../../cumulus/parachains/runtimes/bridge-hubs/common", default-features = false }
+bridge-hub-common = { workspace = true }
 
-snowbridge-core = { path = "../../primitives/core", default-features = false, features = ["serde"] }
-snowbridge-outbound-queue-merkle-tree = { path = "merkle-tree", default-features = false }
-ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = false }
+snowbridge-core = { features = ["serde"], workspace = true }
+snowbridge-outbound-queue-merkle-tree = { workspace = true }
+ethabi = { workspace = true }
 
 [dev-dependencies]
-pallet-message-queue = { path = "../../../../substrate/frame/message-queue", default-features = false }
-sp-keyring = { path = "../../../../substrate/primitives/keyring" }
+pallet-message-queue = { workspace = true }
+sp-keyring = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

@@ -9,15 +9,15 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-hmac = "0.12.1"
-pbkdf2 = { version = "0.12.2", default-features = false }
-schnorrkel = { version = "0.11.4", default-features = false }
-sha2 = { version = "0.10.7", default-features = false }
-zeroize = { version = "1.4.3", default-features = false }
+hmac = { workspace = true }
+pbkdf2 = { workspace = true }
+schnorrkel = { workspace = true }
+sha2 = { workspace = true }
+zeroize = { workspace = true }
 
 [dev-dependencies]
-bip39 = "2.0.0"
-rustc-hex = "2.1.0"
+bip39 = { workspace = true }
+rustc-hex = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

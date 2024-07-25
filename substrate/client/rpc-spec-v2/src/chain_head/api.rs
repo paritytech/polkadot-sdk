@@ -54,7 +54,7 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_v1_body", raw_method)]
+	#[method(name = "chainHead_v1_body", with_extensions)]
 	async fn chain_head_unstable_body(
 		&self,
 		follow_subscription: String,
@@ -73,7 +73,7 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_v1_header", raw_method)]
+	#[method(name = "chainHead_v1_header", with_extensions)]
 	async fn chain_head_unstable_header(
 		&self,
 		follow_subscription: String,
@@ -85,7 +85,7 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_v1_storage", raw_method)]
+	#[method(name = "chainHead_v1_storage", with_extensions)]
 	async fn chain_head_unstable_storage(
 		&self,
 		follow_subscription: String,
@@ -99,7 +99,7 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_v1_call", raw_method)]
+	#[method(name = "chainHead_v1_call", with_extensions)]
 	async fn chain_head_unstable_call(
 		&self,
 		follow_subscription: String,
@@ -118,7 +118,7 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_v1_unpin", raw_method)]
+	#[method(name = "chainHead_v1_unpin", with_extensions)]
 	async fn chain_head_unstable_unpin(
 		&self,
 		follow_subscription: String,
@@ -131,7 +131,7 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_v1_continue", raw_method)]
+	#[method(name = "chainHead_v1_continue", with_extensions)]
 	async fn chain_head_unstable_continue(
 		&self,
 		follow_subscription: String,
@@ -145,7 +145,7 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_v1_stopOperation", raw_method)]
+	#[method(name = "chainHead_v1_stopOperation", with_extensions)]
 	async fn chain_head_unstable_stop_operation(
 		&self,
 		follow_subscription: String,

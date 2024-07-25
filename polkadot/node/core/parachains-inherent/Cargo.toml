@@ -10,13 +10,13 @@ description = "Parachains inherent data provider for Polkadot node"
 workspace = true
 
 [dependencies]
-futures = "0.3.30"
-futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../../gum" }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+gum = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-async-trait = "0.1.79"
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-overseer = { path = "../../overseer" }
-polkadot-primitives = { path = "../../../primitives" }
-sp-blockchain = { path = "../../../../substrate/primitives/blockchain" }
-sp-inherents = { path = "../../../../substrate/primitives/inherents" }
+async-trait = { workspace = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-overseer = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-inherents = { workspace = true, default-features = true }

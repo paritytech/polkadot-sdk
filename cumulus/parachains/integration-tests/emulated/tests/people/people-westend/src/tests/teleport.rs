@@ -14,8 +14,6 @@
 // limitations under the License.
 
 use crate::imports::*;
-use people_westend_runtime::xcm_config::XcmConfig as PeopleWestendXcmConfig;
-use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;

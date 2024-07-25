@@ -15,13 +15,13 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
+codec = { features = [
 	"derive",
-] }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
-sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
-snowbridge-core = { path = "../../../primitives/core", default-features = false }
+], workspace = true }
+sp-std = { workspace = true }
+sp-api = { workspace = true }
+xcm = { workspace = true }
+snowbridge-core = { workspace = true }
 
 [features]
 default = ["std"]

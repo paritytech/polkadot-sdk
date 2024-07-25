@@ -27,7 +27,6 @@ pub mod extrinsic;
 pub mod genesismap;
 pub mod substrate_test_pallet;
 
-use alloc::boxed::Box;
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
@@ -596,7 +595,11 @@ impl_runtime_apis! {
 		}
 
 		fn do_trace_log() {
-			log::trace!("Hey I'm runtime");
+			log::trace!(target: "test", "Hey I'm runtime");
+
+			let data = "THIS IS TRACING";
+
+			tracing::trace!(target: "test", %data, "Hey, I'm tracing");
 		}
 
 		fn verify_ed25519(sig: ed25519::Signature, public: ed25519::Public, message: Vec<u8>) -> bool {
@@ -874,7 +877,7 @@ pub mod storage_key_generator {
 		sp_crypto_hashing::twox_64(x).iter().chain(x.iter()).cloned().collect()
 	}
 
-	/// Generate the hashed storage keys from the raw literals. These keys are expected to be be in
+	/// Generate the hashed storage keys from the raw literals. These keys are expected to be in
 	/// storage with given substrate-test runtime.
 	pub fn generate_expected_storage_hashed_keys(custom_heap_pages: bool) -> Vec<String> {
 		let mut literals: Vec<&[u8]> = vec![b":code", b":extrinsic_index"];

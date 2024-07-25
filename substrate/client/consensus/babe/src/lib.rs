@@ -1128,7 +1128,7 @@ where
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		trace!(
@@ -1681,7 +1681,7 @@ where
 	}
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await.map_err(Into::into)

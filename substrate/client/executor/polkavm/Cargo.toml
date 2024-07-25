@@ -19,5 +19,5 @@ targets = ["x86_64-unknown-linux-gnu"]
 log = { workspace = true }
 polkavm = { workspace = true }
 
-sc-executor-common = { path = "../common" }
-sp-wasm-interface = { path = "../../../primitives/wasm-interface" }
+sc-executor-common = { workspace = true, default-features = true }
+sp-wasm-interface = { workspace = true, default-features = true }
