@@ -24,7 +24,7 @@ use frame_support::{
 	pallet_prelude::*,
 	parameter_types,
 	traits::{
-		fungible,
+		fungible, fungibles,
 		tokens::{
 			fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
 			imbalance::ResolveAssetTo,
@@ -145,6 +145,22 @@ impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId,
 	}
 }
 
+pub struct DealWithFungiblesFees;
+impl OnUnbalanced<fungibles::Credit<AccountId, NativeAndAssets>> for DealWithFungiblesFees {
+	fn on_unbalanceds(
+		mut fees_then_tips: impl Iterator<
+			Item = fungibles::Credit<<Runtime as frame_system::Config>::AccountId, NativeAndAssets>,
+		>,
+	) {
+		if let Some(fees) = fees_then_tips.next() {
+			FeeUnbalancedAmount::mutate(|a| *a += fees.peek());
+			if let Some(tips) = fees_then_tips.next() {
+				TipUnbalancedAmount::mutate(|a| *a += tips.peek());
+			}
+		}
+	}
+}
+
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -221,12 +237,14 @@ pub type PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter<
 	(NativeOrWithId<u32>, NativeOrWithId<u32>),
 >;
 
+type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type HigherPrecisionBalance = u128;
 	type AssetKind = NativeOrWithId<u32>;
-	type Assets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = Chain<
 		WithFirstAsset<Native, AccountId, NativeOrWithId<u32>, PoolIdToAccountId>,
@@ -250,6 +268,7 @@ impl pallet_asset_conversion::Config for Runtime {
 
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = Assets;
-	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion, Native>;
+	type AssetId = NativeOrWithId<u32>;
+	type OnChargeAssetTransaction =
+		SwapAssetAdapter<Native, NativeAndAssets, AssetConversion, DealWithFungiblesFees>;
 }

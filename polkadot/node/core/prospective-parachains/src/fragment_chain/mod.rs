@@ -392,8 +392,6 @@ impl CandidateEntry {
 			state,
 			candidate: Arc::new(ProspectiveCandidate {
 				commitments: candidate.commitments,
-				collator: candidate.descriptor.collator,
-				collator_signature: candidate.descriptor.signature,
 				persisted_validation_data,
 				pov_hash: candidate.descriptor.pov_hash,
 				validation_code_hash: candidate.descriptor.validation_code_hash,
