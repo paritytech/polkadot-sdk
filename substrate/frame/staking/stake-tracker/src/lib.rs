@@ -112,6 +112,8 @@ mod tests;
 pub type BalanceOf<T> = <<T as Config>::Staking as StakingInterface>::Balance;
 /// The account ID of this pallet.
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+/// Score of a sorted list provider.
+pub type ScoreOf<L> = <<T as Config>::TargetList as SortedListProvider>::Score;
 
 /// Represents a stake imbalance to be applied to a staker's score.
 #[derive(Copy, Clone, Debug)]
@@ -180,7 +182,16 @@ pub mod pallet {
 
 		/// The voter list update mode.
 		type VoterUpdateMode: Get<VoterUpdateMode>;
+
+		/// Max threshold of unsettled score that a target may have at a given time.
+		type MaxUnsettledScore: Get<ExtendedBalance>;
 	}
+
+	/// Map with unsettled score for targets.
+	///
+	/// This map keeps track of unsettled score for targets.
+	#[pallet::storage]
+	pub type UnsettledScore<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, ScoreOf<T::TargetList>>;
 
 	impl<T: Config> Pallet<T> {
 		/// Updates the stake of a voter.
@@ -228,6 +239,12 @@ pub mod pallet {
 				prev_stake.map_or(Default::default(), |s| Self::to_vote(s.active).into()),
 				voter_weight,
 			);
+
+			// get unsettled score
+			// add/subtract score to stake-imbalance to update
+			// if < 0 -> update target score
+			// if final imbalance is > T::MaxUnsettledScore -> update the score
+			// else update the unsettled and continue
 
 			Self::update_target_score(who, stake_imbalance);
 
