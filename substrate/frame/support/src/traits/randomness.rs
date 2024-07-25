@@ -57,6 +57,8 @@ pub trait Randomness<Output, BlockNumber> {
 	}
 }
 
+/// An object that is able to produce an arbitrary length slice using some initial set of bytes that
+/// will repeat over and over.
 pub struct RepeatingSlice<'a>(&'a [u8], usize);
 impl<'a> RepeatingSlice<'a> {
 	pub fn new(s: &'a [u8]) -> Self {
