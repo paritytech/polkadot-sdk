@@ -432,17 +432,17 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Pending change: (signaled at, scheduled change).
-	pub fn pending_change() -> StoredPendingChange<BlockNumberFor<T>, T::MaxAuthorities> {
+	pub fn pending_change() -> Option<StoredPendingChange<BlockNumberFor<T>, T::MaxAuthorities>> {
 		PendingChange::<T>::get()
 	}
 
 	/// next block number where we can force a change.
-	pub fn next_forced() -> BlockNumberFor<T> {
+	pub fn next_forced() -> Option<BlockNumberFor<T>> {
 		NextForced::<T>::get()
 	}
 
 	/// `true` if we are currently stalled.
-	pub fn stalled() -> (BlockNumberFor<T>, BlockNumberFor<T>) {
+	pub fn stalled() -> Option<(BlockNumberFor<T>, BlockNumberFor<T>)> {
 		Stalled::<T>::get()
 	}
 
@@ -462,7 +462,7 @@ impl<T: Config> Pallet<T> {
 	/// during that session.
 	///
 	/// TWOX-NOTE: `SetId` is not under user control.
-	pub fn session_for_set(set_id : SetId) -> SessionIndex {
+	pub fn session_for_set(set_id : SetId) -> Option<SessionIndex> {
 		SetIdSession::<T>::get(set_id)
 	}
 	
