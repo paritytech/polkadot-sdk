@@ -16,8 +16,8 @@
 //! the metadata for one or more networks. The next problem is that the offline wallet/user can not
 //! trust the metadata to be correct. It is very important for the metadata to be correct or
 //! otherwise an attacker could change them in a way that the offline wallet decodes a transaction
-//! in a different way than what it will be decoded to on chain. So, the user may signs an incorrect
-//! transaction leading to unexpecting behavior.
+//! in a different way than what it will be decoded to on chain. So, the user may sign an incorrect
+//! transaction leading to unexpected behavior.
 //!
 //! The metadata hash verification circumvents the issues of the huge metadata and the need to trust
 //! some metadata blob to be correct. To generate a hash for the metadata, the metadata is chunked,
