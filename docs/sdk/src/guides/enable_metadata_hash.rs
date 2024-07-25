@@ -24,7 +24,7 @@
 //! these chunks are put into a merkle tree and then the root of this merkle tree is the "metadata
 //! hash". For a more technical explanation on how it works, see
 //! [RFC78](https://polkadot-fellows.github.io/RFCs/approved/0078-merkleized-metadata.html). At compile
-//! time the metadata hash is generated and "backed" into the runtime. This makes it extremely cheap
+//! time the metadata hash is generated and "baked" into the runtime. This makes it extremely cheap
 //! for the runtime to verify on chain that the metadata hash is correct. By having the runtime
 //! verify the hash on chain, the user also doesn't need to trust the offchain metadata. If the
 //! metadata hash doesn't match the on chain metadata hash the transaction will be rejected. The
