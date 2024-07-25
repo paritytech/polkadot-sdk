@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721896546746,
+  "lastUpdate": 1721907202526,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -19447,6 +19447,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.012219020133333331,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Sandu",
+            "username": "sandreim",
+            "email": "54316454+sandreim@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "48afbe352507888934280bfac61918e2c36dcbbd",
+          "message": "CandidateDescriptor: disable collator signature and collator id usage (#4665)\n\nCollator id and collator signature do not serve any useful purpose.\nRemoving the signature check from runtime but keeping the checks in the\nnode until the runtime is upgraded.\n\nTODO: \n- [x] PRDoc\n- [x] Add node feature for core index commitment enablement\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
+          "timestamp": "2024-07-25T09:44:06Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/48afbe352507888934280bfac61918e2c36dcbbd"
+        },
+        "date": 1721907172047,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012580112193333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022523211866666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010714642633333342,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17200927827333343,
             "unit": "seconds"
           }
         ]
