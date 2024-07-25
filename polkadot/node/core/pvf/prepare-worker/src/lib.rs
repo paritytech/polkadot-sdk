@@ -38,6 +38,7 @@ use polkadot_node_core_pvf_common::{
 	executor_interface::{prepare, prevalidate},
 	worker::{pipe2_cloexec, PipeFd, WorkerInfo},
 };
+use polkadot_node_primitives::VALIDATION_CODE_BOMB_LIMIT;
 
 use codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
@@ -295,7 +296,12 @@ pub fn worker_entrypoint(
 }
 
 fn prepare_artifact(pvf: PvfPrepData) -> Result<CompiledArtifact, PrepareError> {
-	let blob = match prevalidate(&pvf.code()) {
+	let maybe_compressed_code = pvf.maybe_compressed_code();
+	let raw_validation_code =
+		sp_maybe_compressed_blob::decompress(&maybe_compressed_code, VALIDATION_CODE_BOMB_LIMIT)
+			.map_err(|e| PrepareError::CouldNotDecompressCodeBlob(e.to_string()))?;
+
+	let blob = match prevalidate(&raw_validation_code) {
 		Err(err) => return Err(PrepareError::Prevalidation(format!("{:?}", err))),
 		Ok(b) => b,
 	};
