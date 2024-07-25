@@ -5,7 +5,11 @@ updates:
     directory: '/'
     labels: ["A1-insubstantial", "R0-silent"]
     schedule:
-      interval: daily
+      interval: weekly
+    groups:
+      ci_dependencies:
+        patterns:
+        - "*"
   # Update Rust dependencies:
   - package-ecosystem: "cargo"
     directory: "/"
