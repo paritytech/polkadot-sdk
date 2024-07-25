@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721920645611,
+  "lastUpdate": 1721925814405,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -19603,6 +19603,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02207303435333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "3b9c9098924037615f3e5c942831e267468057d4",
+          "message": "Dependabot: Group all CI dependencies (#5145)\n\nDependabot is going a bit crazy lately and spamming up a lot of merge\nrequests. Going to group all the CI deps into one and reducing the\nfrequency to weekly.\nMaybe we can do some more aggressive batching for the Rust deps as well.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-07-25T15:03:03Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3b9c9098924037615f3e5c942831e267468057d4"
+        },
+        "date": 1721925784648,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022183439480000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010160467553333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012377703119999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1694875988199999,
             "unit": "seconds"
           }
         ]
