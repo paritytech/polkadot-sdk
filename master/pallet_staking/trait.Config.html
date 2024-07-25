@@ -169,7 +169,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     type <a href="#associatedtype.EraPayout" class="associatedtype">EraPayout</a>: <a class="trait" href="trait.EraPayout.html" title="trait pallet_staking::EraPayout">EraPayout</a>&lt;<a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;;
     type <a href="#associatedtype.NextNewSession" class="associatedtype">NextNewSession</a>: EstimateNextNewSession&lt;BlockNumberFor&lt;Self&gt;&gt;;
     type <a href="#associatedtype.MaxExposurePageSize" class="associatedtype">MaxExposurePageSize</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;;
-    type <a href="#associatedtype.VoterList" class="associatedtype">VoterList</a>: SortedListProvider&lt;Self::AccountId, Score = VoteWeight&gt;;
+    type <a href="#associatedtype.VoterList" class="associatedtype">VoterList</a>: SortedListProvider&lt;Self::AccountId, Score = <a class="type" href="../sp_npos_elections/type.VoteWeight.html" title="type sp_npos_elections::VoteWeight">VoteWeight</a>&gt;;
     type <a href="#associatedtype.TargetList" class="associatedtype">TargetList</a>: SortedListProvider&lt;Self::AccountId, Score = <a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;;
     type <a href="#associatedtype.MaxUnlockingChunks" class="associatedtype">MaxUnlockingChunks</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;;
     type <a href="#associatedtype.MaxControllersInDeprecationBatch" class="associatedtype">MaxControllersInDeprecationBatch</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;;
@@ -238,7 +238,7 @@ nominators.</p>
 nominator payout.</p>
 <p>Note: <code>MaxExposurePageSize</code> is used to bound <code>ClaimedRewards</code> and is unsafe to reduce
 without handling it in a migration.</p>
-</div></details><details class="toggle" open><summary><section id="associatedtype.VoterList" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#247">source</a><h4 class="code-header">type <a href="#associatedtype.VoterList" class="associatedtype">VoterList</a>: SortedListProvider&lt;Self::AccountId, Score = VoteWeight&gt;</h4></section></summary><div class="docblock"><p>Something that provides a best-effort sorted list of voters aka electing nominators,
+</div></details><details class="toggle" open><summary><section id="associatedtype.VoterList" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#247">source</a><h4 class="code-header">type <a href="#associatedtype.VoterList" class="associatedtype">VoterList</a>: SortedListProvider&lt;Self::AccountId, Score = <a class="type" href="../sp_npos_elections/type.VoteWeight.html" title="type sp_npos_elections::VoteWeight">VoteWeight</a>&gt;</h4></section></summary><div class="docblock"><p>Something that provides a best-effort sorted list of voters aka electing nominators,
 used for NPoS election.</p>
 <p>The changes to nominators are reported to this. Moreover, each validator’s self-vote is
 also reported as one independent vote.</p>

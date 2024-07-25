@@ -1570,22 +1570,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1419" id="1419">1419</a>
 <a href="#1420" id="1420">1420</a>
 <a href="#1421" id="1421">1421</a>
-<a href="#1422" id="1422">1422</a>
-<a href="#1423" id="1423">1423</a>
-<a href="#1424" id="1424">1424</a>
-<a href="#1425" id="1425">1425</a>
-<a href="#1426" id="1426">1426</a>
-<a href="#1427" id="1427">1427</a>
-<a href="#1428" id="1428">1428</a>
-<a href="#1429" id="1429">1429</a>
-<a href="#1430" id="1430">1430</a>
-<a href="#1431" id="1431">1431</a>
-<a href="#1432" id="1432">1432</a>
-<a href="#1433" id="1433">1433</a>
-<a href="#1434" id="1434">1434</a>
-<a href="#1435" id="1435">1435</a>
-<a href="#1436" id="1436">1436</a>
-<a href="#1437" id="1437">1437</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1705,9 +1689,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// That means a few blocks of execution time lost, which is not a big deal for code upgrades
 /// in practice at most once every few weeks.
 </span><span class="kw">use </span>polkadot_primitives::{
-	async_backing::Constraints <span class="kw">as </span>PrimitiveConstraints, BlockNumber, CandidateCommitments,
-	CollatorId, CollatorSignature, Hash, HeadData, Id <span class="kw">as </span>ParaId, PersistedValidationData,
-	UpgradeRestriction, ValidationCodeHash,
+	async_backing::Constraints <span class="kw">as </span>PrimitiveConstraints, BlockNumber, CandidateCommitments, Hash,
+	HeadData, Id <span class="kw">as </span>ParaId, PersistedValidationData, UpgradeRestriction, ValidationCodeHash,
 };
 <span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
@@ -2109,18 +2092,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The prospective candidate.
 ///
 /// This comprises the key information that represent a candidate
-/// without pinning it to a particular session. For example, everything
-/// to do with the collator's signature and commitments are represented
-/// here. But the erasure-root is not. This means that prospective candidates
+/// without pinning it to a particular session. For example commitments are
+/// represented here. But the erasure-root is not. This means that prospective candidates
 /// are not correlated to any session in particular.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq)]
 </span><span class="kw">pub struct </span>ProspectiveCandidate {
 	<span class="doccomment">/// The commitments to the output of the execution.
 	</span><span class="kw">pub </span>commitments: CandidateCommitments,
-	<span class="doccomment">/// The collator that created the candidate.
-	</span><span class="kw">pub </span>collator: CollatorId,
-	<span class="doccomment">/// The signature of the collator on the payload.
-	</span><span class="kw">pub </span>collator_signature: CollatorSignature,
 	<span class="doccomment">/// The persisted validation data used to create the candidate.
 	</span><span class="kw">pub </span>persisted_validation_data: PersistedValidationData,
 	<span class="doccomment">/// The hash of the PoV.
@@ -2388,10 +2366,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>polkadot_primitives::{
-		CollatorPair, HorizontalMessages, OutboundHrmpMessage, ValidationCode,
-	};
-	<span class="kw">use </span>sp_application_crypto::Pair;
+	<span class="kw">use </span>polkadot_primitives::{HorizontalMessages, OutboundHrmpMessage, ValidationCode};
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>stack_modifications() {
@@ -2750,11 +2725,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		constraints: <span class="kw-2">&amp;</span>Constraints,
 		relay_parent: <span class="kw-2">&amp;</span>RelayChainBlockInfo,
 	) -&gt; ProspectiveCandidate {
-		<span class="kw">let </span>collator_pair = CollatorPair::generate().<span class="number">0</span>;
-		<span class="kw">let </span>collator = collator_pair.public();
-
-		<span class="kw">let </span>sig = collator_pair.sign(<span class="string">b"blabla"</span>.as_slice());
-
 		ProspectiveCandidate {
 			commitments: CandidateCommitments {
 				upward_messages: Default::default(),
@@ -2764,8 +2734,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				processed_downward_messages: <span class="number">0</span>,
 				hrmp_watermark: relay_parent.number,
 			},
-			collator,
-			collator_signature: sig,
 			persisted_validation_data: PersistedValidationData {
 				parent_head: constraints.required_parent.clone(),
 				relay_parent_number: relay_parent.number,

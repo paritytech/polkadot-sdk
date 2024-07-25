@@ -1090,20 +1090,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>polkadot_primitives::{
-	collator_signature_payload, node_features::FeatureIndex, AvailabilityBitfield, BackedCandidate,
-	CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature,
-	CommittedCandidateReceipt, CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet,
-	GroupIndex, HeadData, Id <span class="kw">as </span>ParaId, IndexedVec, InherentData <span class="kw">as </span>ParachainsInherentData,
-	InvalidDisputeStatementKind, PersistedValidationData, SessionIndex, SigningContext,
-	UncheckedSigned, ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex,
-	ValidityAttestation,
+	node_features::FeatureIndex, AvailabilityBitfield, BackedCandidate, CandidateCommitments,
+	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CommittedCandidateReceipt,
+	CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
+	Id <span class="kw">as </span>ParaId, IndexedVec, InherentData <span class="kw">as </span>ParachainsInherentData, InvalidDisputeStatementKind,
+	PersistedValidationData, SessionIndex, SigningContext, UncheckedSigned,
+	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,
 };
-<span class="kw">use </span>sp_core::{sr25519, H256};
+<span class="kw">use </span>sp_core::{sr25519, ByteArray, H256};
 <span class="kw">use </span>sp_runtime::{
 	generic::Digest,
 	traits::{Header <span class="kw">as </span>HeaderT, One, TrailingZeroInput, Zero},
 	RuntimeAppPublic,
 };
+
+<span class="doccomment">/// Create a null collator id.
+</span><span class="kw">pub fn </span>dummy_collator() -&gt; CollatorId {
+	CollatorId::from_slice(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">0u8</span>; <span class="number">32</span>]).expect(<span class="string">"32 bytes; qed"</span>)
+}
+
+<span class="doccomment">/// Create a null collator signature.
+</span><span class="kw">pub fn </span>dummy_collator_signature() -&gt; CollatorSignature {
+	CollatorSignature::from_slice(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">0u8</span>; <span class="number">64</span>]).expect(<span class="string">"64 bytes; qed"</span>)
+}
 
 <span class="kw">fn </span>mock_validation_code() -&gt; ValidationCode {
 	ValidationCode(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>])
@@ -1644,8 +1653,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 						<span class="comment">// This generates a pair and adds it to the keystore, returning just the
 						// public.
-						</span><span class="kw">let </span>collator_public = CollatorId::generate_pair(<span class="prelude-val">None</span>);
-						<span class="kw">let </span>header = <span class="self">Self</span>::header(<span class="self">self</span>.block_number);
+						</span><span class="kw">let </span>header = <span class="self">Self</span>::header(<span class="self">self</span>.block_number);
 						<span class="kw">let </span>relay_parent = header.hash();
 
 						<span class="comment">// Set the head data so it can be used while validating the signatures on
@@ -1674,14 +1682,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 						<span class="kw">let </span>pov_hash = Default::default();
 						<span class="kw">let </span>validation_code_hash = mock_validation_code().hash();
-						<span class="kw">let </span>payload = collator_signature_payload(
-							<span class="kw-2">&amp;</span>relay_parent,
-							<span class="kw-2">&amp;</span>para_id,
-							<span class="kw-2">&amp;</span>persisted_validation_data_hash,
-							<span class="kw-2">&amp;</span>pov_hash,
-							<span class="kw-2">&amp;</span>validation_code_hash,
-						);
-						<span class="kw">let </span>signature = collator_public.sign(<span class="kw-2">&amp;</span>payload).unwrap();
 
 						<span class="kw">let </span><span class="kw-2">mut </span>past_code_meta =
 							paras::ParaPastCodeMeta::&lt;BlockNumberFor&lt;T&gt;&gt;::default();
@@ -1694,11 +1694,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							descriptor: CandidateDescriptor::&lt;T::Hash&gt; {
 								para_id,
 								relay_parent,
-								collator: collator_public,
+								collator: dummy_collator(),
 								persisted_validation_data_hash,
 								pov_hash,
 								erasure_root: Default::default(),
-								signature,
+								signature: dummy_collator_signature(),
 								para_head: head_data.hash(),
 								validation_code_hash,
 							},

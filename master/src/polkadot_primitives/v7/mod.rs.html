@@ -2373,6 +2373,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2222" id="2222">2222</a>
 <a href="#2223" id="2223">2223</a>
 <a href="#2224" id="2224">2224</a>
+<a href="#2225" id="2225">2225</a>
+<a href="#2226" id="2226">2226</a>
+<a href="#2227" id="2227">2227</a>
+<a href="#2228" id="2228">2228</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4415,10 +4419,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// Must not be enabled unless all validators and collators have stopped using `req_chunk`
 		/// protocol version 1. If it is enabled, validators can start systematic chunk recovery.
 		</span>AvailabilityChunkMapping = <span class="number">2</span>,
+		<span class="doccomment">/// Enables node side support of `CoreIndex` committed candidate receipts.
+		/// See [RFC-103](https://github.com/polkadot-fellows/RFCs/pull/103) for details.
+		/// Only enable if at least 2/3 of nodes support the feature.
+		</span>CandidateReceiptV2 = <span class="number">3</span>,
 		<span class="doccomment">/// First unassigned feature bit.
 		/// Every time a new feature flag is assigned it should take this value.
 		/// and this should be incremented.
-		</span>FirstUnassigned = <span class="number">3</span>,
+		</span>FirstUnassigned = <span class="number">4</span>,
 	}
 }
 
