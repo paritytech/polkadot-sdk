@@ -7,8 +7,8 @@
 //!
 //! ## What is a "reference document"?
 //!
-//! First, see [why we use rust-docs for everything](crate#why-rust-docs) and our documentation
-//! [principles](crate#principles). We acknowledge that as much of the crucial information should be
+//! First, see [why we use rust-docs for everything](crate::meta_contributing#why-rust-docs) and our documentation
+//! [principles](crate::meta_contributing#principles). We acknowledge that as much of the crucial information should be
 //! embedded in the low level rust-docs. Then, high level scenarios should be covered in
 //! [`crate::guides`]. Finally, we acknowledge that there is a category of information that is:
 //!
