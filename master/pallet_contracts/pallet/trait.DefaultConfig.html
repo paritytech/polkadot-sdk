@@ -161,7 +161,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     type <a href="#associatedtype.DepositPerByte" class="associatedtype">DepositPerByte</a>;
     type <a href="#associatedtype.DefaultDepositLimit" class="associatedtype">DefaultDepositLimit</a>;
     type <a href="#associatedtype.DepositPerItem" class="associatedtype">DepositPerItem</a>;
-    type <a href="#associatedtype.CodeHashLockupDepositPercent" class="associatedtype">CodeHashLockupDepositPercent</a>: Get&lt;<a class="struct" href="../../sp_arithmetic/per_things/struct.Perbill.html" title="struct sp_arithmetic::per_things::Perbill">Perbill</a>&gt;;
+    type <a href="#associatedtype.CodeHashLockupDepositPercent" class="associatedtype">CodeHashLockupDepositPercent</a>: Get&lt;Perbill&gt;;
     type <a href="#associatedtype.AddressGenerator" class="associatedtype">AddressGenerator</a>;
     type <a href="#associatedtype.MaxCodeLen" class="associatedtype">MaxCodeLen</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;;
     type <a href="#associatedtype.MaxStorageKeyLen" class="associatedtype">MaxStorageKeyLen</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;;
@@ -222,7 +222,7 @@ construct a default cost schedule.</p>
 </div></details><details class="toggle" open><summary><section id="associatedtype.DepositPerItem" class="method"><a class="src rightside" href="../../src/pallet_contracts/lib.rs.html#367">source</a><h4 class="code-header">type <a href="#associatedtype.DepositPerItem" class="associatedtype">DepositPerItem</a></h4></section></summary><div class="docblock"><p>The amount of balance a caller has to pay for each storage item.</p>
 <h5 id="note-2"><a class="doc-anchor" href="#note-2">§</a>Note</h5>
 <p>Changing this value for an existing chain might need a storage migration.</p>
-</div></details><details class="toggle" open><summary><section id="associatedtype.CodeHashLockupDepositPercent" class="method"><a class="src rightside" href="../../src/pallet_contracts/lib.rs.html#374">source</a><h4 class="code-header">type <a href="#associatedtype.CodeHashLockupDepositPercent" class="associatedtype">CodeHashLockupDepositPercent</a>: Get&lt;<a class="struct" href="../../sp_arithmetic/per_things/struct.Perbill.html" title="struct sp_arithmetic::per_things::Perbill">Perbill</a>&gt;</h4></section></summary><div class="docblock"><p>The percentage of the storage deposit that should be held for using a code hash.
+</div></details><details class="toggle" open><summary><section id="associatedtype.CodeHashLockupDepositPercent" class="method"><a class="src rightside" href="../../src/pallet_contracts/lib.rs.html#374">source</a><h4 class="code-header">type <a href="#associatedtype.CodeHashLockupDepositPercent" class="associatedtype">CodeHashLockupDepositPercent</a>: Get&lt;Perbill&gt;</h4></section></summary><div class="docblock"><p>The percentage of the storage deposit that should be held for using a code hash.
 Instantiating a contract, or calling <a href="../chain_extension/trait.Ext.html#tymethod.lock_delegate_dependency" title="method pallet_contracts::chain_extension::Ext::lock_delegate_dependency"><code>chain_extension::Ext::lock_delegate_dependency</code></a>
 protects the code from being removed. In order to prevent abuse these actions are
 protected with a percentage of the code deposit.</p>

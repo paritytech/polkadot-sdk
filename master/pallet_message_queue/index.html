@@ -207,7 +207,7 @@ needed for retrieving it. This layout allows for constant access time of the nex
 linear access time for any message in the page. The header must remain minimal to reduce its PoV
 impact.</p>
 <p><strong>Weight Metering</strong></p>
-<p>The pallet utilizes the <a href="../sp_weights/weight_meter/struct.WeightMeter.html" title="struct sp_weights::weight_meter::WeightMeter"><code>sp_weights::WeightMeter</code></a> to manually track its consumption to always
+<p>The pallet utilizes the [<code>sp_weights::WeightMeter</code>] to manually track its consumption to always
 stay within the required limit. This implies that the message processor hook can calculate the
 weight of a message without executing it. This restricts the possible use-cases but is necessary
 since the pallet runs in <code>on_initialize</code> which has a hard weight limit. The weight meter is used

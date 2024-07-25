@@ -170,7 +170,7 @@ smart-contracts, or call other smart-contracts.</p>
 <p>Finally, when an account is reaped, its associated code and storage of the smart-contract
 account will also be deleted.</p>
 <h4 id="weight"><a class="doc-anchor" href="#weight">§</a>Weight</h4>
-<p>Senders must specify a <a href="../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight"><code>Weight</code></a> limit with every call, as all instructions invoked by the
+<p>Senders must specify a [<code>Weight</code>] limit with every call, as all instructions invoked by the
 smart-contract require weight. Unused weight is refunded after the call, regardless of the
 execution outcome.</p>
 <p>If the weight limit is reached, then all calls and state changes (including balance transfers)
