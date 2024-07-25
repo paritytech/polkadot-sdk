@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721912722820,
+  "lastUpdate": 1721920645611,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -19551,6 +19551,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.17332846076000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Popiak",
+            "username": "apopiak",
+            "email": "alexander.popiak@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "8c61dbadb8bd65388b459153b533777c55c73aa5",
+          "message": "Getting Started Script (#4879)\n\ncloses https://github.com/paritytech/polkadot-sdk/pull/4879\n\nProvide a fast and easy way for people to get started developing with\nPolkadot SDK.\n\nSets up a development environment (including Rust) and clones and builds\nthe minimal template.\n\nPolkadot address: 16xyKzix34WZ4um8C3xzMdjKhrAQe9DjCf4KxuHsmTjdcEd\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-07-25T13:23:28Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8c61dbadb8bd65388b459153b533777c55c73aa5"
+        },
+        "date": 1721920614883,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012218031966666662,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00985432126666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16879653221333327,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02207303435333333,
             "unit": "seconds"
           }
         ]
