@@ -27,9 +27,10 @@ use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager};
 use codec::Encode;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
-	traits::{Everything, NeverEnsureOrigin},
+	traits::{EnsureOrigin, Everything, NeverEnsureOrigin, OriginTrait},
 	weights::RuntimeDbWeight,
 };
+use polkadot_parachain_primitives::primitives::Sibling;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
@@ -47,10 +48,6 @@ use xcm_executor::XcmExecutor;
 
 pub type AccountId = AccountId32;
 pub type Balance = u64;
-
-use frame_support::traits::{EnsureOrigin, OriginTrait};
-use polkadot_parachain_primitives::primitives::Sibling;
-
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 pub const SIBLING_ASSET_HUB_ID: u32 = 2001;
@@ -175,6 +172,11 @@ parameter_types! {
 			)
 		];
 	pub UnitWeightCost: Weight = Weight::from_parts(10, 10);
+}
+
+/// **Universal** `InteriorLocation` of bridged asset hub.
+pub fn bridged_asset_hub_universal_location() -> InteriorLocation {
+	BridgedUniversalDestination::get()
 }
 
 impl pallet_xcm_bridge_hub::Config for TestRuntime {
@@ -530,11 +532,6 @@ impl MessageDispatch for TestMessageDispatch {
 	) -> MessageDispatchResult<Self::DispatchLevelResult> {
 		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result: () }
 	}
-}
-
-/// Location of bridged asset hub.
-pub fn bridged_asset_hub_location() -> InteriorLocation {
-	[GlobalConsensus(BridgedRelayNetwork::get()), Parachain(BRIDGED_ASSET_HUB_ID)].into()
 }
 
 /// Run pallet test.

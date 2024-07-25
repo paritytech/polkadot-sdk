@@ -343,7 +343,12 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 			pallet_bridge_messages::OutboundLanes::<Runtime, MessagesPalletInstance>::try_get(
 				expected_lane_id
 			),
-			Err(())
+			Ok(OutboundLaneData {
+				state: LaneState::Opened,
+				oldest_unpruned_nonce: 1,
+				latest_received_nonce: 0,
+				latest_generated_nonce: 0
+			})
 		);
 
 		// prepare `ExportMessage`

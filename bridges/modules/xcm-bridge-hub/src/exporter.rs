@@ -74,6 +74,11 @@ where
 		destination: &mut Option<InteriorLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> Result<(Self::Ticket, Assets), SendError> {
+		log::trace!(
+			target: LOG_TARGET,
+			"Validate for network: {network:?}, channel: {channel:?}, universal_source: {universal_source:?}, destination: {destination:?}"
+		);
+
 		// `HaulBlobExporter` may consume the `universal_source` and `destination` arguments, so
 		// let's save them before
 		let bridge_origin_universal_location =
@@ -101,7 +106,13 @@ where
 			Box::new(bridge_origin_relative_location),
 			Box::new(bridge_destination_universal_location.into()),
 		)
-		.map_err(|_| SendError::Unroutable)?;
+		.map_err(|e| {
+			log::error!(
+				target: LOG_TARGET,
+				"Validate `bridge_locations` with error: {e:?}",
+			);
+			SendError::Unroutable
+		})?;
 		let bridge = Self::bridge(locations.bridge_id).ok_or(SendError::Unroutable)?;
 
 		let bridge_message =
@@ -327,14 +338,14 @@ mod tests {
 		BridgedRelativeDestination::get()
 	}
 
-	fn universal_destination() -> InteriorLocation {
-		[GlobalConsensus(BridgedRelayNetwork::get()), Parachain(BRIDGED_ASSET_HUB_ID)].into()
+	fn bridged_universal_destination() -> InteriorLocation {
+		BridgedUniversalDestination::get()
 	}
 
 	fn open_lane() -> BridgeLocations {
 		// open expected outbound lane
 		let origin = OpenBridgeOrigin::sibling_parachain_origin();
-		let with = bridged_asset_hub_location();
+		let with = bridged_asset_hub_universal_location();
 		let locations =
 			XcmOverBridge::bridge_locations_from_origin(origin, Box::new(with.into())).unwrap();
 
@@ -350,9 +361,7 @@ mod tests {
 			Bridges::<TestRuntime, ()>::insert(
 				locations.bridge_id,
 				Bridge {
-					bridge_origin_relative_location: Box::new(
-						Location::new(1, Parachain(SIBLING_ASSET_HUB_ID)).into(),
-					),
+					bridge_origin_relative_location: Box::new(SiblingLocation::get().into()),
 					state: BridgeState::Opened,
 					bridge_owner_account: [0u8; 32].into(),
 					reserve: 0,
@@ -514,8 +523,11 @@ mod tests {
 	#[test]
 	fn exporter_computes_correct_lane_id() {
 		run_test(|| {
+			assert_ne!(bridged_universal_destination(), bridged_relative_destination());
+
+			// Note:  The `BridgeId` is created from universal `InteriorLocation`.
 			let expected_bridge_id =
-				BridgeId::new(&universal_source().into(), &universal_destination().into());
+				BridgeId::new(&universal_source().into(), &bridged_universal_destination().into());
 
 			if LanesManagerOf::<TestRuntime, ()>::new()
 				.create_outbound_lane(expected_bridge_id.lane_id())
@@ -524,7 +536,7 @@ mod tests {
 				Bridges::<TestRuntime, ()>::insert(
 					expected_bridge_id,
 					Bridge {
-						bridge_origin_relative_location: Box::new(universal_destination().into()),
+						bridge_origin_relative_location: Box::new(SiblingLocation::get().into()),
 						state: BridgeState::Opened,
 						bridge_owner_account: [0u8; 32].into(),
 						reserve: 0,
@@ -537,6 +549,8 @@ mod tests {
 					BridgedRelayNetwork::get(),
 					0,
 					&mut Some(universal_source()),
+					// Note:  The `ExportMessage` expects relative `InteriorLocation` in the
+					// `BridgedRelayNetwork`.
 					&mut Some(bridged_relative_destination()),
 					&mut Some(Vec::new().into()),
 				)

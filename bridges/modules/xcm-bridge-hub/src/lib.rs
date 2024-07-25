@@ -152,7 +152,7 @@ pub mod pallet {
 
 	/// An alias for the bridge metadata.
 	pub type BridgeOf<T, I> = Bridge<ThisChainOf<T, I>>;
-	/// An alias for the this chain.
+	/// An alias for this chain.
 	pub type ThisChainOf<T, I> =
 		pallet_bridge_messages::ThisChainOf<T, <T as Config<I>>::BridgeMessagesPalletInstance>;
 	/// An alias for the associated lanes manager.
@@ -197,12 +197,12 @@ pub mod pallet {
 				Self::bridge_locations_from_origin(origin, bridge_destination_universal_location)?;
 
 			// reserve balance on the parachain sovereign account
-			let reserve = T::BridgeDeposit::get();
+			let deposit = T::BridgeDeposit::get();
 			let bridge_owner_account = T::BridgeOriginAccountIdConverter::convert_location(
 				&locations.bridge_origin_relative_location,
 			)
 			.ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
-			T::Currency::hold(&HoldReason::BridgeDeposit.into(), &bridge_owner_account, reserve)
+			T::Currency::hold(&HoldReason::BridgeDeposit.into(), &bridge_owner_account, deposit)
 				.map_err(|_| Error::<T, I>::FailedToReserveBridgeDeposit)?;
 
 			// save bridge metadata
@@ -215,7 +215,7 @@ pub mod pallet {
 						),
 						state: BridgeState::Opened,
 						bridge_owner_account,
-						reserve,
+						reserve: deposit,
 					});
 					Ok(())
 				},
@@ -242,7 +242,7 @@ pub mod pallet {
 			// deposit `BridgeOpened` event
 			Self::deposit_event(Event::<T, I>::BridgeOpened {
 				bridge_id: locations.bridge_id,
-				bridge_deposit: Some(reserve),
+				bridge_deposit: Some(deposit),
 				local_endpoint: Box::new(locations.bridge_origin_universal_location),
 				remote_endpoint: Box::new(locations.bridge_destination_universal_location),
 			});
@@ -436,7 +436,13 @@ pub mod pallet {
 				),
 				Self::bridged_network_id()?,
 			)
-			.map_err(|e| Error::<T, I>::BridgeLocations(e).into())
+			.map_err(|e| {
+				log::trace!(
+					target: LOG_TARGET,
+					"bridge_locations error: {e:?}",
+				);
+				Error::<T, I>::BridgeLocations(e).into()
+			})
 		}
 	}
 
@@ -577,7 +583,7 @@ mod tests {
 		let bridge_owner_account =
 			LocationToAccountId::convert_location(&locations.bridge_origin_relative_location)
 				.unwrap();
-		Balances::mint_into(&bridge_owner_account, balance).unwrap();
+		assert_ok!(Balances::mint_into(&bridge_owner_account, balance));
 		bridge_owner_account
 	}
 
@@ -612,7 +618,7 @@ mod tests {
 	fn mock_open_bridge_from(
 		origin: RuntimeOrigin,
 	) -> (BridgeOf<TestRuntime, ()>, BridgeLocations) {
-		mock_open_bridge_from_with(origin, bridged_asset_hub_location())
+		mock_open_bridge_from_with(origin, bridged_asset_hub_universal_location())
 	}
 
 	fn enqueue_message(lane: LaneId) {
@@ -629,7 +635,7 @@ mod tests {
 			assert_noop!(
 				XcmOverBridge::open_bridge(
 					OpenBridgeOrigin::disallowed_origin(),
-					Box::new(bridged_asset_hub_location().into()),
+					Box::new(bridged_asset_hub_universal_location().into()),
 				),
 				sp_runtime::DispatchError::BadOrigin,
 			);
@@ -642,7 +648,7 @@ mod tests {
 			assert_noop!(
 				XcmOverBridge::open_bridge(
 					OpenBridgeOrigin::parent_relay_chain_universal_origin(),
-					Box::new(bridged_asset_hub_location().into()),
+					Box::new(bridged_asset_hub_universal_location().into()),
 				),
 				Error::<TestRuntime, ()>::BridgeLocations(
 					BridgeLocationsError::InvalidBridgeOrigin
@@ -652,7 +658,7 @@ mod tests {
 			assert_noop!(
 				XcmOverBridge::open_bridge(
 					OpenBridgeOrigin::sibling_parachain_universal_origin(),
-					Box::new(bridged_asset_hub_location().into()),
+					Box::new(bridged_asset_hub_universal_location().into()),
 				),
 				Error::<TestRuntime, ()>::BridgeLocations(
 					BridgeLocationsError::InvalidBridgeOrigin
@@ -704,7 +710,7 @@ mod tests {
 			assert_noop!(
 				XcmOverBridge::open_bridge(
 					OpenBridgeOrigin::origin_without_sovereign_account(),
-					Box::new(bridged_asset_hub_location().into()),
+					Box::new(bridged_asset_hub_universal_location().into()),
 				),
 				Error::<TestRuntime, ()>::InvalidBridgeOriginAccount,
 			);
@@ -717,7 +723,7 @@ mod tests {
 			assert_noop!(
 				XcmOverBridge::open_bridge(
 					OpenBridgeOrigin::parent_relay_chain_origin(),
-					Box::new(bridged_asset_hub_location().into()),
+					Box::new(bridged_asset_hub_universal_location().into()),
 				),
 				Error::<TestRuntime, ()>::FailedToReserveBridgeDeposit,
 			);
@@ -730,7 +736,7 @@ mod tests {
 			let origin = OpenBridgeOrigin::parent_relay_chain_origin();
 			let locations = XcmOverBridge::bridge_locations_from_origin(
 				origin.clone(),
-				Box::new(bridged_asset_hub_location().into()),
+				Box::new(bridged_asset_hub_universal_location().into()),
 			)
 			.unwrap();
 			fund_origin_sovereign_account(
@@ -751,7 +757,10 @@ mod tests {
 			);
 
 			assert_noop!(
-				XcmOverBridge::open_bridge(origin, Box::new(bridged_asset_hub_location().into()),),
+				XcmOverBridge::open_bridge(
+					origin,
+					Box::new(bridged_asset_hub_universal_location().into()),
+				),
 				Error::<TestRuntime, ()>::BridgeAlreadyExists,
 			);
 		})
@@ -763,7 +772,7 @@ mod tests {
 			let origin = OpenBridgeOrigin::parent_relay_chain_origin();
 			let locations = XcmOverBridge::bridge_locations_from_origin(
 				origin.clone(),
-				Box::new(bridged_asset_hub_location().into()),
+				Box::new(bridged_asset_hub_universal_location().into()),
 			)
 			.unwrap();
 			fund_origin_sovereign_account(
@@ -777,7 +786,7 @@ mod tests {
 			assert_noop!(
 				XcmOverBridge::open_bridge(
 					origin.clone(),
-					Box::new(bridged_asset_hub_location().into()),
+					Box::new(bridged_asset_hub_universal_location().into()),
 				),
 				Error::<TestRuntime, ()>::LanesManager(LanesManagerError::InboundLaneAlreadyExists),
 			);
@@ -788,7 +797,10 @@ mod tests {
 				.purge();
 			lanes_manager.create_outbound_lane(locations.bridge_id.lane_id()).unwrap();
 			assert_noop!(
-				XcmOverBridge::open_bridge(origin, Box::new(bridged_asset_hub_location().into()),),
+				XcmOverBridge::open_bridge(
+					origin,
+					Box::new(bridged_asset_hub_universal_location().into()),
+				),
 				Error::<TestRuntime, ()>::LanesManager(
 					LanesManagerError::OutboundLaneAlreadyExists
 				),
@@ -818,7 +830,7 @@ mod tests {
 				// compute all other locations
 				let locations = XcmOverBridge::bridge_locations_from_origin(
 					origin.clone(),
-					Box::new(bridged_asset_hub_location().into()),
+					Box::new(bridged_asset_hub_universal_location().into()),
 				)
 				.unwrap();
 
@@ -903,7 +915,7 @@ mod tests {
 			assert_noop!(
 				XcmOverBridge::close_bridge(
 					OpenBridgeOrigin::disallowed_origin(),
-					Box::new(bridged_asset_hub_location().into()),
+					Box::new(bridged_asset_hub_universal_location().into()),
 					0,
 				),
 				sp_runtime::DispatchError::BadOrigin,
@@ -917,7 +929,7 @@ mod tests {
 			assert_noop!(
 				XcmOverBridge::close_bridge(
 					OpenBridgeOrigin::parent_relay_chain_universal_origin(),
-					Box::new(bridged_asset_hub_location().into()),
+					Box::new(bridged_asset_hub_universal_location().into()),
 					0,
 				),
 				Error::<TestRuntime, ()>::BridgeLocations(
@@ -928,7 +940,7 @@ mod tests {
 			assert_noop!(
 				XcmOverBridge::close_bridge(
 					OpenBridgeOrigin::sibling_parachain_universal_origin(),
-					Box::new(bridged_asset_hub_location().into()),
+					Box::new(bridged_asset_hub_universal_location().into()),
 					0,
 				),
 				Error::<TestRuntime, ()>::BridgeLocations(
