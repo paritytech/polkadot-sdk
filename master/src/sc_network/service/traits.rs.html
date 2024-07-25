@@ -1080,6 +1080,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#929" id="929">929</a>
 <a href="#930" id="930">930</a>
 <a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 //
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1114,6 +1124,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">use </span>futures::{channel::oneshot, Stream};
+<span class="kw">use </span>libp2p::kad::Record;
 <span class="kw">use </span>prometheus_endpoint::Registry;
 
 <span class="kw">use </span>sc_client_api::BlockBackend;
@@ -1299,6 +1310,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Start putting a value in the DHT.
 	</span><span class="kw">fn </span>put_value(<span class="kw-2">&amp;</span><span class="self">self</span>, key: KademliaKey, value: Vec&lt;u8&gt;);
 
+	<span class="doccomment">/// Start putting the record to `peers`.
+	///
+	/// If `update_local_storage` is true the local storage is udpated as well.
+	</span><span class="kw">fn </span>put_record_to(<span class="kw-2">&amp;</span><span class="self">self</span>, record: Record, peers: HashSet&lt;PeerId&gt;, update_local_storage: bool);
+
 	<span class="doccomment">/// Store a record in the DHT memory store.
 	</span><span class="kw">fn </span>store_record(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1320,6 +1336,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>put_value(<span class="kw-2">&amp;</span><span class="self">self</span>, key: KademliaKey, value: Vec&lt;u8&gt;) {
 		T::put_value(<span class="self">self</span>, key, value)
+	}
+
+	<span class="kw">fn </span>put_record_to(<span class="kw-2">&amp;</span><span class="self">self</span>, record: Record, peers: HashSet&lt;PeerId&gt;, update_local_storage: bool) {
+		T::put_record_to(<span class="self">self</span>, record, peers, update_local_storage)
 	}
 
 	<span class="kw">fn </span>store_record(

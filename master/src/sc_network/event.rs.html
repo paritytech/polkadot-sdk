@@ -244,6 +244,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -268,7 +271,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span><span class="kw">crate</span>::types::ProtocolName;
 
 <span class="kw">use </span>bytes::Bytes;
-<span class="kw">use </span>libp2p::{kad::record::Key, PeerId};
+<span class="kw">use </span>libp2p::{
+	kad::{record::Key, PeerRecord},
+	PeerId,
+};
 
 <span class="kw">use </span>sc_network_common::role::ObservedRole;
 
@@ -277,7 +283,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #[must_use]
 </span><span class="kw">pub enum </span>DhtEvent {
 	<span class="doccomment">/// The value was found.
-	</span>ValueFound(Vec&lt;(Key, Vec&lt;u8&gt;)&gt;),
+	</span>ValueFound(PeerRecord),
 
 	<span class="doccomment">/// The requested record has not been found in the DHT.
 	</span>ValueNotFound(Key),

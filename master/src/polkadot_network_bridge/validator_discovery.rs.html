@@ -515,6 +515,53 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#364" id="364">364</a>
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -598,6 +645,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// the negotiated version.
 		</span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = network_service
 			.set_reserved_peers(
+				<span class="self">self</span>.peerset_protocol_names.get_main_name(peer_set),
+				newly_requested,
+			)
+			.<span class="kw">await
+		</span>{
+			<span class="macro">gum::warn!</span>(target: LOG_TARGET, err = <span class="question-mark">?</span>e, <span class="string">"AuthorityDiscoveryService returned an invalid multiaddress"</span>);
+		}
+
+		network_service
+	}
+
+	<span class="doccomment">/// Connect to already resolved addresses.
+	</span><span class="kw">pub async fn </span>on_add_to_resolved_request(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		newly_requested: HashSet&lt;Multiaddr&gt;,
+		peer_set: PeerSet,
+		<span class="kw-2">mut </span>network_service: N,
+	) -&gt; N {
+		<span class="kw">let </span>state = <span class="kw-2">&amp;mut </span><span class="self">self</span>.state[peer_set];
+		<span class="kw">let </span>new_peer_ids: HashSet&lt;PeerId&gt; = extract_peer_ids(newly_requested.iter().cloned());
+		<span class="kw">let </span>num_peers = new_peer_ids.len();
+
+		state.previously_requested.extend(new_peer_ids);
+
+		<span class="macro">gum::debug!</span>(
+			target: LOG_TARGET,
+			<span class="question-mark">?</span>peer_set,
+			<span class="question-mark">?</span>num_peers,
+			<span class="string">"New add to resolved validators request"</span>,
+		);
+
+		<span class="comment">// ask the network to connect to these nodes and not disconnect
+		// from them until they are removed from the set.
+		//
+		// for peer-set management, the main protocol name should be used regardless of
+		// the negotiated version.
+		</span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = network_service
+			.add_peers_to_reserved_set(
 				<span class="self">self</span>.peerset_protocol_names.get_main_name(peer_set),
 				newly_requested,
 			)
@@ -736,6 +821,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			multiaddresses: HashSet&lt;Multiaddr&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
 			<span class="self">self</span>.peers_set = extract_peer_ids(multiaddresses.into_iter());
+			<span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="kw">async fn </span>add_peers_to_reserved_set(
+			<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+			_protocol: ProtocolName,
+			multiaddresses: HashSet&lt;Multiaddr&gt;,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+			<span class="self">self</span>.peers_set.extend(extract_peer_ids(multiaddresses.into_iter()));
 			<span class="prelude-val">Ok</span>(())
 		}
 

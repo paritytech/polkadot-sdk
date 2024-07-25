@@ -663,6 +663,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#512" id="512">512</a>
 <a href="#513" id="513">513</a>
 <a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -697,6 +728,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	RequestFailure, Signature,
 };
 
+<span class="kw">use </span><span class="kw">crate</span>::litep2p::Record;
 <span class="kw">use </span>codec::DecodeAll;
 <span class="kw">use </span>futures::{channel::oneshot, stream::BoxStream};
 <span class="kw">use </span>libp2p::{identity::SigningError, kad::record::Key <span class="kw">as </span>KademliaKey};
@@ -741,6 +773,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>value: Vec&lt;u8&gt;,
 	},
 
+	<span class="doccomment">/// Put value to DHT.
+	</span>PutValueTo {
+		<span class="doccomment">/// Record.
+		</span>record: Record,
+		<span class="doccomment">/// Peers we want to put the record.
+		</span>peers: Vec&lt;sc_network_types::PeerId&gt;,
+		<span class="doccomment">/// If we should update the local storage or not.
+		</span>update_local_storage: bool,
+	},
 	<span class="doccomment">/// Store record in the local DHT store.
 	</span>StoreRecord {
 		<span class="doccomment">/// Record key.
@@ -916,6 +957,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>put_value(<span class="kw-2">&amp;</span><span class="self">self</span>, key: KademliaKey, value: Vec&lt;u8&gt;) {
 		<span class="kw">let _ </span>= <span class="self">self</span>.cmd_tx.unbounded_send(NetworkServiceCommand::PutValue { key, value });
+	}
+
+	<span class="kw">fn </span>put_record_to(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		record: libp2p::kad::Record,
+		peers: HashSet&lt;PeerId&gt;,
+		update_local_storage: bool,
+	) {
+		<span class="kw">let _ </span>= <span class="self">self</span>.cmd_tx.unbounded_send(NetworkServiceCommand::PutValueTo {
+			record: Record {
+				key: record.key.to_vec().into(),
+				value: record.value,
+				publisher: record.publisher.map(|peer_id| {
+					<span class="kw">let </span>peer_id: sc_network_types::PeerId = peer_id.into();
+					peer_id.into()
+				}),
+				expires: record.expires,
+			},
+			peers: peers.into_iter().collect(),
+			update_local_storage,
+		});
 	}
 
 	<span class="kw">fn </span>store_record(

@@ -2067,6 +2067,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1916" id="1916">1916</a>
 <a href="#1917" id="1917">1917</a>
 <a href="#1918" id="1918">1918</a>
+<a href="#1919" id="1919">1919</a>
+<a href="#1920" id="1920">1920</a>
+<a href="#1921" id="1921">1921</a>
+<a href="#1922" id="1922">1922</a>
+<a href="#1923" id="1923">1923</a>
+<a href="#1924" id="1924">1924</a>
+<a href="#1925" id="1925">1925</a>
+<a href="#1926" id="1926">1926</a>
+<a href="#1927" id="1927">1927</a>
+<a href="#1928" id="1928">1928</a>
+<a href="#1929" id="1929">1929</a>
+<a href="#1930" id="1930">1930</a>
+<a href="#1931" id="1931">1931</a>
+<a href="#1932" id="1932">1932</a>
+<a href="#1933" id="1933">1933</a>
+<a href="#1934" id="1934">1934</a>
+<a href="#1935" id="1935">1935</a>
+<a href="#1936" id="1936">1936</a>
+<a href="#1937" id="1937">1937</a>
+<a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
+<a href="#1940" id="1940">1940</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2137,7 +2159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	core::{upgrade, ConnectedPoint, Endpoint},
 	identify::Info <span class="kw">as </span>IdentifyInfo,
 	identity::ed25519,
-	kad::record::Key <span class="kw">as </span>KademliaKey,
+	kad::{record::Key <span class="kw">as </span>KademliaKey, Record},
 	multiaddr::{<span class="self">self</span>, Multiaddr},
 	swarm::{
 		Config <span class="kw">as </span>SwarmConfig, ConnectionError, ConnectionId, DialError, Executor, ListenError,
@@ -3015,6 +3037,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let _ </span>= <span class="self">self</span>.to_worker.unbounded_send(ServiceToWorkerMsg::PutValue(key, value));
 	}
 
+	<span class="kw">fn </span>put_record_to(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		record: Record,
+		peers: HashSet&lt;sc_network_types::PeerId&gt;,
+		update_local_storage: bool,
+	) {
+		<span class="kw">let _ </span>= <span class="self">self</span>.to_worker.unbounded_send(ServiceToWorkerMsg::PutRecordTo {
+			record,
+			peers,
+			update_local_storage,
+		});
+	}
+
 	<span class="kw">fn </span>store_record(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key: KademliaKey,
@@ -3383,6 +3418,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">enum </span>ServiceToWorkerMsg {
 	GetValue(KademliaKey),
 	PutValue(KademliaKey, Vec&lt;u8&gt;),
+	PutRecordTo {
+		record: Record,
+		peers: HashSet&lt;sc_network_types::PeerId&gt;,
+		update_local_storage: bool,
+	},
 	StoreRecord(KademliaKey, Vec&lt;u8&gt;, <span class="prelude-ty">Option</span>&lt;PeerId&gt;, <span class="prelude-ty">Option</span>&lt;Instant&gt;),
 	AddKnownAddress(PeerId, Multiaddr),
 	EventStream(out_events::Sender),
@@ -3509,6 +3549,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.network_service.behaviour_mut().get_value(key),
 			ServiceToWorkerMsg::PutValue(key, value) =&gt;
 				<span class="self">self</span>.network_service.behaviour_mut().put_value(key, value),
+			ServiceToWorkerMsg::PutRecordTo { record, peers, update_local_storage } =&gt; <span class="self">self
+				</span>.network_service
+				.behaviour_mut()
+				.put_record_to(record, peers, update_local_storage),
 			ServiceToWorkerMsg::StoreRecord(key, value, publisher, expires) =&gt; <span class="self">self
 				</span>.network_service
 				.behaviour_mut()

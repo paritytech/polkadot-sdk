@@ -537,6 +537,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -570,8 +585,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>futures::channel::oneshot;
 <span class="kw">use </span>libp2p::{
-	connection_limits::ConnectionLimits, core::Multiaddr, identify::Info <span class="kw">as </span>IdentifyInfo,
-	identity::PublicKey, kad::RecordKey, swarm::NetworkBehaviour, PeerId, StreamProtocol,
+	connection_limits::ConnectionLimits,
+	core::Multiaddr,
+	identify::Info <span class="kw">as </span>IdentifyInfo,
+	identity::PublicKey,
+	kad::{Record, RecordKey},
+	swarm::NetworkBehaviour,
+	PeerId, StreamProtocol,
 };
 
 <span class="kw">use </span>parking_lot::Mutex;
@@ -826,6 +846,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// `ValuePutFailed` event.
 	</span><span class="kw">pub fn </span>put_value(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: RecordKey, value: Vec&lt;u8&gt;) {
 		<span class="self">self</span>.discovery.put_value(key, value);
+	}
+
+	<span class="doccomment">/// Puts a record into DHT, on the provided Peers
+	</span><span class="kw">pub fn </span>put_record_to(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		record: Record,
+		peers: HashSet&lt;sc_network_types::PeerId&gt;,
+		update_local_storage: bool,
+	) {
+		<span class="self">self</span>.discovery.put_record_to(record, peers, update_local_storage);
 	}
 
 	<span class="doccomment">/// Stores value in DHT

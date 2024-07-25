@@ -1498,6 +1498,47 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1347" id="1347">1347</a>
 <a href="#1348" id="1348">1348</a>
 <a href="#1349" id="1349">1349</a>
+<a href="#1350" id="1350">1350</a>
+<a href="#1351" id="1351">1351</a>
+<a href="#1352" id="1352">1352</a>
+<a href="#1353" id="1353">1353</a>
+<a href="#1354" id="1354">1354</a>
+<a href="#1355" id="1355">1355</a>
+<a href="#1356" id="1356">1356</a>
+<a href="#1357" id="1357">1357</a>
+<a href="#1358" id="1358">1358</a>
+<a href="#1359" id="1359">1359</a>
+<a href="#1360" id="1360">1360</a>
+<a href="#1361" id="1361">1361</a>
+<a href="#1362" id="1362">1362</a>
+<a href="#1363" id="1363">1363</a>
+<a href="#1364" id="1364">1364</a>
+<a href="#1365" id="1365">1365</a>
+<a href="#1366" id="1366">1366</a>
+<a href="#1367" id="1367">1367</a>
+<a href="#1368" id="1368">1368</a>
+<a href="#1369" id="1369">1369</a>
+<a href="#1370" id="1370">1370</a>
+<a href="#1371" id="1371">1371</a>
+<a href="#1372" id="1372">1372</a>
+<a href="#1373" id="1373">1373</a>
+<a href="#1374" id="1374">1374</a>
+<a href="#1375" id="1375">1375</a>
+<a href="#1376" id="1376">1376</a>
+<a href="#1377" id="1377">1377</a>
+<a href="#1378" id="1378">1378</a>
+<a href="#1379" id="1379">1379</a>
+<a href="#1380" id="1380">1380</a>
+<a href="#1381" id="1381">1381</a>
+<a href="#1382" id="1382">1382</a>
+<a href="#1383" id="1383">1383</a>
+<a href="#1384" id="1384">1384</a>
+<a href="#1385" id="1385">1385</a>
+<a href="#1386" id="1386">1386</a>
+<a href="#1387" id="1387">1387</a>
+<a href="#1388" id="1388">1388</a>
+<a href="#1389" id="1389">1389</a>
+<a href="#1390" id="1390">1390</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1558,7 +1599,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>,
 		record::store::{MemoryStore, RecordStore},
 		Behaviour <span class="kw">as </span>Kademlia, BucketInserts, Config <span class="kw">as </span>KademliaConfig, Event <span class="kw">as </span>KademliaEvent,
-		GetClosestPeersError, GetRecordOk, QueryId, QueryResult, Quorum, Record, RecordKey,
+		GetClosestPeersError, GetRecordOk, PeerRecord, QueryId, QueryResult, Quorum, Record,
+		RecordKey,
 	},
 	mdns::{<span class="self">self</span>, tokio::Behaviour <span class="kw">as </span>TokioMdns},
 	multiaddr::Protocol,
@@ -1592,7 +1634,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// record is replicated to.
 </span><span class="kw">pub const </span>DEFAULT_KADEMLIA_REPLICATION_FACTOR: usize = <span class="number">20</span>;
 
+<span class="comment">// The minimum number of peers we expect an answer before we terminate the request.
+</span><span class="kw">const </span>GET_RECORD_REDUNDANCY_FACTOR: u32 = <span class="number">4</span>;
+
 <span class="doccomment">/// `DiscoveryBehaviour` configuration.
+///
 ///
 /// Note: In order to discover nodes or load and store values via Kademlia one has to add
 ///       Kademlia protocol via [`DiscoveryConfig::with_kademlia`].
@@ -1734,7 +1780,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// auto-insertion and instead add peers manually.
 			</span>config.set_kbucket_inserts(BucketInserts::Manual);
 			config.disjoint_query_paths(kademlia_disjoint_query_paths);
-
 			<span class="kw">let </span>store = MemoryStore::new(local_peer_id);
 			<span class="kw">let </span><span class="kw-2">mut </span>kad = Kademlia::with_config(local_peer_id, store, config);
 			kad.set_mode(<span class="prelude-val">Some</span>(kad::Mode::Server));
@@ -1937,6 +1982,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
+	<span class="doccomment">/// Puts a record into the DHT on the provided `peers`
+	///
+	/// If `update_local_storage` is true, the local storage is update as well.
+	</span><span class="kw">pub fn </span>put_record_to(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		record: Record,
+		peers: HashSet&lt;sc_network_types::PeerId&gt;,
+		update_local_storage: bool,
+	) {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(kad) = <span class="self">self</span>.kademlia.as_mut() {
+			<span class="kw">if </span>update_local_storage {
+				<span class="kw">if let </span><span class="prelude-val">Err</span>(_e) = kad.store_mut().put(record.clone()) {
+					<span class="macro">warn!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Failed to update local starage"</span>);
+				}
+			}
+
+			<span class="kw">if </span>!peers.is_empty() {
+				kad.put_record_to(
+					record,
+					peers.into_iter().map(|peer_id| peer_id.into()),
+					Quorum::All,
+				);
+			}
+		}
+	}
 	<span class="doccomment">/// Store a record in the Kademlia record store.
 	</span><span class="kw">pub fn </span>store_record(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -2027,7 +2097,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The DHT yielded results for the record request.
 	///
 	/// Returning the result grouped in (key, value) pairs as well as the request duration.
-	</span>ValueFound(Vec&lt;(RecordKey, Vec&lt;u8&gt;)&gt;, Duration),
+	</span>ValueFound(PeerRecord, Duration),
 
 	<span class="doccomment">/// The DHT received a put record request.
 	</span>PutRecordRequest(
@@ -2360,16 +2430,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="prelude-val">Ok</span>(GetRecordOk::FoundRecord(r)) =&gt; {
 								<span class="macro">debug!</span>(
 									target: <span class="string">"sub-libp2p"</span>,
-									<span class="string">"Libp2p =&gt; Found record ({:?}) with value: {:?}"</span>,
+									<span class="string">"Libp2p =&gt; Found record ({:?}) with value: {:?} id {:?} stats {:?}"</span>,
 									r.record.key,
 									r.record.value,
+									id,
+									stats,
 								);
 
-								<span class="comment">// Let's directly finish the query, as we are only interested in a
-								// quorum of 1.
-								</span><span class="kw">if let </span><span class="prelude-val">Some</span>(kad) = <span class="self">self</span>.kademlia.as_mut() {
-									<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>query) = kad.query_mut(<span class="kw-2">&amp;</span>id) {
-										query.finish();
+								<span class="comment">// Let's directly finish the query if we are above 4.
+								// This number is small enough to make sure we don't
+								// unnecessarily flood the network with queries, but high
+								// enough to make sure we also touch peers which might have
+								// old record, so that we can update them once we notice
+								// they have old records.
+								</span><span class="kw">if </span>stats.num_successes() &gt; GET_RECORD_REDUNDANCY_FACTOR {
+									<span class="kw">if let </span><span class="prelude-val">Some</span>(kad) = <span class="self">self</span>.kademlia.as_mut() {
+										<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>query) = kad.query_mut(<span class="kw-2">&amp;</span>id) {
+											query.finish();
+										}
 									}
 								}
 
@@ -2377,14 +2455,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								// `FinishedWithNoAdditionalRecord`.
 								</span><span class="self">self</span>.records_to_publish.insert(id, r.record.clone());
 
-								DiscoveryOut::ValueFound(
-									<span class="macro">vec!</span>[(r.record.key, r.record.value)],
-									stats.duration().unwrap_or_default(),
-								)
+								DiscoveryOut::ValueFound(r, stats.duration().unwrap_or_default())
 							},
 							<span class="prelude-val">Ok</span>(GetRecordOk::FinishedWithNoAdditionalRecord {
 								cache_candidates,
 							}) =&gt; {
+								<span class="macro">debug!</span>(
+									target: <span class="string">"sub-libp2p"</span>,
+									<span class="string">"Libp2p =&gt; Finished with no-additional-record {:?} stats {:?} took {:?} ms"</span>,
+									id,
+									stats,
+									stats.duration().map(|val| val.as_millis())
+								);
 								<span class="comment">// We always need to remove the record to not leak any data!
 								</span><span class="kw">if let </span><span class="prelude-val">Some</span>(record) = <span class="self">self</span>.records_to_publish.remove(<span class="kw-2">&amp;</span>id) {
 									<span class="kw">if </span>cache_candidates.is_empty() {
