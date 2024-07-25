@@ -41,7 +41,7 @@
 use crate::imports::*;
 use frame_support::BoundedVec;
 use pallet_balances::Event as BalancesEvent;
-use pallet_identity::{legacy::IdentityInfo, Data, Event as IdentityEvent};
+use pallet_identity::{legacy::IdentityInfo, Data, Event as IdentityEvent, IdentityOf, SubsOf};
 use people::{
 	BasicDeposit as BasicDepositParachain, ByteDeposit as ByteDepositParachain,
 	IdentityInfo as IdentityInfoParachain, SubAccountDeposit as SubAccountDepositParachain,
@@ -266,9 +266,9 @@ fn assert_set_id_parachain(id: &Identity) {
 		// No amount should be reserved as deposit amounts are set to 0.
 		let reserved_balance = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
 		assert_eq!(reserved_balance, 0);
-		assert!(PeopleRococoIdentity::identity(PeopleRococoSender::get()).is_some());
+		assert!(IdentityOf::<PeopleRuntime>::get(PeopleRococoSender::get()).is_some());
 
-		let (_, sub_accounts) = PeopleRococoIdentity::subs_of(PeopleRococoSender::get());
+		let (_, sub_accounts) = SubsOf::<PeopleRuntime>::get(PeopleRococoSender::get());
 
 		match id.subs {
 			Subs::Zero => assert_eq!(sub_accounts.len(), 0),
@@ -314,10 +314,10 @@ fn assert_reap_id_relay(total_deposit: Balance, id: &Identity) {
 			]
 		);
 		// Identity should be gone.
-		assert!(PeopleRococoIdentity::identity(RococoRelaySender::get()).is_none());
+		assert!(IdentityOf::<PeopleRuntime>::get(RococoRelaySender::get()).is_none());
 
 		// Subs should be gone.
-		let (_, sub_accounts) = RococoIdentity::subs_of(RococoRelaySender::get());
+		let (_, sub_accounts) = SubsOf::<RococoRuntime>::get(RococoRelaySender::get());
 		assert_eq!(sub_accounts.len(), 0);
 
 		let reserved_balance = RococoBalances::reserved_balance(RococoRelaySender::get());

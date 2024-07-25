@@ -27,7 +27,6 @@ frame-system = { workspace = true }
 
 # primitive deps
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 [dev-dependencies]
 sp-core = { workspace = true, default-features = true }
@@ -50,7 +49,6 @@ std = [
 	"frame-system/std",
 
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

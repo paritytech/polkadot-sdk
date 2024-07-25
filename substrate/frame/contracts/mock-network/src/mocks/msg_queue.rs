@@ -25,7 +25,6 @@ use polkadot_parachain_primitives::primitives::{
 use polkadot_primitives::BlockNumber as RelayBlockNumber;
 use sp_runtime::traits::{Get, Hash};
 
-use sp_std::prelude::*;
 use xcm::{latest::prelude::*, VersionedXcm};
 
 #[frame_support::pallet]

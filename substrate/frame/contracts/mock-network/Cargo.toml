@@ -36,7 +36,6 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true, default-features = true }
@@ -67,7 +66,6 @@ std = [
 	"sp-io/std",
 	"sp-keystore/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]

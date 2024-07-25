@@ -27,8 +27,15 @@ use crate::{
 	shared::{self, AllowedRelayParentsTracker},
 	util::make_persisted_validation_data_with_parent,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use core::fmt;
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
@@ -46,12 +53,6 @@ use polkadot_primitives::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
-#[cfg(feature = "std")]
-use sp_std::fmt;
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
-	prelude::*,
-};
 
 pub use pallet::*;
 
@@ -337,8 +338,6 @@ pub mod pallet {
 		InsufficientBacking,
 		/// Invalid (bad signature, unknown validator, etc.) backing.
 		InvalidBacking,
-		/// Collator did not sign PoV.
-		NotCollatorSigned,
 		/// The validation data hash does not match expected.
 		ValidationDataHashMismatch,
 		/// The downward message queue is not processed correctly.
@@ -1221,7 +1220,6 @@ impl<T: Config> CandidateCheckContext<T> {
 	///
 	/// Assures:
 	///  * relay-parent in-bounds
-	///  * collator signature check passes
 	///  * code hash of commitments matches current code hash
 	///  * para head in the descriptor and commitments match
 	///
@@ -1257,11 +1255,6 @@ impl<T: Config> CandidateCheckContext<T> {
 				Error::<T>::ValidationDataHashMismatch,
 			);
 		}
-
-		ensure!(
-			backed_candidate_receipt.descriptor().check_collator_signature().is_ok(),
-			Error::<T>::NotCollatorSigned,
-		);
 
 		let validation_code_hash = paras::CurrentCodeHash::<T>::get(para_id)
 			// A candidate for a parachain without current validation code is not scheduled.

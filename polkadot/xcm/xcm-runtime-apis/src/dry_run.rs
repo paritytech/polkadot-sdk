@@ -18,9 +18,9 @@
 //! This API can be used to simulate XCMs and, for example, find the fees
 //! that need to be paid.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::{DispatchResultWithPostInfo, TypeInfo};
-use sp_std::vec::Vec;
 use xcm::prelude::*;
 
 /// Effects of dry-running an extrinsic.

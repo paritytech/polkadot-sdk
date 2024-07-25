@@ -28,7 +28,6 @@ remote-externalities = { optional = true, workspace = true, default-features = t
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 substrate-state-trie-migration-rpc = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
@@ -50,7 +49,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-tracing/std",
 ]
 runtime-benchmarks = [
