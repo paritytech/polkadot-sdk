@@ -426,7 +426,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["snowbridge_runtime_test_common",["",[],["lib.rs"]]],\
 ["snowbridge_system_runtime_api",["",[],["lib.rs"]]],\
 ["solochain_template_node",["",[],["benchmarking.rs","chain_spec.rs","cli.rs","command.rs","main.rs","rpc.rs","service.rs"]]],\
-["solochain_template_runtime",["",[],["lib.rs"]]],\
+["solochain_template_runtime",["",[["configs",[],["mod.rs"]]],["apis.rs","benchmarks.rs","lib.rs"]]],\
 ["sp_api",["",[],["lib.rs"]]],\
 ["sp_api_proc_macro",["",[],["common.rs","decl_runtime_apis.rs","impl_runtime_apis.rs","lib.rs","mock_impl_runtime_apis.rs","runtime_metadata.rs","utils.rs"]]],\
 ["sp_application_crypto",["",[],["bandersnatch.rs","bls381.rs","ecdsa.rs","ecdsa_bls381.rs","ed25519.rs","lib.rs","sr25519.rs","traits.rs"]]],\

@@ -460,6 +460,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
 <a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 </span><span class="attr">#![recursion_limit = <span class="string">"256"</span>]
@@ -471,7 +476,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>apis;
 <span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarks;
-<span class="kw">mod </span>configs;
+<span class="kw">pub mod </span>configs;
 <span class="kw">mod </span>weights;
 
 <span class="kw">extern crate </span>alloc;
@@ -498,9 +503,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub use </span>sp_runtime::BuildStorage;
 
 <span class="kw">use </span>weights::ExtrinsicBaseWeight;
-
-<span class="doccomment">/// Import the template pallet.
-</span><span class="kw">pub use </span>pallet_parachain_template;
 
 <span class="doccomment">/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 </span><span class="kw">pub type </span>Signature = MultiSignature;
@@ -555,6 +557,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>UncheckedExtrinsic =
 	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, SignedExtra&gt;;
 
+<span class="doccomment">/// All migrations of the runtime, aside from the ones declared in the pallets.
+///
+/// This can be a tuple of types, each implementing `OnRuntimeUpgrade`.
+</span><span class="attr">#[allow(unused_parens)]
+</span><span class="kw">type </span>Migrations = ();
+
 <span class="doccomment">/// Executive: handles dispatch to the various modules.
 </span><span class="kw">pub type </span>Executive = frame_executive::Executive&lt;
 	Runtime,
@@ -562,6 +570,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	frame_system::ChainContext&lt;Runtime&gt;,
 	Runtime,
 	AllPalletsWithSystem,
+	Migrations,
 &gt;;
 
 <span class="doccomment">/// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
@@ -578,9 +587,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>WeightToFeePolynomial <span class="kw">for </span>WeightToFee {
 	<span class="kw">type </span>Balance = Balance;
 	<span class="kw">fn </span>polynomial() -&gt; WeightToFeeCoefficients&lt;<span class="self">Self</span>::Balance&gt; {
-		<span class="comment">// in Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1 MILLIUNIT:
-		// in our template, we map to 1/10 of that, or 1/10 MILLIUNIT
-		</span><span class="kw">let </span>p = MILLIUNIT / <span class="number">10</span>;
+		<span class="comment">// in Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1 MILLI_UNIT:
+		// in our template, we map to 1/10 of that, or 1/10 MILLI_UNIT
+		</span><span class="kw">let </span>p = MILLI_UNIT / <span class="number">10</span>;
 		<span class="kw">let </span>q = <span class="number">100 </span>* Balance::from(ExtrinsicBaseWeight::get().ref_time());
 		<span class="macro">smallvec!</span>[WeightToFeeCoefficient {
 			degree: <span class="number">1</span>,
@@ -603,6 +612,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">pub use </span>sp_runtime::OpaqueExtrinsic <span class="kw">as </span>UncheckedExtrinsic;
+
 	<span class="doccomment">/// Opaque block header type.
 	</span><span class="kw">pub type </span>Header = generic::Header&lt;BlockNumber, BlakeTwo256&gt;;
 	<span class="doccomment">/// Opaque block type.
@@ -639,26 +649,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// slot_duration()`.
 	///
 	/// Change this to adjust the block time.
-	</span><span class="kw">pub const </span>MILLISECS_PER_BLOCK: u64 = <span class="number">6000</span>;
+	</span><span class="kw">pub const </span>MILLI_SECS_PER_BLOCK: u64 = <span class="number">6000</span>;
 
 	<span class="comment">// NOTE: Currently it is not possible to change the slot duration after the chain has started.
 	// Attempting to do so will brick block production.
-	</span><span class="kw">pub const </span>SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+	</span><span class="kw">pub const </span>SLOT_DURATION: u64 = MILLI_SECS_PER_BLOCK;
 }
 <span class="kw">pub use </span>block_times::<span class="kw-2">*</span>;
 
 <span class="comment">// Time is measured by number of blocks.
-</span><span class="kw">pub const </span>MINUTES: BlockNumber = <span class="number">60_000 </span>/ (MILLISECS_PER_BLOCK <span class="kw">as </span>BlockNumber);
+</span><span class="kw">pub const </span>MINUTES: BlockNumber = <span class="number">60_000 </span>/ (MILLI_SECS_PER_BLOCK <span class="kw">as </span>BlockNumber);
 <span class="kw">pub const </span>HOURS: BlockNumber = MINUTES * <span class="number">60</span>;
 <span class="kw">pub const </span>DAYS: BlockNumber = HOURS * <span class="number">24</span>;
 
 <span class="comment">// Unit = the base number of indivisible units for balances
 </span><span class="kw">pub const </span>UNIT: Balance = <span class="number">1_000_000_000_000</span>;
-<span class="kw">pub const </span>MILLIUNIT: Balance = <span class="number">1_000_000_000</span>;
-<span class="kw">pub const </span>MICROUNIT: Balance = <span class="number">1_000_000</span>;
+<span class="kw">pub const </span>MILLI_UNIT: Balance = <span class="number">1_000_000_000</span>;
+<span class="kw">pub const </span>MICRO_UNIT: Balance = <span class="number">1_000_000</span>;
 
 <span class="doccomment">/// The existential deposit. Set to 1/10 of the Connected Relay Chain.
-</span><span class="kw">pub const </span>EXISTENTIAL_DEPOSIT: Balance = MILLIUNIT;
+</span><span class="kw">pub const </span>EXISTENTIAL_DEPOSIT: Balance = MILLI_UNIT;
 
 <span class="doccomment">/// We assume that ~5% of the block weight is consumed by `on_initialize` handlers. This is
 /// used to limit the maximal weight of a single extrinsic.

@@ -490,7 +490,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_service::{error::Error <span class="kw">as </span>ServiceError, Configuration, TaskManager, WarpSyncParams};
 <span class="kw">use </span>sc_telemetry::{Telemetry, TelemetryWorker};
 <span class="kw">use </span>sc_transaction_pool_api::OffchainTransactionPoolFactory;
-<span class="kw">use </span>solochain_template_runtime::{<span class="self">self</span>, opaque::Block, RuntimeApi};
+<span class="kw">use </span>solochain_template_runtime::{<span class="self">self</span>, apis::RuntimeApi, opaque::Block};
 <span class="kw">use </span>sp_consensus_aura::sr25519::AuthorityPair <span class="kw">as </span>AuraPair;
 <span class="kw">use </span>std::{sync::Arc, time::Duration};
 

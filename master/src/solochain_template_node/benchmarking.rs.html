@@ -310,6 +310,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
 <a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Setup code for [`super::command`] which would otherwise bloat that module.
 //!
 //! Should only be used for benchmarking as it may break in other contexts.
@@ -417,7 +419,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>best_hash = client.chain_info().best_hash;
 	<span class="kw">let </span>best_block = client.chain_info().best_number;
 
-	<span class="kw">let </span>period = runtime::BlockHashCount::get()
+	<span class="kw">let </span>period = runtime::configs::BlockHashCount::get()
 		.checked_next_power_of_two()
 		.map(|c| c / <span class="number">2</span>)
 		.unwrap_or(<span class="number">2</span>) <span class="kw">as </span>u64;
@@ -433,6 +435,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		frame_system::CheckNonce::&lt;runtime::Runtime&gt;::from(nonce),
 		frame_system::CheckWeight::&lt;runtime::Runtime&gt;::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::&lt;runtime::Runtime&gt;::from(<span class="number">0</span>),
+		frame_metadata_hash_extension::CheckMetadataHash::&lt;runtime::Runtime&gt;::new(<span class="bool-val">false</span>),
 	);
 
 	<span class="kw">let </span>raw_payload = runtime::SignedPayload::from_raw(
@@ -447,6 +450,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(),
 			(),
 			(),
+			<span class="prelude-val">None</span>,
 		),
 	);
 	<span class="kw">let </span>signature = raw_payload.using_encoded(|e| sender.sign(e));

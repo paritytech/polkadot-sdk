@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["SessionKeys","UncheckedExtrinsic"],"type":["Block","BlockId","Header"]};
+window.SIDEBAR_ITEMS = {"struct":["UncheckedExtrinsic"],"type":["Block","BlockId","Hash","Header"]};
