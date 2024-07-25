@@ -156,3 +156,4 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true 
           directory: reports
+          root_dir: /__w/polkadot-sdk/polkadot-sdk/
