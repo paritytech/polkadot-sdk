@@ -24,7 +24,7 @@ use super::{super::Imbalance as ImbalanceT, Balanced, *};
 use crate::traits::{
 	fungibles,
 	misc::{SameOrOther, TryDrop},
-	tokens::{AssetId, Balance},
+	tokens::{imbalance::TryMerge, AssetId, Balance},
 };
 use core::marker::PhantomData;
 use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
@@ -154,6 +154,14 @@ impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalance
 	}
 	fn peek(&self) -> B {
 		self.amount
+	}
+}
+
+impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalanceDrop<B>> TryMerge
+	for Imbalance<B, OnDrop, OppositeOnDrop>
+{
+	fn try_merge(self, other: Self) -> Result<Self, (Self, Self)> {
+		Ok(self.merge(other))
 	}
 }
 
