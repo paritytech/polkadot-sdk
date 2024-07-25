@@ -15,7 +15,8 @@
 //! ```json
 //! {
 //!   // Use a separate target dir for Rust Analyzer. Helpful if you want to use Rust
-//!   // Analyzer and cargo on the command line at the same time.
+//!   // Analyzer and cargo on the command line at the same time,
+//!   // at the expense of duplicating build artifacts.
 //!   "rust-analyzer.cargo.targetDir": "target/vscode-rust-analyzer",
 //!   // Improve stability
 //!   "rust-analyzer.server.extraEnv": {
