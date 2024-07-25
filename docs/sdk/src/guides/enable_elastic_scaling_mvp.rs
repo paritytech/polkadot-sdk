@@ -1,7 +1,7 @@
 //! # Enable elastic scaling MVP for a parachain
 //!
 //! <div class="warning">This guide assumes full familiarity with Asynchronous Backing and its
-//! terminology, as defined in https://wiki.polkadot.network/docs/maintain-guides-async-backing.
+//! terminology, as defined in <a href="https://wiki.polkadot.network/docs/maintain-guides-async-backing">the Polkadot Wiki</a>.
 //! Furthermore, the parachain should have already been upgraded according to the guide.</div>
 //!
 //! ## Quick introduction to elastic scaling
