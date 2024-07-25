@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Add `RepeatingSlice` type for generating test randomness."
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Introduces a new type `RepeatingSlice` which takes an arbitrary slice as an input, and
+      exposes an API which allows you to create an infinite input from that slice by repeating
+      those input bytes over and over. This is then used as a basis for implementing the
+      `Randomness` trait for `()`, which can simplify the creation of unit tests. This is not a
+      real source of randomness, and should not be used in production.
+
+crates:
+  - name: frame-support
+    bump: patch
