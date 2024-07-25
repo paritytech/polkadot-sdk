@@ -256,7 +256,7 @@ fn message_dispatch_routing_works() {
 				_ => None,
 			}
 		}),
-		|| XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
+		|| (),
 	)
 }
 

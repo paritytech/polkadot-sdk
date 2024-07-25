@@ -434,7 +434,7 @@ pub fn message_dispatch_routing_works<
 	unwrap_cumulus_pallet_xcmp_queue_event: Box<
 		dyn Fn(Vec<u8>) -> Option<cumulus_pallet_xcmp_queue::Event<Runtime>>,
 	>,
-	prepare_configuration: impl Fn() -> LaneId,
+	prepare_configuration: impl Fn(),
 ) where
 	Runtime: BasicParachainRuntime
 		+ cumulus_pallet_xcmp_queue::Config
@@ -462,8 +462,9 @@ pub fn message_dispatch_routing_works<
 	assert_ne!(runtime_para_id, sibling_parachain_id);
 
 	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
-		let expected_lane_id = prepare_configuration();
+		prepare_configuration();
 
+		let dummy_lane_id = LaneId::new(1, 2);
 		let mut alice = [0u8; 32];
 		alice[0] = 1;
 
@@ -480,7 +481,7 @@ pub fn message_dispatch_routing_works<
 		>((RuntimeNetwork::get(), Here));
 		let result =
 			<<Runtime as BridgeMessagesConfig<MessagesPalletInstance>>::MessageDispatch>::dispatch(
-				test_data::dispatch_message(expected_lane_id, 1, bridging_message),
+				test_data::dispatch_message(dummy_lane_id, 1, bridging_message),
 			);
 		assert_eq!(
 			format!("{:?}", result.dispatch_level_result),
@@ -508,7 +509,7 @@ pub fn message_dispatch_routing_works<
 		let result =
 			<<Runtime as BridgeMessagesConfig<MessagesPalletInstance>>::MessageDispatch>::dispatch(
 				DispatchMessage {
-					key: MessageKey { lane_id: expected_lane_id, nonce: 1 },
+					key: MessageKey { lane_id: dummy_lane_id, nonce: 1 },
 					data: DispatchMessageData { payload: Ok(bridging_message.clone()) },
 				},
 			);
@@ -540,7 +541,7 @@ pub fn message_dispatch_routing_works<
 		let result =
 			<<Runtime as BridgeMessagesConfig<MessagesPalletInstance>>::MessageDispatch>::dispatch(
 				DispatchMessage {
-					key: MessageKey { lane_id: expected_lane_id, nonce: 1 },
+					key: MessageKey { lane_id: dummy_lane_id, nonce: 1 },
 					data: DispatchMessageData { payload: Ok(bridging_message) },
 				},
 			);

@@ -19,8 +19,6 @@ use super::{
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 	TransactionByteFee, WeightToFee, XcmOverBridgeHubWestend, XcmOverRococoBulletin, XcmpQueue,
 };
-use bp_messages::LaneId;
-use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
 
 use core::marker::PhantomData;
 use frame_support::{
@@ -206,13 +204,6 @@ impl xcm_executor::Config for XcmConfig {
 	type FeeManager = XcmFeeManagerFromComponentsBridgeHub<
 		WaivedLocations,
 		(
-			XcmExportFeeToRelayerRewardAccounts<
-				Self::AssetTransactor,
-				crate::bridge_to_westend_config::WestendGlobalConsensusNetwork,
-				crate::bridge_to_westend_config::AssetHubWestendParaId,
-				bp_bridge_hub_westend::BridgeHubWestend,
-				crate::bridge_to_westend_config::AssetHubRococoToAssetHubWestendMessagesLane,
-			>,
 			XcmExportFeeToSibling<
 				bp_rococo::Balance,
 				AccountId,
@@ -291,100 +282,6 @@ impl pallet_xcm::Config for Runtime {
 impl cumulus_pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-}
-
-/// A `HandleFee` implementation that simply deposits the fees for `ExportMessage` XCM instructions
-/// into the accounts that are used for paying the relayer rewards.
-/// Burns the fees in case of a failure.
-pub struct XcmExportFeeToRelayerRewardAccounts<
-	AssetTransactor,
-	DestNetwork,
-	DestParaId,
-	DestBridgedChain,
-	BridgeLaneId,
->(PhantomData<(AssetTransactor, DestNetwork, DestParaId, DestBridgedChain, BridgeLaneId)>);
-
-impl<
-		AssetTransactor: TransactAsset,
-		DestNetwork: Get<NetworkId>,
-		DestParaId: Get<cumulus_primitives_core::ParaId>,
-		DestBridgedChain: bp_runtime::Chain,
-		BridgeLaneId: Get<LaneId>,
-	> HandleFee
-	for XcmExportFeeToRelayerRewardAccounts<
-		AssetTransactor,
-		DestNetwork,
-		DestParaId,
-		DestBridgedChain,
-		BridgeLaneId,
-	>
-{
-	fn handle_fee(fee: Assets, maybe_context: Option<&XcmContext>, reason: FeeReason) -> Assets {
-		if matches!(reason, FeeReason::Export { network: bridged_network, destination }
-				if bridged_network == DestNetwork::get() &&
-					destination == [Parachain(DestParaId::get().into())])
-		{
-			let bridged_chain_id = DestBridgedChain::ID;
-
-			// We have 2 relayer rewards accounts:
-			// - the SA of the source parachain on this BH: this pays the relayers for delivering
-			//   Source para -> Target Para message delivery confirmations
-			// - the SA of the destination parachain on this BH: this pays the relayers for
-			//   delivering Target para -> Source Para messages
-			// We split the `ExportMessage` fee between these 2 accounts.
-			let source_para_account = PayRewardFromAccount::<
-				pallet_balances::Pallet<Runtime>,
-				AccountId,
-			>::rewards_account(RewardsAccountParams::new(
-				BridgeLaneId::get(),
-				bridged_chain_id,
-				RewardsAccountOwner::ThisChain,
-			));
-
-			let dest_para_account = PayRewardFromAccount::<
-				pallet_balances::Pallet<Runtime>,
-				AccountId,
-			>::rewards_account(RewardsAccountParams::new(
-				BridgeLaneId::get(),
-				bridged_chain_id,
-				RewardsAccountOwner::BridgedChain,
-			));
-
-			for asset in fee.into_inner() {
-				match asset.fun {
-					Fungible(total_fee) => {
-						let source_fee = total_fee / 2;
-						deposit_or_burn_fee::<AssetTransactor>(
-							Asset { id: asset.id.clone(), fun: Fungible(source_fee) }.into(),
-							maybe_context,
-							AccountId32 { network: None, id: source_para_account.clone().into() }
-								.into(),
-						);
-
-						let dest_fee = total_fee - source_fee;
-						deposit_or_burn_fee::<AssetTransactor>(
-							Asset { id: asset.id, fun: Fungible(dest_fee) }.into(),
-							maybe_context,
-							AccountId32 { network: None, id: dest_para_account.clone().into() }
-								.into(),
-						);
-					},
-					NonFungible(_) => {
-						deposit_or_burn_fee::<AssetTransactor>(
-							asset.into(),
-							maybe_context,
-							AccountId32 { network: None, id: source_para_account.clone().into() }
-								.into(),
-						);
-					},
-				}
-			}
-
-			return Assets::new()
-		}
-
-		fee
-	}
 }
 
 pub struct XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, HandleFee>(

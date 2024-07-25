@@ -358,7 +358,7 @@ mod bridge_hub_westend_tests {
 					_ => None,
 				}
 			}),
-			|| XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
+			|| (),
 		)
 	}
 
@@ -600,7 +600,7 @@ mod bridge_hub_bulletin_tests {
 					_ => None,
 				}
 			}),
-			|| XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
+			|| (),
 		)
 	}
 
