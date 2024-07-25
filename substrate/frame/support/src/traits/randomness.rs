@@ -17,10 +17,6 @@
 
 //! Traits for dealing with on-chain randomness.
 
-use codec::{Error, Input};
-use sp_arithmetic::traits::Zero;
-use sp_core::crypto::FromEntropy;
-
 /// A trait that is able to provide randomness.
 ///
 /// Being a deterministic blockchain, real randomness is difficult to come by, different
@@ -57,56 +53,65 @@ pub trait Randomness<Output, BlockNumber> {
 	}
 }
 
-/// An object that is able to produce an arbitrary length slice using some initial set of bytes that
-/// will repeat over and over.
-pub struct RepeatingSlice<'a>(&'a [u8], usize);
-impl<'a> RepeatingSlice<'a> {
-	/// Create a new `RepeatingSlice` given some initial set of input bytes.
-	///
-	/// Empty slices are valid inputs as they are used in `Randomness::random_seed`.
-	pub fn new(s: &'a [u8]) -> Self {
-		Self(s, 0)
-	}
-}
+#[cfg(any(test, feature = "std"))]
+pub mod test_randomness {
+	use super::*;
+	use sp_core::crypto::FromEntropy;
+	use sp_arithmetic::traits::Zero;
+	use codec::{Error, Input};
 
-impl<'a> Input for RepeatingSlice<'a> {
-	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
-		Ok(Some(usize::max_value()))
-	}
-
-	fn read(&mut self, mut into: &mut [u8]) -> Result<(), Error> {
-		let data = &self.0;
-		if data.is_empty() {
-			// Empty slices are valid inputs as they are used in `Randomness::random_seed`. The
-			// solution here is to just return from `Input::read` leaving the destination untouched,
-			// but another option is to fill it with zeroes or some other value (e.g. `0..256`) in
-			// the `RepeatingSlice` constructor, though I expect that it would be more useful in
-			// testing to be able to control the `random_seed` output knowing it's a noop.
-			return Ok(())
+	/// An object that is able to produce an arbitrary length slice using some initial set of bytes
+	/// that will repeat over and over.
+	pub struct RepeatingSlice<'a>(&'a [u8], usize);
+	impl<'a> RepeatingSlice<'a> {
+		/// Create a new `RepeatingSlice` given some initial set of input bytes.
+		///
+		/// Empty slices are valid inputs as they are used in `Randomness::random_seed`.
+		pub fn new(s: &'a [u8]) -> Self {
+			Self(s, 0)
 		}
-		let off = &mut self.1;
-		while into.len() != 0 {
-			let len = into.len().min(data.len() - *off);
-			(&mut into[..len]).copy_from_slice(&data[..len]);
-			*off = (*off + len) % data.len();
-			into = &mut into[len..];
-		}
-		Ok(())
 	}
-}
 
-/// This is not a real source of Randomness. Only use this for testing.
-#[cfg(test)]
-impl<O: FromEntropy, B: Zero> Randomness<O, B> for () {
-	fn random(subject: &[u8]) -> (O, B) {
-		const REASON: &'static str = "from_entropy is given an infinite input; qed";
-		(O::from_entropy(&mut RepeatingSlice::new(subject)).expect(REASON), B::zero())
+	impl<'a> Input for RepeatingSlice<'a> {
+		fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
+			Ok(Some(usize::max_value()))
+		}
+
+		fn read(&mut self, mut into: &mut [u8]) -> Result<(), Error> {
+			let data = &self.0;
+			if data.is_empty() {
+				// Empty slices are valid inputs as they are used in `Randomness::random_seed`. The
+				// solution here is to just return from `Input::read` leaving the destination
+				// untouched, but another option is to fill it with zeroes or some other value (e.g.
+				// `0..256`) in the `RepeatingSlice` constructor, though I expect that it would be
+				// more useful in testing to be able to control the `random_seed` output knowing
+				// it's a noop.
+				return Ok(())
+			}
+			let off = &mut self.1;
+			while into.len() != 0 {
+				let len = into.len().min(data.len() - *off);
+				(&mut into[..len]).copy_from_slice(&data[..len]);
+				*off = (*off + len) % data.len();
+				into = &mut into[len..];
+			}
+			Ok(())
+		}
+	}
+
+	/// This is not a real source of Randomness. Only use this for testing.
+	impl<O: FromEntropy, B: Zero> Randomness<O, B> for () {
+		fn random(subject: &[u8]) -> (O, B) {
+			const REASON: &'static str = "from_entropy is given an infinite input; qed";
+			(O::from_entropy(&mut RepeatingSlice::new(subject)).expect(REASON), B::zero())
+		}
 	}
 }
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+	use super::test_randomness::*;
+	use codec::Input;
 
 	#[test]
 	fn repeating_slice_0_sized_input() {
