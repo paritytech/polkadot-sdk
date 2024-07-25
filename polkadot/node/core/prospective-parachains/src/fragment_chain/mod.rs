@@ -549,7 +549,7 @@ impl Scope {
 	}
 
 	/// Whether the candidate in question is one pending availability in this scope.
-	fn get_pending_availability(
+	pub fn get_pending_availability(
 		&self,
 		candidate_hash: &CandidateHash,
 	) -> Option<&PendingAvailability> {

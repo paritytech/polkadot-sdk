@@ -400,7 +400,7 @@ fn populate_empty() {
 }
 
 #[test]
-fn populate_with_empty_best_chain() {
+fn test_populate() {
 	let mut storage = CandidateStorage::default();
 
 	let para_id = ParaId::from(5u32);
@@ -931,7 +931,7 @@ fn populate_with_empty_best_chain() {
 		relay_parent_z_info.number,
 		vec![0x0f].into(),
 		vec![0xf1].into(),
-		relay_parent_z_info.number,
+		1000,
 	);
 	let candidate_f_hash = candidate_f.hash();
 	storage
@@ -1053,7 +1053,7 @@ fn populate_with_empty_best_chain() {
 		)
 		.unwrap();
 
-	let chain = FragmentChain::populate(scope, storage.clone());
+	let chain = FragmentChain::populate(scope.clone(), storage.clone());
 	assert_eq!(chain.best_chain_vec(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
 	assert_eq!(
 		chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
@@ -1062,7 +1062,102 @@ fn populate_with_empty_best_chain() {
 			.collect()
 	);
 
-	// TODO: add test for the complete candidate checks
+	// Candidate F has an invalid hrmp watermark. however, it was not checked beforehand as we don't
+	// have its parent yet. Add its parent now. This will not impact anything as E is not yet part
+	// of the best chain.
+
+	let (pvd_e, candidate_e) = make_committed_candidate(
+		para_id,
+		relay_parent_z_info.hash,
+		relay_parent_z_info.number,
+		vec![0x0e].into(),
+		vec![0x0f].into(),
+		relay_parent_z_info.number,
+	);
+	let candidate_e_hash = candidate_e.hash();
+	storage
+		.add_candidate_entry(
+			CandidateEntry::new(candidate_e_hash, candidate_e, pvd_e, CandidateState::Seconded)
+				.unwrap(),
+		)
+		.unwrap();
+
+	let chain = FragmentChain::populate(scope, storage.clone());
+	assert_eq!(chain.best_chain_vec(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
+	assert_eq!(
+		chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
+		[
+			candidate_d_hash,
+			candidate_f_hash,
+			candidate_a2_hash,
+			candidate_b2_hash,
+			candidate_e_hash
+		]
+		.into_iter()
+		.collect()
+	);
+
+	// Simulate the fact that candidates A, B, C are now pending availability.
+	let scope = Scope::with_ancestors(
+		relay_parent_z_info.clone(),
+		base_constraints.clone(),
+		vec![
+			PendingAvailability {
+				candidate_hash: candidate_a_hash,
+				relay_parent: relay_parent_x_info,
+			},
+			PendingAvailability {
+				candidate_hash: candidate_b_hash,
+				relay_parent: relay_parent_y_info,
+			},
+			PendingAvailability {
+				candidate_hash: candidate_c_hash,
+				relay_parent: relay_parent_z_info.clone(),
+			},
+		],
+		2,
+		ancestors.clone(),
+	)
+	.unwrap();
+
+	// A2 and B2 will now be trimmed
+	let chain = FragmentChain::populate(scope.clone(), storage.clone());
+	assert_eq!(chain.best_chain_vec(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
+	assert_eq!(
+		chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
+		[candidate_d_hash, candidate_f_hash, candidate_e_hash].into_iter().collect()
+	);
+
+	// Simulate the fact that candidates A, B and C have been included.
+
+	let mut new_storage = chain.as_candidate_storage();
+	// We need to remove the candidates that used to be pending availability. This is what the
+	// subsystem is doing.
+	for candidate in scope.pending_availability {
+		new_storage.remove_candidate(&candidate.candidate_hash);
+	}
+
+	let base_constraints = make_constraints(0, vec![0], HeadData(vec![0x0d]));
+	let scope = Scope::with_ancestors(
+		relay_parent_z_info.clone(),
+		base_constraints.clone(),
+		pending_availability.clone(),
+		2,
+		ancestors.clone(),
+	)
+	.unwrap();
+
+	let chain = FragmentChain::populate(scope, new_storage);
+	assert_eq!(chain.best_chain_vec(), vec![candidate_d_hash]);
+	assert_eq!(
+		chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
+		[candidate_e_hash, candidate_f_hash].into_iter().collect()
+	);
+
+	// Mark E as backed. F will be dropped for invalid watermark. No other unconnected candidates.
+	let chain = chain.candidate_backed(&candidate_e_hash).unwrap();
+	assert_eq!(chain.best_chain_vec(), vec![candidate_d_hash, candidate_e_hash]);
+	assert_eq!(chain.unconnected_len(), 0);
 }
 
 #[test]
