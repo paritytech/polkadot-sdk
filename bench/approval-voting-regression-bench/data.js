@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721906900144,
+  "lastUpdate": 1721912428385,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -12360,6 +12360,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.627145700250045,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dónal Murray",
+            "username": "seadanda",
+            "email": "donal.murray@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d6f7f495ad25d166b5c0381f67030669f178027a",
+          "message": "Add people polkadot genesis chainspec (#5124)\n\nPublished as part of the fellowship\n[v1.2.6](https://github.com/polkadot-fellows/runtimes/releases/tag/v1.2.6)\nrelease and originally intentionally left out of the repo as the\nhardcoded system chains will soon be removed from the\n`polkadot-parachain`.\n\nAfter a conversation in\nhttps://github.com/paritytech/polkadot-sdk/issues/5112 it was pointed\nout by @josepot that there should be a single authoritative source for\nthese chainspecs. Since this is already the place for these it will\nserve until something more fitting can be worked out.",
+          "timestamp": "2024-07-25T11:23:20Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d6f7f495ad25d166b5c0381f67030669f178027a"
+        },
+        "date": 1721912397530,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 64035.69999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.826630459100062,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.701889821780004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.5743409141902625,
             "unit": "seconds"
           }
         ]
