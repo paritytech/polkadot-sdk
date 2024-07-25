@@ -280,6 +280,7 @@ impl Queue {
 		} else {
 			spawn_extra_worker(self, job);
 		}
+		self.metrics.on_execute_priority(priority);
 		self.unscheduled.log(priority);
 	}
 }

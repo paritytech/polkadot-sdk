@@ -18,6 +18,7 @@
 
 use polkadot_node_core_pvf_common::prepare::MemoryStats;
 use polkadot_node_metrics::metrics::{self, prometheus};
+use polkadot_node_subsystem::messages::PvfExecPriority;
 
 /// Validation host metrics.
 #[derive(Default, Clone)]
@@ -105,6 +106,13 @@ impl Metrics {
 				.observe((memory_stats.peak_tracked_alloc / 1024) as f64);
 		}
 	}
+
+	/// When preparation pipeline concluded working on an item.
+	pub(crate) fn on_execute_priority(&self, priority: PvfExecPriority) {
+		if let Some(metrics) = &self.0 {
+			metrics.execute_priority_selected.with_label_values(&[priority.as_str()]).inc();
+		}
+	}
 }
 
 #[derive(Clone)]
@@ -129,6 +137,7 @@ struct MetricsInner {
 	preparation_max_resident: prometheus::Histogram,
 	// Peak allocation value, tracked by tracking-allocator
 	preparation_peak_tracked_allocation: prometheus::Histogram,
+	execute_priority_selected: prometheus::CounterVec<prometheus::U64>,
 }
 
 impl metrics::Metrics for Metrics {
@@ -320,6 +329,16 @@ impl metrics::Metrics for Metrics {
 						prometheus::exponential_buckets(8192.0, 2.0, 10)
 							.expect("arguments are always valid; qed"),
 					),
+				)?,
+				registry,
+			)?,
+			execute_priority_selected: prometheus::register(
+				prometheus::CounterVec::new(
+					prometheus::Opts::new(
+						"polkadot_pvf_execute_priority_selected",
+						"The total number of selected execute priorities",
+					),
+					&["priority"],
 				)?,
 				registry,
 			)?,

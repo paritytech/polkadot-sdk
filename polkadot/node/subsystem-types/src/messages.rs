@@ -219,6 +219,18 @@ pub enum PvfExecPriority {
 	Backing,
 }
 
+impl PvfExecPriority {
+	/// Converts priority level to &str
+	pub fn as_str(&self) -> &str {
+		match *self {
+			Self::Dispute => "dispute",
+			Self::Approval => "approval",
+			Self::BackingSystemParas => "backing_system_paras",
+			Self::Backing => "backing",
+		}
+	}
+}
+
 impl From<PvfExecPriority> for PvfExecKind {
 	fn from(exec: PvfExecPriority) -> Self {
 		match exec {
