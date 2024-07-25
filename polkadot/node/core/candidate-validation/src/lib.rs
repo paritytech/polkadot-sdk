@@ -1018,7 +1018,7 @@ trait ValidationBackend {
 		exec_timeout: Duration,
 		encoded_params: Vec<u8>,
 		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::PreparePriority,
+		prepare_priority: polkadot_node_core_pvf::Priority,
 		// The priority for the preparation job.
 		execute_priority: PvfExecPriority,
 	) -> Result<WasmValidationResult, ValidationError>;
@@ -1039,7 +1039,7 @@ trait ValidationBackend {
 		executor_params: ExecutorParams,
 		retry_delay: Duration,
 		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::PreparePriority,
+		prepare_priority: polkadot_node_core_pvf::Priority,
 		// The priority for the preparation job.
 		execute_priority: PvfExecPriority,
 	) -> Result<WasmValidationResult, ValidationError> {
@@ -1167,7 +1167,7 @@ impl ValidationBackend for ValidationHost {
 		exec_timeout: Duration,
 		encoded_params: Vec<u8>,
 		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::PreparePriority,
+		prepare_priority: polkadot_node_core_pvf::Priority,
 		// The priority for the preparation job.
 		execute_priority: PvfExecPriority,
 	) -> Result<WasmValidationResult, ValidationError> {
