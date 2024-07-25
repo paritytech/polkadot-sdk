@@ -236,17 +236,6 @@ async fn handle_active_leaves_update<Context>(
 
 		let mut fragment_chains = HashMap::new();
 		for para in scheduled_paras {
-			// Get the candidate storage of the parent leaf, if present.
-			let prev_candidate_storage = prev_fragment_chains
-				.map(|chains| {
-					chains
-						.fragment_chains
-						.get(&para)
-						.map(|chain| chain.as_candidate_storage())
-						.unwrap_or_default()
-				})
-				.unwrap_or_default();
-
 			// Find constraints and pending availability candidates.
 			let backing_state = fetch_backing_state(ctx, hash, para).await?;
 			let Some((constraints, pending_availability)) = backing_state else {
@@ -322,6 +311,32 @@ async fn handle_active_leaves_update<Context>(
 				},
 			};
 
+			// Get the candidate storage of the parent leaf, if present.
+			let prev_fragment_chain =
+				prev_fragment_chains.and_then(|chains| chains.fragment_chains.get(&para));
+
+			if let Some(prev_fragment_chain) = prev_fragment_chain {
+				// Add old candidates to the new storage only after we added the pending
+				// availability candidates. The pending candidates have higher priority and can
+				// conflict with the old candidates.
+				for candidate in prev_fragment_chain.as_candidate_storage().into_candidates() {
+					// If they used to be pending availability, don't add them. This is fine
+					// because:
+					// - if they still are pending availability, they have already been added to the
+					//   new storage.
+					// - if they were included, no point in keeping them.
+					if prev_fragment_chain
+						.scope()
+						.get_pending_availability(&candidate.hash())
+						.is_none()
+					{
+						// We need to swallow any potential errors here, as they can happen under
+						// normal operation, with candidates becoming out of scope for example.
+						let _ = new_storage.add_candidate_entry(candidate);
+					}
+				}
+			}
+
 			gum::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
@@ -330,15 +345,6 @@ async fn handle_active_leaves_update<Context>(
 				ancestors = ?ancestry,
 				"Creating fragment chain"
 			);
-
-			// Add old candidates to the new storage only after we added the pending availability
-			// candidates. The pending candidates have higher priority and can conflict with the old
-			// candidates.
-			for candidate in prev_candidate_storage.into_candidates() {
-				// We need to swallow any potential errors here, as they can happen under normal
-				// operation, with candidates becoming out of scope for example.
-				let _ = new_storage.add_candidate_entry(candidate);
-			}
 
 			// Finally, populate the fragment chain.
 			let chain = FragmentChain::populate(scope, new_storage);
