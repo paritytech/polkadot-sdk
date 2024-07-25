@@ -108,7 +108,7 @@ use sp_core::{
 };
 
 #[cfg(feature = "bls-experimental")]
-use sp_core::{bls377, ecdsa_bls377};
+use sp_core::{bls381, ecdsa_bls381};
 
 #[cfg(feature = "std")]
 use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
@@ -1204,38 +1204,38 @@ pub trait Crypto {
 		Ok(pubkey.serialize())
 	}
 
-	/// Generate an `bls12-377` key for the given key type using an optional `seed` and
+	/// Generate an `bls12-381` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
 	#[cfg(feature = "bls-experimental")]
-	fn bls377_generate(&mut self, id: KeyTypeId, seed: Option<Vec<u8>>) -> bls377::Public {
+	fn bls381_generate(&mut self, id: KeyTypeId, seed: Option<Vec<u8>>) -> bls381::Public {
 		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
-			.bls377_generate_new(id, seed)
-			.expect("`bls377_generate` failed")
+			.bls381_generate_new(id, seed)
+			.expect("`bls381_generate` failed")
 	}
 
-	/// Generate an `(ecdsa,bls12-377)` key for the given key type using an optional `seed` and
+	/// Generate an `(ecdsa,bls12-381)` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
 	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls377_generate(
+	fn ecdsa_bls381_generate(
 		&mut self,
 		id: KeyTypeId,
 		seed: Option<Vec<u8>>,
-	) -> ecdsa_bls377::Public {
+	) -> ecdsa_bls381::Public {
 		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
-			.ecdsa_bls377_generate_new(id, seed)
-			.expect("`ecdsa_bls377_generate` failed")
+			.ecdsa_bls381_generate_new(id, seed)
+			.expect("`ecdsa_bls381_generate` failed")
 	}
 
 	/// Generate a `bandersnatch` key pair for the given key type using an optional
