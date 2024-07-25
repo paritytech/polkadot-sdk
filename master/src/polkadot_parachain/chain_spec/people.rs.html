@@ -496,6 +496,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#345" id="345">345</a>
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -561,8 +562,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			PeopleRuntimeType::Kusama =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
 				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../../chain-specs/people-kusama.json"</span>)[..],
 			)<span class="question-mark">?</span>)),
-			PeopleRuntimeType::Polkadot =&gt;
-				<span class="macro">todo!</span>(<span class="string">"Generate chain-spec: ../../chain-specs/people-polkadot.json"</span>),
+			PeopleRuntimeType::Polkadot =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../../chain-specs/people-polkadot.json"</span>)[..],
+			)<span class="question-mark">?</span>)),
 			PeopleRuntimeType::Rococo =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
 				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../../chain-specs/people-rococo.json"</span>)[..],
 			)<span class="question-mark">?</span>)),
