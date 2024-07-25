@@ -152,7 +152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     relayer_id_at_bridged_chain: AccountIdOf&lt;<a class="type" href="../type.BridgedChainOf.html" title="type pallet_bridge_messages::pallet::BridgedChainOf">BridgedChainOf</a>&lt;T, I&gt;&gt;,
     proof: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;FromBridgedChainMessagesProof&lt;HashOf&lt;<a class="type" href="../type.BridgedChainOf.html" title="type pallet_bridge_messages::pallet::BridgedChainOf">BridgedChainOf</a>&lt;T, I&gt;&gt;&gt;&gt;,
     messages_count: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
-    dispatch_weight: Weight
+    dispatch_weight: <a class="struct" href="../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Receive messages proof from bridged chain.</p>
 <p>The weight of the call assumes that the transaction always brings outbound lane
 state update. Because of that, the submitter (relayer) has no benefit of not including

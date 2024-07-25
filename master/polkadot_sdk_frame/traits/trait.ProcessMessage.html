@@ -155,7 +155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     fn <a href="#tymethod.process_message" class="fn">process_message</a>(
         message: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
         origin: Self::<a class="associatedtype" href="trait.ProcessMessage.html#associatedtype.Origin" title="type polkadot_sdk_frame::traits::ProcessMessage::Origin">Origin</a>,
-        meter: &amp;mut WeightMeter,
+        meter: &amp;mut <a class="struct" href="../../sp_weights/weight_meter/struct.WeightMeter.html" title="struct sp_weights::weight_meter::WeightMeter">WeightMeter</a>,
         id: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>]
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>, <a class="enum" href="enum.ProcessMessageError.html" title="enum polkadot_sdk_frame::traits::ProcessMessageError">ProcessMessageError</a>&gt;;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Can process messages from a specific origin.</p>
@@ -163,7 +163,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.process_message" class="method"><h4 class="code-header">fn <a href="#tymethod.process_message" class="fn">process_message</a>(
     message: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
     origin: Self::<a class="associatedtype" href="trait.ProcessMessage.html#associatedtype.Origin" title="type polkadot_sdk_frame::traits::ProcessMessage::Origin">Origin</a>,
-    meter: &amp;mut WeightMeter,
+    meter: &amp;mut <a class="struct" href="../../sp_weights/weight_meter/struct.WeightMeter.html" title="struct sp_weights::weight_meter::WeightMeter">WeightMeter</a>,
     id: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>]
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>, <a class="enum" href="enum.ProcessMessageError.html" title="enum polkadot_sdk_frame::traits::ProcessMessageError">ProcessMessageError</a>&gt;</h4></section></summary><div class="docblock"><p>Process the given message, using no more than the remaining <code>meter</code> weight to do so.</p>
 <p>Returns whether the message was processed.</p>
