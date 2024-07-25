@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721863939900,
+  "lastUpdate": 1721897141837,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -6173,6 +6173,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.048701009150000016,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "de6733baedf5406c37393c20912536600d3ef6fa",
+          "message": "Bridges improved tests and nits (#5128)\n\nThis PR adds `exporter_is_compatible_with_pallet_xcm_bridge_hub_router`,\nwhich ensures that our `pallet_xcm_bridge_hub` and\n`pallet_xcm_bridge_hub_router` are compatible when handling\n`ExportMessage`. Other changes are just small nits and cosmetics which\nmakes others stuff easier.\n\n---------\n\nCo-authored-by: Svyatoslav Nikolsky <svyatonik@gmail.com>",
+          "timestamp": "2024-07-25T06:56:18Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/de6733baedf5406c37393c20912536600d3ef6fa"
+        },
+        "date": 1721897111504,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.92199999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.046009328855999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.037315117092000014,
             "unit": "seconds"
           }
         ]
