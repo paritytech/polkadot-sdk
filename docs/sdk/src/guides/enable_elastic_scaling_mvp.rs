@@ -70,8 +70,8 @@
 //! - Ensure enough coretime is assigned to the parachain. For maximum throughput the upper bound is
 //!   3 cores.
 //!
-//! <div class="warning">Phase 1 is not needed if using the `polkadot-parachain` binary built
-//! from the latest polkadot-sdk release! Simply pass the `--experimental-use-slot-based` parameter
+//! <div class="warning">Phase 1 is not needed if using the <code>polkadot-parachain</code> binary built
+//! from the latest polkadot-sdk release! Simply pass the <code>--experimental-use-slot-based</code> parameter
 //! to the command line and jump to Phase 2.</div>
 //!
 //! The following steps assume using the cumulus parachain template.
