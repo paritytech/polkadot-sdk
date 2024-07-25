@@ -79,7 +79,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras_inherent::Weigh
 	/// Storage: `Session::DisabledValidators` (r:1 w:0)
 	/// Proof: `Session::DisabledValidators` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `v` is `[10, 200]`.
-	fn enter_empty(_v: u32, ) -> Weight {
+	fn enter_empty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `7887`
 		//  Estimated: `11352`
@@ -283,6 +283,8 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras_inherent::Weigh
 		// Minimum execution time: 5_519_381_000 picoseconds.
 		Weight::from_parts(1_341_041_627, 0)
 			.saturating_add(Weight::from_parts(0, 49243))
+			// Standard Error: 23_295
+			.saturating_add(Weight::from_parts(41_790_858, 0).saturating_mul(v.into()))
 			.saturating_add(T::DbWeight::get().reads(29))
 			.saturating_add(T::DbWeight::get().writes(16))
 	}
