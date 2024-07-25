@@ -1081,16 +1081,24 @@ pub fn new_full<
 
 	if let Some(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(&hwbench);
-		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) {
+		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench, role.is_authority()) {
 			Err(err) if role.is_authority() => {
-				if err.0.iter().any(|failure| failure.metric == Metric::Blake2256Parallel) {
+				if err
+					.0
+					.iter()
+					.any(|failure| matches!(failure.metric, Metric::Blake2256Parallel { .. }))
+				{
 					log::info!(
 						"⚠️  The hardware will fail the minimal parallel performance requirements {} for role 'Authority', find out more when this will become mandatory at:\n\
 						https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
 						err
 					);
 				}
-				if err.0.iter().any(|failure| failure.metric != Metric::Blake2256Parallel) {
+				if err
+					.0
+					.iter()
+					.any(|failure| !matches!(failure.metric, Metric::Blake2256Parallel { .. }))
+				{
 					log::warn!(
 						"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
 						https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",

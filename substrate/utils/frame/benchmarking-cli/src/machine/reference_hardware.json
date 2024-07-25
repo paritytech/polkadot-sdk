@@ -4,8 +4,9 @@
 		"minimum": 783.27
 	},
 	{
-		"metric": "Blake2256Parallel",
-		"minimum": 783.27
+		"metric": {"Blake2256Parallel":{"num_cores":8}},
+		"minimum": 783.27,
+		"check_on_rc_authority": true
 	},
 	{
 		"metric": "Sr25519Verify",

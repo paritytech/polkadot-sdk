@@ -43,8 +43,8 @@ pub enum Metric {
 	Sr25519Verify,
 	/// Blake2-256 hashing algorithm.
 	Blake2256,
-	/// Blake2-256 hashing algorithm executed in parallel.
-	Blake2256Parallel,
+	/// Blake2-256 hashing algorithm executed in parallel
+	Blake2256Parallel { num_cores: usize },
 	/// Copying data in RAM.
 	MemCopy,
 	/// Disk sequential write.
@@ -88,7 +88,7 @@ impl Metric {
 	/// The category of the metric.
 	pub fn category(&self) -> &'static str {
 		match self {
-			Self::Sr25519Verify | Self::Blake2256 | Self::Blake2256Parallel => "CPU",
+			Self::Sr25519Verify | Self::Blake2256 | Self::Blake2256Parallel { .. } => "CPU",
 			Self::MemCopy => "Memory",
 			Self::DiskSeqWrite | Self::DiskRndWrite => "Disk",
 		}
@@ -99,7 +99,8 @@ impl Metric {
 		match self {
 			Self::Sr25519Verify => "SR25519-Verify",
 			Self::Blake2256 => "BLAKE2-256",
-			Self::Blake2256Parallel => "BLAKE2-256-Parallel",
+			Self::Blake2256Parallel { num_cores } =>
+				format!("BLAKE2-256-Parallel-{}", num_cores).leak(),
 			Self::MemCopy => "Copy",
 			Self::DiskSeqWrite => "Seq Write",
 			Self::DiskRndWrite => "Rnd Write",
@@ -257,6 +258,14 @@ pub struct Requirement {
 		deserialize_with = "deserialize_throughput"
 	)]
 	pub minimum: Throughput,
+	/// Check this requirement only for relay chain authority nodes.
+	#[serde(default)]
+	#[serde(skip_serializing_if = "is_false")]
+	pub check_on_rc_authority: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+	!value
 }
 
 #[inline(always)]
@@ -384,15 +393,14 @@ pub fn benchmark_cpu(limit: ExecutionLimit) -> Throughput {
 // score obtained by each thread. If we have at least `EXPECTED_NUM_CORES` available then the
 // average throughput should be relatively close to the single core performance as measured by
 // `benchmark_cpu`.
-pub fn benchmark_cpu_parallelism(limit: ExecutionLimit) -> Throughput {
+pub fn benchmark_cpu_parallelism(limit: ExecutionLimit, refhw_num_cores: usize) -> Throughput {
 	const SIZE: usize = 32 * 1024;
-	const EXPECTED_NUM_CORES: usize = 8;
 
-	let ready_to_run_benchmark = Arc::new(Barrier::new(EXPECTED_NUM_CORES));
+	let ready_to_run_benchmark = Arc::new(Barrier::new(refhw_num_cores));
 	let mut benchmark_threads = Vec::new();
 
 	// Spawn a thread for each expected core and average the throughput for each of them.
-	for _ in 0..EXPECTED_NUM_CORES {
+	for _ in 0..refhw_num_cores {
 		let ready_to_run_benchmark = ready_to_run_benchmark.clone();
 
 		let handle = std::thread::spawn(move || {
@@ -418,7 +426,7 @@ pub fn benchmark_cpu_parallelism(limit: ExecutionLimit) -> Throughput {
 		.into_iter()
 		.map(|thread| thread.join().map(|throughput| throughput.as_kibs()).unwrap_or(f64::MIN))
 		.sum::<f64>() /
-		EXPECTED_NUM_CORES as f64;
+		refhw_num_cores as f64;
 	Throughput::from_kibs(average_score)
 }
 
@@ -671,11 +679,23 @@ pub fn benchmark_sr25519_verify(limit: ExecutionLimit) -> Throughput {
 /// Optionally accepts a path to a `scratch_directory` to use to benchmark the
 /// disk. Also accepts the `requirements` for the hardware benchmark and a
 /// boolean to specify if the node is an authority.
-pub fn gather_hwbench(scratch_directory: Option<&Path>) -> HwBench {
+pub fn gather_hwbench(scratch_directory: Option<&Path>, requirements: &Requirements) -> HwBench {
+	let parallel_num_cores = requirements
+		.0
+		.iter()
+		.filter_map(|requirement| match requirement.metric {
+			Metric::Blake2256Parallel { num_cores } => Some(num_cores),
+			_ => None,
+		})
+		.next()
+		.unwrap_or(1);
 	#[allow(unused_mut)]
 	let mut hwbench = HwBench {
 		cpu_hashrate_score: benchmark_cpu(DEFAULT_CPU_EXECUTION_LIMIT),
-		parallel_cpu_hashrate_score: benchmark_cpu_parallelism(DEFAULT_CPU_EXECUTION_LIMIT),
+		parallel_cpu_hashrate_score: benchmark_cpu_parallelism(
+			DEFAULT_CPU_EXECUTION_LIMIT,
+			parallel_num_cores,
+		),
 		memory_memcpy_score: benchmark_memory(DEFAULT_MEMORY_EXECUTION_LIMIT),
 		disk_sequential_write_score: None,
 		disk_random_write_score: None,
@@ -707,9 +727,17 @@ pub fn gather_hwbench(scratch_directory: Option<&Path>) -> HwBench {
 
 impl Requirements {
 	/// Whether the hardware requirements are met by the provided benchmark results.
-	pub fn check_hardware(&self, hwbench: &HwBench) -> Result<(), CheckFailures> {
+	pub fn check_hardware(
+		&self,
+		hwbench: &HwBench,
+		is_rc_authority: bool,
+	) -> Result<(), CheckFailures> {
 		let mut failures = Vec::new();
 		for requirement in self.0.iter() {
+			if requirement.check_on_rc_authority && !is_rc_authority {
+				continue
+			}
+
 			match requirement.metric {
 				Metric::Blake2256 =>
 					if requirement.minimum > hwbench.cpu_hashrate_score {
@@ -719,7 +747,7 @@ impl Requirements {
 							found: hwbench.cpu_hashrate_score,
 						});
 					},
-				Metric::Blake2256Parallel =>
+				Metric::Blake2256Parallel { .. } =>
 					if requirement.minimum > hwbench.parallel_cpu_hashrate_score {
 						failures.push(CheckFailure {
 							metric: requirement.metric,
@@ -791,7 +819,7 @@ mod tests {
 	#[test]
 	fn test_benchmark_parallel_cpu() {
 		assert!(
-			benchmark_cpu_parallelism(DEFAULT_CPU_EXECUTION_LIMIT) > Throughput::from_mibs(0.0)
+			benchmark_cpu_parallelism(DEFAULT_CPU_EXECUTION_LIMIT, 8) > Throughput::from_mibs(0.0)
 		);
 	}
 
