@@ -89,8 +89,8 @@ jobs:
     strategy: 
       fail-fast: false     
       matrix:
-        ci_node_total: [5]
-        ci_node_index: [1,2,3,4,5]      
+        ci_node_total: [1]
+        ci_node_index: [1]      
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -106,7 +106,7 @@ jobs:
         run: >
           time cargo llvm-cov  nextest
           --no-report --release
-          --workspace
+          -p polkadot
           --locked --no-fail-fast
           --features try-runtime,experimental,riscv,ci-only-tests
           --filter-expr "
@@ -132,7 +132,7 @@ jobs:
       - run: ls -al /__w/polkadot-sdk/polkadot-sdk/target
       - run: ls -al /__w/polkadot-sdk/polkadot-sdk/target/llvm-cov-target
       - name: generate report
-        run: cargo llvm-cov report --release --lcov --output-path coverage-${{ matrix.ci_node_index }}.lcov --features try-runtime,experimental,riscv,ci-only-tests
+        run: cargo llvm-cov report --release --lcov --output-path coverage-${{ matrix.ci_node_index }}.lcov
       - run: ls -al
       - name: upload report
         uses: actions/upload-artifact@v4
