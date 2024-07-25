@@ -127,7 +127,7 @@
 //! - [Fixed point types](sp_arithmetic::fixed_point) and their associated usage can be found here.
 //! - [PerThing](sp_arithmetic::per_things) and its associated types can be found here.
 //!
-//! Using floating point number types (i.e., f32. f64) in the runtime should be avoided, as a single non-deterministic result could cause chaos for blockchain consensus along with the issues above. For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerphile](https://www.youtube.com/watch?v=PZRI1IfStY0).
+//! Using floating point number types (i.e. f32, f64) in the runtime should be avoided, as a single non-deterministic result could cause chaos for blockchain consensus along with the issues above. For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerphile](https://www.youtube.com/watch?v=PZRI1IfStY0).
 //!
 //! The following methods demonstrate different ways to handle numbers natively in Rust safely,
 //! without fear of panic or unexpected behavior from wrapping.
