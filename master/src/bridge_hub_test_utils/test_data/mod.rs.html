@@ -289,10 +289,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -327,20 +323,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>bp_runtime::BasicOperatingMode;
 <span class="kw">use </span>bp_test_utils::authority_list;
 <span class="kw">use </span>xcm::GetVersion;
-<span class="kw">use </span>xcm_builder::{HaulBlob, HaulBlobError, HaulBlobExporter};
+<span class="kw">use </span>xcm_builder::{BridgeMessage, HaulBlob, HaulBlobError, HaulBlobExporter};
 <span class="kw">use </span>xcm_executor::traits::{validate_export, ExportXcm};
 
-<span class="kw">pub fn </span>prepare_inbound_xcm&lt;InnerXcmRuntimeCall&gt;(
-	xcm_message: Xcm&lt;InnerXcmRuntimeCall&gt;,
-	destination: InteriorLocation,
-) -&gt; Vec&lt;u8&gt; {
+<span class="kw">pub fn </span>prepare_inbound_xcm(xcm_message: Xcm&lt;()&gt;, destination: InteriorLocation) -&gt; Vec&lt;u8&gt; {
 	<span class="kw">let </span>location = xcm::VersionedInteriorLocation::from(destination);
-	<span class="kw">let </span>xcm = xcm::VersionedXcm::&lt;InnerXcmRuntimeCall&gt;::from(xcm_message);
-	<span class="comment">// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
-	// or public fields, so just tuple
-	// (double encoding, because `.encode()` is called on original Xcm BLOB when it is pushed
-	// to the storage)
-	</span>(location, xcm).encode().encode()
+	<span class="kw">let </span>xcm = xcm::VersionedXcm::&lt;()&gt;::from(xcm_message);
+
+	<span class="comment">// (double encoding, because `.encode()` is called on original Xcm BLOB when it is pushed to the
+	// storage)
+	</span>BridgeMessage { universal_dest: location, message: xcm }.encode().encode()
 }
 
 <span class="doccomment">/// Helper that creates InitializationData mock data, that can be used to initialize bridge

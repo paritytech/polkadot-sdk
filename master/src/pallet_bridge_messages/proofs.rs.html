@@ -776,7 +776,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>nonces_range = nonces_start..=nonces_end;
 
 	<span class="comment">// receiving proofs where end &lt; begin is ok (if proof includes outbound lane state)
-	</span><span class="kw">let </span>messages_in_the_proof = nonces_range.checked_len().unwrap_or(<span class="number">0</span>);
+	</span><span class="kw">let </span>messages_in_the_proof = nonces_range.saturating_len();
 	<span class="kw">if </span>messages_in_the_proof != MessageNonce::from(messages_count) {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(VerificationError::MessagesCountMismatch)
 	}

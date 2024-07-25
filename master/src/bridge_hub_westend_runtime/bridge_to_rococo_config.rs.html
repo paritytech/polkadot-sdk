@@ -474,8 +474,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#323" id="323">323</a>
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -503,7 +501,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	target_chain::FromBridgedChainMessagesProof, LaneId,
 };
 <span class="kw">use </span>bp_parachains::SingleParaStoredHeaderDataBuilder;
-<span class="kw">use </span>bp_runtime::Chain;
 <span class="kw">use </span>bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
@@ -532,7 +529,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>RococoBridgeParachainPalletName: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"Paras"</span>;
 	<span class="kw">pub const </span>MaxRococoParaHeadDataSize: u32 = bp_rococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
 
-	<span class="kw">pub const </span>BridgeHubRococoChainId: bp_runtime::ChainId = bp_bridge_hub_rococo::BridgeHubRococo::ID;
 	<span class="kw">pub </span>BridgeWestendToRococoMessagesPalletInstance: InteriorLocation = [PalletInstance(&lt;BridgeRococoMessages <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8)].into();
 	<span class="kw">pub </span>RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
 	<span class="kw">pub </span>RococoGlobalConsensusNetworkLocation: Location = Location::new(

@@ -445,8 +445,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -475,7 +473,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::FromBridgedChainMessagesProof, LaneId,
 };
-<span class="kw">use </span>bp_runtime::Chain;
 <span class="kw">use </span>bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
@@ -496,7 +493,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>xcm_builder::BridgeBlobDispatcher;
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>BridgeHubWestendChainId: bp_runtime::ChainId = bp_bridge_hub_westend::BridgeHubWestend::ID;
 	<span class="kw">pub </span>BridgeRococoToWestendMessagesPalletInstance: InteriorLocation = [PalletInstance(&lt;BridgeWestendMessages <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8)].into();
 	<span class="kw">pub </span>WestendGlobalConsensusNetwork: NetworkId = NetworkId::Westend;
 	<span class="kw">pub </span>WestendGlobalConsensusNetworkLocation: Location = Location::new(

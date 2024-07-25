@@ -434,10 +434,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -592,13 +588,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Prepare storage proofs of messages, stored at the (bridged) source GRANDPA chain.
-</span><span class="kw">pub fn </span>make_complex_relayer_delivery_proofs&lt;
-	BridgedChain,
-	ThisChainWithMessages,
-	InnerXcmRuntimeCall,
-&gt;(
+</span><span class="kw">pub fn </span>make_complex_relayer_delivery_proofs&lt;BridgedChain, ThisChainWithMessages&gt;(
 	lane_id: LaneId,
-	xcm_message: Xcm&lt;InnerXcmRuntimeCall&gt;,
+	xcm_message: Xcm&lt;()&gt;,
 	message_nonce: MessageNonce,
 	message_destination: Junctions,
 	header_number: BlockNumberOf&lt;BridgedChain&gt;,

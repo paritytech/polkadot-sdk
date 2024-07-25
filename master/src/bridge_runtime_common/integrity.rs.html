@@ -488,6 +488,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -517,19 +526,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_system::limits;
 <span class="kw">use </span>pallet_bridge_messages::WeightInfoExt <span class="kw">as _</span>;
 
+<span class="comment">// Re-export to avoid include all dependencies everywhere.
+</span><span class="attr">#[doc(hidden)]
+</span><span class="kw">pub mod </span>__private {
+	<span class="kw">pub use </span>bp_xcm_bridge_hub;
+	<span class="kw">pub use </span>static_assertions;
+}
+
 <span class="doccomment">/// Macro that ensures that the runtime configuration and chain primitives crate are sharing
 /// the same types (nonce, block number, hash, hasher, account id and header).
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>assert_chain_types(
 	( runtime: <span class="macro-nonterminal">$r</span>:path, this_chain: <span class="macro-nonterminal">$this</span>:path ) =&gt; {
 		{
+			<span class="kw">use </span>frame_system::{Config <span class="kw">as </span>SystemConfig, pallet_prelude::{BlockNumberFor, HeaderFor}};
+			<span class="kw">use </span><span class="macro-nonterminal">$crate::integrity::__private::static_assertions::assert_type_eq_all</span>;
+
 			<span class="comment">// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
 			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
 			// and relays will stop functioning)
-			</span><span class="kw">use </span>frame_system::{Config <span class="kw">as </span>SystemConfig, pallet_prelude::{BlockNumberFor, HeaderFor}};
-			<span class="kw">use </span>static_assertions::assert_type_eq_all;
 
-			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>SystemConfig&gt;::Nonce, bp_runtime::NonceOf&lt;<span class="macro-nonterminal">$this</span>&gt;);
+			</span><span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>SystemConfig&gt;::Nonce, bp_runtime::NonceOf&lt;<span class="macro-nonterminal">$this</span>&gt;);
 			<span class="macro">assert_type_eq_all!</span>(BlockNumberFor&lt;<span class="macro-nonterminal">$r</span>&gt;, bp_runtime::BlockNumberOf&lt;<span class="macro-nonterminal">$this</span>&gt;);
 			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>SystemConfig&gt;::Hash, bp_runtime::HashOf&lt;<span class="macro-nonterminal">$this</span>&gt;);
 			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>SystemConfig&gt;::Hashing, bp_runtime::HasherOf&lt;<span class="macro-nonterminal">$this</span>&gt;);
@@ -550,16 +567,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		bridged_chain: <span class="macro-nonterminal">$bridged</span>:path,
 	) =&gt; {
 		{
-			<span class="comment">// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
-			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
-			// and relays will stop functioning)
-			</span><span class="kw">use </span><span class="macro-nonterminal">$crate::messages_xcm_extension::XcmAsPlainPayload</span>;
+			<span class="kw">use </span><span class="macro-nonterminal">$crate::messages_xcm_extension::XcmAsPlainPayload</span>;
+			<span class="kw">use </span><span class="macro-nonterminal">$crate::integrity::__private::static_assertions::assert_type_eq_all</span>;
 			<span class="kw">use </span>bp_messages::ChainWithMessages;
 			<span class="kw">use </span>bp_runtime::Chain;
 			<span class="kw">use </span>pallet_bridge_messages::Config <span class="kw">as </span>MessagesConfig;
-			<span class="kw">use </span>static_assertions::assert_type_eq_all;
 
-			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::ThisChain, <span class="macro-nonterminal">$this</span>);
+			<span class="comment">// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
+			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
+			// and relays will stop functioning)
+
+			</span><span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::ThisChain, <span class="macro-nonterminal">$this</span>);
 			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::BridgedChain, <span class="macro-nonterminal">$bridged</span>);
 
 			<span class="macro">assert_type_eq_all!</span>(&lt;<span class="macro-nonterminal">$r </span><span class="kw">as </span>MessagesConfig&lt;<span class="macro-nonterminal">$i</span>&gt;&gt;::OutboundPayload, XcmAsPlainPayload);

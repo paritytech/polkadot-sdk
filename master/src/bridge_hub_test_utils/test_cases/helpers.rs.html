@@ -529,6 +529,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -553,6 +557,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>bp_messages::{LaneId, MessageNonce};
 <span class="kw">use </span>bp_polkadot_core::parachains::{ParaHash, ParaId};
 <span class="kw">use </span>bp_relayers::RewardsAccountParams;
+<span class="kw">use </span>bp_runtime::Chain;
 <span class="kw">use </span>codec::Decode;
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::{
@@ -798,6 +803,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		InteriorLocation,
 		MessageNonce,
 		Xcm&lt;()&gt;,
+		bp_runtime::ChainId,
 	) -&gt; CallsAndVerifiers&lt;Runtime&gt;,
 ) <span class="kw">where
 	</span>Runtime: BasicParachainRuntime + cumulus_pallet_xcmp_queue::Config + BridgeMessagesConfig&lt;MPI&gt;,
@@ -809,6 +815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>relayer_at_target = Bob;
 	<span class="kw">let </span>relayer_id_on_target: AccountId32 = relayer_at_target.public().into();
 	<span class="kw">let </span>relayer_id_on_source = relayer_id_at_bridged_chain::&lt;Runtime, MPI&gt;();
+	<span class="kw">let </span>bridged_chain_id = Runtime::BridgedChain::ID;
 
 	<span class="macro">assert_ne!</span>(runtime_para_id, sibling_parachain_id);
 
@@ -870,6 +877,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					message_destination,
 					message_nonce,
 					xcm.clone().into(),
+					bridged_chain_id,
 				),
 			);
 

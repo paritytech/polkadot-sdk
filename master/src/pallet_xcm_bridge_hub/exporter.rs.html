@@ -355,6 +355,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -488,6 +522,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::mock::<span class="kw-2">*</span>;
+	<span class="kw">use </span>bp_runtime::RangeInclusiveExt;
 	<span class="kw">use </span>frame_support::assert_ok;
 	<span class="kw">use </span>xcm_executor::traits::export_xcm;
 
@@ -495,8 +530,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		[GlobalConsensus(RelayNetwork::get()), Parachain(SIBLING_ASSET_HUB_ID)].into()
 	}
 
-	<span class="kw">fn </span>universal_destination() -&gt; InteriorLocation {
-		BridgedDestination::get()
+	<span class="kw">fn </span>bridged_relative_destination() -&gt; InteriorLocation {
+		BridgedRelativeDestination::get()
 	}
 
 	<span class="attr">#[test]
@@ -506,7 +541,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				BridgedRelayNetwork::get(),
 				<span class="number">0</span>,
 				universal_source(),
-				universal_destination(),
+				bridged_relative_destination(),
 				<span class="macro">vec!</span>[Instruction::ClearOrigin].into(),
 			));
 		})
@@ -520,7 +555,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					BridgedRelayNetwork::get(),
 					<span class="number">0</span>,
 					<span class="kw-2">&amp;mut </span><span class="prelude-val">None</span>,
-					<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(universal_destination()),
+					<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(bridged_relative_destination()),
 					<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(Vec::new().into()),
 				),
 				<span class="prelude-val">Err</span>(SendError::MissingArgument),
@@ -549,7 +584,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					BridgedRelayNetwork::get(),
 					<span class="number">0</span>,
 					<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(universal_source()),
-					<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(universal_destination()),
+					<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(bridged_relative_destination()),
 					<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(Vec::new().into()),
 				)
 				.unwrap()
@@ -558,6 +593,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>.lane,
 				expected_lane_id,
 			);
+		})
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>exporter_is_compatible_with_pallet_xcm_bridge_hub_router() {
+		run_test(|| {
+			<span class="comment">// valid routable destination
+			</span><span class="kw">let </span>dest = Location::new(<span class="number">2</span>, BridgedUniversalDestination::get());
+			<span class="kw">let </span>expected_lane_id = TEST_LANE_ID;
+
+			<span class="comment">// check before - no messages
+			</span><span class="macro">assert_eq!</span>(
+				pallet_bridge_messages::Pallet::&lt;TestRuntime, ()&gt;::outbound_lane_data(
+					expected_lane_id
+				)
+				.queued_messages()
+				.saturating_len(),
+				<span class="number">0
+			</span>);
+
+			<span class="comment">// send `ExportMessage(message)` by `pallet_xcm_bridge_hub_router`.
+			</span>TestExportXcmWithXcmOverBridge::set_origin_for_execute(SiblingLocation::get());
+			<span class="macro">assert_ok!</span>(send_xcm::&lt;XcmOverBridgeRouter&gt;(dest, Xcm::&lt;()&gt;::default()));
+
+			<span class="comment">// check after - a message ready to be relayed
+			</span><span class="macro">assert_eq!</span>(
+				pallet_bridge_messages::Pallet::&lt;TestRuntime, ()&gt;::outbound_lane_data(
+					expected_lane_id
+				)
+				.queued_messages()
+				.saturating_len(),
+				<span class="number">1
+			</span>);
 		})
 	}
 }

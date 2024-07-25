@@ -556,6 +556,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#405" id="405">405</a>
 <a href="#406" id="406">406</a>
 <a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -579,7 +580,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>bp_messages::LaneId;
 <span class="kw">use </span>bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
-<span class="kw">use </span>bp_runtime::ChainId;
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::{
 	parameter_types,
@@ -770,7 +770,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">Self</span>::AssetTransactor,
 				<span class="kw">crate</span>::bridge_to_westend_config::WestendGlobalConsensusNetwork,
 				<span class="kw">crate</span>::bridge_to_westend_config::AssetHubWestendParaId,
-				<span class="kw">crate</span>::bridge_to_westend_config::BridgeHubWestendChainId,
+				bp_bridge_hub_westend::BridgeHubWestend,
 				<span class="kw">crate</span>::bridge_to_westend_config::AssetHubRococoToAssetHubWestendMessagesLane,
 			&gt;,
 			XcmExportFeeToSibling&lt;
@@ -860,22 +860,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AssetTransactor,
 	DestNetwork,
 	DestParaId,
-	DestBridgedChainId,
+	DestBridgedChain,
 	BridgeLaneId,
-&gt;(PhantomData&lt;(AssetTransactor, DestNetwork, DestParaId, DestBridgedChainId, BridgeLaneId)&gt;);
+&gt;(PhantomData&lt;(AssetTransactor, DestNetwork, DestParaId, DestBridgedChain, BridgeLaneId)&gt;);
 
 <span class="kw">impl</span>&lt;
 		AssetTransactor: TransactAsset,
 		DestNetwork: Get&lt;NetworkId&gt;,
 		DestParaId: Get&lt;cumulus_primitives_core::ParaId&gt;,
-		DestBridgedChainId: Get&lt;ChainId&gt;,
+		DestBridgedChain: bp_runtime::Chain,
 		BridgeLaneId: Get&lt;LaneId&gt;,
 	&gt; HandleFee
 	<span class="kw">for </span>XcmExportFeeToRelayerRewardAccounts&lt;
 		AssetTransactor,
 		DestNetwork,
 		DestParaId,
-		DestBridgedChainId,
+		DestBridgedChain,
 		BridgeLaneId,
 	&gt;
 {
@@ -884,6 +884,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>bridged_network == DestNetwork::get() &amp;&amp;
 					destination == [Parachain(DestParaId::get().into())])
 		{
+			<span class="kw">let </span>bridged_chain_id = DestBridgedChain::ID;
+
 			<span class="comment">// We have 2 relayer rewards accounts:
 			// - the SA of the source parachain on this BH: this pays the relayers for delivering
 			//   Source para -&gt; Target Para message delivery confirmations
@@ -895,7 +897,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				AccountId,
 			&gt;::rewards_account(RewardsAccountParams::new(
 				BridgeLaneId::get(),
-				DestBridgedChainId::get(),
+				bridged_chain_id,
 				RewardsAccountOwner::ThisChain,
 			));
 
@@ -904,7 +906,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				AccountId,
 			&gt;::rewards_account(RewardsAccountParams::new(
 				BridgeLaneId::get(),
-				DestBridgedChainId::get(),
+				bridged_chain_id,
 				RewardsAccountOwner::BridgedChain,
 			));
 

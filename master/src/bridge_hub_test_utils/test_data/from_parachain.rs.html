@@ -523,8 +523,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -722,10 +720,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BridgedRelayChain,
 	BridgedParachain,
 	ThisChainWithMessages,
-	InnerXcmRuntimeCall,
 &gt;(
 	lane_id: LaneId,
-	xcm_message: Xcm&lt;InnerXcmRuntimeCall&gt;,
+	xcm_message: Xcm&lt;()&gt;,
 	message_nonce: MessageNonce,
 	message_destination: Junctions,
 	para_header_number: u32,
@@ -794,7 +791,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BridgedRelayChain,
 	BridgedParachain,
 	ThisChainWithMessages,
-	InnerXcmRuntimeCall,
 &gt;(
 	lane_id: LaneId,
 	para_header_number: u32,

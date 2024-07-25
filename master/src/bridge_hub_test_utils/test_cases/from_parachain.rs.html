@@ -906,16 +906,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#755" id="755">755</a>
 <a href="#756" id="756">756</a>
 <a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1022,11 +1012,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	bridged_para_id: u32,
-	bridged_chain_id: bp_runtime::ChainId,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
-	lane_id: LaneId,
-	prepare_configuration: <span class="kw">impl </span>Fn(),
+	prepare_configuration: <span class="kw">impl </span>Fn() -&gt; LaneId,
 	construct_and_apply_extrinsic: <span class="kw">fn</span>(
 		sp_keyring::AccountKeyring,
 		&lt;RuntimeHelper::Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall,
@@ -1056,11 +1044,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		 relayer_id_at_bridged_chain,
 		 message_destination,
 		 message_nonce,
-		 xcm| {
+		 xcm,
+		 bridged_chain_id| {
 			<span class="kw">let </span>para_header_number = <span class="number">5</span>;
 			<span class="kw">let </span>relay_header_number = <span class="number">1</span>;
 
-			prepare_configuration();
+			<span class="kw">let </span>lane_id = prepare_configuration();
 
 			<span class="comment">// start with bridged relay chain block#0
 			</span>helpers::initialize_bridge_grandpa_pallet::&lt;RuntimeHelper::Runtime, RuntimeHelper::GPI&gt;(
@@ -1080,7 +1069,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain,
 				BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 				ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
-				(),
 			&gt;(
 				lane_id,
 				xcm.into(),
@@ -1152,11 +1140,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	bridged_para_id: u32,
-	bridged_chain_id: bp_runtime::ChainId,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
-	lane_id: LaneId,
-	prepare_configuration: <span class="kw">impl </span>Fn(),
+	prepare_configuration: <span class="kw">impl </span>Fn() -&gt; LaneId,
 	construct_and_apply_extrinsic: <span class="kw">fn</span>(
 		sp_keyring::AccountKeyring,
 		&lt;RuntimeHelper::Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall,
@@ -1193,8 +1179,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		 relayer_id_at_bridged_chain,
 		 message_destination,
 		 message_nonce,
-		 xcm| {
-			prepare_configuration();
+		 xcm,
+		 bridged_chain_id| {
+			<span class="kw">let </span>lane_id = prepare_configuration();
 
 			<span class="comment">// start with bridged relay chain block#0
 			</span><span class="kw">let </span>initial_block_number = <span class="number">0</span>;
@@ -1233,7 +1220,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain,
 				BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 				ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
-				(),
 			&gt;(
 				lane_id,
 				xcm.into(),
@@ -1317,10 +1303,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	runtime_para_id: u32,
 	bridged_para_id: u32,
 	sibling_parachain_id: u32,
-	bridged_chain_id: bp_runtime::ChainId,
 	local_relay_chain_id: NetworkId,
-	lane_id: LaneId,
-	prepare_configuration: <span class="kw">impl </span>Fn(),
+	prepare_configuration: <span class="kw">impl </span>Fn() -&gt; LaneId,
 	construct_and_apply_extrinsic: <span class="kw">fn</span>(
 		sp_keyring::AccountKeyring,
 		&lt;RuntimeHelper::Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall,
@@ -1353,11 +1337,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		 relayer_id_at_bridged_chain,
 		 message_destination,
 		 message_nonce,
-		 xcm| {
+		 xcm,
+		 bridged_chain_id| {
 			<span class="kw">let </span>para_header_number = <span class="number">5</span>;
 			<span class="kw">let </span>relay_header_number = <span class="number">1</span>;
 
-			prepare_configuration();
+			<span class="kw">let </span>lane_id = prepare_configuration();
 
 			<span class="comment">// start with bridged relay chain block#0
 			</span>helpers::initialize_bridge_grandpa_pallet::&lt;RuntimeHelper::Runtime, RuntimeHelper::GPI&gt;(
@@ -1377,7 +1362,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain,
 				BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 				ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
-				(),
 			&gt;(
 				lane_id,
 				xcm.into(),
@@ -1475,7 +1459,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			&lt;RuntimeHelper::Runtime <span class="kw">as </span>pallet_bridge_grandpa::Config&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain,
 			BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 			ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
-			(),
 		&gt;(
 			LaneId::default(),
 			<span class="macro">vec!</span>[Instruction::&lt;()&gt;::ClearOrigin; <span class="number">1_024</span>].into(),
@@ -1546,7 +1529,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain,
 			BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 			ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
-			(),
 		&gt;(
 			LaneId::default(),
 			<span class="number">1</span>,
@@ -1609,7 +1591,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			&lt;RuntimeHelper::Runtime <span class="kw">as </span>pallet_bridge_grandpa::Config&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain,
 			BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 			ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
-			(),
 		&gt;(
 			LaneId::default(),
 			<span class="macro">vec!</span>[Instruction::&lt;()&gt;::ClearOrigin; <span class="number">1_024</span>].into(),
@@ -1665,7 +1646,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				&lt;RuntimeHelper::Runtime <span class="kw">as </span>BridgeGrandpaConfig&lt;RuntimeHelper::GPI&gt;&gt;::BridgedChain,
 				BridgedChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
 				ThisChainOf&lt;RuntimeHelper::Runtime, RuntimeHelper::MPI&gt;,
-				(),
 			&gt;(
 				LaneId::default(),
 				<span class="number">1</span>,
