@@ -61,10 +61,14 @@ pub trait Randomness<Output, BlockNumber> {
 /// will repeat over and over.
 pub struct RepeatingSlice<'a>(&'a [u8], usize);
 impl<'a> RepeatingSlice<'a> {
+	/// Create a new `RepeatingSlice` given some initial set of input bytes.
+	///
+	/// Empty slices are valid inputs as they are used in `Randomness::random_seed`.
 	pub fn new(s: &'a [u8]) -> Self {
 		Self(s, 0)
 	}
 }
+
 impl<'a> Input for RepeatingSlice<'a> {
 	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
 		Ok(Some(usize::max_value()))
@@ -91,6 +95,8 @@ impl<'a> Input for RepeatingSlice<'a> {
 	}
 }
 
+/// This is not a real source of Randomness. Only use this for testing.
+#[cfg(test)]
 impl<O: FromEntropy, B: Zero> Randomness<O, B> for () {
 	fn random(subject: &[u8]) -> (O, B) {
 		const REASON: &'static str = "from_entropy is given an infinite input; qed";
