@@ -13,8 +13,9 @@ use snowbridge_ethereum::Receipt;
 impl<T: Config> Verifier for Pallet<T> {
 	/// Verify a message by verifying the existence of the corresponding
 	/// Ethereum log in a block. Returns the log if successful. The execution header containing
-	/// the log should be in the beacon client storage, meaning it has been verified and is an
-	/// ancestor of a finalized beacon block.
+	/// the log is sent with the message. The beacon header containing the execution header
+	/// is also sent with the message, to check if the header is an ancestor of a finalized
+	/// header.
 	fn verify(event_log: &Log, proof: &Proof) -> Result<(), VerificationError> {
 		Self::verify_execution_proof(&proof.execution_proof)
 			.map_err(|e| InvalidExecutionProof(e.into()))?;
@@ -80,25 +81,6 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::HeaderNotFinalized
 		);
 
-		// Gets the hash tree root of the execution header, in preparation for the execution
-		// header proof (used to check that the execution header is rooted in the beacon
-		// header body.
-		let execution_header_root: H256 = execution_proof
-			.execution_header
-			.hash_tree_root()
-			.map_err(|_| Error::<T>::BlockBodyHashTreeRootFailed)?;
-
-		ensure!(
-			verify_merkle_branch(
-				execution_header_root,
-				&execution_proof.execution_branch,
-				config::EXECUTION_HEADER_SUBTREE_INDEX,
-				config::EXECUTION_HEADER_DEPTH,
-				execution_proof.header.body_root
-			),
-			Error::<T>::InvalidExecutionHeaderProof
-		);
-
 		let beacon_block_root: H256 = execution_proof
 			.header
 			.hash_tree_root()
@@ -124,6 +106,25 @@ impl<T: Config> Pallet<T> {
 				}
 			},
 		}
+
+		// Gets the hash tree root of the execution header, in preparation for the execution
+		// header proof (used to check that the execution header is rooted in the beacon
+		// header body.
+		let execution_header_root: H256 = execution_proof
+			.execution_header
+			.hash_tree_root()
+			.map_err(|_| Error::<T>::BlockBodyHashTreeRootFailed)?;
+
+		ensure!(
+			verify_merkle_branch(
+				execution_header_root,
+				&execution_proof.execution_branch,
+				config::EXECUTION_HEADER_SUBTREE_INDEX,
+				config::EXECUTION_HEADER_DEPTH,
+				execution_proof.header.body_root
+			),
+			Error::<T>::InvalidExecutionHeaderProof
+		);
 
 		Ok(())
 	}
