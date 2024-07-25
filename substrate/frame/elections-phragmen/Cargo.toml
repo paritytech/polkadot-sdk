@@ -28,7 +28,6 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-npos-elections = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 sp-staking = { workspace = true }
 
 [dev-dependencies]
@@ -52,7 +51,6 @@ std = [
 	"sp-npos-elections/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 	"sp-tracing/std",
 ]
 runtime-benchmarks = [

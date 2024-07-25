@@ -37,7 +37,9 @@ use frame_support::{
 };
 use frame_system::limits;
 use scale_info::TypeInfo;
-use sp_runtime::{traits::DispatchInfoOf, transaction_validity::TransactionValidityError, Perbill};
+use sp_runtime::{
+	traits::DispatchInfoOf, transaction_validity::TransactionValidityError, Perbill, StateVersion,
+};
 
 // This chain reuses most of Polkadot primitives.
 pub use bp_polkadot_core::{
@@ -191,6 +193,8 @@ impl Chain for PolkadotBulletin {
 	type Balance = Balance;
 	type Nonce = Nonce;
 	type Signature = Signature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		*BlockLength::get().max.get(DispatchClass::Normal)

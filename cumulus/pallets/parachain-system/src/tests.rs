@@ -19,6 +19,7 @@
 use super::*;
 use crate::mock::*;
 
+use core::num::NonZeroU32;
 use cumulus_primitives_core::{AbridgedHrmpChannel, InboundDownwardMessage, InboundHrmpMessage};
 use frame_support::{assert_ok, parameter_types, weights::Weight};
 use frame_system::RawOrigin;
@@ -26,7 +27,6 @@ use hex_literal::hex;
 use rand::Rng;
 use relay_chain::HrmpChannelId;
 use sp_core::H256;
-use sp_std::num::NonZeroU32;
 
 #[test]
 #[should_panic]

@@ -23,7 +23,6 @@ frame-election-provider-support = { workspace = true }
 frame-system = { workspace = true }
 sp-npos-elections = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 [features]
 default = ["std"]
@@ -34,7 +33,6 @@ std = [
 	"frame-system/std",
 	"sp-npos-elections/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

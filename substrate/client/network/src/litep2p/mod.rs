@@ -622,8 +622,11 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		Arc::clone(&self.network_service)
 	}
 
-	fn peer_store(bootnodes: Vec<sc_network_types::PeerId>) -> Self::PeerStore {
-		Peerstore::new(bootnodes)
+	fn peer_store(
+		bootnodes: Vec<sc_network_types::PeerId>,
+		metrics_registry: Option<Registry>,
+	) -> Self::PeerStore {
+		Peerstore::new(bootnodes, metrics_registry)
 	}
 
 	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics {
@@ -851,6 +854,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									"`PUT_VALUE` for {key:?} ({query_id:?}) succeeded",
 								);
 
+								self.event_streams.send(Event::Dht(
+									DhtEvent::ValuePut(libp2p::kad::RecordKey::new(&key))
+								));
+
 								if let Some(ref metrics) = self.metrics {
 									metrics
 										.kademlia_query_duration
@@ -929,6 +936,12 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								expires,
 							)
 						));
+					},
+
+					Some(DiscoveryEvent::RandomKademliaStarted) => {
+						if let Some(metrics) = self.metrics.as_ref() {
+							metrics.kademlia_random_queries_total.inc();
+						}
 					}
 				},
 				event = self.litep2p.next_event() => match event {

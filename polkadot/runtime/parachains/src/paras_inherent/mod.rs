@@ -32,6 +32,11 @@ use crate::{
 	shared::{self, AllowedRelayParentsTracker},
 	ParaId,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
 use bitvec::prelude::BitVec;
 use frame_support::{
 	defensive,
@@ -53,11 +58,6 @@ use polkadot_primitives::{
 use rand::{seq::SliceRandom, SeedableRng};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Header as HeaderT, One};
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	prelude::*,
-	vec::Vec,
-};
 
 mod misc;
 mod weights;
@@ -295,7 +295,7 @@ impl<T: Config> Pallet<T> {
 	fn process_inherent_data(
 		data: ParachainsInherentData<HeaderFor<T>>,
 		context: ProcessInherentDataContext,
-	) -> sp_std::result::Result<
+	) -> core::result::Result<
 		(ParachainsInherentData<HeaderFor<T>>, PostDispatchInfo),
 		DispatchErrorWithPostInfo,
 	> {
@@ -762,7 +762,7 @@ pub(crate) fn apply_weight_limit<T: Config + inclusion::Config>(
 	let mut chained_candidates: Vec<Vec<_>> = Vec::new();
 	let mut current_para_id = None;
 
-	for candidate in sp_std::mem::take(candidates).into_iter() {
+	for candidate in core::mem::take(candidates).into_iter() {
 		let candidate_para_id = candidate.descriptor().para_id;
 		if Some(candidate_para_id) == current_para_id {
 			let chain = chained_candidates

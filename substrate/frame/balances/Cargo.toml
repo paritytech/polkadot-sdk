@@ -23,7 +23,6 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 docify = { workspace = true }
 
 [dev-dependencies]
@@ -46,7 +45,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 # Enable support for setting the existential deposit to zero.
 insecure_zero_ed = []

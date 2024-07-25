@@ -42,7 +42,7 @@ pub mod pallet {
 		#[pallet::weight(0)]
 		pub fn set_custom_validation_head_data(
 			_: OriginFor<T>,
-			custom_header: sp_std::vec::Vec<u8>,
+			custom_header: alloc::vec::Vec<u8>,
 		) -> DispatchResult {
 			cumulus_pallet_parachain_system::Pallet::<T>::set_custom_validation_head_data(
 				custom_header,
@@ -79,7 +79,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]

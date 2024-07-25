@@ -880,6 +880,8 @@ fn peer_view_updates_sent_via_overseer() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		network_handle
@@ -895,6 +897,7 @@ fn peer_view_updates_sent_via_overseer() {
 			&mut virtual_overseer,
 		)
 		.await;
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 		virtual_overseer
 	});
 }
@@ -930,6 +933,8 @@ fn peer_messages_sent_via_overseer() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		let approval_distribution_message =
@@ -970,6 +975,7 @@ fn peer_messages_sent_via_overseer() {
 			&mut virtual_overseer,
 		)
 		.await;
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 		virtual_overseer
 	});
 }
@@ -1008,6 +1014,8 @@ fn peer_disconnect_from_just_one_peerset() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		{
@@ -1036,6 +1044,7 @@ fn peer_disconnect_from_just_one_peerset() {
 			&mut virtual_overseer,
 		)
 		.await;
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 
 		// to show that we're still connected on the collation protocol, send a view update.
 
@@ -1094,6 +1103,8 @@ fn relays_collation_protocol_messages() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		{
@@ -1201,6 +1212,8 @@ fn different_views_on_different_peer_sets() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		{
@@ -1246,6 +1259,8 @@ fn different_views_on_different_peer_sets() {
 			&mut virtual_overseer,
 		)
 		.await;
+
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 
 		assert_sends_collation_event_to_all(
 			NetworkBridgeEvent::PeerViewChange(peer, view_b.clone()),
@@ -1481,6 +1496,8 @@ fn network_protocol_versioning_subsystem_msg() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		let approval_distribution_message =
