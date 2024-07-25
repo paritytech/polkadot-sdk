@@ -21,6 +21,8 @@ use polkadot_primitives::{
 	BlockNumber, CandidateCommitments, CandidateDescriptor, HeadData, Id as ParaId,
 };
 use polkadot_primitives_test_helpers as test_helpers;
+use rand::{seq::SliceRandom, thread_rng};
+use std::ops::Range;
 
 fn make_constraints(
 	min_relay_parent_number: BlockNumber,
@@ -1187,245 +1189,241 @@ fn test_find_ancestor_path_and_find_backable_chain_empty_best_chain() {
 	assert_eq!(chain.find_backable_chain(ancestors, 2), vec![]);
 }
 
-// #[test]
-// fn test_find_ancestor_path_and_find_backable_to_vec() {
-// 	let para_id = ParaId::from(5u32);
-// 	let relay_parent = Hash::repeat_byte(1);
-// 	let required_parent: HeadData = vec![0xff].into();
-// 	let max_depth = 5;
-// 	let relay_parent_number = 0;
-// 	let relay_parent_storage_root = Hash::repeat_byte(69);
+#[test]
+fn test_find_ancestor_path_and_find_backable_chain() {
+	let para_id = ParaId::from(5u32);
+	let relay_parent = Hash::repeat_byte(1);
+	let required_parent: HeadData = vec![0xff].into();
+	let max_depth = 5;
+	let relay_parent_number = 0;
+	let relay_parent_storage_root = Hash::zero();
 
-// 	let mut candidates = vec![];
+	let mut candidates = vec![];
 
-// 	// Candidate 0
-// 	candidates.push(make_committed_candidate(
-// 		para_id,
-// 		relay_parent,
-// 		0,
-// 		required_parent.clone(),
-// 		vec![0].into(),
-// 		0,
-// 	));
-// 	// Candidate 1
-// 	candidates.push(make_committed_candidate(
-// 		para_id,
-// 		relay_parent,
-// 		0,
-// 		vec![0].into(),
-// 		vec![1].into(),
-// 		0,
-// 	));
-// 	// Candidate 2
-// 	candidates.push(make_committed_candidate(
-// 		para_id,
-// 		relay_parent,
-// 		0,
-// 		vec![1].into(),
-// 		vec![2].into(),
-// 		0,
-// 	));
-// 	// Candidate 3
-// 	candidates.push(make_committed_candidate(
-// 		para_id,
-// 		relay_parent,
-// 		0,
-// 		vec![2].into(),
-// 		vec![3].into(),
-// 		0,
-// 	));
-// 	// Candidate 4
-// 	candidates.push(make_committed_candidate(
-// 		para_id,
-// 		relay_parent,
-// 		0,
-// 		vec![3].into(),
-// 		vec![4].into(),
-// 		0,
-// 	));
-// 	// Candidate 5
-// 	candidates.push(make_committed_candidate(
-// 		para_id,
-// 		relay_parent,
-// 		0,
-// 		vec![4].into(),
-// 		vec![5].into(),
-// 		0,
-// 	));
+	// Candidate 0
+	candidates.push(make_committed_candidate(
+		para_id,
+		relay_parent,
+		0,
+		required_parent.clone(),
+		vec![0].into(),
+		0,
+	));
+	// Candidate 1
+	candidates.push(make_committed_candidate(
+		para_id,
+		relay_parent,
+		0,
+		vec![0].into(),
+		vec![1].into(),
+		0,
+	));
+	// Candidate 2
+	candidates.push(make_committed_candidate(
+		para_id,
+		relay_parent,
+		0,
+		vec![1].into(),
+		vec![2].into(),
+		0,
+	));
+	// Candidate 3
+	candidates.push(make_committed_candidate(
+		para_id,
+		relay_parent,
+		0,
+		vec![2].into(),
+		vec![3].into(),
+		0,
+	));
+	// Candidate 4
+	candidates.push(make_committed_candidate(
+		para_id,
+		relay_parent,
+		0,
+		vec![3].into(),
+		vec![4].into(),
+		0,
+	));
+	// Candidate 5
+	candidates.push(make_committed_candidate(
+		para_id,
+		relay_parent,
+		0,
+		vec![4].into(),
+		vec![5].into(),
+		0,
+	));
 
-// 	let base_constraints = make_constraints(0, vec![0], required_parent.clone());
-// 	let mut storage = CandidateStorage::default();
+	let base_constraints = make_constraints(0, vec![0], required_parent.clone());
+	let mut storage = CandidateStorage::default();
 
-// 	let relay_parent_info = RelayChainBlockInfo {
-// 		number: relay_parent_number,
-// 		hash: relay_parent,
-// 		storage_root: relay_parent_storage_root,
-// 	};
+	let relay_parent_info = RelayChainBlockInfo {
+		number: relay_parent_number,
+		hash: relay_parent,
+		storage_root: relay_parent_storage_root,
+	};
 
-// 	for (pvd, candidate) in candidates.iter() {
-// 		storage
-// 			.add_candidate(candidate.clone(), pvd.clone(), CandidateState::Seconded)
-// 			.unwrap();
-// 	}
-// 	let candidates = candidates.into_iter().map(|(_pvd, candidate)| candidate).collect::<Vec<_>>();
-// 	let scope = Scope::with_ancestors(
-// 		relay_parent_info.clone(),
-// 		base_constraints.clone(),
-// 		vec![],
-// 		max_depth,
-// 		vec![],
-// 	)
-// 	.unwrap();
-// 	let chain = FragmentChain::populate(scope, &storage);
+	for (pvd, candidate) in candidates.iter() {
+		storage
+			.add_candidate_entry(
+				CandidateEntry::new_seconded(candidate.hash(), candidate.clone(), pvd.clone())
+					.unwrap(),
+			)
+			.unwrap();
+	}
 
-// 	assert_eq!(candidates.len(), 6);
-// 	assert_eq!(chain.to_vec().len(), 6);
+	let candidates = candidates
+		.into_iter()
+		.map(|(_pvd, candidate)| candidate.hash())
+		.collect::<Vec<_>>();
+	let hashes =
+		|range: Range<usize>| range.map(|i| (candidates[i], relay_parent)).collect::<Vec<_>>();
 
-// 	// No ancestors supplied.
-// 	assert_eq!(chain.find_ancestor_path(Ancestors::new()), 0);
-// 	assert_eq!(chain.find_backable_chain(Ancestors::new(), 0, |_| true), vec![]);
-// 	assert_eq!(
-// 		chain.find_backable_chain(Ancestors::new(), 1, |_| true),
-// 		[0].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 	);
-// 	assert_eq!(
-// 		chain.find_backable_chain(Ancestors::new(), 2, |_| true),
-// 		[0, 1].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 	);
-// 	assert_eq!(
-// 		chain.find_backable_chain(Ancestors::new(), 5, |_| true),
-// 		[0, 1, 2, 3, 4].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 	);
+	let scope = Scope::with_ancestors(
+		relay_parent_info.clone(),
+		base_constraints.clone(),
+		vec![],
+		max_depth,
+		vec![],
+	)
+	.unwrap();
+	let mut chain = FragmentChain::populate(scope, storage.clone());
 
-// 	for count in 6..10 {
-// 		assert_eq!(
-// 			chain.find_backable_chain(Ancestors::new(), count, |_| true),
-// 			[0, 1, 2, 3, 4, 5].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 		);
-// 	}
+	// For now, candidates are only seconded, not backed. So the best chain is empty and no
+	// candidate will be returned.
+	assert_eq!(candidates.len(), 6);
+	assert_eq!(chain.best_chain_len(), 0);
+	assert_eq!(chain.unconnected_len(), 6);
 
-// 	assert_eq!(
-// 		chain.find_backable_chain(Ancestors::new(), 7, |_| true),
-// 		[0, 1, 2, 3, 4, 5].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 	);
-// 	assert_eq!(
-// 		chain.find_backable_chain(Ancestors::new(), 10, |_| true),
-// 		[0, 1, 2, 3, 4, 5].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 	);
+	for count in 0..10 {
+		assert_eq!(chain.find_backable_chain(Ancestors::new(), count).len(), 0);
+	}
 
-// 	// Ancestor which is not part of the chain. Will be ignored.
-// 	let ancestors: Ancestors = [CandidateHash::default()].into_iter().collect();
-// 	assert_eq!(chain.find_ancestor_path(ancestors.clone()), 0);
-// 	assert_eq!(
-// 		chain.find_backable_chain(ancestors, 4, |_| true),
-// 		[0, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 	);
-// 	let ancestors: Ancestors =
-// 		[candidates[1].hash(), CandidateHash::default()].into_iter().collect();
-// 	assert_eq!(chain.find_ancestor_path(ancestors.clone()), 0);
-// 	assert_eq!(
-// 		chain.find_backable_chain(ancestors, 4, |_| true),
-// 		[0, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 	);
-// 	let ancestors: Ancestors =
-// 		[candidates[0].hash(), CandidateHash::default()].into_iter().collect();
-// 	assert_eq!(chain.find_ancestor_path(ancestors.clone()), 1);
-// 	assert_eq!(
-// 		chain.find_backable_chain(ancestors, 4, |_| true),
-// 		[1, 2, 3, 4].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 	);
+	// Do tests with only a couple of candidates being backed.
+	{
+		let chain = chain.candidate_backed(&&candidates[5]).unwrap();
+		for count in 0..10 {
+			assert_eq!(chain.find_backable_chain(Ancestors::new(), count).len(), 0);
+		}
+		let chain = chain.candidate_backed(&&candidates[3]).unwrap();
+		let chain = chain.candidate_backed(&&candidates[4]).unwrap();
+		for count in 0..10 {
+			assert_eq!(chain.find_backable_chain(Ancestors::new(), count).len(), 0);
+		}
 
-// 	// Ancestors which are part of the chain but don't form a path from root. Will be ignored.
-// 	let ancestors: Ancestors = [candidates[1].hash(), candidates[2].hash()].into_iter().collect();
-// 	assert_eq!(chain.find_ancestor_path(ancestors.clone()), 0);
-// 	assert_eq!(
-// 		chain.find_backable_chain(ancestors, 4, |_| true),
-// 		[0, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 	);
+		let chain = chain.candidate_backed(&&candidates[1]).unwrap();
+		for count in 0..10 {
+			assert_eq!(chain.find_backable_chain(Ancestors::new(), count).len(), 0);
+		}
 
-// 	// Valid ancestors.
-// 	let ancestors: Ancestors = [candidates[2].hash(), candidates[0].hash(), candidates[1].hash()]
-// 		.into_iter()
-// 		.collect();
-// 	assert_eq!(chain.find_ancestor_path(ancestors.clone()), 3);
-// 	assert_eq!(
-// 		chain.find_backable_chain(ancestors.clone(), 2, |_| true),
-// 		[3, 4].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 	);
-// 	for count in 3..10 {
-// 		assert_eq!(
-// 			chain.find_backable_chain(ancestors.clone(), count, |_| true),
-// 			[3, 4, 5].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 		);
-// 	}
+		let chain = chain.candidate_backed(&&candidates[0]).unwrap();
+		assert_eq!(chain.find_backable_chain(Ancestors::new(), 1), hashes(0..1));
+		for count in 2..10 {
+			assert_eq!(chain.find_backable_chain(Ancestors::new(), count), hashes(0..2));
+		}
 
-// 	// Valid ancestors with candidates which have been omitted due to timeouts
-// 	let ancestors: Ancestors = [candidates[0].hash(), candidates[2].hash()].into_iter().collect();
-// 	assert_eq!(chain.find_ancestor_path(ancestors.clone()), 1);
-// 	assert_eq!(
-// 		chain.find_backable_chain(ancestors.clone(), 3, |_| true),
-// 		[1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 	);
-// 	assert_eq!(
-// 		chain.find_backable_chain(ancestors.clone(), 4, |_| true),
-// 		[1, 2, 3, 4].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 	);
-// 	for count in 5..10 {
-// 		assert_eq!(
-// 			chain.find_backable_chain(ancestors.clone(), count, |_| true),
-// 			[1, 2, 3, 4, 5].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 		);
-// 	}
+		// Now back the missing piece.
+		let chain = chain.candidate_backed(&&candidates[2]).unwrap();
+		assert_eq!(chain.best_chain_len(), 6);
+		for count in 0..10 {
+			assert_eq!(
+				chain.find_backable_chain(Ancestors::new(), count),
+				(0..6)
+					.take(count as usize)
+					.map(|i| (candidates[i], relay_parent))
+					.collect::<Vec<_>>()
+			);
+		}
+	}
 
-// 	let ancestors: Ancestors = [candidates[0].hash(), candidates[1].hash(), candidates[3].hash()]
-// 		.into_iter()
-// 		.collect();
-// 	assert_eq!(chain.find_ancestor_path(ancestors.clone()), 2);
-// 	assert_eq!(
-// 		chain.find_backable_chain(ancestors.clone(), 4, |_| true),
-// 		[2, 3, 4, 5].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 	);
+	// Now back all candidates. Back them in a random order. The result should always be the same.
+	let mut candidates_shuffled = candidates.clone();
+	candidates_shuffled.shuffle(&mut thread_rng());
+	for candidate in candidates.iter() {
+		chain = chain.candidate_backed(candidate).unwrap();
+		assert!(storage.mark_backed(candidate));
+	}
 
-// 	// Requested count is 0.
-// 	assert_eq!(chain.find_backable_chain(ancestors, 0, |_| true), vec![]);
+	// No ancestors supplied.
+	assert_eq!(chain.find_ancestor_path(Ancestors::new()), 0);
+	assert_eq!(chain.find_backable_chain(Ancestors::new(), 0), vec![]);
+	assert_eq!(chain.find_backable_chain(Ancestors::new(), 1), hashes(0..1));
+	assert_eq!(chain.find_backable_chain(Ancestors::new(), 2), hashes(0..2));
+	assert_eq!(chain.find_backable_chain(Ancestors::new(), 5), hashes(0..5));
 
-// 	// Stop when we've found a candidate for which pred returns false.
-// 	let ancestors: Ancestors = [candidates[2].hash(), candidates[0].hash(), candidates[1].hash()]
-// 		.into_iter()
-// 		.collect();
-// 	for count in 1..10 {
-// 		assert_eq!(
-// 			// Stop at 4.
-// 			chain.find_backable_chain(ancestors.clone(), count, |hash| hash !=
-// 				&candidates[4].hash()),
-// 			[3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 		);
-// 	}
+	for count in 6..10 {
+		assert_eq!(chain.find_backable_chain(Ancestors::new(), count), hashes(0..6));
+	}
 
-// 	// Stop when we've found a candidate which is pending availability
-// 	{
-// 		let scope = Scope::with_ancestors(
-// 			relay_parent_info.clone(),
-// 			base_constraints,
-// 			// Mark the third candidate as pending availability
-// 			vec![PendingAvailability {
-// 				candidate_hash: candidates[3].hash(),
-// 				relay_parent: relay_parent_info,
-// 			}],
-// 			max_depth,
-// 			vec![],
-// 		)
-// 		.unwrap();
-// 		let chain = FragmentChain::populate(scope, &storage);
-// 		let ancestors: Ancestors =
-// 			[candidates[0].hash(), candidates[1].hash()].into_iter().collect();
-// 		assert_eq!(
-// 			// Stop at 4.
-// 			chain.find_backable_chain(ancestors.clone(), 3, |_| true),
-// 			[2].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
-// 		);
-// 	}
-// }
+	assert_eq!(chain.find_backable_chain(Ancestors::new(), 7), hashes(0..6));
+	assert_eq!(chain.find_backable_chain(Ancestors::new(), 10), hashes(0..6));
+
+	// Ancestor which is not part of the chain. Will be ignored.
+	let ancestors: Ancestors = [CandidateHash::default()].into_iter().collect();
+	assert_eq!(chain.find_ancestor_path(ancestors.clone()), 0);
+	assert_eq!(chain.find_backable_chain(ancestors, 4), hashes(0..4));
+
+	let ancestors: Ancestors = [candidates[1], CandidateHash::default()].into_iter().collect();
+	assert_eq!(chain.find_ancestor_path(ancestors.clone()), 0);
+	assert_eq!(chain.find_backable_chain(ancestors, 4), hashes(0..4));
+
+	let ancestors: Ancestors = [candidates[0], CandidateHash::default()].into_iter().collect();
+	assert_eq!(chain.find_ancestor_path(ancestors.clone()), 1);
+	assert_eq!(chain.find_backable_chain(ancestors, 4), hashes(1..5));
+
+	// Ancestors which are part of the chain but don't form a path from root. Will be ignored.
+	let ancestors: Ancestors = [candidates[1], candidates[2]].into_iter().collect();
+	assert_eq!(chain.find_ancestor_path(ancestors.clone()), 0);
+	assert_eq!(chain.find_backable_chain(ancestors, 4), hashes(0..4));
+
+	// Valid ancestors.
+	let ancestors: Ancestors = [candidates[2], candidates[0], candidates[1]].into_iter().collect();
+	assert_eq!(chain.find_ancestor_path(ancestors.clone()), 3);
+	assert_eq!(chain.find_backable_chain(ancestors.clone(), 2), hashes(3..5));
+	for count in 3..10 {
+		assert_eq!(chain.find_backable_chain(ancestors.clone(), count), hashes(3..6));
+	}
+
+	// Valid ancestors with candidates which have been omitted due to timeouts
+	let ancestors: Ancestors = [candidates[0], candidates[2]].into_iter().collect();
+	assert_eq!(chain.find_ancestor_path(ancestors.clone()), 1);
+	assert_eq!(chain.find_backable_chain(ancestors.clone(), 3), hashes(1..4));
+	assert_eq!(chain.find_backable_chain(ancestors.clone(), 4), hashes(1..5));
+	for count in 5..10 {
+		assert_eq!(chain.find_backable_chain(ancestors.clone(), count), hashes(1..6));
+	}
+
+	let ancestors: Ancestors = [candidates[0], candidates[1], candidates[3]].into_iter().collect();
+	assert_eq!(chain.find_ancestor_path(ancestors.clone()), 2);
+	assert_eq!(chain.find_backable_chain(ancestors.clone(), 4), hashes(2..6));
+
+	// Requested count is 0.
+	assert_eq!(chain.find_backable_chain(ancestors, 0), vec![]);
+
+	// Stop when we've found a candidate which is pending availability
+	{
+		let scope = Scope::with_ancestors(
+			relay_parent_info.clone(),
+			base_constraints,
+			// Mark the third candidate as pending availability
+			vec![PendingAvailability {
+				candidate_hash: candidates[3],
+				relay_parent: relay_parent_info,
+			}],
+			max_depth,
+			vec![],
+		)
+		.unwrap();
+		let chain = FragmentChain::populate(scope, storage);
+		let ancestors: Ancestors = [candidates[0], candidates[1]].into_iter().collect();
+		assert_eq!(
+			// Stop at 4.
+			chain.find_backable_chain(ancestors.clone(), 3),
+			hashes(2..3)
+		);
+	}
+}
 
 // #[test]
 // fn hypothetical_membership() {
