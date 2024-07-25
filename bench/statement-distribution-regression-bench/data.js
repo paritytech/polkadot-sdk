@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721926421849,
+  "lastUpdate": 1721934511221,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -6383,6 +6383,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04633766094000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jun Jiang",
+            "username": "jasl",
+            "email": "jasl9187@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "18db502172bdf438f086cd5964c646b318b8ad37",
+          "message": "enhancing solochain template (#5143)\n\nSince we have a minimal template, I propose enhancing the solochain\ntemplate, which would be easier for startup projects.\n\n- Sync separates `api`, `configs`, and `benchmarks` from the parachain\ntemplate\n- introducing `frame-metadata-hash-extension`\n- Some style update\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2024-07-25T17:20:15Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/18db502172bdf438f086cd5964c646b318b8ad37"
+        },
+        "date": 1721934480485,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.94599999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.04107351004600001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04940388669000001,
             "unit": "seconds"
           }
         ]
