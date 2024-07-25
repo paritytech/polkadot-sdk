@@ -56,7 +56,7 @@ use xcm_builder::{
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignPaidRemoteExporter,
 	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents, XcmFeeToAccount,
+	XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
 
@@ -364,7 +364,7 @@ impl xcm_executor::Config for XcmConfig {
 	// held). On Westend Asset Hub, we allow Rococo Asset Hub to act as reserve for any asset native
 	// 	// to the Rococo or Ethereum ecosystems.
 	type IsReserve = (
-		bridging::to_rococo::IsTrustedBridgedReserveLocationForConcreteAsset,
+		bridging::to_rococo::RococoOrEthereumAssetFromAssetHubRococo,
 		bridging::to_ethereum::IsTrustedBridgedReserveLocationForForeignAsset,
 	);
 	type IsTeleporter = TrustedTeleporters;
@@ -647,7 +647,7 @@ pub mod bridging {
 	pub mod to_ethereum {
 		use super::*;
 		use assets_common::matching::FromNetwork;
-		use sp_std::collections::btree_set::BTreeSet;
+		use alloc::collections::btree_set::BTreeSet;
 		use testnet_parachains_constants::westend::snowbridge::{
 			EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
 		};
@@ -669,10 +669,10 @@ pub mod bridging {
 
 			/// Set up exporters configuration.
 			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
-			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+			pub BridgeTable: alloc::vec::Vec<NetworkExportTableItem> = alloc::vec![
 				NetworkExportTableItem::new(
 					EthereumNetwork::get(),
-					Some(sp_std::vec![Junctions::Here]),
+					Some(alloc::vec![Junctions::Here]),
 					SiblingBridgeHub::get(),
 					Some((
 						XcmBridgeHubRouterFeeAssetId::get(),
@@ -683,12 +683,12 @@ pub mod bridging {
 
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
-				sp_std::vec![
+				alloc::vec![
 					(SiblingBridgeHubWithEthereumInboundQueueInstance::get(), GlobalConsensus(EthereumNetwork::get())),
 				]
 			);
 
-			pub EthereumBridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec::Vec::new().into_iter()
+			pub EthereumBridgeTable: alloc::vec::Vec<NetworkExportTableItem> = alloc::vec::Vec::new().into_iter()
 				.chain(BridgeTable::get())
 				.collect();
 		}

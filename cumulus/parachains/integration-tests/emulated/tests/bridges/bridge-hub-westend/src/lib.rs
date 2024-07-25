@@ -55,7 +55,7 @@ mod imports {
 			penpal_runtime::xcm_config::UniversalLocation as PenpalUniversalLocation,
 			PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet,
 		},
-		westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
+		westend_emulated_chain::WestendRelayPallet as WestendPallet,
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,
 		AssetHubWestendParaReceiver as AssetHubWestendReceiver,
