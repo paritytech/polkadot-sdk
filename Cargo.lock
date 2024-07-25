@@ -8770,8 +8770,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
- "sp-genesis-builder",
- "sp-runtime",
  "substrate-wasm-builder",
 ]
 
@@ -14635,6 +14633,7 @@ dependencies = [
  "sp-consensus-aura",
  "sp-consensus-grandpa",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-offchain",
@@ -19756,13 +19755,7 @@ dependencies = [
 name = "solochain-template-runtime"
 version = "0.0.0"
 dependencies = [
- "frame-benchmarking",
- "frame-executive",
- "frame-support",
- "frame-system",
- "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
- "frame-try-runtime",
  "pallet-aura",
  "pallet-balances",
  "pallet-grandpa",
@@ -19772,20 +19765,8 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
- "sp-api",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-consensus-grandpa",
- "sp-core",
- "sp-genesis-builder",
- "sp-inherents",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-storage 19.0.0",
- "sp-transaction-pool",
- "sp-version",
  "substrate-wasm-builder",
 ]
 
