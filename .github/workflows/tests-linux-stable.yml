@@ -132,7 +132,7 @@ jobs:
       - run: ls -al /__w/polkadot-sdk/polkadot-sdk/target
       - run: ls -al /__w/polkadot-sdk/polkadot-sdk/target/llvm-cov-target
       - name: generate report
-        run: cargo llvm-cov report --release --lcov --output-path coverage-${{ matrix.ci_node_index }}.lcov
+        run: cargo llvm-cov report --release --codecov --output-path coverage-${{ matrix.ci_node_index }}.lcov
       - run: ls -al
       - name: upload report
         uses: actions/upload-artifact@v4
