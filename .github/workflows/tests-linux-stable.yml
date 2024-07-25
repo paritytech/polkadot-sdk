@@ -108,7 +108,6 @@ jobs:
           --no-report --release
           -p polkadot
           --locked --no-fail-fast
-          --features try-runtime,experimental,
           --filter-expr "
           !test(/.*benchmark.*/)
           - test(/recovers_from_only_chunks_if_pov_large::case_1/)
