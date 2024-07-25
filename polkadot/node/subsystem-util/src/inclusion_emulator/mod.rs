@@ -794,10 +794,7 @@ fn validate_against_constraints(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use polkadot_primitives::{
-		CollatorPair, HorizontalMessages, OutboundHrmpMessage, ValidationCode,
-	};
-	use sp_application_crypto::Pair;
+	use polkadot_primitives::{HorizontalMessages, OutboundHrmpMessage, ValidationCode};
 
 	#[test]
 	fn stack_modifications() {
