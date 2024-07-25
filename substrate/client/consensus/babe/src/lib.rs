@@ -1533,18 +1533,6 @@ where
 					})?
 					.into_cloned();
 
-				let epoch_duration_changed =
-					viable_epoch.as_ref().duration != self.config.epoch_length;
-				if epoch_duration_changed {
-					warn!(
-						target: LOG_TARGET,
-						"👶 Epoch duration changed: from {} to {}",
-						viable_epoch.as_ref().duration,
-						self.config.epoch_length
-					);
-					viable_epoch.as_mut().duration = self.config.epoch_length;
-				}
-
 				let epoch_config = next_config_digest
 					.map(Into::into)
 					.unwrap_or_else(|| viable_epoch.as_ref().config.clone());
@@ -1578,6 +1566,18 @@ where
 						target: LOG_TARGET,
 						"👶 Epoch(s) skipped: from {} to {}", prev_index, epoch.epoch_index,
 					);
+				}
+
+				let epoch_duration_changed =
+					viable_epoch.as_ref().duration != self.config.epoch_length;
+				if epoch_duration_changed {
+					warn!(
+						target: LOG_TARGET,
+						"👶 Epoch duration changed: from {} to {}",
+						viable_epoch.as_ref().duration,
+						self.config.epoch_length
+					);
+					viable_epoch.as_mut().duration = self.config.epoch_length;
 				}
 
 				log!(
