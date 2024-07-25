@@ -52,8 +52,8 @@ pub mod frame_storage_derives;
 /// Learn about how to write safe and defensive code in your FRAME runtime.
 pub mod defensive_programming;
 
-/// Learn about composite enums and other runtime level types, such as "RuntimeEvent" and
-/// "RuntimeCall".
+/// Learn about composite enums and other runtime level types, such as `RuntimeEvent` and
+/// `RuntimeCall`.
 pub mod frame_runtime_types;
 
 /// Learn about how to make a pallet/runtime that is fee-less and instead uses another mechanism to
