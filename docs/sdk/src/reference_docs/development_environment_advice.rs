@@ -16,7 +16,7 @@
 //! {
 //!   // Use a separate target dir for Rust Analyzer. Helpful if you want to use Rust
 //!   // Analyzer and cargo on the command line at the same time.
-//!   "rust-analyzer.rust.analyzerTargetDir": "target/vscode-rust-analyzer",
+//!   "rust-analyzer.cargo.targetDir": "target/vscode-rust-analyzer",
 //!   // Improve stability
 //!   "rust-analyzer.server.extraEnv": {
 //!     "CHALK_OVERFLOW_DEPTH": "100000000",
