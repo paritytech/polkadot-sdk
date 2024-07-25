@@ -31,4 +31,5 @@ sp-core = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
+rand = { workspace = true }
 rstest = { workspace = true }
