@@ -656,7 +656,11 @@ impl Unscheduled {
 	fn select_next_priority(&self) -> PvfExecPriority {
 		PvfExecPriority::iter()
 			.find(|priority| self.has_pending(priority) && !self.is_fulfilled(priority))
-			.unwrap_or(PvfExecPriority::Backing)
+			.unwrap_or_else(|| {
+				PvfExecPriority::iter()
+					.find(|priority| self.has_pending(priority))
+					.unwrap_or(PvfExecPriority::Backing)
+			})
 	}
 
 	fn get_mut(&mut self, priority: PvfExecPriority) -> Option<&mut VecDeque<ExecuteJob>> {
@@ -785,5 +789,13 @@ mod tests {
 		// Fulfill system parachains backing jobs
 		unscheduled.log(BackingSystemParas);
 		assert_eq!(unscheduled.select_next_priority(), Backing);
+
+		// Leave only approval jobs which are fulfilled
+		unscheduled.reset_counter();
+		unscheduled.get_mut(BackingSystemParas).unwrap().clear();
+		unscheduled.get_mut(Backing).unwrap().clear();
+		unscheduled.add(create_execution_job(), Approval);
+		unscheduled.log(Approval);
+		assert_eq!(unscheduled.select_next_priority(), Approval);
 	}
 }
