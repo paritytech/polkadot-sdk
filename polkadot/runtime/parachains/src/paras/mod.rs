@@ -135,7 +135,7 @@ use serde::{Deserialize, Serialize};
 pub use crate::Origin as ParachainOrigin;
 
 #[cfg(feature = "runtime-benchmarks")]
-pub(crate) mod benchmarking;
+pub mod benchmarking;
 
 #[cfg(test)]
 pub(crate) mod tests;
@@ -1222,6 +1222,15 @@ const INVALID_TX_BAD_VALIDATOR_IDX: u8 = 1;
 const INVALID_TX_BAD_SUBJECT: u8 = 2;
 const INVALID_TX_DOUBLE_VOTE: u8 = 3;
 
+/// This is intermediate "fix" for this issue:
+/// <https://github.com/paritytech/polkadot-sdk/issues/4737>
+///
+/// It does not actually fix it, but makes the worst case better. Without that limit someone
+/// could completely DoS the relay chain by registering a ridiculously high amount of paras.
+/// With this limit the same attack could lead to some parachains ceasing to being able to
+/// communicate via offchain XCMP. Snowbridge will still work as it only cares about `BridgeHub`.
+pub const MAX_PARA_HEADS: usize = 1024;
+
 impl<T: Config> Pallet<T> {
 	/// This is a call to schedule code upgrades for parachains which is safe to be called
 	/// outside of this module. That means this function does all checks necessary to ensure
@@ -1289,6 +1298,16 @@ impl<T: Config> Pallet<T> {
 			}
 			code
 		})
+	}
+
+	/// Get a list of the first [`MAX_PARA_HEADS`] para heads sorted by para_id.
+	/// This method is likely to be removed in the future.
+	pub fn sorted_para_heads() -> Vec<(u32, Vec<u8>)> {
+		let mut heads: Vec<(u32, Vec<u8>)> =
+			Heads::<T>::iter().map(|(id, head)| (id.into(), head.0)).collect();
+		heads.sort_by_key(|(id, _)| *id);
+		heads.truncate(MAX_PARA_HEADS);
+		heads
 	}
 
 	// Apply all para actions queued for the given session index.

@@ -26,6 +26,7 @@ use sp_block_builder::BlockBuilder;
 use sp_runtime::traits::Block as BlockT;
 use sp_session::SessionKeys;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
+use std::path::PathBuf;
 
 /// Convenience trait that defines the basic bounds for the `RuntimeApi` of a parachain node.
 pub trait NodeRuntimeApi<Block: BlockT>:
@@ -69,4 +70,7 @@ where
 /// Extra args that are passed when creating a new node spec.
 pub struct NodeExtraArgs {
 	pub use_slot_based_consensus: bool,
+
+	/// If set, each `PoV` build by the node will be exported to this folder.
+	pub export_pov: Option<PathBuf>,
 }
