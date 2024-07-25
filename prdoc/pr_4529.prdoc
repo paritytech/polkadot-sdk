@@ -11,14 +11,12 @@ doc:
 
 crates:
   - name: pallet-grandpa
-    bump: major
+    bump: minor
   - name: kitchensink-runtime
-    bump: minor
-  - name: solochain-template-runtime
-    bump: minor
+    bump: none
   - name: westend-runtime
-    bump: minor
+    bump: none
   - name: polkadot-test-runtime
-    bump: minor
+    bump: none
   - name: rococo-runtime
-    bump: minor
+    bump: none
