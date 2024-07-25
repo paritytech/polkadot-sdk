@@ -580,7 +580,7 @@ dependencies = [
 [[package]]
 name = "ark-secret-scalar"
 version = "0.0.2"
-source = "git+https://github.com/w3f/ring-vrf?rev=e9782f9#e9782f938629c90f3adb3fff2358bc8d1386af3e"
+source = "git+https://github.com/w3f/ring-vrf?rev=0fef826#0fef8266d851932ad25d6b41bc4b34d834d1e11d"
 dependencies = [
  "ark-ec",
  "ark-ff 0.4.2",
@@ -649,7 +649,7 @@ dependencies = [
 [[package]]
 name = "ark-transcript"
 version = "0.0.2"
-source = "git+https://github.com/w3f/ring-vrf?rev=e9782f9#e9782f938629c90f3adb3fff2358bc8d1386af3e"
+source = "git+https://github.com/w3f/ring-vrf?rev=0fef826#0fef8266d851932ad25d6b41bc4b34d834d1e11d"
 dependencies = [
  "ark-ff 0.4.2",
  "ark-serialize 0.4.2",
@@ -1401,7 +1401,7 @@ dependencies = [
 [[package]]
 name = "bandersnatch_vrfs"
 version = "0.0.4"
-source = "git+https://github.com/w3f/ring-vrf?rev=e9782f9#e9782f938629c90f3adb3fff2358bc8d1386af3e"
+source = "git+https://github.com/w3f/ring-vrf?rev=0fef826#0fef8266d851932ad25d6b41bc4b34d834d1e11d"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
@@ -1410,8 +1410,6 @@ dependencies = [
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
  "dleq_vrf",
- "fflonk",
- "merlin",
  "rand_chacha",
  "rand_core",
  "ring 0.1.0",
@@ -2175,7 +2173,6 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
- "static_assertions",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "xcm-runtime-apis",
@@ -2357,7 +2354,6 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
- "static_assertions",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "westend-runtime-constants",
@@ -2781,9 +2777,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.9"
+version = "4.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64acc1846d54c1fe936a78dc189c34e28d3f5afc348403f28ecf53660b9b8462"
+checksum = "8f6b81fb3c84f5563d509c59b5a48d935f689e993afa90fe39047f05adef9142"
 dependencies = [
  "clap_builder",
  "clap_derive 4.5.8",
@@ -2800,9 +2796,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.9"
+version = "4.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fb8393d67ba2e7bfaf28a23458e4e2b543cc73a99595511eb207fdb8aede942"
+checksum = "5ca6706fd5224857d9ac5eb9355f6683563cc0541c7cd9d014043b57cbec78ac"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2817,7 +2813,7 @@ version = "4.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "586a385f7ef2f8b4d86bddaa0c094794e7ccbfe5ffef1f434fe928143fc783a5"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
 ]
 
 [[package]]
@@ -3073,7 +3069,7 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
-source = "git+https://github.com/w3f/ring-proof#b273d33f9981e2bb3375ab45faeb537f7ee35224"
+source = "git+https://github.com/w3f/ring-proof?rev=665f5f5#665f5f51af5734c7b6d90b985dd6861d4c5b4752"
 dependencies = [
  "ark-ec",
  "ark-ff 0.4.2",
@@ -3643,7 +3639,7 @@ dependencies = [
  "anes",
  "cast",
  "ciborium",
- "clap 4.5.9",
+ "clap 4.5.10",
  "criterion-plot",
  "futures",
  "is-terminal",
@@ -3777,7 +3773,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.7.0"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-cli",
@@ -4240,7 +4236,7 @@ name = "cumulus-pov-validator"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.5.9",
+ "clap 4.5.10",
  "parity-scale-codec",
  "polkadot-node-primitives",
  "polkadot-parachain-primitives",
@@ -4567,7 +4563,7 @@ name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 4.5.9",
+ "clap 4.5.10",
  "criterion",
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -4999,7 +4995,7 @@ checksum = "86e3bdc80eee6e16b2b6b0f87fbc98c04bee3455e35174c0de1a125d0688c632"
 [[package]]
 name = "dleq_vrf"
 version = "0.0.2"
-source = "git+https://github.com/w3f/ring-vrf?rev=e9782f9#e9782f938629c90f3adb3fff2358bc8d1386af3e"
+source = "git+https://github.com/w3f/ring-vrf?rev=0fef826#0fef8266d851932ad25d6b41bc4b34d834d1e11d"
 dependencies = [
  "ark-ec",
  "ark-ff 0.4.2",
@@ -5829,7 +5825,7 @@ dependencies = [
  "Inflector",
  "array-bytes",
  "chrono",
- "clap 4.5.9",
+ "clap 4.5.10",
  "comfy-table",
  "frame-benchmarking",
  "frame-support",
@@ -5921,7 +5917,7 @@ dependencies = [
 name = "frame-election-solution-type-fuzzer"
 version = "2.0.0-alpha.5"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "frame-election-provider-solution-type",
  "frame-election-provider-support",
  "frame-support",
@@ -5993,7 +5989,7 @@ dependencies = [
 name = "frame-omni-bencher"
 version = "0.1.0"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "cumulus-primitives-proof-size-hostfunction",
  "env_logger 0.11.3",
  "frame-benchmarking-cli",
@@ -8755,7 +8751,7 @@ dependencies = [
 name = "minimal-template-node"
 version = "0.0.0"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "docify",
  "futures",
  "futures-timer",
@@ -9248,7 +9244,7 @@ name = "node-bench"
 version = "0.9.0-dev"
 dependencies = [
  "array-bytes",
- "clap 4.5.9",
+ "clap 4.5.10",
  "derive_more",
  "fs_extra",
  "futures",
@@ -9327,7 +9323,7 @@ dependencies = [
 name = "node-runtime-generate-bags"
 version = "3.0.0"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "generate-bags",
  "kitchensink-runtime",
 ]
@@ -9336,7 +9332,7 @@ dependencies = [
 name = "node-template-release"
 version = "3.0.0"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "flate2",
  "fs_extra",
  "glob",
@@ -12017,6 +12013,7 @@ dependencies = [
  "log",
  "pallet-balances",
  "pallet-bridge-messages",
+ "pallet-xcm-bridge-hub-router",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -12051,7 +12048,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.0.0"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "color-print",
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -13011,7 +13008,7 @@ name = "polkadot-cli"
 version = "7.0.0"
 dependencies = [
  "cfg-if",
- "clap 4.5.9",
+ "clap 4.5.10",
  "frame-benchmarking-cli",
  "futures",
  "log",
@@ -13871,7 +13868,7 @@ dependencies = [
  "async-trait",
  "bridge-hub-rococo-runtime",
  "bridge-hub-westend-runtime",
- "clap 4.5.9",
+ "clap 4.5.10",
  "collectives-westend-runtime",
  "color-print",
  "contracts-rococo-runtime",
@@ -14855,7 +14852,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "bitvec",
- "clap 4.5.9",
+ "clap 4.5.10",
  "clap-num",
  "color-eyre",
  "colored",
@@ -14953,7 +14950,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
- "clap 4.5.9",
+ "clap 4.5.10",
  "color-eyre",
  "futures",
  "futures-timer",
@@ -15095,7 +15092,7 @@ dependencies = [
 name = "polkadot-voter-bags"
 version = "7.0.0"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "generate-bags",
  "sp-io",
  "westend-runtime",
@@ -16244,7 +16241,7 @@ dependencies = [
 name = "remote-ext-tests-bags-list"
 version = "1.0.0"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "frame-system",
  "log",
  "pallet-bags-list-remote-tests",
@@ -16317,13 +16314,14 @@ dependencies = [
 [[package]]
 name = "ring"
 version = "0.1.0"
-source = "git+https://github.com/w3f/ring-proof#b273d33f9981e2bb3375ab45faeb537f7ee35224"
+source = "git+https://github.com/w3f/ring-proof?rev=665f5f5#665f5f51af5734c7b6d90b985dd6861d4c5b4752"
 dependencies = [
  "ark-ec",
  "ark-ff 0.4.2",
  "ark-poly",
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
+ "arrayvec 0.7.4",
  "blake2 0.10.6",
  "common",
  "fflonk",
@@ -17093,7 +17091,7 @@ name = "sc-chain-spec"
 version = "28.0.0"
 dependencies = [
  "array-bytes",
- "clap 4.5.9",
+ "clap 4.5.10",
  "docify",
  "log",
  "memmap2 0.9.3",
@@ -17136,7 +17134,7 @@ version = "0.36.0"
 dependencies = [
  "array-bytes",
  "chrono",
- "clap 4.5.9",
+ "clap 4.5.10",
  "fdlimit",
  "futures",
  "futures-timer",
@@ -18320,7 +18318,7 @@ dependencies = [
 name = "sc-storage-monitor"
 version = "0.16.0"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "fs4",
  "log",
  "sp-core",
@@ -19742,8 +19740,9 @@ dependencies = [
 name = "solochain-template-node"
 version = "0.0.0"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "frame-benchmarking-cli",
+ "frame-metadata-hash-extension",
  "frame-system",
  "futures",
  "jsonrpsee",
@@ -19786,6 +19785,7 @@ version = "0.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
+ "frame-metadata-hash-extension",
  "frame-support",
  "frame-system",
  "frame-system-benchmarking",
@@ -20416,7 +20416,7 @@ dependencies = [
 name = "sp-npos-elections-fuzzer"
 version = "2.0.0-alpha.5"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "honggfuzz",
  "rand",
  "sp-npos-elections",
@@ -20929,7 +20929,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "staging-chain-spec-builder"
 version = "1.6.1"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "log",
  "sc-chain-spec",
  "serde_json",
@@ -20942,7 +20942,7 @@ version = "3.0.0-dev"
 dependencies = [
  "array-bytes",
  "assert_cmd",
- "clap 4.5.9",
+ "clap 4.5.10",
  "clap_complete",
  "criterion",
  "futures",
@@ -20977,7 +20977,7 @@ dependencies = [
 name = "staging-node-inspect"
 version = "0.12.0"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "parity-scale-codec",
  "sc-cli",
  "sc-client-api",
@@ -21250,7 +21250,7 @@ dependencies = [
 name = "subkey"
 version = "9.0.0"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "sc-cli",
 ]
 
@@ -21546,6 +21546,7 @@ dependencies = [
  "console",
  "filetime",
  "frame-metadata",
+ "jobserver",
  "merkleized-metadata",
  "parity-scale-codec",
  "parity-wasm",
@@ -21875,7 +21876,7 @@ dependencies = [
 name = "test-parachain-adder-collator"
 version = "1.0.0"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "futures",
  "futures-timer",
  "log",
@@ -21922,7 +21923,7 @@ dependencies = [
 name = "test-parachain-undying-collator"
 version = "1.0.0"
 dependencies = [
- "clap 4.5.9",
+ "clap 4.5.10",
  "futures",
  "futures-timer",
  "log",
