@@ -89,8 +89,8 @@ jobs:
     strategy: 
       fail-fast: false     
       matrix:
-        ci_node_total: [1]
-        ci_node_index: [1]      
+        ci_node_total: [5]
+        ci_node_index: [1, 2, 3, 4, 5]      
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -106,8 +106,9 @@ jobs:
         run: >
           time cargo llvm-cov  nextest
           --no-report --release
-          -p polkadot
+          --workspace
           --locked --no-fail-fast
+          --features try-runtime,ci-only-tests,experimental,riscv
           --filter-expr "
           !test(/.*benchmark.*/)
           - test(/recovers_from_only_chunks_if_pov_large::case_1/)
