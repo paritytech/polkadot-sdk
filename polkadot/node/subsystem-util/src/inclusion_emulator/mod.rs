@@ -11,7 +11,6 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-use polkadot_node_subsystem::messages::HypotheticalCandidate;
 /// # Overview
 ///
 /// A set of utilities for node-side code to emulate the logic the runtime uses for checking
@@ -81,6 +80,7 @@ use polkadot_node_subsystem::messages::HypotheticalCandidate;
 ///
 /// That means a few blocks of execution time lost, which is not a big deal for code upgrades
 /// in practice at most once every few weeks.
+use polkadot_node_subsystem::messages::HypotheticalCandidate;
 use polkadot_primitives::{
 	async_backing::Constraints as PrimitiveConstraints, BlockNumber, CandidateCommitments,
 	CandidateHash, CollatorId, CollatorSignature, Hash, HeadData, Id as ParaId,
