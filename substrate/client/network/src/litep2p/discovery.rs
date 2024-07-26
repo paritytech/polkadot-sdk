@@ -73,7 +73,10 @@ const GET_RECORD_REDUNDANCY_FACTOR: usize = 4;
 const MAX_EXTERNAL_ADDRESSES: usize = 32;
 
 /// Minimum number of confirmations received before an address is verified.
-const MIN_ADDRESS_CONFIRMATIONS: usize = 5;
+///
+/// Note: all addresses are confirmed by libp2p on the first encounter. This aims to make
+/// addresses a bit more robust.
+const MIN_ADDRESS_CONFIRMATIONS: usize = 2;
 
 /// Discovery events.
 #[derive(Debug)]
