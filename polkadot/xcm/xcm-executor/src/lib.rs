@@ -984,8 +984,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					} else {
 						None
 					};
-					// now take assets to deposit (excluding delivery_fee)
-					// TODO: We should be taking `assets - delivery_fee`
+					// now take assets to deposit (after having taken delivery fees)
 					let deposited = self.holding.saturating_take(assets);
 					tracing::trace!(target: "xcm::DepositReserveAsset", ?deposited, "Assets except delivery fee");
 					for asset in deposited.assets_iter() {
