@@ -1,3 +1,5 @@
+//! # Frame storage derives
+//!
 //! > **Note:**
 //! >
 //! > In all examples, a few lines of boilerplate have been hidden from each snippet for conciseness.
