@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722001120567,
+  "lastUpdate": 1722006261815,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -6551,6 +6551,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04526167456799999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sebastian Kunert",
+            "username": "skunert",
+            "email": "skunert49@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "5dc0670a85d575480e0840204c20a5771cd8f7d3",
+          "message": "BEEFY: Disarm finality notifications to prevent pinning (#5129)\n\nThis should prevent excessive pinning of blocks while we are waiting for\nthe block ancestry to be downloaded after gap sync.\nWe spawn a new task that gets polled to transform finality notifications\ninto an unpinned counterpart. Before this PR, finality notifications\nwere kept in the notification channel. This led to pinning cache\noverflows.\n\nfixes #4389\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-07-26T14:33:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5dc0670a85d575480e0840204c20a5771cd8f7d3"
+        },
+        "date": 1722006230736,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.92199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.044763566549999974,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.036447095839999985,
             "unit": "seconds"
           }
         ]
