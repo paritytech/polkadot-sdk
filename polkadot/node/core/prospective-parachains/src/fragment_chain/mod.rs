@@ -404,7 +404,7 @@ impl CandidateEntry {
 	}
 }
 
-impl HypotheticalOrConcreteCandidate for &CandidateEntry {
+impl HypotheticalOrConcreteCandidate for CandidateEntry {
 	fn commitments(&self) -> Option<&CandidateCommitments> {
 		Some(&self.candidate.commitments)
 	}
@@ -866,15 +866,13 @@ impl FragmentChain {
 			return Err(Error::IntroduceBackedCandidate);
 		}
 
-		let res = self.can_add_candidate_as_potential(&candidate);
+		self.can_add_candidate_as_potential(candidate)?;
 
-		if res.is_ok() {
-			// This clone is cheap, as it uses an Arc for the expensive stuff.
-			// We can't consume the candidate because other fragment chains may use it also.
-			self.unconnected.add_candidate_entry(candidate.clone())?;
-		}
+		// This clone is cheap, as it uses an Arc for the expensive stuff.
+		// We can't consume the candidate because other fragment chains may use it also.
+		self.unconnected.add_candidate_entry(candidate.clone())?;
 
-		res
+		Ok(())
 	}
 
 	// Populate the unconnected potential candidate storage starting from a previous storage.
@@ -886,7 +884,7 @@ impl FragmentChain {
 				continue
 			}
 
-			match self.can_add_candidate_as_potential(&&candidate) {
+			match self.can_add_candidate_as_potential(&candidate) {
 				Ok(()) => {
 					let _ = self.unconnected.add_candidate_entry(candidate);
 				},
@@ -1054,7 +1052,7 @@ impl FragmentChain {
 
 				// Only keep a candidate if its full ancestry was already kept as potential and this
 				// candidate itself has potential.
-				if parent_has_potential && self.check_potential(&child).is_ok() {
+				if parent_has_potential && self.check_potential(child).is_ok() {
 					queue.push_back((child.output_head_data_hash, true));
 				} else {
 					// Otherwise, remove this candidate and continue looping for its children, but
