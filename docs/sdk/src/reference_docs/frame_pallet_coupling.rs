@@ -110,7 +110,7 @@
 //! Crucially, when using loose coupling, we gain the flexibility of providing different
 //! implementations of `AuthorProvider`, such that different users of a `pallet-foo` can use
 //! different ones, without any code change being needed. For example, in the code snippets of this
-//! module, you can fund [`OtherAuthorProvider`] which is an alternative implementation of
+//! module, you can find [`OtherAuthorProvider`], which is an alternative implementation of
 //! [`AuthorProvider`].
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", other_author_provider)]
 //!
