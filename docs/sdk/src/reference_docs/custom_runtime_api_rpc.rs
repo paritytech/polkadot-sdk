@@ -1,7 +1,7 @@
 //! # Custom RPC do's and don'ts
 //!
-//! **TLDR:** don't create new custom RPCs. Instead, rely on custom Runtime APIs, combined with
-//! `state_call`
+//! **TLDR:** Don't create new custom RPCs. Instead, rely on custom Runtime APIs, combined with
+//! `state_call`.
 //!
 //! ## Background
 //!
@@ -20,7 +20,7 @@
 //! - To upgrade or add a new RPC logic, the RPC node has to be upgraded. This can cause significant
 //!   trouble when the RPC infrastructure is decentralized as we will need to coordinate multiple
 //!   parties to upgrade the RPC nodes.
-//! - A lot of boilerplate code are required to add custom RPC.
+//! - A lot of boilerplate code is required to add custom RPC.
 //! - It prevents the dApp to use a light client or alternative client.
 //! - It makes ecosystem tooling integration much more complicated. For example, the dApp will not
 //!   be able to use [Chopsticks](https://github.com/AcalaNetwork/chopsticks) for testing as
