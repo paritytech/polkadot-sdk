@@ -4,12 +4,12 @@
 title: Prevent finalized notification hoarding in beefy gadget
 
 doc:
-  - audience: Node Operators
+  - audience: Node Operator
     description: |
-         This PR fixes the error message "Notification block pinning limit
-         reached." during warp sync. Finality notifications in BEEFY are now
-         constantly being consumed and don't keep blocks pinned for extended
-         periods of time.
+      This PR fixes the error message "Notification block pinning limit
+      reached." during warp sync. Finality notifications in BEEFY are now
+      constantly being consumed and don't keep blocks pinned for extended
+      periods of time.
 
 crates:
   - name: sc-consensus-beefy
