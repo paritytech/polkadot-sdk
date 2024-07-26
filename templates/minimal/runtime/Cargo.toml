@@ -18,13 +18,15 @@ polkadot-sdk = { workspace = true, features = ["runtime"] }
 pallet-minimal-template = { workspace = true }
 
 [build-dependencies]
-polkadot-sdk = { optional = true, workspace = true, features = ["substrate-wasm-builder"] }
+polkadot-sdk = { optional = true, workspace = true, features = [
+  "substrate-wasm-builder",
+] }
 
 [features]
 default = ["std"]
 std = [
-	"codec/std",
-	"scale-info/std",
-	"polkadot-sdk/std",
-	"pallet-minimal-template/std",
+  "codec/std",
+  "scale-info/std",
+  "polkadot-sdk/std",
+  "pallet-minimal-template/std",
 ]
