@@ -439,6 +439,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		mmr.generate_ancestry_proof(prev_leaf_count)
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn generate_mock_ancestry_proof() -> Result<primitives::AncestryProof<HashOf<T, I>>, Error>
+	{
+		let leaf_count = Self::block_num_to_leaf_count(<frame_system::Pallet<T>>::block_number())?;
+		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(leaf_count);
+		mmr.generate_mock_ancestry_proof()
+	}
+
 	pub fn verify_ancestry_proof(
 		root: HashOf<T, I>,
 		ancestry_proof: primitives::AncestryProof<HashOf<T, I>>,

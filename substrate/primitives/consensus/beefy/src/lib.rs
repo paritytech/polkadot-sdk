@@ -464,7 +464,7 @@ pub trait AncestryHelper<Header: HeaderT> {
 /// Weight information for the logic in `AncestryHelper`.
 pub trait AncestryHelperWeightInfo<Header: HeaderT>: AncestryHelper<Header> {
 	/// Weight info for the `AncestryHelper::extract_validation_context()` method.
-	fn extract_validation_context(header: &Header) -> Weight;
+	fn extract_validation_context() -> Weight;
 
 	/// Weight info for the `AncestryHelper::is_non_canonical()` method.
 	fn is_non_canonical(proof: &<Self as AncestryHelper<Header>>::Proof) -> Weight;

@@ -20,15 +20,92 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+use crate::Pallet as BeefyMmr;
+use codec::Encode;
 use frame_benchmarking::v2::*;
+use frame_support::traits::Hooks;
+use frame_system::{Config as SystemConfig, Pallet as System};
+use pallet_mmr::{Nodes, Pallet as Mmr};
+use sp_consensus_beefy::Payload;
+use sp_runtime::traits::Zero;
+
+pub trait Config:
+	pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing> + crate::Config
+{
+}
+
+impl<T> Config for T where
+	T: pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing> + crate::Config
+{
+}
+
+fn init_block<T: Config>(block_num: u32) {
+	let block_num = block_num.into();
+	System::<T>::initialize(&block_num, &<T as SystemConfig>::Hash::default(), &Default::default());
+	Mmr::<T>::on_initialize(block_num);
+}
 
 #[benchmarks]
 mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn n_items_proof_is_non_canonical(n: Linear<1, 64>) {
+	fn extract_validation_context() {
+		init_block::<T>(0);
+		let header = System::<T>::finalize();
+		frame_system::BlockHash::<T>::insert(BlockNumberFor::<T>::zero(), header.hash());
+
+		let validation_context;
 		#[block]
-		{}
+		{
+			validation_context =
+				<BeefyMmr<T> as AncestryHelper<HeaderFor<T>>>::extract_validation_context(header);
+		}
+
+		assert!(validation_context.is_some());
+	}
+
+	#[benchmark]
+	fn read_peak() {
+		init_block::<T>(0);
+
+		let peak;
+		#[block]
+		{
+			peak = Nodes::<T>::get(0)
+		}
+
+		assert!(peak.is_some());
+	}
+
+	/// Generate ancestry proofs with `n` nodes and benchmark the verification logic.
+	/// These proofs are inflated, containing all the leafs, so we won't read any peak during
+	/// the verification. We need to account for the peaks separately.
+	#[benchmark]
+	fn n_items_proof_is_non_canonical(n: Linear<2, 512>) {
+		for block_num in 1..=n {
+			init_block::<T>(block_num);
+		}
+		let proof = Mmr::<T>::generate_mock_ancestry_proof().unwrap();
+		assert_eq!(proof.items.len(), n as usize);
+
+		let is_non_canonical;
+		#[block]
+		{
+			is_non_canonical = <BeefyMmr<T> as AncestryHelper<HeaderFor<T>>>::is_non_canonical(
+				&Commitment {
+					payload: Payload::from_single_entry(
+						known_payloads::MMR_ROOT_ID,
+						MerkleRootOf::<T>::default().encode(),
+					),
+					block_number: n.into(),
+					validator_set_id: 0,
+				},
+				proof,
+				Mmr::<T>::mmr_root(),
+			);
+		};
+
+		assert_eq!(is_non_canonical, true);
 	}
 }

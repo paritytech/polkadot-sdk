@@ -133,7 +133,7 @@ impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
 }
 
 impl<Header: HeaderT> AncestryHelperWeightInfo<Header> for MockAncestryHelper {
-	fn extract_validation_context(_header: &Header) -> Weight {
+	fn extract_validation_context() -> Weight {
 		unimplemented!()
 	}
 
