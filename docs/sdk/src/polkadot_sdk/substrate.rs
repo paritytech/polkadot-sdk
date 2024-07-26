@@ -27,7 +27,7 @@
 //!    blob.
 //!
 //! In essence, the meta-protocol of all Substrate based chains is the "Runtime as WASM blob"
-//! accord. This enables the Runtime to become inherently upgradeable, crucially without forks. The
+//! accord. This enables the Runtime to become inherently upgradeable, crucially without [forks](https://en.wikipedia.org/wiki/Fork_(blockchain)). The
 //! upgrade is merely a matter of the WASM blob being changed in the state, which is, in principle,
 //! same as updating an account's balance. Learn more about this in detail in
 //! [`crate::reference_docs::wasm_meta_protocol`].
