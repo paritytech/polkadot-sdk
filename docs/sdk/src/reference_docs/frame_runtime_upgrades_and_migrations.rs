@@ -129,7 +129,9 @@
 //!
 //! Suitable for migrations which could use arbitrary amounts of block weight.
 //!
-//! TODO: Link to multi block migration example/s once PR is merged (<https://github.com/paritytech/polkadot-sdk/pull/2119>).
+//! See the
+//! [multi-block-migrations example](https://github.com/paritytech/polkadot-sdk/tree/0d7d2177807ec6b3094f4491a45b0bc0d74d3c8b/substrate/frame/examples/multi-block-migrations)
+//! for reference.
 //!
 //! [`OnRuntimeUpgrade`]: frame_support::traits::OnRuntimeUpgrade
 //! [`StorageVersion`]: frame_support::traits::StorageVersion
