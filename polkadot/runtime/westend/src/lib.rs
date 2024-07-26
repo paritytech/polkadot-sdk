@@ -1172,7 +1172,7 @@ impl pallet_proxy::Config for Runtime {
 impl parachains_origin::Config for Runtime {}
 
 impl parachains_configuration::Config for Runtime {
-	type WeightInfo = weights::runtime_parachains_configuration::WeightInfo<Runtime>;
+	type WeightInfo = weights::polkadot_runtime_parachains_configuration::WeightInfo<Runtime>;
 }
 
 impl parachains_shared::Config for Runtime {
@@ -1188,7 +1188,7 @@ impl parachains_inclusion::Config for Runtime {
 	type DisputesHandler = ParasDisputes;
 	type RewardValidators = parachains_reward_points::RewardValidatorsWithEraPoints<Runtime>;
 	type MessageQueue = MessageQueue;
-	type WeightInfo = weights::runtime_parachains_inclusion::WeightInfo<Runtime>;
+	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1197,7 +1197,7 @@ parameter_types! {
 
 impl parachains_paras::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::runtime_parachains_paras::WeightInfo<Runtime>;
+	type WeightInfo = weights::polkadot_runtime_parachains_paras::WeightInfo<Runtime>;
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
@@ -1271,11 +1271,11 @@ impl parachains_hrmp::Config for Runtime {
 		HrmpChannelSizeAndCapacityWithSystemRatio,
 	>;
 	type VersionWrapper = crate::XcmPallet;
-	type WeightInfo = weights::runtime_parachains_hrmp::WeightInfo<Self>;
+	type WeightInfo = weights::polkadot_runtime_parachains_hrmp::WeightInfo<Self>;
 }
 
 impl parachains_paras_inherent::Config for Runtime {
-	type WeightInfo = weights::runtime_parachains_paras_inherent::WeightInfo<Runtime>;
+	type WeightInfo = weights::polkadot_runtime_parachains_paras_inherent::WeightInfo<Runtime>;
 }
 
 impl parachains_scheduler::Config for Runtime {
@@ -1304,7 +1304,7 @@ impl coretime::Config for Runtime {
 	type Currency = Balances;
 	type BrokerId = BrokerId;
 	type BrokerPotLocation = BrokerPot;
-	type WeightInfo = weights::runtime_parachains_coretime::WeightInfo<Runtime>;
+	type WeightInfo = weights::polkadot_runtime_parachains_coretime::WeightInfo<Runtime>;
 	type SendXcm = crate::xcm_config::XcmRouter;
 	type AssetTransactor = crate::xcm_config::LocalAssetTransactor;
 	type AccountToLocation = xcm_builder::AliasesIntoAccountId32<
@@ -1325,7 +1325,7 @@ impl parachains_on_demand::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
-	type WeightInfo = weights::runtime_parachains_on_demand::WeightInfo<Runtime>;
+	type WeightInfo = weights::polkadot_runtime_parachains_on_demand::WeightInfo<Runtime>;
 	type MaxHistoricalRevenue = MaxHistoricalRevenue;
 	type PalletId = OnDemandPalletId;
 }
@@ -1335,7 +1335,7 @@ impl parachains_assigner_coretime::Config for Runtime {}
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 	type ForceOrigin = EnsureRoot<AccountId>;
-	type WeightInfo = weights::runtime_parachains_initializer::WeightInfo<Runtime>;
+	type WeightInfo = weights::polkadot_runtime_parachains_initializer::WeightInfo<Runtime>;
 	type CoretimeOnNewSession = Coretime;
 }
 
@@ -1361,7 +1361,7 @@ impl parachains_disputes::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RewardValidators = parachains_reward_points::RewardValidatorsWithEraPoints<Runtime>;
 	type SlashingHandler = parachains_slashing::SlashValidatorsForDisputes<ParasSlashing>;
-	type WeightInfo = weights::runtime_parachains_disputes::WeightInfo<Runtime>;
+	type WeightInfo = weights::polkadot_runtime_parachains_disputes::WeightInfo<Runtime>;
 }
 
 impl parachains_slashing::Config for Runtime {
@@ -1377,7 +1377,7 @@ impl parachains_slashing::Config for Runtime {
 		Offences,
 		ReportLongevity,
 	>;
-	type WeightInfo = weights::runtime_parachains_disputes_slashing::WeightInfo<Runtime>;
+	type WeightInfo = weights::polkadot_runtime_parachains_disputes_slashing::WeightInfo<Runtime>;
 	type BenchmarkingConfig = parachains_slashing::BenchConfig<300>;
 }
 
