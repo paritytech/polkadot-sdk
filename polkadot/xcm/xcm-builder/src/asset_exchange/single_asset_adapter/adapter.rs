@@ -158,7 +158,7 @@ where
 
 	fn quote_exchange_price(asset1: &Asset, asset2: &Asset, maximal: bool) -> Option<u128> {
 		// We first match both XCM assets to the asset ID types `AssetConversion` can handle.
-		let (asset1_id, _) = Matcher::matches_fungibles(asset1)
+		let (asset1_id, asset1_amount) = Matcher::matches_fungibles(asset1)
 			.map_err(|error| {
 				log::trace!(
 					target: "xcm::SingleAssetExchangeAdapter::quote_exchange_price",
@@ -170,7 +170,7 @@ where
 			})
 			.ok()?;
 		// For `asset2`, we also want the desired amount.
-		let (asset2_id, desired_asset2_amount) = Matcher::matches_fungibles(asset2)
+		let (asset2_id, asset2_amount) = Matcher::matches_fungibles(asset2)
 			.map_err(|error| {
 				log::trace!(
 					target: "xcm::SingleAssetExchangeAdapter::quote_exchange_price",
@@ -182,21 +182,28 @@ where
 			})
 			.ok()?;
 		// We quote the price.
-		let necessary_asset1_amount = if maximal {
-			<AssetConversion as QuotePrice>::quote_price_exact_tokens_for_tokens(
-				asset1_id,
-				asset2_id,
-				desired_asset2_amount,
-				true,
-			)?
+		if maximal {
+			// The amount of `asset2` resulting from swapping the `asset1_amount` of `asset1`.
+			let resulting_asset2_amount =
+				<AssetConversion as QuotePrice>::quote_price_exact_tokens_for_tokens(
+					asset1_id,
+					asset2_id,
+					asset1_amount,
+					true,
+				)?;
+
+			Some(resulting_asset2_amount)
 		} else {
-			<AssetConversion as QuotePrice>::quote_price_tokens_for_exact_tokens(
-				asset1_id,
-				asset2_id,
-				desired_asset2_amount,
-				true,
-			)?
-		};
-		Some(necessary_asset1_amount)
+			// The `asset1` amount required to obtain `asset2_amount` of `asset2`.
+			let necessary_asset1_amount =
+				<AssetConversion as QuotePrice>::quote_price_tokens_for_exact_tokens(
+					asset1_id,
+					asset2_id,
+					asset2_amount,
+					true,
+				)?;
+
+			Some(necessary_asset1_amount)
+		}
 	}
 }

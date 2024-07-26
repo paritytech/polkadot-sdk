@@ -61,12 +61,14 @@ fn minimal_exchange() {
 fn maximal_quote() {
 	new_test_ext().execute_with(|| {
 		let amount = quote(
-			&([PalletInstance(2), GeneralIndex(1)], 1).into(),
+			&([PalletInstance(2), GeneralIndex(1)], 10_000_000).into(),
 			&(Here, 2_000_000).into(),
 			true,
 		)
 		.unwrap();
-		assert_eq!(amount, 977_508);
+		// The amount of the native token resulting from swapping all `10_000_000` of the custom
+		// token.
+		assert_eq!(amount, 4_533_054);
 	});
 }
 
@@ -74,11 +76,12 @@ fn maximal_quote() {
 fn minimal_quote() {
 	new_test_ext().execute_with(|| {
 		let amount = quote(
-			&([PalletInstance(2), GeneralIndex(1)], 10).into(),
+			&([PalletInstance(2), GeneralIndex(1)], 10_000_000).into(),
 			&(Here, 2_000_000).into(),
 			false,
 		)
 		.unwrap();
+		// The amount of the custom token needed to get `2_000_000` of the native token.
 		assert_eq!(amount, 4_179_205);
 	});
 }
