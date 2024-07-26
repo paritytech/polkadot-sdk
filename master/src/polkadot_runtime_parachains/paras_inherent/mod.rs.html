@@ -1644,6 +1644,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1493" id="1493">1493</a>
 <a href="#1494" id="1494">1494</a>
 <a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2889,22 +2895,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	candidates: <span class="kw-2">&amp;mut </span>BTreeMap&lt;ParaId, Vec&lt;BackedCandidate&lt;T::Hash&gt;&gt;&gt;,
 	allowed_relay_parents: <span class="kw-2">&amp;</span>AllowedRelayParentsTracker&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;,
 ) {
-	<span class="kw">let </span><span class="kw-2">mut </span>para_latest_head_data: BTreeMap&lt;ParaId, HeadData&gt; = BTreeMap::new();
+	<span class="kw">let </span><span class="kw-2">mut </span>para_latest_context: BTreeMap&lt;ParaId, (HeadData, BlockNumberFor&lt;T&gt;)&gt; = BTreeMap::new();
 	<span class="kw">for </span>para_id <span class="kw">in </span>candidates.keys() {
-		<span class="kw">let </span>latest_head_data = <span class="kw">match </span>inclusion::Pallet::&lt;T&gt;::para_latest_head_data(<span class="kw-2">&amp;</span>para_id) {
-			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">defensive!</span>(<span class="string">"Latest included head data for paraid {:?} is None"</span>, para_id);
-				<span class="kw">continue
-			</span>},
-			<span class="prelude-val">Some</span>(latest_head_data) =&gt; latest_head_data,
-		};
-		para_latest_head_data.insert(<span class="kw-2">*</span>para_id, latest_head_data);
+		<span class="kw">let </span><span class="prelude-val">Some</span>(latest_head_data) = inclusion::Pallet::&lt;T&gt;::para_latest_head_data(<span class="kw-2">&amp;</span>para_id) <span class="kw">else </span>{
+			<span class="macro">defensive!</span>(<span class="string">"Latest included head data for paraid {:?} is None"</span>, para_id);
+			<span class="kw">continue
+		</span>};
+		<span class="kw">let </span><span class="prelude-val">Some</span>(latest_relay_parent) = inclusion::Pallet::&lt;T&gt;::para_most_recent_context(<span class="kw-2">&amp;</span>para_id)
+		<span class="kw">else </span>{
+			<span class="macro">defensive!</span>(<span class="string">"Latest relay parent for paraid {:?} is None"</span>, para_id);
+			<span class="kw">continue
+		</span>};
+		para_latest_context.insert(<span class="kw-2">*</span>para_id, (latest_head_data, latest_relay_parent));
 	}
 
 	<span class="kw">let </span><span class="kw-2">mut </span>para_visited_candidates: BTreeMap&lt;ParaId, BTreeSet&lt;CandidateHash&gt;&gt; = BTreeMap::new();
 
 	retain_candidates::&lt;T, <span class="kw">_</span>, <span class="kw">_</span>&gt;(candidates, |para_id, candidate| {
-		<span class="kw">let </span><span class="prelude-val">Some</span>(latest_head_data) = para_latest_head_data.get(<span class="kw-2">&amp;</span>para_id) <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
+		<span class="kw">let </span><span class="prelude-val">Some</span>((latest_head_data, latest_relay_parent)) = para_latest_context.get(<span class="kw-2">&amp;</span>para_id)
+		<span class="kw">else </span>{
+			<span class="kw">return </span><span class="bool-val">false
+		</span>};
 		<span class="kw">let </span>candidate_hash = candidate.candidate().hash();
 
 		<span class="kw">let </span>visited_candidates =
@@ -2923,15 +2934,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			visited_candidates.insert(candidate_hash);
 		}
 
-		<span class="kw">let </span>prev_context = paras::MostRecentContext::&lt;T&gt;::get(para_id);
-		<span class="kw">let </span>check_ctx = CandidateCheckContext::&lt;T&gt;::new(prev_context);
+		<span class="kw">let </span>check_ctx = CandidateCheckContext::&lt;T&gt;::new(<span class="prelude-val">Some</span>(<span class="kw-2">*</span>latest_relay_parent));
 
-		<span class="kw">let </span>res = <span class="kw">match </span>check_ctx.verify_backed_candidate(
+		<span class="kw">match </span>check_ctx.verify_backed_candidate(
 			<span class="kw-2">&amp;</span>allowed_relay_parents,
 			candidate.candidate(),
 			latest_head_data.clone(),
 		) {
-			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="bool-val">true</span>,
+			<span class="prelude-val">Ok</span>(relay_parent_block_number) =&gt; {
+				para_latest_context.insert(
+					para_id,
+					(
+						candidate.candidate().commitments.head_data.clone(),
+						relay_parent_block_number,
+					),
+				);
+				<span class="bool-val">true
+			</span>},
 			<span class="prelude-val">Err</span>(err) =&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
@@ -2942,14 +2961,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 				<span class="bool-val">false
 			</span>},
-		};
-
-		<span class="kw">if </span>res {
-			para_latest_head_data
-				.insert(para_id, candidate.candidate().commitments.head_data.clone());
 		}
-
-		res
 	});
 }
 

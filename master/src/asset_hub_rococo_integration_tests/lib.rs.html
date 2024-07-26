@@ -252,6 +252,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -294,7 +296,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			assert_expected_events, bx, Chain, Parachain <span class="kw">as </span>Para, RelayChain <span class="kw">as </span>Relay, Test,
 			TestArgs, TestContext, TestExt,
 		},
-		xcm_helpers::{non_fee_asset, xcm_transact_paid_execution},
+		xcm_helpers::{
+			get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution,
+		},
 		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, XCM_V3,
 	};
 	<span class="kw">pub use </span>parachains_common::Balance;
