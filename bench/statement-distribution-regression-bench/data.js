@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722006261815,
+  "lastUpdate": 1722017788452,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -6593,6 +6593,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.036447095839999985,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "72509375d17ce3d78ee3794792cabcea5e560a15",
+          "message": "Fix warnings for rust 1.80 (#5150)\n\nFix warnings for rust 1.80",
+          "timestamp": "2024-07-26T17:27:59Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/72509375d17ce3d78ee3794792cabcea5e560a15"
+        },
+        "date": 1722017757194,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.93599999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04561630370799999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03682698459600001,
             "unit": "seconds"
           }
         ]
