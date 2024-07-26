@@ -902,6 +902,66 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#751" id="751">751</a>
 <a href="#752" id="752">752</a>
 <a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -939,10 +999,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>log::{debug, error, info, warn};
 <span class="kw">use </span>parking_lot::Mutex;
 <span class="kw">use </span>prometheus_endpoint::Registry;
-<span class="kw">use </span>sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotifications, Finalizer};
+<span class="kw">use </span>sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotification, Finalizer};
 <span class="kw">use </span>sc_consensus::BlockImport;
 <span class="kw">use </span>sc_network::{NetworkRequest, NotificationService, ProtocolName};
 <span class="kw">use </span>sc_network_gossip::{GossipEngine, Network <span class="kw">as </span>GossipNetwork, Syncing <span class="kw">as </span>GossipSyncing};
+<span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_blockchain::{Backend <span class="kw">as </span>BlockchainBackend, HeaderBackend};
 <span class="kw">use </span>sp_consensus::{Error <span class="kw">as </span>ConsensusError, SyncOracle};
@@ -953,7 +1014,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::traits::{Block, Header <span class="kw">as </span>HeaderT, NumberFor, Zero};
 <span class="kw">use </span>std::{
 	collections::{BTreeMap, VecDeque},
+	future::Future,
 	marker::PhantomData,
+	pin::Pin,
 	sync::Arc,
 	time::Duration,
 };
@@ -991,6 +1054,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">const </span>HEADER_SYNC_DELAY: Duration = Duration::from_secs(<span class="number">60</span>);
 
+<span class="kw">type </span>FinalityNotifications&lt;Block&gt; =
+	sc_utils::mpsc::TracingUnboundedReceiver&lt;UnpinnedFinalityNotification&lt;Block&gt;&gt;;
 <span class="doccomment">/// A convenience BEEFY client trait that defines all the type bounds a BEEFY client
 /// has to satisfy. Ideally that should actually be a trait alias. Unfortunately as
 /// of today, Rust does not allow a type alias to be used as a trait bound. Tracking
@@ -1388,6 +1453,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 }
 
+<span class="doccomment">/// Finality notification for consumption by BEEFY worker.
+/// This is a stripped down version of `sc_client_api::FinalityNotification` which does not keep
+/// blocks pinned.
+</span><span class="kw">struct </span>UnpinnedFinalityNotification&lt;B: Block&gt; {
+	<span class="doccomment">/// Finalized block header hash.
+	</span><span class="kw">pub </span>hash: B::Hash,
+	<span class="doccomment">/// Finalized block header.
+	</span><span class="kw">pub </span>header: B::Header,
+	<span class="doccomment">/// Path from the old finalized to new finalized parent (implicitly finalized blocks).
+	///
+	/// This maps to the range `(old_finalized, new_finalized)`.
+	</span><span class="kw">pub </span>tree_route: Arc&lt;[B::Hash]&gt;,
+}
+
+<span class="kw">impl</span>&lt;B: Block&gt; From&lt;FinalityNotification&lt;B&gt;&gt; <span class="kw">for </span>UnpinnedFinalityNotification&lt;B&gt; {
+	<span class="kw">fn </span>from(value: FinalityNotification&lt;B&gt;) -&gt; <span class="self">Self </span>{
+		UnpinnedFinalityNotification {
+			hash: value.hash,
+			header: value.header,
+			tree_route: value.tree_route,
+		}
+	}
+}
+
 <span class="doccomment">/// Start the BEEFY gadget.
 ///
 /// This is a thin shim around running and awaiting a BEEFY worker.
@@ -1429,10 +1518,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>metrics = register_metrics(prometheus_registry.clone());
 
+	<span class="kw">let </span><span class="kw-2">mut </span>block_import_justif = links.from_block_import_justif_stream.subscribe(<span class="number">100_000</span>).fuse();
+
 	<span class="comment">// Subscribe to finality notifications and justifications before waiting for runtime pallet and
 	// reuse the streams, so we don't miss notifications while waiting for pallet to be available.
-	</span><span class="kw">let </span><span class="kw-2">mut </span>finality_notifications = client.finality_notification_stream().fuse();
-	<span class="kw">let </span><span class="kw-2">mut </span>block_import_justif = links.from_block_import_justif_stream.subscribe(<span class="number">100_000</span>).fuse();
+	</span><span class="kw">let </span>finality_notifications = client.finality_notification_stream();
+	<span class="kw">let </span>(<span class="kw-2">mut </span>transformer, <span class="kw-2">mut </span>finality_notifications) =
+		finality_notification_transformer_future(finality_notifications);
 
 	<span class="kw">let </span>known_peers = Arc::new(Mutex::new(KnownPeers::new()));
 	<span class="comment">// Default votes filter is to discard everything.
@@ -1486,7 +1578,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">_ </span>= <span class="kw-2">&amp;mut </span>beefy_comms.gossip_engine =&gt; {
 				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Gossip engine has unexpectedly terminated."</span>);
 				<span class="kw">return
-			</span>}
+			</span>},
+			<span class="kw">_ </span>= <span class="kw-2">&amp;mut </span>transformer =&gt; {
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Finality notification transformer task has unexpectedly terminated."</span>);
+				<span class="kw">return
+			</span>},
 		};
 
 		<span class="kw">let </span>worker = worker_builder.build(
@@ -1498,28 +1594,52 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			is_authority,
 		);
 
-		<span class="kw">match </span>futures::future::select(
-			Box::pin(worker.run(<span class="kw-2">&amp;mut </span>block_import_justif, <span class="kw-2">&amp;mut </span>finality_notifications)),
-			Box::pin(on_demand_justifications_handler.run()),
-		)
-		.<span class="kw">await
-		</span>{
-			<span class="comment">// On `ConsensusReset` error, just reinit and restart voter.
-			</span>futures::future::Either::Left(((error::Error::ConsensusReset, reuse_comms), <span class="kw">_</span>)) =&gt; {
-				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Restarting voter."</span>, error::Error::ConsensusReset);
-				beefy_comms = reuse_comms;
-				<span class="kw">continue</span>;
+		<span class="macro">futures::select! </span>{
+			result = worker.run(<span class="kw-2">&amp;mut </span>block_import_justif, <span class="kw-2">&amp;mut </span>finality_notifications).fuse() =&gt; {
+				<span class="kw">match </span>result {
+					(error::Error::ConsensusReset, reuse_comms) =&gt; {
+						<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Restarting voter."</span>, error::Error::ConsensusReset);
+						beefy_comms = reuse_comms;
+						<span class="kw">continue</span>;
+					},
+					(err, <span class="kw">_</span>) =&gt; {
+						<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Terminating."</span>, err)
+					}
+				}
 			},
-			<span class="comment">// On other errors, bring down / finish the task.
-			</span>futures::future::Either::Left(((worker_err, <span class="kw">_</span>), <span class="kw">_</span>)) =&gt; {
-				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Terminating."</span>, worker_err)
+			odj_handler_error = on_demand_justifications_handler.run().fuse() =&gt; {
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Terminating."</span>, odj_handler_error)
 			},
-			futures::future::Either::Right((odj_handler_err, <span class="kw">_</span>)) =&gt; {
-				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Terminating."</span>, odj_handler_err)
-			},
-		};
+			<span class="kw">_ </span>= <span class="kw-2">&amp;mut </span>transformer =&gt; {
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Finality notification transformer task has unexpectedly terminated."</span>);
+			}
+		}
 		<span class="kw">return</span>;
 	}
+}
+
+<span class="doccomment">/// Produce a future that transformes finality notifications into a struct that does not keep blocks
+/// pinned.
+</span><span class="kw">fn </span>finality_notification_transformer_future&lt;B&gt;(
+	<span class="kw-2">mut </span>finality_notifications: sc_client_api::FinalityNotifications&lt;B&gt;,
+) -&gt; (
+	Pin&lt;Box&lt;futures::future::Fuse&lt;<span class="kw">impl </span>Future&lt;Output = ()&gt; + Sized&gt;&gt;&gt;,
+	Fuse&lt;TracingUnboundedReceiver&lt;UnpinnedFinalityNotification&lt;B&gt;&gt;&gt;,
+)
+<span class="kw">where
+	</span>B: Block,
+{
+	<span class="kw">let </span>(tx, rx) = tracing_unbounded(<span class="string">"beefy-notification-transformer-channel"</span>, <span class="number">10000</span>);
+	<span class="kw">let </span>transformer_fut = <span class="kw">async move </span>{
+		<span class="kw">while let </span><span class="prelude-val">Some</span>(notification) = finality_notifications.next().<span class="kw">await </span>{
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Transforming grandpa notification. #{}({:?})"</span>, notification.header.number(), notification.hash);
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = tx.unbounded_send(UnpinnedFinalityNotification::from(notification)) {
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Unable to send transformed notification. Shutting down. err = {}"</span>, err);
+				<span class="kw">return
+			</span>};
+		}
+	};
+	(Box::pin(transformer_fut.fuse()), rx.fuse())
 }
 
 <span class="doccomment">/// Waits until the parent header of `current` is available and returns it.

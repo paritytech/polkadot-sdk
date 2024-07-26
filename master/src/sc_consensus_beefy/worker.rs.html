@@ -1810,14 +1810,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	metric_inc, metric_set,
 	metrics::VoterMetrics,
 	round::{Rounds, VoteImportResult},
-	BeefyComms, BeefyVoterLinks, LOG_TARGET,
+	BeefyComms, BeefyVoterLinks, UnpinnedFinalityNotification, LOG_TARGET,
 };
 <span class="kw">use </span>sp_application_crypto::RuntimeAppPublic;
 
 <span class="kw">use </span>codec::{Codec, Decode, DecodeAll, Encode};
 <span class="kw">use </span>futures::{stream::Fuse, FutureExt, StreamExt};
 <span class="kw">use </span>log::{debug, error, info, trace, warn};
-<span class="kw">use </span>sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
+<span class="kw">use </span>sc_client_api::{Backend, HeaderBackend};
 <span class="kw">use </span>sc_utils::notification::NotificationReceiver;
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_arithmetic::traits::{AtLeast32Bit, Saturating};
@@ -2228,20 +2228,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>handle_finality_notification(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		notification: <span class="kw-2">&amp;</span>FinalityNotification&lt;B&gt;,
+		notification: <span class="kw-2">&amp;</span>UnpinnedFinalityNotification&lt;B&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="kw">let </span>header = <span class="kw-2">&amp;</span>notification.header;
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
 			<span class="string">"🥩 Finality notification: header(number {:?}, hash {:?}) tree_route {:?}"</span>,
 			header.number(),
-			header.hash(),
+			notification.hash,
 			notification.tree_route,
 		);
 
 		<span class="self">self</span>.runtime
 			.runtime_api()
-			.beefy_genesis(header.hash())
+			.beefy_genesis(notification.hash)
 			.ok()
 			.flatten()
 			.filter(|genesis| <span class="kw-2">*</span>genesis == <span class="self">self</span>.persisted_state.pallet_genesis)
@@ -2626,7 +2626,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		block_import_justif: <span class="kw-2">&amp;mut </span>Fuse&lt;
 			NotificationReceiver&lt;BeefyVersionedFinalityProof&lt;B, AuthorityId&gt;&gt;,
 		&gt;,
-		finality_notifications: <span class="kw-2">&amp;mut </span>Fuse&lt;FinalityNotifications&lt;B&gt;&gt;,
+		finality_notifications: <span class="kw-2">&amp;mut </span>Fuse&lt;<span class="kw">crate</span>::FinalityNotifications&lt;B&gt;&gt;,
 	) -&gt; (Error, BeefyComms&lt;B, N, AuthorityId&gt;) {
 		<span class="macro">info!</span>(
 			target: LOG_TARGET,
