@@ -626,7 +626,10 @@ pub(crate) mod tests {
 		approval::v1::{VrfSignature, VrfTranscript},
 		DISPUTE_WINDOW,
 	};
-	use polkadot_node_subsystem::messages::{AllMessages, ApprovalVotingMessage};
+	use polkadot_node_subsystem::{
+		messages::{AllMessages, ApprovalVotingMessage},
+		SubsystemContext,
+	};
 	use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 	use polkadot_node_subsystem_util::database::Database;
 	use polkadot_primitives::{

@@ -962,22 +962,20 @@ pub struct HighestApprovedAncestorBlock {
 /// Message to the Approval Voting subsystem.
 #[derive(Debug)]
 pub enum ApprovalVotingMessage {
-	/// Check if the assignment is valid and can be accepted by our view of the protocol.
-	/// Should not be sent unless the block hash is known.
-	CheckAndImportAssignment(
+	/// Import an assignment into the approval-voting database.
+	///
+	/// Should not be sent unless the block hash is known and the VRF assignment checks out.
+	ImportAssignment(
 		IndirectAssignmentCertV2,
 		CandidateBitfield,
 		DelayTranche,
 		Option<oneshot::Sender<AssignmentCheckResult>>,
 	),
-	/// Check if the approval vote is valid and can be accepted by our view of the
-	/// protocol.
+	/// Import an approval vote into approval-voting database
 	///
-	/// Should not be sent unless the block hash within the indirect vote is known.
-	CheckAndImportApproval(
-		IndirectSignedApprovalVoteV2,
-		Option<oneshot::Sender<ApprovalCheckResult>>,
-	),
+	/// Should not be sent unless the block hash within the indirect vote is known, vote is
+	/// correctly signed and we had a previous assignment for the candidate.
+	ImportApproval(IndirectSignedApprovalVoteV2, Option<oneshot::Sender<ApprovalCheckResult>>),
 	/// Returns the highest possible ancestor hash of the provided block hash which is
 	/// acceptable to vote on finality for.
 	/// The `BlockNumber` provided is the number of the block's ancestor which is the
