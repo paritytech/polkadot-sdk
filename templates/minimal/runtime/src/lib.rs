@@ -26,20 +26,24 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use frame::{
-	deps::frame_support::{
-		genesis_builder_helper::{build_state, get_preset},
-		runtime,
-		weights::{FixedFee, NoFee},
-	},
-	prelude::*,
-	runtime::{
-		apis::{
-			self, impl_runtime_apis, ApplyExtrinsicResult, CheckInherentsResult,
-			ExtrinsicInclusionMode, OpaqueMetadata,
+use polkadot_sdk::{
+	polkadot_sdk_frame as frame,
+	polkadot_sdk_frame::{
+		deps::frame_support::{
+			genesis_builder_helper::{build_state, get_preset},
+			runtime,
+			weights::{FixedFee, NoFee},
 		},
 		prelude::*,
+		runtime::{
+			apis::{
+				self, impl_runtime_apis, ApplyExtrinsicResult, CheckInherentsResult,
+				ExtrinsicInclusionMode, OpaqueMetadata,
+			},
+			prelude::*,
+		},
 	},
+	*,
 };
 
 /// The runtime version.
@@ -296,7 +300,7 @@ impl_runtime_apis! {
 // https://github.com/paritytech/substrate/issues/10579#issuecomment-1600537558
 pub mod interface {
 	use super::Runtime;
-	use frame::deps::frame_system;
+	use polkadot_sdk::{polkadot_sdk_frame as frame, *};
 
 	pub type Block = super::Block;
 	pub use frame::runtime::types_common::OpaqueBlock;

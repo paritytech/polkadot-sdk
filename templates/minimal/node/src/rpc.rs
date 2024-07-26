@@ -24,11 +24,14 @@
 
 use jsonrpsee::RpcModule;
 use minimal_template_runtime::interface::{AccountId, Nonce, OpaqueBlock};
-use sc_transaction_pool_api::TransactionPool;
-use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
+use polkadot_sdk::{
+	sc_transaction_pool_api::TransactionPool,
+	sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata},
+	*,
+};
 use std::sync::Arc;
 
-pub use sc_rpc_api::DenyUnsafe;
+pub use polkadot_sdk::sc_rpc_api::DenyUnsafe;
 
 /// Full client dependencies.
 pub struct FullDeps<C, P> {
@@ -57,7 +60,7 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Nonce>,
 	P: TransactionPool + 'static,
 {
-	use substrate_frame_rpc_system::{System, SystemApiServer};
+	use polkadot_sdk::substrate_frame_rpc_system::{System, SystemApiServer};
 	let mut module = RpcModule::new(());
 	let FullDeps { client, pool, deny_unsafe } = deps;
 
