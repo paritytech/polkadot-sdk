@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721990833534,
+  "lastUpdate": 1721995831284,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -19759,6 +19759,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.17419450039333342,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jun Jiang",
+            "username": "jasl",
+            "email": "jasl9187@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "326342fe63297668d74fc69095090e53d43a2b0a",
+          "message": "Upgrade time crate, fix compilation on Rust 1.80 (#5149)\n\nThis will fix the compilation on the latest Rust 1.80.0\n\nPS. There are tons of new warnings about feature gates and annotations,\nit would be nice you guys to investigate them",
+          "timestamp": "2024-07-26T10:24:22Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/326342fe63297668d74fc69095090e53d43a2b0a"
+        },
+        "date": 1721995800825,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01252317006666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010542036720000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02265930433333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17184685210666667,
             "unit": "seconds"
           }
         ]
