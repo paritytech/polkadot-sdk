@@ -1820,9 +1820,11 @@ async fn grandpa_environment_checks_if_best_block_is_descendent_of_finality_targ
 	);
 }
 
-// might happen in reorg case - <https://github.com/humanode-network/humanode/issues/1104>
+// This is a regression test for an issue that was triggered by a reorg
+// - https://github.com/paritytech/polkadot-sdk/issues/3487
+// - https://github.com/humanode-network/humanode/issues/1104
 #[tokio::test]
-async fn selecting_block_outside_of_best_chain_works() {
+async fn grandpa_environment_uses_round_base_block_for_voting_if_finality_target_errors() {
 	use finality_grandpa::voter::Environment;
 	use sp_consensus::SelectChain;
 
@@ -1840,7 +1842,7 @@ async fn selecting_block_outside_of_best_chain_works() {
 	let select_chain = sc_consensus::LongestChain::new(peer.client().as_backend());
 
 	// create a chain that is 10 blocks long
-	let hashes = peer.push_blocks(10, false);
+	peer.push_blocks(10, false);
 
 	let env = test_environment_with_select_chain(
 		&link,
@@ -1852,19 +1854,20 @@ async fn selecting_block_outside_of_best_chain_works() {
 		VotingRulesBuilder::default().build(),
 	);
 
+	let hashof7 = client.expect_block_hash_from_id(&BlockId::Number(7)).unwrap();
 	let hashof8_a = client.expect_block_hash_from_id(&BlockId::Number(8)).unwrap();
 
 	// finalize the 7th block
-	peer.client().finalize_block(hashes[6], None, false).unwrap();
+	peer.client().finalize_block(hashof7, None, false).unwrap();
 
-	assert_eq!(peer.client().info().finalized_hash, hashes[6]);
+	assert_eq!(peer.client().info().finalized_hash, hashof7);
 
 	// simulate completed grandpa round
 	env.completed(
 		1,
 		finality_grandpa::round::State {
 			prevote_ghost: Some((hashof8_a, 8)),
-			finalized: Some((hashes[6], 7)),
+			finalized: Some((hashof7, 7)),
 			estimate: Some((hashof8_a, 8)),
 			completable: true,
 		},
@@ -1878,7 +1881,7 @@ async fn selecting_block_outside_of_best_chain_works() {
 		env.voter_set_state.read().last_completed_round().state,
 		finality_grandpa::round::State {
 			prevote_ghost: Some((hashof8_a, 8)),
-			finalized: Some((hashes[6], 7)),
+			finalized: Some((hashof7, 7)),
 			estimate: Some((hashof8_a, 8)),
 			completable: true
 		}
@@ -1887,7 +1890,7 @@ async fn selecting_block_outside_of_best_chain_works() {
 	// `hashof8_a` should be finalized next, `best_chain_containing` should return `hashof8_a`
 	assert_eq!(env.best_chain_containing(hashof8_a).await.unwrap().unwrap().0, hashof8_a);
 
-	// simulate reorg on block 8 by creating a fork starting at block 8 that is 10 blocks long
+	// simulate reorg on block 8 by creating a fork starting at block 7 that is 10 blocks long
 	peer.generate_blocks_at(
 		BlockId::Number(7),
 		10,
@@ -1911,7 +1914,7 @@ async fn selecting_block_outside_of_best_chain_works() {
 		env.voter_set_state.read().last_completed_round().state,
 		finality_grandpa::round::State {
 			prevote_ghost: Some((hashof8_a, 8)),
-			finalized: Some((hashes[6], 7)),
+			finalized: Some((hashof7, 7)),
 			estimate: Some((hashof8_a, 8)),
 			completable: true
 		}
@@ -1920,7 +1923,7 @@ async fn selecting_block_outside_of_best_chain_works() {
 	// `hashof8_a` should be finalized next, `best_chain_containing` should still return `hashof8_a`
 	assert_eq!(env.best_chain_containing(hashof8_a).await.unwrap().unwrap().0, hashof8_a);
 
-	// simulate finalizion of the `hashof8_a` block
+	// simulate finalization of the `hashof8_a` block
 	peer.client().finalize_block(hashof8_a, None, false).unwrap();
 
 	// check that best chain is reorged back
