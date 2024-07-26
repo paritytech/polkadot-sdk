@@ -10,10 +10,7 @@
 forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 <!-- markdownlint-disable-next-line MD013 -->
-[![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)&nbsp;&nbsp;![GitHub contributors](https://img.shields.io/github/contributors/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub commit activity](https://img.shields.io/github/commit-activity/m/paritytech/polkadot-sdk)
-
-![GitHub lines of code](https://tokei.rs/b1/github/paritytech/polkadot-sdk)&nbsp;&nbsp;
-![GitHub last commit](https://img.shields.io/github/last-commit/paritytech/polkadot-sdk)
+[![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)&nbsp;&nbsp;![GitHub contributors](https://img.shields.io/github/contributors/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub commit activity](https://img.shields.io/github/commit-activity/m/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub last commit](https://img.shields.io/github/last-commit/paritytech/polkadot-sdk)
 
 > The Polkadot SDK repository provides all the components needed to start building on the
 > [Polkadot](https://polkadot.network) network, a multi-chain blockchain platform that enables
@@ -24,7 +21,7 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 ## ⚡ Quickstart
 If you want to get an example node running quickly you can execute the following getting started script:
 ```
-curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/scripts/getting-started.sh 
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/scripts/getting-started.sh | bash
 ```
 
 ## 📚 Documentation
