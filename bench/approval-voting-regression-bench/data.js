@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721995527511,
+  "lastUpdate": 1722000221842,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -12642,6 +12642,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.1461862871102895,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "PG Herveou",
+            "username": "pgherveou",
+            "email": "pgherveou@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "200632144624d6a73fed400219761da58379cb3c",
+          "message": "Umbrella crate: Add polkadot-sdk-frame/?runtime (#5151)\n\nThis should make it possible to use the umbrella crate alone for\ntemplates/*/runtime crate of the repo",
+          "timestamp": "2024-07-26T11:47:02Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/200632144624d6a73fed400219761da58379cb3c"
+        },
+        "date": 1722000190753,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 64024.58999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52947.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.618315506349933,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.418214813350088,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.415951808820094,
             "unit": "seconds"
           }
         ]
