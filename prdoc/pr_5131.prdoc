@@ -1,0 +1,25 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Swap for paying delivery fees in different assets
+
+doc:
+  - audience: Runtime User
+    description: |
+      If the `AssetExchanger` is configured on a runtime, the XCM executor is now able to swap assets
+      to pay for delivery fees.
+      This was already possible for execution fees.
+      A runtime where this will be possible is Asset Hub.
+      That means reserve asset transfers from Parachain A to Parachain B passing through Asset Hub no
+      longer need to have any DOT.
+      They can have any asset in a pool with DOT on Asset Hub, for example USDT or USDC.
+  - audience: Runtime Dev
+    description: |
+      Using the `AssetExchanger` XCM config item, the executor now swaps fees to use for delivery fees,
+      if possible.
+      If you want your runtime to support this, you need to configure this new item.
+      Thankfully, xcm-builder now has a new adapter for this, letting you use pallet-asset-conversion for it.
+      It's called `SingleAssetExchangeAdapter`, read more about it in its rust docs.
+      This item is already configured in Asset Hub.
+
+crates: [ ]
