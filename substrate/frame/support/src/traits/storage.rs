@@ -295,8 +295,8 @@ impl_incrementable!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::BoundedVec;
 	use sp_core::{ConstU32, ConstU64};
-		use crate::BoundedVec;
 
 	#[test]
 	fn linear_storage_price_works() {
