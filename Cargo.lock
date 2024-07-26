@@ -8737,7 +8737,6 @@ dependencies = [
  "minimal-template-runtime",
  "polkadot-sdk",
  "serde_json",
- "substrate-build-script-utils",
 ]
 
 [[package]]

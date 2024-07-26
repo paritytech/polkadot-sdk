@@ -45,8 +45,8 @@ pub fn development_config() -> Result<ChainSpec, String> {
 
 /// Configure initial storage state for FRAME pallets.
 fn testnet_genesis() -> Value {
-	use frame::traits::Get;
 	use minimal_template_runtime::interface::{Balance, MinimumBalance};
+	use polkadot_sdk::polkadot_sdk_frame::traits::Get;
 	let endowment = <MinimumBalance as Get<Balance>>::get().max(1) * 1000;
 	let balances = AccountKeyring::iter()
 		.map(|a| (a.to_account_id(), endowment))
