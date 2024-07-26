@@ -135,7 +135,7 @@
 //!   general, it is easier to argue about multiple pallet if they only communicate together via a
 //!   known trait, rather than having access to all of each others public items, such as storage and
 //!   dispatchables.
-//! * If a group of pallets is meant to work together, and but are not foreseen to be generalized,
+//! * If a group of pallets is meant to work together, but is not foreseen to be generalized,
 //!   or used by others, consider tightly coupling pallets, *if it simplifies the development*.
 //! * If a pallet needs a functionality provided by another pallet, but multiple implementations can
 //!   be foreseen, consider loosely coupling pallets.
