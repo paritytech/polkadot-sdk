@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722017488962,
+  "lastUpdate": 1722023704541,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -15917,6 +15917,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.18730415446666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sergej Sakac",
+            "username": "Szegoo",
+            "email": "73715684+Szegoo@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c39cc333b677da6e4f18ee836a38bf01130ca221",
+          "message": "Fix region nonfungible implementation (#5067)\n\nThe problem with the current implementation is that minting will cause\nthe region coremask to be set to `Coremask::complete` regardless of the\nactual coremask.\n\nThis PR fixes that.\n\nMore details about the nonfungible implementation can be found here:\nhttps://github.com/paritytech/polkadot-sdk/pull/3455\n\n---------\n\nCo-authored-by: Dónal Murray <donalm@seadanda.dev>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-07-26T17:49:38Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c39cc333b677da6e4f18ee836a38bf01130ca221"
+        },
+        "date": 1722023673886,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.038302434599998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.24120868079999994,
             "unit": "seconds"
           }
         ]
