@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721934511221,
+  "lastUpdate": 1721991429534,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -6425,6 +6425,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04940388669000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jun Jiang",
+            "username": "jasl",
+            "email": "jasl9187@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "326342fe63297668d74fc69095090e53d43a2b0a",
+          "message": "Upgrade time crate, fix compilation on Rust 1.80 (#5149)\n\nThis will fix the compilation on the latest Rust 1.80.0\n\nPS. There are tons of new warnings about feature gates and annotations,\nit would be nice you guys to investigate them",
+          "timestamp": "2024-07-26T10:24:22Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/326342fe63297668d74fc69095090e53d43a2b0a"
+        },
+        "date": 1721991398602,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.90799999999992,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.04573430456399999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.05690635620200001,
             "unit": "seconds"
           }
         ]
