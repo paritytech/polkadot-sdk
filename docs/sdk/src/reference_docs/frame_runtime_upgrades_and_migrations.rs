@@ -2,8 +2,8 @@
 //!
 //! At their core, blockchain logic consists of
 //!
-//! 1. on-chain state
-//! 2. a state transition function
+//! 1. on-chain state,
+//! 2. a state transition function.
 //!
 //! In Substrate-based blockchains, state transition functions are referred to as
 //! [runtimes](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/blockchain_state_machines/index.html).

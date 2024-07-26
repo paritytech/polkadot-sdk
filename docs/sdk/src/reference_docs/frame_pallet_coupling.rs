@@ -30,8 +30,8 @@
 //!
 //! There are generally two ways to achieve this:
 //!
-//! 1. Tight coupling pallets
-//! 2. Loose coupling pallets
+//! 1. Tight coupling pallets.
+//! 2. Loose coupling pallets.
 //!
 //! To explain the difference between the two, consider two pallets, `A` and `B`. In both cases, `A`
 //! wants to use some functionality exposed by `B`.
@@ -74,8 +74,8 @@
 //! pallet makes its own `trait Config` be bounded by another pallet's `trait Config`, it is
 //! expressing two things:
 //!
-//! 1. that it can only exist in a runtime if the other pallet is also present.
-//! 2. that it can use the other pallet's functionality.
+//! 1. That it can only exist in a runtime if the other pallet is also present.
+//! 2. That it can use the other pallet's functionality.
 //!
 //! `pallet-foo`'s `Config` would then look like:
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", tight_config)]

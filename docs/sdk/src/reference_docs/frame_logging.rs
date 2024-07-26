@@ -36,7 +36,7 @@
 //!
 //! First, ensure you are familiar with the `log` crate. In short, each log statement has:
 //!
-//! 1. `log-level`, signifying how important it is
+//! 1. `log-level`, signifying how important it is.
 //! 2. `log-target`, signifying to which component it belongs.
 //!
 //! Add log statements to your pallet as such:

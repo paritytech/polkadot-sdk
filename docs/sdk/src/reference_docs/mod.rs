@@ -12,9 +12,9 @@
 //! embedded in the low level rust-docs. Then, high level scenarios should be covered in
 //! [`crate::guides`]. Finally, we acknowledge that there is a category of information that is:
 //!
-//! 1. crucial to know.
-//! 2. is too high level to be in the rust-doc of any one `type`, `trait` or `fn`.
-//! 3. is too low level to be encompassed in a [`crate::guides`].
+//! 1. Crucial to know.
+//! 2. Is too high level to be in the rust-doc of any one `type`, `trait` or `fn`.
+//! 3. Is too low level to be encompassed in a [`crate::guides`].
 //!
 //! We call this class of documents "reference documents". Our goal should be to minimize the number
 //! of "reference" docs, as they incur maintenance burden.
