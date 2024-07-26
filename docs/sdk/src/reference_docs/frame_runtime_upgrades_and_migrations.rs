@@ -2,7 +2,7 @@
 //!
 //! At their core, blockchain logic consists of
 //!
-//! 1. on-chain state and
+//! 1. on-chain state
 //! 2. a state transition function
 //!
 //! In Substrate-based blockchains, state transition functions are referred to as
