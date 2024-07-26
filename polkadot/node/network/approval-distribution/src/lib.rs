@@ -943,11 +943,7 @@ impl State {
 		.await;
 	}
 
-	async fn process_incoming_assignments<
-		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
-		A: overseer::SubsystemSender<ApprovalVotingMessage>,
-		R,
-	>(
+	async fn process_incoming_assignments<A, N, R>(
 		&mut self,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
@@ -956,6 +952,8 @@ impl State {
 		assignments: Vec<(IndirectAssignmentCertV2, CandidateBitfield)>,
 		rng: &mut R,
 	) where
+		A: overseer::SubsystemSender<ApprovalVotingMessage>,
+		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
 		R: CryptoRng + Rng,
 	{
 		for (assignment, claimed_indices) in assignments {
@@ -1038,11 +1036,7 @@ impl State {
 		}
 	}
 
-	async fn process_incoming_peer_message<
-		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
-		A: overseer::SubsystemSender<ApprovalVotingMessage>,
-		R,
-	>(
+	async fn process_incoming_peer_message<A, N, R>(
 		&mut self,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
@@ -1055,6 +1049,8 @@ impl State {
 		>,
 		rng: &mut R,
 	) where
+		A: overseer::SubsystemSender<ApprovalVotingMessage>,
+		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
 		R: CryptoRng + Rng,
 	{
 		match msg {
@@ -1222,11 +1218,7 @@ impl State {
 		self.enable_aggression(network_sender, Resend::No, metrics).await;
 	}
 
-	async fn import_and_circulate_assignment<
-		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
-		A: overseer::SubsystemSender<ApprovalVotingMessage>,
-		R,
-	>(
+	async fn import_and_circulate_assignment<A, N, R>(
 		&mut self,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
@@ -1236,6 +1228,8 @@ impl State {
 		claimed_candidate_indices: CandidateBitfield,
 		rng: &mut R,
 	) where
+		A: overseer::SubsystemSender<ApprovalVotingMessage>,
+		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
 		R: CryptoRng + Rng,
 	{
 		let _span = self
