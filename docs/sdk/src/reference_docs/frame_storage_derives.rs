@@ -136,7 +136,7 @@
 //! - [`frame::prelude::PartialOrdNoBound`]
 //! - [`frame::prelude::OrdNoBound`]
 //!
-//! The above traits are almost certainly needed for your tests: To print your type, assert equality
+//! The above traits are almost certainly needed for your tests - to print your type, assert equality
 //! or clone it.
 //!
 //! We can fix the following example by using [`frame::prelude::DefaultNoBound`].
