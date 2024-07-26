@@ -56,9 +56,16 @@
 //!
 //! **Trait implementations** are concrete implementations of these traits. For example, one of the
 //! many traits [`pallet_balances`] implements is
-//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`)*. It provides the concrete way
+//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`)[^1]. It provides the concrete way
 //! of inspecting the total issuance, balance of accounts, etc. There can be many implementations of
 //! the same traits.
+//! 
+//! [^1]: Rust Advanced Tip: The knowledge that [`pallet_balances`] implements
+//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`) is not some arcane knowledge
+//! that you have to know by heart or memorize. One can simply look at the list of the implementors
+//! of any trait in the Rust Doc to find all implementors (e.g.
+//! [Mutate trait implementors](https://paritytech.github.io/polkadot-sdk/master/frame_support/traits/tokens/fungible/trait.Mutate.html#implementors)),
+//! or use the `rust-analyzer`'s `Implementations` action.
 //!
 //! The distinction between traits and trait implementations is helpful because it allows pallets
 //! and other logic to be generic over their dependencies, avoiding tight coupling.
@@ -80,15 +87,6 @@
 //!
 //! Read more about coupling, and the benefits of loose coupling
 //! [here](crate::reference_docs::frame_pallet_coupling).
-//!
-//! ##### *Rust Advanced Tip
-//!
-//! The knowledge that [`pallet_balances`] implements
-//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`) is not some arcane knowledge
-//! that you have to know by heart or memorize. One can simply look at the list of the implementors
-//! of any trait in the Rust Doc to find all implementors (e.g.
-//! <https://paritytech.github.io/polkadot-sdk/master/frame_support/traits/tokens/fungible/trait.Mutate.html#implementors>),
-//! or use the `rust-analyzer` `Implementations` action.
 //!
 //! ## Fungible Token Traits in FRAME
 //!
