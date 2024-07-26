@@ -341,6 +341,7 @@ impl From<request_responses::Event> for BehaviourOut {
 				BehaviourOut::RequestFinished { peer, protocol, duration, result },
 			request_responses::Event::ReputationChanges { peer, changes } =>
 				BehaviourOut::ReputationChanges { peer, changes },
+			_ => BehaviourOut::None,
 		}
 	}
 }
