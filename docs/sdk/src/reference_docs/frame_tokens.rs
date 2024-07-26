@@ -22,11 +22,11 @@
 //!
 //! On completion of reading this doc, you should have a good understanding of:
 //! - The distinction between token traits and trait implementations in FRAME, and why this
-//!   distinction is helpful
-//! - Token-related traits available in FRAME
-//! - Token-related trait implementations in FRAME
-//! - How to choose the right trait or trait implementation for your use case
-//! - Where to go next
+//!   distinction is helpful.
+//! - Token-related traits available in FRAME.
+//! - Token-related trait implementations in FRAME.
+//! - How to choose the right trait or trait implementation for your use case.
+//! - Where to go next.
 //!
 //! ## Getting Started
 //!
