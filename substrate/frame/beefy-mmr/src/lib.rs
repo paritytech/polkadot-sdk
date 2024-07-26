@@ -35,7 +35,10 @@
 
 extern crate alloc;
 
-use sp_runtime::traits::{Convert, Header, Member};
+use sp_runtime::{
+	generic::OpaqueDigestItemId,
+	traits::{Convert, Header, Member},
+};
 
 use alloc::vec::Vec;
 use codec::Decode;
@@ -43,19 +46,25 @@ use pallet_mmr::{primitives::AncestryProof, LeafDataProvider, ParentNumberAndHas
 use sp_consensus_beefy::{
 	known_payloads,
 	mmr::{BeefyAuthoritySet, BeefyDataProvider, BeefyNextAuthoritySet, MmrLeaf, MmrLeafVersion},
-	AncestryHelper, Commitment, ConsensusLog, ValidatorSet as BeefyValidatorSet,
+	AncestryHelper, AncestryHelperWeightInfo, Commitment, ConsensusLog,
+	ValidatorSet as BeefyValidatorSet,
 };
 
-use frame_support::{crypto::ecdsa::ECDSAExt, traits::Get};
+use frame_support::{
+	crypto::ecdsa::ECDSAExt, pallet_prelude::Weight, traits::Get,
+	weights::constants::RocksDbWeight as DbWeight,
+};
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 
 pub use pallet::*;
-use sp_runtime::generic::OpaqueDigestItemId;
+use weights::WeightInfo;
 
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+mod weights;
 
 /// A BEEFY consensus digest item with MMR root hash.
 pub struct DepositBeefyDigest<T>(core::marker::PhantomData<T>);
@@ -126,6 +135,8 @@ pub mod pallet {
 
 		/// Retrieve arbitrary data that should be added to the mmr leaf
 		type BeefyDataProvider: BeefyDataProvider<Self::LeafExtra>;
+
+		type WeightInfo: WeightInfo;
 	}
 
 	/// Details of current BEEFY authority set.
@@ -260,6 +271,21 @@ where
 			};
 
 		canonical_prev_root != commitment_root
+	}
+}
+
+impl<T: Config> AncestryHelperWeightInfo<HeaderFor<T>> for Pallet<T>
+where
+	T: pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing>,
+{
+	fn extract_validation_context(_header: &HeaderFor<T>) -> Weight {
+		// We're only reading from `BlockHash` and then searching in a small vec,
+		// which should be insignificant.
+		DbWeight::get().reads(1)
+	}
+
+	fn is_non_canonical(proof: &<Self as AncestryHelper<HeaderFor<T>>>::Proof) -> Weight {
+		<T as Config>::WeightInfo::n_items_proof_is_non_canonical(proof.items.len() as u32)
 	}
 }
 

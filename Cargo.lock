@@ -10064,6 +10064,7 @@ version = "28.0.0"
 dependencies = [
  "array-bytes",
  "binary-merkle-tree",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
@@ -20040,6 +20041,7 @@ dependencies = [
  "sp-keystore",
  "sp-mmr-primitives",
  "sp-runtime",
+ "sp-weights",
  "strum 0.26.2",
  "w3f-bls",
 ]

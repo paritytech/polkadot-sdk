@@ -42,9 +42,9 @@ use frame_system::{
 	pallet_prelude::{BlockNumberFor, HeaderFor, OriginFor},
 };
 use sp_consensus_beefy::{
-	AncestryHelper, AuthorityIndex, BeefyAuthorityId, ConsensusLog, DoubleVotingProof,
-	ForkVotingProof, FutureBlockVotingProof, OnNewValidatorSet, ValidatorSet, BEEFY_ENGINE_ID,
-	GENESIS_AUTHORITY_SET_ID,
+	AncestryHelper, AncestryHelperWeightInfo, AuthorityIndex, BeefyAuthorityId, ConsensusLog,
+	DoubleVotingProof, ForkVotingProof, FutureBlockVotingProof, OnNewValidatorSet, ValidatorSet,
+	BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
 use sp_runtime::{
 	generic::DigestItem,
@@ -100,7 +100,8 @@ pub mod pallet {
 		type OnNewValidatorSet: OnNewValidatorSet<<Self as Config>::BeefyId>;
 
 		/// Hook for checking commitment canonicity.
-		type AncestryHelper: AncestryHelper<HeaderFor<Self>>;
+		type AncestryHelper: AncestryHelper<HeaderFor<Self>>
+			+ AncestryHelperWeightInfo<HeaderFor<Self>>;
 
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;

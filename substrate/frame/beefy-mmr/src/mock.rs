@@ -122,6 +122,7 @@ impl pallet_beefy_mmr::Config for Test {
 	type LeafExtra = Vec<u8>;
 
 	type BeefyDataProvider = DummyDataProvider;
+	type WeightInfo = ();
 }
 
 pub struct DummyDataProvider;

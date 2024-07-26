@@ -1335,6 +1335,7 @@ impl pallet_beefy_mmr::Config for Runtime {
 	type BeefyAuthorityToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaToEthereum;
 	type LeafExtra = H256;
 	type BeefyDataProvider = ParaHeadsRootProvider;
+	type WeightInfo = ();
 }
 
 impl paras_sudo_wrapper::Config for Runtime {}
@@ -1735,6 +1736,7 @@ mod benches {
 		// Substrate
 		[pallet_balances, Balances]
 		[pallet_balances, NisCounterpartBalances]
+		[pallet_beefy_mmr, MmrLeaf]
 		[frame_benchmarking::baseline, Baseline::<Runtime>]
 		[pallet_bounties, Bounties]
 		[pallet_child_bounties, ChildBounties]
