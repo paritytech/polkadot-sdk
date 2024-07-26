@@ -2023,8 +2023,8 @@ async fn handle_from_overseer<
 			vec![Action::Conclude]
 		},
 		FromOrchestra::Communication { msg } => match msg {
-			ApprovalVotingMessage::CheckAndImportAssignment(a, claimed_cores, tranche, tx) => {
-				let (check_outcome, actions) = check_and_import_assignment(
+			ApprovalVotingMessage::ImportAssignment(a, claimed_cores, tranche, tx) => {
+				let (check_outcome, actions) = import_assignment(
 					sender,
 					state,
 					db,
@@ -2034,31 +2034,24 @@ async fn handle_from_overseer<
 					tranche,
 				)
 				.await?;
-				// approval-distribution already sanity checks the assignment is valid and expected,
-				// so this import should never fail if it does it means there is a bug in the
-				// code.
+				// approval-distribution makes sure this assignment is valid and expected,
+				// so this import should never fail, if it does it might mean one of two things,
+				// there is a bug in the code or the two subsystems got out of sync.
 				if let AssignmentCheckResult::Bad(ref err) = check_outcome {
-					gum::error!(target: LOG_TARGET, ?err, "Unexpected fail to check and import assignment");
+					gum::debug!(target: LOG_TARGET, ?err, "Unexpected fail when importing an assignment");
 				}
 				let _ = tx.map(|tx| tx.send(check_outcome));
 				actions
 			},
-			ApprovalVotingMessage::CheckAndImportApproval(a, tx) => {
-				let result = check_and_import_approval(
-					sender,
-					state,
-					db,
-					session_info_provider,
-					metrics,
-					a,
-					&wakeups,
-				)
-				.await?;
-				// approval-distribution already sanity checks the vote is valid and expected,
-				// so this import should never fail if it does it means there is a bug in the
-				// code.
+			ApprovalVotingMessage::ImportApproval(a, tx) => {
+				let result =
+					import_approval(sender, state, db, session_info_provider, metrics, a, &wakeups)
+						.await?;
+				// approval-distribution makes sure this vote is valid and expected,
+				// so this import should never fail, if it does it might mean one of two things,
+				// there is a bug in the code or the two subsystems got out of sync.
 				if let ApprovalCheckResult::Bad(ref err) = result.1 {
-					gum::error!(target: LOG_TARGET, ?err, "Unexpected fail to check and import approval");
+					gum::debug!(target: LOG_TARGET, ?err, "Unexpected fail when importing an approval");
 				}
 				let _ = tx.map(|tx| tx.send(result.1));
 
@@ -2622,7 +2615,7 @@ fn schedule_wakeup_action(
 	maybe_action
 }
 
-async fn check_and_import_assignment<Sender>(
+async fn import_assignment<Sender>(
 	sender: &mut Sender,
 	state: &State,
 	db: &mut OverlayedBackend<'_, impl Backend>,
@@ -2636,16 +2629,16 @@ where
 {
 	let tick_now = state.clock.tick_now();
 
-	let mut check_and_import_assignment_span = state
+	let mut import_assignment_span = state
 		.spans
 		.get(&assignment.block_hash)
-		.map(|span| span.child("check-and-import-assignment"))
-		.unwrap_or_else(|| jaeger::Span::new(assignment.block_hash, "check-and-import-assignment"))
+		.map(|span| span.child("import-assignment"))
+		.unwrap_or_else(|| jaeger::Span::new(assignment.block_hash, "import-assignment"))
 		.with_relay_parent(assignment.block_hash)
 		.with_stage(jaeger::Stage::ApprovalChecking);
 
 	for candidate_index in candidate_indices.iter_ones() {
-		check_and_import_assignment_span.add_uint_tag("candidate-index", candidate_index as u64);
+		import_assignment_span.add_uint_tag("candidate-index", candidate_index as u64);
 	}
 
 	let block_entry = match db.load_block_entry(&assignment.block_hash)? {
@@ -2726,23 +2719,21 @@ where
 				)), // no candidate at core.
 		};
 
-		check_and_import_assignment_span
+		import_assignment_span
 			.add_string_tag("candidate-hash", format!("{:?}", assigned_candidate_hash));
-		check_and_import_assignment_span.add_string_tag(
+		import_assignment_span.add_string_tag(
 			"traceID",
 			format!("{:?}", jaeger::hash_to_trace_identifier(assigned_candidate_hash.0)),
 		);
 
-		let _approval_entry = match candidate_entry.approval_entry_mut(&assignment.block_hash) {
-			Some(a) => a,
-			None =>
-				return Ok((
-					AssignmentCheckResult::Bad(AssignmentCheckError::Internal(
-						assignment.block_hash,
-						assigned_candidate_hash,
-					)),
-					Vec::new(),
+		if candidate_entry.approval_entry_mut(&assignment.block_hash).is_none() {
+			return Ok((
+				AssignmentCheckResult::Bad(AssignmentCheckError::Internal(
+					assignment.block_hash,
+					assigned_candidate_hash,
 				)),
+				Vec::new(),
+			));
 		};
 
 		claimed_core_indices.push(claimed_core_index);
@@ -2792,7 +2783,7 @@ where
 			};
 			is_duplicate &= approval_entry.is_assigned(assignment.validator);
 			approval_entry.import_assignment(tranche, assignment.validator, tick_now);
-			check_and_import_assignment_span.add_uint_tag("tranche", tranche as u64);
+			import_assignment_span.add_uint_tag("tranche", tranche as u64);
 
 			// We've imported a new assignment, so we need to schedule a wake-up for when that might
 			// no-show.
@@ -2849,7 +2840,7 @@ where
 	Ok((res, actions))
 }
 
-async fn check_and_import_approval<Sender>(
+async fn import_approval<Sender>(
 	sender: &mut Sender,
 	state: &mut State,
 	db: &mut OverlayedBackend<'_, impl Backend>,
@@ -2869,8 +2860,8 @@ where
 	let mut span = state
 		.spans
 		.get(&approval.block_hash)
-		.map(|span| span.child("check-and-import-approval"))
-		.unwrap_or_else(|| jaeger::Span::new(approval.block_hash, "check-and-import-approval"))
+		.map(|span| span.child("import-approval"))
+		.unwrap_or_else(|| jaeger::Span::new(approval.block_hash, "import-approval"))
 		.with_string_fmt_debug_tag("candidate-index", approval.candidate_indices.clone())
 		.with_relay_parent(approval.block_hash)
 		.with_stage(jaeger::Stage::ApprovalChecking);

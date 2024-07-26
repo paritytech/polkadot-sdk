@@ -313,8 +313,6 @@ where
 					},
 					FromOrchestra::Communication { msg } => match msg {
 						// The message the approval voting subsystem would've handled.
-						ApprovalVotingParallelMessage::CheckAndImportAssignment(_,_, _) |
-						ApprovalVotingParallelMessage::CheckAndImportApproval(_)|
 						ApprovalVotingParallelMessage::ApprovedAncestor(_, _,_) |
 						ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(_, _)  => {
 							// Safe to unwrap because we know the message is of the right type.

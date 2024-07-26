@@ -568,11 +568,10 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	let db = kvdb_memorydb::create(test_constants::NUM_COLUMNS);
 	let db = polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[]);
 	let sender = context.sender().clone();
-	let to_approval_distr_sender = context.sender().clone();
 	let subsystem = run(
 		context,
-		sender,
-		to_approval_distr_sender,
+		sender.clone(),
+		sender.clone(),
 		ApprovalVotingSubsystem::with_config_and_clock(
 			Config {
 				col_approval_data: test_constants::TEST_CONFIG.col_approval_data,
@@ -658,7 +657,7 @@ fn make_candidate(para_id: ParaId, hash: &Hash) -> CandidateReceipt {
 	r
 }
 
-async fn check_and_import_approval(
+async fn import_approval(
 	overseer: &mut VirtualOverseer,
 	block_hash: Hash,
 	candidate_index: CandidateIndex,
@@ -677,7 +676,7 @@ async fn check_and_import_approval(
 	overseer_send(
 		overseer,
 		FromOrchestra::Communication {
-			msg: ApprovalVotingMessage::CheckAndImportApproval(
+			msg: ApprovalVotingMessage::ImportApproval(
 				IndirectSignedApprovalVoteV2 {
 					block_hash,
 					candidate_indices: candidate_index.into(),
@@ -700,7 +699,7 @@ async fn check_and_import_approval(
 	rx
 }
 
-async fn check_and_import_assignment(
+async fn import_assignment(
 	overseer: &mut VirtualOverseer,
 	block_hash: Hash,
 	candidate_index: CandidateIndex,
@@ -711,7 +710,7 @@ async fn check_and_import_assignment(
 	overseer_send(
 		overseer,
 		FromOrchestra::Communication {
-			msg: ApprovalVotingMessage::CheckAndImportAssignment(
+			msg: ApprovalVotingMessage::ImportAssignment(
 				IndirectAssignmentCertV2 {
 					block_hash,
 					validator,
@@ -728,7 +727,7 @@ async fn check_and_import_assignment(
 	rx
 }
 
-async fn check_and_import_assignment_v2(
+async fn import_assignment_v2(
 	overseer: &mut VirtualOverseer,
 	block_hash: Hash,
 	core_indices: Vec<u32>,
@@ -738,7 +737,7 @@ async fn check_and_import_assignment_v2(
 	overseer_send(
 		overseer,
 		FromOrchestra::Communication {
-			msg: ApprovalVotingMessage::CheckAndImportAssignment(
+			msg: ApprovalVotingMessage::ImportAssignment(
 				IndirectAssignmentCertV2 {
 					block_hash,
 					validator,
@@ -1135,28 +1134,18 @@ fn subsystem_rejects_bad_assignment_ok_criteria() {
 		);
 		builder.build(&mut virtual_overseer).await;
 
-		let rx = check_and_import_assignment(
-			&mut virtual_overseer,
-			block_hash,
-			candidate_index,
-			validator,
-			0,
-		)
-		.await;
+		let rx =
+			import_assignment(&mut virtual_overseer, block_hash, candidate_index, validator, 0)
+				.await;
 
 		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted),);
 
 		// unknown hash
 		let unknown_hash = Hash::repeat_byte(0x02);
 
-		let rx = check_and_import_assignment(
-			&mut virtual_overseer,
-			unknown_hash,
-			candidate_index,
-			validator,
-			0,
-		)
-		.await;
+		let rx =
+			import_assignment(&mut virtual_overseer, unknown_hash, candidate_index, validator, 0)
+				.await;
 
 		assert_eq!(
 			rx.await,
@@ -1185,7 +1174,7 @@ fn blank_subsystem_act_on_bad_block() {
 		overseer_send(
 			&mut virtual_overseer,
 			FromOrchestra::Communication {
-				msg: ApprovalVotingMessage::CheckAndImportAssignment(
+				msg: ApprovalVotingMessage::ImportAssignment(
 					IndirectAssignmentCertV2 {
 						block_hash: bad_block_hash,
 						validator: 0u32.into(),
@@ -1259,7 +1248,7 @@ fn subsystem_rejects_approval_if_no_candidate_entry() {
 		});
 
 		let session_index = 1;
-		let rx = check_and_import_approval(
+		let rx = import_approval(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -1300,7 +1289,7 @@ fn subsystem_rejects_approval_if_no_block_entry() {
 		let candidate_hash = dummy_candidate_receipt(block_hash).hash();
 		let session_index = 1;
 
-		let rx = check_and_import_approval(
+		let rx = import_approval(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -1365,7 +1354,7 @@ fn subsystem_rejects_approval_before_assignment() {
 			.build(&mut virtual_overseer)
 			.await;
 
-		let rx = check_and_import_approval(
+		let rx = import_approval(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -1437,7 +1426,7 @@ fn subsystem_accepts_duplicate_assignment() {
 			.await;
 
 		// Initial assignment.
-		let rx = check_and_import_assignment_v2(
+		let rx = import_assignment_v2(
 			&mut virtual_overseer,
 			block_hash,
 			vec![candidate_index1, candidate_index2],
@@ -1448,20 +1437,15 @@ fn subsystem_accepts_duplicate_assignment() {
 		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
 
 		// Test with single assigned core.
-		let rx = check_and_import_assignment(
-			&mut virtual_overseer,
-			block_hash,
-			candidate_index,
-			validator,
-			0,
-		)
-		.await;
+		let rx =
+			import_assignment(&mut virtual_overseer, block_hash, candidate_index, validator, 0)
+				.await;
 
 		assert_eq!(rx.await, Ok(AssignmentCheckResult::AcceptedDuplicate));
 
 		// Test with multiple assigned cores. This cannot happen in practice, as tranche0
 		// assignments are sent first, but we should still ensure correct behavior.
-		let rx = check_and_import_assignment_v2(
+		let rx = import_assignment_v2(
 			&mut virtual_overseer,
 			block_hash,
 			vec![candidate_index1, candidate_index2],
@@ -1507,14 +1491,9 @@ fn subsystem_rejects_assignment_with_unknown_candidate() {
 			.build(&mut virtual_overseer)
 			.await;
 
-		let rx = check_and_import_assignment(
-			&mut virtual_overseer,
-			block_hash,
-			candidate_index,
-			validator,
-			0,
-		)
-		.await;
+		let rx =
+			import_assignment(&mut virtual_overseer, block_hash, candidate_index, validator, 0)
+				.await;
 
 		assert_eq!(
 			rx.await,
@@ -1558,14 +1537,9 @@ fn subsystem_rejects_oversized_bitfields() {
 			.build(&mut virtual_overseer)
 			.await;
 
-		let rx = check_and_import_assignment(
-			&mut virtual_overseer,
-			block_hash,
-			candidate_index,
-			validator,
-			0,
-		)
-		.await;
+		let rx =
+			import_assignment(&mut virtual_overseer, block_hash, candidate_index, validator, 0)
+				.await;
 
 		assert_eq!(
 			rx.await,
@@ -1574,13 +1548,9 @@ fn subsystem_rejects_oversized_bitfields() {
 			))),
 		);
 
-		let rx = check_and_import_assignment_v2(
-			&mut virtual_overseer,
-			block_hash,
-			vec![1, 2, 10, 50],
-			validator,
-		)
-		.await;
+		let rx =
+			import_assignment_v2(&mut virtual_overseer, block_hash, vec![1, 2, 10, 50], validator)
+				.await;
 
 		assert_eq!(
 			rx.await,
@@ -1632,18 +1602,13 @@ fn subsystem_accepts_and_imports_approval_after_assignment() {
 			.build(&mut virtual_overseer)
 			.await;
 
-		let rx = check_and_import_assignment(
-			&mut virtual_overseer,
-			block_hash,
-			candidate_index,
-			validator,
-			0,
-		)
-		.await;
+		let rx =
+			import_assignment(&mut virtual_overseer, block_hash, candidate_index, validator, 0)
+				.await;
 
 		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
 
-		let rx = check_and_import_approval(
+		let rx = import_approval(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -1725,20 +1690,15 @@ fn subsystem_second_approval_import_only_schedules_wakeups() {
 			.build(&mut virtual_overseer)
 			.await;
 
-		let rx = check_and_import_assignment(
-			&mut virtual_overseer,
-			block_hash,
-			candidate_index,
-			validator,
-			0,
-		)
-		.await;
+		let rx =
+			import_assignment(&mut virtual_overseer, block_hash, candidate_index, validator, 0)
+				.await;
 
 		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
 
 		assert!(clock.inner.lock().current_wakeup_is(APPROVAL_DELAY + 2));
 
-		let rx = check_and_import_approval(
+		let rx = import_approval(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -1755,7 +1715,7 @@ fn subsystem_second_approval_import_only_schedules_wakeups() {
 		futures_timer::Delay::new(Duration::from_millis(100)).await;
 		assert!(clock.inner.lock().current_wakeup_is(APPROVAL_DELAY + 2));
 
-		let rx = check_and_import_approval(
+		let rx = import_approval(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -1814,14 +1774,9 @@ fn subsystem_assignment_import_updates_candidate_entry_and_schedules_wakeup() {
 			.build(&mut virtual_overseer)
 			.await;
 
-		let rx = check_and_import_assignment(
-			&mut virtual_overseer,
-			block_hash,
-			candidate_index,
-			validator,
-			0,
-		)
-		.await;
+		let rx =
+			import_assignment(&mut virtual_overseer, block_hash, candidate_index, validator, 0)
+				.await;
 
 		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
 
@@ -1937,17 +1892,12 @@ fn test_approvals_on_fork_are_always_considered_after_no_show(
 			.await;
 
 		// Send assignments for the same candidate on both forks
-		let rx = check_and_import_assignment(
-			&mut virtual_overseer,
-			block_hash,
-			candidate_index,
-			validator,
-			0,
-		)
-		.await;
+		let rx =
+			import_assignment(&mut virtual_overseer, block_hash, candidate_index, validator, 0)
+				.await;
 		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
 
-		let rx = check_and_import_assignment(
+		let rx = import_assignment(
 			&mut virtual_overseer,
 			block_hash_fork,
 			candidate_index,
@@ -1982,7 +1932,7 @@ fn test_approvals_on_fork_are_always_considered_after_no_show(
 		futures_timer::Delay::new(Duration::from_millis(100)).await;
 
 		// Send the approval for candidate just in the context of 0x01 block.
-		let rx = check_and_import_approval(
+		let rx = import_approval(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -2052,14 +2002,9 @@ fn subsystem_process_wakeup_schedules_wakeup() {
 			.build(&mut virtual_overseer)
 			.await;
 
-		let rx = check_and_import_assignment(
-			&mut virtual_overseer,
-			block_hash,
-			candidate_index,
-			validator,
-			0,
-		)
-		.await;
+		let rx =
+			import_assignment(&mut virtual_overseer, block_hash, candidate_index, validator, 0)
+				.await;
 
 		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
 
@@ -2112,7 +2057,7 @@ fn linear_import_act_on_leaf() {
 		overseer_send(
 			&mut virtual_overseer,
 			FromOrchestra::Communication {
-				msg: ApprovalVotingMessage::CheckAndImportAssignment(
+				msg: ApprovalVotingMessage::ImportAssignment(
 					IndirectAssignmentCertV2 {
 						block_hash: head,
 						validator: 0u32.into(),
@@ -2184,7 +2129,7 @@ fn forkful_import_at_same_height_act_on_leaf() {
 			overseer_send(
 				&mut virtual_overseer,
 				FromOrchestra::Communication {
-					msg: ApprovalVotingMessage::CheckAndImportAssignment(
+					msg: ApprovalVotingMessage::ImportAssignment(
 						IndirectAssignmentCertV2 {
 							block_hash: head,
 							validator: 0u32.into(),
@@ -2352,7 +2297,7 @@ fn import_checked_approval_updates_entries_and_schedules() {
 
 		let candidate_index = 0;
 
-		let rx = check_and_import_assignment(
+		let rx = import_assignment(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -2363,7 +2308,7 @@ fn import_checked_approval_updates_entries_and_schedules() {
 
 		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted),);
 
-		let rx = check_and_import_assignment(
+		let rx = import_assignment(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -2377,7 +2322,7 @@ fn import_checked_approval_updates_entries_and_schedules() {
 		let session_index = 1;
 		let sig_a = sign_approval(Sr25519Keyring::Alice, candidate_hash, session_index);
 
-		let rx = check_and_import_approval(
+		let rx = import_approval(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -2404,7 +2349,7 @@ fn import_checked_approval_updates_entries_and_schedules() {
 		clock.inner.lock().wakeup_all(2);
 
 		let sig_b = sign_approval(Sr25519Keyring::Bob, candidate_hash, session_index);
-		let rx = check_and_import_approval(
+		let rx = import_approval(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -2517,14 +2462,9 @@ fn subsystem_import_checked_approval_sets_one_block_bit_at_a_time() {
 		];
 
 		for (candidate_index, validator) in assignments {
-			let rx = check_and_import_assignment(
-				&mut virtual_overseer,
-				block_hash,
-				candidate_index,
-				validator,
-				0,
-			)
-			.await;
+			let rx =
+				import_assignment(&mut virtual_overseer, block_hash, candidate_index, validator, 0)
+					.await;
 			assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
 		}
 
@@ -2545,7 +2485,7 @@ fn subsystem_import_checked_approval_sets_one_block_bit_at_a_time() {
 			} else {
 				sign_approval(Sr25519Keyring::Bob, *candidate_hash, session_index)
 			};
-			let rx = check_and_import_approval(
+			let rx = import_approval(
 				&mut virtual_overseer,
 				block_hash,
 				*candidate_index,
@@ -2803,7 +2743,7 @@ fn approved_ancestor_test(
 		for (i, (block_hash, candidate_hash)) in
 			block_hashes.iter().zip(candidate_hashes).enumerate()
 		{
-			let rx = check_and_import_assignment(
+			let rx = import_assignment(
 				&mut virtual_overseer,
 				*block_hash,
 				candidate_index,
@@ -2817,7 +2757,7 @@ fn approved_ancestor_test(
 				continue
 			}
 
-			let rx = check_and_import_approval(
+			let rx = import_approval(
 				&mut virtual_overseer,
 				*block_hash,
 				candidate_index,
@@ -3363,7 +3303,7 @@ where
 			.await;
 
 		for validator in assignments_to_import {
-			let rx = check_and_import_assignment(
+			let rx = import_assignment(
 				&mut virtual_overseer,
 				block_hash,
 				candidate_index,
@@ -3377,7 +3317,7 @@ where
 		let n_validators = validators.len();
 		for (i, &validator_index) in approvals_to_import.iter().enumerate() {
 			let expect_chain_approved = 3 * (i + 1) > n_validators;
-			let rx = check_and_import_approval(
+			let rx = import_approval(
 				&mut virtual_overseer,
 				block_hash,
 				candidate_index,
@@ -3682,7 +3622,7 @@ fn pre_covers_dont_stall_approval() {
 
 		let candidate_index = 0;
 
-		let rx = check_and_import_assignment(
+		let rx = import_assignment(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -3693,7 +3633,7 @@ fn pre_covers_dont_stall_approval() {
 
 		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted),);
 
-		let rx = check_and_import_assignment(
+		let rx = import_assignment(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -3704,7 +3644,7 @@ fn pre_covers_dont_stall_approval() {
 
 		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted),);
 
-		let rx = check_and_import_assignment(
+		let rx = import_assignment(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -3718,7 +3658,7 @@ fn pre_covers_dont_stall_approval() {
 		let session_index = 1;
 		let sig_b = sign_approval(Sr25519Keyring::Bob, candidate_hash, session_index);
 
-		let rx = check_and_import_approval(
+		let rx = import_approval(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -3733,7 +3673,7 @@ fn pre_covers_dont_stall_approval() {
 		assert_eq!(rx.await, Ok(ApprovalCheckResult::Accepted),);
 
 		let sig_c = sign_approval(Sr25519Keyring::Charlie, candidate_hash, session_index);
-		let rx = check_and_import_approval(
+		let rx = import_approval(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -3863,7 +3803,7 @@ fn waits_until_approving_assignments_are_old_enough() {
 
 		let candidate_index = 0;
 
-		let rx = check_and_import_assignment(
+		let rx = import_assignment(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -3874,7 +3814,7 @@ fn waits_until_approving_assignments_are_old_enough() {
 
 		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted),);
 
-		let rx = check_and_import_assignment(
+		let rx = import_assignment(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -3890,7 +3830,7 @@ fn waits_until_approving_assignments_are_old_enough() {
 		let session_index = 1;
 
 		let sig_a = sign_approval(Sr25519Keyring::Alice, candidate_hash, session_index);
-		let rx = check_and_import_approval(
+		let rx = import_approval(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,
@@ -3906,7 +3846,7 @@ fn waits_until_approving_assignments_are_old_enough() {
 
 		let sig_b = sign_approval(Sr25519Keyring::Bob, candidate_hash, session_index);
 
-		let rx = check_and_import_approval(
+		let rx = import_approval(
 			&mut virtual_overseer,
 			block_hash,
 			candidate_index,

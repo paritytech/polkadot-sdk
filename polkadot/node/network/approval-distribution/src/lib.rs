@@ -1025,12 +1025,7 @@ impl State {
 		.await;
 	}
 
-	async fn process_incoming_assignments<
-		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
-		A: overseer::SubsystemSender<ApprovalVotingMessage>,
-		RA: overseer::SubsystemSender<RuntimeApiMessage>,
-		R,
-	>(
+	async fn process_incoming_assignments<A, N, RA, R>(
 		&mut self,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
@@ -1043,6 +1038,9 @@ impl State {
 		clock: &(impl Clock + ?Sized),
 		session_info_provider: &mut RuntimeInfo,
 	) where
+		A: overseer::SubsystemSender<ApprovalVotingMessage>,
+		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
+		RA: overseer::SubsystemSender<RuntimeApiMessage>,
 		R: CryptoRng + Rng,
 	{
 		for (assignment, claimed_indices) in assignments {
@@ -1134,12 +1132,7 @@ impl State {
 		}
 	}
 
-	async fn process_incoming_peer_message<
-		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
-		A: overseer::SubsystemSender<ApprovalVotingMessage>,
-		RA: overseer::SubsystemSender<RuntimeApiMessage>,
-		R,
-	>(
+	async fn process_incoming_peer_message<A, N, RA, R>(
 		&mut self,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
@@ -1156,6 +1149,9 @@ impl State {
 		clock: &(impl Clock + ?Sized),
 		session_info_provider: &mut RuntimeInfo,
 	) where
+		A: overseer::SubsystemSender<ApprovalVotingMessage>,
+		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
+		RA: overseer::SubsystemSender<RuntimeApiMessage>,
 		R: CryptoRng + Rng,
 	{
 		match msg {
@@ -1335,12 +1331,7 @@ impl State {
 		self.enable_aggression(network_sender, Resend::No, metrics).await;
 	}
 
-	async fn import_and_circulate_assignment<
-		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
-		A: overseer::SubsystemSender<ApprovalVotingMessage>,
-		RA: overseer::SubsystemSender<RuntimeApiMessage>,
-		R,
-	>(
+	async fn import_and_circulate_assignment<A, N, RA, R>(
 		&mut self,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
@@ -1354,6 +1345,9 @@ impl State {
 		clock: &(impl Clock + ?Sized),
 		session_info_provider: &mut RuntimeInfo,
 	) where
+		A: overseer::SubsystemSender<ApprovalVotingMessage>,
+		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
+		RA: overseer::SubsystemSender<RuntimeApiMessage>,
 		R: CryptoRng + Rng,
 	{
 		let _span = self
@@ -1515,7 +1509,7 @@ impl State {
 					}
 
 					approval_voting_sender
-						.send_message(ApprovalVotingMessage::CheckAndImportAssignment(
+						.send_message(ApprovalVotingMessage::ImportAssignment(
 							assignment.clone(),
 							claimed_candidate_indices.clone(),
 							tranche,
@@ -1893,10 +1887,7 @@ impl State {
 			match result {
 				Ok(_) => {
 					approval_voting_sender
-						.send_message(ApprovalVotingMessage::CheckAndImportApproval(
-							vote.clone(),
-							None,
-						))
+						.send_message(ApprovalVotingMessage::ImportApproval(vote.clone(), None))
 						.await;
 
 					modify_reputation(
