@@ -16,11 +16,6 @@
 
 //! Single asset exchange adapter.
 
-#[cfg(test)]
-mod mock;
-#[cfg(test)]
-mod tests;
-
 use core::marker::PhantomData;
 use frame_support::{ensure, traits::tokens::fungibles};
 use pallet_asset_conversion::{QuotePrice, SwapCredit};
@@ -105,10 +100,10 @@ where
 		let credit_in = Fungibles::issue(give_asset_id, give_amount);
 
 		// Do the swap.
-		let credit_out = if maximal {
+		let (credit_out, maybe_credit_change) = if maximal {
 			// If `maximal`, then we swap exactly `credit_in` to get as much of `want_asset_id` as
 			// we can, with a minimum of `want_amount`.
-			<AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
+			let credit_out = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
 				vec![swap_asset, want_asset_id],
 				credit_in,
 				Some(want_amount),
@@ -121,11 +116,14 @@ where
 				);
 				drop(credit_in);
 				give.clone()
-			})?
+			})?;
+
+			// We don't have leftover assets if exchange was maximal.
+			(credit_out, None)
 		} else {
 			// If `minimal`, then we swap as little of `credit_in` as we can to get exactly
 			// `want_amount` of `want_asset_id`.
-			let (credit_out, _credit_change) =
+			let (credit_out, credit_change) =
 				<AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
 					vec![swap_asset, want_asset_id],
 					credit_in,
@@ -141,15 +139,21 @@ where
 					give.clone()
 				})?;
 
-			// TODO: If we want to make this a generic adapter, this need not be 0. Handle it.
-			// Probably depositing it back to the holding.
-			// debug_assert!(credit_change.peek() == Zero::zero());
-
-			credit_out
+			(credit_out, Some(credit_change))
 		};
 
+		// We create an `AssetsInHolding` instance by putting in the resulting asset
+		// of the exchange.
 		let resulting_asset: Asset = (want_asset.id.clone(), credit_out.peek()).into();
-		Ok(resulting_asset.into())
+		let mut result: AssetsInHolding = resulting_asset.into();
+
+		// If we have some leftover assets from the exchange, also put them in the result.
+		if let Some(credit_change) = maybe_credit_change {
+			let leftover_asset: Asset = (give_asset.id.clone(), credit_change.peek()).into();
+			result.subsume(leftover_asset);
+		}
+
+		Ok(result.into())
 	}
 
 	fn quote_exchange_price(asset1: &Asset, asset2: &Asset, maximal: bool) -> Option<u128> {
