@@ -48,8 +48,8 @@ pub struct HwBench {
 	/// The CPU speed, as measured in how many MB/s it can hash using the BLAKE2b-256 hash.
 	#[serde(serialize_with = "serialize_throughput")]
 	pub cpu_hashrate_score: Throughput,
-	/// The parallel CPU speed, as measured in how many MB/s it can hash using the BLAKE2b-256
-	/// hash, when using `EXPECTED_NUM_CORES` threads.
+	/// The parallel CPU speed, as measured in how many MB/s it can hash in parallel using the
+	/// BLAKE2b-256 hash.
 	#[serde(serialize_with = "serialize_throughput")]
 	pub parallel_cpu_hashrate_score: Throughput,
 	/// Memory bandwidth in MB/s, calculated by measuring the throughput of `memcpy`.

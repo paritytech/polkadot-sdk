@@ -390,7 +390,7 @@ pub fn benchmark_cpu(limit: ExecutionLimit) -> Throughput {
 
 // This benchmarks the entire CPU speed as measured by calculating BLAKE2b-256 hashes, in bytes per
 // second. It spawns multiple threads to measure the throughput of the entire CPU and averages the
-// score obtained by each thread. If we have at least `EXPECTED_NUM_CORES` available then the
+// score obtained by each thread. If we have at least `refhw_num_cores` available then the
 // average throughput should be relatively close to the single core performance as measured by
 // `benchmark_cpu`.
 pub fn benchmark_cpu_parallelism(limit: ExecutionLimit, refhw_num_cores: usize) -> Throughput {
