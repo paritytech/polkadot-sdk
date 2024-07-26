@@ -82,7 +82,7 @@
 //!
 //! ## State
 //!
-//! From the previous sections, we know that the a database component is part of the node, not the
+//! From the previous sections, we know that the database component is part of the node, not the
 //! runtime. We also hinted that a set of host functions ([`sp_io::storage`]) are how the runtime
 //! issues commands to the node to read/write to the state. Let's dive deeper into this.
 //!
