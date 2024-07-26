@@ -29,7 +29,7 @@
 //! Rust to different hardware targets.
 //!
 //! This design enables all Substrate-based chains to be fork-less-ly upgradeable, because the
-//! Runtime can be updates on the fly, within the execution of a block, and the node is (for the
+//! Runtime can be updated on the fly, within the execution of a block, and the node is (for the
 //! most part) oblivious to the change that is happening.
 //!
 //! Therefore, the high-level architecture of a any Substrate-based chain can be demonstrated as
