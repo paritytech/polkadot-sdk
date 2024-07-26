@@ -50,12 +50,12 @@ use xcm_builder::{
 	AccountId32Aliases, AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
 	ConvertedConcreteId, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, FungiblesAdapter, SingleAssetExchangeAdapter, IsConcrete, LocalMint, NativeAsset,
-	NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	FungibleAdapter, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset, NoChecking,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
 	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, StartsWith, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents, SendXcmFeeToAccount,
+	SignedToAccountId32, SingleAssetExchangeAdapter, SovereignSignedViaLocation, StartsWith,
+	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents,
 };
 use xcm_executor::{traits::JustTry, XcmExecutor};
 

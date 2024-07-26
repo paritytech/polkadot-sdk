@@ -50,12 +50,13 @@ use xcm_builder::{
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily, DescribePalletTerminal,
 	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
 	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
-	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
+	MatchedConvertedConcreteId, NetworkExportTableItem, NoChecking, NonFungiblesAdapter,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SingleAssetExchangeAdapter, SovereignSignedViaLocation, StartsWith,
 	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	WithLatestLocationConverter, SendXcmFeeToAccount, SingleAssetExchangeAdapter, MatchedConvertedConcreteId,
+	WeightInfoBounds, WithComputedOrigin, WithLatestLocationConverter, WithUniqueTopic,
+	XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
 
@@ -359,13 +360,14 @@ pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	(
 		TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance, xcm::v3::Location>,
 		ForeignAssetsConvertedConcreteId,
+		// `ForeignAssetsConvertedConcreteId` excludes the relay token, so we add it back here.
 		MatchedConvertedConcreteId<
 			xcm::v3::Location,
 			Balance,
 			Equals<ParentLocation>,
 			WithLatestLocationConverter<xcm::v3::Location>,
 			TryConvertInto,
-		>, // Adding this back in to match on relay token.
+		>,
 	),
 	AccountId,
 >;

@@ -492,32 +492,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		};
 		// If `BuyExecution` was called, we know we can try to use that asset for fees.
 		// We get the asset the user wants to use to pay for fees.
-		let asset_to_pay_for_fees = if let Some(asset_used_for_fees) = &self.asset_used_for_fees {
-			if asset_used_for_fees != &asset_needed_for_fees.id {
-				match Config::AssetExchanger::quote_exchange_price(
-					&(asset_used_for_fees.clone(), 1u128).into(),
-					&asset_needed_for_fees,
-					false,
-				) {
-					Some(necessary_amount) =>
-						(asset_used_for_fees.clone(), necessary_amount).into(),
-					// If we can't convert, then we return the original asset.
-					// It will error later in any case.
-					None => {
-						tracing::trace!(
-							target: "xcm::take_fee",
-							?asset_used_for_fees,
-							"Could not convert fees",
-						);
-						asset_needed_for_fees.clone()
-					},
-				}
-			} else {
-				asset_needed_for_fees.clone()
-			}
-		} else {
-			asset_needed_for_fees.clone()
-		};
+		let asset_to_pay_for_fees =
+			self.calculate_asset_for_delivery_fees(asset_needed_for_fees.clone());
 		tracing::trace!(target: "xcm::fees", ?asset_to_pay_for_fees);
 		// We withdraw or take from holding the asset the user wants to use for fee payment.
 		let withdrawn_fee_asset = if self.fees_mode.jit_withdraw {
@@ -565,6 +541,40 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		};
 		Config::FeeManager::handle_fee(paid, Some(&self.context), reason);
 		Ok(())
+	}
+
+	/// Calculates the amount of `self.asset_used_for_fees` required to swap for
+	/// `asset_needed_for_fees`.
+	///
+	/// The calculation is done by `Config::AssetExchanger`.
+	/// If `self.asset_used_for_fees` is not set, it will just return `asset_needed_for_fees`.
+	fn calculate_asset_for_delivery_fees(&self, asset_needed_for_fees: Asset) -> Asset {
+		if let Some(asset_wanted_for_fees) = &self.asset_used_for_fees {
+			if *asset_wanted_for_fees != asset_needed_for_fees.id {
+				match Config::AssetExchanger::quote_exchange_price(
+					&(asset_wanted_for_fees.clone(), 1u128).into(),
+					&asset_needed_for_fees,
+					false, // Minimal.
+				) {
+					Some(necessary_amount) =>
+						(asset_wanted_for_fees.clone(), necessary_amount).into(),
+					// If we can't convert, then we return the original asset.
+					// It will error later in any case.
+					None => {
+						tracing::trace!(
+							target: "xcm::take_fee",
+							?asset_wanted_for_fees,
+							"Could not convert fees",
+						);
+						asset_needed_for_fees.clone()
+					},
+				}
+			} else {
+				asset_needed_for_fees
+			}
+		} else {
+			asset_needed_for_fees
+		}
 	}
 
 	/// Calculates what `local_querier` would be from the perspective of `destination`.
@@ -965,39 +975,17 @@ impl<Config: config::Config> XcmExecutor<Config> {
 							self.asset_used_for_fees, asset_needed_for_fees,
 						);
 						let asset_to_pay_for_fees =
-							self.asset_used_for_fees.as_ref().unwrap_or(&asset_needed_for_fees.id);
-						let actual_asset_to_use_for_fees =
-							if asset_to_pay_for_fees != &asset_needed_for_fees.id {
-								// Get the correct amount of asset_to_pay_for_fees.
-								match Config::AssetExchanger::quote_exchange_price(
-									&(asset_to_pay_for_fees.clone(), 1u128).into(),
-									&asset_needed_for_fees,
-									false,
-								) {
-									Some(necessary_amount) =>
-										(asset_to_pay_for_fees.clone(), necessary_amount).into(),
-									None => {
-										tracing::trace!(
-											target: "xcm::take_fee",
-											?asset_to_pay_for_fees,
-											"Could not convert fees",
-										);
-										asset_needed_for_fees.clone()
-									},
-								}
-							} else {
-								asset_needed_for_fees.clone()
-							};
+							self.calculate_asset_for_delivery_fees(asset_needed_for_fees.clone());
 						// set aside fee to be charged by XcmSender
 						let delivery_fee =
-							self.holding.saturating_take(actual_asset_to_use_for_fees.into());
+							self.holding.saturating_take(asset_to_pay_for_fees.into());
 						tracing::trace!(target: "xcm::DepositReserveAsset", ?delivery_fee);
 						Some(delivery_fee)
 					} else {
 						None
 					};
-					// now take assets to deposit (excluding transport_fee)
-					// TODO: We should be taking `assets - transport_fee`
+					// now take assets to deposit (excluding delivery_fee)
+					// TODO: We should be taking `assets - delivery_fee`
 					let deposited = self.holding.saturating_take(assets);
 					tracing::trace!(target: "xcm::DepositReserveAsset", ?deposited, "Assets except delivery fee");
 					for asset in deposited.assets_iter() {
