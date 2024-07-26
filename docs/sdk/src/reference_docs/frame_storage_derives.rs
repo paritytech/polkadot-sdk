@@ -1,6 +1,6 @@
-//! <section class="info">
-//! In all examples, a few lines of boilerplate have been hidden from each snippet for conciseness.
-//! </section>
+//! > **Note:**
+//! >
+//! > In all examples, a few lines of boilerplate have been hidden from each snippet for conciseness.
 //!
 //! Let's begin by starting to store a `NewType` in a storage item:
 //!
