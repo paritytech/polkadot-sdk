@@ -21,7 +21,7 @@ futures-timer = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
 serde_json = { workspace = true, default-features = true }
 
-polkadot-sdk = { workspace = true, features = ["node", "experimental"] }
+polkadot-sdk = { workspace = true, features = ["experimental", "node"] }
 minimal-template-runtime = { workspace = true }
 
 [build-dependencies]
