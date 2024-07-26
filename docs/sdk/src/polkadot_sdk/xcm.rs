@@ -34,12 +34,12 @@
 //! but will be moved to its own repo in the future.
 //!
 //! Its main components are:
-//! - [`xcm`](::xcm): the definition of the basic types and instructions
-//! - [`xcm_executor`]: an implementation of the virtual machine to execute instructions
-//! - [`pallet_xcm`]: A FRAME pallet for interacting with the executor
-//! - [`xcm_builder`]: a collection of types to configure the executor
-//! - [`xcm_simulator`]: a playground for trying out different XCM programs and executor
-//!   configurations
+//! - [`xcm`](::xcm): The definition of the basic types and instructions.
+//! - [`xcm_executor`]: An implementation of the virtual machine to execute instructions.
+//! - [`pallet_xcm`]: A FRAME pallet for interacting with the executor.
+//! - [`xcm_builder`]: A collection of types to configure the executor.
+//! - [`xcm_simulator`]: A playground for trying out different XCM programs and executor
+//!   configurations.
 //!
 //! ## Example
 //!
