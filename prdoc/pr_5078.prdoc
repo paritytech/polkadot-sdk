@@ -9,4 +9,10 @@ crates:
 - name: pallet-session
   bump: major
 - name: parachains-runtimes-test-utils
-  bump: None
+  bump: patch
+- name: pallet-staking
+  bump: none
+- name: pallet-collator-selection
+  bump: none
+- name: pallet-root-offences
+  bump: none
