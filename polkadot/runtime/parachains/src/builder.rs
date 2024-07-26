@@ -516,8 +516,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					para_id,
 					core_idx,
 					group_idx,
-					// No validators have made this candidate available yet.
-					bitvec::bitvec![u8, bitvec::order::Lsb0; 0; validators.len()],
+					bitvec::bitvec![u8, bitvec::order::Lsb0; 1; validators.len()],
 					CandidateHash(H256::from(byte32_slice_from(current_core_idx))),
 				);
 				if !self.unavailable_cores.contains(&current_core_idx) {
