@@ -45,7 +45,8 @@ pub fn genesis() -> Storage {
 						acc,                                          // validator id
 						people_westend_runtime::SessionKeys { aura }, // session keys
 					)
-				}),
+				})
+				.collect(),
 			..Default::default()
 		},
 		polkadot_xcm: people_westend_runtime::PolkadotXcmConfig {
