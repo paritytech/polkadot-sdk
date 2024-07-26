@@ -17,29 +17,29 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_coretime, assigner_on_demand, assigner_parachains, configuration, coretime, disputes,
-	dmp, hrmp,
+	assigner_coretime, assigner_parachains, configuration, coretime, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
-	initializer, origin, paras,
+	initializer, on_demand, origin, paras,
 	paras::ParaKind,
 	paras_inherent, scheduler,
 	scheduler::common::AssignmentProvider,
 	session_info, shared, ParaId,
 };
 use frame_support::pallet_prelude::*;
-use primitives::CoreIndex;
+use polkadot_primitives::CoreIndex;
 
+use codec::Decode;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
 	traits::{
 		Currency, ProcessMessage, ProcessMessageError, ValidatorSet, ValidatorSetWithIdentification,
 	},
 	weights::{Weight, WeightMeter},
+	PalletId,
 };
 use frame_support_test::TestRandomness;
 use frame_system::limits;
-use parity_scale_codec::Decode;
-use primitives::{
+use polkadot_primitives::{
 	AuthorityDiscoveryId, Balance, BlockNumber, CandidateHash, Moment, SessionIndex, UpwardMessage,
 	ValidationCode, ValidatorIndex,
 };
@@ -50,9 +50,15 @@ use sp_runtime::{
 	transaction_validity::TransactionPriority,
 	BuildStorage, FixedU128, Perbill, Permill,
 };
-use sp_std::collections::vec_deque::VecDeque;
-use std::{cell::RefCell, collections::HashMap};
-use xcm::v4::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
+use std::{
+	cell::RefCell,
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque, HashMap},
+};
+use xcm::{
+	prelude::XcmVersion,
+	v4::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, Xcm, XcmHash},
+	IntoVersion, VersionedXcm, WrapVersion,
+};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;
@@ -71,7 +77,7 @@ frame_support::construct_runtime!(
 		Scheduler: scheduler,
 		MockAssigner: mock_assigner,
 		ParachainsAssigner: assigner_parachains,
-		OnDemandAssigner: assigner_on_demand,
+		OnDemand: on_demand,
 		CoretimeAssigner: assigner_coretime,
 		Coretime: coretime,
 		Initializer: initializer,
@@ -93,7 +99,6 @@ where
 }
 
 parameter_types! {
-	pub const BlockHashCount: u32 = 250;
 	pub static BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(4 * 1024 * 1024, u64::MAX),
@@ -118,7 +123,6 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<u64>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
@@ -134,20 +138,11 @@ parameter_types! {
 	pub static ExistentialDeposit: u64 = 1;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 }
 
 parameter_types! {
@@ -247,7 +242,32 @@ impl crate::paras::Config for Test {
 impl crate::dmp::Config for Test {}
 
 parameter_types! {
-	pub const FirstMessageFactorPercent: u64 = 100;
+	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (4, 1);
+}
+
+thread_local! {
+	pub static VERSION_WRAPPER: RefCell<BTreeMap<Location, Option<XcmVersion>>> = RefCell::new(BTreeMap::new());
+}
+/// Mock implementation of the [`WrapVersion`] trait which wraps XCM only for known/stored XCM
+/// versions in the `VERSION_WRAPPER`.
+pub struct TestUsesOnlyStoredVersionWrapper;
+impl WrapVersion for TestUsesOnlyStoredVersionWrapper {
+	fn wrap_version<RuntimeCall>(
+		dest: &Location,
+		xcm: impl Into<VersionedXcm<RuntimeCall>>,
+	) -> Result<VersionedXcm<RuntimeCall>, ()> {
+		match VERSION_WRAPPER.with(|r| r.borrow().get(dest).map_or(None, |v| *v)) {
+			Some(v) => xcm.into().into_version(v),
+			None => return Err(()),
+		}
+	}
+}
+impl TestUsesOnlyStoredVersionWrapper {
+	pub fn set_version(location: Location, version: Option<XcmVersion>) {
+		VERSION_WRAPPER.with(|r| {
+			let _ = r.borrow_mut().entry(location).and_modify(|v| *v = version).or_insert(version);
+		});
+	}
 }
 
 impl crate::hrmp::Config for Test {
@@ -255,6 +275,8 @@ impl crate::hrmp::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = frame_system::EnsureRoot<u64>;
 	type Currency = pallet_balances::Pallet<Test>;
+	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
+	type VersionWrapper = TestUsesOnlyStoredVersionWrapper;
 	type WeightInfo = crate::hrmp::TestWeightInfo;
 }
 
@@ -368,23 +390,37 @@ impl pallet_message_queue::Config for Test {
 	type IdleMaxServiceWeight = ();
 }
 
-parameter_types! {
-	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
-}
-
 impl assigner_parachains::Config for Test {}
 
-impl assigner_on_demand::Config for Test {
+parameter_types! {
+	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
+	// Production chains should keep this numbar around twice the
+	// defined Timeslice for Coretime.
+	pub const MaxHistoricalRevenue: BlockNumber = 2 * 5;
+	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
+}
+
+impl on_demand::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
-	type WeightInfo = crate::assigner_on_demand::TestWeightInfo;
+	type WeightInfo = crate::on_demand::TestWeightInfo;
+	type MaxHistoricalRevenue = MaxHistoricalRevenue;
+	type PalletId = OnDemandPalletId;
 }
 
 impl assigner_coretime::Config for Test {}
 
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
+	pub MaxXcmTransactWeight: Weight = Weight::from_parts(10_000_000, 10_000);
+}
+
+pub struct BrokerPot;
+impl Get<InteriorLocation> for BrokerPot {
+	fn get() -> InteriorLocation {
+		unimplemented!()
+	}
 }
 
 impl coretime::Config for Test {
@@ -394,6 +430,10 @@ impl coretime::Config for Test {
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;
+	type MaxXcmTransactWeight = MaxXcmTransactWeight;
+	type BrokerPotLocation = BrokerPot;
+	type AssetTransactor = ();
+	type AccountToLocation = ();
 }
 
 pub struct DummyXcmSender;
@@ -499,7 +539,7 @@ pub mod mock_assigner {
 		// We don't care about core affinity in the test assigner
 		fn report_processed(_assignment: Assignment) {}
 
-		// The results of this are tested in assigner_on_demand tests. No need to represent it
+		// The results of this are tested in on_demand tests. No need to represent it
 		// in the mock assigner.
 		fn push_back_assignment(_assignment: Assignment) {}
 
@@ -635,7 +675,7 @@ impl inclusion::RewardValidators for TestRewardValidators {
 /// Create a new set of test externalities.
 pub fn new_test_ext(state: MockGenesisConfig) -> TestExternalities {
 	use sp_keystore::{testing::MemoryKeystore, KeystoreExt, KeystorePtr};
-	use sp_std::sync::Arc;
+	use std::sync::Arc;
 
 	sp_tracing::try_init_simple();
 

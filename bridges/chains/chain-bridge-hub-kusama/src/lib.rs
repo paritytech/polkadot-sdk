@@ -29,7 +29,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	sp_runtime::{MultiAddress, MultiSigner},
 };
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{RuntimeDebug, StateVersion};
 
 /// BridgeHubKusama parachain.
 #[derive(RuntimeDebug)]
@@ -48,6 +48,8 @@ impl Chain for BridgeHubKusama {
 	type Nonce = Nonce;
 	type Signature = Signature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		*BlockLength::get().max.get(DispatchClass::Normal)
 	}
@@ -62,6 +64,7 @@ impl Chain for BridgeHubKusama {
 
 impl Parachain for BridgeHubKusama {
 	const PARACHAIN_ID: u32 = BRIDGE_HUB_KUSAMA_PARACHAIN_ID;
+	const MAX_HEADER_SIZE: u32 = MAX_BRIDGE_HUB_HEADER_SIZE;
 }
 
 impl ChainWithMessages for BridgeHubKusama {

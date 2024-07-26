@@ -33,7 +33,6 @@ use sp_runtime::{
 	Perbill, Percent, Saturating,
 };
 use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex};
-use sp_std::prelude::*;
 
 pub use frame_benchmarking::v1::{
 	account, benchmarks, impl_benchmark_test_suite, whitelist_account, whitelisted_caller,
@@ -169,7 +168,7 @@ impl<T: Config> ListScenario<T> {
 
 		// burn the entire issuance.
 		let i = T::Currency::burn(T::Currency::total_issuance());
-		sp_std::mem::forget(i);
+		core::mem::forget(i);
 
 		// create accounts with the origin weight
 
@@ -1077,15 +1076,13 @@ mod tests {
 				(frame_benchmarking::BenchmarkParameter::v, v),
 				(frame_benchmarking::BenchmarkParameter::n, n),
 			];
-			let closure_to_benchmark =
-				<SelectedBenchmark as frame_benchmarking::BenchmarkingSetup<Test>>::instance(
+
+			assert_ok!(
+				<SelectedBenchmark as frame_benchmarking::BenchmarkingSetup<Test>>::unit_test_instance(
 					&selected_benchmark,
 					&c,
-					true,
 				)
-				.unwrap();
-
-			assert_ok!(closure_to_benchmark());
+			);
 		});
 	}
 }

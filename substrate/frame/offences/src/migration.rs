@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::{Config, Kind, OffenceDetails, Pallet, Perbill, SessionIndex, LOG_TARGET};
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::ValueQuery,
 	storage_alias,
@@ -23,8 +24,7 @@ use frame_support::{
 	weights::Weight,
 	Twox64Concat,
 };
-use sp_staking::offence::{DisableStrategy, OnOffenceHandler};
-use sp_std::vec::Vec;
+use sp_staking::offence::OnOffenceHandler;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
@@ -49,7 +49,7 @@ pub mod v1 {
 
 	use super::*;
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
@@ -106,12 +106,7 @@ pub fn remove_deferred_storage<T: Config>() -> Weight {
 	let deferred = <DeferredOffences<T>>::take();
 	log::info!(target: LOG_TARGET, "have {} deferred offences, applying.", deferred.len());
 	for (offences, perbill, session) in deferred.iter() {
-		let consumed = T::OnOffenceHandler::on_offence(
-			offences,
-			perbill,
-			*session,
-			DisableStrategy::WhenSlashed,
-		);
+		let consumed = T::OnOffenceHandler::on_offence(offences, perbill, *session);
 		weight = weight.saturating_add(consumed);
 	}
 

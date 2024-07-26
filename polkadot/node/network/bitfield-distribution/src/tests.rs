@@ -40,7 +40,7 @@ use sp_core::Pair as PairT;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
 
-use std::{iter::FromIterator as _, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 const TIMEOUT: Duration = Duration::from_millis(50);
 macro_rules! launch {

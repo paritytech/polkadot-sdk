@@ -17,8 +17,6 @@
 use frame_support::parameter_types;
 use sp_core::{sr25519, storage::Storage};
 
-// Polkadot
-use xcm::v3::Location;
 // Cumulus
 use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, get_account_id_from_seed, SAFE_XCM_VERSION,
@@ -79,20 +77,9 @@ pub fn genesis(para_id: u32) -> Storage {
 		foreign_assets: penpal_runtime::ForeignAssetsConfig {
 			assets: vec![
 				// Relay Native asset representation
-				(
-					Location::try_from(RelayLocation::get()).expect("conversion works"),
-					PenpalAssetOwner::get(),
-					true,
-					ED,
-				),
+				(RelayLocation::get(), PenpalAssetOwner::get(), true, ED),
 				// Sufficient AssetHub asset representation
-				(
-					Location::try_from(LocalReservableFromAssetHub::get())
-						.expect("conversion works"),
-					PenpalAssetOwner::get(),
-					true,
-					ED,
-				),
+				(LocalReservableFromAssetHub::get(), PenpalAssetOwner::get(), true, ED),
 			],
 			..Default::default()
 		},

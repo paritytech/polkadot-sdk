@@ -23,9 +23,11 @@ use crate::{
 	exec::{AccountIdOf, Key},
 	weights::WeightInfo,
 	BalanceOf, CodeHash, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter,
-	Error, Pallet, TrieId, SENTINEL,
+	Error, TrieId, SENTINEL,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support::{
 	storage::child::{self, ChildInfo},
 	weights::{Weight, WeightMeter},
@@ -38,7 +40,6 @@ use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
 	BoundedBTreeMap, DispatchError, DispatchResult, RuntimeDebug,
 };
-use sp_std::{marker::PhantomData, prelude::*};
 
 use self::meter::Diff;
 
@@ -125,9 +126,7 @@ impl<T: Config> ContractInfo<T> {
 
 	/// Same as [`Self::extra_deposit`] but including the base deposit.
 	pub fn total_deposit(&self) -> BalanceOf<T> {
-		self.extra_deposit()
-			.saturating_add(self.storage_base_deposit)
-			.saturating_sub(Pallet::<T>::min_balance())
+		self.extra_deposit().saturating_add(self.storage_base_deposit)
 	}
 
 	/// Returns the storage base deposit of the contract.
@@ -213,7 +212,6 @@ impl<T: Config> ContractInfo<T> {
 	/// The base deposit is updated when the `code_hash` of the contract changes, as it depends on
 	/// the deposit paid to upload the contract's code.
 	pub fn update_base_deposit(&mut self, code_info: &CodeInfo<T>) -> BalanceOf<T> {
-		let ed = Pallet::<T>::min_balance();
 		let info_deposit =
 			Diff { bytes_added: self.encoded_size() as u32, items_added: 1, ..Default::default() }
 				.update_contract::<T>(None)
@@ -224,11 +222,7 @@ impl<T: Config> ContractInfo<T> {
 		// to prevent abuse.
 		let upload_deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_info.deposit());
 
-		// Instantiate needs to transfer at least the minimum balance in order to pull the
-		// contract's own account into existence, as the deposit itself does not contribute to the
-		// `ed`.
-		let deposit = info_deposit.saturating_add(upload_deposit).saturating_add(ed);
-
+		let deposit = info_deposit.saturating_add(upload_deposit);
 		self.storage_base_deposit = deposit;
 		deposit
 	}
@@ -341,7 +335,7 @@ impl<T: Config> ContractInfo<T> {
 }
 
 /// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(any(test, feature = "runtime-benchmarks"), derive(Debug, PartialEq))]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
 	New,

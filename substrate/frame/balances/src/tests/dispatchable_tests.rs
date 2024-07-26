@@ -281,7 +281,7 @@ fn force_adjust_total_issuance_saturates() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1337, 64));
 		let ti = Balances::total_issuance();
-		let max = Balance::max_value();
+		let max = <Test as Config>::Balance::max_value();
 		assert_eq!(ti, 64);
 
 		// Increment saturates:
@@ -333,5 +333,49 @@ fn force_adjust_total_issuance_rejects_more_than_inactive() {
 		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 10),);
 		assert_eq!(Balances::total_issuance(), 26);
 		assert_eq!(Balances::active_issuance(), 10);
+	});
+}
+
+#[test]
+fn burn_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Prepare account with initial balance
+		let (account, init_balance) = (1, 37);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account, init_balance));
+		let init_issuance = Balances::total_issuance();
+		let (keep_alive, allow_death) = (true, false);
+
+		// 1. Cannot burn more than what's available
+		assert_noop!(
+			Balances::burn(Some(account).into(), init_balance + 1, allow_death),
+			TokenError::FundsUnavailable,
+		);
+
+		// 2. Burn some funds, without reaping the account
+		let burn_amount_1 = 1;
+		assert_ok!(Balances::burn(Some(account).into(), burn_amount_1, allow_death));
+		System::assert_last_event(RuntimeEvent::Balances(Event::Burned {
+			who: account,
+			amount: burn_amount_1,
+		}));
+		assert_eq!(Balances::total_issuance(), init_issuance - burn_amount_1);
+		assert_eq!(Balances::total_balance(&account), init_balance - burn_amount_1);
+
+		// 3. Cannot burn funds below existential deposit if `keep_alive` is `true`
+		let burn_amount_2 =
+			init_balance - burn_amount_1 - <Test as Config>::ExistentialDeposit::get() + 1;
+		assert_noop!(
+			Balances::burn(Some(account).into(), init_balance + 1, keep_alive),
+			TokenError::FundsUnavailable,
+		);
+
+		// 4. Burn some more funds, this time reaping the account
+		assert_ok!(Balances::burn(Some(account).into(), burn_amount_2, allow_death));
+		System::assert_last_event(RuntimeEvent::Balances(Event::Burned {
+			who: account,
+			amount: burn_amount_2,
+		}));
+		assert_eq!(Balances::total_issuance(), init_issuance - burn_amount_1 - burn_amount_2);
+		assert!(Balances::total_balance(&account).is_zero());
 	});
 }

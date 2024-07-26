@@ -18,7 +18,10 @@
 
 //! Substrate Client
 
-use super::block_rules::{BlockRules, LookupResult as BlockLookupResult};
+use super::{
+	block_rules::{BlockRules, LookupResult as BlockLookupResult},
+	CodeProvider,
+};
 use crate::client::notification_pinning::NotificationPinningWorker;
 use log::{debug, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
@@ -57,10 +60,7 @@ use sp_consensus::{BlockOrigin, BlockStatus, Error as ConsensusError};
 
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_core::{
-	storage::{
-		well_known_keys, ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData,
-		StorageKey,
-	},
+	storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData, StorageKey},
 	traits::{CallContext, SpawnNamed},
 };
 use sp_runtime::{
@@ -115,6 +115,7 @@ where
 	config: ClientConfig<Block>,
 	telemetry: Option<TelemetryHandle>,
 	unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
+	code_provider: CodeProvider<Block, B, E>,
 	_phantom: PhantomData<RA>,
 }
 
@@ -410,6 +411,7 @@ where
 			Block,
 			BlockImportOperation = <B as backend::Backend<Block>>::BlockImportOperation,
 		>,
+		E: Clone,
 		B: 'static,
 	{
 		let info = backend.blockchain().info();
@@ -438,6 +440,7 @@ where
 		);
 		let unpin_worker = NotificationPinningWorker::new(rx, backend.clone());
 		spawn_handle.spawn("notification-pinning-worker", None, Box::pin(unpin_worker.run()));
+		let code_provider = CodeProvider::new(&config, executor.clone(), backend.clone())?;
 
 		Ok(Client {
 			backend,
@@ -453,6 +456,7 @@ where
 			config,
 			telemetry,
 			unpin_worker_sender,
+			code_provider,
 			_phantom: Default::default(),
 		})
 	}
@@ -475,13 +479,10 @@ where
 	}
 
 	/// Get the code at a given block.
+	///
+	/// This takes any potential substitutes into account, but ignores overrides.
 	pub fn code_at(&self, hash: Block::Hash) -> sp_blockchain::Result<Vec<u8>> {
-		Ok(StorageProvider::storage(self, hash, &StorageKey(well_known_keys::CODE.to_vec()))?
-			.expect(
-				"None is returned if there's no value stored for the given key;\
-				':code' key is always defined; qed",
-			)
-			.0)
+		self.code_provider.code_at_ignoring_overrides(hash)
 	}
 
 	/// Get the RuntimeVersion at a given block.
@@ -978,8 +979,12 @@ where
 
 			// The stale heads are the leaves that will be displaced after the
 			// block is finalized.
-			let stale_heads =
-				self.backend.blockchain().displaced_leaves_after_finalizing(block_number)?;
+			let stale_heads = self
+				.backend
+				.blockchain()
+				.displaced_leaves_after_finalizing(hash, block_number)?
+				.hashes()
+				.collect();
 
 			let header = self
 				.backend
@@ -1775,7 +1780,7 @@ where
 
 	/// Check block preconditions.
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let BlockCheckParams {
@@ -1857,10 +1862,10 @@ where
 	}
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
-		(&*self).check_block(block).await
+		(&self).check_block(block).await
 	}
 }
 

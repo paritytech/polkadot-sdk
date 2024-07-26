@@ -30,6 +30,7 @@ mod imports {
 		prelude::{AccountId32 as AccountId32Junction, *},
 		v3,
 	};
+	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
 	pub use asset_test_utils::xcm_helpers;
@@ -45,14 +46,37 @@ mod imports {
 	pub use parachains_common::Balance;
 	pub use rococo_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
+			asset_hub_rococo_runtime::{
+				xcm_config::{
+					self as ahr_xcm_config, TokenLocation as RelayLocation,
+					XcmConfig as AssetHubRococoXcmConfig,
+				},
+				AssetConversionOrigin as AssetHubRococoAssetConversionOrigin,
+				ExistentialDeposit as AssetHubRococoExistentialDeposit,
+			},
 			genesis::{AssetHubRococoAssetOwner, ED as ASSET_HUB_ROCOCO_ED},
 			AssetHubRococoParaPallet as AssetHubRococoPallet,
 		},
 		penpal_emulated_chain::{
+			penpal_runtime::xcm_config::{
+				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+				LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
+				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
+			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
 			PenpalBParaPallet as PenpalBPallet, ED as PENPAL_ED,
 		},
-		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
+		rococo_emulated_chain::{
+			genesis::ED as ROCOCO_ED,
+			rococo_runtime::{
+				governance as rococo_governance,
+				xcm_config::{
+					UniversalLocation as RococoUniversalLocation, XcmConfig as RococoXcmConfig,
+				},
+				OriginCaller as RococoOriginCaller,
+			},
+			RococoRelayPallet as RococoPallet,
+		},
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		AssetHubRococoParaSender as AssetHubRococoSender, BridgeHubRococoPara as BridgeHubRococo,
 		BridgeHubRococoParaReceiver as BridgeHubRococoReceiver, PenpalAPara as PenpalA,
@@ -60,16 +84,6 @@ mod imports {
 		PenpalBPara as PenpalB, PenpalBParaReceiver as PenpalBReceiver, RococoRelay as Rococo,
 		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 	};
-
-	// Runtimes
-	pub use asset_hub_rococo_runtime::xcm_config::{
-		TokenLocation as RelayLocation, XcmConfig as AssetHubRococoXcmConfig,
-	};
-	pub use penpal_runtime::xcm_config::{
-		LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
-		LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
-	};
-	pub use rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig;
 
 	pub const ASSET_ID: u32 = 3;
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
@@ -81,6 +95,8 @@ mod imports {
 	pub type SystemParaToParaTest = Test<AssetHubRococo, PenpalA>;
 	pub type ParaToSystemParaTest = Test<PenpalA, AssetHubRococo>;
 	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Rococo>;
+	pub type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubRococo>;
+	pub type RelayToParaThroughAHTest = Test<Rococo, PenpalA, AssetHubRococo>;
 }
 
 #[cfg(test)]

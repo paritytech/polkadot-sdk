@@ -30,7 +30,9 @@ use crate::{
 use clap::Parser;
 use regex::Regex;
 use sc_service::{
-	config::{BasePath, PrometheusConfig, RpcBatchRequestConfig, TransactionPoolOptions},
+	config::{
+		BasePath, IpNetwork, PrometheusConfig, RpcBatchRequestConfig, TransactionPoolOptions,
+	},
 	ChainSpec, Role,
 };
 use sc_telemetry::TelemetryEndpoints;
@@ -93,6 +95,22 @@ pub struct RunCmd {
 	/// 10 calls per minute per connection.
 	#[arg(long)]
 	pub rpc_rate_limit: Option<NonZeroU32>,
+
+	/// Disable RPC rate limiting for certain ip addresses.
+	///
+	/// Each IP address must be in CIDR notation such as `1.2.3.4/24`.
+	#[arg(long, num_args = 1..)]
+	pub rpc_rate_limit_whitelisted_ips: Vec<IpNetwork>,
+
+	/// Trust proxy headers for disable rate limiting.
+	///
+	/// By default the rpc server will not trust headers such `X-Real-IP`, `X-Forwarded-For` and
+	/// `Forwarded` and this option will make the rpc server to trust these headers.
+	///
+	/// For instance this may be secure if the rpc server is behind a reverse proxy and that the
+	/// proxy always sets these headers.
+	#[arg(long)]
+	pub rpc_rate_limit_trust_proxy_headers: bool,
 
 	/// Set the maximum RPC request payload size for both HTTP and WS in megabytes.
 	#[arg(long, default_value_t = RPC_DEFAULT_MAX_REQUEST_SIZE_MB)]
@@ -437,6 +455,14 @@ impl CliConfiguration for RunCmd {
 
 	fn rpc_rate_limit(&self) -> Result<Option<NonZeroU32>> {
 		Ok(self.rpc_rate_limit)
+	}
+
+	fn rpc_rate_limit_whitelisted_ips(&self) -> Result<Vec<IpNetwork>> {
+		Ok(self.rpc_rate_limit_whitelisted_ips.clone())
+	}
+
+	fn rpc_rate_limit_trust_proxy_headers(&self) -> Result<bool> {
+		Ok(self.rpc_rate_limit_trust_proxy_headers)
 	}
 
 	fn transaction_pool(&self, is_dev: bool) -> Result<TransactionPoolOptions> {

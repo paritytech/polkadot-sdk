@@ -18,6 +18,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use cumulus_primitives_core::Weight;
 use cumulus_primitives_proof_size_hostfunction::{
 	storage_proof_size::storage_proof_size, PROOF_RECORDING_DISABLED,
@@ -33,7 +34,6 @@ use sp_runtime::{
 	transaction_validity::TransactionValidityError,
 	DispatchResult,
 };
-use sp_std::marker::PhantomData;
 
 const LOG_TARGET: &'static str = "runtime::storage_reclaim";
 
@@ -199,14 +199,14 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use core::marker::PhantomData;
 	use frame_support::{
 		assert_ok,
-		dispatch::DispatchClass,
+		dispatch::{DispatchClass, PerDispatchClass},
 		weights::{Weight, WeightMeter},
 	};
 	use frame_system::{BlockWeight, CheckWeight};
 	use sp_runtime::{AccountId32, BuildStorage};
-	use sp_std::marker::PhantomData;
 	use sp_trie::proof_size_extension::ProofSizeExt;
 
 	type Test = cumulus_test_runtime::Runtime;
@@ -215,7 +215,7 @@ mod tests {
 			pages: 0u64,
 		});
 	const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
-	const LEN: usize = 0;
+	const LEN: usize = 150;
 
 	pub fn new_test_ext() -> sp_io::TestExternalities {
 		let ext: sp_io::TestExternalities = cumulus_test_runtime::RuntimeGenesisConfig::default()
@@ -256,6 +256,10 @@ mod tests {
 		});
 	}
 
+	fn get_storage_weight() -> PerDispatchClass<Weight> {
+		BlockWeight::<Test>::get()
+	}
+
 	#[test]
 	fn basic_refund() {
 		// The real cost will be 100 bytes of storage size
@@ -267,6 +271,9 @@ mod tests {
 			// Benchmarked storage weight: 500
 			let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
 			let post_info = PostDispatchInfo::default();
+
+			// Should add 500 + 150 (len) to weight.
+			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&info, LEN));
 
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
@@ -283,7 +290,7 @@ mod tests {
 				&Ok(())
 			));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 600);
+			assert_eq!(get_storage_weight().total().proof_size(), 1250);
 		})
 	}
 
@@ -299,6 +306,9 @@ mod tests {
 			let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
 			let post_info = PostDispatchInfo::default();
 
+			// Adds 500 + 150 (len) weight
+			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&info, LEN));
+
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
@@ -313,7 +323,7 @@ mod tests {
 				&Ok(())
 			));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1000);
+			assert_eq!(get_storage_weight().total().proof_size(), 1650);
 		})
 	}
 
@@ -326,6 +336,9 @@ mod tests {
 			// Benchmarked storage weight: 100
 			let info = DispatchInfo { weight: Weight::from_parts(0, 100), ..Default::default() };
 			let post_info = PostDispatchInfo::default();
+
+			// Weight added should be 100 + 150 (len)
+			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&info, LEN));
 
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
@@ -342,7 +355,10 @@ mod tests {
 				&Ok(())
 			));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1100);
+			assert_eq!(
+				get_storage_weight().total().proof_size(),
+				1100 + LEN as u64 + info.weight.proof_size()
+			);
 		})
 	}
 
@@ -353,6 +369,8 @@ mod tests {
 		test_ext.execute_with(|| {
 			let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
 			let post_info = PostDispatchInfo::default();
+
+			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&info, LEN));
 
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
@@ -368,7 +386,8 @@ mod tests {
 				&Ok(())
 			));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 0);
+			// Proof size should be exactly equal to extrinsic length
+			assert_eq!(get_storage_weight().total().proof_size(), LEN as u64);
 		});
 	}
 
@@ -382,12 +401,17 @@ mod tests {
 			let info = DispatchInfo { weight: Weight::from_parts(0, 500), ..Default::default() };
 			let post_info = PostDispatchInfo::default();
 
+			// Adds 500 + 150 (len) weight, total weight is 1950
+			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&info, LEN));
+
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(300));
 
+			// Refund 500 unspent weight according to `post_info`, total weight is now 1650
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
+			// Recorded proof size is negative -200, total weight is now 1450
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
 				Some(pre),
 				&info,
@@ -396,7 +420,7 @@ mod tests {
 				&Ok(())
 			));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 800);
+			assert_eq!(get_storage_weight().total().proof_size(), 1450);
 		});
 	}
 
@@ -416,6 +440,9 @@ mod tests {
 				pays_fee: Default::default(),
 			};
 
+			// Should add 300 + 150 (len) of weight
+			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&info, LEN));
+
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
@@ -432,7 +459,8 @@ mod tests {
 				&Ok(())
 			));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 900);
+			// Reclaimed 100
+			assert_eq!(get_storage_weight().total().proof_size(), 1350);
 		})
 	}
 
@@ -451,6 +479,9 @@ mod tests {
 				pays_fee: Default::default(),
 			};
 
+			// Adds 50 + 150 (len) weight, total weight 1200
+			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&info, LEN));
+
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
@@ -458,7 +489,10 @@ mod tests {
 
 			// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
+
+			// Refunds unspent 25 weight according to `post_info`, 1175
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
+			// Adds 200 - 25 (unspent) == 175 weight, total weight 1350
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
 				Some(pre),
 				&info,
@@ -467,7 +501,55 @@ mod tests {
 				&Ok(())
 			));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1150);
+			assert_eq!(get_storage_weight().total().proof_size(), 1350);
+		})
+	}
+
+	#[test]
+	fn test_nothing_relcaimed() {
+		let mut test_ext = setup_test_externalities(&[100, 200]);
+
+		test_ext.execute_with(|| {
+			set_current_storage_weight(0);
+			// Benchmarked storage weight: 100
+			let info = DispatchInfo { weight: Weight::from_parts(100, 100), ..Default::default() };
+
+			// Actual proof size is 100
+			let post_info = PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(50, 100)),
+				pays_fee: Default::default(),
+			};
+
+			// Adds benchmarked weight 100 + 150 (len), total weight is now 250
+			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&info, LEN));
+
+			// Weight should go up by 150 len + 100 proof size weight, total weight 250
+			assert_eq!(get_storage_weight().total().proof_size(), 250);
+
+			let pre = StorageWeightReclaim::<Test>(PhantomData)
+				.pre_dispatch(&ALICE, CALL, &info, LEN)
+				.unwrap();
+			// Should return `setup_test_externalities` proof recorder value: 100.
+			assert_eq!(pre, Some(100));
+
+			// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
+			// we always need to call `post_dispatch` to verify that they interoperate correctly.
+			// Nothing to refund, unspent is 0, total weight 250
+			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, LEN, &Ok(())));
+			// `setup_test_externalities` proof recorder value: 200, so this means the extrinsic
+			// actually used 100 proof size.
+			// Nothing to refund or add, weight matches proof recorder
+			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
+				Some(pre),
+				&info,
+				&post_info,
+				LEN,
+				&Ok(())
+			));
+
+			// Check block len weight was not reclaimed:
+			// 100 weight + 150 extrinsic len == 250 proof size
+			assert_eq!(get_storage_weight().total().proof_size(), 250);
 		})
 	}
 
@@ -487,11 +569,15 @@ mod tests {
 				pays_fee: Default::default(),
 			};
 
+			// Adds 300 + 150 (len) weight, total weight 1450
+			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&info, LEN));
+
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(100));
 
+			// This refunds 100 - 50(unspent), total weight is now 1400
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
 				Some(pre),
 				&info,
@@ -504,7 +590,8 @@ mod tests {
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 900);
+			// Above call refunds 50 (unspent), total weight is 1350 now
+			assert_eq!(get_storage_weight().total().proof_size(), 1350);
 		})
 	}
 
@@ -523,11 +610,15 @@ mod tests {
 				pays_fee: Default::default(),
 			};
 
+			// Adds 50 + 150 (len) weight, total weight is 1200
+			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&info, LEN));
+
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, LEN)
 				.unwrap();
 			assert_eq!(pre, Some(100));
 
+			// Adds additional 150 weight recorded
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
 				Some(pre),
 				&info,
@@ -540,7 +631,7 @@ mod tests {
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1150);
+			assert_eq!(get_storage_weight().total().proof_size(), 1350);
 		})
 	}
 
@@ -644,7 +735,7 @@ mod tests {
 
 			// We reclaimed 3 bytes of storage size!
 			assert_eq!(reclaimed, Some(Weight::from_parts(0, 3)));
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 10);
+			assert_eq!(get_storage_weight().total().proof_size(), 10);
 			assert_eq!(remaining_weight_meter.remaining(), Weight::from_parts(10, 8));
 		}
 	}

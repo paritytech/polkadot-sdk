@@ -463,7 +463,7 @@ mod tests {
 		v3::migration_helpers::{v1_to_latest_sanity_check, v2_fill_test_data},
 	};
 	use polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter;
-	use test_helpers::dummy_candidate_receipt;
+	use polkadot_primitives_test_helpers::dummy_candidate_receipt;
 
 	#[test]
 	fn test_paritydb_migrate_0_to_1() {

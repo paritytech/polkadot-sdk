@@ -2,11 +2,10 @@
 
 export PRODUCT=polkadot
 export VERSION=${VERSION:-1.5.0}
-export ENGINE=${ENGINE:-docker}
+export ENGINE=${ENGINE:-podman}
 export REF1=${REF1:-'HEAD'}
 export REF2=${REF2}
 export RUSTC_STABLE=${RUSTC_STABLE:-'1.0'}
-export RUSTC_NIGHTLY=${RUSTC_NIGHTLY:-'1.0'}
 
 PROJECT_ROOT=`git rev-parse --show-toplevel`
 echo $PROJECT_ROOT
@@ -27,34 +26,42 @@ echo -e "OUTPUT: \t\t$OUTPUT"
 mkdir -p $OUTPUT
 
 $ENGINE run --rm -v ${PROJECT_ROOT}:/repo paritytech/prdoc load -d "prdoc/$VERSION" --json > $DATA_JSON
-# ls -al $DATA_JSON
 
 cat $DATA_JSON | jq ' { "prdoc" : .}' > $CONTEXT_JSON
-# ls -al $CONTEXT_JSON
 
-# Fetch the list of valid audiences
+# Fetch the list of valid audiences and their descriptions
 SCHEMA_URL=https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 SCHEMA=$(curl -s $SCHEMA_URL | sed 's|^//.*||')
-AUDIENCE_ARRAY=$(echo -E $SCHEMA | jq -r '."$defs".audience.oneOf[] | .const')
-
-readarray -t audiences < <(echo "$AUDIENCE_ARRAY")
-declare -p audiences
-
-
-# Generate a changelog
-echo "Generating changelog..."
-tera -t "${TEMPLATE_CHANGELOG}" --env --env-key env "${CONTEXT_JSON}" > "$OUTPUT/changelog.md"
-echo "Changelog ready in $OUTPUT/changelog.md"
+aud_desc_array=()
+while IFS= read -r line; do
+    audience=$(jq -r '.const' <<< "$line" )
+    description=$(jq -r '.description' <<< "$line")
+    if [ -n "$audience" ] && [ -n "$description" ]; then
+        aud_desc_array+=("($audience; $description)")
+    fi
+done < <(jq -c '."$defs".audience_id.oneOf[]' <<< "$SCHEMA")
 
 # Generate a release notes doc per audience
-for audience in "${audiences[@]}"; do
+for tuple in "${aud_desc_array[@]}"; do
+    audience=$(echo "$tuple" | cut -d ';' -f 1 | sed 's/(//')
     audience_id="$(tr [A-Z] [a-z] <<< "$audience")"
     audience_id="$(tr ' ' '_' <<< "$audience_id")"
+
+    description=$(echo "$tuple" | cut -d ';' -f 2 | sed 's/)//')
+
     echo "Processing audience: $audience ($audience_id)"
-    export TARGET_AUDIENCE=$audience
+    export TARGET_AUDIENCE="$audience"
+    export AUDIENCE_DESC="**ℹ️ These changes are relevant to:** $description"
+
     tera -t "${TEMPLATE_AUDIENCE}" --env --env-key env "${CONTEXT_JSON}" > "$OUTPUT/relnote_${audience_id}.md"
     cat "$OUTPUT/relnote_${audience_id}.md" >> "$PROJECT_ROOT/scripts/release/templates/changelog.md"
 done
+
+
+# Generate a changelog containing list of the commits
+echo "Generating changelog..."
+tera -t "${TEMPLATE_CHANGELOG}" --env --env-key env "${CONTEXT_JSON}" > "$OUTPUT/relnote_commits.md"
+echo "Changelog ready in $OUTPUT/relnote_commits.md"
 
 # Show the files
 tree -s -h -c $OUTPUT/

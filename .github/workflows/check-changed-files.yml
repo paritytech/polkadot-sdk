@@ -1,0 +1,57 @@
+# Reusable workflow to perform checks and generate conditions for other workflows. 
+# Currently it checks if any Rust (build-related) file is changed
+# and if the current (caller) workflow file is changed.
+# Example:
+#
+# jobs:
+#   changes:
+#     permissions:
+#       pull-requests: read
+#     uses: ./.github/workflows/check-changed-files.yml
+#   some-job:
+#     needs: changes
+#     if: ${{ needs.changes.outputs.rust }}
+#  ....... 
+
+name: Check changes files
+
+on:
+  workflow_call:
+    # Map the workflow outputs to job outputs
+    outputs:
+      rust: 
+        value: ${{ jobs.changes.outputs.rust }}
+        description: 'true if any of the build-related OR current (caller) workflow files have changed'
+      current-workflow: 
+        value: ${{ jobs.changes.outputs.current-workflow }}
+        description: 'true if current (caller) workflow file has changed'      
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      # true if current workflow (caller) file is changed
+      rust: ${{ steps.filter.outputs.rust == 'true' || steps.filter.outputs.current-workflow == 'true' }}
+      current-workflow: ${{ steps.filter.outputs.current-workflow }}
+    steps:
+    - id: current-file
+      run: echo "current-workflow-file=$(echo ${{ github.workflow_ref }} | sed -nE "s/.*(\.github\/workflows\/[a-zA-Z0-9_-]*\.y[a]?ml)@refs.*/\1/p")" >> $GITHUB_OUTPUT
+    - run: echo "${{ steps.current-file.outputs.current-workflow-file }}"
+      # For pull requests it's not necessary to checkout the code
+    - id: filter
+      uses: dorny/paths-filter@v3
+      with:
+        predicate-quantifier: 'every'
+        # current-workflow - check if the current (caller) workflow file is changed
+        # rust - check if any Rust (build-related) file is changed
+        filters: |
+          current-workflow:
+            - '${{ steps.current-file.outputs.current-workflow-file }}'
+          rust:
+            - '**/*'
+            - '!.github/**/*'
+            - '!prdoc/**/*'
+            - '!docs/**/*'
+    #
