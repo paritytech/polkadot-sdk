@@ -204,6 +204,13 @@ pub trait Network: Clone + Send + 'static {
 		multiaddresses: HashSet<Multiaddr>,
 	) -> Result<(), String>;
 
+	/// Ask the network to extend the reserved set with these nodes.
+	async fn add_peers_to_reserved_set(
+		&mut self,
+		protocol: ProtocolName,
+		multiaddresses: HashSet<Multiaddr>,
+	) -> Result<(), String>;
+
 	/// Removes the peers for the protocol's peer set (both reserved and non-reserved).
 	async fn remove_from_peers_set(
 		&mut self,
@@ -238,6 +245,14 @@ impl Network for Arc<dyn NetworkService> {
 		multiaddresses: HashSet<Multiaddr>,
 	) -> Result<(), String> {
 		<dyn NetworkService>::set_reserved_peers(&**self, protocol, multiaddresses)
+	}
+
+	async fn add_peers_to_reserved_set(
+		&mut self,
+		protocol: ProtocolName,
+		multiaddresses: HashSet<Multiaddr>,
+	) -> Result<(), String> {
+		<dyn NetworkService>::add_peers_to_reserved_set(&**self, protocol, multiaddresses)
 	}
 
 	async fn remove_from_peers_set(

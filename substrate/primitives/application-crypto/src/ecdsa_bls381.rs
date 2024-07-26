@@ -15,15 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! ECDSA and BLS12-377 paired crypto applications.
+//! ECDSA and BLS12-381 paired crypto applications.
 
 use crate::{KeyTypeId, RuntimePublic};
 use alloc::vec::Vec;
 
-pub use sp_core::paired_crypto::ecdsa_bls377::*;
+pub use sp_core::paired_crypto::ecdsa_bls381::*;
 
 mod app {
-	crate::app_crypto!(super, sp_core::testing::ECDSA_BLS377);
+	crate::app_crypto!(super, sp_core::testing::ECDSA_BLS381);
 }
 
 #[cfg(feature = "full_crypto")]
@@ -39,7 +39,7 @@ impl RuntimePublic for Public {
 	}
 
 	fn generate_pair(key_type: KeyTypeId, seed: Option<Vec<u8>>) -> Self {
-		sp_io::crypto::ecdsa_bls377_generate(key_type, seed)
+		sp_io::crypto::ecdsa_bls381_generate(key_type, seed)
 	}
 
 	/// Dummy implementation. Returns `None`.

@@ -117,9 +117,8 @@
 /// That means a few blocks of execution time lost, which is not a big deal for code upgrades
 /// in practice at most once every few weeks.
 use polkadot_primitives::{
-	async_backing::Constraints as PrimitiveConstraints, BlockNumber, CandidateCommitments,
-	CollatorId, CollatorSignature, Hash, HeadData, Id as ParaId, PersistedValidationData,
-	UpgradeRestriction, ValidationCodeHash,
+	async_backing::Constraints as PrimitiveConstraints, BlockNumber, CandidateCommitments, Hash,
+	HeadData, Id as ParaId, PersistedValidationData, UpgradeRestriction, ValidationCodeHash,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -521,18 +520,13 @@ impl ConstraintModifications {
 /// The prospective candidate.
 ///
 /// This comprises the key information that represent a candidate
-/// without pinning it to a particular session. For example, everything
-/// to do with the collator's signature and commitments are represented
-/// here. But the erasure-root is not. This means that prospective candidates
+/// without pinning it to a particular session. For example commitments are
+/// represented here. But the erasure-root is not. This means that prospective candidates
 /// are not correlated to any session in particular.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProspectiveCandidate {
 	/// The commitments to the output of the execution.
 	pub commitments: CandidateCommitments,
-	/// The collator that created the candidate.
-	pub collator: CollatorId,
-	/// The signature of the collator on the payload.
-	pub collator_signature: CollatorSignature,
 	/// The persisted validation data used to create the candidate.
 	pub persisted_validation_data: PersistedValidationData,
 	/// The hash of the PoV.
@@ -800,10 +794,7 @@ fn validate_against_constraints(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use polkadot_primitives::{
-		CollatorPair, HorizontalMessages, OutboundHrmpMessage, ValidationCode,
-	};
-	use sp_application_crypto::Pair;
+	use polkadot_primitives::{HorizontalMessages, OutboundHrmpMessage, ValidationCode};
 
 	#[test]
 	fn stack_modifications() {
@@ -1162,11 +1153,6 @@ mod tests {
 		constraints: &Constraints,
 		relay_parent: &RelayChainBlockInfo,
 	) -> ProspectiveCandidate {
-		let collator_pair = CollatorPair::generate().0;
-		let collator = collator_pair.public();
-
-		let sig = collator_pair.sign(b"blabla".as_slice());
-
 		ProspectiveCandidate {
 			commitments: CandidateCommitments {
 				upward_messages: Default::default(),
@@ -1176,8 +1162,6 @@ mod tests {
 				processed_downward_messages: 0,
 				hrmp_watermark: relay_parent.number,
 			},
-			collator,
-			collator_signature: sig,
 			persisted_validation_data: PersistedValidationData {
 				parent_head: constraints.required_parent.clone(),
 				relay_parent_number: relay_parent.number,
