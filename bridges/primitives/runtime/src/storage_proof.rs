@@ -280,7 +280,7 @@ where
 
 /// Return valid storage proof and state root.
 ///
-/// NOTE: This should only be used for **testing**.
+/// Note: This should only be used for **testing**.
 #[cfg(feature = "std")]
 pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
 	use sp_state_machine::{backend::Backend, prove_read, InMemoryBackend};

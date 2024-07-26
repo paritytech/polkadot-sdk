@@ -88,8 +88,8 @@ pub struct RelayMessagesDeliveryConfirmationParams {
 	/// delivery proof. This header must be previously proved to the source chain.
 	#[structopt(long)]
 	at_target_block: u128,
-	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-	#[structopt(long, default_value = "00000000")]
+	/// Hex-encoded lane id that should be served by the relay.
+	#[structopt(long)]
 	lane: HexLaneId,
 	#[structopt(flatten)]
 	source: SourceConnectionParams,
