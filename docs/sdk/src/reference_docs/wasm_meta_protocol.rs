@@ -143,13 +143,13 @@
 //! At some point, based on the consensus algorithm's rules, the node decides to import (aka.
 //! *validate*) a block.
 //!
-//! * First, the node will then fetch the state of the parent hash of the block that wishes to be
+//! * First, the node will fetch the state of the parent hash of the block that wishes to be
 //! imported.
 //! * The runtime is fetched from this state, and placed into a WASM execution environment.
-//! * The [`sp_api::Core::execute_block`] runtime API is called and the blocked is passed in as an
+//! * The [`sp_api::Core::execute_block`] runtime API is called and the block is passed in as an
 //! argument.
 //! * The runtime will then execute the block, and update the state accordingly. Any state update is
-//!   issues via the [`sp_io::storage`] host functions.
+//!   issued via the [`sp_io::storage`] host functions.
 //! * Both the runtime and node will check the state-root of the state after the block execution to
 //!   match the one claimed in the block header.
 //!
