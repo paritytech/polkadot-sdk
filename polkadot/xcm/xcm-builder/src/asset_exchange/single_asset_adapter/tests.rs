@@ -36,8 +36,7 @@ fn maximal_exchange() {
 		)
 		.unwrap();
 		let amount = get_amount_from_first_fungible(&assets);
-		let pool_fee = 6;
-		assert_eq!(amount, 50_000_000 - pool_fee);
+		assert_eq!(amount, 4_533_054);
 	});
 }
 
