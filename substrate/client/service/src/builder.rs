@@ -517,12 +517,7 @@ where
 	spawn_handle.spawn(
 		"informant",
 		None,
-		sc_informant::build(
-			client.clone(),
-			network,
-			sync_service.clone(),
-			config.informant_output_format,
-		),
+		sc_informant::build(client.clone(), network, sync_service.clone()),
 	);
 
 	task_manager.keep_alive((config.base_path, rpc));
