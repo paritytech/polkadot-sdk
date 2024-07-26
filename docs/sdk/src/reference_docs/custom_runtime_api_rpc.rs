@@ -50,7 +50,7 @@
 //!
 //! ## Create a new Runtime API
 //!
-//! For example, let's take a look a the process through which the account nonce can be queried
+//! For example, let's take a look at the process through which the account nonce can be queried
 //! through an RPC. First, a new runtime-api needs to be declared:
 #![doc = docify::embed!("../../substrate/frame/system/rpc/runtime-api/src/lib.rs", AccountNonceApi)]
 //!
