@@ -347,11 +347,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			availability_votes,
 			commitments,
 		);
-		inclusion::PendingAvailability::<T>::mutate(para_id, |maybe_andidates| {
-			if let Some(candidates) = maybe_andidates {
+		inclusion::PendingAvailability::<T>::mutate(para_id, |maybe_candidates| {
+			if let Some(candidates) = maybe_candidates {
 				candidates.push_back(candidate_availability);
 			} else {
-				*maybe_andidates =
+				*maybe_candidates =
 					Some([candidate_availability].into_iter().collect::<VecDeque<_>>());
 			}
 		});
