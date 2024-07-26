@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721934213791,
+  "lastUpdate": 1721991128003,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -15707,6 +15707,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.828033221566665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0d7d2177807ec6b3094f4491a45b0bc0d74d3c8b",
+          "message": "CI: Prevent breaking backports (#4812)\n\n- Prevent `major` changes to be merged into a `stable` branch.\n- Place a comment on backport MRs to provide context of what it means.\n\nComment looks like this:\n\n![Screenshot 2024-07-24 at 17 36\n35](https://github.com/user-attachments/assets/6393549b-7b15-41e5-a804-8581c625ceff)\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-07-26T09:10:49Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0d7d2177807ec6b3094f4491a45b0bc0d74d3c8b"
+        },
+        "date": 1721991097396,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.957908972466665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19714042076666666,
             "unit": "seconds"
           }
         ]
