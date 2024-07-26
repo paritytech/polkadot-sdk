@@ -14546,6 +14546,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "kitchensink-runtime",
+ "log",
  "minimal-template-runtime",
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-tx-payment",
