@@ -1857,10 +1857,7 @@ async fn selecting_block_outside_of_best_chain_works() {
 	// finalize the 7th block
 	peer.client().finalize_block(hashes[6], None, false).unwrap();
 
-	assert_eq!(
-		peer.client().info().finalized_hash,
-		hashes[6],
-	);
+	assert_eq!(peer.client().info().finalized_hash, hashes[6]);
 
 	// simulate completed grandpa round
 	env.completed(
@@ -1869,20 +1866,16 @@ async fn selecting_block_outside_of_best_chain_works() {
 			prevote_ghost: Some((hashof8_a, 8)),
 			finalized: Some((hashes[6], 7)),
 			estimate: Some((hashof8_a, 8)),
-			completable: true
+			completable: true,
 		},
 		Default::default(),
-		&finality_grandpa::HistoricalVotes::new()
-	).unwrap();
+		&finality_grandpa::HistoricalVotes::new(),
+	)
+	.unwrap();
 
 	// check simulated last completed round
 	assert_eq!(
-		env
-			.voter_set_state
-			.read()
-			.last_completed_round()
-			.state
-		,
+		env.voter_set_state.read().last_completed_round().state,
 		finality_grandpa::round::State {
 			prevote_ghost: Some((hashof8_a, 8)),
 			finalized: Some((hashes[6], 7)),
@@ -1892,17 +1885,10 @@ async fn selecting_block_outside_of_best_chain_works() {
 	);
 
 	// `hashof8_a` should be finalized next, `best_chain_containing` should return `hashof8_a`
-	assert_eq!(
-		env.best_chain_containing(hashof8_a)
-			.await
-			.unwrap()
-			.unwrap()
-			.0,
-		hashof8_a,
-	);
+	assert_eq!(env.best_chain_containing(hashof8_a).await.unwrap().unwrap().0, hashof8_a);
 
 	// simulate reorg on block 8 by creating a fork starting at block 8 that is 10 blocks long
-	let fork = peer.generate_blocks_at(
+	peer.generate_blocks_at(
 		BlockId::Number(7),
 		10,
 		BlockOrigin::File,
@@ -1919,14 +1905,10 @@ async fn selecting_block_outside_of_best_chain_works() {
 	// check that new best chain is on longest chain
 	assert_eq!(env.select_chain.best_chain().await.unwrap().number, 17);
 
-	// verify that last completed round has `prevote_ghost` and `estimate` blocks related to `hashof8_a`
+	// verify that last completed round has `prevote_ghost` and `estimate` blocks related to
+	// `hashof8_a`
 	assert_eq!(
-		env
-			.voter_set_state
-			.read()
-			.last_completed_round()
-			.state
-		,
+		env.voter_set_state.read().last_completed_round().state,
 		finality_grandpa::round::State {
 			prevote_ghost: Some((hashof8_a, 8)),
 			finalized: Some((hashes[6], 7)),
@@ -1936,14 +1918,7 @@ async fn selecting_block_outside_of_best_chain_works() {
 	);
 
 	// `hashof8_a` should be finalized next, `best_chain_containing` should still return `hashof8_a`
-	assert_eq!(
-		env.best_chain_containing(hashof8_a)
-			.await
-			.unwrap()
-			.unwrap()
-			.0,
-		hashof8_a,
-	);
+	assert_eq!(env.best_chain_containing(hashof8_a).await.unwrap().unwrap().0, hashof8_a);
 
 	// simulate finalizion of the `hashof8_a` block
 	peer.client().finalize_block(hashof8_a, None, false).unwrap();
