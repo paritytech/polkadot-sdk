@@ -4,7 +4,7 @@ version = "0.14.0"
 authors = ["Anonymous"]
 description = "A parachain for communication back and forth with XCM of assets and uniques."
 license = "Unlicense"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 edition.workspace = true
 
