@@ -574,7 +574,7 @@ fn try_import_the_same_assignment() {
 			// send an `Accept` message from the Approval Voting subsystem
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					assignment,
 					claimed_indices,
 					tranche,
@@ -690,7 +690,7 @@ fn try_import_the_same_assignment_v2() {
 			// send an `Accept` message from the Approval Voting subsystem
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					assignment,
 					claimed_indices,
 					tranche,
@@ -781,7 +781,7 @@ fn delay_reputation_change() {
 			// send an `Accept` message from the Approval Voting subsystem
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					assignment,
 					claimed_candidates,
 					tranche,
@@ -865,7 +865,7 @@ fn spam_attack_results_in_negative_reputation_change() {
 				}
 				assert_matches!(
 					overseer_recv(overseer).await,
-					AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+					AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 						assignment,
 						claimed_candidate_index,
 						tranche,
@@ -1119,7 +1119,7 @@ fn import_approval_happy_path_v1_v2_peers() {
 
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportApproval(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportApproval(
 					vote, _,
 				)) => {
 					assert_eq!(vote, approval);
@@ -1248,7 +1248,7 @@ fn import_approval_happy_path_v2() {
 
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportApproval(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportApproval(
 					vote, _,
 				)) => {
 					assert_eq!(vote, approval);
@@ -1352,7 +1352,7 @@ fn multiple_assignments_covered_with_one_approval_vote() {
 
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					_, _,
 					tranche,
 					_,
@@ -1395,7 +1395,7 @@ fn multiple_assignments_covered_with_one_approval_vote() {
 
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					_, _,
 					tranche, _,
 				)) => {
@@ -1436,7 +1436,7 @@ fn multiple_assignments_covered_with_one_approval_vote() {
 
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportApproval(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportApproval(
 					vote, _,
 				)) => {
 					assert_eq!(vote, approval);
@@ -1559,7 +1559,7 @@ fn unify_with_peer_multiple_assignments_covered_with_one_approval_vote() {
 
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					_, _,
 					tranche, _,
 				)) => {
@@ -1586,7 +1586,7 @@ fn unify_with_peer_multiple_assignments_covered_with_one_approval_vote() {
 
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					_, _,
 					tranche, _,
 				)) => {
@@ -1612,7 +1612,7 @@ fn unify_with_peer_multiple_assignments_covered_with_one_approval_vote() {
 
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportApproval(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportApproval(
 					vote, _,
 				)) => {
 					assert_eq!(vote, approval);
@@ -1758,7 +1758,7 @@ fn import_approval_bad() {
 
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					assignment,
 					i,
 					tranche, _,
@@ -2310,7 +2310,7 @@ fn import_remotely_then_locally() {
 			// send an `Accept` message from the Approval Voting subsystem
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					assignment,
 					i,
 					tranche, _,
@@ -2347,7 +2347,7 @@ fn import_remotely_then_locally() {
 
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportApproval(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportApproval(
 					vote, _,
 				)) => {
 					assert_eq!(vote, approval);
@@ -2665,7 +2665,7 @@ fn race_condition_in_local_vs_remote_view_update() {
 
 				assert_matches!(
 					overseer_recv(overseer).await,
-					AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+					AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 						assignment,
 						claimed_candidate_index,
 						tranche, _,
@@ -2888,7 +2888,7 @@ fn propagates_assignments_along_unshared_dimension() {
 				.await;
 				assert_matches!(
 					overseer_recv(overseer).await,
-					AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+					AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 						_,
 						_,
 						tranche, _,
@@ -2938,7 +2938,7 @@ fn propagates_assignments_along_unshared_dimension() {
 				send_message_from_peer(overseer, &peers[99].0, msg).await;
 				assert_matches!(
 					overseer_recv(overseer).await,
-					AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+					AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 						_,
 						_,
 						tranche, _,
@@ -3531,7 +3531,7 @@ fn non_originator_aggression_l1() {
 
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					_,
 					_,
 					tranche, _,
@@ -3657,7 +3657,7 @@ fn non_originator_aggression_l2() {
 			.await;
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					_,
 					_,
 					tranche, _,
@@ -3847,7 +3847,7 @@ fn resends_messages_periodically() {
 
 				assert_matches!(
 					overseer_recv(overseer).await,
-					AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+					AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 						_,
 						_,
 						tranche, _,
@@ -4047,7 +4047,7 @@ fn import_versioned_approval() {
 			provide_session(overseer, session).await;
 			assert_matches!(
 				overseer_recv(overseer).await,
-				AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportApproval(
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportApproval(
 					vote, _,
 				)) => {
 					assert_eq!(vote, approval.into());

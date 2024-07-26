@@ -1506,7 +1506,7 @@ impl State {
 					}
 
 					approval_voting_sender
-						.send_message(ApprovalVotingMessage::CheckAndImportAssignment(
+						.send_message(ApprovalVotingMessage::ImportAssignment(
 							assignment.clone(),
 							claimed_candidate_indices.clone(),
 							tranche,
@@ -1884,10 +1884,7 @@ impl State {
 			match result {
 				Ok(_) => {
 					approval_voting_sender
-						.send_message(ApprovalVotingMessage::CheckAndImportApproval(
-							vote.clone(),
-							None,
-						))
+						.send_message(ApprovalVotingMessage::ImportApproval(vote.clone(), None))
 						.await;
 
 					modify_reputation(
