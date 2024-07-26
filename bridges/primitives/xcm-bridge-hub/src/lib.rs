@@ -40,7 +40,6 @@ pub type XcmAsPlainPayload = sp_std::vec::Vec<u8>;
 	Clone,
 	Copy,
 	Decode,
-	Default,
 	Encode,
 	Eq,
 	Ord,

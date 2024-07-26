@@ -552,7 +552,7 @@ where
 			BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 		>(
-			LaneId::default(),
+			LaneId::new(1, 2),
 			vec![Instruction::<()>::ClearOrigin; 1_024].into(),
 			1,
 			[GlobalConsensus(Polkadot), Parachain(1_000)].into(),
@@ -622,7 +622,7 @@ where
 			BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 		>(
-			LaneId::default(),
+			LaneId::new(1, 2),
 			1,
 			5,
 			1_000,
@@ -684,7 +684,7 @@ where
 			BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 		>(
-			LaneId::default(),
+			LaneId::new(1, 2),
 			vec![Instruction::<()>::ClearOrigin; 1_024].into(),
 			1,
 			[GlobalConsensus(Polkadot), Parachain(1_000)].into(),
@@ -739,7 +739,7 @@ where
 				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 			>(
-				LaneId::default(),
+				LaneId::new(1, 2),
 				1,
 				5,
 				1_000,

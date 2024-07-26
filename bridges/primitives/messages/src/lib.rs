@@ -195,7 +195,6 @@ impl OperatingMode for MessagesOperatingMode {
 	Clone,
 	Copy,
 	Decode,
-	Default,
 	Encode,
 	Eq,
 	Ord,
@@ -280,9 +279,6 @@ impl LaneState {
 
 /// Message nonce. Valid messages will never have 0 nonce.
 pub type MessageNonce = u64;
-
-/// Message id as a tuple.
-pub type BridgeMessageId = (LaneId, MessageNonce);
 
 /// Opaque message payload. We only decode this payload when it is dispatched.
 pub type MessagePayload = Vec<u8>;
