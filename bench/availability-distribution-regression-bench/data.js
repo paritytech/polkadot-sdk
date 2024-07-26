@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722000523683,
+  "lastUpdate": 1722005560738,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -19863,6 +19863,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.17131315338666675,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alin Dima",
+            "username": "alindima",
+            "email": "alin@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "fc07bdadde1dfa3345913130f5209b8267816972",
+          "message": "runtime: make the candidate relay parent progression check more strict (#5113)\n\nPreviously, we were checking if the relay parent of a new candidate does\nnot move backwards from the latest included on-chain candidate. This was\nfine prior to elastic scaling. We now need to also check that the relay\nparent progresses from the latest pending availability candidate, as\nwell as check the progression within the candidate chain in the inherent\ndata.\n\nProspective-parachains is already doing this check but we should also\nadd it in the runtime",
+          "timestamp": "2024-07-26T13:07:15Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fc07bdadde1dfa3345913130f5209b8267816972"
+        },
+        "date": 1722005529479,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01222348542,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009902901873333345,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17012235449999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022117368819999997,
             "unit": "seconds"
           }
         ]
