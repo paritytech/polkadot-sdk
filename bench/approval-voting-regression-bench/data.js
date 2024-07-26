@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722000221842,
+  "lastUpdate": 1722005272362,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -12689,6 +12689,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.415951808820094,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alin Dima",
+            "username": "alindima",
+            "email": "alin@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "fc07bdadde1dfa3345913130f5209b8267816972",
+          "message": "runtime: make the candidate relay parent progression check more strict (#5113)\n\nPreviously, we were checking if the relay parent of a new candidate does\nnot move backwards from the latest included on-chain candidate. This was\nfine prior to elastic scaling. We now need to also check that the relay\nparent progresses from the latest pending availability candidate, as\nwell as check the progression within the candidate chain in the inherent\ndata.\n\nProspective-parachains is already doing this check but we should also\nadd it in the runtime",
+          "timestamp": "2024-07-26T13:07:15Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fc07bdadde1dfa3345913130f5209b8267816972"
+        },
+        "date": 1722005241686,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63985.340000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.236627440749973,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.813284578459996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.0998659353701177,
             "unit": "seconds"
           }
         ]
