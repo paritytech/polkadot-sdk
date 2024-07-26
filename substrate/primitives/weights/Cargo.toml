@@ -35,7 +35,6 @@ std = [
 	"sp-arithmetic/std",
 	"sp-debug-derive/std",
 ]
-runtime-benchmarks = []
 # By default some types have documentation, `full-metadata-docs` allows to add documentation to
 # more types in the metadata.
 full-metadata-docs = ["scale-info/docs"]

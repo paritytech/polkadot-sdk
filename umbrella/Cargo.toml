@@ -363,7 +363,6 @@ runtime-benchmarks = [
 	"snowbridge-runtime-test-common?/runtime-benchmarks",
 	"sp-runtime?/runtime-benchmarks",
 	"sp-staking?/runtime-benchmarks",
-	"sp-weights?/runtime-benchmarks",
 	"staging-node-inspect?/runtime-benchmarks",
 	"staging-xcm-builder?/runtime-benchmarks",
 	"staging-xcm-executor?/runtime-benchmarks",

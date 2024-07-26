@@ -48,9 +48,7 @@ sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 
 [features]
-runtime-benchmarks = [
-	"sp-weights/runtime-benchmarks",
-]
+runtime-benchmarks = []
 try-runtime = []
 default = ["std"]
 std = [

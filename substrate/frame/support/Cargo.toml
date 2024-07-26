@@ -103,7 +103,6 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"sp-weights/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-system/try-runtime",

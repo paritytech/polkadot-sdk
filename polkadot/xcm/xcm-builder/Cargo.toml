@@ -52,7 +52,6 @@ runtime-benchmarks = [
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-test-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"sp-weights/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]
 std = [

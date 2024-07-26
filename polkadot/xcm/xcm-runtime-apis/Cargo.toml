@@ -60,5 +60,4 @@ runtime-benchmarks = [
 	"pallet-xcm/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
-	"sp-weights/runtime-benchmarks",
 ]
