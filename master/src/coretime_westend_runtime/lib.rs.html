@@ -1977,7 +1977,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>begin = <span class="number">0</span>;
 					<span class="kw">let </span>end = <span class="number">42</span>;
 
-					<span class="kw">let </span>region_id = pallet_broker::Pallet::&lt;Runtime&gt;::issue(core, begin, end, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
+					<span class="kw">let </span>region_id = pallet_broker::Pallet::&lt;Runtime&gt;::issue(core, begin, pallet_broker::CoreMask::complete(), end, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
 					<span class="prelude-val">Some</span>((
 						Asset {
 							fun: NonFungible(Index(region_id.into())),

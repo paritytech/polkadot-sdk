@@ -653,6 +653,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#502" id="502">502</a>
 <a href="#503" id="503">503</a>
 <a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -783,8 +789,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>core = <span class="self">Self</span>::purchase_core(<span class="kw-2">&amp;</span>who, price, <span class="kw-2">&amp;mut </span>sale)<span class="question-mark">?</span>;
 
 		SaleInfo::&lt;T&gt;::put(<span class="kw-2">&amp;</span>sale);
-		<span class="kw">let </span>id =
-			<span class="self">Self</span>::issue(core, sale.region_begin, sale.region_end, <span class="prelude-val">Some</span>(who.clone()), <span class="prelude-val">Some</span>(price));
+		<span class="kw">let </span>id = <span class="self">Self</span>::issue(
+			core,
+			sale.region_begin,
+			CoreMask::complete(),
+			sale.region_end,
+			<span class="prelude-val">Some</span>(who.clone()),
+			<span class="prelude-val">Some</span>(price),
+		);
 		<span class="kw">let </span>duration = sale.region_end.saturating_sub(sale.region_begin);
 		<span class="self">Self</span>::deposit_event(Event::Purchased { who, region_id: id, price, duration });
 		<span class="prelude-val">Ok</span>(id)

@@ -289,6 +289,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -385,11 +386,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub fn </span>issue(
 		core: CoreIndex,
 		begin: Timeslice,
+		mask: CoreMask,
 		end: Timeslice,
 		owner: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
 		paid: <span class="prelude-ty">Option</span>&lt;BalanceOf&lt;T&gt;&gt;,
 	) -&gt; RegionId {
-		<span class="kw">let </span>id = RegionId { begin, core, mask: CoreMask::complete() };
+		<span class="kw">let </span>id = RegionId { begin, core, mask };
 		<span class="kw">let </span>record = RegionRecord { end, owner, paid };
 		Regions::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span>record);
 		id
