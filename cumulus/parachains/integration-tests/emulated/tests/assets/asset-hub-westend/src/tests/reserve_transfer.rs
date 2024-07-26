@@ -1152,12 +1152,12 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 	assert!(receiver_assets_after < receiver_assets_before + amount_to_send);
 }
 
-// =========================================================================================
-// ==== Reserve Transfers - TrustBacked Asset pay fees using pool - AssetHub->Parachain ====
-// =========================================================================================
+// =====================================================================================================
+// ==== Reserve Transfers - TrustBacked Asset pay fees with USDT (using pool) - AssetHub->Parachain ====
+// =====================================================================================================
 #[test]
 fn reserve_transfer_pool_assets_from_system_para_to_para() {
-	let asset_id = 9999u32;
+	let usdt_id = 1984u32;
 	let penpal_location = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 	let penpal_sov_account = AssetHubWestend::sovereign_account_id_of(penpal_location.clone());
 
@@ -1165,38 +1165,41 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 	// This ED isn't reflected in any derivative in a PenpalA account.
 	AssetHubWestend::fund_accounts(vec![(penpal_sov_account.clone().into(), ASSET_HUB_WESTEND_ED)]);
 
-	AssetHubWestend::force_create_asset(
-		asset_id.into(),
-		AssetHubWestendSender::get().into(),
-		false,
-		ASSET_MIN_BALANCE,
-		vec![(AssetHubWestendSender::get(), 10_000_000_000_000)],
-	);
+	let sender = AssetHubWestendSender::get();
+	let receiver = PenpalAReceiver::get();
+	let asset_amount_to_send = 1_000_000_000_000;
+
+	AssetHubWestend::execute_with(|| {
+		use frame_support::traits::tokens::fungibles::Mutate;
+		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
+		assert_ok!(<Assets as Mutate<_>>::mint_into(
+			usdt_id.into(),
+			&AssetHubWestendSender::get(),
+			asset_amount_to_send + 10_000_000_000_000, // Make sure it has enough.
+		));
+	});
 
 	let relay_asset_penpal_pov = RelayLocation::get();
-	let custom_asset_penpal_pov = Location::new(
-		1,
-		[Parachain(1000), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())],
-	);
-	PenpalA::force_create_foreign_asset(
-		custom_asset_penpal_pov.clone(),
-		PenpalAssetOwner::get(),
-		true,
-		1_000_000,
-		// We give it some funds to be able to add liquidity later.
-		vec![(PenpalASender::get(), 10_000_000_000_000)],
-	);
 
-	// Setup the pool between `relay_asset_penpal_pov` and `custom_asset_penpal_pov` on PenpalA.
+	let usdt_from_asset_hub = PenpalUsdtFromAssetHub::get();
+
+	// Setup the pool between `relay_asset_penpal_pov` and `usdt_from_asset_hub` on PenpalA.
 	// So we can swap the custom asset that comes from AssetHubWestend for native asset to pay for
 	// fees.
 	PenpalA::execute_with(|| {
 		type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 
+		assert_ok!(<PenpalA as PenpalAPallet>::ForeignAssets::mint(
+			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+			usdt_from_asset_hub.clone().into(),
+			PenpalASender::get().into(),
+			10_000_000_000_000, // For it to have more than enough.
+		));
+
 		assert_ok!(<PenpalA as PenpalAPallet>::AssetConversion::create_pool(
 			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
 			Box::new(relay_asset_penpal_pov.clone()),
-			Box::new(custom_asset_penpal_pov.clone()),
+			Box::new(usdt_from_asset_hub.clone()),
 		));
 
 		assert_expected_events!(
@@ -1209,8 +1212,8 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 		assert_ok!(<PenpalA as PenpalAPallet>::AssetConversion::add_liquidity(
 			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
 			Box::new(relay_asset_penpal_pov),
-			Box::new(custom_asset_penpal_pov.clone()),
-			// `custom_asset_penpal_pov` is worth a third of `relay_asset_penpal_pov`
+			Box::new(usdt_from_asset_hub.clone()),
+			// `usdt_from_asset_hub` is worth a third of `relay_asset_penpal_pov`
 			1_000_000_000_000,
 			3_000_000_000_000,
 			0,
@@ -1226,15 +1229,10 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 		);
 	});
 
-	let sender = AssetHubWestendSender::get();
-	let receiver = PenpalAReceiver::get();
-	let asset_amount_to_send = 1_000_000_000_000;
 	let assets: Assets = vec![(
-		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())],
-		asset_amount_to_send,
-	)
-		.into()]
-	.into();
+		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(usdt_id.into())],
+		asset_amount_to_send
+	).into()].into();
 
 	let test_args = TestContext {
 		sender: sender.clone(),
@@ -1252,7 +1250,7 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 
 	let sender_initial_balance = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
-		<Assets as Inspect<_>>::balance(asset_id, &sender)
+		<Assets as Inspect<_>>::balance(usdt_id, &sender)
 	});
 	let sender_initial_native_balance = AssetHubWestend::execute_with(|| {
 		type Balances = <AssetHubWestend as AssetHubWestendPallet>::Balances;
@@ -1260,7 +1258,7 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 	});
 	let receiver_initial_balance = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(custom_asset_penpal_pov.clone(), &receiver)
+		<ForeignAssets as Inspect<_>>::balance(usdt_from_asset_hub.clone(), &receiver)
 	});
 
 	test.set_assertion::<PenpalA>(system_para_to_para_receiver_assertions);
@@ -1269,7 +1267,7 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 
 	let sender_after_balance = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
-		<Assets as Inspect<_>>::balance(asset_id, &sender)
+		<Assets as Inspect<_>>::balance(usdt_id, &sender)
 	});
 	let sender_after_native_balance = AssetHubWestend::execute_with(|| {
 		type Balances = <AssetHubWestend as AssetHubWestendPallet>::Balances;
@@ -1277,10 +1275,10 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 	});
 	let receiver_after_balance = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(custom_asset_penpal_pov, &receiver)
+		<ForeignAssets as Inspect<_>>::balance(usdt_from_asset_hub, &receiver)
 	});
 
-	// TODO: When we allow payment with different assets locally, this should be the same, since
+	// TODO(https://github.com/paritytech/polkadot-sdk/issues/5160): When we allow payment with different assets locally, this should be the same, since
 	// they aren't used for fees.
 	assert!(sender_after_native_balance < sender_initial_native_balance);
 	// Sender account's balance decreases.
@@ -1445,7 +1443,7 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	assert_eq!(assets.len(), 1);
 
 	// Give the sender enough Relay tokens to pay for local delivery fees.
-	// TODO: When we support local delivery fee payment in other assets, we don't need this.
+	// TODO(https://github.com/paritytech/polkadot-sdk/issues/5160): When we support local delivery fee payment in other assets, we don't need this.
 	PenpalA::mint_foreign_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
 		RelayLocation::get(),
