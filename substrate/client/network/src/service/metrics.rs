@@ -80,7 +80,6 @@ pub struct Metrics {
 	pub kbuckets_num_nodes: GaugeVec<U64>,
 	pub listeners_local_addresses: Gauge<U64>,
 	pub listeners_errors_total: Counter<U64>,
-	pub peerset_num_discovered: Gauge<U64>,
 	pub pending_connections: Gauge<U64>,
 	pub pending_connections_errors_total: CounterVec<U64>,
 	pub requests_in_failure_total: CounterVec<U64>,
@@ -169,10 +168,6 @@ impl Metrics {
 				"substrate_sub_libp2p_listeners_errors_total",
 				"Total number of non-fatal errors reported by a listener"
 			)?, registry)?,
-			peerset_num_discovered: prometheus::register(Gauge::new(
-				"substrate_sub_libp2p_peerset_num_discovered",
-				"Number of nodes stored in the peerset manager",
-			)?, registry)?,
 			pending_connections: prometheus::register(Gauge::new(
 				"substrate_sub_libp2p_pending_connections",
 				"Number of connections in the process of being established",
@@ -221,6 +216,34 @@ impl Metrics {
 				},
 				&["protocol"]
 			)?, registry)?,
+		})
+	}
+}
+
+/// Peer store metrics.
+#[derive(Clone, Debug)]
+pub struct PeerStoreMetrics {
+	pub num_banned_peers: Gauge<U64>,
+	pub num_discovered: Gauge<U64>,
+}
+
+impl PeerStoreMetrics {
+	pub fn register(registry: &Registry) -> Result<Self, PrometheusError> {
+		Ok(Self {
+			num_banned_peers: prometheus::register(
+				Gauge::new(
+					"substrate_sub_libp2p_peerset_num_banned_peers",
+					"Number of banned peers stored in the peerset manager",
+				)?,
+				registry,
+			)?,
+			num_discovered: prometheus::register(
+				Gauge::new(
+					"substrate_sub_libp2p_peerset_num_discovered",
+					"Number of nodes stored in the peerset manager",
+				)?,
+				registry,
+			)?,
 		})
 	}
 }
