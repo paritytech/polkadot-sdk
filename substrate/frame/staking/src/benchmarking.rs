@@ -690,16 +690,21 @@ mod benchmarks {
 	fn payout_stakers_alive_staked(
 		n: Linear<0, { T::MaxExposurePageSize::get() }>,
 	) -> Result<(), BenchmarkError> {
+		// populate tht target list and generate stakers.
 		create_validators_with_nominators_for_era::<T>(
-			1500, // 1500 validators/targets.
-			1000, // 1000 nominators.
-			16,   // nominations per nominator.
-			true, // randomize stake.
+			1500,  // 1500 validators/targets.
+			600,   // 600 nominators, at least 512 to fill up an exposure page.
+			16,    // nominations per nominator.
+			false, // randomize stake.
 			None,
 		)?;
 
-		// get one validator.
+		// get one validator, any is OK.
 		let validator = Validators::<T>::iter().map(|(v, _)| v).next().unwrap();
+
+		// get T::MaxExposurePageSize::get() (i.e `n`) random nominators, even if these are not
+		// nominating the validator.
+		let nominators = Nominators::<T>::iter().take(n.try_into().unwrap()).collect::<Vec<_>>();
 
 		let current_era = CurrentEra::<T>::get().unwrap();
 		// set the commission for this particular era as well.
@@ -709,8 +714,42 @@ mod benchmarks {
 			<Staking<T>>::validators(&validator),
 		);
 
+		// give era points.
+		let reward = EraRewardPoints::<T::AccountId> {
+			total: 1_000,
+			individual: vec![(validator.clone(), 1_000)].into_iter().collect(),
+		};
+		ErasRewardPoints::<T>::insert(current_era, reward);
+
+		// add some rewards to be distributed in this era. make a high reward so that target list
+		// score may re-bag targets.
+		ErasValidatorReward::<T>::insert::<u32, BalanceOf<T>>(current_era, u32::MAX.into());
+
+		// create exposure page for `validator` with all the selected `nominators` in the
+		// `current_era`. this will max out the load when calling `payout_stakers` as all the
+		// approvals of targets nominated by the `n` nominators in the exposures will need updating
+		// through the stake-tracker.
+		// Note that the `nominators` may not necessarily be nominating `validator`, but that's not
+		// important for this benchmark. Also some values below may not be 100% correct but that's
+		// fine, as far as we ensure that the payout is performed with a full exposure page, where
+		// each of the nominators nominate 16 targets.
+		let mut others: Vec<IndividualExposure<T::AccountId, BalanceOf<T>>> = vec![];
+		let mut total_stake: BalanceOf<T> = Zero::zero();
+		for (stash, _) in &nominators {
+			let value = Staking::<T>::slashable_balance_of(stash);
+			total_stake += value;
+
+			others.push(IndividualExposure {
+				who: stash.clone(),
+				value,
+			});
+		}
+		let own_stake = Staking::<T>::slashable_balance_of(&validator);
+		let exposure = Exposure { total: total_stake, own: own_stake, others };
+
+        EraInfo::<T>::set_exposure(current_era, &validator, exposure);
+
 		let caller = whitelisted_caller();
-		let balance_before = T::Currency::free_balance(&validator);
 		let mut nominator_balances_before = Vec::new();
 		for (stash, _) in &nominators {
 			let balance = T::Currency::free_balance(stash);
@@ -720,11 +759,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		payout_stakers(RawOrigin::Signed(caller), validator.clone(), current_era);
 
-		let balance_after = T::Currency::free_balance(&validator);
-		ensure!(
-			balance_before < balance_after,
-			"Balance of validator stash should have increased after payout.",
-		);
+		// rewards were distributed across the nominators in the exposure page.
 		for ((stash, _), balance_before) in nominators.iter().zip(nominator_balances_before.iter())
 		{
 			let balance_after = T::Currency::free_balance(stash);

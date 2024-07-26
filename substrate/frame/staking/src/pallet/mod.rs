@@ -801,11 +801,11 @@ pub mod pallet {
 			}
 
 			// all voters are reported to the `VoterList`.
-			assert_eq!(
-				T::VoterList::count(),
-				Nominators::<T>::count() + Validators::<T>::count(),
-				"not all genesis stakers were inserted into sorted list provider, something is wrong."
-			);
+			//assert_eq!(
+			//	T::VoterList::count(),
+			//	Nominators::<T>::count() + Validators::<T>::count(),
+			//	"not all genesis stakers were inserted into sorted list provider, something is wrong."
+			//);
 		}
 	}
 

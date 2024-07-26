@@ -210,7 +210,7 @@ parameter_types! {
 	pub static VoterBagThresholds: &'static [sp_npos_elections::VoteWeight] = &VOTER_THRESHOLDS;
 	pub static TargetBagThresholds: &'static [Balance] = &TARGET_THRESHOLDS;
 	pub static HistoryDepth: u32 = 80;
-	pub static MaxExposurePageSize: u32 = 64;
+	pub static MaxExposurePageSize: u32 = 256;
 	pub static MaxUnlockingChunks: u32 = 32;
 	pub static RewardOnUnbalanceWasCalled: bool = false;
 	pub static MaxWinners: u32 = 100;

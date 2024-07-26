@@ -22,7 +22,7 @@
 // --extrinsic
 // payout_stakers_alive_staked
 // --output
-// payout_no_stake_tracker-weights.rs
+// payout_stake_tracker-weights.rs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -65,20 +65,26 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 	/// Proof: `Staking::ErasValidatorPrefs` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::Payee` (r:257 w:0)
 	/// Proof: `Staking::Payee` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::Validators` (r:257 w:0)
+	/// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::Nominators` (r:257 w:0)
+	/// Proof: `Staking::Nominators` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `MaxEncodedLen`)
+	/// Storage: `TargetList::ListNodes` (r:1401 w:1401)
+	/// Proof: `TargetList::ListNodes` (`max_values`: None, `max_size`: Some(170), added: 2645, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 256]`.
 	fn payout_stakers_alive_staked(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `35671 + n * (951 ±0)`
-		//  Estimated: `33162 + n * (3774 ±3)`
-		// Minimum execution time: 155_000_000 picoseconds.
-		Weight::from_parts(191_534_495, 0)
-			.saturating_add(Weight::from_parts(0, 33162))
-			// Standard Error: 49_168
-			.saturating_add(Weight::from_parts(47_169_851, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(15))
-			.saturating_add(T::DbWeight::get().reads((7_u64).saturating_mul(n.into())))
-			.saturating_add(T::DbWeight::get().writes(4))
-			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(n.into())))
-			.saturating_add(Weight::from_parts(0, 3774).saturating_mul(n.into()))
+		//  Measured:  `150110 + n * (2242 ±0)`
+		//  Estimated: `898139 + n * (13165 ±0)`
+		// Minimum execution time: 243_000_000 picoseconds.
+		Weight::from_parts(912_124_555, 0)
+			.saturating_add(Weight::from_parts(0, 898139))
+			// Standard Error: 433_301
+			.saturating_add(Weight::from_parts(195_832_335, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(356))
+			.saturating_add(T::DbWeight::get().reads((14_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(343))
+			.saturating_add(T::DbWeight::get().writes((8_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 13165).saturating_mul(n.into()))
 	}
 }

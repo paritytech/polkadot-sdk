@@ -15,18 +15,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = [
 	"derive",
 ], workspace = true }
-
-
 scale-info = { features = ["derive", "serde"], workspace = true }
-
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
-
 sp-npos-elections = { workspace = true, default-features = false }
 frame-election-provider-support = { workspace = true, default-features = false }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-
+log = { workspace = true }
 # Optional imports for benchmarking
 frame-benchmarking = { optional = true, workspace = true }
 

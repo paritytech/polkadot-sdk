@@ -235,6 +235,7 @@ impl<T: Config> Pallet<T> {
 		validator_stash: T::AccountId,
 		era: EraIndex,
 	) -> DispatchResultWithPostInfo {
+
 		let controller = Self::bonded(&validator_stash).ok_or_else(|| {
 			Error::<T>::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		})?;
@@ -245,7 +246,6 @@ impl<T: Config> Pallet<T> {
 				Error::<T>::AlreadyClaimed
 					.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 			})?;
-
 		Self::do_payout_stakers_by_page(validator_stash, era, page)
 	}
 
@@ -261,6 +261,7 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		let history_depth = T::HistoryDepth::get();
+
 		ensure!(
 			era <= current_era && era >= current_era.saturating_sub(history_depth),
 			Error::<T>::InvalidEraToReward
@@ -373,6 +374,7 @@ impl<T: Config> Pallet<T> {
 
 			let nominator_reward: BalanceOf<T> =
 				nominator_exposure_part * validator_leftover_payout;
+
 			// We can now make nominator payout:
 			if let Some((imbalance, dest)) = Self::make_payout(&nominator.who, nominator_reward) {
 				// Note: this logic does not count payouts for `RewardDestination::None`.

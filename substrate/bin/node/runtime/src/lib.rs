@@ -701,7 +701,10 @@ impl pallet_staking::Config for Runtime {
 	type MaxUnlockingChunks = ConstU32<32>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type HistoryDepth = HistoryDepth;
+	// variant with stake-tracker
 	type EventListeners = (StakeTracker, NominationPools);
+	// variant without stake-tracker
+	//type EventListeners = NominationPools;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
@@ -3289,6 +3292,36 @@ mod tests {
 	use frame_election_provider_support::NposSolution;
 	use frame_system::offchain::CreateSignedTransaction;
 	use sp_runtime::UpperOf;
+
+	#[test]
+	fn stake_tracker_weights() {
+		for n in vec![64u64, 128, 256, 512].into_iter() {
+			let no_stake_tracker = Weight::from_parts(191_534_495, 0)
+				.saturating_add(Weight::from_parts(0, 33162))
+				.saturating_add(Weight::from_parts(47_169_851, 0).saturating_mul(n.into()))
+				.saturating_add(RocksDbWeight::get().reads(15))
+				.saturating_add(RocksDbWeight::get().reads((7_u64).saturating_mul(n.into())))
+				.saturating_add(RocksDbWeight::get().writes(4))
+				.saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(n.into())))
+				.saturating_add(Weight::from_parts(0, 3774).saturating_mul(n.into()));
+
+			let stake_tracker = Weight::from_parts(912_124_555, 0)
+				.saturating_add(Weight::from_parts(0, 898139))
+				.saturating_add(Weight::from_parts(195_832_335, 0).saturating_mul(n.into()))
+				.saturating_add(RocksDbWeight::get().reads(356))
+				.saturating_add(RocksDbWeight::get().reads((14_u64).saturating_mul(n.into())))
+				.saturating_add(RocksDbWeight::get().writes(343))
+				.saturating_add(RocksDbWeight::get().writes((8_u64).saturating_mul(n.into())))
+				.saturating_add(Weight::from_parts(0, 13165).saturating_mul(n.into()));
+
+			println!("- n = {n}");
+			println!("no stake-tracker: {:?}", no_stake_tracker);
+			println!("with stake-tracker: {:?}", stake_tracker);
+			println!("");
+		}
+
+        assert!(false);
+	}
 
 	#[test]
 	fn validate_transaction_submitter_bounds() {
