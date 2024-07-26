@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722005272362,
+  "lastUpdate": 1722016892638,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -12736,6 +12736,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.0998659353701177,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Kian Paimani",
+            "username": "kianenigma",
+            "email": "5588131+kianenigma@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "7e4433e43072fda77f85cb5d0bc531fa255f3104",
+          "message": "Update README.md (#5152)\n\nRelated to https://github.com/paritytech/polkadot-sdk/issues/5144, plus\nremove the lines of code badge as it was not working.",
+          "timestamp": "2024-07-26T16:26:44Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7e4433e43072fda77f85cb5d0bc531fa255f3104"
+        },
+        "date": 1722016861062,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52946.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 64000.990000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.2692029230200967,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.125741533349984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.393988941730026,
             "unit": "seconds"
           }
         ]
