@@ -25,7 +25,7 @@
 //! - `runtime`: As described above, enable all `no-std` crates.
 //! - `node`: As described above, enable all `std` crates.
 //! - There does *not* exist a dedicated docs feature. To generate docs, enable the `runtime` and
-//!   `node` feature. For docs.rs the manifest contains specific configuration to make it show up
+//!   `node` feature. For `docs.rs` the manifest contains specific configuration to make it show up
 //!   all re-exports.
 //!
 //! There is a specific [`zepter`](https://github.com/ggwpez/zepter) check in place to ensure that
