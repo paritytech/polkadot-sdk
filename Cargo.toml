@@ -235,7 +235,6 @@ members = [
 	"polkadot/xcm/xcm-simulator",
 	"polkadot/xcm/xcm-simulator/example",
 	"polkadot/xcm/xcm-simulator/fuzzer",
-	# TODO: move this to templates
 	"substrate/bin/node-sassafras/node",
 	"substrate/bin/node-sassafras/runtime",
 	"substrate/bin/node/bench",
