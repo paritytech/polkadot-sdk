@@ -79,12 +79,12 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 
 impl<T: Config> EstimateNextSessionRotation<BlockNumberFor<T>> for Pallet<T> {
 	fn average_session_length() -> BlockNumberFor<T> {
-		T::EpochLength::get().saturated_into()
+		T::EpochDuration::get().saturated_into()
 	}
 
 	fn estimate_current_session_progress(_now: BlockNumberFor<T>) -> (Option<Permill>, Weight) {
 		let elapsed = CurrentSlot::<T>::get().saturating_sub(Self::current_epoch_start()) + 1;
-		let progress = Permill::from_rational(*elapsed, T::EpochLength::get() as u64);
+		let progress = Permill::from_rational(*elapsed, T::EpochDuration::get() as u64);
 
 		// TODO @davxy:  Read: Current Slot, Epoch Index, Genesis Slot
 		(Some(progress), T::DbWeight::get().reads(3))
@@ -106,7 +106,7 @@ impl<T: Config> EstimateNextSessionRotation<BlockNumberFor<T>> for Pallet<T> {
 	fn estimate_next_session_rotation(
 		now: BlockNumberFor<T>,
 	) -> (Option<BlockNumberFor<T>>, Weight) {
-		let next_slot = Self::current_epoch_start().saturating_add(T::EpochLength::get());
+		let next_slot = Self::current_epoch_start().saturating_add(T::EpochDuration::get());
 		let upper_bound = next_slot.checked_sub(*CurrentSlot::<T>::get()).map(|slots_remaining| {
 			// This is a best effort guess. Drifts in the slot/block ratio will cause errors here.
 			let blocks_remaining: BlockNumberFor<T> = slots_remaining.saturated_into();

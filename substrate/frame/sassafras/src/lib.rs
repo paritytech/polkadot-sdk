@@ -60,8 +60,8 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_consensus_sassafras::{
 	digests::{ConsensusLog, NextEpochDescriptor, SlotClaim},
-	vrf, AuthorityId, Configuration, Epoch, InherentError, InherentType, Randomness, Slot,
-	TicketBody, TicketEnvelope, TicketId, INHERENT_IDENTIFIER, RANDOMNESS_LENGTH,
+	vrf, AuthorityId, Configuration, Epoch, EquivocationProof, InherentError, InherentType,
+	Randomness, Slot, TicketBody, TicketEnvelope, TicketId, INHERENT_IDENTIFIER, RANDOMNESS_LENGTH,
 	SASSAFRAS_ENGINE_ID,
 };
 use sp_io::hashing;
@@ -79,6 +79,11 @@ mod benchmarking;
 mod mock;
 #[cfg(all(feature = "std", test))]
 mod tests;
+
+// To manage epoch changes via session pallet instead of the built-in method
+// (`EpochChangeInternalTrigger`).
+#[cfg(feature = "session-pallet-support")]
+pub mod session;
 
 pub mod weights;
 pub use weights::WeightInfo;
@@ -325,6 +330,15 @@ pub mod pallet {
 		fn on_initialize(block_num: BlockNumberFor<T>) -> Weight {
 			debug_assert_eq!(block_num, frame_system::Pallet::<T>::block_number());
 
+			// Since `on_initialize` can be called twice (e.g. if `session` pallet is used
+			// as session manager) we ensure that we only do the the initialization once
+			// per block. We rely on the only volatile value to check if `on_initialize`
+			// has been already called.
+			#[cfg(feature = "session-pallet-support")]
+			if TemporaryData::<T>::exists() {
+				return Weight::zero()
+			}
+
 			let claim = <frame_system::Pallet<T>>::digest()
 				.logs
 				.iter()
@@ -365,6 +379,8 @@ pub mod pallet {
 		}
 
 		fn on_finalize(_: BlockNumberFor<T>) {
+			// TODO @davxy: check if the validator has been disabled during execution.
+
 			// At the end of the block, we can safely include the current block randomness
 			// to the accumulator. If we've determined that this block was the first in
 			// a new epoch, the changeover logic has already occurred at this point
@@ -471,6 +487,33 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Report authority equivocation.
+		///
+		/// This method will verify the equivocation proof and validate the given key ownership
+		/// proof against the extracted offender. If both are valid, the offence will be reported.
+		///
+		/// This extrinsic must be called unsigned and it is expected that only block authors will
+		/// call it (validated in `ValidateUnsigned`), as such if the block author is defined it
+		/// will be defined as the equivocation reporter.
+		///
+		/// TODO @davxy
+		#[pallet::call_index(1)]
+		#[pallet::weight({0})]
+		pub fn report_equivocation_unsigned(
+			origin: OriginFor<T>,
+			_equivocation_proof: EquivocationProof<HeaderFor<T>>,
+			//key_owner_proof: T::KeyOwnerProof,
+		) -> DispatchResult {
+			ensure_none(origin)?;
+
+			// Self::do_report_equivocation(
+			// 	T::HandleEquivocation::block_author(),
+			// 	*equivocation_proof,
+			// 	key_owner_proof,
+			// )
+			Ok(())
+		}
 	}
 
 	#[pallet::inherent]
@@ -522,6 +565,8 @@ impl<T: Config> Pallet<T> {
 	///
 	/// WARNING: Should be called on every block once and if and only if [`should_end_epoch`]
 	/// has returned `true`.
+	///
+	/// WARNING: Here we trust the caller that `next_authorities == NextAuthorities`
 	///
 	/// If we detect one or more skipped epochs the policy is to use the authorities and values
 	/// from the first skipped epoch. The tickets data is invalidated.
@@ -648,7 +693,10 @@ impl<T: Config> Pallet<T> {
 
 	// Deposit next epoch descriptor in the block header digest.
 	fn deposit_next_epoch_descriptor_digest(desc: NextEpochDescriptor) {
-		let item = ConsensusLog::NextEpochData(desc);
+		Self::deposit_consensus(ConsensusLog::NextEpochData(desc));
+	}
+
+	pub(crate) fn deposit_consensus(item: ConsensusLog) {
 		let log = DigestItem::Consensus(SASSAFRAS_ENGINE_ID, item.encode());
 		<frame_system::Pallet<T>>::deposit_log(log)
 	}
