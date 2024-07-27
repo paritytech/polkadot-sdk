@@ -40,7 +40,7 @@ mod imports {
 			genesis::ED as PEOPLE_WESTEND_ED,
 			people_westend_runtime::{
 				people, xcm_config::XcmConfig as PeopleWestendXcmConfig,
-				ExistentialDeposit as PeopleWestendExistentialDeposit,
+				ExistentialDeposit as PeopleWestendExistentialDeposit, Runtime as PeopleRuntime,
 			},
 			PeopleWestendParaPallet as PeopleWestendPallet,
 		},
@@ -48,8 +48,8 @@ mod imports {
 			genesis::ED as WESTEND_ED,
 			westend_runtime::{
 				xcm_config::XcmConfig as WestendXcmConfig, BasicDeposit, ByteDeposit,
-				MaxAdditionalFields, MaxSubAccounts, RuntimeOrigin as WestendOrigin,
-				SubAccountDeposit,
+				MaxAdditionalFields, MaxSubAccounts, Runtime as WestendRuntime,
+				RuntimeOrigin as WestendOrigin, SubAccountDeposit,
 			},
 			WestendRelayPallet as WestendPallet,
 		},

@@ -869,7 +869,6 @@ macro_rules! hypothetically_ok {
 pub use serde::{Deserialize, Serialize};
 
 #[doc(hidden)]
-#[cfg(not(no_std))]
 pub use macro_magic;
 
 /// Prelude to be used for pallet testing, for ease of use.
@@ -2480,6 +2479,8 @@ pub use frame_support_procedural::register_default_impl;
 
 // Generate a macro that will enable/disable code based on `std` feature being active.
 sp_core::generate_feature_enabled_macro!(std_enabled, feature = "std", $);
+// Generate a macro that will enable/disable code based on `try-runtime` feature being active.
+sp_core::generate_feature_enabled_macro!(try_runtime_enabled, feature = "try-runtime", $);
 
 // Helper for implementing GenesisBuilder runtime API
 pub mod genesis_builder_helper;
