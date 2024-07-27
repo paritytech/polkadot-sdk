@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722023704541,
+  "lastUpdate": 1722044256291,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -15959,6 +15959,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.24120868079999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Kian Paimani",
+            "username": "kianenigma",
+            "email": "5588131+kianenigma@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d3d1542c1d387408c141f9a1a8168e32435a4be9",
+          "message": "Replace homepage in all TOML files (#5118)\n\nA bit of a controversial move, but a good preparation for even further\nreducing the traffic on outdated content of `substrate.io`. Current\nstatus:\n\n<img width=\"728\" alt=\"Screenshot 2024-07-15 at 11 32 48\"\nsrc=\"https://github.com/user-attachments/assets/df33b164-0ce7-4ac4-bc97-a64485f12571\">\n\nPreviously, I was in favor of changing the domain of the rust-docs to\nsomething like `polkadot-sdk.parity.io` or similar, but I think the\ncurrent format is pretty standard and has a higher chance of staying put\nover the course of time:\n\n`<org-name>.github.io/<repo-name>` ->\n`https://paritytech.github.io/polkadot-sdk/`\n\npart of https://github.com/paritytech/eng-automation/issues/10",
+          "timestamp": "2024-07-26T23:20:37Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d3d1542c1d387408c141f9a1a8168e32435a4be9"
+        },
+        "date": 1722044225882,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.7356713891,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1670879854333333,
             "unit": "seconds"
           }
         ]
