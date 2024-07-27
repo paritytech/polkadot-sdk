@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "FRAME pallet to distribute funds to elected projects"
+description = "FRAME pallet to distribute funds to whitelisted projects"
 readme = "README.md"
 
 [lints]
@@ -19,21 +19,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true, default-features = false }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true , default-features = false }
-
-
 frame-benchmarking = { optional = true, workspace = true , default-features = false }
 frame-support = { workspace = true , default-features = false }
 frame-system = { workspace = true , default-features = false }
-
-
-pallet-assets = { workspace = true, default-features = false }
-
-
 sp-io = { workspace = true , default-features = false }
 sp-runtime = { workspace = true , default-features = false }
 sp-core = { workspace = true , default-features = false }
 
-
+pallet-assets = { workspace = true, default-features = false }
 pallet-balances = { workspace = true, default-features = false }
 pallet-timestamp = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
@@ -67,5 +60,8 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-support/try-runtime"
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"sp-runtime/try-runtime",
 ]

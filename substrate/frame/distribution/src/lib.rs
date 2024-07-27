@@ -30,25 +30,21 @@ pub mod pallet {
 			+ fungible::freeze::Mutate<Self::AccountId>;
 
 		/// Treasury account Id
-		type TreasuryAccount: Get<PalletId>;
+		type PotId: Get<PalletId>;
 
 		/// Tokens Existential deposit
 		type Existential: Get<BalanceOf<Self>>;
 
-		/// Tokens Existential deposit
-		type ProposalBond: Get<BalanceOf<Self>>;
-
-		/// Time interval to check the status of SpendingProposals & SpendingStatus
-		type SpendCheck: Get<BlockNumberFor<Self>>;
-
 		type RuntimeHoldReason: From<HoldReason>;
 
+		// This the minimum required time period between project whitelisting
+		// and payment/reward_claim from the treasury.
 		type PaymentPeriod: Get<BlockNumberFor<Self>>;
 
 
 	}
 	
-	/// A reason for the pallet placing a hold on funds.
+	/// A reason for placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		/// Funds are held to register for free transactions.

@@ -2134,28 +2134,33 @@ impl pallet_broker::Config for Runtime {
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 }
 
+
+parameter_types! {
+	// Id of the treasury
+	pub const PotId: PalletId = PalletId(*b"py/trsry");
+
+	// Tokens existential Deposit
+	pub const Existential: Balance = 1;
+
+	// Time needed after approval to unlock the spending claim
+	pub const Period:BlockNumber = DAYS;
+
+}
 impl pallet_distribution::Config for Runtime {
-	type Runtime = RuntimeEvent;
+	type RuntimeEvent = RuntimeEvent;
 	type NativeBalance = Balances;
 
-	// Treasury PalletId
-	type TreasuryAccount = TreasuryPalletId;
+	// Pot PalletId
+	type PotId = PotId;
 
 	// Existential deposit used for Fungibles
 	type Existential = Existential;
 
-	// Amount of native asset to bond required to make a proposal
-	type ProposalBond = ProposalBond;
-
-	// Time period between each check Spending requests status
-	type SpendCheck = SpendCheck;
-
+	/// A reason for placing a hold on funds.
 	type RuntimeHoldReason = RuntimeHoldReason;
 
-	// This the required time period between request approval
-	// and first payment from the treasury.
-	// It is also used to calculate the time period between
-	// multiple payments of a same proposal.
+	// This the minimum required time period between project whitelisting
+	// and payment/reward_claim from the treasury.
 	type PaymentPeriod = Period;
 }
 
