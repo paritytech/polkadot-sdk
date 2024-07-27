@@ -6,6 +6,8 @@
 // Re-export all pallet parts, this is needed to properly import the pallet into the runtime.
 pub use pallet::*;
 mod types;
+mod functions;
+pub use functions::*;
 pub use types::*;
 
 #[frame_support::pallet(dev_mode)]
@@ -32,9 +34,6 @@ pub mod pallet {
 		/// Treasury account Id
 		type PotId: Get<PalletId>;
 
-		/// Tokens Existential deposit
-		type Existential: Get<BalanceOf<Self>>;
-
 		type RuntimeHoldReason: From<HoldReason>;
 
 		// This the minimum required time period between project whitelisting
@@ -49,9 +48,9 @@ pub mod pallet {
 	/// A reason for placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
-		/// Funds are held to register for free transactions.
+		/// Funds are held for a given buffer time before payment
 		#[codec(index = 0)]
-		ProposalBond,
+		FundsLock,
 	}
 
 	#[pallet::storage]
@@ -89,6 +88,14 @@ pub mod pallet {
 		NoneValue,
 		/// There was an attempt to increment the value in storage over `u32::MAX`.
 		StorageOverflow,
+		/// Not enough Funds in the Pot
+		InsufficientPotReserves,
+		/// The funds transfer operation failed
+		TransferFailed,
+		/// Spending or spending index does not exists
+		InexistantSpending,
+		/// No valid Account_id found
+		NoValidAccount,
 	}
 
 	#[pallet::call]
@@ -96,17 +103,16 @@ pub mod pallet {
 
 
 		#[pallet::call_index(0)]
-		pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
+		pub fn transfer_funds(origin: OriginFor<T>, spending_index: u32) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
-			let who = ensure_signed(origin)?;
+			let _caller = ensure_signed(origin)?;
 
-			// Update storage.
-			Something::<T>::put(something);
-
-			// Emit an event.
-			Self::deposit_event(Event::SomethingStored { something, who });
-
-			// Return a successful `DispatchResult`
+			//Execute the funds transfer
+			let spending = Spendings::<T>::get(spending_index).ok_or(Error::<T>::InexistantSpending)?;
+			let project_account = spending.whitelisted_project.ok_or(Error::<T>::NoValidAccount)?;
+			let amount = spending.amount;
+			Self::spending(amount,project_account,spending_index)?;
+			
 			Ok(())
 		}
 

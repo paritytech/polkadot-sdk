@@ -1,9 +1,7 @@
 pub use super::*;
 
-pub use frame_support::traits::fungible::MutateHold;
-pub use frame_support::traits::fungibles::{metadata, Inspect, Mutate};
-pub use frame_support::traits::tokens::{Precision, Preservation};
-pub use frame_support::traits::UnfilteredDispatchable;
+pub use frame_support::traits::fungible::{MutateHold, Inspect, Mutate};
+pub use frame_support::traits::tokens::Preservation;
 pub use frame_support::{
 	pallet_prelude::*,
 	traits::{fungible, fungibles, EnsureOrigin},
@@ -74,6 +72,9 @@ impl<T: Config> SpendingInfo<T> {
 			claimed,
 			paid,
 		};
+		
+		// Lock the necessary amount
+
 		// Get the spending index 
 		let index = SpendingsCount::<T>::get();
 		Spendings::<T>::insert(index, spending.clone());

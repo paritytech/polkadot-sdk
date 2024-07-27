@@ -2135,9 +2135,6 @@ parameter_types! {
 	// Id of the treasury
 	pub const PotId: PalletId = PalletId(*b"py/trsry");
 
-	// Tokens existential Deposit
-	pub const Existential: Balance = 1;
-
 	// Time needed after approval to unlock the reward claim
 	pub const Period:BlockNumber = DAYS;
 
@@ -2152,9 +2149,6 @@ impl pallet_distribution::Config for Runtime {
 
 	// Pot PalletId
 	type PotId = PotId;
-
-	// Existential deposit used for Fungibles
-	type Existential = Existential;
 
 	/// A reason for placing a hold on funds.
 	type RuntimeHoldReason = RuntimeHoldReason;
