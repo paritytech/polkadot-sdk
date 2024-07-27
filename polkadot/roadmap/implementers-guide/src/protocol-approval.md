@@ -296,6 +296,18 @@ provide somewhat more security.
 
 TODO: When?  Is this optimal for the network?  etc.
 
+## Approval coalescing
+To reduce the necessary network bandwidth and cpu time when a validator has more than one candidate to approve we are
+doing our best effort to send a single message that approves all available candidates with a single signature.
+The implemented heuristic, is that each time we are ready to create a signature and send a vote for a candidate we
+delay sending it until one of three things happen:
+- We gathered a maximum of `MAX_APPROVAL_COALESCE_COUNT` candidates that we have already checked and we are
+  ready to sign approval for.
+- `MAX_APPROVAL_COALESCE_WAIT_TICKS` have passed since checking oldest candidate and we were ready to sign
+  and send the approval message.
+- We are already in the last third of the no-show period in order to avoid creating accidental no-shows, which in
+  turn might trigger other assignments.
+
 ## On-chain verification
 
 We should verify approval on-chain to reward approval checkers. We therefore require the "no show" timeout to be longer

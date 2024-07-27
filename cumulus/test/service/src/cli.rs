@@ -16,6 +16,7 @@
 
 use std::{net::SocketAddr, path::PathBuf};
 
+use cumulus_client_cli::{ExportGenesisHeadCommand, ExportGenesisWasmCommand};
 use polkadot_service::{ChainSpec, ParaId, PrometheusConfig};
 use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
@@ -37,9 +38,6 @@ pub struct TestCollatorCli {
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
-	#[arg(default_value_t = 2000u32)]
-	pub parachain_id: u32,
-
 	/// Relay chain arguments
 	#[arg(raw = true)]
 	pub relaychain_args: Vec<String>,
@@ -52,6 +50,12 @@ pub struct TestCollatorCli {
 
 	#[arg(long)]
 	pub fail_pov_recovery: bool,
+
+	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
+	///
+	/// Use with care, this flag is unstable and subject to change.
+	#[arg(long)]
+	pub experimental_use_slot_based: bool,
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -60,43 +64,11 @@ pub enum Subcommand {
 	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Export the genesis state of the parachain.
-	ExportGenesisState(ExportGenesisStateCommand),
+	#[command(alias = "export-genesis-state")]
+	ExportGenesisHead(ExportGenesisHeadCommand),
 
 	/// Export the genesis wasm of the parachain.
 	ExportGenesisWasm(ExportGenesisWasmCommand),
-}
-
-#[derive(Debug, clap::Parser)]
-#[group(skip)]
-pub struct ExportGenesisStateCommand {
-	#[arg(default_value_t = 2000u32)]
-	pub parachain_id: u32,
-
-	#[command(flatten)]
-	pub base: cumulus_client_cli::ExportGenesisStateCommand,
-}
-
-impl CliConfiguration for ExportGenesisStateCommand {
-	fn shared_params(&self) -> &SharedParams {
-		&self.base.shared_params
-	}
-}
-
-/// Command for exporting the genesis wasm file.
-#[derive(Debug, clap::Parser)]
-#[group(skip)]
-pub struct ExportGenesisWasmCommand {
-	#[arg(default_value_t = 2000u32)]
-	pub parachain_id: u32,
-
-	#[command(flatten)]
-	pub base: cumulus_client_cli::ExportGenesisWasmCommand,
-}
-
-impl CliConfiguration for ExportGenesisWasmCommand {
-	fn shared_params(&self) -> &SharedParams {
-		&self.base.shared_params
-	}
 }
 
 #[derive(Debug)]
@@ -287,9 +259,16 @@ impl SubstrateCli for TestCollatorCli {
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			"" => Box::new(cumulus_test_service::get_chain_spec(Some(ParaId::from(
-				self.parachain_id,
-			)))) as Box<_>,
+			"" => {
+				tracing::info!("Using default test service chain spec.");
+				Box::new(cumulus_test_service::get_chain_spec(Some(ParaId::from(2000)))) as Box<_>
+			},
+			"elastic-scaling" => {
+				tracing::info!("Using elastic-scaling chain spec.");
+				Box::new(cumulus_test_service::get_elastic_scaling_chain_spec(Some(ParaId::from(
+					2100,
+				)))) as Box<_>
+			},
 			path => {
 				let chain_spec =
 					cumulus_test_service::chain_spec::ChainSpec::from_json_file(path.into())?;

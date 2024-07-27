@@ -17,6 +17,7 @@
 
 use crate::*;
 
+use alloc::vec;
 use codec::DecodeAll;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Hooks;
@@ -85,7 +86,7 @@ mod benchmarks {
 		}
 
 		assert!(
-			OutboundXcmpStatus::<T>::get().iter().find(|p| p.recipient == para).is_none(),
+			OutboundXcmpStatus::<T>::get().iter().all(|p| p.recipient != para),
 			"No messages in the channel; therefore removed."
 		);
 	}

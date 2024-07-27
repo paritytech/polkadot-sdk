@@ -124,6 +124,14 @@ impl Network for TestNetwork {
 		Ok(())
 	}
 
+	async fn add_peers_to_reserved_set(
+		&mut self,
+		_protocol: ProtocolName,
+		_: HashSet<Multiaddr>,
+	) -> Result<(), String> {
+		Ok(())
+	}
+
 	async fn remove_from_peers_set(
 		&mut self,
 		_protocol: ProtocolName,
@@ -224,7 +232,7 @@ impl TestNetworkHandle {
 				PeerSet::Validation => Some(ProtocolName::from("/polkadot/validation/1")),
 				PeerSet::Collation => Some(ProtocolName::from("/polkadot/collation/1")),
 			},
-			ValidationVersion::VStaging => match peer_set {
+			ValidationVersion::V3 => match peer_set {
 				PeerSet::Validation => Some(ProtocolName::from("/polkadot/validation/3")),
 				PeerSet::Collation => unreachable!(),
 			},
@@ -366,13 +374,13 @@ impl NotificationService for TestNotificationService {
 	}
 
 	/// Send synchronous `notification` to `peer`.
-	fn send_sync_notification(&self, _peer: &PeerId, _notification: Vec<u8>) {
+	fn send_sync_notification(&mut self, _peer: &PeerId, _notification: Vec<u8>) {
 		unimplemented!();
 	}
 
 	/// Send asynchronous `notification` to `peer`, allowing sender to exercise backpressure.
 	async fn send_async_notification(
-		&self,
+		&mut self,
 		_peer: &PeerId,
 		_notification: Vec<u8>,
 	) -> Result<(), sc_network::error::Error> {
@@ -880,6 +888,8 @@ fn peer_view_updates_sent_via_overseer() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		network_handle
@@ -895,6 +905,7 @@ fn peer_view_updates_sent_via_overseer() {
 			&mut virtual_overseer,
 		)
 		.await;
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 		virtual_overseer
 	});
 }
@@ -930,6 +941,8 @@ fn peer_messages_sent_via_overseer() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		let approval_distribution_message =
@@ -970,6 +983,7 @@ fn peer_messages_sent_via_overseer() {
 			&mut virtual_overseer,
 		)
 		.await;
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 		virtual_overseer
 	});
 }
@@ -1008,6 +1022,8 @@ fn peer_disconnect_from_just_one_peerset() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		{
@@ -1036,6 +1052,7 @@ fn peer_disconnect_from_just_one_peerset() {
 			&mut virtual_overseer,
 		)
 		.await;
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 
 		// to show that we're still connected on the collation protocol, send a view update.
 
@@ -1094,6 +1111,8 @@ fn relays_collation_protocol_messages() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		{
@@ -1201,6 +1220,8 @@ fn different_views_on_different_peer_sets() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		{
@@ -1246,6 +1267,8 @@ fn different_views_on_different_peer_sets() {
 			&mut virtual_overseer,
 		)
 		.await;
+
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 
 		assert_sends_collation_event_to_all(
 			NetworkBridgeEvent::PeerViewChange(peer, view_b.clone()),
@@ -1433,8 +1456,8 @@ fn network_protocol_versioning_view_update() {
 				ValidationVersion::V2 =>
 					WireMessage::<protocol_v2::ValidationProtocol>::ViewUpdate(view.clone())
 						.encode(),
-				ValidationVersion::VStaging =>
-					WireMessage::<protocol_vstaging::ValidationProtocol>::ViewUpdate(view.clone())
+				ValidationVersion::V3 =>
+					WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(view.clone())
 						.encode(),
 			};
 			assert_network_actions_contains(
@@ -1469,7 +1492,7 @@ fn network_protocol_versioning_subsystem_msg() {
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					ValidationVersion::V2.into(),
+					ValidationVersion::V3.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -1481,12 +1504,14 @@ fn network_protocol_versioning_subsystem_msg() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		let approval_distribution_message =
-			protocol_v2::ApprovalDistributionMessage::Approvals(Vec::new());
+			protocol_v3::ApprovalDistributionMessage::Approvals(Vec::new());
 
-		let msg = protocol_v2::ValidationProtocol::ApprovalDistribution(
+		let msg = protocol_v3::ValidationProtocol::ApprovalDistribution(
 			approval_distribution_message.clone(),
 		);
 
@@ -1502,7 +1527,7 @@ fn network_protocol_versioning_subsystem_msg() {
 			virtual_overseer.recv().await,
 			AllMessages::ApprovalDistribution(
 				ApprovalDistributionMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, Versioned::V2(m))
+					NetworkBridgeEvent::PeerMessage(p, Versioned::V3(m))
 				)
 			) => {
 				assert_eq!(p, peer);
@@ -1536,7 +1561,7 @@ fn network_protocol_versioning_subsystem_msg() {
 			virtual_overseer.recv().await,
 			AllMessages::StatementDistribution(
 				StatementDistributionMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, Versioned::V2(m))
+					NetworkBridgeEvent::PeerMessage(p, Versioned::V3(m))
 				)
 			) => {
 				assert_eq!(p, peer);

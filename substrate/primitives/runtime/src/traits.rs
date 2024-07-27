@@ -26,7 +26,10 @@ use crate::{
 	},
 	DispatchResult,
 };
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+#[doc(hidden)]
+pub use core::{fmt::Debug, marker::PhantomData};
 use impl_trait_for_tuples::impl_for_tuples;
 #[cfg(feature = "serde")]
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -38,15 +41,12 @@ pub use sp_arithmetic::traits::{
 	EnsureOp, EnsureOpAssign, EnsureSub, EnsureSubAssign, IntegerSquareRoot, One,
 	SaturatedConversion, Saturating, UniqueSaturatedFrom, UniqueSaturatedInto, Zero,
 };
-use sp_core::{self, storage::StateVersion, Hasher, RuntimeDebug, TypeId};
+use sp_core::{self, storage::StateVersion, Hasher, RuntimeDebug, TypeId, U256};
 #[doc(hidden)]
 pub use sp_core::{
 	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
 	ConstU16, ConstU32, ConstU64, ConstU8, Get, GetDefault, TryCollect, TypedGet,
 };
-#[doc(hidden)]
-pub use sp_std::marker::PhantomData;
-use sp_std::{self, fmt::Debug, prelude::*};
 #[cfg(feature = "std")]
 use std::fmt::Display;
 #[cfg(feature = "std")]
@@ -133,7 +133,7 @@ impl Verify for sp_core::ecdsa::Signature {
 			self.as_ref(),
 			&sp_io::hashing::blake2_256(msg.get()),
 		) {
-			Ok(pubkey) => signer.as_ref() == &pubkey[..],
+			Ok(pubkey) => signer.0 == pubkey,
 			_ => false,
 		}
 	}
@@ -322,7 +322,7 @@ impl<T> TryMorph<T> for Identity {
 }
 
 /// Implementation of `Morph` which converts between types using `Into`.
-pub struct MorphInto<T>(sp_std::marker::PhantomData<T>);
+pub struct MorphInto<T>(core::marker::PhantomData<T>);
 impl<T, A: Into<T>> Morph<A> for MorphInto<T> {
 	type Outcome = T;
 	fn morph(a: A) -> T {
@@ -330,8 +330,8 @@ impl<T, A: Into<T>> Morph<A> for MorphInto<T> {
 	}
 }
 
-/// Implementation of `TryMorph` which attmepts to convert between types using `TryInto`.
-pub struct TryMorphInto<T>(sp_std::marker::PhantomData<T>);
+/// Implementation of `TryMorph` which attempts to convert between types using `TryInto`.
+pub struct TryMorphInto<T>(core::marker::PhantomData<T>);
 impl<T, A: TryInto<T>> TryMorph<A> for TryMorphInto<T> {
 	type Outcome = T;
 	fn try_morph(a: A) -> Result<T, ()> {
@@ -540,6 +540,9 @@ morph_types! {
 	/// Morpher to disregard the source value and replace with another.
 	pub type Replace<V: TypedGet> = |_| -> V::Type { V::get() };
 
+	/// Morpher to disregard the source value and replace with the default of `V`.
+	pub type ReplaceWithDefault<V: Default> = |_| -> V { Default::default() };
+
 	/// Mutator which reduces a scalar by a particular amount.
 	pub type ReduceBy<N: TypedGet> = |r: N::Type| -> N::Type {
 		r.checked_sub(&N::get()).unwrap_or(Zero::zero())
@@ -689,7 +692,7 @@ impl<A, B> MaybeEquivalence<A, B> for Tuple {
 
 /// Adapter which turns a [Get] implementation into a [Convert] implementation which always returns
 /// in the same value no matter the input.
-pub struct ConvertToValue<T>(sp_std::marker::PhantomData<T>);
+pub struct ConvertToValue<T>(core::marker::PhantomData<T>);
 impl<X, Y, T: Get<Y>> Convert<X, Y> for ConvertToValue<T> {
 	fn convert(_: X) -> Y {
 		T::get()
@@ -931,17 +934,17 @@ impl<T: Default + Eq + PartialEq> Clear for T {
 pub trait SimpleBitOps:
 	Sized
 	+ Clear
-	+ sp_std::ops::BitOr<Self, Output = Self>
-	+ sp_std::ops::BitXor<Self, Output = Self>
-	+ sp_std::ops::BitAnd<Self, Output = Self>
+	+ core::ops::BitOr<Self, Output = Self>
+	+ core::ops::BitXor<Self, Output = Self>
+	+ core::ops::BitAnd<Self, Output = Self>
 {
 }
 impl<
 		T: Sized
 			+ Clear
-			+ sp_std::ops::BitOr<Self, Output = Self>
-			+ sp_std::ops::BitXor<Self, Output = Self>
-			+ sp_std::ops::BitAnd<Self, Output = Self>,
+			+ core::ops::BitOr<Self, Output = Self>
+			+ core::ops::BitXor<Self, Output = Self>
+			+ core::ops::BitAnd<Self, Output = Self>,
 	> SimpleBitOps for T
 {
 }
@@ -985,7 +988,7 @@ pub trait HashOutput:
 	+ MaybeDisplay
 	+ MaybeFromStr
 	+ Debug
-	+ sp_std::hash::Hash
+	+ core::hash::Hash
 	+ AsRef<[u8]>
 	+ AsMut<[u8]>
 	+ Copy
@@ -1005,7 +1008,7 @@ impl<T> HashOutput for T where
 		+ MaybeDisplay
 		+ MaybeFromStr
 		+ Debug
-		+ sp_std::hash::Hash
+		+ core::hash::Hash
 		+ AsRef<[u8]>
 		+ AsMut<[u8]>
 		+ Copy
@@ -1128,7 +1131,7 @@ sp_core::impl_maybe_marker!(
 	trait MaybeFromStr: FromStr;
 
 	/// A type that implements Hash when in std environment.
-	trait MaybeHash: sp_std::hash::Hash;
+	trait MaybeHash: core::hash::Hash;
 );
 
 sp_core::impl_maybe_marker_std_or_serde!(
@@ -1149,6 +1152,44 @@ pub trait IsMember<MemberId> {
 	fn is_member(member_id: &MemberId) -> bool;
 }
 
+/// Super trait with all the attributes for a block number.
+pub trait BlockNumber:
+	Member
+	+ MaybeSerializeDeserialize
+	+ MaybeFromStr
+	+ Debug
+	+ core::hash::Hash
+	+ Copy
+	+ MaybeDisplay
+	+ AtLeast32BitUnsigned
+	+ Into<U256>
+	+ TryFrom<U256>
+	+ Default
+	+ TypeInfo
+	+ MaxEncodedLen
+	+ FullCodec
+{
+}
+
+impl<
+		T: Member
+			+ MaybeSerializeDeserialize
+			+ MaybeFromStr
+			+ Debug
+			+ core::hash::Hash
+			+ Copy
+			+ MaybeDisplay
+			+ AtLeast32BitUnsigned
+			+ Into<U256>
+			+ TryFrom<U256>
+			+ Default
+			+ TypeInfo
+			+ MaxEncodedLen
+			+ FullCodec,
+	> BlockNumber for T
+{
+}
+
 /// Something which fulfills the abstract idea of a Substrate header. It has types for a `Number`,
 /// a `Hash` and a `Hashing`. It provides access to an `extrinsics_root`, `state_root` and
 /// `parent_hash`, as well as a `digest` and a block `number`.
@@ -1158,18 +1199,7 @@ pub trait Header:
 	Clone + Send + Sync + Codec + Eq + MaybeSerialize + Debug + TypeInfo + 'static
 {
 	/// Header number.
-	type Number: Member
-		+ MaybeSerializeDeserialize
-		+ MaybeFromStr
-		+ Debug
-		+ sp_std::hash::Hash
-		+ Copy
-		+ MaybeDisplay
-		+ AtLeast32BitUnsigned
-		+ Default
-		+ TypeInfo
-		+ MaxEncodedLen
-		+ FullCodec;
+	type Number: BlockNumber;
 	/// Header hash type
 	type Hash: HashOutput;
 	/// Hashing algorithm
@@ -1411,7 +1441,7 @@ pub trait Dispatchable {
 	/// Every function call from your runtime has an origin, which specifies where the extrinsic was
 	/// generated from. In the case of a signed extrinsic (transaction), the origin contains an
 	/// identifier for the caller. The origin can be empty in the case of an inherent extrinsic.
-	type RuntimeOrigin;
+	type RuntimeOrigin: Debug;
 	/// ...
 	type Config;
 	/// An opaque set of information attached to the transaction. This could be constructed anywhere
@@ -1419,7 +1449,7 @@ pub trait Dispatchable {
 	/// to represent the dispatch class and weight.
 	type Info;
 	/// Additional information that is returned by `dispatch`. Can be used to supply the caller
-	/// with information about a `Dispatchable` that is ownly known post dispatch.
+	/// with information about a `Dispatchable` that is only known post dispatch.
 	type PostInfo: Eq + PartialEq + Clone + Copy + Encode + Decode + Printable;
 	/// Actually dispatch this call and return the result of it.
 	fn dispatch(self, origin: Self::RuntimeOrigin)
@@ -1569,7 +1599,7 @@ pub trait SignedExtension:
 	/// This method provides a default implementation that returns a vec containing a single
 	/// [`SignedExtensionMetadata`].
 	fn metadata() -> Vec<SignedExtensionMetadata> {
-		sp_std::vec![SignedExtensionMetadata {
+		alloc::vec![SignedExtensionMetadata {
 			identifier: Self::IDENTIFIER,
 			ty: scale_info::meta_type::<Self>(),
 			additional_signed: scale_info::meta_type::<Self::AdditionalSigned>()
@@ -1672,7 +1702,7 @@ impl SignedExtension for () {
 	type Call = ();
 	type Pre = ();
 	const IDENTIFIER: &'static str = "UnitSignedExtension";
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
 		Ok(())
 	}
 	fn pre_dispatch(
@@ -1763,7 +1793,7 @@ pub trait ValidateUnsigned {
 	/// this code before the unsigned extrinsic enters the transaction pool and also periodically
 	/// afterwards to ensure the validity. To prevent dos-ing a network with unsigned
 	/// extrinsics, these validity checks should include some checks around uniqueness, for example,
-	/// like checking that the unsigned extrinsic was send by an authority in the active set.
+	/// checking that the unsigned extrinsic was sent by an authority in the active set.
 	///
 	/// Changes made to storage should be discarded by caller.
 	fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity;
@@ -2005,7 +2035,7 @@ macro_rules! impl_opaque_keys_inner {
 			/// The generated key pairs are stored in the keystore.
 			///
 			/// Returns the concatenated SCALE encoded public keys.
-			pub fn generate(seed: Option<$crate::sp_std::vec::Vec<u8>>) -> $crate::sp_std::vec::Vec<u8> {
+			pub fn generate(seed: Option<$crate::Vec<u8>>) -> $crate::Vec<u8> {
 				let keys = Self{
 					$(
 						$field: <
@@ -2021,7 +2051,7 @@ macro_rules! impl_opaque_keys_inner {
 			/// Converts `Self` into a `Vec` of `(raw public key, KeyTypeId)`.
 			pub fn into_raw_public_keys(
 				self,
-			) -> $crate::sp_std::vec::Vec<($crate::sp_std::vec::Vec<u8>, $crate::KeyTypeId)> {
+			) -> $crate::Vec<($crate::Vec<u8>, $crate::KeyTypeId)> {
 				let mut keys = Vec::new();
 				$(
 					keys.push((
@@ -2043,7 +2073,7 @@ macro_rules! impl_opaque_keys_inner {
 			/// Returns `None` when the decoding failed, otherwise `Some(_)`.
 			pub fn decode_into_raw_public_keys(
 				encoded: &[u8],
-			) -> Option<$crate::sp_std::vec::Vec<($crate::sp_std::vec::Vec<u8>, $crate::KeyTypeId)>> {
+			) -> Option<$crate::Vec<($crate::Vec<u8>, $crate::KeyTypeId)>> {
 				<Self as $crate::codec::Decode>::decode(&mut &encoded[..])
 					.ok()
 					.map(|s| s.into_raw_public_keys())
@@ -2265,7 +2295,15 @@ pub trait BlockIdTo<Block: self::Block> {
 /// Get current block number
 pub trait BlockNumberProvider {
 	/// Type of `BlockNumber` to provide.
-	type BlockNumber: Codec + Clone + Ord + Eq + AtLeast32BitUnsigned;
+	type BlockNumber: Codec
+		+ Clone
+		+ Ord
+		+ Eq
+		+ AtLeast32BitUnsigned
+		+ TypeInfo
+		+ Debug
+		+ MaxEncodedLen
+		+ Copy;
 
 	/// Returns the current block number.
 	///
@@ -2284,13 +2322,20 @@ pub trait BlockNumberProvider {
 	/// .
 	fn current_block_number() -> Self::BlockNumber;
 
-	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
-	/// else a noop.
+	/// Utility function only to be used in benchmarking scenarios or tests, to be implemented
+	/// optionally, else a noop.
 	///
 	/// It allows for setting the block number that will later be fetched
 	/// This is useful in case the block number provider is different than System
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
 	fn set_block_number(_block: Self::BlockNumber) {}
+}
+
+impl BlockNumberProvider for () {
+	type BlockNumber = u32;
+	fn current_block_number() -> Self::BlockNumber {
+		0
+	}
 }
 
 #[cfg(test)]

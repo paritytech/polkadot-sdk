@@ -20,23 +20,6 @@
 
 use serde::{Deserialize, Serialize};
 
-/// The transaction was broadcasted to a number of peers.
-///
-/// # Note
-///
-/// The RPC does not guarantee that the peers have received the
-/// transaction.
-///
-/// When the number of peers is zero, the event guarantees that
-/// shutting down the local node will lead to the transaction
-/// not being included in the chain.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TransactionBroadcasted {
-	/// The number of peers the transaction was broadcasted to.
-	pub num_peers: usize,
-}
-
 /// The transaction was included in a block of the chain.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -59,9 +42,6 @@ pub struct TransactionError {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionDropped {
-	/// True if the transaction was broadcasted to other peers and
-	/// may still be included in the block.
-	pub broadcasted: bool,
 	/// Reason of the event.
 	pub error: String,
 }
@@ -70,20 +50,17 @@ pub struct TransactionDropped {
 ///
 /// The status events can be grouped based on their kinds as:
 ///
-/// 1. Runtime validated the transaction:
+/// 1. Runtime validated the transaction and it entered the pool:
 /// 		- `Validated`
 ///
-/// 2. Inside the `Ready` queue:
-/// 		- `Broadcast`
-///
-/// 3. Leaving the pool:
+/// 2. Leaving the pool:
 /// 		- `BestChainBlockIncluded`
 /// 		- `Invalid`
 ///
-/// 4. Block finalized:
+/// 3. Block finalized:
 /// 		- `Finalized`
 ///
-/// 5. At any time:
+/// 4. At any time:
 /// 		- `Dropped`
 /// 		- `Error`
 ///
@@ -101,8 +78,6 @@ pub struct TransactionDropped {
 pub enum TransactionEvent<Hash> {
 	/// The transaction was validated by the runtime.
 	Validated,
-	/// The transaction was broadcasted to a number of peers.
-	Broadcasted(TransactionBroadcasted),
 	/// The transaction was included in a best block of the chain.
 	///
 	/// # Note
@@ -159,7 +134,6 @@ enum TransactionEventBlockIR<Hash> {
 #[serde(tag = "event")]
 enum TransactionEventNonBlockIR {
 	Validated,
-	Broadcasted(TransactionBroadcasted),
 	Error(TransactionError),
 	Invalid(TransactionError),
 	Dropped(TransactionDropped),
@@ -186,8 +160,6 @@ impl<Hash> From<TransactionEvent<Hash>> for TransactionEventIR<Hash> {
 		match value {
 			TransactionEvent::Validated =>
 				TransactionEventIR::NonBlock(TransactionEventNonBlockIR::Validated),
-			TransactionEvent::Broadcasted(event) =>
-				TransactionEventIR::NonBlock(TransactionEventNonBlockIR::Broadcasted(event)),
 			TransactionEvent::BestChainBlockIncluded(event) =>
 				TransactionEventIR::Block(TransactionEventBlockIR::BestChainBlockIncluded(event)),
 			TransactionEvent::Finalized(event) =>
@@ -207,8 +179,6 @@ impl<Hash> From<TransactionEventIR<Hash>> for TransactionEvent<Hash> {
 		match value {
 			TransactionEventIR::NonBlock(status) => match status {
 				TransactionEventNonBlockIR::Validated => TransactionEvent::Validated,
-				TransactionEventNonBlockIR::Broadcasted(event) =>
-					TransactionEvent::Broadcasted(event),
 				TransactionEventNonBlockIR::Error(event) => TransactionEvent::Error(event),
 				TransactionEventNonBlockIR::Invalid(event) => TransactionEvent::Invalid(event),
 				TransactionEventNonBlockIR::Dropped(event) => TransactionEvent::Dropped(event),
@@ -233,19 +203,6 @@ mod tests {
 		let ser = serde_json::to_string(&event).unwrap();
 
 		let exp = r#"{"event":"validated"}"#;
-		assert_eq!(ser, exp);
-
-		let event_dec: TransactionEvent<()> = serde_json::from_str(exp).unwrap();
-		assert_eq!(event_dec, event);
-	}
-
-	#[test]
-	fn broadcasted_event() {
-		let event: TransactionEvent<()> =
-			TransactionEvent::Broadcasted(TransactionBroadcasted { num_peers: 2 });
-		let ser = serde_json::to_string(&event).unwrap();
-
-		let exp = r#"{"event":"broadcasted","numPeers":2}"#;
 		assert_eq!(ser, exp);
 
 		let event_dec: TransactionEvent<()> = serde_json::from_str(exp).unwrap();
@@ -320,13 +277,11 @@ mod tests {
 
 	#[test]
 	fn dropped_event() {
-		let event: TransactionEvent<()> = TransactionEvent::Dropped(TransactionDropped {
-			broadcasted: true,
-			error: "abc".to_string(),
-		});
+		let event: TransactionEvent<()> =
+			TransactionEvent::Dropped(TransactionDropped { error: "abc".to_string() });
 		let ser = serde_json::to_string(&event).unwrap();
 
-		let exp = r#"{"event":"dropped","broadcasted":true,"error":"abc"}"#;
+		let exp = r#"{"event":"dropped","error":"abc"}"#;
 		assert_eq!(ser, exp);
 
 		let event_dec: TransactionEvent<()> = serde_json::from_str(exp).unwrap();

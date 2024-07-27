@@ -43,10 +43,7 @@ pub(crate) mod columns {
 
 	// Version 4 only changed structures in approval voting, so we can re-export the v4 definitions.
 	pub mod v3 {
-		pub use super::v4::{
-			COL_APPROVAL_DATA, COL_AVAILABILITY_DATA, COL_AVAILABILITY_META,
-			COL_CHAIN_SELECTION_DATA, COL_DISPUTE_COORDINATOR_DATA, NUM_COLUMNS, ORDERED_COL,
-		};
+		pub use super::v4::{NUM_COLUMNS, ORDERED_COL};
 	}
 
 	pub mod v4 {

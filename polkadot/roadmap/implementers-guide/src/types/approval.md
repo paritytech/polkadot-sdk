@@ -39,7 +39,7 @@ enum AssignmentCertKindV2 {
         /// The core index chosen in this cert.
         core_index: CoreIndex,
     },
-    /// Deprectated assignment. Soon to be removed.
+    /// Deprecated assignment. Soon to be removed.
     ///  
     /// An assignment story based on the VRF that authorized the relay-chain block where the
     /// candidate was included combined with a sample number.
@@ -117,7 +117,7 @@ struct IndirectSignedApprovalVote {
 ## `CheckedAssignmentCert`
 
 An assignment cert which has checked both the VRF and the validity of the implied assignment according to the selection
-criteria rules of the protocol. This type should be declared in such a way as to be instantiatable only when the checks
+criteria rules of the protocol. This type should be declared in such a way as to be instantiable only when the checks
 have actually been done. Fields should be accessible via getters, not direct struct access.
 
 ```rust

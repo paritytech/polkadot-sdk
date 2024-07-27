@@ -21,6 +21,7 @@ use crate::{
 	helpers, Call, Config, ElectionCompute, Error, FeasibilityError, Pallet, RawSolution,
 	ReadySolution, RoundSnapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
 };
+use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
 use frame_election_provider_support::{NposSolution, NposSolver, PerThing128, VoteWeight};
 use frame_support::{
@@ -39,7 +40,6 @@ use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageValueRef},
 	DispatchError, SaturatedConversion,
 };
-use sp_std::prelude::*;
 
 /// Storage key used to store the last block number at which offchain worker ran.
 pub(crate) const OFFCHAIN_LAST_BLOCK: &[u8] = b"parity/multi-phase-unsigned-election";
@@ -384,9 +384,8 @@ impl<T: Config> Pallet<T> {
 
 		// ensure score is being improved. Panic henceforth.
 		ensure!(
-			Self::queued_solution().map_or(true, |q: ReadySolution<_, _>| raw_solution
-				.score
-				.strict_threshold_better(q.score, T::BetterUnsignedThreshold::get())),
+			Self::queued_solution()
+				.map_or(true, |q: ReadySolution<_, _>| raw_solution.score > q.score),
 			Error::<T>::PreDispatchWeakSubmission,
 		);
 
@@ -397,14 +396,14 @@ impl<T: Config> Pallet<T> {
 /// Configurations for a miner that comes with this pallet.
 pub trait MinerConfig {
 	/// The account id type.
-	type AccountId: Ord + Clone + codec::Codec + sp_std::fmt::Debug;
+	type AccountId: Ord + Clone + codec::Codec + core::fmt::Debug;
 	/// The solution that the miner is mining.
 	type Solution: codec::Codec
 		+ Default
 		+ PartialEq
 		+ Eq
 		+ Clone
-		+ sp_std::fmt::Debug
+		+ core::fmt::Debug
 		+ Ord
 		+ NposSolution
 		+ TypeInfo;
@@ -429,7 +428,7 @@ pub trait MinerConfig {
 }
 
 /// A base miner, suitable to be used for both signed and unsigned submissions.
-pub struct Miner<T: MinerConfig>(sp_std::marker::PhantomData<T>);
+pub struct Miner<T: MinerConfig>(core::marker::PhantomData<T>);
 impl<T: MinerConfig> Miner<T> {
 	/// Same as [`Pallet::mine_solution`], but the input snapshot data must be given.
 	pub fn mine_solution_with_snapshot<S>(
@@ -506,7 +505,7 @@ impl<T: MinerConfig> Miner<T> {
 							stake
 						})
 						.unwrap_or_default();
-					sp_std::cmp::Reverse(stake)
+					core::cmp::Reverse(stake)
 				},
 			);
 
@@ -1017,6 +1016,7 @@ mod tests {
 		Event, InvalidTransaction, Phase, QueuedSolution, TransactionSource,
 		TransactionValidityError,
 	};
+	use alloc::vec;
 	use codec::Decode;
 	use frame_election_provider_support::IndexAssignment;
 	use frame_support::{assert_noop, assert_ok, traits::OffchainWorker};
@@ -1025,7 +1025,7 @@ mod tests {
 		bounded_vec,
 		offchain::storage_lock::{BlockAndTime, StorageLock},
 		traits::{Dispatchable, ValidateUnsigned, Zero},
-		ModuleError, PerU16, Perbill,
+		ModuleError, PerU16,
 	};
 
 	type Assignment = crate::unsigned::Assignment<Runtime>;
@@ -1360,7 +1360,7 @@ mod tests {
 			.desired_targets(1)
 			.add_voter(7, 2, bounded_vec![10])
 			.add_voter(8, 5, bounded_vec![10])
-			.better_unsigned_threshold(Perbill::from_percent(50))
+			.add_voter(9, 1, bounded_vec![10])
 			.build_and_execute(|| {
 				roll_to_unsigned();
 				assert!(MultiPhase::current_phase().is_unsigned());
@@ -1368,12 +1368,15 @@ mod tests {
 
 				// an initial solution
 				let result = ElectionResult {
-					// note: This second element of backing stake is not important here.
-					winners: vec![(10, 10)],
-					assignments: vec![Assignment {
-						who: 10,
-						distribution: vec![(10, PerU16::one())],
-					}],
+					winners: vec![(10, 12)],
+					assignments: vec![
+						Assignment { who: 10, distribution: vec![(10, PerU16::one())] },
+						Assignment {
+							who: 7,
+							// note: this percent doesn't even matter, in solution it is 100%.
+							distribution: vec![(10, PerU16::one())],
+						},
+					],
 				};
 
 				let RoundSnapshot { voters, targets } = MultiPhase::snapshot().unwrap();
@@ -1394,9 +1397,35 @@ mod tests {
 					Box::new(solution),
 					witness
 				));
-				assert_eq!(MultiPhase::queued_solution().unwrap().score.minimal_stake, 10);
+				assert_eq!(MultiPhase::queued_solution().unwrap().score.minimal_stake, 12);
 
-				// trial 1: a solution who's score is only 2, i.e. 20% better in the first element.
+				// trial 1: a solution who's minimal stake is 10, i.e. worse than the first solution
+				// of 12.
+				let result = ElectionResult {
+					winners: vec![(10, 10)],
+					assignments: vec![Assignment {
+						who: 10,
+						distribution: vec![(10, PerU16::one())],
+					}],
+				};
+				let (raw, score, _, _) = Miner::<Runtime>::prepare_election_result_with_snapshot(
+					result,
+					voters.clone(),
+					targets.clone(),
+					desired_targets,
+				)
+				.unwrap();
+				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				// 10 is not better than 12
+				assert_eq!(solution.score.minimal_stake, 10);
+				// submitting this will actually panic.
+				assert_noop!(
+					MultiPhase::unsigned_pre_dispatch_checks(&solution),
+					Error::<Runtime>::PreDispatchWeakSubmission,
+				);
+
+				// trial 2: try resubmitting another solution with same score (12) as the queued
+				// solution.
 				let result = ElectionResult {
 					winners: vec![(10, 12)],
 					assignments: vec![
@@ -1408,6 +1437,7 @@ mod tests {
 						},
 					],
 				};
+
 				let (raw, score, _, _) = Miner::<Runtime>::prepare_election_result_with_snapshot(
 					result,
 					voters.clone(),
@@ -1416,15 +1446,45 @@ mod tests {
 				)
 				.unwrap();
 				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
-				// 12 is not 50% more than 10
+				// 12 is not better than 12. We need score of at least 13 to be accepted.
 				assert_eq!(solution.score.minimal_stake, 12);
+				// submitting this will panic.
 				assert_noop!(
 					MultiPhase::unsigned_pre_dispatch_checks(&solution),
 					Error::<Runtime>::PreDispatchWeakSubmission,
 				);
-				// submitting this will actually panic.
 
-				// trial 2: a solution who's score is only 7, i.e. 70% better in the first element.
+				// trial 3: a solution who's minimal stake is 13, i.e. 1 better than the queued
+				// solution of 12.
+				let result = ElectionResult {
+					winners: vec![(10, 12)],
+					assignments: vec![
+						Assignment { who: 10, distribution: vec![(10, PerU16::one())] },
+						Assignment { who: 7, distribution: vec![(10, PerU16::one())] },
+						Assignment { who: 9, distribution: vec![(10, PerU16::one())] },
+					],
+				};
+				let (raw, score, witness, _) =
+					Miner::<Runtime>::prepare_election_result_with_snapshot(
+						result,
+						voters.clone(),
+						targets.clone(),
+						desired_targets,
+					)
+					.unwrap();
+				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				assert_eq!(solution.score.minimal_stake, 13);
+
+				// this should work
+				assert_ok!(MultiPhase::unsigned_pre_dispatch_checks(&solution));
+				assert_ok!(MultiPhase::submit_unsigned(
+					RuntimeOrigin::none(),
+					Box::new(solution),
+					witness
+				));
+
+				// trial 4: a solution who's minimal stake is 17, i.e. 4 better than the last
+				// solution.
 				let result = ElectionResult {
 					winners: vec![(10, 12)],
 					assignments: vec![

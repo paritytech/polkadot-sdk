@@ -1,0 +1,39 @@
+title: Introduce `CheckMetadataHash` signed extension
+
+doc:
+  - audience: Runtime Dev
+    description: |
+       Introduces the new `CheckMetadataHash` signed extension. This extension can be added to a
+       runtime to support verifying the metadata hash as described in
+       [RFC78](https://polkadot-fellows.github.io/RFCs/approved/0078-merkleized-metadata.html).
+       This removes the requirement for having a metadata portal and in general a centralized
+       authentication of the metadata. With this signed extension the runtime is able to verify
+       that the metadata used by the wallet was correct. This is mainly useful for offline wallets
+       which users need to trust any way, not that useful for online wallets.
+
+       There is a guide `generate_metadata_hash` for how to integrate this into a runtime that
+       should make it quite easy to integrate the signed extension.
+  - audience: Runtime User
+    description: |
+       This brings support for the new Ledger app and similar hardware wallets. These hardware
+       wallets will be able to decode the transaction using the metadata. The runtime will
+       ensure that the metadata used for this decoding process is correct and that the online
+       wallet did not tried to trick you.
+
+crates:
+  - name: substrate-wasm-builder
+    bump: minor
+  - name: sc-executor-wasmtime
+    bump: patch
+  - name: frame-metadata-hash-extension
+    bump: major
+  - name: polkadot-service
+    bump: none
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major

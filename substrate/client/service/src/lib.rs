@@ -37,14 +37,16 @@ mod task_manager;
 use std::{collections::HashMap, net::SocketAddr};
 
 use codec::{Decode, Encode};
-use futures::{channel::mpsc, pin_mut, FutureExt, StreamExt};
-use jsonrpsee::{core::Error as JsonRpseeError, RpcModule};
+use futures::{pin_mut, FutureExt, StreamExt};
+use jsonrpsee::RpcModule;
 use log::{debug, error, warn};
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend, BlockchainEvents, ProofProvider};
 use sc_network::{
-	config::MultiaddrWithPeerId, NetworkBlock, NetworkPeers, NetworkStateInfo, PeerId,
+	config::MultiaddrWithPeerId, service::traits::NetworkService, NetworkBackend, NetworkBlock,
+	NetworkPeers, NetworkStateInfo,
 };
 use sc_network_sync::SyncingService;
+use sc_network_types::PeerId;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_blockchain::HeaderMetadata;
 use sp_consensus::SyncOracle;
@@ -52,15 +54,17 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 pub use self::{
 	builder::{
-		build_network, new_client, new_db_backend, new_full_client, new_full_parts,
-		new_full_parts_record_import, new_full_parts_with_genesis_builder,
-		new_native_or_wasm_executor, new_wasm_executor, spawn_tasks, BuildNetworkParams,
+		build_network, gen_rpc_module, init_telemetry, new_client, new_db_backend, new_full_client,
+		new_full_parts, new_full_parts_record_import, new_full_parts_with_genesis_builder,
+		new_wasm_executor, propagate_transaction_notifications, spawn_tasks, BuildNetworkParams,
 		KeystoreContainer, NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor,
 		TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
 };
+#[allow(deprecated)]
+pub use builder::new_native_or_wasm_executor;
 
 pub use sc_chain_spec::{
 	construct_genesis_block, resolve_state_version_from_wasm, BuildGenesisBlock,
@@ -72,12 +76,12 @@ pub use config::{
 };
 pub use sc_chain_spec::{
 	ChainSpec, ChainType, Extension as ChainSpecExtension, GenericChainSpec, NoExtension,
-	Properties, RuntimeGenesis,
+	Properties,
 };
 
 pub use sc_consensus::ImportQueue;
 pub use sc_executor::NativeExecutionDispatch;
-pub use sc_network_sync::warp::WarpSyncParams;
+pub use sc_network_sync::WarpSyncParams;
 #[doc(hidden)]
 pub use sc_network_transactions::config::{TransactionImport, TransactionImportFuture};
 pub use sc_rpc::{
@@ -109,11 +113,14 @@ impl RpcHandlers {
 	pub async fn rpc_query(
 		&self,
 		json_query: &str,
-	) -> Result<(String, mpsc::UnboundedReceiver<String>), JsonRpseeError> {
-		self.0
-			.raw_json_request(json_query)
-			.await
-			.map(|(method_res, recv)| (method_res.result, recv))
+	) -> Result<(String, tokio::sync::mpsc::Receiver<String>), serde_json::Error> {
+		// Because `tokio::sync::mpsc::channel` is used under the hood
+		// it will panic if it's set to usize::MAX.
+		//
+		// This limit is used to prevent panics and is large enough.
+		const TOKIO_MPSC_MAX_SIZE: usize = tokio::sync::Semaphore::MAX_PERMITS;
+
+		self.0.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE).await
 	}
 
 	/// Provides access to the underlying `RpcModule`
@@ -130,7 +137,7 @@ pub struct PartialComponents<Client, Backend, SelectChain, ImportQueue, Transact
 	pub backend: Arc<Backend>,
 	/// The chain task manager.
 	pub task_manager: TaskManager,
-	/// A keystore container instance..
+	/// A keystore container instance.
 	pub keystore_container: KeystoreContainer,
 	/// A chain selection algorithm instance.
 	pub select_chain: SelectChain,
@@ -154,8 +161,9 @@ async fn build_network_future<
 		+ Sync
 		+ 'static,
 	H: sc_network_common::ExHashT,
+	N: NetworkBackend<B, <B as BlockT>::Hash>,
 >(
-	network: sc_network::NetworkWorker<B, H>,
+	network: N,
 	client: Arc<C>,
 	sync_service: Arc<SyncingService<B>>,
 	announce_imported_blocks: bool,
@@ -222,7 +230,7 @@ pub async fn build_system_rpc_future<
 	H: sc_network_common::ExHashT,
 >(
 	role: Role,
-	network_service: Arc<sc_network::NetworkService<B, H>>,
+	network_service: Arc<dyn NetworkService>,
 	sync_service: Arc<SyncingService<B>>,
 	client: Arc<C>,
 	mut rpc_rx: TracingUnboundedReceiver<sc_rpc::system::Request<B>>,
@@ -307,14 +315,12 @@ pub async fn build_system_rpc_future<
 				};
 			},
 			sc_rpc::system::Request::NetworkReservedPeers(sender) => {
-				let reserved_peers = network_service.reserved_peers().await;
-				if let Ok(reserved_peers) = reserved_peers {
-					let reserved_peers =
-						reserved_peers.iter().map(|peer_id| peer_id.to_base58()).collect();
-					let _ = sender.send(reserved_peers);
-				} else {
-					break
-				}
+				let Ok(reserved_peers) = network_service.reserved_peers().await else {
+					break;
+				};
+
+				let _ =
+					sender.send(reserved_peers.iter().map(|peer_id| peer_id.to_base58()).collect());
 			},
 			sc_rpc::system::Request::NodeRoles(sender) => {
 				use sc_rpc::system::NodeRole;
@@ -362,7 +368,7 @@ mod waiting {
 }
 
 /// Starts RPC servers.
-fn start_rpc_servers<R>(
+pub fn start_rpc_servers<R>(
 	config: &Configuration,
 	gen_rpc_module: R,
 	rpc_id_provider: Option<Box<dyn RpcSubscriptionIdProvider>>,
@@ -390,15 +396,20 @@ where
 
 	let server_config = sc_rpc_server::Config {
 		addrs: [addr, backup_addr],
+		batch_config: config.rpc_batch_config,
 		max_connections: config.rpc_max_connections,
 		max_payload_in_mb: config.rpc_max_request_size,
 		max_payload_out_mb: config.rpc_max_response_size,
 		max_subs_per_conn: config.rpc_max_subs_per_conn,
+		message_buffer_capacity: config.rpc_message_buffer_capacity,
 		rpc_api: gen_rpc_module(deny_unsafe(addr, &config.rpc_methods))?,
 		metrics,
 		id_provider: rpc_id_provider,
 		cors: config.rpc_cors.as_ref(),
 		tokio_handle: config.tokio_handle.clone(),
+		rate_limit: config.rpc_rate_limit,
+		rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
+		rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773

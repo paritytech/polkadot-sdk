@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove bounds from `PrevalidateAttests` struct definition
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Minimal change to `PrevalidateAssets` to remove some trait bounds on the struct itself while
+      keeping all its capabilities.
+
+crates:
+  - name: polkadot-runtime-common

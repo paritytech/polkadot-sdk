@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(feature = "runtime-benchmarks")]
+use alloc::vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "runtime-benchmarks")]
 use enumflags2::BitFlag;
@@ -22,7 +24,6 @@ use enumflags2::{bitflags, BitFlags};
 use frame_support::{traits::Get, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::{build::Variants, Path, Type, TypeInfo};
 use sp_runtime::{BoundedVec, RuntimeDebug};
-use sp_std::prelude::*;
 
 use crate::types::{Data, IdentityInformationProvider};
 
@@ -75,7 +76,6 @@ impl TypeInfo for IdentityField {
 	TypeInfo,
 )]
 #[codec(mel_bound())]
-#[cfg_attr(test, derive(frame_support::DefaultNoBound))]
 #[scale_info(skip_type_params(FieldLimit))]
 pub struct IdentityInfo<FieldLimit: Get<u32>> {
 	/// Additional fields of the identity that are not catered for with the struct's explicit
@@ -155,9 +155,25 @@ impl<FieldLimit: Get<u32> + 'static> IdentityInformationProvider for IdentityInf
 	}
 }
 
+impl<FieldLimit: Get<u32>> Default for IdentityInfo<FieldLimit> {
+	fn default() -> Self {
+		IdentityInfo {
+			additional: BoundedVec::default(),
+			display: Data::None,
+			legal: Data::None,
+			web: Data::None,
+			riot: Data::None,
+			email: Data::None,
+			pgp_fingerprint: None,
+			image: Data::None,
+			twitter: Data::None,
+		}
+	}
+}
+
 impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
 	pub(crate) fn fields(&self) -> BitFlags<IdentityField> {
-		let mut res = <BitFlags<IdentityField>>::empty();
+		let mut res = BitFlags::<IdentityField>::empty();
 		if !self.display.is_none() {
 			res.insert(IdentityField::Display);
 		}

@@ -21,29 +21,31 @@ use crate::*;
 use polkadot_node_network_protocol::{
 	grid_topology::TopologyPeerInfo,
 	request_response::{outgoing::Recipient, ReqProtocolNames},
+	v2::{BackedCandidateAcknowledgement, BackedCandidateManifest},
 	view, ObservedRole,
 };
 use polkadot_node_primitives::Statement;
 use polkadot_node_subsystem::messages::{
-	network_bridge_event::NewGossipTopology, AllMessages, ChainApiMessage, FragmentTreeMembership,
-	HypotheticalCandidate, NetworkBridgeEvent, ProspectiveParachainsMessage, ReportPeerMessage,
+	network_bridge_event::NewGossipTopology, AllMessages, ChainApiMessage, HypotheticalCandidate,
+	HypotheticalMembership, NetworkBridgeEvent, ProspectiveParachainsMessage, ReportPeerMessage,
 	RuntimeApiMessage, RuntimeApiRequest,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	AssignmentPair, AsyncBackingParams, BlockNumber, CommittedCandidateReceipt, CoreState,
+	AssignmentPair, AsyncBackingParams, Block, BlockNumber, CommittedCandidateReceipt, CoreState,
 	GroupRotationInfo, HeadData, Header, IndexedVec, PersistedValidationData, ScheduledCore,
 	SessionIndex, SessionInfo, ValidatorPair,
 };
 use sc_keystore::LocalKeystore;
+use sc_network::ProtocolName;
 use sp_application_crypto::Pair as PairT;
 use sp_authority_discovery::AuthorityPair as AuthorityDiscoveryPair;
 use sp_keyring::Sr25519Keyring;
 
 use assert_matches::assert_matches;
+use codec::Encode;
 use futures::Future;
-use parity_scale_codec::Encode;
 use rand::{Rng, SeedableRng};
 use test_helpers::mock::new_leaf;
 
@@ -53,7 +55,8 @@ mod cluster;
 mod grid;
 mod requests;
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<StatementDistributionMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<StatementDistributionMessage>;
 
 const DEFAULT_ASYNC_BACKING_PARAMETERS: AsyncBackingParams =
 	AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
@@ -175,21 +178,58 @@ impl TestState {
 	}
 
 	fn make_dummy_leaf(&self, relay_parent: Hash) -> TestLeaf {
+		self.make_dummy_leaf_with_multiple_cores_per_para(relay_parent, 1)
+	}
+
+	fn make_dummy_leaf_with_multiple_cores_per_para(
+		&self,
+		relay_parent: Hash,
+		groups_for_first_para: usize,
+	) -> TestLeaf {
 		TestLeaf {
 			number: 1,
 			hash: relay_parent,
 			parent_hash: Hash::repeat_byte(0),
 			session: 1,
 			availability_cores: self.make_availability_cores(|i| {
-				CoreState::Scheduled(ScheduledCore {
-					para_id: ParaId::from(i as u32),
-					collator: None,
-				})
+				let para_id = if i < groups_for_first_para {
+					ParaId::from(0u32)
+				} else {
+					ParaId::from(i as u32)
+				};
+
+				CoreState::Scheduled(ScheduledCore { para_id, collator: None })
 			}),
+			disabled_validators: Default::default(),
 			para_data: (0..self.session_info.validator_groups.len())
-				.map(|i| (ParaId::from(i as u32), PerParaData::new(1, vec![1, 2, 3].into())))
+				.map(|i| {
+					let para_id = if i < groups_for_first_para {
+						ParaId::from(0u32)
+					} else {
+						ParaId::from(i as u32)
+					};
+
+					(para_id, PerParaData::new(1, vec![1, 2, 3].into()))
+				})
 				.collect(),
+			minimum_backing_votes: 2,
 		}
+	}
+
+	fn make_dummy_leaf_with_disabled_validators(
+		&self,
+		relay_parent: Hash,
+		disabled_validators: Vec<ValidatorIndex>,
+	) -> TestLeaf {
+		TestLeaf { disabled_validators, ..self.make_dummy_leaf(relay_parent) }
+	}
+
+	fn make_dummy_leaf_with_min_backing_votes(
+		&self,
+		relay_parent: Hash,
+		minimum_backing_votes: u32,
+	) -> TestLeaf {
+		TestLeaf { minimum_backing_votes, ..self.make_dummy_leaf(relay_parent) }
 	}
 
 	fn make_availability_cores(&self, f: impl Fn(usize) -> CoreState) -> Vec<CoreState> {
@@ -239,6 +279,19 @@ impl TestState {
 			.collect()
 	}
 
+	fn index_within_group(
+		&self,
+		group_index: GroupIndex,
+		validator_index: ValidatorIndex,
+	) -> Option<usize> {
+		self.session_info
+			.validator_groups
+			.get(group_index)
+			.unwrap()
+			.iter()
+			.position(|&i| i == validator_index)
+	}
+
 	fn discovery_id(&self, validator_index: ValidatorIndex) -> AuthorityDiscoveryId {
 		self.session_info.discovery_keys[validator_index.0 as usize].clone()
 	}
@@ -283,7 +336,7 @@ impl TestState {
 		&mut self,
 		peer: PeerId,
 		request: AttestedCandidateRequest,
-	) -> impl Future<Output = sc_network::config::OutgoingResponse> {
+	) -> impl Future<Output = Option<sc_network::config::OutgoingResponse>> {
 		let (tx, rx) = futures::channel::oneshot::channel();
 		let req = sc_network::config::IncomingRequest {
 			peer,
@@ -292,7 +345,7 @@ impl TestState {
 		};
 		self.req_sender.send(req).await.unwrap();
 
-		rx.map(|r| r.unwrap())
+		rx.map(|r| r.ok())
 	}
 }
 
@@ -307,14 +360,20 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		Arc::new(LocalKeystore::in_memory()) as KeystorePtr
 	};
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
-	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (candidate_req_receiver, req_cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (candidate_req_receiver, req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 	let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(0);
 
 	let test_state = TestState::from_config(config, req_cfg.inbound_queue.unwrap(), &mut rng);
 
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 	let subsystem = async move {
 		let subsystem = crate::StatementDistributionSubsystem {
 			keystore,
@@ -365,7 +424,9 @@ struct TestLeaf {
 	parent_hash: Hash,
 	session: SessionIndex,
 	availability_cores: Vec<CoreState>,
+	pub disabled_validators: Vec<ValidatorIndex>,
 	para_data: Vec<(ParaId, PerParaData)>,
+	minimum_backing_votes: u32,
 }
 
 impl TestLeaf {
@@ -377,11 +438,110 @@ impl TestLeaf {
 	}
 }
 
+struct TestSetupInfo {
+	local_validator: TestLocalValidator,
+	local_group: GroupIndex,
+	local_para: ParaId,
+	other_group: GroupIndex,
+	other_para: ParaId,
+	relay_parent: Hash,
+	test_leaf: TestLeaf,
+	peers: Vec<PeerId>,
+	validators: Vec<ValidatorIndex>,
+}
+
+struct TestPeerToConnect {
+	local: bool,
+	relay_parent_in_view: bool,
+}
+
+// TODO: Generalize, use in more places.
+/// Sets up some test info that is common to most tests, and connects the requested peers.
+async fn setup_test_and_connect_peers(
+	state: &TestState,
+	overseer: &mut VirtualOverseer,
+	validator_count: usize,
+	group_size: usize,
+	peers_to_connect: &[TestPeerToConnect],
+	send_topology_before_leaf: bool,
+) -> TestSetupInfo {
+	let local_validator = state.local.clone().unwrap();
+	let local_group = local_validator.group_index.unwrap();
+	let local_para = ParaId::from(local_group.0);
+
+	let other_group = next_group_index(local_group, validator_count, group_size);
+	let other_para = ParaId::from(other_group.0);
+
+	let relay_parent = Hash::repeat_byte(1);
+	let test_leaf = state.make_dummy_leaf(relay_parent);
+
+	// Because we are testing grid mod, the "target" group (the one we communicate with) is usually
+	// other_group, a non-local group.
+	//
+	// TODO: change based on `LocalRole`?
+	let local_group_validators = state.group_validators(local_group, true);
+	let other_group_validators = state.group_validators(other_group, true);
+
+	let mut peers = vec![];
+	let mut validators = vec![];
+	let mut local_group_idx = 0;
+	let mut other_group_idx = 0;
+	for peer_to_connect in peers_to_connect {
+		let peer = PeerId::random();
+		peers.push(peer);
+
+		let v = if peer_to_connect.local {
+			let v = local_group_validators[local_group_idx];
+			local_group_idx += 1;
+			v
+		} else {
+			let v = other_group_validators[other_group_idx];
+			other_group_idx += 1;
+			v
+		};
+		validators.push(v);
+
+		connect_peer(overseer, peer, Some(vec![state.discovery_id(v)].into_iter().collect())).await;
+
+		if peer_to_connect.relay_parent_in_view {
+			send_peer_view_change(overseer, peer.clone(), view![relay_parent]).await;
+		}
+	}
+
+	// Send gossip topology and activate leaf.
+	if send_topology_before_leaf {
+		send_new_topology(overseer, state.make_dummy_topology()).await;
+		// Send cleaning up of a leaf to make sure it does not clear the save topology as well.
+		overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::stop_work(Hash::random()),
+			)))
+			.await;
+		activate_leaf(overseer, &test_leaf, &state, true, vec![]).await;
+	} else {
+		activate_leaf(overseer, &test_leaf, &state, true, vec![]).await;
+		send_new_topology(overseer, state.make_dummy_topology()).await;
+	}
+
+	TestSetupInfo {
+		local_validator,
+		local_group,
+		local_para,
+		other_group,
+		other_para,
+		test_leaf,
+		relay_parent,
+		peers,
+		validators,
+	}
+}
+
 async fn activate_leaf(
 	virtual_overseer: &mut VirtualOverseer,
 	leaf: &TestLeaf,
 	test_state: &TestState,
 	is_new_session: bool,
+	hypothetical_memberships: Vec<(HypotheticalCandidate, HypotheticalMembership)>,
 ) {
 	let activated = new_leaf(leaf.hash, leaf.number);
 
@@ -391,7 +551,14 @@ async fn activate_leaf(
 		))))
 		.await;
 
-	handle_leaf_activation(virtual_overseer, leaf, test_state, is_new_session).await;
+	handle_leaf_activation(
+		virtual_overseer,
+		leaf,
+		test_state,
+		is_new_session,
+		hypothetical_memberships,
+	)
+	.await;
 }
 
 async fn handle_leaf_activation(
@@ -399,8 +566,18 @@ async fn handle_leaf_activation(
 	leaf: &TestLeaf,
 	test_state: &TestState,
 	is_new_session: bool,
+	hypothetical_memberships: Vec<(HypotheticalCandidate, HypotheticalMembership)>,
 ) {
-	let TestLeaf { number, hash, parent_hash, para_data, session, availability_cores } = leaf;
+	let TestLeaf {
+		number,
+		hash,
+		parent_hash,
+		para_data,
+		session,
+		availability_cores,
+		disabled_validators,
+		minimum_backing_votes,
+	} = leaf;
 
 	assert_matches!(
 		virtual_overseer.recv().await,
@@ -408,19 +585,6 @@ async fn handle_leaf_activation(
 			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
 		) if parent == *hash => {
 			tx.send(Ok(test_state.config.async_backing_params.unwrap_or(DEFAULT_ASYNC_BACKING_PARAMETERS))).unwrap();
-		}
-	);
-
-	let mrp_response: Vec<(ParaId, BlockNumber)> = para_data
-		.iter()
-		.map(|(para_id, data)| (*para_id, data.min_relay_parent))
-		.collect();
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::ProspectiveParachains(
-			ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
-		) if parent == *hash => {
-			tx.send(mrp_response).unwrap();
 		}
 	);
 
@@ -440,51 +604,94 @@ async fn handle_leaf_activation(
 		}
 	);
 
+	let mrp_response: Vec<(ParaId, BlockNumber)> = para_data
+		.iter()
+		.map(|(para_id, data)| (*para_id, data.min_relay_parent))
+		.collect();
 	assert_matches!(
 		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))) if parent == *hash => {
-			tx.send(Ok(*session)).unwrap();
+		AllMessages::ProspectiveParachains(
+			ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
+		) if parent == *hash => {
+			tx.send(mrp_response).unwrap();
 		}
 	);
 
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AvailabilityCores(tx))) if parent == *hash => {
-			tx.send(Ok(availability_cores.clone())).unwrap();
-		}
-	);
-
-	let validator_groups = test_state.session_info.validator_groups.to_vec();
-	let group_rotation_info =
-		GroupRotationInfo { session_start_block: 1, group_rotation_frequency: 12, now: 1 };
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::ValidatorGroups(tx))) if parent == *hash => {
-			tx.send(Ok((validator_groups, group_rotation_info))).unwrap();
-		}
-	);
-
-	if is_new_session {
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionInfo(s, tx))) if parent == *hash && s == *session => {
+	loop {
+		match virtual_overseer.recv().await {
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_parent,
+				RuntimeApiRequest::Version(tx),
+			)) => {
+				tx.send(Ok(RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT)).unwrap();
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::DisabledValidators(tx),
+			)) if parent == *hash => {
+				tx.send(Ok(disabled_validators.clone())).unwrap();
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_parent,
+				RuntimeApiRequest::DisabledValidators(tx),
+			)) => {
+				tx.send(Ok(Vec::new())).unwrap();
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_parent, // assume all active leaves are in the same session
+				RuntimeApiRequest::SessionIndexForChild(tx),
+			)) => {
+				tx.send(Ok(*session)).unwrap();
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::SessionInfo(s, tx),
+			)) if parent == *hash && s == *session => {
+				assert!(is_new_session, "only expecting this call in a new session");
 				tx.send(Ok(Some(test_state.session_info.clone()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
+			},
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				parent,
 				RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
 			)) if parent == *hash && session_index == *session => {
-				tx.send(Ok(2)).unwrap();
-			}
-		);
+				assert!(is_new_session, "only expecting this call in a new session");
+				tx.send(Ok(*minimum_backing_votes)).unwrap();
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::AvailabilityCores(tx),
+			)) if parent == *hash => {
+				tx.send(Ok(availability_cores.clone())).unwrap();
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::ValidatorGroups(tx),
+			)) if parent == *hash => {
+				let validator_groups = test_state.session_info.validator_groups.to_vec();
+				let group_rotation_info = GroupRotationInfo {
+					session_start_block: 1,
+					group_rotation_frequency: 12,
+					now: 1,
+				};
+				tx.send(Ok((validator_groups, group_rotation_info))).unwrap();
+			},
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::GetHypotheticalMembership(req, tx),
+			) => {
+				assert_eq!(req.fragment_chain_relay_parent, Some(*hash));
+				for (i, (candidate, _)) in hypothetical_memberships.iter().enumerate() {
+					assert!(
+						req.candidates.iter().any(|c| &c == &candidate),
+						"did not receive request for hypothetical candidate {}",
+						i,
+					);
+				}
+				tx.send(hypothetical_memberships).unwrap();
+				// this is the last expected runtime api call
+				break
+			},
+			msg => panic!("unexpected runtime API call: {msg:?}"),
+		}
 	}
 }
 
@@ -514,26 +721,23 @@ async fn handle_sent_request(
 						persisted_validation_data,
 						statements,
 					};
-					outgoing.pending_response.send(Ok(res.encode())).unwrap();
+					outgoing.pending_response.send(Ok((res.encode(), ProtocolName::from("")))).unwrap();
 				}
 			);
 		}
 	);
 }
 
-async fn answer_expected_hypothetical_depth_request(
+async fn answer_expected_hypothetical_membership_request(
 	virtual_overseer: &mut VirtualOverseer,
-	responses: Vec<(HypotheticalCandidate, FragmentTreeMembership)>,
-	expected_leaf_hash: Option<Hash>,
-	expected_backed_in_path_only: bool,
+	responses: Vec<(HypotheticalCandidate, HypotheticalMembership)>,
 ) {
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::ProspectiveParachains(
-			ProspectiveParachainsMessage::GetHypotheticalFrontier(req, tx)
+			ProspectiveParachainsMessage::GetHypotheticalMembership(req, tx)
 		) => {
-			assert_eq!(req.fragment_tree_relay_parent, expected_leaf_hash);
-			assert_eq!(req.backed_in_path_only, expected_backed_in_path_only);
+			assert_eq!(req.fragment_chain_relay_parent, None);
 			for (i, (candidate, _)) in responses.iter().enumerate() {
 				assert!(
 					req.candidates.iter().any(|c| &c == &candidate),
@@ -545,6 +749,66 @@ async fn answer_expected_hypothetical_depth_request(
 			tx.send(responses).unwrap();
 		}
 	)
+}
+
+#[macro_export]
+macro_rules! assert_peer_reported {
+	($virtual_overseer:expr, $peer_id:expr, $rep_change:expr $(,)*) => {
+		assert_matches!(
+			$virtual_overseer.recv().await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+				if p == $peer_id && r == $rep_change.into()
+		);
+	}
+}
+
+async fn send_share_message(
+	virtual_overseer: &mut VirtualOverseer,
+	relay_parent: Hash,
+	statement: SignedFullStatementWithPVD,
+) {
+	virtual_overseer
+		.send(FromOrchestra::Communication {
+			msg: StatementDistributionMessage::Share(relay_parent, statement),
+		})
+		.await;
+}
+
+async fn send_backed_message(
+	virtual_overseer: &mut VirtualOverseer,
+	candidate_hash: CandidateHash,
+) {
+	virtual_overseer
+		.send(FromOrchestra::Communication {
+			msg: StatementDistributionMessage::Backed(candidate_hash),
+		})
+		.await;
+}
+
+async fn send_manifest_from_peer(
+	virtual_overseer: &mut VirtualOverseer,
+	peer_id: PeerId,
+	manifest: BackedCandidateManifest,
+) {
+	send_peer_message(
+		virtual_overseer,
+		peer_id,
+		protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+	)
+	.await;
+}
+
+async fn send_ack_from_peer(
+	virtual_overseer: &mut VirtualOverseer,
+	peer_id: PeerId,
+	ack: BackedCandidateAcknowledgement,
+) {
+	send_peer_message(
+		virtual_overseer,
+		peer_id,
+		protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack),
+	)
+	.await;
 }
 
 fn validator_pubkeys(val_ids: &[ValidatorPair]) -> IndexedVec<ValidatorIndex, ValidatorId> {

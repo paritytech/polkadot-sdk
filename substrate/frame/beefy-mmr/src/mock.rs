@@ -49,15 +49,15 @@ type Block = frame_system::mocking::MockBlock<Test>;
 construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-		Mmr: pallet_mmr::{Pallet, Storage},
-		Beefy: pallet_beefy::{Pallet, Config<T>, Storage},
-		BeefyMmr: pallet_beefy_mmr::{Pallet, Storage},
+		System: frame_system,
+		Session: pallet_session,
+		Mmr: pallet_mmr,
+		Beefy: pallet_beefy,
+		BeefyMmr: pallet_beefy_mmr,
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 }
@@ -90,7 +90,12 @@ impl pallet_mmr::Config for Test {
 
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Test>;
 
+	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Test>;
+
 	type WeightInfo = ();
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 impl pallet_beefy::Config for Test {
@@ -99,6 +104,7 @@ impl pallet_beefy::Config for Test {
 	type MaxNominators = ConstU32<1000>;
 	type MaxSetIdSessionEntries = ConstU64<100>;
 	type OnNewValidatorSet = BeefyMmr;
+	type AncestryHelper = BeefyMmr;
 	type WeightInfo = ();
 	type KeyOwnerProof = sp_core::Void;
 	type EquivocationReportSystem = ();

@@ -19,10 +19,6 @@
 //! Network packet message types. These get serialized and put into the lower level protocol
 //! payload.
 
-pub use self::generic::{
-	RemoteCallRequest, RemoteChangesRequest, RemoteChangesResponse, RemoteHeaderRequest,
-	RemoteHeaderResponse, RemoteReadChildRequest, RemoteReadRequest,
-};
 use codec::{Decode, Encode};
 use sc_client_api::StorageProof;
 use sc_network_common::message::RequestId;

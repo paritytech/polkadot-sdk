@@ -97,10 +97,10 @@ async fn deny_unsafe_works() {
 		"{{\"jsonrpc\":\"2.0\",\"method\":\"dev_getBlockStats\",\"params\":[{}],\"id\":1}}",
 		best_hash_param
 	);
-	let (resp, _) = api.raw_json_request(&request).await.expect("Raw calls should succeed");
+	let (resp, _) = api.raw_json_request(&request, 1).await.expect("Raw calls should succeed");
 
 	assert_eq!(
-		resp.result,
+		resp,
 		r#"{"jsonrpc":"2.0","error":{"code":-32601,"message":"RPC call is unsafe to be called externally"},"id":1}"#
 	);
 }

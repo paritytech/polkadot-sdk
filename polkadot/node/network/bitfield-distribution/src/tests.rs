@@ -40,7 +40,7 @@ use sp_core::Pair as PairT;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
 
-use std::{iter::FromIterator as _, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 const TIMEOUT: Duration = Duration::from_millis(50);
 macro_rules! launch {
@@ -150,7 +150,7 @@ fn receive_invalid_signature() {
 
 	let signing_context = SigningContext { session_index: 1, parent_hash: hash_a };
 
-	// another validator not part of the validatorset
+	// another validator not part of the validator set
 	let keystore: KeystorePtr = Arc::new(MemoryKeystore::new());
 	let malicious = Keystore::sr25519_generate_new(&*keystore, ValidatorId::ID, None)
 		.expect("Malicious key created");

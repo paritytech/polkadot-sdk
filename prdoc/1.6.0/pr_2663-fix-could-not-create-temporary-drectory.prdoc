@@ -1,0 +1,17 @@
+title: "PVF: fix unshare 'could not create temporary directory'"
+
+doc:
+  - audience: Node Operator
+    description: |
+      For validators: fixes the potential warning/error:
+      "Cannot unshare user namespace and change root, which are Linux-specific kernel security features: could not create a temporary directory in "/tmp/.tmpIcLriO".
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates:
+  - name: polkadot-node-core-pvf
+
+host_functions: []

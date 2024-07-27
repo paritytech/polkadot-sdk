@@ -16,21 +16,21 @@
 
 use std::{collections::BTreeMap, pin::Pin, sync::Arc};
 
+use futures::Stream;
 use polkadot_overseer::prometheus::PrometheusError;
 use sc_client_api::StorageProof;
-
-use futures::Stream;
+use sp_version::RuntimeVersion;
 
 use async_trait::async_trait;
-use jsonrpsee_core::Error as JsonRpcError;
-use parity_scale_codec::Error as CodecError;
+use codec::Error as CodecError;
+use jsonrpsee_core::ClientError as JsonRpcError;
 use sp_api::ApiError;
 
 use cumulus_primitives_core::relay_chain::BlockId;
 pub use cumulus_primitives_core::{
 	relay_chain::{
-		CommittedCandidateReceipt, Hash as PHash, Header as PHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, SessionIndex, ValidatorId,
+		BlockNumber, CommittedCandidateReceipt, CoreState, Hash as PHash, Header as PHeader,
+		InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -149,8 +149,12 @@ pub trait RelayChainInterface: Send + Sync {
 		_: OccupiedCoreAssumption,
 	) -> RelayChainResult<Option<PersistedValidationData>>;
 
-	/// Get the receipt of a candidate pending availability. This returns `Some` for any paras
-	/// assigned to occupied cores in `availability_cores` and `None` otherwise.
+	/// Get the receipt of the first candidate pending availability of this para_id. This returns
+	/// `Some` for any paras assigned to occupied cores in `availability_cores` and `None`
+	/// otherwise.
+	#[deprecated(
+		note = "`candidate_pending_availability` only returns one candidate and is deprecated. Use `candidates_pending_availability` instead."
+	)]
 	async fn candidate_pending_availability(
 		&self,
 		block_id: PHash,
@@ -194,6 +198,33 @@ pub trait RelayChainInterface: Send + Sync {
 		relay_parent: PHash,
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof>;
+
+	/// Returns the validation code hash for the given `para_id` using the given
+	/// `occupied_core_assumption`.
+	async fn validation_code_hash(
+		&self,
+		relay_parent: PHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> RelayChainResult<Option<ValidationCodeHash>>;
+
+	/// Get the receipts of all candidates pending availability for this para_id.
+	async fn candidates_pending_availability(
+		&self,
+		block_id: PHash,
+		para_id: ParaId,
+	) -> RelayChainResult<Vec<CommittedCandidateReceipt>>;
+
+	/// Get the runtime version of the relay chain.
+	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion>;
+
+	/// Yields information on all availability cores as relevant to the child block.
+	///
+	/// Cores are either free, scheduled or occupied. Free cores can have paras assigned to them.
+	async fn availability_cores(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>>;
 }
 
 #[async_trait]
@@ -228,6 +259,7 @@ where
 			.await
 	}
 
+	#[allow(deprecated)]
 	async fn candidate_pending_availability(
 		&self,
 		block_id: PHash,
@@ -300,5 +332,35 @@ where
 
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		(**self).header(block_id).await
+	}
+
+	async fn validation_code_hash(
+		&self,
+		relay_parent: PHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> RelayChainResult<Option<ValidationCodeHash>> {
+		(**self)
+			.validation_code_hash(relay_parent, para_id, occupied_core_assumption)
+			.await
+	}
+
+	async fn availability_cores(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
+		(**self).availability_cores(relay_parent).await
+	}
+
+	async fn candidates_pending_availability(
+		&self,
+		block_id: PHash,
+		para_id: ParaId,
+	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
+		(**self).candidates_pending_availability(block_id, para_id).await
+	}
+
+	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion> {
+		(**self).version(relay_parent).await
 	}
 }

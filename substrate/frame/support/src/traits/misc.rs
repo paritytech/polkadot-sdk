@@ -18,18 +18,20 @@
 //! Smaller traits used in FRAME which don't need their own file.
 
 use crate::dispatch::{DispatchResult, Parameter};
+use alloc::{vec, vec::Vec};
 use codec::{CompactLen, Decode, DecodeLimit, Encode, EncodeLike, Input, MaxEncodedLen};
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
 use sp_arithmetic::traits::{CheckedAdd, CheckedMul, CheckedSub, One, Saturating};
 use sp_core::bounded::bounded_vec::TruncateFrom;
+
+use core::cmp::Ordering;
 #[doc(hidden)]
 pub use sp_runtime::traits::{
 	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128, ConstU16, ConstU32,
 	ConstU64, ConstU8, Get, GetDefault, TryCollect, TypedGet,
 };
 use sp_runtime::{traits::Block as BlockT, DispatchError};
-use sp_std::{cmp::Ordering, prelude::*};
 
 #[doc(hidden)]
 pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been triggered; please report the block number at https://github.com/paritytech/substrate/issues";
@@ -37,8 +39,6 @@ pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been trigge
 pub const DEFENSIVE_OP_INTERNAL_ERROR: &str = "Defensive failure has been triggered!";
 
 /// Trait to get the number of variants in any enum.
-///
-/// NOTE: can be removed once <https://doc.rust-lang.org/std/mem/fn.variant_count.html> is stable.
 pub trait VariantCount {
 	/// Get the number of variants.
 	const VARIANT_COUNT: u32;
@@ -46,6 +46,14 @@ pub trait VariantCount {
 
 impl VariantCount for () {
 	const VARIANT_COUNT: u32 = 0;
+}
+
+/// Adapter for `Get<u32>` to access `VARIANT_COUNT` from `trait pub trait VariantCount {`.
+pub struct VariantCountOf<T: VariantCount>(core::marker::PhantomData<T>);
+impl<T: VariantCount> Get<u32> for VariantCountOf<T> {
+	fn get() -> u32 {
+		T::VARIANT_COUNT
+	}
 }
 
 /// Generic function to mark an execution path as ONLY defensive.
@@ -183,10 +191,10 @@ pub trait DefensiveOption<T> {
 
 	/// Defensively transform this option to a result, mapping `None` to the return value of an
 	/// error closure.
-	fn defensive_ok_or_else<E: sp_std::fmt::Debug, F: FnOnce() -> E>(self, err: F) -> Result<T, E>;
+	fn defensive_ok_or_else<E: core::fmt::Debug, F: FnOnce() -> E>(self, err: F) -> Result<T, E>;
 
 	/// Defensively transform this option to a result, mapping `None` to a default value.
-	fn defensive_ok_or<E: sp_std::fmt::Debug>(self, err: E) -> Result<T, E>;
+	fn defensive_ok_or<E: core::fmt::Debug>(self, err: E) -> Result<T, E>;
 
 	/// Exactly the same as `map`, but it prints the appropriate warnings if the value being mapped
 	/// is `None`.
@@ -245,7 +253,7 @@ impl<T> Defensive<T> for Option<T> {
 	}
 }
 
-impl<T, E: sp_std::fmt::Debug> Defensive<T> for Result<T, E> {
+impl<T, E: core::fmt::Debug> Defensive<T> for Result<T, E> {
 	fn defensive_unwrap_or(self, or: T) -> T {
 		match self {
 			Ok(inner) => inner,
@@ -300,7 +308,7 @@ impl<T, E: sp_std::fmt::Debug> Defensive<T> for Result<T, E> {
 	}
 }
 
-impl<T, E: sp_std::fmt::Debug> DefensiveResult<T, E> for Result<T, E> {
+impl<T, E: core::fmt::Debug> DefensiveResult<T, E> for Result<T, E> {
 	fn defensive_map_err<F, O: FnOnce(E) -> F>(self, o: O) -> Result<T, F> {
 		self.map_err(|e| {
 			defensive!(e);
@@ -350,7 +358,7 @@ impl<T> DefensiveOption<T> for Option<T> {
 		)
 	}
 
-	fn defensive_ok_or_else<E: sp_std::fmt::Debug, F: FnOnce() -> E>(self, err: F) -> Result<T, E> {
+	fn defensive_ok_or_else<E: core::fmt::Debug, F: FnOnce() -> E>(self, err: F) -> Result<T, E> {
 		self.ok_or_else(|| {
 			let err_value = err();
 			defensive!(err_value);
@@ -358,7 +366,7 @@ impl<T> DefensiveOption<T> for Option<T> {
 		})
 	}
 
-	fn defensive_ok_or<E: sp_std::fmt::Debug>(self, err: E) -> Result<T, E> {
+	fn defensive_ok_or<E: core::fmt::Debug>(self, err: E) -> Result<T, E> {
 		self.ok_or_else(|| {
 			defensive!(err);
 			err
@@ -409,11 +417,11 @@ impl<T: Saturating + CheckedAdd + CheckedMul + CheckedSub + One> DefensiveSatura
 	}
 	fn defensive_saturating_accrue(&mut self, other: Self) {
 		// Use `replace` here since `take` would require `T: Default`.
-		*self = sp_std::mem::replace(self, One::one()).defensive_saturating_add(other);
+		*self = core::mem::replace(self, One::one()).defensive_saturating_add(other);
 	}
 	fn defensive_saturating_reduce(&mut self, other: Self) {
 		// Use `replace` here since `take` would require `T: Default`.
-		*self = sp_std::mem::replace(self, One::one()).defensive_saturating_sub(other);
+		*self = core::mem::replace(self, One::one()).defensive_saturating_sub(other);
 	}
 	fn defensive_saturating_inc(&mut self) {
 		self.defensive_saturating_accrue(One::one());
@@ -503,7 +511,7 @@ pub trait DefensiveMin<T> {
 
 impl<T> DefensiveMin<T> for T
 where
-	T: sp_std::cmp::PartialOrd<T>,
+	T: PartialOrd<T>,
 {
 	fn defensive_min(self, other: T) -> Self {
 		if self <= other {
@@ -567,7 +575,7 @@ pub trait DefensiveMax<T> {
 
 impl<T> DefensiveMax<T> for T
 where
-	T: sp_std::cmp::PartialOrd<T>,
+	T: PartialOrd<T>,
 {
 	fn defensive_max(self, other: T) -> Self {
 		if self >= other {
@@ -889,11 +897,21 @@ pub trait GetBacking {
 /// A trait to ensure the inherent are before non-inherent in a block.
 ///
 /// This is typically implemented on runtime, through `construct_runtime!`.
-pub trait EnsureInherentsAreFirst<Block> {
+pub trait EnsureInherentsAreFirst<Block: sp_runtime::traits::Block>:
+	IsInherent<<Block as sp_runtime::traits::Block>::Extrinsic>
+{
 	/// Ensure the position of inherent is correct, i.e. they are before non-inherents.
 	///
-	/// On error return the index of the inherent with invalid position (counting from 0).
-	fn ensure_inherents_are_first(block: &Block) -> Result<(), u32>;
+	/// On error return the index of the inherent with invalid position (counting from 0). On
+	/// success it returns the index of the last inherent. `0` therefore means that there are no
+	/// inherents.
+	fn ensure_inherents_are_first(block: &Block) -> Result<u32, u32>;
+}
+
+/// A trait to check if an extrinsic is an inherent.
+pub trait IsInherent<Extrinsic> {
+	/// Whether this extrinsic is an inherent.
+	fn is_inherent(ext: &Extrinsic) -> bool;
 }
 
 /// An extrinsic on which we can get access to call.
@@ -1033,7 +1051,7 @@ impl<T: TypeInfo + 'static> TypeInfo for WrapperOpaque<T> {
 #[derive(Debug, Eq, PartialEq, Default, Clone)]
 pub struct WrapperKeepOpaque<T> {
 	data: Vec<u8>,
-	_phantom: sp_std::marker::PhantomData<T>,
+	_phantom: core::marker::PhantomData<T>,
 }
 
 impl<T: Decode> WrapperKeepOpaque<T> {
@@ -1056,7 +1074,7 @@ impl<T: Decode> WrapperKeepOpaque<T> {
 
 	/// Create from the given encoded `data`.
 	pub fn from_encoded(data: Vec<u8>) -> Self {
-		Self { data, _phantom: sp_std::marker::PhantomData }
+		Self { data, _phantom: core::marker::PhantomData }
 	}
 }
 
@@ -1083,7 +1101,7 @@ impl<T: Encode> Encode for WrapperKeepOpaque<T> {
 
 impl<T: Decode> Decode for WrapperKeepOpaque<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
-		Ok(Self { data: Vec::<u8>::decode(input)?, _phantom: sp_std::marker::PhantomData })
+		Ok(Self { data: Vec::<u8>::decode(input)?, _phantom: core::marker::PhantomData })
 	}
 
 	fn skip<I: Input>(input: &mut I) -> Result<(), codec::Error> {
@@ -1170,24 +1188,33 @@ impl<Hash> PreimageRecipient<Hash> for () {
 	fn unnote_preimage(_: &Hash) {}
 }
 
-/// Trait for creating an asset account with a deposit taken from a designated depositor specified
-/// by the client.
+/// Trait for touching/creating an asset account with a deposit taken from a designated depositor
+/// specified by the client.
+///
+/// Ensures that transfers to the touched account will succeed without being denied by the account
+/// creation requirements. For example, it is useful for the account creation of non-sufficient
+/// assets when its system account may not have the free consumer reference required for it. If
+/// there is no risk of failing to meet those requirements, the touch operation can be a no-op, as
+/// is common for native assets.
 pub trait AccountTouch<AssetId, AccountId> {
 	/// The type for currency units of the deposit.
 	type Balance;
 
-	/// The deposit amount of a native currency required for creating an account of the `asset`.
+	/// The deposit amount of a native currency required for touching an account of the `asset`.
 	fn deposit_required(asset: AssetId) -> Self::Balance;
 
+	/// Check if an account for a given asset should be touched to meet the existence requirements.
+	fn should_touch(asset: AssetId, who: &AccountId) -> bool;
+
 	/// Create an account for `who` of the `asset` with a deposit taken from the `depositor`.
-	fn touch(asset: AssetId, who: AccountId, depositor: AccountId) -> DispatchResult;
+	fn touch(asset: AssetId, who: &AccountId, depositor: &AccountId) -> DispatchResult;
 }
 
 #[cfg(test)]
 mod test {
 	use super::*;
+	use core::marker::PhantomData;
 	use sp_core::bounded::{BoundedSlice, BoundedVec};
-	use sp_std::marker::PhantomData;
 
 	#[test]
 	fn defensive_assert_works() {
@@ -1398,7 +1425,7 @@ mod test {
 		assert_eq!(<WrapperOpaque<[u8; 2usize.pow(14)]>>::max_encoded_len(), 2usize.pow(14) + 4);
 
 		let data = 4u64;
-		// Ensure that we check that the `Vec<u8>` is consumed completly on decode.
+		// Ensure that we check that the `Vec<u8>` is consumed completely on decode.
 		assert!(WrapperOpaque::<u32>::decode(&mut &data.encode().encode()[..]).is_err());
 	}
 

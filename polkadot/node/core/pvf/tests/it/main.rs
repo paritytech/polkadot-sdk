@@ -17,17 +17,18 @@
 //! General PVF host integration tests checking the functionality of the PVF host itself.
 
 use assert_matches::assert_matches;
-use parity_scale_codec::Encode as _;
+use codec::Encode as _;
 #[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
 use polkadot_node_core_pvf::SecurityStatus;
 use polkadot_node_core_pvf::{
-	start, testing::build_workers_and_get_paths, Config, InvalidCandidate, Metrics, PrepareError,
-	PrepareJobKind, PvfPrepData, ValidationError, ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+	start, testing::build_workers_and_get_paths, Config, InvalidCandidate, Metrics,
+	PossiblyInvalidError, PrepareError, PrepareJobKind, PvfPrepData, ValidationError,
+	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
-use polkadot_primitives::{ExecutorParam, ExecutorParams};
+use polkadot_primitives::{ExecutorParam, ExecutorParams, PvfExecKind, PvfPrepKind};
 
-use std::time::Duration;
+use std::{io::Write, time::Duration};
 use tokio::sync::Mutex;
 
 mod adder;
@@ -39,6 +40,7 @@ const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(6);
 const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(6);
 
 struct TestHost {
+	// Keep a reference to the tempdir as it gets deleted on drop.
 	cache_dir: tempfile::TempDir,
 	host: Mutex<ValidationHost>,
 }
@@ -58,8 +60,12 @@ impl TestHost {
 		let mut config = Config::new(
 			cache_dir.path().to_owned(),
 			None,
+			false,
 			prepare_worker_path,
 			execute_worker_path,
+			2,
+			1,
+			2,
 		);
 		f(&mut config);
 		let (host, task) = start(config, Metrics::default()).await.unwrap();
@@ -157,7 +163,7 @@ async fn execute_job_terminates_on_timeout() {
 	let start = std::time::Instant::now();
 	let result = host
 		.validate_candidate(
-			halt::wasm_binary_unwrap(),
+			test_parachain_halt::wasm_binary_unwrap(),
 			ValidationParams {
 				block_data: BlockData(Vec::new()),
 				parent_head: Default::default(),
@@ -184,7 +190,7 @@ async fn ensure_parallel_execution() {
 	// Run some jobs that do not complete, thus timing out.
 	let host = TestHost::new().await;
 	let execute_pvf_future_1 = host.validate_candidate(
-		halt::wasm_binary_unwrap(),
+		test_parachain_halt::wasm_binary_unwrap(),
 		ValidationParams {
 			block_data: BlockData(Vec::new()),
 			parent_head: Default::default(),
@@ -194,7 +200,7 @@ async fn ensure_parallel_execution() {
 		Default::default(),
 	);
 	let execute_pvf_future_2 = host.validate_candidate(
-		halt::wasm_binary_unwrap(),
+		test_parachain_halt::wasm_binary_unwrap(),
 		ValidationParams {
 			block_data: BlockData(Vec::new()),
 			parent_head: Default::default(),
@@ -238,7 +244,7 @@ async fn execute_queue_doesnt_stall_if_workers_died() {
 	let start = std::time::Instant::now();
 	futures::future::join_all((0u8..=8).map(|_| {
 		host.validate_candidate(
-			halt::wasm_binary_unwrap(),
+			test_parachain_halt::wasm_binary_unwrap(),
 			ValidationParams {
 				block_data: BlockData(Vec::new()),
 				parent_head: Default::default(),
@@ -281,7 +287,7 @@ async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 	let start = std::time::Instant::now();
 	futures::future::join_all((0u8..6).map(|i| {
 		host.validate_candidate(
-			halt::wasm_binary_unwrap(),
+			test_parachain_halt::wasm_binary_unwrap(),
 			ValidationParams {
 				block_data: BlockData(Vec::new()),
 				parent_head: Default::default(),
@@ -319,7 +325,10 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 	let host = TestHost::new().await;
 	let cache_dir = host.cache_dir.path();
 
-	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
 
 	// Manually delete the prepared artifact from disk. The in-memory artifacts table won't change.
 	{
@@ -339,7 +348,7 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 	// Try to validate, artifact should get recreated.
 	let result = host
 		.validate_candidate(
-			halt::wasm_binary_unwrap(),
+			test_parachain_halt::wasm_binary_unwrap(),
 			ValidationParams {
 				block_data: BlockData(Vec::new()),
 				parent_head: Default::default(),
@@ -350,10 +359,107 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 		)
 		.await;
 
-	match result {
-		Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)) => {},
-		r => panic!("{:?}", r),
+	assert_matches!(result, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)));
+}
+
+// Test that corruption of a prepared artifact does not lead to a dispute when we try to execute it.
+#[tokio::test]
+async fn corrupted_prepared_artifact_does_not_dispute() {
+	let host = TestHost::new().await;
+	let cache_dir = host.cache_dir.path();
+
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
+
+	// Manually corrupting the prepared artifact from disk. The in-memory artifacts table won't
+	// change.
+	let artifact_path = {
+		// Get the artifact path (asserting it exists).
+		let mut cache_dir: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
+		// Should contain the artifact and the worker dir.
+		assert_eq!(cache_dir.len(), 2);
+		let mut artifact_path = cache_dir.pop().unwrap().unwrap();
+		if artifact_path.path().is_dir() {
+			artifact_path = cache_dir.pop().unwrap().unwrap();
+		}
+
+		// Corrupt the artifact.
+		let mut f = std::fs::OpenOptions::new()
+			.write(true)
+			.truncate(true)
+			.open(artifact_path.path())
+			.unwrap();
+		f.write_all(b"corrupted wasm").unwrap();
+		f.flush().unwrap();
+		artifact_path
+	};
+
+	assert!(artifact_path.path().exists());
+
+	// Try to validate, artifact should get removed because of the corruption.
+	let result = host
+		.validate_candidate(
+			test_parachain_halt::wasm_binary_unwrap(),
+			ValidationParams {
+				block_data: BlockData(Vec::new()),
+				parent_head: Default::default(),
+				relay_parent_number: 1,
+				relay_parent_storage_root: Default::default(),
+			},
+			Default::default(),
+		)
+		.await;
+
+	assert_matches!(
+		result,
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(_)))
+	);
+
+	// because of RuntimeConstruction we may retry
+	host.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
+
+	// The actual artifact removal is done concurrently
+	// with sending of the result of the execution
+	// it is not a problem for further re-preparation as
+	// artifact filenames are random
+	for _ in 1..5 {
+		if !artifact_path.path().exists() {
+			break;
+		}
+		tokio::time::sleep(Duration::from_secs(1)).await;
 	}
+
+	assert!(
+		!artifact_path.path().exists(),
+		"the corrupted artifact ({}) should be deleted by the host",
+		artifact_path.path().display()
+	);
+}
+
+#[tokio::test]
+async fn cache_cleared_on_startup() {
+	// Don't drop this host, it owns the `TempDir` which gets cleared on drop.
+	let host = TestHost::new().await;
+
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
+
+	// The cache dir should contain one artifact and one worker dir.
+	let cache_dir = host.cache_dir.path().to_owned();
+	assert_eq!(std::fs::read_dir(&cache_dir).unwrap().count(), 2);
+
+	// Start a new host, previous artifact should be cleared.
+	let _host = TestHost::new_with_config(|cfg| {
+		cfg.cache_path = cache_dir.clone();
+	})
+	.await;
+	assert_eq!(std::fs::read_dir(&cache_dir).unwrap().count(), 0);
 }
 
 // This test checks if the adder parachain runtime can be prepared with 10Mb preparation memory
@@ -366,7 +472,7 @@ async fn prechecking_within_memory_limits() {
 	let host = TestHost::new().await;
 	let result = host
 		.precheck_pvf(
-			::adder::wasm_binary_unwrap(),
+			::test_parachain_adder::wasm_binary_unwrap(),
 			ExecutorParams::from(&[ExecutorParam::PrecheckingMaxMemory(10 * 1024 * 1024)][..]),
 		)
 		.await;
@@ -385,7 +491,7 @@ async fn prechecking_out_of_memory() {
 	let host = TestHost::new().await;
 	let result = host
 		.precheck_pvf(
-			::adder::wasm_binary_unwrap(),
+			::test_parachain_adder::wasm_binary_unwrap(),
 			ExecutorParams::from(&[ExecutorParam::PrecheckingMaxMemory(512 * 1024)][..]),
 		)
 		.await;
@@ -402,35 +508,147 @@ async fn prepare_can_run_serially() {
 	.await;
 
 	let _stats = host
-		.precheck_pvf(::adder::wasm_binary_unwrap(), Default::default())
+		.precheck_pvf(::test_parachain_adder::wasm_binary_unwrap(), Default::default())
 		.await
 		.unwrap();
 
 	// Prepare a different wasm blob to prevent skipping work.
-	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
 }
 
 // CI machines should be able to enable all the security features.
 #[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
 #[tokio::test]
 async fn all_security_features_work() {
-	// Landlock is only available starting Linux 5.13, and we may be testing on an old kernel.
-	let sysinfo = sc_sysinfo::gather_sysinfo();
-	// The version will look something like "5.15.0-87-generic".
-	let version = sysinfo.linux_kernel.unwrap();
-	let version_split: Vec<&str> = version.split(".").collect();
-	let major: u32 = version_split[0].parse().unwrap();
-	let minor: u32 = version_split[1].parse().unwrap();
-	let can_enable_landlock = if major >= 6 { true } else { minor >= 13 };
+	let can_enable_landlock = {
+		let res = unsafe { libc::syscall(libc::SYS_landlock_create_ruleset, 0usize, 0usize, 1u32) };
+		if res == -1 {
+			let err = std::io::Error::last_os_error().raw_os_error().unwrap();
+			if err == libc::ENOSYS {
+				false
+			} else {
+				panic!("Unexpected errno from landlock check: {err}");
+			}
+		} else {
+			true
+		}
+	};
 
 	let host = TestHost::new().await;
 
 	assert_eq!(
 		host.security_status().await,
 		SecurityStatus {
+			// Disabled in tests to not enforce the presence of security features. This CI-only test
+			// is the only one that tests them.
+			secure_validator_mode: false,
 			can_enable_landlock,
 			can_enable_seccomp: true,
 			can_unshare_user_namespace_and_change_root: true,
+			can_do_secure_clone: true,
 		}
 	);
+}
+
+// Regression test to make sure the unshare-pivot-root capability does not depend on the PVF
+// artifacts cache existing.
+#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+#[tokio::test]
+async fn nonexistent_cache_dir() {
+	let host = TestHost::new_with_config(|cfg| {
+		cfg.cache_path = cfg.cache_path.join("nonexistent_cache_dir");
+	})
+	.await;
+
+	assert!(host.security_status().await.can_unshare_user_namespace_and_change_root);
+
+	let _stats = host
+		.precheck_pvf(::test_parachain_adder::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
+}
+
+// Checks the the artifact is not re-prepared when the executor environment parameters change
+// in a way not affecting the preparation
+#[tokio::test]
+async fn artifact_does_not_reprepare_on_non_meaningful_exec_parameter_change() {
+	let host = TestHost::new_with_config(|cfg| {
+		cfg.prepare_workers_hard_max_num = 1;
+	})
+	.await;
+	let cache_dir = host.cache_dir.path();
+
+	let set1 = ExecutorParams::default();
+	let set2 =
+		ExecutorParams::from(&[ExecutorParam::PvfExecTimeout(PvfExecKind::Backing, 2500)][..]);
+
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), set1)
+		.await
+		.unwrap();
+
+	let md1 = {
+		let mut cache_dir: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
+		assert_eq!(cache_dir.len(), 2);
+		let mut artifact_path = cache_dir.pop().unwrap().unwrap();
+		if artifact_path.path().is_dir() {
+			artifact_path = cache_dir.pop().unwrap().unwrap();
+		}
+		std::fs::metadata(artifact_path.path()).unwrap()
+	};
+
+	// FS times are not monotonical so we wait 2 secs here to be sure that the creation time of the
+	// second attifact will be different
+	tokio::time::sleep(Duration::from_secs(2)).await;
+
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), set2)
+		.await
+		.unwrap();
+
+	let md2 = {
+		let mut cache_dir: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
+		assert_eq!(cache_dir.len(), 2);
+		let mut artifact_path = cache_dir.pop().unwrap().unwrap();
+		if artifact_path.path().is_dir() {
+			artifact_path = cache_dir.pop().unwrap().unwrap();
+		}
+		std::fs::metadata(artifact_path.path()).unwrap()
+	};
+
+	assert_eq!(md1.created().unwrap(), md2.created().unwrap());
+}
+
+// Checks if the artifact is re-prepared if the re-preparation is needed by the nature of
+// the execution environment parameters change
+#[tokio::test]
+async fn artifact_does_reprepare_on_meaningful_exec_parameter_change() {
+	let host = TestHost::new_with_config(|cfg| {
+		cfg.prepare_workers_hard_max_num = 1;
+	})
+	.await;
+	let cache_dir = host.cache_dir.path();
+
+	let set1 = ExecutorParams::default();
+	let set2 =
+		ExecutorParams::from(&[ExecutorParam::PvfPrepTimeout(PvfPrepKind::Prepare, 60000)][..]);
+
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), set1)
+		.await
+		.unwrap();
+	let cache_dir_contents: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
+
+	assert_eq!(cache_dir_contents.len(), 2);
+
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), set2)
+		.await
+		.unwrap();
+	let cache_dir_contents: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
+
+	assert_eq!(cache_dir_contents.len(), 3); // new artifact has been added
 }

@@ -19,15 +19,15 @@ use xcm::prelude::*;
 /// Handle stuff to do with taking fees in certain XCM instructions.
 pub trait FeeManager {
 	/// Determine if a fee should be waived.
-	fn is_waived(origin: Option<&MultiLocation>, r: FeeReason) -> bool;
+	fn is_waived(origin: Option<&Location>, r: FeeReason) -> bool;
 
 	/// Do something with the fee which has been paid. Doing nothing here silently burns the
 	/// fees.
-	fn handle_fee(fee: MultiAssets, context: Option<&XcmContext>, r: FeeReason);
+	fn handle_fee(fee: Assets, context: Option<&XcmContext>, r: FeeReason);
 }
 
 /// Context under which a fee is paid.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FeeReason {
 	/// When a reporting instruction is called.
 	Report,
@@ -42,7 +42,7 @@ pub enum FeeReason {
 	/// When the `QueryPallet` instruction is called.
 	QueryPallet,
 	/// When the `ExportMessage` instruction is called (and includes the network ID).
-	Export { network: NetworkId, destination: InteriorMultiLocation },
+	Export { network: NetworkId, destination: InteriorLocation },
 	/// The `charge_fees` API.
 	ChargeFees,
 	/// When the `LockAsset` instruction is called.
@@ -52,9 +52,9 @@ pub enum FeeReason {
 }
 
 impl FeeManager for () {
-	fn is_waived(_: Option<&MultiLocation>, _: FeeReason) -> bool {
+	fn is_waived(_: Option<&Location>, _: FeeReason) -> bool {
 		false
 	}
 
-	fn handle_fee(_: MultiAssets, _: Option<&XcmContext>, _: FeeReason) {}
+	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
 }

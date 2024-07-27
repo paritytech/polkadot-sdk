@@ -81,7 +81,7 @@ pub trait StoredMap<K, T: Default> {
 /// be the default value), or where the account is being removed or reset back to the default value
 /// where previously it did exist (though may have been in a default state). This works well with
 /// system module's `CallOnCreatedAccount` and `CallKillAccount`.
-pub struct StorageMapShim<S, K, T>(sp_std::marker::PhantomData<(S, K, T)>);
+pub struct StorageMapShim<S, K, T>(core::marker::PhantomData<(S, K, T)>);
 impl<S: StorageMap<K, T, Query = T>, K: FullCodec, T: FullCodec + Default> StoredMap<K, T>
 	for StorageMapShim<S, K, T>
 {

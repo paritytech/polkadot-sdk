@@ -17,8 +17,8 @@
 //! Cross-Consensus Message format data structures.
 
 use crate::v3::Error as NewError;
+use codec::{Decode, Encode};
 use core::result;
-use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
 use super::*;
@@ -282,7 +282,7 @@ pub type SendResult = result::Result<(), SendError>;
 /// # Example
 /// ```rust
 /// # use staging_xcm::v2::prelude::*;
-/// # use parity_scale_codec::Encode;
+/// # use codec::Encode;
 ///
 /// /// A sender that only passes the message through and does nothing.
 /// struct Sender1;
@@ -292,11 +292,12 @@ pub type SendResult = result::Result<(), SendError>;
 ///     }
 /// }
 ///
-/// /// A sender that accepts a message that has an X2 junction, otherwise stops the routing.
+/// /// A sender that accepts a message that has two junctions, otherwise stops the routing.
 /// struct Sender2;
 /// impl SendXcm for Sender2 {
 ///     fn send_xcm(destination: impl Into<MultiLocation>, message: Xcm<()>) -> SendResult {
-///         if let MultiLocation { parents: 0, interior: X2(j1, j2) } = destination.into() {
+///         let destination = destination.into();
+///         if destination.parents == 0 && destination.interior.len() == 2 {
 ///             Ok(())
 ///         } else {
 ///             Err(SendError::Unroutable)

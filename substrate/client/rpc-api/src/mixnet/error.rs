@@ -18,7 +18,7 @@
 
 //! Mixnet RPC module errors.
 
-use jsonrpsee::types::error::{CallError, ErrorObject};
+use jsonrpsee::types::error::{ErrorObject, ErrorObjectOwned};
 use sc_mixnet::{PostErr, RemoteErr, TopologyErr};
 
 /// Mixnet RPC error type.
@@ -27,7 +27,7 @@ pub struct Error(pub sc_mixnet::Error);
 /// Base code for all mixnet errors.
 const BASE_ERROR: i32 = crate::error::base::MIXNET;
 
-impl From<Error> for jsonrpsee::core::Error {
+impl From<Error> for ErrorObjectOwned {
 	fn from(err: Error) -> Self {
 		let code = match err.0 {
 			sc_mixnet::Error::ServiceUnavailable => BASE_ERROR + 1,
@@ -43,6 +43,6 @@ impl From<Error> for jsonrpsee::core::Error {
 			sc_mixnet::Error::Remote(RemoteErr::Other(_)) => BASE_ERROR + 200,
 			sc_mixnet::Error::Remote(RemoteErr::Decode(_)) => BASE_ERROR + 201,
 		};
-		CallError::Custom(ErrorObject::owned(code, err.0.to_string(), None::<()>)).into()
+		ErrorObject::owned(code, err.0.to_string(), None::<()>)
 	}
 }

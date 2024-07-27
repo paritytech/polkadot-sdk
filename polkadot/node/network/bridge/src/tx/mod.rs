@@ -27,10 +27,6 @@ use polkadot_node_subsystem::{
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 };
 
-/// Peer set info for network initialization.
-///
-/// To be passed to [`FullNetworkConfiguration::add_notification_protocol`]().
-pub use polkadot_node_network_protocol::peer_set::{peer_sets_info, IsAuthority};
 use polkadot_node_network_protocol::request_response::Requests;
 use sc_network::{MessageSink, ReputationChange};
 
@@ -41,7 +37,7 @@ use crate::validator_discovery;
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
 use crate::network::{
 	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
-	send_validation_message_v2, send_validation_message_vstaging, Network,
+	send_validation_message_v2, send_validation_message_v3, Network,
 };
 
 use crate::metrics::Metrics;
@@ -205,7 +201,7 @@ where
 					&metrics,
 					notification_sinks,
 				),
-				Versioned::VStaging(msg) => send_validation_message_vstaging(
+				Versioned::V3(msg) => send_validation_message_v3(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
@@ -235,7 +231,7 @@ where
 						&metrics,
 						notification_sinks,
 					),
-					Versioned::VStaging(msg) => send_validation_message_vstaging(
+					Versioned::V3(msg) => send_validation_message_v3(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
@@ -264,7 +260,7 @@ where
 					&metrics,
 					notification_sinks,
 				),
-				Versioned::V2(msg) | Versioned::VStaging(msg) => send_collation_message_v2(
+				Versioned::V2(msg) | Versioned::V3(msg) => send_collation_message_v2(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
@@ -287,7 +283,7 @@ where
 						&metrics,
 						notification_sinks,
 					),
-					Versioned::V2(msg) | Versioned::VStaging(msg) => send_collation_message_v2(
+					Versioned::V2(msg) | Versioned::V3(msg) => send_collation_message_v2(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
@@ -305,7 +301,15 @@ where
 
 			for req in reqs {
 				match req {
-					Requests::ChunkFetchingV1(_) => metrics.on_message("chunk_fetching_v1"),
+					Requests::ChunkFetching(ref req) => {
+						// This is not the actual request that will succeed, as we don't know yet
+						// what that will be. It's only the primary request we tried.
+						if req.fallback_request.is_some() {
+							metrics.on_message("chunk_fetching_v2")
+						} else {
+							metrics.on_message("chunk_fetching_v1")
+						}
+					},
 					Requests::AvailableDataFetchingV1(_) =>
 						metrics.on_message("available_data_fetching_v1"),
 					Requests::CollationFetchingV1(_) => metrics.on_message("collation_fetching_v1"),
@@ -363,6 +367,22 @@ where
 			let all_addrs = validator_addrs.into_iter().flatten().collect();
 			let network_service = validator_discovery
 				.on_resolved_request(all_addrs, peer_set, network_service)
+				.await;
+			return (network_service, authority_discovery_service)
+		},
+
+		NetworkBridgeTxMessage::AddToResolvedValidators { validator_addrs, peer_set } => {
+			gum::trace!(
+				target: LOG_TARGET,
+				action = "AddToResolvedValidators",
+				peer_set = ?peer_set,
+				?validator_addrs,
+				"Received a resolved validator connection request",
+			);
+
+			let all_addrs = validator_addrs.into_iter().flatten().collect();
+			let network_service = validator_discovery
+				.on_add_to_resolved_request(all_addrs, peer_set, network_service)
 				.await;
 			return (network_service, authority_discovery_service)
 		},

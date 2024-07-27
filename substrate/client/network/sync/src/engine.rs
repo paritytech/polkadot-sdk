@@ -25,17 +25,20 @@ use crate::{
 	},
 	block_relay_protocol::{BlockDownloader, BlockResponseError},
 	block_request_handler::MAX_BLOCKS_IN_RESPONSE,
-	chain_sync::{ChainSync, ChainSyncAction},
 	pending_responses::{PendingResponses, ResponseEvent},
 	schema::v1::{StateRequest, StateResponse},
 	service::{
 		self,
 		syncing_service::{SyncingService, ToServiceCommand},
 	},
+	strategy::{
+		warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
+		StrategyKey, SyncingAction, SyncingConfig, SyncingStrategy,
+	},
 	types::{
 		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
 	},
-	warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
+	LOG_TARGET,
 };
 
 use codec::{Decode, DecodeAll, Encode};
@@ -44,11 +47,10 @@ use futures::{
 	future::{BoxFuture, Fuse},
 	FutureExt, StreamExt,
 };
-use libp2p::{request_response::OutboundFailure, PeerId};
-use log::{debug, trace};
+use libp2p::request_response::OutboundFailure;
+use log::{debug, error, trace, warn};
 use prometheus_endpoint::{
-	register, Counter, Gauge, GaugeVec, MetricSource, Opts, PrometheusError, Registry,
-	SourcedGauge, U64,
+	register, Counter, Gauge, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
 };
 use prost::Message;
 use schnellru::{ByLength, LruMap};
@@ -57,21 +59,22 @@ use tokio::time::{Interval, MissedTickBehavior};
 use sc_client_api::{BlockBackend, HeaderBackend, ProofProvider};
 use sc_consensus::{import_queue::ImportQueueService, IncomingBlock};
 use sc_network::{
-	config::{
-		FullNetworkConfiguration, NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake,
-		ProtocolId, SetConfig,
-	},
-	peer_store::{PeerStoreHandle, PeerStoreProvider},
+	config::{FullNetworkConfiguration, NotificationHandshake, ProtocolId, SetConfig},
+	peer_store::PeerStoreProvider,
 	request_responses::{IfDisconnected, RequestFailure},
-	service::traits::{Direction, NotificationEvent, ValidationResult},
+	service::{
+		traits::{Direction, NotificationConfig, NotificationEvent, ValidationResult},
+		NotificationMetrics,
+	},
 	types::ProtocolName,
 	utils::LruHashSet,
-	NotificationService, ReputationChange,
+	NetworkBackend, NotificationService, ReputationChange,
 };
 use sc_network_common::{
 	role::Roles,
 	sync::message::{BlockAnnounce, BlockAnnouncesHandshake, BlockRequest, BlockState},
 };
+use sc_network_types::PeerId;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_blockchain::{Error as ClientError, HeaderMetadata};
 use sp_consensus::{block_validation::BlockAnnounceValidator, BlockOrigin};
@@ -88,7 +91,6 @@ use std::{
 		atomic::{AtomicBool, AtomicUsize, Ordering},
 		Arc,
 	},
-	time::{Duration, Instant},
 };
 
 /// Interval at which we perform time based maintenance
@@ -96,26 +98,6 @@ const TICK_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1100)
 
 /// Maximum number of known block hashes to keep for a peer.
 const MAX_KNOWN_BLOCKS: usize = 1024; // ~32kb per peer + LruHashSet overhead
-
-/// Logging target for the file.
-const LOG_TARGET: &str = "sync";
-
-/// If the block announces stream to peer has been inactive for 30 seconds meaning local node
-/// has not sent or received block announcements to/from the peer, report the node for inactivity,
-/// disconnect it and attempt to establish connection to some other peer.
-const INACTIVITY_EVICT_THRESHOLD: Duration = Duration::from_secs(30);
-
-/// When `SyncingEngine` is started, wait two minutes before actually staring to count peers as
-/// evicted.
-///
-/// Parachain collator may incorrectly get evicted because it's waiting to receive a number of
-/// relaychain blocks before it can start creating parachain blocks. During this wait,
-/// `SyncingEngine` still counts it as active and as the peer is not sending blocks, it may get
-/// evicted if a block is not received within the first 30 secons since the peer connected.
-///
-/// To prevent this from happening, define a threshold for how long `SyncingEngine` should wait
-/// before it starts evicting peers.
-const INITIAL_EVICTION_WAIT_PERIOD: Duration = Duration::from_secs(2 * 60);
 
 /// Maximum allowed size for a block announce.
 const MAX_BLOCK_ANNOUNCE_SIZE: u64 = 1024 * 1024;
@@ -126,8 +108,6 @@ mod rep {
 	pub const GENESIS_MISMATCH: Rep = Rep::new_fatal("Genesis mismatch");
 	/// Peer send us a block announcement that failed at validation.
 	pub const BAD_BLOCK_ANNOUNCEMENT: Rep = Rep::new(-(1 << 12), "Bad block announcement");
-	/// Block announce substream with the peer has been inactive too long
-	pub const INACTIVE_SUBSTREAM: Rep = Rep::new(-(1 << 10), "Inactive block announce substream");
 	/// We received a message that failed to decode.
 	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad message");
 	/// Peer is on unsupported protocol version.
@@ -140,9 +120,6 @@ mod rep {
 
 struct Metrics {
 	peers: Gauge<U64>,
-	queued_blocks: Gauge<U64>,
-	fork_targets: Gauge<U64>,
-	justifications: GaugeVec<U64>,
 	import_queue_blocks_submitted: Counter<U64>,
 	import_queue_justifications_submitted: Counter<U64>,
 }
@@ -153,25 +130,6 @@ impl Metrics {
 		Ok(Self {
 			peers: {
 				let g = Gauge::new("substrate_sync_peers", "Number of peers we sync with")?;
-				register(g, r)?
-			},
-			queued_blocks: {
-				let g =
-					Gauge::new("substrate_sync_queued_blocks", "Number of blocks in import queue")?;
-				register(g, r)?
-			},
-			fork_targets: {
-				let g = Gauge::new("substrate_sync_fork_targets", "Number of fork sync targets")?;
-				register(g, r)?
-			},
-			justifications: {
-				let g = GaugeVec::new(
-					Opts::new(
-						"substrate_sync_extra_justifications",
-						"Number of extra justifications requests",
-					),
-					&["status"],
-				)?;
 				register(g, r)?
 			},
 			import_queue_blocks_submitted: {
@@ -234,9 +192,8 @@ pub struct Peer<B: BlockT> {
 }
 
 pub struct SyncingEngine<B: BlockT, Client> {
-	/// State machine that handles the list of in-progress requests. Only full node peers are
-	/// registered.
-	chain_sync: ChainSync<B, Client>,
+	/// Syncing strategy.
+	strategy: SyncingStrategy<B, Client>,
 
 	/// Blockchain client.
 	client: Arc<Client>,
@@ -313,17 +270,8 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	/// Handle that is used to communicate with `sc_network::Notifications`.
 	notification_service: Box<dyn NotificationService>,
 
-	/// When the syncing was started.
-	///
-	/// Stored as an `Option<Instant>` so once the initial wait has passed, `SyncingEngine`
-	/// can reset the peer timers and continue with the normal eviction process.
-	syncing_started: Option<Instant>,
-
 	/// Handle to `PeerStore`.
-	peer_store_handle: PeerStoreHandle,
-
-	/// Instant when the last notification was sent or received.
-	last_notification_io: Instant,
+	peer_store_handle: Arc<dyn PeerStoreProvider>,
 
 	/// Pending responses
 	pending_responses: PendingResponses<B>,
@@ -352,11 +300,12 @@ where
 		+ Sync
 		+ 'static,
 {
-	pub fn new(
+	pub fn new<N>(
 		roles: Roles,
 		client: Arc<Client>,
 		metrics_registry: Option<&Registry>,
-		net_config: &FullNetworkConfiguration,
+		network_metrics: NotificationMetrics,
+		net_config: &FullNetworkConfiguration<B, <B as BlockT>::Hash, N>,
 		protocol_id: ProtocolId,
 		fork_id: &Option<String>,
 		block_announce_validator: Box<dyn BlockAnnounceValidator<B> + Send>,
@@ -366,8 +315,11 @@ where
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		state_request_protocol_name: ProtocolName,
 		warp_sync_protocol_name: Option<ProtocolName>,
-		peer_store_handle: PeerStoreHandle,
-	) -> Result<(Self, SyncingService<B>, NonDefaultSetConfig), ClientError> {
+		peer_store_handle: Arc<dyn PeerStoreProvider>,
+	) -> Result<(Self, SyncingService<B>, N::NotificationProtocolConfig), ClientError>
+	where
+		N: NetworkBackend<B, <B as BlockT>::Hash>,
+	{
 		let mode = net_config.network_config.sync_mode;
 		let max_parallel_downloads = net_config.network_config.max_parallel_downloads;
 		let max_blocks_per_request =
@@ -381,6 +333,12 @@ where
 			} else {
 				net_config.network_config.max_blocks_per_request
 			};
+		let syncing_config = SyncingConfig {
+			mode,
+			max_parallel_downloads,
+			max_blocks_per_request,
+			metrics_registry: metrics_registry.cloned(),
+		};
 		let cache_capacity = (net_config.network_config.default_peers_set.in_peers +
 			net_config.network_config.default_peers_set.out_peers)
 			.max(1);
@@ -429,7 +387,24 @@ where
 			total.saturating_sub(net_config.network_config.default_peers_set_num_full) as usize
 		};
 
-		// Split warp sync params into warp sync config and a channel to retreive target block
+		let (block_announce_config, notification_service) =
+			Self::get_block_announce_proto_config::<N>(
+				protocol_id,
+				fork_id,
+				roles,
+				client.info().best_number,
+				client.info().best_hash,
+				client
+					.block_hash(Zero::zero())
+					.ok()
+					.flatten()
+					.expect("Genesis block exists; qed"),
+				&net_config.network_config.default_peers_set,
+				network_metrics,
+				Arc::clone(&peer_store_handle),
+			);
+
+		// Split warp sync params into warp sync config and a channel to retrieve target block
 		// header.
 		let (warp_sync_config, warp_sync_target_block_header_rx) =
 			warp_sync_params.map_or((None, None), |params| {
@@ -442,26 +417,8 @@ where
 		let warp_sync_target_block_header_rx_fused = warp_sync_target_block_header_rx
 			.map_or(futures::future::pending().boxed().fuse(), |rx| rx.boxed().fuse());
 
-		let (block_announce_config, notification_service) = Self::get_block_announce_proto_config(
-			protocol_id,
-			fork_id,
-			roles,
-			client.info().best_number,
-			client.info().best_hash,
-			client
-				.block_hash(Zero::zero())
-				.ok()
-				.flatten()
-				.expect("Genesis block exists; qed"),
-		);
-
-		let chain_sync = ChainSync::new(
-			mode,
-			client.clone(),
-			max_parallel_downloads,
-			max_blocks_per_request,
-			warp_sync_config,
-		)?;
+		// Initialize syncing strategy.
+		let strategy = SyncingStrategy::new(syncing_config, client.clone(), warp_sync_config)?;
 
 		let block_announce_protocol_name = block_announce_config.protocol_name().clone();
 		let (tx, service_rx) = tracing_unbounded("mpsc_chain_sync", 100_000);
@@ -489,7 +446,7 @@ where
 			Self {
 				roles,
 				client,
-				chain_sync,
+				strategy,
 				network_service,
 				peers: HashMap::new(),
 				block_announce_data_cache: LruMap::new(ByLength::new(cache_capacity)),
@@ -513,9 +470,7 @@ where
 				event_streams: Vec::new(),
 				notification_service,
 				tick_timeout,
-				syncing_started: None,
 				peer_store_handle,
-				last_notification_io: Instant::now(),
 				metrics: if let Some(r) = metrics_registry {
 					match Metrics::register(r, is_major_syncing.clone()) {
 						Ok(metrics) => Some(metrics),
@@ -543,37 +498,19 @@ where
 		if let Some(metrics) = &self.metrics {
 			let n = u64::try_from(self.peers.len()).unwrap_or(std::u64::MAX);
 			metrics.peers.set(n);
-
-			let m = self.chain_sync.metrics();
-
-			metrics.fork_targets.set(m.fork_targets.into());
-			metrics.queued_blocks.set(m.queued_blocks.into());
-
-			metrics
-				.justifications
-				.with_label_values(&["pending"])
-				.set(m.justifications.pending_requests.into());
-			metrics
-				.justifications
-				.with_label_values(&["active"])
-				.set(m.justifications.active_requests.into());
-			metrics
-				.justifications
-				.with_label_values(&["failed"])
-				.set(m.justifications.failed_requests.into());
-			metrics
-				.justifications
-				.with_label_values(&["importing"])
-				.set(m.justifications.importing_requests.into());
 		}
+		self.strategy.report_metrics();
 	}
 
-	fn update_peer_info(&mut self, peer_id: &PeerId) {
-		if let Some(info) = self.chain_sync.peer_info(peer_id) {
-			if let Some(ref mut peer) = self.peers.get_mut(peer_id) {
-				peer.info.best_hash = info.best_hash;
-				peer.info.best_number = info.best_number;
-			}
+	fn update_peer_info(
+		&mut self,
+		peer_id: &PeerId,
+		best_hash: B::Hash,
+		best_number: NumberFor<B>,
+	) {
+		if let Some(ref mut peer) = self.peers.get_mut(peer_id) {
+			peer.info.best_hash = best_hash;
+			peer.info.best_number = best_number;
 		}
 	}
 
@@ -585,9 +522,11 @@ where
 		match validation_result {
 			BlockAnnounceValidationResult::Skip { peer_id: _ } => {},
 			BlockAnnounceValidationResult::Process { is_new_best, peer_id, announce } => {
-				self.chain_sync.on_validated_block_announce(is_new_best, peer_id, &announce);
-
-				self.update_peer_info(&peer_id);
+				if let Some((best_hash, best_number)) =
+					self.strategy.on_validated_block_announce(is_new_best, peer_id, &announce)
+				{
+					self.update_peer_info(&peer_id, best_hash, best_number);
+				}
 
 				if let Some(data) = announce.data {
 					if !data.is_empty() {
@@ -677,15 +616,12 @@ where
 					data: Some(data.clone()),
 				};
 
-				self.last_notification_io = Instant::now();
 				let _ = self.notification_service.send_sync_notification(peer_id, message.encode());
 			}
 		}
 	}
 
 	pub async fn run(mut self) {
-		self.syncing_started = Some(Instant::now());
-
 		loop {
 			tokio::select! {
 				_ = self.tick_timeout.tick() => self.perform_periodic_actions(),
@@ -695,8 +631,17 @@ where
 					Some(event) => self.process_notification_event(event),
 					None => return,
 				},
-				warp_target_block_header = &mut self.warp_sync_target_block_header_rx_fused =>
-					self.pass_warp_sync_target_block_header(warp_target_block_header),
+				// TODO: setting of warp sync target block should be moved to the initialization of
+				// `SyncingEngine`, see https://github.com/paritytech/polkadot-sdk/issues/3537.
+				warp_target_block_header = &mut self.warp_sync_target_block_header_rx_fused => {
+					if let Err(_) = self.pass_warp_sync_target_block_header(warp_target_block_header) {
+						error!(
+							target: LOG_TARGET,
+							"Failed to set warp sync target block header, terminating `SyncingEngine`.",
+						);
+						return
+					}
+				},
 				response_event = self.pending_responses.select_next_some() =>
 					self.process_response_event(response_event),
 				validation_result = self.block_announce_validator.select_next_some() =>
@@ -705,137 +650,128 @@ where
 
 			// Update atomic variables
 			self.num_connected.store(self.peers.len(), Ordering::Relaxed);
-			self.is_major_syncing
-				.store(self.chain_sync.status().state.is_major_syncing(), Ordering::Relaxed);
+			self.is_major_syncing.store(self.strategy.is_major_syncing(), Ordering::Relaxed);
 
-			// Process actions requested by `ChainSync`.
-			self.process_chain_sync_actions();
+			// Process actions requested by a syncing strategy.
+			if let Err(e) = self.process_strategy_actions() {
+				error!(
+					target: LOG_TARGET,
+					"Terminating `SyncingEngine` due to fatal error: {e:?}.",
+				);
+				return
+			}
 		}
 	}
 
-	fn process_chain_sync_actions(&mut self) {
-		self.chain_sync.actions().for_each(|action| match action {
-			ChainSyncAction::SendBlockRequest { peer_id, request } => {
-				// Sending block request implies dropping obsolete pending response as we are not
-				// interested in it anymore (see [`ChainSyncAction::SendBlockRequest`]).
-				// Furthermore, only one request at a time is allowed to any peer.
-				let removed = self.pending_responses.remove(&peer_id);
-				self.send_block_request(peer_id, request.clone());
+	fn process_strategy_actions(&mut self) -> Result<(), ClientError> {
+		for action in self.strategy.actions()? {
+			match action {
+				SyncingAction::SendBlockRequest { peer_id, key, request } => {
+					// Sending block request implies dropping obsolete pending response as we are
+					// not interested in it anymore (see [`SyncingAction::SendBlockRequest`]).
+					let removed = self.pending_responses.remove(peer_id, key);
+					self.send_block_request(peer_id, key, request.clone());
 
-				trace!(
-					target: LOG_TARGET,
-					"Processed `ChainSyncAction::SendBlockRequest` to {} with {:?}, stale response removed: {}.",
-					peer_id,
-					request,
-					removed,
-				)
-			},
-			ChainSyncAction::CancelBlockRequest { peer_id } => {
-				let removed = self.pending_responses.remove(&peer_id);
+					if removed {
+						warn!(
+							target: LOG_TARGET,
+							"Processed `ChainSyncAction::SendBlockRequest` to {} from {:?} with {:?}. \
+							 Stale response removed!",
+							peer_id,
+							key,
+							request,
+						)
+					} else {
+						trace!(
+							target: LOG_TARGET,
+							"Processed `ChainSyncAction::SendBlockRequest` to {} from {:?} with {:?}.",
+							peer_id,
+							key,
+							request,
+						)
+					}
+				},
+				SyncingAction::CancelRequest { peer_id, key } => {
+					let removed = self.pending_responses.remove(peer_id, key);
 
-				trace!(target: LOG_TARGET, "Processed {action:?}, response removed: {removed}.");
-			},
-			ChainSyncAction::SendStateRequest { peer_id, request } => {
-				self.send_state_request(peer_id, request);
+					trace!(
+						target: LOG_TARGET,
+						"Processed {action:?}, response removed: {removed}.",
+					);
+				},
+				SyncingAction::SendStateRequest { peer_id, key, request } => {
+					self.send_state_request(peer_id, key, request);
 
-				trace!(
-					target: LOG_TARGET,
-					"Processed `ChainSyncAction::SendBlockRequest` to {peer_id}.",
-				);
-			},
-			ChainSyncAction::SendWarpProofRequest { peer_id, request } => {
-				self.send_warp_proof_request(peer_id, request.clone());
+					trace!(
+						target: LOG_TARGET,
+						"Processed `ChainSyncAction::SendStateRequest` to {peer_id}.",
+					);
+				},
+				SyncingAction::SendWarpProofRequest { peer_id, key, request } => {
+					self.send_warp_proof_request(peer_id, key, request.clone());
 
-				trace!(
-					target: LOG_TARGET,
-					"Processed `ChainSyncAction::SendWarpProofRequest` to {}, request: {:?}.",
-					peer_id,
-					request,
-				);
-			},
-			ChainSyncAction::DropPeer(BadPeer(peer_id, rep)) => {
-				self.pending_responses.remove(&peer_id);
-				self.network_service
-					.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
-				self.network_service.report_peer(peer_id, rep);
+					trace!(
+						target: LOG_TARGET,
+						"Processed `ChainSyncAction::SendWarpProofRequest` to {}, request: {:?}.",
+						peer_id,
+						request,
+					);
+				},
+				SyncingAction::DropPeer(BadPeer(peer_id, rep)) => {
+					self.pending_responses.remove_all(&peer_id);
+					self.network_service
+						.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
+					self.network_service.report_peer(peer_id, rep);
 
-				trace!(target: LOG_TARGET, "Processed {action:?}.");
-			},
-			ChainSyncAction::ImportBlocks { origin, blocks } => {
-				let count = blocks.len();
-				self.import_blocks(origin, blocks);
+					trace!(target: LOG_TARGET, "{peer_id:?} dropped: {rep:?}.");
+				},
+				SyncingAction::ImportBlocks { origin, blocks } => {
+					let count = blocks.len();
+					self.import_blocks(origin, blocks);
 
-				trace!(
-					target: LOG_TARGET,
-					"Processed `ChainSyncAction::ImportBlocks` with {count} blocks.",
-				);
-			},
-			ChainSyncAction::ImportJustifications { peer_id, hash, number, justifications } => {
-				self.import_justifications(peer_id, hash, number, justifications);
+					trace!(
+						target: LOG_TARGET,
+						"Processed `ChainSyncAction::ImportBlocks` with {count} blocks.",
+					);
+				},
+				SyncingAction::ImportJustifications { peer_id, hash, number, justifications } => {
+					self.import_justifications(peer_id, hash, number, justifications);
 
-				trace!(
-					target: LOG_TARGET,
-					"Processed `ChainSyncAction::ImportJustifications` from peer {} for block {} ({}).",
-					peer_id,
-					hash,
-					number,
-				)
-			},
-		});
+					trace!(
+						target: LOG_TARGET,
+						"Processed `ChainSyncAction::ImportJustifications` from peer {} for block {} ({}).",
+						peer_id,
+						hash,
+						number,
+					)
+				},
+				// Nothing to do, this is handled internally by `SyncingStrategy`.
+				SyncingAction::Finished => {},
+			}
+		}
+
+		Ok(())
 	}
 
 	fn perform_periodic_actions(&mut self) {
 		self.report_metrics();
-
-		// if `SyncingEngine` has just started, don't evict seemingly inactive peers right away
-		// as they may not have produced blocks not because they've disconnected but because
-		// they're still waiting to receive enough relaychain blocks to start producing blocks.
-		if let Some(started) = self.syncing_started {
-			if started.elapsed() < INITIAL_EVICTION_WAIT_PERIOD {
-				return
-			}
-
-			self.syncing_started = None;
-			self.last_notification_io = Instant::now();
-		}
-
-		// if syncing hasn't sent or received any blocks within `INACTIVITY_EVICT_THRESHOLD`,
-		// it means the local node has stalled and is connected to peers who either don't
-		// consider it connected or are also all stalled. In order to unstall the node,
-		// disconnect all peers and allow `ProtocolController` to establish new connections.
-		if self.last_notification_io.elapsed() > INACTIVITY_EVICT_THRESHOLD {
-			log::debug!(
-				target: LOG_TARGET,
-				"syncing has halted due to inactivity, evicting all peers",
-			);
-
-			for peer in self.peers.keys() {
-				self.network_service.report_peer(*peer, rep::INACTIVE_SUBSTREAM);
-				self.network_service
-					.disconnect_peer(*peer, self.block_announce_protocol_name.clone());
-			}
-
-			// after all the peers have been evicted, start timer again to prevent evicting
-			// new peers that join after the old peer have been evicted
-			self.last_notification_io = Instant::now();
-		}
 	}
 
 	fn process_service_command(&mut self, command: ToServiceCommand<B>) {
 		match command {
 			ToServiceCommand::SetSyncForkRequest(peers, hash, number) => {
-				self.chain_sync.set_sync_fork_request(peers, &hash, number);
+				self.strategy.set_sync_fork_request(peers, &hash, number);
 			},
 			ToServiceCommand::EventStream(tx) => self.event_streams.push(tx),
 			ToServiceCommand::RequestJustification(hash, number) =>
-				self.chain_sync.request_justification(&hash, number),
+				self.strategy.request_justification(&hash, number),
 			ToServiceCommand::ClearJustificationRequests =>
-				self.chain_sync.clear_justification_requests(),
+				self.strategy.clear_justification_requests(),
 			ToServiceCommand::BlocksProcessed(imported, count, results) => {
-				self.chain_sync.on_blocks_processed(imported, count, results);
+				self.strategy.on_blocks_processed(imported, count, results);
 			},
 			ToServiceCommand::JustificationImported(peer_id, hash, number, success) => {
-				self.chain_sync.on_justification_import(hash, number, success);
+				self.strategy.on_justification_import(hash, number, success);
 				if !success {
 					log::info!(
 						target: LOG_TARGET,
@@ -849,9 +785,9 @@ where
 			},
 			ToServiceCommand::AnnounceBlock(hash, data) => self.announce_block(hash, data),
 			ToServiceCommand::NewBestBlockImported(hash, number) => {
-				log::debug!(target: "sync", "New best block imported {:?}/#{}", hash, number);
+				log::debug!(target: LOG_TARGET, "New best block imported {:?}/#{}", hash, number);
 
-				self.chain_sync.update_chain_info(&hash, number);
+				self.strategy.update_chain_info(&hash, number);
 				let _ = self.notification_service.try_set_handshake(
 					BlockAnnouncesHandshake::<B>::build(
 						self.roles,
@@ -863,7 +799,7 @@ where
 				);
 			},
 			ToServiceCommand::Status(tx) => {
-				let mut status = self.chain_sync.status();
+				let mut status = self.strategy.status();
 				status.num_connected_peers = self.peers.len() as u32;
 				let _ = tx.send(status);
 			},
@@ -871,22 +807,22 @@ where
 				let _ = tx.send(self.num_active_peers());
 			},
 			ToServiceCommand::SyncState(tx) => {
-				let _ = tx.send(self.chain_sync.status());
+				let _ = tx.send(self.strategy.status());
 			},
 			ToServiceCommand::BestSeenBlock(tx) => {
-				let _ = tx.send(self.chain_sync.status().best_seen_block);
+				let _ = tx.send(self.strategy.status().best_seen_block);
 			},
 			ToServiceCommand::NumSyncPeers(tx) => {
-				let _ = tx.send(self.chain_sync.status().num_peers);
+				let _ = tx.send(self.strategy.status().num_peers);
 			},
 			ToServiceCommand::NumQueuedBlocks(tx) => {
-				let _ = tx.send(self.chain_sync.status().queued_blocks);
+				let _ = tx.send(self.strategy.status().queued_blocks);
 			},
 			ToServiceCommand::NumDownloadedBlocks(tx) => {
-				let _ = tx.send(self.chain_sync.num_downloaded_blocks());
+				let _ = tx.send(self.strategy.num_downloaded_blocks());
 			},
 			ToServiceCommand::NumSyncRequests(tx) => {
-				let _ = tx.send(self.chain_sync.num_sync_requests());
+				let _ = tx.send(self.strategy.num_sync_requests());
 			},
 			ToServiceCommand::PeersInfo(tx) => {
 				let peers_info = self
@@ -897,7 +833,7 @@ where
 				let _ = tx.send(peers_info);
 			},
 			ToServiceCommand::OnBlockFinalized(hash, header) =>
-				self.chain_sync.on_block_finalized(&hash, *header.number()),
+				self.strategy.on_block_finalized(&hash, *header.number()),
 		}
 	}
 
@@ -953,22 +889,23 @@ where
 					return
 				};
 
-				self.last_notification_io = Instant::now();
 				self.push_block_announce_validation(peer, announce);
 			},
 		}
 	}
 
-	fn pass_warp_sync_target_block_header(&mut self, header: Result<B::Header, oneshot::Canceled>) {
+	fn pass_warp_sync_target_block_header(
+		&mut self,
+		header: Result<B::Header, oneshot::Canceled>,
+	) -> Result<(), ()> {
 		match header {
-			Ok(header) => {
-				self.chain_sync.set_warp_sync_target_block(header);
-			},
+			Ok(header) => self.strategy.set_warp_sync_target_block_header(header),
 			Err(err) => {
-				log::error!(
+				error!(
 					target: LOG_TARGET,
 					"Failed to get target block for warp sync. Error: {err:?}",
 				);
+				Err(())
 			},
 		}
 	}
@@ -1005,8 +942,8 @@ where
 			}
 		}
 
-		self.chain_sync.peer_disconnected(&peer_id);
-		self.pending_responses.remove(&peer_id);
+		self.strategy.remove_peer(&peer_id);
+		self.pending_responses.remove_all(&peer_id);
 		self.event_streams
 			.retain(|stream| stream.unbounded_send(SyncEvent::PeerDisconnected(peer_id)).is_ok());
 	}
@@ -1061,7 +998,7 @@ where
 	// still be under validation. If the peer has different genesis than the
 	// local node the validation fails but the peer cannot be reported in
 	// `validate_connection()` as that is also called by
-	// `ValiateInboundSubstream` which means that the peer is still being
+	// `ValidateInboundSubstream` which means that the peer is still being
 	// validated and banning the peer when handling that event would
 	// result in peer getting dropped twice.
 	//
@@ -1091,7 +1028,7 @@ where
 		let this_peer_reserved_slot: usize = if no_slot_peer { 1 } else { 0 };
 
 		if handshake.roles.is_full() &&
-			self.chain_sync.num_peers() >=
+			self.strategy.num_peers() >=
 				self.default_peers_set_num_full +
 					self.default_peers_set_no_slot_connected_peers.len() +
 					this_peer_reserved_slot
@@ -1115,7 +1052,7 @@ where
 		// `ChainSync` only accepts full peers whereas `SyncingEngine` accepts both full and light
 		// peers. Verify that there is a slot in `SyncingEngine` for the inbound light peer
 		if handshake.roles.is_light() &&
-			(self.peers.len() - self.chain_sync.num_peers()) >= self.default_peers_set_num_light
+			(self.peers.len() - self.strategy.num_peers()) >= self.default_peers_set_num_light
 		{
 			log::debug!(target: LOG_TARGET, "Too many light nodes, rejecting {peer_id}");
 			return Err(false)
@@ -1149,7 +1086,10 @@ where
 			inbound: direction.is_inbound(),
 		};
 
-		self.chain_sync.new_peer(peer_id, peer.info.best_hash, peer.info.best_number);
+		// Only forward full peers to syncing strategy.
+		if status.roles.is_full() {
+			self.strategy.add_peer(peer_id, peer.info.best_hash, peer.info.best_number);
+		}
 
 		log::debug!(target: LOG_TARGET, "Connected {peer_id}");
 
@@ -1168,7 +1108,7 @@ where
 		Ok(())
 	}
 
-	fn send_block_request(&mut self, peer_id: PeerId, request: BlockRequest<B>) {
+	fn send_block_request(&mut self, peer_id: PeerId, key: StrategyKey, request: BlockRequest<B>) {
 		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send block request to unknown peer {peer_id}");
 			debug_assert!(false);
@@ -1179,12 +1119,18 @@ where
 
 		self.pending_responses.insert(
 			peer_id,
+			key,
 			PeerRequest::Block(request.clone()),
 			async move { downloader.download_blocks(peer_id, request).await }.boxed(),
 		);
 	}
 
-	fn send_state_request(&mut self, peer_id: PeerId, request: OpaqueStateRequest) {
+	fn send_state_request(
+		&mut self,
+		peer_id: PeerId,
+		key: StrategyKey,
+		request: OpaqueStateRequest,
+	) {
 		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send state request to unknown peer {peer_id}");
 			debug_assert!(false);
@@ -1193,7 +1139,7 @@ where
 
 		let (tx, rx) = oneshot::channel();
 
-		self.pending_responses.insert(peer_id, PeerRequest::State, rx.boxed());
+		self.pending_responses.insert(peer_id, key, PeerRequest::State, rx.boxed());
 
 		match Self::encode_state_request(&request) {
 			Ok(data) => {
@@ -1214,7 +1160,12 @@ where
 		}
 	}
 
-	fn send_warp_proof_request(&mut self, peer_id: PeerId, request: WarpProofRequest<B>) {
+	fn send_warp_proof_request(
+		&mut self,
+		peer_id: PeerId,
+		key: StrategyKey,
+		request: WarpProofRequest<B>,
+	) {
 		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send warp proof request to unknown peer {peer_id}");
 			debug_assert!(false);
@@ -1223,7 +1174,7 @@ where
 
 		let (tx, rx) = oneshot::channel();
 
-		self.pending_responses.insert(peer_id, PeerRequest::WarpProof, rx.boxed());
+		self.pending_responses.insert(peer_id, key, PeerRequest::WarpProof, rx.boxed());
 
 		match &self.warp_sync_protocol_name {
 			Some(name) => self.network_service.start_request(
@@ -1260,14 +1211,14 @@ where
 	}
 
 	fn process_response_event(&mut self, response_event: ResponseEvent<B>) {
-		let ResponseEvent { peer_id, request, response } = response_event;
+		let ResponseEvent { peer_id, key, request, response } = response_event;
 
 		match response {
-			Ok(Ok(resp)) => match request {
+			Ok(Ok((resp, _))) => match request {
 				PeerRequest::Block(req) => {
 					match self.block_downloader.block_response_into_blocks(&req, resp) {
 						Ok(blocks) => {
-							self.chain_sync.on_block_response(peer_id, req, blocks);
+							self.strategy.on_block_response(peer_id, key, req, blocks);
 						},
 						Err(BlockResponseError::DecodeFailed(e)) => {
 							debug!(
@@ -1312,10 +1263,10 @@ where
 						},
 					};
 
-					self.chain_sync.on_state_response(peer_id, response);
+					self.strategy.on_state_response(peer_id, key, response);
 				},
 				PeerRequest::WarpProof => {
-					self.chain_sync.on_warp_sync_response(&peer_id, EncodedProof(resp));
+					self.strategy.on_warp_proof_response(&peer_id, key, EncodedProof(resp));
 				},
 			},
 			Ok(Err(e)) => {
@@ -1375,14 +1326,17 @@ where
 	}
 
 	/// Get config for the block announcement protocol
-	fn get_block_announce_proto_config(
+	fn get_block_announce_proto_config<N: NetworkBackend<B, <B as BlockT>::Hash>>(
 		protocol_id: ProtocolId,
 		fork_id: &Option<String>,
 		roles: Roles,
 		best_number: NumberFor<B>,
 		best_hash: B::Hash,
 		genesis_hash: B::Hash,
-	) -> (NonDefaultSetConfig, Box<dyn NotificationService>) {
+		set_config: &SetConfig,
+		metrics: NotificationMetrics,
+		peer_store_handle: Arc<dyn PeerStoreProvider>,
+	) -> (N::NotificationProtocolConfig, Box<dyn NotificationService>) {
 		let block_announces_protocol = {
 			let genesis_hash = genesis_hash.as_ref();
 			if let Some(ref fork_id) = fork_id {
@@ -1396,7 +1350,7 @@ where
 			}
 		};
 
-		NonDefaultSetConfig::new(
+		N::notification_config(
 			block_announces_protocol.into(),
 			iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into()).collect(),
 			MAX_BLOCK_ANNOUNCE_SIZE,
@@ -1406,14 +1360,9 @@ where
 				best_hash,
 				genesis_hash,
 			))),
-			// NOTE: `set_config` will be ignored by `protocol.rs` as the block announcement
-			// protocol is still hardcoded into the peerset.
-			SetConfig {
-				in_peers: 0,
-				out_peers: 0,
-				reserved_nodes: Vec::new(),
-				non_reserved_mode: NonReservedPeerMode::Deny,
-			},
+			set_config.clone(),
+			metrics,
+			peer_store_handle,
 		)
 	}
 

@@ -24,8 +24,8 @@ use frame_support::{
 		BalanceStatus::{Free, Reserved},
 		Currency,
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
-		Hooks, LockIdentifier, LockableCurrency, NamedReservableCurrency, ReservableCurrency,
-		WithdrawReasons,
+		Hooks, InspectLockableCurrency, LockIdentifier, LockableCurrency, NamedReservableCurrency,
+		ReservableCurrency, WithdrawReasons,
 	},
 	StorageNoopGuard,
 };
@@ -86,6 +86,24 @@ fn basic_locking_should_work() {
 				TokenError::Frozen
 			);
 		});
+}
+
+#[test]
+fn inspect_lock_should_work() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			Balances::set_lock(ID_1, &1, 10, WithdrawReasons::all());
+			Balances::set_lock(ID_2, &1, 10, WithdrawReasons::all());
+			Balances::set_lock(ID_1, &2, 20, WithdrawReasons::all());
+
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::balance_locked(ID_1, &1), 10);
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::balance_locked(ID_2, &1), 10);
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::balance_locked(ID_1, &2), 20);
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::balance_locked(ID_2, &2), 0);
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::balance_locked(ID_1, &3), 0);
+		})
 }
 
 #[test]
@@ -381,10 +399,13 @@ fn reward_should_work() {
 	ExtBuilder::default().monied(true).build_and_execute_with(|| {
 		assert_eq!(Balances::total_balance(&1), 10);
 		assert_ok!(Balances::deposit_into_existing(&1, 10).map(drop));
-		System::assert_last_event(RuntimeEvent::Balances(crate::Event::Deposit {
-			who: 1,
-			amount: 10,
-		}));
+		assert_eq!(
+			events(),
+			[
+				RuntimeEvent::Balances(crate::Event::Deposit { who: 1, amount: 10 }),
+				RuntimeEvent::Balances(crate::Event::Issued { amount: 10 }),
+			]
+		);
 		assert_eq!(Balances::total_balance(&1), 20);
 		assert_eq!(Balances::total_issuance(), 120);
 	});
@@ -462,7 +483,7 @@ fn withdrawing_balance_should_work() {
 		let _ = Balances::deposit_creating(&2, 111);
 		let _ =
 			Balances::withdraw(&2, 11, WithdrawReasons::TRANSFER, ExistenceRequirement::KeepAlive);
-		System::assert_last_event(RuntimeEvent::Balances(crate::Event::Withdraw {
+		System::assert_has_event(RuntimeEvent::Balances(crate::Event::Withdraw {
 			who: 2,
 			amount: 11,
 		}));
@@ -683,7 +704,7 @@ fn account_removal_on_free_too_low() {
 fn burn_must_work() {
 	ExtBuilder::default().monied(true).build_and_execute_with(|| {
 		let init_total_issuance = Balances::total_issuance();
-		let imbalance = Balances::burn(10);
+		let imbalance = <Balances as Currency<_>>::burn(10);
 		assert_eq!(Balances::total_issuance(), init_total_issuance - 10);
 		drop(imbalance);
 		assert_eq!(Balances::total_issuance(), init_total_issuance);
@@ -871,6 +892,7 @@ fn emit_events_with_existential_deposit() {
 			[
 				RuntimeEvent::System(system::Event::NewAccount { account: 1 }),
 				RuntimeEvent::Balances(crate::Event::Endowed { account: 1, free_balance: 100 }),
+				RuntimeEvent::Balances(crate::Event::Issued { amount: 100 }),
 				RuntimeEvent::Balances(crate::Event::BalanceSet { who: 1, free: 100 }),
 			]
 		);
@@ -884,6 +906,7 @@ fn emit_events_with_existential_deposit() {
 				RuntimeEvent::System(system::Event::KilledAccount { account: 1 }),
 				RuntimeEvent::Balances(crate::Event::DustLost { account: 1, amount: 99 }),
 				RuntimeEvent::Balances(crate::Event::Slashed { who: 1, amount: 1 }),
+				RuntimeEvent::Balances(crate::Event::Rescinded { amount: 1 }),
 			]
 		);
 	});
@@ -900,6 +923,7 @@ fn emit_events_with_no_existential_deposit_suicide() {
 				RuntimeEvent::Balances(crate::Event::BalanceSet { who: 1, free: 100 }),
 				RuntimeEvent::System(system::Event::NewAccount { account: 1 }),
 				RuntimeEvent::Balances(crate::Event::Endowed { account: 1, free_balance: 100 }),
+				RuntimeEvent::Balances(crate::Event::Issued { amount: 100 }),
 			]
 		);
 
@@ -911,6 +935,7 @@ fn emit_events_with_no_existential_deposit_suicide() {
 			[
 				RuntimeEvent::System(system::Event::KilledAccount { account: 1 }),
 				RuntimeEvent::Balances(crate::Event::Slashed { who: 1, amount: 100 }),
+				RuntimeEvent::Balances(crate::Event::Rescinded { amount: 100 }),
 			]
 		);
 	});
@@ -936,7 +961,7 @@ fn slash_full_works() {
 		assert_eq!(Balances::slash(&1, 1_000), (NegativeImbalance::new(1000), 0));
 		// Account is still alive
 		assert!(!System::account_exists(&1));
-		System::assert_last_event(RuntimeEvent::Balances(crate::Event::Slashed {
+		System::assert_has_event(RuntimeEvent::Balances(crate::Event::Slashed {
 			who: 1,
 			amount: 1000,
 		}));
@@ -951,7 +976,7 @@ fn slash_partial_works() {
 		assert_eq!(Balances::slash(&1, 900), (NegativeImbalance::new(900), 0));
 		// Account is still alive
 		assert!(System::account_exists(&1));
-		System::assert_last_event(RuntimeEvent::Balances(crate::Event::Slashed {
+		System::assert_has_event(RuntimeEvent::Balances(crate::Event::Slashed {
 			who: 1,
 			amount: 900,
 		}));
@@ -965,7 +990,7 @@ fn slash_dusting_works() {
 		// Slashed completed in full
 		assert_eq!(Balances::slash(&1, 950), (NegativeImbalance::new(950), 0));
 		assert!(!System::account_exists(&1));
-		System::assert_last_event(RuntimeEvent::Balances(crate::Event::Slashed {
+		System::assert_has_event(RuntimeEvent::Balances(crate::Event::Slashed {
 			who: 1,
 			amount: 950,
 		}));
@@ -980,7 +1005,7 @@ fn slash_does_not_take_from_reserve() {
 		// Slashed completed in full
 		assert_eq!(Balances::slash(&1, 900), (NegativeImbalance::new(800), 100));
 		assert_eq!(Balances::reserved_balance(&1), 100);
-		System::assert_last_event(RuntimeEvent::Balances(crate::Event::Slashed {
+		System::assert_has_event(RuntimeEvent::Balances(crate::Event::Slashed {
 			who: 1,
 			amount: 800,
 		}));
@@ -1024,7 +1049,7 @@ fn slash_consumed_slash_partial_works() {
 }
 
 #[test]
-fn slash_on_non_existant_works() {
+fn slash_on_non_existent_works() {
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
 		// Slash on non-existent account is okay.
 		assert_eq!(Balances::slash(&12345, 1_300), (NegativeImbalance::new(0), 1300));
@@ -1071,7 +1096,7 @@ fn slash_reserved_overslash_does_not_touch_free_balance() {
 }
 
 #[test]
-fn slash_reserved_on_non_existant_works() {
+fn slash_reserved_on_non_existent_works() {
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
 		// Slash on non-existent account is okay.
 		assert_eq!(Balances::slash_reserved(&12345, 1_300), (NegativeImbalance::new(0), 1300));
@@ -1381,6 +1406,7 @@ fn self_transfer_noop() {
 				Event::Deposit { who: 1, amount: 100 }.into(),
 				SysEvent::NewAccount { account: 1 }.into(),
 				Event::Endowed { account: 1, free_balance: 100 }.into(),
+				Event::Issued { amount: 100 }.into(),
 			]
 		);
 		assert_eq!(Balances::free_balance(1), 100);

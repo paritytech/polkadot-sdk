@@ -496,7 +496,7 @@ frame_benchmarking::benchmarks! {
 				let (_, stake, _) = voters[*idx];
 				stake
 			}).unwrap_or_default();
-			sp_std::cmp::Reverse(stake)
+			core::cmp::Reverse(stake)
 		});
 
 		let mut index_assignments = assignments

@@ -33,6 +33,9 @@ mod benchmarking;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::GetDispatchInfo,
@@ -47,7 +50,6 @@ use sp_runtime::{
 	traits::{Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
 	DispatchError, DispatchResult, RuntimeDebug,
 };
-use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 type CallHashOf<T> = <<T as Config>::CallHasher as Hash>::Output;
@@ -119,7 +121,7 @@ pub mod pallet {
 		/// The currency mechanism.
 		type Currency: ReservableCurrency<Self::AccountId>;
 
-		/// A kind of proxy; specified with the proxy and passed in to the `IsProxyable` fitler.
+		/// A kind of proxy; specified with the proxy and passed in to the `IsProxyable` filter.
 		/// The instance filter determines whether a given call may be proxied under this type.
 		///
 		/// IMPORTANT: `Default` must be provided and MUST BE the the *most permissive* value.

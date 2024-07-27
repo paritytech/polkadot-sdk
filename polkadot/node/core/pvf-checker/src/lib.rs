@@ -49,29 +49,24 @@ use self::{
 
 /// PVF pre-checking subsystem.
 pub struct PvfCheckerSubsystem {
-	enabled: bool,
 	keystore: KeystorePtr,
 	metrics: Metrics,
 }
 
 impl PvfCheckerSubsystem {
-	pub fn new(enabled: bool, keystore: KeystorePtr, metrics: Metrics) -> Self {
-		PvfCheckerSubsystem { enabled, keystore, metrics }
+	pub fn new(keystore: KeystorePtr, metrics: Metrics) -> Self {
+		PvfCheckerSubsystem { keystore, metrics }
 	}
 }
 
 #[overseer::subsystem(PvfChecker, error=SubsystemError, prefix = self::overseer)]
 impl<Context> PvfCheckerSubsystem {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		if self.enabled {
-			let future = run(ctx, self.keystore, self.metrics)
-				.map_err(|e| SubsystemError::with_origin("pvf-checker", e))
-				.boxed();
+		let future = run(ctx, self.keystore, self.metrics)
+			.map_err(|e| SubsystemError::with_origin("pvf-checker", e))
+			.boxed();
 
-			SpawnedSubsystem { name: "pvf-checker-subsystem", future }
-		} else {
-			polkadot_overseer::DummySubsystem.start(ctx)
-		}
+		SpawnedSubsystem { name: "pvf-checker-subsystem", future }
 	}
 }
 
@@ -420,7 +415,7 @@ async fn check_signing_credentials(
 			gum::warn!(
 				target: LOG_TARGET,
 				relay_parent = ?leaf,
-				"error occured during requesting validators: {:?}",
+				"error occurred during requesting validators: {:?}",
 				e
 			);
 			return None
@@ -513,7 +508,7 @@ async fn sign_and_submit_pvf_check_statement(
 				target: LOG_TARGET,
 				?relay_parent,
 				?validation_code_hash,
-				"error occured during submitting a vote: {:?}",
+				"error occurred during submitting a vote: {:?}",
 				e,
 			);
 		},

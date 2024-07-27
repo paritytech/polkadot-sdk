@@ -24,11 +24,12 @@ use crate::{
 	BoundedSupportsOf, Debug, ElectionDataProvider, ElectionProvider, ElectionProviderBase,
 	InstantElectionProvider, NposSolver, WeightInfo,
 };
+use alloc::collections::btree_map::BTreeMap;
+use core::marker::PhantomData;
 use frame_support::{dispatch::DispatchClass, traits::Get};
 use sp_npos_elections::{
 	assignment_ratio_to_staked_normalized, to_supports, BoundedSupports, ElectionResult, VoteWeight,
 };
-use sp_std::{collections::btree_map::BTreeMap, marker::PhantomData, prelude::*};
 
 /// Errors of the on-chain election.
 #[derive(Eq, PartialEq, Debug)]
@@ -194,13 +195,12 @@ mod tests {
 	pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 
 	frame_support::construct_runtime!(
-		pub struct Runtime
-		{
-			System: frame_system::{Pallet, Call, Event<T>},
+		pub enum Runtime {
+			System: frame_system,
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
 		type SS58Prefix = ();
 		type BaseCallFilter = frame_support::traits::Everything;

@@ -25,7 +25,6 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
-use sp_std::prelude::*;
 
 #[frame_support::pallet]
 mod pallet_test {
@@ -80,12 +79,12 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		TestPallet: pallet_test::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		TestPallet: pallet_test,
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -131,7 +130,6 @@ mod benchmarks {
 	use crate::account;
 	use frame_support::ensure;
 	use frame_system::RawOrigin;
-	use sp_std::prelude::*;
 
 	// Additional used internally by the benchmark macro.
 	use super::pallet_test::{Call, Config, Pallet};

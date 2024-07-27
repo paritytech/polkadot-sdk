@@ -20,8 +20,8 @@ use super::*;
 
 use always_assert::never;
 use bytes::Bytes;
+use codec::{Decode, DecodeAll};
 use net_protocol::filter_by_peer_version;
-use parity_scale_codec::{Decode, DecodeAll};
 use parking_lot::Mutex;
 
 use sc_network::{
@@ -37,8 +37,8 @@ use polkadot_node_network_protocol::{
 		CollationVersion, PeerSet, PeerSetProtocolNames, PerPeerSet, ProtocolVersion,
 		ValidationVersion,
 	},
-	v1 as protocol_v1, v2 as protocol_v2, vstaging as protocol_vstaging, ObservedRole, OurView,
-	PeerId, UnifiedReputationChange as Rep, View,
+	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, ObservedRole, OurView, PeerId,
+	UnifiedReputationChange as Rep, View,
 };
 
 use polkadot_node_subsystem::{
@@ -53,11 +53,6 @@ use polkadot_node_subsystem::{
 
 use polkadot_primitives::{AuthorityDiscoveryId, BlockNumber, Hash, ValidatorIndex};
 
-/// Peer set info for network initialization.
-///
-/// To be passed to [`FullNetworkConfiguration::add_notification_protocol`]().
-pub use polkadot_node_network_protocol::peer_set::{peer_sets_info, IsAuthority};
-
 use std::{
 	collections::{hash_map, HashMap},
 	iter::ExactSizeIterator,
@@ -70,7 +65,7 @@ use super::validator_discovery;
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
 use crate::network::{
 	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
-	send_validation_message_v2, send_validation_message_vstaging, Network,
+	send_validation_message_v2, send_validation_message_v3, Network,
 };
 use crate::{network::get_peer_id_by_authority_id, WireMessage};
 
@@ -267,7 +262,6 @@ async fn handle_validation_message<AD>(
 				}
 
 				metrics.on_peer_connected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
 
 				shared.local_view.clone().unwrap_or(View::default())
 			};
@@ -294,9 +288,9 @@ async fn handle_validation_message<AD>(
 					metrics,
 					notification_sinks,
 				),
-				ValidationVersion::VStaging => send_validation_message_vstaging(
+				ValidationVersion::V3 => send_validation_message_v3(
 					vec![peer],
-					WireMessage::<protocol_vstaging::ValidationProtocol>::ViewUpdate(local_view),
+					WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(local_view),
 					metrics,
 					notification_sinks,
 				),
@@ -325,8 +319,6 @@ async fn handle_validation_message<AD>(
 				let w = peer_map.remove(&peer).is_some();
 
 				metrics.on_peer_disconnected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
-
 				w
 			};
 
@@ -360,48 +352,47 @@ async fn handle_validation_message<AD>(
 				?peer,
 			);
 
-			let (events, reports) =
-				if expected_versions[PeerSet::Validation] == Some(ValidationVersion::V1.into()) {
-					handle_peer_messages::<protocol_v1::ValidationProtocol, _>(
-						peer,
-						PeerSet::Validation,
-						&mut shared.0.lock().validation_peers,
-						vec![notification.into()],
-						metrics,
-					)
-				} else if expected_versions[PeerSet::Validation] ==
-					Some(ValidationVersion::V2.into())
-				{
-					handle_peer_messages::<protocol_v2::ValidationProtocol, _>(
-						peer,
-						PeerSet::Validation,
-						&mut shared.0.lock().validation_peers,
-						vec![notification.into()],
-						metrics,
-					)
-				} else if expected_versions[PeerSet::Validation] ==
-					Some(ValidationVersion::VStaging.into())
-				{
-					handle_peer_messages::<protocol_vstaging::ValidationProtocol, _>(
-						peer,
-						PeerSet::Validation,
-						&mut shared.0.lock().validation_peers,
-						vec![notification.into()],
-						metrics,
-					)
-				} else {
-					gum::warn!(
-						target: LOG_TARGET,
-						version = ?expected_versions[PeerSet::Validation],
-						"Major logic bug. Peer somehow has unsupported validation protocol version."
-					);
+			let (events, reports) = if expected_versions[PeerSet::Validation] ==
+				Some(ValidationVersion::V1.into())
+			{
+				handle_peer_messages::<protocol_v1::ValidationProtocol, _>(
+					peer,
+					PeerSet::Validation,
+					&mut shared.0.lock().validation_peers,
+					vec![notification.into()],
+					metrics,
+				)
+			} else if expected_versions[PeerSet::Validation] == Some(ValidationVersion::V2.into()) {
+				handle_peer_messages::<protocol_v2::ValidationProtocol, _>(
+					peer,
+					PeerSet::Validation,
+					&mut shared.0.lock().validation_peers,
+					vec![notification.into()],
+					metrics,
+				)
+			} else if expected_versions[PeerSet::Validation] == Some(ValidationVersion::V3.into()) {
+				handle_peer_messages::<protocol_v3::ValidationProtocol, _>(
+					peer,
+					PeerSet::Validation,
+					&mut shared.0.lock().validation_peers,
+					vec![notification.into()],
+					metrics,
+				)
+			} else {
+				gum::warn!(
+					target: LOG_TARGET,
+					version = ?expected_versions[PeerSet::Validation],
+					"Major logic bug. Peer somehow has unsupported validation protocol version."
+				);
 
-					never!("Only versions 1 and 2 are supported; peer set connection checked above; qed");
+				never!(
+					"Only versions 1 and 2 are supported; peer set connection checked above; qed"
+				);
 
-					// If a peer somehow triggers this, we'll disconnect them
-					// eventually.
-					(Vec::new(), vec![UNCONNECTED_PEERSET_COST])
-				};
+				// If a peer somehow triggers this, we'll disconnect them
+				// eventually.
+				(Vec::new(), vec![UNCONNECTED_PEERSET_COST])
+			};
 
 			for report in reports {
 				network_service.report_peer(peer, report.into());
@@ -530,7 +521,6 @@ async fn handle_collation_message<AD>(
 				}
 
 				metrics.on_peer_connected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
 
 				shared.local_view.clone().unwrap_or(View::default())
 			};
@@ -581,7 +571,6 @@ async fn handle_collation_message<AD>(
 				let w = peer_map.remove(&peer).is_some();
 
 				metrics.on_peer_disconnected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
 
 				w
 			};
@@ -838,6 +827,7 @@ where
 							&metrics,
 							&notification_sinks,
 						);
+						note_peers_count(&metrics, &shared);
 					}
 				}
 			},
@@ -980,8 +970,8 @@ fn update_our_view<Context>(
 		filter_by_peer_version(&validation_peers, ValidationVersion::V2.into());
 	let v2_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V2.into());
 
-	let vstaging_validation_peers =
-		filter_by_peer_version(&validation_peers, ValidationVersion::VStaging.into());
+	let v3_validation_peers =
+		filter_by_peer_version(&validation_peers, ValidationVersion::V3.into());
 
 	send_validation_message_v1(
 		v1_validation_peers,
@@ -1011,8 +1001,8 @@ fn update_our_view<Context>(
 		notification_sinks,
 	);
 
-	send_validation_message_vstaging(
-		vstaging_validation_peers,
+	send_validation_message_v3(
+		v3_validation_peers,
 		WireMessage::ViewUpdate(new_view.clone()),
 		metrics,
 		notification_sinks,
@@ -1145,13 +1135,33 @@ async fn dispatch_validation_events_to_all<I>(
 	I: IntoIterator<Item = NetworkBridgeEvent<net_protocol::VersionedValidationProtocol>>,
 	I::IntoIter: Send,
 {
+	macro_rules! send_message {
+		($event:expr, $message:ident) => {
+			if let Ok(event) = $event.focus() {
+				let has_high_priority = matches!(
+					event,
+					// NetworkBridgeEvent::OurViewChange(..) must also be here,
+					// but it is sent via an unbounded channel.
+					// See https://github.com/paritytech/polkadot-sdk/issues/824
+					NetworkBridgeEvent::PeerConnected(..) |
+						NetworkBridgeEvent::PeerDisconnected(..) |
+						NetworkBridgeEvent::PeerViewChange(..)
+				);
+				let message = $message::from(event);
+				if has_high_priority {
+					sender.send_message_with_priority::<overseer::HighPriority>(message).await;
+				} else {
+					sender.send_message(message).await;
+				}
+			}
+		};
+	}
+
 	for event in events {
-		sender
-			.send_messages(event.focus().map(StatementDistributionMessage::from))
-			.await;
-		sender.send_messages(event.focus().map(BitfieldDistributionMessage::from)).await;
-		sender.send_messages(event.focus().map(ApprovalDistributionMessage::from)).await;
-		sender.send_messages(event.focus().map(GossipSupportMessage::from)).await;
+		send_message!(event, StatementDistributionMessage);
+		send_message!(event, BitfieldDistributionMessage);
+		send_message!(event, ApprovalDistributionMessage);
+		send_message!(event, GossipSupportMessage);
 	}
 }
 

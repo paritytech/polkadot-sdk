@@ -18,7 +18,7 @@
 
 //! Console informant. Prints sync progress and block events. Runs on the calling thread.
 
-use ansi_term::Colour;
+use console::style;
 use futures::prelude::*;
 use futures_timer::Delay;
 use log::{debug, info, trace};
@@ -36,30 +36,15 @@ fn interval(duration: Duration) -> impl Stream<Item = ()> + Unpin {
 	futures::stream::unfold((), move |_| Delay::new(duration).map(|_| Some(((), ())))).map(drop)
 }
 
-/// The format to print telemetry output in.
-#[derive(Clone, Debug)]
-pub struct OutputFormat {
-	/// Enable color output in logs.
-	///
-	/// Is enabled by default.
-	pub enable_color: bool,
-}
-
-impl Default for OutputFormat {
-	fn default() -> Self {
-		Self { enable_color: true }
-	}
-}
-
 /// Builds the informant and returns a `Future` that drives the informant.
-pub async fn build<B: BlockT, C, N, S>(client: Arc<C>, network: N, syncing: S, format: OutputFormat)
+pub async fn build<B: BlockT, C, N, S>(client: Arc<C>, network: N, syncing: S)
 where
 	N: NetworkStatusProvider,
 	S: SyncStatusProvider<B>,
 	C: UsageProvider<B> + HeaderMetadata<B> + BlockchainEvents<B>,
 	<C as HeaderMetadata<B>>::Error: Display,
 {
-	let mut display = display::InformantDisplay::new(format.clone());
+	let mut display = display::InformantDisplay::new();
 
 	let client_1 = client.clone();
 
@@ -117,11 +102,11 @@ where
 				match maybe_ancestor {
 					Ok(ref ancestor) if ancestor.hash != *last_hash => info!(
 						"♻️  Reorg on #{},{} to #{},{}, common ancestor #{},{}",
-						Colour::Red.bold().paint(format!("{}", last_num)),
+						style(last_num).red().bold(),
 						last_hash,
-						Colour::Green.bold().paint(format!("{}", n.header.number())),
+						style(n.header.number()).green().bold(),
 						n.hash,
-						Colour::White.bold().paint(format!("{}", ancestor.number)),
+						style(ancestor.number).white().bold(),
 						ancestor.hash,
 					),
 					Ok(_) => {},
@@ -143,10 +128,12 @@ where
 				last_blocks.pop_front();
 			}
 
+			let best_indicator = if n.is_new_best { "🏆" } else { "🆕" };
 			info!(
 				target: "substrate",
-				"✨ Imported #{} ({})",
-				Colour::White.bold().paint(format!("{}", n.header.number())),
+				"{best_indicator} Imported #{} ({} → {})",
+				style(n.header.number()).white().bold(),
+				n.header.parent_hash(),
 				n.hash,
 			);
 		}

@@ -19,12 +19,15 @@ use frame_support::{
 	assert_ok,
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
-	traits::{fungible::Inspect, fungibles::Mutate},
+	traits::{
+		fungible::{Inspect, NativeOrWithId},
+		fungibles::{Inspect as FungiblesInspect, Mutate},
+		tokens::{Fortitude, Precision, Preservation},
+	},
 	weights::Weight,
 };
 use frame_system as system;
 use mock::{ExtrinsicBaseWeight, *};
-use pallet_asset_conversion::NativeOrAssetId;
 use pallet_balances::Call as BalancesCall;
 use sp_runtime::{traits::StaticLookup, BuildStorage};
 
@@ -110,22 +113,32 @@ fn default_post_info() -> PostDispatchInfo {
 
 fn setup_lp(asset_id: u32, balance_factor: u64) {
 	let lp_provider = 5;
+	let ed = Balances::minimum_balance();
+	let ed_asset = Assets::minimum_balance(asset_id);
 	assert_ok!(Balances::force_set_balance(
 		RuntimeOrigin::root(),
 		lp_provider,
-		10_000 * balance_factor
+		10_000 * balance_factor + ed,
 	));
 	let lp_provider_account = <Runtime as system::Config>::Lookup::unlookup(lp_provider);
-	assert_ok!(Assets::mint_into(asset_id.into(), &lp_provider_account, 10_000 * balance_factor));
+	assert_ok!(Assets::mint_into(
+		asset_id.into(),
+		&lp_provider_account,
+		10_000 * balance_factor + ed_asset
+	));
 
-	let token_1 = NativeOrAssetId::Native;
-	let token_2 = NativeOrAssetId::Asset(asset_id);
-	assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(lp_provider), token_1, token_2));
+	let token_1 = NativeOrWithId::Native;
+	let token_2 = NativeOrWithId::WithId(asset_id);
+	assert_ok!(AssetConversion::create_pool(
+		RuntimeOrigin::signed(lp_provider),
+		Box::new(token_1.clone()),
+		Box::new(token_2.clone())
+	));
 
 	assert_ok!(AssetConversion::add_liquidity(
 		RuntimeOrigin::signed(lp_provider),
-		token_1,
-		token_2,
+		Box::new(token_1),
+		Box::new(token_2),
 		1_000 * balance_factor,  // 1 desired
 		10_000 * balance_factor, // 2 desired
 		1,                       // 1 min
@@ -189,6 +202,8 @@ fn transaction_payment_in_asset_possible() {
 		.base_weight(Weight::from_parts(base_weight, 0))
 		.build()
 		.execute_with(|| {
+			System::set_block_number(1);
+
 			// create the asset
 			let asset_id = 1;
 			let min_balance = 2;
@@ -215,8 +230,8 @@ fn transaction_payment_in_asset_possible() {
 
 			let fee_in_native = base_weight + tx_weight + len as u64;
 			let input_quote = AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Asset(asset_id),
-				NativeOrAssetId::Native,
+				NativeOrWithId::WithId(asset_id),
+				NativeOrWithId::Native,
 				fee_in_native,
 				true,
 			);
@@ -225,7 +240,7 @@ fn transaction_payment_in_asset_possible() {
 			let fee_in_asset = input_quote.unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 
-			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
+			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
 				.pre_dispatch(&caller, CALL, &info_from_weight(WEIGHT_5), len)
 				.unwrap();
 			// assert that native balance is not used
@@ -233,6 +248,12 @@ fn transaction_payment_in_asset_possible() {
 
 			// check that fee was charged in the given asset
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
+
+			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Withdrawn {
+				asset_id,
+				who: caller,
+				amount: fee_in_asset,
+			}));
 
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 				Some(pre),
@@ -277,7 +298,7 @@ fn transaction_payment_in_asset_fails_if_no_pool_for_that_asset() {
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 
 			let len = 10;
-			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id)).pre_dispatch(
+			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into())).pre_dispatch(
 				&caller,
 				CALL,
 				&info_from_weight(WEIGHT_5),
@@ -324,15 +345,15 @@ fn transaction_payment_without_fee() {
 			let len = 10;
 			let fee_in_native = base_weight + weight + len as u64;
 			let input_quote = AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Asset(asset_id),
-				NativeOrAssetId::Native,
+				NativeOrWithId::WithId(asset_id),
+				NativeOrWithId::Native,
 				fee_in_native,
 				true,
 			);
 			assert_eq!(input_quote, Some(201));
 
 			let fee_in_asset = input_quote.unwrap();
-			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
+			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
 				.pre_dispatch(&caller, CALL, &info_from_weight(WEIGHT_5), len)
 				.unwrap();
 
@@ -342,8 +363,8 @@ fn transaction_payment_without_fee() {
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 
 			let refund = AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(asset_id),
+				NativeOrWithId::Native,
+				NativeOrWithId::WithId(asset_id),
 				fee_in_native,
 				true,
 			)
@@ -373,6 +394,8 @@ fn asset_transaction_payment_with_tip_and_refund() {
 		.base_weight(Weight::from_parts(base_weight, 0))
 		.build()
 		.execute_with(|| {
+			System::set_block_number(1);
+
 			// create the asset
 			let asset_id = 1;
 			let min_balance = 2;
@@ -399,15 +422,15 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			let len = 10;
 			let fee_in_native = base_weight + weight + len as u64 + tip;
 			let input_quote = AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Asset(asset_id),
-				NativeOrAssetId::Native,
+				NativeOrWithId::WithId(asset_id),
+				NativeOrWithId::Native,
 				fee_in_native,
 				true,
 			);
 			assert_eq!(input_quote, Some(1206));
 
 			let fee_in_asset = input_quote.unwrap();
-			let pre = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id))
+			let pre = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id.into()))
 				.pre_dispatch(&caller, CALL, &info_from_weight(WEIGHT_100), len)
 				.unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
@@ -415,12 +438,18 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			let final_weight = 50;
 			let expected_fee = fee_in_native - final_weight - tip;
 			let expected_token_refund = AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(asset_id),
+				NativeOrWithId::Native,
+				NativeOrWithId::WithId(asset_id),
 				fee_in_native - expected_fee - tip,
 				true,
 			)
 			.unwrap();
+
+			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Withdrawn {
+				asset_id,
+				who: caller,
+				amount: fee_in_asset,
+			}));
 
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 				Some(pre),
@@ -439,6 +468,12 @@ fn asset_transaction_payment_with_tip_and_refund() {
 				balance - fee_in_asset + expected_token_refund
 			);
 			assert_eq!(Balances::free_balance(caller), 20 * balance_factor);
+
+			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Deposited {
+				asset_id,
+				who: caller,
+				amount: expected_token_refund,
+			}));
 		});
 }
 
@@ -478,30 +513,20 @@ fn payment_from_account_with_only_assets() {
 			let len = 10;
 
 			let fee_in_native = base_weight + weight + len as u64;
-			let ed = Balances::minimum_balance();
 			let fee_in_asset = AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Asset(asset_id),
-				NativeOrAssetId::Native,
-				fee_in_native + ed,
+				NativeOrWithId::WithId(asset_id),
+				NativeOrWithId::Native,
+				fee_in_native,
 				true,
 			)
 			.unwrap();
-			assert_eq!(fee_in_asset, 301);
+			assert_eq!(fee_in_asset, 201);
 
-			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
+			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
 				.pre_dispatch(&caller, CALL, &info_from_weight(WEIGHT_5), len)
 				.unwrap();
-			assert_eq!(Balances::free_balance(caller), ed);
 			// check that fee was charged in the given asset
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
-
-			let refund = AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(asset_id),
-				ed,
-				true,
-			)
-			.unwrap();
 
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 				Some(pre),
@@ -510,7 +535,7 @@ fn payment_from_account_with_only_assets() {
 				len,
 				&Ok(())
 			));
-			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset + refund);
+			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 			assert_eq!(Balances::free_balance(caller), 0);
 
 			assert_eq!(TipUnbalancedAmount::get(), 0);
@@ -553,7 +578,7 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 
 			// there will be no conversion when the fee is zero
 			{
-				let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
+				let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
 					.pre_dispatch(&caller, CALL, &info_from_pays(Pays::No), len)
 					.unwrap();
 				// `Pays::No` implies there are no fees
@@ -572,14 +597,14 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 			// validate even a small fee gets converted to asset.
 			let fee_in_native = base_weight + weight + len as u64;
 			let fee_in_asset = AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Asset(asset_id),
-				NativeOrAssetId::Native,
+				NativeOrWithId::WithId(asset_id),
+				NativeOrWithId::Native,
 				fee_in_native,
 				true,
 			)
 			.unwrap();
 
-			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
+			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
 				.pre_dispatch(&caller, CALL, &info_from_weight(Weight::from_parts(weight, 0)), len)
 				.unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
@@ -629,14 +654,14 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 			// calculated fee is greater than 0
 			assert!(fee > 0);
 
-			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id))
+			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
 				.pre_dispatch(&caller, CALL, &info_from_pays(Pays::No), len)
 				.unwrap();
 			// `Pays::No` implies no pre-dispatch fees
 
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 
-			let (_tip, _who, initial_payment, _asset_id) = &pre;
+			let (_tip, _who, initial_payment) = &pre;
 			let not_paying = match initial_payment {
 				&InitialPayment::Nothing => true,
 				_ => false,
@@ -704,5 +729,141 @@ fn post_dispatch_fee_is_zero_if_unsigned_pre_dispatch_fee_is_zero() {
 				&Ok(())
 			));
 			assert_eq!(Assets::balance(asset_id, caller), balance);
+		});
+}
+
+#[test]
+fn fee_with_native_asset_passed_with_id() {
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			let caller = 1;
+			let caller_balance = 1000;
+			// native asset
+			let asset_id = NativeOrWithId::Native;
+			// assert that native balance is not necessary
+			assert_eq!(Balances::free_balance(caller), caller_balance);
+
+			let tip = 10;
+			let weight = 100;
+			let len = 5;
+			let initial_fee = base_weight + weight + len as u64 + tip;
+
+			let pre = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id.into()))
+				.pre_dispatch(&caller, CALL, &info_from_weight(WEIGHT_100), len)
+				.unwrap();
+			assert_eq!(Balances::free_balance(caller), caller_balance - initial_fee);
+
+			let final_weight = 50;
+			let expected_fee = initial_fee - final_weight;
+
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+				Some(pre),
+				&info_from_weight(WEIGHT_100),
+				&post_info_from_weight(WEIGHT_50),
+				len,
+				&Ok(())
+			));
+
+			assert_eq!(Balances::free_balance(caller), caller_balance - expected_fee);
+
+			assert_eq!(TipUnbalancedAmount::get(), tip);
+			assert_eq!(FeeUnbalancedAmount::get(), expected_fee - tip);
+		});
+}
+
+#[test]
+fn transfer_add_and_remove_account() {
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+
+			// create the asset
+			let asset_id = 1;
+			let min_balance = 2;
+			assert_ok!(Assets::force_create(
+				RuntimeOrigin::root(),
+				asset_id.into(),
+				42,   /* owner */
+				true, /* is_sufficient */
+				min_balance,
+			));
+
+			setup_lp(asset_id, balance_factor);
+
+			// mint into the caller account
+			let caller = 222;
+			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
+			let balance = 10000;
+
+			assert_eq!(Balances::free_balance(caller), 0);
+			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
+			assert_eq!(Assets::balance(asset_id, caller), balance);
+
+			let weight = 100;
+			let tip = 5;
+			let len = 10;
+			let fee_in_native = base_weight + weight + len as u64 + tip;
+			let input_quote = AssetConversion::quote_price_tokens_for_exact_tokens(
+				NativeOrWithId::WithId(asset_id),
+				NativeOrWithId::Native,
+				fee_in_native,
+				true,
+			);
+			assert!(!input_quote.unwrap().is_zero());
+
+			let fee_in_asset = input_quote.unwrap();
+			let pre = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id.into()))
+				.pre_dispatch(&caller, CALL, &info_from_weight(WEIGHT_100), len)
+				.unwrap();
+
+			assert_eq!(Assets::balance(asset_id, &caller), balance - fee_in_asset);
+
+			// remove caller account.
+			assert_ok!(Assets::burn_from(
+				asset_id,
+				&caller,
+				Assets::balance(asset_id, &caller),
+				Preservation::Expendable,
+				Precision::Exact,
+				Fortitude::Force
+			));
+
+			let final_weight = 50;
+			let final_fee_in_native = fee_in_native - final_weight - tip;
+			let token_refund = AssetConversion::quote_price_exact_tokens_for_tokens(
+				NativeOrWithId::Native,
+				NativeOrWithId::WithId(asset_id),
+				fee_in_native - final_fee_in_native - tip,
+				true,
+			)
+			.unwrap();
+
+			// make sure the refund amount is enough to create the account.
+			assert!(token_refund >= min_balance);
+
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+				Some(pre),
+				&info_from_weight(WEIGHT_100),
+				&post_info_from_weight(WEIGHT_50),
+				len,
+				&Ok(())
+			));
+
+			// fee paid with no refund.
+			assert_eq!(TipUnbalancedAmount::get(), tip);
+			assert_eq!(FeeUnbalancedAmount::get(), fee_in_native - tip);
+
+			// caller account removed.
+			assert_eq!(Assets::balance(asset_id, caller), 0);
 		});
 }

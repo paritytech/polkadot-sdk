@@ -32,12 +32,16 @@ use variants::*;
 enum NemesisVariant {
 	/// Suggest a candidate with an invalid proof of validity.
 	SuggestGarbageCandidate(SuggestGarbageCandidateOptions),
+	/// Support disabled validators in backing and statement distribution.
+	SupportDisabled(SupportDisabledOptions),
 	/// Back a candidate with a specifically crafted proof of validity.
 	BackGarbageCandidate(BackGarbageCandidateOptions),
 	/// Delayed disputing of ancestors that are perfectly fine.
 	DisputeAncestor(DisputeAncestorOptions),
 	/// Delayed disputing of finalized candidates.
 	DisputeFinalizedCandidates(DisputeFinalizedCandidatesOptions),
+	/// Spam many request statements instead of sending a single one.
+	SpamStatementRequests(SpamStatementRequestsOptions),
 }
 
 #[derive(Debug, Parser)]
@@ -68,6 +72,11 @@ impl MalusCli {
 					finality_delay,
 				)?
 			},
+			NemesisVariant::SupportDisabled(opts) => {
+				let SupportDisabledOptions { cli } = opts;
+
+				polkadot_cli::run_node(cli, SupportDisabled, finality_delay)?
+			},
 			NemesisVariant::DisputeAncestor(opts) => {
 				let DisputeAncestorOptions {
 					fake_validation,
@@ -90,6 +99,11 @@ impl MalusCli {
 					DisputeFinalizedCandidates { dispute_offset },
 					finality_delay,
 				)?
+			},
+			NemesisVariant::SpamStatementRequests(opts) => {
+				let SpamStatementRequestsOptions { spam_factor, cli } = opts;
+
+				polkadot_cli::run_node(cli, SpamStatementRequests { spam_factor }, finality_delay)?
 			},
 		}
 		Ok(())

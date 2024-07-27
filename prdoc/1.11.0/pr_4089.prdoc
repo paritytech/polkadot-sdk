@@ -1,0 +1,11 @@
+title: "pallet_broker: Support renewing leases expired in a previous period"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Allow renewals of leases that ended before `start_sales` or in the first period after calling `start_sales`.
+      This ensures that everyone has a smooth experience when migrating to coretime and the timing of
+      `start_sales` isn't that important.
+
+crates:
+  - name: pallet-broker

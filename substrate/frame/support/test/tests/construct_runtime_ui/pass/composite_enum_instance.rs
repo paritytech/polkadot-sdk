@@ -54,7 +54,7 @@ pub mod pallet {
 	}
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 }
@@ -64,7 +64,7 @@ pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u64, Runti
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime
+	pub enum Runtime
 	{
 		// Exclude part `Storage` in order not to check its metadata in tests.
 		System: frame_system,

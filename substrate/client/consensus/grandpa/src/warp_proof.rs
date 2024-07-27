@@ -16,14 +16,14 @@
 
 //! Utilities for generating and verifying GRANDPA warp sync proofs.
 
-use parity_scale_codec::{Decode, DecodeAll, Encode};
+use codec::{Decode, DecodeAll, Encode};
 
 use crate::{
 	best_justification, find_scheduled_change, AuthoritySetChanges, AuthoritySetHardFork,
 	BlockNumberOps, GrandpaJustification, SharedAuthoritySet,
 };
 use sc_client_api::Backend as ClientBackend;
-use sc_network_sync::warp::{EncodedProof, VerificationResult, WarpSyncProvider};
+use sc_network_sync::strategy::warp::{EncodedProof, VerificationResult, WarpSyncProvider};
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus_grandpa::{AuthorityList, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::{
@@ -38,7 +38,7 @@ use std::{collections::HashMap, sync::Arc};
 pub enum Error {
 	/// Decoding error.
 	#[error("Failed to decode block hash: {0}.")]
-	DecodeScale(#[from] parity_scale_codec::Error),
+	DecodeScale(#[from] codec::Error),
 	/// Client backend error.
 	#[error("{0}")]
 	Client(#[from] sp_blockchain::Error),
@@ -249,7 +249,7 @@ impl<Block: BlockT, Backend: ClientBackend<Block>> NetworkProvider<Block, Backen
 where
 	NumberFor<Block>: BlockNumberOps,
 {
-	/// Create a new istance for a given backend and authority set.
+	/// Create a new instance for a given backend and authority set.
 	pub fn new(
 		backend: Arc<Backend>,
 		authority_set: SharedAuthoritySet<Block::Hash, NumberFor<Block>>,
@@ -320,7 +320,7 @@ where
 mod tests {
 	use super::WarpSyncProof;
 	use crate::{AuthoritySetChanges, GrandpaJustification};
-	use parity_scale_codec::Encode;
+	use codec::Encode;
 	use rand::prelude::*;
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_blockchain::HeaderBackend;

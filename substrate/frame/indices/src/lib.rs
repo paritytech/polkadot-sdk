@@ -25,13 +25,15 @@ mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::Codec;
 use frame_support::traits::{BalanceStatus::Reserved, Currency, ReservableCurrency};
 use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
 	MultiAddress,
 };
-use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =
@@ -223,7 +225,7 @@ pub mod pallet {
 				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
-				T::Currency::slash_reserved(&who, amount);
+				let _ = T::Currency::slash_reserved(&who, amount);
 				*maybe_value = Some((account, Zero::zero(), true));
 				Ok(())
 			})?;

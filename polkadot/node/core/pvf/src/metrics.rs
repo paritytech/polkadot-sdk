@@ -74,6 +74,12 @@ impl Metrics {
 		self.0.as_ref().map(|metrics| metrics.execution_time.start_timer())
 	}
 
+	pub(crate) fn observe_execution_queued_time(&self, queued_for_millis: u32) {
+		self.0.as_ref().map(|metrics| {
+			metrics.execution_queued_time.observe(queued_for_millis as f64 / 1000 as f64)
+		});
+	}
+
 	/// Observe memory stats for preparation.
 	#[allow(unused_variables)]
 	pub(crate) fn observe_preparation_memory_metrics(&self, memory_stats: MemoryStats) {
@@ -112,6 +118,7 @@ struct MetricsInner {
 	execute_finished: prometheus::Counter<prometheus::U64>,
 	preparation_time: prometheus::Histogram,
 	execution_time: prometheus::Histogram,
+	execution_queued_time: prometheus::Histogram,
 	#[cfg(target_os = "linux")]
 	preparation_max_rss: prometheus::Histogram,
 	// Max. allocated memory, tracked by Jemallocator, polling-based
@@ -236,6 +243,31 @@ impl metrics::Metrics for Metrics {
 						8.0,
 						10.0,
 						12.0,
+					]),
+				)?,
+				registry,
+			)?,
+			execution_queued_time: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_pvf_execution_queued_time",
+						"Time spent in queue waiting for PVFs execution job to be assigned",
+					).buckets(vec![
+						0.01,
+						0.025,
+						0.05,
+						0.1,
+						0.25,
+						0.5,
+						1.0,
+						2.0,
+						3.0,
+						4.0,
+						5.0,
+						6.0,
+						12.0,
+						24.0,
+						48.0,
 					]),
 				)?,
 				registry,

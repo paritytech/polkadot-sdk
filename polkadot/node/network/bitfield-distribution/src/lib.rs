@@ -32,7 +32,7 @@ use polkadot_node_network_protocol::{
 		GridNeighbors, RandomRouting, RequiredRouting, SessionBoundGridTopologyStorage,
 	},
 	peer_set::{ProtocolVersion, ValidationVersion},
-	v1 as protocol_v1, v2 as protocol_v2, vstaging as protocol_vstaging, OurView, PeerId,
+	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, OurView, PeerId,
 	UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_subsystem::{
@@ -102,8 +102,8 @@ impl BitfieldGossipMessage {
 					self.relay_parent,
 					self.signed_availability.into(),
 				)),
-			Some(ValidationVersion::VStaging) =>
-				Versioned::VStaging(protocol_vstaging::BitfieldDistributionMessage::Bitfield(
+			Some(ValidationVersion::V3) =>
+				Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
 					self.relay_parent,
 					self.signed_availability.into(),
 				)),
@@ -503,8 +503,8 @@ async fn relay_message<Context>(
 		let v2_interested_peers =
 			filter_by_peer_version(&interested_peers, ValidationVersion::V2.into());
 
-		let vstaging_interested_peers =
-			filter_by_peer_version(&interested_peers, ValidationVersion::VStaging.into());
+		let v3_interested_peers =
+			filter_by_peer_version(&interested_peers, ValidationVersion::V3.into());
 
 		if !v1_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -522,10 +522,10 @@ async fn relay_message<Context>(
 			.await
 		}
 
-		if !vstaging_interested_peers.is_empty() {
+		if !v3_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				vstaging_interested_peers,
-				message.into_validation_protocol(ValidationVersion::VStaging.into()),
+				v3_interested_peers,
+				message.into_validation_protocol(ValidationVersion::V3.into()),
 			))
 			.await
 		}
@@ -551,7 +551,7 @@ async fn process_incoming_peer_message<Context>(
 			relay_parent,
 			bitfield,
 		)) |
-		Versioned::VStaging(protocol_vstaging::BitfieldDistributionMessage::Bitfield(
+		Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
 			relay_parent,
 			bitfield,
 		)) => (relay_parent, bitfield),
@@ -800,8 +800,11 @@ async fn handle_network_msg<Context>(
 		},
 		NetworkBridgeEvent::PeerMessage(remote, message) =>
 			process_incoming_peer_message(ctx, state, metrics, remote, message, rng).await,
-		NetworkBridgeEvent::UpdatedAuthorityIds { .. } => {
-			// The bitfield-distribution subsystem doesn't deal with `AuthorityDiscoveryId`s.
+		NetworkBridgeEvent::UpdatedAuthorityIds(peer_id, authority_ids) => {
+			state
+				.topologies
+				.get_current_topology_mut()
+				.update_authority_ids(peer_id, &authority_ids);
 		},
 	}
 }

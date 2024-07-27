@@ -24,7 +24,7 @@ use frame_support::assert_ok;
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin};
 use sp_runtime::traits::{Bounded, CheckedDiv, CheckedMul};
 
-use super::*;
+use super::{Vesting as VestingStorage, *};
 use crate::Pallet as Vesting;
 
 const SEED: u32 = 0;
@@ -55,7 +55,7 @@ fn add_vesting_schedules<T: Config>(
 	let source_lookup = T::Lookup::unlookup(source.clone());
 	T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
 
-	System::<T>::set_block_number(BlockNumberFor::<T>::zero());
+	T::BlockNumberProvider::set_block_number(BlockNumberFor::<T>::zero());
 
 	let mut total_locked: BalanceOf<T> = Zero::zero();
 	for _ in 0..n {
@@ -116,7 +116,7 @@ benchmarks! {
 		add_vesting_schedules::<T>(caller_lookup, s)?;
 
 		// At block 21, everything is unlocked.
-		System::<T>::set_block_number(21u32.into());
+		T::BlockNumberProvider::set_block_number(21u32.into());
 		assert_eq!(
 			Vesting::<T>::vesting_balance(&caller),
 			Some(BalanceOf::<T>::zero()),
@@ -173,7 +173,7 @@ benchmarks! {
 		add_locks::<T>(&other, l as u8);
 		add_vesting_schedules::<T>(other_lookup.clone(), s)?;
 		// At block 21 everything is unlocked.
-		System::<T>::set_block_number(21u32.into());
+		T::BlockNumberProvider::set_block_number(21u32.into());
 
 		assert_eq!(
 			Vesting::<T>::vesting_balance(&other),
@@ -291,7 +291,7 @@ benchmarks! {
 			"Vesting balance should equal sum locked of all schedules",
 		);
 		assert_eq!(
-			Vesting::<T>::vesting(&caller).unwrap().len(),
+			VestingStorage::<T>::get(&caller).unwrap().len(),
 			s as usize,
 			"There should be exactly max vesting schedules"
 		);
@@ -304,7 +304,7 @@ benchmarks! {
 		);
 		let expected_index = (s - 2) as usize;
 		assert_eq!(
-			Vesting::<T>::vesting(&caller).unwrap()[expected_index],
+			VestingStorage::<T>::get(&caller).unwrap()[expected_index],
 			expected_schedule
 		);
 		assert_eq!(
@@ -313,7 +313,7 @@ benchmarks! {
 			"Vesting balance should equal total locked of all schedules",
 		);
 		assert_eq!(
-			Vesting::<T>::vesting(&caller).unwrap().len(),
+			VestingStorage::<T>::get(&caller).unwrap().len(),
 			(s - 1) as usize,
 			"Schedule count should reduce by 1"
 		);
@@ -335,7 +335,7 @@ benchmarks! {
 		let total_transferred = add_vesting_schedules::<T>(caller_lookup, s)?;
 
 		// Go to about half way through all the schedules duration. (They all start at 1, and have a duration of 20 or 21).
-		System::<T>::set_block_number(11u32.into());
+		T::BlockNumberProvider::set_block_number(11u32.into());
 		// We expect half the original locked balance (+ any remainder that vests on the last block).
 		let expected_balance = total_transferred / 2u32.into();
 		assert_eq!(
@@ -344,7 +344,7 @@ benchmarks! {
 			"Vesting balance should reflect that we are half way through all schedules duration",
 		);
 		assert_eq!(
-			Vesting::<T>::vesting(&caller).unwrap().len(),
+			VestingStorage::<T>::get(&caller).unwrap().len(),
 			s as usize,
 			"There should be exactly max vesting schedules"
 		);
@@ -359,12 +359,12 @@ benchmarks! {
 		);
 		let expected_index = (s - 2) as usize;
 		assert_eq!(
-			Vesting::<T>::vesting(&caller).unwrap()[expected_index],
+			VestingStorage::<T>::get(&caller).unwrap()[expected_index],
 			expected_schedule,
 			"New schedule is properly created and placed"
 		);
 		assert_eq!(
-			Vesting::<T>::vesting(&caller).unwrap()[expected_index],
+			VestingStorage::<T>::get(&caller).unwrap()[expected_index],
 			expected_schedule
 		);
 		assert_eq!(
@@ -373,7 +373,7 @@ benchmarks! {
 			"Vesting balance should equal half total locked of all schedules",
 		);
 		assert_eq!(
-			Vesting::<T>::vesting(&caller).unwrap().len(),
+			VestingStorage::<T>::get(&caller).unwrap().len(),
 			(s - 1) as usize,
 			"Schedule count should reduce by 1"
 		);
@@ -404,7 +404,7 @@ force_remove_vesting_schedule {
 	}: _(RawOrigin::Root, target_lookup, schedule_index)
 	verify {
 		assert_eq!(
-		Vesting::<T>::vesting(&target).unwrap().len(),
+		VestingStorage::<T>::get(&target).unwrap().len(),
 			schedule_index as usize,
 			"Schedule count should reduce by 1"
 		);

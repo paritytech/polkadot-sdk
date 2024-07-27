@@ -1,0 +1,9 @@
+title: Fix malus implementation.
+
+doc:
+  - audience: Node Dev
+    description: |
+      The malus implementation is used to test security of Polkadot.
+      It was broken. This fixes it.
+
+crates: [ ]

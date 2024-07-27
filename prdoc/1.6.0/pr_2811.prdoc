@@ -1,0 +1,13 @@
+title: "Interlacing removes the region on which it is performed."
+
+doc:
+  - audience: Runtime User
+    description: |
+      The current implementation of the broker pallet does not remove
+      the region on which the interlacing is performed. This can create
+      a vulnerability, as the original region owner is still allowed to 
+      assign a task to the region even after transferring an interlaced
+      part of it.
+
+crates:
+  - name: "pallet-broker"

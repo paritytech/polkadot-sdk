@@ -34,9 +34,9 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::overseer;
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	CandidateReceipt, DisputeStatement, ExecutorParams, Hash, IndexedVec, SessionIndex,
-	SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorPair,
-	ValidatorSignature,
+	CandidateHash, CandidateReceipt, DisputeStatement, ExecutorParams, Hash, IndexedVec,
+	SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 
@@ -52,6 +52,9 @@ pub struct CandidateEnvironment<'a> {
 	executor_params: &'a ExecutorParams,
 	/// Validator indices controlled by this node.
 	controlled_indices: HashSet<ValidatorIndex>,
+	/// Indices of on-chain disabled validators at the `relay_parent` combined
+	/// with the off-chain state.
+	disabled_indices: HashSet<ValidatorIndex>,
 }
 
 #[overseer::contextbounds(DisputeCoordinator, prefix = self::overseer)]
@@ -65,7 +68,16 @@ impl<'a> CandidateEnvironment<'a> {
 		runtime_info: &'a mut RuntimeInfo,
 		session_index: SessionIndex,
 		relay_parent: Hash,
+		disabled_offchain: impl IntoIterator<Item = ValidatorIndex>,
 	) -> Option<CandidateEnvironment<'a>> {
+		let disabled_onchain = runtime_info
+			.get_disabled_validators(ctx.sender(), relay_parent)
+			.await
+			.unwrap_or_else(|err| {
+				gum::info!(target: LOG_TARGET, ?err, "Failed to get disabled validators");
+				Vec::new()
+			});
+
 		let (session, executor_params) = match runtime_info
 			.get_session_info_by_index(ctx.sender(), relay_parent, session_index)
 			.await
@@ -75,8 +87,26 @@ impl<'a> CandidateEnvironment<'a> {
 			Err(_) => return None,
 		};
 
+		let n_validators = session.validators.len();
+		let byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
+		// combine on-chain with off-chain disabled validators
+		// process disabled validators in the following order:
+		// - on-chain disabled validators
+		// - prioritized order of off-chain disabled validators
+		// deduplicate the list and take at most `byzantine_threshold` validators
+		let disabled_indices = {
+			let mut d: HashSet<ValidatorIndex> = HashSet::new();
+			for v in disabled_onchain.into_iter().chain(disabled_offchain.into_iter()) {
+				if d.len() == byzantine_threshold {
+					break
+				}
+				d.insert(v);
+			}
+			d
+		};
+
 		let controlled_indices = find_controlled_validator_indices(keystore, &session.validators);
-		Some(Self { session_index, session, executor_params, controlled_indices })
+		Some(Self { session_index, session, executor_params, controlled_indices, disabled_indices })
 	}
 
 	/// Validators in the candidate's session.
@@ -103,6 +133,11 @@ impl<'a> CandidateEnvironment<'a> {
 	pub fn controlled_indices(&'a self) -> &'a HashSet<ValidatorIndex> {
 		&self.controlled_indices
 	}
+
+	/// Indices of off-chain and on-chain disabled validators.
+	pub fn disabled_indices(&'a self) -> &'a HashSet<ValidatorIndex> {
+		&self.disabled_indices
+	}
 }
 
 /// Whether or not we already issued some statement about a candidate.
@@ -126,7 +161,9 @@ impl OwnVoteState {
 		let our_valid_votes = controlled_indices
 			.iter()
 			.filter_map(|i| votes.valid.raw().get_key_value(i))
-			.map(|(index, (kind, sig))| (*index, (DisputeStatement::Valid(*kind), sig.clone())));
+			.map(|(index, (kind, sig))| {
+				(*index, (DisputeStatement::Valid(kind.clone()), sig.clone()))
+			});
 		let our_invalid_votes = controlled_indices
 			.iter()
 			.filter_map(|i| votes.invalid.get_key_value(i))
@@ -218,13 +255,19 @@ impl CandidateVoteState<CandidateVotes> {
 
 		let supermajority_threshold = polkadot_primitives::supermajority_threshold(n_validators);
 
-		// We have a dispute, if we have votes on both sides:
-		let is_disputed = !votes.invalid.is_empty() && !votes.valid.raw().is_empty();
+		// We have a dispute, if we have votes on both sides, with at least one invalid vote
+		// from non-disabled validator or with votes on both sides and confirmed.
+		let has_non_disabled_invalid_votes =
+			votes.invalid.keys().any(|i| !env.disabled_indices().contains(i));
+		let byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
+		let votes_on_both_sides = !votes.valid.raw().is_empty() && !votes.invalid.is_empty();
+		let is_confirmed =
+			votes_on_both_sides && (votes.voted_indices().len() > byzantine_threshold);
+		let is_disputed =
+			is_confirmed || (has_non_disabled_invalid_votes && !votes.valid.raw().is_empty());
 
 		let (dispute_status, byzantine_threshold_against) = if is_disputed {
 			let mut status = DisputeStatus::active();
-			let byzantine_threshold = polkadot_primitives::byzantine_threshold(n_validators);
-			let is_confirmed = votes.voted_indices().len() > byzantine_threshold;
 			if is_confirmed {
 				status = status.confirm();
 			};
@@ -305,7 +348,7 @@ impl CandidateVoteState<CandidateVotes> {
 				DisputeStatement::Valid(valid_kind) => {
 					let fresh = votes.valid.insert_vote(
 						val_index,
-						*valid_kind,
+						valid_kind.clone(),
 						statement.into_validator_signature(),
 					);
 					if fresh {
@@ -340,6 +383,14 @@ impl CandidateVoteState<CandidateVotes> {
 	/// Retrieve `CandidateReceipt` in `CandidateVotes`.
 	pub fn candidate_receipt(&self) -> &CandidateReceipt {
 		&self.votes.candidate_receipt
+	}
+
+	/// Returns true if all the invalid votes are from disabled validators.
+	pub fn invalid_votes_all_disabled(
+		&self,
+		mut is_disabled: impl FnMut(&ValidatorIndex) -> bool,
+	) -> bool {
+		self.votes.invalid.keys().all(|i| is_disabled(i))
 	}
 
 	/// Extract `CandidateVotes` for handling import of new statements.
@@ -511,7 +562,7 @@ impl ImportResult {
 	pub fn import_approval_votes(
 		self,
 		env: &CandidateEnvironment,
-		approval_votes: HashMap<ValidatorIndex, ValidatorSignature>,
+		approval_votes: HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>,
 		now: Timestamp,
 	) -> Self {
 		let Self {
@@ -525,19 +576,33 @@ impl ImportResult {
 
 		let (mut votes, _) = new_state.into_old_state();
 
-		for (index, sig) in approval_votes.into_iter() {
+		for (index, (candidate_hashes, sig)) in approval_votes.into_iter() {
 			debug_assert!(
 				{
 					let pub_key = &env.session_info().validators.get(index).expect("indices are validated by approval-voting subsystem; qed");
-					let candidate_hash = votes.candidate_receipt.hash();
 					let session_index = env.session_index();
-					DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking)
-						.check_signature(pub_key, candidate_hash, session_index, &sig)
+					candidate_hashes.contains(&votes.candidate_receipt.hash()) && DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes.clone()))
+						.check_signature(pub_key, *candidate_hashes.first().expect("Valid votes have at least one candidate; qed"), session_index, &sig)
 						.is_ok()
 				},
 				"Signature check for imported approval votes failed! This is a serious bug. Session: {:?}, candidate hash: {:?}, validator index: {:?}", env.session_index(), votes.candidate_receipt.hash(), index
 			);
-			if votes.valid.insert_vote(index, ValidDisputeStatementKind::ApprovalChecking, sig) {
+			if votes.valid.insert_vote(
+				index,
+				// There is a hidden dependency here between approval-voting and this subsystem.
+				// We should be able to start emitting
+				// ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates only after:
+				// 1. Runtime have been upgraded to know about the new format.
+				// 2. All nodes have been upgraded to know about the new format.
+				// Once those two requirements have been met we should be able to increase
+				// max_approval_coalesce_count to values greater than 1.
+				if candidate_hashes.len() > 1 {
+					ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes)
+				} else {
+					ValidDisputeStatementKind::ApprovalChecking
+				},
+				sig,
+			) {
 				imported_valid_votes += 1;
 				imported_approval_votes += 1;
 			}

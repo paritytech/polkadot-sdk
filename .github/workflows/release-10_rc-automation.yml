@@ -1,0 +1,77 @@
+name: Release - RC automation
+on:
+  # TODO: Activate it and delete old branches patterns, when the release process from stable is setteled
+  #push:
+    # branches:
+    #   # Catches release-polkadot-v1.2.3, release-v1.2.3-rc1, etc
+    #   - release-v[0-9]+.[0-9]+.[0-9]+*
+    #   - release-cumulus-v[0-9]+*
+    #   - release-polkadot-v[0-9]+*
+    #   - stable
+
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Current release/rc version in format vX.X.X
+
+jobs:
+  tag_rc:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        channel:
+          - name: "RelEng: Polkadot Release Coordination"
+            room: '!cqAmzdIcbOFwrdrubV:parity.io'
+    environment: release
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+
+      - name: Compute next rc tag
+        # if: ${{ steps.get_rel_product.outputs.product == 'polkadot' }}
+        id: compute_tag
+        shell: bash
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          # Get last rc tag if exists, else set it to {version}-rc1
+          if [[ -z "${{ inputs.version }}" ]]; then
+            version=v$(get_polkadot_node_version_from_code)
+          else
+            version=$(filter_version_from_input ${{ inputs.version }})
+          fi
+          echo "$version"
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+          last_rc=$(get_latest_rc_tag $version polkadot)
+
+          if [ -n "$last_rc" ]; then
+            suffix=$(increment_rc_tag $last_rc)
+            echo "new_tag=$version-rc$suffix" >> $GITHUB_OUTPUT
+            echo "first_rc=false" >> $GITHUB_OUTPUT
+          else
+            echo "new_tag=$version-rc1" >> $GITHUB_OUTPUT
+            echo "first_rc=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Apply new tag
+        uses: tvdias/github-tagger@ed7350546e3e503b5e942dffd65bc8751a95e49d # v0.0.2
+        with:
+          # We can't use the normal GITHUB_TOKEN for the following reason:
+          # https://docs.github.com/en/actions/reference/events-that-trigger-workflows#triggering-new-workflows-using-a-personal-access-token
+          # RELEASE_BRANCH_TOKEN requires public_repo OAuth scope
+          repo-token: "${{ secrets.RELEASE_BRANCH_TOKEN }}"
+          tag: ${{ steps.compute_tag.outputs.new_tag }}
+
+      - name: Send Matrix message to ${{ matrix.channel.name }}
+        uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
+        # if: steps.create-issue.outputs.url != ''
+        with:
+          room_id: ${{ matrix.channel.room }}
+          access_token: ${{ secrets.RELEASENOTES_MATRIX_V2_ACCESS_TOKEN }}
+          server: m.parity.io
+          message: |
+            Release process for polkadot ${{ steps.compute_tag.outputs.new_tag }} has been started.<br/>

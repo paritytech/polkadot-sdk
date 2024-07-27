@@ -16,20 +16,20 @@
 
 //! Pallet to process purchase of DOTs.
 
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, EnsureOrigin, ExistenceRequirement, Get, VestingSchedule},
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::sr25519;
 use sp_runtime::{
 	traits::{CheckedAdd, Saturating, Verify, Zero},
 	AnySignature, DispatchError, DispatchResult, Permill, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -425,8 +425,8 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	fn verify_signature(who: &T::AccountId, signature: &[u8]) -> Result<(), DispatchError> {
 		// sr25519 always expects a 64 byte signature.
-		let signature: AnySignature = sr25519::Signature::from_slice(signature)
-			.ok_or(Error::<T>::InvalidSignature)?
+		let signature: AnySignature = sr25519::Signature::try_from(signature)
+			.map_err(|_| Error::<T>::InvalidSignature)?
 			.into();
 
 		// In Polkadot, the AccountId is always the same as the 32 byte public key.
@@ -499,20 +499,16 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Vesting: pallet_vesting::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Purchase: purchase::{Pallet, Call, Storage, Event<T>},
+			System: frame_system,
+			Balances: pallet_balances,
+			Vesting: pallet_vesting,
+			Purchase: purchase,
 		}
 	);
 
 	type AccountId = AccountId32;
 
-	parameter_types! {
-		pub const BlockHashCount: u32 = 250;
-	}
-
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
@@ -527,7 +523,6 @@ mod tests {
 		type Lookup = IdentityLookup<AccountId>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = BlockHashCount;
 		type Version = ();
 		type PalletInfo = PalletInfo;
 		type AccountData = pallet_balances::AccountData<u64>;
@@ -539,25 +534,9 @@ mod tests {
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
-	parameter_types! {
-		pub const ExistentialDeposit: u64 = 1;
-	}
-
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
-		type Balance = u64;
-		type RuntimeEvent = RuntimeEvent;
-		type DustRemoval = ();
-		type ExistentialDeposit = ExistentialDeposit;
 		type AccountStore = System;
-		type MaxLocks = ();
-		type MaxReserves = ();
-		type ReserveIdentifier = [u8; 8];
-		type WeightInfo = ();
-		type RuntimeHoldReason = RuntimeHoldReason;
-		type RuntimeFreezeReason = RuntimeFreezeReason;
-		type FreezeIdentifier = ();
-		type MaxHolds = ConstU32<1>;
-		type MaxFreezes = ConstU32<1>;
 	}
 
 	parameter_types! {
@@ -573,6 +552,7 @@ mod tests {
 		type MinVestedTransfer = MinVestedTransfer;
 		type WeightInfo = ();
 		type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+		type BlockNumberProvider = System;
 		const MAX_VESTING_SCHEDULES: u32 = 28;
 	}
 

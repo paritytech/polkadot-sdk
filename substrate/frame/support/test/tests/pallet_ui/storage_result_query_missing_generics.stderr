@@ -1,15 +1,15 @@
 error[E0107]: missing generics for enum `pallet::Error`
-  --> tests/pallet_ui/storage_result_query_missing_generics.rs:34:56
+  --> tests/pallet_ui/storage_result_query_missing_generics.rs:35:56
    |
-34 |     type Foo<T: Config> = StorageValue<_, u8, ResultQuery<Error::NonExistentValue>>;
+35 |     type Foo<T: Config> = StorageValue<_, u8, ResultQuery<Error::NonExistentValue>>;
    |                                                           ^^^^^ expected 1 generic argument
    |
 note: enum defined here, with 1 generic parameter: `T`
-  --> tests/pallet_ui/storage_result_query_missing_generics.rs:29:11
+  --> tests/pallet_ui/storage_result_query_missing_generics.rs:30:11
    |
-29 |     pub enum Error<T> {
+30 |     pub enum Error<T> {
    |              ^^^^^ -
 help: add missing generic argument
    |
-34 |     type Foo<T: Config> = StorageValue<_, u8, ResultQuery<Error<T>::NonExistentValue>>;
+35 |     type Foo<T: Config> = StorageValue<_, u8, ResultQuery<Error<T>::NonExistentValue>>;
    |                                                                +++

@@ -59,14 +59,14 @@ parameter_types! {
 	pub const Lease: BlockNumber = 8;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for TestRuntime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type DbWeight = DbWeight;
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for TestRuntime {
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;

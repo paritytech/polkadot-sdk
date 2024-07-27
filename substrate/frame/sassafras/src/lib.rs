@@ -47,10 +47,13 @@
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use codec::{Decode, Encode, MaxEncodedLen};
 use log::{debug, error, trace, warn};
-use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
+use alloc::vec::Vec;
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
 	traits::{Defensive, Get},
@@ -72,7 +75,6 @@ use sp_runtime::{
 	traits::{One, Zero},
 	BoundToRuntimeAppPublic,
 };
-use sp_std::prelude::Vec;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -237,7 +239,7 @@ pub mod pallet {
 	/// Epoch X first N-th ticket has key (X mod 2, N)
 	///
 	/// Note that the ticket's index doesn't directly correspond to the slot index within the epoch.
-	/// The assigment is computed dynamically using an *outside-in* strategy.
+	/// The assignment is computed dynamically using an *outside-in* strategy.
 	///
 	/// Be aware that entries within this map are never removed, only overwritten.
 	/// Last element index should be fetched from the [`TicketsMeta`] value.
@@ -275,11 +277,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierData>;
 
-	/// Slot claim vrf-preoutput used to generate per-slot randomness.
+	/// Slot claim VRF pre-output used to generate per-slot randomness.
 	///
 	/// The value is ephemeral and is cleared on block finalization.
 	#[pallet::storage]
-	pub(crate) type ClaimTemporaryData<T> = StorageValue<_, vrf::VrfOutput>;
+	pub(crate) type ClaimTemporaryData<T> = StorageValue<_, vrf::VrfPreOutput>;
 
 	/// Genesis configuration for Sassafras protocol.
 	#[pallet::genesis_config]
@@ -291,7 +293,7 @@ pub mod pallet {
 		pub epoch_config: EpochConfiguration,
 		/// Phantom config
 		#[serde(skip)]
-		pub _phantom: sp_std::marker::PhantomData<T>,
+		pub _phantom: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -336,12 +338,12 @@ pub mod pallet {
 				Self::post_genesis_initialize(claim.slot);
 			}
 
-			let randomness_output = claim
+			let randomness_pre_output = claim
 				.vrf_signature
-				.outputs
+				.pre_outputs
 				.get(0)
-				.expect("Valid claim must have vrf signature; qed");
-			ClaimTemporaryData::<T>::put(randomness_output);
+				.expect("Valid claim must have VRF signature; qed");
+			ClaimTemporaryData::<T>::put(randomness_pre_output);
 
 			let trigger_weight = T::EpochChangeTrigger::trigger::<T>(block_num);
 
@@ -360,9 +362,9 @@ pub mod pallet {
 				CurrentSlot::<T>::get(),
 				EpochIndex::<T>::get(),
 			);
-			let randomness_output = ClaimTemporaryData::<T>::take()
+			let randomness_pre_output = ClaimTemporaryData::<T>::take()
 				.expect("Unconditionally populated in `on_initialize`; `on_finalize` is always called after; qed");
-			let randomness = randomness_output
+			let randomness = randomness_pre_output
 				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
 			Self::deposit_slot_randomness(&randomness);
 
@@ -436,15 +438,15 @@ pub mod pallet {
 			for ticket in tickets {
 				debug!(target: LOG_TARGET, "Checking ring proof");
 
-				let Some(ticket_id_output) = ticket.signature.outputs.get(0) else {
-					debug!(target: LOG_TARGET, "Missing ticket vrf output from ring signature");
+				let Some(ticket_id_pre_output) = ticket.signature.pre_outputs.get(0) else {
+					debug!(target: LOG_TARGET, "Missing ticket VRF pre-output from ring signature");
 					continue
 				};
 				let ticket_id_input =
 					vrf::ticket_id_input(&randomness, ticket.body.attempt_idx, epoch_idx);
 
 				// Check threshold constraint
-				let ticket_id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_output);
+				let ticket_id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_pre_output);
 				if ticket_id >= ticket_threshold {
 					debug!(target: LOG_TARGET, "Ignoring ticket over threshold ({:032x} >= {:032x})", ticket_id, ticket_threshold);
 					continue
@@ -479,7 +481,7 @@ pub mod pallet {
 
 		/// Plan an epoch configuration change.
 		///
-		/// The epoch configuration change is recorded and will be announced at the begining
+		/// The epoch configuration change is recorded and will be announced at the beginning
 		/// of the next epoch together with next epoch authorities information.
 		/// In other words, the configuration will be enacted one epoch later.
 		///
@@ -803,11 +805,11 @@ impl<T: Config> Pallet<T> {
 		let randomness = hashing::blake2_256(buf.as_slice());
 		RandomnessAccumulator::<T>::put(randomness);
 
-		let next_randoness = Self::update_epoch_randomness(1);
+		let next_randomness = Self::update_epoch_randomness(1);
 
 		// Deposit a log as this is the first block in first epoch.
 		let next_epoch = NextEpochDescriptor {
-			randomness: next_randoness,
+			randomness: next_randomness,
 			authorities: Self::next_authorities().into_inner(),
 			config: None,
 		};

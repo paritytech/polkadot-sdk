@@ -33,6 +33,8 @@ pub const BLS377: KeyTypeId = KeyTypeId(*b"bls7");
 pub const BLS381: KeyTypeId = KeyTypeId(*b"bls8");
 /// Key type for (ECDSA,BLS12-377) key pair
 pub const ECDSA_BLS377: KeyTypeId = KeyTypeId(*b"ecb7");
+/// Key type for (ECDSA,BLS12-381) key pair
+pub const ECDSA_BLS381: KeyTypeId = KeyTypeId(*b"ecb8");
 
 /// Macro for exporting functions from wasm in with the expected signature for using it with the
 /// wasm executor. This is useful for tests where you need to call a function in wasm.
@@ -89,7 +91,7 @@ macro_rules! wasm_export_functions {
 				&[0u8; 0]
 			} else {
 				unsafe {
-					$crate::sp_std::slice::from_raw_parts(input_data, input_len)
+					::core::slice::from_raw_parts(input_data, input_len)
 				}
 			};
 
@@ -117,7 +119,7 @@ macro_rules! wasm_export_functions {
 				&[0u8; 0]
 			} else {
 				unsafe {
-					$crate::sp_std::slice::from_raw_parts(input_data, input_len)
+					::core::slice::from_raw_parts(input_data, input_len)
 				}
 			};
 

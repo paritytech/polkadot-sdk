@@ -49,7 +49,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_common::slots`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_common::slots::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> polkadot_runtime_common::slots::WeightInfo for WeightInfo<T> {
 	/// Storage: Slots Leases (r:1 w:1)
 	/// Proof Skipped: Slots Leases (max_values: None, max_size: None, mode: Measured)
 	/// Storage: System Account (r:1 w:1)

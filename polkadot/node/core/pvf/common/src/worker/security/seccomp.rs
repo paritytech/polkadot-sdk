@@ -72,11 +72,11 @@
 //! candidate.
 
 use crate::{
-	worker::{stringify_panic_payload, WorkerKind},
+	worker::{stringify_panic_payload, WorkerInfo},
 	LOG_TARGET,
 };
 use seccompiler::*;
-use std::{collections::BTreeMap, path::Path};
+use std::collections::BTreeMap;
 
 /// The action to take on caught syscalls.
 #[cfg(not(test))]
@@ -98,36 +98,28 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Try to enable seccomp for the given kind of worker.
-pub fn enable_for_worker(
-	worker_kind: WorkerKind,
-	worker_pid: u32,
-	worker_dir_path: &Path,
-) -> Result<()> {
+pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 	gum::trace!(
 		target: LOG_TARGET,
-		%worker_kind,
-		%worker_pid,
-		?worker_dir_path,
+		?worker_info,
 		"enabling seccomp",
 	);
 
 	try_restrict()
 }
 
-/// Runs a check for seccomp and returns a single bool indicating whether seccomp with our rules is
-/// fully enabled on the current Linux environment.
-pub fn check_is_fully_enabled() -> bool {
-	let status_from_thread: Result<()> = match std::thread::spawn(|| try_restrict()).join() {
+/// Runs a check for seccomp in its own thread, and returns an error indicating whether seccomp with
+/// our rules is fully enabled on the current Linux environment.
+pub fn check_can_fully_enable() -> Result<()> {
+	match std::thread::spawn(|| try_restrict()).join() {
 		Ok(Ok(())) => Ok(()),
-		Ok(Err(err)) => Err(err.into()),
+		Ok(Err(err)) => Err(err),
 		Err(err) => Err(Error::Panic(stringify_panic_payload(err))),
-	};
-
-	matches!(status_from_thread, Ok(()))
+	}
 }
 
 /// Applies a `seccomp` filter to disable networking for the PVF threads.
-pub fn try_restrict() -> Result<()> {
+fn try_restrict() -> Result<()> {
 	// Build a `seccomp` filter which by default allows all syscalls except those blocked in the
 	// blacklist.
 	let mut blacklisted_rules = BTreeMap::default();
@@ -169,7 +161,7 @@ mod tests {
 	#[test]
 	fn sandboxed_thread_cannot_use_sockets() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if !check_is_fully_enabled() {
+		if check_can_fully_enable().is_err() {
 			return
 		}
 

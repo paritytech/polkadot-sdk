@@ -16,13 +16,17 @@
 
 //! Adapters to work with [`frame_support::traits::fungibles`] through XCM.
 
+use core::{marker::PhantomData, result};
 use frame_support::traits::{
 	tokens::{
-		fungibles, Fortitude::Polite, Precision::Exact, Preservation::Preserve, Provenance::Minted,
+		fungibles,
+		Fortitude::Polite,
+		Precision::Exact,
+		Preservation::{Expendable, Preserve},
+		Provenance::Minted,
 	},
 	Contains, Get,
 };
-use sp_std::{marker::PhantomData, prelude::*, result};
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{ConvertLocation, Error as MatchError, MatchesFungibles, TransactAsset};
 
@@ -38,11 +42,11 @@ impl<
 	> TransactAsset for FungiblesTransferAdapter<Assets, Matcher, AccountIdConverter, AccountId>
 {
 	fn internal_transfer_asset(
-		what: &MultiAsset,
-		from: &MultiLocation,
-		to: &MultiLocation,
+		what: &Asset,
+		from: &Location,
+		to: &Location,
 		_context: &XcmContext,
-	) -> result::Result<xcm_executor::Assets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		log::trace!(
 			target: "xcm::fungibles_adapter",
 			"internal_transfer_asset what: {:?}, from: {:?}, to: {:?}",
@@ -97,7 +101,7 @@ impl<AssetId> AssetChecking<AssetId> for NoChecking {
 
 /// Implementation of `AssetChecking` which subjects a given set of assets `T` to having their
 /// teleportations recorded with a `MintLocation::Local`.
-pub struct LocalMint<T>(sp_std::marker::PhantomData<T>);
+pub struct LocalMint<T>(core::marker::PhantomData<T>);
 impl<AssetId, T: Contains<AssetId>> AssetChecking<AssetId> for LocalMint<T> {
 	fn asset_checking(asset: &AssetId) -> Option<MintLocation> {
 		match T::contains(asset) {
@@ -109,7 +113,7 @@ impl<AssetId, T: Contains<AssetId>> AssetChecking<AssetId> for LocalMint<T> {
 
 /// Implementation of `AssetChecking` which subjects a given set of assets `T` to having their
 /// teleportations recorded with a `MintLocation::NonLocal`.
-pub struct NonLocalMint<T>(sp_std::marker::PhantomData<T>);
+pub struct NonLocalMint<T>(core::marker::PhantomData<T>);
 impl<AssetId, T: Contains<AssetId>> AssetChecking<AssetId> for NonLocalMint<T> {
 	fn asset_checking(asset: &AssetId) -> Option<MintLocation> {
 		match T::contains(asset) {
@@ -122,7 +126,7 @@ impl<AssetId, T: Contains<AssetId>> AssetChecking<AssetId> for NonLocalMint<T> {
 /// Implementation of `AssetChecking` which subjects a given set of assets `L` to having their
 /// teleportations recorded with a `MintLocation::Local` and a second set of assets `R` to having
 /// their teleportations recorded with a `MintLocation::NonLocal`.
-pub struct DualMint<L, R>(sp_std::marker::PhantomData<(L, R)>);
+pub struct DualMint<L, R>(core::marker::PhantomData<(L, R)>);
 impl<AssetId, L: Contains<AssetId>, R: Contains<AssetId>> AssetChecking<AssetId>
 	for DualMint<L, R>
 {
@@ -176,7 +180,8 @@ impl<
 	}
 	fn reduce_checked(asset_id: Assets::AssetId, amount: Assets::Balance) {
 		let checking_account = CheckingAccount::get();
-		let ok = Assets::burn_from(asset_id, &checking_account, amount, Exact, Polite).is_ok();
+		let ok = Assets::burn_from(asset_id, &checking_account, amount, Expendable, Exact, Polite)
+			.is_ok();
 		debug_assert!(ok, "`can_reduce_checked` must have returned `true` immediately prior; qed");
 	}
 }
@@ -198,11 +203,7 @@ impl<
 		CheckingAccount,
 	>
 {
-	fn can_check_in(
-		_origin: &MultiLocation,
-		what: &MultiAsset,
-		_context: &XcmContext,
-	) -> XcmResult {
+	fn can_check_in(_origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		log::trace!(
 			target: "xcm::fungibles_adapter",
 			"can_check_in origin: {:?}, what: {:?}",
@@ -219,7 +220,7 @@ impl<
 		}
 	}
 
-	fn check_in(_origin: &MultiLocation, what: &MultiAsset, _context: &XcmContext) {
+	fn check_in(_origin: &Location, what: &Asset, _context: &XcmContext) {
 		log::trace!(
 			target: "xcm::fungibles_adapter",
 			"check_in origin: {:?}, what: {:?}",
@@ -236,14 +237,10 @@ impl<
 		}
 	}
 
-	fn can_check_out(
-		_origin: &MultiLocation,
-		what: &MultiAsset,
-		_context: &XcmContext,
-	) -> XcmResult {
+	fn can_check_out(_origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		log::trace!(
 			target: "xcm::fungibles_adapter",
-			"can_check_in origin: {:?}, what: {:?}",
+			"can_check_out origin: {:?}, what: {:?}",
 			_origin, what
 		);
 		// Check we handle this asset.
@@ -257,7 +254,7 @@ impl<
 		}
 	}
 
-	fn check_out(_dest: &MultiLocation, what: &MultiAsset, _context: &XcmContext) {
+	fn check_out(_dest: &Location, what: &Asset, _context: &XcmContext) {
 		log::trace!(
 			target: "xcm::fungibles_adapter",
 			"check_out dest: {:?}, what: {:?}",
@@ -274,11 +271,7 @@ impl<
 		}
 	}
 
-	fn deposit_asset(
-		what: &MultiAsset,
-		who: &MultiLocation,
-		_context: Option<&XcmContext>,
-	) -> XcmResult {
+	fn deposit_asset(what: &Asset, who: &Location, _context: Option<&XcmContext>) -> XcmResult {
 		log::trace!(
 			target: "xcm::fungibles_adapter",
 			"deposit_asset what: {:?}, who: {:?}",
@@ -294,10 +287,10 @@ impl<
 	}
 
 	fn withdraw_asset(
-		what: &MultiAsset,
-		who: &MultiLocation,
+		what: &Asset,
+		who: &Location,
 		_maybe_context: Option<&XcmContext>,
-	) -> result::Result<xcm_executor::Assets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		log::trace!(
 			target: "xcm::fungibles_adapter",
 			"withdraw_asset what: {:?}, who: {:?}",
@@ -307,7 +300,7 @@ impl<
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Assets::burn_from(asset_id, &who, amount, Exact, Polite)
+		Assets::burn_from(asset_id, &who, amount, Expendable, Exact, Polite)
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
 		Ok(what.clone().into())
 	}
@@ -331,7 +324,7 @@ impl<
 	> TransactAsset
 	for FungiblesAdapter<Assets, Matcher, AccountIdConverter, AccountId, CheckAsset, CheckingAccount>
 {
-	fn can_check_in(origin: &MultiLocation, what: &MultiAsset, context: &XcmContext) -> XcmResult {
+	fn can_check_in(origin: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
 		FungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -342,7 +335,7 @@ impl<
 		>::can_check_in(origin, what, context)
 	}
 
-	fn check_in(origin: &MultiLocation, what: &MultiAsset, context: &XcmContext) {
+	fn check_in(origin: &Location, what: &Asset, context: &XcmContext) {
 		FungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -353,7 +346,7 @@ impl<
 		>::check_in(origin, what, context)
 	}
 
-	fn can_check_out(dest: &MultiLocation, what: &MultiAsset, context: &XcmContext) -> XcmResult {
+	fn can_check_out(dest: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
 		FungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -364,7 +357,7 @@ impl<
 		>::can_check_out(dest, what, context)
 	}
 
-	fn check_out(dest: &MultiLocation, what: &MultiAsset, context: &XcmContext) {
+	fn check_out(dest: &Location, what: &Asset, context: &XcmContext) {
 		FungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -375,11 +368,7 @@ impl<
 		>::check_out(dest, what, context)
 	}
 
-	fn deposit_asset(
-		what: &MultiAsset,
-		who: &MultiLocation,
-		context: Option<&XcmContext>,
-	) -> XcmResult {
+	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		FungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -391,10 +380,10 @@ impl<
 	}
 
 	fn withdraw_asset(
-		what: &MultiAsset,
-		who: &MultiLocation,
+		what: &Asset,
+		who: &Location,
 		maybe_context: Option<&XcmContext>,
-	) -> result::Result<xcm_executor::Assets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		FungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -406,11 +395,11 @@ impl<
 	}
 
 	fn internal_transfer_asset(
-		what: &MultiAsset,
-		from: &MultiLocation,
-		to: &MultiLocation,
+		what: &Asset,
+		from: &Location,
+		to: &Location,
 		context: &XcmContext,
-	) -> result::Result<xcm_executor::Assets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		FungiblesTransferAdapter::<Assets, Matcher, AccountIdConverter, AccountId>::internal_transfer_asset(
 			what, from, to, context
 		)

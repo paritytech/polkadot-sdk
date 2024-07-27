@@ -19,7 +19,7 @@ use crate::common::API_VERSION_ATTRIBUTE;
 use inflector::Inflector;
 use proc_macro2::{Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
-use quote::{format_ident, quote, ToTokens};
+use quote::{format_ident, quote};
 use syn::{
 	parse_quote, spanned::Spanned, token::And, Attribute, Error, FnArg, GenericArgument, Ident,
 	ImplItem, ItemImpl, Pat, Path, PathArguments, Result, ReturnType, Signature, Type, TypePath,
@@ -34,8 +34,14 @@ pub fn generate_crate_access() -> TokenStream {
 			quote!(#renamed_name::__private)
 		},
 		Err(e) =>
-			if let Ok(FoundCrate::Name(name)) = crate_name(&"frame") {
+			if let Ok(FoundCrate::Name(name)) =
+				crate_name(&"polkadot-sdk-frame").or_else(|_| crate_name(&"frame"))
+			{
 				let path = format!("{}::deps::sp_api::__private", name);
+				let path = syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed");
+				quote!( #path )
+			} else if let Ok(FoundCrate::Name(name)) = crate_name(&"polkadot-sdk") {
+				let path = format!("{}::sp_api::__private", name);
 				let path = syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed");
 				quote!( #path )
 			} else {
@@ -259,8 +265,8 @@ pub fn versioned_trait_name(trait_ident: &Ident, version: u64) -> Ident {
 }
 
 /// Extract the documentation from the provided attributes.
-#[cfg(feature = "frame-metadata")]
 pub fn get_doc_literals(attrs: &[syn::Attribute]) -> Vec<syn::Lit> {
+	use quote::ToTokens;
 	attrs
 		.iter()
 		.filter_map(|attr| {
@@ -274,7 +280,6 @@ pub fn get_doc_literals(attrs: &[syn::Attribute]) -> Vec<syn::Lit> {
 }
 
 /// Filters all attributes except the cfg ones.
-#[cfg(feature = "frame-metadata")]
 pub fn filter_cfg_attributes(attrs: &[syn::Attribute]) -> Vec<syn::Attribute> {
 	attrs.iter().filter(|a| a.path().is_ident("cfg")).cloned().collect()
 }

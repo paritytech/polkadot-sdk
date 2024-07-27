@@ -25,8 +25,11 @@
 #[cfg(test)]
 mod tests;
 
+mod archive_storage;
+
 pub mod api;
 pub mod archive;
 pub mod error;
 
 pub use api::ArchiveApiServer;
+pub use archive::{Archive, ArchiveConfig};

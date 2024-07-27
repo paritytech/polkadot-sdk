@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{exec::ExecError, Config, Error};
+use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
 	weights::Weight,
@@ -23,7 +24,6 @@ use frame_support::{
 };
 use sp_core::Get;
 use sp_runtime::{traits::Zero, DispatchError};
-use sp_std::marker::PhantomData;
 
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};
@@ -34,6 +34,63 @@ pub struct ChargedAmount(Weight);
 impl ChargedAmount {
 	pub fn amount(&self) -> Weight {
 		self.0
+	}
+}
+
+/// Meter for syncing the gas between the executor and the gas meter.
+#[derive(DefaultNoBound)]
+struct EngineMeter<T: Config> {
+	fuel: u64,
+	_phantom: PhantomData<T>,
+}
+
+impl<T: Config> EngineMeter<T> {
+	/// Create a meter with the given fuel limit.
+	fn new(limit: Weight) -> Self {
+		Self {
+			fuel: limit.ref_time().saturating_div(T::Schedule::get().ref_time_by_fuel()),
+			_phantom: PhantomData,
+		}
+	}
+
+	/// Set the fuel left to the given value.
+	/// Returns the amount of Weight consumed since the last update.
+	fn set_fuel(&mut self, fuel: u64) -> Weight {
+		let consumed = self
+			.fuel
+			.saturating_sub(fuel)
+			.saturating_mul(T::Schedule::get().ref_time_by_fuel());
+		self.fuel = fuel;
+		Weight::from_parts(consumed, 0)
+	}
+
+	/// Charge the given amount of gas.
+	/// Returns the amount of fuel left.
+	fn charge_ref_time(&mut self, ref_time: u64) -> Result<Syncable, DispatchError> {
+		let amount = ref_time
+			.checked_div(T::Schedule::get().ref_time_by_fuel())
+			.ok_or(Error::<T>::InvalidSchedule)?;
+
+		self.fuel.checked_sub(amount).ok_or_else(|| Error::<T>::OutOfGas)?;
+		Ok(Syncable(self.fuel))
+	}
+}
+
+/// Used to capture the gas left before entering a host function.
+///
+/// Has to be consumed in order to sync back the gas after leaving the host function.
+#[must_use]
+pub struct RefTimeLeft(u64);
+
+/// Resource that needs to be synced to the executor.
+///
+/// Wrapped to make sure that the resource will be synced back the the executor.
+#[must_use]
+pub struct Syncable(u64);
+
+impl From<Syncable> for u64 {
+	fn from(from: Syncable) -> u64 {
+		from.0
 	}
 }
 
@@ -63,6 +120,11 @@ pub trait Token<T: Config>: Copy + Clone + TestAuxiliaries {
 	/// while calculating the amount. In this case it is ok to use saturating operations
 	/// since on overflow they will return `max_value` which should consume all gas.
 	fn weight(&self) -> Weight;
+
+	/// Returns true if this token is expected to influence the lowest gas limit.
+	fn influence_lowest_gas_limit(&self) -> bool {
+		true
+	}
 }
 
 /// A wrapper around a type-erased trait object of what used to be a `Token`.
@@ -79,8 +141,10 @@ pub struct GasMeter<T: Config> {
 	gas_left: Weight,
 	/// Due to `adjust_gas` and `nested` the `gas_left` can temporarily dip below its final value.
 	gas_left_lowest: Weight,
-	/// Amount of fuel consumed by the engine from the last host function call.
-	engine_consumed: u64,
+	/// The amount of resources that was consumed by the execution engine.
+	/// We have to track it separately in order to avoid the loss of precision that happens when
+	/// converting from ref_time to the execution engine unit.
+	engine_meter: EngineMeter<T>,
 	_phantom: PhantomData<T>,
 	#[cfg(test)]
 	tokens: Vec<ErasedToken>,
@@ -92,7 +156,7 @@ impl<T: Config> GasMeter<T> {
 			gas_limit,
 			gas_left: gas_limit,
 			gas_left_lowest: gas_limit,
-			engine_consumed: Default::default(),
+			engine_meter: EngineMeter::new(gas_limit),
 			_phantom: PhantomData,
 			#[cfg(test)]
 			tokens: Vec::new(),
@@ -104,9 +168,7 @@ impl<T: Config> GasMeter<T> {
 	/// # Note
 	///
 	/// Passing `0` as amount is interpreted as "all remaining gas".
-	pub fn nested(&mut self, amount: Weight) -> Result<Self, DispatchError> {
-		// NOTE that it is ok to allocate all available gas since it still ensured
-		// by `charge` that it doesn't reach zero.
+	pub fn nested(&mut self, amount: Weight) -> Self {
 		let amount = Weight::from_parts(
 			if amount.ref_time().is_zero() {
 				self.gas_left().ref_time()
@@ -118,33 +180,17 @@ impl<T: Config> GasMeter<T> {
 			} else {
 				amount.proof_size()
 			},
-		);
-		self.gas_left = self.gas_left.checked_sub(&amount).ok_or_else(|| <Error<T>>::OutOfGas)?;
-		Ok(GasMeter::new(amount))
+		)
+		.min(self.gas_left);
+		self.gas_left -= amount;
+		GasMeter::new(amount)
 	}
 
 	/// Absorb the remaining gas of a nested meter after we are done using it.
 	pub fn absorb_nested(&mut self, nested: Self) {
-		if self.gas_left.ref_time().is_zero() {
-			// All of the remaining gas was inherited by the nested gas meter. When absorbing
-			// we can therefore safely inherit the lowest gas that the nested gas meter experienced
-			// as long as it is lower than the lowest gas that was experienced by the parent.
-			// We cannot call `self.gas_left_lowest()` here because in the state that this
-			// code is run the parent gas meter has `0` gas left.
-			*self.gas_left_lowest.ref_time_mut() =
-				nested.gas_left_lowest().ref_time().min(self.gas_left_lowest.ref_time());
-		} else {
-			// The nested gas meter was created with a fixed amount that did not consume all of the
-			// parents (self) gas. The lowest gas that self will experience is when the nested
-			// gas was pre charged with the fixed amount.
-			*self.gas_left_lowest.ref_time_mut() = self.gas_left_lowest().ref_time();
-		}
-		if self.gas_left.proof_size().is_zero() {
-			*self.gas_left_lowest.proof_size_mut() =
-				nested.gas_left_lowest().proof_size().min(self.gas_left_lowest.proof_size());
-		} else {
-			*self.gas_left_lowest.proof_size_mut() = self.gas_left_lowest().proof_size();
-		}
+		self.gas_left_lowest = (self.gas_left + nested.gas_limit)
+			.saturating_sub(nested.gas_required())
+			.min(self.gas_left_lowest);
 		self.gas_left += nested.gas_left;
 	}
 
@@ -178,37 +224,37 @@ impl<T: Config> GasMeter<T> {
 	/// This is when a maximum a priori amount was charged and then should be partially
 	/// refunded to match the actual amount.
 	pub fn adjust_gas<Tok: Token<T>>(&mut self, charged_amount: ChargedAmount, token: Tok) {
-		self.gas_left_lowest = self.gas_left_lowest();
+		if token.influence_lowest_gas_limit() {
+			self.gas_left_lowest = self.gas_left_lowest();
+		}
 		let adjustment = charged_amount.0.saturating_sub(token.weight());
 		self.gas_left = self.gas_left.saturating_add(adjustment).min(self.gas_limit);
 	}
 
-	/// This method is used for gas syncs with the engine.
+	/// Hand over the gas metering responsibility from the executor to this meter.
 	///
-	/// Updates internal `engine_comsumed` tracker of engine fuel consumption.
-	///
-	/// Charges self with the `ref_time` Weight corresponding to wasmi fuel consumed on the engine
-	/// side since last sync. Passed value is scaled by multiplying it by the weight of a basic
-	/// operation, as such an operation in wasmi engine costs 1.
-	///
-	/// Returns the updated `gas_left` `Weight` value from the meter.
-	/// Normally this would never fail, as engine should fail first when out of gas.
-	pub fn charge_fuel(&mut self, wasmi_fuel_total: u64) -> Result<Weight, DispatchError> {
-		// Take the part consumed since the last update.
-		let wasmi_fuel = wasmi_fuel_total.saturating_sub(self.engine_consumed);
-		if !wasmi_fuel.is_zero() {
-			self.engine_consumed = wasmi_fuel_total;
-			let reftime_consumed =
-				wasmi_fuel.saturating_mul(T::Schedule::get().instruction_weights.base as u64);
-			let ref_time_left = self
-				.gas_left
-				.ref_time()
-				.checked_sub(reftime_consumed)
-				.ok_or_else(|| Error::<T>::OutOfGas)?;
+	/// Needs to be called when entering a host function to update this meter with the
+	/// gas that was tracked by the executor. It tracks the latest seen total value
+	/// in order to compute the delta that needs to be charged.
+	pub fn sync_from_executor(&mut self, engine_fuel: u64) -> Result<RefTimeLeft, DispatchError> {
+		let weight_consumed = self.engine_meter.set_fuel(engine_fuel);
+		self.gas_left
+			.checked_reduce(weight_consumed)
+			.ok_or_else(|| Error::<T>::OutOfGas)?;
+		Ok(RefTimeLeft(self.gas_left.ref_time()))
+	}
 
-			*(self.gas_left.ref_time_mut()) = ref_time_left;
-		}
-		Ok(self.gas_left)
+	/// Hand over the gas metering responsibility from this meter to the executor.
+	///
+	/// Needs to be called when leaving a host function in order to calculate how much
+	/// gas needs to be charged from the **executor**. It updates the last seen executor
+	/// total value so that it is correct when `sync_from_executor` is called the next time.
+	///
+	/// It is important that this does **not** actually sync with the executor. That has
+	/// to be done by the caller.
+	pub fn sync_to_executor(&mut self, before: RefTimeLeft) -> Result<Syncable, DispatchError> {
+		let ref_time_consumed = before.0.saturating_sub(self.gas_left().ref_time());
+		self.engine_meter.charge_ref_time(ref_time_consumed)
 	}
 
 	/// Returns the amount of gas that is required to run the same call.
@@ -331,7 +377,7 @@ mod tests {
 		assert!(gas_meter.charge(SimpleToken(1)).is_err());
 	}
 
-	// Make sure that the gas meter does not charge in case of overcharger
+	// Make sure that the gas meter does not charge in case of overcharge
 	#[test]
 	fn overcharge_does_not_charge() {
 		let mut gas_meter = GasMeter::<Test>::new(Weight::from_parts(200, 0));

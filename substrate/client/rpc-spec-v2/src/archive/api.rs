@@ -18,7 +18,10 @@
 
 //! API trait of the archive methods.
 
-use crate::MethodResult;
+use crate::{
+	common::events::{ArchiveStorageResult, PaginatedStorageQuery},
+	MethodResult,
+};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 
 #[rpc(client, server)]
@@ -88,4 +91,17 @@ pub trait ArchiveApi<Hash> {
 		function: String,
 		call_parameters: String,
 	) -> RpcResult<MethodResult>;
+
+	/// Returns storage entries at a specific block's state.
+	///
+	/// # Unstable
+	///
+	/// This method is unstable and subject to change in the future.
+	#[method(name = "archive_unstable_storage", blocking)]
+	fn archive_unstable_storage(
+		&self,
+		hash: Hash,
+		items: Vec<PaginatedStorageQuery<String>>,
+		child_trie: Option<String>,
+	) -> RpcResult<ArchiveStorageResult>;
 }

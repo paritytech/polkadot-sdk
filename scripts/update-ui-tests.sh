@@ -37,4 +37,4 @@ export TRYBUILD=overwrite
 $RUSTUP_RUN cargo test --manifest-path substrate/primitives/runtime-interface/Cargo.toml ui
 $RUSTUP_RUN cargo test -p sp-api-test ui
 $RUSTUP_RUN cargo test -p frame-election-provider-solution-type ui
-$RUSTUP_RUN cargo test -p frame-support-test ui
+$RUSTUP_RUN cargo test -p frame-support-test --features=no-metadata-docs,try-runtime,experimental ui

@@ -1,0 +1,16 @@
+title: fungible fixes and more conformance tests
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds conformance tests for the Balanced and Unbalanced fungible traits
+      Fixes Unbalanced::decrease_balance not respecting preservation
+      Fixes Balanced::pair possibly returning pairs of imbalances which do not cancel each other out. Method now returns a Result instead (breaking change).
+      Fixes Balances pallet active_issuance possible 'underflow'
+      Refactors the conformance test file structure to match the fungible file structure: tests for traits in regular.rs go into a test file named regular.rs, tests for traits in freezes.rs go into a test file named freezes.rs, etc.
+      Improve doc comments
+      Simplify macros
+
+crates:
+  - name: pallet-balances
+  - name: frame-support

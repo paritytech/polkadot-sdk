@@ -66,7 +66,7 @@ fn main() {
 			let c = FixedI64::saturating_from_integer(x.saturating_add(y));
 			assert_eq!(a.saturating_add(b), c);
 
-			// Check substraction.
+			// Check subtraction.
 			let a = FixedI64::saturating_from_integer(x);
 			let b = FixedI64::saturating_from_integer(y);
 			let c = FixedI64::saturating_from_integer(x.saturating_sub(y));

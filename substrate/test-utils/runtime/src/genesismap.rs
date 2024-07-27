@@ -136,7 +136,6 @@ impl GenesisStorageBuilder {
 					.into_iter()
 					.map(|x| (x.into(), 1))
 					.collect(),
-				epoch_config: Some(crate::TEST_RUNTIME_BABE_EPOCH_CONFIGURATION),
 				..Default::default()
 			},
 			sassafras: pallet_sassafras::GenesisConfig {
