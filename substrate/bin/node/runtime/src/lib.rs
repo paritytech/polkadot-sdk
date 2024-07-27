@@ -2142,12 +2142,16 @@ parameter_types! {
 	// Tokens existential Deposit
 	pub const Existential: Balance = 1;
 
-	// Time needed after approval to unlock the spending claim
+	// Time needed after approval to unlock the reward claim
 	pub const Period:BlockNumber = DAYS;
+
+	// Maximum number of whitelisted projects
+	pub const MaxProjects:u32 = 50;
 
 }
 impl pallet_distribution::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+
 	type NativeBalance = Balances;
 
 	// Pot PalletId
@@ -2162,6 +2166,9 @@ impl pallet_distribution::Config for Runtime {
 	// This the minimum required time period between project whitelisting
 	// and payment/reward_claim from the treasury.
 	type PaymentPeriod = Period;
+
+	// Maximum number of whitelisted projects
+	type MaxProjects = MaxProjects;
 }
 
 parameter_types! {

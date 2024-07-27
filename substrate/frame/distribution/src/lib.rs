@@ -40,6 +40,8 @@ pub mod pallet {
 		// This the minimum required time period between project whitelisting
 		// and payment/reward_claim from the treasury.
 		type PaymentPeriod: Get<BlockNumberFor<Self>>;
+		
+		type MaxProjects: Get<u32>;
 
 
 	}
@@ -54,6 +56,25 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type Something<T> = StorageValue<_, u32>;
+
+	/// Number of spendings that have been executed so far.
+	#[pallet::storage]
+	pub type SpendingsCount<T: Config> = StorageValue<_, SpendingIndex, ValueQuery>;
+
+	/// Executed spendings information.
+	#[pallet::storage]
+	pub type CompletedSpendings<T: Config> =
+		StorageMap<_, Twox64Concat, SpendingIndex, SpendingInfo<T>, OptionQuery>;
+
+	/// Spendings that still have to be completed.
+	#[pallet::storage]
+	pub type Spendings<T: Config> =
+		StorageMap<_, Twox64Concat, SpendingIndex, SpendingInfo<T>, OptionQuery>;
+
+	/// List or whitelisted projects to be rewarded
+	#[pallet::storage]
+	pub type Projects<T: Config> = 
+		StorageValue<_, BoundedVec<ProjectInfo<T>, T::MaxProjects>>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
