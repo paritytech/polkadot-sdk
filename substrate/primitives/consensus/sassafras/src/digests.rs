@@ -18,8 +18,8 @@
 //! Sassafras digests structures and helpers.
 
 use crate::{
-	ticket::TicketClaim, vrf::VrfSignature, AuthorityId, AuthorityIndex, AuthoritySignature,
-	EpochConfiguration, Randomness, Slot, SASSAFRAS_ENGINE_ID,
+	vrf::VrfSignature, AuthorityId, AuthorityIndex, AuthoritySignature, Randomness, Slot,
+	SASSAFRAS_ENGINE_ID,
 };
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -34,14 +34,12 @@ use sp_runtime::{DigestItem, RuntimeDebug};
 /// This is mandatory for each block.
 #[derive(Clone, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct SlotClaim {
-	/// Authority index that claimed the slot.
-	pub authority_idx: AuthorityIndex,
 	/// Corresponding slot number.
 	pub slot: Slot,
+	/// Authority index that claimed the slot.
+	pub authority_idx: AuthorityIndex,
 	/// Slot claim VRF signature.
 	pub vrf_signature: VrfSignature,
-	/// Ticket auxiliary information for claim check.
-	pub ticket_claim: Option<TicketClaim>,
 }
 
 /// Information about the next epoch.
@@ -53,10 +51,6 @@ pub struct NextEpochDescriptor {
 	pub randomness: Randomness,
 	/// Authorities list.
 	pub authorities: Vec<AuthorityId>,
-	/// Epoch configuration.
-	///
-	/// If not present previous epoch parameters are used.
-	pub config: Option<EpochConfiguration>,
 }
 
 /// Runtime digest entries.

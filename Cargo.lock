@@ -20290,6 +20290,7 @@ dependencies = [
  "sp-application-crypto",
  "sp-consensus-slots",
  "sp-core",
+ "sp-inherents",
  "sp-runtime",
 ]
 
