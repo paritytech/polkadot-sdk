@@ -26,11 +26,4 @@ fn ui() {
 	}
 
 	panic!("Should panic if run in CI");
-
-	// As trybuild is using `cargo check`, we don't need the real WASM binaries.
-	env::set_var("SKIP_WASM_BUILD", "1");
-
-	let t = trybuild::TestCases::new();
-	t.compile_fail("tests/ui/*.rs");
-	t.pass("tests/ui/positive_cases/*.rs");
 }
