@@ -25,6 +25,8 @@ fn ui() {
 		return
 	}
 
+	panic!("Should panic if run in CI");
+
 	// As trybuild is using `cargo check`, we don't need the real WASM binaries.
 	env::set_var("SKIP_WASM_BUILD", "1");
 
