@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722043657116,
+  "lastUpdate": 1722157622776,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -12877,6 +12877,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.11975137229017,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "10b8039a53ddaa10ca37fe70c64e549c649a22dc",
+          "message": "Re: fix warnings with latest rust (#5161)\n\nI made mistake on previous PR\nhttps://github.com/paritytech/polkadot-sdk/pull/5150. It disabled all\nunexpected cfgs instead of just allowing `substrate_runtime` condition.\n\nIn this PR: unexpected cfgs other than `substrate_runtime` are still\nchecked. and some warnings appear about them",
+          "timestamp": "2024-07-28T07:10:43Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/10b8039a53ddaa10ca37fe70c64e549c649a22dc"
+        },
+        "date": 1722157593045,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 64028.829999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.674956557170017,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.8030858085602817,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.226107624880052,
             "unit": "seconds"
           }
         ]
