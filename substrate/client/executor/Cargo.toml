@@ -51,7 +51,6 @@ tracing-subscriber = { workspace = true }
 paste = { workspace = true, default-features = true }
 regex = { workspace = true }
 criterion = { workspace = true, default-features = true }
-env_logger = { workspace = true }
 num_cpus = { workspace = true }
 tempfile = { workspace = true }
 
