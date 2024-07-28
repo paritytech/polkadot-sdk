@@ -36,12 +36,15 @@ pub mod pallet {
 
 		type RuntimeHoldReason: From<HoldReason>;
 
-		// This the minimum required time period between project whitelisting
-		// and payment/reward_claim from the treasury.
+		/// This the minimum required time period between project whitelisting
+		/// and payment/reward_claim from the treasury.
 		type PaymentPeriod: Get<BlockNumberFor<Self>>;
 		
+		/// Maximum number projects that can be accepted by this pallet 
 		type MaxProjects: Get<u32>;
 
+		/// Epoch duration in blocks
+		type EpochDurationBlocks: Get<BlockNumberFor<Self>>;
 
 	}
 	
@@ -73,7 +76,7 @@ pub mod pallet {
 	/// List or whitelisted projects to be rewarded
 	#[pallet::storage]
 	pub type Projects<T: Config> = 
-		StorageValue<_, BoundedVec<ProjectInfo<T>, T::MaxProjects>>;
+		StorageValue<_, BoundedVec<ProjectInfo<T>, T::MaxProjects>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -96,6 +99,8 @@ pub mod pallet {
 		InexistantSpending,
 		/// No valid Account_id found
 		NoValidAccount,
+		/// No project available for funding
+		NoProjectAvailable,
 	}
 
 	#[pallet::call]

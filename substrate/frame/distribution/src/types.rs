@@ -77,6 +77,7 @@ impl<T: Config> SpendingInfo<T> {
 
 		// Get the spending index 
 		let index = SpendingsCount::<T>::get();
+		//Add it to the Spendings storage
 		Spendings::<T>::insert(index, spending.clone());
 		SpendingsCount::<T>::put(index+1);
 
@@ -91,14 +92,11 @@ impl<T: Config> SpendingInfo<T> {
 #[scale_info(skip_type_params(T))]
 pub struct ProjectInfo<T: Config>  {
 	/// AcountId that will receive the payment.
-	project_account: T::AccountId,
+	pub project_account: T::AccountId,
 
 	/// Block at which the project was whitelisted
-	whitelisted_block: BlockNumberFor<T>,
+	pub whitelisted_block: BlockNumberFor<T>,
 
 	/// Amount to be lock & pay for this project 
-	amount: BalanceOf<T>,
-
-	/// Has the payment been executed already?
-	reward_paid: bool,
+	pub amount: BalanceOf<T>,
   }

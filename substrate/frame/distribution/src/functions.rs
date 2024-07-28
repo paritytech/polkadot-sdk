@@ -60,6 +60,52 @@ impl<T: Config> Pallet<T> {
 	// make sure that there is enough funds before creating a new `SpendingInfo`, and `ProjectInfo`
 	// corresponding to a created `SpendingInfo` should be removed from the `Projects` storage.
 	// This is also a good place to lock the funds for created `SpendingInfos`.
+	// the function will be use in a hook.
 
+	pub fn begin_block(now: BlockNumberFor<T>) -> Weight {
+		let max_block_weight = Weight::from_parts(1000_u64, 0);
+		let epoch = T::EpochDurationBlocks::get();
+
+		//We reach the check period
+		if (now % epoch).is_zero(){
+			let mut projects = Projects	::<T>::get();
+			
+			if projects.len() > 0 {
+
+				for project in projects.clone(){
+					// check if the pot has enough fund for the spending
+					let check = Self::pot_check(project.amount);
+					let result = match check{
+						
+						Ok(x) => {
+							// Create a new spending
+							let new_spending = SpendingInfo::<T>::new(project.clone());
+							
+							// Lock funds for the project
+							let pot = Self::pot_account();
+							let _=T::NativeBalance::hold(
+								&HoldReason::FundsLock.into(),
+								&pot,
+								project.amount,
+							);
+
+							// remove project from project_list
+							projects.retain(|value| *value != project); 
+							Ok(x)
+
+						},
+						Err(_e) => Err(Error::<T>::InsufficientPotReserves)
+					};
+
+				}
+			}
+
+			// Update project storage
+			Projects::<T>::mutate(|val|{
+				*val = projects;
+			});
+		}
+		max_block_weight
+	}
 
 }

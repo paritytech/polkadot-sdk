@@ -2141,24 +2141,29 @@ parameter_types! {
 	// Maximum number of whitelisted projects
 	pub const MaxProjects:u32 = 50;
 
+	pub const EpochDurationBlocks: BlockNumber = EPOCH_DURATION_IN_BLOCKS;
+
 }
 impl pallet_distribution::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 
 	type NativeBalance = Balances;
 
-	// Pot PalletId
+	/// Pot PalletId
 	type PotId = PotId;
 
 	/// A reason for placing a hold on funds.
 	type RuntimeHoldReason = RuntimeHoldReason;
 
-	// This the minimum required time period between project whitelisting
-	// and payment/reward_claim from the treasury.
+	/// This the minimum required time period between project whitelisting
+	/// and payment/reward_claim from the treasury.
 	type PaymentPeriod = Period;
 
-	// Maximum number of whitelisted projects
+	/// Maximum number of whitelisted projects
 	type MaxProjects = MaxProjects;
+
+	/// Epoch duration in blocks
+	type EpochDurationBlocks = EpochDurationBlocks;
 }
 
 parameter_types! {
