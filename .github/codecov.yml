@@ -7,3 +7,6 @@ coverage:
       default:
         target: 1.0
         threshold: 2.0
+
+fixes:
+  - "/__w/polkadot-sdk/::"
