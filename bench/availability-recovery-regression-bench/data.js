@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722158221890,
+  "lastUpdate": 1722204583485,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -16043,6 +16043,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.300026343,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "André Silva",
+            "username": "andresilva",
+            "email": "123550+andresilva@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "dc4047c7d05f593757328394d1accf0eb382d709",
+          "message": "grandpa: handle error from SelectChain::finality_target (#5153)\n\nFix https://github.com/paritytech/polkadot-sdk/issues/3487.\n\n---------\n\nCo-authored-by: Dmitry Lavrenov <39522748+dmitrylavrenov@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <info@kchr.de>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-07-28T20:03:48Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dc4047c7d05f593757328394d1accf0eb382d709"
+        },
+        "date": 1722204552718,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17075562539999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.733933645033334,
             "unit": "seconds"
           }
         ]
