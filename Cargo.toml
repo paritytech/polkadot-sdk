@@ -1263,7 +1263,7 @@ sp-version = { path = "substrate/primitives/version", default-features = false }
 sp-version-proc-macro = { path = "substrate/primitives/version/proc-macro", default-features = false }
 sp-wasm-interface = { path = "substrate/primitives/wasm-interface", default-features = false }
 sp-weights = { path = "substrate/primitives/weights", default-features = false }
-spinners = { version = "4.1.0" }
+spinners = { version = "4.1.1" }
 ss58-registry = { version = "1.34.0", default-features = false }
 ssz_rs = { version = "0.9.0", default-features = false }
 ssz_rs_derive = { version = "0.9.0", default-features = false }
