@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722044557470,
+  "lastUpdate": 1722158522606,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -6719,6 +6719,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.037062420913999986,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "10b8039a53ddaa10ca37fe70c64e549c649a22dc",
+          "message": "Re: fix warnings with latest rust (#5161)\n\nI made mistake on previous PR\nhttps://github.com/paritytech/polkadot-sdk/pull/5150. It disabled all\nunexpected cfgs instead of just allowing `substrate_runtime` condition.\n\nIn this PR: unexpected cfgs other than `substrate_runtime` are still\nchecked. and some warnings appear about them",
+          "timestamp": "2024-07-28T07:10:43Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/10b8039a53ddaa10ca37fe70c64e549c649a22dc"
+        },
+        "date": 1722158491844,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.89399999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.040023583684000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04742970789,
             "unit": "seconds"
           }
         ]
