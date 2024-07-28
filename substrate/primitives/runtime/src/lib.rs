@@ -1172,6 +1172,61 @@ mod tests {
 			assert_eq!(sp_io::storage::get(b"b").unwrap(), vec![2u8; 33]);
 		});
 	}
+
+	// Function is used to test that macros below generate nothing.
+	fn _unique_function() {}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	#[runtime_cfg(not(feature = "runtime-benchmarks"))]
+	fn _unique_function() {}
+
+	#[cfg(feature = "try-runtime")]
+	#[runtime_cfg(not(feature = "try-runtime"))]
+	fn _unique_function() {}
+
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	#[runtime_cfg(feature = "runtime-benchmarks")]
+	fn _unique_function() {}
+
+	#[cfg(not(feature = "try-runtime"))]
+	#[runtime_cfg(feature = "try-runtime")]
+	fn _unique_function() {}
+
+	#[runtime_cfg(feature = "runtime-benchmarks")]
+	fn function_exist1() {}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	#[test]
+	fn test_function_exist1() {
+		function_exist1();
+	}
+
+	#[runtime_cfg(not(feature = "runtime-benchmarks"))]
+	fn function_exist1() {}
+
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	#[test]
+	fn test_function_exist1() {
+		function_exist1();
+	}
+
+	#[runtime_cfg(feature = "try-runtime")]
+	fn function_exist2() {}
+
+	#[cfg(feature = "try-runtime")]
+	#[test]
+	fn test_function_exist2() {
+		function_exist2();
+	}
+
+	#[runtime_cfg(not(feature = "try-runtime"))]
+	fn function_exist2() {}
+
+	#[cfg(not(feature = "try-runtime"))]
+	#[test]
+	fn test_function_exist2() {
+		function_exist2();
+	}
 }
 
 // NOTE: we have to test the sp_core stuff also from a different crate to check that the macro
