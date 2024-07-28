@@ -231,7 +231,7 @@ for execution costs on the remote side.</p>
 </ul>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.force_transfer_native_from_agent" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_system/lib.rs.html#128">source</a><h4 class="code-header">pub fn <a href="#method.force_transfer_native_from_agent" class="fn">force_transfer_native_from_agent</a>(
     origin: OriginFor&lt;T&gt;,
-    location: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;VersionedLocation&gt;,
+    location: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;<a class="enum" href="../../staging_xcm/enum.VersionedLocation.html" title="enum staging_xcm::VersionedLocation">VersionedLocation</a>&gt;,
     recipient: H160,
     amount: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u128.html">u128</a>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Sends a message to the Gateway contract to transfer ether from an agent to <code>recipient</code>.</p>
@@ -269,8 +269,8 @@ AssetHub, in DOT</li>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Issue a <code>Command::TransferNativeFromAgent</code> command. The command will be sent on the
 channel <code>channel_id</code></p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.initialize" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_system/lib.rs.html#628-658">source</a><h4 class="code-header">pub fn <a href="#method.initialize" class="fn">initialize</a>(
-    para_id: ParaId,
-    asset_hub_para_id: ParaId
+    para_id: <a class="struct" href="../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>,
+    asset_hub_para_id: <a class="struct" href="../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">ParaId</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Initializes agents and channels.</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Pallet%3CT%3E-2" class="impl"><a class="src rightside" href="../../src/snowbridge_pallet_system/lib.rs.html#232">source</a><a href="#impl-Pallet%3CT%3E-2" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait snowbridge_pallet_system::pallet::Config">Config</a>&gt; <a class="struct" href="struct.Pallet.html" title="struct snowbridge_pallet_system::pallet::Pallet">Pallet</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.agents" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_system/lib.rs.html#232">source</a><h4 class="code-header">pub fn <a href="#method.agents" class="fn">agents</a>&lt;KArg&gt;(k: KArg) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;<div class="where">where
     KArg: EncodeLike&lt;AgentId&gt;,</div></h4></section></summary><div class="docblock"><p>An auto-generated getter for <a href="type.Agents.html" title="type snowbridge_pallet_system::pallet::Agents"><code>Agents</code></a>.</p>
