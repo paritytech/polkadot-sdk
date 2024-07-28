@@ -19,6 +19,11 @@
 use console::style;
 use parking_lot::Mutex;
 use std::{cell::RefCell, fmt::Display, io::Write};
+use sp_tracing::tracing_subscriber;
+use sp_tracing::tracing::Level;
+use sp_tracing::tracing_subscriber::fmt::time::OffsetTime;
+use sp_tracing::tracing_subscriber::fmt::SubscriberBuilder;
+use sp_tracing::tracing_subscriber::EnvFilter;
 
 /// Relayer version that is provided as metric. Must be set by a binary
 /// (get it with `option_env!("CARGO_PKG_VERSION")` from a binary package code).
@@ -41,42 +46,21 @@ pub fn initialize_logger(with_timestamp: bool) {
 	)
 	.expect("static format string is valid");
 
-	let mut builder = env_logger::Builder::new();
-	builder.filter_level(log::LevelFilter::Warn);
-	builder.filter_module("bridge", log::LevelFilter::Info);
-	builder.parse_default_env();
-	if with_timestamp {
-		builder.format(move |buf, record| {
-			let timestamp = time::OffsetDateTime::now_local()
-				.unwrap_or_else(|_| time::OffsetDateTime::now_utc());
-			let timestamp = timestamp.format(&format).unwrap_or_else(|_| timestamp.to_string());
+	let local_time = OffsetTime::new(
+		time::UtcOffset::current_local_offset().unwrap_or(time::UtcOffset::UTC),
+		format,
+	);
 
-			let log_level = color_level(record.level());
-			let log_target = color_target(record.target());
-			let timestamp = if cfg!(windows) {
-				Either::Left(timestamp)
-			} else {
-				Either::Right(style(timestamp).black().bright().bold().to_string())
-			};
+	let builder = SubscriberBuilder::default()
+		.with_env_filter(EnvFilter::from_default_env())
+		.with_filter(Level::WARN)
+		.with_filter_module("bridge", Level::INFO);
 
-			writeln!(
-				buf,
-				"{}{} {} {} {}",
-				loop_name_prefix(),
-				timestamp,
-				log_level,
-				log_target,
-				record.args(),
-			)
-		});
+	let builder = if with_timestamp {
+		builder.with_timer(local_time)
 	} else {
-		builder.format(move |buf, record| {
-			let log_level = color_level(record.level());
-			let log_target = color_target(record.target());
-
-			writeln!(buf, "{}{log_level} {log_target} {}", loop_name_prefix(), record.args(),)
-		});
-	}
+		builder.without_time()
+	};
 
 	builder.init();
 }
