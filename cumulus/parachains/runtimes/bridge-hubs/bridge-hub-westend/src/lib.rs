@@ -129,6 +129,7 @@ pub type SignedExtra = (
 	BridgeRejectObsoleteHeadersAndMessages,
 	(bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages,),
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
