@@ -178,6 +178,7 @@ impl quote::ToTokens for ConfigurationNot {
 }
 
 impl ConfigurationPredicate {
+	/// Match all feature usage in self with `features` and replace accordingly.
 	pub fn replace_features(&mut self, features: &[RuntimeFeature]) {
 		match self {
 			ConfigurationPredicate::All(ref mut list)
@@ -192,26 +193,8 @@ impl ConfigurationPredicate {
 					if option.ident.to_string() == "feature" {
 						for feature in features {
 							if lit.value() == feature.name {
-								let false_predicate =
-									ConfigurationPredicate::All(ConfigurationList {
-										ident: syn::Ident::new("all", lit.span()),
-										predicates: FromIterator::from_iter([
-											ConfigurationPredicate::Option(ConfigurationOption {
-												ident: syn::Ident::new("target_endian", lit.span()),
-												value: Some((
-													Default::default(),
-													syn::LitStr::new("little", lit.span()),
-												)),
-											}),
-											ConfigurationPredicate::Option(ConfigurationOption {
-												ident: syn::Ident::new("target_endian", lit.span()),
-												value: Some((
-													Default::default(),
-													syn::LitStr::new("big", lit.span()),
-												)),
-											}),
-										]),
-									});
+
+								let false_predicate = Self::false_predicate();
 
 								if feature.is_enabled {
 									*self = ConfigurationPredicate::Not(ConfigurationNot {
@@ -229,6 +212,30 @@ impl ConfigurationPredicate {
 				}
 			},
 		}
+	}
+
+	/// Create a predicate that is always false:
+	/// `all(target_endian = "little", target_endian = "big")`
+	fn false_predicate() -> Self {
+		ConfigurationPredicate::All(ConfigurationList {
+			ident: syn::Ident::new("all", lit.span()),
+			predicates: FromIterator::from_iter([
+				ConfigurationPredicate::Option(ConfigurationOption {
+					ident: syn::Ident::new("target_endian", lit.span()),
+					value: Some((
+						Default::default(),
+						syn::LitStr::new("little", lit.span()),
+					)),
+				}),
+				ConfigurationPredicate::Option(ConfigurationOption {
+					ident: syn::Ident::new("target_endian", lit.span()),
+					value: Some((
+						Default::default(),
+						syn::LitStr::new("big", lit.span()),
+					)),
+				}),
+			]),
+		})
 	}
 }
 
