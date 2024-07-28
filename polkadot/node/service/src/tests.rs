@@ -70,7 +70,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	case_vars: CaseVars,
 	test: impl FnOnce(TestHarness) -> T,
 ) {
-	let _ = sp_tracing::init_for_tests();
+	sp_tracing::init_for_tests();
 
 	let pool = TaskExecutor::new();
 	let (mut context, virtual_overseer) =

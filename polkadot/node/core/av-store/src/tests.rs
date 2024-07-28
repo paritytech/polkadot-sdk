@@ -122,7 +122,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	store: Arc<dyn Database>,
 	test: impl FnOnce(VirtualOverseer) -> T,
 ) {
-	let _ = sp_tracing::init_for_tests();
+	sp_tracing::init_for_tests();
 
 	let pool = sp_core::testing::TaskExecutor::new();
 	let (context, virtual_overseer) =

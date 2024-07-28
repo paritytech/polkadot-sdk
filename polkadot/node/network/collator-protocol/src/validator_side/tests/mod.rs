@@ -156,7 +156,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	reputation: ReputationAggregator,
 	test: impl FnOnce(TestHarness) -> T,
 ) {
-	let _ = sp_tracing::init_for_tests();
+	sp_tracing::init_for_tests();
 
 	let pool = sp_core::testing::TaskExecutor::new();
 

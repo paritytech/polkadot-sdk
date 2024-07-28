@@ -137,7 +137,7 @@ fn state_with_view(
 
 #[test]
 fn receive_invalid_signature() {
-	let _ = sp_tracing::init_for_tests();
+	sp_tracing::init_for_tests();
 
 	let hash_a: Hash = [0; 32].into();
 
@@ -251,7 +251,7 @@ fn receive_invalid_signature() {
 
 #[test]
 fn receive_invalid_validator_index() {
-	let _ = sp_tracing::init_for_tests();
+	sp_tracing::init_for_tests();
 
 	let hash_a: Hash = [0; 32].into();
 	let hash_b: Hash = [1; 32].into(); // other
@@ -311,7 +311,7 @@ fn receive_invalid_validator_index() {
 
 #[test]
 fn receive_duplicate_messages() {
-	let _ = sp_tracing::init_for_tests();
+	sp_tracing::init_for_tests();
 
 	let hash_a: Hash = [0; 32].into();
 	let hash_b: Hash = [1; 32].into();
@@ -433,7 +433,7 @@ fn receive_duplicate_messages() {
 fn delay_reputation_change() {
 	use polkadot_node_subsystem_util::reputation::add_reputation;
 
-	let _ = sp_tracing::init_for_tests();
+	sp_tracing::init_for_tests();
 
 	let hash_a: Hash = [0; 32].into();
 	let hash_b: Hash = [1; 32].into();
@@ -538,7 +538,7 @@ fn delay_reputation_change() {
 
 #[test]
 fn do_not_relay_message_twice() {
-	let _ = sp_tracing::init_for_tests();
+	sp_tracing::init_for_tests();
 
 	let hash = Hash::random();
 
@@ -643,7 +643,7 @@ fn do_not_relay_message_twice() {
 
 #[test]
 fn changing_view() {
-	let _ = sp_tracing::init_for_tests();
+	sp_tracing::init_for_tests();
 
 	let hash_a: Hash = [0; 32].into();
 	let hash_b: Hash = [1; 32].into();
@@ -815,7 +815,7 @@ fn changing_view() {
 
 #[test]
 fn do_not_send_message_back_to_origin() {
-	let _ = sp_tracing::init_for_tests();
+	sp_tracing::init_for_tests();
 
 	let hash: Hash = [0; 32].into();
 
@@ -899,7 +899,7 @@ fn do_not_send_message_back_to_origin() {
 
 #[test]
 fn topology_test() {
-	let _ = sp_tracing::init_for_tests();
+	sp_tracing::init_for_tests();
 
 	let hash: Hash = [0; 32].into();
 
