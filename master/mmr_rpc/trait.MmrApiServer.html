@@ -213,7 +213,7 @@ an MMR proof against a provided MMR root.</p>
     Client: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static + ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt;,
     Client::Api: <a class="trait" href="trait.MmrRuntimeApi.html" title="trait mmr_rpc::MmrRuntimeApi">MmrRuntimeApi</a>&lt;Block, MmrHash, NumberFor&lt;Block&gt;&gt;,
     MmrHash: Codec + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
-    S: <a class="trait" href="../sp_core/offchain/trait.OffchainStorage.html" title="trait sp_core::offchain::OffchainStorage">OffchainStorage</a> + 'static,</div></h3></section></div><script src="../trait.impl/mmr_rpc/trait.MmrApiServer.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+    S: OffchainStorage + 'static,</div></h3></section></div><script src="../trait.impl/mmr_rpc/trait.MmrApiServer.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
 </body></html>
