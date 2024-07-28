@@ -1690,6 +1690,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1539" id="1539">1539</a>
 <a href="#1540" id="1540">1540</a>
 <a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
+<a href="#1547" id="1547">1547</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2906,14 +2912,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.header(target_hash)<span class="question-mark">?
 			</span>.expect(<span class="string">"Header known to exist after `finality_target` call; qed"</span>),
 		<span class="prelude-val">Err</span>(err) =&gt; {
-			<span class="macro">warn!</span>(
+			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
 				<span class="string">"Encountered error finding best chain containing {:?}: couldn't find target block: {}"</span>,
 				block,
 				err,
 			);
 
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+			<span class="comment">// NOTE: in case the given `SelectChain` doesn't provide any block we fallback to using
+			// the given base block provided by the GRANDPA voter.
+			//
+			// For example, `LongestChain` will error if the given block to use as base isn't part
+			// of the best chain (as defined by `LongestChain`), which could happen if there was a
+			// re-org.
+			</span>base_header.clone()
 		},
 	};
 
