@@ -48,7 +48,7 @@ mod imports {
 			genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_rococo_emulated_chain::{
-			genesis::ED as BRIDGE_HUB_ROCOCO_ED,
+			genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoExistentialDeposit,
 			BridgeHubRococoParaPallet as BridgeHubRococoPallet, BridgeHubRococoRuntimeOrigin,
 			BridgeHubRococoXcmConfig, EthereumBeaconClient, EthereumInboundQueue,
 		},

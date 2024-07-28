@@ -7,7 +7,7 @@ build = "build.rs"
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 default-run = "substrate-node"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 publish = false
 
@@ -71,6 +71,7 @@ wait-timeout = { workspace = true }
 wat = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
+pretty_assertions.workspace = true
 
 # These testing-only dependencies are not exported by the Polkadot-SDK crate:
 node-testing = { workspace = true }
