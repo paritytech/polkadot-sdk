@@ -168,6 +168,9 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Amount of slots that each epoch should last.
+		///
+		/// NOTE: Currently it is not possible to change the epoch duration after
+		/// the chain has started. Attempting to do so will brick block production.
 		#[pallet::constant]
 		type EpochDuration: Get<u32>;
 
