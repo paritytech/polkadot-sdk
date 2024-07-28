@@ -3,7 +3,7 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 repository = "https://github.com/paritytech/polkadot-sdk.git"
 license = "GPL-3.0-only"
-homepage = "https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html"
+homepage = "https://paritytech.github.io/polkadot-sdk/"
 
 [workspace]
 resolver = "2"
@@ -541,6 +541,8 @@ default-members = [
 
 [workspace.lints.rust]
 suspicious_double_ref_op = { level = "allow", priority = 2 }
+# `substrate_runtime` is a common `cfg` condition name used in the repo.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(substrate_runtime)'] }
 
 [workspace.lints.clippy]
 all = { level = "allow", priority = 0 }
@@ -1260,7 +1262,7 @@ sp-version = { path = "substrate/primitives/version", default-features = false }
 sp-version-proc-macro = { path = "substrate/primitives/version/proc-macro", default-features = false }
 sp-wasm-interface = { path = "substrate/primitives/wasm-interface", default-features = false }
 sp-weights = { path = "substrate/primitives/weights", default-features = false }
-spinners = { version = "4.1.0" }
+spinners = { version = "4.1.1" }
 ss58-registry = { version = "1.34.0", default-features = false }
 ssz_rs = { version = "0.9.0", default-features = false }
 ssz_rs_derive = { version = "0.9.0", default-features = false }
