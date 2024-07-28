@@ -356,6 +356,8 @@ impl OnStakingUpdate<AccountId, Balance> for EventTracker {
 
 parameter_types! {
 	pub static VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Lazy;
+	// disables the lazy approvals update.
+	pub static ScoreStrictUpdateThreshold: Option<u128> = None;
 }
 
 impl pallet_stake_tracker::Config for Test {
@@ -364,6 +366,7 @@ impl pallet_stake_tracker::Config for Test {
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
 	type VoterUpdateMode = VoterUpdateMode;
+	type ScoreStrictUpdateThreshold = ScoreStrictUpdateThreshold;
 }
 
 // Disabling threshold for `UpToLimitDisablingStrategy`

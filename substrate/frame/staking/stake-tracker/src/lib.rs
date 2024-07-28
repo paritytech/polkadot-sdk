@@ -98,10 +98,12 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{fungible::Inspect as FnInspect, Defensive, DefensiveSaturating},
 };
+use frame_system::pallet_prelude::*;
 use sp_runtime::traits::Zero;
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakerStatus, StakingInterface,
 };
+use std::ops::Add;
 
 #[cfg(test)]
 pub(crate) mod mock;
@@ -113,24 +115,70 @@ pub type BalanceOf<T> = <<T as Config>::Staking as StakingInterface>::Balance;
 /// The account ID of this pallet.
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 /// Score of a sorted list provider.
-pub type ScoreOf<L> = <<T as Config>::TargetList as SortedListProvider>::Score;
+pub type ScoreOf<T> = <<T as Config>::TargetList as SortedListProvider<AccountIdOf<T>>>::Score;
 
 /// Represents a stake imbalance to be applied to a staker's score.
-#[derive(Copy, Clone, Debug)]
+#[derive(TypeInfo, Copy, Debug, Clone, Encode, Decode, PartialEq, MaxEncodedLen)]
 pub enum StakeImbalance<Score> {
 	/// Represents the reduction of stake by `Score`.
 	Negative(Score),
 	/// Represents the increase of stake by `Score`.
 	Positive(Score),
+	/// No stake imbalance.
+	Zero,
 }
 
-impl<Score: PartialOrd + DefensiveSaturating> StakeImbalance<Score> {
+impl<S: Zero> Default for StakeImbalance<S> {
+	fn default() -> Self {
+		Self::Positive(Zero::zero())
+	}
+}
+
+impl<Score: PartialOrd + Zero + Copy + DefensiveSaturating> Add for StakeImbalance<Score> {
+	type Output = Self;
+
+	fn add(self, other: Self) -> Self {
+		match (self, other) {
+			(Self::Positive(x), Self::Positive(y)) => Self::Positive(x.defensive_saturating_add(y)),
+			(Self::Negative(x), Self::Negative(y)) => Self::Negative(x.defensive_saturating_add(y)),
+			(Self::Positive(x), Self::Negative(y)) =>
+				if x > y {
+					Self::Positive(x.defensive_saturating_sub(y))
+				} else if x < y {
+					Self::Negative(y.defensive_saturating_sub(x))
+				} else {
+					Self::Zero
+				},
+			(Self::Negative(x), Self::Positive(y)) =>
+				if x > y {
+					Self::Negative(x.defensive_saturating_sub(y))
+				} else if x < y {
+					Self::Positive(y.defensive_saturating_sub(x))
+				} else {
+					Self::Zero
+				},
+			(Self::Zero, _) => other,
+			(_, Self::Zero) => self,
+		}
+	}
+}
+
+impl<Score: PartialOrd + DefensiveSaturating + Zero + Copy> StakeImbalance<Score> {
 	/// Constructor for a stake imbalance instance based on the previous and next score.
 	fn from(prev: Score, new: Score) -> Self {
 		if prev > new {
 			StakeImbalance::Negative(prev.defensive_saturating_sub(new))
 		} else {
 			StakeImbalance::Positive(new.defensive_saturating_sub(prev))
+		}
+	}
+
+	/// Returns the unsigned score of a staking balance instance.
+	fn score(&self) -> Score {
+		match self {
+			Self::Positive(score) => *score,
+			Self::Negative(score) => *score,
+			Self::Zero => Zero::zero(),
 		}
 	}
 }
@@ -183,17 +231,53 @@ pub mod pallet {
 		/// The voter list update mode.
 		type VoterUpdateMode: Get<VoterUpdateMode>;
 
-		/// Max threshold of unsettled score that a target may have at a given time.
-		type MaxUnsettledScore: Get<ExtendedBalance>;
+		/// Score threshold which defines whether the approvals should be updated on buffered.
+		///
+		/// If the approvals score to be updated is higher than `ScoreStrictUpdateThreshold`,
+		/// update the target list. Otherwise, buffer the update.
+		type ScoreStrictUpdateThreshold: Get<Option<ExtendedBalance>>;
 	}
 
 	/// Map with unsettled score for targets.
 	///
 	/// This map keeps track of unsettled score for targets.
 	#[pallet::storage]
-	pub type UnsettledScore<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, ScoreOf<T::TargetList>>;
+	pub type UnsettledScore<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, StakeImbalance<ScoreOf<T>>>;
+
+	#[pallet::error]
+	#[derive(PartialEq)]
+	pub enum Error<T> {
+		/// No unsettled score for a given target.
+		NoScoreToUnsettle,
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// Settles a buffered target approvals imbalance.
+		#[pallet::call_index(0)]
+		#[pallet::weight(0)]
+		pub fn settle(origin: OriginFor<T>, who: AccountIdOf<T>) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+
+			Self::do_settle(&who)?;
+			Ok(())
+		}
+	}
 
 	impl<T: Config> Pallet<T> {
+		/// Settles buffered score for a target, if it exists.
+		pub(crate) fn do_settle(who: &T::AccountId) -> Result<(), Error<T>> {
+			UnsettledScore::<T>::try_mutate_exists(who, |maybe_imbalance| {
+				let imbalance = maybe_imbalance.ok_or(Error::<T>::NoScoreToUnsettle)?;
+				Self::update_target_score(who, imbalance);
+				*maybe_imbalance = None;
+				Ok(())
+			})?;
+
+			Ok(())
+		}
+
 		/// Updates the stake of a voter.
 		///
 		/// NOTE: This method expects `nominations` to be deduplicated, otherwise the approvals
@@ -240,13 +324,19 @@ pub mod pallet {
 				voter_weight,
 			);
 
-			// get unsettled score
-			// add/subtract score to stake-imbalance to update
-			// if < 0 -> update target score
-			// if final imbalance is > T::MaxUnsettledScore -> update the score
-			// else update the unsettled and continue
-
-			Self::update_target_score(who, stake_imbalance);
+			if let Some(update_threshold) = T::ScoreStrictUpdateThreshold::get() {
+				if stake_imbalance.score() > update_threshold {
+					Self::update_target_score(who, stake_imbalance);
+				} else {
+					// buffer the approvals update in `UnsettledScore` map.
+					UnsettledScore::<T>::insert(
+						who,
+						UnsettledScore::<T>::get(who).unwrap_or_default().add(stake_imbalance),
+					);
+				}
+			} else {
+				Self::update_target_score(who, stake_imbalance);
+			}
 
 			// validator is both a target and a voter. update the voter score if the voter list
 			// is in strict mode.
@@ -297,6 +387,7 @@ pub mod pallet {
 						defensive!("unexpected: unable to fetch score from staking interface of an existent staker");
 					}
 				},
+				StakeImbalance::Zero => (), // update not needed.
 			};
 		}
 
