@@ -85,18 +85,14 @@ pub struct ConfigurationNot {
 
 impl syn::parse::Parse for ConfigurationPredicate {
 	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-		if input.peek(kw::all) && input.peek2(syn::token::Paren) {
-			Ok(Self::All(input.parse()?))
-		} else if input.peek(kw::any) && input.peek2(syn::token::Paren) {
-			Ok(Self::Any(input.parse()?))
-		} else if input.peek(kw::not) && input.peek2(syn::token::Paren) {
-			Ok(Self::Not(input.parse()?))
-		} else if !input.peek(kw::not) &&!input.peek(kw::any) &&!input.peek(kw::all) && input.peek(syn::Ident) {
-			Ok(Self::Option(input.parse()?))
-		} else {
-			Err(input.error(
+		match (input.peek(kw::not), input.peek(kw::any), input.peek(kw::all), input.peek(syn::Ident)) {
+			(true, _, _, _) => Ok(Self::Not(input.parse()?)),
+			(_, true, _, _) => Ok(Self::Any(input.parse()?)),
+			(_, _, true, _) => Ok(Self::All(input.parse()?)),
+			(false, false, false, true) => Ok(Self::Option(input.parse()?)),
+			_ => Err(input.error(
 				"Expected `all(..)`, `any(..)`, `not(..)`, `some_feature`, or `some_feature = ..`",
-			))
+			)),
 		}
 	}
 }
@@ -194,7 +190,7 @@ impl ConfigurationPredicate {
 						for feature in features {
 							if lit.value() == feature.name {
 
-								let false_predicate = Self::false_predicate();
+								let false_predicate = Self::false_predicate(lit.span());
 
 								if feature.is_enabled {
 									*self = ConfigurationPredicate::Not(ConfigurationNot {
@@ -216,22 +212,22 @@ impl ConfigurationPredicate {
 
 	/// Create a predicate that is always false:
 	/// `all(target_endian = "little", target_endian = "big")`
-	fn false_predicate() -> Self {
+	fn false_predicate(span: proc_macro2::Span) -> Self {
 		ConfigurationPredicate::All(ConfigurationList {
-			ident: syn::Ident::new("all", lit.span()),
+			ident: syn::Ident::new("all", span),
 			predicates: FromIterator::from_iter([
 				ConfigurationPredicate::Option(ConfigurationOption {
-					ident: syn::Ident::new("target_endian", lit.span()),
+					ident: syn::Ident::new("target_endian", span),
 					value: Some((
 						Default::default(),
-						syn::LitStr::new("little", lit.span()),
+						syn::LitStr::new("little", span),
 					)),
 				}),
 				ConfigurationPredicate::Option(ConfigurationOption {
-					ident: syn::Ident::new("target_endian", lit.span()),
+					ident: syn::Ident::new("target_endian", span),
 					value: Some((
 						Default::default(),
-						syn::LitStr::new("big", lit.span()),
+						syn::LitStr::new("big", span),
 					)),
 				}),
 			]),
@@ -284,6 +280,31 @@ mod tests {
 					all(target_endian = "little", target_endian = "big")
 				),
 				bar
+			)
+		};
+
+		let mut input: ConfigurationPredicate = syn::parse2(input).unwrap();
+		input.replace_features(&features[..]);
+
+		assert_eq!(input.to_token_stream().to_string(), expected.to_string());
+	}
+
+	#[test]
+	fn test_replace_trailing() {
+		let input = quote::quote! {
+			any(foo, not(feature = "sp-runtime/runtime-benchmarks"), bar,)
+		};
+		let features = [
+			RuntimeFeature { name: "sp-runtime/try-runtime".into(), is_enabled: true },
+			RuntimeFeature { name: "sp-runtime/runtime-benchmarks".into(), is_enabled: false },
+		];
+		let expected = quote::quote! {
+			any(
+				foo,
+				not(
+					all(target_endian = "little", target_endian = "big")
+				),
+				bar,
 			)
 		};
 
