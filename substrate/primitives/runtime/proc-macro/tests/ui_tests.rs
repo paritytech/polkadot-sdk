@@ -16,7 +16,6 @@
 // limitations under the License.
 
 #[rustversion::attr(not(stable), ignore)]
-#[cfg(not(feature = "disable-ui-tests"))]
 #[test]
 fn pallet_ui() {
 	// Only run the ui tests when `RUN_UI_TESTS` is set.

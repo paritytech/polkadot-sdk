@@ -27,6 +27,3 @@ proc-macro2 = { workspace = true }
 trybuild = { features = ["diff"], workspace = true }
 rustversion = { workspace = true }
 sp-runtime = { features = ["std"], workspace = true }
-
-[features]
-disable-ui-tests = []
