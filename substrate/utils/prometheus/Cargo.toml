@@ -5,7 +5,7 @@ version = "0.17.0"
 license = "Apache-2.0"
 authors.workspace = true
 edition.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 

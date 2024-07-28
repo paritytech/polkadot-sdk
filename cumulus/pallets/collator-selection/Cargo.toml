@@ -2,7 +2,7 @@
 authors.workspace = true
 description = "Simple pallet to select collators for a parachain."
 edition.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 license = "Apache-2.0"
 name = "pallet-collator-selection"
 readme = "README.md"
