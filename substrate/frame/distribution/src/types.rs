@@ -25,8 +25,6 @@ pub enum SpendingState {
 	/// Unclaimed
 	#[default]
 	Unclaimed,
-    /// Claimed & Pending.
-	Pending,
 	/// Claimed & Paid.
 	Completed,
 	/// Claimed but Failed.

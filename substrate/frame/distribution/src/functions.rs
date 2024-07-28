@@ -48,14 +48,40 @@ impl<T: Config> Pallet<T> {
 		)
 		.map_err(|_| Error::<T>::TransferFailed);
 
-		// ToDo 
-		// Change the spending status accordingly
+		Self::process_failed_spending_result(spending_index, result)?;
 
 
 		Ok(())
 	}
 
-	// ToDo
+	/// Helper function used to change the status of a failed spending
+	pub fn process_failed_spending_result(
+		spending_index: u32,
+		result: Result<BalanceOf<T>, Error<T>>,
+	) -> Result<BalanceOf<T>, Error<T>> {
+		match result {
+			Ok(x) => {
+				//Change spending status
+				Spendings::<T>::mutate(spending_index, |val| {
+					let mut val0 = val.clone().unwrap();
+					val0.status = SpendingState::Completed;
+					*val = Some(val0);
+				});
+				Ok(x)
+			},
+			Err(_e) => {
+				//Change spending status
+				Spendings::<T>::mutate(spending_index, |val| {
+					let mut val0 = val.clone().unwrap();
+					val0.status = SpendingState::Failed;
+					*val = Some(val0);
+				});
+				Err(Error::<T>::FailedSpendingOperation)
+			},
+		}
+	}
+
+	// ToDo in begin_block
 	// At the beginning of every Epoch, populate the `Spendings` storage from the `Projects` storage (populated by an external process/pallet)
 	// make sure that there is enough funds before creating a new `SpendingInfo`, and `ProjectInfo`
 	// corresponding to a created `SpendingInfo` should be removed from the `Projects` storage.

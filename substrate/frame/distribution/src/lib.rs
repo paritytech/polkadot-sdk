@@ -101,6 +101,8 @@ pub mod pallet {
 		NoValidAccount,
 		/// No project available for funding
 		NoProjectAvailable,
+		/// The Funds transfer failed
+		FailedSpendingOperation,
 	}
 
 	#[pallet::call]
@@ -120,6 +122,8 @@ pub mod pallet {
 			
 			Ok(())
 		}
+
+		// ToDo: Add `claim_reward_for` 
 
 	}
 
