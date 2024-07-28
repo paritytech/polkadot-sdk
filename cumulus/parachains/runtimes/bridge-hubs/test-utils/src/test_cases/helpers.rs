@@ -22,6 +22,7 @@ use asset_test_utils::BasicParachainRuntime;
 use bp_messages::{LaneId, MessageNonce};
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
 use bp_relayers::RewardsAccountParams;
+use bp_runtime::Chain;
 use codec::Decode;
 use core::marker::PhantomData;
 use frame_support::{
@@ -267,6 +268,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 		InteriorLocation,
 		MessageNonce,
 		Xcm<()>,
+		bp_runtime::ChainId,
 	) -> CallsAndVerifiers<Runtime>,
 ) where
 	Runtime: BasicParachainRuntime + cumulus_pallet_xcmp_queue::Config + BridgeMessagesConfig<MPI>,
@@ -278,6 +280,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 	let relayer_at_target = Bob;
 	let relayer_id_on_target: AccountId32 = relayer_at_target.public().into();
 	let relayer_id_on_source = relayer_id_at_bridged_chain::<Runtime, MPI>();
+	let bridged_chain_id = Runtime::BridgedChain::ID;
 
 	assert_ne!(runtime_para_id, sibling_parachain_id);
 
@@ -339,6 +342,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 					message_destination,
 					message_nonce,
 					xcm.clone().into(),
+					bridged_chain_id,
 				),
 			);
 

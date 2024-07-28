@@ -30,20 +30,29 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
-	collator_signature_payload, node_features::FeatureIndex, AvailabilityBitfield, BackedCandidate,
-	CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature,
-	CommittedCandidateReceipt, CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet,
-	GroupIndex, HeadData, Id as ParaId, IndexedVec, InherentData as ParachainsInherentData,
-	InvalidDisputeStatementKind, PersistedValidationData, SessionIndex, SigningContext,
-	UncheckedSigned, ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex,
-	ValidityAttestation,
+	node_features::FeatureIndex, AvailabilityBitfield, BackedCandidate, CandidateCommitments,
+	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CommittedCandidateReceipt,
+	CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
+	Id as ParaId, IndexedVec, InherentData as ParachainsInherentData, InvalidDisputeStatementKind,
+	PersistedValidationData, SessionIndex, SigningContext, UncheckedSigned,
+	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,
 };
-use sp_core::{sr25519, H256};
+use sp_core::{sr25519, ByteArray, H256};
 use sp_runtime::{
 	generic::Digest,
 	traits::{Header as HeaderT, One, TrailingZeroInput, Zero},
 	RuntimeAppPublic,
 };
+
+/// Create a null collator id.
+pub fn dummy_collator() -> CollatorId {
+	CollatorId::from_slice(&vec![0u8; 32]).expect("32 bytes; qed")
+}
+
+/// Create a null collator signature.
+pub fn dummy_collator_signature() -> CollatorSignature {
+	CollatorSignature::from_slice(&vec![0u8; 64]).expect("64 bytes; qed")
+}
 
 fn mock_validation_code() -> ValidationCode {
 	ValidationCode(vec![1, 2, 3])
@@ -584,7 +593,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 						// This generates a pair and adds it to the keystore, returning just the
 						// public.
-						let collator_public = CollatorId::generate_pair(None);
 						let header = Self::header(self.block_number);
 						let relay_parent = header.hash();
 
@@ -614,14 +622,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 						let pov_hash = Default::default();
 						let validation_code_hash = mock_validation_code().hash();
-						let payload = collator_signature_payload(
-							&relay_parent,
-							&para_id,
-							&persisted_validation_data_hash,
-							&pov_hash,
-							&validation_code_hash,
-						);
-						let signature = collator_public.sign(&payload).unwrap();
 
 						let mut past_code_meta =
 							paras::ParaPastCodeMeta::<BlockNumberFor<T>>::default();
@@ -634,11 +634,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							descriptor: CandidateDescriptor::<T::Hash> {
 								para_id,
 								relay_parent,
-								collator: collator_public,
+								collator: dummy_collator(),
 								persisted_validation_data_hash,
 								pov_hash,
 								erasure_root: Default::default(),
-								signature,
+								signature: dummy_collator_signature(),
 								para_head: head_data.hash(),
 								validation_code_hash,
 							},
