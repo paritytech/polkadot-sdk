@@ -17,7 +17,6 @@ xcm = { workspace = true }
 xcm-executor = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-io = { workspace = true }
-sp-std = { workspace = true }
 sp-runtime = { workspace = true }
 sp-weights = { workspace = true }
 frame-support = { workspace = true }
@@ -71,7 +70,6 @@ std = [
 	"sp-arithmetic/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-weights/std",
 	"xcm-executor/std",
 	"xcm/std",
