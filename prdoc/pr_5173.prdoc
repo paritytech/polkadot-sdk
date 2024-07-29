@@ -1,0 +1,13 @@
+title: "Umbrella crate: exclude chain-specific crates"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The `polkadot-sdk` umbrella crate does now not contain chain-specific crates. The reasoning is
+      that the SDK should be mostly chain-agnostic. Please check out
+      [psvm](https://github.com/paritytech/psvm) to select matching version numbers for chain-
+      specific crates.
+
+crates:
+  - name: polkadot-sdk
+    bump: major
