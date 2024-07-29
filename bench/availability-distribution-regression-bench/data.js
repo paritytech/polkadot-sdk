@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722286152662,
+  "lastUpdate": 1722297187742,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -20331,6 +20331,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16965794897333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Pankaj",
+            "username": "Polkaverse",
+            "email": "pankajchaudhary172@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "839ead3441b4012cbf6451af5b19a923bcbc379b",
+          "message": "Remove pallet::getter usage from proxy (#4963)\n\nISSUE\nLink to the issue:\nhttps://github.com/paritytech/polkadot-sdk/issues/3326\n\nDeliverables\n\n[Deprecation] remove pallet::getter usage from pallet-proxy\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-07-29T22:12:43Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/839ead3441b4012cbf6451af5b19a923bcbc379b"
+        },
+        "date": 1722297156788,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010727566286666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17451797715333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022570444246666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012739426673333332,
             "unit": "seconds"
           }
         ]
