@@ -181,7 +181,7 @@ you ensure that valid data is being passed in.</p>
     origin: OriginFor&lt;T&gt;,
     finality_target: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;<a class="type" href="../type.BridgedHeader.html" title="type pallet_bridge_grandpa::BridgedHeader">BridgedHeader</a>&lt;T, I&gt;&gt;,
     justification: GrandpaJustification&lt;<a class="type" href="../type.BridgedHeader.html" title="type pallet_bridge_grandpa::BridgedHeader">BridgedHeader</a>&lt;T, I&gt;&gt;,
-    current_set_id: <a class="type" href="../../sp_consensus_grandpa/type.SetId.html" title="type sp_consensus_grandpa::SetId">SetId</a>,
+    current_set_id: SetId,
     _is_free_execution_expected: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>
 ) -&gt; DispatchResultWithPostInfo</h4></section></summary><div class="docblock"><p>Verify a target header is finalized according to the given finality proof. The proof
 is assumed to be signed by GRANDPA authorities set with <code>current_set_id</code> id.</p>
@@ -215,8 +215,8 @@ be executed for free. If transaction extension is not used by the runtime, this
 parameter is not used at all.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.force_set_pallet_state" class="method"><a class="src rightside" href="../../src/pallet_bridge_grandpa/lib.rs.html#91">source</a><h4 class="code-header">pub fn <a href="#method.force_set_pallet_state" class="fn">force_set_pallet_state</a>(
     origin: OriginFor&lt;T&gt;,
-    new_current_set_id: <a class="type" href="../../sp_consensus_grandpa/type.SetId.html" title="type sp_consensus_grandpa::SetId">SetId</a>,
-    new_authorities: <a class="type" href="../../sp_consensus_grandpa/type.AuthorityList.html" title="type sp_consensus_grandpa::AuthorityList">AuthorityList</a>,
+    new_current_set_id: SetId,
+    new_authorities: AuthorityList,
     new_best_header: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;<a class="type" href="../type.BridgedHeader.html" title="type pallet_bridge_grandpa::BridgedHeader">BridgedHeader</a>&lt;T, I&gt;&gt;
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Set current authorities set and best finalized bridged header to given values
 (almost) without any checks. This call can fail only if:</p>
