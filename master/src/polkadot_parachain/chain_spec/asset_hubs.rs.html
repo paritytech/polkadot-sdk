@@ -547,6 +547,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#396" id="396">396</a>
 <a href="#397" id="397">397</a>
 <a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -938,6 +939,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span>)
 				})
 				.collect(),
+			..Default::default()
 		},
 		<span class="string">"polkadotXcm"</span>: asset_hub_rococo_runtime::PolkadotXcmConfig {
 			safe_xcm_version: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),

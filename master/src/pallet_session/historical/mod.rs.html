@@ -1042,7 +1042,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				frame_system::Pallet::&lt;Test&gt;::inc_providers(k);
 			}
 		});
-		pallet_session::GenesisConfig::&lt;Test&gt; { keys }
+		pallet_session::GenesisConfig::&lt;Test&gt; { keys, ..Default::default() }
 			.assimilate_storage(<span class="kw-2">&amp;mut </span>t)
 			.unwrap();
 		sp_io::TestExternalities::new(t)

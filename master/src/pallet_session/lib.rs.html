@@ -1101,6 +1101,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#950" id="950">950</a>
 <a href="#951" id="951">951</a>
 <a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1526,7 +1535,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
-		<span class="kw">pub </span>keys: Vec&lt;(T::AccountId, T::ValidatorId, T::Keys)&gt;,
+		<span class="doccomment">/// Initial list of validator at genesis representing by their `(AccountId, ValidatorId,
+		/// Keys)`. These keys will be considered authorities for the first two sessions and they
+		/// will be valid at least until session 2
+		</span><span class="kw">pub </span>keys: Vec&lt;(T::AccountId, T::ValidatorId, T::Keys)&gt;,
+		<span class="doccomment">/// List of (AccountId, ValidatorId, Keys) that will be registered at genesis, but not as
+		/// active validators. These keys are set, together with `keys`, as authority candidates
+		/// for future sessions (enactable from session 2 onwards)
+		</span><span class="kw">pub </span>non_authority_keys: Vec&lt;(T::AccountId, T::ValidatorId, T::Keys)&gt;,
 	}
 
 	<span class="attr">#[pallet::genesis_build]
@@ -1549,7 +1565,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				});
 
-			<span class="kw">for </span>(account, val, keys) <span class="kw">in </span><span class="self">self</span>.keys.iter().cloned() {
+			<span class="kw">for </span>(account, val, keys) <span class="kw">in
+				</span><span class="self">self</span>.keys.iter().chain(<span class="self">self</span>.non_authority_keys.iter()).cloned()
+			{
 				Pallet::&lt;T&gt;::inner_set_keys(<span class="kw-2">&amp;</span>val, keys)
 					.expect(<span class="string">"genesis config must not contain duplicates; qed"</span>);
 				<span class="kw">if </span>frame_system::Pallet::&lt;T&gt;::inc_consumers_without_limit(<span class="kw-2">&amp;</span>account).is_err() {
@@ -1779,8 +1797,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>now_session_keys = session_keys.iter();
 			<span class="kw">let </span><span class="kw-2">mut </span>check_next_changed = |keys: <span class="kw-2">&amp;</span>T::Keys| {
 				<span class="kw">if </span>changed {
-					<span class="kw">return
-				</span>}
+					<span class="kw">return</span>;
+				}
 				<span class="comment">// since a new validator set always leads to `changed` starting
 				// as true, we can ensure that `now_session_keys` and `next_validators`
 				// have the same length. this function is called once per iteration.

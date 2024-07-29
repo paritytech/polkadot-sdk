@@ -211,6 +211,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -260,6 +261,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span>)
 				})
 				.collect(),
+			..Default::default()
 		},
 		polkadot_xcm: people_westend_runtime::PolkadotXcmConfig {
 			safe_xcm_version: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),

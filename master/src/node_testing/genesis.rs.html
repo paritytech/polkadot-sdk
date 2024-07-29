@@ -223,6 +223,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -279,6 +280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				(bob(), eve(), session_keys_from_seed(Ed25519Keyring::Bob.into())),
 				(charlie(), ferdie(), session_keys_from_seed(Ed25519Keyring::Charlie.into())),
 			],
+			..Default::default()
 		},
 		staking: StakingConfig {
 			stakers: <span class="macro">vec!</span>[

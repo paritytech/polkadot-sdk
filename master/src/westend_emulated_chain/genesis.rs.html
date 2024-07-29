@@ -254,6 +254,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -333,6 +334,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					)
 				})
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			..Default::default()
 		},
 		staking: westend_runtime::StakingConfig {
 			validator_count: validators::initial_authorities().len() <span class="kw">as </span>u32,

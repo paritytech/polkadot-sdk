@@ -1045,7 +1045,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.assimilate_storage(<span class="kw-2">&amp;mut </span>t)
 		.unwrap();
 
-		pallet_session::GenesisConfig::&lt;Runtime&gt; { keys: <span class="self">self</span>.keys }
+		pallet_session::GenesisConfig::&lt;Runtime&gt; { keys: <span class="self">self</span>.keys, ..Default::default() }
 			.assimilate_storage(<span class="kw-2">&amp;mut </span>t)
 			.unwrap();
 
