@@ -224,7 +224,7 @@ pub mod pallet {
 
 		// TODO: Would love to add a default for this, but I need access to `RuntimeOrigin`
 		// from the derive_impl
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		/// Required origin for sending XCM messages. If successful, it resolves to `Location`
 		/// which exists as an interior location within this chain's XCM context.
 		type SendXcmOrigin: EnsureOrigin<<Self as SysConfig>::RuntimeOrigin, Success = Location>;
@@ -322,27 +322,30 @@ pub mod pallet {
 			LocationWithAssetFilters,
 		};
 
-		pub struct TestDefaultConfig;
+		pub struct TestDefaultConfig<RuntimeOrigin, AccountId>(core::marker::PhantomData<(RuntimeOrigin, AccountId)>);
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
-		impl frame_system::DefaultConfig for TestDefaultConfig {}
+		impl<RuntimeOrigin, AccountId> frame_system::DefaultConfig for TestDefaultConfig<RuntimeOrigin, AccountId> {}
 
 		// TODO: These make sense for an actual runtime, not for a test one maybe
 		parameter_types! {
 			/// We hold a native token locally, in `Here`
-			pub TokenLocation: MultiLocation = Here.into_location();
+			pub TokenLocation: Location = Here.into_location();
 			/// We don't allow any assets to be teleported
-			pub AllowedAssetsToTeleport: Vec<MultiAssetFilter> = sp_std::vec![];
+			pub AllowedAssetsToTeleport: Vec<AssetFilter> = vec![];
 			/// We only allow reserve asset depositing the native token
-			pub AllowedAssetsToReserveTransfer: Vec<MultiAssetFilter> = sp_std::vec![
-				Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) }),
+			pub AllowedAssetsToReserveTransfer: Vec<AssetFilter> = vec![
+				Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) }),
 			];
+			pub AnyNetwork: Option<NetworkId> = None;
 		}
 
 		#[register_default_impl(TestDefaultConfig)]
-		impl DefaultConfig for TestDefaultConfig {
+		impl<RuntimeOrigin, AccountId> DefaultConfig for TestDefaultConfig<RuntimeOrigin, AccountId> {
 			// This default config only handles the native token
 			type CurrencyMatcher = IsConcrete<TokenLocation>;
+
+			type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, xcm_builder::SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>>;
 
 			// We don't filter any specific message
 			type XcmExecuteFilter = Everything;

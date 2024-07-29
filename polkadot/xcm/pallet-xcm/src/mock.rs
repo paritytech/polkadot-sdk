@@ -532,9 +532,8 @@ impl Contains<(Location, Vec<Asset>)> for XcmTeleportFiltered {
 	}
 }
 
-#[derive_impl(pallet_xcm::config_preludes::TestDefaultConfig as pallet_xcm::DefaultConfig)]
+#[derive_impl(pallet_xcm::config_preludes::TestDefaultConfig<RuntimeOrigin, AccountId> as pallet_xcm::DefaultConfig)]
 impl pallet_xcm::Config for Test {
-	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmRouter = XcmRouter;
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
