@@ -21,7 +21,7 @@
 //! this guide, namely the crate/package names, based on which template you use.
 //!
 //! > Be aware that you can read the entire source code backing this tutorial by clicking on the
-//! > [`source`](./mod.rs.html) button at the top right of the page.
+//! > `source` button at the top right of the page.
 //!
 //! You should have studied the following modules as a prelude to this guide:
 //!
