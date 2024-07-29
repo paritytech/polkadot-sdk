@@ -67,6 +67,7 @@ std = [
 	"pallet-asset-conversion-tx-payment?/std",
 	"pallet-asset-conversion?/std",
 	"pallet-asset-rate?/std",
+	"pallet-asset-rewards?/std",
 	"pallet-asset-tx-payment?/std",
 	"pallet-assets-freezer?/std",
 	"pallet-assets?/std",
@@ -263,6 +264,7 @@ runtime-benchmarks = [
 	"pallet-asset-conversion-ops?/runtime-benchmarks",
 	"pallet-asset-conversion?/runtime-benchmarks",
 	"pallet-asset-rate?/runtime-benchmarks",
+	"pallet-asset-rewards?/runtime-benchmarks",
 	"pallet-asset-tx-payment?/runtime-benchmarks",
 	"pallet-assets-freezer?/runtime-benchmarks",
 	"pallet-assets?/runtime-benchmarks",
@@ -387,6 +389,7 @@ try-runtime = [
 	"pallet-asset-conversion-tx-payment?/try-runtime",
 	"pallet-asset-conversion?/try-runtime",
 	"pallet-asset-rate?/try-runtime",
+	"pallet-asset-rewards?/try-runtime",
 	"pallet-asset-tx-payment?/try-runtime",
 	"pallet-assets-freezer?/try-runtime",
 	"pallet-assets?/try-runtime",
@@ -600,6 +603,7 @@ runtime = [
 	"pallet-asset-conversion-ops",
 	"pallet-asset-conversion-tx-payment",
 	"pallet-asset-rate",
+	"pallet-asset-rewards",
 	"pallet-asset-tx-payment",
 	"pallet-assets",
 	"pallet-assets-freezer",
@@ -1085,6 +1089,11 @@ optional = true
 
 [dependencies.pallet-asset-rate]
 path = "../substrate/frame/asset-rate"
+default-features = false
+optional = true
+
+[dependencies.pallet-asset-rewards]
+path = "../substrate/frame/asset-rewards"
 default-features = false
 optional = true
 
