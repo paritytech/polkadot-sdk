@@ -5,11 +5,6 @@ env:
   TOML_CLI_VERSION: 0.2.4
 
 on:
-  push:
-    branches:
-      - release-v[0-9]+.[0-9]+.[0-9]+*
-      - release-cumulus-v[0-9]+*
-      - release-polkadot-v[0-9]+*
   workflow_call:
     inputs:
       excluded_runtimes:
@@ -31,7 +26,7 @@ jobs:
       runs-on: ubuntu-latest
       steps:
         - name: Checkout
-          uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+          uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.0.0
           with:
             fetch-depth: 0
 
@@ -72,7 +67,7 @@ jobs:
       matrix: ${{ fromJSON(needs.find-runtimes.outputs.runtime) }}
 
     steps:
-      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.0.0
         with:
           fetch-depth: 0
 

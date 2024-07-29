@@ -21,6 +21,7 @@ use crate::{
 	helpers, Call, Config, ElectionCompute, Error, FeasibilityError, Pallet, RawSolution,
 	ReadySolution, RoundSnapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
 };
+use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
 use frame_election_provider_support::{NposSolution, NposSolver, PerThing128, VoteWeight};
 use frame_support::{
@@ -39,7 +40,6 @@ use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageValueRef},
 	DispatchError, SaturatedConversion,
 };
-use sp_std::prelude::*;
 
 /// Storage key used to store the last block number at which offchain worker ran.
 pub(crate) const OFFCHAIN_LAST_BLOCK: &[u8] = b"parity/multi-phase-unsigned-election";
@@ -396,14 +396,14 @@ impl<T: Config> Pallet<T> {
 /// Configurations for a miner that comes with this pallet.
 pub trait MinerConfig {
 	/// The account id type.
-	type AccountId: Ord + Clone + codec::Codec + sp_std::fmt::Debug;
+	type AccountId: Ord + Clone + codec::Codec + core::fmt::Debug;
 	/// The solution that the miner is mining.
 	type Solution: codec::Codec
 		+ Default
 		+ PartialEq
 		+ Eq
 		+ Clone
-		+ sp_std::fmt::Debug
+		+ core::fmt::Debug
 		+ Ord
 		+ NposSolution
 		+ TypeInfo;
@@ -428,7 +428,7 @@ pub trait MinerConfig {
 }
 
 /// A base miner, suitable to be used for both signed and unsigned submissions.
-pub struct Miner<T: MinerConfig>(sp_std::marker::PhantomData<T>);
+pub struct Miner<T: MinerConfig>(core::marker::PhantomData<T>);
 impl<T: MinerConfig> Miner<T> {
 	/// Same as [`Pallet::mine_solution`], but the input snapshot data must be given.
 	pub fn mine_solution_with_snapshot<S>(
@@ -505,7 +505,7 @@ impl<T: MinerConfig> Miner<T> {
 							stake
 						})
 						.unwrap_or_default();
-					sp_std::cmp::Reverse(stake)
+					core::cmp::Reverse(stake)
 				},
 			);
 
@@ -1016,6 +1016,7 @@ mod tests {
 		Event, InvalidTransaction, Phase, QueuedSolution, TransactionSource,
 		TransactionValidityError,
 	};
+	use alloc::vec;
 	use codec::Decode;
 	use frame_election_provider_support::IndexAssignment;
 	use frame_support::{assert_noop, assert_ok, traits::OffchainWorker};

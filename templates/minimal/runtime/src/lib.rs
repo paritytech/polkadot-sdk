@@ -23,6 +23,9 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use frame::{
 	deps::frame_support::{
 		genesis_builder_helper::{build_state, get_preset},

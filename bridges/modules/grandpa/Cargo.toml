@@ -14,7 +14,6 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-finality-grandpa = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
@@ -30,13 +29,13 @@ frame-system = { workspace = true }
 sp-consensus-grandpa = { features = ["serde"], workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-std = { workspace = true }
-sp-trie = { workspace = true }
 
 # Optional Benchmarking Dependencies
 bp-test-utils = { optional = true, workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
+bp-runtime = { features = ["test-helpers"], workspace = true }
 sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 
@@ -47,7 +46,6 @@ std = [
 	"bp-runtime/std",
 	"bp-test-utils/std",
 	"codec/std",
-	"finality-grandpa/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -56,7 +54,6 @@ std = [
 	"sp-consensus-grandpa/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"sp-trie/std",
 ]
 runtime-benchmarks = [
 	"bp-test-utils",

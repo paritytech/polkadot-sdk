@@ -18,10 +18,10 @@
 //! Storage key type.
 
 use crate::hash::{ReversibleStorageHasher, StorageHasher};
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use paste::paste;
 use scale_info::StaticTypeInfo;
-use sp_std::prelude::*;
 
 /// A type used exclusively by storage maps as their key type.
 ///
@@ -203,19 +203,19 @@ impl<'a, T: EncodeLike<U> + EncodeLikeTuple<U>, U: Encode> EncodeLikeTuple<U>
 
 /// Trait to indicate that a tuple can be converted into an iterator of a vector of encoded bytes.
 pub trait TupleToEncodedIter {
-	fn to_encoded_iter(&self) -> sp_std::vec::IntoIter<Vec<u8>>;
+	fn to_encoded_iter(&self) -> alloc::vec::IntoIter<Vec<u8>>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(1, 18)]
 #[tuple_types_custom_trait_bound(Encode)]
 impl TupleToEncodedIter for Tuple {
-	fn to_encoded_iter(&self) -> sp_std::vec::IntoIter<Vec<u8>> {
+	fn to_encoded_iter(&self) -> alloc::vec::IntoIter<Vec<u8>> {
 		[for_tuples!( #(self.Tuple.encode()),* )].to_vec().into_iter()
 	}
 }
 
 impl<T: TupleToEncodedIter> TupleToEncodedIter for &T {
-	fn to_encoded_iter(&self) -> sp_std::vec::IntoIter<Vec<u8>> {
+	fn to_encoded_iter(&self) -> alloc::vec::IntoIter<Vec<u8>> {
 		(*self).to_encoded_iter()
 	}
 }
@@ -223,7 +223,7 @@ impl<T: TupleToEncodedIter> TupleToEncodedIter for &T {
 impl<'a, T: EncodeLike<U> + TupleToEncodedIter, U: Encode> TupleToEncodedIter
 	for codec::Ref<'a, T, U>
 {
-	fn to_encoded_iter(&self) -> sp_std::vec::IntoIter<Vec<u8>> {
+	fn to_encoded_iter(&self) -> alloc::vec::IntoIter<Vec<u8>> {
 		use core::ops::Deref as _;
 		self.deref().to_encoded_iter()
 	}

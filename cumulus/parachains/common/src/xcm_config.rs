@@ -14,13 +14,13 @@
 // limitations under the License.
 
 use crate::impls::AccountIdOf;
+use core::marker::PhantomData;
 use cumulus_primitives_core::{IsSystem, ParaId};
 use frame_support::{
 	traits::{fungibles::Inspect, tokens::ConversionToAssetBalance, Contains, ContainsPair},
 	weights::Weight,
 };
 use sp_runtime::traits::Get;
-use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 
 /// A `ChargeFeeInFungibles` implementation that converts the output of
