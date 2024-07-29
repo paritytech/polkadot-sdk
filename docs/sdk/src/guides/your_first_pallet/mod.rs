@@ -45,7 +45,7 @@
 //! Consider the following as a "shell pallet". We continue building the rest of this pallet based
 //! on this template.
 //!
-//! [`pallet::config`] and [`pallet::pallet`](frame_support::pallet) are both mandatory parts of any
+//! [`pallet::config`] and [`pallet::pallet`] are both mandatory parts of any
 //! pallet. Refer to the documentation of each to get an overview of what they do.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", shell_pallet)]
 //!
@@ -323,7 +323,7 @@
 //! [`pallet::call`]: ../../../frame_support/pallet_macros/attr.call.html
 //! [`pallet::event`]: ../../../frame_support/pallet_macros/attr.event.html
 //! [`pallet::error`]: ../../../frame_support/pallet_macros/attr.error.html
-//! [`pallet::pallet`]: ../../../frame_support/pallet_macros/attr.pallet.html
+//! [`pallet::pallet`]: ../../../frame_support/attr.pallet.html
 //! [`pallet::config`]: ../../../frame_support/pallet_macros/attr.config.html
 //! [`pallet::generate_deposit`]: ../../../frame_support/pallet_macros/attr.generate_deposit.html
 
