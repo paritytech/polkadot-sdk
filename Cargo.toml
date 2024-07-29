@@ -1034,7 +1034,7 @@ polkadot-primitives-test-helpers = { path = "polkadot/primitives/test-helpers", 
 polkadot-rpc = { path = "polkadot/rpc", default-features = false, version = "15.0.0" }
 polkadot-runtime-common = { path = "polkadot/runtime/common", default-features = false, version = "15.0.0" }
 polkadot-runtime-metrics = { path = "polkadot/runtime/metrics", default-features = false, version = "15.0.0" }
-polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false, version = "15.0.0" }
+polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false, version = "15.0.1" }
 polkadot-sdk = { path = "umbrella", default-features = false, version = "0.3.0" }
 polkadot-sdk-docs = { path = "docs/sdk", version = "0.1.0" }
 polkadot-service = { path = "polkadot/node/service", default-features = false, version = "15.0.0" }

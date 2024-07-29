@@ -1528,7 +1528,7 @@ version = "15.0.0"
 path = "../polkadot/runtime/parachains"
 default-features = false
 optional = true
-version = "15.0.0"
+version = "15.0.1"
 
 [dependencies.polkadot-sdk-frame]
 path = "../substrate/frame"
