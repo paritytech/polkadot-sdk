@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722286450472,
+  "lastUpdate": 1722297485718,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -16211,6 +16211,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.17212454323333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Pankaj",
+            "username": "Polkaverse",
+            "email": "pankajchaudhary172@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "839ead3441b4012cbf6451af5b19a923bcbc379b",
+          "message": "Remove pallet::getter usage from proxy (#4963)\n\nISSUE\nLink to the issue:\nhttps://github.com/paritytech/polkadot-sdk/issues/3326\n\nDeliverables\n\n[Deprecation] remove pallet::getter usage from pallet-proxy\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-07-29T22:12:43Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/839ead3441b4012cbf6451af5b19a923bcbc379b"
+        },
+        "date": 1722297454791,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.9020745614,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19147406506666664,
             "unit": "seconds"
           }
         ]
