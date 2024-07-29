@@ -418,7 +418,7 @@ where
 
 		debug!(
 			target: LOG_TARGET,
-			"Publishing authority DHT record peer_id='{local_peer_id}' addresses='{addresses:?}'",
+			"Authority DHT record peer_id='{local_peer_id}' with addresses='{addresses:?}'",
 		);
 
 		// The address must include the local peer id.
