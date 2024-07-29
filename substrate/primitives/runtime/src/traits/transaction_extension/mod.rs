@@ -457,7 +457,7 @@ impl TransactionExtensionBase for Tuple {
 	}
 	fn weight() -> Weight {
 		let mut weight = Weight::zero();
-		for_tuples!( #( weight += Tuple::weight(); )* );
+		for_tuples!( #( weight = weight.saturating_add(Tuple::weight()); )* );
 		weight
 	}
 	fn metadata() -> Vec<TransactionExtensionMetadata> {
@@ -540,10 +540,22 @@ impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for Tuple 
 		let mut weight = Weight::zero();
 		for_tuples!( #( 
 			let maybe_weight = Tuple::post_dispatch(pre.Tuple, info, post_info, len, result, context)?;
-			let weight = maybe_weight.unwrap_or_else(|| Tuple::weight());
-			weight.saturating_add(weight); 
+			let actual_weight = maybe_weight.unwrap_or_else(|| Tuple::weight());
+			weight = weight.saturating_add(actual_weight);
 		)* );
 		Ok(Some(weight))
+	}
+
+	fn post_dispatch_with_weight_accrual(
+		pre: Self::Pre,
+		info: &DispatchInfoOf<Call>,
+		post_info: &mut PostDispatchInfoOf<Call>,
+		len: usize,
+		result: &DispatchResult,
+		context: &Context,
+	) -> Result<(), TransactionValidityError> {
+		for_tuples!( #( Tuple::post_dispatch_with_weight_accrual(pre.Tuple, info, post_info, len, result, context)?; )* );
+		Ok(())
 	}
 }
 
