@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722271113075,
+  "lastUpdate": 1722286746474,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -6887,6 +6887,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04933511857800001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Yuri Volkov",
+            "username": "mutantcornholio",
+            "email": "0@mcornholio.ru"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "71cb378f14e110607b3fa568803003bf331d7fdf",
+          "message": "Review-bot@2.6.0 (#5177)",
+          "timestamp": "2024-07-29T19:09:35Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/71cb378f14e110607b3fa568803003bf331d7fdf"
+        },
+        "date": 1722286716012,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.93599999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.036629370878,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.045726413072,
             "unit": "seconds"
           }
         ]
