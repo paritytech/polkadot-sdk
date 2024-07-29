@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![cfg(test)]
-
 use crate::{self as pallet_stake_tracker, *};
 
 use frame_election_provider_support::{ScoreProvider, VoteWeight};
@@ -31,7 +29,7 @@ type Block = frame_system::mocking::MockBlockU32<Test>;
 
 // Configure a mock runtime to test the pallet.
 #[frame_support::runtime]
-mod runtime {
+pub mod runtime {
 	#[runtime::runtime]
 	#[runtime::derive(
 		RuntimeCall,
@@ -199,7 +197,7 @@ impl StakingInterface for StakingMock {
 	}
 
 	fn minimum_validator_bond() -> Self::Balance {
-		unreachable!();
+		10
 	}
 
 	fn stash_by_ctrl(
@@ -221,7 +219,13 @@ impl StakingInterface for StakingMock {
 		_value: Self::Balance,
 		_payee: &Self::AccountId,
 	) -> sp_runtime::DispatchResult {
-		unreachable!();
+		Ok(())
+	}
+
+	fn validate(who: &Self::AccountId) -> DispatchResult {
+		add_validator(*who, 10);
+
+		Ok(())
 	}
 
 	fn nominate(

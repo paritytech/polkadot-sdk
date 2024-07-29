@@ -1993,6 +1993,11 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		Self::nominate(RawOrigin::Signed(ctrl).into(), targets)
 	}
 
+	fn validate(who: &Self::AccountId) -> DispatchResult {
+		let ctrl = Self::bonded(who).ok_or(Error::<T>::NotStash)?;
+		Self::validate(RawOrigin::Signed(ctrl).into(), Default::default())
+	}
+
 	fn desired_validator_count() -> u32 {
 		ValidatorCount::<T>::get()
 	}
@@ -2235,13 +2240,15 @@ impl<T: Config> Pallet<T> {
 		ensure!(
 			<T as Config>::VoterList::iter()
 				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
-				.count() as u32 == Nominators::<T>::count() + Validators::<T>::count(),
+				.count() as u32 ==
+				Nominators::<T>::count() + Validators::<T>::count(),
 			"wrong external count (VoterList.count != Nominators.count + Validators.count)"
 		);
 		ensure!(
 			<T as Config>::TargetList::iter()
 				.filter(|t| Self::status(&t) == Ok(StakerStatus::Validator))
-				.count() as u32 == Validators::<T>::count(),
+				.count() as u32 ==
+				Validators::<T>::count(),
 			"wrong external count (TargetList.count != Validators.count)"
 		);
 		ensure!(
@@ -2521,6 +2528,8 @@ impl<T: Config> Pallet<T> {
 	///   (active_validators + idle_validators + dangling_targets_score_with_score).
 	pub fn do_try_state_approvals() -> Result<(), sp_runtime::TryRuntimeError> {
 		use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+		use pallet_stake_tracker::StakeImbalance;
+
 		let mut approvals_map: BTreeMap<T::AccountId, T::CurrencyBalance> = BTreeMap::new();
 
 		// build map of approvals stakes from the `Nominators` storage map POV.
@@ -2582,6 +2591,19 @@ impl<T: Config> Pallet<T> {
 						approvals_map.insert(validator, self_stake.into());
 					},
 				}
+			}
+		}
+
+		// sync up current unsettled score to target's approvals.
+		for (target, imbalance) in T::TargetUnsettledApprovals::get().into_iter() {
+			if let Some(approvals) = approvals_map.get_mut(&target) {
+				match imbalance {
+					StakeImbalance::Positive(score) => *approvals -= score,
+					StakeImbalance::Negative(score) => *approvals += score,
+					StakeImbalance::Zero => (),
+				}
+			} else {
+				return Err("unsettled approval not in the target list".into());
 			}
 		}
 

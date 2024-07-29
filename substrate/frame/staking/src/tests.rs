@@ -7853,6 +7853,7 @@ mod stake_tracker {
 	use super::*;
 	use frame_election_provider_support::ScoreProvider;
 	use pallet_bags_list::Event as BagsEvent;
+	use pallet_stake_tracker::StakeImbalance;
 	use sp_staking::{StakingAccount::*, StakingInterface};
 
 	// keep tests clean;
@@ -8720,6 +8721,42 @@ mod stake_tracker {
 			);
 		})
 	}
+
+	#[test]
+	fn try_state_with_unsettled_score_works() {
+		ExtBuilder::default()
+			.stake_tracker_update_threshold(Some(50))
+			.try_state(true)
+			.build_and_execute(|| {
+				assert_eq!(Staking::status(&11), Ok(StakerStatus::Validator));
+				assert_eq!(TargetBagsList::score(&11), 1500);
+
+				assert_ok!(Staking::bond(
+					RuntimeOrigin::signed(90),
+					4000,
+					RewardDestination::Staked
+				));
+				assert_ok!(Staking::nominate(RuntimeOrigin::signed(90), vec![11]));
+
+				let vote_weight = Staking::weight_of(&90);
+
+				// confirm that vote weight of new nominator is lower than threshold.
+				assert!((vote_weight as u128) < ScoreStrictUpdateThreshold::get().unwrap());
+
+				// approvals of 42 did not updatee with nomination because new bond's vote weight
+				// was below the upadte threshold.
+				assert_eq!(TargetBagsList::score(&11), 1500);
+
+				// unsettled score map has been updated.
+				assert_eq!(
+					pallet_stake_tracker::UnsettledScore::<Test>::iter().collect::<Vec<_>>(),
+					vec![(11, StakeImbalance::Positive(vote_weight as u128))]
+				);
+
+				// he try-state checks takes into consideration the unsetttled score.
+				assert!(Staking::do_try_state(System::block_number()).is_ok());
+			})
+	}
 }
 
 mod ledger {
@@ -9318,7 +9355,7 @@ mod ledger_recovery {
 			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before); // OK
 			assert_eq!(Bonded::<Test>::get(&333), Some(444)); // OK
 			assert!(Payee::<Test>::get(&333).is_some()); // OK
-											 // however, ledger associated with its controller was killed.
+												// however, ledger associated with its controller was killed.
 			assert!(Ledger::<Test>::get(&444).is_none()); // NOK
 
 			// side effects on 444 - ledger, bonded, payee, lock should be completely removed.

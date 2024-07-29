@@ -389,6 +389,8 @@ impl crate::pallet::pallet::Config for Test {
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
+	#[cfg(any(feature = "try-runtime", test))]
+	type TargetUnsettledApprovals = StakeTracker;
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
@@ -562,6 +564,11 @@ impl ExtBuilder {
 		MaxWinners::set(max);
 		self
 	}
+	pub fn stake_tracker_update_threshold(self, threshold: Option<u128>) -> Self {
+		ScoreStrictUpdateThreshold::set(threshold);
+		self
+	}
+
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();

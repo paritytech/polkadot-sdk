@@ -268,6 +268,19 @@ pub mod pallet {
 		#[pallet::no_default]
 		type TargetList: SortedListProvider<Self::AccountId, Score = BalanceOf<Self>>;
 
+		/// Getter for unsettled approvals scores of targets in stake-tracker. Only used for
+		/// testing and try-state.
+		#[cfg(any(feature = "try-runtime", test))]
+		#[pallet::no_default]
+		type TargetUnsettledApprovals: TypedGet<
+			Type = Vec<(
+				Self::AccountId,
+				pallet_stake_tracker::StakeImbalance<
+					<Self::TargetList as SortedListProvider<Self::AccountId>>::Score,
+				>,
+			)>,
+		>;
+
 		/// The maximum number of `unlocking` chunks a [`StakingLedger`] can
 		/// have. Effectively determines how many unique eras a staker may be
 		/// unbonding in.

@@ -19,6 +19,7 @@ codec = { features = [
 
 scale-info = { features = ["derive", "serde"], workspace = true }
 
+sp-std = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 
@@ -50,6 +51,7 @@ std = [
 	"pallet-bags-list/std",
 	"pallet-balances/std",
 	"scale-info/std",
+	"sp-std/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-npos-elections/std",

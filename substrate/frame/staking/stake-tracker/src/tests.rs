@@ -155,7 +155,30 @@ mod stake_imbalance {
 			// calling `settle` with target account that does not have buffered score errors.
 			assert_noop!(
 				StakeTracker::settle(RuntimeOrigin::signed(1), 10),
-				Error::<Test>::NoScoreToUnsettle,
+				Error::<Test>::NoScoreToSettle,
+			);
+		})
+	}
+
+	#[test]
+	fn settle_buffered_score_error_works() {
+		ExtBuilder::default().set_update_threshold(Some(10)).build_and_execute(|| {
+			assert!(!TargetBagsList::contains(&100));
+
+			// calling `settle` of an account that does not exist in the target list errors.
+			assert_noop!(
+				StakeTracker::settle(RuntimeOrigin::signed(1), 100),
+				Error::<Test>::NotTarget,
+			);
+
+			add_validator(10, 100);
+			assert!(TargetBagsList::contains(&10));
+			assert_eq!(UnsettledScore::<Test>::iter().collect::<Vec<_>>(), vec![]);
+
+			// calling `settle` with target account that does not have buffered score errors.
+			assert_noop!(
+				StakeTracker::settle(RuntimeOrigin::signed(1), 10),
+				Error::<Test>::NoScoreToSettle,
 			);
 		})
 	}
