@@ -24,7 +24,10 @@ use super::*;
 use crate::traits::{
 	fungible,
 	misc::{SameOrOther, TryDrop},
-	tokens::{imbalance::Imbalance as ImbalanceT, AssetId, Balance},
+	tokens::{
+		imbalance::{Imbalance as ImbalanceT, TryMerge},
+		AssetId, Balance,
+	},
 };
 use core::marker::PhantomData;
 use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
@@ -173,6 +176,18 @@ impl<
 
 	pub fn asset(&self) -> A {
 		self.asset.clone()
+	}
+}
+
+impl<
+		A: AssetId,
+		B: Balance,
+		OnDrop: HandleImbalanceDrop<A, B>,
+		OppositeOnDrop: HandleImbalanceDrop<A, B>,
+	> TryMerge for Imbalance<A, B, OnDrop, OppositeOnDrop>
+{
+	fn try_merge(self, other: Self) -> Result<Self, (Self, Self)> {
+		self.merge(other)
 	}
 }
 
