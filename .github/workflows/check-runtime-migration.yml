@@ -117,6 +117,7 @@ jobs:
         with:
           path: snapshot.raw
           key: try-runtime-snapshot-${{ matrix.network }}-${{ steps.get-date.outputs.today }}-wip
+          save-always: true
 
       - name: Create Snapshot If Not Exists
         if: ${{ hashFiles('snapshot.raw') == '' }}
