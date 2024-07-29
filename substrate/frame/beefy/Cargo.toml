@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 repository.workspace = true
 description = "BEEFY FRAME pallet"
-homepage = "https://substrate.io"
+homepage.workspace = true
 
 [lints]
 workspace = true
