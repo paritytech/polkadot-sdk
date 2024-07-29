@@ -21,7 +21,7 @@
 //! Smart Contracts are autonomous, programmable constructs deployed on the blockchain.
 //! In [FRAME](frame), Smart Contracts infrastructure is implemented by the
 //! [`pallet_contracts`](../../../pallet_contracts/index.html) for WASM-based contracts or the
-//! [`pallet_evm`](../../../pallet_evm/index.html) for EVM-compatible contracts. These pallets
+//! [`pallet_evm`](https://github.com/polkadot-evm/frontier/tree/master/frame/evm) for EVM-compatible contracts. These pallets
 //! enable Smart Contract developers to build applications and systems on top of a Substrate-based
 //! blockchain.
 //!
