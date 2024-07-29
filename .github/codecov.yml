@@ -9,4 +9,4 @@ coverage:
         threshold: 2.0
 
 fixes:
-  - "/__w/polkadot-sdk/::"
+  - "/__w/polkadot-sdk/polkadot-sdk/::"
