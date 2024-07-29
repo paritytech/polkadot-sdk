@@ -1030,7 +1030,7 @@ impl State {
 		.await;
 	}
 
-	async fn process_incoming_assignments<A, N, RA, R>(
+	async fn process_incoming_assignments<A, N, R, RA>(
 		&mut self,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
@@ -2719,7 +2719,6 @@ impl ApprovalDistribution {
 							return
 						},
 					};
-
 
 					self.handle_from_orchestra(message, &mut approval_voting_sender, &mut network_sender, &mut runtime_api_sender, state, rng, assignment_criteria, session_info_provider).await;
 

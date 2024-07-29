@@ -78,7 +78,7 @@ async fn test_once() {
 		})
 		.collect();
 
-	let peerstore = Peerstore::new(bootnodes);
+	let peerstore = Peerstore::new(bootnodes, None);
 	let peer_store_handle = peerstore.handle();
 
 	let (mut peerset, to_peerset) = Peerset::new(
