@@ -319,7 +319,7 @@
 //! - Learn more about the individual pallet items/macros, such as event and errors and call, in
 //!   [`frame::pallet_macros`].
 //!
-//! [`pallet::storage`]: ../../../frame_support/pallet_macros/attr.config.html
+//! [`pallet::storage`]: ../../../frame_support/pallet_macros/attr.storage.html
 //! [`pallet::call`]: ../../../frame_support/pallet_macros/attr.call.html
 //! [`pallet::event`]: ../../../frame_support/pallet_macros/attr.event.html
 //! [`pallet::error`]: ../../../frame_support/pallet_macros/attr.error.html
