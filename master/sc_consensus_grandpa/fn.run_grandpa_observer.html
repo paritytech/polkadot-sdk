@@ -153,7 +153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     link: <a class="struct" href="struct.LinkHalf.html" title="struct sc_consensus_grandpa::LinkHalf">LinkHalf</a>&lt;Block, Client, SC&gt;,
     network: N,
     sync: S,
-    notification_service: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn NotificationService&gt;
+    notification_service: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="../sc_network/service/traits/trait.NotificationService.html" title="trait sc_network::service::traits::NotificationService">NotificationService</a>&gt;
 ) -&gt; <a class="type" href="../sp_blockchain/error/type.Result.html" title="type sp_blockchain::error::Result">Result</a>&lt;impl <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;<div class="where">where
     BE: <a class="trait" href="../sc_client_api/backend/trait.Backend.html" title="trait sc_client_api::backend::Backend">Backend</a>&lt;Block&gt; + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a> + 'static,
     N: NetworkT&lt;Block&gt;,
