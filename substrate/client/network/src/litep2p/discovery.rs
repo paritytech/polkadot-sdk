@@ -569,9 +569,7 @@ impl Stream for Discovery {
 				supported_protocols,
 				observed_address,
 			})) => {
-				if Discovery::can_add_to_dht(&observed_address) &&
-					this.is_new_external_address(&observed_address)
-				{
+				if this.is_new_external_address(&observed_address) {
 					this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
 						address: observed_address.clone(),
 					});
