@@ -226,6 +226,12 @@ pub mod pallet {
 						bridge_origin_relative_location: Box::new(
 							locations.bridge_origin_relative_location().clone().into(),
 						),
+						bridge_origin_universal_location: Box::new(
+							locations.bridge_origin_universal_location().clone().into(),
+						),
+						bridge_destination_universal_location: Box::new(
+							locations.bridge_destination_universal_location().clone().into(),
+						),
 						state: BridgeState::Opened,
 						bridge_owner_account,
 						reserve: deposit,
@@ -524,6 +530,35 @@ pub mod pallet {
 			bridge_id: BridgeId,
 			bridge: BridgeOf<T, I>,
 		) -> Result<LaneId, sp_runtime::TryRuntimeError> {
+			// check `BridgeId` points to the same `LaneId` and vice versa.
+			ensure!(
+				Some(bridge_id) == Self::lane_to_bridge(bridge.lane_id),
+				"Found `LaneToBridge` inconsistency for bridge_id - missing mapping!"
+			);
+
+			// check that `locations` are convertible to the `latest` XCM.
+			let bridge_origin_relative_location_as_latest: &Location =
+				bridge.bridge_origin_relative_location.try_as().map_err(|_| {
+					"`bridge.bridge_origin_relative_location` cannot be converted to the `latest` XCM, needs migration!"
+				})?;
+			let bridge_origin_universal_location_as_latest: &InteriorLocation = bridge.bridge_origin_universal_location
+				.try_as()
+				.map_err(|_| "`bridge.bridge_origin_universal_location` cannot be converted to the `latest` XCM, needs migration!")?;
+			let bridge_destination_universal_location_as_latest: &InteriorLocation = bridge.bridge_destination_universal_location
+				.try_as()
+				.map_err(|_| "`bridge.bridge_destination_universal_location` cannot be converted to the `latest` XCM, needs migration!")?;
+
+			// check `BridgeId` does not change
+			ensure!(
+				bridge_id == BridgeId::new(bridge_origin_universal_location_as_latest, bridge_destination_universal_location_as_latest),
+				"`bridge_id` is different than calculated from `bridge_origin_universal_location_as_latest` and `bridge_destination_universal_location_as_latest`, needs migration!"
+			);
+
+			// check bridge account owner
+			ensure!(
+				T::BridgeOriginAccountIdConverter::convert_location(bridge_origin_relative_location_as_latest) == Some(bridge.bridge_owner_account),
+				"`bridge.bridge_owner_account` is different than calculated from `bridge.bridge_origin_relative_location`, needs migration!"
+			);
 
 			Ok(bridge.lane_id)
 		}
@@ -579,6 +614,12 @@ pub mod pallet {
 					Bridge {
 						bridge_origin_relative_location: Box::new(
 							locations.bridge_origin_relative_location().clone().into(),
+						),
+						bridge_origin_universal_location: Box::new(
+							locations.bridge_origin_universal_location().clone().into(),
+						),
+						bridge_destination_universal_location: Box::new(
+							locations.bridge_destination_universal_location().clone().into(),
 						),
 						state: BridgeState::Opened,
 						bridge_owner_account,
@@ -698,6 +739,12 @@ mod tests {
 		let bridge = Bridge {
 			bridge_origin_relative_location: Box::new(
 				locations.bridge_origin_relative_location().clone().into(),
+			),
+			bridge_origin_universal_location: Box::new(
+				locations.bridge_origin_universal_location().clone().into(),
+			),
+			bridge_destination_universal_location: Box::new(
+				locations.bridge_destination_universal_location().clone().into(),
 			),
 			state: BridgeState::Opened,
 			bridge_owner_account,
@@ -852,6 +899,12 @@ mod tests {
 					bridge_origin_relative_location: Box::new(
 						locations.bridge_origin_relative_location().clone().into(),
 					),
+					bridge_origin_universal_location: Box::new(
+						locations.bridge_origin_universal_location().clone().into(),
+					),
+					bridge_destination_universal_location: Box::new(
+						locations.bridge_destination_universal_location().clone().into(),
+					),
 					state: BridgeState::Opened,
 					bridge_owner_account: [0u8; 32].into(),
 					reserve: 0,
@@ -976,6 +1029,12 @@ mod tests {
 					Some(Bridge {
 						bridge_origin_relative_location: Box::new(
 							locations.bridge_origin_relative_location().clone().into()
+						),
+						bridge_origin_universal_location: Box::new(
+							locations.bridge_origin_universal_location().clone().into(),
+						),
+						bridge_destination_universal_location: Box::new(
+							locations.bridge_destination_universal_location().clone().into(),
 						),
 						state: BridgeState::Opened,
 						bridge_owner_account: bridge_owner_account.clone(),
@@ -1254,12 +1313,19 @@ mod tests {
 	fn do_try_state_works() {
 		use sp_runtime::Either;
 
-		let older_xcm_version = xcm::latest::VERSION - 1;
-		let bridge_origin_relative_location = Location::new(1, [Parachain(2025)]);
+		let bridge_origin_relative_location = SiblingLocation::get();
+		let bridge_origin_universal_location = SiblingUniversalLocation::get();
+		let bridge_destination_universal_location = BridgedUniversalDestination::get();
 		let bridge_owner_account =
 			LocationToAccountId::convert_location(&bridge_origin_relative_location)
 				.expect("valid accountId");
-		let bridge_id = BridgeId::from_inner(H256::from([1u8; 32]));
+		let bridge_owner_account_mismatch =
+			LocationToAccountId::convert_location(&Location::parent()).expect("valid accountId");
+		let bridge_id = BridgeId::new(
+			&bridge_origin_universal_location,
+			&bridge_destination_universal_location,
+		);
+		let bridge_id_mismatch = BridgeId::new(&InteriorLocation::Here, &InteriorLocation::Here);
 		let lane_id = LaneId::from_inner(Either::Left(H256::default()));
 
 		let test_bridge_state =
@@ -1269,11 +1335,16 @@ mod tests {
 
 				let result = XcmOverBridge::do_try_state();
 				if let Some(e) = expected_error {
-					assert_err!(XcmOverBridge::do_try_state(), e);
+					assert_err!(result, e);
 				} else {
 					assert_ok!(result);
 				}
 			};
+		let cleanup = |bridge_id, lane_id| {
+			Bridges::<TestRuntime, ()>::remove(bridge_id);
+			LaneToBridge::<TestRuntime, ()>::remove(lane_id);
+			assert_ok!(XcmOverBridge::do_try_state());
+		};
 
 		run_test(|| {
 			// ok state
@@ -1283,6 +1354,14 @@ mod tests {
 					bridge_origin_relative_location: Box::new(VersionedLocation::from(
 						bridge_origin_relative_location.clone(),
 					)),
+					bridge_origin_universal_location: Box::new(VersionedInteriorLocation::from(
+						bridge_origin_universal_location.clone(),
+					)),
+					bridge_destination_universal_location: Box::new(
+						VersionedInteriorLocation::from(
+							bridge_destination_universal_location.clone(),
+						),
+					),
 					state: BridgeState::Opened,
 					bridge_owner_account: bridge_owner_account.clone(),
 					reserve: Zero::zero(),
@@ -1291,6 +1370,81 @@ mod tests {
 				(lane_id, bridge_id),
 				None,
 			);
+			cleanup(bridge_id, lane_id);
+
+			// error - missing `LaneToBridge` mapping
+			test_bridge_state(
+				bridge_id,
+				Bridge {
+					bridge_origin_relative_location: Box::new(VersionedLocation::from(
+						bridge_origin_relative_location.clone(),
+					)),
+					bridge_origin_universal_location: Box::new(VersionedInteriorLocation::from(
+						bridge_origin_universal_location.clone(),
+					)),
+					bridge_destination_universal_location: Box::new(
+						VersionedInteriorLocation::from(
+							bridge_destination_universal_location.clone(),
+						),
+					),
+					state: BridgeState::Opened,
+					bridge_owner_account: bridge_owner_account.clone(),
+					reserve: Zero::zero(),
+					lane_id,
+				},
+				(lane_id, bridge_id_mismatch),
+				Some(TryRuntimeError::Other(
+					"Found `LaneToBridge` inconsistency for bridge_id - missing mapping!",
+				)),
+			);
+			cleanup(bridge_id, lane_id);
+
+			// error bridge owner account cannot be calculated
+			test_bridge_state(
+				bridge_id,
+				Bridge {
+					bridge_origin_relative_location: Box::new(VersionedLocation::from(
+						bridge_origin_relative_location.clone(),
+					)),
+					bridge_origin_universal_location: Box::new(VersionedInteriorLocation::from(
+						bridge_origin_universal_location.clone(),
+					)),
+					bridge_destination_universal_location: Box::new(VersionedInteriorLocation::from(
+						bridge_destination_universal_location.clone(),
+					)),
+					state: BridgeState::Opened,
+					bridge_owner_account: bridge_owner_account_mismatch.clone(),
+					reserve: Zero::zero(),
+					lane_id,
+				},
+				(lane_id, bridge_id),
+				Some(TryRuntimeError::Other("`bridge.bridge_owner_account` is different than calculated from `bridge.bridge_origin_relative_location`, needs migration!")),
+			);
+			cleanup(bridge_id, lane_id);
+
+			// error when (bridge_origin_universal_location + bridge_destination_universal_location)
+			// produces different `BridgeId`
+			test_bridge_state(
+				bridge_id_mismatch,
+				Bridge {
+					bridge_origin_relative_location: Box::new(VersionedLocation::from(
+						bridge_origin_relative_location.clone(),
+					)),
+					bridge_origin_universal_location: Box::new(VersionedInteriorLocation::from(
+						bridge_origin_universal_location.clone(),
+					)),
+					bridge_destination_universal_location: Box::new(VersionedInteriorLocation::from(
+						bridge_destination_universal_location.clone(),
+					)),
+					state: BridgeState::Opened,
+					bridge_owner_account: bridge_owner_account_mismatch.clone(),
+					reserve: Zero::zero(),
+					lane_id,
+				},
+				(lane_id, bridge_id_mismatch),
+				Some(TryRuntimeError::Other("`bridge_id` is different than calculated from `bridge_origin_universal_location_as_latest` and `bridge_destination_universal_location_as_latest`, needs migration!")),
+			);
+			cleanup(bridge_id_mismatch, lane_id);
 		});
 	}
 }

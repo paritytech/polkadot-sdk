@@ -150,6 +150,7 @@ parameter_types! {
 		Parachain(THIS_BRIDGE_HUB_ID),
 	].into();
 	pub SiblingLocation: Location = Location::new(1, [Parachain(SIBLING_ASSET_HUB_ID)]);
+	pub SiblingUniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(SIBLING_ASSET_HUB_ID)].into();
 
 	pub const BridgedRelayNetwork: NetworkId = NetworkId::Polkadot;
 	pub BridgedRelayNetworkLocation: Location = (Parent, GlobalConsensus(BridgedRelayNetwork::get())).into();

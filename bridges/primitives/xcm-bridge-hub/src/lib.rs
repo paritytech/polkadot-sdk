@@ -73,7 +73,10 @@ impl BridgeId {
 	///
 	/// Note: The `BridgeId` is constructed from `latest` XCM, so if stored, you need to ensure
 	/// compatibility with newer XCM versions.
-	fn new(universal_source: &InteriorLocation, universal_destination: &InteriorLocation) -> Self {
+	pub fn new(
+		universal_source: &InteriorLocation,
+		universal_destination: &InteriorLocation,
+	) -> Self {
 		const VALUES_SEPARATOR: [u8; 33] = *b"bridges-bridge-id-value-separator";
 
 		BridgeId(
@@ -81,13 +84,6 @@ impl BridgeId {
 				.using_encoded(blake2_256)
 				.into(),
 		)
-	}
-
-	/// Create bridge identifier from given hash.
-	/// (for testing purposes)
-	#[cfg(any(feature = "std", test))]
-	pub const fn from_inner(inner: H256) -> Self {
-		BridgeId(inner)
 	}
 }
 
@@ -152,8 +148,17 @@ pub enum BridgeState {
 )]
 #[scale_info(skip_type_params(ThisChain))]
 pub struct Bridge<ThisChain: Chain> {
-	/// Relative location of the bridge origin chain.
+	/// Relative location of the bridge origin chain. This is expected to be **convertible** to the
+	/// `latest` XCM, so the check and migration needs to be ensured.
 	pub bridge_origin_relative_location: Box<VersionedLocation>,
+
+	/// See [`BridgeLocations::bridge_origin_universal_location`].
+	/// Stored for `BridgeId` sanity check.
+	pub bridge_origin_universal_location: Box<VersionedInteriorLocation>,
+	/// See [`BridgeLocations::bridge_destination_universal_location`].
+	/// Stored for `BridgeId` sanity check.
+	pub bridge_destination_universal_location: Box<VersionedInteriorLocation>,
+
 	/// Current bridge state.
 	pub state: BridgeState,
 	/// Account with the reserved funds. Derived from `self.bridge_origin_relative_location`.
@@ -374,8 +379,8 @@ mod tests {
 					.bridge_destination_universal_location
 					.clone(),
 				bridge_id: BridgeId::new(
-					&test.bridge_origin_universal_location.into(),
-					&test.bridge_destination_universal_location.into(),
+					&test.bridge_origin_universal_location,
+					&test.bridge_destination_universal_location,
 				),
 			})),
 		);

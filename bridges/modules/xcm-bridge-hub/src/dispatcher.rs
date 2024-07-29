@@ -124,27 +124,45 @@ mod tests {
 	use crate::{mock::*, Bridges, LaneToBridge};
 
 	use bp_messages::{target_chain::DispatchMessageData, MessageKey};
-	use bp_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
+	use bp_xcm_bridge_hub::{Bridge, BridgeLocations, BridgeState};
 	use frame_support::assert_ok;
-	use sp_core::H256;
+	use xcm_executor::traits::ConvertLocation;
 
-	fn bridge() -> (BridgeId, LaneId) {
-		(BridgeId::from_inner(H256::from([1u8; 32])), LaneId::new(1, 2))
+	fn bridge() -> (Box<BridgeLocations>, LaneId) {
+		let origin = OpenBridgeOrigin::sibling_parachain_origin();
+		let with = bridged_asset_hub_universal_location();
+		let locations =
+			XcmOverBridge::bridge_locations_from_origin(origin, Box::new(with.into())).unwrap();
+		let lane_id = locations.calculate_lane_id(xcm::latest::VERSION).unwrap();
+		(locations, lane_id)
 	}
 
 	fn run_test_with_opened_bridge(test: impl FnOnce()) {
 		run_test(|| {
+			let (bridge, lane_id) = bridge();
+
 			Bridges::<TestRuntime, ()>::insert(
-				bridge().0,
+				bridge.bridge_id(),
 				Bridge {
-					bridge_origin_relative_location: Box::new(Location::new(0, Here).into()),
+					bridge_origin_relative_location: Box::new(
+						bridge.bridge_origin_relative_location().clone().into(),
+					),
+					bridge_origin_universal_location: Box::new(
+						bridge.bridge_origin_universal_location().clone().into(),
+					),
+					bridge_destination_universal_location: Box::new(
+						bridge.bridge_destination_universal_location().clone().into(),
+					),
 					state: BridgeState::Opened,
-					bridge_owner_account: [0u8; 32].into(),
+					bridge_owner_account: LocationToAccountId::convert_location(
+						bridge.bridge_origin_relative_location(),
+					)
+					.expect("valid accountId"),
 					reserve: 0,
-					lane_id: bridge().1,
+					lane_id,
 				},
 			);
-			LaneToBridge::<TestRuntime, ()>::insert(bridge().1, bridge().0);
+			LaneToBridge::<TestRuntime, ()>::insert(lane_id, bridge.bridge_id());
 			assert_ok!(XcmOverBridge::do_try_state());
 
 			test();
