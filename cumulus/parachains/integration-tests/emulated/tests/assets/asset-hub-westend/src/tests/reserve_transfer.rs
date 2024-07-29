@@ -60,16 +60,33 @@ pub fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 	AssetHubWestend::assert_xcm_pallet_attempted_complete(None);
 
 	let sov_acc_of_dest = AssetHubWestend::sovereign_account_id_of(t.args.dest.clone());
-	for (idx, asset) in t.args.assets.into_inner().into_iter().enumerate() {
+	for asset in t.args.assets.into_inner().into_iter() {
 		let expected_id = asset.id.0.clone().try_into().unwrap();
 		let asset_amount = if let Fungible(a) = asset.fun { Some(a) } else { None }.unwrap();
-		if idx == t.args.fee_asset_item as usize {
+		if asset.id == AssetId(Location::new(1, [])) {
 			assert_expected_events!(
 				AssetHubWestend,
 				vec![
 					// Amount of native asset is transferred to Parachain's Sovereign account
 					RuntimeEvent::Balances(
 						pallet_balances::Event::Transfer { from, to, amount }
+					) => {
+						from: *from == t.sender.account_id,
+						to: *to == sov_acc_of_dest,
+						amount: *amount == asset_amount,
+					},
+				]
+			);
+		} else if matches!(
+			asset.id.0.unpack(),
+			(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(_)])
+		) {
+			assert_expected_events!(
+				AssetHubWestend,
+				vec![
+					// Amount of foreign asset is transferred to Parachain's Sovereign account
+					RuntimeEvent::Assets(
+						pallet_assets::Event::Transferred { from, to, amount, .. },
 					) => {
 						from: *from == t.sender.account_id,
 						to: *to == sov_acc_of_dest,
@@ -410,6 +427,38 @@ fn para_to_para_relay_hop_assertions(t: ParaToParaThroughRelayTest) {
 				pallet_balances::Event::Minted { who, .. }
 			) => {
 				who: *who == sov_penpal_b_on_westend,
+			},
+			RuntimeEvent::MessageQueue(
+				pallet_message_queue::Event::Processed { success: true, .. }
+			) => {},
+		]
+	);
+}
+
+fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
+	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+	let sov_penpal_a_on_ah = AssetHubWestend::sovereign_account_id_of(
+		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
+	);
+	let sov_penpal_b_on_ah = AssetHubWestend::sovereign_account_id_of(
+		AssetHubWestend::sibling_location_of(PenpalB::para_id()),
+	);
+
+	assert_expected_events!(
+		AssetHubWestend,
+		vec![
+			// Withdrawn from sender parachain SA
+			RuntimeEvent::Assets(
+				pallet_assets::Event::Burned { owner, balance, .. }
+			) => {
+				owner: *owner == sov_penpal_a_on_ah,
+				balance: *balance == t.args.amount,
+			},
+			// Deposited to receiver parachain SA
+			RuntimeEvent::Assets(
+				pallet_assets::Event::Deposited { who, .. }
+			) => {
+				who: *who == sov_penpal_b_on_ah,
 			},
 			RuntimeEvent::MessageQueue(
 				pallet_message_queue::Event::Processed { success: true, .. }
@@ -1153,7 +1202,8 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 }
 
 // =====================================================================================================
-// ==== Reserve Transfers - TrustBacked Asset pay fees with USDT (using pool) - AssetHub->Parachain ====
+// ==== Reserve Transfers - TrustBacked Asset pay fees with USDT (using pool) - AssetHub->Parachain
+// ====
 // =====================================================================================================
 #[test]
 fn reserve_transfer_pool_assets_from_system_para_to_para() {
@@ -1231,8 +1281,10 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 
 	let assets: Assets = vec![(
 		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(usdt_id.into())],
-		asset_amount_to_send
-	).into()].into();
+		asset_amount_to_send,
+	)
+		.into()]
+	.into();
 
 	let test_args = TestContext {
 		sender: sender.clone(),
@@ -1261,6 +1313,7 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 		<ForeignAssets as Inspect<_>>::balance(usdt_from_asset_hub.clone(), &receiver)
 	});
 
+	test.set_assertion::<AssetHubWestend>(system_para_to_para_sender_assertions);
 	test.set_assertion::<PenpalA>(system_para_to_para_receiver_assertions);
 	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_reserve_transfer_assets);
 	test.assert();
@@ -1479,6 +1532,9 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(usdt_from_asset_hub.clone(), &receiver)
 	});
+	test.set_assertion::<PenpalA>(para_to_para_through_hop_sender_assertions);
+	test.set_assertion::<AssetHubWestend>(para_to_para_asset_hub_hop_assertions);
+	test.set_assertion::<PenpalB>(para_to_para_through_hop_receiver_assertions);
 	test.set_dispatchable::<PenpalA>(
 		para_to_para_through_asset_hub_limited_reserve_transfer_assets,
 	);
