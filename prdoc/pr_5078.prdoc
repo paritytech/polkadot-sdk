@@ -16,3 +16,19 @@ crates:
   bump: none
 - name: pallet-root-offences
   bump: none
+- name: pallet-babe
+  bump: none
+- name: pallet-staking
+  bump: none
+- name: pallet-grandpa
+  bump: none
+- name: pallet-collator-selection
+  bump: none
+- name: pallet-beefy
+  bump: none
+- name: pallet-beefy-mmr
+  bump: none
+- name: pallet-root-offences
+  bump: none
+- name: polkadot-parachain-bin
+  bump: none
