@@ -106,7 +106,7 @@ jobs:
         shell: bash
 
       - name: Download Snapshot
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           # We use a file-name as key here to avoid creating one snapshot per network per day, which
           # could result in a lot of old snapshots being kept around.
@@ -136,6 +136,16 @@ jobs:
           touch ${{ steps.get-date.outputs.today }}
 
           ./try-runtime create-snapshot --uri ${{ matrix.uri }} snapshot.raw
+      
+        # Upload the snapshot ASAP to prevent other jobs from also creating snapshots. Its not a
+        # problem, but a waste of time.
+      - name: Upload Snapshot
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            snapshot.raw
+            ${{ steps.get-date.outputs.today }}
+          key: try-runtime-snapshot-${{ matrix.network }}-daily
         
       - name: Build Runtime
         run: |
