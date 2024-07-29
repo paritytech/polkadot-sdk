@@ -32,9 +32,13 @@
 use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;
 
-/// Weight functions for `pallet_stake_tracker`.
-pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> pallet_stake_tracker::WeightInfo for WeightInfo<T> {
+/// Weight functions needed for `pallet_stake_tracker`.
+pub trait WeightInfo {
+	fn settle() -> Weight;
+}
+
+pub struct SubstrateWeight<T>(PhantomData<T>);
+impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `TargetList::ListNodes` (r:1 w:1)
 	/// Proof: `TargetList::ListNodes` (`max_values`: None, `max_size`: Some(170), added: 2645, mode: `MaxEncodedLen`)
 	/// Storage: `StakeTracker::UnsettledScore` (r:1 w:1)
@@ -50,3 +54,20 @@ impl<T: frame_system::Config> pallet_stake_tracker::WeightInfo for WeightInfo<T>
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
 }
+
+// For backwards compatibility and tests.
+impl WeightInfo for () {
+	/// Storage: `TargetList::ListNodes` (r:1 w:1)
+	/// Proof: `TargetList::ListNodes` (`max_values`: None, `max_size`: Some(170), added: 2645, mode: `MaxEncodedLen`)
+	/// Storage: `StakeTracker::UnsettledScore` (r:1 w:1)
+	/// Proof: `StakeTracker::UnsettledScore` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
+	fn settle() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `606`
+		//  Estimated: `3635`
+		// Minimum execution time: 19_000_000 picoseconds.
+		Weight::from_parts(20_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3635))
+	}
+}
+

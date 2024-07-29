@@ -129,6 +129,7 @@ impl pallet_stake_tracker::Config for Test {
 	type TargetList = TargetBagsList;
 	type VoterUpdateMode = VoterUpdateMode;
 	type ScoreStrictUpdateThreshold = ScoreStrictUpdateThreshold;
+	type WeightInfo = ();
 }
 
 pub struct StakingMock {}

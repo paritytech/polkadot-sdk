@@ -722,6 +722,7 @@ impl pallet_stake_tracker::Config for Runtime {
 	type TargetList = TargetList;
 	type VoterUpdateMode = VoterUpdateMode;
 	type ScoreStrictUpdateThreshold = ScoreStrictUpdateThreshold;
+	type WeightInfo = pallet_stake_tracker::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {

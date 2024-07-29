@@ -89,22 +89,6 @@
 
 pub use pallet::*;
 
-extern crate alloc;
-
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use frame_election_provider_support::{ExtendedBalance, SortedListProvider, VoteWeight};
-use frame_support::{
-	defensive,
-	pallet_prelude::*,
-	traits::{fungible::Inspect as FnInspect, Defensive, DefensiveSaturating},
-};
-use frame_system::pallet_prelude::*;
-use sp_runtime::traits::Zero;
-use sp_staking::{
-	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakerStatus, StakingInterface,
-};
-use sp_std::ops::Add;
-
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
@@ -112,6 +96,28 @@ pub mod benchmarking;
 pub mod mock;
 #[cfg(test)]
 mod tests;
+
+pub mod weights;
+
+extern crate alloc;
+
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
+use frame_election_provider_support::{ExtendedBalance, SortedListProvider, VoteWeight};
+use frame_support::{
+	defensive,
+	pallet_prelude::*,
+	traits::{
+		fungible::{Inspect as FnInspect, Mutate as FnMutate},
+		Defensive, DefensiveSaturating,
+	},
+};
+use frame_system::pallet_prelude::*;
+use sp_runtime::traits::Zero;
+use sp_staking::{
+	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakerStatus, StakingInterface,
+};
+use sp_std::ops::Add;
+pub use weights::WeightInfo;
 
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <<T as Config>::Staking as StakingInterface>::Balance;
@@ -216,7 +222,8 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The stake balance.
-		type Currency: FnInspect<Self::AccountId, Balance = BalanceOf<Self>>;
+		type Currency: FnInspect<Self::AccountId, Balance = BalanceOf<Self>>
+			+ FnMutate<Self::AccountId>;
 
 		/// The staking interface.
 		type Staking: StakingInterface<AccountId = Self::AccountId>;
@@ -238,6 +245,9 @@ pub mod pallet {
 		/// If the approvals score to be updated is higher than `ScoreStrictUpdateThreshold`,
 		/// update the target list. Otherwise, buffer the update.
 		type ScoreStrictUpdateThreshold: Get<Option<ExtendedBalance>>;
+
+		/// Weight information for extrinsics in this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	/// Map with unsettled score for targets.
@@ -260,7 +270,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Settles a buffered target approvals imbalance.
 		#[pallet::call_index(0)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::settle())]
 		pub fn settle(origin: OriginFor<T>, who: AccountIdOf<T>) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 
@@ -451,13 +461,20 @@ pub mod pallet {
 		}
 
 		#[cfg(feature = "runtime-benchmarks")]
-		pub(crate) fn setup_target(target: &T::AccountId) {
-			let score: BalanceOf<T> = <T::Staking as StakingInterface>::minimum_validator_bond();
+		pub(crate) fn setup_target_with_unsettled_score(target: &T::AccountId) -> DispatchResult {
+			// fund target account.
+            let mut balance = T::Currency::minimum_balance();
+            for _ in 0..100 {
+                balance = balance + T::Currency::minimum_balance();
+            }
+			let _ = T::Currency::set_balance(target, balance + T::Currency::minimum_balance());
 
-			let _ = <T::Staking as StakingInterface>::bond(target, score, target);
-			let _ = <T::Staking as StakingInterface>::validate(target);
+			<T::Staking as StakingInterface>::bond(target, balance, target)?;
+			<T::Staking as StakingInterface>::validate(target)?;
 
 			UnsettledScore::<T>::insert(target, StakeImbalance::Positive(10));
+
+			Ok(())
 		}
 	}
 }

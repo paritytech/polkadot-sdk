@@ -18,9 +18,10 @@
 //! # Stake Tracker Pallet benchmarking.
 
 use super::*;
-use crate::Pallet as StakeTracker;
+use crate::{Pallet as StakeTracker, UnsettledScore};
 
 use frame_benchmarking::v2::*;
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
 
 const SEED: u32 = 0;
@@ -34,25 +35,19 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		let target: T::AccountId = account("target", 0, SEED);
 
-		StakeTracker::<T>::setup_target(&target);
+		assert_ok!(StakeTracker::<T>::setup_target_with_unsettled_score(&target));
+		assert!(UnsettledScore::<T>::get(&target).is_some());
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), target.clone());
+
+		assert!(UnsettledScore::<T>::get(target).is_none());
 	}
 
 	impl_benchmark_test_suite!(
 		StakeTracker,
-		crate::mock::ExtBuilder::default().set_update_threshold(Some(50))
+		crate::mock::ExtBuilder::default().set_update_threshold(Some(50)),
 		crate::mock::Test,
 		exec_name = build_and_execute
 	);
-}
-
-mod utils {
-	use super::*;
-
-	fn bond_target<T: Config>() -> T::AccountId {
-		let target = account("target", 0, SEED);
-		target
-	}
 }
