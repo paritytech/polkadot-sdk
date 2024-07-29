@@ -437,6 +437,17 @@ where
 			Role::Discover => return Ok(()),
 		};
 
+		let addresses = serialize_addresses(self.addresses_to_publish());
+		if addresses.is_empty() {
+			debug!(
+				target: LOG_TARGET,
+				"No addresses to publish. Skipping publication."
+			);
+
+			self.publish_interval.set_to_start();
+			return Ok(())
+		}
+
 		let keys =
 			Worker::<Client, Block, DhtEventStream>::get_own_public_keys_within_authority_set(
 				key_store.clone(),
@@ -458,8 +469,6 @@ where
 			self.publish_interval.set_to_start();
 			self.query_interval.set_to_start();
 		}
-
-		let addresses = serialize_addresses(self.addresses_to_publish());
 
 		if let Some(metrics) = &self.metrics {
 			metrics.publish.inc();
