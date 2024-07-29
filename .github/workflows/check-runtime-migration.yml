@@ -133,7 +133,7 @@ jobs:
           path: |
             snapshot.raw
             ${{ steps.get-date.outputs.today }}
-          key: try-runtime-snapshot-${{ matrix.network }}-daily
+          key: try-runtime-snapshot-${{ matrix.network }}-daily-${{ steps.get-date.outputs.today }}
         
       - name: Build Runtime
         run: |
