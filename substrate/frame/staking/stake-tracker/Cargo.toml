@@ -51,13 +51,13 @@ std = [
 	"pallet-bags-list/std",
 	"pallet-balances/std",
 	"scale-info/std",
-	"sp-std/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-npos-elections/std",
 	"sp-runtime/std",
 	"sp-runtime/std",
 	"sp-staking/std",
+	"sp-std/std",
 	"sp-tracing/std",
 ]
 

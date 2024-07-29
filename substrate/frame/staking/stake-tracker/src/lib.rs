@@ -463,10 +463,10 @@ pub mod pallet {
 		#[cfg(feature = "runtime-benchmarks")]
 		pub(crate) fn setup_target_with_unsettled_score(target: &T::AccountId) -> DispatchResult {
 			// fund target account.
-            let mut balance = T::Currency::minimum_balance();
-            for _ in 0..100 {
-                balance = balance + T::Currency::minimum_balance();
-            }
+			let mut balance = T::Currency::minimum_balance();
+			for _ in 0..100 {
+				balance = balance + T::Currency::minimum_balance();
+			}
 			let _ = T::Currency::set_balance(target, balance + T::Currency::minimum_balance());
 
 			<T::Staking as StakingInterface>::bond(target, balance, target)?;
