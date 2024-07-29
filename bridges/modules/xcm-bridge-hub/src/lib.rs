@@ -51,7 +51,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_messages::{LaneState, MessageNonce};
+use bp_messages::{LaneId, LaneState, MessageNonce};
 use bp_runtime::{AccountIdOf, BalanceOf, RangeInclusiveExt};
 use bp_xcm_bridge_hub::{
 	bridge_locations, Bridge, BridgeId, BridgeLocations, BridgeLocationsError, BridgeState,
@@ -171,6 +171,11 @@ pub mod pallet {
 				T::BridgedNetwork::get()
 			)
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::call]
@@ -192,31 +197,48 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			bridge_destination_universal_location: Box<VersionedInteriorLocation>,
 		) -> DispatchResult {
-			// check and compute required bridge locations
+			// check and compute required bridge locations and laneId
+			let xcm_version = bridge_destination_universal_location.identify_version();
 			let locations =
 				Self::bridge_locations_from_origin(origin, bridge_destination_universal_location)?;
+			let lane_id = locations.calculate_lane_id(xcm_version).map_err(|e| {
+				log::trace!(
+					target: LOG_TARGET,
+					"calculate_lane_id error: {e:?}",
+				);
+				Error::<T, I>::BridgeLocations(e)
+			})?;
 
 			// reserve balance on the parachain sovereign account
 			let deposit = T::BridgeDeposit::get();
 			let bridge_owner_account = T::BridgeOriginAccountIdConverter::convert_location(
-				&locations.bridge_origin_relative_location,
+				locations.bridge_origin_relative_location(),
 			)
 			.ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
 			T::Currency::hold(&HoldReason::BridgeDeposit.into(), &bridge_owner_account, deposit)
 				.map_err(|_| Error::<T, I>::FailedToReserveBridgeDeposit)?;
 
 			// save bridge metadata
-			Bridges::<T, I>::try_mutate(locations.bridge_id, |bridge| match bridge {
+			Bridges::<T, I>::try_mutate(locations.bridge_id(), |bridge| match bridge {
 				Some(_) => Err(Error::<T, I>::BridgeAlreadyExists),
 				None => {
 					*bridge = Some(BridgeOf::<T, I> {
 						bridge_origin_relative_location: Box::new(
-							locations.bridge_origin_relative_location.clone().into(),
+							locations.bridge_origin_relative_location().clone().into(),
 						),
 						state: BridgeState::Opened,
 						bridge_owner_account,
 						reserve: deposit,
+						lane_id,
 					});
+					Ok(())
+				},
+			})?;
+			// save lane to bridge mapping
+			LaneToBridge::<T, I>::try_mutate(lane_id, |bridge| match bridge {
+				Some(_) => Err(Error::<T, I>::BridgeAlreadyExists),
+				None => {
+					*bridge = Some(locations.bridge_id().clone());
 					Ok(())
 				},
 			})?;
@@ -224,27 +246,30 @@ pub mod pallet {
 			// create new lanes. Under normal circumstances, following calls shall never fail
 			let lanes_manager = LanesManagerOf::<T, I>::new();
 			lanes_manager
-				.create_inbound_lane(locations.bridge_id.lane_id())
+				.create_inbound_lane(lane_id)
 				.map_err(Error::<T, I>::LanesManager)?;
 			lanes_manager
-				.create_outbound_lane(locations.bridge_id.lane_id())
+				.create_outbound_lane(lane_id)
 				.map_err(Error::<T, I>::LanesManager)?;
 
 			// write something to log
 			log::trace!(
 				target: LOG_TARGET,
-				"Bridge {:?} between {:?} and {:?} has been opened",
-				locations.bridge_id,
-				locations.bridge_origin_universal_location,
-				locations.bridge_destination_universal_location,
+				"Bridge {:?} between {:?} and {:?} has been opened using lane_id: {lane_id:?}",
+				locations.bridge_id(),
+				locations.bridge_origin_universal_location(),
+				locations.bridge_destination_universal_location(),
 			);
 
 			// deposit `BridgeOpened` event
 			Self::deposit_event(Event::<T, I>::BridgeOpened {
-				bridge_id: locations.bridge_id,
+				bridge_id: locations.bridge_id().clone(),
 				bridge_deposit: Some(deposit),
-				local_endpoint: Box::new(locations.bridge_origin_universal_location),
-				remote_endpoint: Box::new(locations.bridge_destination_universal_location),
+				local_endpoint: Box::new(locations.bridge_origin_universal_location().clone()),
+				remote_endpoint: Box::new(
+					locations.bridge_destination_universal_location().clone(),
+				),
+				lane_id,
 			});
 
 			Ok(())
@@ -283,7 +308,7 @@ pub mod pallet {
 
 			// update bridge metadata - this also guarantees that the bridge is in the proper state
 			let bridge =
-				Bridges::<T, I>::try_mutate_exists(locations.bridge_id, |bridge| match bridge {
+				Bridges::<T, I>::try_mutate_exists(locations.bridge_id(), |bridge| match bridge {
 					Some(bridge) => {
 						bridge.state = BridgeState::Closed;
 						Ok(bridge.clone())
@@ -294,10 +319,10 @@ pub mod pallet {
 			// close inbound and outbound lanes
 			let lanes_manager = LanesManagerOf::<T, I>::new();
 			let mut inbound_lane = lanes_manager
-				.any_state_inbound_lane(locations.bridge_id.lane_id())
+				.any_state_inbound_lane(bridge.lane_id)
 				.map_err(Error::<T, I>::LanesManager)?;
 			let mut outbound_lane = lanes_manager
-				.any_state_outbound_lane(locations.bridge_id.lane_id())
+				.any_state_outbound_lane(bridge.lane_id)
 				.map_err(Error::<T, I>::LanesManager)?;
 
 			// now prune queued messages
@@ -321,16 +346,18 @@ pub mod pallet {
 				let enqueued_messages = outbound_lane.queued_messages().saturating_len();
 				log::trace!(
 					target: LOG_TARGET,
-					"Bridge {:?} between {:?} and {:?} is closing. {} messages remaining",
-					locations.bridge_id,
-					locations.bridge_origin_universal_location,
-					locations.bridge_destination_universal_location,
+					"Bridge {:?} between {:?} and {:?} is closing lane_id: {:?}. {} messages remaining",
+					locations.bridge_id(),
+					locations.bridge_origin_universal_location(),
+					locations.bridge_destination_universal_location(),
+					bridge.lane_id,
 					enqueued_messages,
 				);
 
 				// deposit the `ClosingBridge` event
 				Self::deposit_event(Event::<T, I>::ClosingBridge {
-					bridge_id: locations.bridge_id,
+					bridge_id: locations.bridge_id().clone(),
+					lane_id: bridge.lane_id,
 					pruned_messages,
 					enqueued_messages,
 				});
@@ -341,7 +368,8 @@ pub mod pallet {
 			// else we have pruned all messages, so lanes and the bridge itself may gone
 			inbound_lane.purge();
 			outbound_lane.purge();
-			Bridges::<T, I>::remove(locations.bridge_id);
+			Bridges::<T, I>::remove(locations.bridge_id());
+			LaneToBridge::<T, I>::remove(bridge.lane_id);
 
 			// return deposit
 			let released_deposit = T::Currency::release(
@@ -356,7 +384,7 @@ pub mod pallet {
 				log::error!(
 					target: LOG_TARGET,
 					"Failed to unreserve during the bridge {:?} closure with error: {e:?}",
-					locations.bridge_id,
+					locations.bridge_id(),
 				);
 				e
 			})
@@ -365,15 +393,17 @@ pub mod pallet {
 			// write something to log
 			log::trace!(
 				target: LOG_TARGET,
-				"Bridge {:?} between {:?} and {:?} has been closed, the bridge deposit {released_deposit:?} was returned",
-				locations.bridge_id,
-				locations.bridge_origin_universal_location,
-				locations.bridge_destination_universal_location,
+				"Bridge {:?} between {:?} and {:?} has closed lane_id: {:?}, the bridge deposit {released_deposit:?} was returned",
+				locations.bridge_id(),
+				bridge.lane_id,
+				locations.bridge_origin_universal_location(),
+				locations.bridge_destination_universal_location(),
 			);
 
 			// deposit the `BridgePruned` event
 			Self::deposit_event(Event::<T, I>::BridgePruned {
-				bridge_id: locations.bridge_id,
+				bridge_id: locations.bridge_id().clone(),
+				lane_id: bridge.lane_id,
 				bridge_deposit: released_deposit,
 				pruned_messages,
 			});
@@ -417,23 +447,23 @@ pub mod pallet {
 		) -> Result<Box<BridgeLocations>, sp_runtime::DispatchError> {
 			Self::bridge_locations(
 				Box::new(T::OpenBridgeOrigin::ensure_origin(origin)?),
-				bridge_destination_universal_location,
-			)
-		}
-
-		/// Return bridge endpoint locations and dedicated lane identifier.
-		pub fn bridge_locations(
-			bridge_origin_relative_location: Box<Location>,
-			bridge_destination_universal_location: Box<VersionedInteriorLocation>,
-		) -> Result<Box<BridgeLocations>, sp_runtime::DispatchError> {
-			bridge_locations(
-				Box::new(T::UniversalLocation::get()),
-				bridge_origin_relative_location,
 				Box::new(
 					(*bridge_destination_universal_location)
 						.try_into()
 						.map_err(|_| Error::<T, I>::UnsupportedXcmVersion)?,
 				),
+			)
+		}
+
+		/// Return bridge endpoint locations and dedicated **bridge** identifier (`BridgeId`).
+		pub fn bridge_locations(
+			bridge_origin_relative_location: Box<Location>,
+			bridge_destination_universal_location: Box<InteriorLocation>,
+		) -> Result<Box<BridgeLocations>, sp_runtime::DispatchError> {
+			bridge_locations(
+				Box::new(T::UniversalLocation::get()),
+				bridge_origin_relative_location,
+				bridge_destination_universal_location,
 				Self::bridged_network_id()?,
 			)
 			.map_err(|e| {
@@ -443,6 +473,12 @@ pub mod pallet {
 				);
 				Error::<T, I>::BridgeLocations(e).into()
 			})
+		}
+
+		/// Return bridge metadata by lane_id
+		pub fn bridge_by_lane_id(lane_id: &LaneId) -> Option<(BridgeId, BridgeOf<T, I>)> {
+			LaneToBridge::<T, I>::get(lane_id)
+				.and_then(|bridge_id| Self::bridge(bridge_id).map(|bridge| (bridge_id, bridge)))
 		}
 	}
 
@@ -459,11 +495,50 @@ pub mod pallet {
 		}
 	}
 
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Ensure the correctness of the state of this pallet.
+		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			use sp_std::collections::btree_set::BTreeSet;
+
+			let mut lanes = BTreeSet::new();
+
+			// check all known bridge configurations
+			for (bridge_id, bridge) in Bridges::<T, I>::iter() {
+				log::info!(target: LOG_TARGET, "Checking `do_try_state` for bridge_id: {bridge_id:?} and bridge: {bridge:?}");
+				lanes.insert(Self::do_try_state_for_bridge(bridge_id, bridge)?);
+			}
+			ensure!(
+				lanes.len() == Bridges::<T, I>::iter().count(),
+				"Invalid `Bridges` configuration, probably two bridges handle the same laneId!"
+			);
+			ensure!(
+				lanes.len() == LaneToBridge::<T, I>::iter().count(),
+				"Invalid `LaneToBridge` configuration, probably missing or not removed laneId!"
+			);
+
+			Ok(())
+		}
+		/// Ensure the correctness of the state of the bridge.
+		pub fn do_try_state_for_bridge(
+			bridge_id: BridgeId,
+			bridge: BridgeOf<T, I>,
+		) -> Result<LaneId, sp_runtime::TryRuntimeError> {
+
+			Ok(bridge.lane_id)
+		}
+	}
+
 	/// All registered bridges.
 	#[pallet::storage]
 	#[pallet::getter(fn bridge)]
 	pub type Bridges<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, BridgeId, BridgeOf<T, I>>;
+	/// All registered `lane_id` and `bridge_id` mappings.
+	#[pallet::storage]
+	#[pallet::getter(fn lane_to_bridge)]
+	pub type LaneToBridge<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, LaneId, BridgeId>;
 
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
@@ -492,22 +567,34 @@ pub mod pallet {
 					Box::new(bridge_destination_universal_location.clone().into()),
 				)
 				.expect("Invalid genesis configuration");
+				let lane_id =
+					locations.calculate_lane_id(xcm::latest::VERSION).expect("Valid locations");
 				let bridge_owner_account = T::BridgeOriginAccountIdConverter::convert_location(
-					&locations.bridge_origin_relative_location,
+					locations.bridge_origin_relative_location(),
 				)
 				.expect("Invalid genesis configuration");
 
 				Bridges::<T, I>::insert(
-					locations.bridge_id,
+					locations.bridge_id(),
 					Bridge {
 						bridge_origin_relative_location: Box::new(
-							locations.bridge_origin_relative_location.into(),
+							locations.bridge_origin_relative_location().clone().into(),
 						),
 						state: BridgeState::Opened,
 						bridge_owner_account,
 						reserve: Zero::zero(),
+						lane_id,
 					},
 				);
+				LaneToBridge::<T, I>::insert(lane_id, locations.bridge_id());
+
+				let lanes_manager = LanesManagerOf::<T, I>::new();
+				lanes_manager
+					.create_inbound_lane(lane_id)
+					.expect("Invalid genesis configuration");
+				lanes_manager
+					.create_outbound_lane(lane_id)
+					.expect("Invalid genesis configuration");
 			}
 		}
 	}
@@ -517,19 +604,24 @@ pub mod pallet {
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// The bridge between two locations has been opened.
 		BridgeOpened {
-			/// Universal location of local bridge endpoint.
-			local_endpoint: Box<InteriorLocation>,
-			/// Universal location of remote bridge endpoint.
-			remote_endpoint: Box<InteriorLocation>,
 			/// Bridge identifier.
 			bridge_id: BridgeId,
 			/// Amount of deposit held.
 			bridge_deposit: Option<BalanceOf<ThisChainOf<T, I>>>,
+
+			/// Universal location of local bridge endpoint.
+			local_endpoint: Box<InteriorLocation>,
+			/// Universal location of remote bridge endpoint.
+			remote_endpoint: Box<InteriorLocation>,
+			/// Lane identifier.
+			lane_id: LaneId,
 		},
 		/// Bridge is going to be closed, but not yet fully pruned from the runtime storage.
 		ClosingBridge {
 			/// Bridge identifier.
 			bridge_id: BridgeId,
+			/// Lane identifier.
+			lane_id: LaneId,
 			/// Number of pruned messages during the close call.
 			pruned_messages: MessageNonce,
 			/// Number of enqueued messages that need to be pruned in follow up calls.
@@ -540,6 +632,8 @@ pub mod pallet {
 		BridgePruned {
 			/// Bridge identifier.
 			bridge_id: BridgeId,
+			/// Lane identifier.
+			lane_id: LaneId,
 			/// Amount of deposit released.
 			bridge_deposit: Option<BalanceOf<ThisChainOf<T, I>>>,
 			/// Number of pruned messages during the close call.
@@ -576,12 +670,14 @@ mod tests {
 	use mock::*;
 
 	use bp_messages::LaneId;
-	use frame_support::{assert_noop, assert_ok, traits::fungible::Mutate, BoundedVec};
+	use frame_support::{assert_err, assert_noop, assert_ok, traits::fungible::Mutate, BoundedVec};
 	use frame_system::{EventRecord, Phase};
+	use sp_core::H256;
+	use sp_runtime::TryRuntimeError;
 
 	fn fund_origin_sovereign_account(locations: &BridgeLocations, balance: Balance) -> AccountId {
 		let bridge_owner_account =
-			LocationToAccountId::convert_location(&locations.bridge_origin_relative_location)
+			LocationToAccountId::convert_location(locations.bridge_origin_relative_location())
 				.unwrap();
 		assert_ok!(Balances::mint_into(&bridge_owner_account, balance));
 		bridge_owner_account
@@ -594,23 +690,28 @@ mod tests {
 		let reserve = BridgeDeposit::get();
 		let locations =
 			XcmOverBridge::bridge_locations_from_origin(origin, Box::new(with.into())).unwrap();
+		let lane_id = locations.calculate_lane_id(xcm::latest::VERSION).unwrap();
 		let bridge_owner_account =
 			fund_origin_sovereign_account(&locations, reserve + ExistentialDeposit::get());
 		Balances::hold(&HoldReason::BridgeDeposit.into(), &bridge_owner_account, reserve).unwrap();
 
 		let bridge = Bridge {
 			bridge_origin_relative_location: Box::new(
-				locations.bridge_origin_relative_location.clone().into(),
+				locations.bridge_origin_relative_location().clone().into(),
 			),
 			state: BridgeState::Opened,
 			bridge_owner_account,
 			reserve,
+			lane_id,
 		};
-		Bridges::<TestRuntime, ()>::insert(locations.bridge_id, bridge.clone());
+		Bridges::<TestRuntime, ()>::insert(locations.bridge_id(), bridge.clone());
+		LaneToBridge::<TestRuntime, ()>::insert(bridge.lane_id, locations.bridge_id());
 
 		let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
-		lanes_manager.create_inbound_lane(locations.bridge_id.lane_id()).unwrap();
-		lanes_manager.create_outbound_lane(locations.bridge_id.lane_id()).unwrap();
+		lanes_manager.create_inbound_lane(bridge.lane_id).unwrap();
+		lanes_manager.create_outbound_lane(bridge.lane_id).unwrap();
+
+		assert_ok!(XcmOverBridge::do_try_state());
 
 		(bridge, *locations)
 	}
@@ -739,20 +840,22 @@ mod tests {
 				Box::new(bridged_asset_hub_universal_location().into()),
 			)
 			.unwrap();
+			let lane_id = locations.calculate_lane_id(xcm::latest::VERSION).unwrap();
 			fund_origin_sovereign_account(
 				&locations,
 				BridgeDeposit::get() + ExistentialDeposit::get(),
 			);
 
 			Bridges::<TestRuntime, ()>::insert(
-				locations.bridge_id,
+				locations.bridge_id(),
 				Bridge {
 					bridge_origin_relative_location: Box::new(
-						locations.bridge_origin_relative_location.into(),
+						locations.bridge_origin_relative_location().clone().into(),
 					),
 					state: BridgeState::Opened,
 					bridge_owner_account: [0u8; 32].into(),
 					reserve: 0,
+					lane_id,
 				},
 			);
 
@@ -775,6 +878,7 @@ mod tests {
 				Box::new(bridged_asset_hub_universal_location().into()),
 			)
 			.unwrap();
+			let lane_id = locations.calculate_lane_id(xcm::latest::VERSION).unwrap();
 			fund_origin_sovereign_account(
 				&locations,
 				BridgeDeposit::get() + ExistentialDeposit::get(),
@@ -782,7 +886,7 @@ mod tests {
 
 			let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
 
-			lanes_manager.create_inbound_lane(locations.bridge_id.lane_id()).unwrap();
+			lanes_manager.create_inbound_lane(lane_id).unwrap();
 			assert_noop!(
 				XcmOverBridge::open_bridge(
 					origin.clone(),
@@ -791,11 +895,8 @@ mod tests {
 				Error::<TestRuntime, ()>::LanesManager(LanesManagerError::InboundLaneAlreadyExists),
 			);
 
-			lanes_manager
-				.active_inbound_lane(locations.bridge_id.lane_id())
-				.unwrap()
-				.purge();
-			lanes_manager.create_outbound_lane(locations.bridge_id.lane_id()).unwrap();
+			lanes_manager.active_inbound_lane(lane_id).unwrap().purge();
+			lanes_manager.create_outbound_lane(lane_id).unwrap();
 			assert_noop!(
 				XcmOverBridge::open_bridge(
 					origin,
@@ -828,22 +929,29 @@ mod tests {
 				System::reset_events();
 
 				// compute all other locations
+				let xcm_version = xcm::latest::VERSION;
 				let locations = XcmOverBridge::bridge_locations_from_origin(
 					origin.clone(),
-					Box::new(bridged_asset_hub_universal_location().into()),
+					Box::new(
+						VersionedInteriorLocation::from(bridged_asset_hub_universal_location())
+							.into_version(xcm_version)
+							.expect("valid conversion"),
+					),
 				)
 				.unwrap();
+				let lane_id = locations.calculate_lane_id(xcm_version).unwrap();
 
 				// ensure that there's no bridge and lanes in the storage
-				assert_eq!(Bridges::<TestRuntime, ()>::get(locations.bridge_id), None);
+				assert_eq!(Bridges::<TestRuntime, ()>::get(locations.bridge_id()), None);
 				assert_eq!(
-					lanes_manager.active_inbound_lane(locations.bridge_id.lane_id()).map(drop),
+					lanes_manager.active_inbound_lane(lane_id).map(drop),
 					Err(LanesManagerError::UnknownInboundLane)
 				);
 				assert_eq!(
-					lanes_manager.active_outbound_lane(locations.bridge_id.lane_id()).map(drop),
+					lanes_manager.active_outbound_lane(lane_id).map(drop),
 					Err(LanesManagerError::UnknownOutboundLane)
 				);
+				assert_eq!(LaneToBridge::<TestRuntime, ()>::get(lane_id), None);
 
 				// give enough funds to the sovereign account of the bridge origin
 				let bridge_owner_account = fund_origin_sovereign_account(
@@ -859,32 +967,33 @@ mod tests {
 				// now open the bridge
 				assert_ok!(XcmOverBridge::open_bridge(
 					origin,
-					Box::new(locations.bridge_destination_universal_location.clone().into()),
+					Box::new(locations.bridge_destination_universal_location().clone().into()),
 				));
 
 				// ensure that everything has been set up in the runtime storage
 				assert_eq!(
-					Bridges::<TestRuntime, ()>::get(locations.bridge_id),
+					Bridges::<TestRuntime, ()>::get(locations.bridge_id()),
 					Some(Bridge {
 						bridge_origin_relative_location: Box::new(
-							locations.bridge_origin_relative_location.into()
+							locations.bridge_origin_relative_location().clone().into()
 						),
 						state: BridgeState::Opened,
 						bridge_owner_account: bridge_owner_account.clone(),
 						reserve: expected_reserve,
+						lane_id
 					}),
 				);
 				assert_eq!(
-					lanes_manager
-						.active_inbound_lane(locations.bridge_id.lane_id())
-						.map(|l| l.state()),
+					lanes_manager.active_inbound_lane(lane_id).map(|l| l.state()),
 					Ok(LaneState::Opened)
 				);
 				assert_eq!(
-					lanes_manager
-						.active_outbound_lane(locations.bridge_id.lane_id())
-						.map(|l| l.state()),
+					lanes_manager.active_outbound_lane(lane_id).map(|l| l.state()),
 					Ok(LaneState::Opened)
+				);
+				assert_eq!(
+					LaneToBridge::<TestRuntime, ()>::get(lane_id),
+					Some(locations.bridge_id().clone())
 				);
 				assert_eq!(Balances::free_balance(&bridge_owner_account), existential_deposit);
 				assert_eq!(Balances::reserved_balance(&bridge_owner_account), expected_reserve);
@@ -895,12 +1004,15 @@ mod tests {
 					Some(&EventRecord {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::XcmOverBridge(Event::BridgeOpened {
-							bridge_id: locations.bridge_id,
+							bridge_id: locations.bridge_id().clone(),
 							bridge_deposit: Some(BridgeDeposit::get()),
-							local_endpoint: Box::new(locations.bridge_origin_universal_location),
-							remote_endpoint: Box::new(
-								locations.bridge_destination_universal_location
+							local_endpoint: Box::new(
+								locations.bridge_origin_universal_location().clone()
 							),
+							remote_endpoint: Box::new(
+								locations.bridge_destination_universal_location().clone()
+							),
+							lane_id
 						}),
 						topics: vec![],
 					}),
@@ -954,35 +1066,26 @@ mod tests {
 	fn close_bridge_fails_if_its_lanes_are_unknown() {
 		run_test(|| {
 			let origin = OpenBridgeOrigin::parent_relay_chain_origin();
-			let (_, locations) = mock_open_bridge_from(origin.clone());
+			let (bridge, locations) = mock_open_bridge_from(origin.clone());
 
 			let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
-			lanes_manager
-				.any_state_inbound_lane(locations.bridge_id.lane_id())
-				.unwrap()
-				.purge();
+			lanes_manager.any_state_inbound_lane(bridge.lane_id).unwrap().purge();
 			assert_noop!(
 				XcmOverBridge::close_bridge(
 					origin.clone(),
-					Box::new(locations.bridge_destination_universal_location.into()),
+					Box::new(locations.bridge_destination_universal_location().clone().into()),
 					0,
 				),
 				Error::<TestRuntime, ()>::LanesManager(LanesManagerError::UnknownInboundLane),
 			);
-			lanes_manager
-				.any_state_outbound_lane(locations.bridge_id.lane_id())
-				.unwrap()
-				.purge();
+			lanes_manager.any_state_outbound_lane(bridge.lane_id).unwrap().purge();
 
 			let (_, locations) = mock_open_bridge_from(origin.clone());
-			lanes_manager
-				.any_state_outbound_lane(locations.bridge_id.lane_id())
-				.unwrap()
-				.purge();
+			lanes_manager.any_state_outbound_lane(bridge.lane_id).unwrap().purge();
 			assert_noop!(
 				XcmOverBridge::close_bridge(
 					origin,
-					Box::new(locations.bridge_destination_universal_location.into()),
+					Box::new(locations.bridge_destination_universal_location().clone().into()),
 					0,
 				),
 				Error::<TestRuntime, ()>::LanesManager(LanesManagerError::UnknownOutboundLane),
@@ -1003,13 +1106,13 @@ mod tests {
 
 			// enqueue some messages
 			for _ in 0..32 {
-				enqueue_message(locations.bridge_id.lane_id());
+				enqueue_message(bridge.lane_id);
 			}
 
 			// now call the `close_bridge`, which will only partially prune messages
 			assert_ok!(XcmOverBridge::close_bridge(
 				origin.clone(),
-				Box::new(locations.bridge_destination_universal_location.clone().into()),
+				Box::new(locations.bridge_destination_universal_location().clone().into()),
 				16,
 			),);
 
@@ -1017,30 +1120,28 @@ mod tests {
 			// are pruned, but funds are not unreserved
 			let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
 			assert_eq!(
-				Bridges::<TestRuntime, ()>::get(locations.bridge_id).map(|b| b.state),
+				Bridges::<TestRuntime, ()>::get(locations.bridge_id()).map(|b| b.state),
 				Some(BridgeState::Closed)
 			);
 			assert_eq!(
-				lanes_manager
-					.any_state_inbound_lane(locations.bridge_id.lane_id())
-					.unwrap()
-					.state(),
+				lanes_manager.any_state_inbound_lane(bridge.lane_id).unwrap().state(),
+				LaneState::Closed
+			);
+			assert_eq!(
+				lanes_manager.any_state_outbound_lane(bridge.lane_id).unwrap().state(),
 				LaneState::Closed
 			);
 			assert_eq!(
 				lanes_manager
-					.any_state_outbound_lane(locations.bridge_id.lane_id())
-					.unwrap()
-					.state(),
-				LaneState::Closed
-			);
-			assert_eq!(
-				lanes_manager
-					.any_state_outbound_lane(locations.bridge_id.lane_id())
+					.any_state_outbound_lane(bridge.lane_id)
 					.unwrap()
 					.queued_messages()
 					.checked_len(),
 				Some(16)
+			);
+			assert_eq!(
+				LaneToBridge::<TestRuntime, ()>::get(bridge.lane_id),
+				Some(locations.bridge_id().clone())
 			);
 			assert_eq!(Balances::free_balance(&bridge.bridge_owner_account), free_balance);
 			assert_eq!(Balances::reserved_balance(&bridge.bridge_owner_account), reserved_balance);
@@ -1049,7 +1150,8 @@ mod tests {
 				Some(&EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::XcmOverBridge(Event::ClosingBridge {
-						bridge_id: locations.bridge_id,
+						bridge_id: locations.bridge_id().clone(),
+						lane_id: bridge.lane_id,
 						pruned_messages: 16,
 						enqueued_messages: 16,
 					}),
@@ -1060,36 +1162,34 @@ mod tests {
 			// now call the `close_bridge` again, which will only partially prune messages
 			assert_ok!(XcmOverBridge::close_bridge(
 				origin.clone(),
-				Box::new(locations.bridge_destination_universal_location.clone().into()),
+				Box::new(locations.bridge_destination_universal_location().clone().into()),
 				8,
 			),);
 
 			// nothing is changed (apart from the pruned messages)
 			assert_eq!(
-				Bridges::<TestRuntime, ()>::get(locations.bridge_id).map(|b| b.state),
+				Bridges::<TestRuntime, ()>::get(locations.bridge_id()).map(|b| b.state),
 				Some(BridgeState::Closed)
 			);
 			assert_eq!(
-				lanes_manager
-					.any_state_inbound_lane(locations.bridge_id.lane_id())
-					.unwrap()
-					.state(),
+				lanes_manager.any_state_inbound_lane(bridge.lane_id).unwrap().state(),
+				LaneState::Closed
+			);
+			assert_eq!(
+				lanes_manager.any_state_outbound_lane(bridge.lane_id).unwrap().state(),
 				LaneState::Closed
 			);
 			assert_eq!(
 				lanes_manager
-					.any_state_outbound_lane(locations.bridge_id.lane_id())
-					.unwrap()
-					.state(),
-				LaneState::Closed
-			);
-			assert_eq!(
-				lanes_manager
-					.any_state_outbound_lane(locations.bridge_id.lane_id())
+					.any_state_outbound_lane(bridge.lane_id)
 					.unwrap()
 					.queued_messages()
 					.checked_len(),
 				Some(8)
+			);
+			assert_eq!(
+				LaneToBridge::<TestRuntime, ()>::get(bridge.lane_id),
+				Some(locations.bridge_id().clone())
 			);
 			assert_eq!(Balances::free_balance(&bridge.bridge_owner_account), free_balance);
 			assert_eq!(Balances::reserved_balance(&bridge.bridge_owner_account), reserved_balance);
@@ -1098,7 +1198,8 @@ mod tests {
 				Some(&EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::XcmOverBridge(Event::ClosingBridge {
-						bridge_id: locations.bridge_id,
+						bridge_id: locations.bridge_id().clone(),
+						lane_id: bridge.lane_id,
 						pruned_messages: 8,
 						enqueued_messages: 8,
 					}),
@@ -1110,20 +1211,24 @@ mod tests {
 			// bridge
 			assert_ok!(XcmOverBridge::close_bridge(
 				origin,
-				Box::new(locations.bridge_destination_universal_location.into()),
+				Box::new(locations.bridge_destination_universal_location().clone().into()),
 				9,
 			),);
 
 			// there's no traces of bridge in the runtime storage and funds are unreserved
-			assert_eq!(Bridges::<TestRuntime, ()>::get(locations.bridge_id).map(|b| b.state), None);
 			assert_eq!(
-				lanes_manager.any_state_inbound_lane(locations.bridge_id.lane_id()).map(drop),
+				Bridges::<TestRuntime, ()>::get(locations.bridge_id()).map(|b| b.state),
+				None
+			);
+			assert_eq!(
+				lanes_manager.any_state_inbound_lane(bridge.lane_id).map(drop),
 				Err(LanesManagerError::UnknownInboundLane)
 			);
 			assert_eq!(
-				lanes_manager.any_state_outbound_lane(locations.bridge_id.lane_id()).map(drop),
+				lanes_manager.any_state_outbound_lane(bridge.lane_id).map(drop),
 				Err(LanesManagerError::UnknownOutboundLane)
 			);
+			assert_eq!(LaneToBridge::<TestRuntime, ()>::get(bridge.lane_id), None);
 			assert_eq!(
 				Balances::free_balance(&bridge.bridge_owner_account),
 				free_balance + reserved_balance
@@ -1134,12 +1239,57 @@ mod tests {
 				Some(&EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::XcmOverBridge(Event::BridgePruned {
-						bridge_id: locations.bridge_id,
+						bridge_id: locations.bridge_id().clone(),
+						lane_id: bridge.lane_id,
 						bridge_deposit: Some(BridgeDeposit::get()),
 						pruned_messages: 8,
 					}),
 					topics: vec![],
 				}),
+			);
+		});
+	}
+
+	#[test]
+	fn do_try_state_works() {
+		use sp_runtime::Either;
+
+		let older_xcm_version = xcm::latest::VERSION - 1;
+		let bridge_origin_relative_location = Location::new(1, [Parachain(2025)]);
+		let bridge_owner_account =
+			LocationToAccountId::convert_location(&bridge_origin_relative_location)
+				.expect("valid accountId");
+		let bridge_id = BridgeId::from_inner(H256::from([1u8; 32]));
+		let lane_id = LaneId::from_inner(Either::Left(H256::default()));
+
+		let test_bridge_state =
+			|id, bridge, (lane_id, bridge_id), expected_error: Option<TryRuntimeError>| {
+				Bridges::<TestRuntime, ()>::insert(id, bridge);
+				LaneToBridge::<TestRuntime, ()>::insert(lane_id, bridge_id);
+
+				let result = XcmOverBridge::do_try_state();
+				if let Some(e) = expected_error {
+					assert_err!(XcmOverBridge::do_try_state(), e);
+				} else {
+					assert_ok!(result);
+				}
+			};
+
+		run_test(|| {
+			// ok state
+			test_bridge_state(
+				bridge_id,
+				Bridge {
+					bridge_origin_relative_location: Box::new(VersionedLocation::from(
+						bridge_origin_relative_location.clone(),
+					)),
+					state: BridgeState::Opened,
+					bridge_owner_account: bridge_owner_account.clone(),
+					reserve: Zero::zero(),
+					lane_id,
+				},
+				(lane_id, bridge_id),
+				None,
 			);
 		});
 	}

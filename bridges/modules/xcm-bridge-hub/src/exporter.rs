@@ -113,34 +113,33 @@ where
 			);
 			SendError::Unroutable
 		})?;
-		let bridge = Self::bridge(locations.bridge_id).ok_or(SendError::Unroutable)?;
+		let bridge = Self::bridge(locations.bridge_id()).ok_or(SendError::Unroutable)?;
 
-		let bridge_message =
-			MessagesPallet::<T, I>::validate_message(locations.bridge_id.lane_id(), &blob)
-				.map_err(|e| {
-					// TODO:(bridges-v2) - add test/std feature gate? FAIL-CI
-					match e {
-						Error::LanesManager(ref ei) =>
-							log::error!(target: LOG_TARGET, "LanesManager: {ei:?}"),
-						Error::MessageRejectedByPallet(ref ei) =>
-							log::error!(target: LOG_TARGET, "MessageRejectedByPallet: {ei:?}"),
-						Error::ReceptionConfirmation(ref ei) =>
-							log::error!(target: LOG_TARGET, "ReceptionConfirmation: {ei:?}"),
-						_ => (),
-					};
+		let bridge_message = MessagesPallet::<T, I>::validate_message(bridge.lane_id, &blob)
+			.map_err(|e| {
+				// TODO:(bridges-v2) - add test/std feature gate? FAIL-CI
+				match e {
+					Error::LanesManager(ref ei) =>
+						log::error!(target: LOG_TARGET, "LanesManager: {ei:?}"),
+					Error::MessageRejectedByPallet(ref ei) =>
+						log::error!(target: LOG_TARGET, "MessageRejectedByPallet: {ei:?}"),
+					Error::ReceptionConfirmation(ref ei) =>
+						log::error!(target: LOG_TARGET, "ReceptionConfirmation: {ei:?}"),
+					_ => (),
+				};
 
-					log::error!(
-						target: LOG_TARGET,
-						"XCM message {:?} cannot be exported because of bridge error: {:?} on bridge {:?} and laneId: {:?}",
-						id,
-						e,
-						locations,
-						locations.bridge_id.lane_id(),
-					);
-					SendError::Transport("BridgeValidateError")
-				})?;
+				log::error!(
+					target: LOG_TARGET,
+					"XCM message {:?} cannot be exported because of bridge error: {:?} on bridge {:?} and laneId: {:?}",
+					id,
+					e,
+					locations,
+					bridge.lane_id,
+				);
+				SendError::Transport("BridgeValidateError")
+			})?;
 
-		Ok(((locations.bridge_id, bridge, bridge_message, id), price))
+		Ok(((locations.bridge_id().clone(), bridge, bridge_message, id), price))
 	}
 
 	fn deliver(
@@ -150,9 +149,10 @@ where
 
 		log::info!(
 			target: LOG_TARGET,
-			"XCM message {:?} has been enqueued at bridge {:?} with nonce {}",
+			"XCM message {:?} has been enqueued at bridge {:?} and lane_id: {:?} with nonce {}",
 			id,
 			bridge_id,
+			bridge.lane_id,
 			artifacts.nonce,
 		);
 
@@ -247,9 +247,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// if we have not suspended the bridge before (or it is closed), we don't want to do
 		// anything
-		let bridge_id = BridgeId::from_lane_id(lane_id);
-		let bridge = match Self::bridge(bridge_id) {
-			Some(bridge) if bridge.state == BridgeState::Suspended => bridge,
+		let (bridge_id, bridge) = match Self::bridge_by_lane_id(&lane_id) {
+			Some(bridge) if bridge.1.state == BridgeState::Suspended => bridge,
 			_ => {
 				// if there is no bridge or it has been closed, then we don't need to send resume
 				// signal to the local origin - it has closed bridge itself, so it should have
@@ -265,7 +264,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Err(e) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Failed to convert the bridge  {:?} location: {:?}",
+					"Failed to convert the bridge {:?} location for lane_id: {:?}, error {:?}",
+					bridge_id,
 					lane_id,
 					e,
 				);
@@ -280,7 +280,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Ok(_) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Resumed the bridge {:?}, originated by the {:?}",
+					"Resumed the bridge {:?} and lane_id: {:?}, originated by the {:?}",
+					bridge_id,
 					lane_id,
 					bridge_origin_relative_location,
 				);
@@ -288,7 +289,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Err(e) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Failed to resume the bridge {:?}, originated by the {:?}: {:?}",
+					"Failed to resume the bridge {:?} and lane_id: {:?}, originated by the {:?}: {:?}",
+					bridge_id,
 					lane_id,
 					bridge_origin_relative_location,
 					e,
@@ -323,10 +325,10 @@ impl HaulBlob for DummyHaulBlob {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{mock::*, Bridges, LanesManagerOf};
+	use crate::{mock::*, Bridges, LaneToBridge, LanesManagerOf};
 
 	use bp_runtime::RangeInclusiveExt;
-	use bp_xcm_bridge_hub::{Bridge, BridgeLocations, BridgeState};
+	use bp_xcm_bridge_hub::{bridge_locations, Bridge, BridgeLocations, BridgeState};
 	use frame_support::assert_ok;
 	use xcm_executor::traits::export_xcm;
 
@@ -342,61 +344,66 @@ mod tests {
 		BridgedUniversalDestination::get()
 	}
 
-	fn open_lane() -> BridgeLocations {
+	fn open_lane() -> (BridgeLocations, LaneId) {
 		// open expected outbound lane
 		let origin = OpenBridgeOrigin::sibling_parachain_origin();
 		let with = bridged_asset_hub_universal_location();
 		let locations =
 			XcmOverBridge::bridge_locations_from_origin(origin, Box::new(with.into())).unwrap();
+		let lane_id = locations.calculate_lane_id(xcm::latest::VERSION).unwrap();
 
 		let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
-		if lanes_manager.create_outbound_lane(locations.bridge_id.lane_id()).is_ok() {
+		if lanes_manager.create_outbound_lane(lane_id).is_ok() {
 			assert!(lanes_manager
-				.active_outbound_lane(locations.bridge_id.lane_id())
+				.active_outbound_lane(lane_id)
 				.unwrap()
 				.queued_messages()
 				.is_empty());
 
 			// insert bridge
 			Bridges::<TestRuntime, ()>::insert(
-				locations.bridge_id,
+				locations.bridge_id(),
 				Bridge {
 					bridge_origin_relative_location: Box::new(SiblingLocation::get().into()),
 					state: BridgeState::Opened,
 					bridge_owner_account: [0u8; 32].into(),
 					reserve: 0,
+					lane_id,
 				},
 			);
+			LaneToBridge::<TestRuntime, ()>::insert(lane_id, locations.bridge_id());
 		}
 
-		*locations
+		assert_ok!(XcmOverBridge::do_try_state());
+
+		(*locations, lane_id)
 	}
 
-	fn open_lane_and_send_regular_message() -> BridgeId {
-		let locations = open_lane();
+	fn open_lane_and_send_regular_message() -> (BridgeId, LaneId) {
+		let (locations, lane_id) = open_lane();
 
 		// now let's try to enqueue message using our `ExportXcm` implementation
 		export_xcm::<XcmOverBridge>(
 			BridgedRelayNetwork::get(),
 			0,
-			locations.bridge_origin_universal_location,
-			locations.bridge_destination_universal_location,
+			locations.bridge_origin_universal_location().clone(),
+			locations.bridge_destination_universal_location().clone(),
 			vec![Instruction::ClearOrigin].into(),
 		)
 		.unwrap();
 
-		locations.bridge_id
+		(locations.bridge_id().clone(), lane_id)
 	}
 
 	#[test]
 	fn exporter_works() {
 		run_test(|| {
-			let bridge_id = open_lane_and_send_regular_message();
+			let (_, lane_id) = open_lane_and_send_regular_message();
 
 			// double check that the message has been pushed to the expected lane
 			// (it should already been checked during `send_message` call)
 			assert!(!LanesManagerOf::<TestRuntime, ()>::new()
-				.active_outbound_lane(bridge_id.lane_id())
+				.active_outbound_lane(lane_id)
 				.unwrap()
 				.queued_messages()
 				.is_empty());
@@ -406,7 +413,7 @@ mod tests {
 	#[test]
 	fn exporter_does_not_suspend_the_bridge_if_outbound_bridge_queue_is_not_congested() {
 		run_test(|| {
-			let bridge_id = open_lane_and_send_regular_message();
+			let (bridge_id, _) = open_lane_and_send_regular_message();
 			assert!(!TestLocalXcmChannelManager::is_bridge_suspened());
 			assert_eq!(XcmOverBridge::bridge(bridge_id).unwrap().state, BridgeState::Opened);
 		});
@@ -415,7 +422,7 @@ mod tests {
 	#[test]
 	fn exporter_does_not_suspend_the_bridge_if_it_is_already_suspended() {
 		run_test(|| {
-			let bridge_id = open_lane_and_send_regular_message();
+			let (bridge_id, _) = open_lane_and_send_regular_message();
 			Bridges::<TestRuntime, ()>::mutate_extant(bridge_id, |bridge| {
 				bridge.state = BridgeState::Suspended;
 			});
@@ -431,7 +438,7 @@ mod tests {
 	#[test]
 	fn exporter_suspends_the_bridge_if_outbound_bridge_queue_is_congested() {
 		run_test(|| {
-			let bridge_id = open_lane_and_send_regular_message();
+			let (bridge_id, _) = open_lane_and_send_regular_message();
 			for _ in 1..OUTBOUND_LANE_CONGESTED_THRESHOLD {
 				open_lane_and_send_regular_message();
 			}
@@ -448,12 +455,12 @@ mod tests {
 	#[test]
 	fn bridge_is_not_resumed_if_outbound_bridge_queue_is_still_congested() {
 		run_test(|| {
-			let bridge_id = open_lane_and_send_regular_message();
+			let (bridge_id, lane_id) = open_lane_and_send_regular_message();
 			Bridges::<TestRuntime, ()>::mutate_extant(bridge_id, |bridge| {
 				bridge.state = BridgeState::Suspended;
 			});
 			XcmOverBridge::on_bridge_messages_delivered(
-				bridge_id.lane_id(),
+				lane_id,
 				OUTBOUND_LANE_UNCONGESTED_THRESHOLD + 1,
 			);
 
@@ -465,9 +472,9 @@ mod tests {
 	#[test]
 	fn bridge_is_not_resumed_if_it_was_not_suspended_before() {
 		run_test(|| {
-			let bridge_id = open_lane_and_send_regular_message();
+			let (bridge_id, lane_id) = open_lane_and_send_regular_message();
 			XcmOverBridge::on_bridge_messages_delivered(
-				bridge_id.lane_id(),
+				lane_id,
 				OUTBOUND_LANE_UNCONGESTED_THRESHOLD,
 			);
 
@@ -479,12 +486,12 @@ mod tests {
 	#[test]
 	fn bridge_is_resumed_when_enough_messages_are_delivered() {
 		run_test(|| {
-			let bridge_id = open_lane_and_send_regular_message();
+			let (bridge_id, lane_id) = open_lane_and_send_regular_message();
 			Bridges::<TestRuntime, ()>::mutate_extant(bridge_id, |bridge| {
 				bridge.state = BridgeState::Suspended;
 			});
 			XcmOverBridge::on_bridge_messages_delivered(
-				bridge_id.lane_id(),
+				lane_id,
 				OUTBOUND_LANE_UNCONGESTED_THRESHOLD,
 			);
 
@@ -569,7 +576,7 @@ mod tests {
 			let dest = Location::new(2, BridgedUniversalDestination::get());
 
 			// open bridge
-			let expected_lane_id = open_lane().bridge_id.lane_id();
+			let (_, expected_lane_id) = open_lane();
 
 			// check before - no messages
 			assert_eq!(

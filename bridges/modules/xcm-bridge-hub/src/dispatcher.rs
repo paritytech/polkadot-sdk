@@ -28,7 +28,7 @@ use bp_messages::{
 	LaneId,
 };
 use bp_runtime::messages::MessageDispatchResult;
-use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager, XcmAsPlainPayload};
+use bp_xcm_bridge_hub::{LocalXcmChannelManager, XcmAsPlainPayload};
 use codec::{Decode, Encode};
 use frame_support::{weights::Weight, CloneNoBound, EqNoBound, PartialEqNoBound};
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, WeightInfoExt};
@@ -60,9 +60,8 @@ where
 	type DispatchLevelResult = XcmBlobMessageDispatchResult;
 
 	fn is_active(lane: LaneId) -> bool {
-		let bridge_id = BridgeId::from_lane_id(lane);
-		Pallet::<T, I>::bridge(bridge_id)
-			.and_then(|bridge| bridge.bridge_origin_relative_location.try_as().cloned().ok())
+		Pallet::<T, I>::bridge_by_lane_id(&lane)
+			.and_then(|(_, bridge)| bridge.bridge_origin_relative_location.try_as().cloned().ok())
 			.map(|recipient: Location| !T::LocalXcmChannelManager::is_congested(&recipient))
 			.unwrap_or(false)
 	}
@@ -122,26 +121,31 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{mock::*, Bridges};
+	use crate::{mock::*, Bridges, LaneToBridge};
 
 	use bp_messages::{target_chain::DispatchMessageData, MessageKey};
-	use bp_xcm_bridge_hub::{Bridge, BridgeState};
+	use bp_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
+	use frame_support::assert_ok;
+	use sp_core::H256;
 
-	fn bridge_id() -> BridgeId {
-		BridgeId::from_lane_id(LaneId::new(1, 2))
+	fn bridge() -> (BridgeId, LaneId) {
+		(BridgeId::from_inner(H256::from([1u8; 32])), LaneId::new(1, 2))
 	}
 
 	fn run_test_with_opened_bridge(test: impl FnOnce()) {
 		run_test(|| {
 			Bridges::<TestRuntime, ()>::insert(
-				bridge_id(),
+				bridge().0,
 				Bridge {
 					bridge_origin_relative_location: Box::new(Location::new(0, Here).into()),
 					state: BridgeState::Opened,
 					bridge_owner_account: [0u8; 32].into(),
 					reserve: 0,
+					lane_id: bridge().1,
 				},
 			);
+			LaneToBridge::<TestRuntime, ()>::insert(bridge().1, bridge().0);
+			assert_ok!(XcmOverBridge::do_try_state());
 
 			test();
 		});
@@ -165,14 +169,14 @@ mod tests {
 	fn dispatcher_is_inactive_when_channel_with_target_chain_is_congested() {
 		run_test_with_opened_bridge(|| {
 			TestLocalXcmChannelManager::make_congested();
-			assert!(!XcmOverBridge::is_active(bridge_id().lane_id()));
+			assert!(!XcmOverBridge::is_active(bridge().1));
 		});
 	}
 
 	#[test]
 	fn dispatcher_is_active_when_channel_with_target_chain_is_not_congested() {
 		run_test_with_opened_bridge(|| {
-			assert!(XcmOverBridge::is_active(bridge_id().lane_id()));
+			assert!(XcmOverBridge::is_active(bridge().1));
 		});
 	}
 

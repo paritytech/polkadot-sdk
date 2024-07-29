@@ -21,6 +21,8 @@ bp-runtime = { path = "../runtime", default-features = false }
 
 # Substrate Dependencies
 sp-std = { workspace = true }
+sp-io = { workspace = true }
+sp-core = { workspace = true }
 frame-support = { workspace = true }
 
 # Polkadot Dependencies
@@ -35,6 +37,8 @@ std = [
 	"frame-support/std",
 	"scale-info/std",
 	"serde/std",
+	"sp-core/std",
+	"sp-io/std",
 	"sp-std/std",
 	"xcm/std",
 ]

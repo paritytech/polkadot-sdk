@@ -2017,6 +2017,8 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
+ "sp-core",
+ "sp-io",
  "sp-std 14.0.0",
  "staging-xcm",
 ]

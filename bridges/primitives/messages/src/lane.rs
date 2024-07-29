@@ -26,8 +26,8 @@ use sp_io::hashing::blake2_256;
 /// Bridge lane identifier.
 ///
 /// Lane connects two endpoints at both sides of the bridge. We assume that every endpoint
-/// has its own unique identifier. We want lane identifiers to be the same on the both sides
-/// of the bridge (and naturally unique across global consensus if endpoints have unique
+/// has its own unique identifier. We want lane identifiers to be **the same on the both sides
+/// of the bridge** (and naturally unique across global consensus if endpoints have unique
 /// identifiers). So lane id is the hash (`blake2_256`) of **ordered** encoded locations
 /// concatenation (separated by some binary data). I.e.:
 ///

@@ -28,14 +28,29 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
+use sp_core::H256;
+use sp_io::hashing::blake2_256;
 use sp_std::boxed::Box;
-use xcm::{latest::prelude::*, VersionedInteriorLocation, VersionedLocation};
+use xcm::{
+	latest::prelude::*, prelude::XcmVersion, IntoVersion, VersionedInteriorLocation,
+	VersionedLocation,
+};
 
 /// Encoded XCM blob. We expect the bridge messages pallet to use this blob type for both inbound
 /// and outbound payloads.
 pub type XcmAsPlainPayload = sp_std::vec::Vec<u8>;
 
-/// Bridge identifier.
+/// Bridge identifier - used **only** for communicating with sibling/parent chains in the same
+/// consensus.
+///
+/// For example, `SendXcm` implementations (which use the `latest` XCM) can use it to identify a
+/// bridge and the corresponding `LaneId` that is used for over-consensus communication between
+/// bridge hubs.
+///
+/// This identifier is constructed from the `latest` XCM, so it is expected to ensure migration to
+/// the `latest` XCM version. This could change the `BridgeId`, but it will not affect the `LaneId`.
+/// In other words, `LaneId` will never change, while `BridgeId` could change with (every) XCM
+/// upgrade.
 #[derive(
 	Clone,
 	Copy,
@@ -51,47 +66,28 @@ pub type XcmAsPlainPayload = sp_std::vec::Vec<u8>;
 	Serialize,
 	Deserialize,
 )]
-pub struct BridgeId(LaneId);
+pub struct BridgeId(H256);
 
 impl BridgeId {
 	/// Create bridge identifier from two universal locations.
 	///
-	/// The fact that we are using versioned locations here means that XCM version upgrades must
-	/// be coordinated at all involved chains (at source and target chains + at bridge hubs).
-	/// Otherwise, messages may simply be dropped anywhere on its path to the target chain.
-	pub fn new(
-		universal_location1: &VersionedInteriorLocation,
-		universal_location2: &VersionedInteriorLocation,
-	) -> Self {
-		// a tricky helper struct that adds required `Ord` support for
-		// `VersionedInteriorMultiLocation`
-		#[derive(Eq, PartialEq, Ord, PartialOrd)]
-		struct EncodedVersionedInteriorMultiLocation(sp_std::vec::Vec<u8>);
+	/// Note: The `BridgeId` is constructed from `latest` XCM, so if stored, you need to ensure
+	/// compatibility with newer XCM versions.
+	fn new(universal_source: &InteriorLocation, universal_destination: &InteriorLocation) -> Self {
+		const VALUES_SEPARATOR: [u8; 33] = *b"bridges-bridge-id-value-separator";
 
-		impl Encode for EncodedVersionedInteriorMultiLocation {
-			fn encode(&self) -> sp_std::vec::Vec<u8> {
-				self.0.clone()
-			}
-		}
-
-		Self(LaneId::new(
-			EncodedVersionedInteriorMultiLocation(universal_location1.encode()),
-			EncodedVersionedInteriorMultiLocation(universal_location2.encode()),
-		))
+		BridgeId(
+			(universal_source, VALUES_SEPARATOR, universal_destination)
+				.using_encoded(blake2_256)
+				.into(),
+		)
 	}
 
-	/// Creates bridge id using lane id.
-	///
-	/// **ATTENTION**: this function may be removed in the future.
-	pub fn from_lane_id(lane_id: LaneId) -> Self {
-		// in the future we may want to keep using the same lane identifiers if we'll be upgrading
-		// the XCM version (and `VersionedInteriorMultiLocation` will change)
-		Self(lane_id)
-	}
-
-	/// Return lane id, used by this bridge.
-	pub fn lane_id(&self) -> LaneId {
-		self.0
+	/// Create bridge identifier from given hash.
+	/// (for testing purposes)
+	#[cfg(any(feature = "std", test))]
+	pub const fn from_inner(inner: H256) -> Self {
+		BridgeId(inner)
 	}
 }
 
@@ -160,23 +156,26 @@ pub struct Bridge<ThisChain: Chain> {
 	pub bridge_origin_relative_location: Box<VersionedLocation>,
 	/// Current bridge state.
 	pub state: BridgeState,
-	/// Account with the reserved funds.
+	/// Account with the reserved funds. Derived from `self.bridge_origin_relative_location`.
 	pub bridge_owner_account: AccountIdOf<ThisChain>,
 	/// Reserved amount on the sovereign account of the sibling bridge origin.
 	pub reserve: BalanceOf<ThisChain>,
+
+	/// Mapping to the unique `LaneId`.
+	pub lane_id: LaneId,
 }
 
 /// Locations of bridge endpoints at both sides of the bridge.
 #[derive(Clone, RuntimeDebug, PartialEq, Eq)]
 pub struct BridgeLocations {
 	/// Relative (to this bridge hub) location of this side of the bridge.
-	pub bridge_origin_relative_location: Location,
+	bridge_origin_relative_location: Location,
 	/// Universal (unique) location of this side of the bridge.
-	pub bridge_origin_universal_location: InteriorLocation,
+	bridge_origin_universal_location: InteriorLocation,
 	/// Universal (unique) location of other side of the bridge.
-	pub bridge_destination_universal_location: InteriorLocation,
+	bridge_destination_universal_location: InteriorLocation,
 	/// An identifier of the dedicated bridge message lane.
-	pub bridge_id: BridgeId,
+	bridge_id: BridgeId,
 }
 
 /// Errors that may happen when we check bridge locations.
@@ -195,6 +194,8 @@ pub enum BridgeLocationsError {
 	/// Destination location is unsupported. We only support bridges with relay
 	/// chain or its parachains.
 	UnsupportedDestinationLocation,
+	/// The version of XCM location argument is unsupported.
+	UnsupportedXcmVersion,
 }
 
 /// Given XCM locations, generate lane id and universal locations of bridge endpoints.
@@ -271,10 +272,8 @@ pub fn bridge_locations(
 	// `GlobalConsensus` and we know that the `bridge_origin_universal_location`
 	// is also within the `GlobalConsensus`. So we know that the lane id will be
 	// the same on both ends of the bridge
-	let bridge_id = BridgeId::new(
-		&bridge_origin_universal_location.clone().into(),
-		&bridge_destination_universal_location.clone().into(),
-	);
+	let bridge_id =
+		BridgeId::new(&bridge_origin_universal_location, &bridge_destination_universal_location);
 
 	Ok(Box::new(BridgeLocations {
 		bridge_origin_relative_location: *bridge_origin_relative_location,
@@ -282,6 +281,60 @@ pub fn bridge_locations(
 		bridge_destination_universal_location,
 		bridge_id,
 	}))
+}
+
+impl BridgeLocations {
+	/// Getter for `bridge_origin_relative_location`
+	pub fn bridge_origin_relative_location(&self) -> &Location {
+		&self.bridge_origin_relative_location
+	}
+
+	/// Getter for `bridge_origin_universal_location`
+	pub fn bridge_origin_universal_location(&self) -> &InteriorLocation {
+		&self.bridge_origin_universal_location
+	}
+
+	/// Getter for `bridge_destination_universal_location`
+	pub fn bridge_destination_universal_location(&self) -> &InteriorLocation {
+		&self.bridge_destination_universal_location
+	}
+
+	/// Getter for `bridge_id`
+	pub fn bridge_id(&self) -> &BridgeId {
+		&self.bridge_id
+	}
+
+	/// Generates the exact same `LaneId` on the both bridge hubs.
+	///
+	/// Note: Use this **only** when opening a new bridge.
+	pub fn calculate_lane_id(
+		&self,
+		xcm_version: XcmVersion,
+	) -> Result<LaneId, BridgeLocationsError> {
+		// a tricky helper struct that adds required `Ord` support for
+		// `VersionedInteriorLocation`
+		#[derive(Eq, PartialEq, Ord, PartialOrd)]
+		struct EncodedVersionedInteriorLocation(sp_std::vec::Vec<u8>);
+		impl Encode for EncodedVersionedInteriorLocation {
+			fn encode(&self) -> sp_std::vec::Vec<u8> {
+				self.0.clone()
+			}
+		}
+
+		let universal_location1 =
+			VersionedInteriorLocation::from(self.bridge_origin_universal_location.clone())
+				.into_version(xcm_version)
+				.map_err(|_| BridgeLocationsError::UnsupportedXcmVersion);
+		let universal_location2 =
+			VersionedInteriorLocation::from(self.bridge_destination_universal_location.clone())
+				.into_version(xcm_version)
+				.map_err(|_| BridgeLocationsError::UnsupportedXcmVersion);
+
+		Ok(LaneId::new(
+			EncodedVersionedInteriorLocation(universal_location1.encode()),
+			EncodedVersionedInteriorLocation(universal_location2.encode()),
+		))
+	}
 }
 
 #[cfg(test)]
@@ -301,6 +354,8 @@ mod tests {
 
 		bridge_origin_universal_location: InteriorLocation,
 		bridge_destination_universal_location: InteriorLocation,
+
+		expected_remote_network: NetworkId,
 	}
 
 	fn run_successful_test(test: SuccessfulTest) -> BridgeLocations {
@@ -308,7 +363,7 @@ mod tests {
 			Box::new(test.here_universal_location),
 			Box::new(test.bridge_origin_relative_location.clone()),
 			Box::new(test.bridge_destination_universal_location.clone()),
-			REMOTE_NETWORK,
+			test.expected_remote_network,
 		);
 		assert_eq!(
 			locations,
@@ -338,6 +393,8 @@ mod tests {
 
 			bridge_origin_universal_location: [GlobalConsensus(LOCAL_NETWORK)].into(),
 			bridge_destination_universal_location: [GlobalConsensus(REMOTE_NETWORK)].into(),
+
+			expected_remote_network: REMOTE_NETWORK,
 		});
 	}
 
@@ -353,6 +410,8 @@ mod tests {
 			]
 			.into(),
 			bridge_destination_universal_location: [GlobalConsensus(REMOTE_NETWORK)].into(),
+
+			expected_remote_network: REMOTE_NETWORK,
 		});
 	}
 
@@ -368,6 +427,8 @@ mod tests {
 				Parachain(REMOTE_PARACHAIN),
 			]
 			.into(),
+
+			expected_remote_network: REMOTE_NETWORK,
 		});
 	}
 
@@ -387,6 +448,8 @@ mod tests {
 				Parachain(REMOTE_PARACHAIN),
 			]
 			.into(),
+
+			expected_remote_network: REMOTE_NETWORK,
 		});
 	}
 
@@ -399,6 +462,8 @@ mod tests {
 
 			bridge_origin_universal_location: [GlobalConsensus(LOCAL_NETWORK)].into(),
 			bridge_destination_universal_location: [GlobalConsensus(REMOTE_NETWORK)].into(),
+
+			expected_remote_network: REMOTE_NETWORK,
 		});
 	}
 
@@ -416,6 +481,8 @@ mod tests {
 			]
 			.into(),
 			bridge_destination_universal_location: [GlobalConsensus(REMOTE_NETWORK)].into(),
+
+			expected_remote_network: REMOTE_NETWORK,
 		});
 	}
 
@@ -432,6 +499,8 @@ mod tests {
 				Parachain(REMOTE_PARACHAIN),
 			]
 			.into(),
+
+			expected_remote_network: REMOTE_NETWORK,
 		});
 	}
 
@@ -453,6 +522,8 @@ mod tests {
 				Parachain(REMOTE_PARACHAIN),
 			]
 			.into(),
+
+			expected_remote_network: REMOTE_NETWORK,
 		});
 	}
 
@@ -466,6 +537,8 @@ mod tests {
 
 			bridge_origin_universal_location: [GlobalConsensus(LOCAL_NETWORK)].into(),
 			bridge_destination_universal_location: [GlobalConsensus(REMOTE_NETWORK)].into(),
+
+			expected_remote_network: REMOTE_NETWORK,
 		});
 		let locations2 = run_successful_test(SuccessfulTest {
 			here_universal_location: [GlobalConsensus(LOCAL_NETWORK)].into(),
@@ -473,6 +546,8 @@ mod tests {
 
 			bridge_origin_universal_location: [GlobalConsensus(LOCAL_NETWORK)].into(),
 			bridge_destination_universal_location: [GlobalConsensus(REMOTE_NETWORK)].into(),
+
+			expected_remote_network: REMOTE_NETWORK,
 		});
 
 		assert_eq!(locations1.bridge_id, locations2.bridge_id);
@@ -486,6 +561,8 @@ mod tests {
 
 			bridge_origin_universal_location: [GlobalConsensus(LOCAL_NETWORK)].into(),
 			bridge_destination_universal_location: [GlobalConsensus(REMOTE_NETWORK)].into(),
+
+			expected_remote_network: REMOTE_NETWORK,
 		});
 		let locations2 = run_successful_test(SuccessfulTest {
 			here_universal_location: [GlobalConsensus(LOCAL_NETWORK)].into(),
@@ -493,9 +570,63 @@ mod tests {
 
 			bridge_origin_universal_location: [GlobalConsensus(LOCAL_NETWORK)].into(),
 			bridge_destination_universal_location: [GlobalConsensus(REMOTE_NETWORK)].into(),
+
+			expected_remote_network: REMOTE_NETWORK,
 		});
 
 		assert_eq!(locations1.bridge_id, locations2.bridge_id);
+	}
+
+	#[test]
+	fn calculate_lane_id_works() {
+		let from_local_to_remote = run_successful_test(SuccessfulTest {
+			here_universal_location: [GlobalConsensus(LOCAL_NETWORK), Parachain(LOCAL_BRIDGE_HUB)]
+				.into(),
+			bridge_origin_relative_location: ParentThen([Parachain(SIBLING_PARACHAIN)].into())
+				.into(),
+
+			bridge_origin_universal_location: [
+				GlobalConsensus(LOCAL_NETWORK),
+				Parachain(SIBLING_PARACHAIN),
+			]
+			.into(),
+			bridge_destination_universal_location: [
+				GlobalConsensus(REMOTE_NETWORK),
+				Parachain(REMOTE_PARACHAIN),
+			]
+			.into(),
+
+			expected_remote_network: REMOTE_NETWORK,
+		});
+
+		let from_remote_to_local = run_successful_test(SuccessfulTest {
+			here_universal_location: [GlobalConsensus(REMOTE_NETWORK), Parachain(LOCAL_BRIDGE_HUB)]
+				.into(),
+			bridge_origin_relative_location: ParentThen([Parachain(REMOTE_PARACHAIN)].into())
+				.into(),
+
+			bridge_origin_universal_location: [
+				GlobalConsensus(REMOTE_NETWORK),
+				Parachain(REMOTE_PARACHAIN),
+			]
+			.into(),
+			bridge_destination_universal_location: [
+				GlobalConsensus(LOCAL_NETWORK),
+				Parachain(SIBLING_PARACHAIN),
+			]
+			.into(),
+
+			expected_remote_network: LOCAL_NETWORK,
+		});
+
+		assert_ne!(
+			from_local_to_remote.calculate_lane_id(xcm::latest::VERSION),
+			from_remote_to_local.calculate_lane_id(xcm::latest::VERSION - 1),
+		);
+		assert_eq!(
+			from_local_to_remote.calculate_lane_id(xcm::latest::VERSION),
+			from_remote_to_local.calculate_lane_id(xcm::latest::VERSION),
+		);
 	}
 
 	// negative tests
