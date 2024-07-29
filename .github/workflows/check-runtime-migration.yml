@@ -138,5 +138,5 @@ jobs:
           echo "---------- Executing on-runtime-upgrade for ${{ matrix.network }} ----------"
           time ./try-runtime ${{ matrix.command_extra_args }} \
               --runtime ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }} \
-              on-runtime-upgrade --disable-spec-version-check --checks=all ${{ matrix.subcommand_extra_args }} live --uri ${{ matrix.uri }}
+              on-runtime-upgrade --disable-spec-version-check --checks=all ${{ matrix.subcommand_extra_args }} snap -p snapshot.raw
           sleep 5
