@@ -18,7 +18,7 @@
 
 use console::style;
 use parking_lot::Mutex;
-use std::{cell::RefCell, fmt::Display, io::Write};
+use std::{cell::RefCell, fmt::Display};
 use sp_tracing::tracing_subscriber;
 use sp_tracing::tracing::Level;
 use sp_tracing::tracing_subscriber::fmt::time::OffsetTime;
@@ -51,18 +51,18 @@ pub fn initialize_logger(with_timestamp: bool) {
 		format,
 	);
 
-	let builder = SubscriberBuilder::default()
-		.with_env_filter(EnvFilter::from_default_env())
-		.with_filter(Level::WARN)
-		.with_filter_module("bridge", Level::INFO);
+	let env_filter = EnvFilter::from_default_env()
+        .add_directive(Level::WARN.into())
+        .add_directive("bridge=info".parse().expect("static filter string is valid"));
 
-	let builder = if with_timestamp {
-		builder.with_timer(local_time)
+		let builder = SubscriberBuilder::default()
+        .with_env_filter(env_filter);
+
+	if with_timestamp {
+		builder.with_timer(local_time).init();
 	} else {
-		builder.without_time()
-	};
-
-	builder.init();
+		builder.without_time().init();
+	}
 }
 
 /// Initialize relay loop. Must only be called once per every loop task.

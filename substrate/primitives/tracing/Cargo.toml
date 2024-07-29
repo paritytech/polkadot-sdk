@@ -29,6 +29,7 @@ tracing-core = { workspace = true }
 tracing-subscriber = { workspace = true, optional = true, features = [
 	"env-filter",
 	"tracing-log",
+	"time",
 ] }
 
 [features]
