@@ -761,16 +761,26 @@ fn introduce_candidate_multiple_times() {
 			1.into(),
 			Ancestors::default(),
 			5,
-			response_a,
+			response_a.clone(),
 		)
 		.await;
 
 		// Introduce the same candidate multiple times. It'll return true but it won't be added.
-		// We'll check below that the candidate count remains 1.
 		for _ in 0..5 {
 			introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
 				.await;
 		}
+
+		// Check candidate tree membership.
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			1.into(),
+			Ancestors::default(),
+			5,
+			response_a,
+		)
+		.await;
 
 		virtual_overseer
 	});
@@ -779,7 +789,7 @@ fn introduce_candidate_multiple_times() {
 }
 
 #[test]
-fn fragment_chain_length_is_bounded() {
+fn fragment_chain_best_chain_length_is_bounded() {
 	let test_state = TestState::default();
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf A
@@ -827,12 +837,11 @@ fn fragment_chain_length_is_bounded() {
 		);
 
 		// Introduce candidates A and B. Since max depth is 1, only these two will be allowed.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
-			.await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b.clone())
-			.await;
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a).await;
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b).await;
 
-		// Back candidates. Otherwise, we cannot check membership with GetBackableCandidates.
+		// Back candidates. Otherwise, we cannot check membership with GetBackableCandidates and
+		// they won't be part of the best chain.
 		back_candidate(&mut virtual_overseer, &candidate_a, candidate_a.hash()).await;
 		back_candidate(&mut virtual_overseer, &candidate_b, candidate_b.hash()).await;
 
@@ -847,92 +856,20 @@ fn fragment_chain_length_is_bounded() {
 		)
 		.await;
 
-		// Introducing C will fail.
-		introduce_seconded_candidate_failed(&mut virtual_overseer, candidate_c, pvd_c.clone())
-			.await;
+		// Introducing C will not fail. It will be kept as unconnected storage.
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_c.clone(), pvd_c).await;
+		// When being backed, candidate C will be dropped.
+		back_candidate(&mut virtual_overseer, &candidate_c, candidate_c.hash()).await;
 
-		virtual_overseer
-	});
-
-	assert_eq!(view.active_leaves.len(), 1);
-}
-
-#[test]
-fn unconnected_candidate_count_is_bounded() {
-	let test_state = TestState::default();
-	let view = test_harness(|mut virtual_overseer| async move {
-		// Leaf A
-		let leaf_a = TestLeaf {
-			number: 100,
-			hash: Hash::from_low_u64_be(130),
-			para_data: vec![
-				(1.into(), PerParaData::new(97, HeadData(vec![1, 2, 3]))),
-				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
-			],
-		};
-		// Activate leaves.
-		activate_leaf_with_params(
-			&mut virtual_overseer,
-			&leaf_a,
-			&test_state,
-			AsyncBackingParams { max_candidate_depth: 1, allowed_ancestry_len: 3 },
-		)
-		.await;
-
-		// Candidates A, B and C are all potential candidates but don't form a chain.
-		let (candidate_a, pvd_a) = make_candidate(
-			leaf_a.hash,
-			leaf_a.number,
-			1.into(),
-			HeadData(vec![1]),
-			HeadData(vec![2]),
-			test_state.validation_code_hash,
-		);
-		let (candidate_b, pvd_b) = make_candidate(
-			leaf_a.hash,
-			leaf_a.number,
-			1.into(),
-			HeadData(vec![3]),
-			HeadData(vec![4]),
-			test_state.validation_code_hash,
-		);
-		let (candidate_c, pvd_c) = make_candidate(
-			leaf_a.hash,
-			leaf_a.number,
-			1.into(),
-			HeadData(vec![4]),
-			HeadData(vec![5]),
-			test_state.validation_code_hash,
-		);
-
-		// Introduce candidates A and B. Although max depth is 1 (which should allow for two
-		// candidates), only 1 is allowed, because the last candidate must be a connected candidate.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
-			.await;
-		introduce_seconded_candidate_failed(
-			&mut virtual_overseer,
-			candidate_b.clone(),
-			pvd_b.clone(),
-		)
-		.await;
-
-		// Back candidates. Otherwise, we cannot check membership with GetBackableCandidates.
-		back_candidate(&mut virtual_overseer, &candidate_a, candidate_a.hash()).await;
-
-		// Check candidate tree membership. Should be empty.
 		get_backable_candidates(
 			&mut virtual_overseer,
 			&leaf_a,
 			1.into(),
 			Ancestors::default(),
 			5,
-			vec![],
+			vec![(candidate_a.hash(), leaf_a.hash), (candidate_b.hash(), leaf_a.hash)],
 		)
 		.await;
-
-		// Introducing C will also fail.
-		introduce_seconded_candidate_failed(&mut virtual_overseer, candidate_c, pvd_c.clone())
-			.await;
 
 		virtual_overseer
 	});
@@ -1856,11 +1793,13 @@ fn check_hypothetical_membership_query() {
 		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
 			.await;
 
-		// Get membership of candidates after adding A. C is not a potential candidate because we
-		// may only add one more candidate, which must be a connected candidate.
-		for (candidate, pvd) in
-			[(candidate_a.clone(), pvd_a.clone()), (candidate_b.clone(), pvd_b.clone())]
-		{
+		// Get membership of candidates after adding A. They all are still unconnected candidates
+		// (not part of the best backable chain).
+		for (candidate, pvd) in [
+			(candidate_a.clone(), pvd_a.clone()),
+			(candidate_b.clone(), pvd_b.clone()),
+			(candidate_c.clone(), pvd_c.clone()),
+		] {
 			get_hypothetical_membership(
 				&mut virtual_overseer,
 				candidate.hash(),
@@ -1871,14 +1810,24 @@ fn check_hypothetical_membership_query() {
 			.await;
 		}
 
-		get_hypothetical_membership(
-			&mut virtual_overseer,
-			candidate_c.hash(),
-			candidate_c.clone(),
-			pvd_c.clone(),
-			vec![],
-		)
-		.await;
+		// Back A. Now A is part of the best chain the rest can be added as unconnected.
+
+		back_candidate(&mut virtual_overseer, &candidate_a, candidate_a.hash()).await;
+
+		for (candidate, pvd) in [
+			(candidate_a.clone(), pvd_a.clone()),
+			(candidate_b.clone(), pvd_b.clone()),
+			(candidate_c.clone(), pvd_c.clone()),
+		] {
+			get_hypothetical_membership(
+				&mut virtual_overseer,
+				candidate.hash(),
+				candidate,
+				pvd,
+				vec![leaf_a.hash, leaf_b.hash],
+			)
+			.await;
+		}
 
 		// Candidate D has invalid relay parent.
 		let (candidate_d, pvd_d) = make_candidate(
@@ -1891,14 +1840,17 @@ fn check_hypothetical_membership_query() {
 		);
 		introduce_seconded_candidate_failed(&mut virtual_overseer, candidate_d, pvd_d).await;
 
-		// Add candidate B.
+		// Add candidate B and back it.
 		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b.clone())
 			.await;
+		back_candidate(&mut virtual_overseer, &candidate_b, candidate_b.hash()).await;
 
 		// Get membership of candidates after adding B.
-		for (candidate, pvd) in
-			[(candidate_a.clone(), pvd_a.clone()), (candidate_b.clone(), pvd_b.clone())]
-		{
+		for (candidate, pvd) in [
+			(candidate_a.clone(), pvd_a.clone()),
+			(candidate_b.clone(), pvd_b.clone()),
+			(candidate_c.clone(), pvd_c.clone()),
+		] {
 			get_hypothetical_membership(
 				&mut virtual_overseer,
 				candidate.hash(),
@@ -1908,18 +1860,6 @@ fn check_hypothetical_membership_query() {
 			)
 			.await;
 		}
-
-		get_hypothetical_membership(
-			&mut virtual_overseer,
-			candidate_c.hash(),
-			candidate_c.clone(),
-			pvd_c.clone(),
-			vec![],
-		)
-		.await;
-
-		// Add candidate C. It will fail because we have enough candidates for the configured depth.
-		introduce_seconded_candidate_failed(&mut virtual_overseer, candidate_c, pvd_c).await;
 
 		virtual_overseer
 	});
@@ -1971,6 +1911,16 @@ fn check_pvd_query() {
 			1.into(),
 			HeadData(vec![2]),
 			HeadData(vec![3]),
+			test_state.validation_code_hash,
+		);
+
+		// Candidate E.
+		let (candidate_e, pvd_e) = make_candidate(
+			leaf_a.hash,
+			leaf_a.number,
+			1.into(),
+			HeadData(vec![5]),
+			HeadData(vec![6]),
 			test_state.validation_code_hash,
 		);
 
@@ -2036,14 +1986,15 @@ fn check_pvd_query() {
 		introduce_seconded_candidate(&mut virtual_overseer, candidate_c, pvd_c.clone()).await;
 
 		// Get pvd of candidate C after adding it.
-		get_pvd(
-			&mut virtual_overseer,
-			1.into(),
-			leaf_a.hash,
-			HeadData(vec![2]),
-			Some(pvd_c.clone()),
-		)
-		.await;
+		get_pvd(&mut virtual_overseer, 1.into(), leaf_a.hash, HeadData(vec![2]), Some(pvd_c)).await;
+
+		// Get pvd of candidate E before adding it. It won't be found, as we don't have its parent.
+		get_pvd(&mut virtual_overseer, 1.into(), leaf_a.hash, HeadData(vec![5]), None).await;
+
+		// Add candidate E and check again. Should succeed this time.
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_e, pvd_e.clone()).await;
+
+		get_pvd(&mut virtual_overseer, 1.into(), leaf_a.hash, HeadData(vec![5]), Some(pvd_e)).await;
 
 		virtual_overseer
 	});
@@ -2139,13 +2090,6 @@ fn correctly_updates_leaves(#[case] runtime_api_version: u32) {
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)))
 			.await;
-		handle_leaf_activation(
-			&mut virtual_overseer,
-			&leaf_a,
-			&test_state,
-			ASYNC_BACKING_PARAMETERS,
-		)
-		.await;
 
 		// Remove the leaf again. Send some unnecessary hashes.
 		let update = ActiveLeavesUpdate {

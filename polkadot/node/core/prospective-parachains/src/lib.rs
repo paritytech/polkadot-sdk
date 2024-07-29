@@ -180,6 +180,10 @@ async fn handle_active_leaves_update<Context>(
 
 	let mut temp_header_cache = HashMap::new();
 	for activated in update.activated.into_iter() {
+		if update.deactivated.contains(&activated.hash) {
+			continue
+		}
+
 		let hash = activated.hash;
 
 		let mode = prospective_parachains_mode(ctx.sender(), hash)
@@ -217,22 +221,11 @@ async fn handle_active_leaves_update<Context>(
 				Some(info) => info,
 			};
 
-		let requested_ancestry_len = if allowed_ancestry_len == 0 {
-			1
-		// We should try requesting at least one, so that we can know the previous leaf.
-		} else {
-			allowed_ancestry_len
-		};
-		let mut ancestry =
-			fetch_ancestry(ctx, &mut temp_header_cache, hash, requested_ancestry_len).await?;
+		let ancestry =
+			fetch_ancestry(ctx, &mut temp_header_cache, hash, allowed_ancestry_len).await?;
 
 		let prev_fragment_chains =
 			ancestry.first().and_then(|prev_leaf| view.active_leaves.get(&prev_leaf.hash));
-
-		if allowed_ancestry_len == 0 {
-			// Now, if the allowed ancestry len was 0, clear the one ancestor we requested.
-			ancestry.clear();
-		}
 
 		let mut fragment_chains = HashMap::new();
 		for para in scheduled_paras {

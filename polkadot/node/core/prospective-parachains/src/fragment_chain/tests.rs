@@ -980,12 +980,12 @@ fn test_populate_and_check_potential() {
 		relay_parent_z_info.number,
 	);
 	let candidate_d_hash = candidate_d.hash();
-	storage
-		.add_candidate_entry(
-			CandidateEntry::new(candidate_d_hash, candidate_d, pvd_d, CandidateState::Backed)
-				.unwrap(),
-		)
-		.unwrap();
+	let candidate_d_entry =
+		CandidateEntry::new(candidate_d_hash, candidate_d, pvd_d, CandidateState::Backed).unwrap();
+	assert!(FragmentChain::populate(scope.clone(), storage.clone())
+		.can_add_candidate_as_potential(&candidate_d_entry)
+		.is_ok());
+	storage.add_candidate_entry(candidate_d_entry).unwrap();
 
 	// Candidate F
 	let (pvd_f, candidate_f) = make_committed_candidate(
@@ -997,12 +997,13 @@ fn test_populate_and_check_potential() {
 		1000,
 	);
 	let candidate_f_hash = candidate_f.hash();
-	storage
-		.add_candidate_entry(
-			CandidateEntry::new(candidate_f_hash, candidate_f, pvd_f, CandidateState::Seconded)
-				.unwrap(),
-		)
-		.unwrap();
+	let candidate_f_entry =
+		CandidateEntry::new(candidate_f_hash, candidate_f, pvd_f, CandidateState::Seconded)
+			.unwrap();
+	assert!(FragmentChain::populate(scope.clone(), storage.clone())
+		.can_add_candidate_as_potential(&candidate_f_entry)
+		.is_ok());
+	storage.add_candidate_entry(candidate_f_entry.clone()).unwrap();
 
 	// Candidate A1
 	let (pvd_a1, candidate_a1) = make_committed_candidate(
@@ -1014,15 +1015,19 @@ fn test_populate_and_check_potential() {
 		relay_parent_x_info.number,
 	);
 	let candidate_a1_hash = candidate_a1.hash();
+	let candidate_a1_entry =
+		CandidateEntry::new(candidate_a1_hash, candidate_a1, pvd_a1, CandidateState::Backed)
+			.unwrap();
 	// Candidate A1 is created so that its hash is larger than the candidate A hash.
 	assert_eq!(fork_selection_rule(&candidate_a_hash, &candidate_a1_hash), Ordering::Less);
 
-	storage
-		.add_candidate_entry(
-			CandidateEntry::new(candidate_a1_hash, candidate_a1, pvd_a1, CandidateState::Backed)
-				.unwrap(),
-		)
-		.unwrap();
+	assert_matches!(
+		FragmentChain::populate(scope.clone(), storage.clone())
+			.can_add_candidate_as_potential(&candidate_a1_entry),
+		Err(Error::ForkChoiceRule(other)) if candidate_a_hash == other
+	);
+
+	storage.add_candidate_entry(candidate_a1_entry.clone()).unwrap();
 
 	// Candidate B1.
 	let (pvd_b1, candidate_b1) = make_committed_candidate(
@@ -1034,13 +1039,14 @@ fn test_populate_and_check_potential() {
 		relay_parent_x_info.number,
 	);
 	let candidate_b1_hash = candidate_b1.hash();
+	let candidate_b1_entry =
+		CandidateEntry::new(candidate_b1_hash, candidate_b1, pvd_b1, CandidateState::Seconded)
+			.unwrap();
+	assert!(FragmentChain::populate(scope.clone(), storage.clone())
+		.can_add_candidate_as_potential(&candidate_b1_entry)
+		.is_ok());
 
-	storage
-		.add_candidate_entry(
-			CandidateEntry::new(candidate_b1_hash, candidate_b1, pvd_b1, CandidateState::Seconded)
-				.unwrap(),
-		)
-		.unwrap();
+	storage.add_candidate_entry(candidate_b1_entry).unwrap();
 
 	// Candidate C1.
 	let (pvd_c1, candidate_c1) = make_committed_candidate(
@@ -1052,13 +1058,14 @@ fn test_populate_and_check_potential() {
 		relay_parent_x_info.number,
 	);
 	let candidate_c1_hash = candidate_c1.hash();
+	let candidate_c1_entry =
+		CandidateEntry::new(candidate_c1_hash, candidate_c1, pvd_c1, CandidateState::Backed)
+			.unwrap();
+	assert!(FragmentChain::populate(scope.clone(), storage.clone())
+		.can_add_candidate_as_potential(&candidate_c1_entry)
+		.is_ok());
 
-	storage
-		.add_candidate_entry(
-			CandidateEntry::new(candidate_c1_hash, candidate_c1, pvd_c1, CandidateState::Backed)
-				.unwrap(),
-		)
-		.unwrap();
+	storage.add_candidate_entry(candidate_c1_entry).unwrap();
 
 	// Candidate C2.
 	let (pvd_c2, candidate_c2) = make_committed_candidate(
@@ -1070,13 +1077,13 @@ fn test_populate_and_check_potential() {
 		relay_parent_x_info.number,
 	);
 	let candidate_c2_hash = candidate_c2.hash();
-
-	storage
-		.add_candidate_entry(
-			CandidateEntry::new(candidate_c2_hash, candidate_c2, pvd_c2, CandidateState::Seconded)
-				.unwrap(),
-		)
-		.unwrap();
+	let candidate_c2_entry =
+		CandidateEntry::new(candidate_c2_hash, candidate_c2, pvd_c2, CandidateState::Seconded)
+			.unwrap();
+	assert!(FragmentChain::populate(scope.clone(), storage.clone())
+		.can_add_candidate_as_potential(&candidate_c2_entry)
+		.is_ok());
+	storage.add_candidate_entry(candidate_c2_entry).unwrap();
 
 	// Candidate A2.
 	let (pvd_a2, candidate_a2) = make_committed_candidate(
@@ -1088,15 +1095,17 @@ fn test_populate_and_check_potential() {
 		relay_parent_x_info.number,
 	);
 	let candidate_a2_hash = candidate_a2.hash();
+	let candidate_a2_entry =
+		CandidateEntry::new(candidate_a2_hash, candidate_a2, pvd_a2, CandidateState::Seconded)
+			.unwrap();
 	// Candidate A2 is created so that its hash is larger than the candidate A hash.
 	assert_eq!(fork_selection_rule(&candidate_a2_hash, &candidate_a_hash), Ordering::Less);
 
-	storage
-		.add_candidate_entry(
-			CandidateEntry::new(candidate_a2_hash, candidate_a2, pvd_a2, CandidateState::Seconded)
-				.unwrap(),
-		)
-		.unwrap();
+	assert!(FragmentChain::populate(scope.clone(), storage.clone())
+		.can_add_candidate_as_potential(&candidate_a2_entry)
+		.is_ok());
+
+	storage.add_candidate_entry(candidate_a2_entry).unwrap();
 
 	// Candidate B2.
 	let (pvd_b2, candidate_b2) = make_committed_candidate(
@@ -1108,13 +1117,13 @@ fn test_populate_and_check_potential() {
 		relay_parent_y_info.number,
 	);
 	let candidate_b2_hash = candidate_b2.hash();
-
-	storage
-		.add_candidate_entry(
-			CandidateEntry::new(candidate_b2_hash, candidate_b2, pvd_b2, CandidateState::Backed)
-				.unwrap(),
-		)
-		.unwrap();
+	let candidate_b2_entry =
+		CandidateEntry::new(candidate_b2_hash, candidate_b2, pvd_b2, CandidateState::Backed)
+			.unwrap();
+	assert!(FragmentChain::populate(scope.clone(), storage.clone())
+		.can_add_candidate_as_potential(&candidate_b2_entry)
+		.is_ok());
+	storage.add_candidate_entry(candidate_b2_entry).unwrap();
 
 	let chain = FragmentChain::populate(scope.clone(), storage.clone());
 	assert_eq!(chain.best_chain_vec(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
@@ -1123,6 +1132,16 @@ fn test_populate_and_check_potential() {
 		[candidate_d_hash, candidate_f_hash, candidate_a2_hash, candidate_b2_hash]
 			.into_iter()
 			.collect()
+	);
+	// Cannot add as potential an already present candidate (whether it's in the best chain or in
+	// unconnected storage)
+	assert_matches!(
+		chain.can_add_candidate_as_potential(&candidate_a_entry),
+		Err(Error::CandidateAlreadyKnown)
+	);
+	assert_matches!(
+		chain.can_add_candidate_as_potential(&candidate_f_entry),
+		Err(Error::CandidateAlreadyKnown)
 	);
 
 	// Simulate a best chain reorg by backing a2.
@@ -1133,6 +1152,16 @@ fn test_populate_and_check_potential() {
 		assert_eq!(
 			chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
 			[candidate_f_hash].into_iter().collect()
+		);
+
+		// A and A1 will never have potential again.
+		assert_matches!(
+			chain.can_add_candidate_as_potential(&candidate_a1_entry),
+			Err(Error::ForkChoiceRule(_))
+		);
+		assert_matches!(
+			chain.can_add_candidate_as_potential(&candidate_a_entry),
+			Err(Error::ForkChoiceRule(_))
 		);
 	}
 
@@ -1201,6 +1230,11 @@ fn test_populate_and_check_potential() {
 		chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
 		[candidate_d_hash, candidate_f_hash, candidate_e_hash].into_iter().collect()
 	);
+	// Cannot add as potential an already pending availability candidate
+	assert_matches!(
+		chain.can_add_candidate_as_potential(&candidate_a_entry),
+		Err(Error::CandidateAlreadyPendingAvailability)
+	);
 
 	// Simulate the fact that candidates A, B and C have been included.
 
@@ -1232,6 +1266,11 @@ fn test_populate_and_check_potential() {
 	let chain = chain.candidate_backed(&candidate_e_hash).unwrap();
 	assert_eq!(chain.best_chain_vec(), vec![candidate_d_hash, candidate_e_hash]);
 	assert_eq!(chain.unconnected_len(), 0);
+
+	assert_matches!(
+		chain.can_add_candidate_as_potential(&candidate_f_entry),
+		Err(Error::CheckAgainstConstraints(_))
+	);
 }
 
 #[test]
@@ -1463,115 +1502,3 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 		);
 	}
 }
-
-// #[test]
-// fn hypothetical_membership_with_pending_availability_in_scope() {
-// 	let mut storage = CandidateStorage::default();
-
-// 	let para_id = ParaId::from(5u32);
-// 	let relay_parent_a = Hash::repeat_byte(1);
-// 	let relay_parent_b = Hash::repeat_byte(2);
-// 	let relay_parent_c = Hash::repeat_byte(3);
-
-// 	let (pvd_a, candidate_a) = make_committed_candidate(
-// 		para_id,
-// 		relay_parent_a,
-// 		0,
-// 		vec![0x0a].into(),
-// 		vec![0x0b].into(),
-// 		0,
-// 	);
-// 	let candidate_a_hash = candidate_a.hash();
-
-// 	let (pvd_b, candidate_b) = make_committed_candidate(
-// 		para_id,
-// 		relay_parent_b,
-// 		1,
-// 		vec![0x0b].into(),
-// 		vec![0x0c].into(),
-// 		1,
-// 	);
-
-// 	// Note that relay parent `a` is not allowed.
-// 	let base_constraints = make_constraints(1, vec![], vec![0x0a].into());
-
-// 	let relay_parent_a_info = RelayChainBlockInfo {
-// 		number: pvd_a.relay_parent_number,
-// 		hash: relay_parent_a,
-// 		storage_root: pvd_a.relay_parent_storage_root,
-// 	};
-// 	let pending_availability = vec![PendingAvailability {
-// 		candidate_hash: candidate_a_hash,
-// 		relay_parent: relay_parent_a_info,
-// 	}];
-
-// 	let relay_parent_b_info = RelayChainBlockInfo {
-// 		number: pvd_b.relay_parent_number,
-// 		hash: relay_parent_b,
-// 		storage_root: pvd_b.relay_parent_storage_root,
-// 	};
-// 	let relay_parent_c_info = RelayChainBlockInfo {
-// 		number: pvd_b.relay_parent_number + 1,
-// 		hash: relay_parent_c,
-// 		storage_root: Hash::zero(),
-// 	};
-
-// 	let max_depth = 4;
-// 	storage.add_candidate(candidate_a, pvd_a, CandidateState::Seconded).unwrap();
-// 	storage.add_candidate(candidate_b, pvd_b, CandidateState::Backed).unwrap();
-// 	storage.mark_backed(&candidate_a_hash);
-
-// 	let scope = Scope::with_ancestors(
-// 		relay_parent_c_info,
-// 		base_constraints,
-// 		pending_availability,
-// 		max_depth,
-// 		vec![relay_parent_b_info],
-// 	)
-// 	.unwrap();
-// 	let chain = FragmentChain::populate(scope, &storage);
-
-// 	assert_eq!(chain.to_vec().len(), 2);
-
-// 	let candidate_d_hash = CandidateHash(Hash::repeat_byte(0xAA));
-
-// 	assert!(chain.hypothetical_membership(
-// 		HypotheticalCandidate::Incomplete {
-// 			parent_head_data_hash: HeadData::from(vec![0x0a]).hash(),
-// 			candidate_relay_parent: relay_parent_a,
-// 			candidate_hash: candidate_a_hash,
-// 			candidate_para: para_id
-// 		},
-// 		&storage,
-// 	));
-
-// 	assert!(!chain.hypothetical_membership(
-// 		HypotheticalCandidate::Incomplete {
-// 			parent_head_data_hash: HeadData::from(vec![0x0a]).hash(),
-// 			candidate_relay_parent: relay_parent_c,
-// 			candidate_para: para_id,
-// 			candidate_hash: candidate_d_hash,
-// 		},
-// 		&storage,
-// 	));
-
-// 	assert!(!chain.hypothetical_membership(
-// 		HypotheticalCandidate::Incomplete {
-// 			parent_head_data_hash: HeadData::from(vec![0x0b]).hash(),
-// 			candidate_relay_parent: relay_parent_c,
-// 			candidate_para: para_id,
-// 			candidate_hash: candidate_d_hash,
-// 		},
-// 		&storage,
-// 	));
-
-// 	assert!(chain.hypothetical_membership(
-// 		HypotheticalCandidate::Incomplete {
-// 			parent_head_data_hash: HeadData::from(vec![0x0c]).hash(),
-// 			candidate_relay_parent: relay_parent_b,
-// 			candidate_para: para_id,
-// 			candidate_hash: candidate_d_hash,
-// 		},
-// 		&storage,
-// 	));
-// }
