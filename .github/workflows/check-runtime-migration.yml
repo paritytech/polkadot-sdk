@@ -116,7 +116,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: snapshot.raw
-          key: try-runtime-snapshot-${{ matrix.network }}-daily-${{ steps.get-date.outputs.today }}
+          key: try-runtime-snapshot-${{ matrix.network }}-${{ steps.get-date.outputs.today }}-wip
 
       - name: Create Snapshot If Not Exists
         if: ${{ hashFiles('snapshot.raw') == '' }}
