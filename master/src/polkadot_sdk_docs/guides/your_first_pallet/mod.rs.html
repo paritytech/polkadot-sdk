@@ -939,7 +939,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#788" id="788">788</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Currency Pallet
 //!
-//! By the end of this guide, you will write a small FRAME pallet (see
+//! By the end of this guide, you will have written a small FRAME pallet (see
 //! [`crate::polkadot_sdk::frame_runtime`]) that is capable of handling a simple crypto-currency.
 //! This pallet will:
 //!
@@ -957,7 +957,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! To get started, use one of the templates mentioned in [`crate::polkadot_sdk::templates`]. We
 //! recommend using the `polkadot-sdk-minimal-template`. You might need to change small parts of
-//! this guide, namely the crate/package names, based on which tutorial you use.
+//! this guide, namely the crate/package names, based on which template you use.
 //!
 //! &gt; Be aware that you can read the entire source code backing this tutorial by clicking on the
 //! &gt; [`source`](./mod.rs.html) button at the top right of the page.
@@ -984,8 +984,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Consider the following as a "shell pallet". We continue building the rest of this pallet based
 //! on this template.
 //!
-//! [`pallet::config`] and [`pallet::pallet`] are both mandatory parts of any pallet. Refer to the
-//! documentation of each to get an overview of what they do.
+//! [`pallet::config`] and [`pallet::pallet`](frame_support::pallet) are both mandatory parts of any
+//! pallet. Refer to the documentation of each to get an overview of what they do.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, shell_pallet)]
 </span><span class="doccomment">//!
 //! All of the code that follows in this guide should live inside of the `mod pallet`.
@@ -1012,7 +1012,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! as normal `fn`s attached to `struct Pallet`.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, impl_pallet)]
 </span><span class="doccomment">//!
-//! The logic of the functions is self-explanatory. Instead, we will focus on the FRAME-related
+//! The logic of these functions is self-explanatory. Instead, we will focus on the FRAME-related
 //! details:
 //!
 //! - Where do `T::AccountId` and `T::RuntimeOrigin` come from? These are both defined in
@@ -1022,7 +1022,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   document ([`crate::reference_docs::frame_origin`]). For now, you should only know the
 //!   signature of the function: it takes a generic `T::RuntimeOrigin` and returns a
 //!   `Result&lt;T::AccountId, _&gt;`. So by the end of this function call, we know that this dispatchable
-//!   was signed by `who`.
+//!   was signed by `sender`.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"../../substrate/frame/system/src/lib.rs"</span>, ensure_signed)]
 </span><span class="doccomment">//!
 //! - Where does `mutate`, `get` and `insert` and other storage APIs come from? All of them are
@@ -1035,7 +1035,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Which is more or less a normal Rust `Result`, with a custom [`frame::prelude::DispatchError`] as
 //! the `Err` variant. We won't cover this error in detail here, but importantly you should know
 //! that there is an `impl From&lt;&amp;'static string&gt; for DispatchError` provided (see
-//! [here](`frame::prelude::DispatchError#impl-From&lt;%26'static+str&gt;-for-DispatchError`)). Therefore,
+//! [here](`frame::prelude::DispatchError#impl-From&lt;%26str&gt;-for-DispatchError`)). Therefore,
 //! we can use basic string literals as our error type and `.into()` them into `DispatchError`.
 //!
 //! - Why are all `get` and `mutate` functions returning an `Option`? This is the default behavior
@@ -1056,7 +1056,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! ergonomic.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, transfer_better_checked)]
 </span><span class="doccomment">//!
-//! This is more or less all the logic that there is this basic currency pallet!
+//! This is more or less all the logic that there is in this basic currency pallet!
 //!
 //! ### Your First (Test) Runtime
 //!

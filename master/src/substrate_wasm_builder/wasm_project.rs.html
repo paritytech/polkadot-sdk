@@ -1346,6 +1346,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1195" id="1195">1195</a>
 <a href="#1196" id="1196">1196</a>
 <a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
+<a href="#1200" id="1200">1200</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1855,7 +1858,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	wasm_workspace_toml.insert(<span class="string">"dependencies"</span>.into(), dependencies.into());
 
-	wasm_workspace_toml.insert(<span class="string">"workspace"</span>.into(), Table::new().into());
+	<span class="kw">let </span><span class="kw-2">mut </span>workspace = Table::new();
+	workspace.insert(<span class="string">"resolver"</span>.into(), <span class="string">"2"</span>.into());
+
+	wasm_workspace_toml.insert(<span class="string">"workspace"</span>.into(), workspace.into());
 
 	<span class="kw">if </span>target == RuntimeTarget::Riscv {
 		<span class="comment">// This dependency currently doesn't compile under RISC-V, so patch it with our own fork.

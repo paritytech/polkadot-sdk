@@ -178,8 +178,8 @@ each other’s functionalities.</li>
 pallet uses its <code>Config</code> trait to receive types and values from the runtime that contains it.</p>
 <p>There are generally two ways to achieve this:</p>
 <ol>
-<li>Tight coupling pallets</li>
-<li>Loose coupling pallets</li>
+<li>Tight coupling pallets.</li>
+<li>Loose coupling pallets.</li>
 </ol>
 <p>To explain the difference between the two, consider two pallets, <code>A</code> and <code>B</code>. In both cases, <code>A</code>
 wants to use some functionality exposed by <code>B</code>.</p>
@@ -242,8 +242,8 @@ author to it, and <code>pallet-author</code> which has access to this informatio
 pallet makes its own <code>trait Config</code> be bounded by another pallet’s <code>trait Config</code>, it is
 expressing two things:</p>
 <ol>
-<li>that it can only exist in a runtime if the other pallet is also present.</li>
-<li>that it can use the other pallet’s functionality.</li>
+<li>That it can only exist in a runtime if the other pallet is also present.</li>
+<li>That it can use the other pallet’s functionality.</li>
 </ol>
 <p><code>pallet-foo</code>’s <code>Config</code> would then look like:</p>
 
@@ -303,7 +303,7 @@ from:</p>
 <p>Crucially, when using loose coupling, we gain the flexibility of providing different
 implementations of <code>AuthorProvider</code>, such that different users of a <code>pallet-foo</code> can use
 different ones, without any code change being needed. For example, in the code snippets of this
-module, you can fund <a href="struct.OtherAuthorProvider.html" title="struct polkadot_sdk_docs::reference_docs::frame_pallet_coupling::OtherAuthorProvider"><code>OtherAuthorProvider</code></a> which is an alternative implementation of
+module, you can find <a href="struct.OtherAuthorProvider.html" title="struct polkadot_sdk_docs::reference_docs::frame_pallet_coupling::OtherAuthorProvider"><code>OtherAuthorProvider</code></a>, which is an alternative implementation of
 <a href="trait.AuthorProvider.html" title="trait polkadot_sdk_docs::reference_docs::frame_pallet_coupling::AuthorProvider"><code>AuthorProvider</code></a>.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl</span>&lt;AccountId&gt; AuthorProvider&lt;AccountId&gt; <span class="kw">for </span>OtherAuthorProvider {
@@ -333,8 +333,8 @@ etc.</p>
 general, it is easier to argue about multiple pallet if they only communicate together via a
 known trait, rather than having access to all of each others public items, such as storage and
 dispatchables.</li>
-<li>If a group of pallets are meant to work together, and but are not foreseen to be generalized,
-or used by others, consider tightly coupling pallets, <em>if it simplifies the development</em>.</li>
+<li>If a group of pallets is meant to work together, but is not foreseen to be generalized, or
+used by others, consider tightly coupling pallets, <em>if it simplifies the development</em>.</li>
 <li>If a pallet needs a functionality provided by another pallet, but multiple implementations can
 be foreseen, consider loosely coupling pallets.</li>
 </ul>

@@ -204,7 +204,7 @@ between the two. See <a href="../../reference_docs/runtime_vs_smart_contract/ind
 <p>Most of these components are defined using macros, the full list of which can be found in
 <a href="../../../polkadot_sdk_frame/pallet_macros/index.html" title="mod polkadot_sdk_frame::pallet_macros"><code>frame::pallet_macros</code></a>.</p>
 <h4 id="example"><a class="doc-anchor" href="#example">§</a>Example</h4>
-<p>The following examples showcases a minimal pallet.</p>
+<p>The following example showcases a minimal pallet.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[frame::pallet(dev_mode)]
 </span><span class="kw">pub mod </span>pallet {
@@ -233,11 +233,11 @@ between the two. See <a href="../../reference_docs/runtime_vs_smart_contract/ind
 	</span><span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(PhantomData&lt;T&gt;);
 
-	<span class="doccomment">/// The events tha this pallet can emit.
+	<span class="doccomment">/// The events that this pallet can emit.
 	</span><span class="attr">#[pallet::event]
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {}
 
-	<span class="doccomment">/// A storage item that this pallet contains. This will be part of the state root trie/root
+	<span class="doccomment">/// A storage item that this pallet contains. This will be part of the state root trie
 	/// of the blockchain.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>Value&lt;T&gt; = StorageValue&lt;Value = u32&gt;;
@@ -300,7 +300,7 @@ a valid Runtime form the point of view of a Substrate client (see
 <a href="../../reference_docs/wasm_meta_protocol/index.html" title="mod polkadot_sdk_docs::reference_docs::wasm_meta_protocol"><code>crate::reference_docs::wasm_meta_protocol</code></a>). Notable examples are:</p>
 <ul>
 <li>writing a runtime in pure Rust, as done in <a href="https://github.com/JoshOrndorff/frameless-node-template">this template</a>.</li>
-<li>writing a runtime in AssemblyScript,as explored in <a href="https://github.com/LimeChain/subsembly">this project</a>.</li>
+<li>writing a runtime in AssemblyScript, as explored in <a href="https://github.com/LimeChain/subsembly">this project</a>.</li>
 </ul>
 </div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
 to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime::runtime">runtime</a></div><div class="desc docblock-short">A simple runtime that contains the above pallet and <code>frame_system</code>, the mandatory pallet of

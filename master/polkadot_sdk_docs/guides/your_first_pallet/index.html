@@ -150,7 +150,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module your_first_pallet</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section><h2><a href="../index.html">In polkadot_sdk_docs::guides</a></h2></div></nav><div class="sidebar-resizer"></div>
     <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">guides</a>::<wbr><a class="mod" href="#">your_first_pallet</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/guides/your_first_pallet/mod.rs.html#1-788">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Write your first simple pallet, learning the most most basic features of FRAME along the way.</p>
 <h2 id="currency-pallet"><a class="doc-anchor" href="#currency-pallet">§</a>Currency Pallet</h2>
-<p>By the end of this guide, you will write a small FRAME pallet (see
+<p>By the end of this guide, you will have written a small FRAME pallet (see
 <a href="../../polkadot_sdk/frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>crate::polkadot_sdk::frame_runtime</code></a>) that is capable of handling a simple crypto-currency.
 This pallet will:</p>
 <ol>
@@ -168,7 +168,7 @@ one. Further advanced FRAME related topics are discussed in <a href="../../refer
 <h3 id="writing-your-first-pallet"><a class="doc-anchor" href="#writing-your-first-pallet">§</a>Writing Your First Pallet</h3>
 <p>To get started, use one of the templates mentioned in <a href="../../polkadot_sdk/templates/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::templates"><code>crate::polkadot_sdk::templates</code></a>. We
 recommend using the <code>polkadot-sdk-minimal-template</code>. You might need to change small parts of
-this guide, namely the crate/package names, based on which tutorial you use.</p>
+this guide, namely the crate/package names, based on which template you use.</p>
 <blockquote>
 <p>Be aware that you can read the entire source code backing this tutorial by clicking on the
 <a href="./mod.rs.html"><code>source</code></a> button at the top right of the page.</p>
@@ -192,8 +192,8 @@ this guide, namely the crate/package names, based on which tutorial you use.</p>
 <h4 id="shell-pallet"><a class="doc-anchor" href="#shell-pallet">§</a>Shell Pallet</h4>
 <p>Consider the following as a “shell pallet”. We continue building the rest of this pallet based
 on this template.</p>
-<p><a href="../../../frame_support/pallet_macros/attr.config.html"><code>pallet::config</code></a> and <a href="../../../frame_support/pallet_macros/attr.pallet.html"><code>pallet::pallet</code></a> are both mandatory parts of any pallet. Refer to the
-documentation of each to get an overview of what they do.</p>
+<p><a href="../../../frame_support/pallet_macros/attr.config.html"><code>pallet::config</code></a> and <a href="../../../frame_support_procedural/attr.pallet.html" title="attr frame_support_procedural::pallet"><code>pallet::pallet</code></a> are both mandatory parts of any
+pallet. Refer to the documentation of each to get an overview of what they do.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[frame::pallet(dev_mode)]
 </span><span class="kw">pub mod </span>shell_pallet {
@@ -269,7 +269,7 @@ as normal <code>fn</code>s attached to <code>struct Pallet</code>.</p>
 		<span class="prelude-val">Ok</span>(())
 	}
 }</code></pre></div>
-<p>The logic of the functions is self-explanatory. Instead, we will focus on the FRAME-related
+<p>The logic of these functions is self-explanatory. Instead, we will focus on the FRAME-related
 details:</p>
 <ul>
 <li>Where do <code>T::AccountId</code> and <code>T::RuntimeOrigin</code> come from? These are both defined in
@@ -279,7 +279,7 @@ is outside the scope of this guide, and you can learn more about it in the origi
 document (<a href="../../reference_docs/frame_origin/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_origin"><code>crate::reference_docs::frame_origin</code></a>). For now, you should only know the
 signature of the function: it takes a generic <code>T::RuntimeOrigin</code> and returns a
 <code>Result&lt;T::AccountId, _&gt;</code>. So by the end of this function call, we know that this dispatchable
-was signed by <code>who</code>.</li>
+was signed by <code>sender</code>.</li>
 </ul>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub fn </span>ensure_signed&lt;OuterOrigin, AccountId&gt;(o: OuterOrigin) -&gt; <span class="prelude-ty">Result</span>&lt;AccountId, BadOrigin&gt;
@@ -306,7 +306,7 @@ into <a href="../../../frame_support/storage/types/map/struct.StorageMap.html#me
 <p>Which is more or less a normal Rust <code>Result</code>, with a custom <a href="../../../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError"><code>frame::prelude::DispatchError</code></a> as
 the <code>Err</code> variant. We won’t cover this error in detail here, but importantly you should know
 that there is an <code>impl From&lt;&amp;'static string&gt; for DispatchError</code> provided (see
-<a href="../../../sp_runtime/enum.DispatchError.html#impl-From%3C%26&#x27;static+str%3E-for-DispatchError" title="enum sp_runtime::DispatchError">here</a>). Therefore,
+<a href="../../../sp_runtime/enum.DispatchError.html#impl-From%3C%26str%3E-for-DispatchError" title="enum sp_runtime::DispatchError">here</a>). Therefore,
 we can use basic string literals as our error type and <code>.into()</code> them into <code>DispatchError</code>.</p>
 <ul>
 <li>Why are all <code>get</code> and <code>mutate</code> functions returning an <code>Option</code>? This is the default behavior
@@ -351,7 +351,7 @@ ergonomic.</p>
 	<span class="comment">// .. snip
 	</span><span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-<p>This is more or less all the logic that there is this basic currency pallet!</p>
+<p>This is more or less all the logic that there is in this basic currency pallet!</p>
 <h4 id="your-first-test-runtime"><a class="doc-anchor" href="#your-first-test-runtime">§</a>Your First (Test) Runtime</h4>
 <p>The typical testing code of a pallet lives in a module that imports some preludes useful for
 testing, similar to:</p>

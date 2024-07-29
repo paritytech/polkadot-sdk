@@ -172,8 +172,8 @@ zombienet):</p>
     &quot;allowed_ancestry_len&quot;: 2
 },
 &quot;scheduling_lookahead&quot;: 2
-</code></pre></div><div class="warning">`scheduling_lookahead` must be set to 2, otherwise parachain block times
-will degrade to worse than with sync backing!</div>
+</code></pre></div><div class="warning"><code>scheduling_lookahead</code> must be set to 2, otherwise parachain
+block times will degrade to worse than with sync backing!</div>
 <h3 id="phase-1---update-parachain-runtime"><a class="doc-anchor" href="#phase-1---update-parachain-runtime">§</a>Phase 1 - Update Parachain Runtime</h3>
 <p>This phase involves configuring your parachain’s runtime <code>/runtime/src/lib.rs</code> to make use of
 async backing system.</p>

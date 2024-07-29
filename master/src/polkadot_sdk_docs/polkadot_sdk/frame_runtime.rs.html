@@ -378,7 +378,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! ### Example
 //!
-//! The following examples showcases a minimal pallet.
+//! The following example showcases a minimal pallet.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"src/polkadot_sdk/frame_runtime.rs"</span>, pallet)]
 </span><span class="doccomment">//!
 //!
@@ -409,7 +409,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! [`crate::reference_docs::wasm_meta_protocol`]). Notable examples are:
 //!
 //! * writing a runtime in pure Rust, as done in [this template](https://github.com/JoshOrndorff/frameless-node-template).
-//! * writing a runtime in AssemblyScript,as explored in [this project](https://github.com/LimeChain/subsembly).
+//! * writing a runtime in AssemblyScript, as explored in [this project](https://github.com/LimeChain/subsembly).
 
 /// A FRAME based pallet. This `mod` is the entry point for everything else. All
 /// `#[pallet::xxx]` macros must be defined in this `mod`. Although, frame also provides an
@@ -443,11 +443,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(PhantomData&lt;T&gt;);
 
-	<span class="doccomment">/// The events tha this pallet can emit.
+	<span class="doccomment">/// The events that this pallet can emit.
 	</span><span class="attr">#[pallet::event]
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {}
 
-	<span class="doccomment">/// A storage item that this pallet contains. This will be part of the state root trie/root
+	<span class="doccomment">/// A storage item that this pallet contains. This will be part of the state root trie
 	/// of the blockchain.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>Value&lt;T&gt; = StorageValue&lt;Value = u32&gt;;

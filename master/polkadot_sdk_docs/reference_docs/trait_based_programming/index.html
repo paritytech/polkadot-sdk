@@ -301,7 +301,7 @@ access a type to help the Rust compiler disambiguate.</p>
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>fully_qualified {
 	<span class="kw">use </span><span class="kw">super</span>::with_system::<span class="kw-2">*</span>;
 
-	<span class="comment">// Simple of using fully qualified syntax.
+	<span class="comment">// Example of using fully qualified syntax.
 	</span><span class="kw">type </span>AccountIdOf&lt;T&gt; = &lt;T <span class="kw">as </span>SystemConfig&gt;::AccountId;
 }</code></pre></div>
 <p>This syntax can sometimes become more complicated when you are dealing with nested traits.

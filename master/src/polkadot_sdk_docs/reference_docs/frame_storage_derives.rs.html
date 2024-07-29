@@ -348,9 +348,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! &lt;section class="info"&gt;
-//! In all examples, a few lines of boilerplate have been hidden from each snippet for conciseness.
-//! &lt;/section&gt;
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! # Frame storage derives
+//!
+//! &gt; **Note:**
+//! &gt;
+//! &gt; In all examples, a few lines of boilerplate have been hidden from each snippet for
+//! &gt; conciseness.
 //!
 //! Let's begin by starting to store a `NewType` in a storage item:
 //!
@@ -484,7 +490,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! - [`frame::prelude::PartialOrdNoBound`]
 //! - [`frame::prelude::OrdNoBound`]
 //!
-//! The above traits are almost certainly needed for your tests: To print your type, assert equality
+//! The above traits are almost certainly needed for your tests - to print your type, assert equality
 //! or clone it.
 //!
 //! We can fix the following example by using [`frame::prelude::DefaultNoBound`].

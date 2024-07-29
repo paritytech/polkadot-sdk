@@ -172,7 +172,7 @@ crate, you can enable the <code>frame-support</code> feature.</p>
 <li><code>runtime</code>: As described above, enable all <code>no-std</code> crates.</li>
 <li><code>node</code>: As described above, enable all <code>std</code> crates.</li>
 <li>There does <em>not</em> exist a dedicated docs feature. To generate docs, enable the <code>runtime</code> and
-<code>node</code> feature. For docs.rs the manifest contains specific configuration to make it show up
+<code>node</code> feature. For <code>docs.rs</code> the manifest contains specific configuration to make it show up
 all re-exports.</li>
 </ul>
 <p>There is a specific <a href="https://github.com/ggwpez/zepter"><code>zepter</code></a> check in place to ensure that
@@ -208,7 +208,7 @@ need to be adjusted:</p>
    </span><span class="macro">polkadot_sdk::frame_support::parameter_types! </span>{ }
 }</code></pre></div>
 <p>Apart from this, no issues are known. There could be some bugs with how macros locate their own
-re-exports. Please compile issues that arise from using this crate.</p>
+re-exports. Please <a href="https://github.com/paritytech/polkadot-sdk/issues">report issues</a> that arise from using this crate.</p>
 <h3 id="dependencies"><a class="doc-anchor" href="#dependencies">§</a>Dependencies</h3>
 <p>The umbrella crate re-exports all published crates, with a few exceptions:</p>
 <ul>

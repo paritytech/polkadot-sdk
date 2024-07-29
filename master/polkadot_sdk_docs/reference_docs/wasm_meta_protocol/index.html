@@ -174,7 +174,7 @@ are fundamental differences between the two, explained in
 <a href="../glossary/index.html#node" title="mod polkadot_sdk_docs::reference_docs::glossary"><strong>Node</strong></a>, and is a normal binary that is compiled from
 Rust to different hardware targets.</p>
 <p>This design enables all Substrate-based chains to be fork-less-ly upgradeable, because the
-Runtime can be updates on the fly, within the execution of a block, and the node is (for the
+Runtime can be updated on the fly, within the execution of a block, and the node is (for the
 most part) oblivious to the change that is happening.</p>
 <p>Therefore, the high-level architecture of a any Substrate-based chain can be demonstrated as
 follows:</p>
@@ -265,7 +265,7 @@ end
 
 </pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
 <h3 id="state"><a class="doc-anchor" href="#state">§</a>State</h3>
-<p>From the previous sections, we know that the a database component is part of the node, not the
+<p>From the previous sections, we know that the database component is part of the node, not the
 runtime. We also hinted that a set of host functions (<a href="../../../sp_io/storage/index.html" title="mod sp_io::storage"><code>sp_io::storage</code></a>) are how the runtime
 issues commands to the node to read/write to the state. Let’s dive deeper into this.</p>
 <p>The state of the blockchain, what we seek to come to consensus about, is indeed <em>kept</em> in the
@@ -333,13 +333,13 @@ received in the node side software as opaque blobs and in the networking layer.<
 <p>At some point, based on the consensus algorithm’s rules, the node decides to import (aka.
 <em>validate</em>) a block.</p>
 <ul>
-<li>First, the node will then fetch the state of the parent hash of the block that wishes to be
+<li>First, the node will fetch the state of the parent hash of the block that wishes to be
 imported.</li>
 <li>The runtime is fetched from this state, and placed into a WASM execution environment.</li>
-<li>The <a href="../../../sp_api/trait.Core.html#method.execute_block" title="method sp_api::Core::execute_block"><code>sp_api::Core::execute_block</code></a> runtime API is called and the blocked is passed in as an
+<li>The <a href="../../../sp_api/trait.Core.html#method.execute_block" title="method sp_api::Core::execute_block"><code>sp_api::Core::execute_block</code></a> runtime API is called and the block is passed in as an
 argument.</li>
 <li>The runtime will then execute the block, and update the state accordingly. Any state update is
-issues via the <a href="../../../sp_io/storage/index.html" title="mod sp_io::storage"><code>sp_io::storage</code></a> host functions.</li>
+issued via the <a href="../../../sp_io/storage/index.html" title="mod sp_io::storage"><code>sp_io::storage</code></a> host functions.</li>
 <li>Both the runtime and node will check the state-root of the state after the block execution to
 match the one claimed in the block header.</li>
 </ul>

@@ -150,8 +150,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module custom_runtime_api_rpc</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><div class="sidebar-resizer"></div>
     <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">custom_runtime_api_rpc</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/custom_runtime_api_rpc.rs.html#1-77">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about how to create custom RPC endpoints and runtime APIs.</p>
 <h2 id="custom-rpc-dos-and-donts"><a class="doc-anchor" href="#custom-rpc-dos-and-donts">§</a>Custom RPC do’s and don’ts</h2>
-<p><strong>TLDR:</strong> don’t create new custom RPCs. Instead, rely on custom Runtime APIs, combined with
-<code>state_call</code></p>
+<p><strong>TLDR:</strong> Don’t create new custom RPCs. Instead, rely on custom Runtime APIs, combined with
+<code>state_call</code>.</p>
 <h3 id="background"><a class="doc-anchor" href="#background">§</a>Background</h3>
 <p>Polkadot-SDK offers the ability to query and subscribe storages directly. However what it does
 not have is <a href="https://github.com/paritytech/polkadot-sdk/issues/216">view functions</a>. This is an
@@ -166,9 +166,9 @@ node.</li>
 <li>To upgrade or add a new RPC logic, the RPC node has to be upgraded. This can cause significant
 trouble when the RPC infrastructure is decentralized as we will need to coordinate multiple
 parties to upgrade the RPC nodes.</li>
-<li>A lot of boilerplate code are required to add custom RPC.</li>
-<li>It prevents the dApp to use a light client or alternative client.</li>
-<li>It makes ecosystem tooling integration much more complicated. For example, the dApp will not
+<li>A lot of boilerplate code is required to add custom RPC.</li>
+<li>It prevents dApps from using a light client or an alternative client.</li>
+<li>It makes ecosystem tooling integration much more complicated. For example, dApps will not
 be able to use <a href="https://github.com/AcalaNetwork/chopsticks">Chopsticks</a> for testing as
 Chopsticks will not have the custom RPC implementation.</li>
 <li>Poorly implemented custom RPC can be a DoS vector.</li>
@@ -189,7 +189,7 @@ particular case, we can have the RPC implemented on another client.</p>
 Alternatively, the <a href="https://github.com/polkadot-evm/frontier">Frontier</a> project  also provided
 Ethereum RPC compatibility directly in the node-side software.</p>
 <h3 id="create-a-new-runtime-api"><a class="doc-anchor" href="#create-a-new-runtime-api">§</a>Create a new Runtime API</h3>
-<p>For example, let’s take a look a the process through which the account nonce can be queried
+<p>For example, let’s take a look at the process through which the account nonce can be queried
 through an RPC. First, a new runtime-api needs to be declared:</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">sp_api::decl_runtime_apis! </span>{

@@ -160,7 +160,7 @@ blockchain platform that enables different blockchains to securely interoperate.
 <a href="https://forum.polkadot.network/"><img src="https://img.shields.io/badge/polkadot-forum-e6007a?logo=polkadot" alt="forum" /></a></p>
 <p><a href="https://github.com/polkadot-fellows/rfcs"><img src="https://img.shields.io/badge/fellowship-RFCs-e6007a?logo=polkadot" alt="RFCs" /></a>
 <a href="https://github.com/polkadot-fellows/runtimes"><img src="https://img.shields.io/badge/fellowship-runtimes-e6007a?logo=polkadot" alt="Runtime" /></a>
-<a href="https://github.com/polkadot-fellows/manifesto"><img src="https://img.shields.io/badge/fellowship-manifesto-e6007a?logo=polkadot" alt="Manifesto" /></a></p>
+<a href="https://github.com/polkadot-fellows/manifesto/blob/main/manifesto.pdf"><img src="https://img.shields.io/badge/fellowship-manifesto-e6007a?logo=polkadot" alt="Manifesto" /></a></p>
 <h3 id="getting-started"><a class="doc-anchor" href="#getting-started">§</a>Getting Started</h3>
 <p>The primary way to get started with the Polkadot SDK is to start writing a FRAME-based runtime.
 See:</p>
@@ -175,7 +175,7 @@ SDK.</li>
 <p><a href="https://github.com/paritytech/polkadot-sdk/blob/master/substrate/LICENSE-APACHE2"><img src="https://img.shields.io/badge/License-GPL3%2FApache2.0-blue" alt="Substrate-license" /></a>
 <a href="https://github.com/paritytech/polkadot-sdk/blob/master/substrate"><img src="https://img.shields.io/badge/github-substrate-2324CC85" alt="GitHub Repo" /></a></p>
 <p><a href="substrate/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::substrate"><code>substrate</code></a> is the base blockchain framework used to power the Polkadot SDK. It is a full
-toolkit to create sovereign blockchains, including but not limited to those who connect to
+toolkit to create sovereign blockchains, including but not limited to those which connect to
 Polkadot as parachains.</p>
 <h5 id="frame"><a class="doc-anchor" href="#frame">§</a>FRAME</h5>
 <p><a href="https://github.com/paritytech/polkadot-sdk/blob/master/substrate/LICENSE-APACHE2"><img src="https://img.shields.io/badge/License-Apache2.0-blue" alt="Substrate-license" /></a>
@@ -214,7 +214,7 @@ flowchart LR
 </pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
 <p>A Substrate-based chain is a blockchain composed of a runtime and a node. As noted above, the
 runtime is the application logic of the blockchain, and the node is everything else.
-See <a href="../reference_docs/wasm_meta_protocol/index.html" title="mod polkadot_sdk_docs::reference_docs::wasm_meta_protocol"><code>crate::reference_docs::wasm_meta_protocol</code></a> for an in-depth explanation of this. The
+See <a href="../reference_docs/wasm_meta_protocol/index.html" title="mod polkadot_sdk_docs::reference_docs::wasm_meta_protocol"><code>reference_docs::wasm_meta_protocol</code></a> for an in-depth explanation of this. The
 former is built with <a href="frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>frame</code></a>, and the latter is built with rest of Substrate.</p>
 <blockquote>
 <p>You can think of a Substrate-based chain as a white-labeled blockchain.</p>
@@ -258,14 +258,14 @@ flowchart LR
 <li><a href="https://github.com/paritytech/parity-common"><code>parity-common</code></a></li>
 </ul>
 <h3 id="trophy-section-notable-downstream-projects"><a class="doc-anchor" href="#trophy-section-notable-downstream-projects">§</a>Trophy Section: Notable Downstream Projects</h3>
-<p>A list of projects and tools in the blockchain ecosystem that one way or another parts of the
-Polkadot SDK:</p>
+<p>A list of projects and tools in the blockchain ecosystem that one way or another use parts of
+the Polkadot SDK:</p>
 <ul>
 <li><a href="https://github.com/availproject/avail">Polygon’s spin-off, Avail</a></li>
 <li><a href="https://iohk.io/en/blog/posts/2023/11/03/partner-chains-are-coming-to-cardano/">Cardano Partner Chains</a></li>
 <li><a href="https://github.com/keep-starknet-strange/madara">Starknet’s Madara Sequencer</a></li>
 </ul>
-</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="cumulus/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::cumulus">cumulus</a></div><div class="desc docblock-short">Lean about Cumulus, the framework that transforms <a href="substrate/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::substrate"><code>substrate</code></a>-based chains into
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="cumulus/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::cumulus">cumulus</a></div><div class="desc docblock-short">Learn about Cumulus, the framework that transforms <a href="substrate/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::substrate"><code>substrate</code></a>-based chains into
 <a href="polkadot/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::polkadot"><code>polkadot</code></a>-enabled parachains.</div></li><li><div class="item-name"><a class="mod" href="frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime">frame_runtime</a></div><div class="desc docblock-short">Learn about FRAME, the framework used to build Substrate runtimes.</div></li><li><div class="item-name"><a class="mod" href="polkadot/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::polkadot">polkadot</a></div><div class="desc docblock-short">Learn about Polkadot as a platform.</div></li><li><div class="item-name"><a class="mod" href="smart_contracts/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::smart_contracts">smart_contracts</a></div><div class="desc docblock-short">Learn about different ways through which smart contracts can be utilized on top of Substrate,
 and in the Polkadot ecosystem.</div></li><li><div class="item-name"><a class="mod" href="substrate/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::substrate">substrate</a></div><div class="desc docblock-short">Learn about Substrate, the main blockchain framework used in the Polkadot ecosystem.</div></li><li><div class="item-name"><a class="mod" href="templates/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::templates">templates</a></div><div class="desc docblock-short">Index of all the templates that can act as first scaffold for a new project.</div></li><li><div class="item-name"><a class="mod" href="xcm/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::xcm">xcm</a></div><div class="desc docblock-short">Learn about XCM, the de-facto communication language between different consensus systems.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
