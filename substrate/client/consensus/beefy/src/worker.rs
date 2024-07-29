@@ -38,7 +38,7 @@ use futures::{stream::Fuse, FutureExt, StreamExt};
 use log::{debug, error, info, trace, warn};
 use sc_client_api::{Backend, HeaderBackend};
 use sc_utils::notification::NotificationReceiver;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
@@ -458,13 +458,16 @@ where
 			notification.tree_route,
 		);
 
-		self.runtime
-			.runtime_api()
-			.beefy_genesis(notification.hash)
-			.ok()
-			.flatten()
-			.filter(|genesis| *genesis == self.persisted_state.pallet_genesis)
-			.ok_or(Error::ConsensusReset)?;
+		let result = self.runtime.runtime_api().beefy_genesis(notification.hash);
+
+		match result {
+			Ok(Some(genesis)) if genesis != self.persisted_state.pallet_genesis =>
+				return Err(Error::ConsensusReset),
+			Ok(_) => {},
+			Err(api_error) => {
+				warn!(target: LOG_TARGET, "API runtime call failed: {}", api_error);
+			},
+		}
 
 		let mut new_session_added = false;
 		if *header.number() > self.best_grandpa_block() {

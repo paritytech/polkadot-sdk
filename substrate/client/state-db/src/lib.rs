@@ -47,7 +47,7 @@ mod pruning;
 mod test;
 
 use codec::Codec;
-use log::trace;
+use log::{info, trace};
 use noncanonical::NonCanonicalOverlay;
 use parking_lot::RwLock;
 use pruning::{HaveBlock, RefWindow};
@@ -355,6 +355,8 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 			return Ok(commit)
 		}
 		let number = self.non_canonical.canonicalize(hash, &mut commit)?;
+
+		info!(target: LOG_TARGET, "Canonicalizing: #{}", number);
 		if self.mode == PruningMode::ArchiveCanonical {
 			commit.data.deleted.clear();
 		}
