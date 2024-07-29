@@ -349,6 +349,7 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	///
 	/// DO NOT USE! THIS MAY BE REMOVED AT ANY TIME!
 	#[deprecated = "Only for compatibility. DO NOT USE."]
+	#[doc(hidden)]
 	fn validate_bare_compat(
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
@@ -361,6 +362,7 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	///
 	/// DO NOT USE! THIS MAY BE REMOVED AT ANY TIME!
 	#[deprecated = "Only for compatibility. DO NOT USE."]
+	#[doc(hidden)]
 	fn pre_dispatch_bare_compat(
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
@@ -374,6 +376,7 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	///
 	/// DO NOT USE! THIS MAY BE REMOVED AT ANY TIME!
 	#[deprecated = "Only for compatibility. DO NOT USE."]
+	#[doc(hidden)]
 	fn post_dispatch_bare_compat(
 		_info: &DispatchInfoOf<Call>,
 		_post_info: &PostDispatchInfoOf<Call>,
