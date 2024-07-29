@@ -2858,6 +2858,53 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2707" id="2707">2707</a>
 <a href="#2708" id="2708">2708</a>
 <a href="#2709" id="2709">2709</a>
+<a href="#2710" id="2710">2710</a>
+<a href="#2711" id="2711">2711</a>
+<a href="#2712" id="2712">2712</a>
+<a href="#2713" id="2713">2713</a>
+<a href="#2714" id="2714">2714</a>
+<a href="#2715" id="2715">2715</a>
+<a href="#2716" id="2716">2716</a>
+<a href="#2717" id="2717">2717</a>
+<a href="#2718" id="2718">2718</a>
+<a href="#2719" id="2719">2719</a>
+<a href="#2720" id="2720">2720</a>
+<a href="#2721" id="2721">2721</a>
+<a href="#2722" id="2722">2722</a>
+<a href="#2723" id="2723">2723</a>
+<a href="#2724" id="2724">2724</a>
+<a href="#2725" id="2725">2725</a>
+<a href="#2726" id="2726">2726</a>
+<a href="#2727" id="2727">2727</a>
+<a href="#2728" id="2728">2728</a>
+<a href="#2729" id="2729">2729</a>
+<a href="#2730" id="2730">2730</a>
+<a href="#2731" id="2731">2731</a>
+<a href="#2732" id="2732">2732</a>
+<a href="#2733" id="2733">2733</a>
+<a href="#2734" id="2734">2734</a>
+<a href="#2735" id="2735">2735</a>
+<a href="#2736" id="2736">2736</a>
+<a href="#2737" id="2737">2737</a>
+<a href="#2738" id="2738">2738</a>
+<a href="#2739" id="2739">2739</a>
+<a href="#2740" id="2740">2740</a>
+<a href="#2741" id="2741">2741</a>
+<a href="#2742" id="2742">2742</a>
+<a href="#2743" id="2743">2743</a>
+<a href="#2744" id="2744">2744</a>
+<a href="#2745" id="2745">2745</a>
+<a href="#2746" id="2746">2746</a>
+<a href="#2747" id="2747">2747</a>
+<a href="#2748" id="2748">2748</a>
+<a href="#2749" id="2749">2749</a>
+<a href="#2750" id="2750">2750</a>
+<a href="#2751" id="2751">2751</a>
+<a href="#2752" id="2752">2752</a>
+<a href="#2753" id="2753">2753</a>
+<a href="#2754" id="2754">2754</a>
+<a href="#2755" id="2755">2755</a>
+<a href="#2756" id="2756">2756</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3606,14 +3653,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>unsigned_deadline = T::UnsignedPhase::get();
 
 			<span class="kw">let </span>remaining = next_election - now;
-			<span class="kw">let </span>current_phase = <span class="self">Self</span>::current_phase();
+			<span class="kw">let </span>current_phase = CurrentPhase::&lt;T&gt;::get();
 
 			<span class="macro">log!</span>(
 				trace,
 				<span class="string">"current phase {:?}, next election {:?}, metadata: {:?}"</span>,
 				current_phase,
 				next_election,
-				<span class="self">Self</span>::snapshot_metadata()
+				SnapshotMetadata::&lt;T&gt;::get()
 			);
 			<span class="kw">match </span>current_phase {
 				Phase::Off <span class="kw">if </span>remaining &lt;= signed_deadline &amp;&amp; remaining &gt; unsigned_deadline =&gt; {
@@ -3713,7 +3760,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>maximum_chain_accuracy: Vec&lt;UpperOf&lt;SolutionAccuracyOf&lt;T&gt;&gt;&gt; = (<span class="number">0</span>..max_vote)
 				.map(|<span class="kw">_</span>| {
 					&lt;UpperOf&lt;SolutionAccuracyOf&lt;T&gt;&gt;&gt;::from(
-						&lt;SolutionAccuracyOf&lt;T&gt;&gt;::one().deconstruct(),
+						SolutionAccuracyOf::&lt;T&gt;::one().deconstruct(),
 					)
 				})
 				.collect();
@@ -3783,7 +3830,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Ensure witness was correct.
 			</span><span class="kw">let </span>SolutionOrSnapshotSize { voters, targets } =
-				<span class="self">Self</span>::snapshot_metadata().expect(error_message);
+				SnapshotMetadata::&lt;T&gt;::get().expect(error_message);
 
 			<span class="comment">// NOTE: we are asserting, not `ensure`ing -- we want to panic here.
 			</span><span class="macro">assert!</span>(voters <span class="kw">as </span>u32 == witness.voters, <span class="string">"{}"</span>, error_message);
@@ -3794,8 +3841,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Store the newly received solution.
 			</span><span class="macro">log!</span>(debug, <span class="string">"queued unsigned solution with score {:?}"</span>, ready.score);
-			<span class="kw">let </span>ejected_a_solution = &lt;QueuedSolution&lt;T&gt;&gt;::exists();
-			&lt;QueuedSolution&lt;T&gt;&gt;::put(ready);
+			<span class="kw">let </span>ejected_a_solution = QueuedSolution::&lt;T&gt;::exists();
+			QueuedSolution::&lt;T&gt;::put(ready);
 			<span class="self">Self</span>::deposit_event(Event::SolutionStored {
 				compute: ElectionCompute::Unsigned,
 				origin: <span class="prelude-val">None</span>,
@@ -3817,7 +3864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			maybe_next_score: <span class="prelude-ty">Option</span>&lt;ElectionScore&gt;,
 		) -&gt; DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
-			&lt;MinimumUntrustedScore&lt;T&gt;&gt;::set(maybe_next_score);
+			MinimumUntrustedScore::&lt;T&gt;::set(maybe_next_score);
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -3836,7 +3883,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			supports: Supports&lt;T::AccountId&gt;,
 		) -&gt; DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
-			<span class="macro">ensure!</span>(<span class="self">Self</span>::current_phase().is_emergency(), &lt;Error&lt;T&gt;&gt;::CallNotAllowed);
+			<span class="macro">ensure!</span>(CurrentPhase::&lt;T&gt;::get().is_emergency(), Error::&lt;T&gt;::CallNotAllowed);
 
 			<span class="comment">// bound supports with T::MaxWinners
 			</span><span class="kw">let </span>supports = supports.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::TooManyWinners)<span class="question-mark">?</span>;
@@ -3855,7 +3902,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				prev_ejected: QueuedSolution::&lt;T&gt;::exists(),
 			});
 
-			&lt;QueuedSolution&lt;T&gt;&gt;::put(solution);
+			QueuedSolution::&lt;T&gt;::put(solution);
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -3877,15 +3924,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 
 			<span class="comment">// ensure solution is timely.
-			</span><span class="macro">ensure!</span>(<span class="self">Self</span>::current_phase().is_signed(), Error::&lt;T&gt;::PreDispatchEarlySubmission);
-			<span class="macro">ensure!</span>(raw_solution.round == <span class="self">Self</span>::round(), Error::&lt;T&gt;::PreDispatchDifferentRound);
+			</span><span class="macro">ensure!</span>(CurrentPhase::&lt;T&gt;::get().is_signed(), Error::&lt;T&gt;::PreDispatchEarlySubmission);
+			<span class="macro">ensure!</span>(raw_solution.round == Round::&lt;T&gt;::get(), Error::&lt;T&gt;::PreDispatchDifferentRound);
 
 			<span class="comment">// NOTE: this is the only case where having separate snapshot would have been better
 			// because could do just decode_len. But we can create abstractions to do this.
 
 			// build size. Note: this is not needed for weight calc, thus not input.
 			// unlikely to ever return an error: if phase is signed, snapshot will exist.
-			</span><span class="kw">let </span>size = <span class="self">Self</span>::snapshot_metadata().ok_or(Error::&lt;T&gt;::MissingSnapshotMetadata)<span class="question-mark">?</span>;
+			</span><span class="kw">let </span>size = SnapshotMetadata::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::MissingSnapshotMetadata)<span class="question-mark">?</span>;
 
 			<span class="macro">ensure!</span>(
 				<span class="self">Self</span>::solution_weight_of(<span class="kw-2">&amp;</span>raw_solution, size).all_lt(T::SignedMaxWeight::get()),
@@ -3948,7 +3995,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			maybe_max_targets: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 		) -&gt; DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
-			<span class="macro">ensure!</span>(<span class="self">Self</span>::current_phase().is_emergency(), &lt;Error&lt;T&gt;&gt;::CallNotAllowed);
+			<span class="macro">ensure!</span>(CurrentPhase::&lt;T&gt;::get().is_emergency(), Error::&lt;T&gt;::CallNotAllowed);
 
 			<span class="kw">let </span>election_bounds = ElectionBoundsBuilder::default()
 				.voters_count(maybe_max_voters.unwrap_or(u32::MAX).into())
@@ -3983,7 +4030,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				prev_ejected: QueuedSolution::&lt;T&gt;::exists(),
 			});
 
-			&lt;QueuedSolution&lt;T&gt;&gt;::put(solution);
+			QueuedSolution::&lt;T&gt;::put(solution);
 			<span class="prelude-val">Ok</span>(())
 		}
 	}
@@ -4116,19 +4163,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This is merely incremented once per every time that an upstream `elect` is called.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>round)]
 	</span><span class="kw">pub type </span>Round&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery, DefaultForRound&gt;;
 
 	<span class="doccomment">/// Current phase.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>current_phase)]
 	</span><span class="kw">pub type </span>CurrentPhase&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Phase&lt;BlockNumberFor&lt;T&gt;&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Current best solution, signed or unsigned, queued to be returned upon `elect`.
 	///
 	/// Always sorted by score.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>queued_solution)]
 	</span><span class="kw">pub type </span>QueuedSolution&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, ReadySolution&lt;T::AccountId, T::MaxWinners&gt;&gt;;
 
@@ -4137,7 +4181,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This is created at the beginning of the signed phase and cleared upon calling `elect`.
 	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>snapshot)]
 	</span><span class="kw">pub type </span>Snapshot&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, RoundSnapshot&lt;T::AccountId, VoterOf&lt;T&gt;&gt;&gt;;
 
 	<span class="doccomment">/// Desired number of targets to elect for this round.
@@ -4145,7 +4188,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Only exists when [`Snapshot`] is present.
 	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>desired_targets)]
 	</span><span class="kw">pub type </span>DesiredTargets&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, u32&gt;;
 
 	<span class="doccomment">/// The metadata of the [`RoundSnapshot`]
@@ -4153,7 +4195,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Only exists when [`Snapshot`] is present.
 	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>snapshot_metadata)]
 	</span><span class="kw">pub type </span>SnapshotMetadata&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, SolutionOrSnapshotSize&gt;;
 
 	<span class="comment">// The following storage items collectively comprise `SignedSubmissions&lt;T&gt;`, and should never be
@@ -4200,7 +4241,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Can be set via `set_minimum_untrusted_score`.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>minimum_untrusted_score)]
 	</span><span class="kw">pub type </span>MinimumUntrustedScore&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, ElectionScore&gt;;
 
 	<span class="doccomment">/// The in-code storage version.
@@ -4221,15 +4261,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: Config&gt; SnapshotWrapper&lt;T&gt; {
 	<span class="doccomment">/// Kill all snapshot related storage items at the same time.
 	</span><span class="kw">pub fn </span>kill() {
-		&lt;Snapshot&lt;T&gt;&gt;::kill();
-		&lt;SnapshotMetadata&lt;T&gt;&gt;::kill();
-		&lt;DesiredTargets&lt;T&gt;&gt;::kill();
+		Snapshot::&lt;T&gt;::kill();
+		SnapshotMetadata::&lt;T&gt;::kill();
+		DesiredTargets::&lt;T&gt;::kill();
 	}
 	<span class="doccomment">/// Set all snapshot related storage items at the same time.
 	</span><span class="kw">pub fn </span>set(metadata: SolutionOrSnapshotSize, desired_targets: u32, buffer: <span class="kw-2">&amp;</span>[u8]) {
-		&lt;SnapshotMetadata&lt;T&gt;&gt;::put(metadata);
-		&lt;DesiredTargets&lt;T&gt;&gt;::put(desired_targets);
-		sp_io::storage::set(<span class="kw-2">&amp;</span>&lt;Snapshot&lt;T&gt;&gt;::hashed_key(), <span class="kw-2">&amp;</span>buffer);
+		SnapshotMetadata::&lt;T&gt;::put(metadata);
+		DesiredTargets::&lt;T&gt;::put(desired_targets);
+		sp_io::storage::set(<span class="kw-2">&amp;</span>Snapshot::&lt;T&gt;::hashed_key(), <span class="kw-2">&amp;</span>buffer);
 	}
 
 	<span class="doccomment">/// Check if all of the storage items exist at the same time or all of the storage items do not
@@ -4237,9 +4277,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">pub fn </span>is_consistent() -&gt; bool {
 		<span class="kw">let </span>snapshots = [
-			&lt;Snapshot&lt;T&gt;&gt;::exists(),
-			&lt;SnapshotMetadata&lt;T&gt;&gt;::exists(),
-			&lt;DesiredTargets&lt;T&gt;&gt;::exists(),
+			Snapshot::&lt;T&gt;::exists(),
+			SnapshotMetadata::&lt;T&gt;::exists(),
+			DesiredTargets::&lt;T&gt;::exists(),
 		];
 
 		<span class="comment">// All should either exist or not exist
@@ -4248,10 +4288,64 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+	<span class="doccomment">/// Internal counter for the number of rounds.
+	///
+	/// This is useful for de-duplication of transactions submitted to the pool, and general
+	/// diagnostics of the pallet.
+	///
+	/// This is merely incremented once per every time that an upstream `elect` is called.
+	</span><span class="kw">pub fn </span>round() -&gt; u32 {
+		Round::&lt;T&gt;::get()
+	}
+
+	<span class="doccomment">/// Current phase.
+	</span><span class="kw">pub fn </span>current_phase() -&gt; Phase&lt;BlockNumberFor&lt;T&gt;&gt; {
+		CurrentPhase::&lt;T&gt;::get()
+	}
+
+	<span class="doccomment">/// Current best solution, signed or unsigned, queued to be returned upon `elect`.
+	///
+	/// Always sorted by score.
+	</span><span class="kw">pub fn </span>queued_solution() -&gt; <span class="prelude-ty">Option</span>&lt;ReadySolution&lt;T::AccountId, T::MaxWinners&gt;&gt; {
+		QueuedSolution::&lt;T&gt;::get()
+	}
+
+	<span class="doccomment">/// Snapshot data of the round.
+	///
+	/// This is created at the beginning of the signed phase and cleared upon calling `elect`.
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
+	</span><span class="kw">pub fn </span>snapshot() -&gt; <span class="prelude-ty">Option</span>&lt;RoundSnapshot&lt;T::AccountId, VoterOf&lt;T&gt;&gt;&gt; {
+		Snapshot::&lt;T&gt;::get()
+	}
+
+	<span class="doccomment">/// Desired number of targets to elect for this round.
+	///
+	/// Only exists when [`Snapshot`] is present.
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
+	</span><span class="kw">pub fn </span>desired_targets() -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
+		DesiredTargets::&lt;T&gt;::get()
+	}
+
+	<span class="doccomment">/// The metadata of the [`RoundSnapshot`]
+	///
+	/// Only exists when [`Snapshot`] is present.
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
+	</span><span class="kw">pub fn </span>snapshot_metadata() -&gt; <span class="prelude-ty">Option</span>&lt;SolutionOrSnapshotSize&gt; {
+		SnapshotMetadata::&lt;T&gt;::get()
+	}
+
+	<span class="doccomment">/// The minimum score that each 'untrusted' solution must attain in order to be considered
+	/// feasible.
+	///
+	/// Can be set via `set_minimum_untrusted_score`.
+	</span><span class="kw">pub fn </span>minimum_untrusted_score() -&gt; <span class="prelude-ty">Option</span>&lt;ElectionScore&gt; {
+		MinimumUntrustedScore::&lt;T&gt;::get()
+	}
+
 	<span class="doccomment">/// Internal logic of the offchain worker, to be executed only when the offchain lock is
 	/// acquired with success.
 	</span><span class="kw">fn </span>do_synchronized_offchain_worker(now: BlockNumberFor&lt;T&gt;) {
-		<span class="kw">let </span>current_phase = <span class="self">Self</span>::current_phase();
+		<span class="kw">let </span>current_phase = CurrentPhase::&lt;T&gt;::get();
 		<span class="macro">log!</span>(trace, <span class="string">"lock for offchain worker acquired. Phase = {:?}"</span>, current_phase);
 		<span class="kw">match </span>current_phase {
 			Phase::Unsigned((<span class="bool-val">true</span>, opened)) <span class="kw">if </span>opened == now =&gt; {
@@ -4277,13 +4371,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Phase transition helper.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>phase_transition(to: Phase&lt;BlockNumberFor&lt;T&gt;&gt;) {
-		<span class="macro">log!</span>(info, <span class="string">"Starting phase {:?}, round {}."</span>, to, <span class="self">Self</span>::round());
+		<span class="macro">log!</span>(info, <span class="string">"Starting phase {:?}, round {}."</span>, to, Round::&lt;T&gt;::get());
 		<span class="self">Self</span>::deposit_event(Event::PhaseTransitioned {
-			from: &lt;CurrentPhase&lt;T&gt;&gt;::get(),
+			from: CurrentPhase::&lt;T&gt;::get(),
 			to,
-			round: <span class="self">Self</span>::round(),
+			round: Round::&lt;T&gt;::get(),
 		});
-		&lt;CurrentPhase&lt;T&gt;&gt;::put(to);
+		CurrentPhase::&lt;T&gt;::put(to);
 	}
 
 	<span class="doccomment">/// Parts of [`create_snapshot`] that happen inside of this pallet.
@@ -4387,7 +4481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This is always mandatory weight.
 	</span><span class="kw">fn </span>register_weight(weight: Weight) {
-		&lt;frame_system::Pallet&lt;T&gt;&gt;::register_extra_weight_unchecked(
+		frame_system::Pallet::&lt;T&gt;::register_extra_weight_unchecked(
 			weight,
 			DispatchClass::Mandatory,
 		);
@@ -4399,11 +4493,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		compute: ElectionCompute,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReadySolution&lt;T::AccountId, T::MaxWinners&gt;, FeasibilityError&gt; {
 		<span class="kw">let </span>desired_targets =
-			<span class="self">Self</span>::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)<span class="question-mark">?</span>;
+			DesiredTargets::&lt;T&gt;::get().ok_or(FeasibilityError::SnapshotUnavailable)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>snapshot = <span class="self">Self</span>::snapshot().ok_or(FeasibilityError::SnapshotUnavailable)<span class="question-mark">?</span>;
-		<span class="kw">let </span>round = <span class="self">Self</span>::round();
-		<span class="kw">let </span>minimum_untrusted_score = <span class="self">Self</span>::minimum_untrusted_score();
+		<span class="kw">let </span>snapshot = Snapshot::&lt;T&gt;::get().ok_or(FeasibilityError::SnapshotUnavailable)<span class="question-mark">?</span>;
+		<span class="kw">let </span>round = Round::&lt;T&gt;::get();
+		<span class="kw">let </span>minimum_untrusted_score = MinimumUntrustedScore::&lt;T&gt;::get();
 
 		Miner::&lt;T::MinerConfig&gt;::feasibility_check(
 			raw_solution,
@@ -4422,7 +4516,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// 3. Clear all snapshot data.
 	</span><span class="kw">fn </span>rotate_round() {
 		<span class="comment">// Inc round.
-		</span>&lt;Round&lt;T&gt;&gt;::mutate(|r| <span class="kw-2">*</span>r += <span class="number">1</span>);
+		</span>Round::&lt;T&gt;::mutate(|r| <span class="kw-2">*</span>r += <span class="number">1</span>);
 
 		<span class="comment">// Phase is off now.
 		</span><span class="self">Self</span>::phase_transition(Phase::Off);
@@ -4441,7 +4535,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//   inexpensive (1 read of an empty vector).
 		</span><span class="kw">let _ </span>= <span class="self">Self</span>::finalize_signed_phase();
 
-		&lt;QueuedSolution&lt;T&gt;&gt;::take()
+		QueuedSolution::&lt;T&gt;::take()
 			.ok_or(ElectionError::&lt;T&gt;::NothingQueued)
 			.or_else(|<span class="kw">_</span>| {
 				<span class="comment">// default data provider bounds are unbounded. calling `instant_elect` with
@@ -4462,14 +4556,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 			.map(|ReadySolution { compute, score, supports }| {
 				<span class="self">Self</span>::deposit_event(Event::ElectionFinalized { compute, score });
-				<span class="kw">if </span><span class="self">Self</span>::round() != <span class="number">1 </span>{
+				<span class="kw">if </span>Round::&lt;T&gt;::get() != <span class="number">1 </span>{
 					<span class="macro">log!</span>(info, <span class="string">"Finalized election round with compute {:?}."</span>, compute);
 				}
 				supports
 			})
 			.map_err(|err| {
 				<span class="self">Self</span>::deposit_event(Event::ElectionFailed);
-				<span class="kw">if </span><span class="self">Self</span>::round() != <span class="number">1 </span>{
+				<span class="kw">if </span>Round::&lt;T&gt;::get() != <span class="number">1 </span>{
 					<span class="macro">log!</span>(warn, <span class="string">"Failed to finalize election round. reason {:?}"</span>, err);
 				}
 				err
@@ -4512,10 +4606,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// - [`SignedSubmissionIndices`] is sorted by election score.
 	</span><span class="kw">fn </span>try_state_signed_submissions_map() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>last_score: ElectionScore = Default::default();
-		<span class="kw">let </span>indices = &lt;SignedSubmissionIndices&lt;T&gt;&gt;::get();
+		<span class="kw">let </span>indices = SignedSubmissionIndices::&lt;T&gt;::get();
 
 		<span class="kw">for </span>(i, indice) <span class="kw">in </span>indices.iter().enumerate() {
-			<span class="kw">let </span>submission = &lt;SignedSubmissionsMap&lt;T&gt;&gt;::get(indice.<span class="number">2</span>);
+			<span class="kw">let </span>submission = SignedSubmissionsMap::&lt;T&gt;::get(indice.<span class="number">2</span>);
 			<span class="kw">if </span>submission.is_none() {
 				<span class="kw">return </span><span class="prelude-val">Err</span>(
 					<span class="string">"All signed submissions indices must be part of the submissions map"</span>.into()
@@ -4534,16 +4628,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="kw">if </span>&lt;SignedSubmissionsMap&lt;T&gt;&gt;::iter().nth(indices.len()).is_some() {
+		<span class="kw">if </span>SignedSubmissionsMap::&lt;T&gt;::iter().nth(indices.len()).is_some() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(
 				<span class="string">"Signed submissions map length should be the same as the indices vec length"</span>.into()
 			)
 		}
 
-		<span class="kw">match </span>&lt;SignedSubmissionNextIndex&lt;T&gt;&gt;::get() {
+		<span class="kw">match </span>SignedSubmissionNextIndex::&lt;T&gt;::get() {
 			<span class="number">0 </span>=&gt; <span class="prelude-val">Ok</span>(()),
 			next =&gt;
-				<span class="kw">if </span>&lt;SignedSubmissionsMap&lt;T&gt;&gt;::get(next).is_some() {
+				<span class="kw">if </span>SignedSubmissionsMap::&lt;T&gt;::get(next).is_some() {
 					<span class="kw">return </span><span class="prelude-val">Err</span>(
 						<span class="string">"The next submissions index should not be in the submissions maps already"
 							</span>.into(),
@@ -4557,10 +4651,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// [`Phase::Off`] state check. Invariants:
 	// - If phase is `Phase::Off`, [`Snapshot`] must be none.
 	</span><span class="kw">fn </span>try_state_phase_off() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
-		<span class="kw">match </span><span class="self">Self</span>::current_phase().is_off() {
+		<span class="kw">match </span>CurrentPhase::&lt;T&gt;::get().is_off() {
 			<span class="bool-val">false </span>=&gt; <span class="prelude-val">Ok</span>(()),
 			<span class="bool-val">true </span>=&gt;
-				<span class="kw">if </span>&lt;Snapshot&lt;T&gt;&gt;::get().is_some() {
+				<span class="kw">if </span>Snapshot::&lt;T&gt;::get().is_some() {
 					<span class="prelude-val">Err</span>(<span class="string">"Snapshot must be none when in Phase::Off"</span>.into())
 				} <span class="kw">else </span>{
 					<span class="prelude-val">Ok</span>(())
@@ -4579,7 +4673,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T: Config&gt; ElectionProvider <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">fn </span>ongoing() -&gt; bool {
-		<span class="kw">match </span><span class="self">Self</span>::current_phase() {
+		<span class="kw">match </span>CurrentPhase::&lt;T&gt;::get() {
 			Phase::Off =&gt; <span class="bool-val">false</span>,
 			<span class="kw">_ </span>=&gt; <span class="bool-val">true</span>,
 		}
@@ -4631,12 +4725,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>snapshot_is_there() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to(&lt;EpochLength&gt;::get() - &lt;SignedPhase&gt;::get() - &lt;UnsignedPhase&gt;::get());
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 			<span class="kw">let </span>solution = raw_solution();
 
 			<span class="comment">// kill `Snapshot`, `SnapshotMetadata` and `DesiredTargets` for the storage state to
 			// be consistent, by using the `SnapshotWrapper` for the try_state checks to pass.
-			</span>&lt;SnapshotWrapper&lt;Runtime&gt;&gt;::kill();
+			</span>SnapshotWrapper::&lt;Runtime&gt;::kill();
 
 			<span class="macro">assert_noop!</span>(
 				MultiPhase::feasibility_check(solution, COMPUTE),
@@ -4649,7 +4743,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>round() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to(&lt;EpochLength&gt;::get() - &lt;SignedPhase&gt;::get() - &lt;UnsignedPhase&gt;::get());
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">let </span><span class="kw-2">mut </span>solution = raw_solution();
 			solution.round += <span class="number">1</span>;
@@ -4664,13 +4758,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>desired_targets_gets_capped() {
 		ExtBuilder::default().desired_targets(<span class="number">8</span>).build_and_execute(|| {
 			roll_to(&lt;EpochLength&gt;::get() - &lt;SignedPhase&gt;::get() - &lt;UnsignedPhase&gt;::get());
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">let </span>raw = raw_solution();
 
 			<span class="macro">assert_eq!</span>(raw.solution.unique_targets().len(), <span class="number">4</span>);
 			<span class="comment">// desired_targets is capped to the number of targets which is 4
-			</span><span class="macro">assert_eq!</span>(MultiPhase::desired_targets().unwrap(), <span class="number">4</span>);
+			</span><span class="macro">assert_eq!</span>(DesiredTargets::&lt;Runtime&gt;::get().unwrap(), <span class="number">4</span>);
 
 			<span class="comment">// It should succeed
 			</span><span class="macro">assert_ok!</span>(MultiPhase::feasibility_check(raw, COMPUTE));
@@ -4681,13 +4775,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>less_than_desired_targets_fails() {
 		ExtBuilder::default().desired_targets(<span class="number">8</span>).build_and_execute(|| {
 			roll_to(&lt;EpochLength&gt;::get() - &lt;SignedPhase&gt;::get() - &lt;UnsignedPhase&gt;::get());
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">let </span><span class="kw-2">mut </span>raw = raw_solution();
 
 			<span class="macro">assert_eq!</span>(raw.solution.unique_targets().len(), <span class="number">4</span>);
 			<span class="comment">// desired_targets is capped to the number of targets which is 4
-			</span><span class="macro">assert_eq!</span>(MultiPhase::desired_targets().unwrap(), <span class="number">4</span>);
+			</span><span class="macro">assert_eq!</span>(DesiredTargets::&lt;Runtime&gt;::get().unwrap(), <span class="number">4</span>);
 
 			<span class="comment">// Force the number of winners to be bigger to fail
 			</span>raw.solution.votes1[<span class="number">0</span>].<span class="number">1 </span>= <span class="number">4</span>;
@@ -4704,10 +4798,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>winner_indices() {
 		ExtBuilder::default().desired_targets(<span class="number">2</span>).build_and_execute(|| {
 			roll_to(&lt;EpochLength&gt;::get() - &lt;SignedPhase&gt;::get() - &lt;UnsignedPhase&gt;::get());
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">let </span><span class="kw-2">mut </span>raw = raw_solution();
-			<span class="macro">assert_eq!</span>(MultiPhase::snapshot().unwrap().targets.len(), <span class="number">4</span>);
+			<span class="macro">assert_eq!</span>(Snapshot::&lt;Runtime&gt;::get().unwrap().targets.len(), <span class="number">4</span>);
 			<span class="comment">// ----------------------------------------------------^^ valid range is [0..3].
 
 			// Swap all votes from 3 to 4. This will ensure that the number of unique winners will
@@ -4738,10 +4832,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Should be caught in `solution.into_assignment`.
 		</span>ExtBuilder::default().desired_targets(<span class="number">2</span>).build_and_execute(|| {
 			roll_to(&lt;EpochLength&gt;::get() - &lt;SignedPhase&gt;::get() - &lt;UnsignedPhase&gt;::get());
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">let </span><span class="kw-2">mut </span>solution = raw_solution();
-			<span class="macro">assert_eq!</span>(MultiPhase::snapshot().unwrap().voters.len(), <span class="number">8</span>);
+			<span class="macro">assert_eq!</span>(Snapshot::&lt;Runtime&gt;::get().unwrap().voters.len(), <span class="number">8</span>);
 			<span class="comment">// ----------------------------------------------------^^ valid range is [0..7].
 
 			// Check that there is an index 7 in votes1, and flip to 8.
@@ -4765,10 +4859,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>voter_votes() {
 		ExtBuilder::default().desired_targets(<span class="number">2</span>).build_and_execute(|| {
 			roll_to(&lt;EpochLength&gt;::get() - &lt;SignedPhase&gt;::get() - &lt;UnsignedPhase&gt;::get());
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">let </span><span class="kw-2">mut </span>solution = raw_solution();
-			<span class="macro">assert_eq!</span>(MultiPhase::snapshot().unwrap().voters.len(), <span class="number">8</span>);
+			<span class="macro">assert_eq!</span>(Snapshot::&lt;Runtime&gt;::get().unwrap().voters.len(), <span class="number">8</span>);
 			<span class="comment">// ----------------------------------------------------^^ valid range is [0..7].
 
 			// First, check that voter at index 7 (40) actually voted for 3 (40) -- this is self
@@ -4794,10 +4888,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>score() {
 		ExtBuilder::default().desired_targets(<span class="number">2</span>).build_and_execute(|| {
 			roll_to(&lt;EpochLength&gt;::get() - &lt;SignedPhase&gt;::get() - &lt;UnsignedPhase&gt;::get());
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">let </span><span class="kw-2">mut </span>solution = raw_solution();
-			<span class="macro">assert_eq!</span>(MultiPhase::snapshot().unwrap().voters.len(), <span class="number">8</span>);
+			<span class="macro">assert_eq!</span>(Snapshot::&lt;Runtime&gt;::get().unwrap().voters.len(), <span class="number">8</span>);
 
 			<span class="comment">// Simply faff with the score.
 			</span>solution.score.minimal_stake += <span class="number">1</span>;
@@ -4832,30 +4926,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			//         Signed      Unsigned   Elect             Signed     Unsigned    Elect
 
 			</span><span class="macro">assert_eq!</span>(System::block_number(), <span class="number">0</span>);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Off);
-			<span class="macro">assert_eq!</span>(MultiPhase::round(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Off);
+			<span class="macro">assert_eq!</span>(Round::&lt;Runtime&gt;::get(), <span class="number">1</span>);
 
 			roll_to(<span class="number">4</span>);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Off);
-			<span class="macro">assert!</span>(MultiPhase::snapshot().is_none());
-			<span class="macro">assert_eq!</span>(MultiPhase::round(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Off);
+			<span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_none());
+			<span class="macro">assert_eq!</span>(Round::&lt;Runtime&gt;::get(), <span class="number">1</span>);
 
 			roll_to_signed();
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Signed);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Signed);
 			<span class="macro">assert_eq!</span>(
 				multi_phase_events(),
 				<span class="macro">vec!</span>[Event::PhaseTransitioned { from: Phase::Off, to: Phase::Signed, round: <span class="number">1 </span>}]
 			);
-			<span class="macro">assert!</span>(MultiPhase::snapshot().is_some());
-			<span class="macro">assert_eq!</span>(MultiPhase::round(), <span class="number">1</span>);
+			<span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_some());
+			<span class="macro">assert_eq!</span>(Round::&lt;Runtime&gt;::get(), <span class="number">1</span>);
 
 			roll_to(<span class="number">24</span>);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Signed);
-			<span class="macro">assert!</span>(MultiPhase::snapshot().is_some());
-			<span class="macro">assert_eq!</span>(MultiPhase::round(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Signed);
+			<span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_some());
+			<span class="macro">assert_eq!</span>(Round::&lt;Runtime&gt;::get(), <span class="number">1</span>);
 
 			roll_to_unsigned();
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
 			<span class="macro">assert_eq!</span>(
 				multi_phase_events(),
 				<span class="macro">vec!</span>[
@@ -4867,35 +4961,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span>},
 				],
 			);
-			<span class="macro">assert!</span>(MultiPhase::snapshot().is_some());
+			<span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_some());
 
 			roll_to(<span class="number">29</span>);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
-			<span class="macro">assert!</span>(MultiPhase::snapshot().is_some());
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
+			<span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_some());
 
 			roll_to(<span class="number">30</span>);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
-			<span class="macro">assert!</span>(MultiPhase::snapshot().is_some());
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
+			<span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_some());
 
 			<span class="comment">// We close when upstream tells us to elect.
 			</span>roll_to(<span class="number">32</span>);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
-			<span class="macro">assert!</span>(MultiPhase::snapshot().is_some());
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
+			<span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_some());
 
 			<span class="macro">assert_ok!</span>(MultiPhase::elect());
 
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_off());
-			<span class="macro">assert!</span>(MultiPhase::snapshot().is_none());
-			<span class="macro">assert_eq!</span>(MultiPhase::round(), <span class="number">2</span>);
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
+			<span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_none());
+			<span class="macro">assert_eq!</span>(Round::&lt;Runtime&gt;::get(), <span class="number">2</span>);
 
 			roll_to(<span class="number">44</span>);
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_off());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
 
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			roll_to(<span class="number">55</span>);
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned_open_at(<span class="number">55</span>));
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned_open_at(<span class="number">55</span>));
 
 			<span class="macro">assert_eq!</span>(
 				multi_phase_events(),
@@ -4934,22 +5028,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>signed_phase_void() {
 		ExtBuilder::default().phases(<span class="number">0</span>, <span class="number">10</span>).build_and_execute(|| {
 			roll_to(<span class="number">15</span>);
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_off());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
 
 			roll_to(<span class="number">19</span>);
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_off());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
 
 			roll_to(<span class="number">20</span>);
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned_open_at(<span class="number">20</span>));
-			<span class="macro">assert!</span>(MultiPhase::snapshot().is_some());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned_open_at(<span class="number">20</span>));
+			<span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_some());
 
 			roll_to(<span class="number">30</span>);
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned_open_at(<span class="number">20</span>));
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned_open_at(<span class="number">20</span>));
 
 			<span class="macro">assert_ok!</span>(MultiPhase::elect());
 
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_off());
-			<span class="macro">assert!</span>(MultiPhase::snapshot().is_none());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
+			<span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_none());
 
 			<span class="macro">assert_eq!</span>(
 				multi_phase_events(),
@@ -4981,22 +5075,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>unsigned_phase_void() {
 		ExtBuilder::default().phases(<span class="number">10</span>, <span class="number">0</span>).build_and_execute(|| {
 			roll_to(<span class="number">15</span>);
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_off());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
 
 			roll_to(<span class="number">19</span>);
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_off());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
 
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
-			<span class="macro">assert!</span>(MultiPhase::snapshot().is_some());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
+			<span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_some());
 
 			roll_to(<span class="number">30</span>);
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="macro">assert_ok!</span>(MultiPhase::elect());
 
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_off());
-			<span class="macro">assert!</span>(MultiPhase::snapshot().is_none());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
+			<span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_none());
 
 			<span class="macro">assert_eq!</span>(
 				multi_phase_events(),
@@ -5020,21 +5114,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>both_phases_void() {
 		ExtBuilder::default().phases(<span class="number">0</span>, <span class="number">0</span>).build_and_execute(|| {
 			roll_to(<span class="number">15</span>);
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_off());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
 
 			roll_to(<span class="number">19</span>);
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_off());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
 
 			roll_to(<span class="number">20</span>);
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_off());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
 
 			roll_to(<span class="number">30</span>);
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_off());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
 
 			<span class="comment">// This module is now only capable of doing on-chain backup.
 			</span><span class="macro">assert_ok!</span>(MultiPhase::elect());
 
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_off());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
 
 			<span class="macro">assert_eq!</span>(
 				multi_phase_events(),
@@ -5064,8 +5158,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				multi_phase_events(),
 				<span class="macro">vec!</span>[Event::PhaseTransitioned { from: Phase::Off, to: Phase::Signed, round: <span class="number">1 </span>}]
 			);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Signed);
-			<span class="macro">assert_eq!</span>(MultiPhase::round(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Signed);
+			<span class="macro">assert_eq!</span>(Round::&lt;Runtime&gt;::get(), <span class="number">1</span>);
 
 			<span class="comment">// An unexpected call to elect.
 			</span><span class="macro">assert_ok!</span>(MultiPhase::elect());
@@ -5083,11 +5177,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				],
 			);
 			<span class="comment">// All storage items must be cleared.
-			</span><span class="macro">assert_eq!</span>(MultiPhase::round(), <span class="number">2</span>);
-			<span class="macro">assert!</span>(MultiPhase::snapshot().is_none());
-			<span class="macro">assert!</span>(MultiPhase::snapshot_metadata().is_none());
-			<span class="macro">assert!</span>(MultiPhase::desired_targets().is_none());
-			<span class="macro">assert!</span>(MultiPhase::queued_solution().is_none());
+			</span><span class="macro">assert_eq!</span>(Round::&lt;Runtime&gt;::get(), <span class="number">2</span>);
+			<span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_none());
+			<span class="macro">assert!</span>(SnapshotMetadata::&lt;Runtime&gt;::get().is_none());
+			<span class="macro">assert!</span>(DesiredTargets::&lt;Runtime&gt;::get().is_none());
+			<span class="macro">assert!</span>(QueuedSolution::&lt;Runtime&gt;::get().is_none());
 			<span class="macro">assert!</span>(MultiPhase::signed_submissions().is_empty());
 		})
 	}
@@ -5103,8 +5197,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				multi_phase_events(),
 				<span class="macro">vec!</span>[Event::PhaseTransitioned { from: Phase::Off, to: Phase::Signed, round: <span class="number">1 </span>}]
 			);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Signed);
-			<span class="macro">assert_eq!</span>(MultiPhase::round(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Signed);
+			<span class="macro">assert_eq!</span>(Round::&lt;Runtime&gt;::get(), <span class="number">1</span>);
 
 			<span class="comment">// fill the queue with signed submissions
 			</span><span class="kw">for </span>s <span class="kw">in </span><span class="number">0</span>..SignedMaxSubmissions::get() {
@@ -5122,11 +5216,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">assert_ok!</span>(MultiPhase::elect());
 
 			<span class="comment">// all storage items must be cleared.
-			</span><span class="macro">assert_eq!</span>(MultiPhase::round(), <span class="number">2</span>);
-			<span class="macro">assert!</span>(MultiPhase::snapshot().is_none());
-			<span class="macro">assert!</span>(MultiPhase::snapshot_metadata().is_none());
-			<span class="macro">assert!</span>(MultiPhase::desired_targets().is_none());
-			<span class="macro">assert!</span>(MultiPhase::queued_solution().is_none());
+			</span><span class="macro">assert_eq!</span>(Round::&lt;Runtime&gt;::get(), <span class="number">2</span>);
+			<span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_none());
+			<span class="macro">assert!</span>(SnapshotMetadata::&lt;Runtime&gt;::get().is_none());
+			<span class="macro">assert!</span>(DesiredTargets::&lt;Runtime&gt;::get().is_none());
+			<span class="macro">assert!</span>(QueuedSolution::&lt;Runtime&gt;::get().is_none());
 			<span class="macro">assert!</span>(MultiPhase::signed_submissions().is_empty());
 
 			<span class="macro">assert_eq!</span>(
@@ -5181,7 +5275,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>check_events_with_compute_signed() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">let </span>solution = raw_solution();
 			<span class="macro">assert_ok!</span>(MultiPhase::submit(
@@ -5229,23 +5323,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>check_events_with_compute_unsigned() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned());
 
 			<span class="comment">// ensure we have snapshots in place.
-			</span><span class="macro">assert!</span>(MultiPhase::snapshot().is_some());
-			<span class="macro">assert_eq!</span>(MultiPhase::desired_targets().unwrap(), <span class="number">2</span>);
+			</span><span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_some());
+			<span class="macro">assert_eq!</span>(DesiredTargets::&lt;Runtime&gt;::get().unwrap(), <span class="number">2</span>);
 
 			<span class="comment">// mine seq_phragmen solution with 2 iters.
 			</span><span class="kw">let </span>(solution, witness, <span class="kw">_</span>) = MultiPhase::mine_solution().unwrap();
 
 			<span class="comment">// ensure this solution is valid.
-			</span><span class="macro">assert!</span>(MultiPhase::queued_solution().is_none());
+			</span><span class="macro">assert!</span>(QueuedSolution::&lt;Runtime&gt;::get().is_none());
 			<span class="macro">assert_ok!</span>(MultiPhase::submit_unsigned(
 				<span class="kw">crate</span>::mock::RuntimeOrigin::none(),
 				Box::new(solution),
 				witness
 			));
-			<span class="macro">assert!</span>(MultiPhase::queued_solution().is_some());
+			<span class="macro">assert!</span>(QueuedSolution::&lt;Runtime&gt;::get().is_some());
 
 			<span class="macro">assert_ok!</span>(MultiPhase::elect());
 
@@ -5285,10 +5379,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>fallback_strategy_works() {
 		ExtBuilder::default().onchain_fallback(<span class="bool-val">true</span>).build_and_execute(|| {
 			roll_to_unsigned();
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
 
 			<span class="comment">// Zilch solutions thus far, but we get a result.
-			</span><span class="macro">assert!</span>(MultiPhase::queued_solution().is_none());
+			</span><span class="macro">assert!</span>(QueuedSolution::&lt;Runtime&gt;::get().is_none());
 			<span class="kw">let </span>supports = MultiPhase::elect().unwrap();
 
 			<span class="macro">assert_eq!</span>(
@@ -5327,15 +5421,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		ExtBuilder::default().onchain_fallback(<span class="bool-val">false</span>).build_and_execute(|| {
 			roll_to_unsigned();
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
 
 			<span class="comment">// Zilch solutions thus far.
-			</span><span class="macro">assert!</span>(MultiPhase::queued_solution().is_none());
+			</span><span class="macro">assert!</span>(QueuedSolution::&lt;Runtime&gt;::get().is_none());
 			<span class="macro">assert_eq!</span>(MultiPhase::elect().unwrap_err(), ElectionError::Fallback(<span class="string">"NoFallback."</span>));
 			<span class="comment">// phase is now emergency.
-			</span><span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Emergency);
+			</span><span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Emergency);
 			<span class="comment">// snapshot is still there until election finalizes.
-			</span><span class="macro">assert!</span>(MultiPhase::snapshot().is_some());
+			</span><span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_some());
 
 			<span class="macro">assert_eq!</span>(
 				multi_phase_events(),
@@ -5361,16 +5455,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>governance_fallback_works() {
 		ExtBuilder::default().onchain_fallback(<span class="bool-val">false</span>).build_and_execute(|| {
 			roll_to_unsigned();
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
 
 			<span class="comment">// Zilch solutions thus far.
-			</span><span class="macro">assert!</span>(MultiPhase::queued_solution().is_none());
+			</span><span class="macro">assert!</span>(QueuedSolution::&lt;Runtime&gt;::get().is_none());
 			<span class="macro">assert_eq!</span>(MultiPhase::elect().unwrap_err(), ElectionError::Fallback(<span class="string">"NoFallback."</span>));
 
 			<span class="comment">// phase is now emergency.
-			</span><span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Emergency);
-			<span class="macro">assert!</span>(MultiPhase::queued_solution().is_none());
-			<span class="macro">assert!</span>(MultiPhase::snapshot().is_some());
+			</span><span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Emergency);
+			<span class="macro">assert!</span>(QueuedSolution::&lt;Runtime&gt;::get().is_none());
+			<span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_some());
 
 			<span class="comment">// no single account can trigger this
 			</span><span class="macro">assert_noop!</span>(
@@ -5381,10 +5475,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// only root can
 			</span><span class="macro">assert_ok!</span>(MultiPhase::governance_fallback(RuntimeOrigin::root(), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>));
 			<span class="comment">// something is queued now
-			</span><span class="macro">assert!</span>(MultiPhase::queued_solution().is_some());
+			</span><span class="macro">assert!</span>(QueuedSolution::&lt;Runtime&gt;::get().is_some());
 			<span class="comment">// next election call with fix everything.;
 			</span><span class="macro">assert!</span>(MultiPhase::elect().is_ok());
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Off);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Off);
 
 			<span class="macro">assert_eq!</span>(
 				multi_phase_events(),
@@ -5428,11 +5522,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Signed phase failed to open.
 			</span>roll_to(<span class="number">15</span>);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Off);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Off);
 
 			<span class="comment">// Unsigned phase failed to open.
 			</span>roll_to(<span class="number">25</span>);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Off);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Off);
 
 			<span class="comment">// On-chain backup works though.
 			</span><span class="kw">let </span>supports = MultiPhase::elect().unwrap();
@@ -5467,16 +5561,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Signed phase failed to open.
 			</span>roll_to(<span class="number">15</span>);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Off);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Off);
 
 			<span class="comment">// Unsigned phase failed to open.
 			</span>roll_to(<span class="number">25</span>);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Off);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Off);
 
 			roll_to(<span class="number">29</span>);
 			<span class="kw">let </span>err = MultiPhase::elect().unwrap_err();
 			<span class="macro">assert_eq!</span>(err, ElectionError::Fallback(<span class="string">"NoFallback."</span>));
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Emergency);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Emergency);
 
 			<span class="macro">assert_eq!</span>(
 				multi_phase_events(),
@@ -5500,10 +5594,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Signed phase opens just fine.
 			</span>roll_to_signed();
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Signed);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Signed);
 
 			<span class="macro">assert_eq!</span>(
-				MultiPhase::snapshot_metadata().unwrap(),
+				SnapshotMetadata::&lt;Runtime&gt;::get().unwrap(),
 				SolutionOrSnapshotSize { voters: <span class="number">2</span>, targets: <span class="number">4 </span>}
 			);
 		})
@@ -5513,7 +5607,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>untrusted_score_verification_is_respected() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Signed);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Signed);
 
 			<span class="comment">// set the solution balancing to get the desired score.
 			</span><span class="kw">crate</span>::mock::Balancing::set(<span class="prelude-val">Some</span>(BalancingConfig { iterations: <span class="number">2</span>, tolerance: <span class="number">0 </span>}));
@@ -5522,13 +5616,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Default solution's score.
 			</span><span class="macro">assert!</span>(<span class="macro">matches!</span>(solution.score, ElectionScore { minimal_stake: <span class="number">50</span>, .. }));
 
-			&lt;MinimumUntrustedScore&lt;Runtime&gt;&gt;::put(ElectionScore {
+			MinimumUntrustedScore::&lt;Runtime&gt;::put(ElectionScore {
 				minimal_stake: <span class="number">49</span>,
 				..Default::default()
 			});
 			<span class="macro">assert_ok!</span>(MultiPhase::feasibility_check(solution.clone(), ElectionCompute::Signed));
 
-			&lt;MinimumUntrustedScore&lt;Runtime&gt;&gt;::put(ElectionScore {
+			MinimumUntrustedScore::&lt;Runtime&gt;::put(ElectionScore {
 				minimal_stake: <span class="number">51</span>,
 				..Default::default()
 			});

@@ -579,6 +579,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
 <a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -609,6 +611,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span><span class="kw">crate</span>::mock::RuntimeOrigin;
 
+<span class="kw">use </span>pallet_election_provider_multi_phase::CurrentPhase;
+
 <span class="comment">// syntactic sugar for logging.
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>log {
@@ -627,7 +631,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		System::block_number(),
 		Session::current_index(),
 		Staking::current_era(),
-		ElectionProviderMultiPhase::current_phase(),
+		CurrentPhase::&lt;Runtime&gt;::get(),
 		Now::&lt;Runtime&gt;::get()
 	);
 }
@@ -639,16 +643,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	execute_with(ext, || {
 		<span class="macro">assert_eq!</span>(active_era(), <span class="number">0</span>);
 		<span class="macro">assert_eq!</span>(Session::current_index(), <span class="number">0</span>);
-		<span class="macro">assert!</span>(ElectionProviderMultiPhase::current_phase().is_off());
+		<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
 
 		<span class="macro">assert!</span>(start_next_active_era(pool_state.clone()).is_ok());
 		<span class="macro">assert_eq!</span>(active_era(), <span class="number">1</span>);
 		<span class="macro">assert_eq!</span>(Session::current_index(), &lt;SessionsPerEra <span class="kw">as </span>Get&lt;u32&gt;&gt;::get());
 
-		<span class="macro">assert!</span>(ElectionProviderMultiPhase::current_phase().is_off());
+		<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
 
 		roll_to_epm_signed();
-		<span class="macro">assert!</span>(ElectionProviderMultiPhase::current_phase().is_signed());
+		<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 	});
 
 	<span class="kw">let </span>(ext, pool_state, <span class="kw">_</span>) = ExtBuilder::default().build_offchainify();
@@ -656,11 +660,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	execute_with(ext, || {
 		<span class="macro">assert_eq!</span>(active_era(), <span class="number">0</span>);
 		<span class="macro">assert_eq!</span>(Session::current_index(), <span class="number">0</span>);
-		<span class="macro">assert!</span>(ElectionProviderMultiPhase::current_phase().is_off());
+		<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_off());
 
 		<span class="macro">assert!</span>(start_next_active_era_delayed_solution(pool_state).is_ok());
 		<span class="comment">// if the solution is delayed, EPM will end up in emergency mode..
-		</span><span class="macro">assert!</span>(ElectionProviderMultiPhase::current_phase().is_emergency());
+		</span><span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_emergency());
 		<span class="comment">// .. era won't progress..
 		</span><span class="macro">assert_eq!</span>(active_era(), <span class="number">0</span>);
 		<span class="comment">// .. but session does.
@@ -684,7 +688,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// not delayed.
 		</span><span class="kw">for _ in </span><span class="number">0</span>..<span class="number">100 </span>{
 			roll_one(pool_state.clone(), <span class="bool-val">false</span>);
-			<span class="kw">let </span>current_phase = ElectionProviderMultiPhase::current_phase();
+			<span class="kw">let </span>current_phase = CurrentPhase::&lt;Runtime&gt;::get();
 
 			<span class="macro">assert!</span>(
 				<span class="kw">match </span>QueuedSolution::&lt;Runtime&gt;::get() {
@@ -790,7 +794,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// break loop when era does not progress; EPM is in emergency phase as election
 			// failed due to election minimum score.
 			</span><span class="kw">if </span>start_next_active_era(pool_state.clone()).is_err() {
-				<span class="macro">assert!</span>(ElectionProviderMultiPhase::current_phase().is_emergency());
+				<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_emergency());
 				<span class="kw">break</span>;
 			}
 

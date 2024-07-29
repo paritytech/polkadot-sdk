@@ -2163,6 +2163,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2012" id="2012">2012</a>
 <a href="#2013" id="2013">2013</a>
 <a href="#2014" id="2014">2014</a>
+<a href="#2015" id="2015">2015</a>
+<a href="#2016" id="2016">2016</a>
+<a href="#2017" id="2017">2017</a>
+<a href="#2018" id="2018">2018</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2183,8 +2187,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! The unsigned phase, and its miner.
 
 </span><span class="kw">use crate</span>::{
-	helpers, Call, Config, ElectionCompute, Error, FeasibilityError, Pallet, RawSolution,
-	ReadySolution, RoundSnapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
+	helpers, Call, Config, CurrentPhase, DesiredTargets, ElectionCompute, Error, FeasibilityError,
+	Pallet, QueuedSolution, RawSolution, ReadySolution, Round, RoundSnapshot, Snapshot,
+	SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
 };
 <span class="kw">use </span>alloc::{boxed::Box, vec::Vec};
 <span class="kw">use </span>codec::Encode;
@@ -2353,15 +2358,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		MinerError,
 	&gt; {
 		<span class="kw">let </span>RoundSnapshot { voters, targets } =
-			<span class="self">Self</span>::snapshot().ok_or(MinerError::SnapshotUnAvailable)<span class="question-mark">?</span>;
-		<span class="kw">let </span>desired_targets = <span class="self">Self</span>::desired_targets().ok_or(MinerError::SnapshotUnAvailable)<span class="question-mark">?</span>;
+			Snapshot::&lt;T&gt;::get().ok_or(MinerError::SnapshotUnAvailable)<span class="question-mark">?</span>;
+		<span class="kw">let </span>desired_targets = DesiredTargets::&lt;T&gt;::get().ok_or(MinerError::SnapshotUnAvailable)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(solution, score, size, is_trimmed) =
 			Miner::&lt;T::MinerConfig&gt;::mine_solution_with_snapshot::&lt;T::Solver&gt;(
 				voters,
 				targets,
 				desired_targets,
 			)<span class="question-mark">?</span>;
-		<span class="kw">let </span>round = <span class="self">Self</span>::round();
+		<span class="kw">let </span>round = Round::&lt;T&gt;::get();
 		<span class="prelude-val">Ok</span>((RawSolution { solution, score, round }, size, is_trimmed))
 	}
 
@@ -2535,21 +2540,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		raw_solution: <span class="kw-2">&amp;</span>RawSolution&lt;SolutionOf&lt;T::MinerConfig&gt;&gt;,
 	) -&gt; DispatchResult {
 		<span class="comment">// ensure solution is timely. Don't panic yet. This is a cheap check.
-		</span><span class="macro">ensure!</span>(<span class="self">Self</span>::current_phase().is_unsigned_open(), Error::&lt;T&gt;::PreDispatchEarlySubmission);
+		</span><span class="macro">ensure!</span>(
+			CurrentPhase::&lt;T&gt;::get().is_unsigned_open(),
+			Error::&lt;T&gt;::PreDispatchEarlySubmission
+		);
 
 		<span class="comment">// ensure round is current
-		</span><span class="macro">ensure!</span>(<span class="self">Self</span>::round() == raw_solution.round, Error::&lt;T&gt;::OcwCallWrongEra);
+		</span><span class="macro">ensure!</span>(Round::&lt;T&gt;::get() == raw_solution.round, Error::&lt;T&gt;::OcwCallWrongEra);
 
 		<span class="comment">// ensure correct number of winners.
 		</span><span class="macro">ensure!</span>(
-			<span class="self">Self</span>::desired_targets().unwrap_or_default() ==
+			DesiredTargets::&lt;T&gt;::get().unwrap_or_default() ==
 				raw_solution.solution.unique_targets().len() <span class="kw">as </span>u32,
 			Error::&lt;T&gt;::PreDispatchWrongWinnerCount,
 		);
 
 		<span class="comment">// ensure score is being improved. Panic henceforth.
 		</span><span class="macro">ensure!</span>(
-			<span class="self">Self</span>::queued_solution()
+			QueuedSolution::&lt;T&gt;::get()
 				.map_or(<span class="bool-val">true</span>, |q: ReadySolution&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;| raw_solution.score &gt; q.score),
 			Error::&lt;T&gt;::PreDispatchWeakSubmission,
 		);
@@ -3208,7 +3216,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 
 			<span class="comment">// initial
-			</span><span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Off);
+			</span><span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Off);
 			<span class="macro">assert!</span>(<span class="macro">matches!</span>(
 				&lt;MultiPhase <span class="kw">as </span>ValidateUnsigned&gt;::validate_unsigned(
 					TransactionSource::Local,
@@ -3224,7 +3232,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// signed
 			</span>roll_to_signed();
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Signed);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Signed);
 			<span class="macro">assert!</span>(<span class="macro">matches!</span>(
 				&lt;MultiPhase <span class="kw">as </span>ValidateUnsigned&gt;::validate_unsigned(
 					TransactionSource::Local,
@@ -3240,7 +3248,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// unsigned
 			</span>roll_to_unsigned();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned());
 
 			<span class="macro">assert!</span>(&lt;MultiPhase <span class="kw">as </span>ValidateUnsigned&gt;::validate_unsigned(
 				TransactionSource::Local,
@@ -3251,7 +3259,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// unsigned -- but not enabled.
 			</span>MultiPhase::phase_transition(Phase::Unsigned((<span class="bool-val">false</span>, <span class="number">25</span>)));
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned());
 			<span class="macro">assert!</span>(<span class="macro">matches!</span>(
 				&lt;MultiPhase <span class="kw">as </span>ValidateUnsigned&gt;::validate_unsigned(
 					TransactionSource::Local,
@@ -3271,7 +3279,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>validate_unsigned_retracts_low_score() {
 		ExtBuilder::default().desired_targets(<span class="number">0</span>).build_and_execute(|| {
 			roll_to_unsigned();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned());
 
 			<span class="kw">let </span>solution = RawSolution::&lt;TestNposSolution&gt; {
 				score: ElectionScore { minimal_stake: <span class="number">5</span>, ..Default::default() },
@@ -3295,7 +3303,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				score: ElectionScore { minimal_stake: <span class="number">10</span>, ..Default::default() },
 				..Default::default()
 			};
-			&lt;QueuedSolution&lt;Runtime&gt;&gt;::put(ready);
+			QueuedSolution::&lt;Runtime&gt;::put(ready);
 
 			<span class="comment">// won't work anymore.
 			</span><span class="macro">assert!</span>(<span class="macro">matches!</span>(
@@ -3317,7 +3325,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>validate_unsigned_retracts_incorrect_winner_count() {
 		ExtBuilder::default().desired_targets(<span class="number">1</span>).build_and_execute(|| {
 			roll_to_unsigned();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned());
 
 			<span class="kw">let </span>raw = RawSolution::&lt;TestNposSolution&gt; {
 				score: ElectionScore { minimal_stake: <span class="number">5</span>, ..Default::default() },
@@ -3346,7 +3354,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.desired_targets(<span class="number">0</span>)
 			.build_and_execute(|| {
 				roll_to_unsigned();
-				<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
+				<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned());
 
 				<span class="kw">let </span>solution = RawSolution::&lt;TestNposSolution&gt; {
 					score: ElectionScore { minimal_stake: <span class="number">5</span>, ..Default::default() },
@@ -3377,7 +3385,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>unfeasible_solution_panics() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned());
 
 			<span class="comment">// This is in itself an invalid BS solution.
 			</span><span class="kw">let </span>solution = RawSolution::&lt;TestNposSolution&gt; {
@@ -3399,7 +3407,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>wrong_witness_panics() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned());
 
 			<span class="comment">// This solution is unfeasible as well, but we won't even get there.
 			</span><span class="kw">let </span>solution = RawSolution::&lt;TestNposSolution&gt; {
@@ -3423,23 +3431,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>miner_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned());
 
 			<span class="comment">// ensure we have snapshots in place.
-			</span><span class="macro">assert!</span>(MultiPhase::snapshot().is_some());
-			<span class="macro">assert_eq!</span>(MultiPhase::desired_targets().unwrap(), <span class="number">2</span>);
+			</span><span class="macro">assert!</span>(Snapshot::&lt;Runtime&gt;::get().is_some());
+			<span class="macro">assert_eq!</span>(DesiredTargets::&lt;Runtime&gt;::get().unwrap(), <span class="number">2</span>);
 
 			<span class="comment">// mine seq_phragmen solution with 2 iters.
 			</span><span class="kw">let </span>(solution, witness, <span class="kw">_</span>) = MultiPhase::mine_solution().unwrap();
 
 			<span class="comment">// ensure this solution is valid.
-			</span><span class="macro">assert!</span>(MultiPhase::queued_solution().is_none());
+			</span><span class="macro">assert!</span>(QueuedSolution::&lt;Runtime&gt;::get().is_none());
 			<span class="macro">assert_ok!</span>(MultiPhase::submit_unsigned(
 				RuntimeOrigin::none(),
 				Box::new(solution),
 				witness
 			));
-			<span class="macro">assert!</span>(MultiPhase::queued_solution().is_some());
+			<span class="macro">assert!</span>(QueuedSolution::&lt;Runtime&gt;::get().is_some());
 			<span class="macro">assert_eq!</span>(
 				multi_phase_events(),
 				<span class="macro">vec!</span>[
@@ -3466,7 +3474,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.mock_weight_info(<span class="kw">crate</span>::mock::MockedWeightInfo::Basic)
 			.build_and_execute(|| {
 				roll_to_unsigned();
-				<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
+				<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned());
 
 				<span class="kw">let </span>(raw, witness, t) = MultiPhase::mine_solution().unwrap();
 				<span class="kw">let </span>solution_weight = &lt;Runtime <span class="kw">as </span>MinerConfig&gt;::solution_weight(
@@ -3502,7 +3510,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(<span class="kw-2">mut </span>ext, <span class="kw">_</span>) = ExtBuilder::default().desired_targets(<span class="number">8</span>).build_offchainify(<span class="number">0</span>);
 		ext.execute_with(|| {
 			roll_to_unsigned();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned());
 
 			<span class="comment">// Force the number of winners to be bigger to fail
 			</span><span class="kw">let </span>(<span class="kw-2">mut </span>solution, <span class="kw">_</span>, <span class="kw">_</span>) = MultiPhase::mine_solution().unwrap();
@@ -3528,8 +3536,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.add_voter(<span class="number">9</span>, <span class="number">1</span>, <span class="macro">bounded_vec!</span>[<span class="number">10</span>])
 			.build_and_execute(|| {
 				roll_to_unsigned();
-				<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
-				<span class="macro">assert_eq!</span>(MultiPhase::desired_targets().unwrap(), <span class="number">1</span>);
+				<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned());
+				<span class="macro">assert_eq!</span>(DesiredTargets::&lt;Runtime&gt;::get().unwrap(), <span class="number">1</span>);
 
 				<span class="comment">// an initial solution
 				</span><span class="kw">let </span>result = ElectionResult {
@@ -3544,8 +3552,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					],
 				};
 
-				<span class="kw">let </span>RoundSnapshot { voters, targets } = MultiPhase::snapshot().unwrap();
-				<span class="kw">let </span>desired_targets = MultiPhase::desired_targets().unwrap();
+				<span class="kw">let </span>RoundSnapshot { voters, targets } = Snapshot::&lt;Runtime&gt;::get().unwrap();
+				<span class="kw">let </span>desired_targets = DesiredTargets::&lt;Runtime&gt;::get().unwrap();
 
 				<span class="kw">let </span>(raw, score, witness, <span class="kw">_</span>) =
 					Miner::&lt;Runtime&gt;::prepare_election_result_with_snapshot(
@@ -3555,14 +3563,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						desired_targets,
 					)
 					.unwrap();
-				<span class="kw">let </span>solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				<span class="kw">let </span>solution = RawSolution { solution: raw, score, round: Round::&lt;Runtime&gt;::get() };
 				<span class="macro">assert_ok!</span>(MultiPhase::unsigned_pre_dispatch_checks(<span class="kw-2">&amp;</span>solution));
 				<span class="macro">assert_ok!</span>(MultiPhase::submit_unsigned(
 					RuntimeOrigin::none(),
 					Box::new(solution),
 					witness
 				));
-				<span class="macro">assert_eq!</span>(MultiPhase::queued_solution().unwrap().score.minimal_stake, <span class="number">12</span>);
+				<span class="macro">assert_eq!</span>(QueuedSolution::&lt;Runtime&gt;::get().unwrap().score.minimal_stake, <span class="number">12</span>);
 
 				<span class="comment">// trial 1: a solution who's minimal stake is 10, i.e. worse than the first solution
 				// of 12.
@@ -3580,7 +3588,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					desired_targets,
 				)
 				.unwrap();
-				<span class="kw">let </span>solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				<span class="kw">let </span>solution = RawSolution { solution: raw, score, round: Round::&lt;Runtime&gt;::get() };
 				<span class="comment">// 10 is not better than 12
 				</span><span class="macro">assert_eq!</span>(solution.score.minimal_stake, <span class="number">10</span>);
 				<span class="comment">// submitting this will actually panic.
@@ -3610,7 +3618,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					desired_targets,
 				)
 				.unwrap();
-				<span class="kw">let </span>solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				<span class="kw">let </span>solution = RawSolution { solution: raw, score, round: Round::&lt;Runtime&gt;::get() };
 				<span class="comment">// 12 is not better than 12. We need score of at least 13 to be accepted.
 				</span><span class="macro">assert_eq!</span>(solution.score.minimal_stake, <span class="number">12</span>);
 				<span class="comment">// submitting this will panic.
@@ -3637,7 +3645,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						desired_targets,
 					)
 					.unwrap();
-				<span class="kw">let </span>solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				<span class="kw">let </span>solution = RawSolution { solution: raw, score, round: Round::&lt;Runtime&gt;::get() };
 				<span class="macro">assert_eq!</span>(solution.score.minimal_stake, <span class="number">13</span>);
 
 				<span class="comment">// this should work
@@ -3670,7 +3678,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						desired_targets,
 					)
 					.unwrap();
-				<span class="kw">let </span>solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				<span class="kw">let </span>solution = RawSolution { solution: raw, score, round: Round::&lt;Runtime&gt;::get() };
 				<span class="macro">assert_eq!</span>(solution.score.minimal_stake, <span class="number">17</span>);
 
 				<span class="comment">// and it is fine
@@ -3690,7 +3698,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>offchain_repeat = &lt;Runtime <span class="kw">as </span>Config&gt;::OffchainRepeat::get();
 
 			roll_to_unsigned();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned());
 
 			<span class="comment">// first execution -- okay.
 			</span><span class="macro">assert!</span>(MultiPhase::ensure_offchain_repeat_frequency(<span class="number">25</span>).is_ok());
@@ -3731,7 +3739,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>last_block = StorageValueRef::persistent(OFFCHAIN_LAST_BLOCK);
 
 			roll_to_unsigned();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned());
 
 			<span class="comment">// initially, the lock is not set.
 			</span><span class="macro">assert!</span>(guard.get::&lt;bool&gt;().unwrap().is_none());
@@ -3752,7 +3760,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>(<span class="kw-2">mut </span>ext, pool) = ExtBuilder::default().build_offchainify(<span class="number">0</span>);
 		ext.execute_with(|| {
 			roll_to_unsigned();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_unsigned());
 
 			<span class="comment">// artificially set the value, as if another thread is mid-way.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>lock = StorageLock::&lt;BlockAndTime&lt;System&gt;&gt;::with_block_deadline(
@@ -3780,7 +3788,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(<span class="kw-2">mut </span>ext, pool) = ExtBuilder::default().build_offchainify(<span class="number">0</span>);
 		ext.execute_with(|| {
 			roll_to_unsigned();
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
 
 			<span class="comment">// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
@@ -3812,7 +3820,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			roll_to(BLOCK);
 			<span class="comment">// we are on the first block of the unsigned phase
-			</span><span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, BLOCK)));
+			</span><span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Unsigned((<span class="bool-val">true</span>, BLOCK)));
 
 			<span class="macro">assert!</span>(
 				!ocw_solution_exists::&lt;Runtime&gt;(),
@@ -3895,7 +3903,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>offchain_repeat = &lt;Runtime <span class="kw">as </span>Config&gt;::OffchainRepeat::get();
 
 			roll_to(BLOCK);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, BLOCK)));
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Unsigned((<span class="bool-val">true</span>, BLOCK)));
 
 			<span class="comment">// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
@@ -3933,7 +3941,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>offchain_repeat = &lt;Runtime <span class="kw">as </span>Config&gt;::OffchainRepeat::get();
 
 			roll_to(BLOCK);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, BLOCK)));
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Unsigned((<span class="bool-val">true</span>, BLOCK)));
 
 			<span class="comment">// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
@@ -3974,7 +3982,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(<span class="kw-2">mut </span>ext, pool) = ExtBuilder::default().build_offchainify(<span class="number">0</span>);
 		ext.execute_with(|| {
 			roll_to_with_ocw(<span class="number">25</span>);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
 			<span class="comment">// OCW must have submitted now
 
 			</span><span class="kw">let </span>encoded = pool.read().transactions[<span class="number">0</span>].clone();
@@ -3989,10 +3997,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(<span class="kw-2">mut </span>ext, pool) = ExtBuilder::default().build_offchainify(<span class="number">0</span>);
 		ext.execute_with(|| {
 			roll_to_with_ocw(<span class="number">25</span>);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
 			<span class="comment">// OCW must have submitted now
 			// now, before we check the call, update the round
-			</span>&lt;<span class="kw">crate</span>::Round&lt;Runtime&gt;&gt;::mutate(|round| <span class="kw-2">*</span>round += <span class="number">1</span>);
+			</span><span class="kw">crate</span>::Round::&lt;Runtime&gt;::mutate(|round| <span class="kw-2">*</span>round += <span class="number">1</span>);
 
 			<span class="kw">let </span>encoded = pool.read().transactions[<span class="number">0</span>].clone();
 			<span class="kw">let </span>extrinsic = Extrinsic::decode(<span class="kw-2">&amp;mut &amp;*</span>encoded).unwrap();

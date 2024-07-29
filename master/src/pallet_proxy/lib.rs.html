@@ -961,6 +961,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#810" id="810">810</a>
 <a href="#811" id="811">811</a>
 <a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1004,6 +1023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	dispatch::GetDispatchInfo,
 	ensure,
 	traits::{Currency, Get, InstanceFilter, IsSubType, IsType, OriginTrait, ReservableCurrency},
+	BoundedVec,
 };
 <span class="kw">use </span>frame_system::{<span class="self">self </span><span class="kw">as </span>system, ensure_signed, pallet_prelude::BlockNumberFor};
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
@@ -1533,7 +1553,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The set of account proxies. Maps the account which has delegated to the accounts
 	/// which are being delegated to, together with the amount held on deposit.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>proxies)]
 	</span><span class="kw">pub type </span>Proxies&lt;T: Config&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
@@ -1550,7 +1569,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The announcements made by the proxy (key).
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>announcements)]
 	</span><span class="kw">pub type </span>Announcements&lt;T: Config&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
@@ -1564,6 +1582,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+	<span class="doccomment">/// Public function to proxies storage.
+	</span><span class="kw">pub fn </span>proxies(
+		account: T::AccountId,
+	) -&gt; (
+		BoundedVec&lt;ProxyDefinition&lt;T::AccountId, T::ProxyType, BlockNumberFor&lt;T&gt;&gt;, T::MaxProxies&gt;,
+		BalanceOf&lt;T&gt;,
+	) {
+		Proxies::&lt;T&gt;::get(account)
+	}
+
+	<span class="doccomment">/// Public function to announcements storage.
+	</span><span class="kw">pub fn </span>announcements(
+		account: T::AccountId,
+	) -&gt; (
+		BoundedVec&lt;Announcement&lt;T::AccountId, CallHashOf&lt;T&gt;, BlockNumberFor&lt;T&gt;&gt;, T::MaxPending&gt;,
+		BalanceOf&lt;T&gt;,
+	) {
+		Announcements::&lt;T&gt;::get(account)
+	}
+
 	<span class="doccomment">/// Calculate the address of an pure account.
 	///
 	/// - `who`: The spawner account.

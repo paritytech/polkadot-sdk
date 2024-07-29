@@ -1659,6 +1659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1508" id="1508">1508</a>
 <a href="#1509" id="1509">1509</a>
 <a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1683,7 +1684,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use crate</span>::{
 	unsigned::MinerConfig, Config, ElectionCompute, Pallet, QueuedSolution, RawSolution,
 	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
-	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
+	SnapshotMetadata, SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
 };
 <span class="kw">use </span>alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
@@ -2066,7 +2067,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>weight = T::DbWeight::get().reads(<span class="number">1</span>);
 
 		<span class="kw">let </span>SolutionOrSnapshotSize { voters, targets } =
-			<span class="self">Self</span>::snapshot_metadata().unwrap_or_default();
+			SnapshotMetadata::&lt;T&gt;::get().unwrap_or_default();
 
 		<span class="kw">while let </span><span class="prelude-val">Some</span>(best) = all_submissions.pop_last() {
 			<span class="macro">log!</span>(
@@ -2079,7 +2080,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>active_voters = raw_solution.solution.voter_count() <span class="kw">as </span>u32;
 			<span class="kw">let </span>feasibility_weight = {
 				<span class="comment">// defensive only: at the end of signed phase, snapshot will exits.
-				</span><span class="kw">let </span>desired_targets = <span class="self">Self</span>::desired_targets().defensive_unwrap_or_default();
+				</span><span class="kw">let </span>desired_targets =
+					<span class="kw">crate</span>::DesiredTargets::&lt;T&gt;::get().defensive_unwrap_or_default();
 				T::WeightInfo::feasibility_check(voters, targets, active_voters, desired_targets)
 			};
 
@@ -2156,7 +2158,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		call_fee: BalanceOf&lt;T&gt;,
 	) {
 		<span class="comment">// write this ready solution.
-		</span>&lt;QueuedSolution&lt;T&gt;&gt;::put(ready_solution);
+		</span>QueuedSolution::&lt;T&gt;::put(ready_solution);
 
 		<span class="kw">let </span>reward = T::SignedRewardBase::get();
 		<span class="comment">// emit reward event
@@ -2226,8 +2228,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{
-		mock::<span class="kw-2">*</span>, ElectionBoundsBuilder, ElectionCompute, ElectionError, Error, Event, Perbill,
-		Phase,
+		mock::<span class="kw-2">*</span>, CurrentPhase, ElectionBoundsBuilder, ElectionCompute, ElectionError, Error, Event,
+		Perbill, Phase, Round,
 	};
 	<span class="kw">use </span>frame_support::{assert_noop, assert_ok, assert_storage_noop};
 	<span class="kw">use </span>sp_runtime::Percent;
@@ -2237,17 +2239,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ExtBuilder::default().build_and_execute(|| {
 			<span class="comment">// roll to a few rounds ahead.
 			</span>roll_to_round(<span class="number">5</span>);
-			<span class="macro">assert_eq!</span>(MultiPhase::round(), <span class="number">5</span>);
+			<span class="macro">assert_eq!</span>(Round::&lt;Runtime&gt;::get(), <span class="number">5</span>);
 
 			roll_to_signed();
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Signed);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Signed);
 
 			<span class="comment">// create a temp snapshot only for this test.
 			</span>MultiPhase::create_snapshot().unwrap();
 			<span class="kw">let </span><span class="kw-2">mut </span>solution = raw_solution();
 
 			<span class="comment">// try a solution prepared in a previous round.
-			</span>solution.round = MultiPhase::round() - <span class="number">1</span>;
+			</span>solution.round = Round::&lt;Runtime&gt;::get() - <span class="number">1</span>;
 
 			<span class="macro">assert_noop!</span>(
 				MultiPhase::submit(RuntimeOrigin::signed(<span class="number">10</span>), Box::new(solution)),
@@ -2257,7 +2259,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// try a solution prepared in a later round (not expected to happen, but in any case).
 			</span>MultiPhase::create_snapshot().unwrap();
 			<span class="kw">let </span><span class="kw-2">mut </span>solution = raw_solution();
-			solution.round = MultiPhase::round() + <span class="number">1</span>;
+			solution.round = Round::&lt;Runtime&gt;::get() + <span class="number">1</span>;
 
 			<span class="macro">assert_noop!</span>(
 				MultiPhase::submit(RuntimeOrigin::signed(<span class="number">10</span>), Box::new(solution)),
@@ -2270,7 +2272,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>cannot_submit_too_early() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to(<span class="number">2</span>);
-			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Off);
+			<span class="macro">assert_eq!</span>(CurrentPhase::&lt;Runtime&gt;::get(), Phase::Off);
 
 			<span class="comment">// create a temp snapshot only for this test.
 			</span>MultiPhase::create_snapshot().unwrap();
@@ -2282,9 +2284,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 			<span class="comment">// make sure invariants hold true and post-test try state checks to pass.
-			</span>&lt;<span class="kw">crate</span>::Snapshot&lt;Runtime&gt;&gt;::kill();
-			&lt;<span class="kw">crate</span>::SnapshotMetadata&lt;Runtime&gt;&gt;::kill();
-			&lt;<span class="kw">crate</span>::DesiredTargets&lt;Runtime&gt;&gt;::kill();
+			</span><span class="kw">crate</span>::Snapshot::&lt;Runtime&gt;::kill();
+			<span class="kw">crate</span>::SnapshotMetadata::&lt;Runtime&gt;::kill();
+			<span class="kw">crate</span>::DesiredTargets::&lt;Runtime&gt;::kill();
 		})
 	}
 
@@ -2340,7 +2342,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>should_pay_deposit() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">let </span>solution = raw_solution();
 			<span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">99</span>), (<span class="number">100</span>, <span class="number">0</span>));
@@ -2368,7 +2370,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>good_solution_is_rewarded() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">let </span>solution = raw_solution();
 			<span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">99</span>), (<span class="number">100</span>, <span class="number">0</span>));
@@ -2398,7 +2400,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>bad_solution_is_slashed() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">let </span><span class="kw-2">mut </span>solution = raw_solution();
 			<span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">99</span>), (<span class="number">100</span>, <span class="number">0</span>));
@@ -2433,7 +2435,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>suppressed_solution_gets_bond_back() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">let </span><span class="kw-2">mut </span>solution = raw_solution();
 			<span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">99</span>), (<span class="number">100</span>, <span class="number">0</span>));
@@ -2479,7 +2481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>cannot_submit_worse_with_full_queue() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">for </span>s <span class="kw">in </span><span class="number">0</span>..SignedMaxSubmissions::get() {
 				<span class="comment">// score is always getting better
@@ -2527,7 +2529,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.signed_base_deposit(<span class="number">1000</span>, <span class="bool-val">true</span>, Percent::from_percent(<span class="number">0</span>))
 			.build_and_execute(|| {
 				roll_to_signed();
-				<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+				<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 				check_progressive_base_fee(<span class="kw-2">&amp;</span>constant);
 			});
@@ -2537,7 +2539,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.signed_base_deposit(<span class="number">1000</span>, <span class="bool-val">true</span>, Percent::from_percent(<span class="number">10</span>))
 			.build_and_execute(|| {
 				roll_to_signed();
-				<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+				<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 				check_progressive_base_fee(<span class="kw-2">&amp;</span>progression_10);
 			});
@@ -2547,7 +2549,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.signed_base_deposit(<span class="number">1000</span>, <span class="bool-val">true</span>, Percent::from_percent(<span class="number">40</span>))
 			.build_and_execute(|| {
 				roll_to_signed();
-				<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+				<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 				check_progressive_base_fee(<span class="kw-2">&amp;</span>progression_40);
 			});
@@ -2557,7 +2559,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>call_fee_refund_is_limited_by_signed_max_refunds() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 			<span class="macro">assert_eq!</span>(SignedMaxRefunds::get(), <span class="number">1</span>);
 			<span class="macro">assert!</span>(SignedMaxSubmissions::get() &gt; <span class="number">2</span>);
 
@@ -2638,7 +2640,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.better_signed_threshold(Perbill::from_percent(<span class="number">20</span>))
 			.build_and_execute(|| {
 				roll_to_signed();
-				<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+				<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 				<span class="kw">let </span><span class="kw-2">mut </span>solution = RawSolution {
 					score: ElectionScore {
@@ -2699,7 +2701,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>weakest_is_removed_if_better_provided() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">for </span>s <span class="kw">in </span><span class="number">0</span>..SignedMaxSubmissions::get() {
 				<span class="kw">let </span>account = <span class="number">99 </span>+ s <span class="kw">as </span>u64;
@@ -2746,7 +2748,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>replace_weakest_by_score_works() {
 		ExtBuilder::default().signed_max_submission(<span class="number">3</span>).build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">for </span>s <span class="kw">in </span><span class="number">1</span>..SignedMaxSubmissions::get() {
 				<span class="comment">// score is always getting better
@@ -2793,7 +2795,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>early_ejected_solution_gets_bond_back() {
 		ExtBuilder::default().signed_deposit(<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>).build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">for </span>s <span class="kw">in </span><span class="number">0</span>..SignedMaxSubmissions::get() {
 				<span class="comment">// score is always getting better
@@ -2825,7 +2827,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// because in ordering of solutions, an older solution has higher priority and should stay.
 		</span>ExtBuilder::default().signed_max_submission(<span class="number">3</span>).build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..SignedMaxSubmissions::get() {
 				<span class="kw">let </span>solution = RawSolution {
@@ -2860,7 +2862,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// because in ordering of solutions, an older solution has higher priority and should stay.
 		</span>ExtBuilder::default().signed_max_submission(<span class="number">3</span>).build_and_execute(|| {
 			roll_to(<span class="number">15</span>);
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">let </span>solution = RawSolution {
 				score: ElectionScore { minimal_stake: <span class="number">5</span>, ..Default::default() },
@@ -2912,7 +2914,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// because in ordering of solutions, an older solution has higher priority and should stay.
 		</span>ExtBuilder::default().signed_max_submission(<span class="number">3</span>).build_and_execute(|| {
 			roll_to(<span class="number">15</span>);
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..SignedMaxSubmissions::get() {
 				roll_to((<span class="number">15 </span>+ i).into());
@@ -2972,7 +2974,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// - suppressed_solution_gets_bond_back
 		</span>ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">99</span>), (<span class="number">100</span>, <span class="number">0</span>));
 			<span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">999</span>), (<span class="number">100</span>, <span class="number">0</span>));
@@ -3041,7 +3043,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.mock_weight_info(MockedWeightInfo::Basic)
 			.build_and_execute(|| {
 				roll_to_signed();
-				<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+				<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 				<span class="kw">let </span>(raw, witness, <span class="kw">_</span>) = MultiPhase::mine_solution().unwrap();
 				<span class="kw">let </span>solution_weight = &lt;Runtime <span class="kw">as </span>MinerConfig&gt;::solution_weight(
@@ -3075,7 +3077,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>insufficient_deposit_does_not_store_submission() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">let </span>solution = raw_solution();
 
@@ -3095,7 +3097,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>insufficient_deposit_with_full_queue_works_properly() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">for </span>s <span class="kw">in </span><span class="number">0</span>..SignedMaxSubmissions::get() {
 				<span class="comment">// score is always getting better
@@ -3141,7 +3143,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>finalize_signed_phase_is_idempotent_given_submissions() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_signed();
-			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
+			<span class="macro">assert!</span>(CurrentPhase::&lt;Runtime&gt;::get().is_signed());
 
 			<span class="kw">let </span>solution = raw_solution();
 
