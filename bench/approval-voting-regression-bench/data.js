@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722270209595,
+  "lastUpdate": 1722285840966,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -13159,6 +13159,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.875675486790233,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Yuri Volkov",
+            "username": "mutantcornholio",
+            "email": "0@mcornholio.ru"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "71cb378f14e110607b3fa568803003bf331d7fdf",
+          "message": "Review-bot@2.6.0 (#5177)",
+          "timestamp": "2024-07-29T19:09:35Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/71cb378f14e110607b3fa568803003bf331d7fdf"
+        },
+        "date": 1722285811001,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52946.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63966.270000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.0241275768699385,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.611581849149974,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.931227710190173,
             "unit": "seconds"
           }
         ]
