@@ -23,13 +23,13 @@ pub mod your_first_runtime;
 // TODO
 // pub mod your_first_node;
 
-// /// How to enhance a given runtime and node to be cumulus-enabled, run it as a parachain and connect
-// /// it to a relay-chain.
+// /// How to enhance a given runtime and node to be cumulus-enabled, run it as a parachain
+// /// and connect it to a relay-chain.
 // TODO
 // pub mod cumulus_enabled_parachain;
 
-// /// How to make a given runtime XCM-enabled, capable of sending messages (`Transact`) between itself
-// /// and the relay chain to which it is connected.
+// /// How to make a given runtime XCM-enabled, capable of sending messages (`Transact`) between
+// /// itself and the relay chain to which it is connected.
 // TODO
 // pub mod xcm_enabled_parachain;
 

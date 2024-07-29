@@ -7,10 +7,11 @@
 //!
 //! ## What is a "reference document"?
 //!
-//! First, see [why we use rust-docs for everything](crate::meta_contributing#why-rust-docs) and our documentation
-//! [principles](crate::meta_contributing#principles). We acknowledge that as much of the crucial information should be
-//! embedded in the low level rust-docs. Then, high level scenarios should be covered in
-//! [`crate::guides`]. Finally, we acknowledge that there is a category of information that is:
+//! First, see [why we use rust-docs for everything](crate::meta_contributing#why-rust-docs) and our
+//! documentation [principles](crate::meta_contributing#principles). We acknowledge that as much of
+//! the crucial information should be embedded in the low level rust-docs. Then, high level
+//! scenarios should be covered in [`crate::guides`]. Finally, we acknowledge that there is a
+//! category of information that is:
 //!
 //! 1. Crucial to know.
 //! 2. Is too high level to be in the rust-doc of any one `type`, `trait` or `fn`.

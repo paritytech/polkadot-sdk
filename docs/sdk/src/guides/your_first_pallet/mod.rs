@@ -45,8 +45,8 @@
 //! Consider the following as a "shell pallet". We continue building the rest of this pallet based
 //! on this template.
 //!
-//! [`pallet::config`] and [`pallet::pallet`](frame_support::pallet) are both mandatory parts of any pallet. Refer to the
-//! documentation of each to get an overview of what they do.
+//! [`pallet::config`] and [`pallet::pallet`](frame_support::pallet) are both mandatory parts of any
+//! pallet. Refer to the documentation of each to get an overview of what they do.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", shell_pallet)]
 //!
 //! All of the code that follows in this guide should live inside of the `mod pallet`.

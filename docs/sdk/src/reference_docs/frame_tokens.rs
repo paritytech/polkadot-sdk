@@ -56,10 +56,10 @@
 //!
 //! **Trait implementations** are concrete implementations of these traits. For example, one of the
 //! many traits [`pallet_balances`] implements is
-//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`)[^1]. It provides the concrete way
-//! of inspecting the total issuance, balance of accounts, etc. There can be many implementations of
-//! the same traits.
-//! 
+//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`)[^1]. It provides the concrete
+//! way of inspecting the total issuance, balance of accounts, etc. There can be many
+//! implementations of the same traits.
+//!
 //! [^1]: Rust Advanced Tip: The knowledge that [`pallet_balances`] implements
 //! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`) is not some arcane knowledge
 //! that you have to know by heart or memorize. One can simply look at the list of the implementors
@@ -77,8 +77,8 @@
 //! until someone has a use case requiring that an asset from a different pallet such as
 //! [`pallet_assets`] is used for the deposit. Rather than tightly coupling [`pallet_preimage`] to
 //! [`pallet_balances`], [`pallet_assets`], and every other token-handling pallet, a user
-//! could possibly specify that [`pallet_preimage`] does not specify a concrete pallet as a dependency,
-//! but instead accepts any dependency which implements the
+//! could possibly specify that [`pallet_preimage`] does not specify a concrete pallet as a
+//! dependency, but instead accepts any dependency which implements the
 //! [`currency::ReservableCurrency`](`frame_support::traits::tokens::currency::ReservableCurrency`)
 //! trait, namely via its [`Config::Currency`](`pallet_preimage::pallet::Config::Currency`)
 //! associated type. This allows [`pallet_preimage`] to support any arbitrary pallet implementing

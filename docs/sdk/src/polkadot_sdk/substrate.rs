@@ -63,9 +63,9 @@
 //! categories:
 //!
 //! * `sc-*` (short for *Substrate-client*) crates, located under `./client` folder. These are all
-//!   the crates that lead to the node software. Notable examples are [`sc_network`], various consensus
-//!   crates, RPC ([`sc_rpc_api`]) and database ([`sc_client_db`]), all of which are expected to
-//!   reside in the node side.
+//!   the crates that lead to the node software. Notable examples are [`sc_network`], various
+//!   consensus crates, RPC ([`sc_rpc_api`]) and database ([`sc_client_db`]), all of which are
+//!   expected to reside in the node side.
 //! * `sp-*` (short for *substrate-primitives*) crates, located under `./primitives` folder. These
 //!   are crates that facilitate both the node and the runtime, but are not opinionated about what
 //!   framework is using for building the runtime. Notable examples are [`sp_api`] and [`sp_io`],
@@ -87,7 +87,7 @@
 //! Substrate-based runtimes use [`substrate_wasm_builder`] in their `build.rs` to automatically
 //! build their WASM files as a part of normal build command (e.g. `cargo build`). Once built, the
 //! wasm file is placed in `./target/{debug|release}/wbuild/{runtime_name}/{runtime_name}.wasm`.
-//! 
+//!
 //! In order to ensure that the WASM build is **deterministic**, the [Substrate Runtime Toolbox (srtool)](https://github.com/paritytech/srtool) can be used.
 //!
 //! ### Binaries
