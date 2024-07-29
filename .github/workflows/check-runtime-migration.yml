@@ -135,7 +135,7 @@ jobs:
           echo "Creating new snapshot for today (${{ steps.get-date.outputs.today }})"
           touch ${{ steps.get-date.outputs.today }}
 
-          try-runtime create-snapshot --uri ${{ matrix.uri }} snapshot.raw
+          ./try-runtime create-snapshot --uri ${{ matrix.uri }} snapshot.raw
         
       - name: Build Runtime
         run: |
