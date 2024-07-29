@@ -678,6 +678,7 @@ enum InvalidAssignmentError {
 	// The assignment did not claim any valid candidate.
 	NoClaimedCandidates,
 	// Claimed invalid candidate.
+	#[allow(dead_code)]
 	ClaimedInvalidCandidateIndex {
 		claimed_index: usize,
 		max_index: usize,
