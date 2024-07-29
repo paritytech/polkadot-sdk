@@ -24,7 +24,7 @@ use frame_support::{
 	pallet_prelude::*,
 	parameter_types,
 	traits::{
-		fungible,
+		fungible, fungibles,
 		tokens::{
 			fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
 			imbalance::ResolveAssetTo,
@@ -131,7 +131,7 @@ pub struct DealWithFees;
 impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>>
 	for DealWithFees
 {
-	fn on_unbalanceds<B>(
+	fn on_unbalanceds(
 		mut fees_then_tips: impl Iterator<
 			Item = fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>,
 		>,
@@ -150,6 +150,22 @@ pub struct MockTxPaymentWeights;
 impl pallet_transaction_payment::WeightInfo for MockTxPaymentWeights {
 	fn charge_transaction_payment() -> Weight {
 		Weight::from_parts(10, 0)
+	}
+}
+
+pub struct DealWithFungiblesFees;
+impl OnUnbalanced<fungibles::Credit<AccountId, NativeAndAssets>> for DealWithFungiblesFees {
+	fn on_unbalanceds(
+		mut fees_then_tips: impl Iterator<
+			Item = fungibles::Credit<<Runtime as frame_system::Config>::AccountId, NativeAndAssets>,
+		>,
+	) {
+		if let Some(fees) = fees_then_tips.next() {
+			FeeUnbalancedAmount::mutate(|a| *a += fees.peek());
+			if let Some(tips) = fees_then_tips.next() {
+				TipUnbalancedAmount::mutate(|a| *a += tips.peek());
+			}
+		}
 	}
 }
 
@@ -229,12 +245,14 @@ pub type PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter<
 	(NativeOrWithId<u32>, NativeOrWithId<u32>),
 >;
 
+type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type HigherPrecisionBalance = u128;
 	type AssetKind = NativeOrWithId<u32>;
-	type Assets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = Chain<
 		WithFirstAsset<Native, AccountId, NativeOrWithId<u32>, PoolIdToAccountId>,
@@ -275,8 +293,9 @@ impl WeightInfo for MockWeights {
 
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = Assets;
-	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion, Native>;
+	type AssetId = NativeOrWithId<u32>;
+	type OnChargeAssetTransaction =
+		SwapAssetAdapter<Native, NativeAndAssets, AssetConversion, DealWithFungiblesFees>;
 	type WeightInfo = MockWeights;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = Helper;
@@ -296,17 +315,18 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 pub struct Helper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl BenchmarkHelperTrait<u64, u32, u32> for Helper {
-	fn create_asset_id_parameter(id: u32) -> (u32, u32) {
-		(id, id)
+impl BenchmarkHelperTrait<u64, NativeOrWithId<u32>, NativeOrWithId<u32>> for Helper {
+	fn create_asset_id_parameter(id: u32) -> (NativeOrWithId<u32>, NativeOrWithId<u32>) {
+		(NativeOrWithId::WithId(id), NativeOrWithId::WithId(id))
 	}
 
-	fn setup_balances_and_pool(asset_id: u32, account: u64) {
+	fn setup_balances_and_pool(asset_id: NativeOrWithId<u32>, account: u64) {
 		use frame_support::{assert_ok, traits::fungibles::Mutate};
 		use sp_runtime::traits::StaticLookup;
+		let NativeOrWithId::WithId(asset_idx) = asset_id.clone() else { unimplemented!() };
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
-			asset_id.into(),
+			asset_idx.into(),
 			42,   /* owner */
 			true, /* is_sufficient */
 			1,
@@ -315,10 +335,10 @@ impl BenchmarkHelperTrait<u64, u32, u32> for Helper {
 		let lp_provider = 12;
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), lp_provider, u64::MAX / 2));
 		let lp_provider_account = <Runtime as system::Config>::Lookup::unlookup(lp_provider);
-		assert_ok!(Assets::mint_into(asset_id.into(), &lp_provider_account, u64::MAX / 2));
+		assert_ok!(Assets::mint_into(asset_idx, &lp_provider_account, u64::MAX / 2));
 
 		let token_1 = Box::new(NativeOrWithId::Native);
-		let token_2 = Box::new(NativeOrWithId::WithId(asset_id));
+		let token_2 = Box::new(asset_id);
 		assert_ok!(AssetConversion::create_pool(
 			RuntimeOrigin::signed(lp_provider),
 			token_1.clone(),
@@ -342,7 +362,7 @@ impl BenchmarkHelperTrait<u64, u32, u32> for Helper {
 		let beneficiary = <Runtime as system::Config>::Lookup::unlookup(account);
 		let balance = 1000;
 
-		assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
-		assert_eq!(Assets::balance(asset_id, account), balance);
+		assert_ok!(Assets::mint_into(asset_idx, &beneficiary, balance));
+		assert_eq!(Assets::balance(asset_idx, account), balance);
 	}
 }

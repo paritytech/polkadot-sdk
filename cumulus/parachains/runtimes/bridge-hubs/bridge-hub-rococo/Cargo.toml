@@ -121,7 +121,6 @@ snowbridge-runtime-common = { workspace = true }
 bridge-hub-common = { workspace = true }
 
 [dev-dependencies]
-static_assertions = { workspace = true, default-features = true }
 bridge-hub-test-utils = { workspace = true, default-features = true }
 bridge-runtime-common = { features = [
 	"integrity-test",

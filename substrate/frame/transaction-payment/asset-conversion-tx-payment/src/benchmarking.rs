@@ -31,14 +31,10 @@ use sp_runtime::traits::{AsSystemOriginSigner, DispatchTransaction, Dispatchable
 
 #[benchmarks(where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-	AssetBalanceOf<T>: Send + Sync,
+	T::AssetId: Send + Sync,
 	BalanceOf<T>: Send
 		+ Sync
-		+ From<u64>
-		+ Into<ChargeAssetBalanceOf<T>>
-		+ Into<ChargeAssetLiquidityOf<T>>
-		+ From<ChargeAssetLiquidityOf<T>>,
-	ChargeAssetIdOf<T>: Send + Sync + Default,
+		+ From<u64>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 )]
 mod benchmarks {

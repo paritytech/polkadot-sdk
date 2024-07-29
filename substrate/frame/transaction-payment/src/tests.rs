@@ -178,7 +178,7 @@ fn transaction_extension_transaction_payment_multiplied_refund_works() {
 		.base_weight(Weight::from_parts(5, 0))
 		.build()
 		.execute_with(|| {
-			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(3, 2));
+			NextFeeMultiplier::<Runtime>::put(Multiplier::saturating_from_rational(3, 2));
 
 			let len = 10;
 			let origin = Some(2).into();
@@ -259,7 +259,7 @@ fn transaction_ext_length_fee_is_also_updated_per_congestion() {
 		.build()
 		.execute_with(|| {
 			// all fees should be x1.5
-			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(3, 2));
+			NextFeeMultiplier::<Runtime>::put(Multiplier::saturating_from_rational(3, 2));
 			let len = 10;
 			let info = &info_from_weight(Weight::from_parts(3, 0));
 			assert_ok!(Ext::from(10).validate_and_prepare(Some(1).into(), CALL, info, len));
@@ -293,7 +293,7 @@ fn query_info_and_fee_details_works() {
 		.build()
 		.execute_with(|| {
 			// all fees should be x1.5
-			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(3, 2));
+			NextFeeMultiplier::<Runtime>::put(Multiplier::saturating_from_rational(3, 2));
 
 			assert_eq!(
 				TransactionPayment::query_info(xt.clone(), len),
@@ -350,7 +350,7 @@ fn query_call_info_and_fee_details_works() {
 		.build()
 		.execute_with(|| {
 			// all fees should be x1.5
-			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(3, 2));
+			NextFeeMultiplier::<Runtime>::put(Multiplier::saturating_from_rational(3, 2));
 
 			assert_eq!(
 				TransactionPayment::query_call_info(call.clone(), len),
@@ -389,7 +389,7 @@ fn compute_fee_works_without_multiplier() {
 		.build()
 		.execute_with(|| {
 			// Next fee multiplier is zero
-			assert_eq!(<NextFeeMultiplier<Runtime>>::get(), Multiplier::one());
+			assert_eq!(NextFeeMultiplier::<Runtime>::get(), Multiplier::one());
 
 			// Tip only, no fees works
 			let dispatch_info = DispatchInfo {
@@ -431,7 +431,7 @@ fn compute_fee_works_with_multiplier() {
 		.build()
 		.execute_with(|| {
 			// Add a next fee multiplier. Fees will be x3/2.
-			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(3, 2));
+			NextFeeMultiplier::<Runtime>::put(Multiplier::saturating_from_rational(3, 2));
 			// Base fee is unaffected by multiplier
 			let dispatch_info = DispatchInfo {
 				call_weight: Weight::from_parts(0, 0),
@@ -465,7 +465,7 @@ fn compute_fee_works_with_negative_multiplier() {
 		.build()
 		.execute_with(|| {
 			// Add a next fee multiplier. All fees will be x1/2.
-			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(1, 2));
+			NextFeeMultiplier::<Runtime>::put(Multiplier::saturating_from_rational(1, 2));
 
 			// Base fee is unaffected by multiplier.
 			let dispatch_info = DispatchInfo {
@@ -622,7 +622,7 @@ fn refund_consistent_with_actual_weight() {
 			let len = 10;
 			let tip = 5;
 
-			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(5, 4));
+			NextFeeMultiplier::<Runtime>::put(Multiplier::saturating_from_rational(5, 4));
 
 			let actual_post_info = Ext::from(tip)
 				.test_run(Some(2).into(), CALL, &info, len, |_| Ok(post_info))
@@ -765,7 +765,7 @@ fn post_info_can_change_pays_fee() {
 			let len = 10;
 			let tip = 5;
 
-			<NextFeeMultiplier<Runtime>>::put(Multiplier::saturating_from_rational(5, 4));
+			NextFeeMultiplier::<Runtime>::put(Multiplier::saturating_from_rational(5, 4));
 
 			let post_info = ChargeTransactionPayment::<Runtime>::from(tip)
 				.test_run(Some(2).into(), CALL, &info, len, |_| Ok(post_info))
@@ -789,7 +789,7 @@ fn genesis_config_works() {
 		.build()
 		.execute_with(|| {
 			assert_eq!(
-				<NextFeeMultiplier<Runtime>>::get(),
+				NextFeeMultiplier::<Runtime>::get(),
 				Multiplier::saturating_from_integer(100)
 			);
 		});
@@ -798,6 +798,6 @@ fn genesis_config_works() {
 #[test]
 fn genesis_default_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_eq!(<NextFeeMultiplier<Runtime>>::get(), Multiplier::saturating_from_integer(1));
+		assert_eq!(NextFeeMultiplier::<Runtime>::get(), Multiplier::saturating_from_integer(1));
 	});
 }

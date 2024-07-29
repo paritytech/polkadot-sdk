@@ -6,7 +6,7 @@ description = "Patricia trie stuff using a parity-scale-codec node format"
 repository.workspace = true
 license = "Apache-2.0"
 edition.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 documentation = "https://docs.rs/sp-trie"
 readme = "README.md"
 
