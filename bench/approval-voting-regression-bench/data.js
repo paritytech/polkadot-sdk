@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722254166767,
+  "lastUpdate": 1722262701831,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -13065,6 +13065,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.1488271972601174,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "de73c77c3c33aa6172df33febeeec2e177381819",
+          "message": "Various corrections in the documentation (#5154)\n\nAn attempt to improve [the\ndocs](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html)\nby applying various corrections:\n\n- grammar/stylistics,\n- formatting,\n- broken links,\n- broken markdown table,\n- outdated vscode setting name,\n- typos,\n- consistency,\n- etc.\n\nPart of https://github.com/paritytech/eng-automation/issues/10",
+          "timestamp": "2024-07-29T13:42:00Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/de73c77c3c33aa6172df33febeeec2e177381819"
+        },
+        "date": 1722262671826,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63990.68000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.369148629679994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.7032649179299515,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.426003861550156,
             "unit": "seconds"
           }
         ]
