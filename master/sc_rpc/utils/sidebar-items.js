@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["pipe_from_stream","spawn_subscription_task","to_sub_message"]};
+window.SIDEBAR_ITEMS = {"fn":["spawn_subscription_task"],"struct":["BoundedVecDeque","PendingSubscription","RingBuffer","Subscription"],"trait":["Buffer"]};

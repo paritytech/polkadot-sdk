@@ -808,7 +808,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#657" id="657">657</a>
 <a href="#658" id="658">658</a>
 <a href="#659" id="659">659</a>
-<a href="#660" id="660">660</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -848,14 +847,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>futures::{channel::oneshot, future::FutureExt};
 <span class="kw">use </span>jsonrpsee::{
 	core::async_trait, server::ResponsePayload, types::SubscriptionId, ConnectionId, Extensions,
-	MethodResponseFuture, PendingSubscriptionSink, SubscriptionSink,
+	MethodResponseFuture, PendingSubscriptionSink,
 };
 <span class="kw">use </span>log::debug;
 <span class="kw">use </span>sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, StorageKey,
 	StorageProvider,
 };
-<span class="kw">use </span>sc_rpc::utils::to_sub_message;
+<span class="kw">use </span>sc_rpc::utils::Subscription;
 <span class="kw">use </span>sp_api::CallApiAt;
 <span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>BlockChainError, HeaderBackend, HeaderMetadata};
 <span class="kw">use </span>sp_core::{traits::CallContext, Bytes};
@@ -969,7 +968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Helper to convert the `subscription ID` to a string.
-</span><span class="kw">pub fn </span>read_subscription_id_as_string(sink: <span class="kw-2">&amp;</span>SubscriptionSink) -&gt; String {
+</span><span class="kw">pub fn </span>read_subscription_id_as_string(sink: <span class="kw-2">&amp;</span>Subscription) -&gt; String {
 	<span class="kw">match </span>sink.subscription_id() {
 		SubscriptionId::Num(n) =&gt; n.to_string(),
 		SubscriptionId::Str(s) =&gt; s.into_owned().into(),
@@ -1024,7 +1023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return
 			</span>};
 
-			<span class="kw">let </span><span class="prelude-val">Ok</span>(sink) = pending.accept().<span class="kw">await else </span>{ <span class="kw">return </span>};
+			<span class="kw">let </span><span class="prelude-val">Ok</span>(sink) = pending.accept().<span class="kw">await</span>.map(Subscription::from) <span class="kw">else </span>{ <span class="kw">return </span>};
 
 			<span class="kw">let </span>sub_id = read_subscription_id_as_string(<span class="kw-2">&amp;</span>sink);
 			<span class="comment">// Keep track of the subscription.
@@ -1034,8 +1033,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Inserting the subscription can only fail if the JsonRPSee generated a duplicate
 				// subscription ID.
 				</span><span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"[follow][id={:?}] Subscription already accepted"</span>, sub_id);
-				<span class="kw">let </span>msg = to_sub_message(<span class="kw-2">&amp;</span>sink, <span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop);
-				<span class="kw">let _ </span>= sink.send(msg).<span class="kw">await</span>;
+				<span class="kw">let _ </span>= sink.send(<span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop).<span class="kw">await</span>;
 				<span class="kw">return
 			</span>};
 			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"[follow][id={:?}] Subscription accepted"</span>, sub_id);

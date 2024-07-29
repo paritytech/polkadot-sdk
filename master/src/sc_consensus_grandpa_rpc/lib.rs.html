@@ -558,6 +558,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#407" id="407">407</a>
 <a href="#408" id="408">408</a>
 <a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -598,7 +604,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>notification::JustificationNotification;
 <span class="kw">use </span>report::{ReportAuthoritySet, ReportVoterState, ReportedRoundStates};
 <span class="kw">use </span>sc_consensus_grandpa::GrandpaJustificationStream;
-<span class="kw">use </span>sc_rpc::{utils::pipe_from_stream, SubscriptionTaskExecutor};
+<span class="kw">use </span>sc_rpc::{
+	utils::{BoundedVecDeque, PendingSubscription},
+	SubscriptionTaskExecutor,
+};
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
 
 <span class="doccomment">/// Provides RPC methods for interacting with GRANDPA.
@@ -668,7 +677,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 		);
 
-		sc_rpc::utils::spawn_subscription_task(<span class="kw-2">&amp;</span><span class="self">self</span>.executor, pipe_from_stream(pending, stream));
+		sc_rpc::utils::spawn_subscription_task(
+			<span class="kw-2">&amp;</span><span class="self">self</span>.executor,
+			PendingSubscription::from(pending).pipe_from_stream(stream, BoundedVecDeque::default()),
+		);
 	}
 
 	<span class="kw">async fn </span>prove_finality(

@@ -792,6 +792,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#641" id="641">641</a>
 <a href="#642" id="642">642</a>
 <a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -820,7 +826,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ChildStateBackend, StateBackend,
 };
 <span class="kw">use crate</span>::{
-	utils::{pipe_from_stream, spawn_subscription_task},
+	utils::{spawn_subscription_task, BoundedVecDeque, PendingSubscription},
 	DenyUnsafe, SubscriptionTaskExecutor,
 };
 
@@ -1199,7 +1205,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			});
 
 		<span class="kw">let </span>stream = futures::stream::once(future::ready(initial)).chain(version_stream);
-		spawn_subscription_task(<span class="kw-2">&amp;</span><span class="self">self</span>.executor, pipe_from_stream(pending, stream));
+		spawn_subscription_task(
+			<span class="kw-2">&amp;</span><span class="self">self</span>.executor,
+			PendingSubscription::from(pending).pipe_from_stream(stream, BoundedVecDeque::default()),
+		);
 	}
 
 	<span class="kw">fn </span>subscribe_storage(
@@ -1251,7 +1260,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.chain(storage_stream)
 			.filter(|storage| future::ready(!storage.changes.is_empty()));
 
-		spawn_subscription_task(<span class="kw-2">&amp;</span><span class="self">self</span>.executor, pipe_from_stream(pending, stream));
+		spawn_subscription_task(
+			<span class="kw-2">&amp;</span><span class="self">self</span>.executor,
+			PendingSubscription::from(pending).pipe_from_stream(stream, BoundedVecDeque::default()),
+		);
 	}
 
 	<span class="kw">fn </span>trace_block(

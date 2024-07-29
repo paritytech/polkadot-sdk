@@ -308,6 +308,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
 <a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -340,7 +345,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::Decode;
 <span class="kw">use </span>futures::{StreamExt, TryFutureExt};
 <span class="kw">use </span>jsonrpsee::{core::async_trait, PendingSubscriptionSink};
-<span class="kw">use </span>sc_rpc::utils::{pipe_from_stream, to_sub_message};
+<span class="kw">use </span>sc_rpc::utils::{RingBuffer, Subscription};
 <span class="kw">use </span>sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, TransactionFor, TransactionPool, TransactionSource,
 	TransactionStatus,
@@ -394,16 +399,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(e) =&gt; {
 					<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Extrinsic bytes cannot be decoded: {:?}"</span>, e);
 
-					<span class="kw">let </span><span class="prelude-val">Ok</span>(sink) = pending.accept().<span class="kw">await else </span>{ <span class="kw">return </span>};
+					<span class="kw">let </span><span class="prelude-val">Ok</span>(sink) = pending.accept().<span class="kw">await</span>.map(Subscription::from) <span class="kw">else </span>{ <span class="kw">return </span>};
 
 					<span class="comment">// The transaction is invalid.
-					</span><span class="kw">let </span>msg = to_sub_message(
-						<span class="kw-2">&amp;</span>sink,
-						<span class="kw-2">&amp;</span>TransactionEvent::Invalid::&lt;BlockHash&lt;Pool&gt;&gt;(TransactionError {
+					</span><span class="kw">let _ </span>= sink
+						.send(<span class="kw-2">&amp;</span>TransactionEvent::Invalid::&lt;BlockHash&lt;Pool&gt;&gt;(TransactionError {
 							error: <span class="string">"Extrinsic bytes cannot be decoded"</span>.into(),
-						}),
-					);
-					<span class="kw">let _ </span>= sink.send(msg).<span class="kw">await</span>;
+						}))
+						.<span class="kw">await</span>;
 					<span class="kw">return
 				</span>},
 			};
@@ -418,16 +421,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.unwrap_or_else(|e| Error::Verification(Box::new(e)))
 				});
 
+			<span class="kw">let </span><span class="prelude-val">Ok</span>(sink) = pending.accept().<span class="kw">await</span>.map(Subscription::from) <span class="kw">else </span>{
+				<span class="kw">return</span>;
+			};
+
 			<span class="kw">match </span>submit.<span class="kw">await </span>{
 				<span class="prelude-val">Ok</span>(stream) =&gt; {
-					<span class="kw">let </span>stream = stream.filter_map(<span class="kw">move </span>|event| <span class="kw">async move </span>{ handle_event(event) });
-					pipe_from_stream(pending, stream.boxed()).<span class="kw">await</span>;
+					<span class="kw">let </span>stream =
+						stream.filter_map(<span class="kw">move </span>|event| <span class="kw">async move </span>{ handle_event(event) }).boxed();
+
+					<span class="comment">// If the subscription is too slow older events will be overwritten.
+					</span>sink.pipe_from_stream(stream, RingBuffer::new(<span class="number">3</span>)).<span class="kw">await</span>;
 				},
 				<span class="prelude-val">Err</span>(err) =&gt; {
 					<span class="comment">// We have not created an `Watcher` for the tx. Make sure the
 					// error is still propagated as an event.
 					</span><span class="kw">let </span>event: TransactionEvent&lt;&lt;Pool::Block <span class="kw">as </span>BlockT&gt;::Hash&gt; = err.into();
-					pipe_from_stream(pending, futures::stream::once(<span class="kw">async </span>{ event }).boxed()).<span class="kw">await</span>;
+					<span class="kw">_ </span>= sink.send(<span class="kw-2">&amp;</span>event).<span class="kw">await</span>;
 				},
 			};
 		};
