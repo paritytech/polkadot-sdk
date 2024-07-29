@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722204889197,
+  "lastUpdate": 1722255060123,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -6803,6 +6803,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.036619518356,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh",
+            "email": "49718502+alexggh@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0636ffdc3dfea52e90102403527ff99d2f2d6e7c",
+          "message": "[2 / 5] Make approval-distribution logic runnable on a separate thread (#4845)\n\nThis is part of the work to further optimize the approval subsystems, if\nyou want to understand the full context start with reading\nhttps://github.com/paritytech/polkadot-sdk/pull/4849#issue-2364261568,\n\n# Description\n\nThis PR contain changes to make possible the run of multiple instances\nof approval-distribution, so that we can parallelise the work. This does\nnot contain any functional changes it just decouples the subsystem from\nthe subsystem Context and introduces more specific trait dependencies\nfor each function instead of all of them requiring a context.\n\nIt does not have any dependency of the follow PRs, so it can be merged\nindependently of them.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2024-07-29T10:09:21Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0636ffdc3dfea52e90102403527ff99d2f2d6e7c"
+        },
+        "date": 1722255030033,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.92199999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04511175016799998,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03643301948999999,
             "unit": "seconds"
           }
         ]
