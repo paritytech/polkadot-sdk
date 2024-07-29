@@ -116,10 +116,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: snapshot.raw
-          key: try-runtime-snapshot-${{ matrix.network }}-${{ steps.get-date.outputs.today }}-wip
+          key: try-runtime-snapshot-${{ matrix.network }}-${{ steps.get-date.outputs.today }}
           save-always: true
 
-      - name: Create Snapshot If Not Exists
+      - name: Create Snapshot If Stale
         if: ${{ hashFiles('snapshot.raw') == '' }}
         run: |
           echo "Creating new snapshot for today (${{ steps.get-date.outputs.today }})"
