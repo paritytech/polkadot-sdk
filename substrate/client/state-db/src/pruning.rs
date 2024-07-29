@@ -385,7 +385,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> RefWindow<BlockHash, Key, D> {
 	/// Prune next block. Expects at least one block in the window. Adds changes to `commit`.
 	pub fn prune_one(&mut self, commit: &mut CommitSet<Key>) -> Result<(), Error<D::Error>> {
 		if let Some(pruned) = self.queue.pop_front(self.base)? {
-			trace!(target: "state-db", "Pruning {:?} ({} deleted)", pruned.hash, pruned.deleted.len());
+			trace!(target: LOG_TARGET, "Pruning {:?} ({} deleted)", pruned.hash, pruned.deleted.len());
 			let index = self.base;
 			commit.data.deleted.extend(pruned.deleted.into_iter());
 			commit.meta.inserted.push((to_meta_key(LAST_PRUNED, &()), index.encode()));
@@ -393,7 +393,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> RefWindow<BlockHash, Key, D> {
 			self.base += 1;
 			Ok(())
 		} else {
-			trace!(target: "state-db", "Trying to prune when there's nothing to prune");
+			trace!(target: LOG_TARGET, "Trying to prune when there's nothing to prune");
 			Err(Error::StateDb(StateDbError::BlockUnavailable))
 		}
 	}
@@ -418,7 +418,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> RefWindow<BlockHash, Key, D> {
 			return Err(Error::StateDb(StateDbError::InvalidBlockNumber))
 		}
 		trace!(
-			target: "state-db",
+			target: LOG_TARGET,
 			"Adding to pruning window: {:?} ({} inserted, {} deleted)",
 			hash,
 			commit.data.inserted.len(),

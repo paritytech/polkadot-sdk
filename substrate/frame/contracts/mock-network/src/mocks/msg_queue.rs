@@ -25,7 +25,6 @@ use polkadot_parachain_primitives::primitives::{
 use polkadot_primitives::BlockNumber as RelayBlockNumber;
 use sp_runtime::traits::{Get, Hash};
 
-use sp_std::prelude::*;
 use xcm::{latest::prelude::*, VersionedXcm};
 
 #[frame_support::pallet]
@@ -47,17 +46,15 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	#[pallet::getter(fn parachain_id)]
 	pub(super) type ParachainId<T: Config> = StorageValue<_, ParaId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn received_dmp)]
 	/// A queue of received DMP messages
 	pub(super) type ReceivedDmp<T: Config> = StorageValue<_, Vec<Xcm<T::RuntimeCall>>, ValueQuery>;
 
 	impl<T: Config> Get<ParaId> for Pallet<T> {
 		fn get() -> ParaId {
-			Self::parachain_id()
+			ParachainId::<T>::get()
 		}
 	}
 
@@ -89,6 +86,14 @@ pub mod pallet {
 			ParachainId::<T>::put(para_id);
 		}
 
+		pub fn parachain_id() -> ParaId {
+			ParachainId::<T>::get()
+		}
+
+		pub fn received_dmp() -> Vec<Xcm<T::RuntimeCall>> {
+			ReceivedDmp::<T>::get()
+		}
+
 		fn handle_xcmp_message(
 			sender: ParaId,
 			_sent_at: RelayBlockNumber,
@@ -96,16 +101,23 @@ pub mod pallet {
 			max_weight: Weight,
 		) -> Result<Weight, XcmError> {
 			let hash = Encode::using_encoded(&xcm, T::Hashing::hash);
-			let message_hash = Encode::using_encoded(&xcm, sp_io::hashing::blake2_256);
+			let mut message_hash = Encode::using_encoded(&xcm, sp_io::hashing::blake2_256);
 			let (result, event) = match Xcm::<T::RuntimeCall>::try_from(xcm) {
 				Ok(xcm) => {
 					let location = (Parent, Parachain(sender.into()));
-					match T::XcmExecutor::execute_xcm(location, xcm, message_hash, max_weight) {
-						Outcome::Error(e) => (Err(e), Event::Fail(Some(hash), e)),
-						Outcome::Complete(w) => (Ok(w), Event::Success(Some(hash))),
+					match T::XcmExecutor::prepare_and_execute(
+						location,
+						xcm,
+						&mut message_hash,
+						max_weight,
+						Weight::zero(),
+					) {
+						Outcome::Error { error } => (Err(error), Event::Fail(Some(hash), error)),
+						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete(w, e) => (Ok(w), Event::Fail(Some(hash), e)),
+						Outcome::Incomplete { used, error } =>
+							(Ok(used), Event::Fail(Some(hash), error)),
 					}
 				},
 				Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion(Some(hash))),
@@ -146,7 +158,7 @@ pub mod pallet {
 			limit: Weight,
 		) -> Weight {
 			for (_i, (_sent_at, data)) in iter.enumerate() {
-				let id = sp_io::hashing::blake2_256(&data[..]);
+				let mut id = sp_io::hashing::blake2_256(&data[..]);
 				let maybe_versioned = VersionedXcm::<T::RuntimeCall>::decode(&mut &data[..]);
 				match maybe_versioned {
 					Err(_) => {
@@ -155,8 +167,14 @@ pub mod pallet {
 					Ok(versioned) => match Xcm::try_from(versioned) {
 						Err(()) => Self::deposit_event(Event::UnsupportedVersion(id)),
 						Ok(x) => {
-							let outcome = T::XcmExecutor::execute_xcm(Parent, x.clone(), id, limit);
-							<ReceivedDmp<T>>::append(x);
+							let outcome = T::XcmExecutor::prepare_and_execute(
+								Parent,
+								x.clone(),
+								&mut id,
+								limit,
+								Weight::zero(),
+							);
+							ReceivedDmp::<T>::append(x);
 							Self::deposit_event(Event::ExecutedDownward(id, outcome));
 						},
 					},

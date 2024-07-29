@@ -20,8 +20,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use core::time::Duration;
 use sp_inherents::{InherentData, InherentIdentifier, IsFatalError};
-use sp_std::time::Duration;
 
 /// The identifier for the `timestamp` inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"timstap0";
@@ -69,7 +69,7 @@ impl Timestamp {
 	}
 }
 
-impl sp_std::ops::Deref for Timestamp {
+impl core::ops::Deref for Timestamp {
 	type Target = u64;
 
 	fn deref(&self) -> &Self::Target {
@@ -219,7 +219,7 @@ impl InherentDataProvider {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::ops::Deref for InherentDataProvider {
+impl core::ops::Deref for InherentDataProvider {
 	type Target = InherentType;
 
 	fn deref(&self) -> &Self::Target {

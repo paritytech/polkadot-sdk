@@ -20,6 +20,7 @@
 
 use crate::traits::UnfilteredDispatchable;
 use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
+use core::fmt;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -28,7 +29,6 @@ use sp_runtime::{
 	traits::SignedExtension,
 	DispatchError, RuntimeDebug,
 };
-use sp_std::fmt;
 use sp_weights::Weight;
 
 /// The return type of a `Dispatchable` in frame. When returned explicitly from
@@ -36,7 +36,8 @@ use sp_weights::Weight;
 /// returned from a dispatch.
 pub type DispatchResultWithPostInfo = sp_runtime::DispatchResultWithInfo<PostDispatchInfo>;
 
-/// Unaugmented version of `DispatchResultWithPostInfo` that can be returned from
+#[docify::export]
+/// Un-augmented version of `DispatchResultWithPostInfo` that can be returned from
 /// dispatchable functions and is automatically converted to the augmented type. Should be
 /// used whenever the `PostDispatchInfo` does not need to be overwritten. As this should
 /// be the common case it is the implicit return type when none is specified.
@@ -219,14 +220,14 @@ pub trait OneOrMany<T> {
 }
 
 impl OneOrMany<DispatchClass> for DispatchClass {
-	type Iter = sp_std::iter::Once<DispatchClass>;
+	type Iter = core::iter::Once<DispatchClass>;
 	fn into_iter(self) -> Self::Iter {
-		sp_std::iter::once(self)
+		core::iter::once(self)
 	}
 }
 
 impl<'a> OneOrMany<DispatchClass> for &'a [DispatchClass] {
-	type Iter = sp_std::iter::Cloned<sp_std::slice::Iter<'a, DispatchClass>>;
+	type Iter = core::iter::Cloned<core::slice::Iter<'a, DispatchClass>>;
 	fn into_iter(self) -> Self::Iter {
 		self.iter().cloned()
 	}
@@ -663,7 +664,7 @@ mod weight_tests {
 	use sp_runtime::{generic, traits::BlakeTwo256};
 	use sp_weights::RuntimeDbWeight;
 
-	pub use self::frame_system::{Call, Config, Pallet};
+	pub use self::frame_system::{Call, Config};
 
 	fn from_actual_ref_time(ref_time: Option<u64>) -> PostDispatchInfo {
 		PostDispatchInfo {
@@ -694,6 +695,7 @@ mod weight_tests {
 			type BaseCallFilter: crate::traits::Contains<Self::RuntimeCall>;
 			type RuntimeOrigin;
 			type RuntimeCall;
+			type RuntimeTask;
 			type PalletInfo: crate::traits::PalletInfo;
 			type DbWeight: Get<crate::weights::RuntimeDbWeight>;
 		}
@@ -790,6 +792,7 @@ mod weight_tests {
 		type BaseCallFilter = crate::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;
 		type RuntimeCall = RuntimeCall;
+		type RuntimeTask = RuntimeTask;
 		type DbWeight = DbWeight;
 		type PalletInfo = PalletInfo;
 	}

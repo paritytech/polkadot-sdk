@@ -19,7 +19,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use registration::{Registration, StakeAndSlash};
+pub use registration::{ExplicitOrAccountParams, Registration, StakeAndSlash};
 
 use bp_messages::LaneId;
 use bp_runtime::{ChainId, StorageDoubleMapKeyProvider};
@@ -140,8 +140,8 @@ pub struct RelayerRewardsKeyProvider<AccountId, Reward>(PhantomData<(AccountId, 
 
 impl<AccountId, Reward> StorageDoubleMapKeyProvider for RelayerRewardsKeyProvider<AccountId, Reward>
 where
-	AccountId: Codec + EncodeLike,
-	Reward: Codec + EncodeLike,
+	AccountId: 'static + Codec + EncodeLike + Send + Sync,
+	Reward: 'static + Codec + EncodeLike + Send + Sync,
 {
 	const MAP_NAME: &'static str = "RelayerRewards";
 

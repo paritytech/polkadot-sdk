@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::super::*;
+use alloc::{boxed::Box, vec::Vec};
 
 /// Migrate the locks and vote stake on accounts (as specified with param `to_migrate`) that have
 /// more than their free balance locked.
@@ -71,7 +72,7 @@ pub fn pre_migrate_fn<T: Config>(to_migrate: Vec<T::AccountId>) -> Box<dyn Fn() 
 }
 
 /// Some checks for after migration. This can be linked to
-/// [`frame_support::traits::OnRuntimeUpgrade::post_upgrade`] for further testing.
+/// `frame_support::traits::OnRuntimeUpgrade::post_upgrade` for further testing.
 ///
 /// Panics if anything goes wrong.
 pub fn post_migrate<T: crate::Config>() {

@@ -1,0 +1,9 @@
+title: "Remove `RuntimeApi` dependency on system parachain runtime code"
+author: seadanda
+topic: "System Parachains"
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

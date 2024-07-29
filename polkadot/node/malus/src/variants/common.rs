@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Implements common code for nemesis. Currently, only `FakeValidationResult`
+//! Implements common code for nemesis. Currently, only `ReplaceValidationResult`
 //! interceptor is implemented.
 use crate::{
 	interceptor::*,
@@ -23,10 +23,6 @@ use crate::{
 
 use polkadot_node_core_candidate_validation::find_validation_data;
 use polkadot_node_primitives::{InvalidCandidate, ValidationResult};
-use polkadot_node_subsystem::{
-	messages::{CandidateValidationMessage, ValidationFailed},
-	overseer,
-};
 
 use polkadot_primitives::{
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, PersistedValidationData,

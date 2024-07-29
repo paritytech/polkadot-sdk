@@ -20,7 +20,7 @@ PROJECT_ROOT=${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}
 DOCKERFILE=${DOCKERFILE:-docker/dockerfiles/binary_injected.Dockerfile}
 VERSION_TOML=$(grep "^version " $PROJECT_ROOT/Cargo.toml | grep -oE "([0-9\.]+-?[0-9]+)")
 
-#n The following VAR have default that can be overriden
+#n The following VAR have default that can be overridden
 DOCKER_OWNER=${DOCKER_OWNER:-parity}
 
 # We may get 1..n binaries, comma separated

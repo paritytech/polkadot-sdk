@@ -49,16 +49,6 @@ short-benchmark-westend: &short-bench
   script:
     - ./artifacts/polkadot-parachain benchmark pallet --chain $RUNTIME_CHAIN --pallet "*" --extrinsic "*" --steps 2 --repeat 1
 
-short-benchmark-asset-hub-polkadot:
-  <<: *short-bench-cumulus
-  variables:
-    RUNTIME_CHAIN: asset-hub-polkadot-dev
-
-short-benchmark-asset-hub-kusama:
-  <<: *short-bench-cumulus
-  variables:
-    RUNTIME_CHAIN: asset-hub-kusama-dev
-
 short-benchmark-asset-hub-rococo:
   <<: *short-bench-cumulus
   variables:
@@ -68,16 +58,6 @@ short-benchmark-asset-hub-westend:
   <<: *short-bench-cumulus
   variables:
     RUNTIME_CHAIN: asset-hub-westend-dev
-
-short-benchmark-bridge-hub-polkadot:
-  <<: *short-bench-cumulus
-  variables:
-    RUNTIME_CHAIN: bridge-hub-polkadot-dev
-
-short-benchmark-bridge-hub-kusama:
-  <<: *short-bench-cumulus
-  variables:
-    RUNTIME_CHAIN: bridge-hub-kusama-dev
 
 short-benchmark-bridge-hub-rococo:
   <<: *short-bench-cumulus
@@ -89,20 +69,30 @@ short-benchmark-bridge-hub-westend:
   variables:
     RUNTIME_CHAIN: bridge-hub-westend-dev
 
-short-benchmark-collectives-polkadot:
-  <<: *short-bench-cumulus
-  variables:
-    RUNTIME_CHAIN: collectives-polkadot-dev
-
 short-benchmark-collectives-westend:
   <<: *short-bench-cumulus
   variables:
     RUNTIME_CHAIN: collectives-westend-dev
 
-short-benchmark-glutton-kusama:
+short-benchmark-coretime-rococo:
   <<: *short-bench-cumulus
   variables:
-    RUNTIME_CHAIN: glutton-kusama-dev-1300
+    RUNTIME_CHAIN: coretime-rococo-dev
+
+short-benchmark-coretime-westend:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: coretime-westend-dev
+
+short-benchmark-people-rococo:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: people-rococo-dev
+
+short-benchmark-people-westend:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: people-westend-dev
 
 short-benchmark-glutton-westend:
   <<: *short-bench-cumulus

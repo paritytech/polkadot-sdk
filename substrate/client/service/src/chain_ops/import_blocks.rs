@@ -73,7 +73,7 @@ where
 		reader: CodecIoReader<R>,
 	},
 	Json {
-		// Nubmer of blocks we have decoded thus far.
+		// Number of blocks we have decoded thus far.
 		read_block_count: u64,
 		// Stream to the data, used for decoding new blocks.
 		reader: StreamDeserializer<'static, JsonIoRead<R>, SignedBlock<B>>,

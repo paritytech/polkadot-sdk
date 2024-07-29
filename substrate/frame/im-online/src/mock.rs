@@ -20,15 +20,14 @@
 #![cfg(test)]
 
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64},
 	weights::Weight,
 };
 use pallet_session::historical as pallet_session_historical;
-use sp_core::H256;
 use sp_runtime::{
 	testing::{TestXt, UintAuthorityId},
-	traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+	traits::ConvertInto,
 	BuildStorage, Permill,
 };
 use sp_staking::{
@@ -42,12 +41,11 @@ use crate::Config;
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-		ImOnline: imonline::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Historical: pallet_session_historical::{Pallet},
+	pub enum Runtime {
+		System: frame_system,
+		Session: pallet_session,
+		ImOnline: imonline,
+		Historical: pallet_session_historical,
 	}
 );
 
@@ -113,30 +111,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	result
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {

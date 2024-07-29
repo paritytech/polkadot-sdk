@@ -1,0 +1,16 @@
+title: "Add example pallet for Multi-Block-Migrations"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      - Add an example pallet to demonstrate Multi-Block-Migrations.
+      - Add a `MigrationId` to frame-support for more convenient identification or migrations.
+      - Add default config prelude for testing in pallet-migrations.
+
+crates:
+  - name: frame-support
+    bump: minor
+  - name: pallet-migrations
+    bump: minor
+  - name: kitchensink-runtime
+    bump: patch

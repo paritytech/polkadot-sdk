@@ -54,9 +54,9 @@ fn main() -> Result<()> {
 		Some(cli::Subcommand::ExportGenesisWasm(params)) => {
 			// We pass some dummy values for `pov_size` and `pvf_complexity` as these don't
 			// matter for `wasm` export.
+			let collator = Collator::default();
 			let output_buf =
-				format!("0x{:?}", HexDisplay::from(&Collator::default().validation_code()))
-					.into_bytes();
+				format!("0x{:?}", HexDisplay::from(&collator.validation_code())).into_bytes();
 
 			if let Some(output) = params.output {
 				fs::write(output, output_buf)?;
@@ -82,20 +82,24 @@ fn main() -> Result<()> {
 						is_parachain_node: polkadot_service::IsParachainNode::Collator(
 							collator.collator_key(),
 						),
-						grandpa_pause: None,
 						enable_beefy: false,
+						force_authoring_backoff: false,
 						jaeger_agent: None,
 						telemetry_worker_handle: None,
 
 						// Collators don't spawn PVF workers, so we can disable version checks.
 						node_version: None,
+						secure_validator_mode: false,
 						workers_path: None,
 						workers_names: None,
 
-						overseer_gen: polkadot_service::RealOverseerGen,
+						overseer_gen: polkadot_service::CollatorOverseerGen,
 						overseer_message_channel_capacity_override: None,
 						malus_finality_delay: None,
 						hwbench: None,
+						execute_workers_max_num: None,
+						prepare_workers_hard_max_num: None,
+						prepare_workers_soft_max_num: None,
 					},
 				)
 				.map_err(|e| e.to_string())?;

@@ -193,10 +193,7 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 			get_api_version(&found_attributes).map(|v| generate_runtime_api_version(v as u32))?;
 		let id = generate_runtime_api_id(&decl.ident.to_string());
 
-		#[cfg(feature = "frame-metadata")]
 		let metadata = crate::runtime_metadata::generate_decl_runtime_metadata(&decl);
-		#[cfg(not(feature = "frame-metadata"))]
-		let metadata = quote!();
 
 		let trait_api_version = get_api_version(&found_attributes)?;
 
@@ -456,6 +453,7 @@ impl<'a> ToClientSideDecl<'a> {
 						|err| #crate_::ApiError::FailedToDecodeReturnValue {
 							function: #function_name,
 							error: err,
+							raw: r.clone(),
 						}
 					)
 				)
@@ -729,7 +727,7 @@ fn decl_runtime_apis_impl_inner(api_decls: &[ItemTrait]) -> Result<TokenStream> 
 	};
 
 	let decl = expander::Expander::new("decl_runtime_apis")
-		.dry(std::env::var("SP_API_EXPAND").is_err())
+		.dry(std::env::var("EXPAND_MACROS").is_err())
 		.verbose(true)
 		.write_to_out_dir(decl)
 		.expect("Does not fail because of IO in OUT_DIR; qed");

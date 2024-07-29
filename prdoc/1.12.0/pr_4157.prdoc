@@ -1,0 +1,29 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Bridge: added free headers submission support to the substrate-relay"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Bridge finality and parachains relayer now supports mode, where it only submits some headers
+      for free. There's a setting in a runtime configuration, which introduces this "free header"
+      concept. Submitting such header is considered a common good deed, so it is free for relayers.
+
+crates:
+  - name: bp-bridge-hub-kusama
+    bump: major
+  - name: bp-bridge-hub-polkadot
+    bump: major
+  - name: bp-bridge-hub-rococo
+    bump: major
+  - name: bp-bridge-hub-westend
+    bump: major
+  - name: relay-substrate-client
+    bump: major
+  - name: finality-relay
+    bump: major
+  - name: substrate-relay-helper
+    bump: major
+  - name: parachains-relay
+    bump: major

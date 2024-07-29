@@ -1,0 +1,10 @@
+title: 'substrate-node: `NativeElseWasmExecutor` is no longer used'
+
+author: michalkucharczyk
+topic: node
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

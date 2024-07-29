@@ -94,7 +94,7 @@ impl From<WasmSubstituteError> for sp_blockchain::Error {
 pub struct WasmSubstitutes<Block: BlockT, Executor, Backend> {
 	/// spec_version -> WasmSubstitute
 	substitutes: Arc<HashMap<u32, WasmSubstitute<Block>>>,
-	executor: Executor,
+	executor: Arc<Executor>,
 	backend: Arc<Backend>,
 }
 
@@ -110,14 +110,14 @@ impl<Block: BlockT, Executor: Clone, Backend> Clone for WasmSubstitutes<Block, E
 
 impl<Executor, Backend, Block> WasmSubstitutes<Block, Executor, Backend>
 where
-	Executor: RuntimeVersionOf + Clone + 'static,
+	Executor: RuntimeVersionOf,
 	Backend: backend::Backend<Block>,
 	Block: BlockT,
 {
 	/// Create a new instance.
 	pub fn new(
 		substitutes: HashMap<NumberFor<Block>, Vec<u8>>,
-		executor: Executor,
+		executor: Arc<Executor>,
 		backend: Arc<Backend>,
 	) -> Result<Self> {
 		let substitutes = substitutes

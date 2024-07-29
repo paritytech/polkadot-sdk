@@ -1,10 +1,12 @@
 graph TB
 subgraph Substrate
 	direction LR
-	subgraph Client
+	subgraph Node
 	end
+
 	subgraph Runtime
 	end
-	Client --runtime-api--> Runtime
-	Runtime --host-functions--> Client
+
+	Node --runtime-api--> Runtime
+	Runtime --host-functions--> Node
 end

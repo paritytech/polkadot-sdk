@@ -25,15 +25,15 @@ use crate::{
 	disputes::{self, DisputesHandler as _, SlashingHandler as _},
 	dmp, hrmp, inclusion, paras, scheduler, session_info, shared,
 };
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
 use frame_support::{
 	traits::{OneSessionHandler, Randomness},
 	weights::Weight,
 };
 use frame_system::limits::BlockWeights;
-use parity_scale_codec::{Decode, Encode};
-use primitives::{BlockNumber, ConsensusLog, SessionIndex, ValidatorId};
+use polkadot_primitives::{BlockNumber, ConsensusLog, SessionIndex, ValidatorId};
 use scale_info::TypeInfo;
-use sp_std::prelude::*;
 
 #[cfg(test)]
 mod tests;
@@ -58,6 +58,16 @@ pub struct SessionChangeNotification<BlockNumber> {
 	pub random_seed: [u8; 32],
 	/// New session index.
 	pub session_index: SessionIndex,
+}
+
+/// Inform something about a new session.
+pub trait OnNewSession<N> {
+	/// A new session was started.
+	fn on_new_session(notification: &SessionChangeNotification<N>);
+}
+
+impl<N> OnNewSession<N> for () {
+	fn on_new_session(_: &SessionChangeNotification<N>) {}
 }
 
 /// Number of validators (not only parachain) in a session.
@@ -120,6 +130,10 @@ pub mod pallet {
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 		/// An origin which is allowed to force updates to parachains.
 		type ForceOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
+		/// Temporary hack to call `Coretime::on_new_session` on chains that support `Coretime` or
+		/// to disable it on the ones that don't support it. Can be removed and replaced by a simple
+		/// bound to `coretime::Config` once all chains support it.
+		type CoretimeOnNewSession: OnNewSession<BlockNumberFor<Self>>;
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -235,7 +249,7 @@ impl<T: Config> Pallet<T> {
 			// TODO: audit usage of randomness API
 			// https://github.com/paritytech/polkadot/issues/2601
 			let (random_hash, _) = T::Randomness::random(&b"paras"[..]);
-			let len = sp_std::cmp::min(32, random_hash.as_ref().len());
+			let len = core::cmp::min(32, random_hash.as_ref().len());
 			buf[..len].copy_from_slice(&random_hash.as_ref()[..len]);
 			buf
 		};
@@ -271,6 +285,7 @@ impl<T: Config> Pallet<T> {
 		T::SlashingHandler::initializer_on_new_session(session_index);
 		dmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
 		hrmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
+		T::CoretimeOnNewSession::on_new_session(&notification);
 	}
 
 	/// Should be called when a new session occurs. Buffers the session notification to be applied
@@ -326,15 +341,15 @@ impl<T: pallet_session::Config + Config> OneSessionHandler<T::AccountId> for Pal
 	where
 		I: Iterator<Item = (&'a T::AccountId, Self::Key)>,
 	{
-		<Pallet<T>>::on_new_session(false, 0, validators, None);
+		Pallet::<T>::on_new_session(false, 0, validators, None);
 	}
 
 	fn on_new_session<'a, I: 'a>(changed: bool, validators: I, queued: I)
 	where
 		I: Iterator<Item = (&'a T::AccountId, Self::Key)>,
 	{
-		let session_index = <pallet_session::Pallet<T>>::current_index();
-		<Pallet<T>>::on_new_session(changed, session_index, validators, Some(queued));
+		let session_index = pallet_session::Pallet::<T>::current_index();
+		Pallet::<T>::on_new_session(changed, session_index, validators, Some(queued));
 	}
 
 	fn on_disabled(_i: u32) {}

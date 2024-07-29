@@ -74,7 +74,7 @@ The set of validators eligible to vote consists of the validators that had duty 
 votes by the backing validators.
 
 If a validator receives an initial dispute message (a set of votes where there are at least two opposing votes
-contained), and the PoV or Code are hence not reconstructable from local storage, that validator must request the
+contained), and the PoV or Code are hence not reconstructible from local storage, that validator must request the
 required data from its peers.
 
 The dispute availability message must contain code, persisted validation data, and the proof of validity.

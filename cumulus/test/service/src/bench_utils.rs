@@ -19,8 +19,8 @@ use codec::Encode;
 use sc_block_builder::BlockBuilderBuilder;
 
 use crate::{construct_extrinsic, Client as TestClient};
+use cumulus_client_parachain_inherent::ParachainInherentData;
 use cumulus_primitives_core::{relay_chain::AccountId, PersistedValidationData};
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{
 	BalancesCall, GluttonCall, NodeBlock, SudoCall, UncheckedExtrinsic, WASM_BINARY,
@@ -81,8 +81,13 @@ pub fn extrinsic_set_time(client: &TestClient) -> OpaqueExtrinsic {
 pub fn extrinsic_set_validation_data(
 	parent_header: cumulus_test_runtime::Header,
 ) -> OpaqueExtrinsic {
-	let sproof_builder = RelayStateSproofBuilder { para_id: 100.into(), ..Default::default() };
 	let parent_head = HeadData(parent_header.encode());
+	let sproof_builder = RelayStateSproofBuilder {
+		para_id: cumulus_test_runtime::PARACHAIN_ID.into(),
+		included_para_head: parent_head.clone().into(),
+		..Default::default()
+	};
+
 	let (relay_parent_storage_root, relay_chain_state) = sproof_builder.into_state_root_and_proof();
 	let data = ParachainInherentData {
 		validation_data: PersistedValidationData {

@@ -1,0 +1,10 @@
+title: "Ensure `TracksInfo` tracks are sorted by ID."
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Add a `integrity_check` function to trait `TracksInfo` and explicitly state that tracks must
+      always be sorted by ID. The referenda pallet now also uses this check in its `integrity_test`.
+
+crates:
+  - name: pallet-referenda

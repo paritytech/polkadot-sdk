@@ -25,16 +25,16 @@ use std::path::PathBuf;
 pub enum Subcommand {
 	/// Export the genesis state of the parachain.
 	#[command(name = "export-genesis-state")]
-	ExportGenesisState(ExportGenesisStateCommand),
+	ExportGenesisState(ExportGenesisHeadCommand),
 
 	/// Export the genesis wasm of the parachain.
 	#[command(name = "export-genesis-wasm")]
 	ExportGenesisWasm(ExportGenesisWasmCommand),
 }
 
-/// Command for exporting the genesis state of the parachain
+/// Command for exporting the genesis head data of the parachain
 #[derive(Debug, Parser)]
-pub struct ExportGenesisStateCommand {
+pub struct ExportGenesisHeadCommand {
 	/// Output file name or stdout if unspecified.
 	#[arg()]
 	pub output: Option<PathBuf>,

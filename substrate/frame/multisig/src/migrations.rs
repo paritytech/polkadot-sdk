@@ -39,7 +39,7 @@ pub mod v1 {
 		(OpaqueCall<T>, <T as frame_system::Config>::AccountId, BalanceOf<T>),
 	>;
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
@@ -51,7 +51,7 @@ pub mod v1 {
 		fn on_runtime_upgrade() -> Weight {
 			use sp_runtime::Saturating;
 
-			let current = Pallet::<T>::current_storage_version();
+			let current = Pallet::<T>::in_code_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
 			if onchain > 0 {

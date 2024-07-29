@@ -18,7 +18,8 @@
 
 //! Helpers for outgoing and incoming light client requests.
 
-use sc_network::{config::ProtocolId, request_responses::ProtocolConfig};
+use sc_network::{config::ProtocolId, request_responses::IncomingRequest, NetworkBackend};
+use sp_runtime::traits::Block;
 
 use std::time::Duration;
 
@@ -40,20 +41,24 @@ fn generate_legacy_protocol_name(protocol_id: &ProtocolId) -> String {
 	format!("/{}/light/2", protocol_id.as_ref())
 }
 
-/// Generates a [`ProtocolConfig`] for the light client request protocol, refusing incoming
-/// requests.
-pub fn generate_protocol_config<Hash: AsRef<[u8]>>(
+/// Generates a `RequestResponseProtocolConfig` for the light client request protocol, refusing
+/// incoming requests.
+pub fn generate_protocol_config<
+	Hash: AsRef<[u8]>,
+	B: Block,
+	N: NetworkBackend<B, <B as Block>::Hash>,
+>(
 	protocol_id: &ProtocolId,
 	genesis_hash: Hash,
 	fork_id: Option<&str>,
-) -> ProtocolConfig {
-	ProtocolConfig {
-		name: generate_protocol_name(genesis_hash, fork_id).into(),
-		fallback_names: std::iter::once(generate_legacy_protocol_name(protocol_id).into())
-			.collect(),
-		max_request_size: 1 * 1024 * 1024,
-		max_response_size: 16 * 1024 * 1024,
-		request_timeout: Duration::from_secs(15),
-		inbound_queue: None,
-	}
+	inbound_queue: async_channel::Sender<IncomingRequest>,
+) -> N::RequestResponseProtocolConfig {
+	N::request_response_config(
+		generate_protocol_name(genesis_hash, fork_id).into(),
+		std::iter::once(generate_legacy_protocol_name(protocol_id).into()).collect(),
+		1 * 1024 * 1024,
+		16 * 1024 * 1024,
+		Duration::from_secs(15),
+		Some(inbound_queue),
+	)
 }

@@ -31,7 +31,7 @@ use polkadot_primitives::{
 
 use std::sync::Arc;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use crate::{
 	backend::{Backend, BackendWriteOp, OverlayedBackend},
@@ -258,7 +258,7 @@ pub enum Error {
 	#[error(transparent)]
 	Io(#[from] std::io::Error),
 	#[error(transparent)]
-	Codec(#[from] parity_scale_codec::Error),
+	Codec(#[from] codec::Error),
 }
 
 impl From<Error> for crate::error::Error {
@@ -341,7 +341,7 @@ pub(crate) fn note_earliest_session(
 				let lower_bound = (new_earliest_session, CandidateHash(Hash::repeat_byte(0x00)));
 
 				let new_recent_disputes = recent_disputes.split_off(&lower_bound);
-				// Any remanining disputes are considered ancient and must be pruned.
+				// Any remaining disputes are considered ancient and must be pruned.
 				let pruned_disputes = recent_disputes;
 
 				if pruned_disputes.len() != 0 {
@@ -375,9 +375,9 @@ fn load_cleaned_votes_watermark(
 mod tests {
 
 	use super::*;
-	use ::test_helpers::{dummy_candidate_receipt, dummy_hash};
 	use polkadot_node_primitives::DISPUTE_WINDOW;
 	use polkadot_primitives::{Hash, Id as ParaId};
+	use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 
 	fn make_db() -> DbBackend {
 		let db = kvdb_memorydb::create(1);

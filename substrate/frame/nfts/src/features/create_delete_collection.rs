@@ -66,7 +66,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		CollectionConfigOf::<T, I>::insert(&collection, config);
 		CollectionAccount::<T, I>::insert(&owner, &collection, ());
+
 		Self::deposit_event(event);
+
+		if let Some(max_supply) = config.max_supply {
+			Self::deposit_event(Event::CollectionMaxSupplySet { collection, max_supply });
+		}
+
 		Ok(())
 	}
 

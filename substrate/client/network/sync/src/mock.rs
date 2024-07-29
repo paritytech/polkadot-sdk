@@ -21,9 +21,9 @@
 use crate::block_relay_protocol::{BlockDownloader as BlockDownloaderT, BlockResponseError};
 
 use futures::channel::oneshot;
-use libp2p::PeerId;
-use sc_network::RequestFailure;
+use sc_network::{ProtocolName, RequestFailure};
 use sc_network_common::sync::message::{BlockData, BlockRequest};
+use sc_network_types::PeerId;
 use sp_runtime::traits::Block as BlockT;
 
 mockall::mock! {
@@ -35,7 +35,7 @@ mockall::mock! {
 			&self,
 			who: PeerId,
 			request: BlockRequest<Block>,
-		) -> Result<Result<Vec<u8>, RequestFailure>, oneshot::Canceled>;
+		) -> Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, oneshot::Canceled>;
 		fn block_response_into_blocks(
 			&self,
 			request: &BlockRequest<Block>,

@@ -13,10 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::tests::*;
 
 #[test]
-fn send_xcm_from_westend_relay_to_rococo_asset_hub() {
+fn send_xcm_from_westend_relay_to_rococo_asset_hub_should_fail_on_not_applicable() {
 	// Init tests variables
 	// XcmPallet send arguments
 	let sudo_origin = <Westend as Chain>::RuntimeOrigin::root();
@@ -30,7 +30,7 @@ fn send_xcm_from_westend_relay_to_rococo_asset_hub() {
 		UnpaidExecution { weight_limit, check_origin },
 		ExportMessage {
 			network: RococoId,
-			destination: X1(Parachain(AssetHubRococo::para_id().into())),
+			destination: [Parachain(AssetHubRococo::para_id().into())].into(),
 			xcm: remote_xcm,
 		},
 	]));
@@ -53,47 +53,90 @@ fn send_xcm_from_westend_relay_to_rococo_asset_hub() {
 			]
 		);
 	});
-	// Receive XCM message in Bridge Hub source Parachain
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+	// Receive XCM message in Bridge Hub source Parachain, it should fail, because we don't have
+	// opened bridge/lane.
+	assert_bridge_hub_westend_message_accepted(false);
+}
 
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![
-				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
-					success: true,
-					..
-				}) => {},
-				RuntimeEvent::BridgeRococoMessages(pallet_bridge_messages::Event::MessageAccepted {
-					lane_id: LaneId([0, 0, 0, 2]),
-					nonce: 1,
-				}) => {},
-			]
-		);
-	});
+#[test]
+fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
+	// Initially set only default version on all runtimes
+	let newer_xcm_version = xcm::prelude::XCM_VERSION;
+	let older_xcm_version = newer_xcm_version - 1;
 
-	// Rococo Global Consensus
-	// Receive XCM message in Bridge Hub target Parachain
-	BridgeHubRococo::execute_with(|| {
-		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
+	AssetHubRococo::force_default_xcm_version(Some(older_xcm_version));
+	BridgeHubRococo::force_default_xcm_version(Some(older_xcm_version));
+	BridgeHubWestend::force_default_xcm_version(Some(older_xcm_version));
+	AssetHubWestend::force_default_xcm_version(Some(older_xcm_version));
 
-		assert_expected_events!(
-			BridgeHubRococo,
-			vec![
-				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
-			]
-		);
-	});
-	// Receive embedded XCM message within `ExportMessage` in Parachain destination
+	// prepare data
+	let destination = asset_hub_rococo_location();
+	let native_token = Location::parent();
+	let amount = ASSET_HUB_WESTEND_ED * 1_000;
+
+	// fund the AHR's SA on BHR for paying bridge transport fees
+	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), 10_000_000_000_000u128);
+	// fund sender
+	AssetHubWestend::fund_accounts(vec![(AssetHubWestendSender::get().into(), amount * 10)]);
+
+	// send XCM from AssetHubWestend - fails - destination version not known
+	assert_err!(
+		send_assets_from_asset_hub_westend(
+			destination.clone(),
+			(native_token.clone(), amount).into(),
+			0
+		),
+		DispatchError::Module(sp_runtime::ModuleError {
+			index: 31,
+			error: [1, 0, 0, 0],
+			message: Some("SendFailure")
+		})
+	);
+
+	// set destination version
+	AssetHubWestend::force_xcm_version(destination.clone(), newer_xcm_version);
+
+	// set version with `ExportMessage` for BridgeHubWestend
+	AssetHubWestend::force_xcm_version(
+		ParentThen(Parachain(BridgeHubWestend::para_id().into()).into()).into(),
+		newer_xcm_version,
+	);
+	// send XCM from AssetHubWestend - ok
+	assert_ok!(send_assets_from_asset_hub_westend(
+		destination.clone(),
+		(native_token.clone(), amount).into(),
+		0
+	));
+
+	// `ExportMessage` on local BridgeHub - fails - remote BridgeHub version not known
+	assert_bridge_hub_westend_message_accepted(false);
+
+	// set version for remote BridgeHub on BridgeHubWestend
+	BridgeHubWestend::force_xcm_version(bridge_hub_rococo_location(), newer_xcm_version);
+	// set version for AssetHubRococo on BridgeHubRococo
+	BridgeHubRococo::force_xcm_version(
+		ParentThen(Parachain(AssetHubRococo::para_id().into()).into()).into(),
+		newer_xcm_version,
+	);
+
+	// send XCM from AssetHubWestend - ok
+	assert_ok!(send_assets_from_asset_hub_westend(
+		destination.clone(),
+		(native_token.clone(), amount).into(),
+		0
+	));
+	assert_bridge_hub_westend_message_accepted(true);
+	assert_bridge_hub_rococo_message_received();
+	// message delivered and processed at destination
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-
 		assert_expected_events!(
 			AssetHubRococo,
 			vec![
-				RuntimeEvent::MessageQueue(pallet_message_queue::Event::ProcessingFailed {
-					..
-				}) => {},
+				// message processed with failure, but for this scenario it is ok, important is that was delivered
+				RuntimeEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: false, .. }
+				) => {},
 			]
 		);
 	});

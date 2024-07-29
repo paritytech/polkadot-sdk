@@ -226,7 +226,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 	}
 
 	#[inline]
-	unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) -> () {
+	unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
 		let guard = ALLOCATOR_DATA.lock();
 		TrackingAllocatorData::track_and_check_limits(guard, -(layout.size() as isize));
 		self.0.dealloc(ptr, layout)

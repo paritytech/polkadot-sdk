@@ -13,18 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
-use bridge_hub_westend_runtime::xcm_config::XcmConfig;
+use crate::imports::*;
 
 #[test]
 fn teleport_to_other_system_parachains_works() {
 	let amount = BRIDGE_HUB_WESTEND_ED * 100;
-	let native_asset: MultiAssets = (Parent, amount).into();
+	let native_asset: Assets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(
-		BridgeHubWestend,      // Origin
-		XcmConfig,             // XCM configuration
-		vec![AssetHubWestend], // Destinations
+		BridgeHubWestend,          // Origin
+		BridgeHubWestendXcmConfig, // XCM configuration
+		vec![AssetHubWestend],     // Destinations
 		(native_asset, amount)
 	);
 }

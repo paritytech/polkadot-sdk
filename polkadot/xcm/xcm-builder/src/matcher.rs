@@ -18,7 +18,7 @@
 
 use core::ops::ControlFlow;
 use frame_support::traits::ProcessMessageError;
-use xcm::latest::{Instruction, MultiLocation};
+use xcm::latest::{Instruction, Location};
 
 /// Creates an instruction matcher from an XCM. Since XCM versions differ, we need to make a trait
 /// here to unify the interfaces among them.
@@ -67,7 +67,7 @@ impl<'a, Call> CreateMatcher for &'a mut [Instruction<Call>] {
 pub trait MatchXcm {
 	/// The concrete instruction type. Necessary to specify as it changes between XCM versions.
 	type Inst;
-	/// The `MultiLocation` type. Necessary to specify as it changes between XCM versions.
+	/// The `Location` type. Necessary to specify as it changes between XCM versions.
 	type Loc;
 	/// The error type to throw when errors happen during matching.
 	type Error;
@@ -125,7 +125,7 @@ pub struct Matcher<'a, Call> {
 impl<'a, Call> MatchXcm for Matcher<'a, Call> {
 	type Error = ProcessMessageError;
 	type Inst = Instruction<Call>;
-	type Loc = MultiLocation;
+	type Loc = Location;
 
 	fn assert_remaining_insts(self, n: usize) -> Result<Self, Self::Error>
 	where

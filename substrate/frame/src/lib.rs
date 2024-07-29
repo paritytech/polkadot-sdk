@@ -15,10 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! > Made for [![polkadot]](https://polkadot.network)
-//!
-//! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
-//!
 //! # FRAME
 //!
 //! ```no_compile
@@ -34,35 +30,86 @@
 //! > **F**ramework for **R**untime **A**ggregation of **M**odularized **E**ntities: Substrate's
 //! > State Transition Function (Runtime) Framework.
 //!
-//! ## Warning: Experimental
+//! //! ## Usage
 //!
-//! This crate and all of its content is experimental, and should not yet be used in production.
+//! The main intended use of this crate is for it to be imported with its preludes:
 //!
-//! ## Getting Started
+//! ```
+//! # use polkadot_sdk_frame as frame;
+//! #[frame::pallet]
+//! pub mod pallet {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::prelude::*;
+//! 	// ^^ using the prelude!
 //!
-//! TODO: link to `developer_hub::polkadot_sdk::frame`. The `developer_hub` hasn't been published
-//! yet, this can be updated once it is linkable.
+//! 	#[pallet::config]
+//! 	pub trait Config: frame_system::Config {}
+//!
+//! 	#[pallet::pallet]
+//! 	pub struct Pallet<T>(_);
+//! }
+//!
+//! pub mod tests {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::testing_prelude::*;
+//! }
+//!
+//! pub mod runtime {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::runtime::prelude::*;
+//! }
+//! ```
+//!
+//! See: [`prelude`], [`testing_prelude`] and [`runtime::prelude`].
+//!
+//! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`.
+//!
+//! ## Documentation
+//!
+//! See [`polkadot_sdk::frame`](../polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html).
+//!
+//! ## Underlying dependencies
+//!
+//! This crate is an amalgamation of multiple other crates that are often used together to compose a
+//! pallet. It is not necessary to use it, and it may fall short for certain purposes.
+//!
+//! In short, this crate only re-exports types and traits from multiple sources. All of these
+//! sources are listed (and re-exported again) in [`deps`].
+//!
+//! ## WARNING: Experimental
+//!
+//! **This crate and all of its content is experimental, and should not yet be used in production.**
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
 
-/// Exports the main pallet macro. This can wrap a `mod pallet` and will transform it into
-/// being a pallet, eg `#[frame::pallet] mod pallet { .. }`.
-///
-/// Note that this is not part of the prelude, in order to make it such that the common way to
-/// define a macro is `#[frame::pallet] mod pallet { .. }`, followed by `#[pallet::foo]`,
-/// `#[pallet::bar]` inside the mod.
+#[doc(no_inline)]
 pub use frame_support::pallet;
+
+#[doc(no_inline)]
+pub use frame_support::pallet_macros::{import_section, pallet_section};
 
 /// The logging library of the runtime. Can normally be the classic `log` crate.
 pub use log;
+
+/// Macros used within the main [`pallet`] macro.
+///
+/// Note: All of these macros are "stubs" and not really usable outside `#[pallet] mod pallet { ..
+/// }`. They are mainly provided for documentation and IDE support.
+///
+/// To view a list of all the macros and their documentation, follow the links in the 'Re-exports'
+/// section below:
+pub mod pallet_macros {
+	#[doc(no_inline)]
+	pub use frame_support::{derive_impl, pallet, pallet_macros::*};
+}
 
 /// The main prelude of FRAME.
 ///
 /// This prelude should almost always be the first line of code in any pallet or runtime.
 ///
 /// ```
-/// use frame::prelude::*;
+/// use polkadot_sdk_frame::prelude::*;
 ///
 /// // rest of your pallet..
 /// mod pallet {}
@@ -71,26 +118,19 @@ pub mod prelude {
 	/// `frame_system`'s parent crate, which is mandatory in all pallets build with this crate.
 	///
 	/// Conveniently, the keyword `frame_system` is in scope as one uses `use
-	/// frame::prelude::*`
+	/// polkadot_sdk_frame::prelude::*`
 	#[doc(inline)]
 	pub use frame_system;
 
 	/// Pallet prelude of `frame-support`.
 	///
 	/// Note: this needs to revised once `frame-support` evolves.
-	// `frame-support` will be break down https://github.com/paritytech/polkadot-sdk/issues/127 and its reexports will
-	// most likely change. These wildcard reexportings can be optimized once `frame-support` has
-	// changed.
 	#[doc(no_inline)]
 	pub use frame_support::pallet_prelude::*;
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
 	pub use frame_system::pallet_prelude::*;
-
-	/// All of the std alternative types.
-	#[doc(no_inline)]
-	pub use sp_std::prelude::*;
 
 	/// All FRAME-relevant derive macros.
 	#[doc(no_inline)]
@@ -102,7 +142,7 @@ pub mod prelude {
 /// A test setup typically starts with:
 ///
 /// ```
-/// use frame::testing_prelude::*;
+/// use polkadot_sdk_frame::testing_prelude::*;
 /// // rest of your test setup.
 /// ```
 #[cfg(feature = "std")]
@@ -120,7 +160,6 @@ pub mod testing_prelude {
 
 	pub use frame_system::{self, mocking::*};
 	pub use sp_io::TestExternalities as TestState;
-	pub use sp_std::if_std;
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
@@ -131,7 +170,7 @@ pub mod runtime {
 	/// A runtime typically starts with:
 	///
 	/// ```
-	/// use frame::{prelude::*, runtime::prelude::*};
+	/// use polkadot_sdk_frame::{prelude::*, runtime::prelude::*};
 	/// ```
 	pub mod prelude {
 		/// All of the types related to the FRAME runtime executive.
@@ -153,8 +192,17 @@ pub mod runtime {
 			ConstU32, ConstU64, ConstU8,
 		};
 
+		/// Primary types used to parameterize `EnsureOrigin` and `EnsureRootWithArg`.
+		pub use frame_system::{
+			EnsureNever, EnsureNone, EnsureRoot, EnsureRootWithSuccess, EnsureSigned,
+			EnsureSignedBy,
+		};
+
 		/// Types to define your runtime version.
 		pub use sp_version::{create_runtime_str, runtime_version, RuntimeVersion};
+
+		/// Macro to implement runtime APIs.
+		pub use sp_api::impl_runtime_apis;
 
 		#[cfg(feature = "std")]
 		pub use sp_version::NativeVersion;
@@ -167,7 +215,7 @@ pub mod runtime {
 	/// A non-testing runtime should have this enabled, as such:
 	///
 	/// ```
-	/// use frame::runtime::{prelude::*, apis::{*,}};
+	/// use polkadot_sdk_frame::runtime::{prelude::*, apis::{*,}};
 	/// ```
 	// TODO: This is because of wildcard imports, and it should be not needed once we can avoid
 	// that. Imports like that are needed because we seem to need some unknown types in the macro
@@ -178,10 +226,7 @@ pub mod runtime {
 		// Types often used in the runtime APIs.
 		pub use sp_core::OpaqueMetadata;
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
-		pub use sp_runtime::ApplyExtrinsicResult;
-
-		/// Macro to implement runtime APIs.
-		pub use sp_api::impl_runtime_apis;
+		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 
 		pub use frame_system_rpc_runtime_api::*;
 		pub use sp_api::{self, *};
@@ -296,14 +341,14 @@ pub mod primitives {
 ///
 /// This is already part of the [`prelude`].
 pub mod derive {
+	pub use codec::{Decode, Encode};
+	pub use core::fmt::Debug;
 	pub use frame_support::{
-		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
-		RuntimeDebugNoBound,
+		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,
+		PartialOrdNoBound, RuntimeDebugNoBound,
 	};
-	pub use parity_scale_codec::{Decode, Encode};
 	pub use scale_info::TypeInfo;
 	pub use sp_runtime::RuntimeDebug;
-	pub use sp_std::fmt::Debug;
 }
 
 /// Access to all of the dependencies of this crate. In case the re-exports are not enough, this
@@ -314,8 +359,8 @@ pub mod derive {
 /// In most cases, hopefully the answer is yes.
 pub mod deps {
 	// TODO: It would be great to somehow instruct RA to prefer *not* suggesting auto-imports from
-	// these. For example, we prefer `frame::derive::CloneNoBound` rather than
-	// `frame::deps::frame_support::CloneNoBound`.
+	// these. For example, we prefer `polkadot_sdk_frame::derive::CloneNoBound` rather than
+	// `polkadot_sdk_frame::deps::frame_support::CloneNoBound`.
 	pub use frame_support;
 	pub use frame_system;
 
@@ -323,9 +368,8 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
-	pub use sp_std;
 
-	pub use parity_scale_codec as codec;
+	pub use codec;
 	pub use scale_info;
 
 	#[cfg(feature = "runtime")]
@@ -343,5 +387,15 @@ pub mod deps {
 	#[cfg(feature = "runtime")]
 	pub use sp_offchain;
 	#[cfg(feature = "runtime")]
+	pub use sp_storage;
+	#[cfg(feature = "runtime")]
 	pub use sp_version;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub use frame_benchmarking;
+	#[cfg(feature = "runtime-benchmarks")]
+	pub use frame_system_benchmarking;
+
+	#[cfg(feature = "frame-try-runtime")]
+	pub use frame_try_runtime;
 }

@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Removed `pallet::getter` usage from pallet-contracts-mock-network
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removed the `pallet::getter`s from `pallet-contracts-mock-network`s storage items.
+
+crates:
+  - name: pallet-contracts-mock-network
+    bump: minor
