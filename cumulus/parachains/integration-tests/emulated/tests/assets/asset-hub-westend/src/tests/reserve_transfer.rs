@@ -1201,10 +1201,9 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 	assert!(receiver_assets_after < receiver_assets_before + amount_to_send);
 }
 
-// =====================================================================================================
-// ==== Reserve Transfers - TrustBacked Asset pay fees with USDT (using pool) - AssetHub->Parachain
-// ====
-// =====================================================================================================
+// ============================================================================
+// ==== Reserve Transfers - USDT pay fees using pool - AssetHub->Parachain ====
+// ============================================================================
 #[test]
 fn reserve_transfer_pool_assets_from_system_para_to_para() {
 	let usdt_id = 1984u32;
@@ -1341,9 +1340,9 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 	assert!(receiver_after_balance < receiver_initial_balance + asset_amount_to_send);
 }
 
-// ===============================================================================================
-// == Reserve Transfers USDT - Parachain->AssetHub->Parachain - pay fees with USDT (using pool) ==
-// ===============================================================================================
+// ===================================================================================
+// == Reserve Transfers USDT - Parachain->AssetHub->Parachain - pay fees using pool ==
+// ===================================================================================
 //
 // Transfer USDT From Penpal A to Penpal B with AssetHub as the reserve, while paying fees using
 // USDT by making use of existing USDT pools on AssetHub and destination.
