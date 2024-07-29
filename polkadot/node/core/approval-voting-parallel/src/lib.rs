@@ -40,7 +40,7 @@ use polkadot_node_subsystem_util::{
 	metrics::{self, prometheus},
 	runtime::{Config as RuntimeInfoConfig, RuntimeInfo},
 };
-use polkadot_overseer::{OverseerSignal, SubsystemSender};
+use polkadot_overseer::{OverseerSignal, Priority, SubsystemSender};
 use polkadot_primitives::ValidatorIndex;
 use rand::SeedableRng;
 
@@ -372,7 +372,7 @@ where
 							} else {
 								for worker in approval_distribution_channels.iter_mut() {
 									worker
-										.send_message(
+										.send_message_with_priority::<overseer::HighPriority>(
 											ApprovalDistributionMessage::NetworkBridgeUpdate(msg.clone()),
 										).await;
 								}
@@ -682,6 +682,34 @@ impl<T: Send + Sync + 'static + Debug> overseer::SubsystemSender<T> for ToWorker
 			);
 		}
 	}
+
+	fn send_message_with_priority<'life0, 'async_trait, P>(
+		&'life0 mut self,
+		msg: T,
+	) -> ::core::pin::Pin<
+		Box<dyn ::core::future::Future<Output = ()> + ::core::marker::Send + 'async_trait>,
+	>
+	where
+		P: 'async_trait + Priority,
+		'life0: 'async_trait,
+		Self: 'async_trait,
+	{
+		match P::priority() {
+			polkadot_overseer::PriorityLevel::Normal => self.send_message(msg),
+			polkadot_overseer::PriorityLevel::High =>
+				async { self.send_unbounded_message(msg) }.boxed(),
+		}
+	}
+
+	fn try_send_message_with_priority<P: Priority>(
+		&mut self,
+		msg: T,
+	) -> Result<(), metered::TrySendError<T>> {
+		match P::priority() {
+			polkadot_overseer::PriorityLevel::Normal => self.try_send_message(msg),
+			polkadot_overseer::PriorityLevel::High => Ok(self.send_unbounded_message(msg)),
+		}
+	}
 }
 
 /// Just a wrapper for implementing overseer::SubsystemSender<ApprovalDistributionMessage>, so that
@@ -741,5 +769,33 @@ impl<S: SubsystemSender<ApprovalVotingParallelMessage>>
 
 	fn send_unbounded_message(&mut self, msg: ApprovalDistributionMessage) {
 		self.0.send_unbounded_message(msg.into())
+	}
+
+	fn send_message_with_priority<'life0, 'async_trait, P>(
+		&'life0 mut self,
+		msg: ApprovalDistributionMessage,
+	) -> ::core::pin::Pin<
+		Box<dyn ::core::future::Future<Output = ()> + ::core::marker::Send + 'async_trait>,
+	>
+	where
+		P: 'async_trait + Priority,
+		'life0: 'async_trait,
+		Self: 'async_trait,
+	{
+		match P::priority() {
+			polkadot_overseer::PriorityLevel::Normal => self.send_message(msg),
+			polkadot_overseer::PriorityLevel::High =>
+				async { self.send_unbounded_message(msg) }.boxed(),
+		}
+	}
+
+	fn try_send_message_with_priority<P: Priority>(
+		&mut self,
+		msg: ApprovalDistributionMessage,
+	) -> Result<(), metered::TrySendError<ApprovalDistributionMessage>> {
+		match P::priority() {
+			polkadot_overseer::PriorityLevel::Normal => self.try_send_message(msg),
+			polkadot_overseer::PriorityLevel::High => Ok(self.send_unbounded_message(msg)),
+		}
 	}
 }

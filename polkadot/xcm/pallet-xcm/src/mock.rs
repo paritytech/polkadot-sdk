@@ -35,9 +35,9 @@ use xcm_builder::{
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
 	ChildSystemParachainAsSuperuser, DescribeAllTerminal, EnsureDecodableXcm, FixedRateOfFungible,
 	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
-	HashedDescription, IsConcrete, MatchedConvertedConcreteId, NoChecking,
+	HashedDescription, IsConcrete, MatchedConvertedConcreteId, NoChecking, SendXcmFeeToAccount,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	XcmFeeManagerFromComponents, XcmFeeToAccount,
+	XcmFeeManagerFromComponents,
 };
 use xcm_executor::{
 	traits::{Identity, JustTry},
@@ -504,7 +504,7 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = XcmFeeManagerFromComponents<
 		EverythingBut<XcmFeesNotWaivedLocations>,
-		XcmFeeToAccount<Self::AssetTransactor, AccountId, XcmFeesTargetAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, XcmFeesTargetAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;

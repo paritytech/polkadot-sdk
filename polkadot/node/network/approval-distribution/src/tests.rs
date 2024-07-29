@@ -385,6 +385,30 @@ fn fake_assignment_cert_v2(
 	}
 }
 
+fn fake_assignment_cert_delay(
+	block_hash: Hash,
+	validator: ValidatorIndex,
+	core_bitfield: CoreBitfield,
+) -> IndirectAssignmentCertV2 {
+	let ctx = schnorrkel::signing_context(RELAY_VRF_MODULO_CONTEXT);
+	let msg = b"WhenParachains?";
+	let mut prng = rand_core::OsRng;
+	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
+	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
+	let preout = inout.to_preout();
+
+	IndirectAssignmentCertV2 {
+		block_hash,
+		validator,
+		cert: AssignmentCertV2 {
+			kind: AssignmentCertKindV2::RelayVRFDelay {
+				core_index: CoreIndex(core_bitfield.iter_ones().next().unwrap() as u32),
+			},
+			vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
+		},
+	}
+}
+
 async fn expect_reputation_change(
 	virtual_overseer: &mut VirtualOverseer,
 	peer_id: &PeerId,
@@ -446,7 +470,7 @@ fn dummy_session_info_valid(
 		discovery_keys: keys.clone().into_iter().map(|key| key.into()).collect(),
 		assignment_keys: keys.clone().into_iter().map(|key| key.into()).collect(),
 		validator_groups: Default::default(),
-		n_cores: index as _,
+		n_cores: 20,
 		zeroth_delay_tranche_width: index as _,
 		relay_vrf_modulo_samples: index as _,
 		n_delay_tranches: index as _,
@@ -657,7 +681,7 @@ fn try_import_the_same_assignment_v2() {
 				hash,
 				parent_hash,
 				number: 2,
-				candidates: vec![Default::default(); 4],
+				candidates: vec![Default::default(); 5],
 				slot: 1.into(),
 				session: 1,
 				vrf_story: RelayVRFStory(Default::default()),
@@ -4366,7 +4390,7 @@ fn subsystem_rejects_assignment_in_future() {
 	);
 }
 
-/// Subsystem rejects assignments too far into the future.
+/// Subsystem rejects bad vrf assignments.
 #[test]
 fn subsystem_rejects_bad_assignments() {
 	let peers = make_peers_and_authority_ids(15);
@@ -4425,6 +4449,286 @@ fn subsystem_rejects_bad_assignments() {
 			.await;
 
 			expect_reputation_change(overseer, &peer_a, COST_INVALID_MESSAGE).await;
+
+			virtual_overseer
+		},
+	);
+}
+
+/// Subsystem rejects assignments that have invalid claimed candidates.
+#[test]
+fn subsystem_rejects_wrong_claimed_assignments() {
+	let peers = make_peers_and_authority_ids(15);
+	let peer_a = peers.get(0).unwrap().0;
+	let parent_hash = Hash::repeat_byte(0xFF);
+	let hash = Hash::repeat_byte(0xAA);
+
+	let _ = test_harness(
+		&MockAssignmentCriteria { tranche: Ok(0) },
+		Box::new(DummyClock {}),
+		state_without_reputation_delay(),
+		|mut virtual_overseer| async move {
+			let overseer = &mut virtual_overseer;
+			// setup peers
+			setup_peer_with_view(overseer, &peer_a, view![], ValidationVersion::V1).await;
+
+			// Set up a gossip topology, where a, b, c and d are topology neighbors to the node
+			// under testing.
+			let peers_with_optional_peer_id = peers
+				.iter()
+				.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+				.collect_vec();
+			setup_gossip_topology(
+				overseer,
+				make_gossip_topology(1, &peers_with_optional_peer_id, &[0, 1], &[2, 4], 3),
+			)
+			.await;
+
+			// new block `hash_a` with 1 candidates
+			let meta = BlockApprovalMeta {
+				hash,
+				parent_hash,
+				number: 2,
+				candidates: vec![Default::default(); 1],
+				slot: 1.into(),
+				session: 1,
+				vrf_story: RelayVRFStory(Default::default()),
+			};
+			let msg = ApprovalDistributionMessage::NewBlocks(vec![meta]);
+			overseer_send(overseer, msg).await;
+
+			// send the assignment related to `hash`
+			let validator_index = ValidatorIndex(0);
+
+			// Claimed core 1 which does not have a candidate included on it, so the assignment
+			// should be rejected.
+			let cores = vec![1];
+			let core_bitfield: CoreBitfield = cores
+				.iter()
+				.map(|index| CoreIndex(*index))
+				.collect::<Vec<_>>()
+				.try_into()
+				.unwrap();
+			let cert = fake_assignment_cert_v2(hash, validator_index, core_bitfield);
+			let assignments: Vec<(IndirectAssignmentCertV2, CandidateBitfield)> =
+				vec![(cert.clone(), cores.try_into().unwrap())];
+			setup_peer_with_view(overseer, &peer_a, view![hash], ValidationVersion::V3).await;
+
+			let msg = protocol_v3::ApprovalDistributionMessage::Assignments(assignments.clone());
+			send_message_from_peer_v3(overseer, &peer_a, msg).await;
+			provide_session(
+				overseer,
+				dummy_session_info_valid(1, &mut LocalKeystore::in_memory(), 1),
+			)
+			.await;
+
+			expect_reputation_change(overseer, &peer_a, COST_INVALID_MESSAGE).await;
+
+			virtual_overseer
+		},
+	);
+}
+
+/// Subsystem accepts tranche0 duplicate assignments, sometimes on validator Compact tranche0
+/// assignment and Delay tranche assignments land on the same candidate. The delay tranche0 can be
+/// safely ignored and we don't need to gossip it however, the compact tranche0 assignment should be
+/// gossiped, because other candidates are included in it, this test makes sure this invariant is
+/// upheld, see  https://github.com/paritytech/polkadot/pull/2160#discussion_r557628699, for
+/// this edge case.
+#[test]
+fn subsystem_accepts_tranche0_duplicate_assignments() {
+	let peers = make_peers_and_authority_ids(15);
+	let peer_a = peers.get(0).unwrap().0;
+	let peer_b = peers.get(1).unwrap().0;
+	let parent_hash = Hash::repeat_byte(0xFF);
+	let hash = Hash::repeat_byte(0xAA);
+	let candidate_hash_first = polkadot_primitives::CandidateHash(Hash::repeat_byte(0xBB));
+	let candidate_hash_second = polkadot_primitives::CandidateHash(Hash::repeat_byte(0xCC));
+	let candidate_hash_third = polkadot_primitives::CandidateHash(Hash::repeat_byte(0xBB));
+	let candidate_hash_fourth = polkadot_primitives::CandidateHash(Hash::repeat_byte(0xBB));
+
+	let _ = test_harness(
+		&MockAssignmentCriteria { tranche: Ok(0) },
+		Box::new(DummyClock {}),
+		state_without_reputation_delay(),
+		|mut virtual_overseer| async move {
+			let overseer = &mut virtual_overseer;
+			// setup peers
+			setup_peer_with_view(overseer, &peer_a, view![], ValidationVersion::V3).await;
+			setup_peer_with_view(overseer, &peer_b, view![], ValidationVersion::V3).await;
+
+			// Set up a gossip topology, where a, b, c and d are topology neighbors to the node
+			// under testing.
+			let peers_with_optional_peer_id = peers
+				.iter()
+				.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+				.collect_vec();
+			setup_gossip_topology(
+				overseer,
+				make_gossip_topology(1, &peers_with_optional_peer_id, &[0, 1], &[2, 4], 3),
+			)
+			.await;
+
+			// new block `hash_a` with 1 candidates
+			let meta = BlockApprovalMeta {
+				hash,
+				parent_hash,
+				number: 2,
+				candidates: vec![
+					(candidate_hash_first, 0.into(), 0.into()),
+					(candidate_hash_second, 1.into(), 1.into()),
+					(candidate_hash_third, 2.into(), 2.into()),
+					(candidate_hash_fourth, 3.into(), 3.into()),
+				],
+				slot: 1.into(),
+				session: 1,
+				vrf_story: RelayVRFStory(Default::default()),
+			};
+			let msg = ApprovalDistributionMessage::NewBlocks(vec![meta]);
+			overseer_send(overseer, msg).await;
+
+			// send the assignment related to `hash`
+			let validator_index = ValidatorIndex(0);
+
+			setup_peer_with_view(overseer, &peer_a, view![hash], ValidationVersion::V3).await;
+			setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::V3).await;
+
+			// 1. Compact assignment with multiple candidates, coming after delay assignment which
+			//    covered just one of the candidate is still imported and gossiped.
+			let candidate_indices: CandidateBitfield =
+				vec![1 as CandidateIndex].try_into().unwrap();
+			let core_bitfield = vec![CoreIndex(1)].try_into().unwrap();
+			let cert = fake_assignment_cert_delay(hash, validator_index, core_bitfield);
+			let assignments: Vec<(IndirectAssignmentCertV2, CandidateBitfield)> =
+				vec![(cert.clone(), candidate_indices.clone())];
+			let msg = protocol_v3::ApprovalDistributionMessage::Assignments(assignments.clone());
+			send_message_from_peer_v3(overseer, &peer_a, msg).await;
+			provide_session(
+				overseer,
+				dummy_session_info_valid(1, &mut LocalKeystore::in_memory(), 1),
+			)
+			.await;
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
+					assignment,
+					claimed_indices,
+					tranche,
+					_,
+				)) => {
+					assert_eq!(claimed_indices, candidate_indices);
+					assert_eq!(assignment, cert.into());
+					assert_eq!(tranche, 0);
+				}
+			);
+
+			expect_reputation_change(overseer, &peer_a, BENEFIT_VALID_MESSAGE_FIRST).await;
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+					peers,
+					Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+						protocol_v3::ApprovalDistributionMessage::Assignments(assignments)
+					))
+				)) => {
+					assert_eq!(peers.len(), 1);
+					assert_eq!(assignments.len(), 1);
+				}
+			);
+
+			let candidate_indices: CandidateBitfield =
+				vec![0 as CandidateIndex, 1 as CandidateIndex].try_into().unwrap();
+			let core_bitfield = vec![CoreIndex(0), CoreIndex(1)].try_into().unwrap();
+
+			let cert = fake_assignment_cert_v2(hash, validator_index, core_bitfield);
+
+			let assignments: Vec<(IndirectAssignmentCertV2, CandidateBitfield)> =
+				vec![(cert.clone(), candidate_indices.clone())];
+			let msg = protocol_v3::ApprovalDistributionMessage::Assignments(assignments.clone());
+			send_message_from_peer_v3(overseer, &peer_a, msg).await;
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
+					assignment,
+					claimed_indices,
+					tranche,
+					_,
+				)) => {
+					assert_eq!(claimed_indices, candidate_indices);
+					assert_eq!(assignment, cert.into());
+					assert_eq!(tranche, 0);
+				}
+			);
+
+			expect_reputation_change(overseer, &peer_a, BENEFIT_VALID_MESSAGE_FIRST).await;
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+					peers,
+					Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+						protocol_v3::ApprovalDistributionMessage::Assignments(assignments)
+					))
+				)) => {
+					assert_eq!(peers.len(), 1);
+					assert_eq!(assignments.len(), 1);
+				}
+			);
+
+			// 2. Delay assignment coming after compact assignment that already covered the
+			//    candidate is not gossiped anymore.
+			let candidate_indices: CandidateBitfield =
+				vec![2 as CandidateIndex, 3 as CandidateIndex].try_into().unwrap();
+			let core_bitfield = vec![CoreIndex(2), CoreIndex(3)].try_into().unwrap();
+			let cert = fake_assignment_cert_v2(hash, validator_index, core_bitfield);
+			let assignments: Vec<(IndirectAssignmentCertV2, CandidateBitfield)> =
+				vec![(cert.clone(), candidate_indices.clone())];
+			let msg = protocol_v3::ApprovalDistributionMessage::Assignments(assignments.clone());
+			send_message_from_peer_v3(overseer, &peer_a, msg).await;
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
+					assignment,
+					claimed_indices,
+					tranche,
+					_,
+				)) => {
+					assert_eq!(claimed_indices, candidate_indices);
+					assert_eq!(assignment, cert.into());
+					assert_eq!(tranche, 0);
+				}
+			);
+
+			expect_reputation_change(overseer, &peer_a, BENEFIT_VALID_MESSAGE_FIRST).await;
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+					peers,
+					Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+						protocol_v3::ApprovalDistributionMessage::Assignments(assignments)
+					))
+				)) => {
+					assert_eq!(peers.len(), 1);
+					assert_eq!(assignments.len(), 1);
+				}
+			);
+
+			let candidate_indices: CandidateBitfield = vec![3].try_into().unwrap();
+			let core_bitfield = vec![CoreIndex(3)].try_into().unwrap();
+
+			let cert = fake_assignment_cert_delay(hash, validator_index, core_bitfield);
+
+			let assignments: Vec<(IndirectAssignmentCertV2, CandidateBitfield)> =
+				vec![(cert.clone(), candidate_indices.clone())];
+			let msg = protocol_v3::ApprovalDistributionMessage::Assignments(assignments.clone());
+			send_message_from_peer_v3(overseer, &peer_a, msg).await;
+
+			expect_reputation_change(overseer, &peer_a, COST_DUPLICATE_MESSAGE).await;
 
 			virtual_overseer
 		},

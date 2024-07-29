@@ -680,6 +680,14 @@ enum InvalidAssignmentError {
 	CryptoCheckFailed(InvalidAssignment),
 	// The assignment did not claim any valid candidate.
 	NoClaimedCandidates,
+	// Claimed invalid candidate.
+	#[allow(dead_code)]
+	ClaimedInvalidCandidateIndex {
+		claimed_index: usize,
+		max_index: usize,
+	},
+	// The assignment claimes more candidates than the maximum allowed.
+	OversizedClaimedBitfield,
 	// Session Info was not found for the block hash in the assignment.
 	#[allow(dead_code)]
 	SessionInfoNotFound(polkadot_node_subsystem_util::runtime::Error),
@@ -1025,7 +1033,7 @@ impl State {
 		.await;
 	}
 
-	async fn process_incoming_assignments<A, N, RA, R>(
+	async fn process_incoming_assignments<A, N, R, RA>(
 		&mut self,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
@@ -1682,26 +1690,37 @@ impl State {
 		runtime_info: &mut RuntimeInfo,
 		runtime_api_sender: &mut RA,
 	) -> Result<u32, InvalidAssignmentError> {
+		let ExtendedSessionInfo { ref session_info, .. } = runtime_info
+			.get_session_info_by_index(runtime_api_sender, assignment.block_hash, entry.session)
+			.await
+			.map_err(|err| InvalidAssignmentError::SessionInfoNotFound(err))?;
+
+		if claimed_candidate_indices.len() > session_info.n_cores as usize {
+			return Err(InvalidAssignmentError::OversizedClaimedBitfield)
+		}
+
 		let claimed_cores: Vec<CoreIndex> = claimed_candidate_indices
 			.iter_ones()
-			.flat_map(|candidate_index| {
-				entry.candidates_metadata.get(candidate_index).map(|(_, core, _)| *core)
+			.map(|candidate_index| {
+				entry.candidates_metadata.get(candidate_index).map(|(_, core, _)| *core).ok_or(
+					InvalidAssignmentError::ClaimedInvalidCandidateIndex {
+						claimed_index: candidate_index,
+						max_index: entry.candidates_metadata.len(),
+					},
+				)
 			})
-			.collect::<Vec<_>>();
+			.collect::<Result<Vec<_>, InvalidAssignmentError>>()?;
+
+		if claimed_cores.is_empty() {
+			return Err(InvalidAssignmentError::NoClaimedCandidates)
+		}
+
 		let backing_groups = claimed_candidate_indices
 			.iter_ones()
 			.flat_map(|candidate_index| {
 				entry.candidates_metadata.get(candidate_index).map(|(_, _, group)| *group)
 			})
 			.collect::<Vec<_>>();
-		if claimed_cores.is_empty() {
-			return Err(InvalidAssignmentError::NoClaimedCandidates)
-		}
-
-		let ExtendedSessionInfo { ref session_info, .. } = runtime_info
-			.get_session_info_by_index(runtime_api_sender, assignment.block_hash, entry.session)
-			.await
-			.map_err(|err| InvalidAssignmentError::SessionInfoNotFound(err))?;
 
 		assignment_criteria
 			.check_assignment_cert(
@@ -2713,7 +2732,6 @@ impl ApprovalDistribution {
 							return
 						},
 					};
-
 
 					self.handle_from_orchestra(message, &mut approval_voting_sender, &mut network_sender, &mut runtime_api_sender, state, rng, assignment_criteria, session_info_provider).await;
 

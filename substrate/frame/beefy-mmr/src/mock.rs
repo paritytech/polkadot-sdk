@@ -93,6 +93,9 @@ impl pallet_mmr::Config for Test {
 	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Test>;
 
 	type WeightInfo = ();
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 impl pallet_beefy::Config for Test {
