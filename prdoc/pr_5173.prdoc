@@ -11,3 +11,29 @@ doc:
 crates:
   - name: polkadot-sdk
     bump: major
+  - name: rococo-runtime-constants
+    bump: none
+  - name: westend-runtime-constants
+    bump: none
+  - name: bp-asset-hub-rococo
+    bump: none
+  - name: bp-asset-hub-westend
+    bump: none
+  - name: bp-bridge-hub-cumulus
+    bump: none
+  - name: bp-bridge-hub-kusama
+    bump: none
+  - name: bp-bridge-hub-polkadot
+    bump: none
+  - name: bp-bridge-hub-rococo
+    bump: none
+  - name: bp-bridge-hub-westend
+    bump: none
+  - name: bp-kusama
+    bump: none
+  - name: bp-polkadot-bulletin
+    bump: none
+  - name: bp-rococo
+    bump: none
+  - name: bp-westend
+    bump: none
