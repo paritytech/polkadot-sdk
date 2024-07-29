@@ -1258,7 +1258,7 @@ fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 		collator_session_keys(),
 		bridging_to_asset_hub_rococo,
 		|| {
-			sp_std::vec![
+			vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 				Transact {
 					origin_kind: OriginKind::Xcm,
@@ -1268,16 +1268,16 @@ fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 						bp_asset_hub_westend::XcmBridgeHubRouterCall::report_bridge_status {
 							bridge_id: Default::default(),
 							is_congested: true,
-						}
+						},
 					)
 					.encode()
 					.into(),
-				}
+				},
 			]
 			.into()
 		},
 		|| {
-			sp_std::vec![
+			vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 				Transact {
 					origin_kind: OriginKind::Xcm,
@@ -1287,11 +1287,11 @@ fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 						bp_asset_hub_westend::XcmBridgeHubRouterCall::report_bridge_status {
 							bridge_id: Default::default(),
 							is_congested: false,
-						}
+						},
 					)
 					.encode()
 					.into(),
-				}
+				},
 			]
 			.into()
 		},

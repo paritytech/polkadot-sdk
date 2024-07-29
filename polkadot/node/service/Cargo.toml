@@ -201,6 +201,13 @@ rococo-native = [
 	"rococo-runtime-constants",
 ]
 
+# Generate the metadata hash needed for CheckMetadataHash
+# in the test runtimes.
+metadata-hash = [
+	"rococo-runtime?/metadata-hash",
+	"westend-runtime?/metadata-hash",
+]
+
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",

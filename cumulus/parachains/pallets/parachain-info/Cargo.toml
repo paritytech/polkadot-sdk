@@ -17,7 +17,6 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 cumulus-primitives-core = { workspace = true }
 
@@ -30,7 +29,6 @@ std = [
 	"frame-system/std",
 	"scale-info/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

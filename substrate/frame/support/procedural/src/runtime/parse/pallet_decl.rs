@@ -15,15 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use syn::{Attribute, Ident, PathArguments};
+use syn::{Ident, PathArguments};
 
 /// The declaration of a pallet.
 #[derive(Debug, Clone)]
 pub struct PalletDeclaration {
 	/// The name of the pallet, e.g.`System` in `pub type System = frame_system`.
 	pub name: Ident,
-	/// Optional attributes tagged right above a pallet declaration.
-	pub attrs: Vec<Attribute>,
 	/// The path of the pallet, e.g. `frame_system` in `pub type System = frame_system`.
 	pub path: syn::Path,
 	/// The segment of the pallet, e.g. `Pallet` in `pub type System = frame_system::Pallet`.
@@ -91,7 +89,7 @@ impl PalletDeclaration {
 			};
 		}
 
-		Ok(Self { name, path, pallet_segment, runtime_param, instance, attrs: item.attrs.clone() })
+		Ok(Self { name, path, pallet_segment, runtime_param, instance })
 	}
 }
 

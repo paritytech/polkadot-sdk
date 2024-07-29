@@ -24,6 +24,8 @@ pub mod matching;
 pub mod runtime_api;
 pub mod foreign_assets_migration;
 
+extern crate alloc;
+
 use crate::matching::{LocalLocationPattern, ParentLocation};
 use frame_support::traits::{Equals, EverythingBut};
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};

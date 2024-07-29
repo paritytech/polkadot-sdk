@@ -255,6 +255,21 @@ pub struct LeaseRecordItem {
 pub type LeasesRecord<Max> = BoundedVec<LeaseRecordItem, Max>;
 pub type LeasesRecordOf<T> = LeasesRecord<<T as Config>::MaxLeasedCores>;
 
+/// Record for On demand core sales.
+///
+/// The blocknumber is the relay chain block height `until` which the original request
+/// for revenue was made.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct OnDemandRevenueRecord<RelayBlockNumber, RelayBalance> {
+	/// The height of the Relay-chain at the time the revenue request was made.
+	pub until: RelayBlockNumber,
+	/// The accumulated balance of on demand sales made on the relay chain.
+	pub amount: RelayBalance,
+}
+
+pub type OnDemandRevenueRecordOf<T> =
+	OnDemandRevenueRecord<RelayBlockNumberOf<T>, RelayBalanceOf<T>>;
+
 /// Configuration of this pallet.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ConfigRecord<BlockNumber, RelayBlockNumber> {

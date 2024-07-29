@@ -47,25 +47,27 @@ pub use core_mask::*;
 pub use coretime_interface::*;
 pub use types::*;
 
+extern crate alloc;
+
 /// The log target for this pallet.
 const LOG_TARGET: &str = "runtime::broker";
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use alloc::vec::Vec;
 	use frame_support::{
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{
 			fungible::{Balanced, Credit, Mutate},
-			EnsureOrigin, OnUnbalanced,
+			BuildGenesisConfig, EnsureOrigin, OnUnbalanced,
 		},
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack};
-	use sp_std::vec::Vec;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -173,6 +175,10 @@ pub mod pallet {
 	/// Received core count change from the relay chain.
 	#[pallet::storage]
 	pub type CoreCountInbox<T> = StorageValue<_, CoreIndex, OptionQuery>;
+
+	/// Received revenue info from the relay chain.
+	#[pallet::storage]
+	pub type RevenueInbox<T> = StorageValue<_, OnDemandRevenueRecordOf<T>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -488,6 +494,20 @@ pub mod pallet {
 		NoClaimTimeslices,
 	}
 
+	#[derive(frame_support::DefaultNoBound)]
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		#[serde(skip)]
+		pub _config: core::marker::PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			frame_system::Pallet::<T>::inc_providers(&Pallet::<T>::account_id());
+		}
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
@@ -801,6 +821,17 @@ pub mod pallet {
 		pub fn notify_core_count(origin: OriginFor<T>, core_count: CoreIndex) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_notify_core_count(core_count)?;
+			Ok(())
+		}
+
+		#[pallet::call_index(20)]
+		#[pallet::weight(T::WeightInfo::notify_revenue())]
+		pub fn notify_revenue(
+			origin: OriginFor<T>,
+			revenue: OnDemandRevenueRecordOf<T>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_notify_revenue(revenue)?;
 			Ok(())
 		}
 

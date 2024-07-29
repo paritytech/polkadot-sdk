@@ -4,7 +4,7 @@ version = "10.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet for statement store"
 
@@ -22,7 +22,6 @@ frame-system = { workspace = true }
 sp-statement-store = { workspace = true }
 sp-api = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 sp-io = { workspace = true }
 sp-core = { workspace = true }
 log = { workspace = true }
@@ -44,7 +43,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-statement-store/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
