@@ -56,10 +56,7 @@ fn simple_works() {
 		assert_events(vec![
 			UpgradeStarted { migrations: 3 },
 			MigrationCompleted { index: 0, took_blocks: 1, took_steps: 1 },
-			MigrationAdvanced { index: 1, took_blocks: 0, took_steps: 1 },
 			MigrationCompleted { index: 1, took_blocks: 0, took_steps: 2 },
-			MigrationAdvanced { index: 2, took_blocks: 0, took_steps: 1 },
-			MigrationAdvanced { index: 2, took_blocks: 0, took_steps: 2 },
 			MigrationCompleted { index: 2, took_blocks: 0, took_steps: 3 },
 			UpgradeCompleted,
 		]);
@@ -89,19 +86,10 @@ fn simple_works_limited_by_blocks() {
 		// Check that we got all events.
 		assert_events(vec![
 			UpgradeStarted { migrations: 2 },
-			MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 1 },
-			MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 2 },
-			MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 3 },
-			MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 4 },
-			MigrationAdvanced { index: 0, took_blocks: 2, took_steps: 5 },
-			MigrationAdvanced { index: 0, took_blocks: 2, took_steps: 6 },
-			MigrationAdvanced { index: 0, took_blocks: 2, took_steps: 7 },
+			MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 5 },
 			MigrationCompleted { index: 0, took_blocks: 2, took_steps: 8 },
-			MigrationAdvanced { index: 1, took_blocks: 1, took_steps: 1 },
-			MigrationAdvanced { index: 1, took_blocks: 1, took_steps: 2 },
-			MigrationAdvanced { index: 1, took_blocks: 1, took_steps: 3 },
-			MigrationAdvanced { index: 1, took_blocks: 1, took_steps: 4 },
-			MigrationAdvanced { index: 1, took_blocks: 2, took_steps: 5 },
+			MigrationAdvanced { index: 1, took_blocks: 0, took_steps: 1 },
+			MigrationAdvanced { index: 1, took_blocks: 1, took_steps: 5 },
 			MigrationFailed { index: 1, took_blocks: 2, took_steps: 5 },
 			UpgradeFailed,
 		]);
@@ -123,7 +111,6 @@ fn failing_migration_sets_cursor_to_stuck() {
 		// Check that we got all events.
 		assert_events(vec![
 			Event::UpgradeStarted { migrations: 1 },
-			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 1 },
 			Event::MigrationFailed { index: 0, took_blocks: 1, took_steps: 2 },
 			Event::UpgradeFailed,
 		]);
@@ -152,7 +139,6 @@ fn failing_migration_force_unstuck_works() {
 		// Check that we got all events.
 		assert_events(vec![
 			Event::UpgradeStarted { migrations: 1 },
-			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 1 },
 			Event::MigrationFailed { index: 0, took_blocks: 1, took_steps: 2 },
 			Event::UpgradeFailed,
 		]);
@@ -182,7 +168,6 @@ fn high_weight_migration_singular_fails() {
 		// Check that we got all events.
 		assert_events(vec![
 			Event::UpgradeStarted { migrations: 1 },
-			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 1 },
 			Event::MigrationFailed { index: 0, took_blocks: 1, took_steps: 1 },
 			Event::UpgradeFailed,
 		]);
@@ -210,6 +195,7 @@ fn high_weight_migration_retries_once() {
 			Event::UpgradeStarted { migrations: 2 },
 			Event::MigrationCompleted { index: 0, took_blocks: 1, took_steps: 1 },
 			// `took_blocks=1`, took_steps: 0 means that it was retried once. FAIL-CI comment
+			Event::MigrationAdvanced { index: 1, took_blocks: 0, took_steps: 1 },
 			Event::MigrationFailed { index: 1, took_blocks: 1, took_steps: 1 },
 			Event::UpgradeFailed,
 		]);
@@ -278,10 +264,7 @@ fn historic_skipping_works() {
 			Event::UpgradeStarted { migrations: 5 },
 			Event::MigrationCompleted { index: 0, took_blocks: 1, took_steps: 1 },
 			Event::MigrationSkipped { index: 1 },
-			Event::MigrationAdvanced { index: 2, took_blocks: 0, took_steps: 1 },
 			Event::MigrationCompleted { index: 2, took_blocks: 0, took_steps: 2 },
-			Event::MigrationAdvanced { index: 3, took_blocks: 0, took_steps: 1 },
-			Event::MigrationAdvanced { index: 3, took_blocks: 0, took_steps: 2 },
 			Event::MigrationCompleted { index: 3, took_blocks: 0, took_steps: 3 },
 			Event::MigrationSkipped { index: 4 },
 			Event::UpgradeCompleted,
@@ -333,8 +316,8 @@ fn runtime_upgrade_fails_when_mbm_in_progress() {
 		// Events received.
 		assert_events(vec![
 			Event::UpgradeStarted { migrations: 1 },
-			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 1 },
-			Event::MigrationAdvanced { index: 0, took_blocks: 2, took_steps: 2 },
+			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 2 },
+			Event::MigrationAdvanced { index: 0, took_blocks: 2, took_steps: 3 },
 		]);
 		assert_eq!(upgrades_started_completed_failed(), (1, 0, 0));
 
@@ -360,10 +343,6 @@ fn migration_timeout_steps_errors() {
 		// Times out after taking more than 3 steps.
 		assert_events(vec![
 			Event::UpgradeStarted { migrations: 1 },
-			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 1 },
-			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 2 },
-			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 3 },
-			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 4 },
 			Event::MigrationFailed { index: 0, took_blocks: 1, took_steps: 4 },
 			Event::UpgradeFailed,
 		]);
@@ -397,8 +376,7 @@ fn migration_timeout_blocks_errors() {
 		// Times out after taking more than 3 steps.
 		assert_events(vec![
 			Event::UpgradeStarted { migrations: 1 },
-			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 1 },
-			Event::MigrationAdvanced { index: 0, took_blocks: 2, took_steps: 2 },
+			Event::MigrationAdvanced { index: 0, took_blocks: 1, took_steps: 2 },
 			Event::MigrationFailed { index: 0, took_blocks: 2, took_steps: 2 },
 			Event::UpgradeFailed,
 		]);
