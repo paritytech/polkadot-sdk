@@ -99,6 +99,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Download CLI
+        run: |
+          curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.7.0/try-runtime-x86_64-unknown-linux-musl -o try-runtime
+          chmod +x ./try-runtime
+          echo "Using try-runtime-cli version:"
+          ./try-runtime --version
+
       - name: Get Date
         id: get-date
         run: |
@@ -108,37 +115,18 @@ jobs:
       - name: Download Snapshot
         uses: actions/cache/restore@v4
         with:
-          # We use a file-name as key here to avoid creating one snapshot per network per day, which
-          # could result in a lot of old snapshots being kept around.
-          path: |
-            snapshot.raw
-            ${{ steps.get-date.outputs.today }}
-          key: try-runtime-snapshot-${{ matrix.network }}-daily
-      
-      - name: Delete Stale Snapshot
-        if: ${{ hashFiles(steps.get-date.outputs.today) == '' }}
-        run: |
-          echo "No or stale snapshot for today (${{ steps.get-date.outputs.today }}); deleting."
-          rm -f snapshot.raw
-      
-      - name: Download CLI
-        run: |
-          echo "---------- Downloading try-runtime CLI ----------"
-          curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.5.4/try-runtime-x86_64-unknown-linux-musl -o try-runtime
-          chmod +x ./try-runtime
-          echo "Using try-runtime-cli version:"
-          ./try-runtime --version
+          path: snapshot.raw
+          key: try-runtime-snapshot-${{ matrix.network }}-daily-${{ steps.get-date.outputs.today }}
 
-      - name: Create Snapshot
+      - name: Create Snapshot If Not Exists
         if: ${{ hashFiles('snapshot.raw') == '' }}
         run: |
           echo "Creating new snapshot for today (${{ steps.get-date.outputs.today }})"
-          touch ${{ steps.get-date.outputs.today }}
-
           ./try-runtime create-snapshot --uri ${{ matrix.uri }} snapshot.raw
       
-        # Upload the snapshot ASAP to prevent other jobs from also creating snapshots. Its not a
-        # problem, but a waste of time.
+      # Upload the snapshot ASAP to prevent other jobs from also creating snapshots. Its not a
+      # problem, but a waste of time. If two jobs try to upload to a key, only one will acquire the
+      # key with write permission. Luckily this only emits a warning and doesn't fail the job.
       - name: Upload Snapshot
         uses: actions/cache/save@v4
         with:
