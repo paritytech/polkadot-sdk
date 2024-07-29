@@ -864,9 +864,9 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type AssetId = xcm::v3::Location;
 	type OnChargeAssetTransaction = SwapAssetAdapter<
 		TokenLocationV3,
-		NativeAndAssets,
+		NativeAndNonPoolAssets,
 		AssetConversion,
-		ResolveAssetTo<StakingPot, NativeAndAssets>,
+		ResolveAssetTo<StakingPot, NativeAndNonPoolAssets>,
 	>;
 }
 
@@ -1001,18 +1001,26 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 pub struct PalletAssetRewardsBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_asset_rewards::benchmarking::BenchmarkHelper<xcm::v3::Location, AccountId>
+impl pallet_asset_rewards::benchmarking::BenchmarkHelper<xcm::v3::Location>
 	for PalletAssetRewardsBenchmarkHelper
 {
-	fn to_asset_id(seed: u32) -> xcm::v3::Location {
-		// Any Location is fine for benchmarking.
-		xcm::v3::Location::ancestor(seed.try_into().unwrap())
+	fn staked_asset() -> xcm::v3::Location {
+		xcm::v3::Location::new(
+			0,
+			xcm::v3::Junctions::X2(
+				xcm::v3::Junction::PalletInstance(<Assets as PalletInfoAccess>::index() as u8),
+				xcm::v3::Junction::GeneralIndex(100),
+			),
+		)
 	}
-	fn to_account_id(seed: [u8; 32]) -> AccountId {
-		seed.into()
-	}
-	fn sufficient_asset() -> xcm::v3::Location {
-		xcm::v3::Junction::PalletInstance(<Balances as PalletInfoAccess>::index() as u8).into()
+	fn reward_asset() -> xcm::v3::Location {
+		xcm::v3::Location::new(
+			0,
+			xcm::v3::Junctions::X2(
+				xcm::v3::Junction::PalletInstance(<Assets as PalletInfoAccess>::index() as u8),
+				xcm::v3::Junction::GeneralIndex(101),
+			),
+		)
 	}
 }
 

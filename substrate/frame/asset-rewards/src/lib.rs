@@ -231,7 +231,7 @@ pub mod pallet {
 
 		/// Helper for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: benchmarking::BenchmarkHelper<Self::AssetId, Self::AccountId>;
+		type BenchmarkHelper: benchmarking::BenchmarkHelper<Self::AssetId>;
 	}
 
 	/// State of pool stakers.
@@ -417,6 +417,7 @@ pub mod pallet {
 			// Insert it into storage.
 			let pool_id = NextPoolId::<T>::get();
 			Pools::<T>::insert(pool_id, pool);
+			// TODO should be checked add
 			NextPoolId::<T>::put(pool_id.saturating_add(1));
 
 			// Emit created event.

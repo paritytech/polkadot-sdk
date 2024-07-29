@@ -1754,21 +1754,14 @@ parameter_types! {
 pub struct AssetRewardsBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_asset_rewards::benchmarking::BenchmarkHelper<NativeOrWithId<u32>, AccountId>
+impl pallet_asset_rewards::benchmarking::BenchmarkHelper<NativeOrWithId<u32>>
 	for AssetRewardsBenchmarkHelper
 {
-	fn to_asset_id(seed: u32) -> NativeOrWithId<u32> {
-		if seed == 0 {
-			NativeOrWithId::<u32>::Native
-		} else {
-			NativeOrWithId::<u32>::WithId(seed)
-		}
+	fn staked_asset() -> NativeOrWithId<u32> {
+		NativeOrWithId::<u32>::WithId(100)
 	}
-	fn to_account_id(seed: [u8; 32]) -> AccountId {
-		seed.into()
-	}
-	fn sufficient_asset() -> NativeOrWithId<u32> {
-		NativeOrWithId::<u32>::Native
+	fn reward_asset() -> NativeOrWithId<u32> {
+		NativeOrWithId::<u32>::WithId(101)
 	}
 }
 

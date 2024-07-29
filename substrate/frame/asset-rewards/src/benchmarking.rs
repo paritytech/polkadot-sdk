@@ -16,12 +16,10 @@
 // limitations under the License.
 
 //! Asset Rewards pallet benchmarking.
-//!
-//! Note: these benchmarks assume that Root passes the `CreatePoolOrigin` checks.
 
 use super::*;
 use crate::Pallet as AssetRewards;
-use frame_benchmarking::v2::*;
+use frame_benchmarking::{v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::{
 	assert_ok,
 	traits::{
@@ -29,54 +27,89 @@ use frame_support::{
 		EnsureOrigin,
 	},
 };
-use frame_system::{RawOrigin, RawOrigin::Root};
-use sp_runtime::{traits::One, SaturatedConversion};
+use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin};
+use sp_runtime::{
+	traits::{Bounded, One},
+	Saturating,
+};
 use sp_std::prelude::*;
 
 /// Benchmark Helper
-pub trait BenchmarkHelper<AssetId, AccountId> {
-	/// Convert a u32 to an AssetId
-	fn to_asset_id(seed: u32) -> AssetId;
-	/// Convert a [u8; 32] to an AccountId
-	fn to_account_id(seed: [u8; 32]) -> AccountId;
-	/// Return the ID of the asset whos minimum balance is sufficient for an account to exist
-	fn sufficient_asset() -> AssetId;
+pub trait BenchmarkHelper<AssetId> {
+	/// Returns the staked asset id.
+	///
+	/// If the asset does not exist, it will be created by the benchmark.
+	fn staked_asset() -> AssetId;
+	/// Returns the reward asset id.
+	///
+	/// If the asset does not exist, it will be created by the benchmark.
+	fn reward_asset() -> AssetId;
 }
 
-/// Create and mint the minimum amount of the sufficient asset.
-fn create_and_mint_sufficient<T: Config>(caller: &T::AccountId)
+fn pool_lifetime<T: Config>() -> BlockNumberFor<T> {
+	BlockNumberFor::<T>::max_value()
+}
+
+fn create_reward_pool<T: Config>() -> Result<T::RuntimeOrigin, BenchmarkError>
 where
 	T::Assets: Create<T::AccountId> + Mutate<T::AccountId>,
 {
-	let sufficient_asset = T::BenchmarkHelper::sufficient_asset();
-	create_and_mint_asset::<T>(
-		&caller,
-		&sufficient_asset.clone(),
-		T::Assets::minimum_balance(sufficient_asset),
-	);
-}
+	let caller_origin =
+		T::CreatePoolOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+	let caller = T::CreatePoolOrigin::ensure_origin(caller_origin.clone()).unwrap();
 
-/// Create the `asset` and mint the `amount` for the `caller`.
-fn create_and_mint_asset<T: Config>(caller: &T::AccountId, asset: &T::AssetId, amount: T::Balance)
-where
-	T::Assets: Create<T::AccountId> + Mutate<T::AccountId>,
-{
-	if !T::Assets::asset_exists(asset.clone()) {
-		assert_ok!(T::Assets::create(asset.clone(), caller.clone(), true, T::Balance::one()));
+	let staked_asset = T::BenchmarkHelper::staked_asset();
+	let reward_asset = T::BenchmarkHelper::reward_asset();
+
+	let min_staked_balance =
+		T::Assets::minimum_balance(staked_asset.clone()).max(T::Balance::one());
+	if !T::Assets::asset_exists(staked_asset.clone()) {
+		assert_ok!(T::Assets::create(
+			staked_asset.clone(),
+			caller.clone(),
+			true,
+			min_staked_balance
+		));
 	}
+	let min_reward_balance =
+		T::Assets::minimum_balance(reward_asset.clone()).max(T::Balance::one());
+	if !T::Assets::asset_exists(reward_asset.clone()) {
+		assert_ok!(T::Assets::create(
+			reward_asset.clone(),
+			caller.clone(),
+			true,
+			min_reward_balance
+		));
+	}
+
+	assert_ok!(AssetRewards::<T>::create_pool(
+		caller_origin.clone(),
+		Box::new(staked_asset),
+		Box::new(reward_asset),
+		// reward rate per block
+		min_reward_balance,
+		pool_lifetime::<T>(),
+		None,
+	));
+
+	Ok(caller_origin)
+}
+
+fn mint_into<T: Config>(caller: &T::AccountId, asset: &T::AssetId) -> T::Balance
+where
+	T::Assets: Mutate<T::AccountId>,
+{
+	let min_balance = T::Assets::minimum_balance(asset.clone());
 	assert_ok!(T::Assets::mint_into(
 		asset.clone(),
 		&caller,
-		amount + T::Assets::minimum_balance(asset.clone())
+		min_balance.saturating_mul(10u32.into())
 	));
+	min_balance
 }
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
-	let events = frame_system::Pallet::<T>::events();
-	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
-	// compare to the last event record
-	let frame_system::EventRecord { event, .. } = &events[events.len() - 1];
-	assert_eq!(event, &system_event);
+	System::<T>::assert_last_event(generic_event.into());
 }
 
 #[benchmarks(where T::Assets: Create<T::AccountId> + Mutate<T::AccountId>)]
@@ -84,363 +117,215 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn create_pool() {
-		use super::*;
+	fn create_pool() -> Result<(), BenchmarkError> {
+		let caller_origin =
+			T::CreatePoolOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let caller = T::CreatePoolOrigin::ensure_origin(caller_origin.clone()).unwrap();
 
-		let root_acc = T::CreatePoolOrigin::ensure_origin(Root.into()).unwrap();
-		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(2);
-		create_and_mint_asset::<T>(
-			&root_acc,
-			&staked_asset,
-			T::Assets::minimum_balance(staked_asset.clone()),
-		);
-		create_and_mint_asset::<T>(
-			&root_acc,
-			&reward_asset,
-			T::Assets::minimum_balance(reward_asset.clone()),
-		);
+		let staked_asset = T::BenchmarkHelper::staked_asset();
+		let reward_asset = T::BenchmarkHelper::reward_asset();
 
-		let block_number_before = frame_system::Pallet::<T>::block_number();
+		let min_balance = T::Assets::minimum_balance(staked_asset.clone()).max(T::Balance::one());
+		if !T::Assets::asset_exists(staked_asset.clone()) {
+			assert_ok!(T::Assets::create(staked_asset.clone(), caller.clone(), true, min_balance));
+		}
+		let min_balance = T::Assets::minimum_balance(reward_asset.clone()).max(T::Balance::one());
+		if !T::Assets::asset_exists(reward_asset.clone()) {
+			assert_ok!(T::Assets::create(reward_asset.clone(), caller.clone(), true, min_balance));
+		}
+
 		#[extrinsic_call]
 		_(
-			Root,
+			caller_origin as T::RuntimeOrigin,
 			Box::new(staked_asset.clone()),
 			Box::new(reward_asset.clone()),
-			100u32.into(),
-			200u32.into(),
+			min_balance,
+			pool_lifetime::<T>(),
 			None,
 		);
 
 		assert_last_event::<T>(
 			Event::PoolCreated {
-				creator: root_acc.clone(),
-				admin: Some(root_acc),
+				creator: caller.clone(),
+				admin: Some(caller),
 				staked_asset_id: staked_asset,
 				reward_asset_id: reward_asset,
-				reward_rate_per_block: 100u32.into(),
-				expiry_block: block_number_before + 200u32.into(),
-				pool_id: 0u32.into(),
+				reward_rate_per_block: min_balance,
+				expiry_block: pool_lifetime::<T>(),
+				pool_id: 0,
 			}
 			.into(),
 		);
+
+		Ok(())
 	}
 
 	#[benchmark]
-	fn stake() {
-		use super::*;
+	fn stake() -> Result<(), BenchmarkError> {
+		create_reward_pool::<T>()?;
 
-		let staker = T::BenchmarkHelper::to_account_id([1u8; 32]);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(0);
-		create_and_mint_asset::<T>(
-			&staker,
-			&staked_asset,
-			T::Assets::minimum_balance(staked_asset.clone()),
-		);
-		create_and_mint_asset::<T>(
-			&staker,
-			&reward_asset,
-			T::Assets::minimum_balance(reward_asset.clone()),
-		);
-
-		assert_ok!(AssetRewards::<T>::create_pool(
-			Root.into(),
-			Box::new(staked_asset.clone()),
-			Box::new(reward_asset.clone()),
-			100u32.into(),
-			200u32.into(),
-			None,
-		));
+		let staker: T::AccountId = whitelisted_caller();
+		let min_balance = mint_into::<T>(&staker, &T::BenchmarkHelper::staked_asset());
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(staker.clone()), 0u32.into(), 100u32.into());
+		_(RawOrigin::Signed(staker.clone()), 0, min_balance);
 
 		assert_last_event::<T>(
-			Event::Staked { caller: staker, pool_id: 0u32.into(), amount: 100u32.into() }.into(),
+			Event::Staked { caller: staker, pool_id: 0, amount: min_balance }.into(),
 		);
+
+		Ok(())
 	}
 
 	#[benchmark]
-	fn unstake() {
-		use super::*;
+	fn unstake() -> Result<(), BenchmarkError> {
+		create_reward_pool::<T>()?;
 
-		let staker = T::BenchmarkHelper::to_account_id([1u8; 32]);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(0);
-		create_and_mint_asset::<T>(
-			&staker,
-			&staked_asset,
-			T::Assets::minimum_balance(staked_asset.clone()),
-		);
-		create_and_mint_asset::<T>(
-			&staker,
-			&reward_asset,
-			T::Assets::minimum_balance(reward_asset.clone()),
-		);
-
-		assert_ok!(AssetRewards::<T>::create_pool(
-			Root.into(),
-			Box::new(staked_asset.clone()),
-			Box::new(reward_asset.clone()),
-			100u32.into(),
-			200u32.into(),
-			None,
-		));
+		let staker: T::AccountId = whitelisted_caller();
+		let min_balance = mint_into::<T>(&staker, &T::BenchmarkHelper::staked_asset());
 
 		assert_ok!(AssetRewards::<T>::stake(
 			RawOrigin::Signed(staker.clone()).into(),
-			0u32.into(),
-			100u32.into()
+			0,
+			min_balance,
 		));
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(staker.clone()), 0u32.into(), 100u32.into());
+		_(RawOrigin::Signed(staker.clone()), 0, min_balance);
 
 		assert_last_event::<T>(
-			Event::Unstaked { caller: staker, pool_id: 0u32.into(), amount: 100u32.into() }.into(),
+			Event::Unstaked { caller: staker, pool_id: 0, amount: min_balance }.into(),
 		);
+
+		Ok(())
 	}
 
 	#[benchmark]
-	fn harvest_rewards() {
-		use super::*;
-
-		let block_number_before = frame_system::Pallet::<T>::block_number();
-		let staker = T::BenchmarkHelper::to_account_id([2u8; 32]);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(2);
-		create_and_mint_asset::<T>(
-			&staker,
-			&staked_asset,
-			T::Assets::minimum_balance(staked_asset.clone()),
-		);
-		create_and_mint_asset::<T>(
-			&staker,
-			&reward_asset,
-			T::Assets::minimum_balance(reward_asset.clone()),
-		);
-		assert_ok!(AssetRewards::<T>::create_pool(
-			Root.into(),
-			Box::new(staked_asset.clone()),
-			Box::new(reward_asset.clone()),
-			100u32.into(),
-			200u32.into(),
-			None,
-		));
+	fn harvest_rewards() -> Result<(), BenchmarkError> {
+		create_reward_pool::<T>()?;
 
 		let pool_acc = AssetRewards::<T>::pool_account_id(&0u32).unwrap();
-		create_and_mint_sufficient::<T>(&pool_acc);
-		create_and_mint_asset::<T>(&pool_acc, &reward_asset, 100_000u32.into());
+		let min_reward_balance = mint_into::<T>(&pool_acc, &T::BenchmarkHelper::reward_asset());
+
+		let staker = whitelisted_caller();
+		let _ = mint_into::<T>(&staker, &T::BenchmarkHelper::staked_asset());
 		assert_ok!(AssetRewards::<T>::stake(
 			RawOrigin::Signed(staker.clone()).into(),
-			0u32.into(),
-			100u32.into()
+			0,
+			T::Balance::one(),
 		));
 
+		System::<T>::set_block_number(
+			frame_system::Pallet::<T>::block_number() + BlockNumberFor::<T>::one(),
+		);
+
 		#[extrinsic_call]
-		_(RawOrigin::Signed(staker.clone()), 0u32.into(), None);
-
-		let block_number_after = frame_system::Pallet::<T>::block_number();
-
-		// In tests a block doesn't pass but when running benchmarks for node-template one does.
-		// Not sure why, but adding this to correctly calculate the harvested amount.
-		//
-		// TODO: Before merging understand this
-		let blocks_elapsed = block_number_after - block_number_before;
+		_(RawOrigin::Signed(staker.clone()), 0, None);
 
 		assert_last_event::<T>(
 			Event::RewardsHarvested {
 				caller: staker.clone(),
 				staker,
-				pool_id: 0u32.into(),
-				amount: (blocks_elapsed * 100u8.into()).saturated_into::<u32>().into(),
+				pool_id: 0,
+				amount: min_reward_balance,
 			}
 			.into(),
 		);
+
+		Ok(())
 	}
 
 	#[benchmark]
-	fn set_pool_reward_rate_per_block() {
-		use super::*;
+	fn set_pool_reward_rate_per_block() -> Result<(), BenchmarkError> {
+		let caller_origin = create_reward_pool::<T>()?;
 
-		let acc = T::BenchmarkHelper::to_account_id([3u8; 32]);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(5);
-		create_and_mint_asset::<T>(
-			&acc,
-			&staked_asset,
-			T::Assets::minimum_balance(staked_asset.clone()),
-		);
-		create_and_mint_asset::<T>(
-			&acc,
-			&reward_asset,
-			T::Assets::minimum_balance(reward_asset.clone()),
-		);
-
-		assert_ok!(AssetRewards::<T>::create_pool(
-			Root.into(),
-			Box::new(staked_asset.clone()),
-			Box::new(reward_asset.clone()),
-			100u32.into(),
-			200u32.into(),
-			None,
-		));
-
+		let new_reward_rate_per_block = T::Balance::from(5u32);
 		#[extrinsic_call]
-		_(Root, 0u32.into(), 5u32.into());
+		_(caller_origin as T::RuntimeOrigin, 0, new_reward_rate_per_block);
 
 		assert_last_event::<T>(
-			Event::PoolRewardRateModified {
-				pool_id: 0u32.into(),
-				new_reward_rate_per_block: 5u32.into(),
-			}
-			.into(),
+			Event::PoolRewardRateModified { pool_id: 0, new_reward_rate_per_block }.into(),
 		);
+		Ok(())
 	}
 
 	#[benchmark]
-	fn set_pool_admin() {
-		use super::*;
-
-		let new_admin = T::BenchmarkHelper::to_account_id([2u8; 32]);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(0);
-		create_and_mint_asset::<T>(
-			&new_admin,
-			&staked_asset,
-			T::Assets::minimum_balance(staked_asset.clone()),
-		);
-		create_and_mint_asset::<T>(
-			&new_admin,
-			&reward_asset,
-			T::Assets::minimum_balance(reward_asset.clone()),
-		);
-
-		assert_ok!(AssetRewards::<T>::create_pool(
-			Root.into(),
-			Box::new(staked_asset.clone()),
-			Box::new(reward_asset.clone()),
-			100u32.into(),
-			200u32.into(),
-			None,
-		));
+	fn set_pool_admin() -> Result<(), BenchmarkError> {
+		let caller_origin = create_reward_pool::<T>()?;
+		let new_admin: T::AccountId = whitelisted_caller();
 
 		#[extrinsic_call]
-		_(Root, 0u32.into(), new_admin.clone());
+		_(caller_origin as T::RuntimeOrigin, 0, new_admin.clone());
 
 		assert_last_event::<T>(
-			Event::PoolAdminModified { pool_id: 0u32.into(), new_admin: Some(new_admin) }.into(),
+			Event::PoolAdminModified { pool_id: 0, new_admin: Some(new_admin) }.into(),
 		);
+
+		Ok(())
 	}
 
 	#[benchmark]
-	fn set_pool_expiry_block() {
-		use super::*;
+	fn set_pool_expiry_block() -> Result<(), BenchmarkError> {
+		let create_origin = create_reward_pool::<T>()?;
 
-		let staked_asset = T::BenchmarkHelper::to_asset_id(2);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(5);
-		let acc = T::BenchmarkHelper::to_account_id([5u8; 32]);
-		create_and_mint_asset::<T>(
-			&acc,
-			&staked_asset,
-			T::Assets::minimum_balance(staked_asset.clone()),
-		);
-		create_and_mint_asset::<T>(
-			&acc,
-			&reward_asset,
-			T::Assets::minimum_balance(reward_asset.clone()),
-		);
-
-		assert_ok!(AssetRewards::<T>::create_pool(
-			Root.into(),
-			Box::new(staked_asset.clone()),
-			Box::new(reward_asset.clone()),
-			100u32.into(),
-			200u32.into(),
-			None,
-		));
+		let new_expiry_block = pool_lifetime::<T>() - BlockNumberFor::<T>::one();
 
 		#[extrinsic_call]
-		_(Root, 0u32.into(), 1000u32.into());
+		_(create_origin as T::RuntimeOrigin, 0, new_expiry_block);
 
 		assert_last_event::<T>(
-			Event::PoolExpiryBlockModified {
-				pool_id: 0u32.into(),
-				new_expiry_block: 1000u32.into(),
-			}
-			.into(),
+			Event::PoolExpiryBlockModified { pool_id: 0, new_expiry_block }.into(),
 		);
+
+		Ok(())
 	}
 
 	#[benchmark]
-	fn deposit_reward_tokens() {
-		use super::*;
+	fn deposit_reward_tokens() -> Result<(), BenchmarkError> {
+		create_reward_pool::<T>()?;
+		let caller = whitelisted_caller();
 
-		let acc = T::BenchmarkHelper::to_account_id([3u8; 32]);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(4);
-		create_and_mint_asset::<T>(&acc, &reward_asset, 100_000u32.into());
-		create_and_mint_asset::<T>(&acc, &staked_asset, 100_000u32.into());
-
-		assert_ok!(AssetRewards::<T>::create_pool(
-			Root.into(),
-			Box::new(staked_asset.clone()),
-			Box::new(reward_asset.clone()),
-			100u32.into(),
-			200u32.into(),
-			None,
-		));
-
+		let reward_asset = T::BenchmarkHelper::reward_asset();
 		let pool_acc = AssetRewards::<T>::pool_account_id(&0u32).unwrap();
-		create_and_mint_sufficient::<T>(&pool_acc);
+		let min_balance = mint_into::<T>(&caller, &reward_asset);
 
-		let balance_before = T::Assets::balance(reward_asset.clone(), &acc);
+		let balance_before = T::Assets::balance(reward_asset.clone(), &pool_acc);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(acc.clone()), 0u32.into(), 10_000u32.into());
+		_(RawOrigin::Signed(caller), 0, min_balance);
 
-		let balance_after = T::Assets::balance(reward_asset.clone(), &acc);
+		let balance_after = T::Assets::balance(reward_asset, &pool_acc);
 
-		assert_eq!(balance_after, balance_before - 10_000u32.into());
+		assert_eq!(balance_after, balance_before + min_balance);
+
+		Ok(())
 	}
 
 	#[benchmark]
-	fn withdraw_reward_tokens() {
-		use super::*;
+	fn withdraw_reward_tokens() -> Result<(), BenchmarkError> {
+		let create_origin = create_reward_pool::<T>()?;
+		let caller = whitelisted_caller();
 
-		let acc = T::BenchmarkHelper::to_account_id([3u8; 32]);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(2);
-		create_and_mint_asset::<T>(&acc, &staked_asset, 10000u32.into());
-		create_and_mint_asset::<T>(&acc, &reward_asset, 10000u32.into());
-
-		assert_ok!(AssetRewards::<T>::create_pool(
-			Root.into(),
-			Box::new(staked_asset.clone()),
-			Box::new(reward_asset.clone()),
-			100u32.into(),
-			200u32.into(),
-			None,
-		));
-		let pool_acc = AssetRewards::<T>::pool_account_id(&0u32).unwrap();
-		create_and_mint_sufficient::<T>(&pool_acc);
-
-		let balance_before = T::Assets::balance(reward_asset.clone(), &acc);
+		let reward_asset = T::BenchmarkHelper::reward_asset();
+		let min_balance = mint_into::<T>(&caller, &reward_asset);
 
 		assert_ok!(AssetRewards::<T>::deposit_reward_tokens(
-			RawOrigin::Signed(acc.clone()).into(),
-			0u32.into(),
-			100u32.into()
+			RawOrigin::Signed(caller.clone()).into(),
+			0,
+			min_balance,
 		));
 
+		let pool_acc = AssetRewards::<T>::pool_account_id(&0).unwrap();
+		let balance_before = T::Assets::balance(reward_asset.clone(), &pool_acc);
+
 		#[extrinsic_call]
-		_(Root, 0u32.into(), 50u32.into(), acc.clone());
+		_(create_origin as T::RuntimeOrigin, 0, min_balance, caller);
 
-		let balance_after = T::Assets::balance(reward_asset.clone(), &acc);
+		let balance_after = T::Assets::balance(reward_asset.clone(), &pool_acc);
 
-		// Deposited 100, withdrew 50
-		assert_eq!(balance_after, balance_before - 50u32.into());
+		assert_eq!(balance_before, balance_after + min_balance);
+
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(AssetRewards, crate::mock::new_test_ext(), crate::mock::MockRuntime);

@@ -136,21 +136,12 @@ pub type NativeAndAssetsFreezer =
 #[cfg(feature = "runtime-benchmarks")]
 pub struct AssetRewardsBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl BenchmarkHelper<NativeOrWithId<u32>, u128> for AssetRewardsBenchmarkHelper {
-	fn to_asset_id(seed: u32) -> NativeOrWithId<u32> {
-		if seed == 0 {
-			NativeOrWithId::<u32>::Native
-		} else {
-			NativeOrWithId::<u32>::WithId(seed)
-		}
+impl BenchmarkHelper<NativeOrWithId<u32>> for AssetRewardsBenchmarkHelper {
+	fn staked_asset() -> NativeOrWithId<u32> {
+		NativeOrWithId::<u32>::WithId(101)
 	}
-	fn to_account_id(seed: [u8; 32]) -> u128 {
-		// only 16 bytes fit into u128
-		let bytes = <[u8; 16]>::try_from(&seed[0..16]).unwrap();
-		u128::from_be_bytes(bytes)
-	}
-	fn sufficient_asset() -> NativeOrWithId<u32> {
-		NativeOrWithId::<u32>::Native
+	fn reward_asset() -> NativeOrWithId<u32> {
+		NativeOrWithId::<u32>::WithId(102)
 	}
 }
 
