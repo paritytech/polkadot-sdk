@@ -184,6 +184,20 @@ fn exchange_fails() {
 	});
 }
 
+#[test]
+fn non_fungible_asset_in_give() {
+	new_test_ext().execute_with(|| {
+		assert!(PoolAssetsExchanger::exchange_asset(
+			None,
+			// Using `u64` here will give us a non-fungible instead of a fungible.
+			vec![([PalletInstance(2), GeneralIndex(2)], 10_000_000u64).into()].into(),
+			&vec![(Here, 10_000_000).into()].into(),
+			false, // Minimal
+		)
+		.is_err());
+	});
+}
+
 // ========== Helper functions ==========
 
 fn get_amount_from_first_fungible(assets: &AssetsInHolding) -> u128 {
