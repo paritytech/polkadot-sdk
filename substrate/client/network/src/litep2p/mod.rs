@@ -921,6 +921,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 						if addresses.insert(address.clone()) {
 							log::info!(target: LOG_TARGET, "🔍 Discovered new external address for our node: {address}");
+
 						}
 					}
 					Some(DiscoveryEvent::Ping { peer, rtt }) => {

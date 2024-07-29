@@ -70,7 +70,7 @@ const MDNS_QUERY_INTERVAL: Duration = Duration::from_secs(30);
 const GET_RECORD_REDUNDANCY_FACTOR: usize = 4;
 
 /// The maximum number of tracked external addresses we allow.
-const MAX_EXTERNAL_ADDRESSES: usize = 32;
+const MAX_EXTERNAL_ADDRESSES: u32 = 32;
 
 /// Minimum number of confirmations received before an address is verified.
 ///
@@ -569,7 +569,9 @@ impl Stream for Discovery {
 				supported_protocols,
 				observed_address,
 			})) => {
-				if this.is_new_external_address(&observed_address) {
+				if Discovery::can_add_to_dht(&observed_address) &&
+					this.is_new_external_address(&observed_address)
+				{
 					this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
 						address: observed_address.clone(),
 					});
