@@ -203,92 +203,95 @@ pub enum BridgeLocationsError {
 	UnsupportedXcmVersion,
 }
 
-/// Given XCM locations, generate lane id and universal locations of bridge endpoints.
-///
-/// The `here_universal_location` is the universal location of the bridge hub runtime.
-///
-/// The `bridge_origin_relative_location` is the relative (to the `here_universal_location`)
-/// location of the bridge endpoint at this side of the bridge. It may be the parent relay
-/// chain or the sibling parachain. All junctions below parachain level are dropped.
-///
-/// The `bridge_destination_universal_location` is the universal location of the bridge
-/// destination. It may be the parent relay or the sibling parachain of the **bridged**
-/// bridge hub. All junctions below parachain level are dropped.
-///
-/// Why we drop all junctions between parachain level - that's because the lane is a bridge
-/// between two chains. All routing under this level happens when the message is delivered
-/// to the bridge destination. So at bridge level we don't care about low level junctions.
-///
-/// Returns error if `bridge_origin_relative_location` is outside of `here_universal_location`
-/// local consensus OR if `bridge_destination_universal_location` is not a universal location.
-pub fn bridge_locations(
-	here_universal_location: Box<InteriorLocation>,
-	bridge_origin_relative_location: Box<Location>,
-	bridge_destination_universal_location: Box<InteriorLocation>,
-	expected_remote_network: NetworkId,
-) -> Result<Box<BridgeLocations>, BridgeLocationsError> {
-	fn strip_low_level_junctions(
-		location: InteriorLocation,
-	) -> Result<InteriorLocation, BridgeLocationsError> {
-		let mut junctions = location.into_iter();
+impl BridgeLocations {
+	/// Given XCM locations, generate lane id and universal locations of bridge endpoints.
+	///
+	/// The `here_universal_location` is the universal location of the bridge hub runtime.
+	///
+	/// The `bridge_origin_relative_location` is the relative (to the `here_universal_location`)
+	/// location of the bridge endpoint at this side of the bridge. It may be the parent relay
+	/// chain or the sibling parachain. All junctions below parachain level are dropped.
+	///
+	/// The `bridge_destination_universal_location` is the universal location of the bridge
+	/// destination. It may be the parent relay or the sibling parachain of the **bridged**
+	/// bridge hub. All junctions below parachain level are dropped.
+	///
+	/// Why we drop all junctions between parachain level - that's because the lane is a bridge
+	/// between two chains. All routing under this level happens when the message is delivered
+	/// to the bridge destination. So at bridge level we don't care about low level junctions.
+	///
+	/// Returns error if `bridge_origin_relative_location` is outside of `here_universal_location`
+	/// local consensus OR if `bridge_destination_universal_location` is not a universal location.
+	pub fn bridge_locations(
+		here_universal_location: InteriorLocation,
+		bridge_origin_relative_location: Location,
+		bridge_destination_universal_location: InteriorLocation,
+		expected_remote_network: NetworkId,
+	) -> Result<Box<Self>, BridgeLocationsError> {
+		fn strip_low_level_junctions(
+			location: InteriorLocation,
+		) -> Result<InteriorLocation, BridgeLocationsError> {
+			let mut junctions = location.into_iter();
 
-		let global_consensus = junctions
-			.next()
-			.filter(|junction| matches!(junction, GlobalConsensus(_)))
-			.ok_or(BridgeLocationsError::NonUniversalLocation)?;
+			let global_consensus = junctions
+				.next()
+				.filter(|junction| matches!(junction, GlobalConsensus(_)))
+				.ok_or(BridgeLocationsError::NonUniversalLocation)?;
 
-		// we only expect `Parachain` junction here. There are other junctions that
-		// may need to be supported (like `GeneralKey` and `OnlyChild`), but now we
-		// only support bridges with relay and parachans
-		//
-		// if there's something other than parachain, let's strip it
-		let maybe_parachain = junctions.next().filter(|junction| matches!(junction, Parachain(_)));
-		Ok(match maybe_parachain {
-			Some(parachain) => [global_consensus, parachain].into(),
-			None => [global_consensus].into(),
-		})
+			// we only expect `Parachain` junction here. There are other junctions that
+			// may need to be supported (like `GeneralKey` and `OnlyChild`), but now we
+			// only support bridges with relay and parachans
+			//
+			// if there's something other than parachain, let's strip it
+			let maybe_parachain =
+				junctions.next().filter(|junction| matches!(junction, Parachain(_)));
+			Ok(match maybe_parachain {
+				Some(parachain) => [global_consensus, parachain].into(),
+				None => [global_consensus].into(),
+			})
+		}
+
+		// ensure that the `here_universal_location` and `bridge_destination_universal_location`
+		// are universal locations within different consensus systems
+		let local_network = here_universal_location
+			.global_consensus()
+			.map_err(|_| BridgeLocationsError::NonUniversalLocation)?;
+		let remote_network = bridge_destination_universal_location
+			.global_consensus()
+			.map_err(|_| BridgeLocationsError::NonUniversalLocation)?;
+		ensure!(local_network != remote_network, BridgeLocationsError::DestinationIsLocal);
+		ensure!(
+			remote_network == expected_remote_network,
+			BridgeLocationsError::UnreachableDestination
+		);
+
+		// get universal location of endpoint, located at this side of the bridge
+		let bridge_origin_universal_location = here_universal_location
+			.within_global(bridge_origin_relative_location.clone())
+			.map_err(|_| BridgeLocationsError::InvalidBridgeOrigin)?;
+		// strip low-level junctions within universal locations
+		let bridge_origin_universal_location =
+			strip_low_level_junctions(bridge_origin_universal_location)?;
+		let bridge_destination_universal_location =
+			strip_low_level_junctions(bridge_destination_universal_location)?;
+
+		// we know that the `bridge_destination_universal_location` starts from the
+		// `GlobalConsensus` and we know that the `bridge_origin_universal_location`
+		// is also within the `GlobalConsensus`. So we know that the lane id will be
+		// the same on both ends of the bridge
+		let bridge_id = BridgeId::new(
+			&bridge_origin_universal_location,
+			&bridge_destination_universal_location,
+		);
+
+		Ok(Box::new(BridgeLocations {
+			bridge_origin_relative_location,
+			bridge_origin_universal_location,
+			bridge_destination_universal_location,
+			bridge_id,
+		}))
 	}
 
-	// ensure that the `here_universal_location` and `bridge_destination_universal_location`
-	// are universal locations within different consensus systems
-	let local_network = here_universal_location
-		.global_consensus()
-		.map_err(|_| BridgeLocationsError::NonUniversalLocation)?;
-	let remote_network = bridge_destination_universal_location
-		.global_consensus()
-		.map_err(|_| BridgeLocationsError::NonUniversalLocation)?;
-	ensure!(local_network != remote_network, BridgeLocationsError::DestinationIsLocal);
-	ensure!(
-		remote_network == expected_remote_network,
-		BridgeLocationsError::UnreachableDestination
-	);
-
-	// get universal location of endpoint, located at this side of the bridge
-	let bridge_origin_universal_location = here_universal_location
-		.within_global(*bridge_origin_relative_location.clone())
-		.map_err(|_| BridgeLocationsError::InvalidBridgeOrigin)?;
-	// strip low-level junctions within universal locations
-	let bridge_origin_universal_location =
-		strip_low_level_junctions(bridge_origin_universal_location)?;
-	let bridge_destination_universal_location =
-		strip_low_level_junctions(*bridge_destination_universal_location)?;
-
-	// we know that the `bridge_destination_universal_location` starts from the
-	// `GlobalConsensus` and we know that the `bridge_origin_universal_location`
-	// is also within the `GlobalConsensus`. So we know that the lane id will be
-	// the same on both ends of the bridge
-	let bridge_id =
-		BridgeId::new(&bridge_origin_universal_location, &bridge_destination_universal_location);
-
-	Ok(Box::new(BridgeLocations {
-		bridge_origin_relative_location: *bridge_origin_relative_location,
-		bridge_origin_universal_location,
-		bridge_destination_universal_location,
-		bridge_id,
-	}))
-}
-
-impl BridgeLocations {
 	/// Getter for `bridge_origin_relative_location`
 	pub fn bridge_origin_relative_location(&self) -> &Location {
 		&self.bridge_origin_relative_location
@@ -364,10 +367,10 @@ mod tests {
 	}
 
 	fn run_successful_test(test: SuccessfulTest) -> BridgeLocations {
-		let locations = bridge_locations(
-			Box::new(test.here_universal_location),
-			Box::new(test.bridge_origin_relative_location.clone()),
-			Box::new(test.bridge_destination_universal_location.clone()),
+		let locations = BridgeLocations::bridge_locations(
+			test.here_universal_location,
+			test.bridge_origin_relative_location.clone(),
+			test.bridge_destination_universal_location.clone(),
 			test.expected_remote_network,
 		);
 		assert_eq!(
@@ -639,10 +642,10 @@ mod tests {
 	#[test]
 	fn bridge_locations_fails_when_here_is_not_universal_location() {
 		assert_eq!(
-			bridge_locations(
-				Box::new([Parachain(1000)].into()),
-				Box::new(Here.into()),
-				Box::new([GlobalConsensus(REMOTE_NETWORK)].into()),
+			BridgeLocations::bridge_locations(
+				[Parachain(1000)].into(),
+				Here.into(),
+				[GlobalConsensus(REMOTE_NETWORK)].into(),
 				REMOTE_NETWORK,
 			),
 			Err(BridgeLocationsError::NonUniversalLocation),
@@ -652,10 +655,10 @@ mod tests {
 	#[test]
 	fn bridge_locations_fails_when_computed_destination_is_not_universal_location() {
 		assert_eq!(
-			bridge_locations(
-				Box::new([GlobalConsensus(LOCAL_NETWORK)].into()),
-				Box::new(Here.into()),
-				Box::new([OnlyChild].into()),
+			BridgeLocations::bridge_locations(
+				[GlobalConsensus(LOCAL_NETWORK)].into(),
+				Here.into(),
+				[OnlyChild].into(),
 				REMOTE_NETWORK,
 			),
 			Err(BridgeLocationsError::NonUniversalLocation),
@@ -665,10 +668,10 @@ mod tests {
 	#[test]
 	fn bridge_locations_fails_when_computed_destination_is_local() {
 		assert_eq!(
-			bridge_locations(
-				Box::new([GlobalConsensus(LOCAL_NETWORK)].into()),
-				Box::new(Here.into()),
-				Box::new([GlobalConsensus(LOCAL_NETWORK), OnlyChild].into()),
+			BridgeLocations::bridge_locations(
+				[GlobalConsensus(LOCAL_NETWORK)].into(),
+				Here.into(),
+				[GlobalConsensus(LOCAL_NETWORK), OnlyChild].into(),
 				REMOTE_NETWORK,
 			),
 			Err(BridgeLocationsError::DestinationIsLocal),
@@ -678,10 +681,10 @@ mod tests {
 	#[test]
 	fn bridge_locations_fails_when_computed_destination_is_unreachable() {
 		assert_eq!(
-			bridge_locations(
-				Box::new([GlobalConsensus(LOCAL_NETWORK)].into()),
-				Box::new(Here.into()),
-				Box::new([GlobalConsensus(UNREACHABLE_NETWORK)].into()),
+			BridgeLocations::bridge_locations(
+				[GlobalConsensus(LOCAL_NETWORK)].into(),
+				Here.into(),
+				[GlobalConsensus(UNREACHABLE_NETWORK)].into(),
 				REMOTE_NETWORK,
 			),
 			Err(BridgeLocationsError::UnreachableDestination),

@@ -54,8 +54,7 @@
 use bp_messages::{LaneId, LaneState, MessageNonce};
 use bp_runtime::{AccountIdOf, BalanceOf, RangeInclusiveExt};
 use bp_xcm_bridge_hub::{
-	bridge_locations, Bridge, BridgeId, BridgeLocations, BridgeLocationsError, BridgeState,
-	LocalXcmChannelManager,
+	Bridge, BridgeId, BridgeLocations, BridgeLocationsError, BridgeState, LocalXcmChannelManager,
 };
 use frame_support::{traits::fungible::MutateHold, DefaultNoBound};
 use frame_system::Config as SystemConfig;
@@ -452,22 +451,20 @@ pub mod pallet {
 			bridge_destination_universal_location: Box<VersionedInteriorLocation>,
 		) -> Result<Box<BridgeLocations>, sp_runtime::DispatchError> {
 			Self::bridge_locations(
-				Box::new(T::OpenBridgeOrigin::ensure_origin(origin)?),
-				Box::new(
-					(*bridge_destination_universal_location)
-						.try_into()
-						.map_err(|_| Error::<T, I>::UnsupportedXcmVersion)?,
-				),
+				T::OpenBridgeOrigin::ensure_origin(origin)?,
+				(*bridge_destination_universal_location)
+					.try_into()
+					.map_err(|_| Error::<T, I>::UnsupportedXcmVersion)?,
 			)
 		}
 
 		/// Return bridge endpoint locations and dedicated **bridge** identifier (`BridgeId`).
 		pub fn bridge_locations(
-			bridge_origin_relative_location: Box<Location>,
-			bridge_destination_universal_location: Box<InteriorLocation>,
+			bridge_origin_relative_location: Location,
+			bridge_destination_universal_location: InteriorLocation,
 		) -> Result<Box<BridgeLocations>, sp_runtime::DispatchError> {
-			bridge_locations(
-				Box::new(T::UniversalLocation::get()),
+			BridgeLocations::bridge_locations(
+				T::UniversalLocation::get(),
 				bridge_origin_relative_location,
 				bridge_destination_universal_location,
 				Self::bridged_network_id()?,
@@ -525,6 +522,7 @@ pub mod pallet {
 
 			Ok(())
 		}
+
 		/// Ensure the correctness of the state of the bridge.
 		pub fn do_try_state_for_bridge(
 			bridge_id: BridgeId,
@@ -598,8 +596,8 @@ pub mod pallet {
 				&self.opened_bridges
 			{
 				let locations = Pallet::<T, I>::bridge_locations(
-					Box::new(bridge_origin_relative_location.clone()),
-					Box::new(bridge_destination_universal_location.clone().into()),
+					bridge_origin_relative_location.clone(),
+					bridge_destination_universal_location.clone().into(),
 				)
 				.expect("Invalid genesis configuration");
 				let lane_id =

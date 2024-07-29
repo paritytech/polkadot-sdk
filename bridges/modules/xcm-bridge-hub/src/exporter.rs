@@ -33,7 +33,6 @@ use frame_support::traits::Get;
 use pallet_bridge_messages::{
 	Config as BridgeMessagesConfig, Error, Pallet as BridgeMessagesPallet,
 };
-use sp_std::boxed::Box;
 use xcm::prelude::*;
 use xcm_builder::{HaulBlob, HaulBlobError, HaulBlobExporter};
 use xcm_executor::traits::ExportXcm;
@@ -328,12 +327,12 @@ mod tests {
 	use crate::{mock::*, Bridges, LaneToBridge, LanesManagerOf};
 
 	use bp_runtime::RangeInclusiveExt;
-	use bp_xcm_bridge_hub::{bridge_locations, Bridge, BridgeLocations, BridgeState};
+	use bp_xcm_bridge_hub::{Bridge, BridgeLocations, BridgeState};
 	use frame_support::assert_ok;
-	use xcm_executor::traits::export_xcm;
+	use xcm_executor::traits::{export_xcm, ConvertLocation};
 
 	fn universal_source() -> InteriorLocation {
-		[GlobalConsensus(RelayNetwork::get()), Parachain(SIBLING_ASSET_HUB_ID)].into()
+		SiblingUniversalLocation::get()
 	}
 
 	fn bridged_relative_destination() -> InteriorLocation {
@@ -365,8 +364,17 @@ mod tests {
 				locations.bridge_id(),
 				Bridge {
 					bridge_origin_relative_location: Box::new(SiblingLocation::get().into()),
+					bridge_origin_universal_location: Box::new(
+						locations.bridge_origin_universal_location().clone().into(),
+					),
+					bridge_destination_universal_location: Box::new(
+						locations.bridge_destination_universal_location().clone().into(),
+					),
 					state: BridgeState::Opened,
-					bridge_owner_account: [0u8; 32].into(),
+					bridge_owner_account: LocationToAccountId::convert_location(
+						locations.bridge_origin_relative_location(),
+					)
+					.expect("valid accountId"),
 					reserve: 0,
 					lane_id,
 				},
