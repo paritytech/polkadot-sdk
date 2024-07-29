@@ -131,6 +131,7 @@ impl HaulBlob for DummyHaulBlob {
 mod tests {
 	use super::*;
 	use crate::mock::*;
+	use bp_runtime::RangeInclusiveExt;
 	use frame_support::assert_ok;
 	use xcm_executor::traits::export_xcm;
 
@@ -138,8 +139,8 @@ mod tests {
 		[GlobalConsensus(RelayNetwork::get()), Parachain(SIBLING_ASSET_HUB_ID)].into()
 	}
 
-	fn universal_destination() -> InteriorLocation {
-		BridgedDestination::get()
+	fn bridged_relative_destination() -> InteriorLocation {
+		BridgedRelativeDestination::get()
 	}
 
 	#[test]
@@ -149,7 +150,7 @@ mod tests {
 				BridgedRelayNetwork::get(),
 				0,
 				universal_source(),
-				universal_destination(),
+				bridged_relative_destination(),
 				vec![Instruction::ClearOrigin].into(),
 			));
 		})
@@ -163,7 +164,7 @@ mod tests {
 					BridgedRelayNetwork::get(),
 					0,
 					&mut None,
-					&mut Some(universal_destination()),
+					&mut Some(bridged_relative_destination()),
 					&mut Some(Vec::new().into()),
 				),
 				Err(SendError::MissingArgument),
@@ -192,7 +193,7 @@ mod tests {
 					BridgedRelayNetwork::get(),
 					0,
 					&mut Some(universal_source()),
-					&mut Some(universal_destination()),
+					&mut Some(bridged_relative_destination()),
 					&mut Some(Vec::new().into()),
 				)
 				.unwrap()
@@ -200,6 +201,39 @@ mod tests {
 				 .0
 				.lane,
 				expected_lane_id,
+			);
+		})
+	}
+
+	#[test]
+	fn exporter_is_compatible_with_pallet_xcm_bridge_hub_router() {
+		run_test(|| {
+			// valid routable destination
+			let dest = Location::new(2, BridgedUniversalDestination::get());
+			let expected_lane_id = TEST_LANE_ID;
+
+			// check before - no messages
+			assert_eq!(
+				pallet_bridge_messages::Pallet::<TestRuntime, ()>::outbound_lane_data(
+					expected_lane_id
+				)
+				.queued_messages()
+				.saturating_len(),
+				0
+			);
+
+			// send `ExportMessage(message)` by `pallet_xcm_bridge_hub_router`.
+			TestExportXcmWithXcmOverBridge::set_origin_for_execute(SiblingLocation::get());
+			assert_ok!(send_xcm::<XcmOverBridgeRouter>(dest, Xcm::<()>::default()));
+
+			// check after - a message ready to be relayed
+			assert_eq!(
+				pallet_bridge_messages::Pallet::<TestRuntime, ()>::outbound_lane_data(
+					expected_lane_id
+				)
+				.queued_messages()
+				.saturating_len(),
+				1
 			);
 		})
 	}

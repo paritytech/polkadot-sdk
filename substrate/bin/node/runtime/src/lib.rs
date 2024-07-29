@@ -22,8 +22,11 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limits.
 #![recursion_limit = "1024"]
 
+extern crate alloc;
+
 use polkadot_sdk::*;
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
@@ -66,6 +69,7 @@ use frame_system::{
 pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
+use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
@@ -100,7 +104,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, FixedPointNumber, FixedU128, Perbill, Percent, Permill, Perquintill,
 	RuntimeDebug,
 };
-use sp_std::prelude::*;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -121,7 +124,7 @@ pub use sp_runtime::BuildStorage;
 pub mod impls;
 #[cfg(not(feature = "runtime-benchmarks"))]
 use impls::AllianceIdentityVerifier;
-use impls::{AllianceProposalProvider, Author, CreditToBlockAuthor};
+use impls::{AllianceProposalProvider, Author};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -187,7 +190,7 @@ type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 
 pub struct DealWithFees;
 impl OnUnbalanced<NegativeImbalance> for DealWithFees {
-	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
+	fn on_unbalanceds(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
 		if let Some(fees) = fees_then_tips.next() {
 			// for fees, 80% to treasury, 20% to author
 			let mut split = fees.ration(80, 20);
@@ -572,22 +575,14 @@ impl pallet_transaction_payment::Config for Runtime {
 	>;
 }
 
-impl pallet_asset_tx_payment::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = Assets;
-	type OnChargeAssetTransaction = pallet_asset_tx_payment::FungiblesAdapter<
-		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, Instance1>,
-		CreditToBlockAuthor,
-	>;
-}
-
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = Assets;
-	type OnChargeAssetTransaction = pallet_asset_conversion_tx_payment::AssetConversionAdapter<
-		Balances,
-		AssetConversion,
+	type AssetId = NativeOrWithId<u32>;
+	type OnChargeAssetTransaction = SwapAssetAdapter<
 		Native,
+		NativeAndAssets,
+		AssetConversion,
+		ResolveAssetTo<TreasuryAccount, NativeAndAssets>,
 	>;
 }
 
@@ -857,7 +852,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type SignedDepositWeight = ();
 	type SignedMaxWeight = MinerMaxWeight;
 	type SlashHandler = (); // burn slashes
-	type RewardHandler = (); // nothing to do upon rewards
+	type RewardHandler = (); // rewards are minted from the void
 	type DataProvider = Staking;
 	type Fallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
@@ -1371,6 +1366,7 @@ impl pallet_contracts::Config for Runtime {
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
+	type MaxTransientStorageSize = ConstU32<{ 1 * 1024 * 1024 }>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations = ();
@@ -1602,6 +1598,8 @@ impl pallet_mmr::Config for Runtime {
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;
 	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Runtime>;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 parameter_types! {
@@ -1700,12 +1698,15 @@ parameter_types! {
 	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
 }
 
+pub type NativeAndAssets =
+	UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = u128;
 	type HigherPrecisionBalance = sp_core::U256;
 	type AssetKind = NativeOrWithId<u32>;
-	type Assets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = Chain<
 		WithFirstAsset<
@@ -2254,9 +2255,6 @@ mod runtime {
 	#[runtime::pallet_index(7)]
 	pub type TransactionPayment = pallet_transaction_payment::Pallet<Runtime>;
 
-	#[runtime::pallet_index(8)]
-	pub type AssetTxPayment = pallet_asset_tx_payment::Pallet<Runtime>;
-
 	#[runtime::pallet_index(9)]
 	pub type AssetConversionTxPayment = pallet_asset_conversion_tx_payment::Pallet<Runtime>;
 
@@ -2660,7 +2658,7 @@ impl_runtime_apis! {
 			Runtime::metadata_at_version(version)
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
 	}
@@ -3033,7 +3031,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(4)]
+	#[api_version(5)]
 	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			pallet_beefy::GenesisBlock::<Runtime>::get()
@@ -3059,6 +3057,31 @@ impl_runtime_apis! {
 			)
 		}
 
+		fn submit_report_fork_voting_unsigned_extrinsic(
+			equivocation_proof:
+				sp_consensus_beefy::ForkVotingProof<
+					<Block as BlockT>::Header,
+					BeefyId,
+					sp_runtime::OpaqueValue
+				>,
+			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			Beefy::submit_unsigned_fork_voting_report(
+				equivocation_proof.try_into()?,
+				key_owner_proof.decode()?,
+			)
+		}
+
+		fn submit_report_future_block_voting_unsigned_extrinsic(
+			equivocation_proof: sp_consensus_beefy::FutureBlockVotingProof<BlockNumber, BeefyId>,
+			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			Beefy::submit_unsigned_future_block_voting_report(
+				equivocation_proof,
+				key_owner_proof.decode()?,
+			)
+		}
+
 		fn generate_key_ownership_proof(
 			_set_id: sp_consensus_beefy::ValidatorSetId,
 			authority_id: BeefyId,
@@ -3066,6 +3089,17 @@ impl_runtime_apis! {
 			Historical::prove((sp_consensus_beefy::KEY_TYPE, authority_id))
 				.map(|p| p.encode())
 				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
+		}
+
+		fn generate_ancestry_proof(
+			prev_block_number: BlockNumber,
+			best_known_block_number: Option<BlockNumber>,
+		) -> Option<sp_runtime::OpaqueValue> {
+			use sp_consensus_beefy::AncestryHelper;
+
+			MmrLeaf::generate_proof(prev_block_number, best_known_block_number)
+				.map(|p| p.encode())
+				.map(sp_runtime::OpaqueValue::new)
 		}
 	}
 

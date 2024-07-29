@@ -32,6 +32,9 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 mod weights;
 pub mod xcm_config;
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use codec::Encode;
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
@@ -69,7 +72,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult,
 };
 pub use sp_runtime::{traits::ConvertInto, MultiAddress, Perbill, Permill};
-use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -737,7 +739,7 @@ impl_runtime_apis! {
 			Runtime::metadata_at_version(version)
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
 	}

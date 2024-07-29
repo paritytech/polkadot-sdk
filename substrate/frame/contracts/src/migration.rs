@@ -69,17 +69,16 @@ include!(concat!(env!("OUT_DIR"), "/migration_codegen.rs"));
 
 use crate::{weights::WeightInfo, Config, Error, MigrationInProgress, Pallet, Weight, LOG_TARGET};
 use codec::{Codec, Decode};
+use core::marker::PhantomData;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{ConstU32, OnRuntimeUpgrade},
 	weights::WeightMeter,
 };
 use sp_runtime::Saturating;
-use sp_std::marker::PhantomData;
 
 #[cfg(feature = "try-runtime")]
-use sp_std::prelude::*;
-
+use alloc::vec::Vec;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
@@ -604,7 +603,7 @@ mod test {
 
 		let mut meter = WeightMeter::with_limit(Weight::from_all(1));
 		let result = Migrations::steps(version, &cursor, &mut meter);
-		cursor = vec![1u8, 0].try_into().unwrap();
+		cursor = alloc::vec![1u8, 0].try_into().unwrap();
 		assert_eq!(result, StepResult::InProgress { cursor: cursor.clone(), steps_done: 1 });
 		assert_eq!(meter.consumed(), Weight::from_all(1));
 

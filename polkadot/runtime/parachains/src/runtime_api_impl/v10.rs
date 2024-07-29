@@ -22,6 +22,7 @@ use crate::{
 	scheduler::{self, CoreOccupied},
 	session_info, shared,
 };
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use frame_support::traits::{GetStorageVersion, StorageVersion};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
@@ -37,7 +38,6 @@ use polkadot_primitives::{
 	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_runtime::traits::One;
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 /// Implementation for the `validators` function of the runtime API.
 pub fn validators<T: initializer::Config>() -> Vec<ValidatorId> {
