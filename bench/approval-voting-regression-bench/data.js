@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722203985119,
+  "lastUpdate": 1722247676825,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -12971,6 +12971,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.502599100599948,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]",
+            "email": "49699333+dependabot[bot]@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9b4acf27b869d7cbb07b03f0857763b8c8cc7566",
+          "message": "Bump bs58 from 0.5.0 to 0.5.1 (#5170)\n\nBumps [bs58](https://github.com/Nullus157/bs58-rs) from 0.5.0 to 0.5.1.\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/Nullus157/bs58-rs/blob/main/CHANGELOG.md\">bs58's\nchangelog</a>.</em></p>\n<blockquote>\n<h2>0.5.1 - 2024-03-19</h2>\n<ul>\n<li>Make it possible to decode in <code>const</code>-context (by <a\nhref=\"https://github.com/joncinque\"><code>@​joncinque</code></a>)</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/Nullus157/bs58-rs/commit/7d3c9282d2595612e5474df93dd0e017db9b684f\"><code>7d3c928</code></a>\nMerge pull request <a\nhref=\"https://redirect.github.com/Nullus157/bs58-rs/issues/116\">#116</a>\nfrom joncinque/const</li>\n<li><a\nhref=\"https://github.com/Nullus157/bs58-rs/commit/d3fb50ebad42ff34454e3b49c9e93e85df08d835\"><code>d3fb50e</code></a>\nMerge pull request <a\nhref=\"https://redirect.github.com/Nullus157/bs58-rs/issues/117\">#117</a>\nfrom Nemo157/criterion-update</li>\n<li><a\nhref=\"https://github.com/Nullus157/bs58-rs/commit/9038a36ae66f0f5d2b74f7a4f3a630873c71d0a1\"><code>9038a36</code></a>\nUpdate dependencies</li>\n<li><a\nhref=\"https://github.com/Nullus157/bs58-rs/commit/13af427722e681d1ba9c922380663eea2f865d4d\"><code>13af427</code></a>\nUpdate criterion to fix cargo-deny issues</li>\n<li><a\nhref=\"https://github.com/Nullus157/bs58-rs/commit/b6ad26a72010dec7caf18cf4cb4e1e7131ef57e6\"><code>b6ad26a</code></a>\nPrepare to release 0.5.1</li>\n<li><a\nhref=\"https://github.com/Nullus157/bs58-rs/commit/e18e057bf86e67e028ed6da0ee4f1850978d2301\"><code>e18e057</code></a>\nMove const-compatible API onto <code>decode::DecodeBuilder</code>\ndirectly</li>\n<li><a\nhref=\"https://github.com/Nullus157/bs58-rs/commit/e65bfa72a23c57fbc05cad66c9b667c6eae946fa\"><code>e65bfa7</code></a>\ndecode: Add const-compatible decoder</li>\n<li><a\nhref=\"https://github.com/Nullus157/bs58-rs/commit/2b0d73b9955f6a745f9b6fbb387bba2b96ea89fd\"><code>2b0d73b</code></a>\nMerge pull request <a\nhref=\"https://redirect.github.com/Nullus157/bs58-rs/issues/113\">#113</a>\nfrom Nemo157/cli-version-bump</li>\n<li><a\nhref=\"https://github.com/Nullus157/bs58-rs/commit/be42edf49589d3f5135871ab129bfff4ded21d67\"><code>be42edf</code></a>\nPrepare for 0.1.2 cli release</li>\n<li><a\nhref=\"https://github.com/Nullus157/bs58-rs/commit/6bdc4b2c673f334de0dd316f2e7d988d0db5cb52\"><code>6bdc4b2</code></a>\nMerge pull request <a\nhref=\"https://redirect.github.com/Nullus157/bs58-rs/issues/112\">#112</a>\nfrom Nemo157/cli-dep-update</li>\n<li>Additional commits viewable in <a\nhref=\"https://github.com/Nullus157/bs58-rs/compare/0.5.0...0.5.1\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility\nscore](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=bs58&package-manager=cargo&previous-version=0.5.0&new-version=0.5.1)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't\nalter it yourself. You can also trigger a rebase manually by commenting\n`@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits\nthat have been made to it\n- `@dependabot merge` will merge this PR after your CI passes on it\n- `@dependabot squash and merge` will squash and merge this PR after\nyour CI passes on it\n- `@dependabot cancel merge` will cancel a previously requested merge\nand block automerging\n- `@dependabot reopen` will reopen this PR if it is closed\n- `@dependabot close` will close this PR and stop Dependabot recreating\nit. You can achieve the same result by closing it manually\n- `@dependabot show <dependency name> ignore conditions` will show all\nof the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop\nDependabot creating any more for this major version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop\nDependabot creating any more for this minor version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop\nDependabot creating any more for this dependency (unless you reopen the\nPR or upgrade to it yourself)\n\n\n</details>\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+          "timestamp": "2024-07-29T09:11:40Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9b4acf27b869d7cbb07b03f0857763b8c8cc7566"
+        },
+        "date": 1722247646440,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 64071.21,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.879224773490198,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.32253323336995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 11.110804798730111,
             "unit": "seconds"
           }
         ]
