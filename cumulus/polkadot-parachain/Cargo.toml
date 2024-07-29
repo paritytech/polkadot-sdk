@@ -24,6 +24,7 @@ hex-literal = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+docify = { workspace = true }
 
 # Local
 rococo-parachain-runtime = { workspace = true }

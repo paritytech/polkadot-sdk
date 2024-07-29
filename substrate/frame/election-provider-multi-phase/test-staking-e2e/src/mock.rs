@@ -38,7 +38,6 @@ use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	EraIndex, SessionIndex,
 };
-use sp_std::prelude::*;
 use std::collections::BTreeMap;
 
 use codec::Decode;
@@ -574,6 +573,7 @@ impl ExtBuilder {
 				.into_iter()
 				.map(|(id, ..)| (id, id, SessionKeys { other: (id as u64).into() }))
 				.collect(),
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 

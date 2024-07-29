@@ -19,3 +19,4 @@ bridge-hub-westend-emulated-chain = { workspace = true }
 collectives-westend-emulated-chain = { workspace = true }
 penpal-emulated-chain = { workspace = true }
 people-westend-emulated-chain = { workspace = true }
+coretime-westend-emulated-chain = { workspace = true }
