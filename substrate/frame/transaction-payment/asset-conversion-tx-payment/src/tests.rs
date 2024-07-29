@@ -172,7 +172,7 @@ fn transaction_payment_in_native_possible() {
 			let initial_balance = 10 * balance_factor;
 			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 20 - 10);
 
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info,
 				&default_post_info(),
@@ -194,7 +194,7 @@ fn transaction_payment_in_native_possible() {
 			let post_info =
 				post_info_from_weight(info.call_weight.saturating_sub(call_actual_weight));
 			// The extension weight refund should be taken into account in `post_dispatch`.
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info,
 				&post_info,
@@ -268,7 +268,7 @@ fn transaction_payment_in_asset_possible() {
 				amount: fee_in_asset,
 			}));
 
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info_from_weight(WEIGHT_5), // estimated tx weight
 				&default_post_info(),        // weight actually used == estimated
@@ -381,7 +381,7 @@ fn transaction_payment_without_fee() {
 			.unwrap();
 			assert_eq!(refund, 199);
 
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info_from_weight(WEIGHT_5),
 				&post_info_from_pays(Pays::No),
@@ -467,7 +467,7 @@ fn asset_transaction_payment_with_tip_and_refund() {
 				amount: fee_in_asset,
 			}));
 
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info,
 				&post_info_from_weight(WEIGHT_50),
@@ -545,7 +545,7 @@ fn payment_from_account_with_only_assets() {
 			// check that fee was charged in the given asset
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info_from_weight(WEIGHT_5),
 				&default_post_info(),
@@ -602,7 +602,7 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 				// `Pays::No` implies there are no fees
 				assert_eq!(Assets::balance(asset_id, caller), balance);
 
-				assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+				assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 					pre,
 					&info_from_pays(Pays::No),
 					&post_info_from_pays(Pays::No),
@@ -633,7 +633,7 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 				.unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info_from_weight(Weight::from_parts(weight, 0)),
 				&default_post_info(),
@@ -695,7 +695,7 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 
 			// `Pays::Yes` on post-dispatch does not mean we pay (we never charge more than the
 			// initial fee)
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info_from_pays(Pays::No),
 				&post_info_from_pays(Pays::Yes),
@@ -742,7 +742,7 @@ fn fee_with_native_asset_passed_with_id() {
 			let expected_fee = initial_fee - final_weight;
 
 			assert_eq!(
-				ChargeAssetTxPayment::<Runtime>::post_dispatch(
+				ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 					pre,
 					&info_from_weight(WEIGHT_100),
 					&post_info_from_weight(WEIGHT_50),
@@ -842,7 +842,7 @@ fn transfer_add_and_remove_account() {
 			// make sure the refund amount is enough to create the account.
 			assert!(token_refund >= min_balance);
 
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info,
 				&post_info_from_weight(WEIGHT_50),

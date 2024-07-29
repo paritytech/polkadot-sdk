@@ -344,7 +344,7 @@ where
 		Ok((tip, who, initial_payment, self.asset_id))
 	}
 
-	fn post_dispatch(
+	fn post_dispatch_details(
 		pre: Self::Pre,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
@@ -363,7 +363,7 @@ where
 					);
 				let mut actual_post_info = post_info.clone();
 				actual_post_info.accrue(actual_ext_weight);
-				pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch(
+				pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch_details(
 					(tip, who, already_withdrawn),
 					info,
 					&actual_post_info,

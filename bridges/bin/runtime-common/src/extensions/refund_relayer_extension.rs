@@ -529,7 +529,7 @@ where
 		}))
 	}
 
-	fn post_dispatch(
+	fn post_dispatch_details(
 		pre: Self::Pre,
 		info: &DispatchInfoOf<CallOf<T::Runtime>>,
 		post_info: &PostDispatchInfoOf<CallOf<T::Runtime>>,
@@ -1672,7 +1672,7 @@ pub(crate) mod tests {
 		pre_dispatch_data: Option<PreDispatchData<ThisChainAccountId>>,
 		dispatch_result: DispatchResult,
 	) {
-		let post_dispatch_result = TestExtension::post_dispatch(
+		let post_dispatch_result = TestExtension::post_dispatch_details(
 			pre_dispatch_data,
 			&dispatch_info(),
 			&post_dispatch_info(),

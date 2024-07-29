@@ -924,7 +924,7 @@ where
 		Ok((tip, who, imbalance))
 	}
 
-	fn post_dispatch(
+	fn post_dispatch_details(
 		(tip, who, imbalance): Self::Pre,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,

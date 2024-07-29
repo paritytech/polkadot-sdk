@@ -95,7 +95,7 @@ where
 		self.0.pre_dispatch(who, call, info, len)
 	}
 
-	fn post_dispatch(
+	fn post_dispatch_details(
 		pre: Self::Pre,
 		info: &DispatchInfoOf<SE::Call>,
 		post_info: &PostDispatchInfoOf<SE::Call>,

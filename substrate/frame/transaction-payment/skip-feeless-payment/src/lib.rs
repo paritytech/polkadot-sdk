@@ -184,7 +184,7 @@ where
 		}
 	}
 
-	fn post_dispatch(
+	fn post_dispatch_details(
 		pre: Self::Pre,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
@@ -193,7 +193,7 @@ where
 		context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
 		match pre {
-			Apply(pre) => S::post_dispatch(pre, info, post_info, len, result, context),
+			Apply(pre) => S::post_dispatch_details(pre, info, post_info, len, result, context),
 			Skip(origin) => {
 				Pallet::<T>::deposit_event(Event::<T>::FeeSkipped { origin });
 				Ok(None)

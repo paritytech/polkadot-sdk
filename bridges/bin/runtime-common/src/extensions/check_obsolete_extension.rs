@@ -340,7 +340,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 			}
 
 			#[allow(unused_variables)]
-			fn post_dispatch(
+			fn post_dispatch_details(
 				to_post_dispatch: Self::Pre,
 				info: &sp_runtime::traits::DispatchInfoOf<$call>,
 				post_info: &sp_runtime::traits::PostDispatchInfoOf<$call>,
@@ -545,7 +545,7 @@ mod tests {
 
 			// when post_dispatch is called with `Ok(())`, it is propagated to all "nested"
 			// extensions
-			assert_ok!(BridgeRejectObsoleteHeadersAndMessages::post_dispatch(
+			assert_ok!(BridgeRejectObsoleteHeadersAndMessages::post_dispatch_details(
 				Some((0, (1, 2))),
 				&(),
 				&(),
@@ -558,7 +558,7 @@ mod tests {
 
 			// when post_dispatch is called with `Err(())`, it is propagated to all "nested"
 			// extensions
-			assert_ok!(BridgeRejectObsoleteHeadersAndMessages::post_dispatch(
+			assert_ok!(BridgeRejectObsoleteHeadersAndMessages::post_dispatch_details(
 				Some((0, (1, 2))),
 				&(),
 				&(),

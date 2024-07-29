@@ -1222,7 +1222,7 @@ mod test_extensions {
 			Ok(self.0)
 		}
 
-		fn post_dispatch(
+		fn post_dispatch_details(
 			pre: Self::Pre,
 			_info: &DispatchInfoOf<RuntimeCall>,
 			_post_info: &PostDispatchInfoOf<RuntimeCall>,
@@ -1270,7 +1270,7 @@ mod test_extensions {
 			Ok(self.0)
 		}
 
-		fn post_dispatch(
+		fn post_dispatch_details(
 			pre: Self::Pre,
 			_info: &DispatchInfoOf<RuntimeCall>,
 			post_info: &PostDispatchInfoOf<RuntimeCall>,
@@ -1316,7 +1316,7 @@ mod test_extensions {
 			Ok(self.0)
 		}
 
-		fn post_dispatch(
+		fn post_dispatch_details(
 			pre: Self::Pre,
 			_info: &DispatchInfoOf<RuntimeCall>,
 			_post_info: &PostDispatchInfoOf<RuntimeCall>,
@@ -1423,7 +1423,7 @@ mod extension_weight_tests {
 			let res = call.dispatch(Some(0).into());
 			let mut post_info = res.clone().unwrap();
 			assert!(post_info.actual_weight.is_none());
-			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch_with_weight_accrual(
+			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch(
 				pre,
 				&info,
 				&mut post_info,
@@ -1452,7 +1452,7 @@ mod extension_weight_tests {
 			let res = call.clone().dispatch(Some(0).into());
 			let mut post_info = res.clone().unwrap();
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
-			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch_with_weight_accrual(
+			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch(
 				pre,
 				&info,
 				&mut post_info,
@@ -1469,7 +1469,7 @@ mod extension_weight_tests {
 			let res = call.clone().dispatch(Some(0).into());
 			let mut post_info = res.clone().unwrap();
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
-			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch_with_weight_accrual(
+			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch(
 				pre,
 				&info,
 				&mut post_info,
@@ -1486,7 +1486,7 @@ mod extension_weight_tests {
 			let res = call.clone().dispatch(Some(0).into());
 			let mut post_info = res.clone().unwrap();
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
-			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch_with_weight_accrual(
+			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch(
 				pre,
 				&info,
 				&mut post_info,
@@ -1503,7 +1503,7 @@ mod extension_weight_tests {
 			let res = call.clone().dispatch(Some(0).into());
 			let mut post_info = res.clone().unwrap();
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
-			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch_with_weight_accrual(
+			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch(
 				pre,
 				&info,
 				&mut post_info,

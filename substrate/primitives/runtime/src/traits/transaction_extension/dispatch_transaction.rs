@@ -118,7 +118,7 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 			Ok(info) => info,
 			Err(err) => &mut err.post_info,
 		};
-		T::post_dispatch_with_weight_accrual(pre, info, post_info, len, &pd_res, &())?;
+		T::post_dispatch(pre, info, post_info, len, &pd_res, &())?;
 		Ok(res)
 	}
 	fn test_run(
@@ -138,7 +138,7 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 			Ok(info) => info,
 			Err(err) => &mut err.post_info,
 		};
-		T::post_dispatch_with_weight_accrual(pre, info, post_info, len, &pd_res, &())?;
+		T::post_dispatch(pre, info, post_info, len, &pd_res, &())?;
 		Ok(res)
 	}
 }

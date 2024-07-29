@@ -127,7 +127,7 @@ fn transaction_payment_in_native_possible() {
 			let initial_balance = 10 * balance_factor;
 			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 20 - 10);
 
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info,
 				&default_post_info(),
@@ -149,7 +149,7 @@ fn transaction_payment_in_native_possible() {
 			// The extension weight refund should be taken into account in `post_dispatch`.
 			let post_info =
 				post_info_from_weight(info.call_weight.saturating_sub(call_actual_weight));
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info,
 				&post_info,
@@ -214,7 +214,7 @@ fn transaction_payment_in_asset_possible() {
 				amount: fee,
 			}));
 
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info_from_weight(Weight::from_parts(weight, 0)),
 				&default_post_info(),
@@ -279,7 +279,7 @@ fn transaction_payment_without_fee() {
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee);
 			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), 0);
 
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info_from_weight(Weight::from_parts(weight, 0)),
 				&post_info_from_pays(Pays::No),
@@ -343,7 +343,7 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			}));
 
 			let final_weight = 50;
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info,
 				&post_info_from_weight(Weight::from_parts(final_weight, 0)),
@@ -410,7 +410,7 @@ fn payment_from_account_with_only_assets() {
 			// check that fee was charged in the given asset
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee);
 
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info_from_weight(Weight::from_parts(weight, 0)),
 				&default_post_info(),
@@ -505,7 +505,7 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 				// `Pays::No` still implies no fees
 				assert_eq!(Assets::balance(asset_id, caller), balance);
 
-				assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+				assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 					pre,
 					&info_from_pays(Pays::No),
 					&post_info_from_pays(Pays::No),
@@ -526,7 +526,7 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 			// check that at least one coin was charged in the given asset
 			assert_eq!(Assets::balance(asset_id, caller), balance - 1);
 
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info_from_weight(Weight::from_parts(weight, 0)),
 				&default_post_info(),
@@ -584,7 +584,7 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 
 			// `Pays::Yes` on post-dispatch does not mean we pay (we never charge more than the
 			// initial fee)
-			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info_from_pays(Pays::No),
 				&post_info_from_pays(Pays::Yes),

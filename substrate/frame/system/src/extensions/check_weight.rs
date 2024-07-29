@@ -250,7 +250,7 @@ where
 		Self::do_prepare(info, len, val)
 	}
 
-	fn post_dispatch(
+	fn post_dispatch_details(
 		_pre: Self::Pre,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
@@ -654,7 +654,7 @@ mod tests {
 				info.total_weight() + Weight::from_parts(256, 0)
 			);
 
-			assert_ok!(CheckWeight::<Test>::post_dispatch(
+			assert_ok!(CheckWeight::<Test>::post_dispatch_details(
 				pre,
 				&info,
 				&post_info,
@@ -696,7 +696,7 @@ mod tests {
 					block_weights().get(DispatchClass::Normal).base_extrinsic,
 			);
 
-			assert_ok!(CheckWeight::<Test>::post_dispatch(
+			assert_ok!(CheckWeight::<Test>::post_dispatch_details(
 				pre,
 				&info,
 				&post_info,

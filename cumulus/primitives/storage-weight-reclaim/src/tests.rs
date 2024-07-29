@@ -94,9 +94,16 @@ fn basic_refund() {
 			.unwrap();
 		assert_eq!(pre, Some(0));
 
-		assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
+		assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+			(),
+			&info,
+			&post_info,
+			0,
+			&Ok(()),
+			&()
+		));
 		// We expect a refund of 400
-		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
+		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 			pre,
 			&info,
 			&post_info,
@@ -130,8 +137,15 @@ fn does_nothing_without_extension() {
 			.unwrap();
 		assert_eq!(pre, None);
 
-		assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
-		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
+		assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+			(),
+			&info,
+			&post_info,
+			0,
+			&Ok(()),
+			&()
+		));
+		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 			pre,
 			&info,
 			&post_info,
@@ -164,8 +178,15 @@ fn negative_refund_is_added_to_weight() {
 		assert_eq!(pre, Some(100));
 
 		// We expect no refund
-		assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
-		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
+		assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+			(),
+			&info,
+			&post_info,
+			0,
+			&Ok(()),
+			&()
+		));
+		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 			pre,
 			&info,
 			&post_info,
@@ -197,8 +218,15 @@ fn test_zero_proof_size() {
 			.unwrap();
 		assert_eq!(pre, Some(0));
 
-		assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
-		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
+		assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+			(),
+			&info,
+			&post_info,
+			0,
+			&Ok(()),
+			&()
+		));
+		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 			pre,
 			&info,
 			&post_info,
@@ -232,9 +260,16 @@ fn test_larger_pre_dispatch_proof_size() {
 		assert_eq!(pre, Some(300));
 
 		// Refund 500 unspent weight according to `post_info`, total weight is now 1650
-		assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
+		assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+			(),
+			&info,
+			&post_info,
+			0,
+			&Ok(()),
+			&()
+		));
 		// Recorded proof size is negative -200, total weight is now 1450
-		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
+		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 			pre,
 			&info,
 			&post_info,
@@ -274,8 +309,15 @@ fn test_incorporates_check_weight_unspent_weight() {
 
 		// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
 		// we always need to call `post_dispatch` to verify that they interoperate correctly.
-		assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
-		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
+		assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+			(),
+			&info,
+			&post_info,
+			0,
+			&Ok(()),
+			&()
+		));
+		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 			pre,
 			&info,
 			&post_info,
@@ -316,9 +358,16 @@ fn test_incorporates_check_weight_unspent_weight_on_negative() {
 		// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
 		// we always need to call `post_dispatch` to verify that they interoperate correctly.
 		// Refunds unspent 25 weight according to `post_info`, 1175
-		assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
+		assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+			(),
+			&info,
+			&post_info,
+			0,
+			&Ok(()),
+			&()
+		));
 		// Adds 200 - 25 (unspent) == 175 weight, total weight 1350
-		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
+		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 			pre,
 			&info,
 			&post_info,
@@ -362,11 +411,18 @@ fn test_nothing_relcaimed() {
 		// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 		// we always need to call `post_dispatch` to verify that they interoperate correctly.
 		// Nothing to refund, unspent is 0, total weight 250
-		assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
+		assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+			(),
+			&info,
+			&post_info,
+			0,
+			&Ok(()),
+			&()
+		));
 		// `setup_test_externalities` proof recorder value: 200, so this means the extrinsic
 		// actually used 100 proof size.
 		// Nothing to refund or add, weight matches proof recorder
-		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
+		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 			pre,
 			&info,
 			&post_info,
@@ -407,7 +463,7 @@ fn test_incorporates_check_weight_unspent_weight_reverse_order() {
 		assert_eq!(pre, Some(100));
 
 		// This refunds 100 - 50(unspent), total weight is now 1400
-		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
+		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 			pre,
 			&info,
 			&post_info,
@@ -418,7 +474,14 @@ fn test_incorporates_check_weight_unspent_weight_reverse_order() {
 		// `CheckWeight` gets called after `StorageWeightReclaim` this time.
 		// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
 		// we always need to call `post_dispatch` to verify that they interoperate correctly.
-		assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
+		assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+			(),
+			&info,
+			&post_info,
+			0,
+			&Ok(()),
+			&()
+		));
 
 		// Above call refunds 50 (unspent), total weight is 1350 now
 		assert_eq!(get_storage_weight().total().proof_size(), 1350);
@@ -450,7 +513,7 @@ fn test_incorporates_check_weight_unspent_weight_on_negative_reverse_order() {
 		assert_eq!(pre, Some(100));
 
 		// Adds additional 150 weight recorded
-		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
+		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
 			pre,
 			&info,
 			&post_info,
@@ -461,7 +524,14 @@ fn test_incorporates_check_weight_unspent_weight_on_negative_reverse_order() {
 		// `CheckWeight` gets called after `StorageWeightReclaim` this time.
 		// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
 		// we always need to call `post_dispatch` to verify that they interoperate correctly.
-		assert_ok!(CheckWeight::<Test>::post_dispatch((), &info, &post_info, 0, &Ok(()), &()));
+		assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+			(),
+			&info,
+			&post_info,
+			0,
+			&Ok(()),
+			&()
+		));
 
 		assert_eq!(get_storage_weight().total().proof_size(), 1350);
 	})
