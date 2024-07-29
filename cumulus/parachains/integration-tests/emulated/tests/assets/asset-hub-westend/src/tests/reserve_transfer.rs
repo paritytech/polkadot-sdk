@@ -84,7 +84,7 @@ pub fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 			assert_expected_events!(
 				AssetHubWestend,
 				vec![
-					// Amount of foreign asset is transferred to Parachain's Sovereign account
+					// Amount of trust-backed asset is transferred to Parachain's Sovereign account
 					RuntimeEvent::Assets(
 						pallet_assets::Event::Transferred { from, to, amount, .. },
 					) => {
