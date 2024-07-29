@@ -458,14 +458,14 @@ where
 			notification.tree_route,
 		);
 
-		let result = self.runtime.runtime_api().beefy_genesis(notification.hash);
-
-		match result {
+		match self.runtime.runtime_api().beefy_genesis(notification.hash) {
 			Ok(Some(genesis)) if genesis != self.persisted_state.pallet_genesis =>
 				return Err(Error::ConsensusReset),
 			Ok(_) => {},
 			Err(api_error) => {
-				warn!(target: LOG_TARGET, "API runtime call failed: {}", api_error);
+				// This can happen in case the block was already pruned.
+				// Mostly after warp sync when finality notifications are piled up.
+				debug!(target: LOG_TARGET, "🥩 Unable to check beefy genesis: {}", api_error);
 			},
 		}
 
