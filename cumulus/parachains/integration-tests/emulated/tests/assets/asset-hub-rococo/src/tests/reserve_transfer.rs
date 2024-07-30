@@ -1199,10 +1199,10 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 }
 
 // ============================================================================
-// ==== Reserve Transfers - USDT pay fees using pool - AssetHub->Parachain ====
+// ==== Reserve Transfers USDT - AssetHub->Parachain - pay fees using pool ====
 // ============================================================================
 #[test]
-fn reserve_transfer_pool_assets_from_system_para_to_para() {
+fn reserve_transfer_usdt_from_asset_hub_to_para() {
 	let usdt_id = 1984u32;
 	let penpal_location = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let penpal_sov_account = AssetHubRococo::sovereign_account_id_of(penpal_location.clone());

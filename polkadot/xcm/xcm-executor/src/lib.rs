@@ -490,8 +490,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			Some(fee) => fee,
 			None => return Ok(()), // No delivery fees need to be paid.
 		};
-		// If `BuyExecution` was called, we know we can try to use that asset for fees.
-		// We get the asset the user wants to use to pay for fees.
+		// If `BuyExecution` was called, we use that asset for transport fees as well.
 		let asset_to_pay_for_fees =
 			self.calculate_asset_for_delivery_fees(asset_needed_for_fees.clone());
 		tracing::trace!(target: "xcm::fees", ?asset_to_pay_for_fees);
@@ -515,7 +514,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			let asset = iter.next().ok_or(XcmError::NotHoldingFees)?;
 			asset.into()
 		};
-		// We perform the swap if we need to to pay fees in the correct asset.
+		// We perform the swap, if needed, to pay fees.
 		let paid = if asset_to_pay_for_fees.id != asset_needed_for_fees.id {
 			let swapped_asset: Assets = Config::AssetExchanger::exchange_asset(
 				self.origin_ref(),
@@ -968,7 +967,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					message_to_weigh.extend(xcm.0.clone().into_iter());
 					let (_, fee) =
 						validate_send::<Config::XcmSender>(dest.clone(), Xcm(message_to_weigh))?;
-					let maybe_delivery_fee = if let Some(asset_needed_for_fees) = fee.get(0) {
+					let maybe_delivery_fee = fee.get(0).map(|asset_needed_for_fees| {
 						tracing::trace!(
 							target: "xcm::DepositReserveAsset",
 							"Asset provided to pay for fees {:?}, asset required for transport fees: {:?}",
@@ -980,10 +979,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						let delivery_fee =
 							self.holding.saturating_take(asset_to_pay_for_fees.into());
 						tracing::trace!(target: "xcm::DepositReserveAsset", ?delivery_fee);
-						Some(delivery_fee)
-					} else {
-						None
-					};
+						delivery_fee
+					});
 					// now take assets to deposit (after having taken delivery fees)
 					let deposited = self.holding.saturating_take(assets);
 					tracing::trace!(target: "xcm::DepositReserveAsset", ?deposited, "Assets except delivery fee");
