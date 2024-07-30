@@ -47,15 +47,15 @@ const MAX_NUM_DISCONNECTS: u64 = 3;
 pub const SLOW_PEER: Rep = Rep::new_fatal("Slow peer after backoffs");
 
 #[derive(Debug)]
-pub struct DisconnectedPeerState {
+struct DisconnectedState {
 	/// The total number of disconnects.
 	num_disconnects: u64,
 	/// The time at the last disconnect.
 	last_disconnect: std::time::Instant,
 }
 
-impl DisconnectedPeerState {
-	/// Create a new `DisconnectedPeerState`.
+impl DisconnectedState {
+	/// Create a new `DisconnectedState`.
 	pub fn new() -> Self {
 		Self { num_disconnects: 1, last_disconnect: std::time::Instant::now() }
 	}
@@ -79,7 +79,7 @@ impl DisconnectedPeerState {
 
 pub struct PersistentPeersState {
 	/// The state of disconnected peers.
-	disconnected_peers: LruMap<PeerId, DisconnectedPeerState>,
+	disconnected_peers: LruMap<PeerId, DisconnectedState>,
 }
 
 impl PersistentPeersState {
@@ -117,7 +117,7 @@ impl PersistentPeersState {
 			"Added peer {peer} for the first time"
 		);
 		// First time we see this peer.
-		self.disconnected_peers.insert(peer, DisconnectedPeerState::new());
+		self.disconnected_peers.insert(peer, DisconnectedState::new());
 		None
 	}
 
