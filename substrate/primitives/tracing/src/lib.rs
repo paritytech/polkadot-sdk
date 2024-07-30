@@ -46,6 +46,7 @@ pub use tracing::{
 	warn_span, Level, Span,
 };
 
+#[cfg(feature = "std")]
 pub use tracing_subscriber;
 
 pub use crate::types::{
