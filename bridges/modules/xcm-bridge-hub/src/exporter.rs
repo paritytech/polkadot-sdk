@@ -29,7 +29,7 @@ use bp_messages::{
 	LaneId, MessageNonce,
 };
 use bp_xcm_bridge_hub::{BridgeId, BridgeState, LocalXcmChannelManager, XcmAsPlainPayload};
-use frame_support::traits::Get;
+use frame_support::{ensure, traits::Get};
 use pallet_bridge_messages::{
 	Config as BridgeMessagesConfig, Error, Pallet as BridgeMessagesPallet,
 };
@@ -82,8 +82,37 @@ where
 		// let's save them before
 		let bridge_origin_universal_location =
 			universal_source.clone().take().ok_or(SendError::MissingArgument)?;
-		let bridge_destination_universal_location =
-			destination.clone().take().ok_or(SendError::MissingArgument)?;
+		// Note: watch out this is `ExportMessage::destination`, which is relative to the `network`,
+		// which means it does not contain `GlobalConsensus`, We need to find `BridgeId` with
+		// `Self::bridge_locations` which requires **universal** location for destination.
+		let bridge_destination_universal_location = {
+			let dest = destination.clone().take().ok_or(SendError::MissingArgument)?;
+			match dest.global_consensus() {
+				Ok(dest_network) => {
+					log::trace!(
+						target: LOG_TARGET,
+						"Destination: {dest:?} is already universal, checking dest_network: {dest_network:?} and network: {network:?} if matches: {:?}",
+						dest_network == network
+					);
+					ensure!(dest_network == network, SendError::Unroutable);
+					// ok, `dest` looks like a universal location, so let's use it
+					dest
+				},
+				Err(_) => {
+					// `dest` is not a universal location, so we need to prepend it with
+					// `GlobalConsensus`.
+					dest.pushed_front_with(GlobalConsensus(network)).map_err(|error_data| {
+						log::error!(
+							target: LOG_TARGET,
+							"Destination: {:?} is not a universal and prepending with {:?} failed!",
+							error_data.0,
+							error_data.1,
+						);
+						SendError::Unroutable
+					})?
+				},
+			}
+		};
 
 		// check if we are able to route the message. We use existing `HaulBlobExporter` for that.
 		// It will make all required changes and will encode message properly, so that the
@@ -100,10 +129,10 @@ where
 		let bridge_origin_relative_location =
 			bridge_origin_universal_location.relative_to(&T::UniversalLocation::get());
 
-		// then we are able to compute the lane id used to send messages
+		// then we are able to compute the `BridgeId` and find `LaneId` used to send messages
 		let locations = Self::bridge_locations(
-			Box::new(bridge_origin_relative_location),
-			Box::new(bridge_destination_universal_location.into()),
+			bridge_origin_relative_location,
+			bridge_destination_universal_location.into(),
 		)
 		.map_err(|e| {
 			log::error!(
@@ -116,7 +145,6 @@ where
 
 		let bridge_message = MessagesPallet::<T, I>::validate_message(bridge.lane_id, &blob)
 			.map_err(|e| {
-				// TODO:(bridges-v2) - add test/std feature gate? FAIL-CI
 				match e {
 					Error::LanesManager(ref ei) =>
 						log::error!(target: LOG_TARGET, "LanesManager: {ei:?}"),
@@ -329,6 +357,7 @@ mod tests {
 	use bp_runtime::RangeInclusiveExt;
 	use bp_xcm_bridge_hub::{Bridge, BridgeLocations, BridgeState};
 	use frame_support::assert_ok;
+	use xcm_builder::{NetworkExportTable, UnpaidRemoteExporter};
 	use xcm_executor::traits::{export_xcm, ConvertLocation};
 
 	fn universal_source() -> InteriorLocation {
@@ -540,40 +569,53 @@ mod tests {
 		run_test(|| {
 			assert_ne!(bridged_universal_destination(), bridged_relative_destination());
 
-			// Note:  The `BridgeId` is created from universal `InteriorLocation`.
-			let expected_bridge_id =
-				BridgeId::new(&universal_source().into(), &bridged_universal_destination().into());
+			let locations = BridgeLocations::bridge_locations(
+				UniversalLocation::get(),
+				SiblingLocation::get(),
+				bridged_universal_destination(),
+				BridgedRelayNetwork::get(),
+			)
+			.unwrap();
+			let expected_bridge_id = locations.bridge_id();
+			let expected_lane_id = locations.calculate_lane_id(xcm::latest::VERSION).unwrap();
 
 			if LanesManagerOf::<TestRuntime, ()>::new()
-				.create_outbound_lane(expected_bridge_id.lane_id())
+				.create_outbound_lane(expected_lane_id)
 				.is_ok()
 			{
 				Bridges::<TestRuntime, ()>::insert(
 					expected_bridge_id,
 					Bridge {
-						bridge_origin_relative_location: Box::new(SiblingLocation::get().into()),
+						bridge_origin_relative_location: Box::new(
+							locations.bridge_origin_relative_location().clone().into(),
+						),
+						bridge_origin_universal_location: Box::new(
+							locations.bridge_origin_universal_location().clone().into(),
+						),
+						bridge_destination_universal_location: Box::new(
+							locations.bridge_destination_universal_location().clone().into(),
+						),
 						state: BridgeState::Opened,
 						bridge_owner_account: [0u8; 32].into(),
 						reserve: 0,
+						lane_id: expected_lane_id,
 					},
 				);
 			}
 
-			assert_eq!(
-				XcmOverBridge::validate(
-					BridgedRelayNetwork::get(),
-					0,
-					&mut Some(universal_source()),
-					// Note:  The `ExportMessage` expects relative `InteriorLocation` in the
-					// `BridgedRelayNetwork`.
-					&mut Some(bridged_relative_destination()),
-					&mut Some(Vec::new().into()),
-				)
-				.unwrap()
-				.0
-				 .0,
-				expected_bridge_id
-			);
+			let ticket = XcmOverBridge::validate(
+				BridgedRelayNetwork::get(),
+				0,
+				&mut Some(universal_source()),
+				// Note:  The `ExportMessage` expects relative `InteriorLocation` in the
+				// `BridgedRelayNetwork`.
+				&mut Some(bridged_relative_destination()),
+				&mut Some(Vec::new().into()),
+			)
+			.unwrap()
+			.0;
+			assert_eq!(&ticket.0, expected_bridge_id);
+			assert_eq!(ticket.1.lane_id, expected_lane_id);
 		});
 	}
 
@@ -597,9 +639,19 @@ mod tests {
 				0
 			);
 
+			// send `ExportMessage(message)` by `UnpaidRemoteExporter`.
+			TestExportXcmWithXcmOverBridge::set_origin_for_execute(SiblingLocation::get());
+			assert_ok!(send_xcm::<
+				UnpaidRemoteExporter<
+					NetworkExportTable<BridgeTable>,
+					TestExportXcmWithXcmOverBridge,
+					UniversalLocation,
+				>,
+			>(dest.clone(), Xcm::<()>::default()));
+
 			// send `ExportMessage(message)` by `pallet_xcm_bridge_hub_router`.
 			TestExportXcmWithXcmOverBridge::set_origin_for_execute(SiblingLocation::get());
-			assert_ok!(send_xcm::<XcmOverBridgeRouter>(dest, Xcm::<()>::default()));
+			assert_ok!(send_xcm::<XcmOverBridgeRouter>(dest.clone(), Xcm::<()>::default()));
 
 			// check after - a message ready to be relayed
 			assert_eq!(
@@ -609,7 +661,7 @@ mod tests {
 				.unwrap()
 				.queued_messages()
 				.saturating_len(),
-				1
+				2
 			);
 		})
 	}
