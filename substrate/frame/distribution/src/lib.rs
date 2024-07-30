@@ -84,11 +84,16 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// We usually use passive tense for events.
-		SomethingStored { something: u32, who: AccountIdOf<T> },
 
 		/// Reward successfully claimed
 		RewardClaimed {
+			when: BlockNumberFor<T>,
+			amount: BalanceOf<T>,
+			project_account: AccountIdOf<T>,
+		},
+
+		/// A Spending was created
+		SpendingCreated{
 			when: BlockNumberFor<T>,
 			amount: BalanceOf<T>,
 			project_account: AccountIdOf<T>,
@@ -130,7 +135,6 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 
 
-		// ToDo: Add `claim_reward_for` 
 		#[pallet::call_index(0)]
 		pub fn  claim_reward_for(origin: OriginFor<T>, project_account:AccountIdOf<T>) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;

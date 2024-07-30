@@ -43,11 +43,13 @@ fn spendings_creation_works() {
 		assert!(SpendingsCount::<Test>::get() == 0);
 		
 
-		// Move to epoch block
+		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now = Epoch_Block + 1 
 		let mut now =
 			System::block_number().saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 			run_to_block(now);
 
+
+		
 		// We should have 3 spendings
 		assert!(SpendingsCount::<Test>::get() == 3);
 
@@ -78,6 +80,24 @@ fn spendings_creation_works() {
 
 		let list0:Vec<_> = Spendings::<Test>::iter_keys().collect();
 		let list:Vec<_> = list0.into_iter().map(|x| Spendings::<Test>::get(x)).collect();
+		
+		expect_events(vec![
+			RuntimeEvent::Distribution(Event::SpendingCreated{
+			when: now.saturating_sub(1),
+			amount: list[0].clone().unwrap().amount,
+			project_account: list[0].clone().unwrap().whitelisted_project.unwrap(),
+		}),
+		RuntimeEvent::Distribution(Event::SpendingCreated{
+			when: now.saturating_sub(1),
+			amount: list[1].clone().unwrap().amount,
+			project_account: list[1].clone().unwrap().whitelisted_project.unwrap(),
+		}),
+		RuntimeEvent::Distribution(Event::SpendingCreated{
+			when: now.saturating_sub(1),
+			amount: list[2].clone().unwrap().amount,
+			project_account: list[2].clone().unwrap().whitelisted_project.unwrap(),
+		}),
+		]);
 
 		assert!(list.contains(&Some(alice_spending)));
 		assert!(list.contains(&Some(bob_spending)));

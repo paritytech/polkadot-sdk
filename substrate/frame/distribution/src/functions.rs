@@ -73,7 +73,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<BalanceOf<T>, Error<T>> {
 		match result {
 			Ok(x) => {
-				//Change spending status
+				// Change spending status
 				Spendings::<T>::mutate(spending_index, |val| {
 					let mut val0 = val.clone().unwrap();
 					val0.status = SpendingState::Completed;
@@ -82,7 +82,7 @@ impl<T: Config> Pallet<T> {
 				Ok(x)
 			},
 			Err(_e) => {
-				//Change spending status
+				// Change spending status
 				Spendings::<T>::mutate(spending_index, |val| {
 					let mut val0 = val.clone().unwrap();
 					val0.status = SpendingState::Failed;
@@ -117,7 +117,7 @@ impl<T: Config> Pallet<T> {
 						
 						Ok(x) => {
 							// Create a new spending
-							let _new_spending = SpendingInfo::<T>::new(project.clone());
+							let new_spending = SpendingInfo::<T>::new(project.clone());
 							
 							// Lock funds for the project
 							let pot = Self::pot_account();
@@ -127,9 +127,21 @@ impl<T: Config> Pallet<T> {
 								project.amount,
 							).map_err(|_| Error::<T>::LockFailed);
 
-							// remove project from project_list
+							// Remove project from project_list
 							projects.retain(|value| *value != project); 
+
+							// Emmit an event
+							let now = <frame_system::Pallet<T>>::block_number();
+							Self::deposit_event(
+								Event::SpendingCreated {
+									when: now,
+									amount: new_spending.amount,
+									project_account: project.project_account,
+								}
+							);
+
 							Ok(x)
+
 
 						},
 						Err(_e) => Err(Error::<T>::InsufficientPotReserves)
