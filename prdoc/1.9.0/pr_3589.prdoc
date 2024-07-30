@@ -1,0 +1,10 @@
+title: Removed `pallet::getter` usage from `pallet-im-online`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes `pallet::getter` usage from `pallet-im-online`, and updates dependant code accordingly.
+      The syntax `StorageItem::<T, I>::get()` should be used instead.
+
+crates: 
+  - name: pallet-im-online

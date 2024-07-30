@@ -45,8 +45,8 @@ pub struct FromQueue {
 	/// Identifier of an artifact.
 	pub(crate) artifact_id: ArtifactId,
 	/// Outcome of the PVF processing. [`Ok`] indicates that compiled artifact
-	/// is successfully stored on disk. Otherwise, an [error](crate::error::PrepareError)
-	/// is supplied.
+	/// is successfully stored on disk. Otherwise, an
+	/// [error](polkadot_node_core_pvf_common::error::PrepareError) is supplied.
 	pub(crate) result: PrepareResult,
 }
 
@@ -268,12 +268,12 @@ fn find_idle_worker(queue: &mut Queue) -> Option<Worker> {
 }
 
 async fn handle_from_pool(queue: &mut Queue, from_pool: pool::FromPool) -> Result<(), Fatal> {
-	use pool::FromPool::*;
+	use pool::FromPool;
 	match from_pool {
-		Spawned(worker) => handle_worker_spawned(queue, worker).await?,
-		Concluded { worker, rip, result } =>
+		FromPool::Spawned(worker) => handle_worker_spawned(queue, worker).await?,
+		FromPool::Concluded { worker, rip, result } =>
 			handle_worker_concluded(queue, worker, rip, result).await?,
-		Rip(worker) => handle_worker_rip(queue, worker).await?,
+		FromPool::Rip(worker) => handle_worker_rip(queue, worker).await?,
 	}
 	Ok(())
 }
@@ -424,17 +424,17 @@ async fn spawn_extra_worker(queue: &mut Queue, critical: bool) -> Result<(), Fat
 /// Attaches the work to the given worker telling the poll about the job.
 async fn assign(queue: &mut Queue, worker: Worker, job: Job) -> Result<(), Fatal> {
 	let job_data = &mut queue.jobs[job];
-
-	let artifact_id = ArtifactId::from_pvf_prep_data(&job_data.pvf);
-	let artifact_path = artifact_id.path(&queue.cache_path);
-
 	job_data.worker = Some(worker);
 
 	queue.workers[worker].job = Some(job);
 
 	send_pool(
 		&mut queue.to_pool_tx,
-		pool::ToPool::StartWork { worker, pvf: job_data.pvf.clone(), artifact_path },
+		pool::ToPool::StartWork {
+			worker,
+			pvf: job_data.pvf.clone(),
+			cache_path: queue.cache_path.clone(),
+		},
 	)
 	.await?;
 
@@ -491,7 +491,7 @@ mod tests {
 	use crate::host::tests::TEST_PREPARATION_TIMEOUT;
 	use assert_matches::assert_matches;
 	use futures::{future::BoxFuture, FutureExt};
-	use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats};
+	use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareSuccess};
 	use slotmap::SlotMap;
 	use std::task::Poll;
 
@@ -612,7 +612,7 @@ mod tests {
 		test.send_from_pool(pool::FromPool::Concluded {
 			worker: w,
 			rip: false,
-			result: Ok(PrepareStats::default()),
+			result: Ok(PrepareSuccess::default()),
 		});
 
 		assert_eq!(
@@ -651,7 +651,7 @@ mod tests {
 		test.send_from_pool(pool::FromPool::Concluded {
 			worker: w1,
 			rip: false,
-			result: Ok(PrepareStats::default()),
+			result: Ok(PrepareSuccess::default()),
 		});
 
 		assert_matches!(test.poll_and_recv_to_pool().await, pool::ToPool::StartWork { .. });
@@ -697,7 +697,7 @@ mod tests {
 		test.send_from_pool(pool::FromPool::Concluded {
 			worker: w1,
 			rip: false,
-			result: Ok(PrepareStats::default()),
+			result: Ok(PrepareSuccess::default()),
 		});
 		assert_eq!(test.poll_and_recv_to_pool().await, pool::ToPool::Kill(w1));
 	}
@@ -731,7 +731,7 @@ mod tests {
 		test.send_from_pool(pool::FromPool::Concluded {
 			worker: w1,
 			rip: true,
-			result: Ok(PrepareStats::default()),
+			result: Ok(PrepareSuccess::default()),
 		});
 
 		// Since there is still work, the queue requested one extra worker to spawn to handle the

@@ -16,7 +16,7 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{trie_cache, MemoryOptimizedValidationParams};
+use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use cumulus_primitives_core::{
 	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
 };
@@ -26,6 +26,7 @@ use polkadot_parachain_primitives::primitives::{
 	HeadData, RelayChainBlockNumber, ValidationResult,
 };
 
+use alloc::vec::Vec;
 use codec::Encode;
 
 use frame_support::traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType};
@@ -33,13 +34,14 @@ use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
-use sp_std::prelude::*;
-use sp_trie::MemoryDB;
+use sp_trie::{MemoryDB, ProofSizeProvider};
+use trie_recorder::SizeOnlyRecorderProvider;
 
 type TrieBackend<B> = sp_state_machine::TrieBackend<
 	MemoryDB<HashingFor<B>>,
 	HashingFor<B>,
 	trie_cache::CacheProvider<HashingFor<B>>,
+	SizeOnlyRecorderProvider<HashingFor<B>>,
 >;
 
 type Ext<'a, B> = sp_state_machine::Ext<'a, HashingFor<B>, TrieBackend<B>>;
@@ -47,6 +49,9 @@ type Ext<'a, B> = sp_state_machine::Ext<'a, HashingFor<B>, TrieBackend<B>>;
 fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 	sp_externalities::with_externalities(f).expect("Environmental externalities not set.")
 }
+
+// Recorder instance to be used during this validate_block call.
+environmental::environmental!(recorder: trait ProofSizeProvider);
 
 /// Validate the given parachain block.
 ///
@@ -75,6 +80,7 @@ fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 /// ensuring that the final storage root matches the storage root in the header of the block. In the
 /// end we return back the [`ValidationResult`] with all the required information for the validator.
 #[doc(hidden)]
+#[allow(deprecated)]
 pub fn validate_block<
 	B: BlockT,
 	E: ExecuteBlock<B>,
@@ -118,8 +124,9 @@ where
 		Err(_) => panic!("Compact proof decoding failure."),
 	};
 
-	sp_std::mem::drop(storage_proof);
+	core::mem::drop(storage_proof);
 
+	let mut recorder = SizeOnlyRecorderProvider::new();
 	let cache_provider = trie_cache::CacheProvider::new();
 	// We use the storage root of the `parent_head` to ensure that it is the correct root.
 	// This is already being done above while creating the in-memory db, but let's be paranoid!!
@@ -128,6 +135,7 @@ where
 		*parent_header.state_root(),
 		cache_provider,
 	)
+	.with_recorder(recorder.clone())
 	.build();
 
 	let _guard = (
@@ -167,9 +175,11 @@ where
 			.replace_implementation(host_default_child_storage_next_key),
 		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
+		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
+			.replace_implementation(host_storage_proof_size),
 	);
 
-	run_with_externalities::<B, _, _>(&backend, || {
+	run_with_externalities_and_recorder::<B, _, _>(&backend, &mut recorder, || {
 		let relay_chain_proof = crate::RelayChainStateProof::new(
 			PSC::SelfParaId::get(),
 			inherent_data.validation_data.relay_parent_storage_root,
@@ -177,6 +187,7 @@ where
 		)
 		.expect("Invalid relay chain state proof");
 
+		#[allow(deprecated)]
 		let res = CI::check_inherents(&block, &relay_chain_proof);
 
 		if !res.ok() {
@@ -190,7 +201,7 @@ where
 		}
 	});
 
-	run_with_externalities::<B, _, _>(&backend, || {
+	run_with_externalities_and_recorder::<B, _, _>(&backend, &mut recorder, || {
 		let head_data = HeadData(block.header().encode());
 
 		E::execute_block(block);
@@ -265,15 +276,17 @@ fn validate_validation_data(
 	);
 }
 
-/// Run the given closure with the externalities set.
-fn run_with_externalities<B: BlockT, R, F: FnOnce() -> R>(
+/// Run the given closure with the externalities and recorder set.
+fn run_with_externalities_and_recorder<B: BlockT, R, F: FnOnce() -> R>(
 	backend: &TrieBackend<B>,
+	recorder: &mut SizeOnlyRecorderProvider<HashingFor<B>>,
 	execute: F,
 ) -> R {
 	let mut overlay = sp_state_machine::OverlayedChanges::default();
 	let mut ext = Ext::<B>::new(&mut overlay, backend);
+	recorder.reset();
 
-	set_and_run_with_externalities(&mut ext, || execute())
+	recorder::using(recorder, || set_and_run_with_externalities(&mut ext, || execute()))
 }
 
 fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {
@@ -281,7 +294,7 @@ fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Opt
 		Some(value) => {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = sp_std::cmp::min(data.len(), value_out.len());
+			let written = core::cmp::min(data.len(), value_out.len());
 			value_out[..written].copy_from_slice(&data[..written]);
 			Some(value.len() as u32)
 		},
@@ -303,6 +316,10 @@ fn host_storage_exists(key: &[u8]) -> bool {
 
 fn host_storage_clear(key: &[u8]) {
 	with_externalities(|ext| ext.place_storage(key.to_vec(), None))
+}
+
+fn host_storage_proof_size() -> u64 {
+	recorder::with(|rec| rec.estimate_encoded_size()).expect("Recorder is always set; qed") as _
 }
 
 fn host_storage_root(version: StateVersion) -> Vec<u8> {
@@ -351,7 +368,7 @@ fn host_default_child_storage_read(
 		Some(value) => {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = sp_std::cmp::min(data.len(), value_out.len());
+			let written = core::cmp::min(data.len(), value_out.len());
 			value_out[..written].copy_from_slice(&data[..written]);
 			Some(value.len() as u32)
 		},

@@ -1,0 +1,86 @@
+title: XcmDryRunApi - Runtime API for dry-running extrinsics and XCM programs.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces a new runtime API, the XcmDryRunApi, that allows dry-running
+      extrinsics and XCM programs to get their execution effects.
+      These effects include:
+      - Local execution result, either pass or fail
+      - Emitted events
+      - Forwarded XCMs
+      - In the case of extrinsics, the XCM program that they execute
+      This API can be used on its own to test extrinsics or XCM programs,
+      or used alongside the XcmPaymentApi to estimate execution and delivery
+      fees.
+
+      This PR also adds a new configuration item to XCM: XcmRecorder.
+      This can be set to either (), the xcm pallet, or some custom implementation.
+      If set to (), the dry run API will not return the local XCM program executed
+      by running an extrinsic.
+      After this PR, it is necessary to add the new configuration item to your xcm
+      configs.
+  - audience: Runtime User
+    description: |
+      This PR introduces a new runtime API, the XcmDryRunApi, that allows dry-running
+      extrinsics and XCM programs to get their execution effects.
+      These effects include:
+      - Local execution result, either pass or fail
+      - Emitted events
+      - Forwarded XCMs
+      - In the case of extrinsics, the XCM program that they execute
+      This API can be used on its own to test extrinsics or XCM programs,
+      or used alongside the XcmPaymentApi to estimate execution and delivery
+      fees.
+
+crates:
+  - name: xcm-fee-payment-runtime-api
+    bump: major
+  - name: pallet-xcm
+    bump: minor
+  - name: staging-xcm-executor
+    bump: minor
+  - name: staging-xcm-builder
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: pallet-xcm-benchmarks
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: minor
+  - name: collectives-westend-runtime
+    bump: minor
+  - name: contracts-rococo-runtime
+    bump: minor
+  - name: coretime-rococo-runtime
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: minor
+  - name: glutton-westend-runtime
+    bump: minor
+  - name: people-rococo-runtime
+    bump: minor
+  - name: people-westend-runtime
+    bump: minor
+  - name: shell-runtime
+    bump: minor
+  - name: penpal-runtime
+    bump: minor
+  - name: rococo-parachain-runtime
+    bump: minor
+  - name: polkadot-service
+    bump: minor
+  - name: polkadot-test-runtime
+    bump: minor
+  - name: parachain-template-runtime
+    bump: minor
+  - name: pallet-contracts-mock-network
+    bump: minor

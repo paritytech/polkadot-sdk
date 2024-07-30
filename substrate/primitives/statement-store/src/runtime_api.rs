@@ -18,11 +18,11 @@
 //! Runtime support for the statement store.
 
 use crate::{Hash, Statement, Topic};
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_runtime_interface::{pass_by::PassByEnum, runtime_interface};
-use sp_std::vec::Vec;
 
 #[cfg(feature = "std")]
 use sp_externalities::ExternalitiesExt;

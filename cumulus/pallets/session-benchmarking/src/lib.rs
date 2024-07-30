@@ -1,3 +1,5 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -13,35 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Benchmarking setup for pallet-session
+//! Benchmarks for the Session Pallet.
+// This is separated into its own crate due to cyclic dependency issues.
+
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg(feature = "runtime-benchmarks")]
-use sp_std::prelude::*;
 
-use frame_benchmarking::{benchmarks, whitelisted_caller};
-use frame_system::RawOrigin;
-use pallet_session::*;
-pub struct Pallet<T: Config>(pallet_session::Pallet<T>);
-pub trait Config: pallet_session::Config {
-	/// Generate a session key and a proof of ownership.
-	///
-	/// The given `owner` is the account that will call `set_keys` using the returned session keys
-	/// and proof. This means that the proof should prove the ownership of `owner` over the private
-	/// keys associated to the session keys.
-	fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>);
-}
+extern crate alloc;
 
-benchmarks! {
-	set_keys {
-		let caller: T::AccountId = whitelisted_caller();
-		frame_system::Pallet::<T>::inc_providers(&caller);
-		let (keys, proof) = T::generate_session_keys_and_proof(caller.clone());
-	}: _(RawOrigin::Signed(caller), keys, proof)
+#[cfg(feature = "runtime-benchmarks")]
+pub mod inner;
 
-	purge_keys {
-		let caller: T::AccountId = whitelisted_caller();
-		frame_system::Pallet::<T>::inc_providers(&caller);
-		let (keys, proof) = T::generate_session_keys_and_proof(caller.clone());
-		let _t = pallet_session::Pallet::<T>::set_keys(RawOrigin::Signed(caller.clone()).into(), keys, proof);
-	}: _(RawOrigin::Signed(caller))
-}
+#[cfg(feature = "runtime-benchmarks")]
+pub use inner::*;

@@ -15,9 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Custom inner attributes are unstable, so we need to faky disable the attribute.
-// rustfmt still honors the attribute to not format the rustdocs below.
-#![cfg_attr(feature = "never", rustfmt::skip)]
 //! Substrate runtime interface
 //!
 //! This crate provides types, traits and macros around runtime interfaces. A runtime interface is
@@ -110,6 +107,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate self as sp_runtime_interface;
+
+extern crate alloc;
 
 #[doc(hidden)]
 #[cfg(feature = "std")]
@@ -283,7 +282,7 @@ pub use sp_std;
 ///         /// `key` holds the pointer and the length to the `data` slice.
 ///         pub fn call(data: &[u8]) -> Vec<u8> {
 ///             extern "C" { pub fn ext_call_version_2(key: u64); }
-///             // Should call into extenal `ext_call_version_2(<[u8] as IntoFFIValue>::into_ffi_value(key))`
+///             // Should call into external `ext_call_version_2(<[u8] as IntoFFIValue>::into_ffi_value(key))`
 ///             // But this is too much to replicate in a doc test so here we just return a dummy vector.
 ///             // Note that we jump into the latest version not marked as `register_only` (i.e. version 2).
 ///             Vec::new()
@@ -375,6 +374,9 @@ pub use sp_externalities::{
 
 #[doc(hidden)]
 pub use codec;
+
+#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))]
+pub mod polkavm;
 
 #[cfg(feature = "std")]
 pub mod host;

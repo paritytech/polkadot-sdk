@@ -159,6 +159,26 @@ fn unrelated_ancestry_votes_are_removed_by_optimizer() {
 }
 
 #[test]
+fn duplicate_votes_ancestries_are_removed_by_optimizer() {
+	let mut justification = make_default_justification::<TestHeader>(&test_header(1));
+	let optimized_votes_ancestries = justification.votes_ancestries.clone();
+	justification.votes_ancestries = justification
+		.votes_ancestries
+		.into_iter()
+		.flat_map(|item| std::iter::repeat(item).take(3))
+		.collect();
+
+	verify_and_optimize_justification::<TestHeader>(
+		header_id::<TestHeader>(1),
+		&verification_context(TEST_GRANDPA_SET_ID),
+		&mut justification,
+	)
+	.unwrap();
+
+	assert_eq!(justification.votes_ancestries, optimized_votes_ancestries);
+}
+
+#[test]
 fn redundant_votes_ancestries_are_removed_by_optimizer() {
 	let mut justification = make_default_justification::<TestHeader>(&test_header(1));
 	justification.votes_ancestries.push(test_header(100));

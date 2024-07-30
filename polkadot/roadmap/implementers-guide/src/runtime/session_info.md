@@ -76,6 +76,6 @@ Sessions: map SessionIndex => Option<SessionInfo>,
 
 ## Routines
 
-* `earliest_stored_session() -> SessionIndex`: Yields the earliest session for which we have information stored.
-* `session_info(session: SessionIndex) -> Option<SessionInfo>`: Yields the session info for the given session, if
+* `EarliestStoredSession::<T>::get() -> SessionIndex`: Yields the earliest session for which we have information stored.
+* `Sessions::<T>::get(session: SessionIndex) -> Option<SessionInfo>`: Yields the session info for the given session, if
   stored.

@@ -23,12 +23,14 @@ use crate::{
 	exec::{AccountIdOf, Key},
 	weights::WeightInfo,
 	BalanceOf, CodeHash, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter,
-	Error, Pallet, TrieId, SENTINEL,
+	Error, TrieId, SENTINEL,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support::{
 	storage::child::{self, ChildInfo},
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 	CloneNoBound, DefaultNoBound,
 };
 use scale_info::TypeInfo;
@@ -38,7 +40,6 @@ use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
 	BoundedBTreeMap, DispatchError, DispatchResult, RuntimeDebug,
 };
-use sp_std::{marker::PhantomData, prelude::*};
 
 use self::meter::Diff;
 
@@ -66,7 +67,7 @@ pub struct ContractInfo<T: Config> {
 	storage_base_deposit: BalanceOf<T>,
 	/// Map of code hashes and deposit balances.
 	///
-	/// Tracks the code hash and deposit held for adding delegate dependencies. Dependencies added
+	/// Tracks the code hash and deposit held for locking delegate dependencies. Dependencies added
 	/// to the map can not be removed from the chain state and can be safely used for delegate
 	/// calls.
 	delegate_dependencies: BoundedBTreeMap<CodeHash<T>, BalanceOf<T>, T::MaxDelegateDependencies>,
@@ -108,6 +109,11 @@ impl<T: Config> ContractInfo<T> {
 		Ok(contract)
 	}
 
+	/// Returns the number of locked delegate dependencies.
+	pub fn delegate_dependencies_count(&self) -> usize {
+		self.delegate_dependencies.len()
+	}
+
 	/// Associated child trie unique id is built from the hash part of the trie id.
 	pub fn child_trie_info(&self) -> ChildInfo {
 		ChildInfo::new_default(self.trie_id.as_ref())
@@ -120,9 +126,7 @@ impl<T: Config> ContractInfo<T> {
 
 	/// Same as [`Self::extra_deposit`] but including the base deposit.
 	pub fn total_deposit(&self) -> BalanceOf<T> {
-		self.extra_deposit()
-			.saturating_add(self.storage_base_deposit)
-			.saturating_sub(Pallet::<T>::min_balance())
+		self.extra_deposit().saturating_add(self.storage_base_deposit)
 	}
 
 	/// Returns the storage base deposit of the contract.
@@ -160,13 +164,35 @@ impl<T: Config> ContractInfo<T> {
 		storage_meter: Option<&mut meter::NestedMeter<T>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
-		let child_trie_info = &self.child_trie_info();
 		let hashed_key = key.hash();
+		self.write_raw(&hashed_key, new_value, storage_meter, take)
+	}
+
+	/// Update a storage entry into a contract's kv storage.
+	/// Function used in benchmarks, which can simulate prefix collision in keys.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn bench_write_raw(
+		&self,
+		key: &[u8],
+		new_value: Option<Vec<u8>>,
+		take: bool,
+	) -> Result<WriteOutcome, DispatchError> {
+		self.write_raw(key, new_value, None, take)
+	}
+
+	fn write_raw(
+		&self,
+		key: &[u8],
+		new_value: Option<Vec<u8>>,
+		storage_meter: Option<&mut meter::NestedMeter<T>>,
+		take: bool,
+	) -> Result<WriteOutcome, DispatchError> {
+		let child_trie_info = &self.child_trie_info();
 		let (old_len, old_value) = if take {
-			let val = child::get_raw(child_trie_info, &hashed_key);
+			let val = child::get_raw(child_trie_info, key);
 			(val.as_ref().map(|v| v.len() as u32), val)
 		} else {
-			(child::len(child_trie_info, &hashed_key), None)
+			(child::len(child_trie_info, key), None)
 		};
 
 		if let Some(storage_meter) = storage_meter {
@@ -192,8 +218,8 @@ impl<T: Config> ContractInfo<T> {
 		}
 
 		match &new_value {
-			Some(new_value) => child::put_raw(child_trie_info, &hashed_key, new_value),
-			None => child::kill(child_trie_info, &hashed_key),
+			Some(new_value) => child::put_raw(child_trie_info, key, new_value),
+			None => child::kill(child_trie_info, key),
 		}
 
 		Ok(match (old_len, old_value) {
@@ -208,7 +234,6 @@ impl<T: Config> ContractInfo<T> {
 	/// The base deposit is updated when the `code_hash` of the contract changes, as it depends on
 	/// the deposit paid to upload the contract's code.
 	pub fn update_base_deposit(&mut self, code_info: &CodeInfo<T>) -> BalanceOf<T> {
-		let ed = Pallet::<T>::min_balance();
 		let info_deposit =
 			Diff { bytes_added: self.encoded_size() as u32, items_added: 1, ..Default::default() }
 				.update_contract::<T>(None)
@@ -219,11 +244,7 @@ impl<T: Config> ContractInfo<T> {
 		// to prevent abuse.
 		let upload_deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_info.deposit());
 
-		// Instantiate needs to transfer at least the minimum balance in order to pull the
-		// contract's own account into existence, as the deposit itself does not contribute to the
-		// `ed`.
-		let deposit = info_deposit.saturating_add(upload_deposit).saturating_add(ed);
-
+		let deposit = info_deposit.saturating_add(upload_deposit);
 		self.storage_base_deposit = deposit;
 		deposit
 	}
@@ -233,7 +254,7 @@ impl<T: Config> ContractInfo<T> {
 	///
 	/// Returns an error if the maximum number of delegate_dependencies is reached or if
 	/// the delegate dependency already exists.
-	pub fn add_delegate_dependency(
+	pub fn lock_delegate_dependency(
 		&mut self,
 		code_hash: CodeHash<T>,
 		amount: BalanceOf<T>,
@@ -249,7 +270,7 @@ impl<T: Config> ContractInfo<T> {
 	/// dependency.
 	///
 	/// Returns an error if the entry doesn't exist.
-	pub fn remove_delegate_dependency(
+	pub fn unlock_delegate_dependency(
 		&mut self,
 		code_hash: &CodeHash<T>,
 	) -> Result<BalanceOf<T>, DispatchError> {
@@ -274,14 +295,15 @@ impl<T: Config> ContractInfo<T> {
 
 	/// Calculates the weight that is necessary to remove one key from the trie and how many
 	/// of those keys can be deleted from the deletion queue given the supplied weight limit.
-	pub fn deletion_budget(weight_limit: Weight) -> (Weight, u32) {
+	pub fn deletion_budget(meter: &WeightMeter) -> (Weight, u32) {
 		let base_weight = T::WeightInfo::on_process_deletion_queue_batch();
 		let weight_per_key = T::WeightInfo::on_initialize_per_trie_key(1) -
 			T::WeightInfo::on_initialize_per_trie_key(0);
 
 		// `weight_per_key` being zero makes no sense and would constitute a failure to
 		// benchmark properly. We opt for not removing any keys at all in this case.
-		let key_budget = weight_limit
+		let key_budget = meter
+			.limit()
 			.saturating_sub(base_weight)
 			.checked_div_per_component(&weight_per_key)
 			.unwrap_or(0) as u32;
@@ -290,24 +312,18 @@ impl<T: Config> ContractInfo<T> {
 	}
 
 	/// Delete as many items from the deletion queue possible within the supplied weight limit.
-	///
-	/// It returns the amount of weight used for that task.
-	pub fn process_deletion_queue_batch(weight_limit: Weight) -> Weight {
+	pub fn process_deletion_queue_batch(meter: &mut WeightMeter) {
+		if meter.try_consume(T::WeightInfo::on_process_deletion_queue_batch()).is_err() {
+			return
+		};
+
 		let mut queue = <DeletionQueueManager<T>>::load();
-
 		if queue.is_empty() {
-			return Weight::zero()
+			return;
 		}
 
-		let (weight_per_key, mut remaining_key_budget) = Self::deletion_budget(weight_limit);
-
-		// We want to check whether we have enough weight to decode the queue before
-		// proceeding. Too little weight for decoding might happen during runtime upgrades
-		// which consume the whole block before the other `on_initialize` blocks are called.
-		if remaining_key_budget == 0 {
-			return weight_limit
-		}
-
+		let (weight_per_key, budget) = Self::deletion_budget(&meter);
+		let mut remaining_key_budget = budget;
 		while remaining_key_budget > 0 {
 			let Some(entry) = queue.next() else { break };
 
@@ -319,15 +335,19 @@ impl<T: Config> ContractInfo<T> {
 
 			match outcome {
 				// This happens when our budget wasn't large enough to remove all keys.
-				KillStorageResult::SomeRemaining(_) => return weight_limit,
+				KillStorageResult::SomeRemaining(keys_removed) => {
+					remaining_key_budget.saturating_reduce(keys_removed);
+					break
+				},
 				KillStorageResult::AllRemoved(keys_removed) => {
 					entry.remove();
-					remaining_key_budget = remaining_key_budget.saturating_sub(keys_removed);
+					// charge at least one key even if none were removed.
+					remaining_key_budget = remaining_key_budget.saturating_sub(keys_removed.max(1));
 				},
 			};
 		}
 
-		weight_limit.saturating_sub(weight_per_key.saturating_mul(u64::from(remaining_key_budget)))
+		meter.consume(weight_per_key.saturating_mul(u64::from(budget - remaining_key_budget)))
 	}
 
 	/// Returns the code hash of the contract specified by `account` ID.
@@ -337,7 +357,7 @@ impl<T: Config> ContractInfo<T> {
 }
 
 /// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(any(test, feature = "runtime-benchmarks"), derive(Debug, PartialEq))]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
 	New,

@@ -23,7 +23,7 @@
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
-// target/release/millau-bridge-node
+// target/release/unknown-bridge-node
 // benchmark
 // pallet
 // --chain=dev
@@ -51,6 +51,7 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for pallet_bridge_grandpa.
 pub trait WeightInfo {
 	fn submit_finality_proof(p: u32, v: u32) -> Weight;
+	fn force_set_pallet_state() -> Weight;
 }
 
 /// Weights for `pallet_bridge_grandpa` that are generated using one of the Bridge testnets.
@@ -58,39 +59,39 @@ pub trait WeightInfo {
 /// Those weights are test only and must never be used in production.
 pub struct BridgeWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
-	/// Storage: BridgeRialtoGrandpa PalletOperatingMode (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownGrandpa PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa RequestCount (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa RequestCount (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa RequestCount (max_values: Some(1), max_size: Some(4), added: 499,
-	/// mode: MaxEncodedLen)
+	/// Proof: BridgeUnknownGrandpa RequestCount (max_values: Some(1), max_size: Some(4), added:
+	/// 499, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa BestFinalized (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa BestFinalized (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa BestFinalized (max_values: Some(1), max_size: Some(36), added:
+	/// Proof: BridgeUnknownGrandpa BestFinalized (max_values: Some(1), max_size: Some(36), added:
 	/// 531, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa CurrentAuthoritySet (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa CurrentAuthoritySet (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa CurrentAuthoritySet (max_values: Some(1), max_size: Some(209),
+	/// Proof: BridgeUnknownGrandpa CurrentAuthoritySet (max_values: Some(1), max_size: Some(209),
 	/// added: 704, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHashesPointer (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa ImportedHashesPointer (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHashesPointer (max_values: Some(1), max_size: Some(4),
+	/// Proof: BridgeUnknownGrandpa ImportedHashesPointer (max_values: Some(1), max_size: Some(4),
 	/// added: 499, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHashes (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa ImportedHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHashes (max_values: Some(14400), max_size: Some(36),
+	/// Proof: BridgeUnknownGrandpa ImportedHashes (max_values: Some(14400), max_size: Some(36),
 	/// added: 2016, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:0 w:2)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:0 w:2)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
 	/// The range of component `p` is `[1, 4]`.
@@ -109,43 +110,67 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
+
+	/// Storage: `BridgeWestendGrandpa::CurrentAuthoritySet` (r:1 w:1)
+	/// Proof: `BridgeWestendGrandpa::CurrentAuthoritySet` (`max_values`: Some(1), `max_size`:
+	/// Some(50250), added: 50745, mode: `MaxEncodedLen`)
+	/// Storage: `BridgeWestendGrandpa::ImportedHashesPointer` (r:1 w:1)
+	/// Proof: `BridgeWestendGrandpa::ImportedHashesPointer` (`max_values`: Some(1), `max_size`:
+	/// Some(4), added: 499, mode: `MaxEncodedLen`) Storage: `BridgeWestendGrandpa::ImportedHashes`
+	/// (r:1 w:1) Proof: `BridgeWestendGrandpa::ImportedHashes` (`max_values`: Some(1024),
+	/// `max_size`: Some(36), added: 1521, mode: `MaxEncodedLen`)
+	/// Storage: `BridgeWestendGrandpa::BestFinalized` (r:0 w:1)
+	/// Proof: `BridgeWestendGrandpa::BestFinalized` (`max_values`: Some(1), `max_size`: Some(36),
+	/// added: 531, mode: `MaxEncodedLen`) Storage: `BridgeWestendGrandpa::ImportedHeaders` (r:0
+	/// w:2) Proof: `BridgeWestendGrandpa::ImportedHeaders` (`max_values`: Some(1024), `max_size`:
+	/// Some(68), added: 1553, mode: `MaxEncodedLen`)
+	fn force_set_pallet_state() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `452`
+		//  Estimated: `51735`
+		// Minimum execution time: 62_232_000 picoseconds.
+		Weight::from_parts(78_755_000, 0)
+			.saturating_add(Weight::from_parts(0, 51735))
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().writes(6))
+	}
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	/// Storage: BridgeRialtoGrandpa PalletOperatingMode (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownGrandpa PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa RequestCount (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa RequestCount (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa RequestCount (max_values: Some(1), max_size: Some(4), added: 499,
-	/// mode: MaxEncodedLen)
+	/// Proof: BridgeUnknownGrandpa RequestCount (max_values: Some(1), max_size: Some(4), added:
+	/// 499, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa BestFinalized (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa BestFinalized (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa BestFinalized (max_values: Some(1), max_size: Some(36), added:
+	/// Proof: BridgeUnknownGrandpa BestFinalized (max_values: Some(1), max_size: Some(36), added:
 	/// 531, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa CurrentAuthoritySet (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa CurrentAuthoritySet (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa CurrentAuthoritySet (max_values: Some(1), max_size: Some(209),
+	/// Proof: BridgeUnknownGrandpa CurrentAuthoritySet (max_values: Some(1), max_size: Some(209),
 	/// added: 704, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHashesPointer (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa ImportedHashesPointer (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHashesPointer (max_values: Some(1), max_size: Some(4),
+	/// Proof: BridgeUnknownGrandpa ImportedHashesPointer (max_values: Some(1), max_size: Some(4),
 	/// added: 499, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHashes (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa ImportedHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHashes (max_values: Some(14400), max_size: Some(36),
+	/// Proof: BridgeUnknownGrandpa ImportedHashes (max_values: Some(14400), max_size: Some(36),
 	/// added: 2016, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:0 w:2)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:0 w:2)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
 	/// The range of component `p` is `[1, 4]`.
@@ -163,5 +188,29 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(1_469_032, 0).saturating_mul(v.into()))
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(6_u64))
+	}
+
+	/// Storage: `BridgeWestendGrandpa::CurrentAuthoritySet` (r:1 w:1)
+	/// Proof: `BridgeWestendGrandpa::CurrentAuthoritySet` (`max_values`: Some(1), `max_size`:
+	/// Some(50250), added: 50745, mode: `MaxEncodedLen`)
+	/// Storage: `BridgeWestendGrandpa::ImportedHashesPointer` (r:1 w:1)
+	/// Proof: `BridgeWestendGrandpa::ImportedHashesPointer` (`max_values`: Some(1), `max_size`:
+	/// Some(4), added: 499, mode: `MaxEncodedLen`) Storage: `BridgeWestendGrandpa::ImportedHashes`
+	/// (r:1 w:1) Proof: `BridgeWestendGrandpa::ImportedHashes` (`max_values`: Some(1024),
+	/// `max_size`: Some(36), added: 1521, mode: `MaxEncodedLen`)
+	/// Storage: `BridgeWestendGrandpa::BestFinalized` (r:0 w:1)
+	/// Proof: `BridgeWestendGrandpa::BestFinalized` (`max_values`: Some(1), `max_size`: Some(36),
+	/// added: 531, mode: `MaxEncodedLen`) Storage: `BridgeWestendGrandpa::ImportedHeaders` (r:0
+	/// w:2) Proof: `BridgeWestendGrandpa::ImportedHeaders` (`max_values`: Some(1024), `max_size`:
+	/// Some(68), added: 1553, mode: `MaxEncodedLen`)
+	fn force_set_pallet_state() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `452`
+		//  Estimated: `51735`
+		// Minimum execution time: 62_232_000 picoseconds.
+		Weight::from_parts(78_755_000, 0)
+			.saturating_add(Weight::from_parts(0, 51735))
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().writes(6))
 	}
 }

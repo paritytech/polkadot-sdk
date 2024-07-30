@@ -74,45 +74,78 @@ fn errors_should_return_unused_weight() {
 		// First xfer results in an error on the last message only
 		TransferAsset {
 			assets: (Here, 1u128).into(),
-			beneficiary: X1(AccountIndex64 { index: 3, network: None }).into(),
+			beneficiary: [AccountIndex64 { index: 3, network: None }].into(),
 		},
 		// Second xfer results in error third message and after
 		TransferAsset {
 			assets: (Here, 2u128).into(),
-			beneficiary: X1(AccountIndex64 { index: 3, network: None }).into(),
+			beneficiary: [AccountIndex64 { index: 3, network: None }].into(),
 		},
 		// Third xfer results in error second message and after
 		TransferAsset {
 			assets: (Here, 4u128).into(),
-			beneficiary: X1(AccountIndex64 { index: 3, network: None }).into(),
+			beneficiary: [AccountIndex64 { index: 3, network: None }].into(),
 		},
 	]);
 	// Weight limit of 70 is needed.
 	let limit = <TestConfig as Config>::Weigher::weight(&mut message).unwrap();
 	assert_eq!(limit, Weight::from_parts(30, 30));
 
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Here, message.clone(), hash, limit);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(30, 30)));
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Here,
+		message.clone(),
+		&mut hash,
+		limit,
+		Weight::zero(),
+	);
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(30, 30) });
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![(Here, 7u128).into()]);
 	assert_eq!(asset_list(Here), vec![(Here, 4u128).into()]);
 	assert_eq!(sent_xcm(), vec![]);
 
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Here, message.clone(), hash, limit);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(30, 30), XcmError::NotWithdrawable));
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Here,
+		message.clone(),
+		&mut hash,
+		limit,
+		Weight::zero(),
+	);
+	assert_eq!(
+		r,
+		Outcome::Incomplete { used: Weight::from_parts(30, 30), error: XcmError::NotWithdrawable }
+	);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![(Here, 10u128).into()]);
 	assert_eq!(asset_list(Here), vec![(Here, 1u128).into()]);
 	assert_eq!(sent_xcm(), vec![]);
 
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Here, message.clone(), hash, limit);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(20, 20), XcmError::NotWithdrawable));
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Here,
+		message.clone(),
+		&mut hash,
+		limit,
+		Weight::zero(),
+	);
+	assert_eq!(
+		r,
+		Outcome::Incomplete { used: Weight::from_parts(20, 20), error: XcmError::NotWithdrawable }
+	);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![(Here, 11u128).into()]);
 	assert_eq!(asset_list(Here), vec![]);
 	assert_eq!(sent_xcm(), vec![]);
 
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Here, message, hash, limit);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::NotWithdrawable));
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Here,
+		message,
+		&mut hash,
+		limit,
+		Weight::zero(),
+	);
+	assert_eq!(
+		r,
+		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::NotWithdrawable }
+	);
 	assert_eq!(asset_list(AccountIndex64 { index: 3, network: None }), vec![(Here, 11u128).into()]);
 	assert_eq!(asset_list(Here), vec![]);
 	assert_eq!(sent_xcm(), vec![]);
@@ -148,8 +181,8 @@ fn weight_bounds_should_respect_instructions_limit() {
 
 #[test]
 fn weight_trader_tuple_should_work() {
-	let para_1: MultiLocation = Parachain(1).into();
-	let para_2: MultiLocation = Parachain(2).into();
+	let para_1: Location = Parachain(1).into();
+	let para_2: Location = Parachain(2).into();
 
 	parameter_types! {
 		pub static HereWeightPrice: (AssetId, u128, u128) =
@@ -186,7 +219,11 @@ fn weight_trader_tuple_should_work() {
 	let mut traders = Traders::new();
 	// trader one failed; trader two buys weight
 	assert_eq!(
-		traders.buy_weight(Weight::from_parts(5, 5), fungible_multi_asset(para_1, 10).into(), &ctx),
+		traders.buy_weight(
+			Weight::from_parts(5, 5),
+			fungible_multi_asset(para_1.clone(), 10).into(),
+			&ctx
+		),
 		Ok(vec![].into()),
 	);
 	// trader two refunds

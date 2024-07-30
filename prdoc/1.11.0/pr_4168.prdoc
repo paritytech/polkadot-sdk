@@ -1,0 +1,8 @@
+title: Stabilize chianHead RPC class to version 1
+
+doc:
+  - audience: Node Dev
+    description: |
+      The chainHead RPC API is stabilized to version 1.
+
+crates: [ ]

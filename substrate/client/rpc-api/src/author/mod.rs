@@ -18,7 +18,8 @@
 
 //! Substrate block-author/full-node API.
 
-use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use error::Error;
+use jsonrpsee::proc_macros::rpc;
 use sc_transaction_pool_api::TransactionStatus;
 use sp_core::Bytes;
 
@@ -26,7 +27,7 @@ pub mod error;
 pub mod hash;
 
 /// Output of [`AuthorApiServer::rotate_keys_with_owner`].
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct GeneratedSessionKeys {
 	/// The public session keys for registering them on chain.
 	pub keys: Bytes,
@@ -44,15 +45,15 @@ pub struct GeneratedSessionKeys {
 pub trait AuthorApi<Hash, BlockHash> {
 	/// Submit hex-encoded extrinsic for inclusion in block.
 	#[method(name = "author_submitExtrinsic")]
-	async fn submit_extrinsic(&self, extrinsic: Bytes) -> RpcResult<Hash>;
+	async fn submit_extrinsic(&self, extrinsic: Bytes) -> Result<Hash, Error>;
 
 	/// Insert a key into the keystore.
 	#[method(name = "author_insertKey")]
-	fn insert_key(&self, key_type: String, suri: String, public: Bytes) -> RpcResult<()>;
+	fn insert_key(&self, key_type: String, suri: String, public: Bytes) -> Result<(), Error>;
 
 	/// Generate new session keys and returns the corresponding public keys.
 	#[method(name = "author_rotateKeys")]
-	fn rotate_keys(&self) -> RpcResult<Bytes>;
+	fn rotate_keys(&self) -> Result<Bytes, Error>;
 
 	/// Generate new session keys and returns the corresponding public keys.
 	///
@@ -61,7 +62,7 @@ pub trait AuthorApi<Hash, BlockHash> {
 	/// id of the account registering the returned public session keys. The actual data to pass for
 	/// `owner` depends on the runtime logic verifying the `proof`.
 	#[method(name = "author_rotateKeysWithOwner")]
-	fn rotate_keys_with_owner(&self, owner: Bytes) -> RpcResult<GeneratedSessionKeys>;
+	fn rotate_keys_with_owner(&self, owner: Bytes) -> Result<GeneratedSessionKeys, Error>;
 
 	/// Checks if the keystore has private keys for the given session public keys.
 	///
@@ -69,24 +70,24 @@ pub trait AuthorApi<Hash, BlockHash> {
 	///
 	/// Returns `true` iff all private keys could be found.
 	#[method(name = "author_hasSessionKeys")]
-	fn has_session_keys(&self, session_keys: Bytes) -> RpcResult<bool>;
+	fn has_session_keys(&self, session_keys: Bytes) -> Result<bool, Error>;
 
 	/// Checks if the keystore has private keys for the given public key and key type.
 	///
 	/// Returns `true` if a private key could be found.
 	#[method(name = "author_hasKey")]
-	fn has_key(&self, public_key: Bytes, key_type: String) -> RpcResult<bool>;
+	fn has_key(&self, public_key: Bytes, key_type: String) -> Result<bool, Error>;
 
 	/// Returns all pending extrinsics, potentially grouped by sender.
 	#[method(name = "author_pendingExtrinsics")]
-	fn pending_extrinsics(&self) -> RpcResult<Vec<Bytes>>;
+	fn pending_extrinsics(&self) -> Result<Vec<Bytes>, Error>;
 
 	/// Remove given extrinsic from the pool and temporarily ban it to prevent reimporting.
 	#[method(name = "author_removeExtrinsic")]
 	fn remove_extrinsic(
 		&self,
 		bytes_or_hash: Vec<hash::ExtrinsicOrHash<Hash>>,
-	) -> RpcResult<Vec<Hash>>;
+	) -> Result<Vec<Hash>, Error>;
 
 	/// Submit an extrinsic to watch.
 	///

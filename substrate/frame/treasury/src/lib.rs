@@ -76,20 +76,25 @@ mod benchmarking;
 #[cfg(test)]
 mod tests;
 pub mod weights;
+use core::marker::PhantomData;
+
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::ArgumentsFactory;
+
+extern crate alloc;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
+use alloc::{boxed::Box, collections::btree_map::BTreeMap};
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
 	Permill, RuntimeDebug,
 };
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use frame_support::{
-	print,
+	dispatch::{DispatchResult, DispatchResultWithPostInfo},
+	ensure, print,
 	traits::{
 		tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
 		ReservableCurrency, WithdrawReasons,
@@ -202,31 +207,12 @@ pub mod pallet {
 		/// The staking balance.
 		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 
-		/// Origin from which approvals must come.
-		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
 		/// Origin from which rejections must come.
 		type RejectOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-		/// Handler for the unbalanced decrease when slashing for a rejected proposal or bounty.
-		type OnSlash: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
-
-		/// Fraction of a proposal's value that should be bonded in order to place the proposal.
-		/// An accepted proposal gets these back. A rejected proposal does not.
-		#[pallet::constant]
-		type ProposalBond: Get<Permill>;
-
-		/// Minimum amount of funds that should be placed in a deposit for making a proposal.
-		#[pallet::constant]
-		type ProposalBondMinimum: Get<BalanceOf<Self, I>>;
-
-		/// Maximum amount of funds that should be placed in a deposit for making a proposal.
-		#[pallet::constant]
-		type ProposalBondMaximum: Get<Option<BalanceOf<Self, I>>>;
 
 		/// Period between successive spends.
 		#[pallet::constant]
@@ -342,7 +328,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<(T, I)>,
+		_config: core::marker::PhantomData<(T, I)>,
 	}
 
 	#[pallet::genesis_build]
@@ -360,14 +346,10 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
-		/// New proposal.
-		Proposed { proposal_index: ProposalIndex },
 		/// We have ended a spend period and will now allocate funds.
 		Spending { budget_remaining: BalanceOf<T, I> },
 		/// Some funds have been allocated.
 		Awarded { proposal_index: ProposalIndex, award: BalanceOf<T, I>, account: T::AccountId },
-		/// A proposal was rejected; funds were slashed.
-		Rejected { proposal_index: ProposalIndex, slashed: BalanceOf<T, I> },
 		/// Some of our funds have been burnt.
 		Burnt { burnt_funds: BalanceOf<T, I> },
 		/// Spending has finished; this is the amount that rolls over until next spend.
@@ -405,8 +387,6 @@ pub mod pallet {
 	/// Error for the treasury pallet.
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
-		/// Proposer's balance is too low.
-		InsufficientProposersBalance,
 		/// No proposal, bounty or spend at that index.
 		InvalidIndex,
 		/// Too many approvals in the queue.
@@ -456,6 +436,14 @@ pub mod pallet {
 				Weight::zero()
 			}
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(
+			_: frame_system::pallet_prelude::BlockNumberFor<T>,
+		) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()?;
+			Ok(())
+		}
 	}
 
 	#[derive(Default)]
@@ -465,123 +453,6 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		/// Put forward a suggestion for spending.
-		///
-		/// ## Dispatch Origin
-		///
-		/// Must be signed.
-		///
-		/// ## Details
-		/// A deposit proportional to the value is reserved and slashed if the proposal is rejected.
-		/// It is returned once the proposal is awarded.
-		///
-		/// ### Complexity
-		/// - O(1)
-		///
-		/// ## Events
-		///
-		/// Emits [`Event::Proposed`] if successful.
-		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::propose_spend())]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "`propose_spend` will be removed in February 2024. Use `spend` instead."
-		)]
-		pub fn propose_spend(
-			origin: OriginFor<T>,
-			#[pallet::compact] value: BalanceOf<T, I>,
-			beneficiary: AccountIdLookupOf<T>,
-		) -> DispatchResult {
-			let proposer = ensure_signed(origin)?;
-			let beneficiary = T::Lookup::lookup(beneficiary)?;
-
-			let bond = Self::calculate_bond(value);
-			T::Currency::reserve(&proposer, bond)
-				.map_err(|_| Error::<T, I>::InsufficientProposersBalance)?;
-
-			let c = Self::proposal_count();
-			<ProposalCount<T, I>>::put(c + 1);
-			<Proposals<T, I>>::insert(c, Proposal { proposer, value, beneficiary, bond });
-
-			Self::deposit_event(Event::Proposed { proposal_index: c });
-			Ok(())
-		}
-
-		/// Reject a proposed spend.
-		///
-		/// ## Dispatch Origin
-		///
-		/// Must be [`Config::RejectOrigin`].
-		///
-		/// ## Details
-		/// The original deposit will be slashed.
-		///
-		/// ### Complexity
-		/// - O(1)
-		///
-		/// ## Events
-		///
-		/// Emits [`Event::Rejected`] if successful.
-		#[pallet::call_index(1)]
-		#[pallet::weight((T::WeightInfo::reject_proposal(), DispatchClass::Operational))]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "`reject_proposal` will be removed in February 2024. Use `spend` instead."
-		)]
-		pub fn reject_proposal(
-			origin: OriginFor<T>,
-			#[pallet::compact] proposal_id: ProposalIndex,
-		) -> DispatchResult {
-			T::RejectOrigin::ensure_origin(origin)?;
-
-			let proposal =
-				<Proposals<T, I>>::take(&proposal_id).ok_or(Error::<T, I>::InvalidIndex)?;
-			let value = proposal.bond;
-			let imbalance = T::Currency::slash_reserved(&proposal.proposer, value).0;
-			T::OnSlash::on_unbalanced(imbalance);
-
-			Self::deposit_event(Event::<T, I>::Rejected {
-				proposal_index: proposal_id,
-				slashed: value,
-			});
-			Ok(())
-		}
-
-		/// Approve a proposal.
-		///
-		/// ## Dispatch Origin
-		///
-		/// Must be [`Config::ApproveOrigin`].
-		///
-		/// ## Details
-		///
-		/// At a later time, the proposal will be allocated to the beneficiary and the original
-		/// deposit will be returned.
-		///
-		/// ### Complexity
-		///  - O(1).
-		///
-		/// ## Events
-		///
-		/// No events are emitted from this dispatch.
-		#[pallet::call_index(2)]
-		#[pallet::weight((T::WeightInfo::approve_proposal(T::MaxApprovals::get()), DispatchClass::Operational))]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "`approve_proposal` will be removed in February 2024. Use `spend` instead."
-		)]
-		pub fn approve_proposal(
-			origin: OriginFor<T>,
-			#[pallet::compact] proposal_id: ProposalIndex,
-		) -> DispatchResult {
-			T::ApproveOrigin::ensure_origin(origin)?;
-
-			ensure!(<Proposals<T, I>>::contains_key(proposal_id), Error::<T, I>::InvalidIndex);
-			Approvals::<T, I>::try_append(proposal_id)
-				.map_err(|_| Error::<T, I>::TooManyApprovals)?;
-			Ok(())
-		}
-
 		/// Propose and approve a spend of treasury funds.
 		///
 		/// ## Dispatch Origin
@@ -612,7 +483,7 @@ pub mod pallet {
 			with_context::<SpendContext<BalanceOf<T, I>>, _>(|v| {
 				let context = v.or_default();
 
-				// We group based on `max_amount`, to dinstinguish between different kind of
+				// We group based on `max_amount`, to distinguish between different kind of
 				// origins. (assumes that all origins have different `max_amount`)
 				//
 				// Worst case is that we reject some "valid" request.
@@ -783,7 +654,7 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be signed.
+		/// Must be signed
 		///
 		/// ## Details
 		///
@@ -923,15 +794,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::PalletId::get().into_account_truncating()
 	}
 
-	/// The needed bond for a proposal whose spend is `value`.
-	fn calculate_bond(value: BalanceOf<T, I>) -> BalanceOf<T, I> {
-		let mut r = T::ProposalBondMinimum::get().max(T::ProposalBond::get() * value);
-		if let Some(m) = T::ProposalBondMaximum::get() {
-			r = r.min(m);
-		}
-		r
-	}
-
 	/// Spend some money! returns number of approvals before spend.
 	pub fn spend_funds() -> Weight {
 		let mut total_weight = Weight::zero();
@@ -1020,6 +882,85 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			// Must never be less than 0 but better be safe.
 			.saturating_sub(T::Currency::minimum_balance())
 	}
+
+	/// Ensure the correctness of the state of this pallet.
+	#[cfg(any(feature = "try-runtime", test))]
+	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_proposals()?;
+		Self::try_state_spends()?;
+
+		Ok(())
+	}
+
+	/// ### Invariants of proposal storage items
+	///
+	/// 1. [`ProposalCount`] >= Number of elements in [`Proposals`].
+	/// 2. Each entry in [`Proposals`] should be saved under a key strictly less than current
+	/// [`ProposalCount`].
+	/// 3. Each [`ProposalIndex`] contained in [`Approvals`] should exist in [`Proposals`].
+	/// Note, that this automatically implies [`Approvals`].count() <= [`Proposals`].count().
+	#[cfg(any(feature = "try-runtime", test))]
+	fn try_state_proposals() -> Result<(), sp_runtime::TryRuntimeError> {
+		let current_proposal_count = ProposalCount::<T, I>::get();
+		ensure!(
+			current_proposal_count as usize >= Proposals::<T, I>::iter().count(),
+			"Actual number of proposals exceeds `ProposalCount`."
+		);
+
+		Proposals::<T, I>::iter_keys().try_for_each(|proposal_index| -> DispatchResult {
+			ensure!(
+				current_proposal_count as u32 > proposal_index,
+				"`ProposalCount` should by strictly greater than any ProposalIndex used as a key for `Proposals`."
+			);
+			Ok(())
+		})?;
+
+		Approvals::<T, I>::get()
+			.iter()
+			.try_for_each(|proposal_index| -> DispatchResult {
+				ensure!(
+					Proposals::<T, I>::contains_key(proposal_index),
+					"Proposal indices in `Approvals` must also be contained in `Proposals`."
+				);
+				Ok(())
+			})?;
+
+		Ok(())
+	}
+
+	/// ## Invariants of spend storage items
+	///
+	/// 1. [`SpendCount`] >= Number of elements in [`Spends`].
+	/// 2. Each entry in [`Spends`] should be saved under a key strictly less than current
+	/// [`SpendCount`].
+	/// 3. For each spend entry contained in [`Spends`] we should have spend.expire_at
+	/// > spend.valid_from.
+	#[cfg(any(feature = "try-runtime", test))]
+	fn try_state_spends() -> Result<(), sp_runtime::TryRuntimeError> {
+		let current_spend_count = SpendCount::<T, I>::get();
+		ensure!(
+			current_spend_count as usize >= Spends::<T, I>::iter().count(),
+			"Actual number of spends exceeds `SpendCount`."
+		);
+
+		Spends::<T, I>::iter_keys().try_for_each(|spend_index| -> DispatchResult {
+			ensure!(
+				current_spend_count > spend_index,
+				"`SpendCount` should by strictly greater than any SpendIndex used as a key for `Spends`."
+			);
+			Ok(())
+		})?;
+
+		Spends::<T, I>::iter().try_for_each(|(_index, spend)| -> DispatchResult {
+			ensure!(
+				spend.valid_from < spend.expire_at,
+				"Spend cannot expire before it becomes valid."
+			);
+			Ok(())
+		})?;
+
+		Ok(())
+	}
 }
 
 impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Pallet<T, I> {
@@ -1030,5 +971,17 @@ impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Palle
 		let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
 
 		Self::deposit_event(Event::Deposit { value: numeric_amount });
+	}
+}
+
+/// TypedGet implementation to get the AccountId of the Treasury.
+pub struct TreasuryAccountId<R>(PhantomData<R>);
+impl<R> sp_runtime::traits::TypedGet for TreasuryAccountId<R>
+where
+	R: crate::Config,
+{
+	type Type = <R as frame_system::Config>::AccountId;
+	fn get() -> Self::Type {
+		<crate::Pallet<R>>::account_id()
 	}
 }

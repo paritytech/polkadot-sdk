@@ -19,6 +19,7 @@
 
 use super::*;
 use crate::Pallet as Referenda;
+use alloc::{vec, vec::Vec};
 use assert_matches::assert_matches;
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, BenchmarkError,
@@ -632,7 +633,7 @@ benchmarks_instance_pallet! {
 	}
 
 	set_some_metadata {
-		use sp_std::borrow::Cow;
+		use alloc::borrow::Cow;
 		let origin = T::SubmitOrigin::try_successful_origin(&RawOrigin::Root.into())
 			.expect("SubmitOrigin has no successful origin required for the benchmark");
 		let index = create_referendum::<T, I>(origin.clone());
@@ -643,7 +644,7 @@ benchmarks_instance_pallet! {
 	}
 
 	clear_metadata {
-		use sp_std::borrow::Cow;
+		use alloc::borrow::Cow;
 		let origin = T::SubmitOrigin::try_successful_origin(&RawOrigin::Root.into())
 			.expect("SubmitOrigin has no successful origin required for the benchmark");
 		let index = create_referendum::<T, I>(origin.clone());

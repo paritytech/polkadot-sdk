@@ -16,12 +16,12 @@
 
 use sp_runtime::traits::Block as BlockT;
 
-use polkadot_node_primitives::AvailableData;
+use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::messages::AvailabilityRecoveryMessage;
 
 use futures::{channel::oneshot, stream::FuturesUnordered, Future, FutureExt, StreamExt};
 
-use std::{collections::HashSet, pin::Pin};
+use std::{pin::Pin, sync::Arc};
 
 use crate::RecoveryHandle;
 
@@ -30,17 +30,14 @@ use crate::RecoveryHandle;
 /// This handles the candidate recovery and tracks the activate recoveries.
 pub(crate) struct ActiveCandidateRecovery<Block: BlockT> {
 	/// The recoveries that are currently being executed.
-	recoveries: FuturesUnordered<
-		Pin<Box<dyn Future<Output = (Block::Hash, Option<AvailableData>)> + Send>>,
-	>,
-	/// The block hashes of the candidates currently being recovered.
-	candidates: HashSet<Block::Hash>,
+	recoveries:
+		FuturesUnordered<Pin<Box<dyn Future<Output = (Block::Hash, Option<Arc<PoV>>)> + Send>>>,
 	recovery_handle: Box<dyn RecoveryHandle>,
 }
 
 impl<Block: BlockT> ActiveCandidateRecovery<Block> {
 	pub fn new(recovery_handle: Box<dyn RecoveryHandle>) -> Self {
-		Self { recoveries: Default::default(), candidates: Default::default(), recovery_handle }
+		Self { recoveries: Default::default(), recovery_handle }
 	}
 
 	/// Recover the given `candidate`.
@@ -57,18 +54,17 @@ impl<Block: BlockT> ActiveCandidateRecovery<Block> {
 					candidate.receipt.clone(),
 					candidate.session_index,
 					None,
+					None,
 					tx,
 				),
 				"ActiveCandidateRecovery",
 			)
 			.await;
 
-		self.candidates.insert(block_hash);
-
 		self.recoveries.push(
 			async move {
 				match rx.await {
-					Ok(Ok(res)) => (block_hash, Some(res)),
+					Ok(Ok(res)) => (block_hash, Some(res.pov)),
 					Ok(Err(error)) => {
 						tracing::debug!(
 							target: crate::LOG_TARGET,
@@ -93,11 +89,10 @@ impl<Block: BlockT> ActiveCandidateRecovery<Block> {
 
 	/// Waits for the next recovery.
 	///
-	/// If the returned [`AvailableData`] is `None`, it means that the recovery failed.
-	pub async fn wait_for_recovery(&mut self) -> (Block::Hash, Option<AvailableData>) {
+	/// If the returned [`PoV`] is `None`, it means that the recovery failed.
+	pub async fn wait_for_recovery(&mut self) -> (Block::Hash, Option<Arc<PoV>>) {
 		loop {
 			if let Some(res) = self.recoveries.next().await {
-				self.candidates.remove(&res.0);
 				return res
 			} else {
 				futures::pending!()

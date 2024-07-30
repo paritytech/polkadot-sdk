@@ -1,0 +1,14 @@
+title: "Deprecate `NativeElseWasmExecutor`"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Deprecates the `NativeElseWasmExecutor` as native execution is already
+      discouraged and should be removed entirely. The executor should be
+      replaced by `WasmExecutor` which can be found in `sc-executor`.
+
+      The `NativeElseWasmExecutor` will be removed at the end of 2024.
+
+crates:
+  - name: sc-executor
+    bump: minor

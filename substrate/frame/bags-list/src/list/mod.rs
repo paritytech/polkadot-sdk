@@ -25,7 +25,12 @@
 //! interface.
 
 use crate::Config;
+use alloc::{
+	boxed::Box,
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::{iter, marker::PhantomData};
 use frame_election_provider_support::ScoreProvider;
 use frame_support::{
 	defensive, ensure,
@@ -34,14 +39,15 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Bounded, Zero};
-use sp_std::{
-	boxed::Box,
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	iter,
-	marker::PhantomData,
-	prelude::*,
-};
 
+#[cfg(any(
+	test,
+	feature = "try-runtime",
+	feature = "fuzz",
+	feature = "std",
+	feature = "runtime-benchmarks"
+))]
+use alloc::vec::Vec;
 #[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
 use sp_runtime::TryRuntimeError;
 
@@ -274,7 +280,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 
 		let start_node = Node::<T, I>::get(start).ok_or(ListError::NodeNotFound)?;
 		let start_node_upper = start_node.bag_upper;
-		let start_bag = sp_std::iter::successors(start_node.next(), |prev| prev.next());
+		let start_bag = core::iter::successors(start_node.next(), |prev| prev.next());
 
 		let thresholds = T::BagThresholds::get();
 		let idx = thresholds.partition_point(|&threshold| start_node_upper > threshold);
@@ -341,7 +347,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		if !Self::contains(id) {
 			return Err(ListError::NodeNotFound)
 		}
-		let _ = Self::remove_many(sp_std::iter::once(id));
+		let _ = Self::remove_many(core::iter::once(id));
 		Ok(())
 	}
 
@@ -543,7 +549,16 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 			thresholds.into_iter().filter_map(|t| Bag::<T, I>::get(t))
 		};
 
-		let _ = active_bags.clone().try_for_each(|b| b.do_try_state())?;
+		// build map of bags and the corresponding nodes to avoid multiple lookups
+		let mut bags_map = BTreeMap::<T::Score, Vec<T::AccountId>>::new();
+
+		let _ = active_bags.clone().try_for_each(|b| {
+			bags_map.insert(
+				b.bag_upper,
+				b.iter().map(|n: Node<T, I>| n.id().clone()).collect::<Vec<_>>(),
+			);
+			b.do_try_state()
+		})?;
 
 		let nodes_in_bags_count =
 			active_bags.clone().fold(0u32, |acc, cur| acc + cur.iter().count() as u32);
@@ -554,6 +569,13 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		// check that all nodes are sane. We check the `ListNodes` storage item directly in case we
 		// have some "stale" nodes that are not in a bag.
 		for (_id, node) in crate::ListNodes::<T, I>::iter() {
+			// check that the node is in the correct bag
+			let expected_bag = bags_map
+				.get(&node.bag_upper)
+				.ok_or("bag not found for the node in active bags")?;
+			frame_support::ensure!(expected_bag.contains(node.id()), "node not found in the bag");
+
+			// verify node state
 			node.do_try_state()?
 		}
 
@@ -575,7 +597,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 			Box::new(iter)
 		} else {
 			// otherwise, insert it here.
-			Box::new(iter.chain(sp_std::iter::once(T::Score::max_value())))
+			Box::new(iter.chain(core::iter::once(T::Score::max_value())))
 		};
 
 		iter.filter_map(|t| {
@@ -657,7 +679,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 
 	/// Iterate over the nodes in this bag.
 	pub(crate) fn iter(&self) -> impl Iterator<Item = Node<T, I>> {
-		sp_std::iter::successors(self.head(), |prev| prev.next())
+		core::iter::successors(self.head(), |prev| prev.next())
 	}
 
 	/// Insert a new id into this bag.
@@ -788,13 +810,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 	#[cfg(feature = "std")]
 	#[allow(dead_code)]
 	pub fn std_iter(&self) -> impl Iterator<Item = Node<T, I>> {
-		sp_std::iter::successors(self.head(), |prev| prev.next())
-	}
-
-	/// Check if the bag contains a node with `id`.
-	#[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
-	fn contains(&self, id: &T::AccountId) -> bool {
-		self.iter().any(|n| n.id() == id)
+		core::iter::successors(self.head(), |prev| prev.next())
 	}
 }
 
@@ -900,10 +916,7 @@ impl<T: Config<I>, I: 'static> Node<T, I> {
 	#[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
 	fn do_try_state(&self) -> Result<(), TryRuntimeError> {
 		let expected_bag = Bag::<T, I>::get(self.bag_upper).ok_or("bag not found for node")?;
-
 		let id = self.id();
-
-		frame_support::ensure!(expected_bag.contains(id), "node does not exist in the bag");
 
 		let non_terminal_check = !self.is_terminal() &&
 			expected_bag.head.as_ref() != Some(id) &&

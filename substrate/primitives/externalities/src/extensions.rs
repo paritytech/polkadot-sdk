@@ -23,10 +23,12 @@
 //! It is required that each extension implements the [`Extension`] trait.
 
 use crate::Error;
-use sp_std::{
-	any::{Any, TypeId},
+use alloc::{
 	boxed::Box,
 	collections::btree_map::{BTreeMap, Entry},
+};
+use core::{
+	any::{Any, TypeId},
 	ops::DerefMut,
 };
 
@@ -78,16 +80,16 @@ macro_rules! decl_extension {
 		$vis struct $ext_name (pub $inner);
 
 		impl $crate::Extension for $ext_name {
-			fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+			fn as_mut_any(&mut self) -> &mut dyn core::any::Any {
 				self
 			}
 
-			fn type_id(&self) -> std::any::TypeId {
-				std::any::Any::type_id(self)
+			fn type_id(&self) -> core::any::TypeId {
+				core::any::Any::type_id(self)
 			}
 		}
 
-		impl std::ops::Deref for $ext_name {
+		impl core::ops::Deref for $ext_name {
 			type Target = $inner;
 
 			fn deref(&self) -> &Self::Target {
@@ -95,7 +97,7 @@ macro_rules! decl_extension {
 			}
 		}
 
-		impl std::ops::DerefMut for $ext_name {
+		impl core::ops::DerefMut for $ext_name {
 			fn deref_mut(&mut self) -> &mut Self::Target {
 				&mut self.0
 			}
@@ -115,12 +117,12 @@ macro_rules! decl_extension {
 		$vis struct $ext_name;
 
 		impl $crate::Extension for $ext_name {
-			fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+			fn as_mut_any(&mut self) -> &mut dyn core::any::Any {
 				self
 			}
 
-			fn type_id(&self) -> std::any::TypeId {
-				std::any::Any::type_id(self)
+			fn type_id(&self) -> core::any::TypeId {
+				core::any::Any::type_id(self)
 			}
 		}
 	}

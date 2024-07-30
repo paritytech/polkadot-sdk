@@ -1,0 +1,12 @@
+title: Add `ClaimQueue` wrapper
+
+doc:
+  - audience: Node Dev
+    description: |
+      Intoduces a new wrapper type: `ClaimQueueSnapshot`. It contains a snapshot of the `ClaimQueue`
+      at an arbitrary relay chain block. Two methods are exposed to allow access to the claims at 
+      specific depths.
+
+crates:
+ - name: polkadot-node-subsystem-util
+   bump: minor

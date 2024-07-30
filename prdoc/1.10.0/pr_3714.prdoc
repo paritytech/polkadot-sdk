@@ -1,0 +1,10 @@
+title: Handle legacy lease swaps on coretime
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      When a `registar::swap` extrinsic is executed it swaps two leases on the relay chain but the
+      broker chain never knows about this swap. This change notifies the broker chain via a XCM
+      message for a swap so that it can update its state.
+crates:
+  - name: pallet-broker

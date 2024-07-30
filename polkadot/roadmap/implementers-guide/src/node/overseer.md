@@ -108,11 +108,11 @@ way that the receiving subsystem can further address the communication to one of
 This communication prevents a certain class of race conditions. When the Overseer determines that it is time for
 subsystems to begin working on top of a particular relay-parent, it will dispatch a `ActiveLeavesUpdate` message to all
 subsystems to do so, and those messages will be handled asynchronously by those subsystems. Some subsystems will receive
-those messsages before others, and it is important that a message sent by subsystem A after receiving
+those messages before others, and it is important that a message sent by subsystem A after receiving
 `ActiveLeavesUpdate` message will arrive at subsystem B after its `ActiveLeavesUpdate` message. If subsystem A
 maintained an independent channel with subsystem B to communicate, it would be possible for subsystem B to handle the
 side message before the `ActiveLeavesUpdate` message, but it wouldn't have any logical course of action to take with the
-side message - leading to it being discarded or improperly handled. Well-architectured state machines should have a
+side message - leading to it being discarded or improperly handled. Well-architected state machines should have a
 single source of inputs, so that is what we do here.
 
 One exception is reasonable to make for responses to requests. A request should be made via the overseer in order to

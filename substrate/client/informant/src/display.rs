@@ -16,15 +16,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::OutputFormat;
-use ansi_term::Colour;
+use console::style;
 use log::info;
 use sc_client_api::ClientInfo;
 use sc_network::NetworkStatus;
-use sc_network_common::sync::{
-	warp::{WarpSyncPhase, WarpSyncProgress},
-	SyncState, SyncStatus,
-};
+use sc_network_sync::{SyncState, SyncStatus, WarpSyncPhase, WarpSyncProgress};
 use sp_runtime::traits::{Block as BlockT, CheckedDiv, NumberFor, Saturating, Zero};
 use std::{fmt, time::Instant};
 
@@ -50,19 +46,16 @@ pub struct InformantDisplay<B: BlockT> {
 	last_total_bytes_inbound: u64,
 	/// The last seen total of bytes sent.
 	last_total_bytes_outbound: u64,
-	/// The format to print output in.
-	format: OutputFormat,
 }
 
 impl<B: BlockT> InformantDisplay<B> {
 	/// Builds a new informant display system.
-	pub fn new(format: OutputFormat) -> InformantDisplay<B> {
+	pub fn new() -> InformantDisplay<B> {
 		InformantDisplay {
 			last_number: None,
 			last_update: Instant::now(),
 			last_total_bytes_inbound: 0,
 			last_total_bytes_outbound: 0,
-			format,
 		}
 	}
 
@@ -130,9 +123,10 @@ impl<B: BlockT> InformantDisplay<B> {
 					),
 				(_, Some(state), _) => (
 					"⚙️ ",
-					"Downloading state".into(),
+					"State sync".into(),
 					format!(
-						", {}%, {:.2} Mib",
+						", {}, {}%, {:.2} Mib",
+						state.phase,
 						state.percentage,
 						(state.size as f32) / (1024f32 * 1024f32)
 					),
@@ -144,37 +138,20 @@ impl<B: BlockT> InformantDisplay<B> {
 					("⚙️ ", format!("Preparing{}", speed), format!(", target=#{target}")),
 			};
 
-		if self.format.enable_color {
-			info!(
-				target: "substrate",
-				"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}",
-				level,
-				Colour::White.bold().paint(&status),
-				target,
-				Colour::White.bold().paint(format!("{}", num_connected_peers)),
-				Colour::White.bold().paint(format!("{}", best_number)),
-				best_hash,
-				Colour::White.bold().paint(format!("{}", finalized_number)),
-				info.chain.finalized_hash,
-				Colour::Green.paint(format!("⬇ {}", TransferRateFormat(avg_bytes_per_sec_inbound))),
-				Colour::Red.paint(format!("⬆ {}", TransferRateFormat(avg_bytes_per_sec_outbound))),
-			)
-		} else {
-			info!(
-				target: "substrate",
-				"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), ⬇ {} ⬆ {}",
-				level,
-				status,
-				target,
-				num_connected_peers,
-				best_number,
-				best_hash,
-				finalized_number,
-				info.chain.finalized_hash,
-				TransferRateFormat(avg_bytes_per_sec_inbound),
-				TransferRateFormat(avg_bytes_per_sec_outbound),
-			)
-		}
+		info!(
+			target: "substrate",
+			"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), ⬇ {} ⬆ {}",
+			level,
+			style(&status).white().bold(),
+			target,
+			style(num_connected_peers).white().bold(),
+			style(best_number).white().bold(),
+			best_hash,
+			style(finalized_number).white().bold(),
+			info.chain.finalized_hash,
+			style(TransferRateFormat(avg_bytes_per_sec_inbound)).green(),
+			style(TransferRateFormat(avg_bytes_per_sec_outbound)).red(),
+		)
 	}
 }
 

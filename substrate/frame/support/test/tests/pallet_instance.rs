@@ -15,7 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::any::TypeId;
 use frame_support::{
+	derive_impl,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays},
 	pallet_prelude::ValueQuery,
 	parameter_types,
@@ -25,13 +27,13 @@ use frame_support::{
 		UnfilteredDispatchable,
 	},
 	weights::Weight,
+	OrdNoBound, PartialOrdNoBound,
 };
 use sp_io::{
 	hashing::{blake2_128, twox_128, twox_64},
 	TestExternalities,
 };
 use sp_runtime::{DispatchError, ModuleError};
-use sp_std::any::TypeId;
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
@@ -192,7 +194,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<(T, I)>,
+		_config: core::marker::PhantomData<(T, I)>,
 		_myfield: u32,
 	}
 
@@ -207,6 +209,8 @@ pub mod pallet {
 		RuntimeDebugNoBound,
 		CloneNoBound,
 		PartialEqNoBound,
+		PartialOrdNoBound,
+		OrdNoBound,
 		Encode,
 		Decode,
 		scale_info::TypeInfo,
@@ -292,6 +296,7 @@ pub mod pallet2 {
 	}
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type RuntimeOrigin = RuntimeOrigin;
@@ -303,7 +308,6 @@ impl frame_system::Config for Runtime {
 	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU32<250>;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();

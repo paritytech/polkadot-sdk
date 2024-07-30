@@ -1,0 +1,11 @@
+error: Pallet indices are conflicting: Both pallets System and Pallet are at index 0
+  --> tests/runtime_ui/conflicting_pallet_index.rs:37:14
+   |
+37 |     pub type System = frame_system;
+   |              ^^^^^^
+
+error: Pallet indices are conflicting: Both pallets System and Pallet are at index 0
+  --> tests/runtime_ui/conflicting_pallet_index.rs:40:14
+   |
+40 |     pub type Pallet = pallet;
+   |              ^^^^^^

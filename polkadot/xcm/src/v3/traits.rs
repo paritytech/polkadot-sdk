@@ -17,18 +17,25 @@
 //! Cross-Consensus Message format data structures.
 
 use crate::v2::Error as OldError;
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::result;
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 pub use sp_weights::Weight;
 
 use super::*;
 
+// A simple trait to get the weight of some object.
+pub trait GetWeight<W> {
+	fn weight(&self) -> sp_weights::Weight;
+}
+
 /// Error codes used in XCM. The first errors codes have explicit indices and are part of the XCM
 /// format. Those trailing are merely part of the XCM implementation; there is no expectation that
 /// they will retain the same index over time.
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum Error {
 	// Errors that happen due to instructions being executed. These alone are defined in the
 	// XCM specification.
@@ -214,54 +221,9 @@ impl From<SendError> for Error {
 
 pub type Result = result::Result<(), Error>;
 
-/*
-TODO: XCMv4
 /// Outcome of an XCM execution.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
-pub enum Outcome {
-	/// Execution completed successfully; given weight was used.
-	Complete { used: Weight },
-	/// Execution started, but did not complete successfully due to the given error; given weight
-	/// was used.
-	Incomplete { used: Weight, error: Error },
-	/// Execution did not start due to the given error.
-	Error { error: Error },
-}
-
-impl Outcome {
-	pub fn ensure_complete(self) -> Result {
-		match self {
-			Outcome::Complete { .. } => Ok(()),
-			Outcome::Incomplete { error, .. } => Err(error),
-			Outcome::Error { error, .. } => Err(error),
-		}
-	}
-	pub fn ensure_execution(self) -> result::Result<Weight, Error> {
-		match self {
-			Outcome::Complete { used, .. } => Ok(used),
-			Outcome::Incomplete { used, .. } => Ok(used),
-			Outcome::Error { error, .. } => Err(error),
-		}
-	}
-	/// How much weight was used by the XCM execution attempt.
-	pub fn weight_used(&self) -> Weight {
-		match self {
-			Outcome::Complete { used, .. } => *used,
-			Outcome::Incomplete { used, .. } => *used,
-			Outcome::Error { .. } => Weight::zero(),
-		}
-	}
-}
-
-impl From<Error> for Outcome {
-	fn from(error: Error) -> Self {
-		Self::Error { error, maybe_id: None }
-	}
-}
-*/
-
-/// Outcome of an XCM execution.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Outcome {
 	/// Execution completed successfully; given weight was used.
 	Complete(Weight),
@@ -273,9 +235,9 @@ pub enum Outcome {
 }
 
 impl Outcome {
-	pub fn ensure_complete(self) -> Result {
+	pub fn ensure_complete(self) -> result::Result<Weight, Error> {
 		match self {
-			Outcome::Complete(_) => Ok(()),
+			Outcome::Complete(weight) => Ok(weight),
 			Outcome::Incomplete(_, e) => Err(e),
 			Outcome::Error(e) => Err(e),
 		}
@@ -334,8 +296,6 @@ pub trait ExecuteXcm<Call> {
 	///
 	/// The weight limit is a basic hard-limit and the implementation may place further
 	/// restrictions or requirements on weight and other aspects.
-	//	TODO: XCMv4
-	//	#[deprecated = "Use `prepare_and_execute` instead"]
 	fn execute_xcm(
 		origin: impl Into<MultiLocation>,
 		message: Xcm<Call>,
@@ -358,8 +318,6 @@ pub trait ExecuteXcm<Call> {
 	///
 	/// Some amount of `weight_credit` may be provided which, depending on the implementation, may
 	/// allow execution without associated payment.
-	//	TODO: XCMv4
-	//	#[deprecated = "Use `prepare_and_execute` instead"]
 	fn execute_xcm_in_credit(
 		origin: impl Into<MultiLocation>,
 		message: Xcm<Call>,
@@ -410,6 +368,7 @@ impl<C> ExecuteXcm<C> for () {
 
 /// Error result value when attempting to send an XCM message.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, scale_info::TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum SendError {
 	/// The message and destination combination was not recognized as being reachable.
 	///
@@ -448,7 +407,7 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 ///
 /// # Example
 /// ```rust
-/// # use parity_scale_codec::Encode;
+/// # use codec::Encode;
 /// # use staging_xcm::v3::{prelude::*, Weight};
 /// # use staging_xcm::VersionedXcm;
 /// # use std::convert::Infallible;
@@ -516,7 +475,7 @@ pub trait SendXcm {
 	/// Intermediate value which connects the two phases of the send operation.
 	type Ticket;
 
-	/// Check whether the given `_message` is deliverable to the given `_destination` and if so
+	/// Check whether the given `message` is deliverable to the given `destination` and if so
 	/// determine the cost which will be paid by this chain to do so, returning a `Validated` token
 	/// which can be used to enact delivery.
 	///

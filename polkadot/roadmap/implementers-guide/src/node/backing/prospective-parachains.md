@@ -1,5 +1,9 @@
 # Prospective Parachains
 
+> NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699
+
 ## Overview
 
 **Purpose:** Tracks and handles prospective parachain fragments and informs
@@ -92,20 +96,17 @@ prospective validation data. This is unlikely to change.
     been backed.
   - Sent by the Backing Subsystem after it successfully imports a
     statement giving a candidate the necessary quorum of backing votes.
-- `ProspectiveParachainsMessage::GetBackableCandidate`
-  - Get a backable candidate hash along with its relay parent for a given parachain,
-    under a given relay-parent (leaf) hash, which is a descendant of given candidate hashes.
+- `ProspectiveParachainsMessage::GetBackableCandidates`
+  - Get the requested number of backable candidate hashes along with their relay parent for a given
+    parachain,under a given relay-parent (leaf) hash, which are descendants of given candidate
+    hashes.
   - Sent by the Provisioner when requesting backable candidates, when
     selecting candidates for a given relay-parent.
-- `ProspectiveParachainsMessage::GetHypotheticalFrontier`
+- `ProspectiveParachainsMessage::GetHypotheticalMembership`
   - Gets the hypothetical frontier membership of candidates with the
     given properties under the specified active leaves' fragment trees.
   - Sent by the Backing Subsystem when sanity-checking whether a candidate can
     be seconded based on its hypothetical frontiers.
-- `ProspectiveParachainsMessage::GetTreeMembership`
-  - Gets the membership of the candidate in all fragment trees.
-  - Sent by the Backing Subsystem when it needs to update the candidates
-    seconded at various depths under new active leaves.
 - `ProspectiveParachainsMessage::GetMinimumRelayParents`
   - Gets the minimum accepted relay-parent number for each para in the
     fragment tree for the given relay-chain block hash.

@@ -423,7 +423,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			#(#cfg_attrs)*
 			{
 				<#full_ident as #frame_support::storage::StorageEntryMetadataBuilder>::build_metadata(
-					#frame_support::__private::sp_std::vec![
+					#frame_support::__private::vec![
 						#( #docs, )*
 					],
 					&mut entries,
@@ -822,11 +822,72 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 		)
 	});
 
+	// aggregated where clause of all storage types and the whole pallet.
 	let mut where_clauses = vec![&def.config.where_clause];
 	where_clauses.extend(def.storages.iter().map(|storage| &storage.where_clause));
 	let completed_where_clause = super::merge_where_clauses(&where_clauses);
 	let type_impl_gen = &def.type_impl_generics(proc_macro2::Span::call_site());
 	let type_use_gen = &def.type_use_generics(proc_macro2::Span::call_site());
+
+	let try_decode_entire_state = {
+		let mut storage_names = def
+			.storages
+			.iter()
+			.filter_map(|storage| {
+				// A little hacky; don't generate for cfg gated storages to not get compile errors
+				// when building "frame-feature-testing" gated storages in the "frame-support-test"
+				// crate.
+				if storage.try_decode && storage.cfg_attrs.is_empty() {
+					let ident = &storage.ident;
+					let gen = &def.type_use_generics(storage.attr_span);
+					Some(quote::quote_spanned!(storage.attr_span => #ident<#gen> ))
+				} else {
+					None
+				}
+			})
+			.collect::<Vec<_>>();
+		storage_names.sort_by_cached_key(|ident| ident.to_string());
+
+		quote::quote!(
+			#frame_support::try_runtime_enabled! {
+				impl<#type_impl_gen> #frame_support::traits::TryDecodeEntireStorage
+				for #pallet_ident<#type_use_gen> #completed_where_clause
+				{
+					fn try_decode_entire_state() -> Result<usize, #frame_support::__private::Vec<#frame_support::traits::TryDecodeEntireStorageError>> {
+						let pallet_name = <<T as #frame_system::Config>::PalletInfo	as #frame_support::traits::PalletInfo>
+							::name::<#pallet_ident<#type_use_gen>>()
+							.expect("Every active pallet has a name in the runtime; qed");
+
+						#frame_support::__private::log::debug!(target: "runtime::try-decode-state", "trying to decode pallet: {pallet_name}");
+
+						// NOTE: for now, we have to exclude storage items that are feature gated.
+						let mut errors = #frame_support::__private::Vec::new();
+						let mut decoded = 0usize;
+
+						#(
+							#frame_support::__private::log::debug!(target: "runtime::try-decode-state", "trying to decode storage: \
+							{pallet_name}::{}", stringify!(#storage_names));
+
+							match <#storage_names as #frame_support::traits::TryDecodeEntireStorage>::try_decode_entire_state() {
+								Ok(count) => {
+									decoded += count;
+								},
+								Err(err) => {
+									errors.extend(err);
+								},
+							}
+						)*
+
+						if errors.is_empty() {
+							Ok(decoded)
+						} else {
+							Err(errors)
+						}
+					}
+				}
+			}
+		)
+	};
 
 	quote::quote!(
 		impl<#type_impl_gen> #pallet_ident<#type_use_gen>
@@ -842,7 +903,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 						.expect("No name found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`."),
 					entries: {
 						#[allow(unused_mut)]
-						let mut entries = #frame_support::__private::sp_std::vec![];
+						let mut entries = #frame_support::__private::vec![];
 						#( #entries_builder )*
 						entries
 					},
@@ -853,5 +914,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 		#( #getters )*
 		#( #prefix_structs )*
 		#( #on_empty_structs )*
+
+		#try_decode_entire_state
 	)
 }

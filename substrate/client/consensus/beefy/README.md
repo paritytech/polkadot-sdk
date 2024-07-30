@@ -104,7 +104,7 @@ shortcuts:
 ## Mental Model
 
 BEEFY should be considered as an extra voting round done by GRANDPA validators for the current
-best finalized block. Similarily to how GRANDPA is lagging behind best produced (non-finalized)
+best finalized block. Similarly to how GRANDPA is lagging behind best produced (non-finalized)
 block, BEEFY is going to lag behind best GRANDPA (finalized) block.
 
 ```
@@ -297,12 +297,12 @@ periodically on the global topic. Let's now dive into description of the message
   - Justification is considered worthwhile to gossip when:
     - It is for a recent (implementation specific) round or the latest mandatory round.
     - All signatures are valid and there is at least `2/3rd + 1` of them.
-    - Signatorees are part of the current validator set.
+    - Signatories are part of the current validator set.
   - Mandatory justifications should be announced periodically.
 
 ## Misbehavior
 
-Similarily to other PoS protocols, BEEFY considers casting two different votes in the same round a
+Similarly to other PoS protocols, BEEFY considers casting two different votes in the same round a
 misbehavior. I.e. for a particular `round_number`, the validator produces signatures for 2 different
 `Commitment`s and broadcasts them. This is called **equivocation**.
 

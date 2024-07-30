@@ -1,0 +1,5 @@
+error: missing `#[pallet::task_weight(..)]` attribute
+  --> tests/pallet_ui/task_missing_weight.rs:34:6
+   |
+34 |         fn foo() -> DispatchResult {
+   |            ^^^
