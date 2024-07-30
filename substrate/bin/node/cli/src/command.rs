@@ -86,7 +86,7 @@ impl SubstrateCli for Cli {
 		properties.insert("tokenDecimals".to_string(), 12.into());
 		properties.insert("tokenSymbol".to_string(), "SUB-DEV".into());
 
-		let mut builder = chain_spec::ChainSpec::builder(runtime.as_ref(), Default::default())
+		let mut builder = chain_spec::ChainSpec::builder(runtime, Default::default())
 			.with_name("Development")
 			.with_id("dev")
 			.with_chain_type(ChainType::Development)
