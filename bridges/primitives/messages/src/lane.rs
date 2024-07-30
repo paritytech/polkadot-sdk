@@ -121,7 +121,7 @@ enum InnerLaneId {
 }
 
 impl Encode for InnerLaneId {
-	fn encode(&self) -> Vec<u8> {
+	fn encode(&self) -> sp_std::vec::Vec<u8> {
 		match self {
 			InnerLaneId::Array(array) => array.encode(),
 			InnerLaneId::Hash(hash) => hash.encode(),
@@ -214,6 +214,29 @@ mod tests {
 			hex::encode(LaneId(InnerLaneId::Hash(H256::from([1u8; 32]))).as_ref()),
 		);
 		assert_eq!("00000001", hex::encode(LaneId(InnerLaneId::Array([0, 0, 0, 1])).as_ref()),);
+	}
+
+	#[test]
+	fn lane_id_encode_decode_works() {
+		let test_encode_decode = |expected_hex, lane_id: LaneId| {
+			let enc = lane_id.encode();
+			let decoded_lane_id = LaneId::decode(&mut &enc[..]).expect("decodable");
+			assert_eq!(lane_id, decoded_lane_id);
+
+			assert_eq!(expected_hex, hex::encode(lane_id.as_ref()),);
+			assert_eq!(expected_hex, hex::encode(decoded_lane_id.as_ref()),);
+
+			let hex_bytes = hex::decode(expected_hex).expect("valid hex");
+			let hex_decoded_lane_id = LaneId::decode(&mut &hex_bytes[..]).expect("decodable");
+			assert_eq!(hex_decoded_lane_id, lane_id);
+			assert_eq!(hex_decoded_lane_id, decoded_lane_id);
+		};
+
+		test_encode_decode(
+			"0101010101010101010101010101010101010101010101010101010101010101",
+			LaneId(InnerLaneId::Hash(H256::from([1u8; 32]))),
+		);
+		test_encode_decode("00000001", LaneId(InnerLaneId::Array([0, 0, 0, 1])));
 	}
 
 	#[test]

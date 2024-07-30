@@ -519,26 +519,6 @@ pub mod pallet {
 		QueryKind = OptionQuery,
 	>;
 
-	// TODO:(bridges-v2) - do we still need this? FAIL-CI
-	/// Map of lane id => is congested signal sent. It is managed by the
-	/// `bridge_runtime_common::LocalXcmQueueManager`.
-	///
-	/// **bridges-v1**: this map is a temporary hack and will be dropped in the `v2`. We can emulate
-	/// a storage map using `sp_io::unhashed` storage functions, but then benchmarks are not
-	/// accounting its `proof_size`, so it is missing from the final weights. So we need to make it
-	/// a map inside some pallet. We could use a simply value instead of map here, because
-	/// in `v1` we'll only have a single lane. But in the case of adding another lane before `v2`,
-	/// it'll be easier to deal with the isolated storage map instead.
-	#[pallet::storage]
-	pub type OutboundLanesCongestedSignals<T: Config<I>, I: 'static = ()> = StorageMap<
-		Hasher = Blake2_128Concat,
-		Key = LaneId,
-		Value = bool,
-		QueryKind = ValueQuery,
-		OnEmpty = GetDefault,
-		MaxValues = MaybeOutboundLanesCount<T, I>,
-	>;
-
 	/// All queued outbound messages.
 	#[pallet::storage]
 	pub type OutboundMessages<T: Config<I>, I: 'static = ()> =
