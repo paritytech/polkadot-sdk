@@ -756,50 +756,97 @@ mod tests {
 	}
 
 	#[test]
-	fn test_unscheduled_select_next_priority() {
+	fn test_unscheduled_priority_distribution() {
 		use PvfExecPriority::*;
 
+		let mut priorities = vec![];
+
 		let mut unscheduled = Unscheduled::new();
+		for _ in 0..Unscheduled::MAX_COUNT {
+			unscheduled.add(create_execution_job(), Dispute);
+			unscheduled.add(create_execution_job(), Approval);
+			unscheduled.add(create_execution_job(), BackingSystemParas);
+			unscheduled.add(create_execution_job(), Backing);
+		}
 
-		// With empty counter
-		assert_eq!(unscheduled.select_next_priority(), Backing);
+		for _ in 0..Unscheduled::MAX_COUNT {
+			let priority = unscheduled.select_next_priority();
+			priorities.push(priority);
+			unscheduled.mark_scheduled(priority);
+		}
+
+		assert_eq!(priorities.iter().filter(|v| **v == Dispute).count(), 8);
+		assert_eq!(priorities.iter().filter(|v| **v == Approval).count(), 3);
+		assert_eq!(priorities.iter().filter(|v| **v == BackingSystemParas).count(), 1);
+	}
+
+	#[test]
+	fn test_unscheduled_priority_distribution_without_backing_system_paras() {
+		use PvfExecPriority::*;
+
+		let mut priorities = vec![];
+
+		let mut unscheduled = Unscheduled::new();
+		for _ in 0..Unscheduled::MAX_COUNT {
+			unscheduled.add(create_execution_job(), Dispute);
+			unscheduled.add(create_execution_job(), Approval);
+			unscheduled.add(create_execution_job(), Backing);
+		}
+
+		for _ in 0..Unscheduled::MAX_COUNT {
+			let priority = unscheduled.select_next_priority();
+			priorities.push(priority);
+			unscheduled.mark_scheduled(priority);
+		}
+
+		assert_eq!(priorities.iter().filter(|v| **v == Dispute).count(), 8);
+		assert_eq!(priorities.iter().filter(|v| **v == Approval).count(), 3);
+		assert_eq!(priorities.iter().filter(|v| **v == Backing).count(), 1);
+	}
+
+	#[test]
+	fn test_unscheduled_priority_distribution_without_disputes() {
+		use PvfExecPriority::*;
+
+		let mut priorities = vec![];
+
+		let mut unscheduled = Unscheduled::new();
+		for _ in 0..Unscheduled::MAX_COUNT {
+			unscheduled.add(create_execution_job(), Approval);
+			unscheduled.add(create_execution_job(), BackingSystemParas);
+			unscheduled.add(create_execution_job(), Backing);
+		}
+
+		for _ in 0..Unscheduled::MAX_COUNT {
+			let priority = unscheduled.select_next_priority();
+			priorities.push(priority);
+			unscheduled.mark_scheduled(priority);
+		}
+
+		assert_eq!(priorities.iter().filter(|v| **v == Approval).count(), 9);
+		assert_eq!(priorities.iter().filter(|v| **v == BackingSystemParas).count(), 2);
+		assert_eq!(priorities.iter().filter(|v| **v == Backing).count(), 1);
+	}
+
+	#[test]
+	fn test_unscheduled_priority_distribution_without_disputes_and_only_one_backing() {
+		use PvfExecPriority::*;
+
+		let mut priorities = vec![];
+
+		let mut unscheduled = Unscheduled::new();
+		for _ in 0..Unscheduled::MAX_COUNT {
+			unscheduled.add(create_execution_job(), Approval);
+		}
 		unscheduled.add(create_execution_job(), Backing);
-		assert_eq!(unscheduled.select_next_priority(), Backing);
-		unscheduled.add(create_execution_job(), BackingSystemParas);
-		assert_eq!(unscheduled.select_next_priority(), BackingSystemParas);
-		unscheduled.add(create_execution_job(), Approval);
-		assert_eq!(unscheduled.select_next_priority(), Approval);
-		unscheduled.add(create_execution_job(), Dispute);
-		assert_eq!(unscheduled.select_next_priority(), Dispute);
 
-		// Fulfill dispute jobs
-		unscheduled.mark_scheduled(Dispute);
-		assert_eq!(unscheduled.select_next_priority(), Approval);
+		for _ in 0..Unscheduled::MAX_COUNT {
+			let priority = unscheduled.select_next_priority();
+			priorities.push(priority);
+			unscheduled.mark_scheduled(priority);
+		}
 
-		// Remove dispute jobs
-		unscheduled.reset_counter();
-		unscheduled.get_mut(Dispute).unwrap().clear();
-		assert_eq!(unscheduled.select_next_priority(), Approval);
-
-		// Fulfill approval jobs
-		unscheduled.mark_scheduled(Approval);
-		assert_eq!(unscheduled.select_next_priority(), BackingSystemParas);
-
-		// Remove approval jobs
-		unscheduled.reset_counter();
-		unscheduled.get_mut(Approval).unwrap().clear();
-		assert_eq!(unscheduled.select_next_priority(), BackingSystemParas);
-
-		// Fulfill system parachains backing jobs
-		unscheduled.mark_scheduled(BackingSystemParas);
-		assert_eq!(unscheduled.select_next_priority(), Backing);
-
-		// Leave only approval jobs which are fulfilled
-		unscheduled.reset_counter();
-		unscheduled.get_mut(BackingSystemParas).unwrap().clear();
-		unscheduled.get_mut(Backing).unwrap().clear();
-		unscheduled.add(create_execution_job(), Approval);
-		unscheduled.mark_scheduled(Approval);
-		assert_eq!(unscheduled.select_next_priority(), Approval);
+		assert_eq!(priorities.iter().filter(|v| **v == Approval).count(), 11);
+		assert_eq!(priorities.iter().filter(|v| **v == Backing).count(), 1);
 	}
 }
