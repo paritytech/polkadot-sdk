@@ -166,7 +166,7 @@ where
 				SendError::Transport("BridgeValidateError")
 			})?;
 
-		Ok(((locations.bridge_id().clone(), bridge, bridge_message, id), price))
+		Ok(((*locations.bridge_id(), bridge, bridge_message, id), price))
 	}
 
 	fn deliver(

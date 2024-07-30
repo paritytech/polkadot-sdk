@@ -255,7 +255,7 @@ pub mod pallet {
 			LaneToBridge::<T, I>::try_mutate(lane_id, |bridge| match bridge {
 				Some(_) => Err(Error::<T, I>::BridgeAlreadyExists),
 				None => {
-					*bridge = Some(locations.bridge_id().clone());
+					*bridge = Some(*locations.bridge_id());
 					Ok(())
 				},
 			})?;
@@ -280,7 +280,7 @@ pub mod pallet {
 
 			// deposit `BridgeOpened` event
 			Self::deposit_event(Event::<T, I>::BridgeOpened {
-				bridge_id: locations.bridge_id().clone(),
+				bridge_id: *locations.bridge_id(),
 				bridge_deposit: deposit,
 				local_endpoint: Box::new(locations.bridge_origin_universal_location().clone()),
 				remote_endpoint: Box::new(
@@ -373,7 +373,7 @@ pub mod pallet {
 
 				// deposit the `ClosingBridge` event
 				Self::deposit_event(Event::<T, I>::ClosingBridge {
-					bridge_id: locations.bridge_id().clone(),
+					bridge_id: *locations.bridge_id(),
 					lane_id: bridge.lane_id,
 					pruned_messages,
 					enqueued_messages,
@@ -420,7 +420,7 @@ pub mod pallet {
 
 			// deposit the `BridgePruned` event
 			Self::deposit_event(Event::<T, I>::BridgePruned {
-				bridge_id: locations.bridge_id().clone(),
+				bridge_id: *locations.bridge_id(),
 				lane_id: bridge.lane_id,
 				bridge_deposit: released_deposit,
 				pruned_messages,
@@ -1049,7 +1049,7 @@ mod tests {
 					Some(&EventRecord {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::XcmOverBridge(Event::BridgeOpened {
-							bridge_id: locations.bridge_id().clone(),
+							bridge_id: *locations.bridge_id(),
 							bridge_deposit: expected_deposit,
 							local_endpoint: Box::new(
 								locations.bridge_origin_universal_location().clone()
@@ -1199,7 +1199,7 @@ mod tests {
 				Some(&EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::XcmOverBridge(Event::ClosingBridge {
-						bridge_id: locations.bridge_id().clone(),
+						bridge_id: *locations.bridge_id(),
 						lane_id: bridge.lane_id,
 						pruned_messages: 16,
 						enqueued_messages: 16,
@@ -1247,7 +1247,7 @@ mod tests {
 				Some(&EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::XcmOverBridge(Event::ClosingBridge {
-						bridge_id: locations.bridge_id().clone(),
+						bridge_id: *locations.bridge_id(),
 						lane_id: bridge.lane_id,
 						pruned_messages: 8,
 						enqueued_messages: 8,
@@ -1288,7 +1288,7 @@ mod tests {
 				Some(&EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::XcmOverBridge(Event::BridgePruned {
-						bridge_id: locations.bridge_id().clone(),
+						bridge_id: *locations.bridge_id(),
 						lane_id: bridge.lane_id,
 						bridge_deposit: expected_deposit,
 						pruned_messages: 8,
