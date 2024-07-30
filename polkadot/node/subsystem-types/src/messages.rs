@@ -444,6 +444,16 @@ pub enum NetworkBridgeTxMessage {
 		/// The peer set we want the connection on.
 		peer_set: PeerSet,
 	},
+
+	/// Extends the known validators set with new peers we already know the `Multiaddrs`, this is
+	/// usually needed for validators that change their address mid-session. It is usually called
+	/// after a ConnectToResolvedValidators at the beginning of the session.
+	AddToResolvedValidators {
+		/// Each entry corresponds to the addresses of an already resolved validator.
+		validator_addrs: Vec<HashSet<Multiaddr>>,
+		/// The peer set we want the connection on.
+		peer_set: PeerSet,
+	},
 }
 
 /// Availability Distribution Message.
