@@ -139,3 +139,73 @@ fn funds_are_locked() {
 		
 	})
 }
+
+#[test]
+fn funds_claim_works() {
+	new_test_ext().execute_with( || {
+		// Add 3 projects
+		let amount1 = 1_000_000 * BSX;
+		let amount2 = 1_200_000 * BSX;
+		let amount3 = 2_000_000 * BSX;
+		create_project(ALICE, amount1);
+		create_project(BOB, amount2);
+		create_project(DAVE, amount3);
+
+		// The Spendings Storage should be empty
+		assert_eq!(SpendingsCount::<Test>::get(), 0);
+		
+
+		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now = Epoch_Block + 1 
+		let mut now =
+			System::block_number().saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
+		run_to_block(now);
+
+
+		let project = Spendings::<Test>::get(0).unwrap();
+		let project_account = project.whitelisted_project.unwrap();
+		let balance_0 = <<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_account);
+		now = now.saturating_add(project.valid_from);
+		run_to_block(now);
+
+		assert_ok!(Distribution::claim_reward_for(
+			RawOrigin::Signed(EVE).into(),
+			project_account.clone(),
+		));
+		let balance_1 = <<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_account);
+		
+		assert!(balance_1 > balance_0);
+
+	})
+}
+
+#[test]
+fn funds_claim_fails_before_claim_period() {
+	new_test_ext().execute_with( || {
+		// Add 3 projects
+		let amount1 = 1_000_000 * BSX;
+		let amount2 = 1_200_000 * BSX;
+		let amount3 = 2_000_000 * BSX;
+		create_project(ALICE, amount1);
+		create_project(BOB, amount2);
+		create_project(DAVE, amount3);
+
+		// The Spendings Storage should be empty
+		assert_eq!(SpendingsCount::<Test>::get(), 0);
+		
+
+		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now = Epoch_Block + 1 
+		let now =
+			System::block_number().saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
+		run_to_block(now);
+
+
+		let project = Spendings::<Test>::get(0).unwrap();
+		let project_account = project.whitelisted_project.unwrap();
+
+		assert_noop!(Distribution::claim_reward_for(
+			RawOrigin::Signed(EVE).into(),
+			project_account.clone(),
+		), Error::<Test>::NotClaimingPeriod);
+		
+	})
+}
