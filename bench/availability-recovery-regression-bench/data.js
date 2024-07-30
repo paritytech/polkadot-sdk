@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722358624429,
+  "lastUpdate": 1722369258383,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -16379,6 +16379,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.942147604733332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Parth Mittal",
+            "username": "mittal-parth",
+            "email": "76661350+mittal-parth@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "7fbfc7e0cf22ba0b5340b2ce09e17fe7072c9b70",
+          "message": "Remove `pallet::getter` usage from the pallet-balances (#4967)\n\nAs per #3326, removes usage of the `pallet::getter` macro from the\nbalances pallet. The syntax `StorageItem::<T, I>::get()` should be used\ninstead.\n\nAlso, adds public functions for compatibility.\n\ncc @muraca\n\npolkadot address: 5GsLutpKjbzsbTphebs9Uy4YK6gTN47MAaz6njPktidjR5cp\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-07-30T18:10:20Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7fbfc7e0cf22ba0b5340b2ce09e17fe7072c9b70"
+        },
+        "date": 1722369227454,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.849444960733333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1719664547,
             "unit": "seconds"
           }
         ]
