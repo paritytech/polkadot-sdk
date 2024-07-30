@@ -16,10 +16,8 @@
 
 //! Relayer initialization functions.
 
-use console::style;
 use parking_lot::Mutex;
-use std::{cell::RefCell, fmt::Display};
-use sp_tracing::tracing_subscriber;
+use std::{cell::RefCell};
 use sp_tracing::tracing::Level;
 use sp_tracing::tracing_subscriber::fmt::time::OffsetTime;
 use sp_tracing::tracing_subscriber::fmt::SubscriberBuilder;
@@ -68,58 +66,4 @@ pub fn initialize_logger(with_timestamp: bool) {
 /// Initialize relay loop. Must only be called once per every loop task.
 pub(crate) fn initialize_loop(loop_name: String) {
 	LOOP_NAME.with(|g_loop_name| *g_loop_name.borrow_mut() = loop_name);
-}
-
-/// Returns loop name prefix to use in logs. The prefix is initialized with the `initialize_loop`
-/// call.
-fn loop_name_prefix() -> String {
-	// try_with to avoid panic outside of async-std task context
-	LOOP_NAME
-		.try_with(|loop_name| {
-			// using borrow is ok here, because loop is only initialized once (=> borrow_mut will
-			// only be called once)
-			let loop_name = loop_name.borrow();
-			if loop_name.is_empty() {
-				String::new()
-			} else {
-				format!("[{loop_name}] ")
-			}
-		})
-		.unwrap_or_else(|_| String::new())
-}
-
-enum Either<A, B> {
-	Left(A),
-	Right(B),
-}
-impl<A: Display, B: Display> Display for Either<A, B> {
-	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match self {
-			Self::Left(a) => write!(fmt, "{a}"),
-			Self::Right(b) => write!(fmt, "{b}"),
-		}
-	}
-}
-
-fn color_target(target: &str) -> impl Display + '_ {
-	if cfg!(windows) {
-		Either::Left(target)
-	} else {
-		Either::Right(style(target).black().bright().to_string())
-	}
-}
-
-fn color_level(level: log::Level) -> impl Display {
-	if cfg!(windows) {
-		Either::Left(level)
-	} else {
-		let s = level.to_string();
-		Either::Right(match level {
-			log::Level::Error => style(s).red().bright().bold().to_string(),
-			log::Level::Warn => style(s).yellow().bright().bold().to_string(),
-			log::Level::Info => style(s).green().bright().to_string(),
-			log::Level::Debug => style(s).cyan().bright().to_string(),
-			log::Level::Trace => style(s).blue().bright().to_string(),
-		})
-	}
 }
