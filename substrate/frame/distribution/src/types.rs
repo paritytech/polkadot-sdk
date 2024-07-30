@@ -42,7 +42,7 @@ pub struct SpendingInfo<T: Config> {
 	pub valid_from: BlockNumberFor<T>,
 	/// The status of the payout/claim.
 	pub status: SpendingState,
-	/// Corresponding proposal_id
+	/// Corresponding project id
 	pub whitelisted_project: Option<T::AccountId>,
 	/// Has it been claimed?
 	pub claimed: bool,
