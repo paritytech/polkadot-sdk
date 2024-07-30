@@ -1,0 +1,67 @@
+name: Command Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Number of the audited Pull Request
+        required: true
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+env:
+  TAG: audited
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Download repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install gh cli
+        run: |
+          wget -q https://github.com/cli/cli/releases/download/v2.51.0/gh_2.51.0_linux_amd64.tar.gz -O gh.tar.gz && \
+          tar -xzf gh.tar.gz && mv gh_2.51.0_linux_amd64/bin/gh /usr/local/bin/gh && rm gh.tar.gz
+          chmod +x /usr/local/bin/gh
+
+      - name: Extract Merge Commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          MERGE_COMMIT=$(gh pr view ${{ inputs.pr }} --json mergeCommit --jq '.mergeCommit.oid')
+          echo "MERGE_COMMIT=$MERGE_COMMIT" >> $GITHUB_ENV
+      
+      - name: Check Commit
+        run: |
+          # Check that the parent of the MERGE_COMMIT is the '$TAG' tag.
+          git fetch origin refs/tags/$TAG:refs/tags/$TAG
+          
+          MERGE_COMMIT_PARENT=$(git rev-parse $MERGE_COMMIT^)
+          AUDITED_TAG=$(git rev-parse $TAG)
+
+          if [ "$MERGE_COMMIT_PARENT" != "$AUDITED_TAG" ]; then
+            echo "The parent of the merge commit is not the $TAG tag. Commit not audited: $MERGE_COMMIT_PARENT"
+            exit 1
+          fi
+
+      - name: Force Push the audited tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag -f $TAG $MERGE_COMMIT
+          git push origin $TAG --force
+
+      - name: Report success
+        run: gh pr comment ${{ inputs.pr }} --body "This Merge Request has been marked as audited or trivial by @${{ github.actor }} via <a href=\"$RUN\">CI</a>."
+        env:
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GH_TOKEN: ${{ github.token }}

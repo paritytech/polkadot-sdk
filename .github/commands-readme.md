@@ -8,12 +8,14 @@ To run an action, you need to go to the [_actions tab_](https://github.com/parit
 
 The current available command actions are:
 
+- [Command Audit](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-audit.yml)
 - [Command FMT](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-fmt.yml)
 - [Command Update UI](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-update-ui.yml)
 - [Command Sync](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-sync.yml)
 - [Command Bench](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-bench.yml)
 - [Command Bench All](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-bench-all.yml)
 - [Command Bench Overhead](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-bench-overhead.yml)
+
 
 You need to select the action, and click on the dropdown that says: `Run workflow`. It is located in the upper right.
 
@@ -34,6 +36,18 @@ You can use [`gh cli`](https://cli.github.com/) to run the commands too. Refers 
 The number of the pull request. Required so the action can fetch the correct branch and comment if it fails.
 
 ## Action configurations
+
+### Audit
+
+This action can be used to mark a Pull Request as audited or trivial. It is intended to be used either by developers or auditors to advance the `audited` tag.
+
+It needs to be used exactly in the order of unaudited Pull Requests that you can see [here](https://github.com/paritytech/polkadot-sdk/compare/audited...master). Only the top Pull Request number will work. After that, the next one can be marked as audited.
+
+You can use the following [`gh cli`](https://cli.github.com/) inside the repo:
+
+```bash
+gh workflow run command-audit.yml -f pr=1000
+```
 
 ### FMT
 
