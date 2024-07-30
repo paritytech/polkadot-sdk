@@ -12,20 +12,22 @@ doc:
 
 crates:
   - name: asset-hub-westend-runtime
-    bump: major
+    bump: patch
   - name: bridge-hub-westend-runtime
-    bump: major
-  - name: testnet-parachains-constants
     bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: patch
+  - name: testnet-parachains-constants
+    bump: patch
   - name: bridge-hub-westend-emulated-chain
     bump: minor
   - name: bridge-hub-westend-integration-tests
     bump: minor
   - name: polkadot-parachain-bin
-    bump: minor
+    bump: patch
   - name: westend-runtime
     bump: minor
   - name: polkadot-service
-    bump: minor
+    bump: patch
   
 
