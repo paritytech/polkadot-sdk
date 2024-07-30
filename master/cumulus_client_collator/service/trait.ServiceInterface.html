@@ -159,7 +159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         &amp;self,
         parent_header: &amp;Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Header" title="type sp_runtime::traits::Block::Header">Header</a>,
         block_hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
-        candidate: ParachainCandidate&lt;Block&gt;
+        candidate: <a class="struct" href="../../cumulus_client_consensus_common/struct.ParachainCandidate.html" title="struct cumulus_client_consensus_common::ParachainCandidate">ParachainCandidate</a>&lt;Block&gt;
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(<a class="struct" href="../../polkadot_node_primitives/struct.Collation.html" title="struct polkadot_node_primitives::Collation">Collation</a>, <a class="struct" href="../../cumulus_primitives_core/struct.ParachainBlockData.html" title="struct cumulus_primitives_core::ParachainBlockData">ParachainBlockData</a>&lt;Block&gt;)&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.announce_with_barrier" class="fn">announce_with_barrier</a>(
         &amp;self,
@@ -173,8 +173,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     &amp;self,
     parent_header: &amp;Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Header" title="type sp_runtime::traits::Block::Header">Header</a>,
     block_hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
-    candidate: ParachainCandidate&lt;Block&gt;
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(<a class="struct" href="../../polkadot_node_primitives/struct.Collation.html" title="struct polkadot_node_primitives::Collation">Collation</a>, <a class="struct" href="../../cumulus_primitives_core/struct.ParachainBlockData.html" title="struct cumulus_primitives_core::ParachainBlockData">ParachainBlockData</a>&lt;Block&gt;)&gt;</h4></section></summary><div class="docblock"><p>Build a full <a href="../../polkadot_node_primitives/struct.Collation.html" title="struct polkadot_node_primitives::Collation"><code>Collation</code></a> from a given [<code>ParachainCandidate</code>]. This requires
+    candidate: <a class="struct" href="../../cumulus_client_consensus_common/struct.ParachainCandidate.html" title="struct cumulus_client_consensus_common::ParachainCandidate">ParachainCandidate</a>&lt;Block&gt;
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(<a class="struct" href="../../polkadot_node_primitives/struct.Collation.html" title="struct polkadot_node_primitives::Collation">Collation</a>, <a class="struct" href="../../cumulus_primitives_core/struct.ParachainBlockData.html" title="struct cumulus_primitives_core::ParachainBlockData">ParachainBlockData</a>&lt;Block&gt;)&gt;</h4></section></summary><div class="docblock"><p>Build a full <a href="../../polkadot_node_primitives/struct.Collation.html" title="struct polkadot_node_primitives::Collation"><code>Collation</code></a> from a given <a href="../../cumulus_client_consensus_common/struct.ParachainCandidate.html" title="struct cumulus_client_consensus_common::ParachainCandidate"><code>ParachainCandidate</code></a>. This requires
 that the underlying block has been fully imported into the underlying client,
 as implementations will fetch underlying runtime API data.</p>
 <p>This also returns the unencoded parachain block data, in case that is desired.</p>

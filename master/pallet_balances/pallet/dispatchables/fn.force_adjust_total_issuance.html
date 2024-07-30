@@ -159,12 +159,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ExtBuilder::default().build_and_execute_with(|| {
 		<span class="comment">// First we set the TotalIssuance to 64 by giving Alice a balance of 64.
 		</span><span class="macro">assert_ok!</span>(Balances::force_set_balance(RuntimeOrigin::root(), ALICE, <span class="number">64</span>));
-		<span class="kw">let </span>old_ti = Balances::total_issuance();
+		<span class="kw">let </span>old_ti = pallet_balances::TotalIssuance::&lt;Test&gt;::get();
 		<span class="macro">assert_eq!</span>(old_ti, <span class="number">64</span>, <span class="string">"TI should be 64"</span>);
 
 		<span class="comment">// Now test the increase:
 		</span><span class="macro">assert_ok!</span>(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, <span class="number">32</span>));
-		<span class="kw">let </span>new_ti = Balances::total_issuance();
+		<span class="kw">let </span>new_ti = pallet_balances::TotalIssuance::&lt;Test&gt;::get();
 		<span class="macro">assert_eq!</span>(old_ti + <span class="number">32</span>, new_ti, <span class="string">"Should increase by 32"</span>);
 
 		<span class="comment">// If Alice tries to call it, it errors:

@@ -782,13 +782,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>force_adjust_total_issuance() {
-		<span class="kw">let </span>ti = Balances::&lt;T, I&gt;::total_issuance();
+		<span class="kw">let </span>ti = TotalIssuance::&lt;T, I&gt;::get();
 		<span class="kw">let </span>delta = <span class="number">123u32</span>.into();
 
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(RawOrigin::Root, AdjustmentDirection::Increase, delta);
 
-		<span class="macro">assert_eq!</span>(Balances::&lt;T, I&gt;::total_issuance(), ti + delta);
+		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;T, I&gt;::get(), ti + delta);
 	}
 
 	<span class="doccomment">/// Benchmark `burn` extrinsic with the worst possible condition - burn kills the account.

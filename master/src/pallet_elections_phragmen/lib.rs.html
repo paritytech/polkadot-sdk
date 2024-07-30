@@ -5642,7 +5642,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(locked_stake_of(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="number">0</span>);
 
 			<span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">2</span>), (<span class="number">20</span>, <span class="number">0</span>));
-			<span class="macro">assert_eq!</span>(Balances::locks(<span class="kw-2">&amp;</span><span class="number">2</span>).len(), <span class="number">0</span>);
+			<span class="macro">assert_eq!</span>(pallet_balances::Locks::&lt;Test&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>).len(), <span class="number">0</span>);
 		});
 	}
 

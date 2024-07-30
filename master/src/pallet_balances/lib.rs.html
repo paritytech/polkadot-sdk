@@ -1375,6 +1375,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1224" id="1224">1224</a>
 <a href="#1225" id="1225">1225</a>
 <a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
+<a href="#1228" id="1228">1228</a>
+<a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
+<a href="#1232" id="1232">1232</a>
+<a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
+<a href="#1236" id="1236">1236</a>
+<a href="#1237" id="1237">1237</a>
+<a href="#1238" id="1238">1238</a>
+<a href="#1239" id="1239">1239</a>
+<a href="#1240" id="1240">1240</a>
+<a href="#1241" id="1241">1241</a>
+<a href="#1242" id="1242">1242</a>
+<a href="#1243" id="1243">1243</a>
+<a href="#1244" id="1244">1244</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1785,13 +1803,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The total units issued in the system.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>total_issuance)]
 	#[pallet::whitelist_storage]
 	</span><span class="kw">pub type </span>TotalIssuance&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, T::Balance, ValueQuery&gt;;
 
 	<span class="doccomment">/// The total units of outstanding deactivated balance in the system.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>inactive_issuance)]
 	#[pallet::whitelist_storage]
 	</span><span class="kw">pub type </span>InactiveIssuance&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, T::Balance, ValueQuery&gt;;
@@ -1829,7 +1845,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Use of locks is deprecated in favour of freezes. See `https://github.com/paritytech/substrate/pull/12951/`
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>locks)]
 	</span><span class="kw">pub type </span>Locks&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
@@ -1842,7 +1857,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>reserves)]
 	</span><span class="kw">pub type </span>Reserves&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
@@ -2199,6 +2213,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
+		<span class="doccomment">/// Public function to get the total issuance.
+		</span><span class="kw">pub fn </span>total_issuance() -&gt; T::Balance {
+			TotalIssuance::&lt;T, I&gt;::get()
+		}
+
+		<span class="doccomment">/// Public function to get the inactive issuance.
+		</span><span class="kw">pub fn </span>inactive_issuance() -&gt; T::Balance {
+			InactiveIssuance::&lt;T, I&gt;::get()
+		}
+
+		<span class="doccomment">/// Public function to access the Locks storage.
+		</span><span class="kw">pub fn </span>locks(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; WeakBoundedVec&lt;BalanceLock&lt;T::Balance&gt;, T::MaxLocks&gt; {
+			Locks::&lt;T, I&gt;::get(who)
+		}
+
+		<span class="doccomment">/// Public function to access the reserves storage.
+		</span><span class="kw">pub fn </span>reserves(
+			who: <span class="kw-2">&amp;</span>T::AccountId,
+		) -&gt; BoundedVec&lt;ReserveData&lt;T::ReserveIdentifier, T::Balance&gt;, T::MaxReserves&gt; {
+			Reserves::&lt;T, I&gt;::get(who)
+		}
+
 		<span class="kw">fn </span>ed() -&gt; T::Balance {
 			T::ExistentialDeposit::get()
 		}
