@@ -37,7 +37,7 @@ use codec::Encode;
 use frame_support::{
 	assert_ok,
 	dispatch::GetDispatchInfo,
-	traits::{Get, OnFinalize, OnInitialize, OriginTrait},
+	traits::{Contains, Get, OnFinalize, OnInitialize, OriginTrait},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::AccountId;
@@ -654,7 +654,7 @@ where
 }
 
 /// Test-case makes sure that `Runtime` can open/close bridges.
-pub fn open_and_close_bridge_work<Runtime, XcmOverBridgePalletInstance, LocationToAccountId, TokenLocation>(
+pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, LocationToAccountId, TokenLocation>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	source: Location,
@@ -678,6 +678,18 @@ pub fn open_and_close_bridge_work<Runtime, XcmOverBridgePalletInstance, Location
 		let expected_lane_id =
 			locations.calculate_lane_id(xcm::latest::VERSION).expect("valid laneId");
 		let lanes_manager = LanesManagerOf::<Runtime, XcmOverBridgePalletInstance>::new();
+
+		let expected_deposit = if <Runtime as pallet_xcm_bridge_hub::Config<
+			XcmOverBridgePalletInstance,
+		>>::AllowWithoutBridgeDeposit::contains(
+			locations.bridge_origin_relative_location()
+		) {
+			Zero::zero()
+		} else {
+			<Runtime as pallet_xcm_bridge_hub::Config<
+				XcmOverBridgePalletInstance,
+			>>::BridgeDeposit::get()
+		};
 
 		// check bridge/lane DOES not exist
 		assert_eq!(
@@ -713,25 +725,21 @@ pub fn open_and_close_bridge_work<Runtime, XcmOverBridgePalletInstance, Location
 			pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
 				locations.bridge_id()
 			),
-			Some(
-				Bridge {
-					bridge_origin_relative_location: Box::new(source.clone().into()),
-					bridge_origin_universal_location: Box::new(
-						locations.bridge_origin_universal_location().clone().into()
-					),
-					bridge_destination_universal_location: Box::new(
-						locations.bridge_destination_universal_location().clone().into()
-					),
-					state: BridgeState::Opened,
-					bridge_owner_account: LocationToAccountId::convert_location(&source)
-						.expect("valid location")
-						.into(),
-					reserve: <Runtime as pallet_xcm_bridge_hub::Config<
-						XcmOverBridgePalletInstance,
-					>>::BridgeDeposit::get(),
-					lane_id: expected_lane_id
-				}
-			)
+			Some(Bridge {
+				bridge_origin_relative_location: Box::new(source.clone().into()),
+				bridge_origin_universal_location: Box::new(
+					locations.bridge_origin_universal_location().clone().into()
+				),
+				bridge_destination_universal_location: Box::new(
+					locations.bridge_destination_universal_location().clone().into()
+				),
+				state: BridgeState::Opened,
+				bridge_owner_account: LocationToAccountId::convert_location(&source)
+					.expect("valid location")
+					.into(),
+				deposit: expected_deposit,
+				lane_id: expected_lane_id
+			})
 		);
 		assert_eq!(
 			lanes_manager.active_inbound_lane(expected_lane_id).map(|lane| lane.state()),

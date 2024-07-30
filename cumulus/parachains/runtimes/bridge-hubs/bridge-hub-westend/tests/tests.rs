@@ -45,11 +45,14 @@ use xcm::latest::prelude::*;
 
 // Random para id of sibling chain used in tests.
 pub const SIBLING_PARACHAIN_ID: u32 = 2053;
+// Random para id of sibling chain used in tests.
+pub const SIBLING_SYSTEM_PARACHAIN_ID: u32 = 1008;
 // Random para id of bridged chain from different global consensus used in tests.
 pub const BRIDGED_LOCATION_PARACHAIN_ID: u32 = 1075;
 
 parameter_types! {
 	pub SiblingParachainLocation: Location = Location::new(1, [Parachain(SIBLING_PARACHAIN_ID)]);
+	pub SiblingSystemParachainLocation: Location = Location::new(1, [Parachain(SIBLING_SYSTEM_PARACHAIN_ID)]);
 	pub BridgedUniversalLocation: InteriorLocation = [GlobalConsensus(RococoGlobalConsensusNetwork::get()), Parachain(BRIDGED_LOCATION_PARACHAIN_ID)].into();
 }
 
@@ -375,16 +378,20 @@ pub fn can_calculate_fee_for_standalone_message_confirmation_transaction() {
 }
 
 #[test]
-fn open_and_close_bridge_work() {
-	bridge_hub_test_utils::test_cases::open_and_close_bridge_work::<
-		Runtime,
-		XcmOverBridgeHubRococoInstance,
-		LocationToAccountId,
-		WestendLocation,
-	>(
-		collator_session_keys(),
-		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
-		SiblingParachainLocation::get(),
-		BridgedUniversalLocation::get(),
-	)
+fn open_and_close_bridge_works() {
+	let origins = [SiblingParachainLocation::get(), SiblingSystemParachainLocation::get()];
+
+	for origin in origins {
+		bridge_hub_test_utils::test_cases::open_and_close_bridge_works::<
+			Runtime,
+			XcmOverBridgeHubRococoInstance,
+			LocationToAccountId,
+			WestendLocation,
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+			origin,
+			BridgedUniversalLocation::get(),
+		)
+	}
 }

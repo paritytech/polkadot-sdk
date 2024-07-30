@@ -39,7 +39,9 @@ use pallet_bridge_relayers::extension::{
 	BridgeRelayersSignedExtension, WithMessagesExtensionConfig,
 };
 use pallet_xcm::EnsureXcm;
-use parachains_common::xcm_config::ParentRelayOrSiblingParachains;
+use parachains_common::xcm_config::{
+	AllSiblingSystemParachains, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
+};
 use polkadot_parachain_primitives::primitives::Sibling;
 use testnet_parachains_constants::westend::currency::UNITS as WND;
 use xcm::{
@@ -202,6 +204,9 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type BridgeDeposit = BridgeDeposit;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	// Do not require deposit from system parachains or relay chain
+	type AllowWithoutBridgeDeposit =
+		RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>;
 
 	// TODO:(bridges-v2) - add `LocalXcmChannelManager` impl - FAIL-CI - something like this:
 	// cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<

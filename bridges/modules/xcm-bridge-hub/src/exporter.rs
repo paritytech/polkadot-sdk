@@ -404,7 +404,7 @@ mod tests {
 						locations.bridge_origin_relative_location(),
 					)
 					.expect("valid accountId"),
-					reserve: 0,
+					deposit: 0,
 					lane_id,
 				},
 			);
@@ -597,7 +597,7 @@ mod tests {
 						),
 						state: BridgeState::Opened,
 						bridge_owner_account: [0u8; 32].into(),
-						reserve: 0,
+						deposit: 0,
 						lane_id: expected_lane_id,
 					},
 				);

@@ -164,7 +164,7 @@ pub struct Bridge<ThisChain: Chain> {
 	/// Account with the reserved funds. Derived from `self.bridge_origin_relative_location`.
 	pub bridge_owner_account: AccountIdOf<ThisChain>,
 	/// Reserved amount on the sovereign account of the sibling bridge origin.
-	pub reserve: BalanceOf<ThisChain>,
+	pub deposit: BalanceOf<ThisChain>,
 
 	/// Mapping to the unique `LaneId`.
 	pub lane_id: LaneId,

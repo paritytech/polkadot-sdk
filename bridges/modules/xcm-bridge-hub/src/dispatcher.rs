@@ -158,7 +158,7 @@ mod tests {
 						bridge.bridge_origin_relative_location(),
 					)
 					.expect("valid accountId"),
-					reserve: 0,
+					deposit: 0,
 					lane_id,
 				},
 			);

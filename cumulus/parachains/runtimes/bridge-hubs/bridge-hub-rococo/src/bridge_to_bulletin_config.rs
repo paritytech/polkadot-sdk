@@ -37,7 +37,9 @@ use pallet_bridge_relayers::extension::{
 };
 use pallet_xcm::EnsureXcm;
 use pallet_xcm_bridge_hub::XcmAsPlainPayload;
-use parachains_common::xcm_config::ParentRelayOrSiblingParachains;
+use parachains_common::xcm_config::{
+	AllSiblingSystemParachains, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
+};
 use polkadot_parachain_primitives::primitives::Sibling;
 use testnet_parachains_constants::rococo::currency::UNITS as ROC;
 use xcm::{
@@ -144,6 +146,9 @@ impl pallet_xcm_bridge_hub::Config<XcmOverPolkadotBulletinInstance> for Runtime 
 	type BridgeDeposit = BridgeDeposit;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	// Do not require deposit from system parachains or relay chain
+	type AllowWithoutBridgeDeposit =
+		RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>;
 
 	type LocalXcmChannelManager = ();
 	type BlobDispatcher = FromRococoBulletinMessageBlobDispatcher;

@@ -245,7 +245,7 @@ pub mod pallet {
 						),
 						state: BridgeState::Opened,
 						bridge_owner_account,
-						reserve: deposit,
+						deposit,
 						lane_id,
 					});
 					Ok(())
@@ -392,7 +392,7 @@ pub mod pallet {
 			let released_deposit = T::Currency::release(
 				&HoldReason::BridgeDeposit.into(),
 				&bridge.bridge_owner_account,
-				bridge.reserve,
+				bridge.deposit,
 				Precision::BestEffort,
 			)
 			.map_err(|e| {
@@ -609,7 +609,7 @@ pub mod pallet {
 						),
 						state: BridgeState::Opened,
 						bridge_owner_account,
-						reserve: Zero::zero(),
+						deposit: Zero::zero(),
 						lane_id,
 					},
 				);
@@ -734,7 +734,7 @@ mod tests {
 			),
 			state: BridgeState::Opened,
 			bridge_owner_account,
-			reserve: deposit,
+			deposit,
 			lane_id,
 		};
 		Bridges::<TestRuntime, ()>::insert(locations.bridge_id(), bridge.clone());
@@ -894,7 +894,7 @@ mod tests {
 					),
 					state: BridgeState::Opened,
 					bridge_owner_account: [0u8; 32].into(),
-					reserve: 0,
+					deposit: 0,
 					lane_id,
 				},
 			);
@@ -1024,7 +1024,7 @@ mod tests {
 						),
 						state: BridgeState::Opened,
 						bridge_owner_account: bridge_owner_account.clone(),
-						reserve: expected_deposit,
+						deposit: expected_deposit,
 						lane_id
 					}),
 				);
@@ -1354,7 +1354,7 @@ mod tests {
 					),
 					state: BridgeState::Opened,
 					bridge_owner_account: bridge_owner_account.clone(),
-					reserve: Zero::zero(),
+					deposit: Zero::zero(),
 					lane_id,
 				},
 				(lane_id, bridge_id),
@@ -1379,7 +1379,7 @@ mod tests {
 					),
 					state: BridgeState::Opened,
 					bridge_owner_account: bridge_owner_account.clone(),
-					reserve: Zero::zero(),
+					deposit: Zero::zero(),
 					lane_id,
 				},
 				(lane_id, bridge_id_mismatch),
@@ -1404,7 +1404,7 @@ mod tests {
 					)),
 					state: BridgeState::Opened,
 					bridge_owner_account: bridge_owner_account_mismatch.clone(),
-					reserve: Zero::zero(),
+					deposit: Zero::zero(),
 					lane_id,
 				},
 				(lane_id, bridge_id),
@@ -1428,7 +1428,7 @@ mod tests {
 					)),
 					state: BridgeState::Opened,
 					bridge_owner_account: bridge_owner_account_mismatch.clone(),
-					reserve: Zero::zero(),
+					deposit: Zero::zero(),
 					lane_id,
 				},
 				(lane_id, bridge_id_mismatch),
