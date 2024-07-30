@@ -125,7 +125,7 @@ impl<T: Config> Pallet<T> {
 								&HoldReason::FundsLock.into(),
 								&pot,
 								project.amount,
-							);
+							).map_err(|_| Error::<T>::LockFailed);
 
 							// remove project from project_list
 							projects.retain(|value| *value != project); 

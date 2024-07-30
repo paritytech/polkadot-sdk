@@ -7,7 +7,6 @@
 pub use pallet::*;
 mod types;
 mod functions;
-pub use functions::*;
 pub use types::*;
 
 #[frame_support::pallet(dev_mode)]
@@ -45,6 +44,7 @@ pub mod pallet {
 
 		/// Epoch duration in blocks
 		type EpochDurationBlocks: Get<BlockNumberFor<Self>>;
+
 
 	}
 	
@@ -108,6 +108,8 @@ pub mod pallet {
 		FailedSpendingOperation,
 		/// Still not in claiming period
 		NotClaimingPeriod,
+		/// Funds locking failed
+		LockFailed,
 	}
 
 	#[pallet::hooks]
@@ -129,8 +131,8 @@ pub mod pallet {
 			let spending_indexes = Self::get_spending(project_account);
 			let pot = Self::pot_account();
 			for i in spending_indexes {
-				let info = Spendings::<T>::get(i).ok_or(Error::<T>::InexistantSpending)?;
-				let project_account = info.whitelisted_project.ok_or(Error::<T>::NoValidAccount)?;
+				let mut info = Spendings::<T>::get(i).ok_or(Error::<T>::InexistentSpending)?;
+				let project_account = info.whitelisted_project.clone().ok_or(Error::<T>::NoValidAccount)?;
 				let now = <frame_system::Pallet<T>>::block_number();
 
 				// Check that we're within the claiming period
@@ -144,6 +146,20 @@ pub mod pallet {
 					)?;
 					// transfer the funds
 					Self::spending(info.amount, project_account.clone(), i)?;
+
+					// Update SpendingInfo claimed field in the storage
+					Spendings::<T>::mutate(i, |val|{
+						info.claimed = true;
+							info.status = SpendingState::Completed;					
+			
+						*val = Some(info.clone());
+					});
+
+					// Move completed spending to corresponding storage
+
+					CompletedSpendings::<T>::insert(i,info.clone()); 
+					Spendings::<T>::remove(i);
+
 					Self::deposit_event(
 						Event::RewardClaimed {
 							when: now,

@@ -46,8 +46,6 @@ pub struct SpendingInfo<T: Config> {
 	pub whitelisted_project: Option<T::AccountId>,
 	/// Has it been claimed?
 	pub claimed: bool,
-	/// Amount paid
-	pub paid: BalanceOf<T>,
 }
 
 impl<T: Config> SpendingInfo<T> {
@@ -56,7 +54,6 @@ impl<T: Config> SpendingInfo<T> {
 	) -> Self {
 		let amount = whitelisted.amount;
 		let whitelisted_project = Some(whitelisted.project_account);
-		let paid = Zero::zero();
 		let claimed = false;
 		let status = SpendingState::default();
 		let valid_from = 
@@ -68,7 +65,6 @@ impl<T: Config> SpendingInfo<T> {
 			status,
 			whitelisted_project,
 			claimed,
-			paid,
 		};
 		
 		// Lock the necessary amount
