@@ -27,8 +27,8 @@
 //! "scheduling_lookahead": 2
 //! ```
 //!
-//! <div class="warning">`scheduling_lookahead` must be set to 2, otherwise parachain block times
-//! will degrade to worse than with sync backing!</div>
+//! <div class="warning"><code>scheduling_lookahead</code> must be set to 2, otherwise parachain
+//! block times will degrade to worse than with sync backing!</div>
 //!
 //! ## Phase 1 - Update Parachain Runtime
 //!
