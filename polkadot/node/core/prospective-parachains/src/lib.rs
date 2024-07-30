@@ -26,6 +26,8 @@
 //!
 //! This subsystem also handles concerns such as the relay-chain being forkful and session changes.
 
+#![deny(unused_crate_dependencies)]
+
 use std::collections::{HashMap, HashSet};
 
 use fragment_chain::CandidateStorage;
