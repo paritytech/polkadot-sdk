@@ -658,13 +658,21 @@ impl Unscheduled {
 	}
 
 	fn select_next_priority(&self) -> PvfExecPriority {
-		PvfExecPriority::iter()
+		let priority = PvfExecPriority::iter()
 			.find(|priority| self.has_pending(priority) && !self.is_fulfilled(priority))
 			.unwrap_or_else(|| {
 				PvfExecPriority::iter()
 					.find(|priority| self.has_pending(priority))
 					.unwrap_or(PvfExecPriority::Backing)
-			})
+			});
+
+		gum::debug!(
+			target: LOG_TARGET,
+			?priority,
+			"Selected next execution priority",
+		);
+
+		priority
 	}
 
 	fn get_mut(&mut self, priority: PvfExecPriority) -> Option<&mut VecDeque<ExecuteJob>> {
@@ -704,9 +712,20 @@ impl Unscheduled {
 			return false
 		}
 
-		// Because we operate through a small range, we can't let a priority go over the
-		// threshold, so we check fulfillment by adding one more run
-		(count + 1) * 100 / total_count >= threshold
+		let is_fulfilled = count * 100 / total_count >= threshold;
+
+		gum::debug!(
+			target: LOG_TARGET,
+			?priority,
+			?count,
+			?total_count,
+			"Execution priority is {}fulfilled: {}/{}%",
+			if is_fulfilled {""} else {"not "},
+			count * 100 / total_count,
+			threshold
+		);
+
+		is_fulfilled
 	}
 
 	fn mark_scheduled(&mut self, priority: PvfExecPriority) {
