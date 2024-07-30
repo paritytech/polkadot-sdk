@@ -18,7 +18,8 @@
 //! # Stake Tracker Pallet
 //!
 //! The stake-tracker pallet is responsible to keep track of the voter's stake and target's approval
-//! voting in the staking system.
+//! voting in the staking system. It provides an easy way to other pallets to query the list of
+//! strictly sorted targets based on their approvals.
 //!
 //! ## Overview
 //!
@@ -56,6 +57,17 @@
 //! too much weight to execute (e.g. at nominator's rewards payout or at slashes), the event emitter
 //! should handle that in some way (e.g. buffering events and implementing a multi-block event
 //! emitter).
+//!
+//! ## Lazy target approvals' updates
+//!
+//! This pallet exposes a configuration that defines a threshold below which the target score
+//! *should not* be updated automatically. The `Config::ScoreStrictUpdateThreshold` defines said
+//! threshold. If a target stake update is below the threshold, the stake update is buffered in
+//! the `UnsettledTargetScore` storage map while the target list is not affected. Multiple
+//! approvals updates can be buffered for the same target. Calling `Call::settle` will setttle the
+//! buffered approvals tally for a given target.
+//!
+//! Setting `Config::ScoreStrictUpdateThreshold` to `None` disables the stake approvals buffering.
 //!
 //! ## Staker status and list invariants
 //!

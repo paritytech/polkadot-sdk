@@ -174,6 +174,10 @@ impl sp_staking::StakingInterface for StakingMock {
 		Ok(())
 	}
 
+	fn validate(who: &Self::AccountId) -> sp_runtime::DispatchResult {
+		unimplemented!()
+	}
+
 	fn nominate(_: &Self::AccountId, nominations: Vec<Self::AccountId>) -> DispatchResult {
 		Nominations::set(&Some(nominations));
 		Ok(())
