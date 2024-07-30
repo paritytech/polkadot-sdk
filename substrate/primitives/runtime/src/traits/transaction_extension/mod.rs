@@ -134,7 +134,7 @@ pub trait TransactionExtensionBase:
 /// of generating default implementations for both of these functions. If you do not wish to
 /// introduce additional logic into the transaction pipeline, then it is recommended that you use
 /// this macro to implement these functions.
-/// 
+///
 /// If your extension does any post-flight logic, then the functionality must be implemented in
 /// [post_dispatch_details](TransactionExtension::post_dispatch_details). This function can return
 /// the actual weight used by the extension during an entire dispatch cycle by wrapping said weight
@@ -193,7 +193,7 @@ pub trait TransactionExtensionBase:
 /// nor does it include the result of the extension's `implicit` function.** If you both provide an
 /// implication and rely on the implication, then you need to manually aggregate your extensions
 /// implication with the aggregated implication passed in.
-/// 
+///
 /// In the post dispatch pipeline, the actual weight of each extension is accrued in the
 /// [PostDispatchInfo](PostDispatchInfoOf<Call>) of that transaction sequentially with each
 /// [post_dispatch](TransactionExtension::post_dispatch) call. This means that an extension handling
@@ -321,16 +321,18 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 		Ok(None)
 	}
 
-	/// A wrapper for [post_dispatch_details](TransactionExtension::post_dispatch_details) that accrues the weight
-	/// consumed by this extension into the post dispatch information.
+	/// A wrapper for [post_dispatch_details](TransactionExtension::post_dispatch_details) that
+	/// accrues the weight consumed by this extension into the post dispatch information.
 	///
 	/// If `post_dispatch` returns a consumed weight, which should be less than the worst case
 	/// weight provided by [weight](TransactionExtensionBase::weight), that is the value accrued in
 	/// `post_info`.
 	///
-	/// If no weight is returned by `post_dispatch_details`, this function accrues the worst case weight.
+	/// If no weight is returned by `post_dispatch_details`, this function accrues the worst case
+	/// weight.
 	///
-	/// For more information, look into [post_dispatch_details](TransactionExtension::post_dispatch_details).
+	/// For more information, look into
+	/// [post_dispatch_details](TransactionExtension::post_dispatch_details).
 	fn post_dispatch(
 		pre: Self::Pre,
 		info: &DispatchInfoOf<Call>,
@@ -563,11 +565,11 @@ impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for Tuple 
 		context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
 		let mut weight = Weight::zero();
-		for_tuples!( #( 
+		for_tuples!( #({
 			let maybe_weight = Tuple::post_dispatch_details(pre.Tuple, info, post_info, len, result, context)?;
 			let actual_weight = maybe_weight.unwrap_or_else(|| Tuple::weight());
 			weight = weight.saturating_add(actual_weight);
-		)* );
+		})* );
 		Ok(Some(weight))
 	}
 

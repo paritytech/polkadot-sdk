@@ -660,7 +660,9 @@ fn batch_all_does_not_nest() {
 			Utility::batch_all(RuntimeOrigin::signed(1), vec![batch_all.clone()]),
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
-					actual_weight: Some(<Test as Config>::WeightInfo::batch_all(1) + info.call_weight),
+					actual_weight: Some(
+						<Test as Config>::WeightInfo::batch_all(1) + info.call_weight
+					),
 					pays_fee: Pays::Yes
 				},
 				error: frame_system::Error::<Test>::CallFiltered.into(),

@@ -218,7 +218,16 @@ fn should_submit_signed_transaction_on_chain() {
 		let tx = pool_state.write().transactions.pop().unwrap();
 		assert!(pool_state.read().transactions.is_empty());
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert!(matches!(tx.preamble, sp_runtime::generic::Preamble::Signed(0, (), sp_runtime::generic::EXTENSION_VERSION, (), sp_runtime::generic::EXTRINSIC_FORMAT_VERSION)));
+		assert!(matches!(
+			tx.preamble,
+			sp_runtime::generic::Preamble::Signed(
+				0,
+				(),
+				sp_runtime::generic::EXTENSION_VERSION,
+				(),
+				sp_runtime::generic::EXTRINSIC_FORMAT_VERSION
+			)
+		));
 		assert_eq!(tx.function, RuntimeCall::Example(crate::Call::submit_price { price: 15523 }));
 	});
 }

@@ -51,7 +51,7 @@ use sp_core::{ed25519, sr25519, traits::SpawnNamed, Pair, Public};
 use sp_crypto_hashing::blake2_256;
 use sp_inherents::InherentData;
 use sp_runtime::{
-	generic::{EXTENSION_VERSION, ExtrinsicFormat, EXTRINSIC_FORMAT_VERSION, Preamble},
+	generic::{ExtrinsicFormat, Preamble, EXTENSION_VERSION, EXTRINSIC_FORMAT_VERSION},
 	traits::{Block as BlockT, IdentifyAccount, Verify},
 	OpaqueExtrinsic,
 };
