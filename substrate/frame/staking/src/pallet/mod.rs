@@ -31,7 +31,7 @@ use frame_support::{
 	weights::Weight,
 	BoundedVec,
 };
-use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
+use frame_system::{ensure_root, ensure_signed, pallet_prelude::*, RawOrigin};
 use sp_runtime::{
 	traits::{SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
@@ -2143,7 +2143,7 @@ pub mod pallet {
 			// re-bond stash and controller tuple.
 			Bonded::<T>::insert(&stash, &new_controller);
 
-			// resoter ledger state.
+			// restore the ledger state.
 			let mut ledger = StakingLedger::<T>::new(stash.clone(), new_total);
 			ledger.controller = Some(new_controller);
 			ledger.unlocking = maybe_unlocking.unwrap_or_default();
@@ -2154,12 +2154,15 @@ pub mod pallet {
 				Error::<T>::BadState
 			);
 
-			// if the current stash free balance is enough to lock after restore, force unbonding
-			// the ledger and clear all the data associated with the ledger.
+			// if the current stash free balance does not cover the staking lock after ledger
+			// restore, force unstake the ledger and clear all the data associated with the ledger.
 			let stash_free_balance = T::Currency::free_balance(&stash);
 			if stash_free_balance < new_total {
-				Self::chill_stash(&stash);
-				Self::kill_stash(&stash, maybe_slashing_spans.unwrap_or_default())?;
+				Self::force_unstake(
+					RawOrigin::Root.into(),
+					stash,
+					maybe_slashing_spans.unwrap_or_default(),
+				)?;
 
 				Self::deposit_event(Event::<T>::RestoreLedgerKill {
 					new_locked: new_total,

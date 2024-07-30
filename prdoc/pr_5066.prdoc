@@ -1,0 +1,11 @@
+title: Patches the `Staking::restore_ledger` extrinsic
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Patches the `Staking::restore_ledger` to ensure that the restored ledgers which don't have enough free balance
+      to cover the final state of the locked funds for staking are forced unstaked.
+
+crates:
+- name: pallet-staking
+  bump: patch
