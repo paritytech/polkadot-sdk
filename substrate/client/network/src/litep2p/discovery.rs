@@ -569,7 +569,7 @@ impl Stream for Discovery {
 				supported_protocols,
 				observed_address,
 			})) => {
-				if this.is_new_external_address(&observed_address, peer.clone()) {
+				if this.is_new_external_address(&observed_address, peer) {
 					this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
 						address: observed_address.clone(),
 					});
