@@ -27,8 +27,15 @@ use crate::{
 	shared::{self, AllowedRelayParentsTracker},
 	util::make_persisted_validation_data_with_parent,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use core::fmt;
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
@@ -46,12 +53,6 @@ use polkadot_primitives::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
-#[cfg(feature = "std")]
-use sp_std::fmt;
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
-	prelude::*,
-};
 
 pub use pallet::*;
 
@@ -337,8 +338,6 @@ pub mod pallet {
 		InsufficientBacking,
 		/// Invalid (bad signature, unknown validator, etc.) backing.
 		InvalidBacking,
-		/// Collator did not sign PoV.
-		NotCollatorSigned,
 		/// The validation data hash does not match expected.
 		ValidationDataHashMismatch,
 		/// The downward message queue is not processed correctly.
@@ -639,6 +638,8 @@ impl<T: Config> Pallet<T> {
 			for (candidate, core) in para_candidates.iter() {
 				let candidate_hash = candidate.candidate().hash();
 
+				// The previous context is None, as it's already checked during candidate
+				// sanitization.
 				let check_ctx = CandidateCheckContext::<T>::new(None);
 				let relay_parent_number = check_ctx.verify_backed_candidate(
 					&allowed_relay_parents,
@@ -718,13 +719,23 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	// Get the latest backed output head data of this para.
+	// Get the latest backed output head data of this para (including pending availability).
 	pub(crate) fn para_latest_head_data(para_id: &ParaId) -> Option<HeadData> {
 		match PendingAvailability::<T>::get(para_id).and_then(|pending_candidates| {
 			pending_candidates.back().map(|x| x.commitments.head_data.clone())
 		}) {
 			Some(head_data) => Some(head_data),
 			None => paras::Heads::<T>::get(para_id),
+		}
+	}
+
+	// Get the relay parent number of the most recent candidate (including pending availability).
+	pub(crate) fn para_most_recent_context(para_id: &ParaId) -> Option<BlockNumberFor<T>> {
+		match PendingAvailability::<T>::get(para_id)
+			.and_then(|pending_candidates| pending_candidates.back().map(|x| x.relay_parent_number))
+		{
+			Some(relay_parent_number) => Some(relay_parent_number),
+			None => paras::MostRecentContext::<T>::get(para_id),
 		}
 	}
 
@@ -797,7 +808,7 @@ impl<T: Config> Pallet<T> {
 		relay_parent_number: BlockNumberFor<T>,
 		validation_outputs: polkadot_primitives::CandidateCommitments,
 	) -> bool {
-		let prev_context = paras::MostRecentContext::<T>::get(para_id);
+		let prev_context = Self::para_most_recent_context(&para_id);
 		let check_ctx = CandidateCheckContext::<T>::new(prev_context);
 
 		if check_ctx
@@ -1221,7 +1232,6 @@ impl<T: Config> CandidateCheckContext<T> {
 	///
 	/// Assures:
 	///  * relay-parent in-bounds
-	///  * collator signature check passes
 	///  * code hash of commitments matches current code hash
 	///  * para head in the descriptor and commitments match
 	///
@@ -1257,11 +1267,6 @@ impl<T: Config> CandidateCheckContext<T> {
 				Error::<T>::ValidationDataHashMismatch,
 			);
 		}
-
-		ensure!(
-			backed_candidate_receipt.descriptor().check_collator_signature().is_ok(),
-			Error::<T>::NotCollatorSigned,
-		);
 
 		let validation_code_hash = paras::CurrentCodeHash::<T>::get(para_id)
 			// A candidate for a parachain without current validation code is not scheduled.

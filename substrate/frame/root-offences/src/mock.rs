@@ -18,6 +18,7 @@
 use super::*;
 use crate as root_offences;
 
+use alloc::collections::btree_map::BTreeMap;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
@@ -29,7 +30,6 @@ use frame_support::{
 use pallet_staking::StakerStatus;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{EraIndex, SessionIndex};
-use sp_std::collections::btree_map::BTreeMap;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type AccountId = u64;
@@ -246,6 +246,7 @@ impl ExtBuilder {
 				.into_iter()
 				.map(|(id, ..)| (id, id, SessionKeys { other: id.into() }))
 				.collect(),
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 

@@ -20,6 +20,7 @@
 use super::*;
 
 use crate::{CoreAssignment::Task, Pallet as Broker};
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::v2::*;
 use frame_support::{
 	storage::bounded_vec::BoundedVec,
@@ -35,7 +36,6 @@ use sp_runtime::{
 	traits::{BlockNumberProvider, MaybeConvert},
 	SaturatedConversion, Saturating,
 };
-use sp_std::{vec, vec::Vec};
 
 const SEED: u32 = 0;
 const MAX_CORE_COUNT: u16 = 1_000;

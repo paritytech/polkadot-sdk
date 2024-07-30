@@ -74,17 +74,18 @@ use crate::{
 	wasm::{Runtime, RuntimeCosts},
 	Error,
 };
+use alloc::vec::Vec;
 use codec::{Decode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support::weights::Weight;
 use sp_runtime::DispatchError;
-use sp_std::{marker::PhantomData, vec::Vec};
 
 pub use crate::{exec::Ext, gas::ChargedAmount, storage::meter::Diff, Config};
 pub use frame_system::Config as SysConfig;
 pub use pallet_contracts_uapi::ReturnFlags;
 
 /// Result that returns a [`DispatchError`] on error.
-pub type Result<T> = sp_std::result::Result<T, DispatchError>;
+pub type Result<T> = core::result::Result<T, DispatchError>;
 
 /// A trait used to extend the set of contract callable functions.
 ///

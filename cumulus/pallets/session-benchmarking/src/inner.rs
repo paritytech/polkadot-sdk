@@ -15,7 +15,7 @@
 
 //! Benchmarking setup for pallet-session.
 
-use sp_std::{prelude::*, vec};
+use alloc::{vec, vec::Vec};
 
 use codec::Decode;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
