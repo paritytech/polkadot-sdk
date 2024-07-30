@@ -935,7 +935,7 @@ where
 		// Take into account the weight used by this extension before calculating the
 		// refund.
 		let actual_ext_weight = <T as Config>::WeightInfo::charge_transaction_payment();
-		let mut actual_post_info = post_info.clone();
+		let mut actual_post_info = *post_info;
 		actual_post_info.accrue(actual_ext_weight);
 		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, &actual_post_info, tip);
 		T::OnChargeTransaction::correct_and_deposit_fee(

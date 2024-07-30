@@ -1421,7 +1421,7 @@ mod extension_weight_tests {
 			info.extension_weight = TxExtension::weight();
 			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
 			let res = call.dispatch(Some(0).into());
-			let mut post_info = res.clone().unwrap();
+			let mut post_info = res.unwrap();
 			assert!(post_info.actual_weight.is_none());
 			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch(
 				pre,
@@ -1450,7 +1450,7 @@ mod extension_weight_tests {
 			assert_eq!(info.total_weight(), Weight::from_parts(1600, 0));
 			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
 			let res = call.clone().dispatch(Some(0).into());
-			let mut post_info = res.clone().unwrap();
+			let mut post_info = res.unwrap();
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
 			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch(
 				pre,
@@ -1467,7 +1467,7 @@ mod extension_weight_tests {
 			let ext: TxExtension = (HalfCostIf(false), FreeIfUnder(575), ActualWeightIs(200));
 			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
 			let res = call.clone().dispatch(Some(0).into());
-			let mut post_info = res.clone().unwrap();
+			let mut post_info = res.unwrap();
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
 			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch(
 				pre,
@@ -1484,7 +1484,7 @@ mod extension_weight_tests {
 			let ext: TxExtension = (HalfCostIf(true), FreeIfUnder(575), ActualWeightIs(200));
 			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
 			let res = call.clone().dispatch(Some(0).into());
-			let mut post_info = res.clone().unwrap();
+			let mut post_info = res.unwrap();
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
 			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch(
 				pre,
@@ -1501,7 +1501,7 @@ mod extension_weight_tests {
 			let ext: TxExtension = (HalfCostIf(false), FreeIfUnder(100), ActualWeightIs(300));
 			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
 			let res = call.clone().dispatch(Some(0).into());
-			let mut post_info = res.clone().unwrap();
+			let mut post_info = res.unwrap();
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
 			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch(
 				pre,

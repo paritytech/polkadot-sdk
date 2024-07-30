@@ -360,7 +360,8 @@ fn call_expand() {
 	assert_eq!(
 		call_foo.get_dispatch_info(),
 		DispatchInfo {
-			weight: Weight::from_parts(3, 0),
+			call_weight: Weight::from_parts(3, 0),
+			extension_weight: Default::default(),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes
 		}
@@ -372,7 +373,8 @@ fn call_expand() {
 	assert_eq!(
 		call_foo.get_dispatch_info(),
 		DispatchInfo {
-			weight: Weight::from_parts(3, 0),
+			call_weight: Weight::from_parts(3, 0),
+			extension_weight: Default::default(),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes
 		}

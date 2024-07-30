@@ -33,6 +33,8 @@ pub use self::{
 	digest::{Digest, DigestItem, DigestItemRef, OpaqueDigestItemId},
 	era::{Era, Phase},
 	header::Header,
-	unchecked_extrinsic::{Preamble, SignedPayload, UncheckedExtrinsic},
+	unchecked_extrinsic::{
+		Preamble, SignedPayload, UncheckedExtrinsic, EXTENSION_VERSION, EXTRINSIC_FORMAT_VERSION,
+	},
 };
 pub use unchecked_extrinsic::UncheckedSignaturePayload;

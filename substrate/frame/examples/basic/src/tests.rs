@@ -177,13 +177,13 @@ fn weights_work() {
 	let info1 = default_call.get_dispatch_info();
 	// aka. `let info = <Call<Test> as GetDispatchInfo>::get_dispatch_info(&default_call);`
 	// TODO: account for proof size weight
-	assert!(info1.weight.ref_time() > 0);
-	assert_eq!(info1.weight, <Test as Config>::WeightInfo::accumulate_dummy());
+	assert!(info1.call_weight.ref_time() > 0);
+	assert_eq!(info1.call_weight, <Test as Config>::WeightInfo::accumulate_dummy());
 
 	// `set_dummy` is simpler than `accumulate_dummy`, and the weight
 	//   should be less.
 	let custom_call = pallet_example_basic::Call::<Test>::set_dummy { new_value: 20 };
 	let info2 = custom_call.get_dispatch_info();
 	// TODO: account for proof size weight
-	assert!(info1.weight.ref_time() > info2.weight.ref_time());
+	assert!(info1.call_weight.ref_time() > info2.call_weight.ref_time());
 }

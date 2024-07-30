@@ -624,7 +624,8 @@ fn call_weight_should_attach_to_call_enum() {
 	assert_eq!(
 		module3::Call::<Runtime>::operational {}.get_dispatch_info(),
 		DispatchInfo {
-			weight: Weight::from_parts(5, 0),
+			call_weight: Weight::from_parts(5, 0),
+			extension_weight: Default::default(),
 			class: DispatchClass::Operational,
 			pays_fee: Pays::Yes
 		},
@@ -633,7 +634,8 @@ fn call_weight_should_attach_to_call_enum() {
 	assert_eq!(
 		module3::Call::<Runtime>::aux_4 {}.get_dispatch_info(),
 		DispatchInfo {
-			weight: Weight::from_parts(3, 0),
+			call_weight: Weight::from_parts(3, 0),
+			extension_weight: Default::default(),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes
 		},

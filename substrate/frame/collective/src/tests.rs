@@ -263,7 +263,7 @@ fn close_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Collective::propose(
@@ -335,7 +335,7 @@ fn proposal_weight_limit_works_on_approve() {
 			old_count: MaxMembers::get(),
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 		// Set 1 as prime voter
 		Prime::<Test, Instance1>::set(Some(1));
@@ -377,7 +377,7 @@ fn proposal_weight_limit_ignored_on_disapprove() {
 			old_count: MaxMembers::get(),
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Collective::propose(
@@ -403,7 +403,7 @@ fn close_with_prime_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 		assert_ok!(Collective::set_members(
 			RuntimeOrigin::root(),
@@ -471,7 +471,7 @@ fn close_with_voting_prime_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 		assert_ok!(Collective::set_members(
 			RuntimeOrigin::root(),
@@ -541,7 +541,7 @@ fn close_with_no_prime_but_majority_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 		assert_ok!(CollectiveMajority::set_members(
 			RuntimeOrigin::root(),
@@ -798,7 +798,7 @@ fn correct_validate_and_get_proposal() {
 		));
 
 		let hash = BlakeTwo256::hash_of(&proposal);
-		let weight = proposal.get_dispatch_info().weight;
+		let weight = proposal.get_dispatch_info().call_weight;
 		assert_noop!(
 			Collective::validate_and_get_proposal(
 				&BlakeTwo256::hash_of(&vec![3; 4]),
@@ -997,7 +997,7 @@ fn motions_all_first_vote_free_works() {
 
 		// Test close() Extrinsics | Check DispatchResultWithPostInfo with Pay Info
 
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let close_rval: DispatchResultWithPostInfo =
 			Collective::close(RuntimeOrigin::signed(2), hash, 0, proposal_weight, proposal_len);
 		assert_eq!(close_rval.unwrap().pays_fee, Pays::No);
@@ -1015,7 +1015,7 @@ fn motions_reproposing_disapproved_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
@@ -1047,7 +1047,7 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash: H256 = proposal.blake2_256().into();
 		// The voting threshold is 2, but the required votes for `ExternalMajorityOrigin` is 3.
 		// The proposal will be executed regardless of the voting threshold
@@ -1177,7 +1177,7 @@ fn motions_disapproval_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
@@ -1236,7 +1236,7 @@ fn motions_approval_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
@@ -1297,7 +1297,7 @@ fn motion_with_no_votes_closes_with_disapproval() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
