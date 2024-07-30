@@ -111,6 +111,8 @@ fn get_parent_hash(hash: Hash) -> Hash {
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	test: impl FnOnce(VirtualOverseer) -> T,
 ) -> View {
+	sp_tracing::init_for_tests();
+
 	let pool = sp_core::testing::TaskExecutor::new();
 
 	let (mut context, virtual_overseer) =
@@ -307,16 +309,20 @@ async fn handle_leaf_activation(
 		);
 	}
 
+	let mut used_relay_parents = HashSet::new();
 	for (hash, number) in ancestry_iter {
-		send_block_header(virtual_overseer, hash, number).await;
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
-			) if parent == hash => {
-				tx.send(Ok(1)).unwrap();
-			}
-		);
+		if !used_relay_parents.contains(&hash) {
+			send_block_header(virtual_overseer, hash, number).await;
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
+				) if parent == hash => {
+					tx.send(Ok(1)).unwrap();
+				}
+			);
+			used_relay_parents.insert(hash);
+		}
 	}
 
 	let paras: HashSet<_> = test_state.claim_queue.values().flatten().collect();
@@ -353,12 +359,16 @@ async fn handle_leaf_activation(
 		);
 
 		for pending in pending_availability {
-			send_block_header(
-				virtual_overseer,
-				pending.descriptor.relay_parent,
-				pending.relay_parent_number,
-			)
-			.await;
+			if !used_relay_parents.contains(&pending.descriptor.relay_parent) {
+				send_block_header(
+					virtual_overseer,
+					pending.descriptor.relay_parent,
+					pending.relay_parent_number,
+				)
+				.await;
+
+				used_relay_parents.insert(pending.descriptor.relay_parent);
+			}
 		}
 	}
 
@@ -765,7 +775,8 @@ fn introduce_candidate_multiple_times() {
 		)
 		.await;
 
-		// Introduce the same candidate multiple times. It'll return true but it won't be added.
+		// Introduce the same candidate multiple times. It'll return true but it will only be added
+		// once.
 		for _ in 0..5 {
 			introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
 				.await;
@@ -1175,6 +1186,8 @@ fn introduce_candidate_on_multiple_forks() {
 
 #[test]
 fn unconnected_candidates_become_connected() {
+	// This doesn't test all the complicated cases with many unconnected candidates, as it's more
+	// extensively tested in the `fragment_chain::tests` module.
 	let test_state = TestState::default();
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf A
@@ -1350,6 +1363,10 @@ fn check_backable_query_single_candidate() {
 		// Back candidates.
 		back_candidate(&mut virtual_overseer, &candidate_a, candidate_hash_a).await;
 		back_candidate(&mut virtual_overseer, &candidate_b, candidate_hash_b).await;
+
+		// Back an unknown candidate. It doesn't return anything but it's ignored. Will not have any
+		// effect on the backable candidates.
+		back_candidate(&mut virtual_overseer, &candidate_b, CandidateHash(Hash::random())).await;
 
 		// Should not get any backable candidates for the other para.
 		get_backable_candidates(
@@ -2107,6 +2124,197 @@ fn correctly_updates_leaves(#[case] runtime_api_version: u32) {
 }
 
 #[test]
+fn handle_active_leaves_update_gets_candidates_from_parent() {
+	let para_id = ParaId::from(1);
+	let mut test_state = TestState::default();
+	test_state.claim_queue = test_state
+		.claim_queue
+		.into_iter()
+		.filter(|(_, paras)| matches!(paras.front(), Some(para) if para == &para_id))
+		.collect();
+	assert_eq!(test_state.claim_queue.len(), 1);
+	let view = test_harness(|mut virtual_overseer| async move {
+		// Leaf A
+		let leaf_a = TestLeaf {
+			number: 100,
+			hash: Hash::from_low_u64_be(130),
+			para_data: vec![(para_id, PerParaData::new(97, HeadData(vec![1, 2, 3])))],
+		};
+		// Activate leaf A.
+		activate_leaf(&mut virtual_overseer, &leaf_a, &test_state).await;
+
+		// Candidates A, B, C and D all form a chain
+		let (candidate_a, pvd_a) = make_candidate(
+			leaf_a.hash,
+			leaf_a.number,
+			para_id,
+			HeadData(vec![1, 2, 3]),
+			HeadData(vec![1]),
+			test_state.validation_code_hash,
+		);
+		let (candidate_b, pvd_b) = make_candidate(
+			leaf_a.hash,
+			leaf_a.number,
+			para_id,
+			HeadData(vec![1]),
+			HeadData(vec![2]),
+			test_state.validation_code_hash,
+		);
+		let (candidate_c, pvd_c) = make_candidate(
+			leaf_a.hash,
+			leaf_a.number,
+			para_id,
+			HeadData(vec![2]),
+			HeadData(vec![3]),
+			test_state.validation_code_hash,
+		);
+		let (candidate_d, pvd_d) = make_candidate(
+			leaf_a.hash,
+			leaf_a.number,
+			para_id,
+			HeadData(vec![3]),
+			HeadData(vec![4]),
+			test_state.validation_code_hash,
+		);
+
+		// Introduce candidates.
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
+			.await;
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b.clone())
+			.await;
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_c.clone(), pvd_c.clone())
+			.await;
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_d.clone(), pvd_d.clone())
+			.await;
+
+		// Back candidates. Otherwise, we cannot check membership with GetBackableCandidates.
+		back_candidate(&mut virtual_overseer, &candidate_a, candidate_a.hash()).await;
+		back_candidate(&mut virtual_overseer, &candidate_b, candidate_b.hash()).await;
+		back_candidate(&mut virtual_overseer, &candidate_c, candidate_c.hash()).await;
+		back_candidate(&mut virtual_overseer, &candidate_d, candidate_d.hash()).await;
+
+		// Check candidate tree membership.
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			para_id,
+			Ancestors::default(),
+			5,
+			vec![
+				(candidate_a.hash(), leaf_a.hash),
+				(candidate_b.hash(), leaf_a.hash),
+				(candidate_c.hash(), leaf_a.hash),
+				(candidate_d.hash(), leaf_a.hash),
+			],
+		)
+		.await;
+
+		// Activate leaf B, which makes candidates A and B pending availability.
+		// Leaf B
+		let leaf_b = TestLeaf {
+			number: 101,
+			hash: Hash::from_low_u64_be(129),
+			para_data: vec![(
+				para_id,
+				PerParaData::new_with_pending(
+					98,
+					HeadData(vec![1, 2, 3]),
+					vec![
+						CandidatePendingAvailability {
+							candidate_hash: candidate_a.hash(),
+							descriptor: candidate_a.descriptor.clone(),
+							commitments: candidate_a.commitments.clone(),
+							relay_parent_number: leaf_a.number,
+							max_pov_size: MAX_POV_SIZE,
+						},
+						CandidatePendingAvailability {
+							candidate_hash: candidate_b.hash(),
+							descriptor: candidate_b.descriptor.clone(),
+							commitments: candidate_b.commitments.clone(),
+							relay_parent_number: leaf_a.number,
+							max_pov_size: MAX_POV_SIZE,
+						},
+					],
+				),
+			)],
+		};
+		// Activate leaf B.
+		activate_leaf(&mut virtual_overseer, &leaf_b, &test_state).await;
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_b,
+			para_id,
+			Ancestors::default(),
+			5,
+			vec![],
+		)
+		.await;
+
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_b,
+			para_id,
+			[candidate_a.hash(), candidate_b.hash()].into_iter().collect(),
+			5,
+			vec![(candidate_c.hash(), leaf_a.hash), (candidate_d.hash(), leaf_a.hash)],
+		)
+		.await;
+
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_b,
+			para_id,
+			Ancestors::default(),
+			5,
+			vec![],
+		)
+		.await;
+
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			para_id,
+			Ancestors::default(),
+			5,
+			vec![
+				(candidate_a.hash(), leaf_a.hash),
+				(candidate_b.hash(), leaf_a.hash),
+				(candidate_c.hash(), leaf_a.hash),
+				(candidate_d.hash(), leaf_a.hash),
+			],
+		)
+		.await;
+
+		// Now deactivate leaf A.
+		deactivate_leaf(&mut virtual_overseer, leaf_a.hash).await;
+
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_b,
+			para_id,
+			Ancestors::default(),
+			5,
+			vec![],
+		)
+		.await;
+
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_b,
+			para_id,
+			[candidate_a.hash(), candidate_b.hash()].into_iter().collect(),
+			5,
+			vec![(candidate_c.hash(), leaf_a.hash), (candidate_d.hash(), leaf_a.hash)],
+		)
+		.await;
+
+		virtual_overseer
+	});
+
+	assert_eq!(view.active_leaves.len(), 1);
+}
+
+#[test]
 fn persists_pending_availability_candidate() {
 	let mut test_state = TestState::default();
 	let para_id = ParaId::from(1);
@@ -2162,7 +2370,8 @@ fn persists_pending_availability_candidate() {
 		);
 		let candidate_hash_b = candidate_b.hash();
 
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a).await;
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
+			.await;
 		back_candidate(&mut virtual_overseer, &candidate_a, candidate_hash_a).await;
 
 		let candidate_a_pending_av = CandidatePendingAvailability {
@@ -2185,6 +2394,17 @@ fn persists_pending_availability_candidate() {
 			)],
 		};
 		activate_leaf(&mut virtual_overseer, &leaf_b, &test_state).await;
+
+		// Hypothetical membership for a candidate already pending availability will not return the
+		// leaves where it's pending availability. A is only pending availability on leaf B.
+		get_hypothetical_membership(
+			&mut virtual_overseer,
+			candidate_hash_a,
+			candidate_a,
+			pvd_a,
+			vec![leaf_a.hash],
+		)
+		.await;
 
 		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b).await;
 		back_candidate(&mut virtual_overseer, &candidate_b, candidate_hash_b).await;
