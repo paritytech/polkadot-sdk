@@ -11,13 +11,13 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"], default-features = false, workspace = true }
+codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 
 # Bridge Dependencies
-bp-messages = { path = "../messages", default-features = false }
-bp-runtime = { path = "../runtime", default-features = false }
+bp-messages = { workspace = true }
+bp-runtime = { workspace = true }
 
 # Substrate Dependencies
 sp-std = { workspace = true }

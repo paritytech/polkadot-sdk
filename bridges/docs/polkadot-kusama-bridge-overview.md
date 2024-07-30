@@ -99,8 +99,8 @@ Bridge Hub. The sovereign accounts are used as a source of funds when the relaye
 `pallet_bridge_relayers::claim_rewards`.
 
 Since messages lane is only used by the pair of parachains, there's no collision between different bridges. E.g.
-Kusama Asset Hub will only reward relayers that are delivering messages from Kusama Asset Hub. The Kusama Asset Hub sovereign account
-is not used to cover rewards of bridging with some other Polkadot Parachain.
+Kusama Asset Hub will only reward relayers that are delivering messages from Kusama Asset Hub.
+The Kusama Asset Hub sovereign account is not used to cover rewards of bridging with some other Polkadot Parachain.
 
 ### Multiple Relayers and Rewards
 
