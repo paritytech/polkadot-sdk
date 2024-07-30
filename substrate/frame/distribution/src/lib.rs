@@ -109,21 +109,35 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 
 
+		// ToDo: Add `claim_reward_for` 
 		#[pallet::call_index(0)]
-		pub fn transfer_funds(origin: OriginFor<T>, spending_index: u32) -> DispatchResult {
-			// Check that the extrinsic was signed and get the signer.
-			let _caller = ensure_signed(origin)?;
+		pub fn  claim_reward_for(origin: OriginFor<T>, project_account:T::AccountId) -> DispatchResult {
+			let caller = ensure_signed(origin)?;
+			let spending_indexes = Self::get_spending(project_account);
+			let pot = Self::pot_account();
+			for i in spending_indexes {
+				let info = Spendings::<T>::get(i).ok_or(Error::<T>::InexistantSpending)?;
+				let project_account = info.whitelisted_project.ok_or(Error::<T>::NoValidAccount)?;
+				let now = <frame_system::Pallet<T>>::block_number();
 
-			//Execute the funds transfer
-			let spending = Spendings::<T>::get(spending_index).ok_or(Error::<T>::InexistantSpending)?;
-			let project_account = spending.whitelisted_project.ok_or(Error::<T>::NoValidAccount)?;
-			let amount = spending.amount;
-			Self::spending(amount,project_account,spending_index)?;
+				// Check that we're within the claiming period
+				if now > info.valid_from{
+					// Unlock the funds
+					T::NativeBalance::release(
+						&HoldReason::FundsLock.into(),
+						&pot,
+						info.amount,
+						Precision::Exact,
+					)?;
+					// transfer the funds
+					Self::spending(info.amount, project_account, i)?;
+
+				}
+			}
+
 			
 			Ok(())
 		}
-
-		// ToDo: Add `claim_reward_for` 
 
 	}
 

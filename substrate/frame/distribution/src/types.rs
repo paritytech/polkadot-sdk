@@ -1,7 +1,7 @@
 pub use super::*;
 
 pub use frame_support::traits::fungible::{MutateHold, Inspect, Mutate};
-pub use frame_support::traits::tokens::Preservation;
+pub use frame_support::traits::tokens::{Preservation, Precision};
 pub use frame_support::{
 	pallet_prelude::*,
 	traits::{fungible, fungibles, EnsureOrigin},
