@@ -294,9 +294,10 @@ pub mod pallet {
 		/// and validate the given key ownership proof against the extracted offender.
 		/// If both are valid, the offence will be reported.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::report_fork_voting(
+		#[pallet::weight(T::WeightInfo::report_fork_voting::<T>(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
+			&equivocation_proof.ancestry_proof
 		))]
 		pub fn report_fork_voting(
 			origin: OriginFor<T>,
@@ -328,9 +329,10 @@ pub mod pallet {
 		/// if the block author is defined it will be defined as the equivocation
 		/// reporter.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::report_fork_voting(
+		#[pallet::weight(T::WeightInfo::report_fork_voting::<T>(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
+			&equivocation_proof.ancestry_proof
 		))]
 		pub fn report_fork_voting_unsigned(
 			origin: OriginFor<T>,
@@ -740,11 +742,36 @@ pub trait WeightInfo {
 		max_nominators_per_validator: u32,
 	) -> Weight;
 
+	fn set_new_genesis() -> Weight;
+}
+
+pub(crate) trait WeightInfoExt: WeightInfo {
 	fn report_double_voting(validator_count: u32, max_nominators_per_validator: u32) -> Weight {
 		Self::report_voting_equivocation(2, validator_count, max_nominators_per_validator)
 	}
 
-	fn report_fork_voting(validator_count: u32, max_nominators_per_validator: u32) -> Weight;
+	fn report_fork_voting<T: Config>(
+		validator_count: u32,
+		max_nominators_per_validator: u32,
+		ancestry_proof: &<T::AncestryHelper as AncestryHelper<HeaderFor<T>>>::Proof,
+	) -> Weight {
+		let _weight = <T::AncestryHelper as AncestryHelperWeightInfo<HeaderFor<T>>>::extract_validation_context()
+			.saturating_add(
+				<T::AncestryHelper as AncestryHelperWeightInfo<HeaderFor<T>>>::is_non_canonical(
+					ancestry_proof,
+				),
+			)
+			.saturating_add(Self::report_voting_equivocation(
+				1,
+				validator_count,
+				max_nominators_per_validator,
+			));
+
+		// TODO: return `_weight` here.
+		// We return `Weight::MAX` currently in order to disallow this extrinsic for the moment.
+		// We need to check that the proof is optimal.
+		Weight::MAX
+	}
 
 	fn report_future_block_voting(
 		validator_count: u32,
@@ -760,6 +787,6 @@ pub trait WeightInfo {
 				max_nominators_per_validator,
 			))
 	}
-
-	fn set_new_genesis() -> Weight;
 }
+
+impl<T> WeightInfoExt for T where T: WeightInfo {}
