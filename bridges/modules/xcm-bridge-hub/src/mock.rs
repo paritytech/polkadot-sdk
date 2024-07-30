@@ -423,6 +423,12 @@ impl LocalXcmChannelManager for TestLocalXcmChannelManager {
 	}
 }
 
+impl pallet_xcm_bridge_hub_router::XcmChannelStatusProvider for TestLocalXcmChannelManager {
+	fn is_congested(with: &Location) -> bool {
+		<Self as LocalXcmChannelManager>::is_congested(with)
+	}
+}
+
 pub struct TestBlobDispatcher;
 
 impl TestBlobDispatcher {

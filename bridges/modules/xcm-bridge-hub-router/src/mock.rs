@@ -18,7 +18,7 @@
 
 use crate as pallet_xcm_bridge_hub_router;
 
-use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager};
+use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
 use codec::Encode;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
@@ -160,21 +160,11 @@ impl TestLocalXcmChannelManager {
 	}
 }
 
-impl LocalXcmChannelManager for TestLocalXcmChannelManager {
-	type Error = ();
-
+impl XcmChannelStatusProvider for TestLocalXcmChannelManager {
 	fn is_congested(with: &Location) -> bool {
 		frame_support::storage::unhashed::get_or_default(
 			&(b"TestLocalXcmChannelManager.Congested", with).encode()[..],
 		)
-	}
-
-	fn suspend_bridge(_with: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
-		Ok(())
-	}
-
-	fn resume_bridge(_with: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
-		Ok(())
 	}
 }
 

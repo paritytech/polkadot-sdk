@@ -30,7 +30,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_xcm_bridge_hub::LocalXcmChannelManager;
+pub use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
 use codec::Encode;
 use frame_support::traits::Get;
 use sp_runtime::{FixedPointNumber, FixedU128, Saturating};
@@ -104,7 +104,7 @@ pub mod pallet {
 		/// Actual message sender (`HRMP` or `DMP`) to the sibling bridge hub location.
 		type ToBridgeHubSender: SendXcm + InspectMessageQueues;
 		/// Local XCM channel manager.
-		type LocalXcmChannelManager: LocalXcmChannelManager;
+		type LocalXcmChannelManager: XcmChannelStatusProvider;
 
 		/// Additional fee that is paid for every byte of the outbound message.
 		type ByteFee: Get<u128>;
