@@ -1337,9 +1337,7 @@ pub trait Extrinsic: Sized {
 	/// Returns `true` if this `Extrinsic` is bare.
 	fn is_bare(&self) -> bool {
 		#[allow(deprecated)]
-		!self
-			.is_signed()
-			.expect("`is_signed` must return `Some` on production extrinsics; qed")
+		!self.is_signed().unwrap_or(true)
 	}
 
 	/// Create a new old-school extrinsic, either a bare extrinsic if `_signed_data` is `None` or
