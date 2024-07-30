@@ -71,7 +71,7 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
-use pallet_asset_conversion_tx_payment::AssetConversionAdapter;
+use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_nfts::PalletFeatures;
 use parachains_common::{
 	impls::DealWithFees,
@@ -120,7 +120,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("statemine"),
 	impl_name: create_runtime_str!("statemine"),
 	authoring_version: 1,
-	spec_version: 1_014_000,
+	spec_version: 1_015_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -798,11 +798,19 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = weights::pallet_collator_selection::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	pub StakingPot: AccountId = CollatorSelection::account_id();
+}
+
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = LocalAndForeignAssets;
-	type OnChargeAssetTransaction =
-		AssetConversionAdapter<Balances, AssetConversion, TokenLocationV3>;
+	type AssetId = xcm::v3::Location;
+	type OnChargeAssetTransaction = SwapAssetAdapter<
+		TokenLocationV3,
+		NativeAndAssets,
+		AssetConversion,
+		ResolveAssetTo<StakingPot, NativeAndAssets>,
+	>;
 }
 
 parameter_types! {
