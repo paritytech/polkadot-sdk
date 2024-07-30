@@ -14,8 +14,8 @@ crates:
   - name: asset-hub-westend-runtime
     bump: patch
   - name: bridge-hub-westend-runtime
-    bump: minor
-  - name: bridge-hub-westend-runtime
+    bump: major
+  - name: bridge-hub-rococo-runtime
     bump: patch
   - name: testnet-parachains-constants
     bump: patch
@@ -26,7 +26,7 @@ crates:
   - name: polkadot-parachain-bin
     bump: patch
   - name: westend-runtime
-    bump: minor
+    bump: patch
   - name: polkadot-service
     bump: patch
   
