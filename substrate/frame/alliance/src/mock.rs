@@ -31,7 +31,7 @@ pub use frame_support::{
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_identity::{
 	legacy::{IdentityField, IdentityInfo},
-	Data, Judgement,
+	Data, IdentityOf, Judgement, SuperOf,
 };
 
 pub use crate as pallet_alliance;
@@ -146,7 +146,7 @@ impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 
 	fn has_good_judgement(who: &AccountId) -> bool {
 		if let Some(judgements) =
-			Identity::identity(who).map(|(registration, _)| registration.judgements)
+			IdentityOf::<Test>::get(who).map(|(registration, _)| registration.judgements)
 		{
 			judgements
 				.iter()
@@ -157,7 +157,7 @@ impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 	}
 
 	fn super_account_id(who: &AccountId) -> Option<AccountId> {
-		Identity::super_of(who).map(|parent| parent.0)
+		SuperOf::<Test>::get(who).map(|parent| parent.0)
 	}
 }
 

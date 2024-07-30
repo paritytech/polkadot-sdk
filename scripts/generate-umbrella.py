@@ -5,10 +5,10 @@ Creates the Polkadot-SDK umbrella crate that re-exports all other crates.
 This re-creates the `umbrella/` folder. Ensure that it does not contain any changes you want to keep.
 
 Usage:
-    python3 polkadot-sdk-umbrella-crate.py --sdk <path> --version <version>
+    python3 generate-umbrella.py --sdk <path> --version <version>
 
 Example:
-	python3 polkadot-sdk-umbrella-crate.py --sdk ../polkadot-sdk --version 1.11.0
+	python3 generate-umbrella.py --sdk .. --version 1.11.0
 """
 
 import argparse

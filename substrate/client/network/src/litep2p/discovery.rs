@@ -50,6 +50,7 @@ use schnellru::{ByLength, LruMap};
 use std::{
 	cmp,
 	collections::{HashMap, HashSet, VecDeque},
+	num::NonZeroUsize,
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
@@ -67,6 +68,9 @@ const MDNS_QUERY_INTERVAL: Duration = Duration::from_secs(30);
 
 /// Minimum number of confirmations received before an address is verified.
 const MIN_ADDRESS_CONFIRMATIONS: usize = 5;
+
+// The minimum number of peers we expect an answer before we terminate the request.
+const GET_RECORD_REDUNDANCY_FACTOR: usize = 4;
 
 /// Discovery events.
 #[derive(Debug)]
@@ -340,7 +344,10 @@ impl Discovery {
 	/// Start Kademlia `GET_VALUE` query for `key`.
 	pub async fn get_value(&mut self, key: KademliaKey) -> QueryId {
 		self.kademlia_handle
-			.get_record(RecordKey::new(&key.to_vec()), Quorum::One)
+			.get_record(
+				RecordKey::new(&key.to_vec()),
+				Quorum::N(NonZeroUsize::new(GET_RECORD_REDUNDANCY_FACTOR).unwrap()),
+			)
 			.await
 	}
 
@@ -348,6 +355,22 @@ impl Discovery {
 	pub async fn put_value(&mut self, key: KademliaKey, value: Vec<u8>) -> QueryId {
 		self.kademlia_handle
 			.put_record(Record::new(RecordKey::new(&key.to_vec()), value))
+			.await
+	}
+
+	/// Put record to given peers.
+	pub async fn put_value_to_peers(
+		&mut self,
+		record: Record,
+		peers: Vec<sc_network_types::PeerId>,
+		update_local_storage: bool,
+	) -> QueryId {
+		self.kademlia_handle
+			.put_record_to_peers(
+				record,
+				peers.into_iter().map(|peer| peer.into()).collect(),
+				update_local_storage,
+			)
 			.await
 	}
 
