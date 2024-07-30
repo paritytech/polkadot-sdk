@@ -168,7 +168,7 @@ pub trait ProvideUncles<Block: BlockT> {
 }
 
 /// Client info
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClientInfo<Block: BlockT> {
 	/// Best block hash.
 	pub chain: Info<Block>,

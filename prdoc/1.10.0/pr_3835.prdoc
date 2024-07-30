@@ -1,0 +1,54 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "migrations: prevent accidentally using inner unversioned migration instead of `VersionedMigration`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Currently, it is possible to accidentally use inner unversioned migration instead of `VersionedMigration` 
+      since both implement `OnRuntimeUpgrade`. With this change, we make it clear that `Inner` is not intended 
+      to be used directly. It is achieved by bounding `Inner` to new trait `UncheckedOnRuntimeUpgrade`, which 
+      has the same interface as `OnRuntimeUpgrade`, but can not be used directly for runtime upgrade migrations.
+      
+      This change will break all existing migrations passed to `VersionedMigration`. Developers should simply change 
+      those migrations to implement `UncheckedOnRuntimeUpgrade` instead of `OnRuntimeUpgrade`.
+
+      Example:
+
+      ```
+      --- a/path/to/migration.rs
+      +++ b/path/to/migration.rs
+      @@ -1,7 +1,7 @@
+      -impl<T: Config> OnRuntimeUpgrade for MigrateVNToVM<T> {
+      +impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateVNToVM<T> {
+          fn on_runtime_upgrade() -> Weight {
+              // Migration logic here
+              // Adjust the migration logic if necessary to align with the expectations
+              // of new `UncheckedOnRuntimeUpgrade` trait.
+              0
+          }
+      }
+      ```
+
+crates:
+  - name: "pallet-example-single-block-migrations"
+    bump: "major"
+  - name: "pallet-xcm"
+    bump: "major"
+  - name: "pallet-grandpa"
+    bump: "major"
+  - name: "pallet-identity"
+    bump: "major"
+  - name: "pallet-nomination-pools"
+    bump: "major"
+  - name: "pallet-society"
+    bump: "major"
+  - name: "frame-support"
+    bump: "major"
+  - name: "pallet-uniques"
+    bump: "major"
+  - name: "polkadot-runtime-parachains"
+    bump: "major"
+  - name: "polkadot-runtime-common"
+    bump: "major"

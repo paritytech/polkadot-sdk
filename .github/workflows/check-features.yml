@@ -13,7 +13,7 @@ jobs:
       - name: Check
         uses: hack-ink/cargo-featalign-action@bea88a864d6ca7d0c53c26f1391ce1d431dc7f34 # v0.1.1
         with:
-          crate: substrate/bin/node/runtime
+          crate: templates/parachain/runtime/
           features: std,runtime-benchmarks,try-runtime
           ignore: sc-executor
           default-std: true

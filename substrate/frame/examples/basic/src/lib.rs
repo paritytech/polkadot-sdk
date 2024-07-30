@@ -54,6 +54,9 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{
@@ -72,7 +75,6 @@ use sp_runtime::{
 	},
 	transaction_validity::{InvalidTransaction, ValidTransaction},
 };
-use sp_std::vec::Vec;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;

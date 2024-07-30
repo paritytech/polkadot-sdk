@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::{derive_impl, traits::ConstU32};
+use frame_support::derive_impl;
 
 mod common;
 
@@ -29,7 +29,6 @@ pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, Runti
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type Block = Block;
-	type BlockHashCount = ConstU32<10>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
@@ -62,11 +61,11 @@ frame_support::construct_runtime!(
 		// Exclude part `Storage` in order not to check its metadata in tests.
 		System: frame_system exclude_parts { Storage },
 
-		// Pallet exposes `Error` implicitely.
+		// Pallet exposes `Error` implicitly.
 		Example: common::outer_enums::pallet,
 		Instance1Example: common::outer_enums::pallet::<Instance1>,
 
-		// Pallet exposes `Error` implicitely.
+		// Pallet exposes `Error` implicitly.
 		Example2: common::outer_enums::pallet2,
 		Instance1Example2: common::outer_enums::pallet2::<Instance1>,
 
@@ -82,7 +81,7 @@ fn module_error_outer_enum_expand_implicit() {
 
 	// Check that all error types are propagated
 	match RuntimeError::Example(pallet::Error::InsufficientProposersBalance) {
-		// Error passed implicitely to the pallet system.
+		// Error passed implicitly to the pallet system.
 		RuntimeError::System(system) => match system {
 			frame_system::Error::InvalidSpecName => (),
 			frame_system::Error::SpecVersionNeedsToIncrease => (),

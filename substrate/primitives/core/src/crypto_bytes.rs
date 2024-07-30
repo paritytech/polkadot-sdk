@@ -18,14 +18,26 @@
 //! Generic byte array which can be specialized with a marker type.
 
 use crate::{
-	crypto::{FromEntropy, UncheckedFrom},
+	crypto::{CryptoType, Derive, FromEntropy, Public, Signature, UncheckedFrom},
 	hash::{H256, H512},
 };
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;
+
 use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
+
+#[cfg(feature = "serde")]
+use crate::crypto::Ss58Codec;
+#[cfg(feature = "serde")]
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::{format, string::String};
+
+pub use public_bytes::*;
+pub use signature_bytes::*;
 
 /// Generic byte array holding some crypto-related raw data.
 ///
@@ -231,14 +243,137 @@ impl<T> CryptoBytes<64, T> {
 	}
 }
 
-/// Tag used for generic public key bytes.
-pub struct PublicTag;
+mod public_bytes {
+	use super::*;
 
-/// Generic encoded public key.
-pub type PublicBytes<const N: usize, SubTag> = CryptoBytes<N, (PublicTag, SubTag)>;
+	/// Tag used for generic public key bytes.
+	pub struct PublicTag;
 
-/// Tag used for generic signature bytes.
-pub struct SignatureTag;
+	/// Generic encoded public key.
+	pub type PublicBytes<const N: usize, SubTag> = CryptoBytes<N, (PublicTag, SubTag)>;
 
-/// Generic encoded signature.
-pub type SignatureBytes<const N: usize, SubTag> = CryptoBytes<N, (SignatureTag, SubTag)>;
+	impl<const N: usize, SubTag> Derive for PublicBytes<N, SubTag> where Self: CryptoType {}
+
+	impl<const N: usize, SubTag> Public for PublicBytes<N, SubTag> where Self: CryptoType {}
+
+	impl<const N: usize, SubTag> core::fmt::Debug for PublicBytes<N, SubTag>
+	where
+		Self: CryptoType,
+	{
+		#[cfg(feature = "std")]
+		fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+			let s = self.to_ss58check();
+			write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.as_ref()), &s[0..8])
+		}
+
+		#[cfg(not(feature = "std"))]
+		fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
+			Ok(())
+		}
+	}
+
+	#[cfg(feature = "std")]
+	impl<const N: usize, SubTag> std::fmt::Display for PublicBytes<N, SubTag>
+	where
+		Self: CryptoType,
+	{
+		fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+			write!(f, "{}", self.to_ss58check())
+		}
+	}
+
+	#[cfg(feature = "std")]
+	impl<const N: usize, SubTag> std::str::FromStr for PublicBytes<N, SubTag>
+	where
+		Self: CryptoType,
+	{
+		type Err = crate::crypto::PublicError;
+
+		fn from_str(s: &str) -> Result<Self, Self::Err> {
+			Self::from_ss58check(s)
+		}
+	}
+
+	#[cfg(feature = "serde")]
+	impl<const N: usize, SubTag> Serialize for PublicBytes<N, SubTag>
+	where
+		Self: CryptoType,
+	{
+		fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+		where
+			S: Serializer,
+		{
+			serializer.serialize_str(&self.to_ss58check())
+		}
+	}
+
+	#[cfg(feature = "serde")]
+	impl<'de, const N: usize, SubTag> Deserialize<'de> for PublicBytes<N, SubTag>
+	where
+		Self: CryptoType,
+	{
+		fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+		where
+			D: Deserializer<'de>,
+		{
+			Self::from_ss58check(&String::deserialize(deserializer)?)
+				.map_err(|e| de::Error::custom(format!("{:?}", e)))
+		}
+	}
+}
+
+mod signature_bytes {
+	use super::*;
+
+	/// Tag used for generic signature bytes.
+	pub struct SignatureTag;
+
+	/// Generic encoded signature.
+	pub type SignatureBytes<const N: usize, SubTag> = CryptoBytes<N, (SignatureTag, SubTag)>;
+
+	impl<const N: usize, SubTag> Signature for SignatureBytes<N, SubTag> where Self: CryptoType {}
+
+	#[cfg(feature = "serde")]
+	impl<const N: usize, SubTag> Serialize for SignatureBytes<N, SubTag>
+	where
+		Self: CryptoType,
+	{
+		fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+		where
+			S: Serializer,
+		{
+			serializer.serialize_str(&array_bytes::bytes2hex("", self))
+		}
+	}
+
+	#[cfg(feature = "serde")]
+	impl<'de, const N: usize, SubTag> Deserialize<'de> for SignatureBytes<N, SubTag>
+	where
+		Self: CryptoType,
+	{
+		fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+		where
+			D: Deserializer<'de>,
+		{
+			let signature_hex = array_bytes::hex2bytes(&String::deserialize(deserializer)?)
+				.map_err(|e| de::Error::custom(format!("{:?}", e)))?;
+			Self::try_from(signature_hex.as_ref())
+				.map_err(|e| de::Error::custom(format!("{:?}", e)))
+		}
+	}
+
+	impl<const N: usize, SubTag> core::fmt::Debug for SignatureBytes<N, SubTag>
+	where
+		Self: CryptoType,
+	{
+		#[cfg(feature = "std")]
+		fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+			write!(f, "{}", crate::hexdisplay::HexDisplay::from(&&self.0[..]))
+		}
+
+		#[cfg(not(feature = "std"))]
+		fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
+			Ok(())
+		}
+	}
+}

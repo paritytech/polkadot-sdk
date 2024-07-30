@@ -17,7 +17,7 @@
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
-/// Types for wasm based tracing. Loosly inspired by `tracing-core` but
+/// Types for wasm based tracing. Loosely inspired by `tracing-core` but
 /// optimised for the specific use case.
 use core::{fmt::Debug, format_args};
 
@@ -54,7 +54,7 @@ impl core::default::Default for WasmLevel {
 	}
 }
 
-/// A paramter value provided to the span/event
+/// A parameter value provided to the span/event
 #[derive(Encode, Decode, Clone)]
 pub enum WasmValue {
 	U8(u8),
@@ -180,9 +180,9 @@ impl From<i64> for WasmValue {
 	}
 }
 
-/// The name of a field provided as the argument name when contstructing an
+/// The name of a field provided as the argument name when constructing an
 /// `event!` or `span!`.
-/// Generally generated automaticaly via `stringify` from an `'static &str`.
+/// Generally generated automatically via `stringify` from an `'static &str`.
 /// Likely print-able.
 #[derive(Encode, Decode, Clone)]
 pub struct WasmFieldName(Vec<u8>);
@@ -320,7 +320,7 @@ impl tracing_core::field::Visit for WasmValuesSet {
 		self.0.push((field.name().into(), Some(WasmValue::from(value))))
 	}
 }
-/// Metadata provides generic information about the specifc location of the
+/// Metadata provides generic information about the specific location of the
 /// `span!` or `event!` call on the wasm-side.
 #[derive(Encode, Decode, Clone)]
 pub struct WasmMetadata {

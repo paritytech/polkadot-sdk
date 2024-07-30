@@ -299,7 +299,7 @@ impl MetricsTrait for Metrics {
 				prometheus::CounterVec::new(
 					prometheus::Opts::new(
 						"polkadot_parachain_assignments_received_result",
-						"Result of a processed assignement",
+						"Result of a processed assignment",
 					),
 					&["status"]
 				)?,

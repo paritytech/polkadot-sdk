@@ -50,7 +50,7 @@
 //!
 //! ## Get started
 //!
-//! To learn how it works and to get started, go to the [XCM docs](https://paritytech.github.io/xcm-docs/).
+//! To learn how it works and to get started, go to the [XCM docs](xcm_docs).
 
 #[cfg(test)]
 mod tests {

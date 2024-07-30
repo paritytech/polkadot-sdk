@@ -49,15 +49,17 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_parachains::inclusion`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_parachains::inclusion::WeightInfo for WeightInfo<T> {
-	/// Storage: `MessageQueue::BookStateFor` (r:1 w:1)
-	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(55), added: 2530, mode: `MaxEncodedLen`)
-	/// Storage: `MessageQueue::Pages` (r:1 w:999)
-	/// Proof: `MessageQueue::Pages` (`max_values`: None, `max_size`: Some(32818), added: 35293, mode: `MaxEncodedLen`)
-	/// Storage: UNKNOWN KEY `0x3a72656c61795f64697370617463685f71756575655f72656d61696e696e675f` (r:0 w:1)
-	/// Proof: UNKNOWN KEY `0x3a72656c61795f64697370617463685f71756575655f72656d61696e696e675f` (r:0 w:1)
-	/// Storage: UNKNOWN KEY `0xf5207f03cfdce586301014700e2c2593fad157e461d71fd4c1f936839a5f1f3e` (r:0 w:1)
-	/// Proof: UNKNOWN KEY `0xf5207f03cfdce586301014700e2c2593fad157e461d71fd4c1f936839a5f1f3e` (r:0 w:1)
+impl<T: frame_system::Config> polkadot_runtime_parachains::inclusion::WeightInfo for WeightInfo<T> {
+	/// Storage: MessageQueue BookStateFor (r:1 w:1)
+	/// Proof: MessageQueue BookStateFor (max_values: None, max_size: Some(55), added: 2530, mode: MaxEncodedLen)
+	/// Storage: MessageQueue Pages (r:1 w:999)
+	/// Proof: MessageQueue Pages (max_values: None, max_size: Some(32818), added: 35293, mode: MaxEncodedLen)
+	/// Storage: Configuration ActiveConfig (r:1 w:0)
+	/// Proof Skipped: Configuration ActiveConfig (max_values: Some(1), max_size: None, mode: Measured)
+	/// Storage: unknown `0x3a72656c61795f64697370617463685f71756575655f72656d61696e696e675f` (r:0 w:1)
+	/// Proof Skipped: unknown `0x3a72656c61795f64697370617463685f71756575655f72656d61696e696e675f` (r:0 w:1)
+	/// Storage: unknown `0xf5207f03cfdce586301014700e2c2593fad157e461d71fd4c1f936839a5f1f3e` (r:0 w:1)
+	/// Proof Skipped: unknown `0xf5207f03cfdce586301014700e2c2593fad157e461d71fd4c1f936839a5f1f3e` (r:0 w:1)
 	/// The range of component `i` is `[1, 1000]`.
 	fn receive_upward_messages(i: u32, ) -> Weight {
 		// Proof Size summary in bytes:

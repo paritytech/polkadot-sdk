@@ -24,7 +24,6 @@ use serde::{Deserialize, Serialize};
 use scale_info::TypeInfo;
 
 use sp_runtime::traits::{AtLeast32BitUnsigned, Zero};
-use sp_std::prelude::*;
 
 use frame_support::dispatch::DispatchClass;
 

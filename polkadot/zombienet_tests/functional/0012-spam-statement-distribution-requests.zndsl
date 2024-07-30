@@ -1,0 +1,27 @@
+Description: Test if parachains progress when group is getting spammed by statement distribution requests.
+Network: ./0012-spam-statement-distribution-requests.toml
+Creds: config
+
+# Check authority status and peers.
+malus: reports node_roles is 4
+honest: reports node_roles is 4
+
+# Ensure parachains are registered.
+honest: parachain 2000 is registered within 60 seconds
+
+# Ensure that malus is already attempting to DoS
+malus: log line contains "😈 Duplicating AttestedCandidateV2 request" within 90 seconds
+
+# Ensure parachains made progress.
+honest: parachain 2000 block height is at least 10 within 200 seconds
+
+# Ensure that honest nodes drop extra requests
+honest: log line contains "Peer already being served, dropping request" within 60 seconds
+
+# Check lag - approval
+honest: reports polkadot_parachain_approval_checking_finality_lag is 0
+
+# Check lag - dispute conclusion
+honest: reports polkadot_parachain_disputes_finality_lag is 0
+
+

@@ -17,6 +17,8 @@
 
 //! Benchmarks for Asset Conversion Tx Payment Pallet's transaction extension
 
+extern crate alloc;
+
 use super::*;
 use crate::Pallet;
 use frame_benchmarking::v2::*;
@@ -29,14 +31,10 @@ use sp_runtime::traits::{AsSystemOriginSigner, DispatchTransaction, Dispatchable
 
 #[benchmarks(where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-	AssetBalanceOf<T>: Send + Sync,
+	T::AssetId: Send + Sync,
 	BalanceOf<T>: Send
 		+ Sync
-		+ From<u64>
-		+ Into<ChargeAssetBalanceOf<T>>
-		+ Into<ChargeAssetLiquidityOf<T>>
-		+ From<ChargeAssetLiquidityOf<T>>,
-	ChargeAssetIdOf<T>: Send + Sync + Default,
+		+ From<u64>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 )]
 mod benchmarks {
@@ -46,10 +44,11 @@ mod benchmarks {
 	fn charge_asset_tx_payment_zero() {
 		let caller: T::AccountId = whitelisted_caller();
 		let ext: ChargeAssetTxPayment<T> = ChargeAssetTxPayment::from(0u64.into(), None);
-		let inner = frame_system::Call::remark { remark: vec![] };
+		let inner = frame_system::Call::remark { remark: alloc::vec![] };
 		let call = T::RuntimeCall::from(inner);
 		let info = DispatchInfo {
-			weight: Weight::zero(),
+			call_weight: Weight::zero(),
+			extension_weight: Weight::zero(),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::No,
 		};
@@ -69,17 +68,17 @@ mod benchmarks {
 		let (fun_asset_id, _) = <T as Config>::BenchmarkHelper::create_asset_id_parameter(1);
 		<T as Config>::BenchmarkHelper::setup_balances_and_pool(fun_asset_id, caller.clone());
 		let ext: ChargeAssetTxPayment<T> = ChargeAssetTxPayment::from(10u64.into(), None);
-		let inner = frame_system::Call::remark { remark: vec![] };
+		let inner = frame_system::Call::remark { remark: alloc::vec![] };
 		let call = T::RuntimeCall::from(inner);
 		let info = DispatchInfo {
-			weight: Weight::from_parts(10, 0),
+			call_weight: Weight::from_parts(10, 0),
+			extension_weight: Weight::zero(),
 			class: DispatchClass::Operational,
 			pays_fee: Pays::Yes,
 		};
-		let post_info = PostDispatchInfo {
-			actual_weight: Some(Weight::from_parts(10, 0)),
-			pays_fee: Pays::Yes,
-		};
+		// Submit a lower post info weight to trigger the refund path.
+		let post_info =
+			PostDispatchInfo { actual_weight: Some(Weight::from_parts(5, 0)), pays_fee: Pays::Yes };
 
 		#[block]
 		{
@@ -98,17 +97,17 @@ mod benchmarks {
 
 		let tip = 10u64.into();
 		let ext: ChargeAssetTxPayment<T> = ChargeAssetTxPayment::from(tip, Some(asset_id));
-		let inner = frame_system::Call::remark { remark: vec![] };
+		let inner = frame_system::Call::remark { remark: alloc::vec![] };
 		let call = T::RuntimeCall::from(inner);
 		let info = DispatchInfo {
-			weight: Weight::from_parts(10, 0),
+			call_weight: Weight::from_parts(10, 0),
+			extension_weight: Weight::zero(),
 			class: DispatchClass::Operational,
 			pays_fee: Pays::Yes,
 		};
-		let post_info = PostDispatchInfo {
-			actual_weight: Some(Weight::from_parts(10, 0)),
-			pays_fee: Pays::Yes,
-		};
+		// Submit a lower post info weight to trigger the refund path.
+		let post_info =
+			PostDispatchInfo { actual_weight: Some(Weight::from_parts(5, 0)), pays_fee: Pays::Yes };
 
 		#[block]
 		{

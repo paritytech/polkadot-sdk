@@ -18,6 +18,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use cumulus_primitives_core::Weight;
 use cumulus_primitives_proof_size_hostfunction::{
 	storage_proof_size::storage_proof_size, PROOF_RECORDING_DISABLED,
@@ -37,13 +38,9 @@ use sp_runtime::{
 	transaction_validity::TransactionValidityError,
 	DispatchResult,
 };
-use sp_std::marker::PhantomData;
 
 #[cfg(test)]
 mod tests;
-
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
 
 const LOG_TARGET: &'static str = "runtime::storage_reclaim";
 
@@ -154,16 +151,16 @@ where
 		Ok(get_proof_size())
 	}
 
-	fn post_dispatch(
+	fn post_dispatch_details(
 		pre: Self::Pre,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
 		_context: &Context,
-	) -> Result<(), TransactionValidityError> {
+	) -> Result<Option<Weight>, TransactionValidityError> {
 		let Some(pre_dispatch_proof_size) = pre else {
-			return Ok(());
+			return Ok(None);
 		};
 
 		let Some(post_dispatch_proof_size) = get_proof_size() else {
@@ -171,9 +168,9 @@ where
 				target: LOG_TARGET,
 				"Proof recording enabled during pre-dispatch, now disabled. This should not happen."
 			);
-			return Ok(())
+			return Ok(None)
 		};
-		let benchmarked_weight = info.weight.proof_size();
+		let benchmarked_weight = info.total_weight().proof_size();
 		let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
 
 		// Unspent weight according to the `actual_weight` from `PostDispatchInfo`
@@ -200,7 +197,7 @@ where
 				current.reduce(Weight::from_parts(0, storage_size_diff), info.class)
 			}
 		});
-		Ok(())
+		Ok(None)
 	}
 
 	impl_tx_ext_default!(T::RuntimeCall; Context; validate);

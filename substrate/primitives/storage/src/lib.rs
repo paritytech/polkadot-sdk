@@ -293,7 +293,7 @@ impl ChildInfo {
 		}
 	}
 
-	/// Return a the full location in the direct parent of
+	/// Return the full location in the direct parent of
 	/// this trie.
 	pub fn prefixed_storage_key(&self) -> PrefixedStorageKey {
 		match self {
@@ -302,7 +302,7 @@ impl ChildInfo {
 		}
 	}
 
-	/// Returns a the full location in the direct parent of
+	/// Returns the full location in the direct parent of
 	/// this trie.
 	pub fn into_prefixed_storage_key(self) -> PrefixedStorageKey {
 		match self {
@@ -452,7 +452,7 @@ impl TryFrom<u8> for StateVersion {
 impl StateVersion {
 	/// If defined, values in state of size bigger or equal
 	/// to this threshold will use a separate trie node.
-	/// Otherwhise, value will be inlined in branch or leaf
+	/// Otherwise, value will be inlined in branch or leaf
 	/// node.
 	pub fn state_value_threshold(&self) -> Option<u32> {
 		match self {

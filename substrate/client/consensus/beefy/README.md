@@ -297,7 +297,7 @@ periodically on the global topic. Let's now dive into description of the message
   - Justification is considered worthwhile to gossip when:
     - It is for a recent (implementation specific) round or the latest mandatory round.
     - All signatures are valid and there is at least `2/3rd + 1` of them.
-    - Signatorees are part of the current validator set.
+    - Signatories are part of the current validator set.
   - Mandatory justifications should be announced periodically.
 
 ## Misbehavior

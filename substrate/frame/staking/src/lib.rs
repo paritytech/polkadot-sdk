@@ -304,6 +304,9 @@ pub mod weights;
 
 mod pallet;
 
+extern crate alloc;
+
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, defensive_assert,
@@ -325,7 +328,6 @@ use sp_staking::{
 	StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
@@ -361,7 +363,7 @@ pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
@@ -376,7 +378,7 @@ pub struct ActiveEraInfo {
 	///
 	/// Start can be none if start hasn't been set for the era yet,
 	/// Start is set on the first on_finalize of the era to guarantee usage of `Time`.
-	start: Option<u64>,
+	pub start: Option<u64>,
 }
 
 /// Reward points of an era. Used to split era total payout between validators.
@@ -489,6 +491,20 @@ pub struct StakingLedger<T: Config> {
 	/// Use [`controller`] function to get the controller associated with the ledger.
 	#[codec(skip)]
 	controller: Option<T::AccountId>,
+}
+
+/// State of a ledger with regards with its data and metadata integrity.
+#[derive(PartialEq, Debug)]
+enum LedgerIntegrityState {
+	/// Ledger, bond and corresponding staking lock is OK.
+	Ok,
+	/// Ledger and/or bond is corrupted. This means that the bond has a ledger with a different
+	/// stash than the bonded stash.
+	Corrupted,
+	/// Ledger was corrupted and it has been killed.
+	CorruptedKilled,
+	/// Ledger and bond are OK, however the ledger's stash lock is out of sync.
+	LockCorrupted,
 }
 
 impl<T: Config> StakingLedger<T> {
@@ -660,7 +676,7 @@ impl<T: Config> StakingLedger<T> {
 				// slightly under-slashed, by at most `MaxUnlockingChunks * ED`, which is not a big
 				// deal.
 				slash_from_target =
-					sp_std::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
+					core::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
 			}
 
 			self.total = self.total.saturating_sub(slash_from_target);
@@ -902,7 +918,7 @@ impl<Balance: Default> EraPayout<Balance> for () {
 
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
-pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
+pub struct ConvertCurve<T>(core::marker::PhantomData<T>);
 impl<Balance, T> EraPayout<Balance> for ConvertCurve<T>
 where
 	Balance: AtLeast32BitUnsigned + Clone + Copy,
@@ -960,7 +976,7 @@ impl Default for Forcing {
 
 /// A `Convert` implementation that finds the stash of the given controller account,
 /// if any.
-pub struct StashOf<T>(sp_std::marker::PhantomData<T>);
+pub struct StashOf<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 	fn convert(controller: T::AccountId) -> Option<T::AccountId> {
@@ -973,7 +989,7 @@ impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 ///
 /// Active exposure is the exposure of the validator set currently validating, i.e. in
 /// `active_era`. It can differ from the latest planned exposure in `current_era`.
-pub struct ExposureOf<T>(sp_std::marker::PhantomData<T>);
+pub struct ExposureOf<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>>
 	for ExposureOf<T>
@@ -986,7 +1002,7 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 
 /// Filter historical offences out and only allow those from the bonding period.
 pub struct FilterHistoricalOffences<T, R> {
-	_inner: sp_std::marker::PhantomData<(T, R)>,
+	_inner: core::marker::PhantomData<(T, R)>,
 }
 
 impl<T, Reporter, Offender, R, O> ReportOffence<Reporter, Offender, O>
@@ -1019,13 +1035,39 @@ where
 /// Wrapper struct for Era related information. It is not a pure encapsulation as these storage
 /// items can be accessed directly but nevertheless, its recommended to use `EraInfo` where we
 /// can and add more functions to it as needed.
-pub struct EraInfo<T>(sp_std::marker::PhantomData<T>);
+pub struct EraInfo<T>(core::marker::PhantomData<T>);
 impl<T: Config> EraInfo<T> {
+	/// Returns true if validator has one or more page of era rewards not claimed yet.
+	// Also looks at legacy storage that can be cleaned up after #433.
+	pub fn pending_rewards(era: EraIndex, validator: &T::AccountId) -> bool {
+		let page_count = if let Some(overview) = <ErasStakersOverview<T>>::get(&era, validator) {
+			overview.page_count
+		} else {
+			if <ErasStakers<T>>::contains_key(era, validator) {
+				// this means non paged exposure, and we treat them as single paged.
+				1
+			} else {
+				// if no exposure, then no rewards to claim.
+				return false
+			}
+		};
+
+		// check if era is marked claimed in legacy storage.
+		if <Ledger<T>>::get(validator)
+			.map(|l| l.legacy_claimed_rewards.contains(&era))
+			.unwrap_or_default()
+		{
+			return false
+		}
+
+		ClaimedRewards::<T>::get(era, validator).len() < page_count as usize
+	}
+
 	/// Temporary function which looks at both (1) passed param `T::StakingLedger` for legacy
 	/// non-paged rewards, and (2) `T::ClaimedRewards` for paged rewards. This function can be
 	/// removed once `T::HistoryDepth` eras have passed and none of the older non-paged rewards
 	/// are relevant/claimable.
-	// Refer tracker issue for cleanup: #13034
+	// Refer tracker issue for cleanup: https://github.com/paritytech/polkadot-sdk/issues/433
 	pub(crate) fn is_rewards_claimed_with_legacy_fallback(
 		era: EraIndex,
 		ledger: &StakingLedger<T>,
@@ -1224,4 +1266,80 @@ pub struct TestBenchmarkingConfig;
 impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxValidators = frame_support::traits::ConstU32<100>;
 	type MaxNominators = frame_support::traits::ConstU32<100>;
+}
+
+/// Controls validator disabling
+pub trait DisablingStrategy<T: Config> {
+	/// Make a disabling decision. Returns the index of the validator to disable or `None` if no new
+	/// validator should be disabled.
+	fn decision(
+		offender_stash: &T::AccountId,
+		slash_era: EraIndex,
+		currently_disabled: &Vec<u32>,
+	) -> Option<u32>;
+}
+
+/// Implementation of [`DisablingStrategy`] which disables validators from the active set up to a
+/// threshold. `DISABLING_LIMIT_FACTOR` is the factor of the maximum disabled validators in the
+/// active set. E.g. setting this value to `3` means no more than 1/3 of the validators in the
+/// active set can be disabled in an era.
+/// By default a factor of 3 is used which is the byzantine threshold.
+pub struct UpToLimitDisablingStrategy<const DISABLING_LIMIT_FACTOR: usize = 3>;
+
+impl<const DISABLING_LIMIT_FACTOR: usize> UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR> {
+	/// Disabling limit calculated from the total number of validators in the active set. When
+	/// reached no more validators will be disabled.
+	pub fn disable_limit(validators_len: usize) -> usize {
+		validators_len
+			.saturating_sub(1)
+			.checked_div(DISABLING_LIMIT_FACTOR)
+			.unwrap_or_else(|| {
+				defensive!("DISABLING_LIMIT_FACTOR should not be 0");
+				0
+			})
+	}
+}
+
+impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
+	for UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>
+{
+	fn decision(
+		offender_stash: &T::AccountId,
+		slash_era: EraIndex,
+		currently_disabled: &Vec<u32>,
+	) -> Option<u32> {
+		let active_set = T::SessionInterface::validators();
+
+		// We don't disable more than the limit
+		if currently_disabled.len() >= Self::disable_limit(active_set.len()) {
+			log!(
+				debug,
+				"Won't disable: reached disabling limit {:?}",
+				Self::disable_limit(active_set.len())
+			);
+			return None
+		}
+
+		// We don't disable for offences in previous eras
+		if ActiveEra::<T>::get().map(|e| e.index).unwrap_or_default() > slash_era {
+			log!(
+				debug,
+				"Won't disable: current_era {:?} > slash_era {:?}",
+				Pallet::<T>::current_era().unwrap_or_default(),
+				slash_era
+			);
+			return None
+		}
+
+		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
+			idx as u32
+		} else {
+			log!(debug, "Won't disable: offender not in active set",);
+			return None
+		};
+
+		log!(debug, "Will disable {:?}", offender_idx);
+
+		Some(offender_idx)
+	}
 }

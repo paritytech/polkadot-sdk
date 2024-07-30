@@ -56,6 +56,9 @@ mod benchmarking;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo},
@@ -64,7 +67,6 @@ use frame_support::{
 use sp_core::TypeId;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
-use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -131,7 +133,7 @@ pub mod pallet {
 		/// The limit on the number of batched calls.
 		fn batched_calls_limit() -> u32 {
 			let allocator_limit = sp_core::MAX_POSSIBLE_ALLOCATION;
-			let call_size = ((sp_std::mem::size_of::<<T as Config>::RuntimeCall>() as u32 +
+			let call_size = ((core::mem::size_of::<<T as Config>::RuntimeCall>() as u32 +
 				CALL_ALIGN - 1) / CALL_ALIGN) *
 				CALL_ALIGN;
 			// The margin to take into account vec doubling capacity.
@@ -146,7 +148,7 @@ pub mod pallet {
 		fn integrity_test() {
 			// If you hit this error, you need to try to `Box` big dispatchable parameters.
 			assert!(
-				sp_std::mem::size_of::<<T as Config>::RuntimeCall>() as u32 <= CALL_ALIGN,
+				core::mem::size_of::<<T as Config>::RuntimeCall>() as u32 <= CALL_ALIGN,
 				"Call enum size should be smaller than {} bytes.",
 				CALL_ALIGN,
 			);
@@ -183,7 +185,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
 			let dispatch_weight = dispatch_infos.iter()
-				.map(|di| di.weight)
+				.map(|di| di.call_weight)
 				.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
 				.saturating_add(T::WeightInfo::batch(calls.len() as u32));
 			let dispatch_class = {
@@ -260,7 +262,7 @@ pub mod pallet {
 				T::WeightInfo::as_derivative()
 					// AccountData for inner call origin accountdata.
 					.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-					.saturating_add(dispatch_info.weight),
+					.saturating_add(dispatch_info.call_weight),
 				dispatch_info.class,
 			)
 		})]
@@ -305,7 +307,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
 			let dispatch_weight = dispatch_infos.iter()
-				.map(|di| di.weight)
+				.map(|di| di.call_weight)
 				.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
 				.saturating_add(T::WeightInfo::batch_all(calls.len() as u32));
 			let dispatch_class = {
@@ -378,7 +380,7 @@ pub mod pallet {
 			let dispatch_info = call.get_dispatch_info();
 			(
 				T::WeightInfo::dispatch_as()
-					.saturating_add(dispatch_info.weight),
+					.saturating_add(dispatch_info.call_weight),
 				dispatch_info.class,
 			)
 		})]
@@ -414,7 +416,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
 			let dispatch_weight = dispatch_infos.iter()
-				.map(|di| di.weight)
+				.map(|di| di.call_weight)
 				.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
 				.saturating_add(T::WeightInfo::force_batch(calls.len() as u32));
 			let dispatch_class = {

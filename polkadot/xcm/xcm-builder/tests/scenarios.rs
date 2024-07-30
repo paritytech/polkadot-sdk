@@ -132,7 +132,7 @@ fn report_holding_works() {
 				assets: AllCounted(1).into(),
 				beneficiary: OnlyChild.into(), // invalid destination
 			},
-			// is not triggered becasue the deposit fails
+			// is not triggered because the deposit fails
 			ReportHolding { response_info: response_info.clone(), assets: All.into() },
 		]);
 		let mut hash = fake_message_hash(&message);

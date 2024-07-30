@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{AccountInfo, Config};
+use alloc::vec;
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchInfo;
 use scale_info::TypeInfo;
@@ -29,7 +30,6 @@ use sp_runtime::{
 	},
 	Saturating,
 };
-use sp_std::vec;
 
 /// Nonce check and increment to give replay protection for transactions.
 ///
@@ -49,14 +49,14 @@ impl<T: Config> CheckNonce<T> {
 	}
 }
 
-impl<T: Config> sp_std::fmt::Debug for CheckNonce<T> {
+impl<T: Config> core::fmt::Debug for CheckNonce<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "CheckNonce({})", self.0)
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -64,7 +64,7 @@ impl<T: Config> sp_std::fmt::Debug for CheckNonce<T> {
 impl<T: Config> TransactionExtensionBase for CheckNonce<T> {
 	const IDENTIFIER: &'static str = "CheckNonce";
 	type Implicit = ();
-	fn weight(&self) -> sp_weights::Weight {
+	fn weight() -> sp_weights::Weight {
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_nonce()
 	}
 }
@@ -130,7 +130,7 @@ where
 		if self.0 > account.nonce {
 			return Err(InvalidTransaction::Future.into())
 		}
-		account.nonce.saturating_inc();
+		account.nonce += T::Nonce::one();
 		crate::Account::<T>::insert(who, account);
 		Ok(())
 	}
@@ -149,7 +149,7 @@ mod tests {
 			crate::Account::<Test>::insert(
 				1,
 				crate::AccountInfo {
-					nonce: 1,
+					nonce: 1u64.into(),
 					consumers: 0,
 					providers: 1,
 					sufficients: 0,
@@ -160,32 +160,42 @@ mod tests {
 			let len = 0_usize;
 			// stale
 			assert_eq!(
-				CheckNonce::<Test>(0)
-					.validate_only(Some(1).into(), CALL, &info, len,)
+				CheckNonce::<Test>(0u64.into())
+					.validate_only(Some(1).into(), CALL, &info, len)
 					.unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Stale)
 			);
 			assert_eq!(
-				CheckNonce::<Test>(0)
+				CheckNonce::<Test>(0u64.into())
 					.validate_and_prepare(Some(1).into(), CALL, &info, len)
 					.unwrap_err(),
-				InvalidTransaction::Stale.into()
+				TransactionValidityError::Invalid(InvalidTransaction::Stale)
 			);
 			// correct
-			assert_ok!(CheckNonce::<Test>(1).validate_only(Some(1).into(), CALL, &info, len));
-			assert_ok!(CheckNonce::<Test>(1).validate_and_prepare(
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_only(
+				Some(1).into(),
+				CALL,
+				&info,
+				len
+			));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
 				Some(1).into(),
 				CALL,
 				&info,
 				len
 			));
 			// future
-			assert_ok!(CheckNonce::<Test>(5).validate_only(Some(1).into(), CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>(5u64.into()).validate_only(
+				Some(1).into(),
+				CALL,
+				&info,
+				len
+			));
 			assert_eq!(
-				CheckNonce::<Test>(5)
+				CheckNonce::<Test>(5u64.into())
 					.validate_and_prepare(Some(1).into(), CALL, &info, len)
 					.unwrap_err(),
-				InvalidTransaction::Future.into()
+				TransactionValidityError::Invalid(InvalidTransaction::Future)
 			);
 		})
 	}
@@ -196,7 +206,7 @@ mod tests {
 			crate::Account::<Test>::insert(
 				2,
 				crate::AccountInfo {
-					nonce: 1,
+					nonce: 1u64.into(),
 					consumers: 0,
 					providers: 1,
 					sufficients: 0,
@@ -206,7 +216,7 @@ mod tests {
 			crate::Account::<Test>::insert(
 				3,
 				crate::AccountInfo {
-					nonce: 1,
+					nonce: 1u64.into(),
 					consumers: 0,
 					providers: 0,
 					sufficients: 1,
@@ -217,28 +227,38 @@ mod tests {
 			let len = 0_usize;
 			// Both providers and sufficients zero
 			assert_eq!(
-				CheckNonce::<Test>(1)
+				CheckNonce::<Test>(1u64.into())
 					.validate_only(Some(1).into(), CALL, &info, len)
 					.unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Payment)
 			);
 			assert_eq!(
-				CheckNonce::<Test>(1)
+				CheckNonce::<Test>(1u64.into())
 					.validate_and_prepare(Some(1).into(), CALL, &info, len)
 					.unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Payment)
 			);
 			// Non-zero providers
-			assert_ok!(CheckNonce::<Test>(1).validate_only(Some(2).into(), CALL, &info, len));
-			assert_ok!(CheckNonce::<Test>(1).validate_and_prepare(
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_only(
+				Some(2).into(),
+				CALL,
+				&info,
+				len
+			));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
 				Some(2).into(),
 				CALL,
 				&info,
 				len
 			));
 			// Non-zero sufficients
-			assert_ok!(CheckNonce::<Test>(1).validate_only(Some(3).into(), CALL, &info, len));
-			assert_ok!(CheckNonce::<Test>(1).validate_and_prepare(
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_only(
+				Some(3).into(),
+				CALL,
+				&info,
+				len
+			));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
 				Some(3).into(),
 				CALL,
 				&info,
@@ -252,8 +272,18 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
-			assert_ok!(CheckNonce::<Test>(1).validate_only(None.into(), CALL, &info, len));
-			assert_ok!(CheckNonce::<Test>(1).validate_and_prepare(None.into(), CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_only(
+				None.into(),
+				CALL,
+				&info,
+				len
+			));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
+				None.into(),
+				CALL,
+				&info,
+				len
+			));
 		})
 	}
 }

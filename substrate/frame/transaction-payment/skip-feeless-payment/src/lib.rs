@@ -16,8 +16,8 @@
 //! # Skip Feeless Payment Pallet
 //!
 //! This pallet allows runtimes that include it to skip payment of transaction fees for
-//! dispatchables marked by [`#[pallet::feeless_if]`](`macro@
-//! frame_support::pallet_prelude::feeless_if`).
+//! dispatchables marked by
+//! [`#[pallet::feeless_if]`](frame_support::pallet_prelude::feeless_if).
 //!
 //! ## Overview
 //!
@@ -30,9 +30,9 @@
 //! ## Integration
 //!
 //! This pallet wraps an existing transaction payment pallet. This means you should both pallets
-//! in your `construct_runtime` macro and include this pallet's
-//! [`TransactionExtension`] ([`SkipCheckIfFeeless`]) that would accept the existing one as an
-//! argument.
+//! in your [`construct_runtime`](frame_support::construct_runtime) macro and
+//! include this pallet's [`TransactionExtension`] ([`SkipCheckIfFeeless`]) that would accept the
+//! existing one as an argument.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -40,6 +40,7 @@ use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{CheckIfFeeless, DispatchResult},
 	traits::{IsType, OriginTrait},
+	weights::Weight,
 };
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
@@ -80,7 +81,7 @@ pub mod pallet {
 
 /// A [`TransactionExtension`] that skips the wrapped extension if the dispatchable is feeless.
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
-pub struct SkipCheckIfFeeless<T, S>(pub S, sp_std::marker::PhantomData<T>);
+pub struct SkipCheckIfFeeless<T, S>(pub S, core::marker::PhantomData<T>);
 
 // Make this extension "invisible" from the outside (ie metadata type information)
 impl<T, S: StaticTypeInfo> TypeInfo for SkipCheckIfFeeless<T, S> {
@@ -90,20 +91,20 @@ impl<T, S: StaticTypeInfo> TypeInfo for SkipCheckIfFeeless<T, S> {
 	}
 }
 
-impl<T, S: Encode> sp_std::fmt::Debug for SkipCheckIfFeeless<T, S> {
+impl<T, S: Encode> core::fmt::Debug for SkipCheckIfFeeless<T, S> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "SkipCheckIfFeeless<{:?}>", self.0.encode())
 	}
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
 
 impl<T, S> From<S> for SkipCheckIfFeeless<T, S> {
 	fn from(s: S) -> Self {
-		Self(s, sp_std::marker::PhantomData)
+		Self(s, core::marker::PhantomData)
 	}
 }
 
@@ -129,8 +130,8 @@ impl<T: Config + Send + Sync, S: TransactionExtensionBase> TransactionExtensionB
 		self.0.implicit()
 	}
 
-	fn weight(&self) -> frame_support::weights::Weight {
-		self.0.weight()
+	fn weight() -> frame_support::weights::Weight {
+		S::weight()
 	}
 }
 
@@ -183,19 +184,19 @@ where
 		}
 	}
 
-	fn post_dispatch(
+	fn post_dispatch_details(
 		pre: Self::Pre,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		result: &DispatchResult,
 		context: &Context,
-	) -> Result<(), TransactionValidityError> {
+	) -> Result<Option<Weight>, TransactionValidityError> {
 		match pre {
-			Apply(pre) => S::post_dispatch(pre, info, post_info, len, result, context),
+			Apply(pre) => S::post_dispatch_details(pre, info, post_info, len, result, context),
 			Skip(origin) => {
 				Pallet::<T>::deposit_event(Event::<T>::FeeSkipped { origin });
-				Ok(())
+				Ok(None)
 			},
 		}
 	}

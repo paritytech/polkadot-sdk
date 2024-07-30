@@ -49,23 +49,23 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_common::claims`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_common::claims::WeightInfo for WeightInfo<T> {
-	/// Storage: `Claims::Claims` (r:1 w:1)
-	/// Proof: `Claims::Claims` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Claims::Signing` (r:1 w:1)
-	/// Proof: `Claims::Signing` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Claims::Total` (r:1 w:1)
-	/// Proof: `Claims::Total` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Claims::Vesting` (r:1 w:1)
-	/// Proof: `Claims::Vesting` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Vesting::Vesting` (r:1 w:1)
-	/// Proof: `Vesting::Vesting` (`max_values`: None, `max_size`: Some(1057), added: 3532, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:1 w:0)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `Balances::Locks` (r:1 w:1)
-	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
-	/// Storage: `Balances::Freezes` (r:1 w:0)
-	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
+impl<T: frame_system::Config> polkadot_runtime_common::claims::WeightInfo for WeightInfo<T> {
+	/// Storage: Claims Claims (r:1 w:1)
+	/// Proof Skipped: Claims Claims (max_values: None, max_size: None, mode: Measured)
+	/// Storage: Claims Signing (r:1 w:1)
+	/// Proof Skipped: Claims Signing (max_values: None, max_size: None, mode: Measured)
+	/// Storage: Claims Total (r:1 w:1)
+	/// Proof Skipped: Claims Total (max_values: Some(1), max_size: None, mode: Measured)
+	/// Storage: Claims Vesting (r:1 w:1)
+	/// Proof Skipped: Claims Vesting (max_values: None, max_size: None, mode: Measured)
+	/// Storage: Vesting Vesting (r:1 w:1)
+	/// Proof: Vesting Vesting (max_values: None, max_size: Some(1057), added: 3532, mode: MaxEncodedLen)
+	/// Storage: System Account (r:1 w:0)
+	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+	/// Storage: Balances Locks (r:1 w:1)
+	/// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+	/// Storage: Balances Freezes (r:1 w:0)
+	/// Proof: Balances Freezes (max_values: None, max_size: Some(65), added: 2540, mode: MaxEncodedLen)
 	fn claim() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `558`

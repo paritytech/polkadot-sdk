@@ -18,8 +18,14 @@
 //! Cryptographic utilities.
 
 use crate::{ed25519, sr25519};
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::{format, string::String, vec};
+use alloc::{str, vec::Vec};
 use bip39::{Language, Mnemonic};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::hash::Hash;
+#[doc(hidden)]
+pub use core::ops::Deref;
 #[cfg(feature = "std")]
 use itertools::Itertools;
 #[cfg(feature = "std")]
@@ -27,14 +33,6 @@ use rand::{rngs::OsRng, RngCore};
 use scale_info::TypeInfo;
 pub use secrecy::{ExposeSecret, SecretString};
 use sp_runtime_interface::pass_by::PassByInner;
-#[doc(hidden)]
-pub use sp_std::ops::Deref;
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::{
-	alloc::{format, string::String},
-	vec,
-};
-use sp_std::{hash::Hash, str, vec::Vec};
 pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58AddressFormatRegistry};
 /// Trait to zeroize a memory buffer.
 pub use zeroize::Zeroize;
@@ -245,8 +243,8 @@ pub enum PublicError {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::fmt::Debug for PublicError {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Debug for PublicError {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		// Just use the `Display` implementation
 		write!(f, "{}", self)
 	}
@@ -485,8 +483,11 @@ pub trait ByteArray: AsRef<[u8]> + AsMut<[u8]> + for<'a> TryFrom<&'a [u8], Error
 	}
 }
 
-/// Trait suitable for typical cryptographic key public type.
-pub trait Public: CryptoType + ByteArray + Derive + PartialEq + Eq + Clone + Send + Sync {}
+/// Trait suitable for cryptographic public keys.
+pub trait Public: CryptoType + ByteArray + PartialEq + Eq + Clone + Send + Sync + Derive {}
+
+/// Trait suitable for cryptographic signatures.
+pub trait Signature: CryptoType + ByteArray + PartialEq + Eq + Clone + Send + Sync {}
 
 /// An opaque 32-byte cryptographic identifier.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo)]
@@ -584,8 +585,8 @@ impl std::fmt::Display for AccountId32 {
 	}
 }
 
-impl sp_std::fmt::Debug for AccountId32 {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl core::fmt::Debug for AccountId32 {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		#[cfg(feature = "serde")]
 		{
 			let s = self.to_ss58check();
@@ -621,7 +622,7 @@ impl<'de> serde::Deserialize<'de> for AccountId32 {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::str::FromStr for AccountId32 {
+impl std::str::FromStr for AccountId32 {
 	type Err = &'static str;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -648,32 +649,11 @@ pub use self::dummy::*;
 mod dummy {
 	use super::*;
 
+	#[doc(hidden)]
+	pub struct DummyTag;
+
 	/// Dummy cryptography. Doesn't do anything.
-	#[derive(Clone, Hash, Default, Eq, PartialEq)]
-	pub struct Dummy;
-
-	impl AsRef<[u8]> for Dummy {
-		fn as_ref(&self) -> &[u8] {
-			&b""[..]
-		}
-	}
-
-	impl AsMut<[u8]> for Dummy {
-		fn as_mut(&mut self) -> &mut [u8] {
-			unsafe {
-				#[allow(mutable_transmutes)]
-				sp_std::mem::transmute::<_, &'static mut [u8]>(&b""[..])
-			}
-		}
-	}
-
-	impl<'a> TryFrom<&'a [u8]> for Dummy {
-		type Error = ();
-
-		fn try_from(_: &'a [u8]) -> Result<Self, ()> {
-			Ok(Self)
-		}
-	}
+	pub type Dummy = CryptoBytes<0, DummyTag>;
 
 	impl CryptoType for Dummy {
 		type Pair = Dummy;
@@ -681,20 +661,9 @@ mod dummy {
 
 	impl Derive for Dummy {}
 
-	impl ByteArray for Dummy {
-		const LEN: usize = 0;
-		fn from_slice(_: &[u8]) -> Result<Self, ()> {
-			Ok(Self)
-		}
-		#[cfg(feature = "std")]
-		fn to_raw_vec(&self) -> Vec<u8> {
-			vec![]
-		}
-		fn as_slice(&self) -> &[u8] {
-			b""
-		}
-	}
 	impl Public for Dummy {}
+
+	impl Signature for Dummy {}
 
 	impl Pair for Dummy {
 		type Public = Dummy;
@@ -716,15 +685,15 @@ mod dummy {
 			_: Iter,
 			_: Option<Dummy>,
 		) -> Result<(Self, Option<Dummy>), DeriveError> {
-			Ok((Self, None))
+			Ok((Self::default(), None))
 		}
 
 		fn from_seed_slice(_: &[u8]) -> Result<Self, SecretStringError> {
-			Ok(Self)
+			Ok(Self::default())
 		}
 
 		fn sign(&self, _: &[u8]) -> Self::Signature {
-			Self
+			Self::default()
 		}
 
 		fn verify<M: AsRef<[u8]>>(_: &Self::Signature, _: M, _: &Self::Public) -> bool {
@@ -732,11 +701,11 @@ mod dummy {
 		}
 
 		fn public(&self) -> Self::Public {
-			Self
+			Self::default()
 		}
 
 		fn to_raw_vec(&self) -> Vec<u8> {
-			vec![]
+			Default::default()
 		}
 	}
 }
@@ -815,7 +784,7 @@ pub struct SecretUri {
 	pub junctions: Vec<DeriveJunction>,
 }
 
-impl sp_std::str::FromStr for SecretUri {
+impl alloc::str::FromStr for SecretUri {
 	type Err = SecretStringError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -845,7 +814,7 @@ pub trait Pair: CryptoType + Sized {
 
 	/// The type used to represent a signature. Can be created from a key pair and a message
 	/// and verified with the message and a public key.
-	type Signature: AsRef<[u8]>;
+	type Signature: Signature;
 
 	/// Generate new secure (random) key pair.
 	///
@@ -954,7 +923,7 @@ pub trait Pair: CryptoType + Sized {
 		s: &str,
 		password_override: Option<&str>,
 	) -> Result<(Self, Option<Self::Seed>), SecretStringError> {
-		use sp_std::str::FromStr;
+		use alloc::str::FromStr;
 		let SecretUri { junctions, phrase, password } = SecretUri::from_str(s)?;
 		let password =
 			password_override.or_else(|| password.as_ref().map(|p| p.expose_secret().as_str()));
@@ -1218,6 +1187,8 @@ mod tests {
 	use super::*;
 	use crate::DeriveJunction;
 
+	struct TestCryptoTag;
+
 	#[derive(Clone, Eq, PartialEq, Debug)]
 	enum TestPair {
 		Generated,
@@ -1226,59 +1197,33 @@ mod tests {
 		Standard { phrase: String, password: Option<String>, path: Vec<DeriveJunction> },
 		Seed(Vec<u8>),
 	}
+
 	impl Default for TestPair {
 		fn default() -> Self {
 			TestPair::Generated
 		}
 	}
+
 	impl CryptoType for TestPair {
 		type Pair = Self;
 	}
 
-	#[derive(Clone, PartialEq, Eq, Hash, Default)]
-	struct TestPublic;
-	impl AsRef<[u8]> for TestPublic {
-		fn as_ref(&self) -> &[u8] {
-			&[]
-		}
-	}
-	impl AsMut<[u8]> for TestPublic {
-		fn as_mut(&mut self) -> &mut [u8] {
-			&mut []
-		}
-	}
-	impl<'a> TryFrom<&'a [u8]> for TestPublic {
-		type Error = ();
+	type TestPublic = PublicBytes<0, TestCryptoTag>;
 
-		fn try_from(data: &'a [u8]) -> Result<Self, ()> {
-			Self::from_slice(data)
-		}
-	}
 	impl CryptoType for TestPublic {
 		type Pair = TestPair;
 	}
-	impl Derive for TestPublic {}
-	impl ByteArray for TestPublic {
-		const LEN: usize = 0;
-		fn from_slice(bytes: &[u8]) -> Result<Self, ()> {
-			if bytes.is_empty() {
-				Ok(Self)
-			} else {
-				Err(())
-			}
-		}
-		fn as_slice(&self) -> &[u8] {
-			&[]
-		}
-		fn to_raw_vec(&self) -> Vec<u8> {
-			vec![]
-		}
+
+	type TestSignature = SignatureBytes<0, TestCryptoTag>;
+
+	impl CryptoType for TestSignature {
+		type Pair = TestPair;
 	}
-	impl Public for TestPublic {}
+
 	impl Pair for TestPair {
 		type Public = TestPublic;
 		type Seed = [u8; 8];
-		type Signature = [u8; 0];
+		type Signature = TestSignature;
 
 		fn generate() -> (Self, <Self as Pair>::Seed) {
 			(TestPair::Generated, [0u8; 8])
@@ -1327,7 +1272,7 @@ mod tests {
 		}
 
 		fn sign(&self, _message: &[u8]) -> Self::Signature {
-			[]
+			TestSignature::default()
 		}
 
 		fn verify<M: AsRef<[u8]>>(_: &Self::Signature, _: M, _: &Self::Public) -> bool {
@@ -1335,7 +1280,7 @@ mod tests {
 		}
 
 		fn public(&self) -> Self::Public {
-			TestPublic
+			TestPublic::default()
 		}
 
 		fn from_seed_slice(seed: &[u8]) -> Result<Self, SecretStringError> {

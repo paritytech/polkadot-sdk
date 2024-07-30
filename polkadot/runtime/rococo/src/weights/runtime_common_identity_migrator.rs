@@ -49,7 +49,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_common::identity_migrator`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_common::identity_migrator::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> polkadot_runtime_common::identity_migrator::WeightInfo for WeightInfo<T> {
 	/// Storage: `Identity::IdentityOf` (r:1 w:1)
 	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7572), added: 10047, mode: `MaxEncodedLen`)
 	/// Storage: `Identity::SubsOf` (r:1 w:1)

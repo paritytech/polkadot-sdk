@@ -45,14 +45,22 @@ use futures::FutureExt;
 use polkadot_node_network_protocol::PeerId;
 use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, GroupIndex, SessionIndex};
 
+/// Elastic scaling: how many candidates per relay chain block the collator supports building.
+pub const MAX_CHAINED_CANDIDATES_PER_RCB: NonZeroUsize = match NonZeroUsize::new(3) {
+	Some(cap) => cap,
+	None => panic!("max candidates per rcb cannot be zero"),
+};
+
 /// The ring buffer stores at most this many unique validator groups.
 ///
 /// This value should be chosen in way that all groups assigned to our para
-/// in the view can fit into the buffer.
-pub const VALIDATORS_BUFFER_CAPACITY: NonZeroUsize = match NonZeroUsize::new(3) {
-	Some(cap) => cap,
-	None => panic!("buffer capacity must be non-zero"),
-};
+/// in the view can fit into the buffer multiplied by amount of candidates we support per relay
+/// chain block in the case of elastic scaling.
+pub const VALIDATORS_BUFFER_CAPACITY: NonZeroUsize =
+	match NonZeroUsize::new(3 * MAX_CHAINED_CANDIDATES_PER_RCB.get()) {
+		Some(cap) => cap,
+		None => panic!("buffer capacity must be non-zero"),
+	};
 
 /// Unique identifier of a validators group.
 #[derive(Debug)]

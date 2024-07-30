@@ -21,13 +21,16 @@ mod tracks;
 use crate::{
 	weights,
 	xcm_config::{FellowshipAdminBodyId, LocationToAccountId, TreasurerBodyId, UsdtAssetHub},
-	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation, Preimage,
-	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, WestendTreasuryAccount, DAYS,
+	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation,
+	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler,
+	WestendTreasuryAccount, DAYS,
 };
+use cumulus_primitives_core::ParaId;
 use frame_support::{
 	parameter_types,
 	traits::{
-		EitherOf, EitherOfDiverse, MapSuccess, NeverEnsureOrigin, OriginTrait, TryWithMorphedArg,
+		tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse, FromContains, MapSuccess,
+		OriginTrait, TryWithMorphedArg,
 	},
 	PalletId,
 };
@@ -40,10 +43,10 @@ use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::impls::ToParentTreasury;
 use polkadot_runtime_common::impls::{
-	LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
+	ContainsParts, LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
 };
 use sp_arithmetic::Permill;
-use sp_core::{ConstU128, ConstU32};
+use sp_core::{ConstU128, ConstU32, ConstU8};
 use sp_runtime::traits::{ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst};
 use testnet_parachains_constants::westend::{account, currency::GRAND};
 use westend_runtime_constants::time::HOURS;
@@ -52,8 +55,6 @@ use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::impls::benchmarks::{OpenHrmpChannel, PayWithEnsure};
-#[cfg(feature = "runtime-benchmarks")]
-use testnet_parachains_constants::westend::currency::DOLLARS;
 
 /// The Fellowship members' ranks.
 pub mod ranks {
@@ -149,6 +150,7 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	type MinRankOfClass = tracks::MinRankOfClass;
 	type MemberSwappedHandler = (crate::FellowshipCore, crate::FellowshipSalary);
 	type VoteWeight = pallet_ranked_collective::Geometric;
+	type MaxMemberCount = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = (crate::FellowshipCore, crate::FellowshipSalary);
 }
@@ -206,7 +208,9 @@ impl pallet_core_fellowship::Config<FellowshipCoreInstance> for Runtime {
 		>,
 		EnsureCanPromoteTo,
 	>;
+	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<65536>;
+	type MaxRank = ConstU32<9>;
 }
 
 pub type FellowshipSalaryInstance = pallet_salary::Instance1;
@@ -263,16 +267,7 @@ parameter_types! {
 	// The asset's interior location for the paying account. This is the Fellowship Treasury
 	// pallet instance (which sits at index 65).
 	pub FellowshipTreasuryInteriorLocation: InteriorLocation = PalletInstance(65).into();
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	// Benchmark bond. Needed to make `propose_spend` work.
-	pub const TenPercent: Permill = Permill::from_percent(10);
-	// Benchmark minimum. Needed to make `propose_spend` work.
-	pub const BenchmarkProposalBondMinimum: Balance = 1 * DOLLARS;
-	// Benchmark maximum. Needed to make `propose_spend` work.
-	pub const BenchmarkProposalBondMaximum: Balance = 10 * DOLLARS;
+	pub SelfParaId: ParaId = ParachainInfo::parachain_id();
 }
 
 /// [`PayOverXcm`] setup to pay the Fellowship Treasury.
@@ -290,28 +285,6 @@ pub type FellowshipTreasuryPaymaster = PayOverXcm<
 pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
 
 impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
-	// The creation of proposals via the treasury pallet is deprecated and should not be utilized.
-	// Instead, public or fellowship referenda should be used to propose and command the treasury
-	// spend or spend_local dispatchables. The parameters below have been configured accordingly to
-	// discourage its use.
-	// TODO: replace with `NeverEnsure` once polkadot-sdk 1.5 is released.
-	type ApproveOrigin = NeverEnsureOrigin<()>;
-	type OnSlash = ();
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ProposalBond = HundredPercent;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ProposalBondMinimum = MaxBalance;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ProposalBondMaximum = MaxBalance;
-
-	#[cfg(feature = "runtime-benchmarks")]
-	type ProposalBond = TenPercent;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ProposalBondMinimum = BenchmarkProposalBondMinimum;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ProposalBondMaximum = BenchmarkProposalBondMaximum;
-	// end.
-
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type PalletId = FellowshipTreasuryPalletId;
 	type Currency = Balances;
@@ -345,7 +318,15 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type Paymaster = FellowshipTreasuryPaymaster;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Paymaster = PayWithEnsure<FellowshipTreasuryPaymaster, OpenHrmpChannel<ConstU32<1000>>>;
-	type BalanceConverter = AssetRate;
+	type BalanceConverter = UnityOrOuterConversion<
+		ContainsParts<
+			FromContains<
+				xcm_builder::IsSiblingSystemParachain<ParaId, SelfParaId>,
+				xcm_builder::IsParentsOnly<ConstU8<1>>,
+			>,
+		>,
+		AssetRate,
+	>;
 	type PayoutPeriod = ConstU32<{ 30 * DAYS }>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments<

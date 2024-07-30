@@ -49,17 +49,17 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_common::crowdloan`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_common::crowdloan::WeightInfo for WeightInfo<T> {
-	/// Storage: `Crowdloan::Funds` (r:1 w:1)
-	/// Proof: `Crowdloan::Funds` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Registrar::Paras` (r:1 w:0)
-	/// Proof: `Registrar::Paras` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Paras::ParaLifecycles` (r:1 w:0)
-	/// Proof: `Paras::ParaLifecycles` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Crowdloan::NextFundIndex` (r:1 w:1)
-	/// Proof: `Crowdloan::NextFundIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+impl<T: frame_system::Config> polkadot_runtime_common::crowdloan::WeightInfo for WeightInfo<T> {
+	/// Storage: Crowdloan Funds (r:1 w:1)
+	/// Proof Skipped: Crowdloan Funds (max_values: None, max_size: None, mode: Measured)
+	/// Storage: Registrar Paras (r:1 w:1)
+	/// Proof Skipped: Registrar Paras (max_values: None, max_size: None, mode: Measured)
+	/// Storage: Paras ParaLifecycles (r:1 w:0)
+	/// Proof Skipped: Paras ParaLifecycles (max_values: None, max_size: None, mode: Measured)
+	/// Storage: Crowdloan NextFundIndex (r:1 w:1)
+	/// Proof Skipped: Crowdloan NextFundIndex (max_values: Some(1), max_size: None, mode: Measured)
+	/// Storage: System Account (r:1 w:1)
+	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
 	fn create() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `438`

@@ -48,6 +48,9 @@ pub mod migrations;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::{
@@ -66,7 +69,6 @@ use sp_runtime::{
 	traits::{Dispatchable, TrailingZeroInput, Zero},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -271,7 +273,7 @@ pub mod pallet {
 				T::WeightInfo::as_multi_threshold_1(call.using_encoded(|c| c.len() as u32))
 					// AccountData for inner call origin accountdata.
 					.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-					.saturating_add(dispatch_info.weight),
+					.saturating_add(dispatch_info.call_weight),
 				dispatch_info.class,
 			)
 		})]
@@ -552,7 +554,7 @@ impl<T: Config> Pallet<T> {
 			if let Some(call) = maybe_call.filter(|_| approvals >= threshold) {
 				// verify weight
 				ensure!(
-					call.get_dispatch_info().weight.all_lte(max_weight),
+					call.get_dispatch_info().call_weight.all_lte(max_weight),
 					Error::<T>::MaxWeightTooLow
 				);
 

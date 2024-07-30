@@ -1120,7 +1120,7 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 	AssetId: Clone,
 	AssetIdConverter: MaybeEquivalence<Location, AssetId>,
 {
-	// foreign parachain with the same consenus currency as asset
+	// foreign parachain with the same consensus currency as asset
 	let foreign_asset_id_location = Location::new(1, [Parachain(2222), GeneralIndex(1234567)]);
 	let asset_id = AssetIdConverter::convert(&foreign_asset_id_location).unwrap();
 

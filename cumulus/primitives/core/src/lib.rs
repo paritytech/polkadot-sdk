@@ -18,11 +18,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::*;
 
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain_primitives::primitives::{
@@ -64,6 +66,8 @@ pub enum MessageSendError {
 	TooBig,
 	/// Some other error.
 	Other,
+	/// There are too many channels open at once.
+	TooManyChannels,
 }
 
 impl From<MessageSendError> for &'static str {
@@ -74,6 +78,7 @@ impl From<MessageSendError> for &'static str {
 			NoChannel => "NoChannel",
 			TooBig => "TooBig",
 			Other => "Other",
+			TooManyChannels => "TooManyChannels",
 		}
 	}
 }
@@ -135,6 +140,11 @@ pub trait GetChannelInfo {
 	fn get_channel_info(id: ParaId) -> Option<ChannelInfo>;
 }
 
+/// List all open outgoing channels.
+pub trait ListChannelInfos {
+	fn outgoing_channels() -> Vec<ParaId>;
+}
+
 /// Something that should be called when sending an upward message.
 pub trait UpwardMessageSender {
 	/// Send the given UMP message; return the expected number of blocks before the message will
@@ -194,7 +204,7 @@ pub struct ParachainBlockData<B: BlockT> {
 	/// The header of the parachain block.
 	header: B::Header,
 	/// The extrinsics of the parachain block.
-	extrinsics: sp_std::vec::Vec<B::Extrinsic>,
+	extrinsics: alloc::vec::Vec<B::Extrinsic>,
 	/// The data that is required to emulate the storage accesses executed by all extrinsics.
 	storage_proof: sp_trie::CompactProof,
 }
@@ -203,7 +213,7 @@ impl<B: BlockT> ParachainBlockData<B> {
 	/// Creates a new instance of `Self`.
 	pub fn new(
 		header: <B as BlockT>::Header,
-		extrinsics: sp_std::vec::Vec<<B as BlockT>::Extrinsic>,
+		extrinsics: alloc::vec::Vec<<B as BlockT>::Extrinsic>,
 		storage_proof: sp_trie::CompactProof,
 	) -> Self {
 		Self { header, extrinsics, storage_proof }
@@ -235,7 +245,7 @@ impl<B: BlockT> ParachainBlockData<B> {
 	}
 
 	/// Deconstruct into the inner parts.
-	pub fn deconstruct(self) -> (B::Header, sp_std::vec::Vec<B::Extrinsic>, sp_trie::CompactProof) {
+	pub fn deconstruct(self) -> (B::Header, alloc::vec::Vec<B::Extrinsic>, sp_trie::CompactProof) {
 		(self.header, self.extrinsics, self.storage_proof)
 	}
 }

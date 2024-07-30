@@ -1,0 +1,183 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: FRAME Reintroduce `TransactionExtension` as a replacement for `SignedExtension`
+
+doc:
+  - audience: Runtime User
+    description: |
+      Reintroduces the changes in #2280 which were later reverted. In addition to that, this PR
+      bumps the extrinsic format version to 5, as per RFC#84. For a full list of changes, please
+      see the PrDoc for #2280.
+
+crates:
+  - name: bridge-runtime-common
+    bump: major
+  - name: bp-bridge-hub-cumulus
+    bump: major
+  - name: bp-kusama
+    bump: major
+  - name: bp-polkadot-bulletin
+    bump: major
+  - name: bp-polkadot
+    bump: major
+  - name: bp-rococo
+    bump: major
+  - name: bp-westend
+    bump: major
+  - name: bp-polkadot-core
+    bump: major
+  - name: bp-runtime
+    bump: major
+  - name: snowbridge-pallet-inbound-queue
+    bump: minor
+  - name: snowbridge-pallet-outbound-queue
+    bump: minor
+  - name: snowbridge-pallet-system
+    bump: minor
+  - name: snowbridge-runtime-test-common
+    bump: minor
+  - name: parachain-template-runtime
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: bridge-hub-rococo-runtime
+    bump: major
+  - name: bridge-hub-westend-runtime
+    bump: major
+  - name: collectives-westend-runtime
+    bump: major
+  - name: contracts-rococo-runtime
+    bump: major
+  - name: coretime-rococo-runtime
+    bump: major
+  - name: coretime-westend-runtime
+    bump: major
+  - name: glutton-westend-runtime
+    bump: major
+  - name: people-rococo-runtime
+    bump: major
+  - name: people-westend-runtime
+    bump: major
+  - name: seedling-runtime
+    bump: major
+  - name: shell-runtime
+    bump: major
+  - name: penpal-runtime
+    bump: major
+  - name: rococo-parachain-runtime
+    bump: major
+  - name: polkadot-parachain-bin
+    bump: major
+  - name: cumulus-primitives-storage-weight-reclaim
+    bump: major
+  - name: cumulus-test-client
+    bump: major
+  - name: cumulus-test-runtime
+    bump: major
+  - name: cumulus-test-service
+    bump: major
+  - name: polkadot-sdk-docs
+    bump: minor
+  - name: polkadot-service
+    bump: minor
+  - name: polkadot-test-service
+    bump: major
+  - name: polkadot-runtime-common
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: polkadot-test-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: staging-xcm-builder
+    bump: major
+  - name: minimal-runtime
+    bump: major
+  - name: node-template
+    bump: major
+  - name: node-template-runtime
+    bump: major
+  - name: staging-node-cli
+    bump: major
+  - name: kitchensink-runtime
+    bump: major
+  - name: node-testing
+    bump: major
+  - name: sc-client-api
+    bump: minor
+  - name: sc-client-db
+    bump: minor
+  - name: sc-network-gossip
+    bump: minor
+  - name: sc-network-sync
+    bump: minor
+  - name: sc-transaction-pool
+    bump: minor
+  - name: frame
+    bump: major
+  - name: pallet-babe
+    bump: minor
+  - name: pallet-balances
+    bump: minor
+  - name: pallet-beefy
+    bump: minor
+  - name: pallet-collective
+    bump: minor
+  - name: pallet-election-provider-multi-phase
+    bump: minor
+  - name: pallet-elections-phragmen
+    bump: minor
+  - name: pallet-example-basic
+    bump: major
+  - name: pallet-example-offchain-worker
+    bump: minor
+  - name: frame-executive
+    bump: minor
+  - name: pallet-grandpa
+    bump: minor
+  - name: pallet-im-online
+    bump: minor
+  - name: frame-metadata-hash-extension
+    bump: major
+  - name: pallet-offences
+    bump: minor
+  - name: pallet-sassafras
+    bump: minor
+  - name: pallet-state-trie-migration
+    bump: minor
+  - name: pallet-sudo
+    bump: major
+  - name: frame-support-procedural
+    bump: minor
+  - name: frame-support
+    bump: major
+  - name: frame-system
+    bump: major
+  - name: frame-system-benchmarking
+    bump: major
+  - name: pallet-transaction-payment
+    bump: major
+  - name: pallet-asset-conversion-tx-payment
+    bump: major
+  - name: pallet-asset-tx-payment
+    bump: major
+  - name: pallet-skip-feeless-payment
+    bump: major
+  - name: sp-inherents
+    bump: major
+  - name: sp-metadata-ir
+    bump: major
+  - name: sp-runtime
+    bump: major
+  - name: substrate-test-runtime
+    bump: major
+  - name: frame-benchmarking-cli
+    bump: minor
+  - name: frame-remote-externalities
+    bump: minor
+  - name: substrate-rpc-client
+    bump: minor

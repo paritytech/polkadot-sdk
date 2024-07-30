@@ -20,25 +20,18 @@
 //!
 //! The primitive can operate both as a regular VRF or as an anonymized Ring VRF.
 
-#[cfg(feature = "serde")]
-use crate::crypto::Ss58Codec;
 #[cfg(feature = "full_crypto")]
 use crate::crypto::VrfSecret;
 use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
-	Public as TraitPublic, PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom,
-	VrfPublic,
+	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
+	PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
 };
-#[cfg(feature = "serde")]
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::{format, string::String};
 
 use bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 
-use sp_std::{vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 
 /// Identifier used to match public keys against bandersnatch-vrf keys.
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"band");
@@ -64,40 +57,8 @@ pub struct BandersnatchTag;
 /// Bandersnatch public key.
 pub type Public = PublicBytes<PUBLIC_SERIALIZED_SIZE, BandersnatchTag>;
 
-impl TraitPublic for Public {}
-
 impl CryptoType for Public {
 	type Pair = Pair;
-}
-
-impl Derive for Public {}
-
-impl sp_std::fmt::Debug for Public {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.as_ref()), &s[0..8])
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl Serialize for Public {
-	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-		serializer.serialize_str(&self.to_ss58check())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for Public {
-	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		Public::from_ss58check(&String::deserialize(deserializer)?)
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))
-	}
 }
 
 /// Bandersnatch signature.
@@ -108,18 +69,6 @@ pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, BandersnatchTag>;
 
 impl CryptoType for Signature {
 	type Pair = Pair;
-}
-
-impl sp_std::fmt::Debug for Signature {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
 }
 
 /// The raw secret seed, which can be used to reconstruct the secret [`Pair`].
@@ -300,7 +249,7 @@ pub mod vrf {
 	///
 	/// The `transcript` summarizes a set of messages which are defining a particular
 	/// protocol by automating the Fiat-Shamir transform for challenge generation.
-	/// A good explaination of the topic can be found in Merlin [docs](https://merlin.cool/)
+	/// A good explanation of the topic can be found in Merlin [docs](https://merlin.cool/)
 	///
 	/// The `inputs` is a sequence of [`VrfInput`]s which, during the signing procedure, are
 	/// first transformed to [`VrfPreOutput`]s. Both inputs and pre-outputs are then appended to

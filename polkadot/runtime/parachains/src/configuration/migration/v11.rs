@@ -17,19 +17,20 @@
 //! A module that is responsible for migration of storage.
 
 use crate::configuration::{self, Config, Pallet};
+use alloc::vec::Vec;
 use frame_support::{
-	migrations::VersionedMigration, pallet_prelude::*, traits::Defensive, weights::Weight,
+	migrations::VersionedMigration,
+	pallet_prelude::*,
+	traits::{Defensive, UncheckedOnRuntimeUpgrade},
+	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{
-	vstaging::ApprovalVotingParams, AsyncBackingParams, ExecutorParams, SessionIndex,
+use polkadot_primitives::{
+	ApprovalVotingParams, AsyncBackingParams, ExecutorParams, NodeFeatures, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
-use sp_std::vec::Vec;
 
-use frame_support::traits::OnRuntimeUpgrade;
 use polkadot_core_primitives::Balance;
-use primitives::vstaging::NodeFeatures;
 use sp_arithmetic::Perbill;
 
 use super::v10::V10HostConfiguration;
@@ -176,8 +177,8 @@ pub type MigrateToV11<T> = VersionedMigration<
 	<T as frame_system::Config>::DbWeight,
 >;
 
-pub struct UncheckedMigrateToV11<T>(sp_std::marker::PhantomData<T>);
-impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV11<T> {
+pub struct UncheckedMigrateToV11<T>(core::marker::PhantomData<T>);
+impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV11<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		log::trace!(target: crate::configuration::LOG_TARGET, "Running pre_upgrade() for HostConfiguration MigrateToV11");
@@ -288,7 +289,7 @@ approval_voting_params                   : ApprovalVotingParams {
 
 #[cfg(test)]
 mod tests {
-	use primitives::LEGACY_MIN_BACKING_VOTES;
+	use polkadot_primitives::LEGACY_MIN_BACKING_VOTES;
 
 	use super::*;
 	use crate::mock::{new_test_ext, Test};
@@ -320,7 +321,8 @@ mod tests {
 	];
 
 		let v11 =
-			V11HostConfiguration::<primitives::BlockNumber>::decode(&mut &raw_config[..]).unwrap();
+			V11HostConfiguration::<polkadot_primitives::BlockNumber>::decode(&mut &raw_config[..])
+				.unwrap();
 
 		// We check only a sample of the values here. If we missed any fields or messed up data
 		// types that would skew all the fields coming after.
@@ -347,7 +349,7 @@ mod tests {
 		// We specify only the picked fields and the rest should be provided by the `Default`
 		// implementation. That implementation is copied over between the two types and should work
 		// fine.
-		let v10 = V10HostConfiguration::<primitives::BlockNumber> {
+		let v10 = V10HostConfiguration::<polkadot_primitives::BlockNumber> {
 			needed_approvals: 69,
 			paras_availability_period: 55,
 			hrmp_recipient_deposit: 1337,
@@ -423,7 +425,7 @@ mod tests {
 	// pallet's storage.
 	#[test]
 	fn test_migrate_to_v11_no_pending() {
-		let v10 = V10HostConfiguration::<primitives::BlockNumber>::default();
+		let v10 = V10HostConfiguration::<polkadot_primitives::BlockNumber>::default();
 
 		new_test_ext(Default::default()).execute_with(|| {
 			// Implant the v10 version in the state.

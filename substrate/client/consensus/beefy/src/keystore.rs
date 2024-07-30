@@ -15,18 +15,18 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, AppCrypto, RuntimeAppPublic};
-use sp_consensus_beefy::{AuthorityIdBound, BeefyAuthorityId, BeefySignatureHasher};
-use sp_core::ecdsa;
-#[cfg(feature = "bls-experimental")]
-use sp_core::ecdsa_bls377;
-use sp_crypto_hashing::keccak_256;
-use sp_keystore::KeystorePtr;
-
 use codec::Decode;
 use log::warn;
+
+use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, AppCrypto, RuntimeAppPublic};
+#[cfg(feature = "bls-experimental")]
+use sp_core::ecdsa_bls381;
+use sp_core::{ecdsa, keccak_256};
+
+use sp_keystore::KeystorePtr;
 use std::marker::PhantomData;
+
+use sp_consensus_beefy::{AuthorityIdBound, BeefyAuthorityId, BeefySignatureHasher};
 
 use crate::{error, LOG_TARGET};
 
@@ -100,13 +100,13 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 			},
 
 			#[cfg(feature = "bls-experimental")]
-			ecdsa_bls377::CRYPTO_ID => {
-				let public: ecdsa_bls377::Public =
-					ecdsa_bls377::Public::try_from(public.as_slice()).unwrap();
+			ecdsa_bls381::CRYPTO_ID => {
+				let public: ecdsa_bls381::Public =
+					ecdsa_bls381::Public::try_from(public.as_slice()).unwrap();
 				let sig = store
-					.ecdsa_bls377_sign_with_keccak256(BEEFY_KEY_TYPE, &public, &message)
+					.ecdsa_bls381_sign_with_keccak256(BEEFY_KEY_TYPE, &public, &message)
 					.map_err(|e| error::Error::Keystore(e.to_string()))?
-					.ok_or_else(|| error::Error::Signature("bls377_sign()  failed".to_string()))?;
+					.ok_or_else(|| error::Error::Signature("bls381_sign()  failed".to_string()))?;
 				let sig_ref: &[u8] = sig.as_ref();
 				sig_ref.to_vec()
 			},
@@ -146,8 +146,8 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 				}),
 
 			#[cfg(feature = "bls-experimental")]
-			ecdsa_bls377::CRYPTO_ID => store
-				.ecdsa_bls377_public_keys(BEEFY_KEY_TYPE)
+			ecdsa_bls381::CRYPTO_ID => store
+				.ecdsa_bls381_public_keys(BEEFY_KEY_TYPE)
 				.drain(..)
 				.map(|pk| AuthorityId::try_from(pk.as_ref()))
 				.collect::<Result<Vec<_>, _>>()
@@ -175,10 +175,7 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	}
 }
 
-impl<AuthorityId: AuthorityIdBound> From<Option<KeystorePtr>> for BeefyKeystore<AuthorityId>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
-{
+impl<AuthorityId: AuthorityIdBound> From<Option<KeystorePtr>> for BeefyKeystore<AuthorityId> {
 	fn from(store: Option<KeystorePtr>) -> BeefyKeystore<AuthorityId> {
 		BeefyKeystore(store, PhantomData)
 	}
@@ -257,9 +254,9 @@ pub mod tests {
 				AuthorityId::decode(&mut pk.as_ref()).unwrap()
 			},
 			#[cfg(feature = "bls-experimental")]
-			ecdsa_bls377::CRYPTO_ID => {
+			ecdsa_bls381::CRYPTO_ID => {
 				let pk = store
-					.ecdsa_bls377_generate_new(key_type, optional_seed.as_deref())
+					.ecdsa_bls381_generate_new(key_type, optional_seed.as_deref())
 					.ok()
 					.unwrap();
 				AuthorityId::decode(&mut pk.as_ref()).unwrap()
@@ -404,7 +401,7 @@ pub mod tests {
 
 		let store: BeefyKeystore<AuthorityId> = Some(store).into();
 
-		let msg = b"are you involved or commited?";
+		let msg = b"are you involved or committed?";
 
 		let sig1 = store.sign(&alice, msg).unwrap();
 		let sig2 = Keyring::<AuthorityId>::Alice.sign(msg);
@@ -440,7 +437,7 @@ pub mod tests {
 
 		let alice = Keyring::Alice.public();
 
-		let msg = b"are you involved or commited?";
+		let msg = b"are you involved or committed?";
 		let sig = store.sign(&alice, msg).err().unwrap();
 		let err = Error::Signature(expected_error_message.to_string());
 
@@ -455,7 +452,7 @@ pub mod tests {
 	#[cfg(feature = "bls-experimental")]
 	#[test]
 	fn sign_error_for_ecdsa_n_bls() {
-		sign_error::<ecdsa_bls_crypto::AuthorityId>("bls377_sign()  failed");
+		sign_error::<ecdsa_bls_crypto::AuthorityId>("bls381_sign()  failed");
 	}
 
 	#[test]
@@ -463,7 +460,7 @@ pub mod tests {
 		let store: BeefyKeystore<ecdsa_crypto::Public> = None.into();
 
 		let alice = Keyring::Alice.public();
-		let msg = b"are you involved or commited";
+		let msg = b"are you involved or committed";
 
 		let sig = store.sign(&alice, msg).err().unwrap();
 		let err = Error::Keystore("no Keystore".to_string());
@@ -487,7 +484,7 @@ pub mod tests {
 		let alice = Keyring::Alice.public();
 
 		// `msg` and `sig` match
-		let msg = b"are you involved or commited?";
+		let msg = b"are you involved or committed?";
 		let sig = store.sign(&alice, msg).unwrap();
 		assert!(BeefyKeystore::verify(&alice, &sig, msg));
 

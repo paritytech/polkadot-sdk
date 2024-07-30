@@ -49,19 +49,19 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_parachains::paras`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_parachains::paras::WeightInfo for WeightInfo<T> {
-	/// Storage: `Paras::CurrentCodeHash` (r:1 w:1)
-	/// Proof: `Paras::CurrentCodeHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Paras::CodeByHashRefs` (r:1 w:1)
-	/// Proof: `Paras::CodeByHashRefs` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Paras::PastCodeMeta` (r:1 w:1)
-	/// Proof: `Paras::PastCodeMeta` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Paras::PastCodePruning` (r:1 w:1)
-	/// Proof: `Paras::PastCodePruning` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Paras::PastCodeHash` (r:0 w:1)
-	/// Proof: `Paras::PastCodeHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Paras::CodeByHash` (r:0 w:1)
-	/// Proof: `Paras::CodeByHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
+impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for WeightInfo<T> {
+	/// Storage: Paras CurrentCodeHash (r:1 w:1)
+	/// Proof Skipped: Paras CurrentCodeHash (max_values: None, max_size: None, mode: Measured)
+	/// Storage: Paras CodeByHashRefs (r:1 w:1)
+	/// Proof Skipped: Paras CodeByHashRefs (max_values: None, max_size: None, mode: Measured)
+	/// Storage: Paras PastCodeMeta (r:1 w:1)
+	/// Proof Skipped: Paras PastCodeMeta (max_values: None, max_size: None, mode: Measured)
+	/// Storage: Paras PastCodePruning (r:1 w:1)
+	/// Proof Skipped: Paras PastCodePruning (max_values: Some(1), max_size: None, mode: Measured)
+	/// Storage: Paras PastCodeHash (r:0 w:1)
+	/// Proof Skipped: Paras PastCodeHash (max_values: None, max_size: None, mode: Measured)
+	/// Storage: Paras CodeByHash (r:0 w:1)
+	/// Proof Skipped: Paras CodeByHash (max_values: None, max_size: None, mode: Measured)
 	/// The range of component `c` is `[1, 3145728]`.
 	fn force_set_current_code(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:

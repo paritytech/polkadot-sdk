@@ -70,7 +70,7 @@
 //! let root_span =
 //! 	jaeger::Span::new(relay_parent, "root_of_aaall_spans");
 //!
-//! // the prefered way of adding additional delayed information:
+//! // the preferred way of adding additional delayed information:
 //! let span = root_span.child("inner");
 //!
 //! // ... more operations ...
@@ -83,10 +83,12 @@
 //! # }
 //! ```
 
-use parity_scale_codec::Encode;
+use codec::Encode;
 use polkadot_node_primitives::PoV;
-use polkadot_primitives::{BlakeTwo256, CandidateHash, Hash, HashT, Id as ParaId, ValidatorIndex};
-use sc_network::PeerId;
+use polkadot_primitives::{
+	BlakeTwo256, CandidateHash, ChunkIndex, Hash, HashT, Id as ParaId, ValidatorIndex,
+};
+use sc_network_types::PeerId;
 
 use std::{fmt, sync::Arc};
 
@@ -338,8 +340,8 @@ impl Span {
 	}
 
 	#[inline(always)]
-	pub fn with_chunk_index(self, chunk_index: u32) -> Self {
-		self.with_string_tag("chunk-index", chunk_index)
+	pub fn with_chunk_index(self, chunk_index: ChunkIndex) -> Self {
+		self.with_string_tag("chunk-index", &chunk_index.0)
 	}
 
 	#[inline(always)]

@@ -18,9 +18,8 @@
 //! spawned by the host) and job processes (spawned by the workers to securely perform PVF jobs).
 
 use super::TestHost;
-use adder::{hash_state, BlockData, HeadData};
 use assert_matches::assert_matches;
-use parity_scale_codec::Encode;
+use codec::Encode;
 use polkadot_node_core_pvf::{
 	InvalidCandidate, PossiblyInvalidError, PrepareError, ValidationError,
 };
@@ -30,6 +29,7 @@ use polkadot_parachain_primitives::primitives::{
 use procfs::process;
 use rusty_fork::rusty_fork_test;
 use std::{future::Future, sync::Arc, time::Duration};
+use test_parachain_adder::{hash_state, BlockData, HeadData};
 
 const PREPARE_PROCESS_NAME: &'static str = "polkadot-prepare-worker";
 const EXECUTE_PROCESS_NAME: &'static str = "polkadot-execute-worker";
@@ -127,7 +127,7 @@ rusty_fork_test! {
 			let block_data = BlockData { state: 0, add: 512 };
 			host
 				.validate_candidate(
-					adder::wasm_binary_unwrap(),
+					test_parachain_adder::wasm_binary_unwrap(),
 					ValidationParams {
 						parent_head: GenericHeadData(parent_head.encode()),
 						block_data: GenericBlockData(block_data.encode()),
@@ -164,7 +164,7 @@ rusty_fork_test! {
 	fn execute_worker_timeout() {
 		test_wrapper(|host, sid| async move {
 			// Prepare the artifact ahead of time.
-			let binary = halt::wasm_binary_unwrap();
+			let binary = test_parachain_halt::wasm_binary_unwrap();
 			host.precheck_pvf(binary, Default::default()).await.unwrap();
 
 			let (result, _) = futures::join!(
@@ -216,7 +216,7 @@ rusty_fork_test! {
 	fn execute_worker_killed_during_job() {
 		test_wrapper(|host, sid| async move {
 			// Prepare the artifact ahead of time.
-			let binary = halt::wasm_binary_unwrap();
+			let binary = test_parachain_halt::wasm_binary_unwrap();
 			host.precheck_pvf(binary, Default::default()).await.unwrap();
 
 			let (result, _) = futures::join!(
@@ -272,7 +272,7 @@ rusty_fork_test! {
 	fn forked_execute_job_killed_during_job() {
 		test_wrapper(|host, sid| async move {
 			// Prepare the artifact ahead of time.
-			let binary = halt::wasm_binary_unwrap();
+			let binary = test_parachain_halt::wasm_binary_unwrap();
 			host.precheck_pvf(binary, Default::default()).await.unwrap();
 
 			let (result, _) = futures::join!(
@@ -340,7 +340,7 @@ rusty_fork_test! {
 	fn ensure_execute_processes_have_correct_num_threads() {
 		test_wrapper(|host, sid| async move {
 			// Prepare the artifact ahead of time.
-			let binary = halt::wasm_binary_unwrap();
+			let binary = test_parachain_halt::wasm_binary_unwrap();
 			host.precheck_pvf(binary, Default::default()).await.unwrap();
 
 			let _ = futures::join!(

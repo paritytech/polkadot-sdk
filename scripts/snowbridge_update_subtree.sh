@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# A script to udpate bridges repo as subtree to Cumulus
+# A script to update bridges repo as subtree to Cumulus
 # Usage:
 #       ./scripts/update_subtree_snowbridge.sh fetch
 #       ./scripts/update_subtree_snowbridge.sh patch

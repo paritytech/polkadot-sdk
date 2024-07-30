@@ -119,7 +119,7 @@
           "editorMode": "code",
           "expr": "subsystem_benchmark_n_validators{}",
           "instant": false,
-          "legendFormat": "n_vaidators",
+          "legendFormat": "n_validators",
           "range": true,
           "refId": "A"
         },
@@ -1046,7 +1046,7 @@
           "refId": "A"
         }
       ],
-      "title": "Availability subystem metrics",
+      "title": "Availability subsystem metrics",
       "type": "row"
     },
     {
@@ -1397,7 +1397,7 @@
           "refId": "B"
         }
       ],
-      "title": "Recovery throughtput",
+      "title": "Recovery throughput",
       "transformations": [],
       "type": "timeseries"
     },

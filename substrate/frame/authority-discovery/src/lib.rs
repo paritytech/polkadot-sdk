@@ -23,12 +23,14 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use frame_support::{
 	traits::{Get, OneSessionHandler},
 	WeakBoundedVec,
 };
 use sp_authority_discovery::AuthorityId;
-use sp_std::prelude::*;
 
 pub use pallet::*;
 
@@ -48,13 +50,11 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn keys)]
 	/// Keys of the current authority set.
 	pub(super) type Keys<T: Config> =
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn next_keys)]
 	/// Keys of the next authority set.
 	pub(super) type NextKeys<T: Config> =
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
@@ -64,7 +64,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub keys: Vec<AuthorityId>,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -170,6 +170,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 mod tests {
 	use super::*;
 	use crate as pallet_authority_discovery;
+	use alloc::vec;
 	use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 	use sp_application_crypto::Pair;
 	use sp_authority_discovery::AuthorityPair;

@@ -191,7 +191,7 @@
 
 #[docify::export]
 pub mod call_data {
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 	use sp_runtime::{traits::Dispatchable, DispatchResultWithInfo};
 
 	// The outer enum composes calls within
@@ -235,7 +235,7 @@ pub mod call_data {
 pub mod encoding_example {
 	use super::call_data::{Call, PalletACall};
 	use crate::reference_docs::transaction_extensions::transaction_extensions_example;
-	use parity_scale_codec::Encode;
+	use codec::Encode;
 	use sp_core::crypto::AccountId32;
 	use sp_keyring::sr25519::Keyring;
 	use sp_runtime::{

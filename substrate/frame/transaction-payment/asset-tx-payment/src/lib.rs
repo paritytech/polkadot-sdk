@@ -35,8 +35,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_std::prelude::*;
-
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
@@ -54,7 +52,7 @@ use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf,
+		AccrueWeight, AsSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf,
 		TransactionExtension, TransactionExtensionBase, Zero,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
@@ -222,15 +220,44 @@ where
 			.map_err(|_| -> TransactionValidityError { InvalidTransaction::Payment.into() })
 		}
 	}
+
+	/// Fee withdrawal logic dry-run that dispatches to either `OnChargeAssetTransaction` or
+	/// `OnChargeTransaction`.
+	fn can_withdraw_fee(
+		&self,
+		who: &T::AccountId,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		fee: BalanceOf<T>,
+	) -> Result<(), TransactionValidityError> {
+		debug_assert!(self.tip <= fee, "tip should be included in the computed fee");
+		if fee.is_zero() {
+			Ok(())
+		} else if let Some(asset_id) = self.asset_id {
+			T::OnChargeAssetTransaction::can_withdraw_fee(
+				who,
+				call,
+				info,
+				asset_id,
+				fee.into(),
+				self.tip.into(),
+			)
+		} else {
+			<OnChargeTransactionOf<T> as OnChargeTransaction<T>>::can_withdraw_fee(
+				who, call, info, fee, self.tip,
+			)
+			.map_err(|_| -> TransactionValidityError { InvalidTransaction::Payment.into() })
+		}
+	}
 }
 
-impl<T: Config> sp_std::fmt::Debug for ChargeAssetTxPayment<T> {
+impl<T: Config> core::fmt::Debug for ChargeAssetTxPayment<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "ChargeAssetTxPayment<{:?}, {:?}>", self.tip, self.asset_id.encode())
 	}
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -245,12 +272,8 @@ where
 	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
 	type Implicit = ();
 
-	fn weight(&self) -> Weight {
-		if self.asset_id.is_some() {
-			<T as Config>::WeightInfo::charge_asset_tx_payment_asset()
-		} else {
-			<T as Config>::WeightInfo::charge_asset_tx_payment_native()
-		}
+	fn weight() -> Weight {
+		<T as Config>::WeightInfo::charge_asset_tx_payment_asset()
 	}
 }
 
@@ -285,7 +308,7 @@ where
 	fn validate(
 		&self,
 		origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
-		_call: &T::RuntimeCall,
+		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		_context: &mut Context,
@@ -299,6 +322,7 @@ where
 		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
 		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
+		self.can_withdraw_fee(&who, call, info, fee)?;
 		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
 		let val = (self.tip, who.clone(), fee);
 		let validity = ValidTransaction { priority, ..Default::default() };
@@ -320,36 +344,53 @@ where
 		Ok((tip, who, initial_payment, self.asset_id))
 	}
 
-	fn post_dispatch(
+	fn post_dispatch_details(
 		pre: Self::Pre,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		result: &DispatchResult,
 		_context: &Context,
-	) -> Result<(), TransactionValidityError> {
+	) -> Result<Option<Weight>, TransactionValidityError> {
 		let (tip, who, initial_payment, asset_id) = pre;
 		match initial_payment {
 			InitialPayment::Native(already_withdrawn) => {
-				pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch(
+				// Take into account the weight used by this extension before calculating the
+				// refund.
+				let actual_ext_weight = <T as Config>::WeightInfo::charge_asset_tx_payment_native()
+					.saturating_sub(
+						pallet_transaction_payment::ChargeTransactionPayment::<T>::weight(),
+					);
+				let mut actual_post_info = post_info.clone();
+				actual_post_info.accrue(actual_ext_weight);
+				pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch_details(
 					(tip, who, already_withdrawn),
 					info,
-					post_info,
+					&actual_post_info,
 					len,
 					result,
 					&(),
 				)?;
+				Ok(Some(<T as Config>::WeightInfo::charge_asset_tx_payment_native()))
 			},
 			InitialPayment::Asset(already_withdrawn) => {
+				// Take into account the weight used by this extension before calculating the
+				// refund.
+				let actual_ext_weight = <T as Config>::WeightInfo::charge_asset_tx_payment_asset();
+				let mut actual_post_info = post_info.clone();
+				actual_post_info.accrue(actual_ext_weight);
 				let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
-					len as u32, info, post_info, tip,
+					len as u32,
+					info,
+					&actual_post_info,
+					tip,
 				);
 
 				let (converted_fee, converted_tip) =
 					T::OnChargeAssetTransaction::correct_and_deposit_fee(
 						&who,
 						info,
-						post_info,
+						&actual_post_info,
 						actual_fee.into(),
 						tip.into(),
 						already_withdrawn.into(),
@@ -360,6 +401,7 @@ where
 					tip: converted_tip,
 					asset_id,
 				});
+				Ok(Some(<T as Config>::WeightInfo::charge_asset_tx_payment_asset()))
 			},
 			InitialPayment::Nothing => {
 				// `actual_fee` should be zero here for any signed extrinsic. It would be
@@ -367,9 +409,8 @@ where
 				// `compute_actual_fee` is not aware of them. In both cases it's fine to just
 				// move ahead without adjusting the fee, though, so we do nothing.
 				debug_assert!(tip.is_zero(), "tip should be zero if initial fee was zero.");
+				Ok(Some(<T as Config>::WeightInfo::charge_asset_tx_payment_zero()))
 			},
 		}
-
-		Ok(())
 	}
 }

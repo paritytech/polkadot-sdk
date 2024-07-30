@@ -49,11 +49,11 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_common::auctions`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_common::auctions::WeightInfo for WeightInfo<T> {
-	/// Storage: `Auctions::AuctionInfo` (r:1 w:1)
-	/// Proof: `Auctions::AuctionInfo` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `Auctions::AuctionCounter` (r:1 w:1)
-	/// Proof: `Auctions::AuctionCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+impl<T: frame_system::Config> polkadot_runtime_common::auctions::WeightInfo for WeightInfo<T> {
+	/// Storage: Auctions AuctionInfo (r:1 w:1)
+	/// Proof: Auctions AuctionInfo (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
+	/// Storage: Auctions AuctionCounter (r:1 w:1)
+	/// Proof: Auctions AuctionCounter (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
 	fn new_auction() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `4`

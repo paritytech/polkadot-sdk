@@ -114,12 +114,22 @@ pub fn run() -> sc_cli::Result<()> {
 		},
 		Some(Subcommand::ChainInfo(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| cmd.run::<runtime::interface::OpaqueBlock>(&config))
+			runner.sync_run(|config| {
+				cmd.run::<minimal_template_runtime::interface::OpaqueBlock>(&config)
+			})
 		},
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
 			runner.run_node_until_exit(|config| async move {
-				service::new_full(config, cli.consensus).map_err(sc_cli::Error::Service)
+				match config.network.network_backend {
+					sc_network::config::NetworkBackendType::Libp2p =>
+						service::new_full::<sc_network::NetworkWorker<_, _>>(config, cli.consensus)
+							.map_err(sc_cli::Error::Service),
+					sc_network::config::NetworkBackendType::Litep2p => service::new_full::<
+						sc_network::Litep2pNetworkBackend,
+					>(config, cli.consensus)
+					.map_err(sc_cli::Error::Service),
+				}
 			})
 		},
 	}

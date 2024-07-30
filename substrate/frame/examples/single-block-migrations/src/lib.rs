@@ -20,7 +20,7 @@
 //! An example pallet demonstrating best-practices for writing single-block migrations in the
 //! context of upgrading pallet storage.
 //!
-//! ## Forwarning
+//! ## Forewarning
 //!
 //! Single block migrations **MUST** execute in a single block, therefore when executed on a
 //! parachain are only appropriate when guaranteed to not exceed block weight limits. If a
@@ -66,7 +66,7 @@
 //!
 //! ## Adding a migration module
 //!
-//! Writing a pallets migrations in a seperate module is strongly recommended.
+//! Writing a pallets migrations in a separate module is strongly recommended.
 //!
 //! Here's how the migration module is defined for this pallet:
 //!
@@ -89,7 +89,7 @@
 //!
 //! See the migration source code for detailed comments.
 //!
-//! To keep the migration logic organised, it is split across additional modules:
+//! Here's a brief overview of modules and types defined in `v1.rs`:
 //!
 //! ### `mod v0`
 //!
@@ -98,28 +98,29 @@
 //!
 //! This allows reading the old v0 value from storage during the migration.
 //!
-//! ### `mod version_unchecked`
+//! ### `InnerMigrateV0ToV1`
 //!
 //! Here we define our raw migration logic,
-//! `version_unchecked::MigrateV0ToV1` which implements the [`OnRuntimeUpgrade`] trait.
+//! `InnerMigrateV0ToV1` which implements the [`UncheckedOnRuntimeUpgrade`] trait.
 //!
-//! Importantly, it is kept in a private module so that it cannot be accidentally used in a runtime.
+//! #### Why [`UncheckedOnRuntimeUpgrade`]?
 //!
-//! Private modules cannot be referenced in docs, so please read the code directly.
+//! Otherwise, we would have two implementations of [`OnRuntimeUpgrade`] which could be confusing,
+//! and may lead to accidentally using the wrong one.
 //!
 //! #### Standalone Struct or Pallet Hook?
 //!
 //! Note that the storage migration logic is attached to a standalone struct implementing
-//! [`OnRuntimeUpgrade`], rather than implementing the
+//! [`UncheckedOnRuntimeUpgrade`], rather than implementing the
 //! [`Hooks::on_runtime_upgrade`](frame_support::traits::Hooks::on_runtime_upgrade) hook directly on
 //! the pallet. The pallet hook is better suited for special types of logic that need to execute on
 //! every runtime upgrade, but not so much for one-off storage migrations.
 //!
-//! ### `pub mod versioned`
+//! ### `MigrateV0ToV1`
 //!
-//! Here, `version_unchecked::MigrateV0ToV1` is wrapped in a
+//! Here, `InnerMigrateV0ToV1` is wrapped in a
 //! [`VersionedMigration`] to define
-//! [`versioned::MigrateV0ToV1`](crate::migrations::v1::versioned::MigrateV0ToV1), which may be used
+//! [`MigrateV0ToV1`](crate::migrations::v1::MigrateV0ToV1), which may be used
 //! in runtimes.
 //!
 //! Using [`VersionedMigration`] ensures that
@@ -127,8 +128,6 @@
 //! - The on-chain storage version is updated to `1` after the migration executes
 //! - Reads and writes from checking and setting the on-chain storage version are accounted for in
 //!   the final [`Weight`](frame_support::weights::Weight)
-//!
-//! This is the only public module exported from `v1`.
 //!
 //! ### `mod test`
 //!
@@ -142,7 +141,8 @@
 //! [`VersionedMigration`]: frame_support::migrations::VersionedMigration
 //! [`GetStorageVersion`]: frame_support::traits::GetStorageVersion
 //! [`OnRuntimeUpgrade`]: frame_support::traits::OnRuntimeUpgrade
-//! [`MigrateV0ToV1`]: crate::migrations::v1::versioned::MigrationV0ToV1
+//! [`UncheckedOnRuntimeUpgrade`]: frame_support::traits::UncheckedOnRuntimeUpgrade
+//! [`MigrateV0ToV1`]: crate::migrations::v1::MigrateV0ToV1
 
 // We make sure this pallet uses `no_std` for compiling to Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -156,6 +156,9 @@ pub use pallet::*;
 pub mod migrations;
 #[doc(hidden)]
 mod mock;
+
+extern crate alloc;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::StorageVersion;
 use sp_runtime::RuntimeDebug;

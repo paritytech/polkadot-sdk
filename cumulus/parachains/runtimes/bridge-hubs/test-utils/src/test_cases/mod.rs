@@ -125,7 +125,7 @@ pub fn initialize_bridge_by_governance_works<Runtime, GrandpaPalletInstance>(
 		// execute XCM with Transacts to `initialize bridge` as governance does
 		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
 			initialize_call.encode(),
-			initialize_call.get_dispatch_info().weight,
+			initialize_call.get_dispatch_info().call_weight,
 		)
 		.ensure_complete());
 
@@ -166,7 +166,7 @@ pub fn change_bridge_grandpa_pallet_mode_by_governance_works<Runtime, GrandpaPal
 			// execute XCM with Transacts to `initialize bridge` as governance does
 			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
 				set_operating_mode_call.encode(),
-				set_operating_mode_call.get_dispatch_info().weight,
+				set_operating_mode_call.get_dispatch_info().call_weight,
 			)
 			.ensure_complete());
 
@@ -219,7 +219,7 @@ pub fn change_bridge_parachains_pallet_mode_by_governance_works<Runtime, Paracha
 			// execute XCM with Transacts to `initialize bridge` as governance does
 			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
 				set_operating_mode_call.encode(),
-				set_operating_mode_call.get_dispatch_info().weight,
+				set_operating_mode_call.get_dispatch_info().call_weight,
 			)
 			.ensure_complete());
 
@@ -272,7 +272,7 @@ pub fn change_bridge_messages_pallet_mode_by_governance_works<Runtime, MessagesP
 			// execute XCM with Transacts to `initialize bridge` as governance does
 			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
 				set_operating_mode_call.encode(),
-				set_operating_mode_call.get_dispatch_info().weight,
+				set_operating_mode_call.get_dispatch_info().call_weight,
 			)
 			.ensure_complete());
 
@@ -320,10 +320,9 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 		dyn Fn(Vec<u8>) -> Option<pallet_bridge_messages::Event<Runtime, MessagesPalletInstance>>,
 	>,
 	export_message_instruction: fn() -> Instruction<XcmConfig::RuntimeCall>,
-	expected_lane_id: LaneId,
 	existential_deposit: Option<Asset>,
 	maybe_paid_export_message: Option<Asset>,
-	prepare_configuration: impl Fn(),
+	prepare_configuration: impl Fn() -> LaneId,
 ) where
 	Runtime: BasicParachainRuntime + BridgeMessagesConfig<MessagesPalletInstance>,
 	XcmConfig: xcm_executor::Config,
@@ -333,7 +332,7 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 	let sibling_parachain_location = Location::new(1, [Parachain(sibling_parachain_id)]);
 
 	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
-		prepare_configuration();
+		let expected_lane_id = prepare_configuration();
 
 		// check queue before
 		assert_eq!(
@@ -430,8 +429,7 @@ pub fn message_dispatch_routing_works<
 	unwrap_cumulus_pallet_xcmp_queue_event: Box<
 		dyn Fn(Vec<u8>) -> Option<cumulus_pallet_xcmp_queue::Event<Runtime>>,
 	>,
-	expected_lane_id: LaneId,
-	prepare_configuration: impl Fn(),
+	prepare_configuration: impl Fn() -> LaneId,
 ) where
 	Runtime: BasicParachainRuntime
 		+ cumulus_pallet_xcmp_queue::Config
@@ -459,7 +457,7 @@ pub fn message_dispatch_routing_works<
 	assert_ne!(runtime_para_id, sibling_parachain_id);
 
 	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
-		prepare_configuration();
+		let expected_lane_id = prepare_configuration();
 
 		let mut alice = [0u8; 32];
 		alice[0] = 1;

@@ -28,19 +28,20 @@ use frame_support::{
 		tokens::{fungible, BalanceStatus as Status, Fortitude::Polite, Precision::BestEffort},
 		Currency, DefensiveSaturating, ExistenceRequirement,
 		ExistenceRequirement::AllowDeath,
-		Get, Imbalance, LockIdentifier, LockableCurrency, NamedReservableCurrency,
-		ReservableCurrency, SignedImbalance, TryDrop, WithdrawReasons,
+		Get, Imbalance, InspectLockableCurrency, LockIdentifier, LockableCurrency,
+		NamedReservableCurrency, ReservableCurrency, SignedImbalance, TryDrop, WithdrawReasons,
 	},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use imbalances::{NegativeImbalance, PositiveImbalance};
+use sp_runtime::traits::Bounded;
 
 // wrapping these imbalances in a private module is necessary to ensure absolute privacy
 // of the inner member.
 mod imbalances {
-	use super::{result, Config, Imbalance, RuntimeDebug, Saturating, TryDrop, Zero};
-	use frame_support::traits::SameOrOther;
-	use sp_std::mem;
+	use super::*;
+	use core::mem;
+	use frame_support::traits::{tokens::imbalance::TryMerge, SameOrOther};
 
 	/// Opaque, move-only struct with private fields that serves as a token denoting that
 	/// funds have been created without any equal and opposite accounting.
@@ -132,6 +133,12 @@ mod imbalances {
 		}
 	}
 
+	impl<T: Config<I>, I: 'static> TryMerge for PositiveImbalance<T, I> {
+		fn try_merge(self, other: Self) -> Result<Self, (Self, Self)> {
+			Ok(self.merge(other))
+		}
+	}
+
 	impl<T: Config<I>, I: 'static> TryDrop for NegativeImbalance<T, I> {
 		fn try_drop(self) -> result::Result<(), Self> {
 			self.drop_zero()
@@ -196,17 +203,29 @@ mod imbalances {
 		}
 	}
 
+	impl<T: Config<I>, I: 'static> TryMerge for NegativeImbalance<T, I> {
+		fn try_merge(self, other: Self) -> Result<Self, (Self, Self)> {
+			Ok(self.merge(other))
+		}
+	}
+
 	impl<T: Config<I>, I: 'static> Drop for PositiveImbalance<T, I> {
 		/// Basic drop handler will just square up the total issuance.
 		fn drop(&mut self) {
-			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_add(self.0));
+			if !self.0.is_zero() {
+				<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_add(self.0));
+				Pallet::<T, I>::deposit_event(Event::<T, I>::Issued { amount: self.0 });
+			}
 		}
 	}
 
 	impl<T: Config<I>, I: 'static> Drop for NegativeImbalance<T, I> {
 		/// Basic drop handler will just square up the total issuance.
 		fn drop(&mut self) {
-			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_sub(self.0));
+			if !self.0.is_zero() {
+				<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_sub(self.0));
+				Pallet::<T, I>::deposit_event(Event::<T, I>::Rescinded { amount: self.0 });
+			}
 		}
 	}
 }
@@ -263,6 +282,8 @@ where
 				Zero::zero()
 			});
 		});
+
+		Pallet::<T, I>::deposit_event(Event::<T, I>::Rescinded { amount });
 		PositiveImbalance::new(amount)
 	}
 
@@ -279,6 +300,8 @@ where
 				Self::Balance::max_value()
 			})
 		});
+
+		Pallet::<T, I>::deposit_event(Event::<T, I>::Issued { amount });
 		NegativeImbalance::new(amount)
 	}
 
@@ -916,5 +939,14 @@ where
 		let mut locks = Self::locks(who);
 		locks.retain(|l| l.id != id);
 		Self::update_locks(who, &locks[..]);
+	}
+}
+
+impl<T: Config<I>, I: 'static> InspectLockableCurrency<T::AccountId> for Pallet<T, I> {
+	fn balance_locked(id: LockIdentifier, who: &T::AccountId) -> Self::Balance {
+		Self::locks(who)
+			.into_iter()
+			.filter(|l| l.id == id)
+			.fold(Zero::zero(), |acc, l| acc + l.amount)
 	}
 }

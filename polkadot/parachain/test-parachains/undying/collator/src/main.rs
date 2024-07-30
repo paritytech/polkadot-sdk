@@ -97,6 +97,9 @@ fn main() -> Result<()> {
 						overseer_message_channel_capacity_override: None,
 						malus_finality_delay: None,
 						hwbench: None,
+						execute_workers_max_num: None,
+						prepare_workers_hard_max_num: None,
+						prepare_workers_soft_max_num: None,
 					},
 				)
 				.map_err(|e| e.to_string())?;

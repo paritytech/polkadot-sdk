@@ -26,7 +26,10 @@ use crate::{
 	},
 	DispatchResult,
 };
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+#[doc(hidden)]
+pub use core::{fmt::Debug, marker::PhantomData};
 use impl_trait_for_tuples::impl_for_tuples;
 #[cfg(feature = "serde")]
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -44,9 +47,6 @@ pub use sp_core::{
 	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
 	ConstU16, ConstU32, ConstU64, ConstU8, Get, GetDefault, TryCollect, TypedGet,
 };
-#[doc(hidden)]
-pub use sp_std::marker::PhantomData;
-use sp_std::{self, fmt::Debug, prelude::*};
 #[cfg(feature = "std")]
 use std::fmt::Display;
 #[cfg(feature = "std")]
@@ -328,7 +328,7 @@ impl<T> TryMorph<T> for Identity {
 }
 
 /// Implementation of `Morph` which converts between types using `Into`.
-pub struct MorphInto<T>(sp_std::marker::PhantomData<T>);
+pub struct MorphInto<T>(core::marker::PhantomData<T>);
 impl<T, A: Into<T>> Morph<A> for MorphInto<T> {
 	type Outcome = T;
 	fn morph(a: A) -> T {
@@ -336,8 +336,8 @@ impl<T, A: Into<T>> Morph<A> for MorphInto<T> {
 	}
 }
 
-/// Implementation of `TryMorph` which attmepts to convert between types using `TryInto`.
-pub struct TryMorphInto<T>(sp_std::marker::PhantomData<T>);
+/// Implementation of `TryMorph` which attempts to convert between types using `TryInto`.
+pub struct TryMorphInto<T>(core::marker::PhantomData<T>);
 impl<T, A: TryInto<T>> TryMorph<A> for TryMorphInto<T> {
 	type Outcome = T;
 	fn try_morph(a: A) -> Result<T, ()> {
@@ -698,7 +698,7 @@ impl<A, B> MaybeEquivalence<A, B> for Tuple {
 
 /// Adapter which turns a [Get] implementation into a [Convert] implementation which always returns
 /// in the same value no matter the input.
-pub struct ConvertToValue<T>(sp_std::marker::PhantomData<T>);
+pub struct ConvertToValue<T>(core::marker::PhantomData<T>);
 impl<X, Y, T: Get<Y>> Convert<X, Y> for ConvertToValue<T> {
 	fn convert(_: X) -> Y {
 		T::get()
@@ -940,17 +940,17 @@ impl<T: Default + Eq + PartialEq> Clear for T {
 pub trait SimpleBitOps:
 	Sized
 	+ Clear
-	+ sp_std::ops::BitOr<Self, Output = Self>
-	+ sp_std::ops::BitXor<Self, Output = Self>
-	+ sp_std::ops::BitAnd<Self, Output = Self>
+	+ core::ops::BitOr<Self, Output = Self>
+	+ core::ops::BitXor<Self, Output = Self>
+	+ core::ops::BitAnd<Self, Output = Self>
 {
 }
 impl<
 		T: Sized
 			+ Clear
-			+ sp_std::ops::BitOr<Self, Output = Self>
-			+ sp_std::ops::BitXor<Self, Output = Self>
-			+ sp_std::ops::BitAnd<Self, Output = Self>,
+			+ core::ops::BitOr<Self, Output = Self>
+			+ core::ops::BitXor<Self, Output = Self>
+			+ core::ops::BitAnd<Self, Output = Self>,
 	> SimpleBitOps for T
 {
 }
@@ -994,7 +994,7 @@ pub trait HashOutput:
 	+ MaybeDisplay
 	+ MaybeFromStr
 	+ Debug
-	+ sp_std::hash::Hash
+	+ core::hash::Hash
 	+ AsRef<[u8]>
 	+ AsMut<[u8]>
 	+ Copy
@@ -1014,7 +1014,7 @@ impl<T> HashOutput for T where
 		+ MaybeDisplay
 		+ MaybeFromStr
 		+ Debug
-		+ sp_std::hash::Hash
+		+ core::hash::Hash
 		+ AsRef<[u8]>
 		+ AsMut<[u8]>
 		+ Copy
@@ -1137,7 +1137,7 @@ sp_core::impl_maybe_marker!(
 	trait MaybeFromStr: FromStr;
 
 	/// A type that implements Hash when in std environment.
-	trait MaybeHash: sp_std::hash::Hash;
+	trait MaybeHash: core::hash::Hash;
 );
 
 sp_core::impl_maybe_marker_std_or_serde!(
@@ -1164,7 +1164,7 @@ pub trait BlockNumber:
 	+ MaybeSerializeDeserialize
 	+ MaybeFromStr
 	+ Debug
-	+ sp_std::hash::Hash
+	+ core::hash::Hash
 	+ Copy
 	+ MaybeDisplay
 	+ AtLeast32BitUnsigned
@@ -1182,7 +1182,7 @@ impl<
 			+ MaybeSerializeDeserialize
 			+ MaybeFromStr
 			+ Debug
-			+ sp_std::hash::Hash
+			+ core::hash::Hash
 			+ Copy
 			+ MaybeDisplay
 			+ AtLeast32BitUnsigned
@@ -1366,9 +1366,7 @@ pub trait ExtrinsicLike: Sized {
 	/// Returns `true` if this `Extrinsic` is bare.
 	fn is_bare(&self) -> bool {
 		#[allow(deprecated)]
-		!self
-			.is_signed()
-			.expect("`is_signed` must return `Some` on production extrinsics; qed")
+		!self.is_signed().unwrap_or(true)
 	}
 }
 
@@ -1420,8 +1418,7 @@ pub trait ExtrinsicMetadata {
 	const VERSION: u8;
 
 	/// Signed extensions attached to this `Extrinsic`.
-	// TODO: metadata-v16: rename to `Extension`.
-	type Extra;
+	type SignedExtensions;
 }
 
 /// Extract the hashing type for a block.
@@ -1485,6 +1482,16 @@ impl<T: BlindCheckable, Context> Checkable<Context> for T {
 	}
 }
 
+/// A type that can handle weight accrual.
+pub trait AccrueWeight {
+	/// Register some extra weight.
+	fn accrue(&mut self, weight: sp_weights::Weight);
+}
+
+impl AccrueWeight for () {
+	fn accrue(&mut self, _weight: sp_weights::Weight) {}
+}
+
 /// A lazy call (module function and argument values) that can be executed via its `dispatch`
 /// method.
 pub trait Dispatchable {
@@ -1499,8 +1506,8 @@ pub trait Dispatchable {
 	/// to represent the dispatch class and weight.
 	type Info;
 	/// Additional information that is returned by `dispatch`. Can be used to supply the caller
-	/// with information about a `Dispatchable` that is ownly known post dispatch.
-	type PostInfo: Eq + PartialEq + Clone + Copy + Encode + Decode + Printable;
+	/// with information about a `Dispatchable` that is only known post dispatch.
+	type PostInfo: Eq + PartialEq + Clone + Copy + Encode + Decode + Printable + AccrueWeight;
 	/// Actually dispatch this call and return the result of it.
 	fn dispatch(self, origin: Self::RuntimeOrigin)
 		-> crate::DispatchResultWithInfo<Self::PostInfo>;
@@ -2017,7 +2024,7 @@ macro_rules! impl_opaque_keys_inner {
 			/// The generated key pairs are stored in the keystore.
 			///
 			/// Returns the concatenated SCALE encoded public keys.
-			pub fn generate(seed: Option<$crate::sp_std::vec::Vec<u8>>) -> $crate::sp_std::vec::Vec<u8> {
+			pub fn generate(seed: Option<$crate::Vec<u8>>) -> $crate::Vec<u8> {
 				let keys = Self{
 					$(
 						$field: <
@@ -2033,7 +2040,7 @@ macro_rules! impl_opaque_keys_inner {
 			/// Converts `Self` into a `Vec` of `(raw public key, KeyTypeId)`.
 			pub fn into_raw_public_keys(
 				self,
-			) -> $crate::sp_std::vec::Vec<($crate::sp_std::vec::Vec<u8>, $crate::KeyTypeId)> {
+			) -> $crate::Vec<($crate::Vec<u8>, $crate::KeyTypeId)> {
 				let mut keys = Vec::new();
 				$(
 					keys.push((
@@ -2055,7 +2062,7 @@ macro_rules! impl_opaque_keys_inner {
 			/// Returns `None` when the decoding failed, otherwise `Some(_)`.
 			pub fn decode_into_raw_public_keys(
 				encoded: &[u8],
-			) -> Option<$crate::sp_std::vec::Vec<($crate::sp_std::vec::Vec<u8>, $crate::KeyTypeId)>> {
+			) -> Option<$crate::Vec<($crate::Vec<u8>, $crate::KeyTypeId)>> {
 				<Self as $crate::codec::Decode>::decode(&mut &encoded[..])
 					.ok()
 					.map(|s| s.into_raw_public_keys())
@@ -2304,12 +2311,12 @@ pub trait BlockNumberProvider {
 	/// .
 	fn current_block_number() -> Self::BlockNumber;
 
-	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
-	/// else a noop.
+	/// Utility function only to be used in benchmarking scenarios or tests, to be implemented
+	/// optionally, else a noop.
 	///
 	/// It allows for setting the block number that will later be fetched
 	/// This is useful in case the block number provider is different than System
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
 	fn set_block_number(_block: Self::BlockNumber) {}
 }
 

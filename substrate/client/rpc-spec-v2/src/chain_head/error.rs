@@ -23,6 +23,9 @@ use jsonrpsee::types::error::ErrorObject;
 /// ChainHead RPC errors.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+	/// Maximum number of chainHead_follow has been reached.
+	#[error("Maximum number of chainHead_follow has been reached")]
+	ReachedLimits,
 	/// The provided block hash is invalid.
 	#[error("Invalid block hash")]
 	InvalidBlock,
@@ -46,6 +49,8 @@ pub enum Error {
 /// Errors for `chainHead` RPC module, as defined in
 /// <https://github.com/paritytech/json-rpc-interface-spec>.
 pub mod rpc_spec_v2 {
+	/// Maximum number of chainHead_follow has been reached.
+	pub const REACHED_LIMITS: i32 = -32800;
 	/// The provided block hash is invalid.
 	pub const INVALID_BLOCK_ERROR: i32 = -32801;
 	/// The follow subscription was started with `withRuntime` set to `false`.
@@ -70,6 +75,8 @@ impl From<Error> for ErrorObject<'static> {
 		let msg = e.to_string();
 
 		match e {
+			Error::ReachedLimits =>
+				ErrorObject::owned(rpc_spec_v2::REACHED_LIMITS, msg, None::<()>),
 			Error::InvalidBlock =>
 				ErrorObject::owned(rpc_spec_v2::INVALID_BLOCK_ERROR, msg, None::<()>),
 			Error::InvalidRuntimeCall(_) =>

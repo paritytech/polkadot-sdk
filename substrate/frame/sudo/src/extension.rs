@@ -17,6 +17,7 @@
 
 use crate::{Config, Key};
 use codec::{Decode, Encode};
+use core::{fmt, marker::PhantomData};
 use frame_support::{dispatch::DispatchInfo, ensure};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -30,7 +31,6 @@ use sp_runtime::{
 		ValidTransaction,
 	},
 };
-use sp_std::{fmt, marker::PhantomData};
 
 /// Ensure that signed transactions are only valid if they are signed by sudo account.
 ///
@@ -73,7 +73,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckOnlySudoAccount<
 	const IDENTIFIER: &'static str = "CheckOnlySudoAccount";
 	type Implicit = ();
 
-	fn weight(&self) -> frame_support::weights::Weight {
+	fn weight() -> frame_support::weights::Weight {
 		use crate::weights::WeightInfo;
 		T::WeightInfo::check_only_sudo_account()
 	}
@@ -111,7 +111,7 @@ where
 
 		Ok((
 			ValidTransaction {
-				priority: info.weight.ref_time() as TransactionPriority,
+				priority: info.total_weight().ref_time() as TransactionPriority,
 				..Default::default()
 			},
 			(),

@@ -95,15 +95,16 @@ where
 		self.0.pre_dispatch(who, call, info, len)
 	}
 
-	fn post_dispatch(
+	fn post_dispatch_details(
 		pre: Self::Pre,
 		info: &DispatchInfoOf<SE::Call>,
 		post_info: &PostDispatchInfoOf<SE::Call>,
 		len: usize,
 		result: &DispatchResult,
 		_context: &Context,
-	) -> Result<(), TransactionValidityError> {
-		SE::post_dispatch(Some(pre), info, post_info, len, result)
+	) -> Result<Option<Weight>, TransactionValidityError> {
+		SE::post_dispatch(Some(pre), info, post_info, len, result)?;
+		Ok(None)
 	}
 
 	fn validate_bare_compat(

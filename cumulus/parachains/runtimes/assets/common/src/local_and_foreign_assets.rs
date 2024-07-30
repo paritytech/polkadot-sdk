@@ -13,13 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::marker::PhantomData;
 use frame_support::traits::Get;
 use sp_runtime::{
 	traits::{Convert, MaybeEquivalence},
 	Either,
 	Either::{Left, Right},
 };
-use sp_std::marker::PhantomData;
 use xcm::latest::Location;
 
 /// Converts a given [`Location`] to [`Either::Left`] when equal to `Target`, or

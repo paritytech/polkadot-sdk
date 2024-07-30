@@ -4,7 +4,7 @@ version = "17.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "This crate provides procedural macros for usage within the context of the Substrate runtime interface."
 documentation = "https://docs.rs/sp-runtime-interface-proc-macro"
@@ -19,9 +19,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 proc-macro = true
 
 [dependencies]
-Inflector = "0.11.4"
-proc-macro-crate = "3.0.0"
-proc-macro2 = "1.0.56"
+Inflector = { workspace = true }
+proc-macro-crate = { workspace = true }
+proc-macro2 = { workspace = true }
 quote = { workspace = true }
-expander = "2.0.0"
+expander = { workspace = true }
 syn = { features = ["extra-traits", "fold", "full", "visit"], workspace = true }

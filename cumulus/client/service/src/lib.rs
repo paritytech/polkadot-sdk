@@ -40,7 +40,7 @@ use sc_consensus::{
 	import_queue::{ImportQueue, ImportQueueService},
 	BlockImport,
 };
-use sc_network::{config::SyncMode, NetworkService};
+use sc_network::{config::SyncMode, service::traits::NetworkService, NetworkBackend};
 use sc_network_sync::SyncingService;
 use sc_network_transactions::TransactionsHandlerController;
 use sc_service::{Configuration, NetworkStarter, SpawnTaskHandle, TaskManager, WarpSyncParams};
@@ -53,6 +53,15 @@ use sp_runtime::traits::{Block as BlockT, BlockIdTo, Header};
 use std::{sync::Arc, time::Duration};
 
 pub use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
+
+/// Host functions that should be used in parachain nodes.
+///
+/// Contains the standard substrate host functions, as well as a
+/// host function to enable PoV-reclaim on parachain nodes.
+pub type ParachainHostFunctions = (
+	cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
+	sp_io::SubstrateHostFunctions,
+);
 
 // Given the sporadic nature of the explicit recovery operation and the
 // possibility to retry infinite times this value is more than enough.
@@ -397,13 +406,15 @@ pub struct BuildNetworkParams<
 		+ HeaderBackend<Block>
 		+ BlockIdTo<Block>
 		+ 'static,
+	Network: NetworkBackend<Block, <Block as BlockT>::Hash>,
 	RCInterface,
 	IQ,
 > where
 	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 {
 	pub parachain_config: &'a Configuration,
-	pub net_config: sc_network::config::FullNetworkConfiguration,
+	pub net_config:
+		sc_network::config::FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Network>,
 	pub client: Arc<Client>,
 	pub transaction_pool: Arc<sc_transaction_pool::FullPool<Block, Client>>,
 	pub para_id: ParaId,
@@ -414,7 +425,7 @@ pub struct BuildNetworkParams<
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
-pub async fn build_network<'a, Block, Client, RCInterface, IQ>(
+pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 	BuildNetworkParams {
 		parachain_config,
 		net_config,
@@ -425,9 +436,9 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ>(
 		relay_chain_interface,
 		import_queue,
 		sybil_resistance_level,
-	}: BuildNetworkParams<'a, Block, Client, RCInterface, IQ>,
+	}: BuildNetworkParams<'a, Block, Client, Network, RCInterface, IQ>,
 ) -> sc_service::error::Result<(
-	Arc<NetworkService<Block, Block::Hash>>,
+	Arc<dyn NetworkService>,
 	TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 	TransactionsHandlerController<Block::Hash>,
 	NetworkStarter,
@@ -452,6 +463,7 @@ where
 	for<'b> &'b Client: BlockImport<Block>,
 	RCInterface: RelayChainInterface + Clone + 'static,
 	IQ: ImportQueue<Block> + 'static,
+	Network: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
 	let warp_sync_params = match parachain_config.network.sync_mode {
 		SyncMode::Warp => {
@@ -476,6 +488,9 @@ where
 			Box::new(block_announce_validator) as Box<_>
 		},
 	};
+	let metrics = Network::register_notification_metrics(
+		parachain_config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
+	);
 
 	sc_service::build_network(sc_service::BuildNetworkParams {
 		config: parachain_config,
@@ -487,6 +502,7 @@ where
 		block_announce_validator_builder: Some(Box::new(move |_| block_announce_validator)),
 		warp_sync_params,
 		block_relay: None,
+		metrics,
 	})
 }
 
