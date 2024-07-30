@@ -225,12 +225,12 @@ impl Queue {
 	/// If all the workers are busy or the queue is empty, it does nothing.
 	/// Should be called every time a new job arrives to the queue or a job finishes.
 	fn try_assign_next_job(&mut self, finished_worker: Option<Worker>) {
-		// New jobs are always pushed to the tail of the queue; the one at its head is always
-		// the eldest one.
-
+		// We always work at the same priority level
 		let priority = self.unscheduled.select_next_priority();
 		let Some(queue) = self.unscheduled.get_mut(priority) else { return };
 
+		// New jobs are always pushed to the tail of the queue based on their priority;
+		// the one at its head of each queue is always the eldest one.
 		let eldest = if let Some(eldest) = queue.get(0) { eldest } else { return };
 
 		// By default, we're going to execute the eldest job on any worker slot available, even if
@@ -281,7 +281,7 @@ impl Queue {
 			spawn_extra_worker(self, job);
 		}
 		self.metrics.on_execute_priority(priority);
-		self.unscheduled.log(priority);
+		self.unscheduled.mark_scheduled(priority);
 	}
 }
 
@@ -630,7 +630,10 @@ struct Unscheduled {
 
 impl Unscheduled {
 	// A threshold reaching which we reset counted jobs.
-	// Max number of jobs per block assuming 6s window, 2 CPU cores, and 2s for a run.
+	// The max expected queue_size in normal conditions, at the beginning of each block,
+	// a validator will submit jobs for at least vrf_module_samples(6) + 1 for backing
+	// the parachain candidate they are assigned to, there is some buffer added to cover
+	// for situations, where more work arrives in the queue.
 	const MAX_COUNT: usize = 12;
 	// A threshold in percentages, the portion a current priority can "steal" from lower ones.
 	// For example:
@@ -706,7 +709,7 @@ impl Unscheduled {
 		(count + 1) * 100 / total_count >= threshold
 	}
 
-	fn log(&mut self, priority: PvfExecPriority) {
+	fn mark_scheduled(&mut self, priority: PvfExecPriority) {
 		let current_count: &mut usize = self.counter.entry(priority).or_default();
 		*current_count += 1;
 
@@ -770,7 +773,7 @@ mod tests {
 		assert_eq!(unscheduled.select_next_priority(), Dispute);
 
 		// Fulfill dispute jobs
-		unscheduled.log(Dispute);
+		unscheduled.mark_scheduled(Dispute);
 		assert_eq!(unscheduled.select_next_priority(), Approval);
 
 		// Remove dispute jobs
@@ -779,7 +782,7 @@ mod tests {
 		assert_eq!(unscheduled.select_next_priority(), Approval);
 
 		// Fulfill approval jobs
-		unscheduled.log(Approval);
+		unscheduled.mark_scheduled(Approval);
 		assert_eq!(unscheduled.select_next_priority(), BackingSystemParas);
 
 		// Remove approval jobs
@@ -788,7 +791,7 @@ mod tests {
 		assert_eq!(unscheduled.select_next_priority(), BackingSystemParas);
 
 		// Fulfill system parachains backing jobs
-		unscheduled.log(BackingSystemParas);
+		unscheduled.mark_scheduled(BackingSystemParas);
 		assert_eq!(unscheduled.select_next_priority(), Backing);
 
 		// Leave only approval jobs which are fulfilled
@@ -796,7 +799,7 @@ mod tests {
 		unscheduled.get_mut(BackingSystemParas).unwrap().clear();
 		unscheduled.get_mut(Backing).unwrap().clear();
 		unscheduled.add(create_execution_job(), Approval);
-		unscheduled.log(Approval);
+		unscheduled.mark_scheduled(Approval);
 		assert_eq!(unscheduled.select_next_priority(), Approval);
 	}
 }
