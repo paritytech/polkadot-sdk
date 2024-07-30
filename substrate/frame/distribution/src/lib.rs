@@ -56,9 +56,6 @@ pub mod pallet {
 		FundsLock,
 	}
 
-	#[pallet::storage]
-	pub type Something<T> = StorageValue<_, u32>;
-
 	/// Number of spendings that have been executed so far.
 	#[pallet::storage]
 	pub type SpendingsCount<T: Config> = StorageValue<_, SpendingIndex, ValueQuery>;
