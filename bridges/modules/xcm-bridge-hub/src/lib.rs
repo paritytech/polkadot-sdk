@@ -1524,4 +1524,43 @@ mod tests {
 			cleanup(bridge_id_mismatch, lane_id);
 		});
 	}
+
+	#[test]
+	fn ensure_encoding_compatibility() {
+		use codec::Encode;
+
+		let bridge_destination_universal_location = BridgedUniversalDestination::get();
+		let may_prune_messages = 13;
+
+		assert_eq!(
+			bp_xcm_bridge_hub::XcmBridgeHubCall::open_bridge {
+				bridge_destination_universal_location: Box::new(
+					bridge_destination_universal_location.clone().into()
+				)
+			}
+			.encode(),
+			Call::<TestRuntime, ()>::open_bridge {
+				bridge_destination_universal_location: Box::new(
+					bridge_destination_universal_location.clone().into()
+				)
+			}
+			.encode()
+		);
+		assert_eq!(
+			bp_xcm_bridge_hub::XcmBridgeHubCall::close_bridge {
+				bridge_destination_universal_location: Box::new(
+					bridge_destination_universal_location.clone().into()
+				),
+				may_prune_messages,
+			}
+			.encode(),
+			Call::<TestRuntime, ()>::close_bridge {
+				bridge_destination_universal_location: Box::new(
+					bridge_destination_universal_location.clone().into()
+				),
+				may_prune_messages,
+			}
+			.encode()
+		);
+	}
 }

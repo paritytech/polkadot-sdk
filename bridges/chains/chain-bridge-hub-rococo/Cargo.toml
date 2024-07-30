@@ -11,14 +11,15 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-# Bridge Dependencies
+codec = { features = ["derive"], workspace = true }
 
+# Bridge Dependencies
 bp-bridge-hub-cumulus = { workspace = true }
 bp-runtime = { features = ["test-helpers"], workspace = true }
 bp-messages = { workspace = true }
+bp-xcm-bridge-hub = { workspace = true }
 
 # Substrate Based Dependencies
-
 frame-support = { workspace = true }
 sp-api = { workspace = true }
 sp-runtime = { workspace = true }
@@ -30,6 +31,8 @@ std = [
 	"bp-bridge-hub-cumulus/std",
 	"bp-messages/std",
 	"bp-runtime/std",
+	"bp-xcm-bridge-hub/std",
+	"codec/std",
 	"frame-support/std",
 	"sp-api/std",
 	"sp-runtime/std",

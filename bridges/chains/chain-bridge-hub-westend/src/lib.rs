@@ -24,6 +24,7 @@ use bp_messages::*;
 use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
+use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchClass;
 use sp_runtime::{RuntimeDebug, StateVersion};
 
@@ -102,4 +103,12 @@ frame_support::parameter_types! {
 	/// Transaction fee that is paid at the Westend BridgeHub for delivering single outbound message confirmation.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
 	pub const BridgeHubWestendBaseConfirmationFeeInWnds: u128 = 17_982_586_452;
+}
+
+/// Wrapper over `BridgeHubWestend`'s `RuntimeCall` that can be used without a runtime.
+#[derive(Decode, Encode)]
+pub enum RuntimeCall {
+	/// Points to the `pallet_xcm_bridge_hub` pallet instance for `BridgeHubRococo`.
+	#[codec(index = 45)]
+	XcmOverBridgeHubRococo(bp_xcm_bridge_hub::XcmBridgeHubCall),
 }

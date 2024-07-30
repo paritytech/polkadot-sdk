@@ -21,6 +21,7 @@
 
 use bp_messages::LaneId;
 use bp_runtime::{AccountIdOf, BalanceOf, Chain};
+pub use call_info::XcmBridgeHubCall;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure, sp_runtime::RuntimeDebug, CloneNoBound, PalletError, PartialEqNoBound,
@@ -35,6 +36,8 @@ use xcm::{
 	latest::prelude::*, prelude::XcmVersion, IntoVersion, VersionedInteriorLocation,
 	VersionedLocation,
 };
+
+mod call_info;
 
 /// Encoded XCM blob. We expect the bridge messages pallet to use this blob type for both inbound
 /// and outbound payloads.
