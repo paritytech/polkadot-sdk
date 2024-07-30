@@ -452,14 +452,14 @@ fn batch_weight_calculation_doesnt_overflow() {
 		let big_call = RuntimeCall::RootTesting(RootTestingCall::fill_block {
 			ratio: Perbill::from_percent(50),
 		});
-		assert_eq!(big_call.get_dispatch_info().weight, Weight::MAX / 2);
+		assert_eq!(big_call.get_dispatch_info().call_weight, Weight::MAX / 2);
 
 		// 3 * 50% saturates to 100%
 		let batch_call = RuntimeCall::Utility(crate::Call::batch {
 			calls: vec![big_call.clone(), big_call.clone(), big_call.clone()],
 		});
 
-		assert_eq!(batch_call.get_dispatch_info().weight, Weight::MAX);
+		assert_eq!(batch_call.get_dispatch_info().call_weight, Weight::MAX);
 	});
 }
 
@@ -801,7 +801,7 @@ fn batch_works_with_council_origin() {
 			calls: vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})],
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Council::propose(
@@ -838,7 +838,7 @@ fn force_batch_works_with_council_origin() {
 			calls: vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})],
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Council::propose(
@@ -888,7 +888,7 @@ fn with_weight_works() {
 			}));
 		// Weight before is max.
 		assert_eq!(
-			upgrade_code_call.get_dispatch_info().weight,
+			upgrade_code_call.get_dispatch_info().call_weight,
 			<Test as frame_system::Config>::SystemWeightInfo::set_code()
 		);
 		assert_eq!(
@@ -901,7 +901,7 @@ fn with_weight_works() {
 			weight: Weight::from_parts(123, 456),
 		};
 		// Weight after is set by Root.
-		assert_eq!(with_weight_call.get_dispatch_info().weight, Weight::from_parts(123, 456));
+		assert_eq!(with_weight_call.get_dispatch_info().call_weight, Weight::from_parts(123, 456));
 		assert_eq!(
 			with_weight_call.get_dispatch_info().class,
 			frame_support::dispatch::DispatchClass::Operational

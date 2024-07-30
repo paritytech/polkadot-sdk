@@ -73,7 +73,7 @@ fn test_whitelist_call_and_remove() {
 fn test_whitelist_call_and_execute() {
 	new_test_ext().execute_with(|| {
 		let call = RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![1] });
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		let encoded_call = call.encode();
 		let call_encoded_len = encoded_call.len() as u32;
 		let call_hash = <Test as frame_system::Config>::Hashing::hash(&encoded_call[..]);
@@ -153,7 +153,7 @@ fn test_whitelist_call_and_execute_failing_call() {
 			call_encoded_len: Default::default(),
 			call_weight_witness: Weight::zero(),
 		});
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		let encoded_call = call.encode();
 		let call_encoded_len = encoded_call.len() as u32;
 		let call_hash = <Test as frame_system::Config>::Hashing::hash(&encoded_call[..]);
@@ -200,7 +200,7 @@ fn test_whitelist_call_and_execute_without_note_preimage() {
 fn test_whitelist_call_and_execute_decode_consumes_all() {
 	new_test_ext().execute_with(|| {
 		let call = RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![1] });
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		let mut call = call.encode();
 		// Appending something does not make the encoded call invalid.
 		// This tests that the decode function consumes all data.
