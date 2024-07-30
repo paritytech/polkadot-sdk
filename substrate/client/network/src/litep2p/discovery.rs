@@ -201,7 +201,7 @@ pub struct Discovery {
 	listen_addresses: Arc<RwLock<HashSet<Multiaddr>>>,
 
 	/// External address confirmations.
-	address_confirmations: LruMap<Multiaddr, usize>,
+	address_confirmations: LruMap<Multiaddr, HashSet<PeerId>>,
 
 	/// Delay to next `FIND_NODE` query.
 	duration_to_next_find_query: Duration,
@@ -434,7 +434,7 @@ impl Discovery {
 	}
 
 	/// Check if `address` can be considered a new external address.
-	fn is_new_external_address(&mut self, address: &Multiaddr) -> bool {
+	fn is_new_external_address(&mut self, address: &Multiaddr, peer: PeerId) -> bool {
 		log::trace!(target: LOG_TARGET, "verify new external address: {address}");
 
 		// is the address one of our known addresses
@@ -450,14 +450,14 @@ impl Discovery {
 
 		match self.address_confirmations.get(address) {
 			Some(confirmations) => {
-				*confirmations += 1usize;
+				confirmations.insert(peer);
 
-				if *confirmations >= MIN_ADDRESS_CONFIRMATIONS {
+				if confirmations.len() >= MIN_ADDRESS_CONFIRMATIONS {
 					return true
 				}
 			},
 			None => {
-				self.address_confirmations.insert(address.clone(), 1usize);
+				self.address_confirmations.insert(address.clone(), Default::default());
 			},
 		}
 
@@ -569,7 +569,7 @@ impl Stream for Discovery {
 				supported_protocols,
 				observed_address,
 			})) => {
-				if this.is_new_external_address(&observed_address) {
+				if this.is_new_external_address(&observed_address, peer.clone()) {
 					this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
 						address: observed_address.clone(),
 					});
