@@ -26,7 +26,6 @@ use crate::assert_parse_error_matches;
 use crate::pallet::parse::tests::simulate_manifest_dir;
 
 use derive_syn_parse::Parse;
-use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{
@@ -34,7 +33,7 @@ use syn::{
 	parse2,
 	spanned::Spanned,
 	token::{Bracket, Paren, PathSep, Pound},
-	Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, Path, PathArguments,
+	Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, PathArguments,
 	Result, TypePath,
 };
 
@@ -57,8 +56,6 @@ pub struct TasksDef {
 	pub tasks_attr: Option<PalletTasksAttr>,
 	pub tasks: Vec<TaskDef>,
 	pub item_impl: ItemImpl,
-	/// Path to `frame_support`
-	pub scrate: Path,
 	pub enum_ident: Ident,
 	pub enum_arguments: PathArguments,
 }
@@ -114,11 +111,7 @@ impl syn::parse::Parse for TasksDef {
 		let enum_ident = last_seg.ident.clone();
 		let enum_arguments = last_seg.arguments.clone();
 
-		// We do this here because it would be improper to do something fallible like this at
-		// the expansion phase. Fallible stuff should happen during parsing.
-		let scrate = generate_access_from_frame_or_crate("frame-support")?;
-
-		Ok(TasksDef { tasks_attr, item_impl, tasks, scrate, enum_ident, enum_arguments })
+		Ok(TasksDef { tasks_attr, item_impl, tasks, enum_ident, enum_arguments })
 	}
 }
 
@@ -150,8 +143,6 @@ pub type PalletTaskEnumAttr = PalletTaskAttr<keywords::task_enum>;
 pub struct TaskEnumDef {
 	pub attr: Option<PalletTaskEnumAttr>,
 	pub item_enum: ItemEnum,
-	pub scrate: Path,
-	pub type_use_generics: TokenStream2,
 }
 
 impl syn::parse::Parse for TaskEnumDef {
@@ -163,13 +154,7 @@ impl syn::parse::Parse for TaskEnumDef {
 			None => None,
 		};
 
-		// We do this here because it would be improper to do something fallible like this at
-		// the expansion phase. Fallible stuff should happen during parsing.
-		let scrate = generate_access_from_frame_or_crate("frame-support")?;
-
-		let type_use_generics = quote!(T);
-
-		Ok(TaskEnumDef { attr, item_enum, scrate, type_use_generics })
+		Ok(TaskEnumDef { attr, item_enum })
 	}
 }
 
