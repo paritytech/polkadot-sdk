@@ -11,4 +11,18 @@ doc:
 
 crates:
   - name: pallet-balances
-    bump: minor
+    bump: patch
+  - name: pallet-staking
+    bump: patch
+  - name: pallet-treasury
+    bump: patch
+  - name: pallet-bounties
+    bump: patch
+  - name: pallet-conviction-voting
+    bump: patch
+  - name: pallet-democracy
+    bump: patch
+  - name: pallet-elections-phragmen
+    bump: patch
+  - name: pallet-referenda
+    bump: patch
