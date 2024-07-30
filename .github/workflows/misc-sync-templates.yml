@@ -71,8 +71,8 @@ jobs:
 
       # 2. Yanking the template out of the monorepo workspace.
 
-      - name: Use psvm to replace git references with released creates.
-        run: find . -type f -name 'Cargo.toml' -exec psvm -o -v ${{ github.event.inputs.crate_release_version }} -p {} \;
+      - name: Replace dev-dependencies path references with workspace references
+        run: find . -type f -name 'Cargo.toml' -exec sed -i'' -E "s/path = \"\.\.\/.*\"/workspace = true/g" {} \; 
         working-directory: polkadot-sdk/templates/${{ matrix.template }}/
       - name: Create a new workspace Cargo.toml
         run: |
