@@ -83,6 +83,14 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// We usually use passive tense for events.
 		SomethingStored { something: u32, who: T::AccountId },
+
+		/// Reward successfully claimed
+		RewardClaimed {
+			when: BlockNumberFor<T>,
+			amount: BalanceOf<T>,
+			project_account: T::AccountId,
+		}
+		
 	}
 
 	#[pallet::error]
@@ -103,6 +111,8 @@ pub mod pallet {
 		NoProjectAvailable,
 		/// The Funds transfer failed
 		FailedSpendingOperation,
+		/// Still not in claiming period
+		NotClaimingPeriod,
 	}
 
 	#[pallet::call]
@@ -112,7 +122,7 @@ pub mod pallet {
 		// ToDo: Add `claim_reward_for` 
 		#[pallet::call_index(0)]
 		pub fn  claim_reward_for(origin: OriginFor<T>, project_account:T::AccountId) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
+			let _caller = ensure_signed(origin)?;
 			let spending_indexes = Self::get_spending(project_account);
 			let pot = Self::pot_account();
 			for i in spending_indexes {
@@ -121,7 +131,7 @@ pub mod pallet {
 				let now = <frame_system::Pallet<T>>::block_number();
 
 				// Check that we're within the claiming period
-				if now > info.valid_from{
+				ensure!(now > info.valid_from, Error::<T>::NotClaimingPeriod);
 					// Unlock the funds
 					T::NativeBalance::release(
 						&HoldReason::FundsLock.into(),
@@ -130,13 +140,17 @@ pub mod pallet {
 						Precision::Exact,
 					)?;
 					// transfer the funds
-					Self::spending(info.amount, project_account, i)?;
-
-				}
+					Self::spending(info.amount, project_account.clone(), i)?;
+					Self::deposit_event(
+						Event::RewardClaimed {
+							when: now,
+							amount: info.amount,
+							project_account,
+						}
+					);
 			}
-
+			Ok(())			
 			
-			Ok(())
 		}
 
 	}

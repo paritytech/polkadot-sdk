@@ -11,8 +11,8 @@ impl<T: Config> Pallet<T> {
 
 	pub fn get_spending(project_account: T::AccountId) -> Vec<SpendingIndex> {
 		let mut spendings: Vec<SpendingIndex>  = Vec::new();		
-		let mut value = Some(project_account);
-		
+		let value = Some(project_account);
+
 		for spending in Spendings::<T>::iter() {
 			let info = spending.1;
 			if info.whitelisted_project == value {
@@ -113,11 +113,11 @@ impl<T: Config> Pallet<T> {
 				for project in projects.clone(){
 					// check if the pot has enough fund for the spending
 					let check = Self::pot_check(project.amount);
-					let result = match check{
+					let _result = match check{
 						
 						Ok(x) => {
 							// Create a new spending
-							let new_spending = SpendingInfo::<T>::new(project.clone());
+							let _new_spending = SpendingInfo::<T>::new(project.clone());
 							
 							// Lock funds for the project
 							let pot = Self::pot_account();
