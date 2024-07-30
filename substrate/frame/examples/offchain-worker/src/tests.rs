@@ -84,7 +84,7 @@ impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Tes
 where
 	RuntimeCall: From<LocalCall>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = Extrinsic;
 }
 
@@ -121,7 +121,7 @@ impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: Self::OverarchingCall) -> Self::Extrinsic {
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
 		Extrinsic::new_bare(call)
 	}
 }

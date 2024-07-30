@@ -312,7 +312,7 @@ impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Run
 where
 	RuntimeCall: From<LocalCall>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = Extrinsic;
 }
 

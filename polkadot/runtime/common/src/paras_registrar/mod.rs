@@ -757,7 +757,7 @@ mod tests {
 		RuntimeCall: From<C>,
 	{
 		type Extrinsic = UncheckedExtrinsic;
-		type OverarchingCall = RuntimeCall;
+		type RuntimeCall = RuntimeCall;
 	}
 
 	const NORMAL_RATIO: Perbill = Perbill::from_percent(75);

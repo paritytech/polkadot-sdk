@@ -76,8 +76,8 @@ pub struct ForAny {}
 /// For submitting unsigned transactions, `submit_unsigned_transaction`
 /// utility function can be used. However, this struct is used by `Signer`
 /// to submit a signed transactions providing the signature along with the call.
-pub struct SubmitTransaction<T: CreateTransactionBase<OverarchingCall>, OverarchingCall> {
-	_phantom: core::marker::PhantomData<(T, OverarchingCall)>,
+pub struct SubmitTransaction<T: CreateTransactionBase<RuntimeCall>, RuntimeCall> {
+	_phantom: core::marker::PhantomData<(T, RuntimeCall)>,
 }
 
 impl<T, LocalCall> SubmitTransaction<T, LocalCall>
@@ -455,7 +455,7 @@ pub trait CreateTransactionBase<LocalCall> {
 	/// The runtime's call type.
 	///
 	/// This has additional bound to be able to be created from pallet-local `Call` types.
-	type OverarchingCall: From<LocalCall> + Encode;
+	type RuntimeCall: From<LocalCall> + Encode;
 }
 
 /// Interface for creating a transaction.
@@ -465,7 +465,7 @@ pub trait CreateTransaction<LocalCall>: CreateTransactionBase<LocalCall> {
 
 	/// Create a transaction using the call and the desired transaction extension.
 	fn create_transaction(
-		call: Self::OverarchingCall,
+		call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
 		extension: Self::Extension,
 	) -> Self::Extrinsic;
 }
@@ -484,7 +484,7 @@ pub trait CreateSignedTransaction<LocalCall>:
 	/// Returns `None` if signed extrinsic could not be created (either because signing failed
 	/// or because of any other runtime-specific reason).
 	fn create_signed_transaction<C: AppCrypto<Self::Public, Self::Signature>>(
-		call: Self::OverarchingCall,
+		call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
 		public: Self::Public,
 		account: Self::AccountId,
 		nonce: Self::Nonce,
@@ -494,7 +494,7 @@ pub trait CreateSignedTransaction<LocalCall>:
 /// Interface for creating an inherent.
 pub trait CreateInherent<LocalCall>: CreateTransactionBase<LocalCall> {
 	/// Create an inherent.
-	fn create_inherent(call: Self::OverarchingCall) -> Self::Extrinsic;
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic;
 }
 
 /// A message signer.
@@ -643,11 +643,11 @@ mod tests {
 
 	impl CreateTransactionBase<RuntimeCall> for TestRuntime {
 		type Extrinsic = Extrinsic;
-		type OverarchingCall = RuntimeCall;
+		type RuntimeCall = RuntimeCall;
 	}
 
 	impl CreateInherent<RuntimeCall> for TestRuntime {
-		fn create_inherent(call: Self::OverarchingCall) -> Self::Extrinsic {
+		fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
 			UncheckedExtrinsic::new_bare(call)
 		}
 	}

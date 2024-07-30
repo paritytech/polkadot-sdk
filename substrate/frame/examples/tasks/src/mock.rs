@@ -44,7 +44,7 @@ impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runt
 where
 	RuntimeCall: From<LocalCall>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = Extrinsic;
 }
 

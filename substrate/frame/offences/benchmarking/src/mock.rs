@@ -162,7 +162,7 @@ where
 	RuntimeCall: From<T>,
 {
 	type Extrinsic = Extrinsic;
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 }
 
 impl crate::Config for Test {}

@@ -78,7 +78,7 @@ impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 }
 
@@ -86,7 +86,7 @@ impl<C> frame_system::offchain::CreateInherent<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	fn create_inherent(call: Self::OverarchingCall) -> Self::Extrinsic {
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
 }

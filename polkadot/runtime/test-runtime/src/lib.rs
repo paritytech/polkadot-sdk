@@ -169,7 +169,7 @@ impl<C> frame_system::offchain::CreateTransactionBase<C> for Runtime
 where
 	RuntimeCall: From<C>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = UncheckedExtrinsic;
 }
 
@@ -177,7 +177,7 @@ impl<C> frame_system::offchain::CreateInherent<C> for Runtime
 where
 	RuntimeCall: From<C>,
 {
-	fn create_inherent(call: Self::OverarchingCall) -> Self::Extrinsic {
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
 }
@@ -188,10 +188,7 @@ where
 {
 	type Extension = TxExtension;
 
-	fn create_transaction(
-		call: Self::OverarchingCall,
-		extension: Self::Extension,
-	) -> Self::Extrinsic {
+	fn create_transaction(call: Self::RuntimeCall, extension: Self::Extension) -> Self::Extrinsic {
 		UncheckedExtrinsic::new_transaction(call, extension)
 	}
 }

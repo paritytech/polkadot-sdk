@@ -103,7 +103,7 @@ where
 	RuntimeCall: From<C>,
 {
 	type Extrinsic = UncheckedExtrinsic;
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 }
 
 use crate::{auctions::Error as AuctionsError, crowdloan::Error as CrowdloanError};

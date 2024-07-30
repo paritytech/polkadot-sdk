@@ -613,7 +613,7 @@ where
 	RuntimeCall: From<LocalCall>,
 {
 	type Extrinsic = UncheckedExtrinsic;
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 }
 
 /// Submits a transaction with the node's public and signature type. Adheres to the signed

@@ -669,7 +669,7 @@ mod tests {
 		RuntimeCall: From<C>,
 	{
 		type Extrinsic = UncheckedExtrinsic;
-		type OverarchingCall = RuntimeCall;
+		type RuntimeCall = RuntimeCall;
 	}
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
