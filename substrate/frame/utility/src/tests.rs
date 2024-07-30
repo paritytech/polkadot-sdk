@@ -292,7 +292,7 @@ fn as_derivative_handles_weight_refund() {
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
-		assert_eq!(extract_actual_weight(&result, &info), info.weight);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
 		// Refund weight when ok
 		let inner_call = call_foobar(false, start_weight, Some(end_weight));
@@ -304,7 +304,7 @@ fn as_derivative_handles_weight_refund() {
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
 		// Diff is refunded
-		assert_eq!(extract_actual_weight(&result, &info), info.weight - diff);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff);
 
 		// Full weight when err
 		let inner_call = call_foobar(true, start_weight, None);
@@ -319,7 +319,7 @@ fn as_derivative_handles_weight_refund() {
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
 					// No weight is refunded
-					actual_weight: Some(info.weight),
+					actual_weight: Some(info.call_weight),
 					pays_fee: Pays::Yes,
 				},
 				error: DispatchError::Other("The cake is a lie."),
@@ -339,7 +339,7 @@ fn as_derivative_handles_weight_refund() {
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
 					// Diff is refunded
-					actual_weight: Some(info.weight - diff),
+					actual_weight: Some(info.call_weight - diff),
 					pays_fee: Pays::Yes,
 				},
 				error: DispatchError::Other("The cake is a lie."),
@@ -478,7 +478,7 @@ fn batch_handles_weight_refund() {
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
-		assert_eq!(extract_actual_weight(&result, &info), info.weight);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
 		// Refund weight when ok
 		let inner_call = call_foobar(false, start_weight, Some(end_weight));
@@ -488,7 +488,7 @@ fn batch_handles_weight_refund() {
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
 		// Diff is refunded
-		assert_eq!(extract_actual_weight(&result, &info), info.weight - diff * batch_len);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff * batch_len);
 
 		// Full weight when err
 		let good_call = call_foobar(false, start_weight, None);
@@ -502,7 +502,7 @@ fn batch_handles_weight_refund() {
 			utility::Event::BatchInterrupted { index: 1, error: DispatchError::Other("") }.into(),
 		);
 		// No weight is refunded
-		assert_eq!(extract_actual_weight(&result, &info), info.weight);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
 		// Refund weight when err
 		let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -516,7 +516,7 @@ fn batch_handles_weight_refund() {
 		System::assert_last_event(
 			utility::Event::BatchInterrupted { index: 1, error: DispatchError::Other("") }.into(),
 		);
-		assert_eq!(extract_actual_weight(&result, &info), info.weight - diff * batch_len);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff * batch_len);
 
 		// Partial batch completion
 		let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -567,7 +567,7 @@ fn batch_all_revert() {
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
 					actual_weight: Some(
-						<Test as Config>::WeightInfo::batch_all(2) + info.weight * 2
+						<Test as Config>::WeightInfo::batch_all(2) + info.call_weight * 2
 					),
 					pays_fee: Pays::Yes
 				},
@@ -594,7 +594,7 @@ fn batch_all_handles_weight_refund() {
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
-		assert_eq!(extract_actual_weight(&result, &info), info.weight);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
 		// Refund weight when ok
 		let inner_call = call_foobar(false, start_weight, Some(end_weight));
@@ -604,7 +604,7 @@ fn batch_all_handles_weight_refund() {
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
 		// Diff is refunded
-		assert_eq!(extract_actual_weight(&result, &info), info.weight - diff * batch_len);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff * batch_len);
 
 		// Full weight when err
 		let good_call = call_foobar(false, start_weight, None);
@@ -615,7 +615,7 @@ fn batch_all_handles_weight_refund() {
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_err_ignore_postinfo!(result, "The cake is a lie.");
 		// No weight is refunded
-		assert_eq!(extract_actual_weight(&result, &info), info.weight);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
 		// Refund weight when err
 		let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -626,7 +626,7 @@ fn batch_all_handles_weight_refund() {
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_err_ignore_postinfo!(result, "The cake is a lie.");
-		assert_eq!(extract_actual_weight(&result, &info), info.weight - diff * batch_len);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff * batch_len);
 
 		// Partial batch completion
 		let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -660,7 +660,7 @@ fn batch_all_does_not_nest() {
 			Utility::batch_all(RuntimeOrigin::signed(1), vec![batch_all.clone()]),
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
-					actual_weight: Some(<Test as Config>::WeightInfo::batch_all(1) + info.weight),
+					actual_weight: Some(<Test as Config>::WeightInfo::batch_all(1) + info.call_weight),
 					pays_fee: Pays::Yes
 				},
 				error: frame_system::Error::<Test>::CallFiltered.into(),
@@ -785,7 +785,7 @@ fn batch_all_doesnt_work_with_inherents() {
 			batch_all.dispatch(RuntimeOrigin::signed(1)),
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
-					actual_weight: Some(info.weight),
+					actual_weight: Some(info.call_weight),
 					pays_fee: Pays::Yes
 				},
 				error: frame_system::Error::<Test>::CallFiltered.into(),

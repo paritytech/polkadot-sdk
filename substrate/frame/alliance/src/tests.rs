@@ -645,8 +645,8 @@ fn remove_unscrupulous_items_works() {
 #[test]
 fn weights_sane() {
 	let info = crate::Call::<Test>::join_alliance {}.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::join_alliance(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::join_alliance(), info.call_weight);
 
 	let info = crate::Call::<Test>::nominate_ally { who: 10 }.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::nominate_ally(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::nominate_ally(), info.call_weight);
 }

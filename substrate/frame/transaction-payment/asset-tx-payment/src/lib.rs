@@ -361,7 +361,7 @@ where
 					.saturating_sub(
 						pallet_transaction_payment::ChargeTransactionPayment::<T>::weight(),
 					);
-				let mut actual_post_info = post_info.clone();
+				let mut actual_post_info = *post_info;
 				actual_post_info.accrue(actual_ext_weight);
 				pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch_details(
 					(tip, who, already_withdrawn),
@@ -377,7 +377,7 @@ where
 				// Take into account the weight used by this extension before calculating the
 				// refund.
 				let actual_ext_weight = <T as Config>::WeightInfo::charge_asset_tx_payment_asset();
-				let mut actual_post_info = post_info.clone();
+				let mut actual_post_info = *post_info;
 				actual_post_info.accrue(actual_ext_weight);
 				let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
 					len as u32,

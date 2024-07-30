@@ -46,13 +46,13 @@ pub type ExtrinsicVersion = u8;
 /// This version needs to be bumped if the encoded representation changes.
 /// It ensures that if the representation is changed and the format is not known,
 /// the decoding fails.
-const EXTRINSIC_FORMAT_VERSION: ExtrinsicVersion = 5;
+pub const EXTRINSIC_FORMAT_VERSION: ExtrinsicVersion = 5;
 /// Current version of the [Extension](TransactionExtension) used in this
 /// [extrinsic](UncheckedExtrinsic).
 ///
 /// This version needs to be bumped if there are breaking changes to the extension used in the
 /// [UncheckedExtrinsic] implementation.
-const EXTENSION_VERSION: ExtensionVersion = 0;
+pub const EXTENSION_VERSION: ExtensionVersion = 0;
 
 /// The `SignaturePayload` of `UncheckedExtrinsic`.
 type UncheckedSignaturePayload<Address, Signature, Extension> = (Address, Signature, Extension);

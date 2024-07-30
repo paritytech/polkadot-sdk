@@ -274,7 +274,7 @@ pub fn events() -> Vec<RuntimeEvent> {
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: Weight) -> DispatchInfo {
-	DispatchInfo { weight: w, ..Default::default() }
+	DispatchInfo { call_weight: w, ..Default::default() }
 }
 
 /// Check that the total-issuance matches the sum of all accounts' total balances.
@@ -297,10 +297,10 @@ pub fn ensure_ti_valid() {
 #[test]
 fn weights_sane() {
 	let info = crate::Call::<Test>::transfer_allow_death { dest: 10, value: 4 }.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::transfer_allow_death(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::transfer_allow_death(), info.call_weight);
 
 	let info = crate::Call::<Test>::force_unreserve { who: 10, amount: 4 }.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::force_unreserve(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::force_unreserve(), info.call_weight);
 }
 
 #[test]
