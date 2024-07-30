@@ -16,7 +16,7 @@
 
 //! # Runtime
 
-use frame::{deps::frame_system, prelude::*, runtime::prelude::*, traits::IdentityLookup};
+use frame::{deps::frame_system, runtime::prelude::*, traits::IdentityLookup};
 use xcm_executor::XcmExecutor;
 use xcm_simulator::mock_message_queue;
 
@@ -36,7 +36,7 @@ construct_runtime! {
 	}
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountId = AccountId;
@@ -49,8 +49,7 @@ impl mock_message_queue::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type Balance = Balance;
 	type AccountStore = System;
 }

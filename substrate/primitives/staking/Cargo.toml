@@ -4,7 +4,7 @@ version = "26.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "A crate which contains primitives that are useful for implementation that uses staking approaches in general. Definitions related to sessions, slashing, etc go here."
 readme = "README.md"
@@ -17,12 +17,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-impl-trait-for-tuples = "0.2.2"
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+impl-trait-for-tuples = { workspace = true }
 
-sp-core = { path = "../core", default-features = false }
-sp-runtime = { path = "../runtime", default-features = false }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
 
 [features]
 default = ["std"]

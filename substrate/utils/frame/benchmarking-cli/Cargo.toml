@@ -4,7 +4,7 @@ version = "32.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "CLI for benchmarking FRAME"
 readme = "README.md"
@@ -16,49 +16,49 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-array-bytes = "6.2.2"
-chrono = "0.4"
-clap = { version = "4.5.3", features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-comfy-table = { version = "7.1.0", default-features = false }
-handlebars = "5.1.0"
-Inflector = "0.11.4"
-itertools = "0.11"
-lazy_static = "1.4.0"
-linked-hash-map = "0.5.4"
+array-bytes = { workspace = true, default-features = true }
+chrono = { workspace = true }
+clap = { features = ["derive"], workspace = true }
+codec = { workspace = true, default-features = true }
+comfy-table = { workspace = true }
+handlebars = { workspace = true }
+Inflector = { workspace = true }
+itertools = { workspace = true }
+lazy_static = { workspace = true }
+linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
-rand = { version = "0.8.5", features = ["small_rng"] }
-rand_pcg = "0.3.1"
+rand = { features = ["small_rng"], workspace = true, default-features = true }
+rand_pcg = { workspace = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-thousands = "0.2.0"
-frame-benchmarking = { path = "../../../frame/benchmarking" }
-frame-support = { path = "../../../frame/support" }
-frame-system = { path = "../../../frame/system" }
-sc-block-builder = { path = "../../../client/block-builder" }
-sc-chain-spec = { path = "../../../client/chain-spec", default-features = false }
-sc-cli = { path = "../../../client/cli", default-features = false }
-sc-client-api = { path = "../../../client/api" }
-sc-client-db = { path = "../../../client/db", default-features = false }
-sc-executor = { path = "../../../client/executor" }
-sc-service = { path = "../../../client/service", default-features = false }
-sc-sysinfo = { path = "../../../client/sysinfo" }
-sp-api = { path = "../../../primitives/api" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-core = { path = "../../../primitives/core" }
-sp-database = { path = "../../../primitives/database" }
-sp-externalities = { path = "../../../primitives/externalities" }
-sp-genesis-builder = { path = "../../../primitives/genesis-builder" }
-sp-inherents = { path = "../../../primitives/inherents" }
-sp-keystore = { path = "../../../primitives/keystore" }
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-state-machine = { path = "../../../primitives/state-machine" }
-sp-storage = { path = "../../../primitives/storage" }
-sp-trie = { path = "../../../primitives/trie" }
-sp-io = { path = "../../../primitives/io" }
-sp-wasm-interface = { path = "../../../primitives/wasm-interface" }
-gethostname = "0.2.3"
+thousands = { workspace = true }
+frame-benchmarking = { workspace = true, default-features = true }
+frame-support = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
+sc-block-builder = { workspace = true, default-features = true }
+sc-chain-spec = { workspace = true }
+sc-cli = { workspace = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-client-db = { workspace = true }
+sc-executor = { workspace = true, default-features = true }
+sc-service = { workspace = true }
+sc-sysinfo = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-database = { workspace = true, default-features = true }
+sp-externalities = { workspace = true, default-features = true }
+sp-genesis-builder = { workspace = true, default-features = true }
+sp-inherents = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-storage = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-wasm-interface = { workspace = true, default-features = true }
+gethostname = { workspace = true }
 
 [features]
 default = ["rocksdb"]

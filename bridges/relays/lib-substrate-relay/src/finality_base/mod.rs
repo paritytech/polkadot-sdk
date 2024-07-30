@@ -50,11 +50,11 @@ pub type SubstrateFinalityProofsStream<P> =
 
 /// Subscribe to new finality proofs.
 pub async fn finality_proofs<P: SubstrateFinalityPipeline>(
-	client: &Client<P::SourceChain>,
+	client: &impl Client<P::SourceChain>,
 ) -> Result<SubstrateFinalityProofsStream<P>, Error> {
 	Ok(unfold(
 		P::FinalityEngine::source_finality_proofs(client).await?,
-		move |subscription| async move {
+		move |mut subscription| async move {
 			loop {
 				let log_error = |err| {
 					log::error!(
@@ -65,8 +65,7 @@ pub async fn finality_proofs<P: SubstrateFinalityPipeline>(
 					);
 				};
 
-				let next_justification =
-					subscription.next().await.map_err(|err| log_error(err.to_string())).ok()??;
+				let next_justification = subscription.next().await?;
 
 				let decoded_justification =
 					<P::FinalityEngine as Engine<P::SourceChain>>::FinalityProof::decode(
@@ -93,7 +92,7 @@ pub async fn finality_proofs<P: SubstrateFinalityPipeline>(
 ///
 /// The runtime API method should be `<TargetChain>FinalityApi::best_finalized()`.
 pub async fn best_synced_header_id<SourceChain, TargetChain>(
-	target_client: &Client<TargetChain>,
+	target_client: &impl Client<TargetChain>,
 	at: HashOf<TargetChain>,
 ) -> Result<Option<HeaderIdOf<SourceChain>>, Error>
 where
@@ -102,6 +101,6 @@ where
 {
 	// now let's read id of best finalized peer header at our best finalized block
 	target_client
-		.typed_state_call(SourceChain::BEST_FINALIZED_HEADER_ID_METHOD.into(), (), Some(at))
+		.state_call(at, SourceChain::BEST_FINALIZED_HEADER_ID_METHOD.into(), ())
 		.await
 }

@@ -28,10 +28,11 @@ use bp_header_chain::{
 };
 use bp_runtime::{BasicOperatingMode, HeaderIdProvider, OperatingMode};
 use codec::{Decode, Encode};
+use futures::stream::StreamExt;
 use num_traits::{One, Zero};
 use relay_substrate_client::{
 	BlockNumberOf, Chain, ChainWithGrandpa, Client, Error as SubstrateError, HashOf, HeaderOf,
-	Subscription, SubstrateFinalityClient, SubstrateGrandpaFinalityClient,
+	Subscription,
 };
 use sp_consensus_grandpa::{AuthorityList as GrandpaAuthoritiesSet, GRANDPA_ENGINE_ID};
 use sp_core::{storage::StorageKey, Bytes};
@@ -45,8 +46,6 @@ pub trait Engine<C: Chain>: Send {
 	const ID: ConsensusEngineId;
 	/// A reader that can extract the consensus log from the header digest and interpret it.
 	type ConsensusLogReader: ConsensusLogReader;
-	/// Type of Finality RPC client used by this engine.
-	type FinalityClient: SubstrateFinalityClient<C>;
 	/// Type of finality proofs, used by consensus engine.
 	type FinalityProof: FinalityProof<HashOf<C>, BlockNumberOf<C>> + Decode + Encode;
 	/// The context needed for verifying finality proofs.
@@ -74,10 +73,10 @@ pub trait Engine<C: Chain>: Send {
 
 	/// Returns `Ok(true)` if finality pallet at the bridged chain has already been initialized.
 	async fn is_initialized<TargetChain: Chain>(
-		target_client: &Client<TargetChain>,
+		target_client: &impl Client<TargetChain>,
 	) -> Result<bool, SubstrateError> {
 		Ok(target_client
-			.raw_storage_value(Self::is_initialized_key(), None)
+			.raw_storage_value(target_client.best_header_hash().await?, Self::is_initialized_key())
 			.await?
 			.is_some())
 	}
@@ -88,10 +87,13 @@ pub trait Engine<C: Chain>: Send {
 
 	/// Returns `Ok(true)` if finality pallet at the bridged chain is halted.
 	async fn is_halted<TargetChain: Chain>(
-		target_client: &Client<TargetChain>,
+		target_client: &impl Client<TargetChain>,
 	) -> Result<bool, SubstrateError> {
 		Ok(target_client
-			.storage_value::<Self::OperatingMode>(Self::pallet_operating_mode_key(), None)
+			.storage_value::<Self::OperatingMode>(
+				target_client.best_header_hash().await?,
+				Self::pallet_operating_mode_key(),
+			)
 			.await?
 			.map(|operating_mode| operating_mode.is_halted())
 			.unwrap_or(false))
@@ -99,17 +101,15 @@ pub trait Engine<C: Chain>: Send {
 
 	/// A method to subscribe to encoded finality proofs, given source client.
 	async fn source_finality_proofs(
-		source_client: &Client<C>,
-	) -> Result<Subscription<Bytes>, SubstrateError> {
-		source_client.subscribe_finality_justifications::<Self::FinalityClient>().await
-	}
+		source_client: &impl Client<C>,
+	) -> Result<Subscription<Bytes>, SubstrateError>;
 
 	/// Verify and optimize finality proof before sending it to the target node.
 	///
 	/// Apart from optimization, we expect this method to perform all required checks
 	/// that the `header` and `proof` are valid at the current state of the target chain.
 	async fn verify_and_optimize_proof<TargetChain: Chain>(
-		target_client: &Client<TargetChain>,
+		target_client: &impl Client<TargetChain>,
 		header: &C::Header,
 		proof: &mut Self::FinalityProof,
 	) -> Result<Self::FinalityVerificationContext, SubstrateError>;
@@ -123,19 +123,19 @@ pub trait Engine<C: Chain>: Send {
 
 	/// Prepare initialization data for the finality bridge pallet.
 	async fn prepare_initialization_data(
-		client: Client<C>,
+		client: impl Client<C>,
 	) -> Result<Self::InitializationData, Error<HashOf<C>, BlockNumberOf<C>>>;
 
 	/// Get the context needed for validating a finality proof.
 	async fn finality_verification_context<TargetChain: Chain>(
-		target_client: &Client<TargetChain>,
+		target_client: &impl Client<TargetChain>,
 		at: HashOf<TargetChain>,
 	) -> Result<Self::FinalityVerificationContext, SubstrateError>;
 
 	/// Returns the finality info associated to the source headers synced with the target
 	/// at the provided block.
 	async fn synced_headers_finality_info<TargetChain: Chain>(
-		target_client: &Client<TargetChain>,
+		target_client: &impl Client<TargetChain>,
 		at: TargetChain::Hash,
 	) -> Result<
 		Vec<HeaderFinalityInfo<Self::FinalityProof, Self::FinalityVerificationContext>>,
@@ -144,7 +144,7 @@ pub trait Engine<C: Chain>: Send {
 
 	/// Generate key ownership proof for the provided equivocation.
 	async fn generate_source_key_ownership_proof(
-		source_client: &Client<C>,
+		source_client: &impl Client<C>,
 		at: C::Hash,
 		equivocation: &Self::EquivocationProof,
 	) -> Result<Self::KeyOwnerProof, SubstrateError>;
@@ -156,7 +156,7 @@ pub struct Grandpa<C>(PhantomData<C>);
 impl<C: ChainWithGrandpa> Grandpa<C> {
 	/// Read header by hash from the source client.
 	async fn source_header(
-		source_client: &Client<C>,
+		source_client: &impl Client<C>,
 		header_hash: C::Hash,
 	) -> Result<C::Header, Error<HashOf<C>, BlockNumberOf<C>>> {
 		source_client
@@ -167,15 +167,15 @@ impl<C: ChainWithGrandpa> Grandpa<C> {
 
 	/// Read GRANDPA authorities set at given header.
 	async fn source_authorities_set(
-		source_client: &Client<C>,
+		source_client: &impl Client<C>,
 		header_hash: C::Hash,
 	) -> Result<GrandpaAuthoritiesSet, Error<HashOf<C>, BlockNumberOf<C>>> {
-		let raw_authorities_set = source_client
-			.grandpa_authorities_set(header_hash)
+		const SUB_API_GRANDPA_AUTHORITIES: &str = "GrandpaApi_grandpa_authorities";
+
+		source_client
+			.state_call(header_hash, SUB_API_GRANDPA_AUTHORITIES.to_string(), ())
 			.await
-			.map_err(|err| Error::RetrieveAuthorities(C::NAME, header_hash, err))?;
-		GrandpaAuthoritiesSet::decode(&mut &raw_authorities_set[..])
-			.map_err(|err| Error::DecodeAuthorities(C::NAME, header_hash, err))
+			.map_err(|err| Error::RetrieveAuthorities(C::NAME, header_hash, err))
 	}
 }
 
@@ -183,7 +183,6 @@ impl<C: ChainWithGrandpa> Grandpa<C> {
 impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 	const ID: ConsensusEngineId = GRANDPA_ENGINE_ID;
 	type ConsensusLogReader = GrandpaConsensusLogReader<<C::Header as Header>::Number>;
-	type FinalityClient = SubstrateGrandpaFinalityClient;
 	type FinalityProof = GrandpaJustification<HeaderOf<C>>;
 	type FinalityVerificationContext = JustificationVerificationContext;
 	type EquivocationProof = sp_consensus_grandpa::EquivocationProof<HashOf<C>, BlockNumberOf<C>>;
@@ -200,8 +199,14 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 		bp_header_chain::storage_keys::pallet_operating_mode_key(C::WITH_CHAIN_GRANDPA_PALLET_NAME)
 	}
 
+	async fn source_finality_proofs(
+		client: &impl Client<C>,
+	) -> Result<Subscription<Bytes>, SubstrateError> {
+		client.subscribe_grandpa_finality_justifications().await
+	}
+
 	async fn verify_and_optimize_proof<TargetChain: Chain>(
-		target_client: &Client<TargetChain>,
+		target_client: &impl Client<TargetChain>,
 		header: &C::Header,
 		proof: &mut Self::FinalityProof,
 	) -> Result<Self::FinalityVerificationContext, SubstrateError> {
@@ -239,7 +244,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 
 	/// Prepare initialization data for the GRANDPA verifier pallet.
 	async fn prepare_initialization_data(
-		source_client: Client<C>,
+		source_client: impl Client<C>,
 	) -> Result<Self::InitializationData, Error<HashOf<C>, BlockNumberOf<C>>> {
 		// In ideal world we just need to get best finalized header and then to read GRANDPA
 		// authorities set (`pallet_grandpa::CurrentSetId` + `GrandpaApi::grandpa_authorities()`) at
@@ -248,17 +253,14 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 		// But now there are problems with this approach - `CurrentSetId` may return invalid value.
 		// So here we're waiting for the next justification, read the authorities set and then try
 		// to figure out the set id with bruteforce.
-		let justifications = Self::source_finality_proofs(&source_client)
+		let mut justifications = Self::source_finality_proofs(&source_client)
 			.await
 			.map_err(|err| Error::Subscribe(C::NAME, err))?;
 		// Read next justification - the header that it finalizes will be used as initial header.
 		let justification = justifications
 			.next()
 			.await
-			.map_err(|e| Error::ReadJustification(C::NAME, e))
-			.and_then(|justification| {
-				justification.ok_or(Error::ReadJustificationStreamEnded(C::NAME))
-			})?;
+			.ok_or(Error::ReadJustificationStreamEnded(C::NAME))?;
 
 		// Read initial header.
 		let justification: GrandpaJustification<C::Header> =
@@ -359,14 +361,14 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 	}
 
 	async fn finality_verification_context<TargetChain: Chain>(
-		target_client: &Client<TargetChain>,
+		target_client: &impl Client<TargetChain>,
 		at: HashOf<TargetChain>,
 	) -> Result<Self::FinalityVerificationContext, SubstrateError> {
 		let current_authority_set_key = bp_header_chain::storage_keys::current_authority_set_key(
 			C::WITH_CHAIN_GRANDPA_PALLET_NAME,
 		);
 		let authority_set: AuthoritySet = target_client
-			.storage_value(current_authority_set_key, Some(at))
+			.storage_value(at, current_authority_set_key)
 			.await?
 			.map(Ok)
 			.unwrap_or(Err(SubstrateError::Custom(format!(
@@ -385,11 +387,11 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 	}
 
 	async fn synced_headers_finality_info<TargetChain: Chain>(
-		target_client: &Client<TargetChain>,
+		target_client: &impl Client<TargetChain>,
 		at: TargetChain::Hash,
 	) -> Result<Vec<HeaderGrandpaInfo<HeaderOf<C>>>, SubstrateError> {
 		let stored_headers_grandpa_info: Vec<StoredHeaderGrandpaInfo<HeaderOf<C>>> = target_client
-			.typed_state_call(C::SYNCED_HEADERS_GRANDPA_INFO_METHOD.to_string(), (), Some(at))
+			.state_call(at, C::SYNCED_HEADERS_GRANDPA_INFO_METHOD.to_string(), ())
 			.await?;
 
 		let mut headers_grandpa_info = vec![];
@@ -407,7 +409,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 	}
 
 	async fn generate_source_key_ownership_proof(
-		source_client: &Client<C>,
+		source_client: &impl Client<C>,
 		at: C::Hash,
 		equivocation: &Self::EquivocationProof,
 	) -> Result<Self::KeyOwnerProof, SubstrateError> {

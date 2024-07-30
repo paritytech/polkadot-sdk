@@ -4,7 +4,7 @@ version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME's I'm online pallet"
 readme = "README.md"
@@ -16,22 +16,21 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-pallet-authorship = { path = "../authorship", default-features = false }
-sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"] }
-sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"] }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
-sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"] }
-sp-std = { path = "../../primitives/std", default-features = false }
+scale-info = { features = ["derive", "serde"], workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-authorship = { workspace = true }
+sp-application-crypto = { features = ["serde"], workspace = true }
+sp-core = { features = ["serde"], workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+sp-staking = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
-pallet-session = { path = "../session" }
+pallet-session = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -49,7 +48,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

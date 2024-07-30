@@ -3,7 +3,7 @@ name = "pallet-paged-list"
 version = "0.6.0"
 description = "FRAME pallet that provides a paged list data structure."
 authors.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 repository.workspace = true
@@ -15,19 +15,18 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-docify = "0.2.8"
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
+docify = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-metadata-ir = { path = "../../primitives/metadata-ir", default-features = false, optional = true }
+sp-runtime = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-metadata-ir = { optional = true, workspace = true }
 
 [features]
 default = ["std"]
@@ -42,7 +41,6 @@ std = [
 	"sp-io/std",
 	"sp-metadata-ir/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 
 runtime-benchmarks = [

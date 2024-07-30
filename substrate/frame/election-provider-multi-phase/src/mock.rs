@@ -92,12 +92,12 @@ pub fn roll_to(n: BlockNumber) {
 }
 
 pub fn roll_to_unsigned() {
-	while !matches!(MultiPhase::current_phase(), Phase::Unsigned(_)) {
+	while !matches!(CurrentPhase::<Runtime>::get(), Phase::Unsigned(_)) {
 		roll_to(System::block_number() + 1);
 	}
 }
 pub fn roll_to_signed() {
-	while !matches!(MultiPhase::current_phase(), Phase::Signed) {
+	while !matches!(CurrentPhase::<Runtime>::get(), Phase::Signed) {
 		roll_to(System::block_number() + 1);
 	}
 }
@@ -112,9 +112,9 @@ pub fn roll_to_with_ocw(n: BlockNumber) {
 }
 
 pub fn roll_to_round(n: u32) {
-	assert!(MultiPhase::round() <= n);
+	assert!(Round::<Runtime>::get() <= n);
 
-	while MultiPhase::round() != n {
+	while Round::<Runtime>::get() != n {
 		roll_to_signed();
 		frame_support::assert_ok!(MultiPhase::elect());
 	}
@@ -136,7 +136,7 @@ pub struct TrimHelpers {
 ///
 /// Assignments are pre-sorted in reverse order of stake.
 pub fn trim_helpers() -> TrimHelpers {
-	let RoundSnapshot { voters, targets } = MultiPhase::snapshot().unwrap();
+	let RoundSnapshot { voters, targets } = Snapshot::<Runtime>::get().unwrap();
 	let stakes: std::collections::HashMap<_, _> =
 		voters.iter().map(|(id, stake, _)| (*id, *stake)).collect();
 
@@ -150,7 +150,7 @@ pub fn trim_helpers() -> TrimHelpers {
 	let voter_index = helpers::voter_index_fn_owned::<Runtime>(cache);
 	let target_index = helpers::target_index_fn::<Runtime>(&targets);
 
-	let desired_targets = MultiPhase::desired_targets().unwrap();
+	let desired_targets = crate::DesiredTargets::<Runtime>::get().unwrap();
 
 	let ElectionResult::<_, SolutionAccuracyOf<Runtime>> { mut assignments, .. } =
 		seq_phragmen(desired_targets as usize, targets.clone(), voters.clone(), None).unwrap();
@@ -176,8 +176,8 @@ pub fn trim_helpers() -> TrimHelpers {
 ///
 /// This is a good example of what an offchain miner would do.
 pub fn raw_solution() -> RawSolution<SolutionOf<Runtime>> {
-	let RoundSnapshot { voters, targets } = MultiPhase::snapshot().unwrap();
-	let desired_targets = MultiPhase::desired_targets().unwrap();
+	let RoundSnapshot { voters, targets } = Snapshot::<Runtime>::get().unwrap();
+	let desired_targets = crate::DesiredTargets::<Runtime>::get().unwrap();
 
 	let ElectionResult::<_, SolutionAccuracyOf<Runtime>> { winners: _, assignments } =
 		seq_phragmen(desired_targets as usize, targets.clone(), voters.clone(), None).unwrap();
@@ -193,14 +193,14 @@ pub fn raw_solution() -> RawSolution<SolutionOf<Runtime>> {
 		to_supports(&staked).evaluate()
 	};
 	let solution =
-		<SolutionOf<Runtime>>::from_assignment(&assignments, &voter_index, &target_index).unwrap();
+		SolutionOf::<Runtime>::from_assignment(&assignments, &voter_index, &target_index).unwrap();
 
-	let round = MultiPhase::round();
+	let round = Round::<Runtime>::get();
 	RawSolution { solution, score, round }
 }
 
 pub fn witness() -> SolutionOrSnapshotSize {
-	MultiPhase::snapshot()
+	Snapshot::<Runtime>::get()
 		.map(|snap| SolutionOrSnapshotSize {
 			voters: snap.voters.len() as u32,
 			targets: snap.targets.len() as u32,
@@ -237,7 +237,6 @@ impl frame_system::Config for Runtime {
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 parameter_types! {
-	pub const ExistentialDeposit: u64 = 1;
 	pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights
 		::with_sensible_defaults(
 			Weight::from_parts(2u64 * constants::WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
@@ -245,20 +244,9 @@ parameter_types! {
 		);
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 #[derive(Default, Eq, PartialEq, Debug, Clone, Copy)]

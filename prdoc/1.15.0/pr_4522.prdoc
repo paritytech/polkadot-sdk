@@ -1,0 +1,39 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Added runtime support for reporting BEEFY fork voting
+
+doc:
+  - audience:
+    - Runtime Dev
+    - Runtime User
+    description: |
+      This PR adds the `report_fork_voting`, `report_future_voting` extrinsics to `pallet-beefy`
+      and renames the `report_equivocation` extrinsic to `report_double_voting`.
+      `report_fork_voting` can't be called yet, since it uses `Weight::MAX` weight. We will
+      add benchmarks for it and set the proper weight in a future PR.
+      Also a new `AncestryHelper` associated trait was added to `pallet_beefy::Config`.
+  - audience: Node Dev
+    description: |
+      This PR renames the `submit_report_equivocation_unsigned_extrinsic` in `BeefyApi` to
+      `submit_report_double_voting_unsigned_extrinsic`and bumps the `BeefyApi` version from 3 to 4.
+
+crates: 
+  - name: pallet-beefy
+    bump: major
+  - name: pallet-beefy-mmr
+    bump: minor
+  - name: pallet-mmr
+    bump: major
+  - name: sc-consensus-beefy
+    bump: patch
+  - name: kitchensink-runtime
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: sp-consensus-beefy
+    bump: major
+  - name: polkadot-service
+    bump: patch

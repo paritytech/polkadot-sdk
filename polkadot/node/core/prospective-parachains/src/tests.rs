@@ -26,11 +26,15 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
 	async_backing::{AsyncBackingParams, BackingState, Constraints, InboundHrmpLimitations},
-	CommittedCandidateReceipt, HeadData, Header, PersistedValidationData, ScheduledCore,
+	CommittedCandidateReceipt, CoreIndex, HeadData, Header, PersistedValidationData, ScheduledCore,
 	ValidationCodeHash,
 };
 use polkadot_primitives_test_helpers::make_candidate;
-use std::sync::Arc;
+use rstest::rstest;
+use std::{
+	collections::{BTreeMap, VecDeque},
+	sync::Arc,
+};
 use test_helpers::mock::new_leaf;
 
 const ALLOWED_ANCESTRY_LEN: u32 = 3;
@@ -70,7 +74,8 @@ fn dummy_constraints(
 }
 
 struct TestState {
-	availability_cores: Vec<CoreState>,
+	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	runtime_api_version: u32,
 	validation_code_hash: ValidationCodeHash,
 }
 
@@ -79,13 +84,23 @@ impl Default for TestState {
 		let chain_a = ParaId::from(1);
 		let chain_b = ParaId::from(2);
 
-		let availability_cores = vec![
-			CoreState::Scheduled(ScheduledCore { para_id: chain_a, collator: None }),
-			CoreState::Scheduled(ScheduledCore { para_id: chain_b, collator: None }),
-		];
+		let mut claim_queue = BTreeMap::new();
+		claim_queue.insert(CoreIndex(0), [chain_a].into_iter().collect());
+		claim_queue.insert(CoreIndex(1), [chain_b].into_iter().collect());
+
 		let validation_code_hash = Hash::repeat_byte(42).into();
 
-		Self { availability_cores, validation_code_hash }
+		Self {
+			validation_code_hash,
+			claim_queue,
+			runtime_api_version: RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+		}
+	}
+}
+
+impl TestState {
+	fn set_runtime_api_version(&mut self, version: u32) {
+		self.runtime_api_version = version;
 	}
 }
 
@@ -227,11 +242,38 @@ async fn handle_leaf_activation(
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AvailabilityCores(tx))
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::Version(tx))
 		) if parent == *hash => {
-			tx.send(Ok(test_state.availability_cores.clone())).unwrap();
+			tx.send(
+				Ok(test_state.runtime_api_version)
+			).unwrap();
 		}
 	);
+
+	if test_state.runtime_api_version < RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT {
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::AvailabilityCores(tx))
+			) if parent == *hash => {
+				tx.send(Ok(test_state.claim_queue.values().map(|paras| CoreState::Scheduled(
+					ScheduledCore {
+						para_id: *paras.front().unwrap(),
+						collator: None
+					}
+				)).collect())).unwrap();
+			}
+		);
+	} else {
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::ClaimQueue(tx))
+			) if parent == *hash => {
+				tx.send(Ok(test_state.claim_queue.clone())).unwrap();
+			}
+		);
+	}
 
 	send_block_header(virtual_overseer, *hash, *number).await;
 
@@ -277,14 +319,16 @@ async fn handle_leaf_activation(
 		);
 	}
 
-	for _ in 0..test_state.availability_cores.len() {
+	let paras: HashSet<_> = test_state.claim_queue.values().flatten().collect();
+
+	for _ in 0..paras.len() {
 		let message = virtual_overseer.recv().await;
 		// Get the para we are working with since the order is not deterministic.
-		let para_id = match message {
+		let para_id = match &message {
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				_,
 				RuntimeApiRequest::ParaBackingState(p_id, _),
-			)) => p_id,
+			)) => *p_id,
 			_ => panic!("received unexpected message {:?}", message),
 		};
 
@@ -505,9 +549,18 @@ fn should_do_no_work_if_async_backing_disabled_for_leaf() {
 // - Two for the same leaf A (one for parachain 1 and one for parachain 2)
 // - One for leaf B on parachain 1
 // - One for leaf C on parachain 2
+// Also tests a claim queue size larger than 1.
 #[test]
 fn introduce_candidates_basic() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
+
+	let chain_a = ParaId::from(1);
+	let chain_b = ParaId::from(2);
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(CoreIndex(0), [chain_a, chain_b].into_iter().collect());
+
+	test_state.claim_queue = claim_queue;
+
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf A
 		let leaf_a = TestLeaf {
@@ -2032,9 +2085,15 @@ fn check_pvd_query() {
 
 // Test simultaneously activating and deactivating leaves, and simultaneously deactivating
 // multiple leaves.
-#[test]
-fn correctly_updates_leaves() {
-	let test_state = TestState::default();
+// This test is parametrised with the runtime api version. For versions that don't support the claim
+// queue API, we check that av-cores are used.
+#[rstest]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+#[case(8)]
+fn correctly_updates_leaves(#[case] runtime_api_version: u32) {
+	let mut test_state = TestState::default();
+	test_state.set_runtime_api_version(runtime_api_version);
+
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf A
 		let leaf_a = TestLeaf {
@@ -2140,15 +2199,12 @@ fn correctly_updates_leaves() {
 fn persists_pending_availability_candidate() {
 	let mut test_state = TestState::default();
 	let para_id = ParaId::from(1);
-	test_state.availability_cores = test_state
-		.availability_cores
+	test_state.claim_queue = test_state
+		.claim_queue
 		.into_iter()
-		.filter(|core| match core {
-			CoreState::Scheduled(scheduled_core) => scheduled_core.para_id == para_id,
-			_ => false,
-		})
+		.filter(|(_, paras)| matches!(paras.front(), Some(para) if para == &para_id))
 		.collect();
-	assert_eq!(test_state.availability_cores.len(), 1);
+	assert_eq!(test_state.claim_queue.len(), 1);
 
 	test_harness(|mut virtual_overseer| async move {
 		let para_head = HeadData(vec![1, 2, 3]);
@@ -2237,18 +2293,15 @@ fn persists_pending_availability_candidate() {
 }
 
 #[test]
-fn backwards_compatible() {
+fn backwards_compatible_with_non_async_backing_params() {
 	let mut test_state = TestState::default();
 	let para_id = ParaId::from(1);
-	test_state.availability_cores = test_state
-		.availability_cores
+	test_state.claim_queue = test_state
+		.claim_queue
 		.into_iter()
-		.filter(|core| match core {
-			CoreState::Scheduled(scheduled_core) => scheduled_core.para_id == para_id,
-			_ => false,
-		})
+		.filter(|(_, paras)| matches!(paras.front(), Some(para) if para == &para_id))
 		.collect();
-	assert_eq!(test_state.availability_cores.len(), 1);
+	assert_eq!(test_state.claim_queue.len(), 1);
 
 	test_harness(|mut virtual_overseer| async move {
 		let para_head = HeadData(vec![1, 2, 3]);
@@ -2350,20 +2403,30 @@ fn uses_ancestry_only_within_session() {
 			.await;
 
 		assert_matches!(
-					virtual_overseer.recv().await,
-					AllMessages::RuntimeApi(
-						RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
-					) if parent == hash => {
-						tx.send(Ok(AsyncBackingParams { max_candidate_depth: 0, allowed_ancestry_len: ancestry_len
-		})).unwrap(); 			}
-				);
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::AsyncBackingParams(tx)
+			)) if parent == hash => {
+				tx.send(Ok(AsyncBackingParams { max_candidate_depth: 0, allowed_ancestry_len: ancestry_len})).unwrap();
+		});
 
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::AvailabilityCores(tx))
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::Version(tx))
 			) if parent == hash => {
-				tx.send(Ok(Vec::new())).unwrap();
+				tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)).unwrap();
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::ClaimQueue(tx))
+			) if parent == hash => {
+				tx.send(Ok(BTreeMap::new())).unwrap();
 			}
 		);
 

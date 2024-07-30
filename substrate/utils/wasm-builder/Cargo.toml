@@ -6,7 +6,7 @@ description = "Utility for building WASM binaries"
 edition.workspace = true
 repository.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 
 [lints]
 workspace = true
@@ -15,29 +15,30 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-build-helper = "0.1.1"
-cargo_metadata = "0.15.4"
-console = "0.15.8"
-strum = { version = "0.26.2", features = ["derive"] }
-tempfile = "3.1.0"
-toml = "0.8.8"
-walkdir = "2.4.0"
-sp-maybe-compressed-blob = { path = "../../primitives/maybe-compressed-blob" }
-filetime = "0.2.16"
-wasm-opt = "0.116"
-parity-wasm = "0.45"
+build-helper = { workspace = true }
+cargo_metadata = { workspace = true }
+console = { workspace = true }
+strum = { features = ["derive"], workspace = true, default-features = true }
+tempfile = { workspace = true }
+toml = { workspace = true }
+walkdir = { workspace = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
+filetime = { workspace = true }
+wasm-opt = { workspace = true }
+parity-wasm = { workspace = true }
 polkavm-linker = { workspace = true }
+jobserver = { workspace = true }
 
 # Dependencies required for the `metadata-hash` feature.
-merkleized-metadata = { version = "0.1.0", optional = true }
-sc-executor = { path = "../../client/executor", optional = true }
-sp-core = { path = "../../primitives/core", optional = true }
-sp-io = { path = "../../primitives/io", optional = true }
-sp-version = { path = "../../primitives/version", optional = true }
-frame-metadata = { version = "16.0.0", features = ["current"], optional = true }
-codec = { package = "parity-scale-codec", version = "3.1.5", optional = true }
-array-bytes = { version = "6.1", optional = true }
-sp-tracing = { path = "../../primitives/tracing", optional = true }
+merkleized-metadata = { optional = true, workspace = true }
+sc-executor = { optional = true, workspace = true, default-features = true }
+sp-core = { optional = true, workspace = true, default-features = true }
+sp-io = { optional = true, workspace = true, default-features = true }
+sp-version = { optional = true, workspace = true, default-features = true }
+frame-metadata = { features = ["current"], optional = true, workspace = true, default-features = true }
+codec = { optional = true, workspace = true, default-features = true }
+array-bytes = { optional = true, workspace = true, default-features = true }
+sp-tracing = { optional = true, workspace = true, default-features = true }
 
 [features]
 # Enable support for generating the metadata hash.

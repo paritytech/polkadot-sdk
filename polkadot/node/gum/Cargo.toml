@@ -10,7 +10,7 @@ description = "Stick logs together with the TraceID as provided by tempo"
 workspace = true
 
 [dependencies]
-coarsetime = "0.1.22"
-tracing = "0.1.35"
-gum-proc-macro = { package = "tracing-gum-proc-macro", path = "proc-macro" }
-polkadot-primitives = { path = "../../primitives", features = ["std"] }
+coarsetime = { workspace = true }
+tracing = { workspace = true, default-features = true }
+gum-proc-macro = { workspace = true, default-features = true }
+polkadot-primitives = { features = ["std"], workspace = true, default-features = true }

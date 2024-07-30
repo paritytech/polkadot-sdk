@@ -35,29 +35,35 @@ use relay_substrate_client::{
 use relay_utils::relay_loop::Client as RelayClient;
 
 /// Substrate node as equivocation source.
-pub struct SubstrateEquivocationSource<P: SubstrateEquivocationDetectionPipeline> {
-	client: Client<P::SourceChain>,
+pub struct SubstrateEquivocationSource<P: SubstrateEquivocationDetectionPipeline, SourceClnt> {
+	client: SourceClnt,
 	transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 }
 
-impl<P: SubstrateEquivocationDetectionPipeline> SubstrateEquivocationSource<P> {
+impl<P: SubstrateEquivocationDetectionPipeline, SourceClnt: Client<P::SourceChain>>
+	SubstrateEquivocationSource<P, SourceClnt>
+{
 	/// Create new instance of `SubstrateEquivocationSource`.
 	pub fn new(
-		client: Client<P::SourceChain>,
+		client: SourceClnt,
 		transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 	) -> Self {
 		Self { client, transaction_params }
 	}
 }
 
-impl<P: SubstrateEquivocationDetectionPipeline> Clone for SubstrateEquivocationSource<P> {
+impl<P: SubstrateEquivocationDetectionPipeline, SourceClnt: Client<P::SourceChain>> Clone
+	for SubstrateEquivocationSource<P, SourceClnt>
+{
 	fn clone(&self) -> Self {
 		Self { client: self.client.clone(), transaction_params: self.transaction_params.clone() }
 	}
 }
 
 #[async_trait]
-impl<P: SubstrateEquivocationDetectionPipeline> RelayClient for SubstrateEquivocationSource<P> {
+impl<P: SubstrateEquivocationDetectionPipeline, SourceClnt: Client<P::SourceChain>> RelayClient
+	for SubstrateEquivocationSource<P, SourceClnt>
+{
 	type Error = Error;
 
 	async fn reconnect(&mut self) -> Result<(), Error> {
@@ -66,8 +72,9 @@ impl<P: SubstrateEquivocationDetectionPipeline> RelayClient for SubstrateEquivoc
 }
 
 #[async_trait]
-impl<P: SubstrateEquivocationDetectionPipeline>
-	SourceClientBase<EquivocationDetectionPipelineAdapter<P>> for SubstrateEquivocationSource<P>
+impl<P: SubstrateEquivocationDetectionPipeline, SourceClnt: Client<P::SourceChain>>
+	SourceClientBase<EquivocationDetectionPipelineAdapter<P>>
+	for SubstrateEquivocationSource<P, SourceClnt>
 {
 	type FinalityProofsStream = SubstrateFinalityProofsStream<P>;
 
@@ -77,10 +84,11 @@ impl<P: SubstrateEquivocationDetectionPipeline>
 }
 
 #[async_trait]
-impl<P: SubstrateEquivocationDetectionPipeline>
-	SourceClient<EquivocationDetectionPipelineAdapter<P>> for SubstrateEquivocationSource<P>
+impl<P: SubstrateEquivocationDetectionPipeline, SourceClnt: Client<P::SourceChain>>
+	SourceClient<EquivocationDetectionPipelineAdapter<P>>
+	for SubstrateEquivocationSource<P, SourceClnt>
 {
-	type TransactionTracker = TransactionTracker<P::SourceChain, Client<P::SourceChain>>;
+	type TransactionTracker = TransactionTracker<P::SourceChain, SourceClnt>;
 
 	async fn report_equivocation(
 		&self,

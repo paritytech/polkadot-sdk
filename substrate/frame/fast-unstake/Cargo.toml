@@ -4,7 +4,7 @@ version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME fast unstake pallet"
 
@@ -15,31 +15,30 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
+codec = { workspace = true }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+scale-info = { features = ["derive"], workspace = true }
 
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-staking = { path = "../../primitives/staking", default-features = false }
-frame-election-provider-support = { path = "../election-provider-support", default-features = false }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-staking = { workspace = true }
+frame-election-provider-support = { workspace = true }
 
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
+frame-benchmarking = { optional = true, workspace = true }
 
-docify = "0.2.8"
+docify = { workspace = true }
 
 [dev-dependencies]
-pallet-staking-reward-curve = { path = "../staking/reward-curve" }
-sp-core = { path = "../../primitives/core", default-features = false }
-substrate-test-utils = { path = "../../test-utils" }
-sp-tracing = { path = "../../primitives/tracing" }
-pallet-staking = { path = "../staking" }
-pallet-balances = { path = "../balances" }
-pallet-timestamp = { path = "../timestamp" }
+pallet-staking-reward-curve = { workspace = true, default-features = true }
+sp-core = { workspace = true }
+substrate-test-utils = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
+pallet-staking = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -58,7 +57,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 	"sp-tracing/std",
 ]
 runtime-benchmarks = [

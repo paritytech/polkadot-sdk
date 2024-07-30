@@ -5,7 +5,7 @@ authors.workspace = true
 description = "Generate and restore keys for Substrate based chains such as Polkadot, Kusama and a growing number of parachains and Substrate based projects."
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 
@@ -20,5 +20,5 @@ path = "src/main.rs"
 name = "subkey"
 
 [dependencies]
-clap = { version = "4.5.3", features = ["derive"] }
-sc-cli = { path = "../../../client/cli" }
+clap = { features = ["derive"], workspace = true }
+sc-cli = { workspace = true, default-features = true }

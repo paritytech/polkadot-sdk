@@ -281,7 +281,7 @@ fn force_adjust_total_issuance_saturates() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1337, 64));
 		let ti = Balances::total_issuance();
-		let max = Balance::max_value();
+		let max = <Test as Config>::Balance::max_value();
 		assert_eq!(ti, 64);
 
 		// Increment saturates:

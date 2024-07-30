@@ -8,24 +8,23 @@ authors = ["Acala Developers", "Parity Technologies <admin@parity.io>"]
 edition.workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["max-encoded-len"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-paste = { version = "1.0.14", default-features = false }
+codec = { features = ["max-encoded-len"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+paste = { workspace = true }
 serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
-docify = "0.2.8"
+docify = { workspace = true }
 
-frame-support = { path = "../support", default-features = false, features = ["experimental"] }
-frame-system = { path = "../system", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
+frame-support = { features = ["experimental"], workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-sp-core = { path = "../../primitives/core", features = ["std"] }
-sp-io = { path = "../../primitives/io", features = ["std"] }
-pallet-example-basic = { path = "../examples/basic", features = ["std"] }
-pallet-balances = { path = "../balances", features = ["std"] }
+sp-core = { features = ["std"], workspace = true, default-features = true }
+sp-io = { features = ["std"], workspace = true, default-features = true }
+pallet-example-basic = { features = ["std"], workspace = true, default-features = true }
+pallet-balances = { features = ["std"], workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -38,7 +37,6 @@ std = [
 	"serde",
 	"sp-core/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

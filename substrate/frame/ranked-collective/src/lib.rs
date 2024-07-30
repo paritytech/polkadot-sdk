@@ -40,7 +40,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Saturating;
 use sp_runtime::{
@@ -48,7 +51,6 @@ use sp_runtime::{
 	ArithmeticError::Overflow,
 	DispatchError, Perbill, RuntimeDebug,
 };
-use sp_std::{marker::PhantomData, prelude::*};
 
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
@@ -379,6 +381,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{pallet_prelude::*, storage::KeyLenOf};
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::traits::MaybeConvert;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
@@ -430,6 +433,14 @@ pub mod pallet {
 		/// Rank_delta is defined as the number of ranks above the minimum required to take part
 		/// in the poll.
 		type VoteWeight: Convert<Rank, Votes>;
+
+		/// The maximum number of members for a given rank in the collective.
+		///
+		/// The member at rank `x` contributes to the count at rank `x` and all ranks below it.
+		/// Therefore, the limit `m` at rank `x` sets the maximum total member count for rank `x`
+		/// and all ranks above.
+		/// The `None` indicates no member count limit for the given rank.
+		type MaxMemberCount: MaybeConvert<Rank, MemberIndex>;
 
 		/// Setup a member for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
@@ -511,6 +522,8 @@ pub mod pallet {
 		NoPermission,
 		/// The new member to exchange is the same as the old member
 		SameMember,
+		/// The max member count for the rank has been reached.
+		TooManyMembers,
 	}
 
 	#[pallet::call]
@@ -758,6 +771,9 @@ pub mod pallet {
 			ensure!(!Members::<T, I>::contains_key(&who), Error::<T, I>::AlreadyMember);
 			let index = MemberCount::<T, I>::get(0);
 			let count = index.checked_add(1).ok_or(Overflow)?;
+			if let Some(max) = T::MaxMemberCount::maybe_convert(0) {
+				ensure!(count <= max, Error::<T, I>::TooManyMembers);
+			}
 
 			Members::<T, I>::insert(&who, MemberRecord { rank: 0 });
 			IdToIndex::<T, I>::insert(0, &who, index);
@@ -784,6 +800,11 @@ pub mod pallet {
 				ensure!(max_rank >= rank, Error::<T, I>::NoPermission);
 			}
 			let index = MemberCount::<T, I>::get(rank);
+			let count = index.checked_add(1).ok_or(Overflow)?;
+			if let Some(max) = T::MaxMemberCount::maybe_convert(rank) {
+				ensure!(count <= max, Error::<T, I>::TooManyMembers);
+			}
+
 			MemberCount::<T, I>::insert(rank, index.checked_add(1).ok_or(Overflow)?);
 			IdToIndex::<T, I>::insert(rank, &who, index);
 			IndexToId::<T, I>::insert(rank, index, &who);

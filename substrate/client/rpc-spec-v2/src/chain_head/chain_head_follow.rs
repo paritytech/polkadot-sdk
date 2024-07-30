@@ -31,12 +31,11 @@ use futures::{
 	stream::{self, Stream, StreamExt},
 };
 use futures_util::future::Either;
-use jsonrpsee::SubscriptionSink;
-use log::{debug, error};
+use log::debug;
 use sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
 };
-use sc_rpc::utils::to_sub_message;
+use sc_rpc::utils::Subscription;
 use schnellru::{ByLength, LruMap};
 use sp_api::CallApiAt;
 use sp_blockchain::{
@@ -572,7 +571,7 @@ where
 					// The information from `.info()` is updated from the DB as the last
 					// step of the finalization and it should be up to date.
 					// If the info is outdated, there is nothing the RPC can do for now.
-					error!(
+					debug!(
 						target: LOG_TARGET,
 						"[follow][id={:?}] Client does not contain different best block",
 						self.sub_id,
@@ -597,7 +596,7 @@ where
 		&mut self,
 		startup_point: &StartupPoint<Block>,
 		mut stream: EventStream,
-		sink: SubscriptionSink,
+		sink: Subscription,
 		rx_stop: oneshot::Receiver<()>,
 	) -> Result<(), SubscriptionManagementError>
 	where
@@ -632,23 +631,20 @@ where
 						self.sub_id,
 						err
 					);
-					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-					let _ = sink.send(msg).await;
+					_ = sink.send(&FollowEvent::<String>::Stop).await;
 					return Err(err)
 				},
 			};
 
 			for event in events {
-				let msg = to_sub_message(&sink, &event);
-				if let Err(err) = sink.send(msg).await {
+				if let Err(err) = sink.send(&event).await {
 					// Failed to submit event.
 					debug!(
 						target: LOG_TARGET,
 						"[follow][id={:?}] Failed to send event {:?}", self.sub_id, err
 					);
 
-					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-					let _ = sink.send(msg).await;
+					let _ = sink.send(&FollowEvent::<String>::Stop).await;
 					// No need to propagate this error further, the client disconnected.
 					return Ok(())
 				}
@@ -662,15 +658,14 @@ where
 		// - the substrate streams have closed
 		// - the `Stop` receiver was triggered internally (cannot hold the pinned block guarantee)
 		// - the client disconnected.
-		let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-		let _ = sink.send(msg).await;
+		let _ = sink.send(&FollowEvent::<String>::Stop).await;
 		Ok(())
 	}
 
 	/// Generate the block events for the `chainHead_follow` method.
 	pub async fn generate_events(
 		&mut self,
-		sink: SubscriptionSink,
+		sink: Subscription,
 		sub_data: InsertedSubscriptionData<Block>,
 	) -> Result<(), SubscriptionManagementError> {
 		// Register for the new block and finalized notifications.
@@ -698,8 +693,7 @@ where
 					self.sub_id,
 					err
 				);
-				let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-				let _ = sink.send(msg).await;
+				let _ = sink.send(&FollowEvent::<String>::Stop).await;
 				return Err(err)
 			},
 		};

@@ -5,7 +5,7 @@ authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 publish = false
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 
 [lints]
@@ -15,29 +15,28 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-static_assertions = "1.1.0"
+static_assertions = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-metadata = { version = "16.0.0", default-features = false, features = ["current"] }
-sp-api = { path = "../../../primitives/api", default-features = false }
-sp-arithmetic = { path = "../../../primitives/arithmetic", default-features = false }
-sp-io = { path = "../../../primitives/io", default-features = false }
-sp-state-machine = { path = "../../../primitives/state-machine", optional = true }
-frame-support = { path = "..", default-features = false, features = ["experimental"] }
-frame-benchmarking = { path = "../../benchmarking", default-features = false }
-sp-runtime = { path = "../../../primitives/runtime", default-features = false }
-sp-core = { path = "../../../primitives/core", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
-sp-version = { path = "../../../primitives/version", default-features = false }
-sp-metadata-ir = { path = "../../../primitives/metadata-ir", default-features = false }
-trybuild = { version = "1.0.88", features = ["diff"] }
-pretty_assertions = "1.3.0"
-rustversion = "1.0.6"
-frame-system = { path = "../../system", default-features = false }
-frame-executive = { path = "../../executive", default-features = false }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+frame-metadata = { features = ["current"], workspace = true }
+sp-api = { workspace = true }
+sp-arithmetic = { workspace = true }
+sp-io = { workspace = true }
+sp-state-machine = { optional = true, workspace = true, default-features = true }
+frame-support = { features = ["experimental"], workspace = true }
+frame-benchmarking = { workspace = true }
+sp-runtime = { workspace = true }
+sp-core = { workspace = true }
+sp-version = { workspace = true }
+sp-metadata-ir = { workspace = true }
+trybuild = { features = ["diff"], workspace = true }
+pretty_assertions = { workspace = true }
+rustversion = { workspace = true }
+frame-system = { workspace = true }
+frame-executive = { workspace = true }
 # The "std" feature for this pallet is never activated on purpose, in order to test construct_runtime error message
-test-pallet = { package = "frame-support-test-pallet", path = "pallet", default-features = false }
+test-pallet = { workspace = true }
 
 [features]
 default = ["std"]
@@ -57,7 +56,6 @@ std = [
 	"sp-metadata-ir/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 	"sp-version/std",
 	"test-pallet/std",
 ]

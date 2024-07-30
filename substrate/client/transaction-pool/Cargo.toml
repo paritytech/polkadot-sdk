@@ -4,7 +4,7 @@ version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Substrate transaction pool implementation."
 readme = "README.md"
@@ -16,36 +16,36 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-async-trait = "0.1.79"
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-futures = "0.3.30"
-futures-timer = "3.0.2"
-linked-hash-map = "0.5.4"
+async-trait = { workspace = true }
+codec = { workspace = true, default-features = true }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
-sc-client-api = { path = "../api" }
-sc-transaction-pool-api = { path = "api" }
-sc-utils = { path = "../utils" }
-sp-api = { path = "../../primitives/api" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-tracing = { path = "../../primitives/tracing" }
-sp-transaction-pool = { path = "../../primitives/transaction-pool" }
+prometheus-endpoint = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-transaction-pool-api = { workspace = true, default-features = true }
+sc-utils = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+sp-transaction-pool = { workspace = true, default-features = true }
 
 [dev-dependencies]
-array-bytes = "6.2.2"
-assert_matches = "1.3.0"
-criterion = "0.5.1"
-sc-block-builder = { path = "../block-builder" }
-sp-consensus = { path = "../../primitives/consensus/common" }
-substrate-test-runtime = { path = "../../test-utils/runtime" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
-substrate-test-runtime-transaction-pool = { path = "../../test-utils/runtime/transaction-pool" }
+array-bytes = { workspace = true, default-features = true }
+assert_matches = { workspace = true }
+criterion = { workspace = true, default-features = true }
+sc-block-builder = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+substrate-test-runtime = { workspace = true }
+substrate-test-runtime-client = { workspace = true }
+substrate-test-runtime-transaction-pool = { workspace = true }
 
 [[bench]]
 name = "basics"

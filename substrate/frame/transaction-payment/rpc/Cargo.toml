@@ -4,7 +4,7 @@ version = "30.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "RPC interface for the transaction payment pallet."
 readme = "README.md"
@@ -16,12 +16,12 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-jsonrpsee = { version = "0.22.5", features = ["client-core", "macros", "server-core"] }
-pallet-transaction-payment-rpc-runtime-api = { path = "runtime-api" }
-sp-api = { path = "../../../primitives/api" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-core = { path = "../../../primitives/core" }
-sp-rpc = { path = "../../../primitives/rpc" }
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-weights = { path = "../../../primitives/weights" }
+codec = { workspace = true, default-features = true }
+jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = true }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-rpc = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-weights = { workspace = true, default-features = true }

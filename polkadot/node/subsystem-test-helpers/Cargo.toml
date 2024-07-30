@@ -11,19 +11,19 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-async-trait = "0.1.79"
-futures = "0.3.30"
-parking_lot = "0.12.1"
-polkadot-node-subsystem = { path = "../subsystem" }
-polkadot-erasure-coding = { path = "../../erasure-coding" }
-polkadot-node-subsystem-util = { path = "../subsystem-util" }
-polkadot-primitives = { path = "../../primitives" }
-polkadot-node-primitives = { path = "../primitives" }
+async-trait = { workspace = true }
+futures = { workspace = true }
+parking_lot = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-erasure-coding = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
 
-sc-client-api = { path = "../../../substrate/client/api" }
-sc-utils = { path = "../../../substrate/client/utils" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-keystore = { path = "../../../substrate/primitives/keystore" }
-sc-keystore = { path = "../../../substrate/client/keystore" }
-sp-keyring = { path = "../../../substrate/primitives/keyring" }
-sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
+sc-client-api = { workspace = true, default-features = true }
+sc-utils = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sc-keystore = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true, default-features = true }

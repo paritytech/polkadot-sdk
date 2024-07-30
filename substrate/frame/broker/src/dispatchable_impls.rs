@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::*;
+use coretime_interface::CoretimeInterface;
 use frame_support::{
 	pallet_prelude::{DispatchResult, *},
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
@@ -127,8 +128,14 @@ impl<T: Config> Pallet<T> {
 		let core = Self::purchase_core(&who, price, &mut sale)?;
 
 		SaleInfo::<T>::put(&sale);
-		let id =
-			Self::issue(core, sale.region_begin, sale.region_end, Some(who.clone()), Some(price));
+		let id = Self::issue(
+			core,
+			sale.region_begin,
+			CoreMask::complete(),
+			sale.region_end,
+			Some(who.clone()),
+			Some(price),
+		);
 		let duration = sale.region_end.saturating_sub(sale.region_begin);
 		Self::deposit_event(Event::Purchased { who, region_id: id, price, duration });
 		Ok(id)
@@ -458,6 +465,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_notify_revenue(revenue: OnDemandRevenueRecordOf<T>) -> DispatchResult {
+		RevenueInbox::<T>::put(revenue);
+		Ok(())
+	}
+
 	pub(crate) fn do_swap_leases(id: TaskId, other: TaskId) -> DispatchResult {
 		let mut id_leases_count = 0;
 		let mut other_leases_count = 0;
@@ -472,7 +484,6 @@ impl<T: Config> Pallet<T> {
 				}
 			})
 		});
-
 		Ok(())
 	}
 

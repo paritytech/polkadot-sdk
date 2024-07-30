@@ -162,6 +162,9 @@ zombienet-polkadot-elastic-scaling-0001-basic-3cores-6s-blocks:
     - .zombienet-polkadot-common
   variables:
     FORCED_INFRA_INSTANCE: "spot-iops"
+  before_script:
+    - !reference [.zombienet-polkadot-common, before_script]
+    - cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/elastic_scaling
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/elastic_scaling"
@@ -170,6 +173,9 @@ zombienet-polkadot-elastic-scaling-0001-basic-3cores-6s-blocks:
 zombienet-polkadot-elastic-scaling-0002-elastic-scaling-doesnt-break-parachains:
   extends:
     - .zombienet-polkadot-common
+  before_script:
+    - !reference [.zombienet-polkadot-common, before_script]
+    - cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/elastic_scaling
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/elastic_scaling"
@@ -198,6 +204,17 @@ zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/functional"
       --test="0014-chunk-fetching-network-compatibility.zndsl"
+
+zombienet-polkadot-functional-0015-coretime-shared-core:
+  extends:
+    - .zombienet-polkadot-common
+  before_script:
+    - !reference [.zombienet-polkadot-common, before_script]
+    - cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/functional
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0015-coretime-shared-core.zndsl"
 
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
@@ -258,6 +275,14 @@ zombienet-polkadot-smoke-0004-coretime-smoke-test:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/smoke"
       --test="0004-coretime-smoke-test.zndsl"
+
+zombienet-polkadot-smoke-0005-precompile-pvf-smoke:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/smoke"
+      --test="0005-precompile-pvf-smoke.zndsl"
 
 zombienet-polkadot-misc-0001-parachains-paritydb:
   extends:

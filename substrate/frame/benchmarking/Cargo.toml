@@ -4,7 +4,7 @@ version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Macro for benchmarking a FRAME runtime."
 readme = "README.md"
@@ -16,29 +16,28 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
-linregress = { version = "0.5.1", optional = true }
+codec = { workspace = true }
+linregress = { optional = true, workspace = true }
 log = { workspace = true }
-paste = "1.0"
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+paste = { workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
-frame-support = { path = "../support", default-features = false }
-frame-support-procedural = { path = "../support/procedural", default-features = false }
-frame-system = { path = "../system", default-features = false }
-sp-api = { path = "../../primitives/api", default-features = false }
-sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-runtime-interface = { path = "../../primitives/runtime-interface", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-storage = { path = "../../primitives/storage", default-features = false }
-static_assertions = "1.1.0"
+frame-support = { workspace = true }
+frame-support-procedural = { workspace = true }
+frame-system = { workspace = true }
+sp-api = { workspace = true }
+sp-application-crypto = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-runtime-interface = { workspace = true }
+sp-storage = { workspace = true }
+static_assertions = { workspace = true, default-features = true }
 
 [dev-dependencies]
-array-bytes = "6.2.2"
-rusty-fork = { version = "0.3.0", default-features = false }
-sp-keystore = { path = "../../primitives/keystore" }
+array-bytes = { workspace = true, default-features = true }
+rusty-fork = { workspace = true }
+sp-keystore = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -58,7 +57,6 @@ std = [
 	"sp-keystore/std",
 	"sp-runtime-interface/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-storage/std",
 ]
 runtime-benchmarks = [

@@ -20,12 +20,11 @@ use frame_support::{
 	sp_runtime::traits::Dispatchable,
 	traits::{
 		fungible::Inspect,
-		fungibles::{Create, Inspect as FungiblesInspect, Mutate},
+		fungibles::{Inspect as FungiblesInspect, Mutate},
 	},
 };
 use parachains_common::AccountId;
 use polkadot_runtime_common::impls::VersionedLocatableAsset;
-use rococo_runtime::OriginCaller;
 use rococo_runtime_constants::currency::GRAND;
 use xcm_executor::traits::ConvertLocation;
 
@@ -67,7 +66,7 @@ fn spend_roc_on_asset_hub() {
 		let treasury_location: Location = (Parent, PalletInstance(18)).into();
 
 		let teleport_call = RuntimeCall::Utility(pallet_utility::Call::<Runtime>::dispatch_as {
-			as_origin: bx!(OriginCaller::system(RawOrigin::Signed(treasury_account))),
+			as_origin: bx!(RococoOriginCaller::system(RawOrigin::Signed(treasury_account))),
 			call: bx!(RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::teleport_assets {
 				dest: bx!(VersionedLocation::V4(asset_hub_location.clone())),
 				beneficiary: bx!(VersionedLocation::V4(treasury_location)),
@@ -99,7 +98,7 @@ fn spend_roc_on_asset_hub() {
 		// Fund Alice account from Rococo Treasury account on Asset Hub.
 
 		let treasury_origin: RuntimeOrigin =
-			rococo_runtime::governance::pallet_custom_origins::Origin::Treasurer.into();
+			rococo_governance::pallet_custom_origins::Origin::Treasurer.into();
 
 		let alice_location: Location =
 			[Junction::AccountId32 { network: None, id: Rococo::account_id_of(ALICE).into() }]
@@ -163,15 +162,12 @@ fn spend_roc_on_asset_hub() {
 #[test]
 fn create_and_claim_treasury_spend_in_usdt() {
 	const ASSET_ID: u32 = 1984;
-	const SPEND_AMOUNT: u128 = 1_000_000;
+	const SPEND_AMOUNT: u128 = 10_000_000;
 	// treasury location from a sibling parachain.
 	let treasury_location: Location = Location::new(1, PalletInstance(18));
 	// treasury account on a sibling parachain.
 	let treasury_account =
-		asset_hub_rococo_runtime::xcm_config::LocationToAccountId::convert_location(
-			&treasury_location,
-		)
-		.unwrap();
+		ahr_xcm_config::LocationToAccountId::convert_location(&treasury_location).unwrap();
 	let asset_hub_location =
 		v3::Location::new(0, v3::Junction::Parachain(AssetHubRococo::para_id().into()));
 	let root = <Rococo as Chain>::RuntimeOrigin::root();
@@ -190,13 +186,7 @@ fn create_and_claim_treasury_spend_in_usdt() {
 	AssetHubRococo::execute_with(|| {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::Assets;
 
-		// create an asset class and mint some assets to the treasury account.
-		assert_ok!(<Assets as Create<_>>::create(
-			ASSET_ID,
-			treasury_account.clone(),
-			true,
-			SPEND_AMOUNT / 2
-		));
+		// USDT created at genesis, mint some assets to the treasury account.
 		assert_ok!(<Assets as Mutate<_>>::mint_into(ASSET_ID, &treasury_account, SPEND_AMOUNT * 4));
 		// beneficiary has zero balance.
 		assert_eq!(<Assets as FungiblesInspect<_>>::balance(ASSET_ID, &alice,), 0u128,);

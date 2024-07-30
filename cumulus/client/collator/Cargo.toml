@@ -10,41 +10,41 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-parking_lot = "0.12.1"
-codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
-futures = "0.3.30"
-tracing = "0.1.25"
+parking_lot = { workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
+futures = { workspace = true }
+tracing = { workspace = true, default-features = true }
 
 # Substrate
-sc-client-api = { path = "../../../substrate/client/api" }
-sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
-sp-api = { path = "../../../substrate/primitives/api" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sc-client-api = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
 # Polkadot
-polkadot-node-primitives = { path = "../../../polkadot/node/primitives" }
-polkadot-node-subsystem = { path = "../../../polkadot/node/subsystem" }
-polkadot-overseer = { path = "../../../polkadot/node/overseer" }
-polkadot-primitives = { path = "../../../polkadot/primitives" }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-overseer = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
 
 # Cumulus
-cumulus-client-consensus-common = { path = "../consensus/common" }
-cumulus-client-network = { path = "../network" }
-cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-client-consensus-common = { workspace = true, default-features = true }
+cumulus-client-network = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, default-features = true }
 
 [dev-dependencies]
-async-trait = "0.1.79"
+async-trait = { workspace = true }
 
 # Substrate
-sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }
-sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
-sp-tracing = { path = "../../../substrate/primitives/tracing" }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 # Polkadot
-polkadot-node-subsystem-test-helpers = { path = "../../../polkadot/node/subsystem-test-helpers" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
 
 # Cumulus
-cumulus-test-client = { path = "../../test/client" }
-cumulus-test-runtime = { path = "../../test/runtime" }
-cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
+cumulus-test-client = { workspace = true }
+cumulus-test-runtime = { workspace = true }
+cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }

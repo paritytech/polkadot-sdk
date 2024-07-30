@@ -21,11 +21,15 @@ use super::{Extrinsics, StorageKey, StorageValue};
 
 #[cfg(not(feature = "std"))]
 use alloc::collections::btree_set::BTreeSet as Set;
+use codec::{Compact, CompactLen};
 #[cfg(feature = "std")]
 use std::collections::HashSet as Set;
 
-use crate::warn;
-use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+use crate::{ext::StorageAppend, warn};
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec::Vec,
+};
 use core::hash::Hash;
 use smallvec::SmallVec;
 
@@ -86,10 +90,97 @@ impl<V> Default for OverlayedEntry<V> {
 }
 
 /// History of value, with removal support.
-pub type OverlayedValue = OverlayedEntry<Option<StorageValue>>;
+pub type OverlayedValue = OverlayedEntry<StorageEntry>;
+
+/// Content in an overlay for a given transactional depth.
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(test, derive(PartialEq))]
+pub enum StorageEntry {
+	/// The storage entry should be set to the stored value.
+	Set(StorageValue),
+	/// The storage entry should be removed.
+	#[default]
+	Remove,
+	/// The storage entry was appended to.
+	///
+	/// This assumes that the storage entry is encoded as a SCALE list. This means that it is
+	/// prefixed with a `Compact<u32>` that reprensents the length, followed by all the encoded
+	/// elements.
+	Append {
+		/// The value of the storage entry.
+		///
+		/// This may or may not be prefixed by the length, depending on the materialized length.
+		data: StorageValue,
+		/// Current number of elements stored in data.
+		current_length: u32,
+		/// The number of elements as stored in the prefixed length in `data`.
+		///
+		/// If `None`, than `data` is not yet prefixed with the length.
+		materialized_length: Option<u32>,
+		/// The size of `data` in the parent transactional layer.
+		///
+		/// Only set when the parent layer is in  `Append` state.
+		parent_size: Option<usize>,
+	},
+}
+
+impl StorageEntry {
+	/// Convert to an [`Option<StorageValue>`].
+	pub(super) fn to_option(mut self) -> Option<StorageValue> {
+		self.materialize_in_place();
+		match self {
+			StorageEntry::Append { data, .. } | StorageEntry::Set(data) => Some(data),
+			StorageEntry::Remove => None,
+		}
+	}
+
+	/// Return as an [`Option<StorageValue>`].
+	fn as_option(&mut self) -> Option<&StorageValue> {
+		self.materialize_in_place();
+		match self {
+			StorageEntry::Append { data, .. } | StorageEntry::Set(data) => Some(data),
+			StorageEntry::Remove => None,
+		}
+	}
+
+	/// Materialize the internal state and cache the resulting materialized value.
+	fn materialize_in_place(&mut self) {
+		if let StorageEntry::Append { data, materialized_length, current_length, .. } = self {
+			let current_length = *current_length;
+			if materialized_length.map_or(false, |m| m == current_length) {
+				return
+			}
+			StorageAppend::new(data).replace_length(*materialized_length, current_length);
+			*materialized_length = Some(current_length);
+		}
+	}
+
+	/// Materialize the internal state.
+	#[cfg(test)]
+	pub(crate) fn materialize(&self) -> Option<alloc::borrow::Cow<[u8]>> {
+		use alloc::borrow::Cow;
+
+		match self {
+			StorageEntry::Append { data, materialized_length, current_length, .. } => {
+				let current_length = *current_length;
+				if materialized_length.map_or(false, |m| m == current_length) {
+					Some(Cow::Borrowed(data.as_ref()))
+				} else {
+					let mut data = data.clone();
+					StorageAppend::new(&mut data)
+						.replace_length(*materialized_length, current_length);
+
+					Some(data.into())
+				}
+			},
+			StorageEntry::Remove => None,
+			StorageEntry::Set(e) => Some(Cow::Borrowed(e.as_ref())),
+		}
+	}
+}
 
 /// Change set for basic key value with extrinsics index recording and removal support.
-pub type OverlayedChangeSet = OverlayedMap<StorageKey, Option<StorageValue>>;
+pub type OverlayedChangeSet = OverlayedMap<StorageKey, StorageEntry>;
 
 /// Holds a set of changes with the ability modify them using nested transactions.
 #[derive(Debug, Clone)]
@@ -120,7 +211,7 @@ impl<K, V> Default for OverlayedMap<K, V> {
 }
 
 #[cfg(feature = "std")]
-impl From<sp_core::storage::StorageMap> for OverlayedMap<StorageKey, Option<StorageValue>> {
+impl From<sp_core::storage::StorageMap> for OverlayedMap<StorageKey, StorageEntry> {
 	fn from(storage: sp_core::storage::StorageMap) -> Self {
 		Self {
 			changes: storage
@@ -130,7 +221,7 @@ impl From<sp_core::storage::StorageMap> for OverlayedMap<StorageKey, Option<Stor
 						k,
 						OverlayedEntry {
 							transactions: SmallVec::from_iter([InnerValue {
-								value: Some(v),
+								value: StorageEntry::Set(v),
 								extrinsics: Default::default(),
 							}]),
 						},
@@ -189,7 +280,7 @@ impl<V> OverlayedEntry<V> {
 	///
 	/// This makes sure that the old version is not overwritten and can be properly
 	/// rolled back when required.
-	fn set(&mut self, value: V, first_write_in_tx: bool, at_extrinsic: Option<u32>) {
+	fn set_offchain(&mut self, value: V, first_write_in_tx: bool, at_extrinsic: Option<u32>) {
 		if first_write_in_tx || self.transactions.is_empty() {
 			self.transactions.push(InnerValue { value, extrinsics: Default::default() });
 		} else {
@@ -202,10 +293,223 @@ impl<V> OverlayedEntry<V> {
 	}
 }
 
-impl OverlayedEntry<Option<StorageValue>> {
+/// Restore the `current_data` from an [`StorageEntry::Append`] back to the parent.
+///
+/// When creating a new transaction layer from an appended entry, the `data` will be moved to
+/// prevent extra allocations. So, we need to move back the `data` to the parent layer when there is
+/// a roll back or the entry is set to some different value. This functions puts back the data to
+/// the `parent` and truncates any extra elements that got added in the current layer.
+///
+/// The current and the `parent` layer need to be [`StorageEntry::Append`] or otherwise the function
+/// is a no-op.
+fn restore_append_to_parent(
+	parent: &mut StorageEntry,
+	mut current_data: Vec<u8>,
+	current_materialized: Option<u32>,
+	mut target_parent_size: usize,
+) {
+	match parent {
+		StorageEntry::Append {
+			data: parent_data,
+			materialized_length: parent_materialized,
+			..
+		} => {
+			// Forward the materialized length to the parent with the data. Next time when
+			// materializing the value, the length will be corrected. This prevents doing a
+			// potential allocation here.
+
+			let prev = parent_materialized.map(|l| Compact::<u32>::compact_len(&l)).unwrap_or(0);
+			let new = current_materialized.map(|l| Compact::<u32>::compact_len(&l)).unwrap_or(0);
+			let delta = new.abs_diff(prev);
+			if prev >= new {
+				target_parent_size -= delta;
+			} else {
+				target_parent_size += delta;
+			}
+			*parent_materialized = current_materialized;
+
+			// Truncate the data to remove any extra elements
+			current_data.truncate(target_parent_size);
+			*parent_data = current_data;
+		},
+		_ => {
+			// No value or a simple value, no need to restore
+		},
+	}
+}
+
+impl OverlayedEntry<StorageEntry> {
+	/// Writes a new version of a value.
+	///
+	/// This makes sure that the old version is not overwritten and can be properly
+	/// rolled back when required.
+	fn set(
+		&mut self,
+		value: Option<StorageValue>,
+		first_write_in_tx: bool,
+		at_extrinsic: Option<u32>,
+	) {
+		let value = value.map_or_else(|| StorageEntry::Remove, StorageEntry::Set);
+
+		if first_write_in_tx || self.transactions.is_empty() {
+			self.transactions.push(InnerValue { value, extrinsics: Default::default() });
+		} else {
+			let mut old_value = self.value_mut();
+
+			let set_prev = if let StorageEntry::Append {
+				data,
+				current_length: _,
+				materialized_length,
+				parent_size,
+			} = &mut old_value
+			{
+				parent_size
+					.map(|parent_size| (core::mem::take(data), *materialized_length, parent_size))
+			} else {
+				None
+			};
+
+			*old_value = value;
+
+			if let Some((data, current_materialized, parent_size)) = set_prev {
+				let transactions = self.transactions.len();
+
+				debug_assert!(transactions >= 2);
+				let parent = self
+					.transactions
+					.get_mut(transactions - 2)
+					.expect("`set_prev` is only `Some(_)`, if the value came from parent; qed");
+				restore_append_to_parent(
+					&mut parent.value,
+					data,
+					current_materialized,
+					parent_size,
+				);
+			}
+		}
+
+		if let Some(extrinsic) = at_extrinsic {
+			self.transaction_extrinsics_mut().insert(extrinsic);
+		}
+	}
+
+	/// Append content to a value, updating a prefixed compact encoded length.
+	///
+	/// This makes sure that the old version is not overwritten and can be properly
+	/// rolled back when required.
+	/// This avoid copying value from previous transaction.
+	fn append(
+		&mut self,
+		element: StorageValue,
+		first_write_in_tx: bool,
+		init: impl Fn() -> StorageValue,
+		at_extrinsic: Option<u32>,
+	) {
+		if self.transactions.is_empty() {
+			let mut init_value = init();
+
+			let mut append = StorageAppend::new(&mut init_value);
+
+			// Either the init value is a SCALE list like value to that the `element` gets appended
+			// or the value is reset to `[element]`.
+			let (data, current_length, materialized_length) =
+				if let Some(len) = append.extract_length() {
+					append.append_raw(element);
+
+					(init_value, len + 1, Some(len))
+				} else {
+					(element, 1, None)
+				};
+
+			self.transactions.push(InnerValue {
+				value: StorageEntry::Append {
+					data,
+					current_length,
+					materialized_length,
+					parent_size: None,
+				},
+				extrinsics: Default::default(),
+			});
+		} else if first_write_in_tx {
+			let parent = self.value_mut();
+			let (data, current_length, materialized_length, parent_size) = match parent {
+				StorageEntry::Remove => (element, 1, None, None),
+				StorageEntry::Append { data, current_length, materialized_length, .. } => {
+					let parent_len = data.len();
+					let mut data_buf = core::mem::take(data);
+					StorageAppend::new(&mut data_buf).append_raw(element);
+					(data_buf, *current_length + 1, *materialized_length, Some(parent_len))
+				},
+				StorageEntry::Set(prev) => {
+					// For compatibility: append if there is a encoded length, overwrite
+					// with value otherwhise.
+					if let Some(current_length) = StorageAppend::new(prev).extract_length() {
+						// The `prev` is cloned here, but it could be optimized to not do the clone
+						// here as it is done for `Append` above.
+						let mut data = prev.clone();
+						StorageAppend::new(&mut data).append_raw(element);
+						(data, current_length + 1, Some(current_length), None)
+					} else {
+						// overwrite, same as empty case.
+						(element, 1, None, None)
+					}
+				},
+			};
+
+			self.transactions.push(InnerValue {
+				value: StorageEntry::Append {
+					data,
+					current_length,
+					materialized_length,
+					parent_size,
+				},
+				extrinsics: Default::default(),
+			});
+		} else {
+			// not first transaction write
+			let old_value = self.value_mut();
+			let replace = match old_value {
+				StorageEntry::Remove => Some((element, 1, None)),
+				StorageEntry::Set(data) => {
+					// Note that when the data here is not initialized with append,
+					// and still starts with a valid compact u32 we can have totally broken
+					// encoding.
+					let mut append = StorageAppend::new(data);
+
+					// For compatibility: append if there is a encoded length, overwrite
+					// with value otherwhise.
+					if let Some(current_length) = append.extract_length() {
+						append.append_raw(element);
+						Some((core::mem::take(data), current_length + 1, Some(current_length)))
+					} else {
+						Some((element, 1, None))
+					}
+				},
+				StorageEntry::Append { data, current_length, .. } => {
+					StorageAppend::new(data).append_raw(element);
+					*current_length += 1;
+					None
+				},
+			};
+
+			if let Some((data, current_length, materialized_length)) = replace {
+				*old_value = StorageEntry::Append {
+					data,
+					current_length,
+					materialized_length,
+					parent_size: None,
+				};
+			}
+		}
+
+		if let Some(extrinsic) = at_extrinsic {
+			self.transaction_extrinsics_mut().insert(extrinsic);
+		}
+	}
+
 	/// The value as seen by the current transaction.
-	pub fn value(&self) -> Option<&StorageValue> {
-		self.value_ref().as_ref()
+	pub fn value(&mut self) -> Option<&StorageValue> {
+		self.value_mut().as_option()
 	}
 }
 
@@ -238,25 +542,30 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	}
 
 	/// Get an optional reference to the value stored for the specified key.
-	pub fn get<Q>(&self, key: &Q) -> Option<&OverlayedEntry<V>>
+	pub fn get<Q>(&mut self, key: &Q) -> Option<&mut OverlayedEntry<V>>
 	where
 		K: core::borrow::Borrow<Q>,
 		Q: Ord + ?Sized,
 	{
-		self.changes.get(key)
+		self.changes.get_mut(key)
 	}
 
 	/// Set a new value for the specified key.
 	///
 	/// Can be rolled back or committed when called inside a transaction.
-	pub fn set(&mut self, key: K, value: V, at_extrinsic: Option<u32>) {
+	pub fn set_offchain(&mut self, key: K, value: V, at_extrinsic: Option<u32>) {
 		let overlayed = self.changes.entry(key.clone()).or_default();
-		overlayed.set(value, insert_dirty(&mut self.dirty_keys, key), at_extrinsic);
+		overlayed.set_offchain(value, insert_dirty(&mut self.dirty_keys, key), at_extrinsic);
 	}
 
 	/// Get a list of all changes as seen by current transaction.
 	pub fn changes(&self) -> impl Iterator<Item = (&K, &OverlayedEntry<V>)> {
 		self.changes.iter()
+	}
+
+	/// Get a list of all changes as seen by current transaction.
+	pub fn changes_mut(&mut self) -> impl Iterator<Item = (&K, &mut OverlayedEntry<V>)> {
+		self.changes.iter_mut()
 	}
 
 	/// Get a list of all changes as seen by current transaction, consumes
@@ -298,7 +607,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	///
 	/// This rollbacks all dangling transaction left open by the runtime.
 	/// Calling this while already outside the runtime will return an error.
-	pub fn exit_runtime(&mut self) -> Result<(), NotInRuntime> {
+	pub fn exit_runtime_offchain(&mut self) -> Result<(), NotInRuntime> {
 		if let ExecutionMode::Client = self.execution_mode {
 			return Err(NotInRuntime)
 		}
@@ -310,7 +619,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 			);
 		}
 		while self.has_open_runtime_transactions() {
-			self.rollback_transaction()
+			self.rollback_transaction_offchain()
 				.expect("The loop condition checks that the transaction depth is > 0; qed");
 		}
 		Ok(())
@@ -331,24 +640,24 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	///
 	/// Any changes made during that transaction are discarded. Returns an error if
 	/// there is no open transaction that can be rolled back.
-	pub fn rollback_transaction(&mut self) -> Result<(), NoOpenTransaction> {
-		self.close_transaction(true)
+	pub fn rollback_transaction_offchain(&mut self) -> Result<(), NoOpenTransaction> {
+		self.close_transaction_offchain(true)
 	}
 
 	/// Commit the last transaction started by `start_transaction`.
 	///
 	/// Any changes made during that transaction are committed. Returns an error if
 	/// there is no open transaction that can be committed.
-	pub fn commit_transaction(&mut self) -> Result<(), NoOpenTransaction> {
-		self.close_transaction(false)
+	pub fn commit_transaction_offchain(&mut self) -> Result<(), NoOpenTransaction> {
+		self.close_transaction_offchain(false)
 	}
 
-	fn close_transaction(&mut self, rollback: bool) -> Result<(), NoOpenTransaction> {
+	fn close_transaction_offchain(&mut self, rollback: bool) -> Result<(), NoOpenTransaction> {
 		// runtime is not allowed to close transactions started by the client
-		if let ExecutionMode::Runtime = self.execution_mode {
-			if !self.has_open_runtime_transactions() {
-				return Err(NoOpenTransaction)
-			}
+		if matches!(self.execution_mode, ExecutionMode::Runtime) &&
+			!self.has_open_runtime_transactions()
+		{
+			return Err(NoOpenTransaction)
 		}
 
 		for key in self.dirty_keys.pop().ok_or(NoOpenTransaction)? {
@@ -398,32 +707,176 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 }
 
 impl OverlayedChangeSet {
-	/// Get a mutable reference for a value.
+	/// Rollback the last transaction started by `start_transaction`.
+	///
+	/// Any changes made during that transaction are discarded. Returns an error if
+	/// there is no open transaction that can be rolled back.
+	pub fn rollback_transaction(&mut self) -> Result<(), NoOpenTransaction> {
+		self.close_transaction(true)
+	}
+
+	/// Commit the last transaction started by `start_transaction`.
+	///
+	/// Any changes made during that transaction are committed. Returns an error if
+	/// there is no open transaction that can be committed.
+	pub fn commit_transaction(&mut self) -> Result<(), NoOpenTransaction> {
+		self.close_transaction(false)
+	}
+
+	fn close_transaction(&mut self, rollback: bool) -> Result<(), NoOpenTransaction> {
+		// runtime is not allowed to close transactions started by the client
+		if matches!(self.execution_mode, ExecutionMode::Runtime) &&
+			!self.has_open_runtime_transactions()
+		{
+			return Err(NoOpenTransaction)
+		}
+
+		for key in self.dirty_keys.pop().ok_or(NoOpenTransaction)? {
+			let overlayed = self.changes.get_mut(&key).expect(
+				"\
+				A write to an OverlayedValue is recorded in the dirty key set. Before an
+				OverlayedValue is removed, its containing dirty set is removed. This
+				function is only called for keys that are in the dirty set. qed\
+			",
+			);
+
+			if rollback {
+				match overlayed.pop_transaction().value {
+					StorageEntry::Append {
+						data,
+						materialized_length,
+						parent_size: Some(parent_size),
+						..
+					} => {
+						debug_assert!(!overlayed.transactions.is_empty());
+						restore_append_to_parent(
+							overlayed.value_mut(),
+							data,
+							materialized_length,
+							parent_size,
+						);
+					},
+					_ => (),
+				}
+
+				// We need to remove the key as an `OverlayValue` with no transactions
+				// violates its invariant of always having at least one transaction.
+				if overlayed.transactions.is_empty() {
+					self.changes.remove(&key);
+				}
+			} else {
+				let has_predecessor = if let Some(dirty_keys) = self.dirty_keys.last_mut() {
+					// Not the last tx: Did the previous tx write to this key?
+					!dirty_keys.insert(key)
+				} else {
+					// Last tx: Is there already a value in the committed set?
+					// Check against one rather than empty because the current tx is still
+					// in the list as it is popped later in this function.
+					overlayed.transactions.len() > 1
+				};
+
+				// We only need to merge if there is an pre-existing value. It may be a value from
+				// the previous transaction or a value committed without any open transaction.
+				if has_predecessor {
+					let mut committed_tx = overlayed.pop_transaction();
+					let mut merge_appends = false;
+
+					// consecutive appends need to keep past `parent_size` value.
+					if let StorageEntry::Append { parent_size, .. } = &mut committed_tx.value {
+						if parent_size.is_some() {
+							let parent = overlayed.value_mut();
+							if let StorageEntry::Append { parent_size: keep_me, .. } = parent {
+								merge_appends = true;
+								*parent_size = *keep_me;
+							}
+						}
+					}
+
+					if merge_appends {
+						*overlayed.value_mut() = committed_tx.value;
+					} else {
+						let removed = core::mem::replace(overlayed.value_mut(), committed_tx.value);
+						// The transaction being commited is not an append operation. However, the
+						// value being overwritten in the previous transaction might be an append
+						// that needs to be merged with its parent. We only need to handle `Append`
+						// here because `Set` and `Remove` can directly overwrite previous
+						// operations.
+						if let StorageEntry::Append {
+							parent_size, data, materialized_length, ..
+						} = removed
+						{
+							if let Some(parent_size) = parent_size {
+								let transactions = overlayed.transactions.len();
+
+								// info from replaced head so len is at least one
+								// and parent_size implies a parent transaction
+								// so length is at least two.
+								debug_assert!(transactions >= 2);
+								if let Some(parent) =
+									overlayed.transactions.get_mut(transactions - 2)
+								{
+									restore_append_to_parent(
+										&mut parent.value,
+										data,
+										materialized_length,
+										parent_size,
+									)
+								}
+							}
+						}
+					}
+
+					overlayed.transaction_extrinsics_mut().extend(committed_tx.extrinsics);
+				}
+			}
+		}
+
+		Ok(())
+	}
+
+	/// Call this when control returns from the runtime.
+	///
+	/// This commits all dangling transaction left open by the runtime.
+	/// Calling this while already outside the runtime will return an error.
+	pub fn exit_runtime(&mut self) -> Result<(), NotInRuntime> {
+		if matches!(self.execution_mode, ExecutionMode::Client) {
+			return Err(NotInRuntime)
+		}
+
+		self.execution_mode = ExecutionMode::Client;
+		if self.has_open_runtime_transactions() {
+			warn!(
+				"{} storage transactions are left open by the runtime. Those will be rolled back.",
+				self.transaction_depth() - self.num_client_transactions,
+			);
+		}
+		while self.has_open_runtime_transactions() {
+			self.rollback_transaction()
+				.expect("The loop condition checks that the transaction depth is > 0; qed");
+		}
+
+		Ok(())
+	}
+
+	/// Set a new value for the specified key.
 	///
 	/// Can be rolled back or committed when called inside a transaction.
-	#[must_use = "A change was registered, so this value MUST be modified."]
-	pub fn modify(
+	pub fn set(&mut self, key: StorageKey, value: Option<StorageValue>, at_extrinsic: Option<u32>) {
+		let overlayed = self.changes.entry(key.clone()).or_default();
+		overlayed.set(value, insert_dirty(&mut self.dirty_keys, key), at_extrinsic);
+	}
+
+	/// Append bytes to an existing content.
+	pub fn append_storage(
 		&mut self,
 		key: StorageKey,
+		value: StorageValue,
 		init: impl Fn() -> StorageValue,
 		at_extrinsic: Option<u32>,
-	) -> &mut Option<StorageValue> {
+	) {
 		let overlayed = self.changes.entry(key.clone()).or_default();
 		let first_write_in_tx = insert_dirty(&mut self.dirty_keys, key);
-		let clone_into_new_tx = if let Some(tx) = overlayed.transactions.last() {
-			if first_write_in_tx {
-				Some(tx.value.clone())
-			} else {
-				None
-			}
-		} else {
-			Some(Some(init()))
-		};
-
-		if let Some(cloned) = clone_into_new_tx {
-			overlayed.set(cloned, first_write_in_tx, at_extrinsic);
-		}
-		overlayed.value_mut()
+		overlayed.append(value, first_write_in_tx, init, at_extrinsic);
 	}
 
 	/// Set all values to deleted which are matched by the predicate.
@@ -436,7 +889,7 @@ impl OverlayedChangeSet {
 	) -> u32 {
 		let mut count = 0;
 		for (key, val) in self.changes.iter_mut().filter(|(k, v)| predicate(k, v)) {
-			if val.value_ref().is_some() {
+			if matches!(val.value_ref(), StorageEntry::Set(..) | StorageEntry::Append { .. }) {
 				count += 1;
 			}
 			val.set(None, insert_dirty(&mut self.dirty_keys, key.clone()), at_extrinsic);
@@ -445,10 +898,13 @@ impl OverlayedChangeSet {
 	}
 
 	/// Get the iterator over all changes that follow the supplied `key`.
-	pub fn changes_after(&self, key: &[u8]) -> impl Iterator<Item = (&[u8], &OverlayedValue)> {
+	pub fn changes_after(
+		&mut self,
+		key: &[u8],
+	) -> impl Iterator<Item = (&[u8], &mut OverlayedValue)> {
 		use core::ops::Bound;
 		let range = (Bound::Excluded(key), Bound::Unbounded);
-		self.changes.range::<[u8], _>(range).map(|(k, v)| (k.as_slice(), v))
+		self.changes.range_mut::<[u8], _>(range).map(|(k, v)| (k.as_slice(), v))
 	}
 }
 
@@ -460,18 +916,19 @@ mod test {
 	type Changes<'a> = Vec<(&'a [u8], (Option<&'a [u8]>, Vec<u32>))>;
 	type Drained<'a> = Vec<(&'a [u8], Option<&'a [u8]>)>;
 
-	fn assert_changes(is: &OverlayedChangeSet, expected: &Changes) {
+	fn assert_changes(is: &mut OverlayedChangeSet, expected: &Changes) {
 		let is: Changes = is
-			.changes()
+			.changes_mut()
 			.map(|(k, v)| {
-				(k.as_ref(), (v.value().map(AsRef::as_ref), v.extrinsics().into_iter().collect()))
+				let extrinsics = v.extrinsics().into_iter().collect();
+				(k.as_ref(), (v.value().map(AsRef::as_ref), extrinsics))
 			})
 			.collect();
 		assert_eq!(&is, expected);
 	}
 
 	fn assert_drained_changes(is: OverlayedChangeSet, expected: Changes) {
-		let is = is.drain_committed().collect::<Vec<_>>();
+		let is = is.drain_committed().map(|(k, v)| (k, v.to_option())).collect::<Vec<_>>();
 		let expected = expected
 			.iter()
 			.map(|(k, v)| (k.to_vec(), v.0.map(From::from)))
@@ -480,7 +937,7 @@ mod test {
 	}
 
 	fn assert_drained(is: OverlayedChangeSet, expected: Drained) {
-		let is = is.drain_committed().collect::<Vec<_>>();
+		let is = is.drain_committed().map(|(k, v)| (k, v.to_option())).collect::<Vec<_>>();
 		let expected = expected
 			.iter()
 			.map(|(k, v)| (k.to_vec(), v.map(From::from)))
@@ -535,7 +992,7 @@ mod test {
 			(b"key7", (Some(b"val7-rolled"), vec![77])),
 			(b"key99", (Some(b"val99"), vec![99])),
 		];
-		assert_changes(&changeset, &all_changes);
+		assert_changes(&mut changeset, &all_changes);
 
 		// this should be no-op
 		changeset.start_transaction();
@@ -546,7 +1003,7 @@ mod test {
 		assert_eq!(changeset.transaction_depth(), 3);
 		changeset.commit_transaction().unwrap();
 		assert_eq!(changeset.transaction_depth(), 2);
-		assert_changes(&changeset, &all_changes);
+		assert_changes(&mut changeset, &all_changes);
 
 		// roll back our first transactions that actually contains something
 		changeset.rollback_transaction().unwrap();
@@ -558,11 +1015,11 @@ mod test {
 			(b"key42", (Some(b"val42"), vec![42])),
 			(b"key99", (Some(b"val99"), vec![99])),
 		];
-		assert_changes(&changeset, &rolled_back);
+		assert_changes(&mut changeset, &rolled_back);
 
 		changeset.commit_transaction().unwrap();
 		assert_eq!(changeset.transaction_depth(), 0);
-		assert_changes(&changeset, &rolled_back);
+		assert_changes(&mut changeset, &rolled_back);
 
 		assert_drained_changes(changeset, rolled_back);
 	}
@@ -598,7 +1055,7 @@ mod test {
 			(b"key7", (Some(b"val7-rolled"), vec![77])),
 			(b"key99", (Some(b"val99"), vec![99])),
 		];
-		assert_changes(&changeset, &all_changes);
+		assert_changes(&mut changeset, &all_changes);
 
 		// this should be no-op
 		changeset.start_transaction();
@@ -609,35 +1066,46 @@ mod test {
 		assert_eq!(changeset.transaction_depth(), 3);
 		changeset.commit_transaction().unwrap();
 		assert_eq!(changeset.transaction_depth(), 2);
-		assert_changes(&changeset, &all_changes);
+		assert_changes(&mut changeset, &all_changes);
 
 		changeset.commit_transaction().unwrap();
 		assert_eq!(changeset.transaction_depth(), 1);
 
-		assert_changes(&changeset, &all_changes);
+		assert_changes(&mut changeset, &all_changes);
 
 		changeset.rollback_transaction().unwrap();
 		assert_eq!(changeset.transaction_depth(), 0);
 
 		let rolled_back: Changes =
 			vec![(b"key0", (Some(b"val0-1"), vec![1, 10])), (b"key1", (Some(b"val1"), vec![1]))];
-		assert_changes(&changeset, &rolled_back);
+		assert_changes(&mut changeset, &rolled_back);
 
 		assert_drained_changes(changeset, rolled_back);
 	}
 
 	#[test]
-	fn modify_works() {
+	fn append_works() {
+		use codec::Encode;
 		let mut changeset = OverlayedChangeSet::default();
 		assert_eq!(changeset.transaction_depth(), 0);
-		let init = || b"valinit".to_vec();
+		let init = || vec![b"valinit".to_vec()].encode();
 
 		// committed set
-		changeset.set(b"key0".to_vec(), Some(b"val0".to_vec()), Some(0));
+		let val0 = vec![b"val0".to_vec()].encode();
+		changeset.set(b"key0".to_vec(), Some(val0.clone()), Some(0));
 		changeset.set(b"key1".to_vec(), None, Some(1));
-		let val = changeset.modify(b"key3".to_vec(), init, Some(3));
-		assert_eq!(val, &Some(b"valinit".to_vec()));
-		val.as_mut().unwrap().extend_from_slice(b"-modified");
+		let all_changes: Changes =
+			vec![(b"key0", (Some(val0.as_slice()), vec![0])), (b"key1", (None, vec![1]))];
+
+		assert_changes(&mut changeset, &all_changes);
+		changeset.append_storage(b"key3".to_vec(), b"-modified".to_vec().encode(), init, Some(3));
+		let val3 = vec![b"valinit".to_vec(), b"-modified".to_vec()].encode();
+		let all_changes: Changes = vec![
+			(b"key0", (Some(val0.as_slice()), vec![0])),
+			(b"key1", (None, vec![1])),
+			(b"key3", (Some(val3.as_slice()), vec![3])),
+		];
+		assert_changes(&mut changeset, &all_changes);
 
 		changeset.start_transaction();
 		assert_eq!(changeset.transaction_depth(), 1);
@@ -645,39 +1113,75 @@ mod test {
 		assert_eq!(changeset.transaction_depth(), 2);
 
 		// non existing value -> init value should be returned
-		let val = changeset.modify(b"key2".to_vec(), init, Some(2));
-		assert_eq!(val, &Some(b"valinit".to_vec()));
-		val.as_mut().unwrap().extend_from_slice(b"-modified");
+		changeset.append_storage(b"key3".to_vec(), b"-twice".to_vec().encode(), init, Some(15));
 
-		// existing value should be returned by modify
-		let val = changeset.modify(b"key0".to_vec(), init, Some(10));
-		assert_eq!(val, &Some(b"val0".to_vec()));
-		val.as_mut().unwrap().extend_from_slice(b"-modified");
+		// non existing value -> init value should be returned
+		changeset.append_storage(b"key2".to_vec(), b"-modified".to_vec().encode(), init, Some(2));
+		// existing value should be reuse on append
+		changeset.append_storage(b"key0".to_vec(), b"-modified".to_vec().encode(), init, Some(10));
 
 		// should work for deleted keys
-		let val = changeset.modify(b"key1".to_vec(), init, Some(20));
-		assert_eq!(val, &None);
-		*val = Some(b"deleted-modified".to_vec());
-
+		changeset.append_storage(
+			b"key1".to_vec(),
+			b"deleted-modified".to_vec().encode(),
+			init,
+			Some(20),
+		);
+		let val0_2 = vec![b"val0".to_vec(), b"-modified".to_vec()].encode();
+		let val3_2 = vec![b"valinit".to_vec(), b"-modified".to_vec(), b"-twice".to_vec()].encode();
+		let val1 = vec![b"deleted-modified".to_vec()].encode();
 		let all_changes: Changes = vec![
-			(b"key0", (Some(b"val0-modified"), vec![0, 10])),
-			(b"key1", (Some(b"deleted-modified"), vec![1, 20])),
-			(b"key2", (Some(b"valinit-modified"), vec![2])),
-			(b"key3", (Some(b"valinit-modified"), vec![3])),
+			(b"key0", (Some(val0_2.as_slice()), vec![0, 10])),
+			(b"key1", (Some(val1.as_slice()), vec![1, 20])),
+			(b"key2", (Some(val3.as_slice()), vec![2])),
+			(b"key3", (Some(val3_2.as_slice()), vec![3, 15])),
 		];
-		assert_changes(&changeset, &all_changes);
+		assert_changes(&mut changeset, &all_changes);
+
+		changeset.start_transaction();
+		let val3_3 =
+			vec![b"valinit".to_vec(), b"-modified".to_vec(), b"-twice".to_vec(), b"-2".to_vec()]
+				.encode();
+		changeset.append_storage(b"key3".to_vec(), b"-2".to_vec().encode(), init, Some(21));
+		let all_changes2: Changes = vec![
+			(b"key0", (Some(val0_2.as_slice()), vec![0, 10])),
+			(b"key1", (Some(val1.as_slice()), vec![1, 20])),
+			(b"key2", (Some(val3.as_slice()), vec![2])),
+			(b"key3", (Some(val3_3.as_slice()), vec![3, 15, 21])),
+		];
+		assert_changes(&mut changeset, &all_changes2);
+		changeset.rollback_transaction().unwrap();
+
+		assert_changes(&mut changeset, &all_changes);
+		changeset.start_transaction();
+		let val3_4 = vec![
+			b"valinit".to_vec(),
+			b"-modified".to_vec(),
+			b"-twice".to_vec(),
+			b"-thrice".to_vec(),
+		]
+		.encode();
+		changeset.append_storage(b"key3".to_vec(), b"-thrice".to_vec().encode(), init, Some(25));
+		let all_changes: Changes = vec![
+			(b"key0", (Some(val0_2.as_slice()), vec![0, 10])),
+			(b"key1", (Some(val1.as_slice()), vec![1, 20])),
+			(b"key2", (Some(val3.as_slice()), vec![2])),
+			(b"key3", (Some(val3_4.as_slice()), vec![3, 15, 25])),
+		];
+		assert_changes(&mut changeset, &all_changes);
+		changeset.commit_transaction().unwrap();
 		changeset.commit_transaction().unwrap();
 		assert_eq!(changeset.transaction_depth(), 1);
-		assert_changes(&changeset, &all_changes);
+		assert_changes(&mut changeset, &all_changes);
 
 		changeset.rollback_transaction().unwrap();
 		assert_eq!(changeset.transaction_depth(), 0);
 		let rolled_back: Changes = vec![
-			(b"key0", (Some(b"val0"), vec![0])),
+			(b"key0", (Some(val0.as_slice()), vec![0])),
 			(b"key1", (None, vec![1])),
-			(b"key3", (Some(b"valinit-modified"), vec![3])),
+			(b"key3", (Some(val3.as_slice()), vec![3])),
 		];
-		assert_changes(&changeset, &rolled_back);
+		assert_changes(&mut changeset, &rolled_back);
 		assert_drained_changes(changeset, rolled_back);
 	}
 
@@ -695,7 +1199,7 @@ mod test {
 		changeset.clear_where(|k, _| k.starts_with(b"del"), Some(5));
 
 		assert_changes(
-			&changeset,
+			&mut changeset,
 			&vec![
 				(b"del1", (None, vec![3, 5])),
 				(b"del2", (None, vec![4, 5])),
@@ -707,7 +1211,7 @@ mod test {
 		changeset.rollback_transaction().unwrap();
 
 		assert_changes(
-			&changeset,
+			&mut changeset,
 			&vec![
 				(b"del1", (Some(b"delval1"), vec![3])),
 				(b"del2", (Some(b"delval2"), vec![4])),
@@ -849,5 +1353,73 @@ mod test {
 		assert_eq!(changeset.enter_runtime(), Err(AlreadyInRuntime));
 		assert_eq!(changeset.exit_runtime(), Ok(()));
 		assert_eq!(changeset.exit_runtime(), Err(NotInRuntime));
+	}
+
+	#[test]
+	fn restore_append_to_parent() {
+		use codec::{Compact, Encode};
+		let mut changeset = OverlayedChangeSet::default();
+		let key: Vec<u8> = b"akey".into();
+
+		let from = 50; // 1 byte len
+		let to = 100; // 2 byte len
+		for i in 0..from {
+			changeset.append_storage(key.clone(), vec![i], Default::default, None);
+		}
+
+		// materialized
+		let encoded = changeset.get(&key).unwrap().value().unwrap();
+		let encoded_from_len = Compact(from as u32).encode();
+		assert_eq!(encoded_from_len.len(), 1);
+		assert!(encoded.starts_with(&encoded_from_len[..]));
+		let encoded_from = encoded.clone();
+
+		changeset.start_transaction();
+
+		for i in from..to {
+			changeset.append_storage(key.clone(), vec![i], Default::default, None);
+		}
+
+		// materialized
+		let encoded = changeset.get(&key).unwrap().value().unwrap();
+		let encoded_to_len = Compact(to as u32).encode();
+		assert_eq!(encoded_to_len.len(), 2);
+		assert!(encoded.starts_with(&encoded_to_len[..]));
+
+		changeset.rollback_transaction().unwrap();
+
+		let encoded = changeset.get(&key).unwrap().value().unwrap();
+		assert_eq!(&encoded_from, encoded);
+	}
+
+	/// First we have some `Set` operation with a valid SCALE list. Then we append data and rollback
+	/// afterwards.
+	#[test]
+	fn restore_initial_set_after_append_to_parent() {
+		use codec::{Compact, Encode};
+		let mut changeset = OverlayedChangeSet::default();
+		let key: Vec<u8> = b"akey".into();
+
+		let initial_data = vec![1u8; 50].encode();
+
+		changeset.set(key.clone(), Some(initial_data.clone()), None);
+
+		changeset.start_transaction();
+
+		// Append until we require 2 bytes for the length prefix.
+		for i in 0..50 {
+			changeset.append_storage(key.clone(), vec![i], Default::default, None);
+		}
+
+		// Materialize the value.
+		let encoded = changeset.get(&key).unwrap().value().unwrap();
+		let encoded_to_len = Compact(100u32).encode();
+		assert_eq!(encoded_to_len.len(), 2);
+		assert!(encoded.starts_with(&encoded_to_len[..]));
+
+		changeset.rollback_transaction().unwrap();
+
+		let encoded = changeset.get(&key).unwrap().value().unwrap();
+		assert_eq!(&initial_data, encoded);
 	}
 }
