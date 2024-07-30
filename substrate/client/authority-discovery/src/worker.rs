@@ -37,7 +37,7 @@ use ip_network::IpNetwork;
 use libp2p::kad::{PeerRecord, Record};
 use linked_hash_set::LinkedHashSet;
 
-use log::{debug, error};
+use log::{debug, error, trace};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
 use prost::Message;
 use rand::{seq::SliceRandom, thread_rng};
@@ -416,10 +416,12 @@ where
 			})
 			.collect::<Vec<_>>();
 
-		debug!(
-			target: LOG_TARGET,
-			"Authority DHT record peer_id='{local_peer_id}' with addresses='{addresses:?}'",
-		);
+		if !addresses.is_empty() {
+			debug!(
+				target: LOG_TARGET,
+				"Publishing authority DHT record peer_id='{local_peer_id}' with addresses='{addresses:?}'",
+			);
+		}
 
 		// The address must include the local peer id.
 		addresses
@@ -439,7 +441,7 @@ where
 
 		let addresses = serialize_addresses(self.addresses_to_publish());
 		if addresses.is_empty() {
-			debug!(
+			trace!(
 				target: LOG_TARGET,
 				"No addresses to publish. Skipping publication."
 			);
