@@ -24,7 +24,6 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 extern crate alloc;
-
 use alloc::{vec, vec::Vec};
 use frame::{
 	deps::frame_support::{
@@ -42,7 +41,34 @@ use frame::{
 	},
 };
 
-/// The runtime version.
+pub type AccountId = <Runtime as frame_system::Config>::AccountId;
+pub type Nonce = <Runtime as frame_system::Config>::Nonce;
+pub type Hash = <Runtime as frame_system::Config>::Hash;
+pub type Balance = <Runtime as pallet_balances::Config>::Balance;
+pub type MinimumBalance = <Runtime as pallet_balances::Config>::ExistentialDeposit;
+
+/// Genesis presets to use.
+pub mod genesis_config_presets {
+	use super::*;
+
+	// TODO local tests for this, can be automated by a lot.
+
+	/// The `dev` preset.
+	pub fn dev() -> serde_json::Value {
+		let endowment = 1_000_000_000_000_000u128;
+		let balances = frame::runtime::AccountKeyring::iter()
+			.map(|acc| (acc.to_account_id(), endowment))
+			.collect::<Vec<_>>();
+		let sudo = frame::runtime::AccountKeyring::Alice.to_account_id();
+		serde_json::json!({
+			"balances": { "balances": balances},
+			"sudo": { "key": Some(sudo) }
+			// un-specified pallets will use `Default`.
+		})
+	}
+}
+
+/// The runtime version
 #[runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("minimal-template-runtime"),
@@ -250,26 +276,26 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl apis::AccountNonceApi<Block, interface::AccountId, interface::Nonce> for Runtime {
-		fn account_nonce(account: interface::AccountId) -> interface::Nonce {
+	impl apis::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+		fn account_nonce(account: AccountId) -> Nonce {
 			System::account_nonce(account)
 		}
 	}
 
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
 		Block,
-		interface::Balance,
+		Balance,
 	> for Runtime {
-		fn query_info(uxt: ExtrinsicFor<Runtime>, len: u32) -> RuntimeDispatchInfo<interface::Balance> {
+		fn query_info(uxt: ExtrinsicFor<Runtime>, len: u32) -> RuntimeDispatchInfo<Balance> {
 			TransactionPayment::query_info(uxt, len)
 		}
-		fn query_fee_details(uxt: ExtrinsicFor<Runtime>, len: u32) -> FeeDetails<interface::Balance> {
+		fn query_fee_details(uxt: ExtrinsicFor<Runtime>, len: u32) -> FeeDetails<Balance> {
 			TransactionPayment::query_fee_details(uxt, len)
 		}
-		fn query_weight_to_fee(weight: Weight) -> interface::Balance {
+		fn query_weight_to_fee(weight: Weight) -> Balance {
 			TransactionPayment::weight_to_fee(weight)
 		}
-		fn query_length_to_fee(length: u32) -> interface::Balance {
+		fn query_length_to_fee(length: u32) -> Balance {
 			TransactionPayment::length_to_fee(length)
 		}
 	}
@@ -280,29 +306,31 @@ impl_runtime_apis! {
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+			Self::do_get_preset(id)
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			vec![]
+			Self::do_preset_names()
 		}
 	}
 }
 
-/// Some re-exports that the node side code needs to know. Some are useful in this context as well.
-///
-/// Other types should preferably be private.
-// TODO: this should be standardized in some way, see:
-// https://github.com/paritytech/substrate/issues/10579#issuecomment-1600537558
-pub mod interface {
-	use super::Runtime;
-	use frame::deps::frame_system;
+impl Runtime {
+	fn do_preset_names() -> Vec<sp_genesis_builder::PresetId> {
+		vec!["dev".into()]
+	}
 
-	pub type Block = super::Block;
-	pub use frame::runtime::types_common::OpaqueBlock;
-	pub type AccountId = <Runtime as frame_system::Config>::AccountId;
-	pub type Nonce = <Runtime as frame_system::Config>::Nonce;
-	pub type Hash = <Runtime as frame_system::Config>::Hash;
-	pub type Balance = <Runtime as pallet_balances::Config>::Balance;
-	pub type MinimumBalance = <Runtime as pallet_balances::Config>::ExistentialDeposit;
+	fn do_get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+		get_preset::<RuntimeGenesisConfig>(id, |preset| {
+			let patch = match preset.try_into() {
+				Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => genesis_config_presets::dev(),
+				_ => return None,
+			};
+			Some(
+				serde_json::to_string(&patch)
+					.expect("serialization to json is expected to work. qed.")
+					.into_bytes(),
+			)
+		})
+	}
 }

@@ -32,7 +32,7 @@ pub enum GenesisBuilder {
 	None,
 	/// Let the runtime build the genesis state through its `BuildGenesisConfig` runtime API.
 	///
-	/// This uses [`sc_cli::DEV_RUNTIME_PRESET`] preset.
+	/// This uses [`sp_genesis_builder::DEV_RUNTIME_PRESET`] preset.
 	Runtime,
 	/// Use the spec file to build the genesis state. This fails when there is no spec.
 	Spec,

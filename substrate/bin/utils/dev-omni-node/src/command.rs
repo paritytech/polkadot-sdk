@@ -48,35 +48,41 @@ impl SubstrateCli for Cli {
 		2017
 	}
 
+	fn load_spec_from_runtime(
+		&self,
+		runtime: &[u8],
+		maybe_preset: Option<&str>,
+	) -> std::result::Result<Box<dyn sc_cli::ChainSpec>, String> {
+		log::info!("building chain-spec from defaults, and preset-id {:?}", maybe_preset);
+
+		let mut properties = Properties::new();
+		properties.insert("tokenDecimals".to_string(), 12.into());
+		properties.insert("tokenSymbol".to_string(), "SUB-OMNI-DEV".into());
+
+		let mut builder = ChainSpec::builder(runtime.as_ref(), Default::default())
+			.with_name("Development")
+			.with_id("dev")
+			.with_chain_type(ChainType::Development)
+			.with_properties(properties);
+
+		if let Some(preset) = maybe_preset {
+			builder = builder.with_genesis_config_preset_name(preset);
+		}
+
+		Ok(Box::new(builder.build()))
+	}
+
 	fn load_spec(&self, maybe_path: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		match maybe_path {
-			"" => Err("No --chain provided".into()),
+			"" => Err("No --chain or --runtime provided".into()),
 			"dev" | "local" =>
 				Err("--dev, --chain=dev, --chain=local or any other 'magic' chain id is not \
-				supported in omni-node, please provide --chain chain-spec.json or --chain \
+				supported in omni-nodes, please provide --chain chain-spec.json or --runtime \
 				runtime.wasm"
 					.into()),
 			x if x.ends_with("json") => {
 				log::info!("Loading json chain spec from {}", maybe_path);
 				Ok(Box::new(ChainSpec::from_json_file(std::path::PathBuf::from(maybe_path))?))
-			},
-			x if x.ends_with(".wasm") => {
-				log::info!("wasm file provided to --chain using default 'preset' for genesis and given wasm file as code");
-				let code = std::fs::read(maybe_path)
-					.map_err(|e| format!("Failed to read wasm runtime {}: {}", &maybe_path, e))?;
-
-				let mut properties = Properties::new();
-				properties.insert("tokenDecimals".to_string(), 0.into());
-				properties.insert("tokenSymbol".to_string(), "OMNI".into());
-
-				Ok(Box::new(
-					ChainSpec::builder(code.as_ref(), None)
-						.with_name("Development")
-						.with_id("dev")
-						.with_chain_type(ChainType::Development)
-						.with_properties(properties)
-						.build(),
-				))
 			},
 			_ => Err("Unknown argument to --chain. should be `.wasm` or `.json`".into()),
 		}

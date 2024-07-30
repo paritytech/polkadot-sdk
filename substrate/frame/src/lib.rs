@@ -165,6 +165,11 @@ pub mod testing_prelude {
 /// All of the types and tools needed to build FRAME-based runtimes.
 #[cfg(any(feature = "runtime", feature = "std"))]
 pub mod runtime {
+	/// A set of testing accounts for the runtime.
+	///
+	/// See [`sp_keyring`] for more information.
+	pub use sp_keyring::AccountKeyring;
+
 	/// The main prelude of `FRAME` for building runtimes.
 	///
 	/// A runtime typically starts with:
@@ -384,6 +389,8 @@ pub mod deps {
 	pub use sp_consensus_grandpa;
 	#[cfg(feature = "runtime")]
 	pub use sp_inherents;
+	#[cfg(feature = "runtime")]
+	pub use sp_keyring;
 	#[cfg(feature = "runtime")]
 	pub use sp_offchain;
 	#[cfg(feature = "runtime")]

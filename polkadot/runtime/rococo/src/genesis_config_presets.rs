@@ -79,6 +79,7 @@ fn get_authority_keys_from_seed_no_beefy(
 }
 
 fn testnet_accounts() -> Vec<AccountId> {
+	// TODO: just use sp_keyring::AccountKeyring::iter()??
 	Vec::from([
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -532,8 +533,8 @@ fn wococo_local_testnet_genesis() -> serde_json::Value {
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<alloc::vec::Vec<u8>> {
 	let patch = match id.try_into() {
+		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => rococo_development_config_genesis(),
 		Ok("local_testnet") => rococo_local_testnet_genesis(),
-		Ok("development") => rococo_development_config_genesis(),
 		Ok("staging_testnet") => rococo_staging_testnet_config_genesis(),
 		Ok("wococo_local_testnet") => wococo_local_testnet_genesis(),
 		Ok("versi_local_testnet") => versi_local_testnet_genesis(),

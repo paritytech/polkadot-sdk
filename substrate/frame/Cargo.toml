@@ -46,6 +46,7 @@ sp-consensus-aura = { optional = true, workspace = true }
 sp-consensus-grandpa = { optional = true, workspace = true }
 sp-inherents = { optional = true, workspace = true }
 sp-storage = { optional = true, workspace = true }
+sp-keyring = { optional = true, workspace = true }
 
 frame-executive = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { optional = true, workspace = true }
@@ -77,6 +78,7 @@ runtime = [
 	"sp-storage",
 	"sp-transaction-pool",
 	"sp-version",
+	"sp-keyring",
 
 	"frame-executive",
 	"frame-system-rpc-runtime-api",

@@ -111,11 +111,12 @@ pub fn new_full(config: Configuration, consensus: Consensus) -> Result<TaskManag
 
 	use sc_network::NetworkBackend;
 
-	let net_config = sc_network::config::FullNetworkConfiguration::<
-		OpaqueBlock,
-		<OpaqueBlock as sp_runtime::traits::Block>::Hash,
-		sc_network::NetworkWorker<OpaqueBlock, _>,
-	>::new(&config.network);
+	let net_config =
+		sc_network::config::FullNetworkConfiguration::<
+			OpaqueBlock,
+			<OpaqueBlock as sp_runtime::traits::Block>::Hash,
+			sc_network::NetworkWorker<OpaqueBlock, _>,
+		>::new(&config.network, config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()));
 
 	let metrics = sc_network::NetworkWorker::<
 		OpaqueBlock,

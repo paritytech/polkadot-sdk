@@ -100,7 +100,6 @@ impl<EHF> Clone for GenesisSource<EHF> {
 
 impl<EHF: HostFunctions> GenesisSource<EHF> {
 	fn resolve(&self) -> Result<Genesis, String> {
-		// println!("self = {:?}", self);
 		/// helper container for deserializing genesis from the JSON file (ChainSpec JSON file is
 		/// also supported here)
 		#[derive(Serialize, Deserialize)]
@@ -437,6 +436,15 @@ impl<E, EHF> ChainSpecBuilder<E, EHF> {
 
 	/// Builds a [`ChainSpec`] instance using the provided settings.
 	pub fn build(self) -> ChainSpec<E, EHF> {
+		// TODO: the logger is not yet init-ed in this code path, fix it.
+		log::info!(target: "chain-spec-builder", "👓 building chain-spec from runtime code:");
+		log::info!(target: "chain-spec-builder", "👓 genesis: {:?}", self.genesis_build_action);
+		log::info!(target: "chain-spec-builder", "👓 properties: {:?}", self.properties);
+		log::info!(target: "chain-spec-builder", "👓 boot-nodes: {:?}", self.boot_nodes);
+		log::info!(target: "chain-spec-builder", "👓 chain-type: {:?}", self.chain_type);
+		log::info!(target: "chain-spec-builder", "👓 id: {:?}", self.id);
+		log::info!(target: "chain-spec-builder", "👓 name: {:?}", self.name);
+
 		let client_spec = ClientSpec {
 			name: self.name,
 			id: self.id,

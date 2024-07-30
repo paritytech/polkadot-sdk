@@ -4874,7 +4874,7 @@ name = "dev-omni-node"
 version = "1.0.0"
 dependencies = [
  "assert_cmd",
- "clap 4.5.9",
+ "clap 4.5.11",
  "docify",
  "frame-system-rpc-runtime-api",
  "futures",
@@ -8823,6 +8823,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
+ "serde_json",
  "sp-genesis-builder",
  "sp-runtime",
  "substrate-wasm-builder",
@@ -14696,6 +14697,7 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-io",
+ "sp-keyring",
  "sp-offchain",
  "sp-runtime",
  "sp-session",

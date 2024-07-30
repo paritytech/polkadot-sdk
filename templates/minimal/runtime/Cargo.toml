@@ -12,6 +12,7 @@ publish = false
 [dependencies]
 codec = { workspace = true }
 scale-info = { workspace = true }
+serde_json = { features = ["alloc"], workspace = true }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
 frame = { features = [
@@ -41,6 +42,7 @@ default = ["std"]
 std = [
 	"codec/std",
 	"scale-info/std",
+	"serde_json/std",
 
 	"frame/std",
 

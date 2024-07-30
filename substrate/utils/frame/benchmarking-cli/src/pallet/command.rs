@@ -28,10 +28,7 @@ use frame_benchmarking::{
 use frame_support::traits::StorageInfo;
 use linked_hash_map::LinkedHashMap;
 use sc_chain_spec::json_patch::merge as json_merge;
-use sc_cli::{
-	execution_method_from_cli, ChainSpec, CliConfiguration, Result, SharedParams,
-	DEV_RUNTIME_PRESET,
-};
+use sc_cli::{execution_method_from_cli, ChainSpec, CliConfiguration, Result, SharedParams};
 use sc_client_db::BenchmarkingState;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sp_core::{
@@ -42,7 +39,7 @@ use sp_core::{
 	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt, WrappedRuntimeCode},
 };
 use sp_externalities::Extensions;
-use sp_genesis_builder::{PresetId, Result as GenesisBuildResult};
+use sp_genesis_builder::{PresetId, Result as GenesisBuildResult, DEV_RUNTIME_PRESET};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::traits::Hash;
 use sp_state_machine::{OverlayedChanges, StateMachine};

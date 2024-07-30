@@ -54,10 +54,7 @@ sp-consensus-grandpa = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 
-# cumulus-primitives-core = { workspace = true, default-features = true }
-
 # frame and pallets
-# pallet-transaction-payment-rpc = { workspace = true, default-features = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
 
