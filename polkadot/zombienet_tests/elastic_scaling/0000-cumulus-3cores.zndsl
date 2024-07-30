@@ -1,0 +1,14 @@
+Description: Test elastic scaling with polkadot-parachain collator and 3 cores
+Network: ./0000-cumulus-3cores.toml
+Creds: config
+
+# Check authority status.
+elastic-validator-0: reports node_roles is 4
+elastic-validator-1: reports node_roles is 4
+elastic-validator-2: reports node_roles is 4
+
+# Register 2 extra cores to this parachain.
+elastic-validator-0: js-script ./assign-core.js with "0,2000,57600" return is 0 within 600 seconds
+elastic-validator-0: js-script ./assign-core.js with "1,2000,57600" return is 0 within 600 seconds
+
+sleep 10000s

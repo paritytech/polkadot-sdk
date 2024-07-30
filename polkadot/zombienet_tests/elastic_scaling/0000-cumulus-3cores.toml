@@ -1,0 +1,36 @@
+[settings]
+timeout = 1000
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.async_backing_params]
+  max_candidate_depth = 6
+  allowed_ancestry_len = 2
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
+  max_validators_per_core = 1
+  num_cores = 2
+
+[relaychain]
+default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
+chain = "rococo-local"
+default_command = "polkadot"
+
+  [relaychain.default_resources]
+  limits = { memory = "4G", cpu = "3" }
+  requests = { memory = "4G", cpu = "3" }
+
+  [[relaychain.node_groups]]
+  name = "elastic-validator"
+  count = 3
+  args = [ "-lparachain=debug,parachain::candidate-backing=trace,parachain::provisioner=trace,parachain::prospective-parachains=trace,runtime=debug"]
+
+[[parachains]]
+id = 2000
+default_command = "polkadot-parachain"
+add_to_genesis = false
+register_para = true
+onboard_as_parachain = false
+
+  [parachains.collator]
+  name = "collator2000"
+  command = "polkadot-parachain"
+  args = [ "-lparachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--experimental-use-slot-based" ]
