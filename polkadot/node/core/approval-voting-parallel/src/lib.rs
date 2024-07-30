@@ -862,20 +862,19 @@ impl<S: SubsystemSender<ApprovalVotingParallelMessage>>
 		'life0: 'async_trait,
 		Self: 'async_trait,
 	{
-		match P::priority() {
-			polkadot_overseer::PriorityLevel::Normal => self.send_message(msg),
-			polkadot_overseer::PriorityLevel::High =>
-				async { self.send_unbounded_message(msg) }.boxed(),
-		}
+		self.0.send_message_with_priority::<P>(msg.into())
 	}
 
 	fn try_send_message_with_priority<P: Priority>(
 		&mut self,
 		msg: ApprovalDistributionMessage,
 	) -> Result<(), metered::TrySendError<ApprovalDistributionMessage>> {
-		match P::priority() {
-			polkadot_overseer::PriorityLevel::Normal => self.try_send_message(msg),
-			polkadot_overseer::PriorityLevel::High => Ok(self.send_unbounded_message(msg)),
-		}
+		self.0.try_send_message_with_priority::<P>(msg.into()).map_err(|err| match err {
+			// Safe to unwrap because it was built from the same type.
+			metered::TrySendError::Closed(msg) =>
+				metered::TrySendError::Closed(msg.try_into().unwrap()),
+			metered::TrySendError::Full(msg) =>
+				metered::TrySendError::Full(msg.try_into().unwrap()),
+		})
 	}
 }
