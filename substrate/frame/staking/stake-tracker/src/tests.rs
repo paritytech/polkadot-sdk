@@ -17,10 +17,11 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, Error, StakeImbalance};
+use crate::{mock::*, Error, StakeImbalance, UnsettledTargetScores};
 
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
 use frame_support::{assert_noop, assert_ok};
+use sp_runtime::traits::TypedGet;
 use sp_staking::{OnStakingUpdate, Stake, StakerStatus, StakingInterface};
 
 // keeping tests clean.
@@ -28,8 +29,6 @@ type A = AccountId;
 type B = Balance;
 
 mod stake_imbalance {
-	use crate::UnsettledScore;
-
 	use super::*;
 
 	#[test]
@@ -92,7 +91,7 @@ mod stake_imbalance {
 			update_stake(10, 200, stake_of(10));
 			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 200);
 			// unsettled stake list is empty.
-			assert_eq!(UnsettledScore::<Test>::iter().collect::<Vec<_>>(), vec![]);
+			assert_eq!(UnsettledTargetScores::<Test>::get(), vec![]);
 
 			// updating stake by +5 (below thresahold) will *not* reflect in the target list and
 			// update the unsettled stake list.
@@ -101,7 +100,7 @@ mod stake_imbalance {
 			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 200);
 			// unsettled stake list has the bufferd score for target 10.
 			assert_eq!(
-				UnsettledScore::<Test>::iter().collect::<Vec<_>>(),
+				UnsettledTargetScores::<Test>::get(),
 				vec![(10u64, StakeImbalance::Positive(5))]
 			);
 
@@ -112,7 +111,7 @@ mod stake_imbalance {
 			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 200);
 			// unsettled stake list has the bufferd score for target 10.
 			assert_eq!(
-				UnsettledScore::<Test>::iter().collect::<Vec<_>>(),
+				UnsettledTargetScores::<Test>::get(),
 				vec![(10u64, StakeImbalance::Negative(2))]
 			);
 
@@ -122,7 +121,7 @@ mod stake_imbalance {
 			// +5 + (-7) imbalance = (-2), thus approvals is initial approvals - 2.
 			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 198);
 			// unsettled stake list is empty again.
-			assert_eq!(UnsettledScore::<Test>::iter().collect::<Vec<_>>(), vec![]);
+			assert_eq!(UnsettledTargetScores::<Test>::get(), vec![]);
 		})
 	}
 
@@ -131,7 +130,7 @@ mod stake_imbalance {
 		ExtBuilder::default().set_update_threshold(Some(10)).build_and_execute(|| {
 			add_validator(10, 100);
 			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 100);
-			assert_eq!(UnsettledScore::<Test>::iter().collect::<Vec<_>>(), vec![]);
+			assert_eq!(UnsettledTargetScores::<Test>::get(), vec![]);
 
 			// updating stake by +5 (below thresahold) will *not* reflect in the target list and
 			// update the unsettled stake list.
@@ -140,7 +139,7 @@ mod stake_imbalance {
 			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 100);
 			// unsettled stake list has the bufferd score for target 10.
 			assert_eq!(
-				UnsettledScore::<Test>::iter().collect::<Vec<_>>(),
+				UnsettledTargetScores::<Test>::get(),
 				vec![(10u64, StakeImbalance::Positive(5))]
 			);
 
@@ -150,7 +149,7 @@ mod stake_imbalance {
 			// approvals were updated accordingly
 			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 105);
 			// unsettled stake list is empty again.
-			assert_eq!(UnsettledScore::<Test>::iter().collect::<Vec<_>>(), vec![]);
+			assert_eq!(UnsettledTargetScores::<Test>::get(), vec![]);
 
 			// calling `settle` with target account that does not have buffered score errors.
 			assert_noop!(
@@ -173,7 +172,7 @@ mod stake_imbalance {
 
 			add_validator(10, 100);
 			assert!(TargetBagsList::contains(&10));
-			assert_eq!(UnsettledScore::<Test>::iter().collect::<Vec<_>>(), vec![]);
+			assert_eq!(UnsettledTargetScores::<Test>::get(), vec![]);
 
 			// calling `settle` with target account that does not have buffered score errors.
 			assert_noop!(

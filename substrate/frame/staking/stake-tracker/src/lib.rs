@@ -125,6 +125,8 @@ pub type BalanceOf<T> = <<T as Config>::Staking as StakingInterface>::Balance;
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 /// Score of a sorted list provider.
 pub type ScoreOf<T> = <<T as Config>::TargetList as SortedListProvider<AccountIdOf<T>>>::Score;
+/// List of current unsettled target scores.
+pub type UnsettledList<T> = Vec<(AccountIdOf<T>, StakeImbalance<ExtendedBalance>)>;
 
 /// Represents a stake imbalance to be applied to a staker's score.
 #[derive(TypeInfo, Copy, Debug, Clone, Encode, Decode, PartialEq, MaxEncodedLen)]
@@ -172,9 +174,9 @@ impl<Score: PartialOrd + Zero + Copy + DefensiveSaturating> Add for StakeImbalan
 	}
 }
 
-impl<Score: PartialOrd + DefensiveSaturating + Zero + Copy> StakeImbalance<Score> {
-	/// Constructor for a stake imbalance instance based on the previous and next score.
-	fn from(prev: Score, new: Score) -> Self {
+impl<V: PartialOrd + DefensiveSaturating + Zero + Copy> StakeImbalance<V> {
+	/// Constructor for a stake imbalance instance based on the previous and next unsigned value.
+	fn from(prev: V, new: V) -> Self {
 		if prev > new {
 			StakeImbalance::Negative(prev.defensive_saturating_sub(new))
 		} else {
@@ -182,11 +184,10 @@ impl<Score: PartialOrd + DefensiveSaturating + Zero + Copy> StakeImbalance<Score
 		}
 	}
 
-	/// Returns the unsigned score of a staking balance instance.
-	fn score(&self) -> Score {
+	/// Returns the unsigned value of a staking balance instance.
+	fn value(&self) -> V {
 		match self {
-			Self::Positive(score) => *score,
-			Self::Negative(score) => *score,
+			Self::Positive(score) | Self::Negative(score) => *score,
 			Self::Zero => Zero::zero(),
 		}
 	}
@@ -254,7 +255,7 @@ pub mod pallet {
 	///
 	/// This map keeps track of unsettled score for targets.
 	#[pallet::storage]
-	pub type UnsettledScore<T: Config> =
+	pub type UnsettledTargetScore<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, StakeImbalance<ScoreOf<T>>>;
 
 	#[pallet::error]
@@ -275,7 +276,7 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 
 			ensure!(T::TargetList::contains(&who), Error::<T>::NotTarget);
-			ensure!(UnsettledScore::<T>::contains_key(&who), Error::<T>::NoScoreToSettle);
+			ensure!(UnsettledTargetScore::<T>::contains_key(&who), Error::<T>::NoScoreToSettle);
 
 			Self::do_settle(&who)?;
 			Ok(())
@@ -285,7 +286,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Settles buffered score for a target, if it exists.
 		pub(crate) fn do_settle(who: &T::AccountId) -> Result<(), Error<T>> {
-			UnsettledScore::<T>::try_mutate_exists(who, |maybe_imbalance| {
+			UnsettledTargetScore::<T>::try_mutate_exists(who, |maybe_imbalance| {
 				let imbalance = maybe_imbalance.ok_or(Error::<T>::NoScoreToSettle)?;
 
 				Self::update_target_score_unchecked(who, imbalance);
@@ -342,21 +343,7 @@ pub mod pallet {
 				voter_weight,
 			);
 
-			// updates the target list OR buffers the score depending on whether the score
-			// imbalance is higher than the update threshold.
-			if let Some(update_threshold) = T::ScoreStrictUpdateThreshold::get() {
-				if stake_imbalance.score() > update_threshold {
-					Self::update_target_score(who, stake_imbalance);
-				} else {
-					// buffer the approvals update in `UnsettledScore` map.
-					UnsettledScore::<T>::insert(
-						who,
-						UnsettledScore::<T>::get(who).unwrap_or_default().add(stake_imbalance),
-					);
-				}
-			} else {
-				Self::update_target_score(who, stake_imbalance);
-			}
+			Self::update_target_score(who, stake_imbalance);
 
 			// validator is both a target and a voter. update the voter score if the voter list
 			// is in strict mode.
@@ -381,17 +368,16 @@ pub mod pallet {
 				);
 			}
 
-			// closure that update the target score according to the `imbalance`.
 			// updates the target list OR buffers the score depending on whether the score
-			// imbalance is higher than the update threshold.
+			// imbalance is higher than the update threshold (if set).
 			if let Some(update_threshold) = T::ScoreStrictUpdateThreshold::get() {
-				if imbalance.score() > update_threshold {
+				if imbalance.value() > update_threshold {
 					Self::update_target_score_unchecked(who, imbalance);
 				} else {
-					// buffer the approvals update in `UnsettledScore` map.
-					UnsettledScore::<T>::insert(
+					// buffer the approvals update in `UnsettledTargetScore` map.
+					UnsettledTargetScore::<T>::insert(
 						who,
-						UnsettledScore::<T>::get(who).unwrap_or_default().add(imbalance),
+						UnsettledTargetScore::<T>::get(who).unwrap_or_default().add(imbalance),
 					);
 				}
 			} else {
@@ -472,18 +458,20 @@ pub mod pallet {
 			<T::Staking as StakingInterface>::bond(target, balance, target)?;
 			<T::Staking as StakingInterface>::validate(target)?;
 
-			UnsettledScore::<T>::insert(target, StakeImbalance::Positive(10));
+			UnsettledTargetScore::<T>::insert(target, StakeImbalance::Positive(10));
 
 			Ok(())
 		}
 	}
 }
 
-impl<T: Config> sp_runtime::traits::TypedGet for Pallet<T> {
-	type Type = Vec<(AccountIdOf<T>, StakeImbalance<ExtendedBalance>)>;
+/// Returns a vec with all the unsettled scores.
+pub struct UnsettledTargetScores<T: Config>(PhantomData<T>);
+impl<T: Config> sp_runtime::traits::TypedGet for UnsettledTargetScores<T> {
+	type Type = UnsettledList<T>;
 
 	fn get() -> Self::Type {
-		UnsettledScore::<T>::iter().collect::<Vec<_>>()
+		UnsettledTargetScore::<T>::iter().collect::<Vec<_>>()
 	}
 }
 
@@ -575,7 +563,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 					.defensive_proof("target exists as per above; qed");
 
 				// ensure that the unsettled score list is cleaned.
-				let _ = UnsettledScore::<T>::take(who);
+				let _ = UnsettledTargetScore::<T>::take(who);
 			}
 		} else {
 			// target is not part of the list. Given the contract with staking and the checks above,

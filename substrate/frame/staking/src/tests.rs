@@ -8749,7 +8749,7 @@ mod stake_tracker {
 
 				// unsettled score map has been updated.
 				assert_eq!(
-					pallet_stake_tracker::UnsettledScore::<Test>::iter().collect::<Vec<_>>(),
+					pallet_stake_tracker::UnsettledTargetScores::<Test>::get(),
 					vec![(11, StakeImbalance::Positive(vote_weight as u128))]
 				);
 
@@ -9355,7 +9355,8 @@ mod ledger_recovery {
 			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before); // OK
 			assert_eq!(Bonded::<Test>::get(&333), Some(444)); // OK
 			assert!(Payee::<Test>::get(&333).is_some()); // OK
-											 // however, ledger associated with its controller was killed.
+
+			// however, ledger associated with its controller was killed.
 			assert!(Ledger::<Test>::get(&444).is_none()); // NOK
 
 			// side effects on 444 - ledger, bonded, payee, lock should be completely removed.

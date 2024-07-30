@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg(test)]
+
 use crate::{self as pallet_stake_tracker, *};
 
 use frame_election_provider_support::{ScoreProvider, VoteWeight};
@@ -198,7 +200,7 @@ impl StakingInterface for StakingMock {
 	}
 
 	fn minimum_validator_bond() -> Self::Balance {
-		10
+		1
 	}
 
 	fn stash_by_ctrl(

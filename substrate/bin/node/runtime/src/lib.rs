@@ -698,7 +698,7 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = VoterList;
 	type TargetList = TargetList;
 	#[cfg(any(feature = "try-runtime", test))]
-	type TargetUnsettledApprovals = StakeTracker;
+	type TargetUnsettledApprovals = pallet_stake_tracker::UnsettledTargetScores<Self>;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
 	type MaxUnlockingChunks = ConstU32<32>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;

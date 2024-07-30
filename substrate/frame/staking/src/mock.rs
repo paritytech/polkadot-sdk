@@ -391,7 +391,7 @@ impl crate::pallet::pallet::Config for Test {
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
 	#[cfg(any(feature = "try-runtime", test))]
-	type TargetUnsettledApprovals = StakeTracker;
+	type TargetUnsettledApprovals = pallet_stake_tracker::UnsettledTargetScores<Self>;
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
