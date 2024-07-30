@@ -115,6 +115,14 @@ pub mod pallet {
 		NotClaimingPeriod,
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// Weight: see `begin_block`
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			Self::begin_block(n)
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 

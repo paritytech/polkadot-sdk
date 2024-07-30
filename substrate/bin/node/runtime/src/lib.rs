@@ -2133,7 +2133,7 @@ impl pallet_broker::Config for Runtime {
 
 parameter_types! {
 	// Id of the treasury
-	pub const PotId: PalletId = PalletId(*b"py/trsry");
+	pub const PotId: PalletId = PalletId(*b"py/potid");
 
 	// Time needed after approval to unlock the reward claim
 	pub const Period:BlockNumber = DAYS;
