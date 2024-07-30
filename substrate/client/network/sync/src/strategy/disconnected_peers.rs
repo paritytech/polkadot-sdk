@@ -99,7 +99,7 @@ impl DisconnectedPeers {
 	/// Insert a new peer to the persistent state if not seen before, or update the state if seen.
 	///
 	/// Returns true if the peer should be disconnected.
-	pub fn remove_peer(&mut self, peer: PeerId) -> Option<BadPeer> {
+	pub fn on_disconnect(&mut self, peer: PeerId) -> Option<BadPeer> {
 		if let Some(state) = self.disconnected_peers.get(&peer) {
 			state.increment();
 
@@ -160,13 +160,13 @@ mod tests {
 		// Is not part of the disconnected peers yet.
 		assert_eq!(state.is_peer_available(&peer), true);
 
-		assert!(state.remove_peer(peer).is_none());
+		assert!(state.on_disconnect(peer).is_none());
 		assert_eq!(state.is_peer_available(&peer), false);
 
-		assert!(state.remove_peer(peer).is_none());
+		assert!(state.on_disconnect(peer).is_none());
 		assert_eq!(state.is_peer_available(&peer), false);
 
-		assert!(state.remove_peer(peer).is_some());
+		assert!(state.on_disconnect(peer).is_some());
 		// Peer is supposed to get banned and disconnected.
 		// The state ownership moves to the PeerStore.
 		assert!(state.disconnected_peers.get(&peer).is_none());
@@ -177,7 +177,7 @@ mod tests {
 		let mut state = DisconnectedPeers::new();
 		let peer = PeerId::random();
 
-		assert!(state.remove_peer(peer).is_none());
+		assert!(state.on_disconnect(peer).is_none());
 		assert_eq!(state.is_peer_available(&peer), false);
 
 		// Wait until the backoff time has passed
