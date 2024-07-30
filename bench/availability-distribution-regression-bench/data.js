@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722340706403,
+  "lastUpdate": 1722348922517,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -20435,6 +20435,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.012394644113333344,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "686ee99c7c5de56d1416d47e4db4f3a2420c6c82",
+          "message": "[CI] Cache try-runtime check (#5179)\n\nAdds a snapshot step to the try-runtime check that tries to download a\ncached snapshot.\nThe cache is valid for the current day and is otherwise re-created.\n\nCheck is now only limited by build time and docker startup.\n\n![Screenshot 2024-07-30 at 02 02\n58](https://github.com/user-attachments/assets/0773e9b9-4a52-4572-a891-74b9d725ba70)\n\n![Screenshot 2024-07-30 at 02 02\n20](https://github.com/user-attachments/assets/4685ef17-a04c-4bdc-9d61-311d0010f71c)\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-07-30T12:29:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/686ee99c7c5de56d1416d47e4db4f3a2420c6c82"
+        },
+        "date": 1722348891997,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17187608962666662,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012260359233333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010028751293333343,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02245841138666667,
             "unit": "seconds"
           }
         ]
