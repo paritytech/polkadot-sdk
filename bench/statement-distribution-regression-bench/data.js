@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722297781482,
+  "lastUpdate": 1722341103265,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -6971,6 +6971,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038024580797999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Eres",
+            "username": "AndreiEres",
+            "email": "eresav@me.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "07544295e45faedbd2bd6f903b76653527e0b6cf",
+          "message": "[subsystem-benchmark] Update availability-distribution-regression-bench baseline after recent subsystem changes (#5180)",
+          "timestamp": "2024-07-30T08:54:48Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/07544295e45faedbd2bd6f903b76653527e0b6cf"
+        },
+        "date": 1722341072788,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.94,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.037384287506,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04677198309600002,
             "unit": "seconds"
           }
         ]
