@@ -78,11 +78,12 @@ fn spendings_creation_works() {
 			claimed: false,
 		};
 
+		// List of spendings actually created & stored 
 		let list0:Vec<_> = Spendings::<Test>::iter_keys().collect();
 		let list:Vec<_> = list0.into_iter().map(|x| Spendings::<Test>::get(x)).collect();
 		
 		expect_events(vec![
-			RuntimeEvent::Distribution(Event::SpendingCreated{
+		RuntimeEvent::Distribution(Event::SpendingCreated{
 			when: now.saturating_sub(1),
 			amount: list[0].clone().unwrap().amount,
 			project_account: list[0].clone().unwrap().whitelisted_project.unwrap(),
