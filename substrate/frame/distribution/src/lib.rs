@@ -99,7 +99,7 @@ pub mod pallet {
 		/// The funds transfer operation failed
 		TransferFailed,
 		/// Spending or spending index does not exists
-		InexistantSpending,
+		InexistentSpending,
 		/// No valid Account_id found
 		NoValidAccount,
 		/// No project available for funding
