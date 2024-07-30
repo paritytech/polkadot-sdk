@@ -88,12 +88,17 @@ impl DisconnectedState {
 pub struct DisconnectedPeers {
 	/// The state of disconnected peers.
 	disconnected_peers: LruMap<PeerId, DisconnectedState>,
+	/// Backoff duration in seconds.
+	backoff_seconds: u64,
 }
 
 impl DisconnectedPeers {
 	/// Create a new `DisconnectedPeers`.
 	pub fn new() -> Self {
-		Self { disconnected_peers: LruMap::new(ByLength::new(MAX_DISCONNECTED_PEERS_STATE)) }
+		Self {
+			disconnected_peers: LruMap::new(ByLength::new(MAX_DISCONNECTED_PEERS_STATE)),
+			backoff_seconds: DISCONNECTED_PEER_BACKOFF_SECONDS,
+		}
 	}
 
 	/// Insert a new peer to the persistent state if not seen before, or update the state if seen.
@@ -106,10 +111,10 @@ impl DisconnectedPeers {
 			let should_ban = state.num_disconnects() >= MAX_NUM_DISCONNECTS;
 			log::debug!(
 				target: LOG_TARGET,
-				"Remove known peer {peer} state: {state:?}, should ban: {should_ban}",
+				"Disconnected known peer {peer} state: {state:?}, should ban: {should_ban}",
 			);
 
-			return should_ban.then(|| {
+			should_ban.then(|| {
 				// We can lose track of the peer state and let the banning mechanism handle
 				// the peer backoff.
 				//
@@ -118,15 +123,15 @@ impl DisconnectedPeers {
 				self.disconnected_peers.remove(&peer);
 				BadPeer(peer, REPUTATION_REPORT)
 			})
+		} else {
+			log::debug!(
+				target: LOG_TARGET,
+				"Added peer {peer} for the first time"
+			);
+			// First time we see this peer.
+			self.disconnected_peers.insert(peer, DisconnectedState::new());
+			None
 		}
-
-		log::debug!(
-			target: LOG_TARGET,
-			"Added peer {peer} for the first time"
-		);
-		// First time we see this peer.
-		self.disconnected_peers.insert(peer, DisconnectedState::new());
-		None
 	}
 
 	/// Check if a peer is available for queries.
@@ -136,7 +141,7 @@ impl DisconnectedPeers {
 		};
 
 		let elapsed = state.last_disconnect().elapsed();
-		if elapsed.as_secs() >= DISCONNECTED_PEER_BACKOFF_SECONDS * state.num_disconnects {
+		if elapsed.as_secs() >= self.backoff_seconds * state.num_disconnects {
 			log::debug!(target: LOG_TARGET, "Peer {peer_id} is available for queries");
 			self.disconnected_peers.remove(peer_id);
 			true
@@ -160,11 +165,10 @@ mod tests {
 		// Is not part of the disconnected peers yet.
 		assert_eq!(state.is_peer_available(&peer), true);
 
-		assert!(state.on_disconnect(peer).is_none());
-		assert_eq!(state.is_peer_available(&peer), false);
-
-		assert!(state.on_disconnect(peer).is_none());
-		assert_eq!(state.is_peer_available(&peer), false);
+		for _ in 0..MAX_NUM_DISCONNECTS {
+			assert!(state.on_disconnect(peer).is_none());
+			assert_eq!(state.is_peer_available(&peer), false);
+		}
 
 		assert!(state.on_disconnect(peer).is_some());
 		// Peer is supposed to get banned and disconnected.
@@ -174,14 +178,18 @@ mod tests {
 
 	#[test]
 	fn ensure_backoff_time() {
-		let mut state = DisconnectedPeers::new();
+		const TEST_BACKOFF_SECONDS: u64 = 2;
+		let mut state = DisconnectedPeers {
+			disconnected_peers: LruMap::new(ByLength::new(1)),
+			backoff_seconds: TEST_BACKOFF_SECONDS,
+		};
 		let peer = PeerId::random();
 
 		assert!(state.on_disconnect(peer).is_none());
 		assert_eq!(state.is_peer_available(&peer), false);
 
 		// Wait until the backoff time has passed
-		std::thread::sleep(Duration::from_secs(DISCONNECTED_PEER_BACKOFF_SECONDS + 1));
+		std::thread::sleep(Duration::from_secs(TEST_BACKOFF_SECONDS + 1));
 
 		assert_eq!(state.is_peer_available(&peer), true);
 	}
