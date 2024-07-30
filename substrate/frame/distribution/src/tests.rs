@@ -108,3 +108,34 @@ fn spendings_creation_works() {
 
 	})
 }
+
+#[test]
+fn funds_are_locked() {
+	new_test_ext().execute_with( || {
+		// Add 3 projects
+		let amount1 = 1_000_000 * BSX;
+		let amount2 = 1_200_000 * BSX;
+		let amount3 = 2_000_000 * BSX;
+		create_project(ALICE, amount1);
+		create_project(BOB, amount2);
+		create_project(DAVE, amount3);
+
+		// The Spendings Storage should be empty
+		assert!(SpendingsCount::<Test>::get() == 0);
+		
+
+		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now = Epoch_Block + 1 
+		let mut now =
+			System::block_number().saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
+		run_to_block(now);
+
+		let total_on_hold = amount1.saturating_add(amount2).saturating_add(amount3);
+		let pot_account = Distribution::pot_account();
+		let hold = <<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
+			&HoldReason::FundsLock.into(),
+			&pot_account
+		);
+		assert_eq!(total_on_hold,hold);	
+		
+	})
+}
