@@ -40,10 +40,20 @@ pub trait AssetExchange {
 
 	/// Handler for quoting the exchange price of two assets.
 	///
-	/// - `asset1` The first asset.
-	/// - `asset2` The second asset.
-	/// - `maximal`: If `true`, then all of `asset1` should be used.
-	fn quote_exchange_price(_asset1: &Asset, _asset2: &Asset, _maximal: bool) -> Option<u128> {
+	/// It's useful before calling `exchange_asset`, to get some information on whether or not the
+	/// exchange will be successful.
+	///
+	/// Arguments:
+	/// - `give` The asset that is going to be given.
+	/// - `want` The asset that is wanted.
+	/// - `maximal`:
+	///	  - If `true`, then the return value is the resulting amount of `want` obtained by swapping `give`.
+	///   - If `false`, then the return value is the required amount of `give` needed to get `want`.
+	///
+	/// The relationship between this function and `exchange_asset` is the following:
+	/// - quote(give, want, maximal) = resulting_want -> exchange(give, resulting_want, maximal) ✅
+	/// - quote(give, want, minimal) = required_give -> exchange(required_give_amount, want, minimal) ✅
+	fn quote_exchange_price(_give: &Asset, _want: &Asset, _maximal: bool) -> Option<u128> {
 		None
 	}
 }
