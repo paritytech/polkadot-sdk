@@ -158,14 +158,14 @@ mod tests {
 	use std::time::Duration;
 
 	#[test]
-	fn test_persistent_peer_state() {
+	fn test_disconnected_peer_state() {
 		let mut state = DisconnectedPeers::new();
 		let peer = PeerId::random();
 
 		// Is not part of the disconnected peers yet.
 		assert_eq!(state.is_peer_available(&peer), true);
 
-		for _ in 0..MAX_NUM_DISCONNECTS {
+		for _ in 0..MAX_NUM_DISCONNECTS - 1 {
 			assert!(state.on_disconnect(peer).is_none());
 			assert_eq!(state.is_peer_available(&peer), false);
 		}
