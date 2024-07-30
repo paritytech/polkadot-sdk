@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722348623750,
+  "lastUpdate": 1722358129714,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -13347,6 +13347,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.123828412870237,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Gonçalo Pestana",
+            "username": "gpestana",
+            "email": "g6pestana@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "03c45b910331214c5b4f9cc88244b684e8a97e42",
+          "message": "pallet-timestamp: `UnixTime::now` implementation logs error only if called at genesis (#5055)\n\nThis PR reverts the removal of an [`if`\nstatement](https://github.com/paritytech/polkadot-sdk/commit/7ecf3f757a5d6f622309cea7f788e8a547a5dce8#diff-8bf31ba8d9ebd6377983fd7ecc7f4e41cb1478a600db1a15a578d1ae0e8ed435L370)\nmerged recently, which affected test output verbosity of several pallets\n(e.g. staking, EPM, and potentially others).\n\nMore generally, the `UnixTime::now` implementation of the timestamp\npallet should log an error *only* when called at the genesis block.",
+          "timestamp": "2024-07-30T15:03:02Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/03c45b910331214c5b4f9cc88244b684e8a97e42"
+        },
+        "date": 1722358098514,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 64049.840000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.909883033220358,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.909243906309957,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.399459323970008,
             "unit": "seconds"
           }
         ]
