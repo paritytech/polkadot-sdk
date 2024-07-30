@@ -49,6 +49,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-multisig/std",
 	"pallet-contracts/std",
+	"pallet-proxy/std",
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
@@ -61,6 +62,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-contracts/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
@@ -69,6 +71,7 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-contracts/try-runtime",
+	"pallet-proxy/try-runtime",
 	"sp-runtime/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-balances/try-runtime",

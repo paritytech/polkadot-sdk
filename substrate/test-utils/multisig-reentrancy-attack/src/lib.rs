@@ -23,11 +23,11 @@
 #[cfg(test)]
 mod tests;
 
-use frame_support::pallet;
-use pallet_multisig::Timepoint;
-pub use pallet::*;
+
 pub use pallet_multisig::{self as Multisig, Call as MultisigCall};
 pub use pallet_contracts::{self as Contracts, Call as ContractsCall};
+pub use pallet_proxy::{self as Proxy, Call as ProxyCall};
+pub use pallet_balances::{self as Balances, Call as BalancesCall};
 
 
 use frame_support::{
@@ -50,6 +50,11 @@ pub type Balance = u128;
 parameter_types! {
 	pub const ExistentialDeposit: Balance = 1_000_000_000;
 }
+
+// impl pallet_multisig::Config for Runtime {
+// 	type RuntimeEvent = RuntimeEvent;
+// 	type RuntimeCall = RuntimeCall;
+// }
 
 // construct_runtime!(
 // 	pub struct Runtime {
@@ -78,7 +83,7 @@ pub mod pallet {
 	<<T as Config>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_multisig::Config + pallet_balances::Config<Balance = BalanceOf<Self>> {
+	pub trait Config: frame_system::Config + pallet_proxy::Config + pallet_multisig::Config + pallet_balances::Config<Balance = BalanceOf<Self>> {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -107,10 +112,14 @@ pub mod pallet {
 		AlreadyApproved,
 	}
 
+
 	#[pallet::event]
 	pub enum Event<T: Config> {
 		AccountsCreated(T::AccountId, T::AccountId),
+		FundsReservered(T::AccountId, T::AccountId),
+		FundsUnreservered(T::AccountId, T::AccountId),
 	}
+
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
@@ -137,6 +146,11 @@ pub mod pallet {
                 call,
                 Weight::zero(),
             );
+
+			// pallet_balances
+
+
+			// Multisig::Pallet::<T>::operate();
 
 			// let account: T::AccountId = 2;
 
