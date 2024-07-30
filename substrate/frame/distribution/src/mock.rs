@@ -1,4 +1,4 @@
-use crate as pallet_treasury;
+use crate as pallet_distribution;
 pub use frame_support::{
 	derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU128, ConstU16, ConstU32, ConstU64},
@@ -8,15 +8,15 @@ pub use frame_system::{EnsureRoot, EnsureSigned, EventRecord, Phase};
 //pub use frame_support::traits::Hooks;
 pub use frame_support::traits::OnFinalize;
 pub use frame_support::traits::OnInitialize;
-pub use sp_core::H256;
+pub use sp_core::{H256,crypto::AccountId32};
 pub use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
-	AccountId32, BuildStorage,
+	 BuildStorage,
 };
 
-type Block = frame_system::mocking::MockBlock<Test>;
-type Balance = u128;
-type AccountId = AccountId32;
+pub type Block = frame_system::mocking::MockBlock<Test>;
+pub type Balance = u128;
+pub type AccountId = u64;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -42,7 +42,7 @@ impl frame_system::Config for Test {
 	type Nonce = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
-	type AccountId = AccountId32;
+	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
@@ -75,10 +75,6 @@ impl pallet_balances::Config for Test {
 }
 
 
-parameter_types! {
-	pub const PotId: PalletId = PalletId(*b"py/potid");
-	pub const MaxBalance: Balance = 500;
-}
 
 
 parameter_types! {
@@ -87,7 +83,7 @@ parameter_types! {
     pub const MaxProjects:u32 = 50;
     pub const EpochDurationBlocks:u32 = 5;
 }
-impl pallet_treasury::Config for Test {
+impl pallet_distribution::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type NativeBalance = Balances;
 	type PotId = PotId;
@@ -98,10 +94,10 @@ impl pallet_treasury::Config for Test {
 
 }
 //Define some accounts and use them
-pub const ALICE: AccountId = AccountId::new([10u8; 32]);
-pub const BOB: AccountId = AccountId::new([11u8; 32]);
-pub const DAVE: AccountId = AccountId::new([12u8; 32]);
-pub const EVE: AccountId = AccountId::new([13u8; 32]);
+pub const ALICE: AccountId = 10;
+pub const BOB: AccountId = 11;
+pub const DAVE: AccountId = 12;
+pub const EVE: AccountId = 13;
 pub const BSX: Balance = 100_000_000_000;
 
 pub fn expect_events(e: Vec<RuntimeEvent>) {
@@ -110,7 +106,7 @@ pub fn expect_events(e: Vec<RuntimeEvent>) {
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let treasury_account = TreasuryPalletId::get().into_account_truncating();
+	let pot_account = PotId::get().into_account_truncating();
 
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![
@@ -118,7 +114,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(BOB, 200_000 * BSX),
 			(DAVE, 150_000 * BSX),
 			(EVE, 150_000 * BSX),
-			(treasury_account, 150_000_000 * BSX),
+			(pot_account, 150_000_000 * BSX),
 		],
 	}
 	.assimilate_storage(&mut t)

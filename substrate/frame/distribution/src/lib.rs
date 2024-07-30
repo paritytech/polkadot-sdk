@@ -9,6 +9,12 @@ mod types;
 mod functions;
 pub use types::*;
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
@@ -79,13 +85,13 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// We usually use passive tense for events.
-		SomethingStored { something: u32, who: T::AccountId },
+		SomethingStored { something: u32, who: AccountIdOf<T> },
 
 		/// Reward successfully claimed
 		RewardClaimed {
 			when: BlockNumberFor<T>,
 			amount: BalanceOf<T>,
-			project_account: T::AccountId,
+			project_account: AccountIdOf<T>,
 		}
 		
 	}
@@ -126,7 +132,7 @@ pub mod pallet {
 
 		// ToDo: Add `claim_reward_for` 
 		#[pallet::call_index(0)]
-		pub fn  claim_reward_for(origin: OriginFor<T>, project_account:T::AccountId) -> DispatchResult {
+		pub fn  claim_reward_for(origin: OriginFor<T>, project_account:AccountIdOf<T>) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
 			let spending_indexes = Self::get_spending(project_account);
 			let pot = Self::pot_account();
@@ -156,7 +162,6 @@ pub mod pallet {
 					});
 
 					// Move completed spending to corresponding storage
-
 					CompletedSpendings::<T>::insert(i,info.clone()); 
 					Spendings::<T>::remove(i);
 

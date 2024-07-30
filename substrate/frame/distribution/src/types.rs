@@ -15,7 +15,7 @@ pub use sp_runtime::traits::{AccountIdConversion, Convert, StaticLookup, Zero};
 pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
-
+pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 /// A reward index.
 pub type SpendingIndex = u32;
 
@@ -43,7 +43,7 @@ pub struct SpendingInfo<T: Config> {
 	/// The status of the payout/claim.
 	pub status: SpendingState,
 	/// Corresponding project id
-	pub whitelisted_project: Option<T::AccountId>,
+	pub whitelisted_project: Option<AccountIdOf<T>>,
 	/// Has it been claimed?
 	pub claimed: bool,
 }
@@ -86,7 +86,7 @@ impl<T: Config> SpendingInfo<T> {
 #[scale_info(skip_type_params(T))]
 pub struct ProjectInfo<T: Config>  {
 	/// AcountId that will receive the payment.
-	pub project_account: T::AccountId,
+	pub project_account: AccountIdOf<T>,
 
 	/// Block at which the project was whitelisted
 	pub whitelisted_block: BlockNumberFor<T>,

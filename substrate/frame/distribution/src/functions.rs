@@ -2,14 +2,14 @@ pub use super::*;
 impl<T: Config> Pallet<T> {
 
 
-	pub fn pot_account() -> T::AccountId{
+	pub fn pot_account() -> AccountIdOf<T>{
 		// Get Pot account
 		let pot_id = T::PotId::get();
-		let pot_account: T::AccountId = pot_id.into_account_truncating();
+		let pot_account: AccountIdOf<T> = pot_id.into_account_truncating();
 		pot_account
 	}
 
-	pub fn get_spending(project_account: T::AccountId) -> Vec<SpendingIndex> {
+	pub fn get_spending(project_account: AccountIdOf<T>) -> Vec<SpendingIndex> {
 		let mut spendings: Vec<SpendingIndex>  = Vec::new();		
 		let value = Some(project_account);
 
@@ -28,7 +28,7 @@ impl<T: Config> Pallet<T> {
 	pub fn pot_check(amount: BalanceOf<T>) -> DispatchResult {
 		
 		// Get Pot account		
-		let pot_account: T::AccountId = Self::pot_account();
+		let pot_account: AccountIdOf<T> = Self::pot_account();
 
 		// Check that the Pot as enough funds for the transfer
         let balance = T::NativeBalance::balance(&pot_account);
@@ -44,12 +44,12 @@ impl<T: Config> Pallet<T> {
 	/// Funds transfer from the Pot to a project account
 	pub fn spending(
 		amount: BalanceOf<T>,
-		beneficiary: T::AccountId,
+		beneficiary: AccountIdOf<T>,
 		spending_index: u32,
 	) -> DispatchResult {
 
 		// Get Pot account
-		let pot_account: T::AccountId = Self::pot_account();
+		let pot_account: AccountIdOf<T> = Self::pot_account();
 
 		//Operate the transfer
 		let result = T::NativeBalance::transfer(
