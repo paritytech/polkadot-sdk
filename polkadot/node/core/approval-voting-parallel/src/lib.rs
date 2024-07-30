@@ -158,11 +158,15 @@ fn prio_right<'a>(_val: &'a mut ()) -> PollNext {
 	PollNext::Right
 }
 
+// It starts worker for the approval voting subsystem and the `APPROVAL_DISTRIBUTION_WORKER_COUNT`
+// workers for the approval distribution subsystem.
+//
+// It returns handles that can be used to send messages to the workers.
 #[overseer::contextbounds(ApprovalVotingParallel, prefix = self::overseer)]
-async fn run<Context>(
-	mut ctx: Context,
+async fn start_workers<Context>(
+	ctx: &mut Context,
 	subsystem: ApprovalVotingParallelSubsystem,
-) -> SubsystemResult<()>
+) -> SubsystemResult<(ToWorker<ApprovalVotingMessage>, Vec<ToWorker<ApprovalDistributionMessage>>)>
 where
 {
 	// Build approval voting handles.
@@ -171,7 +175,7 @@ where
 	let (tx_approval_voting_work_unbounded, rx_approval_voting_work_unbounded) =
 		unbounded::<FromOrchestra<ApprovalVotingMessage>>();
 
-	let mut to_approval_voting_worker =
+	let to_approval_voting_worker =
 		ToWorker(tx_approval_voting_work, tx_approval_voting_work_unbounded);
 
 	let prioritised = select_with_strategy(
@@ -183,11 +187,11 @@ where
 
 	gum::info!(target: LOG_TARGET, "Starting approval distribution workers");
 
-	let mut approval_distribution_channels = Vec::new();
+	let mut to_approval_distribution_workers = Vec::new();
 	let slot_duration_millis = subsystem.slot_duration_millis;
 
 	for i in 0..APPROVAL_DISTRIBUTION_WORKER_COUNT {
-		let approval_distro_orig =
+		let approval_distr_instance =
 			polkadot_approval_distribution::ApprovalDistribution::new_with_clock(
 				subsystem.metrics.0.clone(),
 				subsystem.slot_duration_millis,
@@ -239,7 +243,7 @@ where
 							break;
 						},
 					};
-					approval_distro_orig
+					approval_distr_instance
 						.handle_from_orchestra(
 							message,
 							&mut approval_distribution_to_approval_voting,
@@ -254,7 +258,7 @@ where
 				}
 			}),
 		);
-		approval_distribution_channels.push(to_approval_distribution_worker);
+		to_approval_distribution_workers.push(to_approval_distribution_worker);
 	}
 
 	gum::info!(target: LOG_TARGET, "Starting approval voting workers");
@@ -278,14 +282,50 @@ where
 	)
 	.await?;
 
+	Ok((to_approval_voting_worker, to_approval_distribution_workers))
+}
+
+// The main run function of the approval voting subsystem.
+#[overseer::contextbounds(ApprovalVotingParallel, prefix = self::overseer)]
+async fn run<Context>(
+	mut ctx: Context,
+	subsystem: ApprovalVotingParallelSubsystem,
+) -> SubsystemResult<()> {
+	let subsystem_enabled = subsystem.subsystem_enabled;
+
 	gum::info!(
 		target: LOG_TARGET,
-		subsystem_disabled = ?subsystem.subsystem_enabled,
+		subsystem_enabled,
+		"Starting workers"
+	);
+
+	let (to_approval_voting_worker, to_approval_distribution_workers) =
+		start_workers(&mut ctx, subsystem).await?;
+
+	gum::info!(
+		target: LOG_TARGET,
+		subsystem_enabled,
 		"Starting main subsystem loop"
 	);
 
 	// Main loop of the subsystem, it shouldn't include any logic just dispatching of messages to
 	// the workers.
+	run_main_loop(
+		ctx,
+		subsystem_enabled,
+		to_approval_voting_worker,
+		to_approval_distribution_workers,
+	)
+	.await
+}
+
+#[overseer::contextbounds(ApprovalVotingParallel, prefix = self::overseer)]
+async fn run_main_loop<Context>(
+	mut ctx: Context,
+	subsystem_enabled: bool,
+	mut to_approval_voting_worker: ToWorker<ApprovalVotingMessage>,
+	mut to_approval_distribution_workers: Vec<ToWorker<ApprovalDistributionMessage>>,
+) -> SubsystemResult<()> {
 	loop {
 		futures::select! {
 			next_msg = ctx.recv().fuse() => {
@@ -296,7 +336,7 @@ where
 						break;
 					}
 				};
-				if !subsystem.subsystem_enabled {
+				if !subsystem_enabled {
 					gum::trace!(target: LOG_TARGET, ?next_msg, "Parallel processing is not enabled skipping message");
 					continue;
 				}
@@ -304,7 +344,7 @@ where
 
 				match next_msg {
 					FromOrchestra::Signal(msg) => {
-						for worker in approval_distribution_channels.iter_mut() {
+						for worker in to_approval_distribution_workers.iter_mut() {
 							worker
 								.send_signal(msg.clone()).await?;
 						}
@@ -321,7 +361,7 @@ where
 						// Now the message the approval distribution subsystem would've handled and need to
 						// be forwarded to the workers.
 						ApprovalVotingParallelMessage::NewBlocks(msg) => {
-							for worker in approval_distribution_channels.iter_mut() {
+							for worker in to_approval_distribution_workers.iter_mut() {
 								worker
 									.send_message(
 										ApprovalDistributionMessage::NewBlocks(msg.clone()),
@@ -330,8 +370,8 @@ where
 							}
 						},
 						ApprovalVotingParallelMessage::DistributeAssignment(assignment, claimed) => {
-							let worker_index = assignment.validator.0 as usize % approval_distribution_channels.len();
-							let worker = approval_distribution_channels.get_mut(worker_index).expect("Worker index is obtained modulo len; qed");
+							let worker_index = assignment.validator.0 as usize % to_approval_distribution_workers.len();
+							let worker = to_approval_distribution_workers.get_mut(worker_index).expect("Worker index is obtained modulo len; qed");
 							worker
 								.send_message(
 									ApprovalDistributionMessage::DistributeAssignment(assignment, claimed)
@@ -340,8 +380,8 @@ where
 
 						},
 						ApprovalVotingParallelMessage::DistributeApproval(vote) => {
-							let worker_index = vote.validator.0 as usize % approval_distribution_channels.len();
-							let worker = approval_distribution_channels.get_mut(worker_index).expect("Worker index is obtained modulo len; qed");
+							let worker_index = vote.validator.0 as usize % to_approval_distribution_workers.len();
+							let worker = to_approval_distribution_workers.get_mut(worker_index).expect("Worker index is obtained modulo len; qed");
 							worker
 								.send_message(
 									ApprovalDistributionMessage::DistributeApproval(vote)
@@ -357,8 +397,8 @@ where
 								let (all_msgs_from_same_validator, messages_split_by_validator) = validator_index_for_msg(msg);
 
 								for (validator_index, msg) in all_msgs_from_same_validator.into_iter().chain(messages_split_by_validator.into_iter().flatten()) {
-									let worker_index = validator_index.0 as usize % approval_distribution_channels.len();
-									let worker = approval_distribution_channels.get_mut(worker_index).expect("Worker index is obtained modulo len; qed");
+									let worker_index = validator_index.0 as usize % to_approval_distribution_workers.len();
+									let worker = to_approval_distribution_workers.get_mut(worker_index).expect("Worker index is obtained modulo len; qed");
 
 									worker
 										.send_message(
@@ -370,7 +410,7 @@ where
 										).await;
 								}
 							} else {
-								for worker in approval_distribution_channels.iter_mut() {
+								for worker in to_approval_distribution_workers.iter_mut() {
 									worker
 										.send_message_with_priority::<overseer::HighPriority>(
 											ApprovalDistributionMessage::NetworkBridgeUpdate(msg.clone()),
@@ -381,7 +421,7 @@ where
 						ApprovalVotingParallelMessage::GetApprovalSignatures(indices, tx) => {
 							let mut sigs = HashMap::new();
 							let mut signatures_channels = Vec::new();
-							for worker in approval_distribution_channels.iter_mut() {
+							for worker in to_approval_distribution_workers.iter_mut() {
 								let (tx, rx) = oneshot::channel();
 								worker
 									.send_message(
@@ -413,7 +453,7 @@ where
 							}
 						},
 						ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag) => {
-							for worker in approval_distribution_channels.iter_mut() {
+							for worker in to_approval_distribution_workers.iter_mut() {
 								worker
 									.send_message(
 										ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag)
