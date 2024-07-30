@@ -36,12 +36,23 @@ use scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo,
 use sp_io::hashing::blake2_256;
 use sp_weights::Weight;
 
+/// Type to represent the version of the [Extension](TransactionExtension) used in this extrinsic.
+pub type ExtensionVersion = u8;
+/// Type to represent the extrinsic format version which defines an [UncheckedExtrinsic].
+pub type ExtrinsicVersion = u8;
+
 /// Current version of the [`UncheckedExtrinsic`] encoded format.
 ///
 /// This version needs to be bumped if the encoded representation changes.
 /// It ensures that if the representation is changed and the format is not known,
 /// the decoding fails.
-const EXTRINSIC_FORMAT_VERSION: u8 = 5;
+const EXTRINSIC_FORMAT_VERSION: ExtrinsicVersion = 5;
+/// Current version of the [Extension](TransactionExtension) used in this
+/// [extrinsic](UncheckedExtrinsic).
+///
+/// This version needs to be bumped if there are breaking changes to the extension used in the
+/// [UncheckedExtrinsic] implementation.
+const EXTENSION_VERSION: ExtensionVersion = 0;
 
 /// The `SignaturePayload` of `UncheckedExtrinsic`.
 type UncheckedSignaturePayload<Address, Signature, Extension> = (Address, Signature, Extension);
@@ -56,7 +67,7 @@ impl<Address: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> SignaturePaylo
 
 /// A "header" for extrinsics leading up to the call itself. Determines the type of extrinsic and
 /// holds any necessary specialized data.
-#[derive(Eq, PartialEq, Clone, Encode, Decode)]
+#[derive(Eq, PartialEq, Clone)]
 pub enum Preamble<Address, Signature, Extension> {
 	/// An extrinsic without a signature or any extension. This means it's either an inherent or
 	/// an old-school "Unsigned" (we don't use that terminology any more since it's confusable with
@@ -64,21 +75,135 @@ pub enum Preamble<Address, Signature, Extension> {
 	///
 	/// NOTE: In the future, once we remove `ValidateUnsigned`, this will only serve Inherent
 	/// extrinsics and thus can be renamed to `Inherent`.
-	#[codec(index = 0b00000100)]
 	Bare,
 	/// An old-school transaction extrinsic which includes a signature of some hard-coded crypto.
-	#[codec(index = 0b10000100)]
-	Signed(Address, Signature, Extension),
+	Signed(Address, Signature, ExtensionVersion, Extension, ExtrinsicVersion),
 	/// A new-school transaction extrinsic which does not include a signature.
-	#[codec(index = 0b01000100)]
-	General(Extension),
+	General(ExtensionVersion, Extension),
+}
+
+const VERSION_MASK: u8 = 0b0011_1111;
+const TYPE_MASK: u8 = 0b1100_0000;
+const BARE_EXTRINSIC: u8 = 0b0000_0000;
+const SIGNED_EXTRINSIC: u8 = 0b1000_0000;
+const GENERAL_EXTRINSIC: u8 = 0b0100_0000;
+
+const LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION: ExtrinsicVersion = 4;
+
+impl<Address, Signature, Extension> Decode for Preamble<Address, Signature, Extension>
+where
+	Address: Decode,
+	Signature: Decode,
+	Extension: Decode,
+{
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		let version_and_type = input.read_byte()?;
+
+		let version = version_and_type & VERSION_MASK;
+		let xt_type = version_and_type & TYPE_MASK;
+
+		let preamble = match (version, xt_type) {
+			(EXTRINSIC_FORMAT_VERSION, BARE_EXTRINSIC) |
+			(LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION, BARE_EXTRINSIC) => Self::Bare,
+			(LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION, SIGNED_EXTRINSIC) => {
+				let address = Address::decode(input)?;
+				let signature = Signature::decode(input)?;
+				let ext = Extension::decode(input)?;
+				Self::Signed(address, signature, 0, ext, version)
+			},
+			(EXTRINSIC_FORMAT_VERSION, SIGNED_EXTRINSIC) => {
+				let address = Address::decode(input)?;
+				let signature = Signature::decode(input)?;
+				let ext_version = ExtensionVersion::decode(input)?;
+				let ext = Extension::decode(input)?;
+				Self::Signed(address, signature, ext_version, ext, version)
+			},
+			(EXTRINSIC_FORMAT_VERSION, GENERAL_EXTRINSIC) => {
+				let ext_version = ExtensionVersion::decode(input)?;
+				let ext = Extension::decode(input)?;
+				Self::General(ext_version, ext)
+			},
+			(_, _) => return Err("Invalid transaction version".into()),
+		};
+
+		Ok(preamble)
+	}
+}
+
+impl<Address, Signature, Extension> Encode for Preamble<Address, Signature, Extension>
+where
+	Address: Encode,
+	Signature: Encode,
+	Extension: Encode,
+{
+	fn size_hint(&self) -> usize {
+		match &self {
+			Preamble::Bare => EXTRINSIC_FORMAT_VERSION.size_hint(),
+			Preamble::Signed(address, signature, ext_version, ext, EXTRINSIC_FORMAT_VERSION) =>
+				EXTRINSIC_FORMAT_VERSION.size_hint() +
+					address.size_hint() + signature.size_hint() +
+					ext_version.size_hint() +
+					ext.size_hint(),
+			Preamble::Signed(
+				address,
+				signature,
+				_,
+				ext,
+				LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION,
+			) =>
+				LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION.size_hint() +
+					address.size_hint() + signature.size_hint() +
+					ext.size_hint(),
+			Preamble::General(ext_version, ext) =>
+				EXTRINSIC_FORMAT_VERSION.size_hint() + ext_version.size_hint() + ext.size_hint(),
+			_ => {
+				// unreachable, versions are checked in the constructor
+				0
+			},
+		}
+	}
+
+	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
+		match &self {
+			Preamble::Bare => {
+				(EXTRINSIC_FORMAT_VERSION | BARE_EXTRINSIC).encode_to(dest);
+			},
+			Preamble::Signed(address, signature, ext_version, ext, EXTRINSIC_FORMAT_VERSION) => {
+				(EXTRINSIC_FORMAT_VERSION | SIGNED_EXTRINSIC).encode_to(dest);
+				address.encode_to(dest);
+				signature.encode_to(dest);
+				ext_version.encode_to(dest);
+				ext.encode_to(dest);
+			},
+			Preamble::Signed(
+				address,
+				signature,
+				_,
+				ext,
+				LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION,
+			) => {
+				(LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION | SIGNED_EXTRINSIC).encode_to(dest);
+				address.encode_to(dest);
+				signature.encode_to(dest);
+				ext.encode_to(dest);
+			},
+			Preamble::General(ext_version, ext) => {
+				(EXTRINSIC_FORMAT_VERSION | GENERAL_EXTRINSIC).encode_to(dest);
+				ext_version.encode_to(dest);
+				ext.encode_to(dest);
+			},
+			_ => {
+				// unreachable, versions are checked in the constructor
+			},
+		}
+	}
 }
 
 impl<Address, Signature, Extension> Preamble<Address, Signature, Extension> {
 	/// Returns `Some` if this is a signed extrinsic, together with the relevant inner fields.
 	pub fn to_signed(self) -> Option<(Address, Signature, Extension)> {
 		match self {
-			Self::Signed(a, s, e) => Some((a, s, e)),
+			Self::Signed(a, s, _, e, _) => Some((a, s, e)),
 			_ => None,
 		}
 	}
@@ -92,8 +217,10 @@ where
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Self::Bare => write!(f, "Bare"),
-			Self::Signed(address, _, tx_ext) => write!(f, "Signed({:?}, {:?})", address, tx_ext),
-			Self::General(tx_ext) => write!(f, "General({:?})", tx_ext),
+			Self::Signed(address, _, ext_version, tx_ext, _) =>
+				write!(f, "Signed({:?}, {:?}, {:?})", address, ext_version, tx_ext),
+			Self::General(ext_version, tx_ext) =>
+				write!(f, "General({:?}, {:?})", ext_version, tx_ext),
 		}
 	}
 }
@@ -200,12 +327,40 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 		signature: Signature,
 		tx_ext: Extension,
 	) -> Self {
-		Self { preamble: Preamble::Signed(signed, signature, tx_ext), function }
+		Self {
+			preamble: Preamble::Signed(
+				signed,
+				signature,
+				EXTENSION_VERSION,
+				tx_ext,
+				EXTRINSIC_FORMAT_VERSION,
+			),
+			function,
+		}
+	}
+
+	/// New instance of an old-school signed transaction on extrinsic format version 4.
+	pub fn new_signed_legacy(
+		function: Call,
+		signed: Address,
+		signature: Signature,
+		tx_ext: Extension,
+	) -> Self {
+		Self {
+			preamble: Preamble::Signed(
+				signed,
+				signature,
+				0,
+				tx_ext,
+				LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION,
+			),
+			function,
+		}
 	}
 
 	/// New instance of an new-school unsigned transaction.
 	pub fn new_transaction(function: Call, tx_ext: Extension) -> Self {
-		Self { preamble: Preamble::General(tx_ext), function }
+		Self { preamble: Preamble::General(EXTENSION_VERSION, tx_ext), function }
 	}
 }
 
@@ -254,17 +409,22 @@ where
 
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		Ok(match self.preamble {
-			Preamble::Signed(signed, signature, tx_ext) => {
+			Preamble::Signed(signed, signature, _, tx_ext, tx_version) => {
 				let signed = lookup.lookup(signed)?;
 				// The `Implicit` is "implicitly" included in the payload.
-				let raw_payload = SignedPayload::new(self.function, tx_ext)?;
+				let raw_payload = match tx_version {
+					0..=LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION =>
+						SignedPayload::new_legacy(self.function, tx_ext)?,
+					EXTRINSIC_FORMAT_VERSION => SignedPayload::new(self.function, tx_ext)?,
+					_ => return Err(InvalidTransaction::Future.into()),
+				};
 				if !raw_payload.using_encoded(|payload| signature.verify(payload, &signed)) {
 					return Err(InvalidTransaction::BadProof.into())
 				}
 				let (function, tx_ext, _) = raw_payload.deconstruct();
 				CheckedExtrinsic { format: ExtrinsicFormat::Signed(signed, tx_ext), function }
 			},
-			Preamble::General(tx_ext) => CheckedExtrinsic {
+			Preamble::General(_, tx_ext) => CheckedExtrinsic {
 				format: ExtrinsicFormat::General(tx_ext),
 				function: self.function,
 			},
@@ -279,14 +439,14 @@ where
 		lookup: &Lookup,
 	) -> Result<Self::Checked, TransactionValidityError> {
 		Ok(match self.preamble {
-			Preamble::Signed(signed, _, extra) => {
+			Preamble::Signed(signed, _, _, extra, _) => {
 				let signed = lookup.lookup(signed)?;
 				CheckedExtrinsic {
 					format: ExtrinsicFormat::Signed(signed, extra),
 					function: self.function,
 				}
 			},
-			Preamble::General(extra) => CheckedExtrinsic {
+			Preamble::General(_, extra) => CheckedExtrinsic {
 				format: ExtrinsicFormat::General(extra),
 				function: self.function,
 			},
@@ -311,7 +471,7 @@ impl<Address, Call, Signature, Extension: TransactionExtensionBase>
 	pub fn extension_weight(&self) -> Weight {
 		match &self.preamble {
 			Preamble::Bare => Weight::zero(),
-			Preamble::Signed(_, _, _) | Preamble::General(_) => Extension::weight(),
+			Preamble::Signed(_, _, _, _, _) | Preamble::General(_, _) => Extension::weight(),
 		}
 	}
 }
@@ -415,6 +575,7 @@ impl<'a, Address: Decode, Signature: Decode, Call: Decode, Extension: Decode> se
 /// actually contains.
 pub struct SignedPayload<Call: Dispatchable, Extension: TransactionExtensionBase>(
 	(Call, Extension, Extension::Implicit),
+	ExtrinsicVersion,
 );
 
 impl<Call, Extension> SignedPayload<Call, Extension>
@@ -428,12 +589,21 @@ where
 	pub fn new(call: Call, tx_ext: Extension) -> Result<Self, TransactionValidityError> {
 		let implicit = Extension::implicit(&tx_ext)?;
 		let raw_payload = (call, tx_ext, implicit);
-		Ok(Self(raw_payload))
+		Ok(Self(raw_payload, EXTRINSIC_FORMAT_VERSION))
+	}
+
+	/// Create new legacy `SignedPayload` for extrinsic format version 4.
+	///
+	/// This function may fail if `implicit` of `Extension` is not available.
+	pub fn new_legacy(call: Call, tx_ext: Extension) -> Result<Self, TransactionValidityError> {
+		let implicit = Extension::implicit(&tx_ext)?;
+		let raw_payload = (call, tx_ext, implicit);
+		Ok(Self(raw_payload, LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION))
 	}
 
 	/// Create new `SignedPayload` from raw components.
 	pub fn from_raw(call: Call, tx_ext: Extension, implicit: Extension::Implicit) -> Self {
-		Self((call, tx_ext, implicit))
+		Self((call, tx_ext, implicit), EXTRINSIC_FORMAT_VERSION)
 	}
 
 	/// Deconstruct the payload into it's components.
@@ -449,7 +619,17 @@ where
 {
 	/// Get an encoded version of this `blake2_256`-hashed payload.
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		self.0.using_encoded(|payload| f(&blake2_256(payload)[..]))
+		if self.1 <= LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION {
+			self.0.using_encoded(|payload| {
+				if payload.len() > 256 {
+					f(&blake2_256(payload)[..])
+				} else {
+					f(payload)
+				}
+			})
+		} else {
+			self.0.using_encoded(|payload| f(&blake2_256(payload)[..]))
+		}
 	}
 }
 
@@ -483,23 +663,23 @@ mod legacy {
 		build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter,
 	};
 
-	pub type OldUncheckedSignaturePayload<Address, Signature, Extra> = (Address, Signature, Extra);
+	pub type UncheckedSignaturePayloadV4<Address, Signature, Extra> = (Address, Signature, Extra);
 
 	#[derive(PartialEq, Eq, Clone, Debug)]
-	pub struct OldUncheckedExtrinsic<Address, Call, Signature, Extra> {
-		pub signature: Option<OldUncheckedSignaturePayload<Address, Signature, Extra>>,
+	pub struct UncheckedExtrinsicV4<Address, Call, Signature, Extra> {
+		pub signature: Option<UncheckedSignaturePayloadV4<Address, Signature, Extra>>,
 		pub function: Call,
 	}
 
 	impl<Address, Call, Signature, Extra> TypeInfo
-		for OldUncheckedExtrinsic<Address, Call, Signature, Extra>
+		for UncheckedExtrinsicV4<Address, Call, Signature, Extra>
 	where
 		Address: StaticTypeInfo,
 		Call: StaticTypeInfo,
 		Signature: StaticTypeInfo,
 		Extra: StaticTypeInfo,
 	{
-		type Identity = OldUncheckedExtrinsic<Address, Call, Signature, Extra>;
+		type Identity = UncheckedExtrinsicV4<Address, Call, Signature, Extra>;
 
 		fn type_info() -> Type {
 			Type::builder()
@@ -522,7 +702,7 @@ mod legacy {
 		}
 	}
 
-	impl<Address, Call, Signature, Extra> OldUncheckedExtrinsic<Address, Call, Signature, Extra> {
+	impl<Address, Call, Signature, Extra> UncheckedExtrinsicV4<Address, Call, Signature, Extra> {
 		pub fn new_signed(
 			function: Call,
 			signed: Address,
@@ -538,7 +718,7 @@ mod legacy {
 	}
 
 	impl<Address, Call, Signature, Extra> Decode
-		for OldUncheckedExtrinsic<Address, Call, Signature, Extra>
+		for UncheckedExtrinsicV4<Address, Call, Signature, Extra>
 	where
 		Address: Decode,
 		Signature: Decode,
@@ -579,7 +759,7 @@ mod legacy {
 
 	#[docify::export(unchecked_extrinsic_encode_impl)]
 	impl<Address, Call, Signature, Extra> Encode
-		for OldUncheckedExtrinsic<Address, Call, Signature, Extra>
+		for UncheckedExtrinsicV4<Address, Call, Signature, Extra>
 	where
 		Address: Encode,
 		Signature: Encode,
@@ -614,7 +794,7 @@ mod legacy {
 	}
 
 	impl<Address, Call, Signature, Extra> EncodeLike
-		for OldUncheckedExtrinsic<Address, Call, Signature, Extra>
+		for UncheckedExtrinsicV4<Address, Call, Signature, Extra>
 	where
 		Address: Encode,
 		Signature: Encode,
@@ -626,7 +806,7 @@ mod legacy {
 
 #[cfg(test)]
 mod tests {
-	use super::{legacy::OldUncheckedExtrinsic, *};
+	use super::{legacy::UncheckedExtrinsicV4, *};
 	use crate::{
 		codec::{Decode, Encode},
 		impl_tx_ext_default,
@@ -797,57 +977,94 @@ mod tests {
 	}
 
 	#[test]
-	fn legacy_signed_encode_decode() {
+	fn legacy_short_signed_encode_decode() {
 		let call: TestCall = vec![0u8; 0].into();
 		let signed = TEST_ACCOUNT;
-		let signature = TestSig(TEST_ACCOUNT, (vec![0u8; 0], DummyExtension).encode());
+		let payload = vec![0u8; 0];
+		let old_signature = TestSig(TEST_ACCOUNT, (payload.clone(), DummyExtension).encode());
+		let new_signature =
+			TestSig(TEST_ACCOUNT, blake2_256(&(&payload, DummyExtension).encode()[..]).to_vec());
 		let extension = DummyExtension;
 
-		let new_ux = Ex::new_signed(call.clone(), signed, signature.clone(), extension.clone());
 		let old_ux =
-			OldUncheckedExtrinsic::<TestAccountId, TestCall, TestSig, DummyExtension>::new_signed(
-				call, signed, signature, extension,
+			UncheckedExtrinsicV4::<TestAccountId, TestCall, TestSig, DummyExtension>::new_signed(
+				call.clone(),
+				signed,
+				old_signature.clone(),
+				extension.clone(),
 			);
 
-		let encoded_new_ux = new_ux.encode();
 		let encoded_old_ux = old_ux.encode();
+		let decoded_old_ux = Ex::decode(&mut &encoded_old_ux[..]).unwrap();
 
-		assert_eq!(encoded_new_ux, encoded_old_ux);
+		assert_eq!(decoded_old_ux.function, call);
+		assert_eq!(
+			decoded_old_ux.preamble,
+			Preamble::Signed(signed, old_signature.clone(), 0, extension.clone(), 4)
+		);
 
-		let decoded_new_ux = Ex::decode(&mut &encoded_new_ux[..]).unwrap();
-		let decoded_old_ux =
-			OldUncheckedExtrinsic::<TestAccountId, TestCall, TestSig, DummyExtension>::decode(
-				&mut &encoded_old_ux[..],
-			)
-			.unwrap();
+		let new_ux = Ex::new_signed(call.clone(), signed, new_signature.clone(), extension.clone());
 
-		assert_eq!(new_ux, decoded_new_ux);
-		assert_eq!(old_ux, decoded_old_ux);
+		let new_checked = new_ux.check(&IdentityLookup::<TestAccountId>::default()).unwrap();
+		let old_checked =
+			decoded_old_ux.check(&IdentityLookup::<TestAccountId>::default()).unwrap();
+		assert_eq!(new_checked, old_checked);
+	}
+
+	#[test]
+	fn legacy_long_signed_encode_decode() {
+		let call: TestCall = vec![0u8; 256].into();
+		let signed = TEST_ACCOUNT;
+		let payload = vec![0u8; 256];
+		let signature =
+			TestSig(TEST_ACCOUNT, blake2_256(&(&payload, DummyExtension).encode()[..]).to_vec());
+		let extension = DummyExtension;
+
+		let old_ux =
+			UncheckedExtrinsicV4::<TestAccountId, TestCall, TestSig, DummyExtension>::new_signed(
+				call.clone(),
+				signed,
+				signature.clone(),
+				extension.clone(),
+			);
+
+		let encoded_old_ux = old_ux.encode();
+		let decoded_old_ux = Ex::decode(&mut &encoded_old_ux[..]).unwrap();
+
+		assert_eq!(decoded_old_ux.function, call);
+		assert_eq!(
+			decoded_old_ux.preamble,
+			Preamble::Signed(signed, signature.clone(), 0, extension.clone(), 4)
+		);
+
+		let new_ux = Ex::new_signed(call.clone(), signed, signature.clone(), extension.clone());
+
+		let new_checked = new_ux.check(&IdentityLookup::<TestAccountId>::default()).unwrap();
+		let old_checked =
+			decoded_old_ux.check(&IdentityLookup::<TestAccountId>::default()).unwrap();
+		assert_eq!(new_checked, old_checked);
 	}
 
 	#[test]
 	fn legacy_unsigned_encode_decode() {
 		let call: TestCall = vec![0u8; 0].into();
 
-		let new_ux = Ex::new_bare(call.clone());
 		let old_ux =
-			OldUncheckedExtrinsic::<TestAccountId, TestCall, TestSig, DummyExtension>::new_unsigned(
-				call,
+			UncheckedExtrinsicV4::<TestAccountId, TestCall, TestSig, DummyExtension>::new_unsigned(
+				call.clone(),
 			);
 
-		let encoded_new_ux = new_ux.encode();
 		let encoded_old_ux = old_ux.encode();
+		let decoded_old_ux = Ex::decode(&mut &encoded_old_ux[..]).unwrap();
 
-		assert_eq!(encoded_new_ux, encoded_old_ux);
+		assert_eq!(decoded_old_ux.function, call);
+		assert_eq!(decoded_old_ux.preamble, Preamble::Bare);
 
-		let decoded_new_ux = Ex::decode(&mut &encoded_new_ux[..]).unwrap();
-		let decoded_old_ux =
-			OldUncheckedExtrinsic::<TestAccountId, TestCall, TestSig, DummyExtension>::decode(
-				&mut &encoded_old_ux[..],
-			)
-			.unwrap();
+		let new_ux = Ex::new_bare(call.clone());
 
-		assert_eq!(new_ux, decoded_new_ux);
-		assert_eq!(old_ux, decoded_old_ux);
+		let new_checked = new_ux.check(&IdentityLookup::<TestAccountId>::default()).unwrap();
+		let old_checked =
+			decoded_old_ux.check(&IdentityLookup::<TestAccountId>::default()).unwrap();
+		assert_eq!(new_checked, old_checked);
 	}
 }
