@@ -41,14 +41,18 @@ mod tests {
 	};
 	use std::{
 		io::{BufRead, BufReader},
+		path::Path,
 		process,
 	};
 
 	const RUNTIME_PATH: &'static str =
-		"../../../../target/release/wbuild/minimal-template-runtime/minimal_template_runtime.wasm";
+		"target/release/wbuild/minimal-template-runtime/minimal_template_runtime.wasm";
+	const CHAIN_SPEC_BUILDER: &'static str = "target/release/chain-spec-builder";
+	const DEV_OMNI_NODE: &'static str = "target/release/dev-omni-node";
 
 	fn maybe_build_runtime() {
-		if !std::path::Path::new(RUNTIME_PATH).exists() {
+		if !Path::new(RUNTIME_PATH).exists() {
+			println!("Building runtime...");
 			assert_cmd::Command::new("cargo")
 				.arg("build")
 				.arg("--release")
@@ -57,6 +61,37 @@ mod tests {
 				.assert()
 				.success();
 		}
+		assert!(Path::new(RUNTIME_PATH).exists(), "runtime must now exist!");
+	}
+
+	fn maybe_build_chain_spec_builder() {
+		// build chain-spec-builder if it does not exist
+		if !Path::new(CHAIN_SPEC_BUILDER).exists() {
+			println!("Building chain-spec-builder...");
+			assert_cmd::Command::new("cargo")
+				.arg("build")
+				.arg("--release")
+				.arg("-p")
+				.arg("staging-chain-spec-builder")
+				.assert()
+				.success();
+		}
+		assert!(Path::new(CHAIN_SPEC_BUILDER).exists(), "chain-spec-builder must now exist!");
+	}
+
+	fn maybe_build_dev_omni_node() {
+		// build dev-omni-node if it does not exist
+		if !Path::new(DEV_OMNI_NODE).exists() {
+			println!("Building dev-omni-node...");
+			assert_cmd::Command::new("cargo")
+				.arg("build")
+				.arg("--release")
+				.arg("-p")
+				.arg("dev-omni-node")
+				.assert()
+				.success();
+		}
+		assert!(Path::new(DEV_OMNI_NODE).exists(), "dev-omni-node must now exist!");
 	}
 
 	fn ensure_node_process_works(node_cmd: &mut process::Command) {
@@ -77,11 +112,18 @@ mod tests {
 	}
 
 	#[test]
-	// #[ignore = "ignore for now"]
+	#[ignore = "is flaky"]
 	fn run_omni_node_with_chain_spec() {
-		maybe_build_runtime();
+		// set working directory to project root, 4 parents
+		std::env::set_current_dir(std::env::current_dir().unwrap().join("../../../..")).unwrap();
+		// last segment of cwd must now be `polkadot-sdk`
+		assert!(std::env::current_dir().unwrap().ends_with("polkadot-sdk"));
 
-		process::Command::new(assert_cmd::cargo::cargo_bin("chain-spec-builder"))
+		maybe_build_runtime();
+		maybe_build_chain_spec_builder();
+		maybe_build_dev_omni_node();
+
+		process::Command::new(CHAIN_SPEC_BUILDER)
 			.arg("create")
 			.args(["-r", RUNTIME_PATH])
 			.arg("default")
@@ -92,13 +134,10 @@ mod tests {
 		// join current dir and chain_spec.json
 		let chain_spec_file = std::env::current_dir().unwrap().join("chain_spec.json");
 
-		let mut binding =
-			process::Command::new(assert_cmd::cargo::cargo_bin(env!("CARGO_PKG_NAME")));
+		let mut binding = process::Command::new(DEV_OMNI_NODE);
 		let node_cmd = &mut binding
 			.arg("--tmp")
 			.args(["--chain", chain_spec_file.to_str().unwrap()])
-			.args(["-l", "runtime=debug"])
-			.args(["--consensus", "manual-seal-1000"])
 			.stderr(process::Stdio::piped());
 
 		ensure_node_process_works(node_cmd);
@@ -108,16 +147,15 @@ mod tests {
 	}
 
 	#[test]
-	#[ignore = "ignore for now"]
+	#[ignore = "is flaky"]
 	fn run_omni_node_with_runtime() {
 		maybe_build_runtime();
-		let mut binding =
-			process::Command::new(assert_cmd::cargo::cargo_bin(env!("CARGO_PKG_NAME")));
+		maybe_build_dev_omni_node();
+
+		let mut binding = process::Command::new(DEV_OMNI_NODE);
 		let node_cmd = binding
 			.arg("--tmp")
-			.args(["--chain", RUNTIME_PATH])
-			.args(["-l", "runtime=debug"])
-			.args(["--consensus", "manual-seal-1000"])
+			.args(["--runtime", RUNTIME_PATH])
 			.stderr(process::Stdio::piped());
 
 		ensure_node_process_works(node_cmd);

@@ -41,6 +41,9 @@ use frame::{
 	},
 };
 
+pub type Block = frame::runtime::types_common::BlockOf<Runtime, SignedExtra>;
+pub type Header = HeaderFor<Runtime>;
+pub type OpaqueBlock = frame::runtime::types_common::OpaqueBlock;
 pub type AccountId = <Runtime as frame_system::Config>::AccountId;
 pub type Nonce = <Runtime as frame_system::Config>::Nonce;
 pub type Hash = <Runtime as frame_system::Config>::Hash;
@@ -190,9 +193,6 @@ impl pallet_transaction_payment::Config for Runtime {
 
 // Implements the types required for the template pallet.
 impl pallet_minimal_template::Config for Runtime {}
-
-type Block = frame::runtime::types_common::BlockOf<Runtime, SignedExtra>;
-type Header = HeaderFor<Runtime>;
 
 type RuntimeExecutive =
 	Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
