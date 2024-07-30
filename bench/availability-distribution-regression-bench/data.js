@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722348922517,
+  "lastUpdate": 1722358319605,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -20487,6 +20487,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02245841138666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Gonçalo Pestana",
+            "username": "gpestana",
+            "email": "g6pestana@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "03c45b910331214c5b4f9cc88244b684e8a97e42",
+          "message": "pallet-timestamp: `UnixTime::now` implementation logs error only if called at genesis (#5055)\n\nThis PR reverts the removal of an [`if`\nstatement](https://github.com/paritytech/polkadot-sdk/commit/7ecf3f757a5d6f622309cea7f788e8a547a5dce8#diff-8bf31ba8d9ebd6377983fd7ecc7f4e41cb1478a600db1a15a578d1ae0e8ed435L370)\nmerged recently, which affected test output verbosity of several pallets\n(e.g. staking, EPM, and potentially others).\n\nMore generally, the `UnixTime::now` implementation of the timestamp\npallet should log an error *only* when called at the genesis block.",
+          "timestamp": "2024-07-30T15:03:02Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/03c45b910331214c5b4f9cc88244b684e8a97e42"
+        },
+        "date": 1722358288410,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.012223381673333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022876643326666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.18538184301333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014684459520000002,
             "unit": "seconds"
           }
         ]
