@@ -894,8 +894,9 @@ pub mod pallet {
 		/// - `origin`: Must be the sovereign account of the task
 		/// - `core`: The core to which the task to be renewed is currently assigned.
 		/// - `task`: The task for which we want to enable auto renewal.
-		/// - `workload_end_hint` parameter should be used when enabling auto-renewal for
-		/// the core which holds a legacy lease, as it would be inefficient to look it up otherwise.
+		/// - `workload_end_hint`: should be used when enabling auto-renewal for a core that is not
+		///   expiring in the upcoming bulk period (e.g., due to holding a lease) since it would be
+		///   inefficient to look up when the core expires to schedule the next renewal.
 		#[pallet::call_index(21)]
 		#[pallet::weight(T::WeightInfo::enable_auto_renew())]
 		pub fn enable_auto_renew(
