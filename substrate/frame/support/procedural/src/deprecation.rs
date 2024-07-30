@@ -163,7 +163,7 @@ pub fn get_deprecation_enum<'a>(
 pub fn variant_index_for_deprecation(index: u8, item: &Variant) -> u8 {
 	let index: u8 =
 		if let Some((_, Expr::Lit(ExprLit { lit: Lit::Int(num_lit), .. }))) = &item.discriminant {
-			num_lit.base10_parse::<u8>().map(|val| val).unwrap_or(index as u8)
+			num_lit.base10_parse::<u8>().unwrap_or(index as u8)
 		} else {
 			index as u8
 		};
