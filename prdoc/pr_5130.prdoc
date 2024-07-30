@@ -26,6 +26,14 @@ doc:
 
       Also, a new method was added to the `xcm_executor::traits::AssetExchange` trait:
       `quote_exchange_price`. This is used to get the exchange price between two assets.
-      This is a breaking change. If you have implemented the trait, you must add the new method.
+      This is NOT a breaking change since it has a default implementation that just doesn't do anything.
 
-crates: [ ]
+crates:
+  - name: staging-xcm-executor
+    bump: minor
+  - name: staging-xcm-builder
+    bump: minor
+  - name: pallet-asset-conversion
+    bump: minor
+  - name: cumulus-primitives-utility
+    bump: minor

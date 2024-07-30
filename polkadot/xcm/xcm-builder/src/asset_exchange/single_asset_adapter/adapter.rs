@@ -36,7 +36,7 @@ use xcm_executor::{
 ///
 /// This adapter also only works for fungible assets.
 ///
-/// `exchange_asset` will return an error if there's more than one asset in `want`.
+/// `exchange_asset` will return an error if there's more than one asset in `give` or `want`.
 pub struct SingleAssetExchangeAdapter<AssetConversion, Fungibles, Matcher, AccountId>(
 	PhantomData<(AssetConversion, Fungibles, Matcher, AccountId)>,
 );
@@ -69,7 +69,7 @@ where
 		ensure!(give_iter.next().is_none(), give.clone()); // We only support 1 asset in `give`.
 		ensure!(give.non_fungible_assets_iter().next().is_none(), give.clone()); // We don't allow non-fungible assets.
 		ensure!(want.len() == 1, give.clone()); // We only support 1 asset in `want`.
-		let want_asset = want.get(0).ok_or(give.clone())?;
+		let want_asset = want.get(0).ok_or_else(|| give.clone())?;
 		let (give_asset_id, give_amount) =
 			Matcher::matches_fungibles(&give_asset).map_err(|error| {
 				log::trace!(
