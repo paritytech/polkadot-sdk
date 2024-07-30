@@ -41,7 +41,7 @@ jobs:
         run: |
           git config --global user.name "Template Bot"
           git config --global user.email "163342540+paritytech-polkadotsdk-templatebot[bot]@users.noreply.github.com"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           path: polkadot-sdk
           ref: "release-crates-io-v${{ github.event.inputs.crate_release_version }}"
@@ -53,7 +53,7 @@ jobs:
           repositories: "polkadot-sdk-${{ matrix.template }}-template"
           app-id: ${{ secrets.TEMPLATE_APP_ID }}
           private-key: ${{ secrets.TEMPLATE_APP_KEY }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           repository: "paritytech/polkadot-sdk-${{ matrix.template }}-template"
           path: "${{ env.template-path }}"
