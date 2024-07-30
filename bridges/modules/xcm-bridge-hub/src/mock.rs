@@ -27,7 +27,7 @@ use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager};
 use codec::Encode;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
-	traits::{EnsureOrigin, Everything, NeverEnsureOrigin, OriginTrait},
+	traits::{EnsureOrigin, Equals, Everything, NeverEnsureOrigin, OriginTrait},
 	weights::RuntimeDbWeight,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
@@ -197,6 +197,7 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type BridgeDeposit = BridgeDeposit;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type AllowWithoutBridgeDeposit = Equals<ParentRelayChainLocation>;
 
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
@@ -315,6 +316,9 @@ pub type LocationToAccountId = (
 	SiblingParachainConvertsVia<Sibling, AccountId>,
 );
 
+parameter_types! {
+	pub ParentRelayChainLocation: Location = Location { parents: 1, interior: Here };
+}
 pub struct OpenBridgeOrigin;
 
 impl OpenBridgeOrigin {
@@ -351,7 +355,7 @@ impl EnsureOrigin<RuntimeOrigin> for OpenBridgeOrigin {
 	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
 		let signer = o.clone().into_signer();
 		if signer == Self::parent_relay_chain_origin().into_signer() {
-			return Ok(Location { parents: 1, interior: Here })
+			return Ok(ParentRelayChainLocation::get())
 		} else if signer == Self::parent_relay_chain_universal_origin().into_signer() {
 			return Ok(Location {
 				parents: 2,
