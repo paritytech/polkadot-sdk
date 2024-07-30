@@ -73,7 +73,4 @@ try-runtime = [
 	"pallet-bridge-grandpa/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-test-helpers = [
-	"bp-runtime/test-helpers",
-	"sp-trie",
-]
+test-helpers = ["bp-runtime/test-helpers", "sp-trie"]

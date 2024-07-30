@@ -2365,7 +2365,6 @@ dependencies = [
  "bp-runtime",
  "bp-test-utils",
  "bp-xcm-bridge-hub",
- "bp-xcm-bridge-hub-router",
  "frame-support",
  "frame-system",
  "log",
@@ -2384,7 +2383,6 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-trie",
  "staging-xcm",
- "staging-xcm-builder",
  "static_assertions",
  "tuplex",
 ]
