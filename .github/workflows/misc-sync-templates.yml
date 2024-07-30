@@ -18,9 +18,6 @@ on:
   # A manual dispatch for now - automatic on releases later.
   workflow_dispatch:
     inputs:
-      crate_release_version:
-        description: 'A release version to use, e.g. 1.9.0'
-        required: true
       stable_release_branch:
         description: 'Stable release branch, e.g. stable2407'
         required: true
@@ -125,7 +122,7 @@ jobs:
           cp -r polkadot-sdk/templates/${{ matrix.template }}/* "${{ env.template-path }}/"
 
       - name: Run psvm on monorepo workspace dependencies
-        run: psvm -o -v ${{ github.event.inputs.crate_release_version }} -p ./Cargo.toml
+        run: psvm -o -v ${{ github.event.inputs.stable_release_branch }} -p ./Cargo.toml
         working-directory: polkadot-sdk/
       - name: Copy over required workspace dependencies
         run: |
@@ -166,12 +163,12 @@ jobs:
           token: ${{ steps.app_token.outputs.token }}
           add-paths: |
             ./*
-          title: "[Don't merge] Update the ${{ matrix.template }} template to ${{ github.event.inputs.crate_release_version }}"
+          title: "[Don't merge] Update the ${{ matrix.template }} template to ${{ github.event.inputs.stable_release_branch }}"
           body: "The template has NOT been successfully built and needs to be inspected."
-          branch: "update-template/${{ github.event.inputs.crate_release_version }}"
+          branch: "update-template/${{ github.event.inputs.stable_release_branch }}"
       - name: Push changes
         run: |
           git add -A .
-          git commit --allow-empty -m "Update to ${{ github.event.inputs.crate_release_version }} triggered by ${{ github.event_name }}"
+          git commit --allow-empty -m "Update to ${{ github.event.inputs.stable_release_branch }} triggered by ${{ github.event_name }}"
           git push
         working-directory: "${{ env.template-path }}"
