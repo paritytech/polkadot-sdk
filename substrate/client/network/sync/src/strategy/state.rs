@@ -21,7 +21,7 @@
 use crate::{
 	schema::v1::StateResponse,
 	strategy::{
-		persistent_peer_state::PersistentPeersState,
+		disconnected_peers::DisconnectedPeers,
 		state_sync::{ImportResult, StateSync, StateSyncProvider},
 	},
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
@@ -81,7 +81,7 @@ struct Peer<B: BlockT> {
 pub struct StateStrategy<B: BlockT> {
 	state_sync: Box<dyn StateSyncProvider<B>>,
 	peers: HashMap<PeerId, Peer<B>>,
-	persistent_peers: PersistentPeersState,
+	disconnected_peers: DisconnectedPeers,
 	actions: Vec<StateStrategyAction<B>>,
 	succeeded: bool,
 }
@@ -113,7 +113,7 @@ impl<B: BlockT> StateStrategy<B> {
 				skip_proof,
 			)),
 			peers,
-			persistent_peers: PersistentPeersState::new(),
+			disconnected_peers: DisconnectedPeers::new(),
 			actions: Vec::new(),
 			succeeded: false,
 		}
@@ -133,7 +133,7 @@ impl<B: BlockT> StateStrategy<B> {
 					(peer_id, Peer { best_number, state: PeerState::Available })
 				})
 				.collect(),
-			persistent_peers: PersistentPeersState::new(),
+			disconnected_peers: DisconnectedPeers::new(),
 			actions: Vec::new(),
 			succeeded: false,
 		}
@@ -148,7 +148,7 @@ impl<B: BlockT> StateStrategy<B> {
 	pub fn remove_peer(&mut self, peer_id: &PeerId) {
 		if let Some(state) = self.peers.remove(peer_id) {
 			if !state.state.is_available() {
-				if let Some(bad_peer) = self.persistent_peers.remove_peer(*peer_id) {
+				if let Some(bad_peer) = self.disconnected_peers.remove_peer(*peer_id) {
 					self.actions.push(StateStrategyAction::DropPeer(bad_peer));
 				}
 			}
@@ -319,7 +319,7 @@ impl<B: BlockT> StateStrategy<B> {
 		for (peer_id, peer) in self.peers.iter_mut() {
 			if peer.state.is_available() &&
 				peer.best_number >= threshold &&
-				self.persistent_peers.is_peer_available(peer_id)
+				self.disconnected_peers.is_peer_available(peer_id)
 			{
 				peer.state = new_state;
 				return Some(*peer_id)
@@ -513,7 +513,7 @@ mod test {
 		state_strategy.remove_peer(&tenth_peer);
 		state_strategy.remove_peer(&tenth_peer);
 		state_strategy.remove_peer(&tenth_peer);
-		assert!(state_strategy.persistent_peers.is_peer_available(&tenth_peer));
+		assert!(state_strategy.disconnected_peers.is_peer_available(&tenth_peer));
 
 		// Disconnect the peer with an inflight request.
 		state_strategy.add_peer(tenth_peer, H256::random(), 10);
@@ -523,7 +523,7 @@ mod test {
 		state_strategy.remove_peer(&tenth_peer);
 
 		// Peer is backed off.
-		assert!(!state_strategy.persistent_peers.is_peer_available(&tenth_peer));
+		assert!(!state_strategy.disconnected_peers.is_peer_available(&tenth_peer));
 
 		// No peer available for 10'th best block because of the backoff.
 		state_strategy.add_peer(tenth_peer, H256::random(), 10);

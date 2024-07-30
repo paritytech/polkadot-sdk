@@ -21,7 +21,7 @@
 pub use sp_consensus_grandpa::{AuthorityList, SetId};
 
 use crate::{
-	strategy::{chain_sync::validate_blocks, persistent_peer_state::PersistentPeersState},
+	strategy::{chain_sync::validate_blocks, disconnected_peers::DisconnectedPeers},
 	types::{BadPeer, SyncState, SyncStatus},
 	LOG_TARGET,
 };
@@ -240,7 +240,7 @@ pub struct WarpSync<B: BlockT, Client> {
 	total_proof_bytes: u64,
 	total_state_bytes: u64,
 	peers: HashMap<PeerId, Peer<B>>,
-	persistent_peers: PersistentPeersState,
+	disconnected_peers: DisconnectedPeers,
 	actions: Vec<WarpSyncAction<B>>,
 	result: Option<WarpSyncResult<B>>,
 }
@@ -265,7 +265,7 @@ where
 				total_proof_bytes: 0,
 				total_state_bytes: 0,
 				peers: HashMap::new(),
-				persistent_peers: PersistentPeersState::new(),
+				disconnected_peers: DisconnectedPeers::new(),
 				actions: vec![WarpSyncAction::Finished],
 				result: None,
 			}
@@ -283,7 +283,7 @@ where
 			total_proof_bytes: 0,
 			total_state_bytes: 0,
 			peers: HashMap::new(),
-			persistent_peers: PersistentPeersState::new(),
+			disconnected_peers: DisconnectedPeers::new(),
 			actions: Vec::new(),
 			result: None,
 		}
@@ -314,7 +314,7 @@ where
 	pub fn remove_peer(&mut self, peer_id: &PeerId) {
 		if let Some(state) = self.peers.remove(peer_id) {
 			if !state.state.is_available() {
-				if let Some(bad_peer) = self.persistent_peers.remove_peer(*peer_id) {
+				if let Some(bad_peer) = self.disconnected_peers.remove_peer(*peer_id) {
 					self.actions.push(WarpSyncAction::DropPeer(bad_peer));
 				}
 			}
@@ -501,7 +501,7 @@ where
 		for (peer_id, peer) in self.peers.iter_mut() {
 			if peer.state.is_available() &&
 				peer.best_number >= threshold &&
-				self.persistent_peers.is_peer_available(peer_id)
+				self.disconnected_peers.is_peer_available(peer_id)
 			{
 				peer.state = new_state;
 				return Some(*peer_id)
@@ -897,7 +897,7 @@ mod test {
 		warp_sync.remove_peer(&tenth_peer);
 		warp_sync.remove_peer(&tenth_peer);
 		warp_sync.remove_peer(&tenth_peer);
-		assert!(warp_sync.persistent_peers.is_peer_available(&tenth_peer));
+		assert!(warp_sync.disconnected_peers.is_peer_available(&tenth_peer));
 
 		warp_sync.add_peer(tenth_peer, H256::random(), 10);
 		let peer_id = warp_sync.schedule_next_peer(PeerState::DownloadingProofs, Some(10));
@@ -905,7 +905,7 @@ mod test {
 		warp_sync.remove_peer(&tenth_peer);
 
 		// Peer is backed off.
-		assert!(!warp_sync.persistent_peers.is_peer_available(&tenth_peer));
+		assert!(!warp_sync.disconnected_peers.is_peer_available(&tenth_peer));
 
 		// No peer available for 10'th best block because of the backoff.
 		warp_sync.add_peer(tenth_peer, H256::random(), 10);

@@ -43,9 +43,13 @@ const DISCONNECTED_PEER_BACKOFF_SECONDS: u64 = 60;
 /// Maximum number of disconnects with a request in flight before a peer is banned.
 const MAX_NUM_DISCONNECTS: u64 = 3;
 
-/// Peer is slow to respond.
-pub const SLOW_PEER: Rep = Rep::new_fatal("Slow peer after backoffs");
+/// Peer disconnected with a request in flight after backoffs.
+///
+/// The peer may be slow to respond to the request after backoffs, or it refuses to respond.
+/// Report the peer and let the reputation system handle disconnecting the peer.
+pub const REPUTATION_REPORT: Rep = Rep::new_fatal("Peer disconnected with inflight after backoffs");
 
+/// The state of a disconnected peer with a request in flight.
 #[derive(Debug)]
 struct DisconnectedState {
 	/// The total number of disconnects.
@@ -77,13 +81,17 @@ impl DisconnectedState {
 	}
 }
 
-pub struct PersistentPeersState {
+/// Tracks the state of disconnected peers with a request in flight.
+///
+/// This helps to prevent submitting requests to peers that have disconnected
+/// before responding to the request to offload the peer.
+pub struct DisconnectedPeers {
 	/// The state of disconnected peers.
 	disconnected_peers: LruMap<PeerId, DisconnectedState>,
 }
 
-impl PersistentPeersState {
-	/// Create a new `PersistentPeersState`.
+impl DisconnectedPeers {
+	/// Create a new `DisconnectedPeers`.
 	pub fn new() -> Self {
 		Self { disconnected_peers: LruMap::new(ByLength::new(MAX_DISCONNECTED_PEERS_STATE)) }
 	}
@@ -102,13 +110,13 @@ impl PersistentPeersState {
 			);
 
 			return should_ban.then(|| {
-				// The peer is banned from the peerstore. We can lose track of the peer state
-				// and let the banning mechanism handle the peer backoff.
+				// We can lose track of the peer state and let the banning mechanism handle
+				// the peer backoff.
 				//
 				// After the peer banning expires, if the peer continues to misbehave, it will be
 				// backed off again.
 				self.disconnected_peers.remove(&peer);
-				BadPeer(peer, SLOW_PEER)
+				BadPeer(peer, REPUTATION_REPORT)
 			})
 		}
 
@@ -124,7 +132,6 @@ impl PersistentPeersState {
 	/// Check if a peer is available for queries.
 	pub fn is_peer_available(&mut self, peer_id: &PeerId) -> bool {
 		let Some(state) = self.disconnected_peers.get(peer_id) else {
-			log::debug!(target: LOG_TARGET,"Peer {peer_id} is not in the disconnected peers state");
 			return true;
 		};
 
@@ -147,7 +154,7 @@ mod tests {
 
 	#[test]
 	fn test_persistent_peer_state() {
-		let mut state = PersistentPeersState::new();
+		let mut state = DisconnectedPeers::new();
 		let peer = PeerId::random();
 
 		// Is not part of the disconnected peers yet.
@@ -167,7 +174,7 @@ mod tests {
 
 	#[test]
 	fn ensure_backoff_time() {
-		let mut state = PersistentPeersState::new();
+		let mut state = DisconnectedPeers::new();
 		let peer = PeerId::random();
 
 		assert!(state.remove_peer(peer).is_none());
