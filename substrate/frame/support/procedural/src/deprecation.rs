@@ -19,7 +19,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
 	punctuated::Punctuated, spanned::Spanned, Error, Expr, ExprLit, Lit, Meta, MetaNameValue,
-	Result, Token,
+	Result, Token, Variant,
 };
 fn deprecation_msg_formatter(msg: &str) -> String {
 	format!(
@@ -153,4 +153,46 @@ pub fn get_deprecation_enum<'a>(
 			Err(Error::new(span, "Invalid deprecation usage. Either deprecate variants/call indexes or the type as a whole"))
 		},
 	}
+}
+
+/// Gets the index for the variant inside `Error` or `Event` declaration.
+/// priority is as follows:
+/// Manual `#[codec(index = N)]`
+/// Explicit discriminant `Variant = N`
+/// Variant's definition index
+pub fn variant_index_for_deprecation(index: u8, item: &Variant) -> u8 {
+	let index: u8 =
+		if let Some((_, Expr::Lit(ExprLit { lit: Lit::Int(num_lit), .. }))) = &item.discriminant {
+			num_lit.base10_parse::<u8>().map(|val| val).unwrap_or(index as u8)
+		} else {
+			index as u8
+		};
+
+	let index: u8 = item
+		.attrs
+		.iter()
+		.find(|attr| attr.path().is_ident("codec"))
+		.and_then(|attr| {
+			if let Meta::List(meta_list) = &attr.meta {
+				meta_list
+					.parse_args_with(Punctuated::<MetaNameValue, syn::Token![,]>::parse_terminated)
+					.ok()
+			} else {
+				None
+			}
+		})
+		.and_then(|parsed| {
+			parsed.iter().fold(None, |mut acc, item| {
+				if let Expr::Lit(ExprLit { lit: Lit::Int(num_lit), .. }) = &item.value {
+					num_lit.base10_parse::<u8>().iter().for_each(|val| {
+						if item.path.is_ident("index") {
+							acc.replace(*val);
+						}
+					})
+				};
+				acc
+			})
+		})
+		.unwrap_or(index);
+	index
 }
