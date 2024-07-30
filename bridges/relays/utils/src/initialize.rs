@@ -17,11 +17,14 @@
 //! Relayer initialization functions.
 
 use parking_lot::Mutex;
-use std::{cell::RefCell};
-use sp_tracing::tracing::Level;
-use sp_tracing::tracing_subscriber::fmt::time::OffsetTime;
-use sp_tracing::tracing_subscriber::fmt::SubscriberBuilder;
-use sp_tracing::tracing_subscriber::EnvFilter;
+use sp_tracing::{
+	tracing::Level,
+	tracing_subscriber::{
+		fmt::{time::OffsetTime, SubscriberBuilder},
+		EnvFilter,
+	},
+};
+use std::cell::RefCell;
 
 /// Relayer version that is provided as metric. Must be set by a binary
 /// (get it with `option_env!("CARGO_PKG_VERSION")` from a binary package code).
@@ -50,11 +53,10 @@ pub fn initialize_logger(with_timestamp: bool) {
 	);
 
 	let env_filter = EnvFilter::from_default_env()
-        .add_directive(Level::WARN.into())
-        .add_directive("bridge=info".parse().expect("static filter string is valid"));
+		.add_directive(Level::WARN.into())
+		.add_directive("bridge=info".parse().expect("static filter string is valid"));
 
-		let builder = SubscriberBuilder::default()
-        .with_env_filter(env_filter);
+	let builder = SubscriberBuilder::default().with_env_filter(env_filter);
 
 	if with_timestamp {
 		builder.with_timer(local_time).init();
