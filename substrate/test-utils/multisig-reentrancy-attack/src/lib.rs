@@ -37,7 +37,7 @@ use frame_support::{
 		PostDispatchInfo,
 	},
 	traits::{
-		ReservableCurrency, ConstU32
+		ReservableCurrency, ConstU32,
 	},
 };
 use sp_runtime::traits::Dispatchable;
@@ -116,8 +116,8 @@ pub mod pallet {
 	#[pallet::event]
 	pub enum Event<T: Config> {
 		AccountsCreated(T::AccountId, T::AccountId),
-		FundsReservered(T::AccountId, T::AccountId),
-		FundsUnreservered(T::AccountId, T::AccountId),
+		FundsReserved(T::AccountId, T::AccountId),
+		FundsUnreserved(T::AccountId, T::AccountId),
 	}
 
 
@@ -147,7 +147,8 @@ pub mod pallet {
                 Weight::zero(),
             );
 
-			// pallet_balances
+			// <T as pallet::Config>::Currency::reserve(multisig_account, 1);
+
 
 
 			// Multisig::Pallet::<T>::operate();
