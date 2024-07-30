@@ -70,7 +70,7 @@ pub mod pallet {
 	pub type Spendings<T: Config> =
 		StorageMap<_, Twox64Concat, SpendingIndex, SpendingInfo<T>, OptionQuery>;
 
-	/// List or whitelisted projects to be rewarded
+	/// List of whitelisted projects to be rewarded
 	#[pallet::storage]
 	pub type Projects<T: Config> = 
 		StorageValue<_, BoundedVec<ProjectInfo<T>, T::MaxProjects>, ValueQuery>;
