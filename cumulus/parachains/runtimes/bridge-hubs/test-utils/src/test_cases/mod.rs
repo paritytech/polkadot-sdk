@@ -654,7 +654,7 @@ where
 }
 
 /// Test-case makes sure that `Runtime` can open/close bridges.
-pub fn open_and_close_bridge_work<Runtime, XcmOverBridgePalletInstance, LocationToAccountId>(
+pub fn open_and_close_bridge_work<Runtime, XcmOverBridgePalletInstance, LocationToAccountId, TokenLocation>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	source: Location,
@@ -667,28 +667,31 @@ pub fn open_and_close_bridge_work<Runtime, XcmOverBridgePalletInstance, Location
 	<Runtime as pallet_balances::Config>::Balance: From<u128>,
 	<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::AccountId: From<<Runtime as frame_system::Config>::AccountId>,
 	LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
+	TokenLocation: Get<Location>,
 {
 	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
 		// construct expected bridge configuration
 		let locations = pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(
 			source.clone().into(),
-			Box::new(destination.clone().into()),
+			destination.clone().into(),
 		).expect("valid bridge locations");
+		let expected_lane_id =
+			locations.calculate_lane_id(xcm::latest::VERSION).expect("valid laneId");
 		let lanes_manager = LanesManagerOf::<Runtime, XcmOverBridgePalletInstance>::new();
 
 		// check bridge/lane DOES not exist
 		assert_eq!(
 			pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
-				locations.bridge_id
+				locations.bridge_id()
 			),
 			None
 		);
 		assert_eq!(
-			lanes_manager.active_inbound_lane(locations.bridge_id.lane_id()).map(drop),
+			lanes_manager.active_inbound_lane(expected_lane_id).map(drop),
 			Err(LanesManagerError::UnknownInboundLane)
 		);
 		assert_eq!(
-			lanes_manager.active_outbound_lane(locations.bridge_id.lane_id()).map(drop),
+			lanes_manager.active_outbound_lane(expected_lane_id).map(drop),
 			Err(LanesManagerError::UnknownOutboundLane)
 		);
 
@@ -698,19 +701,27 @@ pub fn open_and_close_bridge_work<Runtime, XcmOverBridgePalletInstance, Location
 				Runtime,
 				XcmOverBridgePalletInstance,
 				LocationToAccountId,
-			>(source.clone(), destination,)
-			.bridge_id,
-			locations.bridge_id
+				TokenLocation,
+			>(source.clone(), destination.clone())
+			.0
+			.bridge_id(),
+			locations.bridge_id()
 		);
 
 		// check bridge/lane DOES exist
 		assert_eq!(
 			pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
-				locations.bridge_id
+				locations.bridge_id()
 			),
 			Some(
 				Bridge {
 					bridge_origin_relative_location: Box::new(source.clone().into()),
+					bridge_origin_universal_location: Box::new(
+						locations.bridge_origin_universal_location().clone().into()
+					),
+					bridge_destination_universal_location: Box::new(
+						locations.bridge_destination_universal_location().clone().into()
+					),
 					state: BridgeState::Opened,
 					bridge_owner_account: LocationToAccountId::convert_location(&source)
 						.expect("valid location")
@@ -718,20 +729,41 @@ pub fn open_and_close_bridge_work<Runtime, XcmOverBridgePalletInstance, Location
 					reserve: <Runtime as pallet_xcm_bridge_hub::Config<
 						XcmOverBridgePalletInstance,
 					>>::BridgeDeposit::get(),
+					lane_id: expected_lane_id
 				}
 			)
 		);
 		assert_eq!(
-			lanes_manager
-				.active_inbound_lane(locations.bridge_id.lane_id())
-				.map(|lane| lane.state()),
+			lanes_manager.active_inbound_lane(expected_lane_id).map(|lane| lane.state()),
 			Ok(LaneState::Opened)
 		);
 		assert_eq!(
-			lanes_manager
-				.active_outbound_lane(locations.bridge_id.lane_id())
-				.map(|lane| lane.state()),
+			lanes_manager.active_outbound_lane(expected_lane_id).map(|lane| lane.state()),
 			Ok(LaneState::Opened)
+		);
+
+		// close bridge with Transact call from sibling
+		helpers::close_bridge::<
+			Runtime,
+			XcmOverBridgePalletInstance,
+			LocationToAccountId,
+			TokenLocation,
+		>(source.clone(), destination);
+
+		// check bridge/lane DOES not exist
+		assert_eq!(
+			pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+				locations.bridge_id()
+			),
+			None
+		);
+		assert_eq!(
+			lanes_manager.active_inbound_lane(expected_lane_id).map(drop),
+			Err(LanesManagerError::UnknownInboundLane)
+		);
+		assert_eq!(
+			lanes_manager.active_outbound_lane(expected_lane_id).map(drop),
+			Err(LanesManagerError::UnknownOutboundLane)
 		);
 	});
 }

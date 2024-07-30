@@ -331,9 +331,8 @@ mod bridge_hub_westend_tests {
 					Runtime,
 					XcmOverBridgeHubWestendInstance,
 					LocationToAccountId,
-				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
-					.bridge_id
-					.lane_id()
+					TokenLocation,
+				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get()).1
 			},
 		)
 	}
@@ -387,9 +386,9 @@ mod bridge_hub_westend_tests {
 					Runtime,
 					XcmOverBridgeHubWestendInstance,
 					LocationToAccountId,
+					TokenLocation,
 				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
-				.bridge_id
-				.lane_id()
+				.1
 			},
 			construct_and_apply_extrinsic,
 		)
@@ -411,9 +410,9 @@ mod bridge_hub_westend_tests {
 					Runtime,
 					XcmOverBridgeHubWestendInstance,
 					LocationToAccountId,
+					TokenLocation,
 				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
-				.bridge_id
-				.lane_id()
+				.1
 			},
 			construct_and_apply_extrinsic,
 		)
@@ -484,6 +483,7 @@ mod bridge_hub_westend_tests {
 			Runtime,
 			XcmOverBridgeHubWestendInstance,
 			LocationToAccountId,
+			TokenLocation,
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
@@ -577,9 +577,8 @@ mod bridge_hub_bulletin_tests {
 					Runtime,
 					XcmOverPolkadotBulletinInstance,
 					LocationToAccountId,
-				>(SiblingParachainLocation::get(), BridgedBulletinLocation::get())
-					.bridge_id
-					.lane_id()
+					TokenLocation,
+				>(SiblingParachainLocation::get(), BridgedBulletinLocation::get()).1
 			},
 		)
 	}
@@ -632,9 +631,9 @@ mod bridge_hub_bulletin_tests {
 					Runtime,
 					XcmOverPolkadotBulletinInstance,
 					LocationToAccountId,
+					TokenLocation,
 				>(SiblingParachainLocation::get(), BridgedBulletinLocation::get())
-				.bridge_id
-				.lane_id()
+				.1
 			},
 			construct_and_apply_extrinsic,
 		)
@@ -655,9 +654,9 @@ mod bridge_hub_bulletin_tests {
 					Runtime,
 					XcmOverPolkadotBulletinInstance,
 					LocationToAccountId,
+					TokenLocation,
 				>(SiblingParachainLocation::get(), BridgedBulletinLocation::get())
-				.bridge_id
-				.lane_id()
+				.1
 			},
 			construct_and_apply_extrinsic,
 		)
@@ -669,6 +668,7 @@ mod bridge_hub_bulletin_tests {
 			Runtime,
 			XcmOverPolkadotBulletinInstance,
 			LocationToAccountId,
+			TokenLocation,
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,

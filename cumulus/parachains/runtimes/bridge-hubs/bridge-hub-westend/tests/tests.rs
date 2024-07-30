@@ -230,9 +230,8 @@ fn handle_export_message_from_system_parachain_add_to_outbound_queue_works() {
 					Runtime,
 					XcmOverBridgeHubRococoInstance,
 					LocationToAccountId,
-				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
-					.bridge_id
-					.lane_id()
+					WestendLocation,
+				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get()).1
 			},
 		)
 }
@@ -284,9 +283,9 @@ fn relayed_incoming_message_works() {
 				Runtime,
 				XcmOverBridgeHubRococoInstance,
 				LocationToAccountId,
+				WestendLocation,
 			>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
-			.bridge_id
-			.lane_id()
+			.1
 		},
 		construct_and_apply_extrinsic,
 	)
@@ -308,9 +307,9 @@ fn free_relay_extrinsic_works() {
 				Runtime,
 				XcmOverBridgeHubRococoInstance,
 				LocationToAccountId,
+				WestendLocation,
 			>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
-			.bridge_id
-			.lane_id()
+			.1
 		},
 		construct_and_apply_extrinsic,
 	)
@@ -381,6 +380,7 @@ fn open_and_close_bridge_work() {
 		Runtime,
 		XcmOverBridgeHubRococoInstance,
 		LocationToAccountId,
+		WestendLocation,
 	>(
 		collator_session_keys(),
 		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
