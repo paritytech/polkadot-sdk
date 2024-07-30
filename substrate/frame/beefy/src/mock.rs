@@ -269,7 +269,7 @@ impl ExtBuilder {
 			}
 		});
 
-		pallet_session::GenesisConfig::<Test> { keys: session_keys }
+		pallet_session::GenesisConfig::<Test> { keys: session_keys, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 

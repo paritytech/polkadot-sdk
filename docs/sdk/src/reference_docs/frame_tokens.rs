@@ -22,11 +22,11 @@
 //!
 //! On completion of reading this doc, you should have a good understanding of:
 //! - The distinction between token traits and trait implementations in FRAME, and why this
-//!   distinction is helpful
-//! - Token-related traits available in FRAME
-//! - Token-related trait implementations in FRAME
-//! - How to choose the right trait or trait implementation for your use case
-//! - Where to go next
+//!   distinction is helpful.
+//! - Token-related traits available in FRAME.
+//! - Token-related trait implementations in FRAME.
+//! - How to choose the right trait or trait implementation for your use case.
+//! - Where to go next.
 //!
 //! ## Getting Started
 //!
@@ -56,9 +56,16 @@
 //!
 //! **Trait implementations** are concrete implementations of these traits. For example, one of the
 //! many traits [`pallet_balances`] implements is
-//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`)*. It provides the concrete way
-//! of inspecting the total issuance, balance of accounts, etc. There can be many implementations of
-//! the same traits.
+//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`)[^1]. It provides the concrete
+//! way of inspecting the total issuance, balance of accounts, etc. There can be many
+//! implementations of the same traits.
+//!
+//! [^1]: Rust Advanced Tip: The knowledge that [`pallet_balances`] implements
+//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`) is not some arcane knowledge
+//! that you have to know by heart or memorize. One can simply look at the list of the implementors
+//! of any trait in the Rust Doc to find all implementors (e.g.
+//! [Mutate trait implementors](https://paritytech.github.io/polkadot-sdk/master/frame_support/traits/tokens/fungible/trait.Mutate.html#implementors)),
+//! or use the `rust-analyzer`'s `Implementations` action.
 //!
 //! The distinction between traits and trait implementations is helpful because it allows pallets
 //! and other logic to be generic over their dependencies, avoiding tight coupling.
@@ -68,10 +75,10 @@
 //! pallet may use [`pallet_balances`] in a tightly coupled manner, directly calling methods
 //! on the pallet to reserve and unreserve deposits. This approach works well,
 //! until someone has a use case requiring that an asset from a different pallet such as
-//! [`pallet_assets`] is used for the deposit. Rather than tightly couple [`pallet_preimage`] to
-//! [`pallet_balances`], [`pallet_assets`], and every other token-handling pallet a user
-//! could possibly specify, [`pallet_preimage`] does not specify a concrete pallet as a dependency
-//! but instead accepts any dependency which implements the
+//! [`pallet_assets`] is used for the deposit. Rather than tightly coupling [`pallet_preimage`] to
+//! [`pallet_balances`], [`pallet_assets`], and every other token-handling pallet, a user
+//! could possibly specify that [`pallet_preimage`] does not specify a concrete pallet as a
+//! dependency, but instead accepts any dependency which implements the
 //! [`currency::ReservableCurrency`](`frame_support::traits::tokens::currency::ReservableCurrency`)
 //! trait, namely via its [`Config::Currency`](`pallet_preimage::pallet::Config::Currency`)
 //! associated type. This allows [`pallet_preimage`] to support any arbitrary pallet implementing
@@ -80,15 +87,6 @@
 //!
 //! Read more about coupling, and the benefits of loose coupling
 //! [here](crate::reference_docs::frame_pallet_coupling).
-//!
-//! ##### *Rust Advanced Tip
-//!
-//! The knowledge that [`pallet_balances`] implements
-//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`) is not some arcane knowledge
-//! that you have to know by heart or memorize. One can simply look at the list of the implementors
-//! of any trait in the Rust Doc to find all implementors (e.g.
-//! <https://paritytech.github.io/polkadot-sdk/master/frame_support/traits/tokens/fungible/trait.Mutate.html#implementors>),
-//! or use the `rust-analyzer` `Implementations` action.
 //!
 //! ## Fungible Token Traits in FRAME
 //!
