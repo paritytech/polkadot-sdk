@@ -40,8 +40,8 @@ use polkadot_node_subsystem_util::{
 	metrics::{self, prometheus},
 	runtime::{Config as RuntimeInfoConfig, RuntimeInfo},
 };
-use polkadot_overseer::{OverseerSignal, Priority, SubsystemSender};
-use polkadot_primitives::ValidatorIndex;
+use polkadot_overseer::{OverseerSignal, Priority, SubsystemSender, TimeoutExt};
+use polkadot_primitives::{CandidateIndex, Hash, ValidatorIndex, ValidatorSignature};
 use rand::SeedableRng;
 
 use sc_keystore::LocalKeystore;
@@ -51,10 +51,18 @@ use futures::{channel::oneshot, prelude::*, StreamExt};
 use polkadot_node_core_approval_voting::{
 	approval_db::common::Config as DatabaseConfig, ApprovalVotingWorkProvider,
 };
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::{
+	collections::{HashMap, HashSet},
+	fmt::Debug,
+	sync::Arc,
+	time::Duration,
+};
 use stream::{select_with_strategy, PollNext};
 
 pub(crate) const LOG_TARGET: &str = "parachain::approval-voting-parallel";
+// Value rather arbitrarily: Should not be hit in practice, it exists to more easily diagnose dead
+// lock issues for example.
+const WAIT_FOR_SIGS_GATHER_TIMEOUT: Duration = Duration::from_millis(2000);
 
 /// The approval voting subsystem.
 pub struct ApprovalVotingParallelSubsystem {
@@ -419,38 +427,7 @@ async fn run_main_loop<Context>(
 							}
 						},
 						ApprovalVotingParallelMessage::GetApprovalSignatures(indices, tx) => {
-							let mut sigs = HashMap::new();
-							let mut signatures_channels = Vec::new();
-							for worker in to_approval_distribution_workers.iter_mut() {
-								let (tx, rx) = oneshot::channel();
-								worker
-									.send_message(
-										ApprovalDistributionMessage::GetApprovalSignatures(indices.clone(), tx)
-									).await;
-								signatures_channels.push(rx);
-							}
-							let results = futures::future::join_all(signatures_channels).await;
-
-							for result in results {
-								let worker_sigs = match result {
-									Ok(sigs) => sigs,
-									Err(_) => {
-										gum::error!(
-											target: LOG_TARGET,
-											"Getting approval signatures failed, oneshot got closed"
-										);
-										continue;
-									},
-								};
-								sigs.extend(worker_sigs);
-							}
-
-							if let Err(_) = tx.send(sigs) {
-								gum::debug!(
-										target: LOG_TARGET,
-										"Sending back approval signatures failed, oneshot got closed"
-								);
-							}
+							handle_get_approval_signatures(&mut ctx, &mut to_approval_distribution_workers, indices, tx).await;
 						},
 						ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag) => {
 							for worker in to_approval_distribution_workers.iter_mut() {
@@ -467,6 +444,69 @@ async fn run_main_loop<Context>(
 		};
 	}
 	Ok(())
+}
+
+// It sends a message to all approval workers to get the approval signatures for the requested
+// candidates and then merges them altogether and sends them back to the requester.
+#[overseer::contextbounds(ApprovalVotingParallel, prefix = self::overseer)]
+async fn handle_get_approval_signatures<Context>(
+	ctx: &mut Context,
+	to_approval_distribution_workers: &mut Vec<ToWorker<ApprovalDistributionMessage>>,
+	requested_candidates: HashSet<(Hash, CandidateIndex)>,
+	result_channel: oneshot::Sender<
+		HashMap<ValidatorIndex, (Hash, Vec<CandidateIndex>, ValidatorSignature)>,
+	>,
+) {
+	let mut sigs = HashMap::new();
+	let mut signatures_channels = Vec::new();
+	for worker in to_approval_distribution_workers.iter_mut() {
+		let (tx, rx) = oneshot::channel();
+		worker
+			.send_message(ApprovalDistributionMessage::GetApprovalSignatures(
+				requested_candidates.clone(),
+				tx,
+			))
+			.await;
+		signatures_channels.push(rx);
+	}
+
+	let gather_signatures = async move {
+		let Some(results) = futures::future::join_all(signatures_channels)
+			.timeout(WAIT_FOR_SIGS_GATHER_TIMEOUT)
+			.await
+		else {
+			gum::warn!(
+				target: LOG_TARGET,
+				"Waiting for approval signatures timed out - dead lock?"
+			);
+			return;
+		};
+
+		for result in results {
+			let worker_sigs = match result {
+				Ok(sigs) => sigs,
+				Err(_) => {
+					gum::error!(
+						target: LOG_TARGET,
+						"Getting approval signatures failed, oneshot got closed"
+					);
+					continue;
+				},
+			};
+			sigs.extend(worker_sigs);
+		}
+
+		if let Err(_) = result_channel.send(sigs) {
+			gum::debug!(
+					target: LOG_TARGET,
+					"Sending back approval signatures failed, oneshot got closed"
+			);
+		}
+	};
+
+	if let Err(err) = ctx.spawn("approval-voting-gather-signatures", Box::pin(gather_signatures)) {
+		gum::warn!(target: LOG_TARGET, "Failed to spawn gather signatures task: {:?}", err);
+	}
 }
 
 // Returns the validators that initially created this assignments/votes, the validator index
