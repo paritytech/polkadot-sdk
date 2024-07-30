@@ -20,3 +20,9 @@ production networks. If in doubt, ask in chat or in the Merge Request.
 2. Set status to Backlog
 3. Assign priority, considering the universe of PRs currently in the backlog
 4. Add the component
+
+## Marking a Pull Request as audited or trivial
+
+The [audit command](../.github/commands-readme.md) can be used to mark a Pull Request as audited or trivial. It is intended to be used by auditors or developers.
+
+This command advances the `audited` tag by exactly one commit. It therefore needs to be used on the Pull Requests exactly in the order being shown [here](https://github.com/paritytech/polkadot-sdk/compare/audited...master).
