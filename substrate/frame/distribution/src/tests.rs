@@ -40,11 +40,11 @@ fn spendings_creation_works() {
 		create_project(DAVE, amount3);
 
 		// The Spendings Storage should be empty
-		assert!(SpendingsCount::<Test>::get() == 0);
+		assert_eq!(SpendingsCount::<Test>::get(), 0);
 		
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now = Epoch_Block + 1 
-		let mut now =
+		let now =
 			System::block_number().saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 			run_to_block(now);
 
@@ -121,11 +121,11 @@ fn funds_are_locked() {
 		create_project(DAVE, amount3);
 
 		// The Spendings Storage should be empty
-		assert!(SpendingsCount::<Test>::get() == 0);
+		assert_eq!(SpendingsCount::<Test>::get(), 0);
 		
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now = Epoch_Block + 1 
-		let mut now =
+		let now =
 			System::block_number().saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
@@ -135,7 +135,7 @@ fn funds_are_locked() {
 			&HoldReason::FundsLock.into(),
 			&pot_account
 		);
-		assert_eq!(total_on_hold,hold);	
+		assert_eq!(total_on_hold, hold);	
 		
 	})
 }
