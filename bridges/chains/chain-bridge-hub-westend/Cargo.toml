@@ -15,7 +15,7 @@ workspace = true
 # Bridge Dependencies
 
 bp-bridge-hub-cumulus = { workspace = true }
-bp-runtime = { workspace = true }
+bp-runtime = { features = ["test-helpers"], workspace = true }
 bp-messages = { workspace = true }
 
 # Substrate Based Dependencies
