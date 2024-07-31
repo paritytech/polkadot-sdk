@@ -1,7 +1,7 @@
 [
 	{
 		"metric": "Blake2256",
-		"minimum": 783.27
+		"minimum": 968.31
 	},
 	{
 		"metric": "Sr25519Verify",
