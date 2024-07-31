@@ -30,7 +30,7 @@ use sp_io::{hashing, storage, TestExternalities};
 use sp_runtime::BuildStorage;
 use xcm::{v3, v4};
 
-use super::{old, Migration};
+use super::{old, Migration, mock_asset_details};
 
 construct_runtime! {
     pub struct Runtime {
@@ -47,25 +47,39 @@ type Balance = u64;
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
     type Block = Block;
+    type AccountId = AccountId;
 	type AccountData = pallet_balances::AccountData<Balance>;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
     type AccountStore = System;
+    type Balance = Balance;
 }
 
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
 impl pallet_assets::Config for Runtime {
-    type AssetId = v4::Location; // TODO: This is what we want to migrate to V4.
+    type AssetId = v4::Location;
     type AssetIdParameter = v4::Location;
+    type Balance = Balance;
     type Currency = Balances;
     type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
     type ForceOrigin = EnsureRoot<AccountId>;
     type Freezer = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = XcmBenchmarkHelper;
 }
 
-fn new_test_ext() -> TestExternalities {
+/// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
+pub struct XcmBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_assets::BenchmarkHelper<v4::Location> for XcmBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> v4::Location {
+		v4::Location::new(1, [v4::Junction::Parachain(id)])
+	}
+}
+
+pub(crate) fn new_test_ext() -> TestExternalities {
     let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
     let test_account = 1;
@@ -92,21 +106,4 @@ fn migration_works() {
         let new_key = v4::Location::new(1, [v4::Junction::Parachain(2004)]);
         assert!(Asset::<Runtime>::contains_key(new_key));
     })
-}
-
-fn mock_asset_details() -> AssetDetails<AccountId, Balance, Balance> {
-    AssetDetails {
-        owner: 0,
-        issuer: 0,
-        admin: 0,
-        freezer: 0,
-        supply: 0,
-        deposit: 0,
-        min_balance: 1,
-        is_sufficient: false,
-        accounts: 0,
-        sufficients: 0,
-        approvals: 0,
-        status: AssetStatus::Live,
-    }
 }

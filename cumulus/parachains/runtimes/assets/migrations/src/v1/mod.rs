@@ -1,5 +1,3 @@
-// This file is part of Substrate.
-
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -15,39 +13,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! V1 migration.
+//!
 //! This migration is meant to upgrade the XCM version of asset locations from V3 to V4.
 //! It's only needed if the `AssetId` for this pallet is `VersionedLocation`
-
-use pallet_assets::{Asset, Config};
-use frame_support::{
-	migrations::{SteppedMigration, SteppedMigrationError},
-	pallet_prelude::PhantomData,
-	weights::WeightMeter,
-	Hashable,
-};
 
 #[cfg(test)]
 mod tests;
 
-// TODO: Move this further up.
-mod identifier {
-	use codec::{Decode, Encode, MaxEncodedLen};
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarks;
 
-	#[derive(MaxEncodedLen, Encode, Decode)]
-	pub struct MigrationIdentifier {
-		pub pallet_identifier: [u8; 16],
-		pub version_from: u8,
-		pub version_to: u8,
-	}
+use pallet_assets::{Asset, Config, AssetDetails, AssetStatus};
+use frame_support::{
+	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
+	pallet_prelude::PhantomData,
+	weights::WeightMeter,
+	Hashable,
+};
+use xcm::{v3, v4};
 
-	pub const PALLET_MIGRATIONS_ID: &[u8; 13] = b"pallet-assets";
-}
-
-use identifier::*;
+pub const PALLET_MIGRATIONS_ID: &[u8; 13] = b"pallet-assets";
 
 /// Storage aliases for on-chain storage types before running the migration.
 pub mod old {
-	use super::Config;
+	use super::{Config, v3};
 	use pallet_assets::{
 		Pallet,
 		AssetDetails, DepositBalanceOf,
@@ -59,7 +49,7 @@ pub mod old {
 	pub(super) type Asset<T: Config<I>, I: 'static> = StorageMap<
 		Pallet<T, I>,
 		Blake2_128Concat,
-		xcm::v3::Location,
+		v3::Location,
 		AssetDetails<
 			<T as Config<I>>::Balance,
 			<T as frame_system::Config>::AccountId,
@@ -69,18 +59,14 @@ pub mod old {
 }
 
 pub struct Migration<T: Config<I>, I: 'static = ()>(PhantomData<(T, I)>);
-impl<T: Config<I, AssetId = xcm::v4::Location>, I: 'static> SteppedMigration
+impl<T: Config<I, AssetId = v4::Location>, I: 'static> SteppedMigration
 	for Migration<T, I>
 {
-	type Cursor = xcm::v3::Location;
-	type Identifier = MigrationIdentifier;
+	type Cursor = v3::Location;
+	type Identifier = MigrationId<13>;
 
 	fn id() -> Self::Identifier {
-		MigrationIdentifier {
-			pallet_identifier: (*PALLET_MIGRATIONS_ID).twox_128(),
-			version_from: 0,
-			version_to: 1,
-		}
+		MigrationId { pallet_id: *PALLET_MIGRATIONS_ID, version_from: 0, version_to: 1 }
 	}
 
 	fn step(
@@ -97,12 +83,11 @@ impl<T: Config<I, AssetId = xcm::v4::Location>, I: 'static> SteppedMigration
 		};
 
 		if let Some((key, value)) = iter.next() {
-			// If there is a next item in the iterator, migrate it.
-			old::Asset::<T, I>::remove(key.clone());
 			// Most likely all locations will be able to be converted, but if they can't
 			// we log them to try again later.
-			let maybe_new_key: Result<xcm::v4::Location, _> = key.try_into();
+			let maybe_new_key: Result<v4::Location, _> = key.try_into();
 			if let Ok(new_key) = maybe_new_key {
+				old::Asset::<T, I>::remove(key.clone());
 				Asset::<T, I>::insert(new_key.clone(), value);
 				log::info!(target: "migration", "Successfully migrated key: {:?}", new_key);
 			} else {
@@ -115,4 +100,21 @@ impl<T: Config<I, AssetId = xcm::v4::Location>, I: 'static> SteppedMigration
 			Ok(None)
 		}
 	}
+}
+
+fn mock_asset_details() -> AssetDetails<u64, u64, u64> {
+    AssetDetails {
+        owner: 0,
+        issuer: 0,
+        admin: 0,
+        freezer: 0,
+        supply: 0,
+        deposit: 0,
+        min_balance: 1,
+        is_sufficient: false,
+        accounts: 0,
+        sufficients: 0,
+        approvals: 0,
+        status: AssetStatus::Live,
+    }
 }

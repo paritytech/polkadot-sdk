@@ -1,0 +1,77 @@
+[package]
+name = "assets-common-migrations"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "Common migrations for assets"
+license = "Apache-2.0"
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+log = { workspace = true }
+
+# Substrate
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+sp-api = { workspace = true }
+sp-runtime = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-asset-conversion = { workspace = true }
+
+# Polkadot
+pallet-xcm = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
+
+# Cumulus
+parachains-common = { workspace = true }
+
+[dev-dependencies]
+sp-io = { workspace = true }
+hex-display = "0.3.0"
+
+[build-dependencies]
+substrate-wasm-builder = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"frame-benchmarking?/std",
+	"codec/std",
+	"frame-support/std",
+	"log/std",
+	"pallet-asset-conversion/std",
+	"pallet-xcm/std",
+	"parachains-common/std",
+	"scale-info/std",
+	"sp-api/std",
+	"sp-runtime/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm/std",
+	"frame-system/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"sp-io/std",
+]
+
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+]
