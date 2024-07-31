@@ -10921,7 +10921,6 @@ dependencies = [
  "rand_distr",
  "scale-info",
  "serde",
- "sp-api",
  "sp-arithmetic",
  "sp-core",
  "sp-crypto-hashing",

@@ -23,7 +23,6 @@ sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-weights = { workspace = true }
-sp-api = { workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
@@ -51,7 +50,6 @@ std = [
 	"sp-runtime/std",
 	"sp-tracing/std",
 	"sp-weights/std",
-	"sp-api/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

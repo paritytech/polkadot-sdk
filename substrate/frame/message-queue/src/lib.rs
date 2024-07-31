@@ -1447,16 +1447,15 @@ impl<T: Config> Pallet<T> {
 		use ProcessMessageError::*;
 		let prev_consumed = meter.consumed();
 
-		let transaction = storage::with_transaction(
-			|| -> sp_api::TransactionOutcome<Result<_, DispatchError>> {
+		let transaction =
+			storage::with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let res =
 					T::MessageProcessor::process_message(message, origin.clone(), meter, &mut id);
 				match &res {
 					Ok(_) => TransactionOutcome::Commit(Ok(res)),
 					Err(_) => TransactionOutcome::Rollback(Ok(res)),
 				}
-			},
-		);
+			});
 
 		let transaction = match transaction {
 			Ok(result) => result,
