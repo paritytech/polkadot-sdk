@@ -221,12 +221,10 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use scale_info::TypeInfo;
+use frame_support::traits::ProcessMessageError::{BadFormat, Corrupt, StackLimitReached, Unsupported, Yield};
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{defer, H256};
-use sp_runtime::{
-	traits::{One, Zero},
-	SaturatedConversion, Saturating,
-};
+use sp_runtime::{traits::{One, Zero}, SaturatedConversion, Saturating, TransactionOutcome};
 use sp_weights::WeightMeter;
 pub use weights::WeightInfo;
 
@@ -1447,46 +1445,59 @@ impl<T: Config> Pallet<T> {
 		use ProcessMessageError::*;
 		let prev_consumed = meter.consumed();
 
-		match T::MessageProcessor::process_message(message, origin.clone(), meter, &mut id) {
-			Err(Overweight(w)) if w.any_gt(overweight_limit) => {
-				// Permanently overweight.
-				Self::deposit_event(Event::<T>::OverweightEnqueued {
-					id,
-					origin,
-					page_index,
-					message_index,
-				});
-				MessageExecutionStatus::Overweight
-			},
-			Err(Overweight(_)) => {
-				// Temporarily overweight - save progress and stop processing this
-				// queue.
-				MessageExecutionStatus::InsufficientWeight
-			},
-			Err(Yield) => {
-				// Processing should be reattempted later.
-				MessageExecutionStatus::Unprocessable { permanent: false }
-			},
-			Err(error @ BadFormat | error @ Corrupt | error @ Unsupported) => {
-				// Permanent error - drop
-				Self::deposit_event(Event::<T>::ProcessingFailed { id: id.into(), origin, error });
-				MessageExecutionStatus::Unprocessable { permanent: true }
-			},
-			Err(error @ StackLimitReached) => {
-				Self::deposit_event(Event::<T>::ProcessingFailed { id: id.into(), origin, error });
-				MessageExecutionStatus::StackLimitReached
-			},
-			Ok(success) => {
-				// Success
-				let weight_used = meter.consumed().saturating_sub(prev_consumed);
-				Self::deposit_event(Event::<T>::Processed {
-					id: id.into(),
-					origin,
-					weight_used,
-					success,
-				});
-				MessageExecutionStatus::Processed
-			},
+		let transaction = storage::with_transaction(|| -> sp_api::TransactionOutcome<Result<_, DispatchError>> {
+			let res =  T::MessageProcessor::process_message(message, origin.clone(), meter, &mut id);
+			match &res {
+				Ok(_) => TransactionOutcome::Commit(Ok(res)),
+				Err(_) => TransactionOutcome::Rollback(Ok(res)),
+			}
+		});
+
+		let transaction = match transaction {
+			Ok(result) => result,
+			Err(_) => return MessageExecutionStatus::Unprocessable { permanent: false },
+		};
+
+		match transaction {
+					Err(Overweight(w)) if w.any_gt(overweight_limit) => {
+					// Permanently overweight.
+					Self::deposit_event(Event::<T>::OverweightEnqueued {
+						id,
+						origin,
+						page_index,
+						message_index,
+					});
+					MessageExecutionStatus::Overweight
+				},
+				Err(Overweight(_)) => {
+					// Temporarily overweight - save progress and stop processing this
+					// queue.
+					MessageExecutionStatus::InsufficientWeight
+				},
+				Err(Yield) => {
+					// Processing should be reattempted later.
+					MessageExecutionStatus::Unprocessable { permanent: false }
+				},
+				Err(error @ BadFormat | error @ Corrupt | error @ Unsupported) => {
+					// Permanent error - drop
+					Self::deposit_event(Event::<T>::ProcessingFailed { id: id.into(), origin, error });
+					MessageExecutionStatus::Unprocessable { permanent: true }
+				},
+				Err(error @ StackLimitReached) => {
+					Self::deposit_event(Event::<T>::ProcessingFailed { id: id.into(), origin, error });
+					MessageExecutionStatus::StackLimitReached
+				},
+				Ok(success) => {
+					// Success
+					let weight_used = meter.consumed().saturating_sub(prev_consumed);
+					Self::deposit_event(Event::<T>::Processed {
+						id: id.into(),
+						origin,
+						weight_used,
+						success,
+					});
+					MessageExecutionStatus::Processed
+				},
 		}
 	}
 }
