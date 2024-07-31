@@ -169,6 +169,7 @@ pub mod pallet {
 		traits::{
 			fungibles::MutateFreeze,
 			tokens::{AssetId, Fortitude, Preservation},
+			Consideration, Footprint,
 		},
 	};
 	use frame_system::pallet_prelude::*;
@@ -186,6 +187,14 @@ pub mod pallet {
 		/// Funds are staked in the pallet.
 		#[codec(index = 0)]
 		Staked,
+	}
+
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Cost associated with storing pool information on-chain.
+		#[codec(index = 0)]
+		PoolCreation,
 	}
 
 	#[pallet::config]
@@ -226,6 +235,13 @@ pub mod pallet {
 		/// The overarching freeze reason.
 		type RuntimeFreezeReason: From<FreezeReason>;
 
+		/// Means for associating a cost with the on-chain storage of pool information, which
+		/// is incurred by the pool creator.
+		///
+		/// The passed `Footprint` specifically accounts for the storage footprint of the pool's
+		/// information itself, excluding any potential storage footprint related to the stakers.
+		type Consideration: Consideration<Self::AccountId, Footprint>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
@@ -248,6 +264,14 @@ pub mod pallet {
 	/// State and configuraiton of each staking pool.
 	#[pallet::storage]
 	pub type Pools<T: Config> = StorageMap<_, Blake2_128Concat, PoolId, PoolInfoFor<T>>;
+
+	/// The cost associated with storing pool information on-chain which was incurred by the pool
+	/// creator.
+	///
+	/// This cost may be [`None`], as determined by [`Config::Consideration`].
+	#[pallet::storage]
+	pub type PoolCost<T: Config> =
+		StorageMap<_, Blake2_128Concat, PoolId, (T::AccountId, T::Consideration)>;
 
 	/// Stores the [`PoolId`] to use for the next pool.
 	///
@@ -345,6 +369,8 @@ pub mod pallet {
 		Overflow,
 		/// Insufficient funds to create the freeze.
 		InsufficientFunds,
+		/// Pool creation cost defined by [`Config::Consideration`] is not applied.
+		PoolCostNotApplied,
 	}
 
 	#[pallet::hooks]
@@ -399,6 +425,15 @@ pub mod pallet {
 				Error::<T>::ExpiryBlockMustBeInTheFuture
 			);
 
+			let pool_id = NextPoolId::<T>::get();
+
+			let footprint = Footprint::from_mel::<(PoolId, PoolInfoFor<T>)>();
+			if let Some(cost) = T::Consideration::new(&creator, footprint)
+				.map_err(|_| Error::<T>::PoolCostNotApplied)?
+			{
+				PoolCost::<T>::insert(pool_id, (creator.clone(), cost));
+			}
+
 			// Get the admin, defaulting to the origin.
 			let admin = admin.unwrap_or(creator.clone());
 
@@ -415,7 +450,6 @@ pub mod pallet {
 			};
 
 			// Insert it into storage.
-			let pool_id = NextPoolId::<T>::get();
 			Pools::<T>::insert(pool_id, pool);
 			// TODO should be checked add
 			NextPoolId::<T>::put(pool_id.saturating_add(1));

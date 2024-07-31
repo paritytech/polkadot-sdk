@@ -24,7 +24,7 @@ use frame_support::{
 	assert_ok,
 	traits::{
 		fungibles::{Create, Inspect, Mutate},
-		EnsureOrigin,
+		Consideration, EnsureOrigin, Footprint,
 	},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin};
@@ -57,6 +57,9 @@ where
 	let caller_origin =
 		T::CreatePoolOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 	let caller = T::CreatePoolOrigin::ensure_origin(caller_origin.clone()).unwrap();
+
+	let footprint = Footprint::from_mel::<(PoolId, PoolInfoFor<T>)>();
+	T::Consideration::ensure_successful(&caller, footprint);
 
 	let staked_asset = T::BenchmarkHelper::staked_asset();
 	let reward_asset = T::BenchmarkHelper::reward_asset();
@@ -121,6 +124,9 @@ mod benchmarks {
 		let caller_origin =
 			T::CreatePoolOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let caller = T::CreatePoolOrigin::ensure_origin(caller_origin.clone()).unwrap();
+
+		let footprint = Footprint::from_mel::<(PoolId, PoolInfoFor<T>)>();
+		T::Consideration::ensure_successful(&caller, footprint);
 
 		let staked_asset = T::BenchmarkHelper::staked_asset();
 		let reward_asset = T::BenchmarkHelper::reward_asset();

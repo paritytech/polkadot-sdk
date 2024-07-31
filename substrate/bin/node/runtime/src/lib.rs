@@ -469,7 +469,8 @@ impl pallet_glutton::Config for Runtime {
 }
 
 parameter_types! {
-	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
+	pub const PreimageHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
 impl pallet_preimage::Config for Runtime {
@@ -1745,10 +1746,6 @@ impl pallet_asset_conversion::Config for Runtime {
 pub type NativeAndAssetsFreezer =
 	UnionOf<Balances, AssetsFreezer, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
 
-parameter_types! {
-	pub const StakingRewardsPalletId: PalletId = PalletId(*b"py/stkrd");
-}
-
 /// Benchmark Helper
 #[cfg(feature = "runtime-benchmarks")]
 pub struct AssetRewardsBenchmarkHelper;
@@ -1765,34 +1762,28 @@ impl pallet_asset_rewards::benchmarking::BenchmarkHelper<NativeOrWithId<u32>>
 	}
 }
 
-/// Give Root Origin permission to create pools, and an acc id of 0.
-pub struct AssetRewardsPermissionedOrigin;
-impl EnsureOrigin<RuntimeOrigin> for AssetRewardsPermissionedOrigin {
-	type Success = <Runtime as frame_system::Config>::AccountId;
-
-	fn try_origin(origin: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
-		match origin.clone().into() {
-			Ok(frame_system::RawOrigin::Root) => Ok([0u8; 32].into()),
-			_ => Err(origin),
-		}
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
-		Ok(RuntimeOrigin::root())
-	}
+parameter_types! {
+	pub const StakingRewardsPalletId: PalletId = PalletId(*b"py/stkrd");
+	pub const CreationHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::AssetRewards(pallet_asset_rewards::HoldReason::PoolCreation);
 }
 
 impl pallet_asset_rewards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type AssetId = NativeOrWithId<u32>;
-	type Balance = u128;
+	type Balance = Balance;
 	type Assets = NativeAndAssets;
 	type PalletId = StakingRewardsPalletId;
-	type CreatePoolOrigin = AssetRewardsPermissionedOrigin;
+	type CreatePoolOrigin = EnsureSigned<AccountId>;
 	type WeightInfo = ();
 	type AssetsFreezer = NativeAndAssetsFreezer;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		CreationHoldReason,
+		LinearStoragePrice<ExistentialDeposit, ConstU128<0>, Balance>,
+	>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
 }

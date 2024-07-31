@@ -18,15 +18,15 @@
 //! Test environment for Asset Rewards pallet.
 
 use super::*;
-use crate as pallet_staking_rewards;
+use crate as pallet_asset_rewards;
 use core::default::Default;
 use frame_support::{
 	construct_runtime, derive_impl,
 	instances::Instance1,
 	parameter_types,
 	traits::{
-		tokens::fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
-		AsEnsureOriginWithArg, ConstU128, ConstU32, EnsureOrigin,
+		tokens::fungible::{HoldConsideration, NativeFromLeft, NativeOrWithId, UnionOf},
+		AsEnsureOriginWithArg, ConstU128, ConstU32, EnsureOrigin, LinearStoragePrice,
 	},
 	PalletId,
 };
@@ -45,7 +45,7 @@ construct_runtime!(
 		Balances: pallet_balances,
 		Assets: pallet_assets::<Instance1>,
 		AssetsFreezer: pallet_assets_freezer::<Instance1>,
-		StakingRewards: pallet_staking_rewards,
+		StakingRewards: pallet_asset_rewards,
 	}
 );
 
@@ -69,7 +69,7 @@ impl pallet_balances::Config for MockRuntime {
 	type ReserveIdentifier = [u8; 8];
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<50>;
-	type RuntimeHoldReason = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
@@ -145,6 +145,11 @@ impl BenchmarkHelper<NativeOrWithId<u32>> for AssetRewardsBenchmarkHelper {
 	}
 }
 
+parameter_types! {
+	pub const CreationHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::StakingRewards(pallet_asset_rewards::HoldReason::PoolCreation);
+}
+
 impl Config for MockRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type AssetId = NativeOrWithId<u32>;
@@ -155,6 +160,12 @@ impl Config for MockRuntime {
 	type CreatePoolOrigin = MockPermissionedOrigin;
 	type WeightInfo = ();
 	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type Consideration = HoldConsideration<
+		u128,
+		Balances,
+		CreationHoldReason,
+		LinearStoragePrice<ConstU128<100>, ConstU128<0>, u128>,
+	>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
 }
@@ -191,6 +202,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	let pool_zero_account_id = 31086825966906540362769395565;
 	pallet_balances::GenesisConfig::<MockRuntime> {
 		balances: vec![
+			// (0, 10000),
 			(1, 10000),
 			(2, 20000),
 			(3, 30000),

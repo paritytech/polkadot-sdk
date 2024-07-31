@@ -61,9 +61,11 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	ord_parameter_types, parameter_types,
 	traits::{
-		fungible, fungibles, tokens::imbalance::ResolveAssetTo, AsEnsureOriginWithArg, ConstBool,
-		ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Equals, InstanceFilter,
-		TransformOrigin,
+		fungible::{self, HoldConsideration},
+		fungibles,
+		tokens::imbalance::ResolveAssetTo,
+		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse,
+		Equals, InstanceFilter, LinearStoragePrice, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
@@ -1026,8 +1028,9 @@ impl pallet_asset_rewards::benchmarking::BenchmarkHelper<xcm::v3::Location>
 
 parameter_types! {
 	pub const AssetRewardsPalletId: PalletId = PalletId(*b"py/astrd");
-	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
-	pub TreasurerBodyAccount: AccountId = LocationToAccountId::convert_location(&RelayTreasuryLocation::get()).unwrap();
+	pub const PoolCreationDeposit: Balance = deposit(1, 95);
+	pub const RewardsPoolCreationHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::AssetRewards(pallet_asset_rewards::HoldReason::PoolCreation);
 }
 
 impl pallet_asset_rewards::Config for Runtime {
@@ -1037,15 +1040,14 @@ impl pallet_asset_rewards::Config for Runtime {
 	type Assets = NativeAndAllAssets;
 	type AssetsFreezer = NativeAndAllAssetsFreezer;
 	type AssetId = xcm::v3::Location;
-	type CreatePoolOrigin = EnsureWithSuccess<
-		EitherOfDiverse<
-			EnsureRoot<AccountId>,
-			EnsureXcm<IsVoiceOfBody<GovernanceLocation, TreasurerBodyId>>,
-		>,
-		AccountId,
-		TreasurerBodyAccount,
-	>;
+	type CreatePoolOrigin = EnsureSigned<AccountId>;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RewardsPoolCreationHoldReason,
+		LinearStoragePrice<PoolCreationDeposit, ConstU128<0>, Balance>,
+	>;
 	type WeightInfo = weights::pallet_asset_rewards::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PalletAssetRewardsBenchmarkHelper;
