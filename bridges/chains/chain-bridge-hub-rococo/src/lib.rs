@@ -112,5 +112,5 @@ frame_support::parameter_types! {
 
 	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
-	pub const BridgeHubRococoBaseConfirmationFeeInRocs: u128 = 57_414_813;
+	pub const BridgeHubRococoBaseConfirmationFeeInRocs: u128 = 57_459_145;
 }
