@@ -60,7 +60,7 @@ pub trait TransactionExtensionBase:
 
 	/// Determine any additional data which was known at the time of transaction construction and
 	/// can be useful in authenticating the transaction. The expected usage of this is to include in
-	/// any data which is signed and verified as part of transactiob validation. Also perform any
+	/// any data which is signed and verified as part of transaction validation. Also perform any
 	/// pre-signature-verification checks and return an error if needed.
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		use crate::transaction_validity::InvalidTransaction::IndeterminateImplicit;
@@ -185,7 +185,7 @@ pub trait TransactionExtensionBase:
 /// `implication` argument which implements the [Encode] trait. A transaction extension may define
 /// its own implications through its own fields and the
 /// [implicit](TransactionExtensionBase::implicit) function. This is only utilized by extensions
-/// which preceed it in a pipeline or, if the transaction is an old-school signed trasnaction, the
+/// which preceed it in a pipeline or, if the transaction is an old-school signed transaction, the
 /// underlying transaction verification logic.
 ///
 /// **The inherited implication passed as the `implication` parameter to
