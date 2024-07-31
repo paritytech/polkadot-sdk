@@ -33,7 +33,13 @@ impl TaskEnumDef {
 		tasks: &TasksDef,
 		def: &Def,
 	) -> Self {
-		let type_decl_bounded_generics = def.type_decl_bounded_generics(tasks.item_impl.span());
+
+		// We use the span of attribute to indicate the error comes from code generated for the
+		// specific section, otherwise the item impl.
+		let span = tasks.tasks_attr.as_ref().map(|attr| attr.span())
+			.unwrap_or_else(|| tasks.item_impl.span());
+
+		let type_decl_bounded_generics = def.type_decl_bounded_generics(span);
 
 		let variants = if tasks.tasks_attr.is_some() {
 			tasks
@@ -59,7 +65,7 @@ impl TaskEnumDef {
 			Vec::new()
 		};
 
-		parse_quote_spanned! { tasks.item_impl.span() =>
+		parse_quote_spanned! { span =>
 			/// Auto-generated enum that encapsulates all tasks defined by this pallet.
 			///
 			/// Conceptually similar to the [`Call`] enum, but for tasks. This is only
@@ -76,17 +82,16 @@ impl TaskEnumDef {
 
 impl TaskEnumDef {
 	fn expand_to_tokens(&self, def: &Def) -> TokenStream2 {
-		let item_enum = &self.item_enum;
-		let ident = &item_enum.ident;
-		let vis = &item_enum.vis;
-		let attrs = &item_enum.attrs;
-		let generics = &item_enum.generics;
-		let variants = &item_enum.variants;
-		let frame_support = &def.frame_support;
-		let type_use_generics = &def.type_use_generics(item_enum.span());
-		let type_impl_generics = &def.type_impl_generics(item_enum.span());
+		if let Some(attr) = &self.attr {
+			let ident = &self.item_enum.ident;
+			let vis = &self.item_enum.vis;
+			let attrs = &self.item_enum.attrs;
+			let generics = &self.item_enum.generics;
+			let variants = &self.item_enum.variants;
+			let frame_support = &def.frame_support;
+			let type_use_generics = &def.type_use_generics(attr.span());
+			let type_impl_generics = &def.type_impl_generics(attr.span());
 
-		if self.attr.is_some() {
 			// `item_enum` is short-hand / generated enum
 			quote! {
 				#(#attrs)*
@@ -116,7 +121,7 @@ impl TaskEnumDef {
 			}
 		} else {
 			// `item_enum` is a manually specified enum (no attribute)
-			item_enum.to_token_stream()
+			self.item_enum.to_token_stream()
 		}
 	}
 }
