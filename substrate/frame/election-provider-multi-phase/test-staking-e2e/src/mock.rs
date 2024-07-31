@@ -38,7 +38,6 @@ use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	EraIndex, SessionIndex,
 };
-use sp_std::prelude::*;
 use std::collections::BTreeMap;
 
 use codec::Decode;
@@ -47,8 +46,8 @@ use frame_election_provider_support::{
 	SequentialPhragmen, Weight,
 };
 use pallet_election_provider_multi_phase::{
-	unsigned::MinerConfig, Call, ElectionCompute, GeometricDepositBase, QueuedSolution,
-	SolutionAccuracyOf,
+	unsigned::MinerConfig, Call, CurrentPhase, ElectionCompute, GeometricDepositBase,
+	QueuedSolution, SolutionAccuracyOf,
 };
 use pallet_staking::StakerStatus;
 use parking_lot::RwLock;
@@ -574,6 +573,7 @@ impl ExtBuilder {
 				.into_iter()
 				.map(|(id, ..)| (id, id, SessionKeys { other: (id as u64).into() }))
 				.collect(),
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 
@@ -653,7 +653,7 @@ pub fn roll_to(n: BlockNumber, delay_solution: bool) {
 		// https://github.com/paritytech/substrate/issues/13589
 		// if there's no solution queued and the solution should not be delayed, try mining and
 		// queue a solution.
-		if ElectionProviderMultiPhase::current_phase().is_signed() && !delay_solution {
+		if CurrentPhase::<Runtime>::get().is_signed() && !delay_solution {
 			let _ = try_queue_solution(ElectionCompute::Signed).map_err(|e| {
 				log!(info, "failed to mine/queue solution: {:?}", e);
 			});
@@ -807,7 +807,7 @@ pub(crate) fn current_era() -> EraIndex {
 // Fast forward until EPM signed phase.
 pub fn roll_to_epm_signed() {
 	while !matches!(
-		ElectionProviderMultiPhase::current_phase(),
+		CurrentPhase::<Runtime>::get(),
 		pallet_election_provider_multi_phase::Phase::Signed
 	) {
 		roll_to(System::block_number() + 1, false);
@@ -817,7 +817,7 @@ pub fn roll_to_epm_signed() {
 // Fast forward until EPM unsigned phase.
 pub fn roll_to_epm_unsigned() {
 	while !matches!(
-		ElectionProviderMultiPhase::current_phase(),
+		CurrentPhase::<Runtime>::get(),
 		pallet_election_provider_multi_phase::Phase::Unsigned(_)
 	) {
 		roll_to(System::block_number() + 1, false);
@@ -827,7 +827,7 @@ pub fn roll_to_epm_unsigned() {
 // Fast forward until EPM off.
 pub fn roll_to_epm_off() {
 	while !matches!(
-		ElectionProviderMultiPhase::current_phase(),
+		CurrentPhase::<Runtime>::get(),
 		pallet_election_provider_multi_phase::Phase::Off
 	) {
 		roll_to(System::block_number() + 1, false);

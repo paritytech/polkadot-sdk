@@ -1,7 +1,7 @@
 //! # Custom RPC do's and don'ts
 //!
-//! **TLDR:** don't create new custom RPCs. Instead, rely on custom Runtime APIs, combined with
-//! `state_call`
+//! **TLDR:** Don't create new custom RPCs. Instead, rely on custom Runtime APIs, combined with
+//! `state_call`.
 //!
 //! ## Background
 //!
@@ -20,9 +20,9 @@
 //! - To upgrade or add a new RPC logic, the RPC node has to be upgraded. This can cause significant
 //!   trouble when the RPC infrastructure is decentralized as we will need to coordinate multiple
 //!   parties to upgrade the RPC nodes.
-//! - A lot of boilerplate code are required to add custom RPC.
-//! - It prevents the dApp to use a light client or alternative client.
-//! - It makes ecosystem tooling integration much more complicated. For example, the dApp will not
+//! - A lot of boilerplate code is required to add custom RPC.
+//! - It prevents dApps from using a light client or an alternative client.
+//! - It makes ecosystem tooling integration much more complicated. For example, dApps will not
 //!   be able to use [Chopsticks](https://github.com/AcalaNetwork/chopsticks) for testing as
 //!   Chopsticks will not have the custom RPC implementation.
 //! - Poorly implemented custom RPC can be a DoS vector.
@@ -50,7 +50,7 @@
 //!
 //! ## Create a new Runtime API
 //!
-//! For example, let's take a look a the process through which the account nonce can be queried
+//! For example, let's take a look at the process through which the account nonce can be queried
 //! through an RPC. First, a new runtime-api needs to be declared:
 #![doc = docify::embed!("../../substrate/frame/system/rpc/runtime-api/src/lib.rs", AccountNonceApi)]
 //!

@@ -41,7 +41,7 @@ jobs:
         run: |
           git config --global user.name "Template Bot"
           git config --global user.email "163342540+paritytech-polkadotsdk-templatebot[bot]@users.noreply.github.com"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           path: polkadot-sdk
           ref: "release-crates-io-v${{ github.event.inputs.crate_release_version }}"
@@ -53,7 +53,7 @@ jobs:
           repositories: "polkadot-sdk-${{ matrix.template }}-template"
           app-id: ${{ secrets.TEMPLATE_APP_ID }}
           private-key: ${{ secrets.TEMPLATE_APP_KEY }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           repository: "paritytech/polkadot-sdk-${{ matrix.template }}-template"
           path: "${{ env.template-path }}"
@@ -69,7 +69,7 @@ jobs:
             protobuf-compiler
           rustup target add wasm32-unknown-unknown
           rustup component add rustfmt clippy rust-src
-      
+
       # 2. Yanking the template out of the monorepo workspace.
 
       - name: Use psvm to replace git references with released creates.
@@ -81,7 +81,7 @@ jobs:
           [workspace.package]
           license = "MIT-0"
           authors = ["Parity Technologies <admin@parity.io>"]
-          homepage = "https://substrate.io"
+          homepage = "https://paritytech.github.io/polkadot-sdk/"
 
           [workspace]
           members = [
@@ -90,7 +90,12 @@ jobs:
               "runtime",
           ]
           resolver = "2"
+
+          [workspace.dependencies]
           EOF
+
+          echo "$(toml get -r ./runtime/Cargo.toml 'package.name') = { path = \"./runtime\", default-features = false }" >> Cargo.toml
+          echo "$(toml get -r ./pallets/template/Cargo.toml 'package.name') = { path = \"./pallets/template\", default-features = false }" >> Cargo.toml
         shell: bash
         working-directory: polkadot-sdk/templates/${{ matrix.template }}/
       - name: Update workspace configuration
@@ -116,9 +121,12 @@ jobs:
       - name: Copy over the new changes
         run: |
           cp -r polkadot-sdk/templates/${{ matrix.template }}/* "${{ env.template-path }}/"
+
+      - name: Run psvm on monorepo workspace dependencies
+        run: psvm -o -v ${{ github.event.inputs.crate_release_version }} -p ./Cargo.toml
+        working-directory: polkadot-sdk/
       - name: Copy over required workspace dependencies
         run: |
-          echo -e "\n[workspace.dependencies]" >> Cargo.toml
           set +e
           # If a workspace dependency is required..
           while cargo tree --depth 1 --prefix none --no-dedupe 2>&1 | grep 'was not found in `workspace.dependencies`'; do
@@ -150,7 +158,7 @@ jobs:
         timeout-minutes: 90
       - name: Create PR on failure
         if: failure() && steps.check-compilation.outcome == 'failure'
-        uses: peter-evans/create-pull-request@5b4a9f6a9e2af26e5f02351490b90d01eb8ec1e5 # v5
+        uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v5
         with:
           path: "${{ env.template-path }}"
           token: ${{ steps.app_token.outputs.token }}

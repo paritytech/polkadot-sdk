@@ -24,7 +24,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod assigner_coretime;
-pub mod assigner_on_demand;
 pub mod assigner_parachains;
 pub mod configuration;
 pub mod coretime;
@@ -34,6 +33,7 @@ pub mod hrmp;
 pub mod inclusion;
 pub mod initializer;
 pub mod metrics;
+pub mod on_demand;
 pub mod origin;
 pub mod paras;
 pub mod paras_inherent;
@@ -52,6 +52,8 @@ mod builder;
 mod mock;
 #[cfg(test)]
 mod ump_tests;
+
+extern crate alloc;
 
 pub use origin::{ensure_parachain, Origin};
 pub use paras::{ParaLifecycle, UpgradeStrategy};

@@ -167,13 +167,15 @@ mod impl_stored_map;
 mod types;
 pub use types::*;
 
+extern crate alloc;
+
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedSub, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, TokenError,
 };
-use sp_std::prelude::*;
 
+use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::{
 	dispatch::DispatchResult,
