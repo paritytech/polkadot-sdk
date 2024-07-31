@@ -868,4 +868,25 @@ mod tests {
 		assert_eq!(priorities.iter().filter(|v| **v == Approval).count(), 11);
 		assert_eq!(priorities.iter().filter(|v| **v == Backing).count(), 1);
 	}
+
+	#[test]
+	fn test_unscheduled_does_not_postpone_backing() {
+		use PvfExecPriority::*;
+
+		let mut priorities = vec![];
+
+		let mut unscheduled = Unscheduled::new();
+		for _ in 0..Unscheduled::MAX_COUNT {
+			unscheduled.add(create_execution_job(), Approval);
+		}
+		unscheduled.add(create_execution_job(), Backing);
+
+		for _ in 0..Unscheduled::MAX_COUNT {
+			let priority = unscheduled.select_next_priority();
+			priorities.push(priority);
+			unscheduled.mark_scheduled(priority);
+		}
+
+		assert_eq!(&priorities[..4], &[Approval, Backing, Approval, Approval]);
+	}
 }
