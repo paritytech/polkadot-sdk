@@ -1,11 +1,11 @@
 [
 	{
 		"metric": "Blake2256",
-		"minimum": 968.31
+		"minimum": 1000.00
 	},
 	{
 		"metric": "Sr25519Verify",
-		"minimum": 0.547529297
+		"minimum": 0.622675781
 	},
 	{
 		"metric": "MemCopy",
