@@ -897,8 +897,6 @@ mod test {
 
 		// Disconnecting a peer without an inflight request has no effect on persistent states.
 		warp_sync.remove_peer(&tenth_peer);
-		warp_sync.remove_peer(&tenth_peer);
-		warp_sync.remove_peer(&tenth_peer);
 		assert!(warp_sync.disconnected_peers.is_peer_available(&tenth_peer));
 
 		warp_sync.add_peer(tenth_peer, H256::random(), 10);

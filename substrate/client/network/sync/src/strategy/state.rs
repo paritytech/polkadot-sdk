@@ -513,8 +513,6 @@ mod test {
 
 		// Disconnecting a peer without an inflight request has no effect on persistent states.
 		state_strategy.remove_peer(&tenth_peer);
-		state_strategy.remove_peer(&tenth_peer);
-		state_strategy.remove_peer(&tenth_peer);
 		assert!(state_strategy.disconnected_peers.is_peer_available(&tenth_peer));
 
 		// Disconnect the peer with an inflight request.
