@@ -50,9 +50,9 @@ use frame_support::{
 			GetSalary, PayFromAccount,
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency,
-		EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance,
-		InsideBoth, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier,
-		Nothing, OnUnbalanced, VariantCountOf, WithdrawReasons,
+		EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance, InsideBoth,
+		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing,
+		OnUnbalanced, VariantCountOf, WithdrawReasons,
 	},
 	weights::{
 		constants::{
