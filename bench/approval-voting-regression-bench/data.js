@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722368658895,
+  "lastUpdate": 1722421626651,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -13441,6 +13441,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.2443231682501583,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "39daa61eb3a0c7395f96cad5c0a30c4cfc2ecfe9",
+          "message": "Run UI tests in CI for some other crates (#5167)\n\nThe test name is `test-frame-ui` I don't know if I can also change it to\n`test-ui` without breaking other stuff. So I kept the name unchanged.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-07-31T08:45:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/39daa61eb3a0c7395f96cad5c0a30c4cfc2ecfe9"
+        },
+        "date": 1722421596168,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52937.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 64015.369999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.6851199551699825,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.4680471973101845,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.558008515250167,
             "unit": "seconds"
           }
         ]
