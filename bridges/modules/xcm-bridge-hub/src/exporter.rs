@@ -429,7 +429,7 @@ mod tests {
 		)
 		.unwrap();
 
-		(locations.bridge_id().clone(), lane_id)
+		(*locations.bridge_id(), lane_id)
 	}
 
 	#[test]

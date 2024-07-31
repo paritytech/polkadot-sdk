@@ -1038,7 +1038,7 @@ mod tests {
 				);
 				assert_eq!(
 					LaneToBridge::<TestRuntime, ()>::get(lane_id),
-					Some(locations.bridge_id().clone())
+					Some(*locations.bridge_id())
 				);
 				assert_eq!(Balances::free_balance(&bridge_owner_account), existential_deposit);
 				assert_eq!(Balances::reserved_balance(&bridge_owner_account), expected_deposit);
@@ -1190,7 +1190,7 @@ mod tests {
 			);
 			assert_eq!(
 				LaneToBridge::<TestRuntime, ()>::get(bridge.lane_id),
-				Some(locations.bridge_id().clone())
+				Some(*locations.bridge_id())
 			);
 			assert_eq!(Balances::free_balance(&bridge.bridge_owner_account), free_balance);
 			assert_eq!(Balances::reserved_balance(&bridge.bridge_owner_account), reserved_balance);
@@ -1238,7 +1238,7 @@ mod tests {
 			);
 			assert_eq!(
 				LaneToBridge::<TestRuntime, ()>::get(bridge.lane_id),
-				Some(locations.bridge_id().clone())
+				Some(*locations.bridge_id())
 			);
 			assert_eq!(Balances::free_balance(&bridge.bridge_owner_account), free_balance);
 			assert_eq!(Balances::reserved_balance(&bridge.bridge_owner_account), reserved_balance);
