@@ -51,7 +51,7 @@ mod tests {
 		assert_eq!(
 			*SUBSTRATE_REFERENCE_HARDWARE,
 			Requirements(vec![
-				Requirement { metric: Metric::Blake2256, minimum: Throughput::from_mibs(783.27) },
+				Requirement { metric: Metric::Blake2256, minimum: Throughput::from_mibs(968.31) },
 				Requirement {
 					metric: Metric::Sr25519Verify,
 					minimum: Throughput::from_kibs(560.670000128),
