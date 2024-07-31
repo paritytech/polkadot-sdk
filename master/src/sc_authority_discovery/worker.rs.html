@@ -1265,6 +1265,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1114" id="1114">1114</a>
 <a href="#1115" id="1115">1115</a>
 <a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1304,7 +1315,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>libp2p::kad::{PeerRecord, Record};
 <span class="kw">use </span>linked_hash_set::LinkedHashSet;
 
-<span class="kw">use </span>log::{debug, error};
+<span class="kw">use </span>log::{debug, error, trace};
 <span class="kw">use </span>prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
 <span class="kw">use </span>prost::Message;
 <span class="kw">use </span>rand::{seq::SliceRandom, thread_rng};
@@ -1683,10 +1694,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-		<span class="macro">debug!</span>(
-			target: LOG_TARGET,
-			<span class="string">"Publishing authority DHT record peer_id='{local_peer_id}' addresses='{addresses:?}'"</span>,
-		);
+		<span class="kw">if </span>!addresses.is_empty() {
+			<span class="macro">debug!</span>(
+				target: LOG_TARGET,
+				<span class="string">"Publishing authority DHT record peer_id='{local_peer_id}' with addresses='{addresses:?}'"</span>,
+			);
+		}
 
 		<span class="comment">// The address must include the local peer id.
 		</span>addresses
@@ -1703,6 +1716,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Role::PublishAndDiscover(key_store) =&gt; key_store,
 			Role::Discover =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
 		};
+
+		<span class="kw">let </span>addresses = serialize_addresses(<span class="self">self</span>.addresses_to_publish());
+		<span class="kw">if </span>addresses.is_empty() {
+			<span class="macro">trace!</span>(
+				target: LOG_TARGET,
+				<span class="string">"No addresses to publish. Skipping publication."
+			</span>);
+
+			<span class="self">self</span>.publish_interval.set_to_start();
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+		}
 
 		<span class="kw">let </span>keys =
 			Worker::&lt;Client, Block, DhtEventStream&gt;::get_own_public_keys_within_authority_set(
@@ -1725,8 +1749,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="self">self</span>.publish_interval.set_to_start();
 			<span class="self">self</span>.query_interval.set_to_start();
 		}
-
-		<span class="kw">let </span>addresses = serialize_addresses(<span class="self">self</span>.addresses_to_publish());
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
 			metrics.publish.inc();

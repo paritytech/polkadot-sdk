@@ -2140,7 +2140,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">let </span><span class="kw-2">mut </span>addresses = <span class="self">self</span>.external_addresses.write();
 
 						<span class="kw">if </span>addresses.insert(address.clone()) {
-							<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"discovered new external address for our node: {address}"</span>);
+							<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"🔍 Discovered new external address for our node: {address}"</span>);
 						}
 					}
 					<span class="prelude-val">Some</span>(DiscoveryEvent::Ping { peer, rtt }) =&gt; {

@@ -750,6 +750,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#599" id="599">599</a>
 <a href="#600" id="600">600</a>
 <a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -818,11 +824,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// mDNS query interval.
 </span><span class="kw">const </span>MDNS_QUERY_INTERVAL: Duration = Duration::from_secs(<span class="number">30</span>);
 
-<span class="doccomment">/// Minimum number of confirmations received before an address is verified.
-</span><span class="kw">const </span>MIN_ADDRESS_CONFIRMATIONS: usize = <span class="number">5</span>;
-
-<span class="comment">// The minimum number of peers we expect an answer before we terminate the request.
+<span class="doccomment">/// The minimum number of peers we expect an answer before we terminate the request.
 </span><span class="kw">const </span>GET_RECORD_REDUNDANCY_FACTOR: usize = <span class="number">4</span>;
+
+<span class="doccomment">/// The maximum number of tracked external addresses we allow.
+</span><span class="kw">const </span>MAX_EXTERNAL_ADDRESSES: u32 = <span class="number">32</span>;
+
+<span class="doccomment">/// Minimum number of confirmations received before an address is verified.
+///
+/// Note: all addresses are confirmed by libp2p on the first encounter. This aims to make
+/// addresses a bit more robust.
+</span><span class="kw">const </span>MIN_ADDRESS_CONFIRMATIONS: usize = <span class="number">2</span>;
 
 <span class="doccomment">/// Discovery events.
 </span><span class="attr">#[derive(Debug)]
@@ -947,7 +959,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>listen_addresses: Arc&lt;RwLock&lt;HashSet&lt;Multiaddr&gt;&gt;&gt;,
 
 	<span class="doccomment">/// External address confirmations.
-	</span>address_confirmations: LruMap&lt;Multiaddr, usize&gt;,
+	</span>address_confirmations: LruMap&lt;Multiaddr, HashSet&lt;PeerId&gt;&gt;,
 
 	<span class="doccomment">/// Delay to next `FIND_NODE` query.
 	</span>duration_to_next_find_query: Duration,
@@ -1030,7 +1042,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				find_node_query_id: <span class="prelude-val">None</span>,
 				pending_events: VecDeque::new(),
 				duration_to_next_find_query: Duration::from_secs(<span class="number">1</span>),
-				address_confirmations: LruMap::new(ByLength::new(<span class="number">8</span>)),
+				address_confirmations: LruMap::new(ByLength::new(MAX_EXTERNAL_ADDRESSES)),
 				allow_non_global_addresses: config.allow_non_globals_in_dht,
 				public_addresses: config.public_addresses.iter().cloned().map(Into::into).collect(),
 				next_kad_query: <span class="prelude-val">Some</span>(Delay::new(KADEMLIA_QUERY_INTERVAL)),
@@ -1180,7 +1192,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Check if `address` can be considered a new external address.
-	</span><span class="kw">fn </span>is_new_external_address(<span class="kw-2">&amp;mut </span><span class="self">self</span>, address: <span class="kw-2">&amp;</span>Multiaddr) -&gt; bool {
+	</span><span class="kw">fn </span>is_new_external_address(<span class="kw-2">&amp;mut </span><span class="self">self</span>, address: <span class="kw-2">&amp;</span>Multiaddr, peer: PeerId) -&gt; bool {
 		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"verify new external address: {address}"</span>);
 
 		<span class="comment">// is the address one of our known addresses
@@ -1196,14 +1208,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span><span class="self">self</span>.address_confirmations.get(address) {
 			<span class="prelude-val">Some</span>(confirmations) =&gt; {
-				<span class="kw-2">*</span>confirmations += <span class="number">1usize</span>;
+				confirmations.insert(peer);
 
-				<span class="kw">if </span><span class="kw-2">*</span>confirmations &gt;= MIN_ADDRESS_CONFIRMATIONS {
+				<span class="kw">if </span>confirmations.len() &gt;= MIN_ADDRESS_CONFIRMATIONS {
 					<span class="kw">return </span><span class="bool-val">true
 				</span>}
 			},
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="self">self</span>.address_confirmations.insert(address.clone(), <span class="number">1usize</span>);
+				<span class="self">self</span>.address_confirmations.insert(address.clone(), Default::default());
 			},
 		}
 
@@ -1315,7 +1327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				supported_protocols,
 				observed_address,
 			})) =&gt; {
-				<span class="kw">if </span>this.is_new_external_address(<span class="kw-2">&amp;</span>observed_address) {
+				<span class="kw">if </span>this.is_new_external_address(<span class="kw-2">&amp;</span>observed_address, peer) {
 					this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
 						address: observed_address.clone(),
 					});
