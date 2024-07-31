@@ -1071,7 +1071,13 @@ mod tests {
 			Preamble::Bare(LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION)
 		);
 
-		let new_ux = Ex::new_bare_legacy(call.clone());
+		let new_legacy_ux = Ex::new_bare_legacy(call.clone());
+		assert_eq!(encoded_old_ux, new_legacy_ux.encode());
+
+		let new_ux = Ex::new_bare(call.clone());
+		let encoded_new_ux = new_ux.encode();
+		let decoded_new_ux = Ex::decode(&mut &encoded_new_ux[..]).unwrap();
+		assert_eq!(new_ux, decoded_new_ux);
 
 		let new_checked = new_ux.check(&IdentityLookup::<TestAccountId>::default()).unwrap();
 		let old_checked =
