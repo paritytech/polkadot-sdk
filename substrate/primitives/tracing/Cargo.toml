@@ -25,18 +25,18 @@ codec = { features = ["derive"], workspace = true }
 tracing = { workspace = true }
 tracing-core = { workspace = true }
 tracing-subscriber = { workspace = true, optional = true, features = [
-  "env-filter",
-  "tracing-log",
-  "time",
+	"env-filter",
+	"time",
+	"tracing-log",
 ] }
 
 [features]
 default = ["std"]
 with-tracing = ["codec/derive", "codec/full"]
 std = [
-  "codec/std",
-  "tracing-core/std",
-  "tracing-subscriber",
-  "tracing/std",
-  "with-tracing",
+	"codec/std",
+	"tracing-core/std",
+	"tracing-subscriber",
+	"tracing/std",
+	"with-tracing",
 ]
