@@ -314,7 +314,9 @@ where
 	pub fn remove_peer(&mut self, peer_id: &PeerId) {
 		if let Some(state) = self.peers.remove(peer_id) {
 			if !state.state.is_available() {
-				if let Some(bad_peer) = self.disconnected_peers.on_disconnect(*peer_id) {
+				if let Some(bad_peer) =
+					self.disconnected_peers.on_disconnect_during_request(*peer_id)
+				{
 					self.actions.push(WarpSyncAction::DropPeer(bad_peer));
 				}
 			}
