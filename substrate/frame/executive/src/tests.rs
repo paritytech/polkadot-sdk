@@ -24,7 +24,7 @@ use sp_core::H256;
 use sp_runtime::{
 	generic::{DigestItem, Era},
 	testing::{Block, Digest, Header},
-	traits::{Block as BlockT, Header as HeaderT},
+	traits::{Block as BlockT, Header as HeaderT, TransactionExtensionBase},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidityError, UnknownTransaction, ValidTransaction,
 	},
@@ -309,6 +309,31 @@ parameter_types! {
 	};
 }
 
+pub struct MockExtensionsWeights;
+impl frame_system::ExtensionsWeightInfo for MockExtensionsWeights {
+	fn check_genesis() -> Weight {
+		Weight::zero()
+	}
+	fn check_mortality() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+	fn check_non_zero_sender() -> Weight {
+		Weight::zero()
+	}
+	fn check_nonce() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+	fn check_spec_version() -> Weight {
+		Weight::zero()
+	}
+	fn check_tx_version() -> Weight {
+		Weight::zero()
+	}
+	fn check_weight() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BlockWeights = BlockWeights;
@@ -323,6 +348,7 @@ impl frame_system::Config for Runtime {
 	type PostInherents = MockedSystemCallbacks;
 	type PostTransactions = MockedSystemCallbacks;
 	type MultiBlockMigrator = MockedModeGetter;
+	type ExtensionsWeightInfo = MockExtensionsWeights;
 }
 
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, MaxEncodedLen, TypeInfo, RuntimeDebug)]
@@ -383,6 +409,13 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = VariantCountOf<FreezeReasonId>;
 }
 
+pub struct MockTxPaymentWeights;
+impl pallet_transaction_payment::WeightInfo for MockTxPaymentWeights {
+	fn charge_transaction_payment() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+}
+
 parameter_types! {
 	pub const TransactionByteFee: Balance = 0;
 }
@@ -393,7 +426,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ();
-	type WeightInfo = ();
+	type WeightInfo = MockTxPaymentWeights;
 }
 
 impl custom::Config for Runtime {}
@@ -687,11 +720,13 @@ fn block_weight_limit_enforced() {
 	let mut t = new_test_ext(10000);
 	let transfer_weight =
 			<<Runtime as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::transfer_allow_death();
+	let extension_weight = TxExtension::weight();
 	// on_initialize weight + base block execution weight
 	let block_weights = <Runtime as frame_system::Config>::BlockWeights::get();
 	let base_block_weight = Weight::from_parts(175, 0) + block_weights.base_block;
 	let limit = block_weights.get(DispatchClass::Normal).max_total.unwrap() - base_block_weight;
-	let num_to_exhaust_block = limit.ref_time() / (transfer_weight.ref_time() + 5);
+	let num_to_exhaust_block =
+		limit.ref_time() / (transfer_weight.ref_time() + extension_weight.ref_time() + 5);
 	t.execute_with(|| {
 		Executive::initialize_block(&Header::new_from_number(1));
 		// Base block execution weight + `on_initialize` weight from the custom module.
@@ -711,8 +746,18 @@ fn block_weight_limit_enforced() {
 				assert!(res.is_ok());
 				assert_eq!(
 					<frame_system::Pallet<Runtime>>::block_weight().total(),
-					//--------------------- on_initialize + block_execution + extrinsic_base weight + extrinsic len
-					Weight::from_parts((transfer_weight.ref_time() + 5) * (nonce + 1), (nonce + 1)* encoded_len) + base_block_weight,
+					//---------------------
+					// on_initialize
+					// + block_execution
+					// + extrinsic_base weight
+					// + call weight
+					// + extension weight
+					// + extrinsic len
+					Weight::from_parts(
+						(transfer_weight.ref_time() + extension_weight.ref_time() + 5) *
+							(nonce + 1),
+						(nonce + 1) * encoded_len
+					) + base_block_weight,
 				);
 				assert_eq!(
 					<frame_system::Pallet<Runtime>>::extrinsic_index(),
@@ -747,7 +792,7 @@ fn block_weight_and_size_is_stored_per_tx() {
 	);
 	let len = xt.clone().encode().len() as u32;
 	let transfer_weight = <<Runtime as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::transfer_allow_death();
-	let mut t = new_test_ext(1);
+	let mut t = new_test_ext(2);
 	t.execute_with(|| {
 		// Block execution weight + on_initialize weight from custom module
 		let base_block_weight = Weight::from_parts(175, 0) +
@@ -763,6 +808,7 @@ fn block_weight_and_size_is_stored_per_tx() {
 		assert!(Executive::apply_extrinsic(x2.clone()).unwrap().is_ok());
 
 		let extrinsic_weight = transfer_weight +
+			TxExtension::weight() +
 			<Runtime as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Normal)
 				.base_extrinsic;
