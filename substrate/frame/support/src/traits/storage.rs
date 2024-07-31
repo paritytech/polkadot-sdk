@@ -237,6 +237,10 @@ pub trait Consideration<AccountId, Footprint>:
 	fn burn(self, _: &AccountId) {
 		let _ = self;
 	}
+	/// Ensure that creating a ticket for a given account and footprint will be successful if done
+	/// immediately after this call.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(who: &AccountId, new: Footprint);
 }
 
 impl<A, F> Consideration<A, F> for () {
@@ -249,6 +253,8 @@ impl<A, F> Consideration<A, F> for () {
 	fn drop(self, _: &A) -> Result<(), DispatchError> {
 		Ok(())
 	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &A, _: F) {}
 }
 
 macro_rules! impl_incrementable {
