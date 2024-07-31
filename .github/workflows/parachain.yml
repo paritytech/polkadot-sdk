@@ -66,6 +66,7 @@ jobs:
           -p snowbridge-ethereum
           -p snowbridge-router-primitives
           -p snowbridge-runtime-common
+          -p snowbridge-runtime-test-common
           -p bridge-hub-rococo-runtime 
           -p bridge-hub-rococo-integration-tests
           -p asset-hub-rococo-integration-tests
