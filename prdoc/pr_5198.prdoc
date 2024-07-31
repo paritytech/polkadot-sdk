@@ -1,0 +1,10 @@
+title: "MQ processor should be transactional"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Enforce transactional processing on pallet Message Queue Processor
+
+crates:
+  - name: pallet-message-queue
+    bump: patch
