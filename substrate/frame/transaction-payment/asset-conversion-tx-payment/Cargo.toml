@@ -4,7 +4,7 @@ version = "10.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Pallet to manage transaction payments in assets by converting them to native assets."
 readme = "README.md"
@@ -18,7 +18,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 # Substrate dependencies
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-asset-conversion = { workspace = true }
@@ -47,7 +46,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-storage/std",
 ]
 try-runtime = [
