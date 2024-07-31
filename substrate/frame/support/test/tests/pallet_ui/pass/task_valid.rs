@@ -58,7 +58,7 @@ mod pallet_with_instance {
 		#[pallet::task_condition(|i, j| i == 0u32 && j == 2u64)]
 		#[pallet::task_list(vec![(0u32, 2u64), (2u32, 4u64)].iter())]
 		#[pallet::task_weight(0.into())]
-		fn foo(i: u32, j: u64) -> frame_support::pallet_prelude::DispatchResult {
+		fn foo(_i: u32, _j: u64) -> frame_support::pallet_prelude::DispatchResult {
 			<SomeStorage<T, I>>::get();
 			Ok(())
 		}
