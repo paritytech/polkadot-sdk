@@ -1376,9 +1376,22 @@ impl_runtime_apis! {
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;
 
+					let sibling_parachain_location = Location::new(1, [Parachain(5678)]);
+
+					// fund SA
+					use frame_support::traits::fungible::Mutate;
+					use xcm_executor::traits::ConvertLocation;
+					frame_support::assert_ok!(
+						Balances::mint_into(
+							&xcm_config::LocationToAccountId::convert_location(&sibling_parachain_location).expect("valid AccountId"),
+							bridge_to_westend_config::BridgeDeposit::get()
+								.saturating_add(ExistentialDeposit::get())
+								.saturating_add(UNITS * 5)
+						)
+					);
+
 					// open bridge
-					let origin_location = Location::new(1, [Parachain(5678)]);
-					let origin = RuntimeOrigin::from(pallet_xcm::Origin::Xcm(origin_location.clone()));
+					let origin = RuntimeOrigin::from(pallet_xcm::Origin::Xcm(sibling_parachain_location.clone()));
 					XcmOverBridgeHubWestend::open_bridge(
 						origin.clone(),
 						Box::new(VersionedInteriorLocation::from([GlobalConsensus(NetworkId::Westend), Parachain(8765)])),
@@ -1394,7 +1407,7 @@ impl_runtime_apis! {
 
 					Ok(
 						(
-							origin_location,
+							sibling_parachain_location,
 							NetworkId::Westend,
 							[Parachain(8765)].into()
 						)
