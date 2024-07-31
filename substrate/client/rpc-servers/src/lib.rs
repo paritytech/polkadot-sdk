@@ -141,9 +141,9 @@ where
 			PingConfig::new()
 				.ping_interval(Duration::from_secs(30))
 				.inactive_limit(Duration::from_secs(60))
-				// We are not disconnecting inactive peers because jsonrpsee doesn't synchronize ping/pong properly.
-				// For example, if sending ping a message takes longer than the interval then the peer is regarded as inactive.
-				// See https://github.com/paritytech/jsonrpsee/issues/1433
+				// We are not disconnecting inactive peers because jsonrpsee doesn't synchronize
+				// ping/pong properly. For example, if sending ping a message takes longer than the
+				// interval then the peer is regarded as inactive. See https://github.com/paritytech/jsonrpsee/issues/1433
 				.max_failures(usize::MAX),
 		)
 		.set_http_middleware(http_middleware)
