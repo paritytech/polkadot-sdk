@@ -28,6 +28,7 @@ pub use pallet_multisig::{self as Multisig, Call as MultisigCall};
 pub use pallet_contracts::{self as Contracts, Call as ContractsCall};
 pub use pallet_proxy::{self as Proxy, Call as ProxyCall};
 pub use pallet_balances::{self as Balances, Call as BalancesCall};
+pub use pallet_democracy::{self as Democracy, Call as DemocracyCall};
 
 
 use frame_support::{
@@ -83,7 +84,7 @@ pub mod pallet {
 	<<T as Config>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_proxy::Config + pallet_multisig::Config + pallet_balances::Config<Balance = BalanceOf<Self>> {
+	pub trait Config: frame_system::Config + pallet_democracy::Config + pallet_proxy::Config + pallet_multisig::Config + pallet_balances::Config<Balance = BalanceOf<Self>> {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -131,11 +132,9 @@ pub mod pallet {
 		pub fn create_accounts(origin: OriginFor<T>, amount: BalanceOf<T>, account: T::AccountId, call: Box<<T as pallet_multisig::Config>::RuntimeCall>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			let mut account_1: u64 = 1;
+			let mut account_1: u64 = 2;
 			let mut account_2: u64 = 2;
 			let threshold = 2;
-			// let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
-			// pallet_multisig::
 
             // Call the as_multi function from the pallet_multisig pallet
             let multisig_account = Multisig::Pallet::<T>::as_multi(
@@ -147,13 +146,13 @@ pub mod pallet {
                 Weight::zero(),
             );
 
+			Democracy::Pallet::<T>::propose(frame_system::RawOrigin::Signed(sender).into(), );
+
 			// <T as pallet::Config>::Currency::reserve(multisig_account, 1);
 
-
+			// ReservableCurrency::reserve(&account_1, 1);
 
 			// Multisig::Pallet::<T>::operate();
-
-			// let account: T::AccountId = 2;
 
 			// let cancel_as_multi_call = Multisig::Pallet::<T>::cancel_as_multi(frame_system::RawOrigin::Signed(sender).into(), 3, vec![2, 3], None, hash);
 

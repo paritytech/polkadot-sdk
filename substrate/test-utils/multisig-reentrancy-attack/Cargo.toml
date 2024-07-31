@@ -23,6 +23,7 @@ pallet-multisig = { path = "../../frame/multisig", workspace = true, default-fea
 pallet-balances = { path = "../../frame/balances", default-features = true, optional = true }
 pallet-contracts = { path = "../../frame/contracts", default-features = true, optional = true }
 pallet-proxy = { path = "../../frame/proxy", default-features = true, optional = true }
+pallet-democracy = { path = "../../frame/democracy", default-features = true, optional = true }
 frame-support = { path = "../../frame/support", default-features = false }
 frame-system = { path = "../../frame/system", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
@@ -50,6 +51,7 @@ std = [
 	"pallet-multisig/std",
 	"pallet-contracts/std",
 	"pallet-proxy/std",
+	"pallet-democracy/std",
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
@@ -63,6 +65,7 @@ runtime-benchmarks = [
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-contracts/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
+	"pallet-democracy/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
@@ -75,5 +78,6 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-democracy/try-runtime",
 	"sp-runtime/try-runtime",
 ]
