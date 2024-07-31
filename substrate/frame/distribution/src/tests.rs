@@ -132,7 +132,7 @@ fn funds_are_locked() {
 		let total_on_hold = amount1.saturating_add(amount2).saturating_add(amount3);
 		let pot_account = Distribution::pot_account();
 		let hold = <<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
-			&HoldReason::FundsLock.into(),
+			&HoldReason::FundsReserved.into(),
 			&pot_account
 		);
 		assert_eq!(total_on_hold, hold);	

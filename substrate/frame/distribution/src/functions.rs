@@ -97,7 +97,7 @@ impl<T: Config> Pallet<T> {
 	// At the beginning of every Epoch, populate the `Spendings` storage from the `Projects` storage (populated by an external process/pallet)
 	// make sure that there is enough funds before creating a new `SpendingInfo`, and `ProjectInfo`
 	// corresponding to a created `SpendingInfo` should be removed from the `Projects` storage.
-	// This is also a good place to lock the funds for created `SpendingInfos`.
+	// This is also a good place to Reserve the funds for created `SpendingInfos`.
 	// the function will be use in a hook.
 
 	pub fn begin_block(now: BlockNumberFor<T>) -> Weight {
@@ -119,13 +119,13 @@ impl<T: Config> Pallet<T> {
 							// Create a new spending
 							let new_spending = SpendingInfo::<T>::new(project.clone());
 							
-							// Lock funds for the project
+							// Reserve funds for the project
 							let pot = Self::pot_account();
 							let _=T::NativeBalance::hold(
-								&HoldReason::FundsLock.into(),
+								&HoldReason::FundsReserved.into(),
 								&pot,
 								project.amount,
-							).map_err(|_| Error::<T>::LockFailed);
+							).map_err(|_| Error::<T>::FundsReserveFailed);
 
 							// Remove project from project_list
 							projects.retain(|value| *value != project); 

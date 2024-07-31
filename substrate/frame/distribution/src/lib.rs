@@ -59,7 +59,7 @@ pub mod pallet {
 	pub enum HoldReason {
 		/// Funds are held for a given buffer time before payment
 		#[codec(index = 0)]
-		FundsLock,
+		FundsReserved,
 	}
 
 	/// Number of spendings that have been executed so far.
@@ -120,7 +120,7 @@ pub mod pallet {
 		/// Still not in claiming period
 		NotClaimingPeriod,
 		/// Funds locking failed
-		LockFailed,
+		FundsReserveFailed,
 	}
 
 	#[pallet::hooks]
@@ -149,7 +149,7 @@ pub mod pallet {
 				ensure!(now > info.valid_from, Error::<T>::NotClaimingPeriod);
 					// Unlock the funds
 					T::NativeBalance::release(
-						&HoldReason::FundsLock.into(),
+						&HoldReason::FundsReserved.into(),
 						&pot,
 						info.amount,
 						Precision::Exact,
