@@ -97,7 +97,7 @@ frame_support::parameter_types! {
 
 	/// Transaction fee that is paid at the Westend BridgeHub for delivering single inbound message.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
-	pub const BridgeHubWestendBaseDeliveryFeeInWnds: u128 = 94_211_536_452;
+	pub const BridgeHubWestendBaseDeliveryFeeInWnds: u128 = 94_224_836_452;
 
 	/// Transaction fee that is paid at the Westend BridgeHub for delivering single outbound message confirmation.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
