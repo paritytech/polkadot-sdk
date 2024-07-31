@@ -213,9 +213,8 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
-		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError,
-		ProcessMessageError::{BadFormat, Corrupt, StackLimitReached, Unsupported, Yield},
-		QueueFootprint, QueuePausedQuery, ServiceQueues,
+		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError, QueueFootprint,
+		QueuePausedQuery, ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
