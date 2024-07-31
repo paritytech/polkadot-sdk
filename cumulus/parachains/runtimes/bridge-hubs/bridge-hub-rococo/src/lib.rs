@@ -1375,11 +1375,28 @@ impl_runtime_apis! {
 						);
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;
+
+					// open bridge
+					let origin_location = Location::new(1, [Parachain(5678)]);
+					let origin = RuntimeOrigin::from(pallet_xcm::Origin::Xcm(origin_location.clone()));
+					XcmOverBridgeHubWestend::open_bridge(
+						origin.clone(),
+						Box::new(VersionedInteriorLocation::from([GlobalConsensus(NetworkId::Westend), Parachain(8765)])),
+					).map_err(|e| {
+						log::error!(
+							"Failed to `XcmOverBridgeHubWestend::open_bridge`({:?}, {:?})`, error: {:?}",
+							origin,
+							[GlobalConsensus(NetworkId::Westend), Parachain(8765)],
+							e
+						);
+						BenchmarkError::Stop("Bridge was not opened!")
+					})?;
+
 					Ok(
 						(
-							bridge_to_westend_config::FromAssetHubRococoToAssetHubWestendRoute::get().location,
+							origin_location,
 							NetworkId::Westend,
-							[Parachain(bridge_to_westend_config::AssetHubWestendParaId::get().into())].into()
+							[Parachain(8765)].into()
 						)
 					)
 				}

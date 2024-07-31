@@ -1061,11 +1061,28 @@ impl_runtime_apis! {
 						);
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;
+
+					// open bridge
+					let origin_location = Location::new(1, [Parachain(5678)]);
+					let origin = RuntimeOrigin::from(pallet_xcm::Origin::Xcm(origin_location.clone()));
+					XcmOverBridgeHubRococo::open_bridge(
+						origin.clone(),
+						alloc::boxed::Box::new(VersionedInteriorLocation::from([GlobalConsensus(NetworkId::Rococo), Parachain(8765)])),
+					).map_err(|e| {
+						log::error!(
+							"Failed to `XcmOverBridgeHubRococo::open_bridge`({:?}, {:?})`, error: {:?}",
+							origin,
+							[GlobalConsensus(NetworkId::Rococo), Parachain(8765)],
+							e
+						);
+						BenchmarkError::Stop("Bridge was not opened!")
+					})?;
+
 					Ok(
 						(
-							bridge_to_rococo_config::FromAssetHubWestendToAssetHubRococoRoute::get().location,
+							origin_location,
 							NetworkId::Rococo,
-							[Parachain(bridge_to_rococo_config::AssetHubRococoParaId::get().into())].into()
+							[Parachain(8765)].into()
 						)
 					)
 				}
