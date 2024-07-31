@@ -790,6 +790,7 @@ name = "asset-hub-rococo-emulated-chain"
 version = "0.0.0"
 dependencies = [
  "asset-hub-rococo-runtime",
+ "bp-bridge-hub-rococo",
  "cumulus-primitives-core",
  "emulated-integration-tests-common",
  "frame-support",
@@ -915,6 +916,7 @@ name = "asset-hub-westend-emulated-chain"
 version = "0.0.0"
 dependencies = [
  "asset-hub-westend-runtime",
+ "bp-bridge-hub-westend",
  "cumulus-primitives-core",
  "emulated-integration-tests-common",
  "frame-support",
@@ -2031,6 +2033,7 @@ dependencies = [
  "scale-info",
  "sp-core",
  "sp-runtime",
+ "staging-xcm",
 ]
 
 [[package]]
@@ -12037,7 +12040,6 @@ dependencies = [
 name = "pallet-xcm-bridge-hub-router"
 version = "0.5.0"
 dependencies = [
- "bp-xcm-bridge-hub",
  "bp-xcm-bridge-hub-router",
  "frame-benchmarking",
  "frame-support",
