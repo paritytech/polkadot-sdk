@@ -95,7 +95,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: update forklift
-        run: ./builds/download-forklift.sh -v master -p ./forklift/
+        run: /builds/download-forklift.sh -v master -p ./forklift/
       - run: forklift version
 
       - run: rustup component add llvm-tools-preview
