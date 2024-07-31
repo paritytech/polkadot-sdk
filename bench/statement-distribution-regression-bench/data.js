@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722369564675,
+  "lastUpdate": 1722422532309,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -7139,6 +7139,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04902315715800003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "39daa61eb3a0c7395f96cad5c0a30c4cfc2ecfe9",
+          "message": "Run UI tests in CI for some other crates (#5167)\n\nThe test name is `test-frame-ui` I don't know if I can also change it to\n`test-ui` without breaking other stuff. So I kept the name unchanged.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-07-31T08:45:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/39daa61eb3a0c7395f96cad5c0a30c4cfc2ecfe9"
+        },
+        "date": 1722422501268,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.93399999999993,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03791378063199998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04819008556600002,
             "unit": "seconds"
           }
         ]
