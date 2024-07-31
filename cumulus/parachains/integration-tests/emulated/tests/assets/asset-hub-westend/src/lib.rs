@@ -51,7 +51,7 @@ mod imports {
 			asset_hub_westend_runtime::{
 				xcm_config::{
 					self as ahw_xcm_config, WestendLocation as RelayLocation,
-					XcmConfig as AssetHubWestendXcmConfig,
+					WestendLocationV3 as RelayLocationV3, XcmConfig as AssetHubWestendXcmConfig,
 				},
 				AssetConversionOrigin as AssetHubWestendAssetConversionOrigin,
 				ExistentialDeposit as AssetHubWestendExistentialDeposit,
@@ -71,8 +71,11 @@ mod imports {
 		},
 		westend_emulated_chain::{
 			genesis::ED as WESTEND_ED,
-			westend_runtime::xcm_config::{
-				UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
+			westend_runtime::{
+				governance::pallet_custom_origins::Origin::Treasurer,
+				xcm_config::{
+					UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
+				},
 			},
 			WestendRelayPallet as WestendPallet,
 		},

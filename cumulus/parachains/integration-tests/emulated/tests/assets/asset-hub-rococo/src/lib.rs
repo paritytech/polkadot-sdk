@@ -51,7 +51,7 @@ mod imports {
 			asset_hub_rococo_runtime::{
 				xcm_config::{
 					self as ahr_xcm_config, TokenLocation as RelayLocation,
-					XcmConfig as AssetHubRococoXcmConfig,
+					TokenLocationV3 as RelayLocationV3, XcmConfig as AssetHubRococoXcmConfig,
 				},
 				AssetConversionOrigin as AssetHubRococoAssetConversionOrigin,
 				ExistentialDeposit as AssetHubRococoExistentialDeposit,
@@ -72,6 +72,7 @@ mod imports {
 			genesis::ED as ROCOCO_ED,
 			rococo_runtime::{
 				governance as rococo_governance,
+				governance::pallet_custom_origins::Origin::Treasurer,
 				xcm_config::{
 					UniversalLocation as RococoUniversalLocation, XcmConfig as RococoXcmConfig,
 				},

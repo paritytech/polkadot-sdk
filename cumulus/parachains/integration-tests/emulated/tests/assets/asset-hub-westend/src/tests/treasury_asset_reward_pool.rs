@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use crate::imports::*;
-use asset_hub_westend_runtime::xcm_config::WestendLocationV3;
 use codec::Encode;
 use emulated_integration_tests_common::ASSET_HUB_WESTEND_ID;
 use frame_support::{assert_ok, sp_runtime::traits::Dispatchable};
@@ -29,8 +28,8 @@ fn treasury_creates_asset_reward_pool() {
 		type WestendRuntimeEvent = <Westend as Chain>::RuntimeEvent;
 		type WestendRuntimeOrigin = <Westend as Chain>::RuntimeOrigin;
 
-		let staked_asset_id = bx!(WestendLocationV3::get());
-		let reward_asset_id = bx!(WestendLocationV3::get());
+		let staked_asset_id = bx!(RelayLocationV3::get());
+		let reward_asset_id = bx!(RelayLocationV3::get());
 
 		let reward_rate_per_block = 1_000_000_000;
 		let lifetime = 1_000_000_000;
@@ -61,8 +60,7 @@ fn treasury_creates_asset_reward_pool() {
 				]))),
 			});
 
-		let treasury_origin: WestendRuntimeOrigin =
-			westend_runtime::governance::pallet_custom_origins::Origin::Treasurer.into();
+		let treasury_origin: WestendRuntimeOrigin = Treasurer.into();
 		assert_ok!(create_pool_call.dispatch(treasury_origin));
 
 		assert_expected_events!(
