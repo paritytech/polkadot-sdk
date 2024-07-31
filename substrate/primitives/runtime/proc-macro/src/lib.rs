@@ -39,12 +39,12 @@ use replace_features::{ConfigurationPredicate, RuntimeFeature};
 /// # Example
 ///
 /// ```
-/// #[sp_runtime::runtime_cfg(feature = "sp-runtime/try-runtime")]
+/// #[sp_runtime::cfg_rt(feature = "sp-runtime/try-runtime")]
 /// fn some_function() {
 /// 	println!("try-runtime is enabled");
 /// }
 ///
-/// #[sp_runtime::runtime_cfg(all(feature = "std", feature = "sp-runtime/runtime-benchmarks"))]
+/// #[sp_runtime::cfg_rt(all(feature = "std", feature = "sp-runtime/runtime-benchmarks"))]
 /// fn some_function() {
 /// 	println!("try-runtime and std are enabled");
 /// }
@@ -83,12 +83,12 @@ pub fn with_features_try_runtime_and_runtime_benchmarks(
 /// # Example
 ///
 /// ```
-/// #[sp_runtime::runtime_cfg(feature = "sp-runtime/try-runtime")]
+/// #[sp_runtime::cfg_rt(feature = "sp-runtime/try-runtime")]
 /// fn some_function() {
 /// 	println!("try-runtime is enabled");
 /// }
 ///
-/// #[sp_runtime::runtime_cfg(all(feature = "std", feature = "sp-runtime/runtime-benchmarks"))]
+/// #[sp_runtime::cfg_rt(all(feature = "std", feature = "sp-runtime/runtime-benchmarks"))]
 /// fn some_function() {
 /// 	println!("try-runtime and std are enabled");
 /// }
@@ -127,12 +127,12 @@ pub fn with_features_try_runtime_and_not_runtime_benchmarks(
 /// # Example
 ///
 /// ```
-/// #[sp_runtime::runtime_cfg(feature = "sp-runtime/try-runtime")]
+/// #[sp_runtime::cfg_rt(feature = "sp-runtime/try-runtime")]
 /// fn some_function() {
 /// 	println!("try-runtime is enabled");
 /// }
 ///
-/// #[sp_runtime::runtime_cfg(all(feature = "std", feature = "sp-runtime/runtime-benchmarks"))]
+/// #[sp_runtime::cfg_rt(all(feature = "std", feature = "sp-runtime/runtime-benchmarks"))]
 /// fn some_function() {
 /// 	println!("try-runtime and std are enabled");
 /// }
@@ -171,12 +171,12 @@ pub fn with_features_not_try_runtime_and_runtime_benchmarks(
 /// # Example
 ///
 /// ```
-/// #[sp_runtime::runtime_cfg(feature = "sp-runtime/try-runtime")]
+/// #[sp_runtime::cfg_rt(feature = "sp-runtime/try-runtime")]
 /// fn some_function() {
 /// 	println!("try-runtime is enabled");
 /// }
 ///
-/// #[sp_runtime::runtime_cfg(all(feature = "std", feature = "sp-runtime/runtime-benchmarks"))]
+/// #[sp_runtime::cfg_rt(all(feature = "std", feature = "sp-runtime/runtime-benchmarks"))]
 /// fn some_function() {
 /// 	println!("try-runtime and std are enabled");
 /// }
@@ -199,6 +199,162 @@ pub fn with_features_not_try_runtime_and_not_runtime_benchmarks(
 	quote::quote!(
 		#[cfg(#args)]
 		#input
+	)
+	.into()
+}
+
+// NOTE: This documentation is shown on the re-exported macro in the sp-runtime crate.
+// This doc is duplicated for each macro.
+/// Extended implementation of `cfg!` macro with access to `sp-runtime/try-runtime` and
+/// `sp-runtime/runtime-benchmarks` features.
+///
+/// Syntax is the same as `cfg!(..)` macro.
+///
+/// # Example
+///
+/// ```
+/// fn some_function() {
+/// 	if sp_runtime::cfg_rt_inline!(feature = "sp-runtime/try-runtime") {
+/// 		println!("try-runtime is enabled");
+/// 	}
+///
+/// 	if sp_runtime::cfg_rt_inline!(all(feature = "std", feature = "sp-runtime/runtime-benchmarks")) {
+/// 		println!("try-runtime and std are enabled");
+/// 	}
+/// }
+/// ```
+#[proc_macro]
+pub fn with_features_not_try_runtime_and_not_runtime_benchmarks_inline(
+	args: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+	let features = [
+		RuntimeFeature { name: "sp-runtime/try-runtime".into(), is_enabled: false },
+		RuntimeFeature { name: "sp-runtime/runtime-benchmarks".into(), is_enabled: false },
+	];
+
+	let mut args = syn::parse_macro_input!(args as ConfigurationPredicate);
+
+	args.replace_features(&features[..]);
+
+	quote::quote!(
+		cfg!(#args)
+	)
+	.into()
+}
+
+// NOTE: This documentation is shown on the re-exported macro in the sp-runtime crate.
+// This doc is duplicated for each macro.
+/// Extended implementation of `cfg!` macro with access to `sp-runtime/try-runtime` and
+/// `sp-runtime/runtime-benchmarks` features.
+///
+/// Syntax is the same as `cfg!(..)` macro.
+///
+/// # Example
+///
+/// ```
+/// fn some_function() {
+/// 	if sp_runtime::cfg_rt_inline!(feature = "sp-runtime/try-runtime") {
+/// 		println!("try-runtime is enabled");
+/// 	}
+///
+/// 	if sp_runtime::cfg_rt_inline!(all(feature = "std", feature = "sp-runtime/runtime-benchmarks")) {
+/// 		println!("try-runtime and std are enabled");
+/// 	}
+/// }
+/// ```
+#[proc_macro]
+pub fn with_features_try_runtime_and_not_runtime_benchmarks_inline(
+	args: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+	let features = [
+		RuntimeFeature { name: "sp-runtime/try-runtime".into(), is_enabled: true },
+		RuntimeFeature { name: "sp-runtime/runtime-benchmarks".into(), is_enabled: false },
+	];
+
+	let mut args = syn::parse_macro_input!(args as ConfigurationPredicate);
+
+	args.replace_features(&features[..]);
+
+	quote::quote!(
+		cfg!(#args)
+	)
+	.into()
+}
+
+// NOTE: This documentation is shown on the re-exported macro in the sp-runtime crate.
+// This doc is duplicated for each macro.
+/// Extended implementation of `cfg!` macro with access to `sp-runtime/try-runtime` and
+/// `sp-runtime/runtime-benchmarks` features.
+///
+/// Syntax is the same as `cfg!(..)` macro.
+///
+/// # Example
+///
+/// ```
+/// fn some_function() {
+/// 	if sp_runtime::cfg_rt_inline!(feature = "sp-runtime/try-runtime") {
+/// 		println!("try-runtime is enabled");
+/// 	}
+///
+/// 	if sp_runtime::cfg_rt_inline!(all(feature = "std", feature = "sp-runtime/runtime-benchmarks")) {
+/// 		println!("try-runtime and std are enabled");
+/// 	}
+/// }
+/// ```
+#[proc_macro]
+pub fn with_features_try_runtime_and_runtime_benchmarks_inline(
+	args: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+	let features = [
+		RuntimeFeature { name: "sp-runtime/try-runtime".into(), is_enabled: true },
+		RuntimeFeature { name: "sp-runtime/runtime-benchmarks".into(), is_enabled: true },
+	];
+
+	let mut args = syn::parse_macro_input!(args as ConfigurationPredicate);
+
+	args.replace_features(&features[..]);
+
+	quote::quote!(
+		cfg!(#args)
+	)
+	.into()
+}
+
+// NOTE: This documentation is shown on the re-exported macro in the sp-runtime crate.
+// This doc is duplicated for each macro.
+/// Extended implementation of `cfg!` macro with access to `sp-runtime/try-runtime` and
+/// `sp-runtime/runtime-benchmarks` features.
+///
+/// Syntax is the same as `cfg!(..)` macro.
+///
+/// # Example
+///
+/// ```
+/// fn some_function() {
+/// 	if sp_runtime::cfg_rt_inline!(feature = "sp-runtime/try-runtime") {
+/// 		println!("try-runtime is enabled");
+/// 	}
+///
+/// 	if sp_runtime::cfg_rt_inline!(all(feature = "std", feature = "sp-runtime/runtime-benchmarks")) {
+/// 		println!("try-runtime and std are enabled");
+/// 	}
+/// }
+/// ```
+#[proc_macro]
+pub fn with_features_not_try_runtime_and_runtime_benchmarks_inline(
+	args: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+	let features = [
+		RuntimeFeature { name: "sp-runtime/try-runtime".into(), is_enabled: false },
+		RuntimeFeature { name: "sp-runtime/runtime-benchmarks".into(), is_enabled: true },
+	];
+
+	let mut args = syn::parse_macro_input!(args as ConfigurationPredicate);
+
+	args.replace_features(&features[..]);
+
+	quote::quote!(
+		cfg!(#args)
 	)
 	.into()
 }

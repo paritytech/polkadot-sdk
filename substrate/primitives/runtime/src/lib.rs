@@ -1030,16 +1030,28 @@ impl OpaqueValue {
 }
 
 #[cfg(all(feature = "try-runtime", feature = "runtime-benchmarks"))]
-pub use sp_runtime_proc_macro::with_features_try_runtime_and_runtime_benchmarks as runtime_cfg;
+pub use sp_runtime_proc_macro::with_features_try_runtime_and_runtime_benchmarks as cfg_rt;
 
 #[cfg(all(not(feature = "try-runtime"), feature = "runtime-benchmarks"))]
-pub use sp_runtime_proc_macro::with_features_not_try_runtime_and_runtime_benchmarks as runtime_cfg;
+pub use sp_runtime_proc_macro::with_features_not_try_runtime_and_runtime_benchmarks as cfg_rt;
 
 #[cfg(all(feature = "try-runtime", not(feature = "runtime-benchmarks")))]
-pub use sp_runtime_proc_macro::with_features_try_runtime_and_not_runtime_benchmarks as runtime_cfg;
+pub use sp_runtime_proc_macro::with_features_try_runtime_and_not_runtime_benchmarks as cfg_rt;
 
 #[cfg(all(not(feature = "try-runtime"), not(feature = "runtime-benchmarks")))]
-pub use sp_runtime_proc_macro::with_features_not_try_runtime_and_not_runtime_benchmarks as runtime_cfg;
+pub use sp_runtime_proc_macro::with_features_not_try_runtime_and_not_runtime_benchmarks as cfg_rt;
+
+#[cfg(all(feature = "try-runtime", feature = "runtime-benchmarks"))]
+pub use sp_runtime_proc_macro::with_features_try_runtime_and_runtime_benchmarks_inline as cfg_rt_inline;
+
+#[cfg(all(not(feature = "try-runtime"), feature = "runtime-benchmarks"))]
+pub use sp_runtime_proc_macro::with_features_not_try_runtime_and_runtime_benchmarks_inline as cfg_rt_inline;
+
+#[cfg(all(feature = "try-runtime", not(feature = "runtime-benchmarks")))]
+pub use sp_runtime_proc_macro::with_features_try_runtime_and_not_runtime_benchmarks_inline as cfg_rt_inline;
+
+#[cfg(all(not(feature = "try-runtime"), not(feature = "runtime-benchmarks")))]
+pub use sp_runtime_proc_macro::with_features_not_try_runtime_and_not_runtime_benchmarks_inline as cfg_rt_inline;
 
 #[cfg(test)]
 mod tests {
@@ -1177,22 +1189,22 @@ mod tests {
 	fn _unique_function() {}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	#[runtime_cfg(not(feature = "runtime-benchmarks"))]
+	#[cfg_rt(not(feature = "runtime-benchmarks"))]
 	fn _unique_function() {}
 
 	#[cfg(feature = "try-runtime")]
-	#[runtime_cfg(not(feature = "try-runtime"))]
+	#[cfg_rt(not(feature = "try-runtime"))]
 	fn _unique_function() {}
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	#[runtime_cfg(feature = "runtime-benchmarks")]
+	#[cfg_rt(feature = "runtime-benchmarks")]
 	fn _unique_function() {}
 
 	#[cfg(not(feature = "try-runtime"))]
-	#[runtime_cfg(feature = "try-runtime")]
+	#[cfg_rt(feature = "try-runtime")]
 	fn _unique_function() {}
 
-	#[runtime_cfg(feature = "runtime-benchmarks")]
+	#[cfg_rt(feature = "runtime-benchmarks")]
 	fn function_exist1() {}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1201,7 +1213,7 @@ mod tests {
 		function_exist1();
 	}
 
-	#[runtime_cfg(not(feature = "runtime-benchmarks"))]
+	#[cfg_rt(not(feature = "runtime-benchmarks"))]
 	fn function_exist1() {}
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
@@ -1210,7 +1222,7 @@ mod tests {
 		function_exist1();
 	}
 
-	#[runtime_cfg(feature = "try-runtime")]
+	#[cfg_rt(feature = "try-runtime")]
 	fn function_exist2() {}
 
 	#[cfg(feature = "try-runtime")]
@@ -1219,13 +1231,73 @@ mod tests {
 		function_exist2();
 	}
 
-	#[runtime_cfg(not(feature = "try-runtime"))]
+	#[cfg_rt(not(feature = "try-runtime"))]
 	fn function_exist2() {}
 
 	#[cfg(not(feature = "try-runtime"))]
 	#[test]
 	fn test_function_exist2() {
 		function_exist2();
+	}
+
+	#[test]
+	fn test_inline() {
+		#[cfg(feature = "runtime-benchmarks")]
+		if cfg_rt_inline!(not(feature = "runtime-benchmarks")) {
+			unreachable!();
+		}
+
+		#[cfg(feature = "try-runtime")]
+		if cfg_rt_inline!(not(feature = "try-runtime")) {
+			unreachable!();
+		}
+
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		if cfg_rt_inline!(feature = "runtime-benchmarks") {
+			unreachable!();
+		}
+
+		#[cfg(not(feature = "try-runtime"))]
+		if cfg_rt_inline!(feature = "try-runtime") {
+			unreachable!();
+		}
+	}
+
+
+	#[cfg(feature = "runtime-benchmarks")]
+	#[test]
+	fn test_inline_2() {
+		if cfg_rt_inline!(feature = "runtime-benchmarks") {
+		} else {
+			unreachable!();
+		}
+	}
+
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	#[test]
+	fn test_inline_2() {
+		if cfg_rt_inline!(not(feature = "runtime-benchmarks")) {
+		} else {
+			unreachable!();
+		}
+	}
+
+	#[cfg(feature = "try-runtime")]
+	#[test]
+	fn test_inline_3() {
+		if cfg_rt_inline!(feature = "try-runtime") {
+		} else {
+			unreachable!();
+		}
+	}
+
+	#[cfg(not(feature = "try-runtime"))]
+	#[test]
+	fn test_inline_3() {
+		if cfg_rt_inline!(not(feature = "try-runtime")) {
+		} else {
+			unreachable!();
+		}
 	}
 }
 
