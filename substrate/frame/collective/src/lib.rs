@@ -190,9 +190,9 @@ pub struct Votes<AccountId, BlockNumber> {
 /// 3. Geometrically increasing with rounding.
 /// #[doc = docify::embed!("src/tests.rs", deposit_round_with_geometric_work)]
 pub mod deposit {
+	use core::marker::PhantomData;
 	use sp_core::Get;
 	use sp_runtime::{traits::Convert, FixedPointNumber, FixedU128, Saturating};
-	use sp_std::marker::PhantomData;
 
 	/// Constant deposit amount regardless of current proposal count.
 	/// Returns `None` if configured with zero deposit.
