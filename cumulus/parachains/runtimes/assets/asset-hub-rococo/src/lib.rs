@@ -47,7 +47,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, Permill,
 };
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
-use xcm_executor::traits::ConvertLocation;
 
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -72,7 +71,7 @@ use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
+	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_nfts::PalletFeatures;
@@ -86,9 +85,8 @@ use sp_runtime::{Perbill, RuntimeDebug};
 use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
-	LocationToAccountId, PoolAssetsConvertedConcreteId, PoolAssetsPalletLocationV3,
-	RelayTreasuryLocation, TokenLocation, TokenLocationV3, TrustBackedAssetsConvertedConcreteId,
-	TrustBackedAssetsPalletLocationV3,
+	PoolAssetsConvertedConcreteId, PoolAssetsPalletLocationV3, TokenLocation, TokenLocationV3,
+	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocationV3,
 };
 
 #[cfg(any(feature = "std", test))]
