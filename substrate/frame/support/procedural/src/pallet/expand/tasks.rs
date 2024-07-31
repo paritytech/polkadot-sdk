@@ -29,14 +29,13 @@ impl TaskEnumDef {
 	/// Since we optionally allow users to manually specify a `#[pallet::task_enum]`, in the
 	/// event they _don't_ specify one (which is actually the most common behavior) we have to
 	/// generate one based on the existing [`TasksDef`]. This method performs that generation.
-	pub fn generate(
-		tasks: &TasksDef,
-		def: &Def,
-	) -> Self {
-
+	pub fn generate(tasks: &TasksDef, def: &Def) -> Self {
 		// We use the span of attribute to indicate the error comes from code generated for the
 		// specific section, otherwise the item impl.
-		let span = tasks.tasks_attr.as_ref().map(|attr| attr.span())
+		let span = tasks
+			.tasks_attr
+			.as_ref()
+			.map(|attr| attr.span())
 			.unwrap_or_else(|| tasks.item_impl.span());
 
 		let type_decl_bounded_generics = def.type_decl_bounded_generics(span);

@@ -19,11 +19,10 @@
 
 #[frame_support::pallet(dev_mode)]
 mod my_pallet {
-	use frame_support::pallet_prelude::{ValueQuery, StorageValue};
+	use frame_support::pallet_prelude::{StorageValue, ValueQuery};
 
 	#[pallet::config]
-	pub trait Config<I: 'static = ()>: frame_system::Config {
-	}
+	pub trait Config<I: 'static = ()>: frame_system::Config {}
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(_);
@@ -31,7 +30,7 @@ mod my_pallet {
 	#[pallet::storage]
 	pub type SomeStorage<T, I = ()> = StorageValue<_, (u32, u64), ValueQuery>;
 
-    #[pallet::tasks_experimental]
+	#[pallet::tasks_experimental]
 	impl<T: Config<I>, I> Pallet<T, I> {
 		#[pallet::task_index(0)]
 		#[pallet::task_condition(|i, j| i == 0u32 && j == 2u64)]
@@ -92,10 +91,7 @@ fn new_test_ext() -> sp_io::TestExternalities {
 #[test]
 fn tasks_work() {
 	new_test_ext().execute_with(|| {
-		let task = RuntimeTask::MyPallet(my_pallet::Task::<Runtime>::Foo {
-			i: 0u32,
-			j: 2u64,
-		});
+		let task = RuntimeTask::MyPallet(my_pallet::Task::<Runtime>::Foo { i: 0u32, j: 2u64 });
 
 		frame_support::assert_ok!(System::do_task(RuntimeOrigin::signed(1), task.clone(),));
 		assert_eq!(my_pallet::SomeStorage::<Runtime>::get(), (0, 2));
