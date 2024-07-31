@@ -20,17 +20,16 @@
 use crate::{self as pallet_sassafras, EpochChangeInternalTrigger, *};
 
 use frame_support::{
-	derive_impl,
-	traits::{ConstU32, OnFinalize, OnInitialize},
+	derive_impl, parameter_types,
+	traits::{ConstU32, ConstU8, OnFinalize, OnInitialize},
 };
 use sp_consensus_sassafras::{
 	digests::SlotClaim,
 	vrf::{RingProver, VrfSignature},
-	AuthorityIndex, AuthorityPair, EpochConfiguration, Slot, TicketBody, TicketEnvelope, TicketId,
+	AuthorityIndex, AuthorityPair, Slot, TicketBody, TicketEnvelope, TicketId,
 };
 use sp_core::{
-	crypto::{ByteArray, Pair, UncheckedFrom, VrfSecret, Wraps},
-	ed25519::Public as EphemeralPublic,
+	crypto::{ByteArray, Pair, VrfSecret, Wraps},
 	H256, U256,
 };
 use sp_runtime::{
@@ -40,8 +39,13 @@ use sp_runtime::{
 
 const LOG_TARGET: &str = "sassafras::tests";
 
-const EPOCH_LENGTH: u32 = 10;
+// Configuration constants
+const EPOCH_DURATION: u32 = 10;
+const LOTTERY_PERCENT: u8 = 85;
 const MAX_AUTHORITIES: u32 = 100;
+const REDUNDANCY_FACTOR: u8 = 32;
+const ATTEMPTS_NUMBER: u8 = 2;
+const TICKETS_CHUNK_LENGTH: u32 = 16;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -56,9 +60,17 @@ where
 	type Extrinsic = TestXt<RuntimeCall, ()>;
 }
 
+parameter_types! {
+	pub const LotteryPercent: Percent = Percent::from_percent(LOTTERY_PERCENT);
+}
+
 impl pallet_sassafras::Config for Test {
-	type EpochLength = ConstU32<EPOCH_LENGTH>;
+	type EpochDuration = ConstU32<EPOCH_DURATION>;
 	type MaxAuthorities = ConstU32<MAX_AUTHORITIES>;
+	type RedundancyFactor = ConstU8<REDUNDANCY_FACTOR>;
+	type AttemptsNumber = ConstU8<ATTEMPTS_NUMBER>;
+	type TicketsChunkLength = ConstU32<TICKETS_CHUNK_LENGTH>;
+	type LotteryDurationPercent = LotteryPercent;
 	type EpochChangeTrigger = EpochChangeInternalTrigger;
 	type WeightInfo = ();
 }
@@ -70,14 +82,6 @@ frame_support::construct_runtime!(
 	}
 );
 
-// Default used for most of the tests.
-//
-// The redundancy factor has been set to max value to accept all submitted
-// tickets without worrying about the threshold.
-pub const TEST_EPOCH_CONFIGURATION: EpochConfiguration =
-	EpochConfiguration { redundancy_factor: u32::MAX, attempts_number: 5 };
-
-/// Build and returns test storage externalities
 pub fn new_test_ext(authorities_len: usize) -> sp_io::TestExternalities {
 	new_test_ext_with_pairs(authorities_len, false).1
 }
@@ -98,7 +102,6 @@ pub fn new_test_ext_with_pairs(
 
 	pallet_sassafras::GenesisConfig::<Test> {
 		authorities: authorities.clone(),
-		epoch_config: TEST_EPOCH_CONFIGURATION,
 		_phantom: core::marker::PhantomData,
 	}
 	.assimilate_storage(&mut storage)
@@ -118,166 +121,9 @@ pub fn new_test_ext_with_pairs(
 	(pairs, ext)
 }
 
-fn make_ticket_with_prover(
-	attempt: u32,
-	pair: &AuthorityPair,
-	prover: &RingProver,
-) -> TicketEnvelope {
-	log::debug!("attempt: {}", attempt);
-
-	// Values are referring to the next epoch
-	let epoch = Sassafras::epoch_index() + 1;
-	let randomness = Sassafras::next_randomness();
-
-	// Make a dummy ephemeral public that hopefully is unique within one test instance.
-	// In the tests, the values within the erased public are just used to compare
-	// ticket bodies, so it is not important to be a valid key.
-	let mut raw: [u8; 32] = [0; 32];
-	raw.copy_from_slice(&pair.public().as_slice()[0..32]);
-	let erased_public = EphemeralPublic::unchecked_from(raw);
-	let revealed_public = erased_public;
-
-	let ticket_id_input = vrf::ticket_id_input(&randomness, attempt, epoch);
-
-	let body = TicketBody { attempt_idx: attempt, erased_public, revealed_public };
-	let sign_data = vrf::ticket_body_sign_data(&body, ticket_id_input);
-
-	let signature = pair.as_ref().ring_vrf_sign(&sign_data, &prover);
-
-	// Ticket-id can be generated via vrf-preout.
-	// We don't care that much about its value here.
-	TicketEnvelope { body, signature }
-}
-
-pub fn make_prover(pair: &AuthorityPair) -> RingProver {
-	let public = pair.public();
-	let mut prover_idx = None;
-
-	let ring_ctx = Sassafras::ring_context().unwrap();
-
-	let pks: Vec<sp_core::bandersnatch::Public> = Sassafras::authorities()
-		.iter()
-		.enumerate()
-		.map(|(idx, auth)| {
-			if public == *auth {
-				prover_idx = Some(idx);
-			}
-			*auth.as_ref()
-		})
-		.collect();
-
-	log::debug!("Building prover. Ring size: {}", pks.len());
-	let prover = ring_ctx.prover(&pks, prover_idx.unwrap()).unwrap();
-	log::debug!("Done");
-
-	prover
-}
-
-/// Construct `attempts` tickets envelopes for the next epoch.
-///
-/// E.g. by passing an optional threshold
-pub fn make_tickets(attempts: u32, pair: &AuthorityPair) -> Vec<TicketEnvelope> {
-	let prover = make_prover(pair);
-	(0..attempts)
-		.into_iter()
-		.map(|attempt| make_ticket_with_prover(attempt, pair, &prover))
-		.collect()
-}
-
-pub fn make_ticket_body(attempt_idx: u32, pair: &AuthorityPair) -> (TicketId, TicketBody) {
-	// Values are referring to the next epoch
-	let epoch = Sassafras::epoch_index() + 1;
-	let randomness = Sassafras::next_randomness();
-
-	let ticket_id_input = vrf::ticket_id_input(&randomness, attempt_idx, epoch);
-	let ticket_id_pre_output = pair.as_inner_ref().vrf_pre_output(&ticket_id_input);
-
-	let id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_pre_output);
-
-	// Make a dummy ephemeral public that hopefully is unique within one test instance.
-	// In the tests, the values within the erased public are just used to compare
-	// ticket bodies, so it is not important to be a valid key.
-	let mut raw: [u8; 32] = [0; 32];
-	raw[..16].copy_from_slice(&pair.public().as_slice()[0..16]);
-	raw[16..].copy_from_slice(&id.to_le_bytes());
-	let erased_public = EphemeralPublic::unchecked_from(raw);
-	let revealed_public = erased_public;
-
-	let body = TicketBody { attempt_idx, erased_public, revealed_public };
-
-	(id, body)
-}
-
-pub fn make_dummy_ticket_body(attempt_idx: u32) -> (TicketId, TicketBody) {
-	let hash = sp_crypto_hashing::blake2_256(&attempt_idx.to_le_bytes());
-
-	let erased_public = EphemeralPublic::unchecked_from(hash);
-	let revealed_public = erased_public;
-
-	let body = TicketBody { attempt_idx, erased_public, revealed_public };
-
-	let mut bytes = [0u8; 16];
-	bytes.copy_from_slice(&hash[..16]);
-	let id = TicketId::from_le_bytes(bytes);
-
-	(id, body)
-}
-
-pub fn make_ticket_bodies(
-	number: u32,
-	pair: Option<&AuthorityPair>,
-) -> Vec<(TicketId, TicketBody)> {
-	(0..number)
-		.into_iter()
-		.map(|i| match pair {
-			Some(pair) => make_ticket_body(i, pair),
-			None => make_dummy_ticket_body(i),
-		})
-		.collect()
-}
-
-/// Persist the given tickets in the unsorted segments buffer.
-///
-/// This function skips all the checks performed by the `submit_tickets` extrinsic and
-/// directly appends the tickets to the `UnsortedSegments` structure.
-pub fn persist_next_epoch_tickets_as_segments(tickets: &[(TicketId, TicketBody)]) {
-	let mut ids = Vec::with_capacity(tickets.len());
-	tickets.iter().for_each(|(id, body)| {
-		TicketsData::<Test>::set(id, Some(body.clone()));
-		ids.push(*id);
-	});
-	let max_chunk_size = Sassafras::epoch_length() as usize;
-	ids.chunks(max_chunk_size).for_each(|chunk| {
-		Sassafras::append_tickets(BoundedVec::truncate_from(chunk.to_vec()));
-	})
-}
-
-/// Calls the [`persist_next_epoch_tickets_as_segments`] and then proceeds to the
-/// sorting of the candidates.
-///
-/// Only "winning" tickets are left.
-pub fn persist_next_epoch_tickets(tickets: &[(TicketId, TicketBody)]) {
-	persist_next_epoch_tickets_as_segments(tickets);
-	// Force sorting of next epoch tickets (enactment) by explicitly querying the first of them.
-	let next_epoch = Sassafras::next_epoch();
-	assert_eq!(TicketsMeta::<Test>::get().unsorted_tickets_count, tickets.len() as u32);
-	Sassafras::slot_ticket(next_epoch.start).unwrap();
-	assert_eq!(TicketsMeta::<Test>::get().unsorted_tickets_count, 0);
-}
-
 fn slot_claim_vrf_signature(slot: Slot, pair: &AuthorityPair) -> VrfSignature {
-	let mut epoch = Sassafras::epoch_index();
-	let mut randomness = Sassafras::randomness();
-
-	// Check if epoch is going to change on initialization.
-	let epoch_start = Sassafras::current_epoch_start();
-	let epoch_length = EPOCH_LENGTH.into();
-	if epoch_start != 0_u64 && slot >= epoch_start + epoch_length {
-		epoch += slot.saturating_sub(epoch_start).saturating_div(epoch_length);
-		randomness = crate::NextRandomness::<Test>::get();
-	}
-
-	let data = vrf::slot_claim_sign_data(&randomness, slot, epoch);
+	let randomness = Sassafras::randomness_accumulator();
+	let data = vrf::block_randomness_sign_data(&randomness, slot);
 	pair.as_ref().vrf_sign(&data)
 }
 
@@ -288,13 +134,55 @@ pub fn make_slot_claim(
 	pair: &AuthorityPair,
 ) -> SlotClaim {
 	let vrf_signature = slot_claim_vrf_signature(slot, pair);
-	SlotClaim { authority_idx, slot, vrf_signature, ticket_claim: None }
+	SlotClaim { authority_idx, slot, vrf_signature }
 }
 
 /// Construct a `Digest` with a `SlotClaim` item.
 pub fn make_digest(authority_idx: AuthorityIndex, slot: Slot, pair: &AuthorityPair) -> Digest {
 	let claim = make_slot_claim(authority_idx, slot, pair);
 	Digest { logs: vec![DigestItem::from(&claim)] }
+}
+
+/// Make a ticket which is claimable during the next epoch.
+pub fn make_ticket_body(attempt: u8, pair: &AuthorityPair) -> TicketBody {
+	let randomness = Sassafras::next_randomness();
+
+	let ticket_id_input = vrf::ticket_id_input(&randomness, attempt);
+	let ticket_id_pre_output = pair.as_inner_ref().vrf_pre_output(&ticket_id_input);
+
+	let id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_pre_output);
+
+	// Make dummy extra data.
+	let mut extra = [pair.public().as_slice(), &id.0[..]].concat();
+	let extra = BoundedVec::truncate_from(extra);
+
+	TicketBody { id, attempt, extra }
+}
+
+pub fn make_dummy_ticket_body(attempt: u8) -> TicketBody {
+	let hash = sp_crypto_hashing::blake2_256(&[attempt]);
+	let id = TicketId(hash);
+	let hash = sp_crypto_hashing::blake2_256(&hash);
+	let extra = BoundedVec::truncate_from(hash.to_vec());
+	TicketBody { id, attempt, extra }
+}
+
+pub fn make_ticket_bodies(
+	attempts: u8,
+	pair: Option<&AuthorityPair>,
+	sort: bool,
+) -> Vec<TicketBody> {
+	let mut bodies: Vec<_> = (0..attempts)
+		.into_iter()
+		.map(|i| match pair {
+			Some(pair) => make_ticket_body(i, pair),
+			None => make_dummy_ticket_body(i),
+		})
+		.collect();
+	if sort {
+		bodies.sort_unstable();
+	}
+	bodies
 }
 
 pub fn initialize_block(
@@ -340,4 +228,60 @@ pub fn progress_to_block(number: u64, pair: &AuthorityPair) -> Option<Digest> {
 		slot = slot + 1;
 	}
 	digest
+}
+
+fn make_ticket_with_prover(
+	attempt: u8,
+	pair: &AuthorityPair,
+	prover: &RingProver,
+) -> (TicketId, TicketEnvelope) {
+	log::debug!("attempt: {}", attempt);
+
+	// Values are referring to the next epoch
+	let randomness = Sassafras::next_randomness();
+
+	let ticket_id_input = vrf::ticket_id_input(&randomness, attempt);
+	let sign_data = vrf::ticket_id_sign_data(ticket_id_input.clone(), &[]);
+	let signature = pair.as_ref().ring_vrf_sign(&sign_data, &prover);
+	let pre_output = &signature.pre_outputs[0];
+
+	let ticket_id = vrf::make_ticket_id(&ticket_id_input, pre_output);
+	let envelope = TicketEnvelope { attempt, extra: Default::default(), signature };
+
+	(ticket_id, envelope)
+}
+
+pub fn make_prover(pair: &AuthorityPair) -> RingProver {
+	let public = pair.public();
+	let mut prover_idx = None;
+
+	let ring_ctx = Sassafras::ring_context().unwrap();
+
+	let pks: Vec<sp_core::bandersnatch::Public> = Sassafras::authorities()
+		.iter()
+		.enumerate()
+		.map(|(idx, auth)| {
+			if public == *auth {
+				prover_idx = Some(idx);
+			}
+			*auth.as_ref()
+		})
+		.collect();
+
+	log::debug!("Building prover. Ring size: {}", pks.len());
+	let prover = ring_ctx.prover(&pks, prover_idx.unwrap()).unwrap();
+	log::debug!("Done");
+
+	prover
+}
+
+/// Construct `attempts` tickets envelopes for the next epoch.
+///
+/// E.g. by passing an optional threshold
+pub fn make_tickets(attempts: u8, pair: &AuthorityPair) -> Vec<(TicketId, TicketEnvelope)> {
+	let prover = make_prover(pair);
+	(0..attempts)
+		.into_iter()
+		.map(|attempt| make_ticket_with_prover(attempt, pair, &prover))
+		.collect()
 }
