@@ -59,12 +59,13 @@ fn minimal_exchange() {
 #[test]
 fn maximal_quote() {
 	new_test_ext().execute_with(|| {
-		let amount = quote(
+		let assets = quote(
 			&([PalletInstance(2), GeneralIndex(1)], 10_000_000).into(),
 			&(Here, 2_000_000).into(),
 			true,
 		)
 		.unwrap();
+		let amount = get_amount_from_first_fungible(&assets.into());
 		// The amount of the native token resulting from swapping all `10_000_000` of the custom
 		// token.
 		assert_eq!(amount, 4_533_054);
@@ -74,12 +75,13 @@ fn maximal_quote() {
 #[test]
 fn minimal_quote() {
 	new_test_ext().execute_with(|| {
-		let amount = quote(
+		let assets = quote(
 			&([PalletInstance(2), GeneralIndex(1)], 10_000_000).into(),
 			&(Here, 2_000_000).into(),
 			false,
 		)
 		.unwrap();
+		let amount = get_amount_from_first_fungible(&assets.into());
 		// The amount of the custom token needed to get `2_000_000` of the native token.
 		assert_eq!(amount, 4_179_205);
 	});
@@ -222,6 +224,10 @@ fn get_amount_from_fungibles(assets: &AssetsInHolding) -> (u128, u128) {
 	(first_amount, second_amount)
 }
 
-fn quote(asset_1: &Asset, asset_2: &Asset, maximal: bool) -> Option<u128> {
-	PoolAssetsExchanger::quote_exchange_price(asset_1, asset_2, maximal)
+fn quote(asset_1: &Asset, asset_2: &Asset, maximal: bool) -> Option<Assets> {
+	PoolAssetsExchanger::quote_exchange_price(
+		&asset_1.clone().into(),
+		&asset_2.clone().into(),
+		maximal,
+	)
 }

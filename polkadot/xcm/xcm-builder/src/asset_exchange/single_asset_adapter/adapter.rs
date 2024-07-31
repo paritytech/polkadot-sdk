@@ -36,7 +36,8 @@ use xcm_executor::{
 ///
 /// This adapter also only works for fungible assets.
 ///
-/// `exchange_asset` will return an error if there's more than one asset in `give` or `want`.
+/// `exchange_asset` and `quote_exchange_price` will both return an error if there's
+/// more than one asset in `give` or `want`.
 pub struct SingleAssetExchangeAdapter<AssetConversion, Fungibles, Matcher, AccountId>(
 	PhantomData<(AssetConversion, Fungibles, Matcher, AccountId)>,
 );
@@ -152,26 +153,30 @@ where
 		Ok(result.into())
 	}
 
-	fn quote_exchange_price(asset1: &Asset, asset2: &Asset, maximal: bool) -> Option<u128> {
+	fn quote_exchange_price(give: &Assets, want: &Assets, maximal: bool) -> Option<Assets> {
+		if give.len() != 1 || want.len() != 1 {
+			return None;
+		} // We only support 1 asset in `give` or `want`.
+		let give_asset = give.get(0)?;
+		let want_asset = want.get(0)?;
 		// We first match both XCM assets to the asset ID types `AssetConversion` can handle.
-		let (asset1_id, asset1_amount) = Matcher::matches_fungibles(asset1)
+		let (give_asset_id, give_amount) = Matcher::matches_fungibles(give_asset)
 			.map_err(|error| {
 				log::trace!(
 					target: "xcm::SingleAssetExchangeAdapter::quote_exchange_price",
 					"Could not map XCM asset {:?} to FRAME asset. Error: {:?}.",
-					asset1,
+					give_asset,
 					error,
 				);
 				()
 			})
 			.ok()?;
-		// For `asset2`, we also want the desired amount.
-		let (asset2_id, asset2_amount) = Matcher::matches_fungibles(asset2)
+		let (want_asset_id, want_amount) = Matcher::matches_fungibles(want_asset)
 			.map_err(|error| {
 				log::trace!(
 					target: "xcm::SingleAssetExchangeAdapter::quote_exchange_price",
 					"Could not map XCM asset {:?} to FRAME asset. Error: {:?}.",
-					asset2,
+					want_asset,
 					error,
 				);
 				()
@@ -179,27 +184,27 @@ where
 			.ok()?;
 		// We quote the price.
 		if maximal {
-			// The amount of `asset2` resulting from swapping the `asset1_amount` of `asset1`.
-			let resulting_asset2_amount =
+			// The amount of `want` resulting from swapping `give`.
+			let resulting_want =
 				<AssetConversion as QuotePrice>::quote_price_exact_tokens_for_tokens(
-					asset1_id,
-					asset2_id,
-					asset1_amount,
-					true,
+					give_asset_id,
+					want_asset_id,
+					give_amount,
+					true, // Include fee.
 				)?;
 
-			Some(resulting_asset2_amount)
+			Some((want_asset.id.clone(), resulting_want).into())
 		} else {
-			// The `asset1` amount required to obtain `asset2_amount` of `asset2`.
-			let necessary_asset1_amount =
+			// The `give` amount required to obtain `want`.
+			let necessary_give =
 				<AssetConversion as QuotePrice>::quote_price_tokens_for_exact_tokens(
-					asset1_id,
-					asset2_id,
-					asset2_amount,
-					true,
+					give_asset_id,
+					want_asset_id,
+					want_amount,
+					true, // Include fee.
 				)?;
 
-			Some(necessary_asset1_amount)
+			Some((give_asset.id.clone(), necessary_give).into())
 		}
 	}
 }

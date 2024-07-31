@@ -47,15 +47,17 @@ pub trait AssetExchange {
 	/// - `give` The asset that is going to be given.
 	/// - `want` The asset that is wanted.
 	/// - `maximal`:
-	///	  - If `true`, then the return value is the resulting amount of `want` obtained by swapping `give`.
+	/// 	  - If `true`, then the return value is the resulting amount of `want` obtained by swapping
+	///      `give`.
 	///   - If `false`, then the return value is the required amount of `give` needed to get `want`.
+	///
+	/// The return value is `Assets` since it comprises both which assets and how much of them.
 	///
 	/// The relationship between this function and `exchange_asset` is the following:
 	/// - quote(give, want, maximal) = resulting_want -> exchange(give, resulting_want, maximal) ✅
-	/// - quote(give, want, minimal) = required_give -> exchange(required_give_amount, want, minimal) ✅
-	fn quote_exchange_price(_give: &Asset, _want: &Asset, _maximal: bool) -> Option<u128> {
-		None
-	}
+	/// - quote(give, want, minimal) = required_give -> exchange(required_give_amount, want,
+	///   minimal) ✅
+	fn quote_exchange_price(_give: &Assets, _want: &Assets, _maximal: bool) -> Option<Assets>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
@@ -75,10 +77,10 @@ impl AssetExchange for Tuple {
 		Err(give)
 	}
 
-	fn quote_exchange_price(asset1: &Asset, asset2: &Asset, maximal: bool) -> Option<u128> {
+	fn quote_exchange_price(give: &Assets, want: &Assets, maximal: bool) -> Option<Assets> {
 		for_tuples!( #(
-			match Tuple::quote_exchange_price(asset1, asset2, maximal) {
-				Some(amount) => return Some(amount),
+			match Tuple::quote_exchange_price(give, want, maximal) {
+				Some(assets) => return Some(assets),
 				None => {}
 			}
 		)* );

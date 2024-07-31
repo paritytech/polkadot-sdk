@@ -7,7 +7,8 @@ doc:
   - audience: Runtime Dev
     description: |
       SingleAssetExchangeAdapter is an adapter in xcm-builder that can be used
-      to configure the AssetExchanger in XCM to use pallet-asset-conversion.
+      to configure the AssetExchanger in XCM to use pallet-asset-conversion,
+      or any other type that implements the `SwapCredit` and `QuotePrice` traits.
       It can be configured as follows:
       ```rust
       pub type AssetExchanger = SingleAssetExchangeAdapter<
@@ -30,7 +31,7 @@ doc:
 
 crates:
   - name: staging-xcm-executor
-    bump: minor
+    bump: major
   - name: staging-xcm-builder
     bump: minor
   - name: pallet-asset-conversion
