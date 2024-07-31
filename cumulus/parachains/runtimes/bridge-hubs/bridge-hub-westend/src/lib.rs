@@ -1295,7 +1295,8 @@ mod tests {
 				(
 					bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),
 				),
-				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new()
+				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
+				frame_metadata_hash_extension::CheckMetadataHash::new(false),
 			);
 
 			{
@@ -1308,9 +1309,9 @@ mod tests {
 					10,
 					(((), ()), ((), ())),
 				);
-				assert_eq!(payload.encode(), bh_indirect_payload.encode());
+				assert_eq!(payload.encode().split_last().unwrap().1, bh_indirect_payload.encode());
 				assert_eq!(
-					payload.additional_signed().unwrap().encode(),
+					payload.additional_signed().unwrap().encode().split_last().unwrap().1,
 					bh_indirect_payload.additional_signed().unwrap().encode()
 				)
 			}
