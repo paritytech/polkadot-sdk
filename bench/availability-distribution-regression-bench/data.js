@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722368958194,
+  "lastUpdate": 1722421924931,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -20591,6 +20591,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.012107696513333328,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "39daa61eb3a0c7395f96cad5c0a30c4cfc2ecfe9",
+          "message": "Run UI tests in CI for some other crates (#5167)\n\nThe test name is `test-frame-ui` I don't know if I can also change it to\n`test-ui` without breaking other stuff. So I kept the name unchanged.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-07-31T08:45:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/39daa61eb3a0c7395f96cad5c0a30c4cfc2ecfe9"
+        },
+        "date": 1722421893802,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022621936839999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17606986830000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012820342839999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01090554861333334,
             "unit": "seconds"
           }
         ]
