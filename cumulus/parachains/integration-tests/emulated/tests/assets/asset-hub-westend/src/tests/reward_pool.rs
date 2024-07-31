@@ -17,9 +17,32 @@ use crate::imports::*;
 use codec::Encode;
 use emulated_integration_tests_common::ASSET_HUB_WESTEND_ID;
 use frame_support::{assert_ok, sp_runtime::traits::Dispatchable};
+use xcm_executor::traits::ConvertLocation;
 
 #[test]
 fn treasury_creates_asset_reward_pool() {
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		type Balances = <AssetHubWestend as AssetHubWestendPallet>::Balances;
+
+		let treasurer =
+			Location::new(1, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]);
+		let treasurer_account =
+			ahw_xcm_config::LocationToAccountId::convert_location(&treasurer).unwrap();
+
+		assert_ok!(Balances::force_set_balance(
+			<AssetHubWestend as Chain>::RuntimeOrigin::root(),
+			treasurer_account.clone().into(),
+			ASSET_HUB_WESTEND_ED * 100_000,
+		));
+
+		let events = AssetHubWestend::events();
+		match events.iter().last() {
+			Some(RuntimeEvent::Balances(pallet_balances::Event::BalanceSet { who, .. })) =>
+				assert_eq!(*who, treasurer_account),
+			_ => panic!("Expected Balances::BalanceSet event"),
+		}
+	});
 	Westend::execute_with(|| {
 		type AssetHubWestendRuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
 		type AssetHubWestendRuntime = <AssetHubWestend as Chain>::Runtime;
@@ -43,7 +66,7 @@ fn treasury_creates_asset_reward_pool() {
 				message: bx!(VersionedXcm::V4(Xcm(vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 					Transact {
-						origin_kind: OriginKind::Xcm,
+						origin_kind: OriginKind::SovereignAccount,
 						require_weight_at_most: Weight::from_parts(5_000_000_000, 500_000),
 						call: AssetHubWestendRuntimeCall::AssetRewards(
 							pallet_asset_rewards::Call::<AssetHubWestendRuntime>::create_pool {
@@ -72,18 +95,18 @@ fn treasury_creates_asset_reward_pool() {
 	});
 
 	AssetHubWestend::execute_with(|| {
-		type AssetHubWestendRuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![
-				AssetHubWestendRuntimeEvent::AssetRewards(
-					pallet_asset_rewards::Event::PoolCreated {
-						..
-					}
-				) => {
-				},
+		type Runtime = <AssetHubWestend as Chain>::Runtime;
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
-			]
-		);
+		assert_eq!(1, pallet_asset_rewards::Pools::<Runtime>::iter().count());
+
+		let events = AssetHubWestend::events();
+		match events.iter().last() {
+			Some(RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
+				success: true,
+				..
+			})) => (),
+			_ => panic!("Expected MessageQueue::Processed event"),
+		}
 	});
 }

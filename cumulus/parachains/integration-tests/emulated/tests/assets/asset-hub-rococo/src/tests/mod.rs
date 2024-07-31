@@ -16,10 +16,10 @@
 mod claim_assets;
 mod hybrid_transfers;
 mod reserve_transfer;
+mod reward_pool;
 mod send;
 mod set_xcm_versions;
 mod swap;
 mod teleport;
 mod treasury;
-mod treasury_asset_reward_pool;
 mod xcm_fee_estimation;

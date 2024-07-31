@@ -17,9 +17,33 @@ use crate::imports::*;
 use codec::Encode;
 use emulated_integration_tests_common::ASSET_HUB_ROCOCO_ID;
 use frame_support::{assert_ok, sp_runtime::traits::Dispatchable};
+use xcm_executor::traits::ConvertLocation;
 
 #[test]
 fn treasury_creates_asset_reward_pool() {
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+		type Balances = <AssetHubRococo as AssetHubRococoPallet>::Balances;
+
+		let treasurer =
+			Location::new(1, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]);
+		let treasurer_account =
+			ahr_xcm_config::LocationToAccountId::convert_location(&treasurer).unwrap();
+
+		assert_ok!(Balances::force_set_balance(
+			<AssetHubRococo as Chain>::RuntimeOrigin::root(),
+			treasurer_account.clone().into(),
+			ASSET_HUB_ROCOCO_ED * 100_000,
+		));
+
+		let events = AssetHubRococo::events();
+		match events.iter().last() {
+			Some(RuntimeEvent::Balances(pallet_balances::Event::BalanceSet { who, .. })) =>
+				assert_eq!(*who, treasurer_account),
+			_ => panic!("Expected Balances::BalanceSet event"),
+		}
+	});
+
 	Rococo::execute_with(|| {
 		type AssetHubRococoRuntimeCall = <AssetHubRococo as Chain>::RuntimeCall;
 		type AssetHubRococoRuntime = <AssetHubRococo as Chain>::Runtime;
@@ -43,7 +67,7 @@ fn treasury_creates_asset_reward_pool() {
 				message: bx!(VersionedXcm::V4(Xcm(vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 					Transact {
-						origin_kind: OriginKind::Xcm,
+						origin_kind: OriginKind::SovereignAccount,
 						require_weight_at_most: Weight::from_parts(5_000_000_000, 500_000),
 						call: AssetHubRococoRuntimeCall::AssetRewards(
 							pallet_asset_rewards::Call::<AssetHubRococoRuntime>::create_pool {
@@ -72,18 +96,18 @@ fn treasury_creates_asset_reward_pool() {
 	});
 
 	AssetHubRococo::execute_with(|| {
-		type AssetHubRococoRuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			AssetHubRococo,
-			vec![
-				AssetHubRococoRuntimeEvent::AssetRewards(
-					pallet_asset_rewards::Event::PoolCreated {
-						..
-					}
-				) => {
-				},
+		type Runtime = <AssetHubRococo as Chain>::Runtime;
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
-			]
-		);
+		assert_eq!(1, pallet_asset_rewards::Pools::<Runtime>::iter().count());
+
+		let events = AssetHubRococo::events();
+		match events.iter().last() {
+			Some(RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
+				success: true,
+				..
+			})) => (),
+			_ => panic!("Expected MessageQueue::Processed event"),
+		}
 	});
 }
