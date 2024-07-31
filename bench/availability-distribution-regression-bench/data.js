@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722421924931,
+  "lastUpdate": 1722428197688,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -20643,6 +20643,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01090554861333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "7d0aa89653d5073081a949eca1de2ca2d42a9e98",
+          "message": "litep2p/discovery: Publish authority records with external addresses only (#5176)\n\nThis PR reduces the occurrences for identified observed addresses.\n\nLitep2p discovers its external addresses by inspecting the\n`IdentifyInfo::ObservedAddress` field reported by other peers.\nAfter we get 5 confirmations of the same external observed address (the\naddress the peer dialed to reach us), the address is reported through\nthe network layer.\n\nThe PR effectively changes this from 5 to 2.\nThis has a subtle implication on freshly started nodes for the\nauthority-discovery discussed below.\n\nThe PR also makes the authority discovery a bit more robust by not\npublishing records if the node doesn't have addresses yet to report.\nThis aims to fix a scenario where:\n- the litep2p node has started, it has some pending observed addresses\nbut less than 5\n- the authorit-discovery publishes a record, but at this time the node\ndoesn't have any addresses discovered and the record is published\nwithout addresses -> this means other nodes will not be able to reach us\n\nNext Steps\n- [ ] versi testing\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/5147\n\ncc @paritytech/networking\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-07-31T10:20:28Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d0aa89653d5073081a949eca1de2ca2d42a9e98"
+        },
+        "date": 1722428166255,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01244960769333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022546124946666676,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010723415473333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17262421103333334,
             "unit": "seconds"
           }
         ]
