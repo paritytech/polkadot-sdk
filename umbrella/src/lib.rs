@@ -340,10 +340,6 @@ pub use pallet_alliance;
 #[cfg(feature = "pallet-asset-conversion")]
 pub use pallet_asset_conversion;
 
-/// FRAME asset conversion pallet.
-#[cfg(feature = "pallet-asset-rewards")]
-pub use pallet_asset_rewards;
-
 /// FRAME asset conversion pallet's operations suite.
 #[cfg(feature = "pallet-asset-conversion-ops")]
 pub use pallet_asset_conversion_ops;
@@ -355,6 +351,10 @@ pub use pallet_asset_conversion_tx_payment;
 /// Whitelist non-native assets for treasury spending and provide conversion to native balance.
 #[cfg(feature = "pallet-asset-rate")]
 pub use pallet_asset_rate;
+
+/// FRAME asset rewards pallet.
+#[cfg(feature = "pallet-asset-rewards")]
+pub use pallet_asset_rewards;
 
 /// pallet to manage transaction payments in assets.
 #[cfg(feature = "pallet-asset-tx-payment")]
