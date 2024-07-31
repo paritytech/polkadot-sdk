@@ -58,7 +58,7 @@ mod tests {
 				},
 				Requirement {
 					metric: Metric::Blake2256Parallel { num_cores: 8 },
-					minimum: Throughput::from_mibs(783.27),
+					minimum: Throughput::from_mibs(966.43),
 					check_on_rc_authority: true,
 				},
 				Requirement {

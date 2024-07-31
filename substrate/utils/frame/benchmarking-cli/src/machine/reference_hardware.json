@@ -5,7 +5,7 @@
 	},
 	{
 		"metric": {"Blake2256Parallel":{"num_cores":8}},
-		"minimum": 783.27,
+		"minimum": 966.43,
 		"check_on_rc_authority": true
 	},
 	{
