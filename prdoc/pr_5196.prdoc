@@ -12,7 +12,7 @@ doc:
       - Validators where the `BLAKE2-256` was barely passing, might received the warning that they are
         not compliant anymore, this should not be treated as critical, but they should take the necessary
         steps to become compliant in the near/mid-term future.
-      - Note!: The reference hardware requirements have not been increased we just fix the benchmark which
+      - Note!: The reference hardware requirements have not been increased we just fixed the benchmark which
         was wrongly reporting lower spec HW as being compliant.
 
 crates:
