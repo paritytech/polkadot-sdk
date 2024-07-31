@@ -2031,6 +2031,14 @@ impl<T: Config> Pallet<T> {
 		info.call_weight = extract_actual_weight(r, &info)
 			.saturating_add(T::BlockWeights::get().get(info.class).base_extrinsic);
 		info.pays_fee = extract_actual_pays_fee(r, &info);
+		// The `ExtrinsicSuccess` event takes the `actual_weight` from
+		// `PostDispatchInfo` and creates the `DispatchInfo` it displays. There is
+		// no way to split the weights for the call and the extension at this point
+		// unless `PostDispatchInfo` is changed to separate the weights, but this
+		// event is the only place where that is relevant, so it doesn't justify the
+		// cost. The (actual) extension weight is already accounted for in the `PostDispatchInfo`
+		// given as input.
+		info.extension_weight = Weight::zero();
 
 		Self::deposit_event(match r {
 			Ok(_) => Event::ExtrinsicSuccess { dispatch_info: info },
