@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{AccountInfo, Config};
+use crate::Config;
 use alloc::vec;
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchInfo;
@@ -36,8 +36,13 @@ use sp_runtime::{
 /// # Transaction Validity
 ///
 /// This extension affects `requires` and `provides` tags of validity, but DOES NOT
-/// set the `priority` field. Make sure that AT LEAST one of the signed extension sets
+/// set the `priority` field. Make sure that AT LEAST one of the transaction extension sets
 /// some kind of priority upon validating transactions.
+///
+/// The preparation step assumes that the nonce information has not changed since the validation
+/// step. This means that other extensions ahead of `CheckNonce` in the pipeline must not alter the
+/// nonce during their own preparation step, or else the transaction may be rejected during dispatch
+/// or lead to an inconsistent account state.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckNonce<T: Config>(#[codec(compact)] pub T::Nonce);
@@ -73,7 +78,7 @@ where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {
-	type Val = Option<(T::AccountId, AccountInfo<T::Nonce, T::AccountData>)>;
+	type Val = Option<(T::AccountId, T::Nonce)>;
 	type Pre = ();
 
 	fn validate(
@@ -113,7 +118,7 @@ where
 			propagate: true,
 		};
 
-		Ok((validity, Some((who.clone(), account)), origin))
+		Ok((validity, Some((who.clone(), account.nonce)), origin))
 	}
 
 	fn prepare(
@@ -125,13 +130,13 @@ where
 		_len: usize,
 		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let Some((who, mut account)) = val else { return Ok(()) };
-		// `self.0 < account.nonce` already checked in `validate`.
-		if self.0 > account.nonce {
+		let Some((who, mut nonce)) = val else { return Ok(()) };
+		// `self.0 < nonce` already checked in `validate`.
+		if self.0 > nonce {
 			return Err(InvalidTransaction::Future.into())
 		}
-		account.nonce += T::Nonce::one();
-		crate::Account::<T>::insert(who, account);
+		nonce += T::Nonce::one();
+		crate::Account::<T>::mutate(who, |account| account.nonce = nonce);
 		Ok(())
 	}
 }
@@ -284,6 +289,50 @@ mod tests {
 				&info,
 				len
 			));
+		})
+	}
+
+	#[test]
+	fn check_nonce_preserves_account_data() {
+		new_test_ext().execute_with(|| {
+			crate::Account::<Test>::insert(
+				1,
+				crate::AccountInfo {
+					nonce: 1u64.into(),
+					consumers: 0,
+					providers: 1,
+					sufficients: 0,
+					data: 0,
+				},
+			);
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			// run the validation step
+			let (_, val, origin) = CheckNonce::<Test>(1u64.into())
+				.validate(Some(1).into(), CALL, &info, len, &mut (), (), CALL)
+				.unwrap();
+			// mutate `AccountData` for the caller
+			crate::Account::<Test>::mutate(1, |info| {
+				info.data = 42;
+			});
+			// run the preparation step
+			assert_ok!(CheckNonce::<Test>(1u64.into()).prepare(
+				val,
+				&origin,
+				CALL,
+				&info,
+				len,
+				&()
+			));
+			// only the nonce should be altered by the preparation step
+			let expected_info = crate::AccountInfo {
+				nonce: 2u64.into(),
+				consumers: 0,
+				providers: 1,
+				sufficients: 0,
+				data: 42,
+			};
+			assert_eq!(crate::Account::<Test>::get(1), expected_info);
 		})
 	}
 }
