@@ -28,7 +28,7 @@ crates:
   - name: polkadot-subsystem-bench
     bump: none
   - name: polkadot-node-subsystem-util
-    bump: patch
+    bump: none
   - name: xcm-runtime-apis
     bump: patch
   - name: sc-executor
@@ -47,3 +47,19 @@ crates:
     bump: patch
   - name: frame-omni-bencher
     bump: patch
+  - name: pallet-balances
+      bump: patch
+  - name: pallet-staking
+      bump: patch
+  - name: pallet-treasury
+      bump: patch
+  - name: pallet-bounties
+      bump: patch
+  - name: pallet-conviction-voting
+      bump: patch
+  - name: pallet-democracy
+      bump: patch
+  - name: pallet-elections-phragmen
+      bump: patch
+  - name: pallet-referenda
+      bump: patch
