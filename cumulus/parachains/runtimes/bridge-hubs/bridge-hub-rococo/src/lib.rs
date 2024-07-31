@@ -1461,16 +1461,18 @@ impl_runtime_apis! {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
+					let universal_source = bridge_to_westend_config::open_bridge_for_benchmarks(params.lane, 42);
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaWestendInstance,
 						bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
-					>(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(Rococo), Parachain(42)].into()))
+					>(params, generate_xcm_builder_bridge_message_sample(universal_source))
 				}
 
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<AccountId>,
 				) -> bridge_to_westend_config::ToWestendBridgeHubMessagesDeliveryProof {
+					let _ = bridge_to_westend_config::open_bridge_for_benchmarks(params.lane, 42);
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaWestendInstance,
@@ -1496,16 +1498,18 @@ impl_runtime_apis! {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
+					let universal_source = bridge_to_bulletin_config::open_bridge_for_benchmarks(params.lane, 42);
 					prepare_message_proof_from_grandpa_chain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
 						bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
-					>(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(Rococo), Parachain(42)].into()))
+					>(params, generate_xcm_builder_bridge_message_sample(universal_source))
 				}
 
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<AccountId>,
 				) -> bridge_to_bulletin_config::ToRococoBulletinMessagesDeliveryProof {
+					let _ = bridge_to_bulletin_config::open_bridge_for_benchmarks(params.lane, 42);
 					prepare_message_delivery_proof_from_grandpa_chain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoBulletinInstance,

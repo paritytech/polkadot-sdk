@@ -217,6 +217,52 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type BlobDispatcher = FromRococoMessageBlobDispatcher;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub(crate) fn open_bridge_for_benchmarks(
+	with: bp_messages::LaneId,
+	sibling_para_id: u32,
+) -> InteriorLocation {
+	use pallet_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
+	use sp_runtime::traits::Zero;
+	use xcm::VersionedInteriorLocation;
+	use xcm_executor::traits::ConvertLocation;
+
+	// insert bridge metadata
+	let lane_id = with;
+	let sibling_parachain = Location::new(1, [Parachain(sibling_para_id)]);
+	let universal_source = [GlobalConsensus(Westend), Parachain(sibling_para_id)].into();
+	let universal_destination = [GlobalConsensus(Rococo), Parachain(2075)].into();
+	let bridge_id = BridgeId::new(&universal_source, &universal_destination);
+
+	// insert only bridge metadata, because the benchmarks create lanes
+	pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgeHubRococoInstance>::insert(
+		bridge_id,
+		Bridge {
+			bridge_origin_relative_location: alloc::boxed::Box::new(
+				sibling_parachain.clone().into(),
+			),
+			bridge_origin_universal_location: alloc::boxed::Box::new(
+				VersionedInteriorLocation::from(universal_source.clone()),
+			),
+			bridge_destination_universal_location: alloc::boxed::Box::new(
+				VersionedInteriorLocation::from(universal_destination),
+			),
+			state: BridgeState::Opened,
+			bridge_owner_account: crate::xcm_config::LocationToAccountId::convert_location(
+				&sibling_parachain,
+			)
+			.expect("valid AccountId"),
+			deposit: Balance::zero(),
+			lane_id,
+		},
+	);
+	pallet_xcm_bridge_hub::LaneToBridge::<Runtime, XcmOverBridgeHubRococoInstance>::insert(
+		lane_id, bridge_id,
+	);
+
+	universal_source
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

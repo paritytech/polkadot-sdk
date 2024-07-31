@@ -140,9 +140,8 @@
 
 use bp_messages::{LaneId, LaneState, MessageNonce};
 use bp_runtime::{AccountIdOf, BalanceOf, RangeInclusiveExt};
-use bp_xcm_bridge_hub::{
-	Bridge, BridgeId, BridgeLocations, BridgeLocationsError, BridgeState, LocalXcmChannelManager,
-};
+pub use bp_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
+use bp_xcm_bridge_hub::{BridgeLocations, BridgeLocationsError, LocalXcmChannelManager};
 use frame_support::{traits::fungible::MutateHold, DefaultNoBound};
 use frame_system::Config as SystemConfig;
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, LanesManagerError};

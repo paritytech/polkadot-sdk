@@ -1144,16 +1144,18 @@ impl_runtime_apis! {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
+					let universal_source = bridge_to_rococo_config::open_bridge_for_benchmarks(params.lane, 42);
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						bridge_to_rococo_config::BridgeGrandpaRococoInstance,
 						bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
-					>(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(Westend), Parachain(42)].into()))
+					>(params, generate_xcm_builder_bridge_message_sample(universal_source))
 				}
 
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<AccountId>,
 				) -> bridge_to_rococo_config::ToRococoBridgeHubMessagesDeliveryProof {
+					let _ = bridge_to_rococo_config::open_bridge_for_benchmarks(params.lane, 42);
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
 						bridge_to_rococo_config::BridgeGrandpaRococoInstance,
