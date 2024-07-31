@@ -17,16 +17,17 @@
 #[cfg(not(feature = "runtime-benchmarks"))]
 use crate::XcmRouter;
 use crate::{
-	xcm_config, xcm_config::UniversalLocation, Balances, EthereumInboundQueue,
-	EthereumOutboundQueue, EthereumSystem, MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
-	TreasuryAccount,
+	xcm_config,
+	xcm_config::{TreasuryAccount, UniversalLocation},
+	Balances, EthereumInboundQueue, EthereumOutboundQueue, EthereumSystem, MessageQueue, Runtime,
+	RuntimeEvent, TransactionByteFee,
 };
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
 use snowbridge_router_primitives::{inbound::MessageToXcm, outbound::EthereumBlobExporter};
 use sp_core::H160;
-use testnet_parachains_constants::rococo::{
+use testnet_parachains_constants::westend::{
 	currency::*,
 	fee::WeightToFee,
 	snowbridge::{EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX},
@@ -162,7 +163,6 @@ parameter_types! {
 impl snowbridge_pallet_ethereum_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
-	// Free consensus update every epoch. Works out to be 225 updates per day.
 	type FreeHeadersInterval = ConstU32<32>;
 	type WeightInfo = crate::weights::snowbridge_pallet_ethereum_client::WeightInfo<Runtime>;
 }

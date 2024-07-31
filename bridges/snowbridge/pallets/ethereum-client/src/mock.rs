@@ -111,6 +111,7 @@ parameter_types! {
 impl ethereum_beacon_client::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
+	type FreeHeadersInterval = ConstU32<96>;
 	type WeightInfo = ();
 }
 
