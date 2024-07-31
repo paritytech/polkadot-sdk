@@ -286,4 +286,48 @@ mod tests {
 			));
 		})
 	}
+
+	#[test]
+	fn check_nonce_preserves_account_data() {
+		new_test_ext().execute_with(|| {
+			crate::Account::<Test>::insert(
+				1,
+				crate::AccountInfo {
+					nonce: 1u64.into(),
+					consumers: 0,
+					providers: 1,
+					sufficients: 0,
+					data: 0,
+				},
+			);
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			// run the validation step
+			let (_, val, origin) = CheckNonce::<Test>(1u64.into())
+				.validate(Some(1).into(), CALL, &info, len, &mut (), (), CALL)
+				.unwrap();
+			// mutate `AccountData` for the caller
+			crate::Account::<Test>::mutate(1, |info| {
+				info.data = 42;
+			});
+			// run the preparation step
+			assert_ok!(CheckNonce::<Test>(1u64.into()).prepare(
+				val,
+				&origin,
+				CALL,
+				&info,
+				len,
+				&()
+			));
+			// only the nonce should be altered by the preparation step
+			let expected_info = crate::AccountInfo {
+				nonce: 2u64.into(),
+				consumers: 0,
+				providers: 1,
+				sufficients: 0,
+				data: 42,
+			};
+			assert_eq!(crate::Account::<Test>::get(1), expected_info);
+		})
+	}
 }
