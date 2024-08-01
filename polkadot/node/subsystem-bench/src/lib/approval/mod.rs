@@ -55,8 +55,8 @@ use polkadot_node_core_approval_voting::{
 use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_node_primitives::approval::{self, v1::RelayVRFStory};
 use polkadot_node_subsystem::{
-	messages::ApprovalVotingParallelMessage, overseer, AllMessages, Overseer, OverseerConnector,
-	SpawnGlue,
+	messages::{ApprovalDistributionMessage, ApprovalVotingMessage, ApprovalVotingParallelMessage},
+	overseer, AllMessages, Overseer, OverseerConnector, SpawnGlue,
 };
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_overseer::Handle as OverseerHandleReal;
@@ -134,6 +134,9 @@ pub struct ApprovalsOptions {
 	/// The number of no shows per candidate
 	#[clap(short, long, default_value_t = 0)]
 	pub num_no_shows_per_candidate: u32,
+	/// Enable approval voting parallel.
+	#[clap(short, long, default_value_t = true)]
+	pub approval_voting_parallel_enabled: bool,
 }
 
 impl ApprovalsOptions {
@@ -596,13 +599,16 @@ impl PeerMessageProducer {
 			// so when the approval-distribution answered to it, we know it doesn't have anything
 			// else to process.
 			let (tx, rx) = oneshot::channel();
-			let msg = ApprovalVotingParallelMessage::GetApprovalSignatures(HashSet::new(), tx);
-			self.send_overseer_message(
-				AllMessages::ApprovalVotingParallel(msg),
-				ValidatorIndex(0),
-				None,
-			)
-			.await;
+			let msg = if self.options.approval_voting_parallel_enabled {
+				AllMessages::ApprovalVotingParallel(
+					ApprovalVotingParallelMessage::GetApprovalSignatures(HashSet::new(), tx),
+				)
+			} else {
+				AllMessages::ApprovalDistribution(
+					ApprovalDistributionMessage::GetApprovalSignatures(HashSet::new(), tx),
+				)
+			};
+			self.send_overseer_message(msg, ValidatorIndex(0), None).await;
 			rx.await.expect("Failed to get signatures");
 			self.notify_done.send(()).expect("Failed to notify main loop");
 			gum::info!("All messages processed ");
@@ -742,7 +748,11 @@ impl PeerMessageProducer {
 		for validator in 1..self.state.test_authorities.validator_authority_id.len() as u32 {
 			let peer_id = self.state.test_authorities.peer_ids.get(validator as usize).unwrap();
 			let validator = ValidatorIndex(validator);
-			let view_update = generate_peer_view_change_for(block_info.hash, *peer_id);
+			let view_update = generate_peer_view_change_for(
+				block_info.hash,
+				*peer_id,
+				self.state.options.approval_voting_parallel_enabled,
+			);
 
 			self.send_overseer_message(view_update, validator, None).await;
 		}
@@ -817,14 +827,14 @@ fn build_overseer(
 		state.approval_voting_parallel_metrics.approval_voting_metrics(),
 		Arc::new(system_clock.clone()),
 		Arc::new(SpawnGlue(spawn_task_handle.clone())),
-		true,
+		state.options.approval_voting_parallel_enabled,
 	);
 
 	let approval_distribution = ApprovalDistribution::new_with_clock(
 		state.approval_voting_parallel_metrics.approval_distribution_metrics(),
 		TEST_CONFIG.slot_duration_millis,
 		Arc::new(system_clock.clone()),
-		true,
+		state.options.approval_voting_parallel_enabled,
 	);
 
 	let approval_voting_parallel =
@@ -836,7 +846,7 @@ fn build_overseer(
 			state.approval_voting_parallel_metrics.clone(),
 			Arc::new(system_clock.clone()),
 			SpawnGlue(spawn_task_handle.clone()),
-			true,
+			state.options.approval_voting_parallel_enabled,
 		);
 
 	let mock_chain_api = MockChainApi::new(state.build_chain_api_state());
@@ -855,7 +865,11 @@ fn build_overseer(
 		network_interface.subsystem_sender(),
 		state.test_authorities.clone(),
 	);
-	let mock_rx_bridge = MockNetworkBridgeRx::new(network_receiver, None);
+	let mock_rx_bridge = MockNetworkBridgeRx::new(
+		network_receiver,
+		None,
+		state.options.approval_voting_parallel_enabled,
+	);
 	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
 	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
 		.replace_approval_distribution(|_| approval_distribution)
@@ -959,11 +973,18 @@ pub async fn bench_approvals_run(
 	// First create the initialization messages that make sure that then node under
 	// tests receives notifications about the topology used and the connected peers.
 	let mut initialization_messages = env.network().generate_peer_connected(|e| {
-		AllMessages::ApprovalVotingParallel(ApprovalVotingParallelMessage::NetworkBridgeUpdate(e))
+		if state.options.approval_voting_parallel_enabled {
+			AllMessages::ApprovalVotingParallel(ApprovalVotingParallelMessage::NetworkBridgeUpdate(
+				e,
+			))
+		} else {
+			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(e))
+		}
 	});
 	initialization_messages.extend(generate_new_session_topology(
 		&state.test_authorities,
 		ValidatorIndex(NODE_UNDER_TEST),
+		state.options.approval_voting_parallel_enabled,
 	));
 	for message in initialization_messages {
 		env.send_message(message).await;
@@ -1028,7 +1049,14 @@ pub async fn bench_approvals_run(
 		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst) as usize;
 	env.wait_until_metric(
 		"polkadot_parachain_subsystem_bounded_received",
-		Some(("subsystem_name", "approval-voting-parallel-subsystem")),
+		Some((
+			"subsystem_name",
+			if state.options.approval_voting_parallel_enabled {
+				"approval-voting-parallel-subsystem"
+			} else {
+				"approval-distribution-subsystem"
+			},
+		)),
 		|value| {
 			gum::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
 			value >= at_least_messages as f64
@@ -1045,11 +1073,22 @@ pub async fn bench_approvals_run(
 				CandidateEvent::CandidateIncluded(receipt_fetch, _head, _, _) => {
 					let (tx, rx) = oneshot::channel();
 
-					let msg = ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(
-						receipt_fetch.hash(),
-						tx,
-					);
-					env.send_message(AllMessages::ApprovalVotingParallel(msg)).await;
+					let msg = if state.options.approval_voting_parallel_enabled {
+						AllMessages::ApprovalVotingParallel(
+							ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(
+								receipt_fetch.hash(),
+								tx,
+							),
+						)
+					} else {
+						AllMessages::ApprovalVoting(
+							ApprovalVotingMessage::GetApprovalSignaturesForCandidate(
+								receipt_fetch.hash(),
+								tx,
+							),
+						)
+					};
+					env.send_message(msg).await;
 
 					let result = rx.await.unwrap();
 
@@ -1073,7 +1112,14 @@ pub async fn bench_approvals_run(
 		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst) as usize;
 	env.wait_until_metric(
 		"polkadot_parachain_subsystem_bounded_received",
-		Some(("subsystem_name", "approval-voting-parallel-subsystem")),
+		Some((
+			"subsystem_name",
+			if state.options.approval_voting_parallel_enabled {
+				"approval-voting-parallel-subsystem"
+			} else {
+				"approval-distribution-subsystem"
+			},
+		)),
 		|value| {
 			gum::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
 			value >= at_least_messages as f64
