@@ -79,10 +79,6 @@ impl SomeAssociation2 for u64 {
 }
 
 #[frame_support::pallet]
-/// Pallet documentation
-// Comments should not be included in the pallet documentation
-#[pallet_doc("../../README.md")]
-#[doc = include_str!("../../README.md")]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
@@ -241,7 +237,7 @@ pub mod pallet {
 		T::AccountId: From<SomeType1> + SomeAssociation1 + From<SomeType4>,
 	{
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<T>,
+		_config: std::marker::PhantomData<T>,
 		_myfield: u32,
 	}
 
