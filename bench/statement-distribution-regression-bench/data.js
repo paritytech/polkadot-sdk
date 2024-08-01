@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722428107568,
+  "lastUpdate": 1722509052485,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -7223,6 +7223,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.047256836590000025,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6a5b6e03bfc8d0c6f5f05f3180313902c15aee84",
+          "message": "Adjust sync templates flow to use new release branch (#5182)\n\nAs the release branch name changed starting from this release, this PR\nadds it to the sync templates flow so that checkout step worked\nproperly.\n\n---------\n\nCo-authored-by: rzadp <roopert7@gmail.com>",
+          "timestamp": "2024-08-01T08:43:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6a5b6e03bfc8d0c6f5f05f3180313902c15aee84"
+        },
+        "date": 1722509021101,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.92799999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039202942485999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04831305812599997,
             "unit": "seconds"
           }
         ]
