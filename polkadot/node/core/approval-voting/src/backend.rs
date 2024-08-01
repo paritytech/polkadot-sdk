@@ -22,12 +22,12 @@
 //! before any commit to the underlying storage is made.
 
 use polkadot_node_subsystem::SubsystemResult;
-use polkadot_primitives::{BlockNumber, CandidateHash, Hash};
+use polkadot_primitives::{BlockNumber, CandidateHash, CandidateIndex, Hash};
 
 use std::collections::HashMap;
 
 use super::{
-	approval_db::v1::StoredBlockRange,
+	approval_db::common::StoredBlockRange,
 	persisted_entries::{BlockEntry, CandidateEntry},
 };
 
@@ -44,6 +44,7 @@ pub enum BackendWriteOp {
 }
 
 /// An abstraction over backend storage for the logic of this subsystem.
+/// Implementation must always target latest storage version.
 pub trait Backend {
 	/// Load a block entry from the DB.
 	fn load_block_entry(&self, hash: &Hash) -> SubsystemResult<Option<BlockEntry>>;
@@ -52,6 +53,7 @@ pub trait Backend {
 		&self,
 		candidate_hash: &CandidateHash,
 	) -> SubsystemResult<Option<CandidateEntry>>;
+
 	/// Load all blocks at a specific height.
 	fn load_blocks_at_height(&self, height: &BlockNumber) -> SubsystemResult<Vec<Hash>>;
 	/// Load all block from the DB.
@@ -62,6 +64,32 @@ pub trait Backend {
 	fn write<I>(&mut self, ops: I) -> SubsystemResult<()>
 	where
 		I: IntoIterator<Item = BackendWriteOp>;
+}
+
+/// A read only backend to enable db migration from version 1 of DB.
+pub trait V1ReadBackend: Backend {
+	/// Load a candidate entry from the DB with scheme version 1.
+	fn load_candidate_entry_v1(
+		&self,
+		candidate_hash: &CandidateHash,
+		candidate_index: CandidateIndex,
+	) -> SubsystemResult<Option<CandidateEntry>>;
+
+	/// Load a block entry from the DB with scheme version 1.
+	fn load_block_entry_v1(&self, block_hash: &Hash) -> SubsystemResult<Option<BlockEntry>>;
+}
+
+/// A read only backend to enable db migration from version 2 of DB.
+pub trait V2ReadBackend: Backend {
+	/// Load a candidate entry from the DB with scheme version 1.
+	fn load_candidate_entry_v2(
+		&self,
+		candidate_hash: &CandidateHash,
+		candidate_index: CandidateIndex,
+	) -> SubsystemResult<Option<CandidateEntry>>;
+
+	/// Load a block entry from the DB with scheme version 1.
+	fn load_block_entry_v2(&self, block_hash: &Hash) -> SubsystemResult<Option<BlockEntry>>;
 }
 
 // Status of block range in the `OverlayedBackend`.

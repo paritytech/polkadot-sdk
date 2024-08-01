@@ -18,14 +18,12 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 use sp_arithmetic::traits::{Bounded, CheckedAdd, CheckedSub, Zero};
-use sp_debug_derive::RuntimeDebug;
 
 use super::*;
 
-#[derive(
-	Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Copy, Clone, RuntimeDebug, Default,
-)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Copy, Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct Weight {
 	#[codec(compact)]
 	/// The weight of computational time used based on some reference hardware.
@@ -403,14 +401,14 @@ where
 	}
 }
 
-#[cfg(any(test, feature = "std", feature = "runtime-benchmarks"))]
+#[cfg(any(test, feature = "std"))]
 impl From<u64> for Weight {
 	fn from(value: u64) -> Self {
 		Self::from_parts(value, value)
 	}
 }
 
-#[cfg(any(test, feature = "std", feature = "runtime-benchmarks"))]
+#[cfg(any(test, feature = "std"))]
 impl From<(u64, u64)> for Weight {
 	fn from(value: (u64, u64)) -> Self {
 		Self::from_parts(value.0, value.1)

@@ -1,0 +1,27 @@
+[package]
+name = "pallet-contracts-fixtures"
+publish = false
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Fixtures for testing contracts pallet."
+
+[lints]
+workspace = true
+
+[dependencies]
+frame-system = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+anyhow = { workspace = true }
+
+[build-dependencies]
+parity-wasm = { workspace = true }
+tempfile = { workspace = true }
+toml = { workspace = true }
+twox-hash = { workspace = true, default-features = true }
+polkavm-linker = { workspace = true, optional = true }
+anyhow = { workspace = true }
+
+[features]
+riscv = ["polkavm-linker"]

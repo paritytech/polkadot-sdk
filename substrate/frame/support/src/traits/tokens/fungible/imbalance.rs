@@ -17,14 +17,18 @@
 
 //! The imbalance type and its associates, which handles keeps everything adding up properly with
 //! unbalanced operations.
+//!
+//! See the [`crate::traits::fungible`] doc for more information about fungible traits.
 
 use super::{super::Imbalance as ImbalanceT, Balanced, *};
 use crate::traits::{
+	fungibles,
 	misc::{SameOrOther, TryDrop},
-	tokens::Balance,
+	tokens::{imbalance::TryMerge, AssetId, Balance},
 };
-use sp_runtime::{traits::Zero, RuntimeDebug};
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
+use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use sp_runtime::traits::Zero;
 
 /// Handler for when an imbalance gets dropped. This could handle either a credit (negative) or
 /// debt (positive) imbalance.
@@ -43,7 +47,7 @@ impl<Balance> HandleImbalanceDrop<Balance> for () {
 ///
 /// Importantly, it has a special `Drop` impl, and cannot be created outside of this module.
 #[must_use]
-#[derive(RuntimeDebug, Eq, PartialEq)]
+#[derive(EqNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
 pub struct Imbalance<
 	B: Balance,
 	OnDrop: HandleImbalanceDrop<B>,
@@ -86,6 +90,11 @@ impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalance
 	pub(crate) fn new(amount: B) -> Self {
 		Self { amount, _phantom: PhantomData }
 	}
+
+	/// Forget the imbalance without invoking the on-drop handler.
+	pub(crate) fn forget(imbalance: Self) {
+		core::mem::forget(imbalance);
+	}
 }
 
 impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalanceDrop<B>>
@@ -99,7 +108,7 @@ impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalance
 
 	fn drop_zero(self) -> Result<(), Self> {
 		if self.amount.is_zero() {
-			sp_std::mem::forget(self);
+			core::mem::forget(self);
 			Ok(())
 		} else {
 			Err(self)
@@ -109,24 +118,31 @@ impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalance
 	fn split(self, amount: B) -> (Self, Self) {
 		let first = self.amount.min(amount);
 		let second = self.amount - first;
-		sp_std::mem::forget(self);
+		core::mem::forget(self);
 		(Imbalance::new(first), Imbalance::new(second))
 	}
+
+	fn extract(&mut self, amount: B) -> Self {
+		let new = self.amount.min(amount);
+		self.amount = self.amount - new;
+		Imbalance::new(new)
+	}
+
 	fn merge(mut self, other: Self) -> Self {
 		self.amount = self.amount.saturating_add(other.amount);
-		sp_std::mem::forget(other);
+		core::mem::forget(other);
 		self
 	}
 	fn subsume(&mut self, other: Self) {
 		self.amount = self.amount.saturating_add(other.amount);
-		sp_std::mem::forget(other);
+		core::mem::forget(other);
 	}
 	fn offset(
 		self,
 		other: Imbalance<B, OppositeOnDrop, OnDrop>,
 	) -> SameOrOther<Self, Imbalance<B, OppositeOnDrop, OnDrop>> {
 		let (a, b) = (self.amount, other.amount);
-		sp_std::mem::forget((self, other));
+		core::mem::forget((self, other));
 
 		if a == b {
 			SameOrOther::None
@@ -139,6 +155,35 @@ impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalance
 	fn peek(&self) -> B {
 		self.amount
 	}
+}
+
+impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalanceDrop<B>> TryMerge
+	for Imbalance<B, OnDrop, OppositeOnDrop>
+{
+	fn try_merge(self, other: Self) -> Result<Self, (Self, Self)> {
+		Ok(self.merge(other))
+	}
+}
+
+/// Converts a `fungibles` `imbalance` instance to an instance of a `fungible` imbalance type.
+///
+/// This function facilitates imbalance conversions within the implementations of
+/// [`frame_support::traits::fungibles::UnionOf`], [`frame_support::traits::fungible::UnionOf`], and
+/// [`frame_support::traits::fungible::ItemOf`] adapters. It is intended only for internal use
+/// within the current crate.
+pub(crate) fn from_fungibles<
+	A: AssetId,
+	B: Balance,
+	OnDropIn: fungibles::HandleImbalanceDrop<A, B>,
+	OppositeIn: fungibles::HandleImbalanceDrop<A, B>,
+	OnDropOut: HandleImbalanceDrop<B>,
+	OppositeOut: HandleImbalanceDrop<B>,
+>(
+	imbalance: fungibles::Imbalance<A, B, OnDropIn, OppositeIn>,
+) -> Imbalance<B, OnDropOut, OppositeOut> {
+	let new = Imbalance::new(imbalance.peek());
+	fungibles::Imbalance::forget(imbalance);
+	new
 }
 
 /// Imbalance implying that the total_issuance value is less than the sum of all account balances.

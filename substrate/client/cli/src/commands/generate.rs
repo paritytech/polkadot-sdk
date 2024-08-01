@@ -20,8 +20,9 @@ use crate::{
 	utils::print_from_uri, with_crypto_scheme, CryptoSchemeFlag, Error, KeystoreParams,
 	NetworkSchemeFlag, OutputTypeFlag,
 };
-use bip39::{Language, Mnemonic, MnemonicType};
+use bip39::Mnemonic;
 use clap::Parser;
+use itertools::Itertools;
 
 /// The `generate` command
 #[derive(Debug, Clone, Parser)]
@@ -52,20 +53,22 @@ impl GenerateCmd {
 	/// Run the command
 	pub fn run(&self) -> Result<(), Error> {
 		let words = match self.words {
-			Some(words) => MnemonicType::for_word_count(words).map_err(|_| {
-				Error::Input(
-					"Invalid number of words given for phrase: must be 12/15/18/21/24".into(),
-				)
-			})?,
-			None => MnemonicType::Words12,
-		};
-		let mnemonic = Mnemonic::new(words, Language::English);
+			Some(words_count) if [12, 15, 18, 21, 24].contains(&words_count) => Ok(words_count),
+			Some(_) => Err(Error::Input(
+				"Invalid number of words given for phrase: must be 12/15/18/21/24".into(),
+			)),
+			None => Ok(12),
+		}?;
+		let mnemonic = Mnemonic::generate(words)
+			.map_err(|e| Error::Input(format!("Mnemonic generation failed: {e}").into()))?;
 		let password = self.keystore_params.read_password()?;
 		let output = self.output_scheme.output_type;
 
+		let phrase = mnemonic.words().join(" ");
+
 		with_crypto_scheme!(
 			self.crypto_scheme.scheme,
-			print_from_uri(mnemonic.phrase(), password, self.network_scheme.network, output)
+			print_from_uri(&phrase, password, self.network_scheme.network, output)
 		);
 		Ok(())
 	}

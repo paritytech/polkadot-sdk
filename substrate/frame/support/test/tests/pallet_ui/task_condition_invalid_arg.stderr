@@ -1,0 +1,23 @@
+error: unused import: `frame_system::pallet_prelude::OriginFor`
+  --> tests/pallet_ui/task_condition_invalid_arg.rs:21:6
+   |
+21 |     use frame_system::pallet_prelude::OriginFor;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error[E0308]: mismatched types
+  --> tests/pallet_ui/task_condition_invalid_arg.rs:35:10
+   |
+32 |         #[pallet::task_condition(|flag: bool| flag)]
+   |                                  ----------------- arguments to this function are incorrect
+...
+35 |         fn foo(_i: u32) -> DispatchResult {
+   |                ^^ expected `bool`, found `u32`
+   |
+note: closure parameter defined here
+  --> tests/pallet_ui/task_condition_invalid_arg.rs:32:29
+   |
+32 |         #[pallet::task_condition(|flag: bool| flag)]
+   |                                   ^^^^^^^^^^

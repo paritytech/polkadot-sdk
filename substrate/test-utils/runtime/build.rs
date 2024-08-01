@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const BUILD_NO_GENESIS_BUILDER_SUPPORT_ENV: &str = "BUILD_NO_GENESIS_BUILDER_SUPPORT";
-
 fn main() {
 	#[cfg(feature = "std")]
 	{
@@ -27,22 +25,10 @@ fn main() {
 			// to this value by default. This is because some of our tests
 			// (`restoration_of_globals`) depend on the stack-size.
 			.append_to_rust_flags("-Clink-arg=-zstack-size=1048576")
+			.enable_metadata_hash("TOKEN", 10)
 			.import_memory()
 			.build();
 	}
-
-	#[cfg(feature = "std")]
-	if std::env::var(BUILD_NO_GENESIS_BUILDER_SUPPORT_ENV).is_ok() {
-		substrate_wasm_builder::WasmBuilder::new()
-			.with_current_project()
-			.export_heap_base()
-			.append_to_rust_flags("-Clink-arg=-zstack-size=1048576")
-			.set_file_name("wasm_binary_no_genesis_builder")
-			.import_memory()
-			.enable_feature("disable-genesis-builder")
-			.build();
-	}
-	println!("cargo:rerun-if-env-changed={}", BUILD_NO_GENESIS_BUILDER_SUPPORT_ENV);
 
 	#[cfg(feature = "std")]
 	{

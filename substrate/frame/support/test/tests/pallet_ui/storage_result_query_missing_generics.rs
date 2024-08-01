@@ -16,6 +16,7 @@
 // limitations under the License.
 
 #[frame_support::pallet]
+#[allow(unused_imports)]
 mod pallet {
 	use frame_support::pallet_prelude::*;
 
@@ -34,5 +35,4 @@ mod pallet {
 	type Foo<T: Config> = StorageValue<_, u8, ResultQuery<Error::NonExistentValue>>;
 }
 
-fn main() {
-}
+fn main() {}

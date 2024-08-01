@@ -19,8 +19,10 @@
 //! The PVF validation host. Responsible for coordinating preparation and execution of PVFs.
 //!
 //! For more background, refer to the Implementer's Guide: [PVF
-//! Pre-checking](https://paritytech.github.io/polkadot/book/pvf-prechecking.html) and [Candidate
-//! Validation](https://paritytech.github.io/polkadot/book/node/utility/candidate-validation.html#pvf-host).
+//! Pre-checking](https://paritytech.github.io/polkadot-sdk/book/pvf-prechecking.html), [Candidate
+//! Validation](https://paritytech.github.io/polkadot-sdk/book/node/utility/candidate-validation.html)
+//! and [PVF Host and Workers](https://paritytech.github.io/polkadot-sdk/book/node/utility/pvf-host-and-workers.html).
+//!
 //!
 //! # Entrypoint
 //!
@@ -82,7 +84,7 @@
 //! A pruning task will run at a fixed interval of time. This task will remove all artifacts that
 //! weren't used or received a heads up signal for a while.
 //!
-//!	## Execution
+//! ## Execution
 //!
 //! The execute workers will be fed by the requests from the execution queue, which is basically a
 //! combination of a path to the compiled artifact and the
@@ -95,23 +97,61 @@ mod host;
 mod metrics;
 mod prepare;
 mod priority;
-mod worker_intf;
+#[cfg(target_os = "linux")]
+mod security;
+mod worker_interface;
 
 #[cfg(feature = "test-utils")]
 pub mod testing;
 
-pub use error::{InvalidCandidate, ValidationError};
-pub use host::{start, Config, ValidationHost, EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME};
+pub use error::{InvalidCandidate, PossiblyInvalidError, ValidationError};
+pub use host::{
+	start, Config, ValidationHost, EXECUTE_BINARY_NAME, HOST_MESSAGE_QUEUE_SIZE,
+	PREPARE_BINARY_NAME,
+};
 pub use metrics::Metrics;
 pub use priority::Priority;
-pub use worker_intf::{framed_recv, framed_send, JOB_TIMEOUT_WALL_CLOCK_FACTOR};
+pub use worker_interface::{framed_recv, framed_send, JOB_TIMEOUT_WALL_CLOCK_FACTOR};
 
 // Re-export some common types.
 pub use polkadot_node_core_pvf_common::{
 	error::{InternalValidationError, PrepareError},
 	prepare::{PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
+	SecurityStatus,
 };
+
+use std::{path::Path, process::Command};
 
 /// The log target for this crate.
 pub const LOG_TARGET: &str = "parachain::pvf";
+
+/// Utility to get the version of a worker, used for version checks.
+///
+/// The worker's existence at the given path must be checked separately.
+pub fn get_worker_version(worker_path: &Path) -> std::io::Result<String> {
+	let worker_version = Command::new(worker_path).args(["--version"]).output()?.stdout;
+	Ok(std::str::from_utf8(&worker_version)
+		.expect("version is printed as a string; qed")
+		.trim()
+		.to_string())
+}
+
+// Trying to run securely and some mandatory errors occurred.
+pub(crate) const SECURE_MODE_ERROR: &'static str =
+	"🚨 Your system cannot securely run a validator. \
+\nRunning validation of malicious PVF code has a higher risk of compromising this machine.";
+// Some errors occurred when running insecurely, or some optional errors occurred when running
+// securely.
+pub(crate) const SECURE_MODE_WARNING: &'static str = "🚨 Some security issues have been detected. \
+\nRunning validation of malicious PVF code has a higher risk of compromising this machine.";
+// Message to be printed only when running securely and mandatory errors occurred.
+pub(crate) const IGNORE_SECURE_MODE_TIP: &'static str =
+"\nYou can ignore this error with the `--insecure-validator-i-know-what-i-do` \
+command line argument if you understand and accept the risks of running insecurely. \
+With this flag, security features are enabled on a best-effort basis, but not mandatory. \
+\nMore information: https://wiki.polkadot.network/docs/maintain-guides-secure-validator#secure-validator-mode";
+// Only Linux supports security features
+#[cfg(not(target_os = "linux"))]
+pub(crate) const SECURE_LINUX_NOTE: &'static str = "\nSecure mode is enabled only for Linux \
+\nand a full secure mode is enabled only for Linux x86-64.";

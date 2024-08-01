@@ -24,7 +24,7 @@ use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc};
 
-use crate::{chain_head::hex_string, sudo_session_keys::api::SudoSessionKeysServer};
+use crate::{hex_string, sudo_session_keys::api::SudoSessionKeysServer};
 
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_session::SessionKeys;

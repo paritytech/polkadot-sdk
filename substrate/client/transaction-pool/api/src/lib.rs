@@ -26,10 +26,7 @@ use codec::Codec;
 use futures::{Future, Stream};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_core::offchain::TransactionPoolExt;
-use sp_runtime::{
-	generic::BlockId,
-	traits::{Block as BlockT, Member, NumberFor},
-};
+use sp_runtime::traits::{Block as BlockT, Member, NumberFor};
 use std::{collections::HashMap, hash::Hash, marker::PhantomData, pin::Pin, sync::Arc};
 
 const LOG_TARGET: &str = "txpool::api";
@@ -65,20 +62,27 @@ impl PoolStatus {
 ///
 /// The status events can be grouped based on their kinds as:
 /// 1. Entering/Moving within the pool:
-/// 		- `Future`
-/// 		- `Ready`
+/// 		- [Future](TransactionStatus::Future)
+/// 		- [Ready](TransactionStatus::Ready)
 /// 2. Inside `Ready` queue:
-/// 		- `Broadcast`
+/// 		- [Broadcast](TransactionStatus::Broadcast)
 /// 3. Leaving the pool:
-/// 		- `InBlock`
-/// 		- `Invalid`
-/// 		- `Usurped`
-/// 		- `Dropped`
+/// 		- [InBlock](TransactionStatus::InBlock)
+/// 		- [Invalid](TransactionStatus::Invalid)
+/// 		- [Usurped](TransactionStatus::Usurped)
+/// 		- [Dropped](TransactionStatus::Dropped)
 /// 	4. Re-entering the pool:
-/// 		- `Retracted`
+/// 		- [Retracted](TransactionStatus::Retracted)
 /// 	5. Block finalized:
-/// 		- `Finalized`
-/// 		- `FinalityTimeout`
+/// 		- [Finalized](TransactionStatus::Finalized)
+/// 		- [FinalityTimeout](TransactionStatus::FinalityTimeout)
+///
+/// Transactions are first placed in either the `Ready` or `Future` queues of the transaction pool.
+/// Substrate validates the transaction before it enters the pool.
+///
+/// A transaction is placed in the `Future` queue if it will become valid at a future time.
+/// For example, submitting a transaction with a higher account nonce than the current
+/// expected nonce will place the transaction in the `Future` queue.
 ///
 /// The events will always be received in the order described above, however
 /// there might be cases where transactions alternate between `Future` and `Ready`
@@ -91,19 +95,37 @@ impl PoolStatus {
 /// 1. Due to possible forks, the transaction that ends up being in included
 /// in one block, may later re-enter the pool or be marked as invalid.
 /// 2. Transaction `Dropped` at one point, may later re-enter the pool if some other
-/// transactions are removed.
+/// transactions are removed. A `Dropped` transaction may re-enter the pool only if it is
+/// resubmitted.
 /// 3. `Invalid` transaction may become valid at some point in the future.
 /// (Note that runtimes are encouraged to use `UnknownValidity` to inform the pool about
-/// such case).
+/// such case). An `Invalid` transaction may re-enter the pool only if it is resubmitted.
 /// 4. `Retracted` transactions might be included in some next block.
 ///
-/// The stream is considered finished only when either `Finalized` or `FinalityTimeout`
-/// event is triggered. You are however free to unsubscribe from notifications at any point.
-/// The first one will be emitted when the block, in which transaction was included gets
-/// finalized. The `FinalityTimeout` event will be emitted when the block did not reach finality
+/// The `FinalityTimeout` event will be emitted when the block did not reach finality
 /// within 512 blocks. This either indicates that finality is not available for your chain,
 /// or that finality gadget is lagging behind. If you choose to wait for finality longer, you can
 /// re-subscribe for a particular transaction hash manually again.
+///
+/// ### Last Event
+///
+/// The stream is considered finished when one of the following events happen:
+/// - [Finalized](TransactionStatus::Finalized)
+/// - [FinalityTimeout](TransactionStatus::FinalityTimeout)
+/// - [Usurped](TransactionStatus::Usurped)
+/// - [Invalid](TransactionStatus::Invalid)
+/// - [Dropped](TransactionStatus::Dropped)
+///
+/// See [`TransactionStatus::is_final`] for more details.
+///
+/// ### Resubmit Transactions
+///
+/// Users might resubmit the transaction at a later time for the following events:
+/// - [FinalityTimeout](TransactionStatus::FinalityTimeout)
+/// - [Invalid](TransactionStatus::Invalid)
+/// - [Dropped](TransactionStatus::Dropped)
+///
+/// See [`TransactionStatus::is_retriable`] for more details.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TransactionStatus<Hash, BlockHash> {
@@ -132,6 +154,38 @@ pub enum TransactionStatus<Hash, BlockHash> {
 	Dropped,
 	/// Transaction is no longer valid in the current state.
 	Invalid,
+}
+
+impl<Hash, BlockHash> TransactionStatus<Hash, BlockHash> {
+	/// Returns true if this is the last event emitted by [`TransactionStatusStream`].
+	pub fn is_final(&self) -> bool {
+		// The state must be kept in sync with `crate::graph::Sender`.
+		match self {
+			Self::Usurped(_) |
+			Self::Finalized(_) |
+			Self::FinalityTimeout(_) |
+			Self::Invalid |
+			Self::Dropped => true,
+			_ => false,
+		}
+	}
+
+	/// Returns true if the transaction could be re-submitted to the pool in the future.
+	///
+	/// For example, `TransactionStatus::Dropped` is retriable, because the transaction
+	/// may enter the pool if there is space for it in the future.
+	pub fn is_retriable(&self) -> bool {
+		match self {
+			// The number of finality watchers has been reached.
+			Self::FinalityTimeout(_) |
+			// An invalid transaction might be valid at a later time.
+			Self::Invalid |
+			// The transaction was dropped because of the limits of the pool.
+			// It can reenter the pool when other transactions are removed / finalized.
+			Self::Dropped => true,
+			_ => false,
+		}
+	}
 }
 
 /// The stream of transaction events.
@@ -202,7 +256,7 @@ pub trait TransactionPool: Send + Sync {
 	/// Returns a future that imports a bunch of unverified transactions to the pool.
 	fn submit_at(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
 	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error>;
@@ -210,7 +264,7 @@ pub trait TransactionPool: Send + Sync {
 	/// Returns a future that imports one unverified transaction to the pool.
 	fn submit_one(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error>;
@@ -219,7 +273,7 @@ pub trait TransactionPool: Send + Sync {
 	/// pool.
 	fn submit_and_watch(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error>;

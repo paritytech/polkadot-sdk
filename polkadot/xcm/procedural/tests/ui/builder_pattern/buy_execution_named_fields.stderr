@@ -1,0 +1,5 @@
+error: BuyExecution should have named fields
+  --> tests/ui/builder_pattern/buy_execution_named_fields.rs:25:5
+   |
+25 |     BuyExecution(u128),
+   |     ^^^^^^^^^^^^^^^^^^

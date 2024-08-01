@@ -33,6 +33,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
@@ -40,6 +42,8 @@ use std::collections::HashSet;
 #[cfg(feature = "std")]
 use std::fmt;
 
+#[doc(hidden)]
+pub use alloc::borrow::Cow;
 use codec::{Decode, Encode, Input};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeString;
@@ -139,13 +143,13 @@ pub use sp_version_proc_macro::runtime_version;
 pub type ApiId = [u8; 8];
 
 /// A vector of pairs of `ApiId` and a `u32` for version.
-pub type ApisVec = sp_std::borrow::Cow<'static, [(ApiId, u32)]>;
+pub type ApisVec = alloc::borrow::Cow<'static, [(ApiId, u32)]>;
 
 /// Create a vector of Api declarations.
 #[macro_export]
 macro_rules! create_apis_vec {
 	( $y:expr ) => {
-		$crate::sp_std::borrow::Cow::Borrowed(&$y)
+		$crate::Cow::Borrowed(&$y)
 	};
 }
 
@@ -175,17 +179,24 @@ pub struct RuntimeVersion {
 	/// will not attempt to author blocks unless this is equal to its native runtime.
 	pub authoring_version: u32,
 
-	/// Version of the runtime specification. A full-node will not attempt to use its native
-	/// runtime in substitute for the on-chain Wasm runtime unless all of `spec_name`,
-	/// `spec_version` and `authoring_version` are the same between Wasm and native.
+	/// Version of the runtime specification.
+	///
+	/// A full-node will not attempt to use its native runtime in substitute for the on-chain
+	/// Wasm runtime unless all of `spec_name`, `spec_version` and `authoring_version` are the same
+	/// between Wasm and native.
+	///
+	/// This number should never decrease.
 	pub spec_version: u32,
 
-	/// Version of the implementation of the specification. Nodes are free to ignore this; it
-	/// serves only as an indication that the code is different; as long as the other two versions
-	/// are the same then while the actual code may be different, it is nonetheless required to
-	/// do the same thing.
-	/// Non-consensus-breaking optimizations are about the only changes that could be made which
-	/// would result in only the `impl_version` changing.
+	/// Version of the implementation of the specification.
+	///
+	/// Nodes are free to ignore this; it serves only as an indication that the code is different;
+	/// as long as the other two versions are the same then while the actual code may be different,
+	/// it is nonetheless required to do the same thing. Non-consensus-breaking optimizations are
+	/// about the only changes that could be made which would result in only the `impl_version`
+	/// changing.
+	///
+	/// This number can be reverted to `0` after a [`spec_version`](Self::spec_version) bump.
 	pub impl_version: u32,
 
 	/// List of supported API "features" along with their versions.
@@ -198,15 +209,25 @@ pub struct RuntimeVersion {
 	)]
 	pub apis: ApisVec,
 
-	/// All existing dispatches are fully compatible when this number doesn't change. If this
-	/// number changes, then `spec_version` must change, also.
+	/// All existing calls (dispatchables) are fully compatible when this number doesn't change. If
+	/// this number changes, then [`spec_version`](Self::spec_version) must change, also.
 	///
-	/// This number must change when an existing dispatchable (module ID, dispatch ID) is changed,
+	/// This number must change when an existing call (pallet index, call index) is changed,
 	/// either through an alteration in its user-level semantics, a parameter
-	/// added/removed/changed, a dispatchable being removed, a module being removed, or a
-	/// dispatchable/module changing its index.
+	/// added/removed, a parameter type changed, or a call/pallet changing its index. An alteration
+	/// of the user level semantics is for example when the call was before `transfer` and now is
+	/// `transfer_all`, the semantics of the call changed completely.
 	///
-	/// It need *not* change when a new module is added or when a dispatchable is added.
+	/// Removing a pallet or a call doesn't require a *bump* as long as no pallet or call is put at
+	/// the same index. Removing doesn't require a bump as the chain will reject a transaction
+	/// referencing this removed call/pallet while decoding and thus, the user isn't at risk to
+	/// execute any unknown call. FRAME runtime devs have control over the index of a call/pallet
+	/// to prevent that an index gets reused.
+	///
+	/// Adding a new pallet or call also doesn't require a *bump* as long as they also don't reuse
+	/// any previously used index.
+	///
+	/// This number should never decrease.
 	pub transaction_version: u32,
 
 	/// Version of the state implementation used by this runtime.
@@ -280,7 +301,7 @@ fn has_api_with<P: Fn(u32) -> bool>(apis: &ApisVec, id: &ApiId, predicate: P) ->
 
 /// Returns the version of the `Core` runtime api.
 pub fn core_version_from_apis(apis: &ApisVec) -> Option<u32> {
-	let id = sp_core_hashing_proc_macro::blake2b_64!(b"Core");
+	let id = sp_crypto_hashing_proc_macro::blake2b_64!(b"Core");
 	apis.iter().find(|(s, _v)| s == &id).map(|(_s, v)| *v)
 }
 
@@ -310,7 +331,7 @@ impl RuntimeVersion {
 	///
 	/// For runtime with core api version less than 4,
 	/// V0 trie version will be applied to state.
-	/// Otherwhise, V1 trie version will be use.
+	/// Otherwise, V1 trie version will be use.
 	pub fn state_version(&self) -> StateVersion {
 		// If version > than 1, keep using latest version.
 		self.state_version.try_into().unwrap_or(StateVersion::V1)
@@ -392,9 +413,9 @@ impl<T: GetNativeVersion> GetNativeVersion for std::sync::Arc<T> {
 #[cfg(feature = "serde")]
 mod apis_serialize {
 	use super::*;
+	use alloc::vec::Vec;
 	use impl_serde::serialize as bytes;
 	use serde::{de, ser::SerializeTuple, Serializer};
-	use sp_std::vec::Vec;
 
 	#[derive(Serialize)]
 	struct ApiId<'a>(#[serde(serialize_with = "serialize_bytesref")] &'a super::ApiId, &'a u32);
@@ -429,7 +450,7 @@ mod apis_serialize {
 		impl<'de> de::Visitor<'de> for Visitor {
 			type Value = ApisVec;
 
-			fn expecting(&self, formatter: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+			fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
 				formatter.write_str("a sequence of api id and version tuples")
 			}
 

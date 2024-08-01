@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::construct_runtime;
+use frame_support::{construct_runtime, derive_impl};
 use sp_core::sr25519;
 use sp_runtime::{generic, traits::BlakeTwo256};
 
@@ -27,6 +27,7 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, Sign
 
 impl test_pallet::Config for Runtime {}
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type RuntimeOrigin = RuntimeOrigin;
@@ -56,8 +57,8 @@ impl frame_system::Config for Runtime {
 construct_runtime! {
 	pub struct Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Pallet: test_pallet::{Pallet, Config<T>},
+		System: frame_system,
+		Pallet: test_pallet,
 	}
 }
 

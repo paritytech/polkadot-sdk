@@ -20,6 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::{types::*, Pallet as FastUnstake, *};
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{benchmarks, whitelist_account, BenchmarkError};
 use frame_support::{
 	assert_ok,
@@ -28,7 +29,6 @@ use frame_support::{
 use frame_system::RawOrigin;
 use sp_runtime::traits::Zero;
 use sp_staking::{EraIndex, StakingInterface};
-use sp_std::prelude::*;
 
 const USER_SEED: u32 = 0;
 
@@ -74,9 +74,9 @@ fn setup_staking<T: Config>(v: u32, until: EraIndex) {
 		.collect::<Vec<_>>();
 
 	for era in 0..=until {
-		let others = (0..T::MaxBackersPerValidator::get())
+		let others = (0..T::Staking::max_exposure_page_size())
 			.map(|s| {
-				let who = frame_benchmarking::account::<T::AccountId>("nominator", era, s);
+				let who = frame_benchmarking::account::<T::AccountId>("nominator", era, s.into());
 				let value = ed;
 				(who, value)
 			})
@@ -162,7 +162,7 @@ benchmarks! {
 			fast_unstake_events::<T>().last(),
 			Some(Event::BatchChecked { .. })
 		));
-		assert!(stashes.iter().all(|(s, _)| request.stashes.iter().find(|(ss, _)| ss == s).is_some()));
+		assert!(stashes.iter().all(|(s, _)| request.stashes.iter().any(|(ss, _)| ss == s)));
 	}
 
 	register_fast_unstake {

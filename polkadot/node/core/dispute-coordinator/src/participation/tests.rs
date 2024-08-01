@@ -22,10 +22,7 @@ use std::{sync::Arc, time::Duration};
 use sp_core::testing::TaskExecutor;
 
 use super::*;
-use ::test_helpers::{
-	dummy_candidate_commitments, dummy_candidate_receipt_bad_sig, dummy_digest, dummy_hash,
-};
-use parity_scale_codec::Encode;
+use codec::Encode;
 use polkadot_node_primitives::{AvailableData, BlockData, InvalidCandidate, PoV};
 use polkadot_node_subsystem::{
 	messages::{
@@ -39,6 +36,9 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_primitives::{
 	BlakeTwo256, CandidateCommitments, HashT, Header, PersistedValidationData, ValidationCode,
+};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_commitments, dummy_candidate_receipt_bad_sig, dummy_digest, dummy_hash,
 };
 
 type VirtualOverseer = TestSubsystemContextHandle<DisputeCoordinatorMessage>;
@@ -115,12 +115,12 @@ pub async fn participation_full_happy_path(
 	assert_matches!(
 	ctx_handle.recv().await,
 	AllMessages::CandidateValidation(
-		CandidateValidationMessage::ValidateFromExhaustive(_, _, candidate_receipt, _, _, timeout, tx)
-		) if timeout == PvfExecTimeoutKind::Approval => {
+		CandidateValidationMessage::ValidateFromExhaustive { candidate_receipt, exec_kind, response_sender, .. }
+		) if exec_kind == PvfExecKind::Approval => {
 			if expected_commitments_hash != candidate_receipt.commitments_hash {
-				tx.send(Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))).unwrap();
+				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))).unwrap();
 			} else {
-				tx.send(Ok(ValidationResult::Valid(dummy_candidate_commitments(None), PersistedValidationData::default()))).unwrap();
+				response_sender.send(Ok(ValidationResult::Valid(dummy_candidate_commitments(None), PersistedValidationData::default()))).unwrap();
 			}
 	},
 	"overseer did not receive candidate validation message",
@@ -132,7 +132,7 @@ pub async fn participation_missing_availability(ctx_handle: &mut VirtualOverseer
 	assert_matches!(
 		ctx_handle.recv().await,
 		AllMessages::AvailabilityRecovery(
-			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 		) => {
 			tx.send(Err(RecoveryError::Unavailable)).unwrap();
 		},
@@ -151,7 +151,7 @@ async fn recover_available_data(virtual_overseer: &mut VirtualOverseer) {
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::AvailabilityRecovery(
-			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 		) => {
 			tx.send(Ok(available_data)).unwrap();
 		},
@@ -195,7 +195,7 @@ fn same_req_wont_get_queued_if_participation_is_already_running() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::AvailabilityRecovery(
-				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 			) => {
 				tx.send(Err(RecoveryError::Unavailable)).unwrap();
 			},
@@ -260,7 +260,7 @@ fn reqs_get_queued_when_out_of_capacity() {
 		{
 			match ctx_handle.recv().await {
 				AllMessages::AvailabilityRecovery(
-					AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx),
+					AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx),
 				) => {
 					tx.send(Err(RecoveryError::Unavailable)).unwrap();
 					recover_available_data_msg_count += 1;
@@ -346,7 +346,7 @@ fn cannot_participate_if_cannot_recover_available_data() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::AvailabilityRecovery(
-				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 			) => {
 				tx.send(Err(RecoveryError::Unavailable)).unwrap();
 			},
@@ -372,7 +372,6 @@ fn cannot_participate_if_cannot_recover_validation_code() {
 		let mut participation = Participation::new(sender, Metrics::default());
 		activate_leaf(&mut ctx, &mut participation, 10).await.unwrap();
 		participate(&mut ctx, &mut participation).await.unwrap();
-
 		recover_available_data(&mut ctx_handle).await;
 
 		assert_matches!(
@@ -413,7 +412,7 @@ fn cast_invalid_vote_if_available_data_is_invalid() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::AvailabilityRecovery(
-				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 			) => {
 				tx.send(Err(RecoveryError::Invalid)).unwrap();
 			},
@@ -450,9 +449,9 @@ fn cast_invalid_vote_if_validation_fails_or_is_invalid() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, _, timeout, tx)
-			) if timeout == PvfExecTimeoutKind::Approval => {
-				tx.send(Ok(ValidationResult::Invalid(InvalidCandidate::Timeout))).unwrap();
+				CandidateValidationMessage::ValidateFromExhaustive { exec_kind, response_sender, .. }
+			) if exec_kind == PvfExecKind::Approval => {
+				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::Timeout))).unwrap();
 			},
 			"overseer did not receive candidate validation message",
 		);
@@ -487,9 +486,9 @@ fn cast_invalid_vote_if_commitments_dont_match() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, _, timeout, tx)
-			) if timeout == PvfExecTimeoutKind::Approval => {
-				tx.send(Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))).unwrap();
+				CandidateValidationMessage::ValidateFromExhaustive { exec_kind, response_sender, .. }
+			) if exec_kind == PvfExecKind::Approval => {
+				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))).unwrap();
 			},
 			"overseer did not receive candidate validation message",
 		);
@@ -524,9 +523,9 @@ fn cast_valid_vote_if_validation_passes() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, _, timeout, tx)
-			) if timeout == PvfExecTimeoutKind::Approval => {
-				tx.send(Ok(ValidationResult::Valid(dummy_candidate_commitments(None), PersistedValidationData::default()))).unwrap();
+				CandidateValidationMessage::ValidateFromExhaustive { exec_kind, response_sender, .. }
+			) if exec_kind == PvfExecKind::Approval => {
+				response_sender.send(Ok(ValidationResult::Valid(dummy_candidate_commitments(None), PersistedValidationData::default()))).unwrap();
 			},
 			"overseer did not receive candidate validation message",
 		);

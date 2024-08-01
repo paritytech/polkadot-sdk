@@ -40,7 +40,7 @@ use sp_core::Pair as PairT;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
 
-use std::{iter::FromIterator as _, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 const TIMEOUT: Duration = Duration::from_millis(50);
 macro_rules! launch {
@@ -150,7 +150,7 @@ fn receive_invalid_signature() {
 
 	let signing_context = SigningContext { session_index: 1, parent_hash: hash_a };
 
-	// another validator not part of the validatorset
+	// another validator not part of the validator set
 	let keystore: KeystorePtr = Arc::new(MemoryKeystore::new());
 	let malicious = Keystore::sr25519_generate_new(&*keystore, ValidatorId::ID, None)
 		.expect("Malicious key created");
@@ -1111,9 +1111,9 @@ fn network_protocol_versioning() {
 	let peer_c = PeerId::random();
 
 	let peers = [
-		(peer_a, ValidationVersion::VStaging),
+		(peer_a, ValidationVersion::V2),
 		(peer_b, ValidationVersion::V1),
-		(peer_c, ValidationVersion::VStaging),
+		(peer_c, ValidationVersion::V2),
 	];
 
 	// validator 0 key pair
@@ -1173,7 +1173,7 @@ fn network_protocol_versioning() {
 			&Default::default(),
 			NetworkBridgeEvent::PeerMessage(
 				peer_a,
-				msg.clone().into_network_message(ValidationVersion::VStaging.into()),
+				msg.clone().into_network_message(ValidationVersion::V2.into()),
 			),
 			&mut rng,
 		));
@@ -1201,14 +1201,14 @@ fn network_protocol_versioning() {
 			}
 		);
 
-		// vstaging gossip
+		// v2 gossip
 		assert_matches!(
 			handle.recv().await,
 			AllMessages::NetworkBridgeTx(
 				NetworkBridgeTxMessage::SendValidationMessage(peers, send_msg),
 			) => {
 				assert_eq!(peers, vec![peer_c]);
-				assert_eq!(send_msg, msg.clone().into_validation_protocol(ValidationVersion::VStaging.into()));
+				assert_eq!(send_msg, msg.clone().into_validation_protocol(ValidationVersion::V2.into()));
 			}
 		);
 

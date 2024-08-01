@@ -62,7 +62,7 @@ HRMP related storage layout
 HrmpOpenChannelRequests: map HrmpChannelId => Option<HrmpOpenChannelRequest>;
 HrmpOpenChannelRequestsList: Vec<HrmpChannelId>;
 
-/// This mapping tracks how many open channel requests are inititated by a given sender para.
+/// This mapping tracks how many open channel requests are initiated by a given sender para.
 /// Invariant: `HrmpOpenChannelRequests` should contain the same number of items that has `(X, _)`
 /// as the number of `HrmpOpenChannelRequestCount` for `X`.
 HrmpOpenChannelRequestCount: map ParaId => u32;
@@ -108,7 +108,7 @@ HrmpEgressChannelsIndex: map ParaId => Vec<ParaId>;
 /// Invariant: cannot be non-empty if the corresponding channel in `HrmpChannels` is `None`.
 HrmpChannelContents: map HrmpChannelId => Vec<InboundHrmpMessage>;
 /// Maintains a mapping that can be used to answer the question:
-/// What paras sent a message at the given block number for a given reciever.
+/// What paras sent a message at the given block number for a given receiver.
 /// Invariants:
 /// - The inner `Vec<ParaId>` is never empty.
 /// - The inner `Vec<ParaId>` cannot store two same `ParaId`.
@@ -233,7 +233,7 @@ executed the message.
     1. Send a downward message to the opposite party notifying about the channel closing.
         * The DM is sent using `queue_downward_message`.
         * The DM is represented by the `HrmpChannelClosing` XCM message with:
-            * `initator` is set to `origin`,
+            * `initiator` is set to `origin`,
             * `sender` is set to `ch.sender`,
             * `recipient` is set to `ch.recipient`.
         * The opposite party is `ch.sender` if `origin` is `ch.recipient` and `ch.recipient` if `origin` is `ch.sender`.

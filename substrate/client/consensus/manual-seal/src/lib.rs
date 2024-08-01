@@ -65,7 +65,7 @@ struct ManualSealVerifier;
 #[async_trait::async_trait]
 impl<B: BlockT> Verifier<B> for ManualSealVerifier {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<B>,
 	) -> Result<BlockImportParams<B>, String> {
 		block.finalized = false;
@@ -86,7 +86,7 @@ where
 	BasicQueue::new(ManualSealVerifier, block_import, None, spawner, registry)
 }
 
-/// Params required to start the instant sealing authorship task.
+/// Params required to start the manual sealing authorship task.
 pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, CS, CIDP, P> {
 	/// Block import instance.
 	pub block_import: BI,
@@ -114,7 +114,7 @@ pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, C
 	pub create_inherent_data_providers: CIDP,
 }
 
-/// Params required to start the manual sealing authorship task.
+/// Params required to start the instant sealing authorship task.
 pub struct InstantSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP, SC, CIDP, P> {
 	/// Block import instance for well. importing blocks.
 	pub block_import: BI,
@@ -236,7 +236,7 @@ pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP, P>(
 	// instant-seal creates blocks as soon as transactions are imported
 	// into the transaction pool.
 	let commands_stream = pool.import_notification_stream().map(|_| EngineCommand::SealNewBlock {
-		create_empty: false,
+		create_empty: true,
 		finalize: false,
 		parent_hash: None,
 		sender: None,
@@ -351,7 +351,7 @@ mod tests {
 	use sc_transaction_pool::{BasicPool, FullChainApi, Options, RevalidationType};
 	use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool, TransactionSource};
 	use sp_inherents::InherentData;
-	use sp_runtime::generic::{BlockId, Digest, DigestItem};
+	use sp_runtime::generic::{Digest, DigestItem};
 	use substrate_test_runtime_client::{
 		AccountKeyring::*, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 	};
@@ -400,10 +400,11 @@ mod tests {
 		let client = Arc::new(client);
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let genesis_hash = client.info().genesis_hash;
+		let pool_api = Arc::new(FullChainApi::new(client.clone(), None, &spawner.clone()));
 		let pool = Arc::new(BasicPool::with_revalidation_type(
 			Options::default(),
 			true.into(),
-			api(),
+			pool_api,
 			None,
 			RevalidationType::Full,
 			spawner.clone(),
@@ -428,7 +429,9 @@ mod tests {
 					sender,
 				}
 			});
-		let future = run_manual_seal(ManualSealParams {
+
+		// spawn the background authorship task
+		tokio::spawn(run_manual_seal(ManualSealParams {
 			block_import: client.clone(),
 			env,
 			client: client.clone(),
@@ -437,14 +440,10 @@ mod tests {
 			select_chain,
 			create_inherent_data_providers: |_, _| async { Ok(()) },
 			consensus_data_provider: None,
-		});
-		std::thread::spawn(|| {
-			let rt = tokio::runtime::Runtime::new().unwrap();
-			// spawn the background authorship task
-			rt.block_on(future);
-		});
+		}));
+
 		// submit a transaction to pool.
-		let result = pool.submit_one(&BlockId::Number(0), SOURCE, uxt(Alice, 0)).await;
+		let result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, 0)).await;
 		// assert that it was successfully imported
 		assert!(result.is_ok());
 		// assert that the background task returns ok
@@ -468,17 +467,21 @@ mod tests {
 		assert_eq!(client.header(created_block.hash).unwrap().unwrap().number, 1)
 	}
 
-	#[tokio::test]
+	// TODO: enable once the flakiness is fixed
+	// See https://github.com/paritytech/polkadot-sdk/issues/3603
+	//#[tokio::test]
+	#[allow(unused)]
 	async fn instant_seal_delayed_finalize() {
 		let builder = TestClientBuilder::new();
 		let (client, select_chain) = builder.build_with_longest_chain();
 		let client = Arc::new(client);
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let genesis_hash = client.info().genesis_hash;
+		let pool_api = Arc::new(FullChainApi::new(client.clone(), None, &spawner.clone()));
 		let pool = Arc::new(BasicPool::with_revalidation_type(
 			Options::default(),
 			true.into(),
-			api(),
+			pool_api,
 			None,
 			RevalidationType::Full,
 			spawner.clone(),
@@ -505,7 +508,8 @@ mod tests {
 				}
 			});
 
-		let future_instant_seal = run_manual_seal(ManualSealParams {
+		// spawn the background authorship task
+		tokio::spawn(run_manual_seal(ManualSealParams {
 			block_import: client.clone(),
 			commands_stream,
 			env,
@@ -514,28 +518,20 @@ mod tests {
 			select_chain,
 			create_inherent_data_providers: |_, _| async { Ok(()) },
 			consensus_data_provider: None,
-		});
-		std::thread::spawn(|| {
-			let rt = tokio::runtime::Runtime::new().unwrap();
-			// spawn the background authorship task
-			rt.block_on(future_instant_seal);
-		});
+		}));
 
 		let delay_sec = 5;
-		let future_delayed_finalize = run_delayed_finalize(DelayedFinalizeParams {
+
+		// spawn the background finality task
+		tokio::spawn(run_delayed_finalize(DelayedFinalizeParams {
 			client: client.clone(),
 			delay_sec,
 			spawn_handle: spawner,
-		});
-		std::thread::spawn(|| {
-			let rt = tokio::runtime::Runtime::new().unwrap();
-			// spawn the background authorship task
-			rt.block_on(future_delayed_finalize);
-		});
+		}));
 
 		let mut finality_stream = client.finality_notification_stream();
 		// submit a transaction to pool.
-		let result = pool.submit_one(&BlockId::Number(0), SOURCE, uxt(Alice, 0)).await;
+		let result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, 0)).await;
 		// assert that it was successfully imported
 		assert!(result.is_ok());
 		// assert that the background task returns ok
@@ -571,10 +567,11 @@ mod tests {
 		let client = Arc::new(client);
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let genesis_hash = client.info().genesis_hash;
+		let pool_api = Arc::new(FullChainApi::new(client.clone(), None, &spawner.clone()));
 		let pool = Arc::new(BasicPool::with_revalidation_type(
 			Options::default(),
 			true.into(),
-			api(),
+			pool_api,
 			None,
 			RevalidationType::Full,
 			spawner.clone(),
@@ -586,7 +583,9 @@ mod tests {
 		// this test checks that blocks are created as soon as an engine command is sent over the
 		// stream.
 		let (mut sink, commands_stream) = futures::channel::mpsc::channel(1024);
-		let future = run_manual_seal(ManualSealParams {
+
+		// spawn the background authorship task
+		tokio::spawn(run_manual_seal(ManualSealParams {
 			block_import: client.clone(),
 			env,
 			client: client.clone(),
@@ -595,14 +594,10 @@ mod tests {
 			select_chain,
 			consensus_data_provider: None,
 			create_inherent_data_providers: |_, _| async { Ok(()) },
-		});
-		std::thread::spawn(|| {
-			let rt = tokio::runtime::Runtime::new().unwrap();
-			// spawn the background authorship task
-			rt.block_on(future);
-		});
+		}));
+
 		// submit a transaction to pool.
-		let result = pool.submit_one(&BlockId::Number(0), SOURCE, uxt(Alice, 0)).await;
+		let result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, 0)).await;
 		// assert that it was successfully imported
 		assert!(result.is_ok());
 		let (tx, rx) = futures::channel::oneshot::channel();
@@ -672,7 +667,9 @@ mod tests {
 		// this test checks that blocks are created as soon as an engine command is sent over the
 		// stream.
 		let (mut sink, commands_stream) = futures::channel::mpsc::channel(1024);
-		let future = run_manual_seal(ManualSealParams {
+
+		// spawn the background authorship task
+		tokio::spawn(run_manual_seal(ManualSealParams {
 			block_import: client.clone(),
 			env,
 			client: client.clone(),
@@ -681,14 +678,10 @@ mod tests {
 			select_chain,
 			consensus_data_provider: None,
 			create_inherent_data_providers: |_, _| async { Ok(()) },
-		});
-		std::thread::spawn(|| {
-			let rt = tokio::runtime::Runtime::new().unwrap();
-			// spawn the background authorship task
-			rt.block_on(future);
-		});
+		}));
+
 		// submit a transaction to pool.
-		let result = pool.submit_one(&BlockId::Number(0), SOURCE, uxt(Alice, 0)).await;
+		let result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, 0)).await;
 		// assert that it was successfully imported
 		assert!(result.is_ok());
 
@@ -719,7 +712,7 @@ mod tests {
 			}
 		);
 
-		assert!(pool.submit_one(&BlockId::Number(1), SOURCE, uxt(Alice, 1)).await.is_ok());
+		assert!(pool.submit_one(created_block.hash, SOURCE, uxt(Alice, 1)).await.is_ok());
 
 		let header = client.header(created_block.hash).expect("db error").expect("imported above");
 		assert_eq!(header.number, 1);
@@ -741,7 +734,7 @@ mod tests {
 			.is_ok());
 		assert_matches::assert_matches!(rx1.await.expect("should be no error receiving"), Ok(_));
 
-		assert!(pool.submit_one(&BlockId::Number(1), SOURCE, uxt(Bob, 0)).await.is_ok());
+		assert!(pool.submit_one(created_block.hash, SOURCE, uxt(Bob, 0)).await.is_ok());
 		let (tx2, rx2) = futures::channel::oneshot::channel();
 		assert!(sink
 			.send(EngineCommand::SealNewBlock {
@@ -778,7 +771,9 @@ mod tests {
 		let env = ProposerFactory::new(spawner.clone(), client.clone(), pool.clone(), None, None);
 
 		let (mut sink, commands_stream) = futures::channel::mpsc::channel(1024);
-		let future = run_manual_seal(ManualSealParams {
+
+		// spawn the background authorship task
+		tokio::spawn(run_manual_seal(ManualSealParams {
 			block_import: client.clone(),
 			env,
 			client: client.clone(),
@@ -788,11 +783,8 @@ mod tests {
 			// use a provider that pushes some post digest data
 			consensus_data_provider: Some(Box::new(TestDigestProvider { _client: client.clone() })),
 			create_inherent_data_providers: |_, _| async { Ok(()) },
-		});
-		std::thread::spawn(|| {
-			let rt = tokio::runtime::Runtime::new().unwrap();
-			rt.block_on(future);
-		});
+		}));
+
 		let (tx, rx) = futures::channel::oneshot::channel();
 		sink.send(EngineCommand::SealNewBlock {
 			parent_hash: None,

@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add CheckMetadata SignedExtension to Rococo and Westend Coretime chains
+
+doc:
+  - audience: Runtime User
+    description: |
+      This brings support for the new Ledger app and similar hardware wallets to the Coretime
+      Chain on Rococo and Westend. These hardware wallets will be able to decode the transaction
+      using the metadata. The runtime will ensure that the metadata used for this decoding process
+      is correct and that the online wallet did not try to trick you.
+
+crates:
+  - name: coretime-rococo-runtime
+    bump: major
+  - name: coretime-westend-runtime
+    bump: major

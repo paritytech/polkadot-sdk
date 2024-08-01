@@ -24,8 +24,9 @@ use scale_info::TypeInfo;
 use sp_timestamp::Timestamp;
 
 /// Unit type wrapper that represents a slot.
-#[derive(Debug, Encode, MaxEncodedLen, Decode, Eq, Clone, Copy, Default, Ord, TypeInfo)]
+#[derive(Debug, Encode, MaxEncodedLen, Decode, Eq, Clone, Copy, Default, Ord, Hash, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[repr(transparent)]
 pub struct Slot(u64);
 
 impl core::ops::Deref for Slot {
@@ -41,6 +42,26 @@ impl core::ops::Add for Slot {
 
 	fn add(self, other: Self) -> Self {
 		Self(self.0 + other.0)
+	}
+}
+
+impl core::ops::Sub for Slot {
+	type Output = Self;
+
+	fn sub(self, other: Self) -> Self {
+		Self(self.0 - other.0)
+	}
+}
+
+impl core::ops::AddAssign for Slot {
+	fn add_assign(&mut self, rhs: Self) {
+		self.0 += rhs.0
+	}
+}
+
+impl core::ops::SubAssign for Slot {
+	fn sub_assign(&mut self, rhs: Self) {
+		self.0 -= rhs.0
 	}
 }
 
@@ -101,7 +122,21 @@ impl From<Slot> for u64 {
 }
 
 /// A slot duration defined in milliseconds.
-#[derive(Clone, Copy, Debug, Encode, Decode, Hash, PartialOrd, Ord, PartialEq, Eq, TypeInfo)]
+#[derive(
+	Clone,
+	Copy,
+	Debug,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	Hash,
+	PartialOrd,
+	Ord,
+	PartialEq,
+	Eq,
+	TypeInfo,
+)]
+#[repr(transparent)]
 pub struct SlotDuration(u64);
 
 impl SlotDuration {
@@ -120,9 +155,9 @@ impl SlotDuration {
 
 #[cfg(feature = "std")]
 impl SlotDuration {
-	/// Returns `self` as [`sp_std::time::Duration`].
-	pub const fn as_duration(&self) -> sp_std::time::Duration {
-		sp_std::time::Duration::from_millis(self.0)
+	/// Returns `self` as [`core::time::Duration`].
+	pub const fn as_duration(&self) -> core::time::Duration {
+		core::time::Duration::from_millis(self.0)
 	}
 }
 

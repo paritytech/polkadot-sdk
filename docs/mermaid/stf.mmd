@@ -1,0 +1,21 @@
+flowchart LR
+    %%{init: {'flowchart' : {'curve' : 'linear'}}}%%
+    subgraph BData[Blockchain Database]
+        direction LR
+        BN[Block N] -.-> BN1[Block N+1]
+    end
+
+    subgraph SData[State Database]
+        direction LR
+        SN[State N] -.-> SN1[State N+1] -.-> SN2[State N+2]
+    end
+
+    BN --> STFN[STF]
+    SN --> STFN[STF]
+    STFN[STF] --> SN1
+
+    BN1 --> STFN1[STF]
+    SN1 --> STFN1[STF]
+    STFN1[STF] --> SN2
+
+

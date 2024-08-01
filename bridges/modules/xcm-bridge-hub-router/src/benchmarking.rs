@@ -21,7 +21,7 @@
 use crate::{Bridge, Call};
 
 use bp_xcm_bridge_hub_router::{BridgeState, MINIMAL_DELIVERY_FEE_FACTOR};
-use frame_benchmarking::benchmarks_instance_pallet;
+use frame_benchmarking::{benchmarks_instance_pallet, BenchmarkError};
 use frame_support::traits::{EnsureOrigin, Get, Hooks, UnfilteredDispatchable};
 use sp_runtime::traits::Zero;
 use xcm::prelude::*;
@@ -37,11 +37,11 @@ pub trait Config<I: 'static>: crate::Config<I> {
 	/// Returns destination which is valid for this router instance.
 	/// (Needs to pass `T::Bridges`)
 	/// Make sure that `SendXcm` will pass.
-	fn ensure_bridged_target_destination() -> MultiLocation {
-		MultiLocation::new(
+	fn ensure_bridged_target_destination() -> Result<Location, BenchmarkError> {
+		Ok(Location::new(
 			Self::UniversalLocation::get().len() as u8,
-			X1(GlobalConsensus(Self::BridgedNetworkId::get().unwrap())),
-		)
+			[GlobalConsensus(Self::BridgedNetworkId::get().unwrap())],
+		))
 	}
 }
 
@@ -60,6 +60,8 @@ benchmarks_instance_pallet! {
 			is_congested: false,
 			delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR + MINIMAL_DELIVERY_FEE_FACTOR,
 		});
+
+		let _ = T::ensure_bridged_target_destination()?;
 		T::make_congested();
 	}: {
 		crate::Pallet::<T, I>::on_initialize(Zero::zero())
@@ -79,11 +81,11 @@ benchmarks_instance_pallet! {
 	}
 
 	send_message {
+		let dest = T::ensure_bridged_target_destination()?;
+		let xcm = sp_std::vec![].into();
+
 		// make local queue congested, because it means additional db write
 		T::make_congested();
-
-		let dest = T::ensure_bridged_target_destination();
-		let xcm = sp_std::vec![].into();
 	}: {
 		send_xcm::<crate::Pallet<T, I>>(dest, xcm).expect("message is sent")
 	}

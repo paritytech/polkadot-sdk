@@ -1,0 +1,5 @@
+error: Missing Runtime. Please add a struct inside the module and annotate it with `#[runtime::runtime]`
+  --> tests/runtime_ui/missing_runtime.rs:19:1
+   |
+19 | mod runtime {}
+   | ^^^

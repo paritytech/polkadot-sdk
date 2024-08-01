@@ -27,16 +27,16 @@ pub mod api;
 pub mod sudo_session_keys;
 
 /// The result of an RPC method.
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(untagged)]
 pub enum MethodResult {
 	/// Method generated a result.
 	Ok(MethodResultOk),
-	/// Method ecountered an error.
+	/// Method generated an error.
 	Err(MethodResultErr),
 }
 
-/// The succesful result of an RPC method.
+/// The successful result of an RPC method.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MethodResultOk {

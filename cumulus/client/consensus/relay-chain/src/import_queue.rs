@@ -52,9 +52,13 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block_params: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
+		block_params.fork_choice = Some(sc_consensus::ForkChoiceStrategy::Custom(
+			block_params.origin == sp_consensus::BlockOrigin::NetworkInitialSync,
+		));
+
 		// Skip checks that include execution, if being told so, or when importing only state.
 		//
 		// This is done for example when gap syncing and it is expected that the block after the gap
@@ -100,7 +104,6 @@ where
 		}
 
 		block_params.post_hash = Some(block_params.header.hash());
-
 		Ok(block_params)
 	}
 }
@@ -111,7 +114,7 @@ pub fn import_queue<Client, Block: BlockT, I, CIDP>(
 	block_import: I,
 	create_inherent_data_providers: CIDP,
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
-	registry: Option<&substrate_prometheus_endpoint::Registry>,
+	registry: Option<&prometheus_endpoint::Registry>,
 ) -> ClientResult<BasicQueue<Block>>
 where
 	I: BlockImport<Block, Error = ConsensusError>

@@ -21,6 +21,7 @@
 
 use super::*;
 
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelisted_caller, BenchmarkError,
 };
@@ -177,7 +178,7 @@ benchmarks_instance_pallet! {
 		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin =
-			T::ApproveOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 	}: close_bounty<T::RuntimeOrigin>(approve_origin, bounty_id)
 
 	close_bounty_active {
@@ -186,7 +187,7 @@ benchmarks_instance_pallet! {
 		Treasury::<T, I>::on_initialize(BlockNumberFor::<T>::zero());
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin =
-			T::ApproveOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 	}: close_bounty<T::RuntimeOrigin>(approve_origin, bounty_id)
 	verify {
 		assert_last_event::<T, I>(Event::BountyCanceled { index: bounty_id }.into())
@@ -222,7 +223,7 @@ benchmarks_instance_pallet! {
 		);
 	}
 	verify {
-		ensure!(missed_any == false, "Missed some");
+		ensure!(!missed_any, "Missed some");
 		if b > 0 {
 			ensure!(budget_remaining < BalanceOf::<T, I>::max_value(), "Budget not used");
 			assert_last_event::<T, I>(Event::BountyBecameActive { index: b - 1 }.into())
@@ -231,5 +232,5 @@ benchmarks_instance_pallet! {
 		}
 	}
 
-	impl_benchmark_test_suite!(Bounties, crate::tests::new_test_ext(), crate::tests::Test)
+	impl_benchmark_test_suite!(Bounties, crate::tests::ExtBuilder::default().build(), crate::tests::Test)
 }

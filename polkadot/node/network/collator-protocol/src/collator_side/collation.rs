@@ -22,12 +22,12 @@ use futures::{future::BoxFuture, stream::FuturesUnordered};
 
 use polkadot_node_network_protocol::{
 	request_response::{
-		incoming::OutgoingResponse, v1 as protocol_v1, vstaging as protocol_vstaging,
-		IncomingRequest,
+		incoming::OutgoingResponse, v1 as protocol_v1, v2 as protocol_v2, IncomingRequest,
 	},
 	PeerId,
 };
 use polkadot_node_primitives::PoV;
+use polkadot_node_subsystem::messages::ParentHeadData;
 use polkadot_primitives::{CandidateHash, CandidateReceipt, Hash, Id as ParaId};
 
 /// The status of a collation as seen from the collator.
@@ -60,10 +60,10 @@ impl CollationStatus {
 pub struct Collation {
 	/// Candidate receipt.
 	pub receipt: CandidateReceipt,
-	/// Parent head-data hash.
-	pub parent_head_data_hash: Hash,
 	/// Proof to verify the state transition of the parachain.
 	pub pov: PoV,
+	/// Parent head-data (or just hash).
+	pub parent_head_data: ParentHeadData,
 	/// Collation status.
 	pub status: CollationStatus,
 }
@@ -89,7 +89,7 @@ pub struct WaitingCollationFetches {
 /// Backwards-compatible wrapper for incoming collations requests.
 pub enum VersionedCollationRequest {
 	V1(IncomingRequest<protocol_v1::CollationFetchingRequest>),
-	VStaging(IncomingRequest<protocol_vstaging::CollationFetchingRequest>),
+	V2(IncomingRequest<protocol_v2::CollationFetchingRequest>),
 }
 
 impl From<IncomingRequest<protocol_v1::CollationFetchingRequest>> for VersionedCollationRequest {
@@ -98,11 +98,9 @@ impl From<IncomingRequest<protocol_v1::CollationFetchingRequest>> for VersionedC
 	}
 }
 
-impl From<IncomingRequest<protocol_vstaging::CollationFetchingRequest>>
-	for VersionedCollationRequest
-{
-	fn from(req: IncomingRequest<protocol_vstaging::CollationFetchingRequest>) -> Self {
-		Self::VStaging(req)
+impl From<IncomingRequest<protocol_v2::CollationFetchingRequest>> for VersionedCollationRequest {
+	fn from(req: IncomingRequest<protocol_v2::CollationFetchingRequest>) -> Self {
+		Self::V2(req)
 	}
 }
 
@@ -111,7 +109,7 @@ impl VersionedCollationRequest {
 	pub fn para_id(&self) -> ParaId {
 		match self {
 			VersionedCollationRequest::V1(req) => req.payload.para_id,
-			VersionedCollationRequest::VStaging(req) => req.payload.para_id,
+			VersionedCollationRequest::V2(req) => req.payload.para_id,
 		}
 	}
 
@@ -119,7 +117,7 @@ impl VersionedCollationRequest {
 	pub fn relay_parent(&self) -> Hash {
 		match self {
 			VersionedCollationRequest::V1(req) => req.payload.relay_parent,
-			VersionedCollationRequest::VStaging(req) => req.payload.relay_parent,
+			VersionedCollationRequest::V2(req) => req.payload.relay_parent,
 		}
 	}
 
@@ -127,7 +125,7 @@ impl VersionedCollationRequest {
 	pub fn peer_id(&self) -> PeerId {
 		match self {
 			VersionedCollationRequest::V1(req) => req.peer,
-			VersionedCollationRequest::VStaging(req) => req.peer,
+			VersionedCollationRequest::V2(req) => req.peer,
 		}
 	}
 
@@ -138,7 +136,7 @@ impl VersionedCollationRequest {
 	) -> Result<(), ()> {
 		match self {
 			VersionedCollationRequest::V1(req) => req.send_outgoing_response(response),
-			VersionedCollationRequest::VStaging(req) => req.send_outgoing_response(response),
+			VersionedCollationRequest::V2(req) => req.send_outgoing_response(response),
 		}
 	}
 }

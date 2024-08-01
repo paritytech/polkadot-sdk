@@ -22,33 +22,24 @@ use std::{collections::VecDeque, marker::PhantomData, sync::Arc};
 
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
 use sc_utils::mpsc::TracingUnboundedSender;
-use sp_api::BlockT;
-use sp_core::storage::well_known_keys;
+use sp_runtime::traits::Block as BlockT;
 
-use crate::chain_head::event::OperationStorageItems;
-
-use super::{
-	event::{
-		OperationError, OperationId, StorageQuery, StorageQueryType, StorageResult,
-		StorageResultType,
+use crate::{
+	chain_head::{
+		event::{OperationError, OperationId, OperationStorageItems},
+		subscription::BlockGuard,
+		FollowEvent,
 	},
-	hex_string,
-	subscription::BlockGuard,
-	FollowEvent,
+	common::{
+		events::{StorageQuery, StorageQueryType},
+		storage::{IterQueryType, QueryIter, QueryIterResult, Storage},
+	},
 };
-
-/// The query type of an interation.
-enum IterQueryType {
-	/// Iterating over (key, value) pairs.
-	Value,
-	/// Iterating over (key, hash) pairs.
-	Hash,
-}
 
 /// Generates the events of the `chainHead_storage` method.
 pub struct ChainHeadStorage<Client, Block, BE> {
-	/// Substrate client.
-	client: Arc<Client>,
+	/// Storage client.
+	client: Storage<Client, Block, BE>,
 	/// Queue of operations that may require pagination.
 	iter_operations: VecDeque<QueryIter>,
 	/// The maximum number of items reported by the `chainHead_storage` before
@@ -61,7 +52,7 @@ impl<Client, Block, BE> ChainHeadStorage<Client, Block, BE> {
 	/// Constructs a new [`ChainHeadStorage`].
 	pub fn new(client: Arc<Client>, operation_max_storage_items: usize) -> Self {
 		Self {
-			client,
+			client: Storage::new(client),
 			iter_operations: VecDeque::new(),
 			operation_max_storage_items,
 			_phandom: PhantomData,
@@ -69,150 +60,12 @@ impl<Client, Block, BE> ChainHeadStorage<Client, Block, BE> {
 	}
 }
 
-/// Query to iterate over storage.
-struct QueryIter {
-	/// The next key from which the iteration should continue.
-	next_key: StorageKey,
-	/// The type of the query (either value or hash).
-	ty: IterQueryType,
-}
-
-/// Checks if the provided key (main or child key) is valid
-/// for queries.
-///
-/// Keys that are identical to `:child_storage:` or `:child_storage:default:`
-/// are not queryable.
-fn is_key_queryable(key: &[u8]) -> bool {
-	!well_known_keys::is_default_child_storage_key(key) &&
-		!well_known_keys::is_child_storage_key(key)
-}
-
-/// The result of making a query call.
-type QueryResult = Result<Option<StorageResult>, String>;
-
-/// The result of iterating over keys.
-type QueryIterResult = Result<(Vec<StorageResult>, Option<QueryIter>), String>;
-
 impl<Client, Block, BE> ChainHeadStorage<Client, Block, BE>
 where
 	Block: BlockT + 'static,
 	BE: Backend<Block> + 'static,
 	Client: StorageProvider<Block, BE> + 'static,
 {
-	/// Fetch the value from storage.
-	fn query_storage_value(
-		&self,
-		hash: Block::Hash,
-		key: &StorageKey,
-		child_key: Option<&ChildInfo>,
-	) -> QueryResult {
-		let result = if let Some(child_key) = child_key {
-			self.client.child_storage(hash, child_key, key)
-		} else {
-			self.client.storage(hash, key)
-		};
-
-		result
-			.map(|opt| {
-				QueryResult::Ok(opt.map(|storage_data| StorageResult {
-					key: hex_string(&key.0),
-					result: StorageResultType::Value(hex_string(&storage_data.0)),
-				}))
-			})
-			.unwrap_or_else(|error| QueryResult::Err(error.to_string()))
-	}
-
-	/// Fetch the hash of a value from storage.
-	fn query_storage_hash(
-		&self,
-		hash: Block::Hash,
-		key: &StorageKey,
-		child_key: Option<&ChildInfo>,
-	) -> QueryResult {
-		let result = if let Some(child_key) = child_key {
-			self.client.child_storage_hash(hash, child_key, key)
-		} else {
-			self.client.storage_hash(hash, key)
-		};
-
-		result
-			.map(|opt| {
-				QueryResult::Ok(opt.map(|storage_data| StorageResult {
-					key: hex_string(&key.0),
-					result: StorageResultType::Hash(hex_string(&storage_data.as_ref())),
-				}))
-			})
-			.unwrap_or_else(|error| QueryResult::Err(error.to_string()))
-	}
-
-	/// Fetch the closest merkle value.
-	fn query_storage_merkle_value(
-		&self,
-		hash: Block::Hash,
-		key: &StorageKey,
-		child_key: Option<&ChildInfo>,
-	) -> QueryResult {
-		let result = if let Some(child_key) = child_key {
-			self.client.child_closest_merkle_value(hash, child_key, key)
-		} else {
-			self.client.closest_merkle_value(hash, key)
-		};
-
-		result
-			.map(|opt| {
-				QueryResult::Ok(opt.map(|storage_data| {
-					let result = match &storage_data {
-						sc_client_api::MerkleValue::Node(data) => hex_string(&data.as_slice()),
-						sc_client_api::MerkleValue::Hash(hash) => hex_string(&hash.as_ref()),
-					};
-
-					StorageResult {
-						key: hex_string(&key.0),
-						result: StorageResultType::ClosestDescendantMerkleValue(result),
-					}
-				}))
-			})
-			.unwrap_or_else(|error| QueryResult::Err(error.to_string()))
-	}
-
-	/// Iterate over at most `operation_max_storage_items` keys.
-	///
-	/// Returns the storage result with a potential next key to resume iteration.
-	fn query_storage_iter_pagination(
-		&self,
-		query: QueryIter,
-		hash: Block::Hash,
-		child_key: Option<&ChildInfo>,
-	) -> QueryIterResult {
-		let QueryIter { next_key, ty } = query;
-
-		let mut keys_iter = if let Some(child_key) = child_key {
-			self.client
-				.child_storage_keys(hash, child_key.to_owned(), Some(&next_key), None)
-		} else {
-			self.client.storage_keys(hash, Some(&next_key), None)
-		}
-		.map_err(|err| err.to_string())?;
-
-		let mut ret = Vec::with_capacity(self.operation_max_storage_items);
-		for _ in 0..self.operation_max_storage_items {
-			let Some(key) = keys_iter.next() else { break };
-
-			let result = match ty {
-				IterQueryType::Value => self.query_storage_value(hash, &key, child_key),
-				IterQueryType::Hash => self.query_storage_hash(hash, &key, child_key),
-			}?;
-
-			if let Some(value) = result {
-				ret.push(value);
-			}
-		}
-
-		// Save the next key if any to continue the iteration.
-		let maybe_next_query = keys_iter.next().map(|next_key| QueryIter { next_key, ty });
-		Ok((ret, maybe_next_query))
-	}
-
 	/// Iterate over (key, hash) and (key, value) generating the `WaitingForContinue` event if
 	/// necessary.
 	async fn generate_storage_iter_events(
@@ -229,7 +82,12 @@ where
 				return
 			}
 
-			let result = self.query_storage_iter_pagination(query, hash, child_key.as_ref());
+			let result = self.client.query_iter_pagination(
+				query,
+				hash,
+				child_key.as_ref(),
+				self.operation_max_storage_items,
+			);
 			let (events, maybe_next_query) = match result {
 				QueryIterResult::Ok(result) => result,
 				QueryIterResult::Err(error) => {
@@ -281,24 +139,11 @@ where
 		let sender = block_guard.response_sender();
 		let operation = block_guard.operation();
 
-		if let Some(child_key) = child_key.as_ref() {
-			if !is_key_queryable(child_key.storage_key()) {
-				let _ = sender.unbounded_send(FollowEvent::<Block::Hash>::OperationStorageDone(
-					OperationId { operation_id: operation.operation_id() },
-				));
-				return
-			}
-		}
-
 		let mut storage_results = Vec::with_capacity(items.len());
 		for item in items {
-			if !is_key_queryable(&item.key.0) {
-				continue
-			}
-
 			match item.query_type {
 				StorageQueryType::Value => {
-					match self.query_storage_value(hash, &item.key, child_key.as_ref()) {
+					match self.client.query_value(hash, &item.key, child_key.as_ref()) {
 						Ok(Some(value)) => storage_results.push(value),
 						Ok(None) => continue,
 						Err(error) => {
@@ -308,7 +153,7 @@ where
 					}
 				},
 				StorageQueryType::Hash =>
-					match self.query_storage_hash(hash, &item.key, child_key.as_ref()) {
+					match self.client.query_hash(hash, &item.key, child_key.as_ref()) {
 						Ok(Some(value)) => storage_results.push(value),
 						Ok(None) => continue,
 						Err(error) => {
@@ -317,7 +162,7 @@ where
 						},
 					},
 				StorageQueryType::ClosestDescendantMerkleValue =>
-					match self.query_storage_merkle_value(hash, &item.key, child_key.as_ref()) {
+					match self.client.query_merkle_value(hash, &item.key, child_key.as_ref()) {
 						Ok(Some(value)) => storage_results.push(value),
 						Ok(None) => continue,
 						Err(error) => {
@@ -325,12 +170,16 @@ where
 							return
 						},
 					},
-				StorageQueryType::DescendantsValues => self
-					.iter_operations
-					.push_back(QueryIter { next_key: item.key, ty: IterQueryType::Value }),
-				StorageQueryType::DescendantsHashes => self
-					.iter_operations
-					.push_back(QueryIter { next_key: item.key, ty: IterQueryType::Hash }),
+				StorageQueryType::DescendantsValues => self.iter_operations.push_back(QueryIter {
+					query_key: item.key,
+					ty: IterQueryType::Value,
+					pagination_start_key: None,
+				}),
+				StorageQueryType::DescendantsHashes => self.iter_operations.push_back(QueryIter {
+					query_key: item.key,
+					ty: IterQueryType::Hash,
+					pagination_start_key: None,
+				}),
 			};
 		}
 

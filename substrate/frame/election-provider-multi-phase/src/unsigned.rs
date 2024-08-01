@@ -18,9 +18,11 @@
 //! The unsigned phase, and its miner.
 
 use crate::{
-	helpers, Call, Config, ElectionCompute, Error, FeasibilityError, Pallet, RawSolution,
-	ReadySolution, RoundSnapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
+	helpers, Call, Config, CurrentPhase, DesiredTargets, ElectionCompute, Error, FeasibilityError,
+	Pallet, QueuedSolution, RawSolution, ReadySolution, Round, RoundSnapshot, Snapshot,
+	SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
 };
+use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
 use frame_election_provider_support::{NposSolution, NposSolver, PerThing128, VoteWeight};
 use frame_support::{
@@ -39,7 +41,6 @@ use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageValueRef},
 	DispatchError, SaturatedConversion,
 };
-use sp_std::prelude::*;
 
 /// Storage key used to store the last block number at which offchain worker ran.
 pub(crate) const OFFCHAIN_LAST_BLOCK: &[u8] = b"parity/multi-phase-unsigned-election";
@@ -108,6 +109,27 @@ impl From<FeasibilityError> for MinerError {
 	}
 }
 
+/// Reports the trimming result of a mined solution
+#[derive(Debug, Clone)]
+pub struct TrimmingStatus {
+	weight: usize,
+	length: usize,
+}
+
+impl TrimmingStatus {
+	pub fn is_trimmed(&self) -> bool {
+		self.weight > 0 || self.length > 0
+	}
+
+	pub fn trimmed_weight(&self) -> usize {
+		self.weight
+	}
+
+	pub fn trimmed_length(&self) -> usize {
+		self.length
+	}
+}
+
 /// Save a given call into OCW storage.
 fn save_solution<T: Config>(call: &Call<T>) -> Result<(), MinerError> {
 	log!(debug, "saving a call to the offchain storage.");
@@ -162,16 +184,21 @@ impl<T: Config> Pallet<T> {
 	///
 	/// The Npos Solver type, `S`, must have the same AccountId and Error type as the
 	/// [`crate::Config::Solver`] in order to create a unified return type.
-	pub fn mine_solution(
-	) -> Result<(RawSolution<SolutionOf<T::MinerConfig>>, SolutionOrSnapshotSize), MinerError> {
+	pub fn mine_solution() -> Result<
+		(RawSolution<SolutionOf<T::MinerConfig>>, SolutionOrSnapshotSize, TrimmingStatus),
+		MinerError,
+	> {
 		let RoundSnapshot { voters, targets } =
-			Self::snapshot().ok_or(MinerError::SnapshotUnAvailable)?;
-		let desired_targets = Self::desired_targets().ok_or(MinerError::SnapshotUnAvailable)?;
-		let (solution, score, size) = Miner::<T::MinerConfig>::mine_solution_with_snapshot::<
-			T::Solver,
-		>(voters, targets, desired_targets)?;
-		let round = Self::round();
-		Ok((RawSolution { solution, score, round }, size))
+			Snapshot::<T>::get().ok_or(MinerError::SnapshotUnAvailable)?;
+		let desired_targets = DesiredTargets::<T>::get().ok_or(MinerError::SnapshotUnAvailable)?;
+		let (solution, score, size, is_trimmed) =
+			Miner::<T::MinerConfig>::mine_solution_with_snapshot::<T::Solver>(
+				voters,
+				targets,
+				desired_targets,
+			)?;
+		let round = Round::<T>::get();
+		Ok((RawSolution { solution, score, round }, size, is_trimmed))
 	}
 
 	/// Attempt to restore a solution from cache. Otherwise, compute it fresh. Either way, submit
@@ -232,7 +259,7 @@ impl<T: Config> Pallet<T> {
 	/// Mine a new solution as a call. Performs all checks.
 	pub fn mine_checked_call() -> Result<Call<T>, MinerError> {
 		// get the solution, with a load of checks to ensure if submitted, IT IS ABSOLUTELY VALID.
-		let (raw_solution, witness) = Self::mine_and_check()?;
+		let (raw_solution, witness, _) = Self::mine_and_check()?;
 
 		let score = raw_solution.score;
 		let call: Call<T> = Call::submit_unsigned { raw_solution: Box::new(raw_solution), witness };
@@ -282,11 +309,13 @@ impl<T: Config> Pallet<T> {
 	/// If you want an unchecked solution, use [`Pallet::mine_solution`].
 	/// If you want a checked solution and submit it at the same time, use
 	/// [`Pallet::mine_check_save_submit`].
-	pub fn mine_and_check(
-	) -> Result<(RawSolution<SolutionOf<T::MinerConfig>>, SolutionOrSnapshotSize), MinerError> {
-		let (raw_solution, witness) = Self::mine_solution()?;
+	pub fn mine_and_check() -> Result<
+		(RawSolution<SolutionOf<T::MinerConfig>>, SolutionOrSnapshotSize, TrimmingStatus),
+		MinerError,
+	> {
+		let (raw_solution, witness, is_trimmed) = Self::mine_solution()?;
 		Self::basic_checks(&raw_solution, "mined")?;
-		Ok((raw_solution, witness))
+		Ok((raw_solution, witness, is_trimmed))
 	}
 
 	/// Checks if an execution of the offchain worker is permitted at the given block number, or
@@ -342,23 +371,25 @@ impl<T: Config> Pallet<T> {
 		raw_solution: &RawSolution<SolutionOf<T::MinerConfig>>,
 	) -> DispatchResult {
 		// ensure solution is timely. Don't panic yet. This is a cheap check.
-		ensure!(Self::current_phase().is_unsigned_open(), Error::<T>::PreDispatchEarlySubmission);
+		ensure!(
+			CurrentPhase::<T>::get().is_unsigned_open(),
+			Error::<T>::PreDispatchEarlySubmission
+		);
 
 		// ensure round is current
-		ensure!(Self::round() == raw_solution.round, Error::<T>::OcwCallWrongEra);
+		ensure!(Round::<T>::get() == raw_solution.round, Error::<T>::OcwCallWrongEra);
 
 		// ensure correct number of winners.
 		ensure!(
-			Self::desired_targets().unwrap_or_default() ==
+			DesiredTargets::<T>::get().unwrap_or_default() ==
 				raw_solution.solution.unique_targets().len() as u32,
 			Error::<T>::PreDispatchWrongWinnerCount,
 		);
 
 		// ensure score is being improved. Panic henceforth.
 		ensure!(
-			Self::queued_solution().map_or(true, |q: ReadySolution<_, _>| raw_solution
-				.score
-				.strict_threshold_better(q.score, T::BetterUnsignedThreshold::get())),
+			QueuedSolution::<T>::get()
+				.map_or(true, |q: ReadySolution<_, _>| raw_solution.score > q.score),
 			Error::<T>::PreDispatchWeakSubmission,
 		);
 
@@ -369,14 +400,14 @@ impl<T: Config> Pallet<T> {
 /// Configurations for a miner that comes with this pallet.
 pub trait MinerConfig {
 	/// The account id type.
-	type AccountId: Ord + Clone + codec::Codec + sp_std::fmt::Debug;
+	type AccountId: Ord + Clone + codec::Codec + core::fmt::Debug;
 	/// The solution that the miner is mining.
 	type Solution: codec::Codec
 		+ Default
 		+ PartialEq
 		+ Eq
 		+ Clone
-		+ sp_std::fmt::Debug
+		+ core::fmt::Debug
 		+ Ord
 		+ NposSolution
 		+ TypeInfo;
@@ -401,14 +432,14 @@ pub trait MinerConfig {
 }
 
 /// A base miner, suitable to be used for both signed and unsigned submissions.
-pub struct Miner<T: MinerConfig>(sp_std::marker::PhantomData<T>);
+pub struct Miner<T: MinerConfig>(core::marker::PhantomData<T>);
 impl<T: MinerConfig> Miner<T> {
 	/// Same as [`Pallet::mine_solution`], but the input snapshot data must be given.
 	pub fn mine_solution_with_snapshot<S>(
 		voters: Vec<(T::AccountId, VoteWeight, BoundedVec<T::AccountId, T::MaxVotesPerVoter>)>,
 		targets: Vec<T::AccountId>,
 		desired_targets: u32,
-	) -> Result<(SolutionOf<T>, ElectionScore, SolutionOrSnapshotSize), MinerError>
+	) -> Result<(SolutionOf<T>, ElectionScore, SolutionOrSnapshotSize, TrimmingStatus), MinerError>
 	where
 		S: NposSolver<AccountId = T::AccountId>,
 	{
@@ -436,7 +467,8 @@ impl<T: MinerConfig> Miner<T> {
 		voters: Vec<(T::AccountId, VoteWeight, BoundedVec<T::AccountId, T::MaxVotesPerVoter>)>,
 		targets: Vec<T::AccountId>,
 		desired_targets: u32,
-	) -> Result<(SolutionOf<T>, ElectionScore, SolutionOrSnapshotSize), MinerError> {
+	) -> Result<(SolutionOf<T>, ElectionScore, SolutionOrSnapshotSize, TrimmingStatus), MinerError>
+	{
 		// now make some helper closures.
 		let cache = helpers::generate_voter_cache::<T>(&voters);
 		let voter_index = helpers::voter_index_fn::<T>(&cache);
@@ -477,7 +509,7 @@ impl<T: MinerConfig> Miner<T> {
 							stake
 						})
 						.unwrap_or_default();
-					sp_std::cmp::Reverse(stake)
+					core::cmp::Reverse(stake)
 				},
 			);
 
@@ -495,13 +527,13 @@ impl<T: MinerConfig> Miner<T> {
 		// trim assignments list for weight and length.
 		let size =
 			SolutionOrSnapshotSize { voters: voters.len() as u32, targets: targets.len() as u32 };
-		Self::trim_assignments_weight(
+		let weight_trimmed = Self::trim_assignments_weight(
 			desired_targets,
 			size,
 			T::MaxWeight::get(),
 			&mut index_assignments,
 		);
-		Self::trim_assignments_length(
+		let length_trimmed = Self::trim_assignments_length(
 			T::MaxLength::get(),
 			&mut index_assignments,
 			&encoded_size_of,
@@ -513,7 +545,9 @@ impl<T: MinerConfig> Miner<T> {
 		// re-calc score.
 		let score = solution.clone().score(stake_of, voter_at, target_at)?;
 
-		Ok((solution, score, size))
+		let is_trimmed = TrimmingStatus { weight: weight_trimmed, length: length_trimmed };
+
+		Ok((solution, score, size, is_trimmed))
 	}
 
 	/// Greedily reduce the size of the solution to fit into the block w.r.t length.
@@ -534,7 +568,7 @@ impl<T: MinerConfig> Miner<T> {
 		max_allowed_length: u32,
 		assignments: &mut Vec<IndexAssignmentOf<T>>,
 		encoded_size_of: impl Fn(&[IndexAssignmentOf<T>]) -> Result<usize, sp_npos_elections::Error>,
-	) -> Result<(), MinerError> {
+	) -> Result<usize, MinerError> {
 		// Perform a binary search for the max subset of which can fit into the allowed
 		// length. Having discovered that, we can truncate efficiently.
 		let max_allowed_length: usize = max_allowed_length.saturated_into();
@@ -543,7 +577,7 @@ impl<T: MinerConfig> Miner<T> {
 
 		// not much we can do if assignments are already empty.
 		if high == low {
-			return Ok(())
+			return Ok(0)
 		}
 
 		while high - low > 1 {
@@ -577,16 +611,18 @@ impl<T: MinerConfig> Miner<T> {
 		// after this point, we never error.
 		// check before edit.
 
+		let remove = assignments.len().saturating_sub(maximum_allowed_voters);
+
 		log_no_system!(
 			debug,
 			"from {} assignments, truncating to {} for length, removing {}",
 			assignments.len(),
 			maximum_allowed_voters,
-			assignments.len().saturating_sub(maximum_allowed_voters),
+			remove
 		);
 		assignments.truncate(maximum_allowed_voters);
 
-		Ok(())
+		Ok(remove)
 	}
 
 	/// Greedily reduce the size of the solution to fit into the block w.r.t. weight.
@@ -609,7 +645,7 @@ impl<T: MinerConfig> Miner<T> {
 		size: SolutionOrSnapshotSize,
 		max_weight: Weight,
 		assignments: &mut Vec<IndexAssignmentOf<T>>,
-	) {
+	) -> usize {
 		let maximum_allowed_voters =
 			Self::maximum_voter_for_weight(desired_targets, size, max_weight);
 		let removing: usize =
@@ -622,6 +658,8 @@ impl<T: MinerConfig> Miner<T> {
 			removing,
 		);
 		assignments.truncate(maximum_allowed_voters as usize);
+
+		removing
 	}
 
 	/// Find the maximum `len` that a solution can have in order to fit into the block weight.
@@ -982,6 +1020,7 @@ mod tests {
 		Event, InvalidTransaction, Phase, QueuedSolution, TransactionSource,
 		TransactionValidityError,
 	};
+	use alloc::vec;
 	use codec::Decode;
 	use frame_election_provider_support::IndexAssignment;
 	use frame_support::{assert_noop, assert_ok, traits::OffchainWorker};
@@ -990,7 +1029,7 @@ mod tests {
 		bounded_vec,
 		offchain::storage_lock::{BlockAndTime, StorageLock},
 		traits::{Dispatchable, ValidateUnsigned, Zero},
-		ModuleError, PerU16, Perbill,
+		ModuleError, PerU16,
 	};
 
 	type Assignment = crate::unsigned::Assignment<Runtime>;
@@ -1008,7 +1047,7 @@ mod tests {
 			};
 
 			// initial
-			assert_eq!(MultiPhase::current_phase(), Phase::Off);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 			assert!(matches!(
 				<MultiPhase as ValidateUnsigned>::validate_unsigned(
 					TransactionSource::Local,
@@ -1024,7 +1063,7 @@ mod tests {
 
 			// signed
 			roll_to_signed();
-			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Signed);
 			assert!(matches!(
 				<MultiPhase as ValidateUnsigned>::validate_unsigned(
 					TransactionSource::Local,
@@ -1040,7 +1079,7 @@ mod tests {
 
 			// unsigned
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			assert!(<MultiPhase as ValidateUnsigned>::validate_unsigned(
 				TransactionSource::Local,
@@ -1051,7 +1090,7 @@ mod tests {
 
 			// unsigned -- but not enabled.
 			MultiPhase::phase_transition(Phase::Unsigned((false, 25)));
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 			assert!(matches!(
 				<MultiPhase as ValidateUnsigned>::validate_unsigned(
 					TransactionSource::Local,
@@ -1071,7 +1110,7 @@ mod tests {
 	fn validate_unsigned_retracts_low_score() {
 		ExtBuilder::default().desired_targets(0).build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			let solution = RawSolution::<TestNposSolution> {
 				score: ElectionScore { minimal_stake: 5, ..Default::default() },
@@ -1095,7 +1134,7 @@ mod tests {
 				score: ElectionScore { minimal_stake: 10, ..Default::default() },
 				..Default::default()
 			};
-			<QueuedSolution<Runtime>>::put(ready);
+			QueuedSolution::<Runtime>::put(ready);
 
 			// won't work anymore.
 			assert!(matches!(
@@ -1117,7 +1156,7 @@ mod tests {
 	fn validate_unsigned_retracts_incorrect_winner_count() {
 		ExtBuilder::default().desired_targets(1).build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			let raw = RawSolution::<TestNposSolution> {
 				score: ElectionScore { minimal_stake: 5, ..Default::default() },
@@ -1146,7 +1185,7 @@ mod tests {
 			.desired_targets(0)
 			.build_and_execute(|| {
 				roll_to_unsigned();
-				assert!(MultiPhase::current_phase().is_unsigned());
+				assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 				let solution = RawSolution::<TestNposSolution> {
 					score: ElectionScore { minimal_stake: 5, ..Default::default() },
@@ -1177,7 +1216,7 @@ mod tests {
 	fn unfeasible_solution_panics() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// This is in itself an invalid BS solution.
 			let solution = RawSolution::<TestNposSolution> {
@@ -1199,7 +1238,7 @@ mod tests {
 	fn wrong_witness_panics() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// This solution is unfeasible as well, but we won't even get there.
 			let solution = RawSolution::<TestNposSolution> {
@@ -1223,23 +1262,23 @@ mod tests {
 	fn miner_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// ensure we have snapshots in place.
-			assert!(MultiPhase::snapshot().is_some());
-			assert_eq!(MultiPhase::desired_targets().unwrap(), 2);
+			assert!(Snapshot::<Runtime>::get().is_some());
+			assert_eq!(DesiredTargets::<Runtime>::get().unwrap(), 2);
 
 			// mine seq_phragmen solution with 2 iters.
-			let (solution, witness) = MultiPhase::mine_solution().unwrap();
+			let (solution, witness, _) = MultiPhase::mine_solution().unwrap();
 
 			// ensure this solution is valid.
-			assert!(MultiPhase::queued_solution().is_none());
+			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert_ok!(MultiPhase::submit_unsigned(
 				RuntimeOrigin::none(),
 				Box::new(solution),
 				witness
 			));
-			assert!(MultiPhase::queued_solution().is_some());
+			assert!(QueuedSolution::<Runtime>::get().is_some());
 			assert_eq!(
 				multi_phase_events(),
 				vec![
@@ -1266,9 +1305,9 @@ mod tests {
 			.mock_weight_info(crate::mock::MockedWeightInfo::Basic)
 			.build_and_execute(|| {
 				roll_to_unsigned();
-				assert!(MultiPhase::current_phase().is_unsigned());
+				assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
-				let (raw, witness) = MultiPhase::mine_solution().unwrap();
+				let (raw, witness, t) = MultiPhase::mine_solution().unwrap();
 				let solution_weight = <Runtime as MinerConfig>::solution_weight(
 					witness.voters,
 					witness.targets,
@@ -1278,11 +1317,12 @@ mod tests {
 				// default solution will have 5 edges (5 * 5 + 10)
 				assert_eq!(solution_weight, Weight::from_parts(35, 0));
 				assert_eq!(raw.solution.voter_count(), 5);
+				assert_eq!(t.trimmed_weight(), 0);
 
 				// now reduce the max weight
 				<MinerMaxWeight>::set(Weight::from_parts(25, u64::MAX));
 
-				let (raw, witness) = MultiPhase::mine_solution().unwrap();
+				let (raw, witness, t) = MultiPhase::mine_solution().unwrap();
 				let solution_weight = <Runtime as MinerConfig>::solution_weight(
 					witness.voters,
 					witness.targets,
@@ -1292,6 +1332,7 @@ mod tests {
 				// default solution will have 5 edges (5 * 5 + 10)
 				assert_eq!(solution_weight, Weight::from_parts(25, 0));
 				assert_eq!(raw.solution.voter_count(), 3);
+				assert_eq!(t.trimmed_weight(), 2);
 			})
 	}
 
@@ -1300,10 +1341,10 @@ mod tests {
 		let (mut ext, _) = ExtBuilder::default().desired_targets(8).build_offchainify(0);
 		ext.execute_with(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// Force the number of winners to be bigger to fail
-			let (mut solution, _) = MultiPhase::mine_solution().unwrap();
+			let (mut solution, _, _) = MultiPhase::mine_solution().unwrap();
 			solution.solution.votes1[0].1 = 4;
 
 			assert_eq!(
@@ -1323,43 +1364,13 @@ mod tests {
 			.desired_targets(1)
 			.add_voter(7, 2, bounded_vec![10])
 			.add_voter(8, 5, bounded_vec![10])
-			.better_unsigned_threshold(Perbill::from_percent(50))
+			.add_voter(9, 1, bounded_vec![10])
 			.build_and_execute(|| {
 				roll_to_unsigned();
-				assert!(MultiPhase::current_phase().is_unsigned());
-				assert_eq!(MultiPhase::desired_targets().unwrap(), 1);
+				assert!(CurrentPhase::<Runtime>::get().is_unsigned());
+				assert_eq!(DesiredTargets::<Runtime>::get().unwrap(), 1);
 
 				// an initial solution
-				let result = ElectionResult {
-					// note: This second element of backing stake is not important here.
-					winners: vec![(10, 10)],
-					assignments: vec![Assignment {
-						who: 10,
-						distribution: vec![(10, PerU16::one())],
-					}],
-				};
-
-				let RoundSnapshot { voters, targets } = MultiPhase::snapshot().unwrap();
-				let desired_targets = MultiPhase::desired_targets().unwrap();
-
-				let (raw, score, witness) =
-					Miner::<Runtime>::prepare_election_result_with_snapshot(
-						result,
-						voters.clone(),
-						targets.clone(),
-						desired_targets,
-					)
-					.unwrap();
-				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
-				assert_ok!(MultiPhase::unsigned_pre_dispatch_checks(&solution));
-				assert_ok!(MultiPhase::submit_unsigned(
-					RuntimeOrigin::none(),
-					Box::new(solution),
-					witness
-				));
-				assert_eq!(MultiPhase::queued_solution().unwrap().score.minimal_stake, 10);
-
-				// trial 1: a solution who's score is only 2, i.e. 20% better in the first element.
 				let result = ElectionResult {
 					winners: vec![(10, 12)],
 					assignments: vec![
@@ -1371,23 +1382,113 @@ mod tests {
 						},
 					],
 				};
-				let (raw, score, _) = Miner::<Runtime>::prepare_election_result_with_snapshot(
+
+				let RoundSnapshot { voters, targets } = Snapshot::<Runtime>::get().unwrap();
+				let desired_targets = DesiredTargets::<Runtime>::get().unwrap();
+
+				let (raw, score, witness, _) =
+					Miner::<Runtime>::prepare_election_result_with_snapshot(
+						result,
+						voters.clone(),
+						targets.clone(),
+						desired_targets,
+					)
+					.unwrap();
+				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
+				assert_ok!(MultiPhase::unsigned_pre_dispatch_checks(&solution));
+				assert_ok!(MultiPhase::submit_unsigned(
+					RuntimeOrigin::none(),
+					Box::new(solution),
+					witness
+				));
+				assert_eq!(QueuedSolution::<Runtime>::get().unwrap().score.minimal_stake, 12);
+
+				// trial 1: a solution who's minimal stake is 10, i.e. worse than the first solution
+				// of 12.
+				let result = ElectionResult {
+					winners: vec![(10, 10)],
+					assignments: vec![Assignment {
+						who: 10,
+						distribution: vec![(10, PerU16::one())],
+					}],
+				};
+				let (raw, score, _, _) = Miner::<Runtime>::prepare_election_result_with_snapshot(
 					result,
 					voters.clone(),
 					targets.clone(),
 					desired_targets,
 				)
 				.unwrap();
-				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
-				// 12 is not 50% more than 10
-				assert_eq!(solution.score.minimal_stake, 12);
+				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
+				// 10 is not better than 12
+				assert_eq!(solution.score.minimal_stake, 10);
+				// submitting this will actually panic.
 				assert_noop!(
 					MultiPhase::unsigned_pre_dispatch_checks(&solution),
 					Error::<Runtime>::PreDispatchWeakSubmission,
 				);
-				// submitting this will actually panic.
 
-				// trial 2: a solution who's score is only 7, i.e. 70% better in the first element.
+				// trial 2: try resubmitting another solution with same score (12) as the queued
+				// solution.
+				let result = ElectionResult {
+					winners: vec![(10, 12)],
+					assignments: vec![
+						Assignment { who: 10, distribution: vec![(10, PerU16::one())] },
+						Assignment {
+							who: 7,
+							// note: this percent doesn't even matter, in solution it is 100%.
+							distribution: vec![(10, PerU16::one())],
+						},
+					],
+				};
+
+				let (raw, score, _, _) = Miner::<Runtime>::prepare_election_result_with_snapshot(
+					result,
+					voters.clone(),
+					targets.clone(),
+					desired_targets,
+				)
+				.unwrap();
+				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
+				// 12 is not better than 12. We need score of at least 13 to be accepted.
+				assert_eq!(solution.score.minimal_stake, 12);
+				// submitting this will panic.
+				assert_noop!(
+					MultiPhase::unsigned_pre_dispatch_checks(&solution),
+					Error::<Runtime>::PreDispatchWeakSubmission,
+				);
+
+				// trial 3: a solution who's minimal stake is 13, i.e. 1 better than the queued
+				// solution of 12.
+				let result = ElectionResult {
+					winners: vec![(10, 12)],
+					assignments: vec![
+						Assignment { who: 10, distribution: vec![(10, PerU16::one())] },
+						Assignment { who: 7, distribution: vec![(10, PerU16::one())] },
+						Assignment { who: 9, distribution: vec![(10, PerU16::one())] },
+					],
+				};
+				let (raw, score, witness, _) =
+					Miner::<Runtime>::prepare_election_result_with_snapshot(
+						result,
+						voters.clone(),
+						targets.clone(),
+						desired_targets,
+					)
+					.unwrap();
+				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
+				assert_eq!(solution.score.minimal_stake, 13);
+
+				// this should work
+				assert_ok!(MultiPhase::unsigned_pre_dispatch_checks(&solution));
+				assert_ok!(MultiPhase::submit_unsigned(
+					RuntimeOrigin::none(),
+					Box::new(solution),
+					witness
+				));
+
+				// trial 4: a solution who's minimal stake is 17, i.e. 4 better than the last
+				// solution.
 				let result = ElectionResult {
 					winners: vec![(10, 12)],
 					assignments: vec![
@@ -1400,7 +1501,7 @@ mod tests {
 						},
 					],
 				};
-				let (raw, score, witness) =
+				let (raw, score, witness, _) =
 					Miner::<Runtime>::prepare_election_result_with_snapshot(
 						result,
 						voters.clone(),
@@ -1408,7 +1509,7 @@ mod tests {
 						desired_targets,
 					)
 					.unwrap();
-				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
 				assert_eq!(solution.score.minimal_stake, 17);
 
 				// and it is fine
@@ -1428,7 +1529,7 @@ mod tests {
 			let offchain_repeat = <Runtime as Config>::OffchainRepeat::get();
 
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// first execution -- okay.
 			assert!(MultiPhase::ensure_offchain_repeat_frequency(25).is_ok());
@@ -1469,7 +1570,7 @@ mod tests {
 			let last_block = StorageValueRef::persistent(OFFCHAIN_LAST_BLOCK);
 
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// initially, the lock is not set.
 			assert!(guard.get::<bool>().unwrap().is_none());
@@ -1490,7 +1591,7 @@ mod tests {
 		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
 		ext.execute_with(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// artificially set the value, as if another thread is mid-way.
 			let mut lock = StorageLock::<BlockAndTime<System>>::with_block_deadline(
@@ -1518,7 +1619,7 @@ mod tests {
 		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
 		ext.execute_with(|| {
 			roll_to_unsigned();
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 
 			// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
@@ -1550,7 +1651,7 @@ mod tests {
 
 			roll_to(BLOCK);
 			// we are on the first block of the unsigned phase
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, BLOCK)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, BLOCK)));
 
 			assert!(
 				!ocw_solution_exists::<Runtime>(),
@@ -1633,7 +1734,7 @@ mod tests {
 			let offchain_repeat = <Runtime as Config>::OffchainRepeat::get();
 
 			roll_to(BLOCK);
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, BLOCK)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, BLOCK)));
 
 			// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
@@ -1671,7 +1772,7 @@ mod tests {
 			let offchain_repeat = <Runtime as Config>::OffchainRepeat::get();
 
 			roll_to(BLOCK);
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, BLOCK)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, BLOCK)));
 
 			// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
@@ -1712,7 +1813,7 @@ mod tests {
 		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
 		ext.execute_with(|| {
 			roll_to_with_ocw(25);
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 			// OCW must have submitted now
 
 			let encoded = pool.read().transactions[0].clone();
@@ -1727,10 +1828,10 @@ mod tests {
 		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
 		ext.execute_with(|| {
 			roll_to_with_ocw(25);
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 			// OCW must have submitted now
 			// now, before we check the call, update the round
-			<crate::Round<Runtime>>::mutate(|round| *round += 1);
+			crate::Round::<Runtime>::mutate(|round| *round += 1);
 
 			let encoded = pool.read().transactions[0].clone();
 			let extrinsic = Extrinsic::decode(&mut &*encoded).unwrap();
@@ -1769,7 +1870,7 @@ mod tests {
 			let solution_clone = solution.clone();
 
 			// when
-			Miner::<Runtime>::trim_assignments_length(
+			let trimmed_len = Miner::<Runtime>::trim_assignments_length(
 				encoded_len,
 				&mut assignments,
 				encoded_size_of,
@@ -1779,6 +1880,7 @@ mod tests {
 			// then
 			let solution = SolutionOf::<Runtime>::try_from(assignments.as_slice()).unwrap();
 			assert_eq!(solution, solution_clone);
+			assert_eq!(trimmed_len, 0);
 		});
 	}
 
@@ -1794,7 +1896,7 @@ mod tests {
 			let solution_clone = solution.clone();
 
 			// when
-			Miner::<Runtime>::trim_assignments_length(
+			let trimmed_len = Miner::<Runtime>::trim_assignments_length(
 				encoded_len as u32 - 1,
 				&mut assignments,
 				encoded_size_of,
@@ -1805,6 +1907,7 @@ mod tests {
 			let solution = SolutionOf::<Runtime>::try_from(assignments.as_slice()).unwrap();
 			assert_ne!(solution, solution_clone);
 			assert!(solution.encoded_size() < encoded_len);
+			assert_eq!(trimmed_len, 1);
 		});
 	}
 

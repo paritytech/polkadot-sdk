@@ -1,0 +1,5 @@
+error: missing `#[pallet::task_index(..)]` attribute
+  --> tests/pallet_ui/task_missing_index.rs:31:6
+   |
+31 |         fn foo() -> DispatchResult {
+   |            ^^^

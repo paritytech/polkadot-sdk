@@ -24,7 +24,6 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_staking::{EraIndex, StakingInterface};
-use sp_std::prelude::*;
 
 /// Maximum number of eras that we might check for a single staker.
 ///
@@ -32,13 +31,14 @@ use sp_std::prelude::*;
 #[derive(scale_info::TypeInfo, codec::Encode, codec::Decode, codec::MaxEncodedLen)]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
-pub struct MaxChecking<T: Config>(sp_std::marker::PhantomData<T>);
+pub struct MaxChecking<T: Config>(core::marker::PhantomData<T>);
 impl<T: Config> frame_support::traits::Get<u32> for MaxChecking<T> {
 	fn get() -> u32 {
 		T::Staking::bonding_duration() + 1
 	}
 }
 
+#[docify::export]
 pub(crate) type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 /// An unstake request.

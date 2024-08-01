@@ -17,17 +17,14 @@
 //! Staging Primitives.
 
 // Put any primitives used by staging APIs functions here
-pub use crate::v5::*;
-use sp_std::prelude::*;
+use crate::v7::*;
 
-use parity_scale_codec::{Decode, Encode};
-use primitives::RuntimeDebug;
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
+use sp_arithmetic::Perbill;
+use sp_core::RuntimeDebug;
 
-/// Useful type alias for Para IDs.
-pub type ParaId = Id;
-
-/// Candidate's acceptance limitations for asynchronous backing per relay parent.
+/// Scheduler configuration parameters. All coretime/ondemand parameters are here.
 #[derive(
 	RuntimeDebug,
 	Copy,
@@ -39,99 +36,65 @@ pub type ParaId = Id;
 	serde::Serialize,
 	serde::Deserialize,
 )]
-
-pub struct AsyncBackingParams {
-	/// The maximum number of para blocks between the para head in a relay parent
-	/// and a new candidate. Restricts nodes from building arbitrary long chains
-	/// and spamming other validators.
+pub struct SchedulerParams<BlockNumber> {
+	/// How often parachain groups should be rotated across parachains.
 	///
-	/// When async backing is disabled, the only valid value is 0.
-	pub max_candidate_depth: u32,
-	/// How many ancestors of a relay parent are allowed to build candidates on top
-	/// of.
+	/// Must be non-zero.
+	pub group_rotation_frequency: BlockNumber,
+	/// Availability timeout for a block on a core, measured in blocks.
 	///
-	/// When async backing is disabled, the only valid value is 0.
-	pub allowed_ancestry_len: u32,
-}
-
-/// Constraints on inbound HRMP channels.
-#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
-pub struct InboundHrmpLimitations<N = BlockNumber> {
-	/// An exhaustive set of all valid watermarks, sorted ascending.
+	/// This is the maximum amount of blocks after a core became occupied that validators have time
+	/// to make the block available.
 	///
-	/// It's only expected to contain block numbers at which messages were
-	/// previously sent to a para, excluding most recent head.
-	pub valid_watermarks: Vec<N>,
+	/// This value only has effect on group rotations. If backers backed something at the end of
+	/// their rotation, the occupied core affects the backing group that comes afterwards. We limit
+	/// the effect one backing group can have on the next to `paras_availability_period` blocks.
+	///
+	/// Within a group rotation there is no timeout as backers are only affecting themselves.
+	///
+	/// Must be at least 1. With a value of 1, the previous group will not be able to negatively
+	/// affect the following group at the expense of a tight availability timeline at group
+	/// rotation boundaries.
+	pub paras_availability_period: BlockNumber,
+	/// The maximum number of validators to have per core.
+	///
+	/// `None` means no maximum.
+	pub max_validators_per_core: Option<u32>,
+	/// The amount of blocks ahead to schedule paras.
+	pub lookahead: u32,
+	/// How many cores are managed by the coretime chain.
+	pub num_cores: u32,
+	/// The max number of times a claim can time out in availability.
+	pub max_availability_timeouts: u32,
+	/// The maximum queue size of the pay as you go module.
+	pub on_demand_queue_max_size: u32,
+	/// The target utilization of the spot price queue in percentages.
+	pub on_demand_target_queue_utilization: Perbill,
+	/// How quickly the fee rises in reaction to increased utilization.
+	/// The lower the number the slower the increase.
+	pub on_demand_fee_variability: Perbill,
+	/// The minimum amount needed to claim a slot in the spot pricing queue.
+	pub on_demand_base_fee: Balance,
+	/// The number of blocks a claim stays in the scheduler's claim queue before getting cleared.
+	/// This number should go reasonably higher than the number of blocks in the async backing
+	/// lookahead.
+	pub ttl: BlockNumber,
 }
 
-/// Constraints on outbound HRMP channels.
-#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
-pub struct OutboundHrmpChannelLimitations {
-	/// The maximum bytes that can be written to the channel.
-	pub bytes_remaining: u32,
-	/// The maximum messages that can be written to the channel.
-	pub messages_remaining: u32,
-}
-
-/// Constraints on the actions that can be taken by a new parachain
-/// block. These limitations are implicitly associated with some particular
-/// parachain, which should be apparent from usage.
-#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
-pub struct Constraints<N = BlockNumber> {
-	/// The minimum relay-parent number accepted under these constraints.
-	pub min_relay_parent_number: N,
-	/// The maximum Proof-of-Validity size allowed, in bytes.
-	pub max_pov_size: u32,
-	/// The maximum new validation code size allowed, in bytes.
-	pub max_code_size: u32,
-	/// The amount of UMP messages remaining.
-	pub ump_remaining: u32,
-	/// The amount of UMP bytes remaining.
-	pub ump_remaining_bytes: u32,
-	/// The maximum number of UMP messages allowed per candidate.
-	pub max_ump_num_per_candidate: u32,
-	/// Remaining DMP queue. Only includes sent-at block numbers.
-	pub dmp_remaining_messages: Vec<N>,
-	/// The limitations of all registered inbound HRMP channels.
-	pub hrmp_inbound: InboundHrmpLimitations<N>,
-	/// The limitations of all registered outbound HRMP channels.
-	pub hrmp_channels_out: Vec<(ParaId, OutboundHrmpChannelLimitations)>,
-	/// The maximum number of HRMP messages allowed per candidate.
-	pub max_hrmp_num_per_candidate: u32,
-	/// The required parent head-data of the parachain.
-	pub required_parent: HeadData,
-	/// The expected validation-code-hash of this parachain.
-	pub validation_code_hash: ValidationCodeHash,
-	/// The code upgrade restriction signal as-of this parachain.
-	pub upgrade_restriction: Option<UpgradeRestriction>,
-	/// The future validation code hash, if any, and at what relay-parent
-	/// number the upgrade would be minimally applied.
-	pub future_validation_code: Option<(N, ValidationCodeHash)>,
-}
-
-/// A candidate pending availability.
-#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
-pub struct CandidatePendingAvailability<H = Hash, N = BlockNumber> {
-	/// The hash of the candidate.
-	pub candidate_hash: CandidateHash,
-	/// The candidate's descriptor.
-	pub descriptor: CandidateDescriptor<H>,
-	/// The commitments of the candidate.
-	pub commitments: CandidateCommitments,
-	/// The candidate's relay parent's number.
-	pub relay_parent_number: N,
-	/// The maximum Proof-of-Validity size allowed, in bytes.
-	pub max_pov_size: u32,
-}
-
-/// The per-parachain state of the backing system, including
-/// state-machine constraints and candidates pending availability.
-#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
-pub struct BackingState<H = Hash, N = BlockNumber> {
-	/// The state-machine constraints of the parachain.
-	pub constraints: Constraints<N>,
-	/// The candidates pending availability. These should be ordered, i.e. they should form
-	/// a sub-chain, where the first candidate builds on top of the required parent of the
-	/// constraints and each subsequent builds on top of the previous head-data.
-	pub pending_availability: Vec<CandidatePendingAvailability<H, N>>,
+impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> {
+	fn default() -> Self {
+		Self {
+			group_rotation_frequency: 1u32.into(),
+			paras_availability_period: 1u32.into(),
+			max_validators_per_core: Default::default(),
+			lookahead: 1,
+			num_cores: Default::default(),
+			max_availability_timeouts: Default::default(),
+			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+			on_demand_target_queue_utilization: Perbill::from_percent(25),
+			on_demand_fee_variability: Perbill::from_percent(3),
+			on_demand_base_fee: 10_000_000u128,
+			ttl: 5u32.into(),
+		}
+	}
 }

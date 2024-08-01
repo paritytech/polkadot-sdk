@@ -21,11 +21,10 @@ use std::collections::HashSet;
 use crate::*;
 use frame_support::traits::WhitelistedStorageKeys;
 use sp_core::hexdisplay::HexDisplay;
-use xcm::latest::prelude::*;
 
 #[test]
 fn remove_keys_weight_is_sensible() {
-	use runtime_common::crowdloan::WeightInfo;
+	use polkadot_runtime_common::crowdloan::WeightInfo;
 	let max_weight = <Runtime as crowdloan::Config>::WeightInfo::refund(RemoveKeysLimit::get());
 	// Max remove keys limit should be no more than half the total block weight.
 	assert!((max_weight * 2).all_lt(BlockWeights::get().max_block));
@@ -33,7 +32,7 @@ fn remove_keys_weight_is_sensible() {
 
 #[test]
 fn sample_size_is_sensible() {
-	use runtime_common::auctions::WeightInfo;
+	use polkadot_runtime_common::auctions::WeightInfo;
 	// Need to clean up all samples at the end of an auction.
 	let samples: BlockNumber = EndingPeriod::get() / SampleLength::get();
 	let max_weight: frame_support::weights::Weight =
@@ -55,11 +54,12 @@ fn sanity_check_teleport_assets_weight() {
 	// Usually when XCM runs into an issue, it will return a weight of `Weight::MAX`,
 	// so this test will certainly ensure that this problem does not occur.
 	use frame_support::dispatch::GetDispatchInfo;
-	let weight = pallet_xcm::Call::<Runtime>::teleport_assets {
+	let weight = pallet_xcm::Call::<Runtime>::limited_teleport_assets {
 		dest: Box::new(Here.into()),
 		beneficiary: Box::new(Here.into()),
 		assets: Box::new((Here, 200_000).into()),
 		fee_asset_item: 0,
+		weight_limit: Unlimited,
 	}
 	.get_dispatch_info()
 	.weight;
@@ -90,4 +90,12 @@ fn check_whitelist() {
 	assert!(whitelist.contains("1405f2411d0af5a7ff397e7c9dc68d194a222ba0333561192e474c59ed8e30e1"));
 	// XcmPallet SafeXcmVersion
 	assert!(whitelist.contains("1405f2411d0af5a7ff397e7c9dc68d196323ae84c43568be0d1394d5d0d522c4"));
+}
+
+#[test]
+fn check_treasury_pallet_id() {
+	assert_eq!(
+		<Treasury as frame_support::traits::PalletInfoAccess>::index() as u8,
+		westend_runtime_constants::TREASURY_PALLET_ID
+	);
 }

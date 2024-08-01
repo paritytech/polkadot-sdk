@@ -42,7 +42,14 @@
 
 mod tests;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
+use core::{
+	marker::PhantomData,
+	ops::{Deref, DerefMut},
+};
 use frame_support::{
 	dispatch::DispatchResult,
 	pallet_prelude::MaxEncodedLen,
@@ -54,11 +61,6 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::RuntimeDebug;
-use sp_std::{
-	marker::PhantomData,
-	ops::{Deref, DerefMut},
-	prelude::*,
-};
 
 /// Pending atomic swap operation.
 #[derive(Clone, Eq, PartialEq, RuntimeDebugNoBound, Encode, Decode, TypeInfo, MaxEncodedLen)]

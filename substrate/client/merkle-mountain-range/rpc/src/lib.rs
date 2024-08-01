@@ -26,18 +26,18 @@ use codec::{Codec, Decode, Encode};
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
 	proc_macros::rpc,
-	types::error::{CallError, ErrorObject},
+	types::{error::ErrorObject, ErrorObjectOwned},
 };
 use serde::{Deserialize, Serialize};
 
-use sp_api::{ApiExt, NumberFor, ProvideRuntimeApi};
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_core::{
 	offchain::{storage::OffchainDb, OffchainDbExt, OffchainStorage},
 	Bytes,
 };
-use sp_mmr_primitives::{Error as MmrError, Proof};
-use sp_runtime::traits::Block as BlockT;
+use sp_mmr_primitives::{Error as MmrError, LeafProof};
+use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 pub use sp_mmr_primitives::MmrApi as MmrRuntimeApi;
 
@@ -52,17 +52,17 @@ pub struct LeavesProof<BlockHash> {
 	pub block_hash: BlockHash,
 	/// SCALE-encoded vector of `LeafData`.
 	pub leaves: Bytes,
-	/// SCALE-encoded proof data. See [sp_mmr_primitives::Proof].
+	/// SCALE-encoded proof data. See [sp_mmr_primitives::LeafProof].
 	pub proof: Bytes,
 }
 
 impl<BlockHash> LeavesProof<BlockHash> {
 	/// Create new `LeavesProof` from a given vector of `Leaf` and a
-	/// [sp_mmr_primitives::Proof].
+	/// [sp_mmr_primitives::LeafProof].
 	pub fn new<Leaf, MmrHash>(
 		block_hash: BlockHash,
 		leaves: Vec<Leaf>,
-		proof: Proof<MmrHash>,
+		proof: LeafProof<MmrHash>,
 	) -> Self
 	where
 		Leaf: Encode,
@@ -189,11 +189,9 @@ where
 	fn verify_proof(&self, proof: LeavesProof<<Block as BlockT>::Hash>) -> RpcResult<bool> {
 		let mut api = self.client.runtime_api();
 
-		let leaves = Decode::decode(&mut &proof.leaves.0[..])
-			.map_err(|e| CallError::InvalidParams(anyhow::Error::new(e)))?;
+		let leaves = Decode::decode(&mut &proof.leaves.0[..]).map_err(invalid_params)?;
 
-		let decoded_proof = Decode::decode(&mut &proof.proof.0[..])
-			.map_err(|e| CallError::InvalidParams(anyhow::Error::new(e)))?;
+		let decoded_proof = Decode::decode(&mut &proof.proof.0[..]).map_err(invalid_params)?;
 
 		api.register_extension(OffchainDbExt::new(self.offchain_db.clone()));
 
@@ -211,11 +209,9 @@ where
 	) -> RpcResult<bool> {
 		let api = self.client.runtime_api();
 
-		let leaves = Decode::decode(&mut &proof.leaves.0[..])
-			.map_err(|e| CallError::InvalidParams(anyhow::Error::new(e)))?;
+		let leaves = Decode::decode(&mut &proof.leaves.0[..]).map_err(invalid_params)?;
 
-		let decoded_proof = Decode::decode(&mut &proof.proof.0[..])
-			.map_err(|e| CallError::InvalidParams(anyhow::Error::new(e)))?;
+		let decoded_proof = Decode::decode(&mut &proof.proof.0[..]).map_err(invalid_params)?;
 
 		api.verify_proof_stateless(proof.block_hash, mmr_root, leaves, decoded_proof)
 			.map_err(runtime_error_into_rpc_error)?
@@ -226,7 +222,7 @@ where
 }
 
 /// Converts an mmr-specific error into a [`CallError`].
-fn mmr_error_into_rpc_error(err: MmrError) -> CallError {
+fn mmr_error_into_rpc_error(err: MmrError) -> ErrorObjectOwned {
 	let error_code = MMR_ERROR +
 		match err {
 			MmrError::LeafNotFound => 1,
@@ -237,16 +233,20 @@ fn mmr_error_into_rpc_error(err: MmrError) -> CallError {
 			_ => 0,
 		};
 
-	CallError::Custom(ErrorObject::owned(error_code, err.to_string(), Some(format!("{:?}", err))))
+	ErrorObject::owned(error_code, err.to_string(), Some(format!("{:?}", err)))
 }
 
 /// Converts a runtime trap into a [`CallError`].
-fn runtime_error_into_rpc_error(err: impl std::fmt::Debug) -> CallError {
-	CallError::Custom(ErrorObject::owned(
-		RUNTIME_ERROR,
-		"Runtime trapped",
-		Some(format!("{:?}", err)),
-	))
+fn runtime_error_into_rpc_error(err: impl std::fmt::Debug) -> ErrorObjectOwned {
+	ErrorObject::owned(RUNTIME_ERROR, "Runtime trapped", Some(format!("{:?}", err)))
+}
+
+fn invalid_params(e: impl std::error::Error) -> ErrorObjectOwned {
+	ErrorObject::owned(
+		jsonrpsee::types::error::ErrorCode::InvalidParams.code(),
+		e.to_string(),
+		None::<()>,
+	)
 }
 
 #[cfg(test)]
@@ -258,7 +258,7 @@ mod tests {
 	fn should_serialize_leaf_proof() {
 		// given
 		let leaf = vec![1_u8, 2, 3, 4];
-		let proof = Proof {
+		let proof = LeafProof {
 			leaf_indices: vec![1],
 			leaf_count: 9,
 			items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],
@@ -281,7 +281,7 @@ mod tests {
 		// given
 		let leaf_a = vec![1_u8, 2, 3, 4];
 		let leaf_b = vec![2_u8, 2, 3, 4];
-		let proof = Proof {
+		let proof = LeafProof {
 			leaf_indices: vec![1, 2],
 			leaf_count: 9,
 			items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],
@@ -306,7 +306,7 @@ mod tests {
 			block_hash: H256::repeat_byte(0),
 			leaves: Bytes(vec![vec![1_u8, 2, 3, 4]].encode()),
 			proof: Bytes(
-				Proof {
+				LeafProof {
 					leaf_indices: vec![1],
 					leaf_count: 9,
 					items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],
@@ -333,7 +333,7 @@ mod tests {
 			block_hash: H256::repeat_byte(0),
 			leaves: Bytes(vec![vec![1_u8, 2, 3, 4], vec![2_u8, 2, 3, 4]].encode()),
 			proof: Bytes(
-				Proof {
+				LeafProof {
 					leaf_indices: vec![1, 2],
 					leaf_count: 9,
 					items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],

@@ -16,13 +16,17 @@
 
 use super::*;
 
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{
+	collections::{BTreeMap, HashSet, VecDeque},
+	sync::Arc,
+	time::Duration,
+};
 
 use assert_matches::assert_matches;
 use futures::{executor, future, Future};
 use futures_timer::Delay;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use sc_network::config::IncomingRequest as RawIncomingRequest;
 use sp_core::crypto::Pair;
@@ -45,8 +49,9 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CollatorPair, ExecutorParams, GroupIndex, GroupRotationInfo, IndexedVec,
-	ScheduledCore, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
+	AuthorityDiscoveryId, Block, CollatorPair, ExecutorParams, GroupIndex, GroupRotationInfo,
+	IndexedVec, NodeFeatures, ScheduledCore, SessionIndex, SessionInfo, ValidatorId,
+	ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::TestCandidateBuilder;
 use test_helpers::mock::new_leaf;
@@ -65,7 +70,7 @@ struct TestState {
 	group_rotation_info: GroupRotationInfo,
 	validator_peer_id: Vec<PeerId>,
 	relay_parent: Hash,
-	availability_cores: Vec<CoreState>,
+	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	local_peer_id: PeerId,
 	collator_pair: CollatorPair,
 	session_index: SessionIndex,
@@ -104,8 +109,9 @@ impl Default for TestState {
 		let group_rotation_info =
 			GroupRotationInfo { session_start_block: 0, group_rotation_frequency: 100, now: 1 };
 
-		let availability_cores =
-			vec![CoreState::Scheduled(ScheduledCore { para_id, collator: None }), CoreState::Free];
+		let mut claim_queue = BTreeMap::new();
+		claim_queue.insert(CoreIndex(0), [para_id].into_iter().collect());
+		claim_queue.insert(CoreIndex(1), VecDeque::new());
 
 		let relay_parent = Hash::random();
 
@@ -132,7 +138,7 @@ impl Default for TestState {
 			group_rotation_info,
 			validator_peer_id,
 			relay_parent,
-			availability_cores,
+			claim_queue,
 			local_peer_id,
 			collator_pair,
 			session_index: 1,
@@ -141,8 +147,19 @@ impl Default for TestState {
 }
 
 impl TestState {
+	/// Adds a few more scheduled cores to the state for the same para id
+	/// compared to the default.
+	pub fn with_elastic_scaling() -> Self {
+		let mut state = Self::default();
+		let para_id = state.para_id;
+
+		state.claim_queue.insert(CoreIndex(2), [para_id].into_iter().collect());
+		state.claim_queue.insert(CoreIndex(3), [para_id].into_iter().collect());
+		state
+	}
+
 	fn current_group_validator_indices(&self) -> &[ValidatorIndex] {
-		let core_num = self.availability_cores.len();
+		let core_num = self.claim_queue.len();
 		let GroupIndex(group_idx) = self.group_rotation_info.group_for_core(CoreIndex(0), core_num);
 		&self.session_info.validator_groups.get(GroupIndex::from(group_idx)).unwrap()
 	}
@@ -198,7 +215,7 @@ impl TestState {
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				relay_parent,
-				RuntimeApiRequest::StagingAsyncBackingParams(tx)
+				RuntimeApiRequest::AsyncBackingParams(tx)
 			)) => {
 				assert_eq!(relay_parent, self.relay_parent);
 				tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
@@ -207,12 +224,13 @@ impl TestState {
 	}
 }
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<CollatorProtocolMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<CollatorProtocolMessage>;
 
 struct TestHarness {
 	virtual_overseer: VirtualOverseer,
 	req_v1_cfg: sc_network::config::RequestResponseConfig,
-	req_vstaging_cfg: sc_network::config::RequestResponseConfig,
+	req_v2_cfg: sc_network::config::RequestResponseConfig,
 }
 
 fn test_harness<T: Future<Output = TestHarness>>(
@@ -229,22 +247,27 @@ fn test_harness<T: Future<Output = TestHarness>>(
 
 	let pool = sp_core::testing::TaskExecutor::new();
 
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let genesis_hash = Hash::repeat_byte(0xff);
 	let req_protocol_names = ReqProtocolNames::new(&genesis_hash, None);
 
-	let (collation_req_receiver, req_v1_cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (collation_req_vstaging_receiver, req_vstaging_cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (collation_req_receiver, req_v1_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (collation_req_v2_receiver, req_v2_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 	let subsystem = async {
 		run_inner(
 			context,
 			local_peer_id,
 			collator_pair,
 			collation_req_receiver,
-			collation_req_vstaging_receiver,
+			collation_req_v2_receiver,
 			Default::default(),
 			reputation,
 			REPUTATION_CHANGE_TEST_INTERVAL,
@@ -253,7 +276,7 @@ fn test_harness<T: Future<Output = TestHarness>>(
 		.unwrap();
 	};
 
-	let test_fut = test(TestHarness { virtual_overseer, req_v1_cfg, req_vstaging_cfg });
+	let test_fut = test(TestHarness { virtual_overseer, req_v1_cfg, req_v2_cfg });
 
 	futures::pin_mut!(test_fut);
 	futures::pin_mut!(subsystem);
@@ -330,7 +353,7 @@ async fn setup_system(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 			relay_parent,
-			RuntimeApiRequest::StagingAsyncBackingParams(tx)
+			RuntimeApiRequest::AsyncBackingParams(tx)
 		)) => {
 			assert_eq!(relay_parent, test_state.relay_parent);
 			tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
@@ -355,12 +378,14 @@ async fn distribute_collation_with_receipt(
 ) -> DistributeCollation {
 	overseer_send(
 		virtual_overseer,
-		CollatorProtocolMessage::DistributeCollation(
-			candidate.clone(),
+		CollatorProtocolMessage::DistributeCollation {
+			candidate_receipt: candidate.clone(),
 			parent_head_data_hash,
-			pov.clone(),
-			None,
-		),
+			pov: pov.clone(),
+			parent_head_data: HeadData(vec![1, 2, 3]),
+			result_sender: None,
+			core_index: CoreIndex(0),
+		},
 	)
 	.await;
 
@@ -372,7 +397,36 @@ async fn distribute_collation_with_receipt(
 			RuntimeApiRequest::AvailabilityCores(tx)
 		)) => {
 			assert_eq!(relay_parent, _relay_parent);
-			tx.send(Ok(test_state.availability_cores.clone())).unwrap();
+			tx.send(Ok(test_state.claim_queue.values().map(|paras|
+				if let Some(para) = paras.front() {
+					CoreState::Scheduled(ScheduledCore { para_id: *para, collator: None })
+				} else {
+					CoreState::Free
+				}
+			).collect())).unwrap();
+		}
+	);
+
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_relay_parent,
+			RuntimeApiRequest::Version(tx)
+		)) => {
+			assert_eq!(relay_parent, _relay_parent);
+			tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)).unwrap();
+		}
+	);
+
+	// obtain the claim queue schedule.
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_relay_parent,
+			RuntimeApiRequest::ClaimQueue(tx)
+		)) => {
+			assert_eq!(relay_parent, _relay_parent);
+			tx.send(Ok(test_state.claim_queue.clone())).unwrap();
 		}
 	);
 
@@ -406,7 +460,12 @@ async fn distribute_collation_with_receipt(
 
 				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 			},
-
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::NodeFeatures(_, si_tx),
+			)) => {
+				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			},
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				_relay_parent,
 				RuntimeApiRequest::ValidatorGroups(tx),
@@ -545,7 +604,7 @@ async fn expect_declare_msg(
 
 /// Check that the next received message is a collation advertisement message.
 ///
-/// Expects vstaging message if `expected_candidate_hashes` is `Some`, v1 otherwise.
+/// Expects v2 message if `expected_candidate_hashes` is `Some`, v1 otherwise.
 async fn expect_advertise_collation_msg(
 	virtual_overseer: &mut VirtualOverseer,
 	peer: &PeerId,
@@ -579,13 +638,13 @@ async fn expect_advertise_collation_msg(
 					},
 					(
 						Some(candidate_hashes),
-						Versioned::VStaging(protocol_vstaging::CollationProtocol::CollatorProtocol(
+						Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 							wire_message,
 						)),
 					) => {
 						assert_matches!(
 							wire_message,
-							protocol_vstaging::CollatorProtocolMessage::AdvertiseCollation {
+							protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 								relay_parent,
 								candidate_hash,
 								..
@@ -621,6 +680,18 @@ async fn send_peer_view_change(
 	.await;
 }
 
+fn decode_collation_response(bytes: &[u8]) -> (CandidateReceipt, PoV) {
+	let response: request_v1::CollationFetchingResponse =
+		request_v1::CollationFetchingResponse::decode(&mut &bytes[..])
+			.expect("Decoding should work");
+	match response {
+		request_v1::CollationFetchingResponse::Collation(receipt, pov) => (receipt, pov),
+		request_v1::CollationFetchingResponse::CollationWithParentHeadData {
+			receipt, pov, ..
+		} => (receipt, pov),
+	}
+}
+
 #[test]
 fn advertise_and_send_collation() {
 	let mut test_state = TestState::default();
@@ -634,7 +705,7 @@ fn advertise_and_send_collation() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let mut req_v1_cfg = test_harness.req_v1_cfg;
-			let req_vstaging_cfg = test_harness.req_vstaging_cfg;
+			let req_v2_cfg = test_harness.req_v2_cfg;
 
 			setup_system(&mut virtual_overseer, &test_state).await;
 
@@ -730,12 +801,10 @@ fn advertise_and_send_collation() {
 			assert_matches!(
 				rx.await,
 				Ok(full_response) => {
-					let request_v1::CollationFetchingResponse::Collation(receipt, pov): request_v1::CollationFetchingResponse
-						= request_v1::CollationFetchingResponse::decode(
-							&mut full_response.result
-							.expect("We should have a proper answer").as_ref()
-					)
-					.expect("Decoding should work");
+					let (receipt, pov) = decode_collation_response(
+						full_response.result
+						.expect("We should have a proper answer").as_ref()
+					);
 					assert_eq!(receipt, candidate);
 					assert_eq!(pov, pov_block);
 				}
@@ -789,7 +858,7 @@ fn advertise_and_send_collation() {
 				None,
 			)
 			.await;
-			TestHarness { virtual_overseer, req_v1_cfg, req_vstaging_cfg }
+			TestHarness { virtual_overseer, req_v1_cfg, req_v2_cfg }
 		},
 	);
 }
@@ -807,7 +876,7 @@ fn delay_reputation_change() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let mut req_v1_cfg = test_harness.req_v1_cfg;
-			let req_vstaging_cfg = test_harness.req_vstaging_cfg;
+			let req_v2_cfg = test_harness.req_v2_cfg;
 
 			setup_system(&mut virtual_overseer, &test_state).await;
 
@@ -903,15 +972,15 @@ fn delay_reputation_change() {
 				);
 			}
 
-			TestHarness { virtual_overseer, req_v1_cfg, req_vstaging_cfg }
+			TestHarness { virtual_overseer, req_v1_cfg, req_v2_cfg }
 		},
 	);
 }
 
-/// Tests that collator side works with vstaging network protocol
+/// Tests that collator side works with v2 network protocol
 /// before async backing is enabled.
 #[test]
-fn advertise_collation_vstaging_protocol() {
+fn advertise_collation_v2_protocol() {
 	let test_state = TestState::default();
 	let local_peer_id = test_state.local_peer_id;
 	let collator_pair = test_state.collator_pair.clone();
@@ -941,21 +1010,16 @@ fn advertise_collation_vstaging_protocol() {
 				Some(validators[0].clone()),
 			)
 			.await;
-			// The rest with vstaging.
+			// The rest with v2.
 			for (val, peer) in validators.iter().zip(peer_ids.iter()).skip(1) {
-				connect_peer(
-					virtual_overseer,
-					*peer,
-					CollationVersion::VStaging,
-					Some(val.clone()),
-				)
-				.await;
+				connect_peer(virtual_overseer, *peer, CollationVersion::V2, Some(val.clone()))
+					.await;
 			}
 
 			// Declare messages.
 			expect_declare_msg(virtual_overseer, &test_state, &peer_ids[0]).await;
 			for peer_id in peer_ids.iter().skip(1) {
-				prospective_parachains::expect_declare_msg_vstaging(
+				prospective_parachains::expect_declare_msg_v2(
 					virtual_overseer,
 					&test_state,
 					&peer_id,
@@ -981,7 +1045,7 @@ fn advertise_collation_vstaging_protocol() {
 					virtual_overseer,
 					peer_id,
 					test_state.relay_parent,
-					Some(vec![candidate.hash()]), // This is `Some`, advertisement is vstaging.
+					Some(vec![candidate.hash()]), // This is `Some`, advertisement is v2.
 				)
 				.await;
 			}
@@ -1337,12 +1401,10 @@ where
 			let feedback_tx = assert_matches!(
 				rx.await,
 				Ok(full_response) => {
-					let request_v1::CollationFetchingResponse::Collation(receipt, pov): request_v1::CollationFetchingResponse
-						= request_v1::CollationFetchingResponse::decode(
-							&mut full_response.result
-							.expect("We should have a proper answer").as_ref()
-					)
-					.expect("Decoding should work");
+					let (receipt, pov) = decode_collation_response(
+						full_response.result
+						.expect("We should have a proper answer").as_ref()
+					);
 					assert_eq!(receipt, candidate);
 					assert_eq!(pov, pov_block);
 
@@ -1374,12 +1436,10 @@ where
 			assert_matches!(
 				rx.await,
 				Ok(full_response) => {
-					let request_v1::CollationFetchingResponse::Collation(receipt, pov): request_v1::CollationFetchingResponse
-						= request_v1::CollationFetchingResponse::decode(
-							&mut full_response.result
-							.expect("We should have a proper answer").as_ref()
-					)
-					.expect("Decoding should work");
+					let (receipt, pov) = decode_collation_response(
+						full_response.result
+						.expect("We should have a proper answer").as_ref()
+					);
 					assert_eq!(receipt, candidate);
 					assert_eq!(pov, pov_block);
 
@@ -1405,7 +1465,7 @@ fn connect_to_buffered_groups() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let mut req_cfg = test_harness.req_v1_cfg;
-			let req_vstaging_cfg = test_harness.req_vstaging_cfg;
+			let req_v2_cfg = test_harness.req_v2_cfg;
 
 			setup_system(&mut virtual_overseer, &test_state).await;
 
@@ -1468,11 +1528,10 @@ fn connect_to_buffered_groups() {
 			assert_matches!(
 				rx.await,
 				Ok(full_response) => {
-					let request_v1::CollationFetchingResponse::Collation(..) =
-						request_v1::CollationFetchingResponse::decode(
-							&mut full_response.result.expect("We should have a proper answer").as_ref(),
-						)
-						.expect("Decoding should work");
+					let _ = decode_collation_response(
+						full_response.result
+						.expect("We should have a proper answer").as_ref()
+					);
 				}
 			);
 
@@ -1510,7 +1569,7 @@ fn connect_to_buffered_groups() {
 				}
 			);
 
-			TestHarness { virtual_overseer, req_v1_cfg: req_cfg, req_vstaging_cfg }
+			TestHarness { virtual_overseer, req_v1_cfg: req_cfg, req_v2_cfg }
 		},
 	);
 }

@@ -25,7 +25,6 @@ use frame_support::{
 	traits::{Currency, EnsureOrigin, Get, OnInitialize, UnfilteredDispatchable},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use sp_core::H256;
 use sp_runtime::{traits::Bounded, BoundedVec};
 
 use crate::Pallet as Democracy;
@@ -46,7 +45,7 @@ fn make_proposal<T: Config>(n: u32) -> BoundedCallOf<T> {
 	<T as Config>::Preimages::bound(call).unwrap()
 }
 
-fn add_proposal<T: Config>(n: u32) -> Result<H256, &'static str> {
+fn add_proposal<T: Config>(n: u32) -> Result<T::Hash, &'static str> {
 	let other = funded_account::<T>("proposer", n);
 	let value = T::MinimumDeposit::get();
 	let proposal = make_proposal::<T>(n);
@@ -55,7 +54,7 @@ fn add_proposal<T: Config>(n: u32) -> Result<H256, &'static str> {
 }
 
 // add a referendum with a metadata.
-fn add_referendum<T: Config>(n: u32) -> (ReferendumIndex, H256, PreimageHash) {
+fn add_referendum<T: Config>(n: u32) -> (ReferendumIndex, T::Hash, T::Hash) {
 	let vote_threshold = VoteThreshold::SimpleMajority;
 	let proposal = make_proposal::<T>(n);
 	let hash = proposal.hash();
@@ -66,7 +65,7 @@ fn add_referendum<T: Config>(n: u32) -> (ReferendumIndex, H256, PreimageHash) {
 		0u32.into(),
 	);
 	let preimage_hash = note_preimage::<T>();
-	MetadataOf::<T>::insert(crate::MetadataOwner::Referendum(index), preimage_hash.clone());
+	MetadataOf::<T>::insert(crate::MetadataOwner::Referendum(index), preimage_hash);
 	(index, hash, preimage_hash)
 }
 
@@ -85,9 +84,9 @@ fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 }
 
 // note a new preimage.
-fn note_preimage<T: Config>() -> PreimageHash {
+fn note_preimage<T: Config>() -> T::Hash {
+	use alloc::borrow::Cow;
 	use core::sync::atomic::{AtomicU8, Ordering};
-	use sp_std::borrow::Cow;
 	// note a new preimage on every function invoke.
 	static COUNTER: AtomicU8 = AtomicU8::new(0);
 	let data = Cow::from(vec![COUNTER.fetch_add(1, Ordering::Relaxed)]);
@@ -109,7 +108,7 @@ benchmarks! {
 		whitelist_account!(caller);
 	}: _(RawOrigin::Signed(caller), proposal, value)
 	verify {
-		assert_eq!(Democracy::<T>::public_props().len(), p as usize, "Proposals not created.");
+		assert_eq!(PublicProps::<T>::get().len(), p as usize, "Proposals not created.");
 	}
 
 	second {
@@ -123,12 +122,12 @@ benchmarks! {
 			Democracy::<T>::second(RawOrigin::Signed(seconder).into(), 0)?;
 		}
 
-		let deposits = Democracy::<T>::deposit_of(0).ok_or("Proposal not created")?;
+		let deposits = DepositOf::<T>::get(0).ok_or("Proposal not created")?;
 		assert_eq!(deposits.0.len(), (T::MaxDeposits::get() - 1) as usize, "Seconds not recorded");
 		whitelist_account!(caller);
 	}: _(RawOrigin::Signed(caller), 0)
 	verify {
-		let deposits = Democracy::<T>::deposit_of(0).ok_or("Proposal not created")?;
+		let deposits = DepositOf::<T>::get(0).ok_or("Proposal not created")?;
 		assert_eq!(deposits.0.len(), (T::MaxDeposits::get()) as usize, "`second` benchmark did not work");
 	}
 
@@ -176,7 +175,7 @@ benchmarks! {
 		// Change vote from aye to nay
 		let nay = Vote { aye: false, conviction: Conviction::Locked1x };
 		let new_vote = AccountVote::Standard { vote: nay, balance: 1000u32.into() };
-		let ref_index = Democracy::<T>::referendum_count() - 1;
+		let ref_index = ReferendumCount::<T>::get() - 1;
 
 		// This tests when a user changes a vote
 		whitelist_account!(caller);
@@ -187,7 +186,7 @@ benchmarks! {
 			_ => return Err("Votes are not direct".into()),
 		};
 		assert_eq!(votes.len(), T::MaxVotes::get() as usize, "Vote was incorrectly added");
-		let referendum_info = Democracy::<T>::referendum_info(ref_index)
+		let referendum_info = ReferendumInfoOf::<T>::get(ref_index)
 			.ok_or("referendum doesn't exist")?;
 		let tally =  match referendum_info {
 			ReferendumInfo::Ongoing(r) => r.tally,
@@ -262,7 +261,7 @@ benchmarks! {
 	}: _<T::RuntimeOrigin>(origin, proposal)
 	verify {
 		// External proposal created
-		ensure!(<NextExternal<T>>::exists(), "External proposal didn't work");
+		ensure!(NextExternal::<T>::exists(), "External proposal didn't work");
 	}
 
 	external_propose_majority {
@@ -272,7 +271,7 @@ benchmarks! {
 	}: _<T::RuntimeOrigin>(origin, proposal)
 	verify {
 		// External proposal created
-		ensure!(<NextExternal<T>>::exists(), "External proposal didn't work");
+		ensure!(NextExternal::<T>::exists(), "External proposal didn't work");
 	}
 
 	external_propose_default {
@@ -282,7 +281,7 @@ benchmarks! {
 	}: _<T::RuntimeOrigin>(origin, proposal)
 	verify {
 		// External proposal created
-		ensure!(<NextExternal<T>>::exists(), "External proposal didn't work");
+		ensure!(NextExternal::<T>::exists(), "External proposal didn't work");
 	}
 
 	fast_track {
@@ -304,7 +303,7 @@ benchmarks! {
 		let delay = 0u32;
 	}: _<T::RuntimeOrigin>(origin_fast_track, proposal_hash, voting_period, delay.into())
 	verify {
-		assert_eq!(Democracy::<T>::referendum_count(), 1, "referendum not created");
+		assert_eq!(ReferendumCount::<T>::get(), 1, "referendum not created");
 		assert_last_event::<T>(crate::Event::MetadataTransferred {
 			prev_owner: MetadataOwner::External,
 			owner: MetadataOwner::Referendum(0),
@@ -339,7 +338,7 @@ benchmarks! {
 	}: _<T::RuntimeOrigin>(origin, proposal_hash)
 	verify {
 		assert!(NextExternal::<T>::get().is_none());
-		let (_, new_vetoers) = <Blacklist<T>>::get(&proposal_hash).ok_or("no blacklist")?;
+		let (_, new_vetoers) = Blacklist::<T>::get(&proposal_hash).ok_or("no blacklist")?;
 		assert_eq!(new_vetoers.len(), T::MaxBlacklisted::get() as usize, "vetoers not added");
 	}
 
@@ -383,7 +382,7 @@ benchmarks! {
 			add_referendum::<T>(i);
 		}
 
-		assert_eq!(Democracy::<T>::referendum_count(), r, "referenda not created");
+		assert_eq!(ReferendumCount::<T>::get(), r, "referenda not created");
 
 		// Launch external
 		LastTabledWasExternal::<T>::put(false);
@@ -394,15 +393,15 @@ benchmarks! {
 		let call = Call::<T>::external_propose_majority { proposal };
 		call.dispatch_bypass_filter(origin)?;
 		// External proposal created
-		ensure!(<NextExternal<T>>::exists(), "External proposal didn't work");
+		ensure!(NextExternal::<T>::exists(), "External proposal didn't work");
 
 		let block_number = T::LaunchPeriod::get();
 
 	}: { Democracy::<T>::on_initialize(block_number) }
 	verify {
 		// One extra because of next external
-		assert_eq!(Democracy::<T>::referendum_count(), r + 1, "referenda not created");
-		ensure!(!<NextExternal<T>>::exists(), "External wasn't taken");
+		assert_eq!(ReferendumCount::<T>::get(), r + 1, "referenda not created");
+		ensure!(!NextExternal::<T>::exists(), "External wasn't taken");
 
 		// All but the new next external should be finished
 		for i in 0 .. r {
@@ -423,7 +422,7 @@ benchmarks! {
 			add_referendum::<T>(i);
 		}
 
-		assert_eq!(Democracy::<T>::referendum_count(), r, "referenda not created");
+		assert_eq!(ReferendumCount::<T>::get(), r, "referenda not created");
 
 		// Launch public
 		assert!(add_proposal::<T>(r).is_ok(), "proposal not created");
@@ -434,7 +433,7 @@ benchmarks! {
 	}: { Democracy::<T>::on_initialize(block_number) }
 	verify {
 		// One extra because of next public
-		assert_eq!(Democracy::<T>::referendum_count(), r + 1, "proposal not accepted");
+		assert_eq!(ReferendumCount::<T>::get(), r + 1, "proposal not accepted");
 
 		// All should be finished
 		for i in 0 .. r {
@@ -462,8 +461,8 @@ benchmarks! {
 			ReferendumInfoOf::<T>::insert(key, info);
 		}
 
-		assert_eq!(Democracy::<T>::referendum_count(), r, "referenda not created");
-		assert_eq!(Democracy::<T>::lowest_unbaked(), 0, "invalid referenda init");
+		assert_eq!(ReferendumCount::<T>::get(), r, "referenda not created");
+		assert_eq!(LowestUnbaked::<T>::get(), 0, "invalid referenda init");
 
 	}: { Democracy::<T>::on_initialize(1u32.into()) }
 	verify {
@@ -492,8 +491,8 @@ benchmarks! {
 			ReferendumInfoOf::<T>::insert(key, info);
 		}
 
-		assert_eq!(Democracy::<T>::referendum_count(), r, "referenda not created");
-		assert_eq!(Democracy::<T>::lowest_unbaked(), 0, "invalid referenda init");
+		assert_eq!(ReferendumCount::<T>::get(), r, "referenda not created");
+		assert_eq!(LowestUnbaked::<T>::get(), 0, "invalid referenda init");
 
 		let block_number = T::LaunchPeriod::get();
 

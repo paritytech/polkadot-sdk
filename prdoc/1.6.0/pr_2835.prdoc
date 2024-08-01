@@ -1,0 +1,9 @@
+title: New malus variant `support-disabled`
+
+doc:
+  - audience: Node Dev
+    description: |
+      A new malicious flavor added to pretend that nobody
+      is disabled onchain.
+
+crates: [ ]

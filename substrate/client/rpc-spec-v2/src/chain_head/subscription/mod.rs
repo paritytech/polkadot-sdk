@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use jsonrpsee::ConnectionId;
 use parking_lot::RwLock;
 use sc_client_api::Backend;
 use sp_runtime::traits::Block as BlockT;
@@ -23,6 +24,11 @@ use std::{sync::Arc, time::Duration};
 
 mod error;
 mod inner;
+
+use crate::{
+	chain_head::chain_head::LOG_TARGET,
+	common::connections::{RegisteredConnection, ReservedConnection, RpcConnections},
+};
 
 use self::inner::SubscriptionsInner;
 
@@ -34,7 +40,22 @@ pub use inner::{BlockGuard, InsertedSubscriptionData};
 pub struct SubscriptionManagement<Block: BlockT, BE: Backend<Block>> {
 	/// Manage subscription by mapping the subscription ID
 	/// to a set of block hashes.
-	inner: RwLock<SubscriptionsInner<Block, BE>>,
+	inner: Arc<RwLock<SubscriptionsInner<Block, BE>>>,
+
+	/// Ensures that chainHead methods can be called from a single connection context.
+	///
+	/// For example, `chainHead_storage` cannot be called with a subscription ID that
+	/// was obtained from a different connection.
+	rpc_connections: RpcConnections,
+}
+
+impl<Block: BlockT, BE: Backend<Block>> Clone for SubscriptionManagement<Block, BE> {
+	fn clone(&self) -> Self {
+		SubscriptionManagement {
+			inner: self.inner.clone(),
+			rpc_connections: self.rpc_connections.clone(),
+		}
+	}
 }
 
 impl<Block: BlockT, BE: Backend<Block>> SubscriptionManagement<Block, BE> {
@@ -43,30 +64,55 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionManagement<Block, BE> {
 		global_max_pinned_blocks: usize,
 		local_max_pin_duration: Duration,
 		max_ongoing_operations: usize,
+		max_follow_subscriptions_per_connection: usize,
 		backend: Arc<BE>,
 	) -> Self {
 		SubscriptionManagement {
-			inner: RwLock::new(SubscriptionsInner::new(
+			inner: Arc::new(RwLock::new(SubscriptionsInner::new(
 				global_max_pinned_blocks,
 				local_max_pin_duration,
 				max_ongoing_operations,
 				backend,
-			)),
+			))),
+			rpc_connections: RpcConnections::new(max_follow_subscriptions_per_connection),
 		}
 	}
 
-	/// Insert a new subscription ID.
+	/// Create a new instance from the inner state.
 	///
-	/// If the subscription was not previously inserted, returns the receiver that is
-	/// triggered upon the "Stop" event. Otherwise, if the subscription ID was already
-	/// inserted returns none.
-	pub fn insert_subscription(
+	/// # Note
+	///
+	/// Used for testing.
+	#[cfg(test)]
+	pub(crate) fn _from_inner(
+		inner: Arc<RwLock<SubscriptionsInner<Block, BE>>>,
+		rpc_connections: RpcConnections,
+	) -> Self {
+		SubscriptionManagement { inner, rpc_connections }
+	}
+
+	/// Reserve space for a subscriptions.
+	///
+	/// Fails if the connection ID is has reached the maximum number of active subscriptions.
+	pub fn reserve_subscription(
 		&self,
-		sub_id: String,
-		runtime_updates: bool,
-	) -> Option<InsertedSubscriptionData<Block>> {
-		let mut inner = self.inner.write();
-		inner.insert_subscription(sub_id, runtime_updates)
+		connection_id: ConnectionId,
+	) -> Option<ReservedSubscription<Block, BE>> {
+		let reserved_token = self.rpc_connections.reserve_space(connection_id)?;
+
+		Some(ReservedSubscription {
+			state: ConnectionState::Reserved(reserved_token),
+			inner: self.inner.clone(),
+		})
+	}
+
+	/// Check if the given connection contains the given subscription.
+	pub fn contains_subscription(
+		&self,
+		connection_id: ConnectionId,
+		subscription_id: &str,
+	) -> bool {
+		self.rpc_connections.contains_identifier(connection_id, subscription_id)
 	}
 
 	/// Remove the subscription ID with associated pinned blocks.
@@ -94,22 +140,23 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionManagement<Block, BE> {
 		inner.pin_block(sub_id, hash)
 	}
 
-	/// Unpin the block from the subscription.
+	/// Unpin the blocks from the subscription.
 	///
-	/// The last subscription that unpins the block is also unpinning the block
-	/// from the backend.
+	/// Blocks are reference counted and when the last subscription unpins a given block, the block
+	/// is also unpinned from the backend.
 	///
 	/// This method is called only once per subscription.
 	///
-	/// Returns an error if the block is not pinned for the subscription or
-	/// the subscription ID is invalid.
-	pub fn unpin_block(
+	/// Returns an error if the subscription ID is invalid, or any of the blocks are not pinned
+	/// for the subscriptions. When an error is returned, it is guaranteed that no blocks have
+	/// been unpinned.
+	pub fn unpin_blocks(
 		&self,
 		sub_id: &str,
-		hash: Block::Hash,
+		hashes: impl IntoIterator<Item = Block::Hash> + Clone,
 	) -> Result<(), SubscriptionManagementError> {
 		let mut inner = self.inner.write();
-		inner.unpin_block(sub_id, hash)
+		inner.unpin_blocks(sub_id, hashes)
 	}
 
 	/// Ensure the block remains pinned until the return object is dropped.
@@ -133,5 +180,74 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionManagement<Block, BE> {
 	pub fn get_operation(&self, sub_id: &str, operation_id: &str) -> Option<OperationState> {
 		let mut inner = self.inner.write();
 		inner.get_operation(sub_id, operation_id)
+	}
+}
+
+/// The state of the connection.
+///
+/// The state starts in a [`ConnectionState::Reserved`] state and then transitions to
+/// [`ConnectionState::Registered`] when the subscription is inserted.
+enum ConnectionState {
+	Reserved(ReservedConnection),
+	Registered { _unregister_on_drop: RegisteredConnection, sub_id: String },
+	Empty,
+}
+
+/// RAII wrapper that removes the subscription from internal mappings and
+/// gives back the reserved space for the connection.
+pub struct ReservedSubscription<Block: BlockT, BE: Backend<Block>> {
+	state: ConnectionState,
+	inner: Arc<RwLock<SubscriptionsInner<Block, BE>>>,
+}
+
+impl<Block: BlockT, BE: Backend<Block>> ReservedSubscription<Block, BE> {
+	/// Insert a new subscription ID.
+	///
+	/// If the subscription was not previously inserted, returns the receiver that is
+	/// triggered upon the "Stop" event. Otherwise, if the subscription ID was already
+	/// inserted returns none.
+	///
+	/// # Note
+	///
+	/// This method should be called only once.
+	pub fn insert_subscription(
+		&mut self,
+		sub_id: String,
+		runtime_updates: bool,
+	) -> Option<InsertedSubscriptionData<Block>> {
+		match std::mem::replace(&mut self.state, ConnectionState::Empty) {
+			ConnectionState::Reserved(reserved) => {
+				let registered_token = reserved.register(sub_id.clone())?;
+				self.state = ConnectionState::Registered {
+					_unregister_on_drop: registered_token,
+					sub_id: sub_id.clone(),
+				};
+
+				let mut inner = self.inner.write();
+				inner.insert_subscription(sub_id, runtime_updates)
+			},
+			// Cannot insert multiple subscriptions into one single reserved space.
+			ConnectionState::Registered { .. } | ConnectionState::Empty => {
+				log::error!(target: LOG_TARGET, "Called insert_subscription on a connection that is not reserved");
+				None
+			},
+		}
+	}
+
+	/// Stop all active subscriptions.
+	///
+	/// For all active subscriptions, the internal data is discarded, blocks are unpinned and the
+	/// `Stop` event will be generated.
+	pub fn stop_all_subscriptions(&self) {
+		let mut inner = self.inner.write();
+		inner.stop_all_subscriptions()
+	}
+}
+
+impl<Block: BlockT, BE: Backend<Block>> Drop for ReservedSubscription<Block, BE> {
+	fn drop(&mut self) {
+		if let ConnectionState::Registered { sub_id, .. } = &self.state {
+			self.inner.write().remove_subscription(sub_id);
+		}
 	}
 }

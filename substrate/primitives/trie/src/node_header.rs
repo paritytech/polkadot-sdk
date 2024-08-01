@@ -19,7 +19,7 @@
 
 use crate::trie_constants;
 use codec::{Decode, Encode, Input, Output};
-use sp_std::iter::once;
+use core::iter::once;
 
 /// A node header
 #[derive(Copy, Clone, PartialEq, Eq, sp_core::RuntimeDebug)]
@@ -118,7 +118,7 @@ pub(crate) fn size_and_prefix_iterator(
 	prefix_mask: usize,
 ) -> impl Iterator<Item = u8> {
 	let max_value = 255u8 >> prefix_mask;
-	let l1 = sp_std::cmp::min((max_value as usize).saturating_sub(1), size);
+	let l1 = core::cmp::min((max_value as usize).saturating_sub(1), size);
 	let (first_byte, mut rem) = if size == l1 {
 		(once(prefix + l1 as u8), 0)
 	} else {
@@ -138,7 +138,7 @@ pub(crate) fn size_and_prefix_iterator(
 			None
 		}
 	};
-	first_byte.chain(sp_std::iter::from_fn(next_bytes))
+	first_byte.chain(core::iter::from_fn(next_bytes))
 }
 
 /// Encodes size and prefix to a stream output.

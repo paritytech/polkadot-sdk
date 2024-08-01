@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Renames `frame` crate to `polkadot-sdk-frame`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR renames `frame` crate to `polkadot-sdk-frame` as `frame` is not available on crates.io. 
+      Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`.
+
+crates:
+  - name: polkadot-sdk-frame
+    bump: major

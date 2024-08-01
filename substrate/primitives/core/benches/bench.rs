@@ -12,66 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use criterion::{black_box, criterion_group, criterion_main, Bencher, BenchmarkId, Criterion};
-use sp_core::{
-	crypto::Pair as _,
-	hashing::{blake2_128, twox_128},
-};
-
-const MAX_KEY_SIZE: u32 = 32;
-
-fn get_key(key_size: u32) -> Vec<u8> {
-	use rand::{Rng, SeedableRng};
-
-	let rnd: [u8; 32] = rand::rngs::StdRng::seed_from_u64(12).gen();
-	let mut rnd = rnd.iter().cycle();
-
-	(0..key_size).map(|_| *rnd.next().unwrap()).collect()
-}
-
-fn bench_blake2_128(b: &mut Bencher, key: &Vec<u8>) {
-	b.iter(|| {
-		let _a = blake2_128(black_box(key));
-	});
-}
-
-fn bench_twox_128(b: &mut Bencher, key: &Vec<u8>) {
-	b.iter(|| {
-		let _a = twox_128(black_box(key));
-	});
-}
-
-fn bench_hash_128_fix_size(c: &mut Criterion) {
-	let mut group = c.benchmark_group("fix size hashing");
-
-	let key = get_key(MAX_KEY_SIZE);
-
-	group.bench_with_input("blake2_128", &key, bench_blake2_128);
-	group.bench_with_input("twox_128", &key, bench_twox_128);
-
-	group.finish();
-}
-
-fn bench_hash_128_dyn_size(c: &mut Criterion) {
-	let mut group = c.benchmark_group("dyn size hashing");
-
-	for i in (2..MAX_KEY_SIZE).step_by(4) {
-		let key = get_key(i);
-
-		group.bench_with_input(
-			BenchmarkId::new("blake2_128", format!("{}", i)),
-			&key,
-			bench_blake2_128,
-		);
-		group.bench_with_input(
-			BenchmarkId::new("twox_128", format!("{}", i)),
-			&key,
-			bench_twox_128,
-		);
-	}
-
-	group.finish();
-}
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use sp_core::crypto::Pair as _;
 
 fn bench_ed25519(c: &mut Criterion) {
 	let mut group = c.benchmark_group("ed25519");
@@ -145,12 +87,5 @@ fn bench_ecdsa(c: &mut Criterion) {
 	group.finish();
 }
 
-criterion_group!(
-	benches,
-	bench_hash_128_fix_size,
-	bench_hash_128_dyn_size,
-	bench_ed25519,
-	bench_sr25519,
-	bench_ecdsa,
-);
+criterion_group!(benches, bench_ed25519, bench_sr25519, bench_ecdsa,);
 criterion_main!(benches);

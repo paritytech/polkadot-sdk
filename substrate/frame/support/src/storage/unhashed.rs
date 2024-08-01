@@ -17,8 +17,8 @@
 
 //! Operation on unhashed runtime storage.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use sp_std::prelude::*;
 
 /// Return the value of the item in storage under `key`, or `None` if there is no explicit entry.
 pub fn get<T: Decode + Sized>(key: &[u8]) -> Option<T> {
@@ -27,8 +27,8 @@ pub fn get<T: Decode + Sized>(key: &[u8]) -> Option<T> {
 			// TODO #3700: error should be handleable.
 			log::error!(
 				target: "runtime::storage",
-				"Corrupted state at `{:?}: {:?}`",
-				key,
+				"Corrupted state at `{}`: {:?}",
+				array_bytes::bytes2hex("0x", key),
 				e,
 			);
 			None

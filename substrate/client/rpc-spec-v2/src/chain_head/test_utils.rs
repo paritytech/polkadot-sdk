@@ -24,21 +24,23 @@ use sc_client_api::{
 	StorageData, StorageEventStream, StorageKey, StorageProvider,
 };
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
-use sp_api::{CallApiAt, CallApiAtParams, NumberFor, RuntimeVersion};
+use sp_api::{CallApiAt, CallApiAtParams};
 use sp_blockchain::{BlockStatus, CachedHeaderMetadata, HeaderBackend, HeaderMetadata, Info};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
 	generic::SignedBlock,
-	traits::{Block as BlockT, Header as HeaderT},
+	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	Justifications,
 };
+use sp_version::RuntimeVersion;
 use std::sync::Arc;
-use substrate_test_runtime::{Block, Hash, Header};
+use substrate_test_runtime::{Block, Hash, Header, H256};
 
 pub struct ChainHeadMockClient<Client> {
 	client: Arc<Client>,
 	import_sinks: Mutex<Vec<TracingUnboundedSender<BlockImportNotification<Block>>>>,
 	finality_sinks: Mutex<Vec<TracingUnboundedSender<FinalityNotification<Block>>>>,
+	best_block: Mutex<Option<(H256, u64)>>,
 }
 
 impl<Client> ChainHeadMockClient<Client> {
@@ -47,6 +49,7 @@ impl<Client> ChainHeadMockClient<Client> {
 			client,
 			import_sinks: Default::default(),
 			finality_sinks: Default::default(),
+			best_block: Default::default(),
 		}
 	}
 
@@ -62,7 +65,7 @@ impl<Client> ChainHeadMockClient<Client> {
 			BlockImportNotification::new(header.hash(), BlockOrigin::Own, header, true, None, sink);
 
 		for sink in self.import_sinks.lock().iter_mut() {
-			sink.unbounded_send(notification.clone()).unwrap();
+			let _ = sink.unbounded_send(notification.clone());
 		}
 	}
 
@@ -82,8 +85,13 @@ impl<Client> ChainHeadMockClient<Client> {
 		let notification = FinalityNotification::from_summary(summary, sink);
 
 		for sink in self.finality_sinks.lock().iter_mut() {
-			sink.unbounded_send(notification.clone()).unwrap();
+			let _ = sink.unbounded_send(notification.clone());
 		}
+	}
+
+	/// Set the best block hash and number that is reported by the `info` method.
+	pub fn set_best_block(&self, hash: H256, number: u64) {
+		*self.best_block.lock() = Some((hash, number));
 	}
 }
 
@@ -235,7 +243,7 @@ impl<Block: BlockT, Client: CallApiAt<Block>> CallApiAt<Block> for ChainHeadMock
 	fn initialize_extensions(
 		&self,
 		at: <Block as BlockT>::Hash,
-		extensions: &mut sp_api::Extensions,
+		extensions: &mut sp_externalities::Extensions,
 	) -> Result<(), sp_api::ApiError> {
 		self.client.initialize_extensions(at, extensions)
 	}
@@ -308,8 +316,10 @@ impl<Block: BlockT, Client: HeaderMetadata<Block> + Send + Sync> HeaderMetadata<
 	}
 }
 
-impl<Block: BlockT, Client: HeaderBackend<Block> + Send + Sync> HeaderBackend<Block>
+impl<Block: BlockT<Hash = H256>, Client: HeaderBackend<Block> + Send + Sync> HeaderBackend<Block>
 	for ChainHeadMockClient<Client>
+where
+	<<Block as sp_runtime::traits::Block>::Header as HeaderT>::Number: From<u64>,
 {
 	fn header(
 		&self,
@@ -319,7 +329,14 @@ impl<Block: BlockT, Client: HeaderBackend<Block> + Send + Sync> HeaderBackend<Bl
 	}
 
 	fn info(&self) -> Info<Block> {
-		self.client.info()
+		let mut info = self.client.info();
+
+		if let Some((block_hash, block_num)) = self.best_block.lock().take() {
+			info.best_hash = block_hash;
+			info.best_number = block_num.into();
+		}
+
+		info
 	}
 
 	fn status(&self, hash: Block::Hash) -> sc_client_api::blockchain::Result<BlockStatus> {

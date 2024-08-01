@@ -24,7 +24,7 @@ use futures::{
 	future::{ready, Ready},
 };
 use sc_transaction_pool::*;
-use sp_core::blake2_256;
+use sp_crypto_hashing::blake2_256;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, NumberFor},
@@ -33,6 +33,7 @@ use sp_runtime::{
 		ValidTransaction,
 	},
 };
+use std::sync::Arc;
 use substrate_test_runtime::{AccountId, Block, Extrinsic, ExtrinsicBuilder, TransferData, H256};
 
 #[derive(Clone, Debug, Default)]
@@ -61,7 +62,7 @@ impl ChainApi for TestApi {
 
 	fn validate_transaction(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
 		uxt: <Self::Block as BlockT>::Extrinsic,
 	) -> Self::ValidationFuture {
@@ -70,7 +71,7 @@ impl ChainApi for TestApi {
 		let nonce = transfer.nonce;
 		let from = transfer.from;
 
-		match self.block_id_to_number(at) {
+		match self.block_id_to_number(&BlockId::Hash(at)) {
 			Ok(Some(num)) if num > 5 => return ready(Ok(Err(InvalidTransaction::Stale.into()))),
 			_ => {},
 		}
@@ -94,6 +95,8 @@ impl ChainApi for TestApi {
 	) -> Result<Option<NumberFor<Self::Block>>, Self::Error> {
 		Ok(match at {
 			BlockId::Number(num) => Some(*num),
+			BlockId::Hash(hash) if *hash == H256::from_low_u64_be(hash.to_low_u64_be()) =>
+				Some(hash.to_low_u64_be()),
 			BlockId::Hash(_) => None,
 		})
 	}
@@ -104,7 +107,7 @@ impl ChainApi for TestApi {
 	) -> Result<Option<<Self::Block as BlockT>::Hash>, Self::Error> {
 		Ok(match at {
 			BlockId::Number(num) => Some(H256::from_low_u64_be(*num)).into(),
-			BlockId::Hash(_) => None,
+			BlockId::Hash(hash) => Some(*hash),
 		})
 	}
 
@@ -137,7 +140,7 @@ fn uxt(transfer: TransferData) -> Extrinsic {
 	ExtrinsicBuilder::new_bench_call(transfer).build()
 }
 
-fn bench_configured(pool: Pool<TestApi>, number: u64) {
+fn bench_configured(pool: Pool<TestApi>, number: u64, api: Arc<TestApi>) {
 	let source = TransactionSource::External;
 	let mut futures = Vec::new();
 	let mut tags = Vec::new();
@@ -151,7 +154,12 @@ fn bench_configured(pool: Pool<TestApi>, number: u64) {
 		});
 
 		tags.push(to_tag(nonce, AccountId::from_h256(H256::from_low_u64_be(1))));
-		futures.push(pool.submit_one(&BlockId::Number(1), source, xt));
+
+		futures.push(pool.submit_one(
+			api.block_id_to_hash(&BlockId::Number(1)).unwrap().unwrap(),
+			source,
+			xt,
+		));
 	}
 
 	let res = block_on(futures::future::join_all(futures.into_iter()));
@@ -162,7 +170,12 @@ fn bench_configured(pool: Pool<TestApi>, number: u64) {
 
 	// Prune all transactions.
 	let block_num = 6;
-	block_on(pool.prune_tags(&BlockId::Number(block_num), tags, vec![])).expect("Prune failed");
+	block_on(pool.prune_tags(
+		api.block_id_to_hash(&BlockId::Number(block_num)).unwrap().unwrap(),
+		tags,
+		vec![],
+	))
+	.expect("Prune failed");
 
 	// pool is empty
 	assert_eq!(pool.validated_pool().status().ready, 0);
@@ -172,19 +185,15 @@ fn bench_configured(pool: Pool<TestApi>, number: u64) {
 fn benchmark_main(c: &mut Criterion) {
 	c.bench_function("sequential 50 tx", |b| {
 		b.iter(|| {
-			bench_configured(
-				Pool::new(Default::default(), true.into(), TestApi::new_dependant().into()),
-				50,
-			);
+			let api = Arc::from(TestApi::new_dependant());
+			bench_configured(Pool::new(Default::default(), true.into(), api.clone()), 50, api);
 		});
 	});
 
 	c.bench_function("random 100 tx", |b| {
 		b.iter(|| {
-			bench_configured(
-				Pool::new(Default::default(), true.into(), TestApi::default().into()),
-				100,
-			);
+			let api = Arc::from(TestApi::default());
+			bench_configured(Pool::new(Default::default(), true.into(), api.clone()), 100, api);
 		});
 	});
 }

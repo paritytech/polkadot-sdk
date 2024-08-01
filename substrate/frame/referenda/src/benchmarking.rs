@@ -19,13 +19,14 @@
 
 use super::*;
 use crate::Pallet as Referenda;
+use alloc::{vec, vec::Vec};
 use assert_matches::assert_matches;
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, BenchmarkError,
 };
 use frame_support::{
 	assert_ok,
-	traits::{Bounded, Currency, EnsureOrigin, EnsureOriginWithArg, UnfilteredDispatchable},
+	traits::{Currency, EnsureOrigin, EnsureOriginWithArg, UnfilteredDispatchable},
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded as ArithBounded;
@@ -42,7 +43,7 @@ fn funded_account<T: Config<I>, I: 'static>(name: &'static str, index: u32) -> T
 	caller
 }
 
-fn dummy_call<T: Config<I>, I: 'static>() -> Bounded<<T as Config<I>>::RuntimeCall> {
+fn dummy_call<T: Config<I>, I: 'static>() -> BoundedCallOf<T, I> {
 	let inner = frame_system::Call::remark { remark: vec![] };
 	let call = <T as Config<I>>::RuntimeCall::from(inner);
 	T::Preimages::bound(call).unwrap()
@@ -632,7 +633,7 @@ benchmarks_instance_pallet! {
 	}
 
 	set_some_metadata {
-		use sp_std::borrow::Cow;
+		use alloc::borrow::Cow;
 		let origin = T::SubmitOrigin::try_successful_origin(&RawOrigin::Root.into())
 			.expect("SubmitOrigin has no successful origin required for the benchmark");
 		let index = create_referendum::<T, I>(origin.clone());
@@ -643,7 +644,7 @@ benchmarks_instance_pallet! {
 	}
 
 	clear_metadata {
-		use sp_std::borrow::Cow;
+		use alloc::borrow::Cow;
 		let origin = T::SubmitOrigin::try_successful_origin(&RawOrigin::Root.into())
 			.expect("SubmitOrigin has no successful origin required for the benchmark");
 		let index = create_referendum::<T, I>(origin.clone());

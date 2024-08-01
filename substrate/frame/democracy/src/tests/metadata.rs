@@ -22,9 +22,8 @@ use super::*;
 #[test]
 fn set_external_metadata_works() {
 	new_test_ext().execute_with(|| {
-		use frame_support::traits::Hash as PreimageHash;
 		// invalid preimage hash.
-		let invalid_hash: PreimageHash = [1u8; 32].into();
+		let invalid_hash: <Test as frame_system::Config>::Hash = [1u8; 32].into();
 		// metadata owner is an external proposal.
 		let owner = MetadataOwner::External;
 		// fails to set metadata if an external proposal does not exist.
@@ -34,7 +33,7 @@ fn set_external_metadata_works() {
 		);
 		// create an external proposal.
 		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2)));
-		assert!(<NextExternal<Test>>::exists());
+		assert!(NextExternal::<Test>::exists());
 		// fails to set metadata with non external origin.
 		assert_noop!(
 			Democracy::set_metadata(RuntimeOrigin::signed(1), owner.clone(), Some(invalid_hash)),
@@ -62,7 +61,7 @@ fn clear_metadata_works() {
 		let owner = MetadataOwner::External;
 		// create an external proposal.
 		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2)));
-		assert!(<NextExternal<Test>>::exists());
+		assert!(NextExternal::<Test>::exists());
 		// set metadata.
 		let hash = note_preimage(1);
 		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed(2), owner.clone(), Some(hash)));
@@ -83,13 +82,12 @@ fn clear_metadata_works() {
 #[test]
 fn set_proposal_metadata_works() {
 	new_test_ext().execute_with(|| {
-		use frame_support::traits::Hash as PreimageHash;
 		// invalid preimage hash.
-		let invalid_hash: PreimageHash = [1u8; 32].into();
+		let invalid_hash: <Test as frame_system::Config>::Hash = [1u8; 32].into();
 		// create an external proposal.
 		assert_ok!(propose_set_balance(1, 2, 5));
 		// metadata owner is a public proposal.
-		let owner = MetadataOwner::Proposal(Democracy::public_prop_count() - 1);
+		let owner = MetadataOwner::Proposal(PublicPropCount::<Test>::get() - 1);
 		// fails to set non-existing preimage.
 		assert_noop!(
 			Democracy::set_metadata(RuntimeOrigin::signed(1), owner.clone(), Some(invalid_hash)),
@@ -117,7 +115,7 @@ fn clear_proposal_metadata_works() {
 		// create an external proposal.
 		assert_ok!(propose_set_balance(1, 2, 5));
 		// metadata owner is a public proposal.
-		let owner = MetadataOwner::Proposal(Democracy::public_prop_count() - 1);
+		let owner = MetadataOwner::Proposal(PublicPropCount::<Test>::get() - 1);
 		// set metadata.
 		let hash = note_preimage(1);
 		assert_ok!(Democracy::set_metadata(RuntimeOrigin::signed(1), owner.clone(), Some(hash)));

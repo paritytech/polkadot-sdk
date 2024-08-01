@@ -1,0 +1,10 @@
+flowchart LR
+
+	subgraph Polkadot[The Polkadot Relay Chain]
+		PolkadotNode[Polkadot Node]
+		PolkadotRuntime[Polkadot Runtime]
+	end
+
+    FRAME -.-> PolkadotRuntime
+    Substrate[Substrate Node Libraries] -.-> PolkadotNode
+

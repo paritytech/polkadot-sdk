@@ -17,11 +17,9 @@
 use crate::{
 	prometheus::Registry, HeadSupportsParachains, InitializedOverseerBuilder, MetricsTrait,
 	Overseer, OverseerMetrics, OverseerSignal, OverseerSubsystemContext, SpawnGlue,
-	KNOWN_LEAVES_CACHE_SIZE,
 };
 use orchestra::{FromOrchestra, SpawnedSubsystem, Subsystem, SubsystemContext};
 use polkadot_node_subsystem_types::{errors::SubsystemError, messages::*};
-use schnellru::{ByLength, LruMap};
 // Generated dummy messages
 use crate::messages::*;
 
@@ -193,7 +191,6 @@ where
 		.activation_external_listeners(Default::default())
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
-		.known_leaves(LruMap::new(ByLength::new(KNOWN_LEAVES_CACHE_SIZE)))
 		.spawner(SpawnGlue(spawner))
 		.metrics(metrics)
 		.supports_parachains(supports_parachains);

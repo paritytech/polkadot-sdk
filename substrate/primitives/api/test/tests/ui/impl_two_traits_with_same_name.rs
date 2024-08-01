@@ -25,6 +25,7 @@ sp_api::decl_runtime_apis! {
 	}
 }
 
+#[allow(unused_imports)]
 mod second {
 	sp_api::decl_runtime_apis! {
 		pub trait Api {

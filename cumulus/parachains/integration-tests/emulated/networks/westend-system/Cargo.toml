@@ -1,0 +1,22 @@
+[package]
+name = "westend-system-emulated-network"
+version = "0.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Westend System emulated network"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+# Cumulus
+emulated-integration-tests-common = { workspace = true }
+westend-emulated-chain = { workspace = true }
+asset-hub-westend-emulated-chain = { workspace = true }
+bridge-hub-westend-emulated-chain = { workspace = true }
+collectives-westend-emulated-chain = { workspace = true }
+penpal-emulated-chain = { workspace = true }
+people-westend-emulated-chain = { workspace = true }
+coretime-westend-emulated-chain = { workspace = true }

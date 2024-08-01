@@ -109,7 +109,12 @@ fn function_no_std_impl(
 	};
 	let maybe_unreachable = if method.should_trap_on_return() {
 		quote! {
-			; core::arch::wasm32::unreachable();
+			;
+			#[cfg(target_family = "wasm")]
+			{ core::arch::wasm32::unreachable(); }
+
+			#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+			unsafe { core::arch::asm!("unimp", options(noreturn)); }
 		}
 	} else {
 		quote! {}
@@ -118,7 +123,7 @@ fn function_no_std_impl(
 	let attrs = method.attrs.iter().filter(|a| !a.path().is_ident("version"));
 
 	let cfg_wasm_only = if is_wasm_only {
-		quote! { #[cfg(target_arch = "wasm32")] }
+		quote! { #[cfg(substrate_runtime)] }
 	} else {
 		quote! {}
 	};

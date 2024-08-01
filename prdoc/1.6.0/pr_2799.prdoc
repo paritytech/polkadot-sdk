@@ -1,0 +1,10 @@
+title: Improve XCM debuggability
+
+doc:
+  - audience: Runtime User
+    description: |
+      Adds more logging to XCM execution to improve its debuggability.
+
+crates:
+  - name: "staging-xcm-builder"
+  - name: "staging-xcm-executor"

@@ -24,14 +24,14 @@ mod cli;
 mod command;
 #[cfg(feature = "cli")]
 mod error;
-#[cfg(all(feature = "hostperfcheck", build_type = "release"))]
-mod host_perf_check;
 
 #[cfg(feature = "service")]
-pub use service::{self, Block, CoreApi, IdentifyVariant, ProvideRuntimeApi, TFullClient};
+pub use polkadot_service::{
+	self as service, Block, CoreApi, IdentifyVariant, ProvideRuntimeApi, TFullClient,
+};
 
 #[cfg(feature = "malus")]
-pub use service::overseer::prepared_overseer_builder;
+pub use polkadot_service::overseer::validator_overseer_builder;
 
 #[cfg(feature = "cli")]
 pub use cli::*;

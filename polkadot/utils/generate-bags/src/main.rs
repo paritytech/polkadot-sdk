@@ -22,8 +22,6 @@
 
 use clap::{Parser, ValueEnum};
 use generate_bags::generate_thresholds;
-use kusama_runtime::Runtime as KusamaRuntime;
-use polkadot_runtime::Runtime as PolkadotRuntime;
 use std::path::{Path, PathBuf};
 use westend_runtime::Runtime as WestendRuntime;
 
@@ -31,8 +29,6 @@ use westend_runtime::Runtime as WestendRuntime;
 #[value(rename_all = "PascalCase")]
 enum Runtime {
 	Westend,
-	Kusama,
-	Polkadot,
 }
 
 impl Runtime {
@@ -41,8 +37,6 @@ impl Runtime {
 	) -> Box<dyn FnOnce(usize, &Path, u128, u128) -> Result<(), std::io::Error>> {
 		match self {
 			Runtime::Westend => Box::new(generate_thresholds::<WestendRuntime>),
-			Runtime::Kusama => Box::new(generate_thresholds::<KusamaRuntime>),
-			Runtime::Polkadot => Box::new(generate_thresholds::<PolkadotRuntime>),
 		}
 	}
 }
@@ -54,7 +48,7 @@ struct Opt {
 	n_bags: usize,
 
 	/// Which runtime to generate.
-	#[arg(long, ignore_case = true, value_enum, default_value_t = Runtime::Polkadot)]
+	#[arg(long, ignore_case = true, value_enum, default_value_t = Runtime::Westend)]
 	runtime: Runtime,
 
 	/// Where to write the output.

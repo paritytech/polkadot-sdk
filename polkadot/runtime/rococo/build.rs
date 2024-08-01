@@ -14,12 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-use substrate_wasm_builder::WasmBuilder;
-
+#[cfg(all(not(feature = "metadata-hash"), feature = "std"))]
 fn main() {
-	WasmBuilder::new()
-		.with_current_project()
-		.import_memory()
-		.export_heap_base()
-		.build()
+	substrate_wasm_builder::WasmBuilder::build_using_defaults();
+
+	substrate_wasm_builder::WasmBuilder::init_with_defaults()
+		.set_file_name("fast_runtime_binary.rs")
+		.enable_feature("fast-runtime")
+		.build();
 }
+
+#[cfg(all(feature = "metadata-hash", feature = "std"))]
+fn main() {
+	substrate_wasm_builder::WasmBuilder::init_with_defaults()
+		.enable_metadata_hash("ROC", 12)
+		.build();
+
+	substrate_wasm_builder::WasmBuilder::init_with_defaults()
+		.set_file_name("fast_runtime_binary.rs")
+		.enable_feature("fast-runtime")
+		.enable_metadata_hash("ROC", 12)
+		.build();
+}
+
+#[cfg(not(feature = "std"))]
+fn main() {}

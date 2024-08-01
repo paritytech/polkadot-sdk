@@ -163,18 +163,18 @@ fn test_array_return_value_memory_is_freed() {
 }
 
 #[test]
-fn test_versionining_with_new_host_works() {
+fn test_versioning_with_new_host_works() {
 	// We call to the new wasm binary with new host function.
-	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_versionning_works");
+	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_versioning_works");
 
 	// we call to the old wasm binary with a new host functions
 	// old versions of host functions should be called and test should be ok!
-	call_wasm_method::<HostFunctions>(wasm_binary_deprecated_unwrap(), "test_versionning_works");
+	call_wasm_method::<HostFunctions>(wasm_binary_deprecated_unwrap(), "test_versioning_works");
 }
 
 #[test]
-fn test_versionining_register_only() {
-	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_versionning_register_only_works");
+fn test_versioning_register_only() {
+	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_versioning_register_only_works");
 }
 
 fn run_test_in_another_process(

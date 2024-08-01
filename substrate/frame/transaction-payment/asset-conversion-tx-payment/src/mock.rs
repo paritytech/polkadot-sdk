@@ -16,24 +16,30 @@
 use super::*;
 use crate as pallet_asset_conversion_tx_payment;
 
-use codec;
 use frame_support::{
+	derive_impl,
 	dispatch::DispatchClass,
 	instances::Instance2,
 	ord_parameter_types,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, Imbalance, OnUnbalanced},
+	traits::{
+		fungible, fungibles,
+		tokens::{
+			fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
+			imbalance::ResolveAssetTo,
+		},
+		AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, Imbalance, OnUnbalanced,
+	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 	PalletId,
 };
 use frame_system as system;
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use pallet_asset_conversion::{NativeOrAssetId, NativeOrAssetIdConverter};
-use pallet_transaction_payment::CurrencyAdapter;
-use sp_core::H256;
+use pallet_asset_conversion::{Ascending, Chain, WithFirstAsset};
+use pallet_transaction_payment::FungibleAdapter;
 use sp_runtime::{
-	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, SaturatedConversion},
+	traits::{AccountIdConversion, IdentityLookup, SaturatedConversion},
 	Permill,
 };
 
@@ -78,50 +84,24 @@ parameter_types! {
 	pub static TransactionByteFee: u64 = 1;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
 	pub const ExistentialDeposit: u64 = 10;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ConstU64<10>;
 	type AccountStore = System;
-	type MaxLocks = ();
-	type WeightInfo = ();
-	type MaxReserves = ConstU32<50>;
-	type ReserveIdentifier = [u8; 8];
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type MaxHolds = ();
 }
 
 impl WeightToFeeT for WeightToFee {
@@ -148,9 +128,13 @@ parameter_types! {
 }
 
 pub struct DealWithFees;
-impl OnUnbalanced<pallet_balances::NegativeImbalance<Runtime>> for DealWithFees {
-	fn on_unbalanceds<B>(
-		mut fees_then_tips: impl Iterator<Item = pallet_balances::NegativeImbalance<Runtime>>,
+impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>>
+	for DealWithFees
+{
+	fn on_unbalanceds(
+		mut fees_then_tips: impl Iterator<
+			Item = fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>,
+		>,
 	) {
 		if let Some(fees) = fees_then_tips.next() {
 			FeeUnbalancedAmount::mutate(|a| *a += fees.peek());
@@ -161,9 +145,26 @@ impl OnUnbalanced<pallet_balances::NegativeImbalance<Runtime>> for DealWithFees 
 	}
 }
 
+pub struct DealWithFungiblesFees;
+impl OnUnbalanced<fungibles::Credit<AccountId, NativeAndAssets>> for DealWithFungiblesFees {
+	fn on_unbalanceds(
+		mut fees_then_tips: impl Iterator<
+			Item = fungibles::Credit<<Runtime as frame_system::Config>::AccountId, NativeAndAssets>,
+		>,
+	) {
+		if let Some(fees) = fees_then_tips.next() {
+			FeeUnbalancedAmount::mutate(|a| *a += fees.peek());
+			if let Some(tips) = fees_then_tips.next() {
+				TipUnbalancedAmount::mutate(|a| *a += tips.peek());
+			}
+		}
+	}
+}
+
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
+	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFees>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
 	type FeeMultiplierUpdate = ();
@@ -222,40 +223,44 @@ impl pallet_assets::Config<Instance2> for Runtime {
 
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
-	pub storage AllowMultiAssetPools: bool = false;
-	// should be non-zero if AllowMultiAssetPools is true, otherwise can be zero
 	pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 	pub const MaxSwapPathLength: u32 = 4;
+	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
 }
 
 ord_parameter_types! {
 	pub const AssetConversionOrigin: u64 = AccountIdConversion::<u64>::into_account_truncating(&AssetConversionPalletId::get());
 }
 
+pub type PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter<
+	AssetConversionPalletId,
+	(NativeOrWithId<u32>, NativeOrWithId<u32>),
+>;
+
+type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type AssetBalance = <Self as pallet_balances::Config>::Balance;
-	type AssetId = u32;
+	type Balance = Balance;
+	type HigherPrecisionBalance = u128;
+	type AssetKind = NativeOrWithId<u32>;
+	type Assets = NativeAndAssets;
+	type PoolId = (Self::AssetKind, Self::AssetKind);
+	type PoolLocator = Chain<
+		WithFirstAsset<Native, AccountId, NativeOrWithId<u32>, PoolIdToAccountId>,
+		Ascending<AccountId, NativeOrWithId<u32>, PoolIdToAccountId>,
+	>;
 	type PoolAssetId = u32;
-	type Assets = Assets;
 	type PoolAssets = PoolAssets;
-	type PalletId = AssetConversionPalletId;
-	type WeightInfo = ();
-	type LPFee = ConstU32<3>; // means 0.3%
 	type PoolSetupFee = ConstU64<100>; // should be more or equal to the existential deposit
-	type PoolSetupFeeReceiver = AssetConversionOrigin;
+	type PoolSetupFeeAsset = Native;
+	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
+	type PalletId = AssetConversionPalletId;
+	type LPFee = ConstU32<3>; // means 0.3%
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
-	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = MaxSwapPathLength;
 	type MintMinLiquidity = ConstU64<100>; // 100 is good enough when the main currency has 12 decimals.
-
-	type Balance = u64;
-	type HigherPrecisionBalance = u128;
-
-	type MultiAssetId = NativeOrAssetId<u32>;
-	type MultiAssetIdConverter = NativeOrAssetIdConverter<u32>;
-
+	type WeightInfo = ();
 	pallet_asset_conversion::runtime_benchmarks_enabled! {
 		type BenchmarkHelper = ();
 	}
@@ -263,6 +268,7 @@ impl pallet_asset_conversion::Config for Runtime {
 
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = Assets;
-	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion>;
+	type AssetId = NativeOrWithId<u32>;
+	type OnChargeAssetTransaction =
+		SwapAssetAdapter<Native, NativeAndAssets, AssetConversion, DealWithFungiblesFees>;
 }

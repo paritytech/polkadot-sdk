@@ -1,0 +1,5 @@
+error: missing `#[pallet::task_list(..)]` attribute
+  --> tests/pallet_ui/task_missing_list.rs:33:6
+   |
+33 |         fn foo() -> DispatchResult {
+   |            ^^^

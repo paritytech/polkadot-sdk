@@ -33,9 +33,7 @@ pub async fn wait_n_finalized_blocks(n: usize, url: &str) {
 	let mut interval = tokio::time::interval(Duration::from_secs(6));
 
 	loop {
-		let Ok(rpc) = ws_client(url).await else {
-			continue;
-		};
+		let Ok(rpc) = ws_client(url).await else { continue };
 
 		if let Ok(block) = ChainApi::<(), Hash, Header, Block>::finalized_head(&rpc).await {
 			built_blocks.insert(block);
@@ -50,8 +48,8 @@ pub async fn wait_n_finalized_blocks(n: usize, url: &str) {
 
 /// Read the WS address from the output.
 ///
-/// This is hack to get the actual binded sockaddr because
-/// polkadot assigns a random port if the specified port was already binded.
+/// This is hack to get the actual bound sockaddr because
+/// polkadot assigns a random port if the specified port was already bound.
 ///
 /// You must call
 /// `Command::new("cmd").stdout(process::Stdio::piped()).stderr(process::Stdio::piped())`

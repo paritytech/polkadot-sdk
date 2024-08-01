@@ -46,6 +46,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[doc(hidden)]
+extern crate alloc;
+
+#[doc(hidden)]
+pub use alloc::vec::Vec;
+#[doc(hidden)]
 pub use codec;
 #[doc(hidden)]
 pub use scale_info;
@@ -73,12 +78,12 @@ use sp_core::{
 	hash::{H256, H512},
 	sr25519,
 };
-use sp_std::prelude::*;
 
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::format;
+use alloc::vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::format;
 
 pub mod curve;
 pub mod generic;
@@ -91,6 +96,7 @@ mod runtime_string;
 pub mod testing;
 pub mod traits;
 pub mod transaction_validity;
+pub mod type_with_default;
 
 pub use crate::runtime_string::*;
 
@@ -190,7 +196,7 @@ impl Justifications {
 
 impl IntoIterator for Justifications {
 	type Item = Justification;
-	type IntoIter = sp_std::vec::IntoIter<Self::Item>;
+	type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.0.into_iter()
@@ -466,7 +472,7 @@ impl Verify for MultiSignature {
 }
 
 /// Signature verify that can work with any known signature types..
-#[derive(Eq, PartialEq, Clone, Default, Encode, Decode, RuntimeDebug)]
+#[derive(Eq, PartialEq, Clone, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct AnySignature(H512);
 
@@ -507,11 +513,11 @@ impl From<DispatchError> for DispatchOutcome {
 /// This is the legacy return type of `Dispatchable`. It is still exposed for compatibility reasons.
 /// The new return type is `DispatchResultWithInfo`. FRAME runtimes should use
 /// `frame_support::dispatch::DispatchResult`.
-pub type DispatchResult = sp_std::result::Result<(), DispatchError>;
+pub type DispatchResult = core::result::Result<(), DispatchError>;
 
 /// Return type of a `Dispatchable` which contains the `DispatchResult` and additional information
 /// about the `Dispatchable` that is only known post dispatch.
-pub type DispatchResultWithInfo<T> = sp_std::result::Result<T, DispatchErrorWithPostInfo<T>>;
+pub type DispatchResultWithInfo<T> = core::result::Result<T, DispatchErrorWithPostInfo<T>>;
 
 /// Reason why a pallet call failed.
 #[derive(Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
@@ -910,14 +916,14 @@ impl OpaqueExtrinsic {
 	}
 }
 
-impl sp_std::fmt::Debug for OpaqueExtrinsic {
+impl core::fmt::Debug for OpaqueExtrinsic {
 	#[cfg(feature = "std")]
-	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(fmt, "{}", sp_core::hexdisplay::HexDisplay::from(&self.0))
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -954,6 +960,32 @@ pub fn print(print: impl traits::Printable) {
 	print.print();
 }
 
+/// Utility function to declare string literals backed by an array of length N.
+///
+/// The input can be shorter than N, in that case the end of the array is padded with zeros.
+///
+/// [`str_array`] is useful when converting strings that end up in the storage as fixed size arrays
+/// or in const contexts where static data types have strings that could also end up in the storage.
+///
+/// # Example
+///
+/// ```rust
+/// # use sp_runtime::str_array;
+/// const MY_STR: [u8; 6] = str_array("data");
+/// assert_eq!(MY_STR, *b"data\0\0");
+/// ```
+pub const fn str_array<const N: usize>(s: &str) -> [u8; N] {
+	debug_assert!(s.len() <= N, "String literal doesn't fit in array");
+	let mut i = 0;
+	let mut arr = [0; N];
+	let s = s.as_bytes();
+	while i < s.len() {
+		arr[i] = s[i];
+		i += 1;
+	}
+	arr
+}
+
 /// Describes on what should happen with a storage transaction.
 pub enum TransactionOutcome<R> {
 	/// Commit the transaction.
@@ -969,6 +1001,31 @@ impl<R> TransactionOutcome<R> {
 			Self::Commit(r) => r,
 			Self::Rollback(r) => r,
 		}
+	}
+}
+
+/// Confines the kind of extrinsics that can be included in a block.
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo)]
+pub enum ExtrinsicInclusionMode {
+	/// All extrinsics are allowed to be included in this block.
+	#[default]
+	AllExtrinsics,
+	/// Inherents are allowed to be included.
+	OnlyInherents,
+}
+
+/// Simple blob that hold a value in an encoded form without committing to its type.
+#[derive(Decode, Encode, PartialEq, TypeInfo)]
+pub struct OpaqueValue(Vec<u8>);
+impl OpaqueValue {
+	/// Create a new `OpaqueValue` using the given encoded representation.
+	pub fn new(inner: Vec<u8>) -> OpaqueValue {
+		OpaqueValue(inner)
+	}
+
+	/// Try to decode this `OpaqueValue` into the given concrete type.
+	pub fn decode<T: Decode>(&self) -> Option<T> {
+		Decode::decode(&mut &self.0[..]).ok()
 	}
 }
 

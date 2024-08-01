@@ -71,6 +71,30 @@ pub enum Error {
 	RejectedFutureTransaction,
 }
 
+impl Error {
+	/// Returns true if the transaction could be re-submitted to the pool in the future.
+	///
+	/// For example, `Error::ImmediatelyDropped` is retriable, because the transaction
+	/// may enter the pool if there is space for it in the future.
+	pub fn is_retriable(&self) -> bool {
+		match self {
+			// An invalid transaction is temporarily banned, however it can
+			// become valid at a later time.
+			Error::TemporarilyBanned |
+			// The pool is full at the moment.
+			Error::ImmediatelyDropped |
+			// The block id is not known to the pool.
+			// The node might be lagging behind, or during a warp sync.
+			Error::InvalidBlockId(_) |
+			// The pool is configured to not accept future transactions.
+			Error::RejectedFutureTransaction => {
+				true
+			}
+			_ => false
+		}
+	}
+}
+
 /// Transaction pool error conversion.
 pub trait IntoPoolError: std::error::Error + Send + Sized + Sync {
 	/// Try to extract original `Error`

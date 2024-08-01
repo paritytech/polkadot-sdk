@@ -22,9 +22,9 @@
 /// function's entry point.
 #[cfg(not(feature = "std"))]
 pub unsafe fn load_params(params: *const u8, len: usize) -> crate::primitives::ValidationParams {
-	let mut slice = sp_std::slice::from_raw_parts(params, len);
+	let mut slice = core::slice::from_raw_parts(params, len);
 
-	parity_scale_codec::Decode::decode(&mut slice).expect("Invalid input data")
+	codec::Decode::decode(&mut slice).expect("Invalid input data")
 }
 
 /// Allocate the validation result in memory, getting the return-pointer back.

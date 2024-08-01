@@ -64,7 +64,11 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::boxed::Box;
 use codec::{Codec, Encode};
+use core::fmt::Debug;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -73,8 +77,8 @@ use frame_support::{
 			v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
 			DispatchTime,
 		},
-		Currency, Hash as PreimageHash, LockIdentifier, OnUnbalanced, OriginTrait, PollStatus,
-		Polling, QueryPreimage, ReservableCurrency, StorePreimage, VoteTally,
+		Currency, LockIdentifier, OnUnbalanced, OriginTrait, PollStatus, Polling, QueryPreimage,
+		ReservableCurrency, StorePreimage, VoteTally,
 	},
 	BoundedVec,
 };
@@ -84,7 +88,6 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Bounded, Dispatchable, One, Saturating, Zero},
 	DispatchError, Perbill,
 };
-use sp_std::{fmt::Debug, prelude::*};
 
 mod branch;
 pub mod migration;
@@ -102,6 +105,7 @@ pub use self::{
 	},
 	weights::WeightInfo,
 };
+pub use alloc::vec::Vec;
 
 #[cfg(test)]
 mod mock;
@@ -112,7 +116,6 @@ mod tests;
 pub mod benchmarking;
 
 pub use frame_support::traits::Get;
-pub use sp_std::vec::Vec;
 
 #[macro_export]
 macro_rules! impl_tracksinfo_get {
@@ -143,7 +146,7 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, traits::EnsureOriginWithArg};
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -163,8 +166,17 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 		/// The Scheduler.
-		type Scheduler: ScheduleAnon<BlockNumberFor<Self>, CallOf<Self, I>, PalletsOriginOf<Self>>
-			+ ScheduleNamed<BlockNumberFor<Self>, CallOf<Self, I>, PalletsOriginOf<Self>>;
+		type Scheduler: ScheduleAnon<
+				BlockNumberFor<Self>,
+				CallOf<Self, I>,
+				PalletsOriginOf<Self>,
+				Hasher = Self::Hashing,
+			> + ScheduleNamed<
+				BlockNumberFor<Self>,
+				CallOf<Self, I>,
+				PalletsOriginOf<Self>,
+				Hasher = Self::Hashing,
+			>;
 		/// Currency type for this pallet.
 		type Currency: ReservableCurrency<Self::AccountId>;
 		// Origins and unbalances.
@@ -226,7 +238,7 @@ pub mod pallet {
 			>;
 
 		/// The preimage provider.
-		type Preimages: QueryPreimage + StorePreimage;
+		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 	}
 
 	/// The next free referendum index, aka the number of referenda started so far.
@@ -257,14 +269,14 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, TrackIdOf<T, I>, u32, ValueQuery>;
 
 	/// The metadata is a general information concerning the referendum.
-	/// The `PreimageHash` refers to the preimage of the `Preimages` provider which can be a JSON
+	/// The `Hash` refers to the preimage of the `Preimages` provider which can be a JSON
 	/// dump or IPFS hash of a JSON file.
 	///
 	/// Consider a garbage collection for a metadata of finished referendums to `unrequest` (remove)
 	/// large preimages.
 	#[pallet::storage]
 	pub type MetadataOf<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, ReferendumIndex, PreimageHash>;
+		StorageMap<_, Blake2_128Concat, ReferendumIndex, T::Hash>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -296,7 +308,7 @@ pub mod pallet {
 			/// The amount placed by the account.
 			amount: BalanceOf<T, I>,
 		},
-		/// A deposit has been slashaed.
+		/// A deposit has been slashed.
 		DepositSlashed {
 			/// The account who placed the deposit.
 			who: T::AccountId,
@@ -376,14 +388,14 @@ pub mod pallet {
 			/// Index of the referendum.
 			index: ReferendumIndex,
 			/// Preimage hash.
-			hash: PreimageHash,
+			hash: T::Hash,
 		},
 		/// Metadata for a referendum has been cleared.
 		MetadataCleared {
 			/// Index of the referendum.
 			index: ReferendumIndex,
 			/// Preimage hash.
-			hash: PreimageHash,
+			hash: T::Hash,
 		},
 	}
 
@@ -415,6 +427,8 @@ pub mod pallet {
 		BadStatus,
 		/// The preimage does not exist.
 		PreimageNotExist,
+		/// The preimage is stored with a different length than the one provided.
+		PreimageStoredWithDifferentLength,
 	}
 
 	#[pallet::hooks]
@@ -423,6 +437,11 @@ pub mod pallet {
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()?;
 			Ok(())
+		}
+
+		#[cfg(any(feature = "std", test))]
+		fn integrity_test() {
+			T::Tracks::check_integrity().expect("Static tracks configuration is valid.");
 		}
 	}
 
@@ -447,6 +466,16 @@ pub mod pallet {
 		) -> DispatchResult {
 			let proposal_origin = *proposal_origin;
 			let who = T::SubmitOrigin::ensure_origin(origin, &proposal_origin)?;
+
+			// If the pre-image is already stored, ensure that it has the same length as given in
+			// `proposal`.
+			if let (Some(preimage_len), Some(proposal_len)) =
+				(proposal.lookup_hash().and_then(|h| T::Preimages::len(&h)), proposal.lookup_len())
+			{
+				if preimage_len != proposal_len {
+					return Err(Error::<T, I>::PreimageStoredWithDifferentLength.into())
+				}
+			}
 
 			let track =
 				T::Tracks::track_for(&proposal_origin).map_err(|_| Error::<T, I>::NoTrack)?;
@@ -691,7 +720,7 @@ pub mod pallet {
 		pub fn set_metadata(
 			origin: OriginFor<T>,
 			index: ReferendumIndex,
-			maybe_hash: Option<PreimageHash>,
+			maybe_hash: Option<T::Hash>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			if let Some(hash) = maybe_hash {
@@ -865,7 +894,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		call: BoundedCallOf<T, I>,
 	) {
 		let now = frame_system::Pallet::<T>::block_number();
-		let earliest_allowed = now.saturating_add(track.min_enactment_period);
+		// Earliest allowed block is always at minimum the next block.
+		let earliest_allowed = now.saturating_add(track.min_enactment_period.max(One::one()));
 		let desired = desired.evaluate(now);
 		let ok = T::Scheduler::schedule_named(
 			(ASSEMBLY_ID, "enactment", index).using_encoded(sp_io::hashing::blake2_256),

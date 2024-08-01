@@ -17,38 +17,39 @@
 
 //! Various pieces of common functionality.
 use super::*;
-use frame_support::traits::{Get, GetStorageVersion, PalletInfoAccess, StorageVersion};
+use core::marker::PhantomData;
+use frame_support::traits::{Get, UncheckedOnRuntimeUpgrade};
 
-/// Migrate the pallet storage to v1.
-pub fn migrate_to_v1<T: Config<I>, I: 'static, P: GetStorageVersion + PalletInfoAccess>(
-) -> frame_support::weights::Weight {
-	let on_chain_storage_version = <P as GetStorageVersion>::on_chain_storage_version();
-	log::info!(
-		target: LOG_TARGET,
-		"Running migration storage v1 for uniques with storage version {:?}",
-		on_chain_storage_version,
-	);
+mod v1 {
+	use super::*;
 
-	if on_chain_storage_version < 1 {
-		let mut count = 0;
-		for (collection, detail) in Collection::<T, I>::iter() {
-			CollectionAccount::<T, I>::insert(&detail.owner, &collection, ());
-			count += 1;
+	/// Actual implementation of the storage migration.
+	pub struct UncheckedMigrateToV1Impl<T, I>(PhantomData<(T, I)>);
+
+	impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1Impl<T, I> {
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			let mut count = 0;
+			for (collection, detail) in Collection::<T, I>::iter() {
+				CollectionAccount::<T, I>::insert(&detail.owner, &collection, ());
+				count += 1;
+			}
+
+			log::info!(
+				target: LOG_TARGET,
+				"Storage migration v1 for uniques finished.",
+			);
+
+			// calculate and return migration weights
+			T::DbWeight::get().reads_writes(count as u64 + 1, count as u64 + 1)
 		}
-		StorageVersion::new(1).put::<P>();
-		log::info!(
-			target: LOG_TARGET,
-			"Running migration storage v1 for uniques with storage version {:?} was complete",
-			on_chain_storage_version,
-		);
-		// calculate and return migration weights
-		T::DbWeight::get().reads_writes(count as u64 + 1, count as u64 + 1)
-	} else {
-		log::warn!(
-			target: LOG_TARGET,
-			"Attempted to apply migration to v1 but failed because storage version is {:?}",
-			on_chain_storage_version,
-		);
-		T::DbWeight::get().reads(1)
 	}
 }
+
+/// Migrate the pallet storage from `0` to `1`.
+pub type MigrateV0ToV1<T, I> = frame_support::migrations::VersionedMigration<
+	0,
+	1,
+	v1::UncheckedMigrateToV1Impl<T, I>,
+	Pallet<T, I>,
+	<T as frame_system::Config>::DbWeight,
+>;

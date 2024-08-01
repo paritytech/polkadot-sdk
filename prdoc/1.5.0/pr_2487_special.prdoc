@@ -1,0 +1,9 @@
+title: "Do not pollute global base path with export genesis/wasm"
+author: bkchr
+topic: Cumulus
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

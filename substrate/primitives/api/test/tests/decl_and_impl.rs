@@ -24,7 +24,7 @@ use substrate_test_runtime_client::runtime::{Block, Hash};
 
 /// The declaration of the `Runtime` type is done by the `construct_runtime!` macro in a real
 /// runtime.
-pub struct Runtime {}
+pub enum Runtime {}
 
 decl_runtime_apis! {
 	pub trait Api {
@@ -139,7 +139,7 @@ impl_runtime_apis! {
 		fn execute_block(_: Block) {
 			unimplemented!()
 		}
-		fn initialize_block(_: &<Block as BlockT>::Header) {
+		fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			unimplemented!()
 		}
 	}

@@ -16,17 +16,17 @@
 // limitations under the License.
 
 use crate::Config;
+use alloc::vec;
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchInfo;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, One, SignedExtension},
+	traits::{DispatchInfoOf, Dispatchable, One, SignedExtension, Zero},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionValidity, TransactionValidityError,
 		ValidTransaction,
 	},
 };
-use sp_std::vec;
 
 /// Nonce check and increment to give replay protection for transactions.
 ///
@@ -46,14 +46,14 @@ impl<T: Config> CheckNonce<T> {
 	}
 }
 
-impl<T: Config> sp_std::fmt::Debug for CheckNonce<T> {
+impl<T: Config> core::fmt::Debug for CheckNonce<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "CheckNonce({})", self.0)
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -68,7 +68,7 @@ where
 	type Pre = ();
 	const IDENTIFIER: &'static str = "CheckNonce";
 
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
 		Ok(())
 	}
 
@@ -80,6 +80,10 @@ where
 		_len: usize,
 	) -> Result<(), TransactionValidityError> {
 		let mut account = crate::Account::<T>::get(who);
+		if account.providers.is_zero() && account.sufficients.is_zero() {
+			// Nonce storage not paid for
+			return Err(InvalidTransaction::Payment.into())
+		}
 		if self.0 != account.nonce {
 			return Err(if self.0 < account.nonce {
 				InvalidTransaction::Stale
@@ -100,8 +104,11 @@ where
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> TransactionValidity {
-		// check index
 		let account = crate::Account::<T>::get(who);
+		if account.providers.is_zero() && account.sufficients.is_zero() {
+			// Nonce storage not paid for
+			return InvalidTransaction::Payment.into()
+		}
 		if self.0 < account.nonce {
 			return InvalidTransaction::Stale.into()
 		}
@@ -135,9 +142,9 @@ mod tests {
 			crate::Account::<Test>::insert(
 				1,
 				crate::AccountInfo {
-					nonce: 1,
+					nonce: 1u64.into(),
 					consumers: 0,
-					providers: 0,
+					providers: 1,
 					sufficients: 0,
 					data: 0,
 				},
@@ -146,22 +153,65 @@ mod tests {
 			let len = 0_usize;
 			// stale
 			assert_noop!(
-				CheckNonce::<Test>(0).validate(&1, CALL, &info, len),
+				CheckNonce::<Test>(0u64.into()).validate(&1, CALL, &info, len),
 				InvalidTransaction::Stale
 			);
 			assert_noop!(
-				CheckNonce::<Test>(0).pre_dispatch(&1, CALL, &info, len),
+				CheckNonce::<Test>(0u64.into()).pre_dispatch(&1, CALL, &info, len),
 				InvalidTransaction::Stale
 			);
 			// correct
-			assert_ok!(CheckNonce::<Test>(1).validate(&1, CALL, &info, len));
-			assert_ok!(CheckNonce::<Test>(1).pre_dispatch(&1, CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate(&1, CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).pre_dispatch(&1, CALL, &info, len));
 			// future
-			assert_ok!(CheckNonce::<Test>(5).validate(&1, CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>(5u64.into()).validate(&1, CALL, &info, len));
 			assert_noop!(
-				CheckNonce::<Test>(5).pre_dispatch(&1, CALL, &info, len),
+				CheckNonce::<Test>(5u64.into()).pre_dispatch(&1, CALL, &info, len),
 				InvalidTransaction::Future
 			);
+		})
+	}
+
+	#[test]
+	fn signed_ext_check_nonce_requires_provider() {
+		new_test_ext().execute_with(|| {
+			crate::Account::<Test>::insert(
+				2,
+				crate::AccountInfo {
+					nonce: 1u64.into(),
+					consumers: 0,
+					providers: 1,
+					sufficients: 0,
+					data: 0,
+				},
+			);
+			crate::Account::<Test>::insert(
+				3,
+				crate::AccountInfo {
+					nonce: 1u64.into(),
+					consumers: 0,
+					providers: 0,
+					sufficients: 1,
+					data: 0,
+				},
+			);
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			// Both providers and sufficients zero
+			assert_noop!(
+				CheckNonce::<Test>(1u64.into()).validate(&1, CALL, &info, len),
+				InvalidTransaction::Payment
+			);
+			assert_noop!(
+				CheckNonce::<Test>(1u64.into()).pre_dispatch(&1, CALL, &info, len),
+				InvalidTransaction::Payment
+			);
+			// Non-zero providers
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate(&2, CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).pre_dispatch(&2, CALL, &info, len));
+			// Non-zero sufficients
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate(&3, CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).pre_dispatch(&3, CALL, &info, len));
 		})
 	}
 }

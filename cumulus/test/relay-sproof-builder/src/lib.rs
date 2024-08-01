@@ -14,12 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+extern crate alloc;
+
+use alloc::collections::btree_map::BTreeMap;
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
 };
 use polkadot_primitives::UpgradeGoAhead;
 use sp_runtime::traits::HashingFor;
-use sp_std::collections::btree_map::BTreeMap;
 use sp_trie::PrefixedMemoryDB;
 
 /// Builds a sproof (portmanteau of 'spoof' and 'proof') of the relay chain state.
@@ -63,7 +65,7 @@ impl Default for RelayStateSproofBuilder {
 				hrmp_max_message_num_per_candidate: 5,
 				validation_upgrade_cooldown: 6,
 				validation_upgrade_delay: 6,
-				async_backing_params: relay_chain::vstaging::AsyncBackingParams {
+				async_backing_params: relay_chain::AsyncBackingParams {
 					allowed_ancestry_len: 0,
 					max_candidate_depth: 0,
 				},

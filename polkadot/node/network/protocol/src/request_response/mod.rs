@@ -30,11 +30,30 @@
 //! `trait IsRequest` .... A trait describing a particular request. It is used for gathering meta
 //! data, like what is the corresponding response type.
 //!
-//!  Versioned (v1 module): The actual requests and responses as sent over the network.
+//!  ## Versioning
+//!
+//! Versioning for request-response protocols can be done in multiple ways.
+//!
+//! If you're just changing the protocol name but the binary payloads are the same, just add a new
+//! `fallback_name` to the protocol config.
+//!
+//! One way in which versioning has historically been achieved for req-response protocols is to
+//! bundle the new req-resp version with an upgrade of a notifications protocol. The subsystem would
+//! then know which request version to use based on stored data about the peer's notifications
+//! protocol version.
+//!
+//! When bumping a notifications protocol version is not needed/desirable, you may add a new
+//! req-resp protocol and set the old request as a fallback (see
+//! `OutgoingRequest::new_with_fallback`). A request with the new version will be attempted and if
+//! the protocol is refused by the peer, the fallback protocol request will be used.
+//! Information about the actually used protocol will be returned alongside the raw response, so
+//! that you know how to decode it.
 
 use std::{collections::HashMap, time::Duration, u64};
 
 use polkadot_primitives::{MAX_CODE_SIZE, MAX_POV_SIZE};
+use sc_network::NetworkBackend;
+use sp_runtime::traits::Block;
 use strum::{EnumIter, IntoEnumIterator};
 
 pub use sc_network::{config as network, config::RequestResponseConfig, ProtocolName};
@@ -55,7 +74,7 @@ pub use outgoing::{OutgoingRequest, OutgoingResult, Recipient, Requests, Respons
 pub mod v1;
 
 /// Actual versioned requests and responses that are sent over the wire.
-pub mod vstaging;
+pub mod v2;
 
 /// A protocol per subsystem seems to make the most sense, this way we don't need any dispatching
 /// within protocols.
@@ -66,7 +85,7 @@ pub enum Protocol {
 	/// Protocol for fetching collations from collators.
 	CollationFetchingV1,
 	/// Protocol for fetching collations from collators when async backing is enabled.
-	CollationFetchingVStaging,
+	CollationFetchingV2,
 	/// Protocol for fetching seconded PoVs from validators of the same group.
 	PoVFetchingV1,
 	/// Protocol for fetching available data.
@@ -78,7 +97,11 @@ pub enum Protocol {
 
 	/// Protocol for requesting candidates with attestations in statement distribution
 	/// when async backing is enabled.
-	AttestedCandidateVStaging,
+	AttestedCandidateV2,
+
+	/// Protocol for chunk fetching version 2, used by availability distribution and availability
+	/// recovery.
+	ChunkFetchingV2,
 }
 
 /// Minimum bandwidth we expect for validators - 500Mbit/s is the recommendation, so approximately
@@ -147,7 +170,7 @@ const POV_RESPONSE_SIZE: u64 = MAX_POV_SIZE as u64 + 10_000;
 /// This is `MAX_CODE_SIZE` plus some additional space for protocol overhead.
 const STATEMENT_RESPONSE_SIZE: u64 = MAX_CODE_SIZE as u64 + 10_000;
 
-/// Maximum response sizes for `AttestedCandidateVStaging`.
+/// Maximum response sizes for `AttestedCandidateV2`.
 ///
 /// This is `MAX_CODE_SIZE` plus some additional space for protocol overhead and
 /// additional backing statements.
@@ -162,76 +185,76 @@ impl Protocol {
 	///
 	/// Returns a `ProtocolConfig` for this protocol.
 	/// Use this if you plan only to send requests for this protocol.
-	pub fn get_outbound_only_config(
+	pub fn get_outbound_only_config<B: Block, N: NetworkBackend<B, <B as Block>::Hash>>(
 		self,
 		req_protocol_names: &ReqProtocolNames,
-	) -> RequestResponseConfig {
-		self.create_config(req_protocol_names, None)
+	) -> N::RequestResponseProtocolConfig {
+		self.create_config::<B, N>(req_protocol_names, None)
 	}
 
 	/// Get a configuration for a given Request response protocol.
 	///
 	/// Returns a receiver for messages received on this protocol and the requested
 	/// `ProtocolConfig`.
-	pub fn get_config(
+	pub fn get_config<B: Block, N: NetworkBackend<B, <B as Block>::Hash>>(
 		self,
 		req_protocol_names: &ReqProtocolNames,
-	) -> (async_channel::Receiver<network::IncomingRequest>, RequestResponseConfig) {
+	) -> (async_channel::Receiver<network::IncomingRequest>, N::RequestResponseProtocolConfig) {
 		let (tx, rx) = async_channel::bounded(self.get_channel_size());
-		let cfg = self.create_config(req_protocol_names, Some(tx));
+		let cfg = self.create_config::<B, N>(req_protocol_names, Some(tx));
 		(rx, cfg)
 	}
 
-	fn create_config(
+	fn create_config<B: Block, N: NetworkBackend<B, <B as Block>::Hash>>(
 		self,
 		req_protocol_names: &ReqProtocolNames,
 		tx: Option<async_channel::Sender<network::IncomingRequest>>,
-	) -> RequestResponseConfig {
+	) -> N::RequestResponseProtocolConfig {
 		let name = req_protocol_names.get_name(self);
-		let fallback_names = self.get_fallback_names();
+		let legacy_names = self.get_legacy_name().into_iter().map(Into::into).collect();
 		match self {
-			Protocol::ChunkFetchingV1 => RequestResponseConfig {
+			Protocol::ChunkFetchingV1 | Protocol::ChunkFetchingV2 => N::request_response_config(
 				name,
-				fallback_names,
-				max_request_size: 1_000,
-				max_response_size: POV_RESPONSE_SIZE as u64 * 3,
+				legacy_names,
+				1_000,
+				POV_RESPONSE_SIZE as u64 * 3,
 				// We are connected to all validators:
-				request_timeout: CHUNK_REQUEST_TIMEOUT,
-				inbound_queue: tx,
-			},
-			Protocol::CollationFetchingV1 | Protocol::CollationFetchingVStaging =>
-				RequestResponseConfig {
+				CHUNK_REQUEST_TIMEOUT,
+				tx,
+			),
+			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 =>
+				N::request_response_config(
 					name,
-					fallback_names,
-					max_request_size: 1_000,
-					max_response_size: POV_RESPONSE_SIZE,
+					legacy_names,
+					1_000,
+					POV_RESPONSE_SIZE,
 					// Taken from initial implementation in collator protocol:
-					request_timeout: POV_REQUEST_TIMEOUT_CONNECTED,
-					inbound_queue: tx,
-				},
-			Protocol::PoVFetchingV1 => RequestResponseConfig {
+					POV_REQUEST_TIMEOUT_CONNECTED,
+					tx,
+				),
+			Protocol::PoVFetchingV1 => N::request_response_config(
 				name,
-				fallback_names,
-				max_request_size: 1_000,
-				max_response_size: POV_RESPONSE_SIZE,
-				request_timeout: POV_REQUEST_TIMEOUT_CONNECTED,
-				inbound_queue: tx,
-			},
-			Protocol::AvailableDataFetchingV1 => RequestResponseConfig {
+				legacy_names,
+				1_000,
+				POV_RESPONSE_SIZE,
+				POV_REQUEST_TIMEOUT_CONNECTED,
+				tx,
+			),
+			Protocol::AvailableDataFetchingV1 => N::request_response_config(
 				name,
-				fallback_names,
-				max_request_size: 1_000,
+				legacy_names,
+				1_000,
 				// Available data size is dominated by the PoV size.
-				max_response_size: POV_RESPONSE_SIZE,
-				request_timeout: POV_REQUEST_TIMEOUT_CONNECTED,
-				inbound_queue: tx,
-			},
-			Protocol::StatementFetchingV1 => RequestResponseConfig {
+				POV_RESPONSE_SIZE,
+				POV_REQUEST_TIMEOUT_CONNECTED,
+				tx,
+			),
+			Protocol::StatementFetchingV1 => N::request_response_config(
 				name,
-				fallback_names,
-				max_request_size: 1_000,
+				legacy_names,
+				1_000,
 				// Available data size is dominated code size.
-				max_response_size: STATEMENT_RESPONSE_SIZE,
+				STATEMENT_RESPONSE_SIZE,
 				// We need statement fetching to be fast and will try our best at the responding
 				// side to answer requests within that timeout, assuming a bandwidth of 500Mbit/s
 				// - which is the recommended minimum bandwidth for nodes on Kusama as of April
@@ -241,27 +264,27 @@ impl Protocol {
 				// waiting for timeout on an overloaded node.  Fetches from slow nodes will likely
 				// fail, but this is desired, so we can quickly move on to a faster one - we should
 				// also decrease its reputation.
-				request_timeout: Duration::from_secs(1),
-				inbound_queue: tx,
-			},
-			Protocol::DisputeSendingV1 => RequestResponseConfig {
+				Duration::from_secs(1),
+				tx,
+			),
+			Protocol::DisputeSendingV1 => N::request_response_config(
 				name,
-				fallback_names,
-				max_request_size: 1_000,
-				/// Responses are just confirmation, in essence not even a bit. So 100 seems
-				/// plenty.
-				max_response_size: 100,
-				request_timeout: DISPUTE_REQUEST_TIMEOUT,
-				inbound_queue: tx,
-			},
-			Protocol::AttestedCandidateVStaging => RequestResponseConfig {
+				legacy_names,
+				1_000,
+				// Responses are just confirmation, in essence not even a bit. So 100 seems
+				// plenty.
+				100,
+				DISPUTE_REQUEST_TIMEOUT,
+				tx,
+			),
+			Protocol::AttestedCandidateV2 => N::request_response_config(
 				name,
-				fallback_names,
-				max_request_size: 1_000,
-				max_response_size: ATTESTED_CANDIDATE_RESPONSE_SIZE,
-				request_timeout: ATTESTED_CANDIDATE_TIMEOUT,
-				inbound_queue: tx,
-			},
+				legacy_names,
+				1_000,
+				ATTESTED_CANDIDATE_RESPONSE_SIZE,
+				ATTESTED_CANDIDATE_TIMEOUT,
+				tx,
+			),
 		}
 	}
 
@@ -270,12 +293,12 @@ impl Protocol {
 		match self {
 			// Hundreds of validators will start requesting their chunks once they see a candidate
 			// awaiting availability on chain. Given that they will see that block at different
-			// times (due to network delays), 100 seems big enough to accomodate for "bursts",
+			// times (due to network delays), 100 seems big enough to accommodate for "bursts",
 			// assuming we can service requests relatively quickly, which would need to be measured
 			// as well.
-			Protocol::ChunkFetchingV1 => 100,
+			Protocol::ChunkFetchingV1 | Protocol::ChunkFetchingV2 => 100,
 			// 10 seems reasonable, considering group sizes of max 10 validators.
-			Protocol::CollationFetchingV1 | Protocol::CollationFetchingVStaging => 10,
+			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 => 10,
 			// 10 seems reasonable, considering group sizes of max 10 validators.
 			Protocol::PoVFetchingV1 => 10,
 			// Validators are constantly self-selecting to request available data which may lead
@@ -307,7 +330,7 @@ impl Protocol {
 			// failure, so having a good value here is mostly about performance tuning.
 			Protocol::DisputeSendingV1 => 100,
 
-			Protocol::AttestedCandidateVStaging => {
+			Protocol::AttestedCandidateV2 => {
 				// We assume we can utilize up to 70% of the available bandwidth for statements.
 				// This is just a guess/estimate, with the following considerations: If we are
 				// faster than that, queue size will stay low anyway, even if not - requesters will
@@ -328,12 +351,9 @@ impl Protocol {
 		}
 	}
 
-	/// Fallback protocol names of this protocol, as understood by substrate networking.
-	fn get_fallback_names(self) -> Vec<ProtocolName> {
-		self.get_legacy_name().into_iter().map(Into::into).collect()
-	}
-
 	/// Legacy protocol name associated with each peer set, if any.
+	/// The request will be tried on this legacy protocol name if the remote refuses to speak the
+	/// protocol.
 	const fn get_legacy_name(self) -> Option<&'static str> {
 		match self {
 			Protocol::ChunkFetchingV1 => Some("/polkadot/req_chunk/1"),
@@ -344,8 +364,9 @@ impl Protocol {
 			Protocol::DisputeSendingV1 => Some("/polkadot/send_dispute/1"),
 
 			// Introduced after legacy names became legacy.
-			Protocol::AttestedCandidateVStaging => None,
-			Protocol::CollationFetchingVStaging => None,
+			Protocol::AttestedCandidateV2 => None,
+			Protocol::CollationFetchingV2 => None,
+			Protocol::ChunkFetchingV2 => None,
 		}
 	}
 }
@@ -360,6 +381,7 @@ pub trait IsRequest {
 }
 
 /// Type for getting on the wire [`Protocol`] names using genesis hash & fork id.
+#[derive(Clone)]
 pub struct ReqProtocolNames {
 	names: HashMap<Protocol, ProtocolName>,
 }
@@ -395,6 +417,7 @@ impl ReqProtocolNames {
 		};
 
 		let short_name = match protocol {
+			// V1:
 			Protocol::ChunkFetchingV1 => "/req_chunk/1",
 			Protocol::CollationFetchingV1 => "/req_collation/1",
 			Protocol::PoVFetchingV1 => "/req_pov/1",
@@ -402,8 +425,10 @@ impl ReqProtocolNames {
 			Protocol::StatementFetchingV1 => "/req_statement/1",
 			Protocol::DisputeSendingV1 => "/send_dispute/1",
 
-			Protocol::CollationFetchingVStaging => "/req_collation/2",
-			Protocol::AttestedCandidateVStaging => "/req_attested_candidate/2",
+			// V2:
+			Protocol::CollationFetchingV2 => "/req_collation/2",
+			Protocol::AttestedCandidateV2 => "/req_attested_candidate/2",
+			Protocol::ChunkFetchingV2 => "/req_chunk/2",
 		};
 
 		format!("{}{}", prefix, short_name).into()

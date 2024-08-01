@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Rename transaction to transactionWatch
+
+doc:
+  - audience: Node Dev
+    description: |
+      Renamed `transaction_unstable_submitAndWatch` to `transactionWatch_unstable_submitAndWatch`,
+      `transaction_unstable_watchEvent` to `transactionWatch_unstable_watchEvent` and
+      `transaction_unstable_unwatch` to `transactionWatch_unstable_unwatch`.
+
+crates: 
+- name: sc-rpc-spec-v2

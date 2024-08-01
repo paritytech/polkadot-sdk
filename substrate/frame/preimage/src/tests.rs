@@ -24,25 +24,32 @@ use crate::mock::*;
 
 use frame_support::{
 	assert_err, assert_noop, assert_ok, assert_storage_noop,
-	traits::{fungible::InspectHold, Bounded, BoundedInline, Hash as PreimageHash},
+	traits::{fungible::InspectHold, Bounded, BoundedInline},
 	StorageNoopGuard,
 };
-use sp_core::{blake2_256, H256};
 use sp_runtime::{bounded_vec, TokenError};
 
 /// Returns one `Inline`, `Lookup` and `Legacy` item each with different data and hash.
-pub fn make_bounded_values() -> (Bounded<Vec<u8>>, Bounded<Vec<u8>>, Bounded<Vec<u8>>) {
+pub fn make_bounded_values() -> (
+	Bounded<Vec<u8>, <Test as frame_system::Config>::Hashing>,
+	Bounded<Vec<u8>, <Test as frame_system::Config>::Hashing>,
+	Bounded<Vec<u8>, <Test as frame_system::Config>::Hashing>,
+) {
 	let data: BoundedInline = bounded_vec![1];
-	let inline = Bounded::<Vec<u8>>::Inline(data);
+	let inline = Bounded::<Vec<u8>, <Test as frame_system::Config>::Hashing>::Inline(data);
 
 	let data = vec![1, 2];
-	let hash: H256 = blake2_256(&data[..]).into();
+	let hash = <Test as frame_system::Config>::Hashing::hash(&data[..]).into();
 	let len = data.len() as u32;
-	let lookup = Bounded::<Vec<u8>>::unrequested(hash, len);
+	let lookup =
+		Bounded::<Vec<u8>, <Test as frame_system::Config>::Hashing>::unrequested(hash, len);
 
 	let data = vec![1, 2, 3];
-	let hash: H256 = blake2_256(&data[..]).into();
-	let legacy = Bounded::<Vec<u8>>::Legacy { hash, dummy: Default::default() };
+	let hash = <Test as frame_system::Config>::Hashing::hash(&data[..]).into();
+	let legacy = Bounded::<Vec<u8>, <Test as frame_system::Config>::Hashing>::Legacy {
+		hash,
+		dummy: Default::default(),
+	};
 
 	(inline, lookup, legacy)
 }
@@ -51,7 +58,7 @@ pub fn make_bounded_values() -> (Bounded<Vec<u8>>, Bounded<Vec<u8>>, Bounded<Vec
 fn user_note_preimage_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1]));
-		assert_eq!(Balances::balance_on_hold(&(), &2), 3);
+		assert_eq!(Balances::balance_on_hold(&PreimageHoldReason::get(), &2), 3);
 		assert_eq!(Balances::free_balance(2), 97);
 
 		let h = hashed([1]);
@@ -248,14 +255,14 @@ fn unrequest_preimage_works() {
 fn user_noted_then_requested_preimage_is_refunded_once_only() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1; 3]));
-		assert_eq!(Balances::balance_on_hold(&(), &2), 5);
+		assert_eq!(Balances::balance_on_hold(&PreimageHoldReason::get(), &2), 5);
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1]));
-		assert_eq!(Balances::balance_on_hold(&(), &2), 8);
+		assert_eq!(Balances::balance_on_hold(&PreimageHoldReason::get(), &2), 8);
 		assert_ok!(Preimage::request_preimage(RuntimeOrigin::signed(1), hashed([1])));
 		assert_ok!(Preimage::unrequest_preimage(RuntimeOrigin::signed(1), hashed([1])));
 		assert_ok!(Preimage::unnote_preimage(RuntimeOrigin::signed(2), hashed([1])));
 		// Still have hold from `vec[1; 3]`.
-		assert_eq!(Balances::balance_on_hold(&(), &2), 5);
+		assert_eq!(Balances::balance_on_hold(&PreimageHoldReason::get(), &2), 5);
 	});
 }
 
@@ -303,7 +310,7 @@ fn query_and_store_preimage_workflow() {
 		let bound = Preimage::bound(data.clone()).unwrap();
 		let (len, hash) = (bound.len().unwrap(), bound.hash());
 
-		assert_eq!(hash, blake2_256(&encoded).into());
+		assert_eq!(hash, <Test as frame_system::Config>::Hashing::hash(&encoded).into());
 		assert_eq!(bound.len(), Some(len));
 		assert!(bound.lookup_needed(), "Should not be Inlined");
 		assert_eq!(bound.lookup_len(), Some(len));
@@ -364,7 +371,7 @@ fn query_preimage_request_works() {
 	new_test_ext().execute_with(|| {
 		let _guard = StorageNoopGuard::default();
 		let data: Vec<u8> = vec![1; 10];
-		let hash: PreimageHash = blake2_256(&data[..]).into();
+		let hash = <Test as frame_system::Config>::Hashing::hash(&data[..]).into();
 
 		// Request the preimage.
 		<Preimage as QueryPreimage>::request(&hash);
@@ -454,7 +461,7 @@ fn store_preimage_basic_works() {
 
 		// Cleanup.
 		<Preimage as StorePreimage>::unnote(&bound.hash());
-		let data_hash = blake2_256(&data);
+		let data_hash = <Test as frame_system::Config>::Hashing::hash(&data);
 		<Preimage as StorePreimage>::unnote(&data_hash.into());
 
 		// No storage changes remain. Checked by `StorageNoopGuard`.

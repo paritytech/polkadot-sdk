@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{limits::BlockWeights, Config, Pallet};
+use crate::{limits::BlockWeights, Config, Pallet, LOG_TARGET};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
@@ -37,7 +37,7 @@ use sp_weights::Weight;
 /// transaction is valid.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct CheckWeight<T: Config + Send + Sync>(sp_std::marker::PhantomData<T>);
+pub struct CheckWeight<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 
 impl<T: Config + Send + Sync> CheckWeight<T>
 where
@@ -50,21 +50,18 @@ where
 	) -> Result<(), TransactionValidityError> {
 		let max = T::BlockWeights::get().get(info.class).max_extrinsic;
 		match max {
-			Some(max) if info.weight.any_gt(max) =>
-				Err(InvalidTransaction::ExhaustsResources.into()),
+			Some(max) if info.weight.any_gt(max) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Extrinsic {} is greater than the max extrinsic {}",
+					info.weight,
+					max,
+				);
+
+				Err(InvalidTransaction::ExhaustsResources.into())
+			},
 			_ => Ok(()),
 		}
-	}
-
-	/// Checks if the current extrinsic can fit into the block with respect to block weight limits.
-	///
-	/// Upon successes, it returns the new block weight as a `Result`.
-	fn check_block_weight(
-		info: &DispatchInfoOf<T::RuntimeCall>,
-	) -> Result<crate::ConsumedWeight, TransactionValidityError> {
-		let maximum_weight = T::BlockWeights::get();
-		let all_weight = Pallet::<T>::block_weight();
-		calculate_consumed_weight::<T::RuntimeCall>(maximum_weight, all_weight, info)
 	}
 
 	/// Checks if the current extrinsic can fit into the block with respect to block length limits.
@@ -79,6 +76,13 @@ where
 		let added_len = len as u32;
 		let next_len = current_len.saturating_add(added_len);
 		if next_len > *length_limit.max.get(info.class) {
+			log::debug!(
+				target: LOG_TARGET,
+				"Exceeded block length limit: {} > {}",
+				next_len,
+				length_limit.max.get(info.class),
+			);
+
 			Err(InvalidTransaction::ExhaustsResources.into())
 		} else {
 			Ok(next_len)
@@ -98,7 +102,11 @@ where
 		len: usize,
 	) -> Result<(), TransactionValidityError> {
 		let next_len = Self::check_block_length(info, len)?;
-		let next_weight = Self::check_block_weight(info)?;
+
+		let all_weight = Pallet::<T>::block_weight();
+		let maximum_weight = T::BlockWeights::get();
+		let next_weight =
+			calculate_consumed_weight::<T::RuntimeCall>(&maximum_weight, all_weight, info, len)?;
 		Self::check_extrinsic_weight(info)?;
 
 		crate::AllExtrinsicsLen::<T>::put(next_len);
@@ -121,33 +129,51 @@ where
 	}
 }
 
+/// Checks if the current extrinsic can fit into the block with respect to block weight limits.
+///
+/// Upon successes, it returns the new block weight as a `Result`.
 pub fn calculate_consumed_weight<Call>(
-	maximum_weight: BlockWeights,
+	maximum_weight: &BlockWeights,
 	mut all_weight: crate::ConsumedWeight,
 	info: &DispatchInfoOf<Call>,
+	len: usize,
 ) -> Result<crate::ConsumedWeight, TransactionValidityError>
 where
 	Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	let extrinsic_weight =
-		info.weight.saturating_add(maximum_weight.get(info.class).base_extrinsic);
+	// Also Consider extrinsic length as proof weight.
+	let extrinsic_weight = info
+		.weight
+		.saturating_add(maximum_weight.get(info.class).base_extrinsic)
+		.saturating_add(Weight::from_parts(0, len as u64));
 	let limit_per_class = maximum_weight.get(info.class);
 
 	// add the weight. If class is unlimited, use saturating add instead of checked one.
 	if limit_per_class.max_total.is_none() && limit_per_class.reserved.is_none() {
 		all_weight.accrue(extrinsic_weight, info.class)
 	} else {
-		all_weight
-			.checked_accrue(extrinsic_weight, info.class)
-			.map_err(|_| InvalidTransaction::ExhaustsResources)?;
+		all_weight.checked_accrue(extrinsic_weight, info.class).map_err(|_| {
+			log::debug!(
+				target: LOG_TARGET,
+				"All weight checked add overflow.",
+			);
+
+			InvalidTransaction::ExhaustsResources
+		})?;
 	}
 
 	let per_class = *all_weight.get(info.class);
 
 	// Check if we don't exceed per-class allowance
 	match limit_per_class.max_total {
-		Some(max) if per_class.any_gt(max) =>
-			return Err(InvalidTransaction::ExhaustsResources.into()),
+		Some(max) if per_class.any_gt(max) => {
+			log::debug!(
+				target: LOG_TARGET,
+				"Exceeded the per-class allowance.",
+			);
+
+			return Err(InvalidTransaction::ExhaustsResources.into());
+		},
 		// There is no `max_total` limit (`None`),
 		// or we are below the limit.
 		_ => {},
@@ -158,8 +184,14 @@ where
 	if all_weight.total().any_gt(maximum_weight.max_block) {
 		match limit_per_class.reserved {
 			// We are over the limit in reserved pool.
-			Some(reserved) if per_class.any_gt(reserved) =>
-				return Err(InvalidTransaction::ExhaustsResources.into()),
+			Some(reserved) if per_class.any_gt(reserved) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Total block weight is exceeded.",
+				);
+
+				return Err(InvalidTransaction::ExhaustsResources.into());
+			},
 			// There is either no limit in reserved pool (`None`),
 			// or we are below the limit.
 			_ => {},
@@ -179,7 +211,7 @@ where
 	type Pre = ();
 	const IDENTIFIER: &'static str = "CheckWeight";
 
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
 		Ok(())
 	}
 
@@ -233,18 +265,30 @@ where
 			})
 		}
 
+		log::trace!(
+			target: LOG_TARGET,
+			"Used block weight: {:?}",
+			crate::BlockWeight::<T>::get(),
+		);
+
+		log::trace!(
+			target: LOG_TARGET,
+			"Used block length: {:?}",
+			Pallet::<T>::all_extrinsics_len(),
+		);
+
 		Ok(())
 	}
 }
 
-impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckWeight<T> {
+impl<T: Config + Send + Sync> core::fmt::Debug for CheckWeight<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "CheckWeight")
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -256,8 +300,8 @@ mod tests {
 		mock::{new_test_ext, System, Test, CALL},
 		AllExtrinsicsLen, BlockWeight, DispatchClass,
 	};
+	use core::marker::PhantomData;
 	use frame_support::{assert_err, assert_ok, dispatch::Pays, weights::Weight};
-	use sp_std::marker::PhantomData;
 
 	fn block_weights() -> crate::limits::BlockWeights {
 		<Test as crate::Config>::BlockWeights::get()
@@ -698,17 +742,118 @@ mod tests {
 
 		// when
 		assert_ok!(calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
-			maximum_weight.clone(),
+			&maximum_weight,
 			all_weight.clone(),
-			&mandatory1
+			&mandatory1,
+			0
 		));
 		assert_err!(
 			calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
-				maximum_weight,
+				&maximum_weight,
 				all_weight,
-				&mandatory2
+				&mandatory2,
+				0
 			),
 			InvalidTransaction::ExhaustsResources
 		);
+	}
+
+	#[test]
+	fn proof_size_includes_length() {
+		let maximum_weight = BlockWeights::builder()
+			.base_block(Weight::zero())
+			.for_class(DispatchClass::non_mandatory(), |w| {
+				w.base_extrinsic = Weight::zero();
+				w.max_total = Some(Weight::from_parts(20, 1000));
+			})
+			.for_class(DispatchClass::Mandatory, |w| {
+				w.base_extrinsic = Weight::zero();
+				w.max_total = Some(Weight::from_parts(20, 1000));
+			})
+			.build_or_panic();
+		let all_weight = crate::ConsumedWeight::new(|class| match class {
+			DispatchClass::Normal => Weight::from_parts(5, 0),
+			DispatchClass::Operational => Weight::from_parts(5, 0),
+			DispatchClass::Mandatory => Weight::from_parts(0, 0),
+		});
+
+		let normal = DispatchInfo {
+			weight: Weight::from_parts(5, 0),
+			class: DispatchClass::Normal,
+			..Default::default()
+		};
+
+		let mandatory = DispatchInfo {
+			weight: Weight::from_parts(5, 0),
+			class: DispatchClass::Mandatory,
+			..Default::default()
+		};
+
+		// Using 0 length extrinsics.
+		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
+			&maximum_weight,
+			all_weight.clone(),
+			&normal,
+			0,
+		)
+		.unwrap();
+
+		assert_eq!(consumed.total().saturating_sub(all_weight.total()), normal.weight);
+
+		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
+			&maximum_weight,
+			all_weight.clone(),
+			&mandatory,
+			0,
+		)
+		.unwrap();
+		assert_eq!(consumed.total().saturating_sub(all_weight.total()), mandatory.weight);
+
+		// Using non zero length extrinsics.
+		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
+			&maximum_weight,
+			all_weight.clone(),
+			&normal,
+			100,
+		)
+		.unwrap();
+		// Must account for the len in the proof size
+		assert_eq!(
+			consumed.total().saturating_sub(all_weight.total()),
+			normal.weight.add_proof_size(100)
+		);
+
+		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
+			&maximum_weight,
+			all_weight.clone(),
+			&mandatory,
+			100,
+		)
+		.unwrap();
+		// Must account for the len in the proof size
+		assert_eq!(
+			consumed.total().saturating_sub(all_weight.total()),
+			mandatory.weight.add_proof_size(100)
+		);
+
+		// Using oversized zero length extrinsics.
+		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
+			&maximum_weight,
+			all_weight.clone(),
+			&normal,
+			2000,
+		);
+		// errors out
+		assert_eq!(consumed, Err(InvalidTransaction::ExhaustsResources.into()));
+
+		// Using oversized zero length extrinsics.
+		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
+			&maximum_weight,
+			all_weight.clone(),
+			&mandatory,
+			2000,
+		);
+		// errors out
+		assert_eq!(consumed, Err(InvalidTransaction::ExhaustsResources.into()));
 	}
 }
