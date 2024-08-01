@@ -17,8 +17,8 @@
 
 use super::*;
 use crate::log;
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -60,7 +60,7 @@ pub mod unversioned {
 	use super::*;
 
 	/// Checks and updates `TotalValueLocked` if out of sync.
-	pub struct TotalValueLockedSync<T>(sp_std::marker::PhantomData<T>);
+	pub struct TotalValueLockedSync<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for TotalValueLockedSync<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
@@ -125,7 +125,7 @@ pub mod unversioned {
 	///
 	/// If there are pools that fail to migrate or did not fit in the bounds, the remaining pools
 	/// can be migrated via the permission-less extrinsic [`Call::migrate_pool_to_delegate_stake`].
-	pub struct DelegationStakeMigration<T, MaxPools>(sp_std::marker::PhantomData<(T, MaxPools)>);
+	pub struct DelegationStakeMigration<T, MaxPools>(core::marker::PhantomData<(T, MaxPools)>);
 
 	impl<T: Config, MaxPools: Get<u32>> OnRuntimeUpgrade for DelegationStakeMigration<T, MaxPools> {
 		fn on_runtime_upgrade() -> Weight {
@@ -262,7 +262,7 @@ pub mod v8 {
 		}
 	}
 
-	pub struct VersionUncheckedMigrateV7ToV8<T>(sp_std::marker::PhantomData<T>);
+	pub struct VersionUncheckedMigrateV7ToV8<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV7ToV8<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
@@ -341,7 +341,7 @@ pub(crate) mod v7 {
 	pub type BondedPools<T: Config> =
 		CountedStorageMap<Pallet<T>, Twox64Concat, PoolId, V7BondedPoolInner<T>>;
 
-	pub struct VersionUncheckedMigrateV6ToV7<T>(sp_std::marker::PhantomData<T>);
+	pub struct VersionUncheckedMigrateV6ToV7<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV6ToV7<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let migrated = BondedPools::<T>::count();
@@ -402,7 +402,7 @@ mod v6 {
 
 	/// This migration would restrict reward account of pools to go below ED by doing a named
 	/// freeze on all the existing pools.
-	pub struct MigrateToV6<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV6<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> MigrateToV6<T> {
 		fn freeze_ed(pool_id: PoolId) -> Result<(), ()> {
@@ -470,7 +470,7 @@ pub mod v5 {
 
 	/// This migration adds `total_commission_pending` and `total_commission_claimed` field to every
 	/// `RewardPool`, if any.
-	pub struct MigrateToV5<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV5<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV5<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let in_code = Pallet::<T>::in_code_storage_version();
@@ -625,7 +625,7 @@ pub mod v4 {
 	#[deprecated(
 		note = "To avoid mangled storage please use `MigrateV3ToV5` instead. See: github.com/paritytech/substrate/pull/13715"
 	)]
-	pub struct MigrateToV4<T, U>(sp_std::marker::PhantomData<(T, U)>);
+	pub struct MigrateToV4<T, U>(core::marker::PhantomData<(T, U)>);
 	#[allow(deprecated)]
 	impl<T: Config, U: Get<Perbill>> OnRuntimeUpgrade for MigrateToV4<T, U> {
 		fn on_runtime_upgrade() -> Weight {
@@ -707,7 +707,7 @@ pub mod v3 {
 	use super::*;
 
 	/// This migration removes stale bonded-pool metadata, if any.
-	pub struct MigrateToV3<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV3<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV3<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let current = Pallet::<T>::in_code_storage_version();
@@ -845,7 +845,7 @@ pub mod v2 {
 
 	/// Migrate the pool reward scheme to the new version, as per
 	/// <https://github.com/paritytech/substrate/pull/11669.>.
-	pub struct MigrateToV2<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV2<T>(core::marker::PhantomData<T>);
 	impl<T: Config> MigrateToV2<T> {
 		fn run(current: StorageVersion) -> Weight {
 			let mut reward_pools_translated = 0u64;
@@ -1104,7 +1104,7 @@ pub mod v1 {
 	/// Trivial migration which makes the roles of each pool optional.
 	///
 	/// Note: The depositor is not optional since they can never change.
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let current = Pallet::<T>::in_code_storage_version();
