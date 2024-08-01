@@ -54,7 +54,7 @@ pub mod old {
 }
 
 pub struct Migration<T: Config<I>, I: 'static = ()>(PhantomData<(T, I)>);
-impl<T: Config<I, AssetId = v4::Location>, I: 'static> SteppedMigration for Migration<T, I> {
+impl<T: Config<I>, I: 'static> SteppedMigration for Migration<T, I> {
 	type Cursor = v3::Location;
 	type Identifier = MigrationId<13>;
 
