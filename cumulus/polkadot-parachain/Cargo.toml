@@ -77,7 +77,6 @@ sp-block-builder = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
-sc-rpc-spec-v2 = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
 sp-offchain = { workspace = true, default-features = true }

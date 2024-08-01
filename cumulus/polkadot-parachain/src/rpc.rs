@@ -28,7 +28,6 @@ use sc_rpc::{
 	dev::{Dev, DevApiServer},
 	DenyUnsafe,
 };
-use sc_rpc_spec_v2::chain_spec::{ChainSpec, ChainSpecApiServer};
 use std::{marker::PhantomData, sync::Arc};
 use substrate_frame_rpc_system::{System, SystemApiServer};
 use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
@@ -92,12 +91,6 @@ where
 			module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 			module.merge(StateMigration::new(client.clone(), backend, deny_unsafe).into_rpc())?;
 			module.merge(Dev::new(client, deny_unsafe).into_rpc())?;
-
-			// RPC spec v2 method.
-			let chain_name = chain_spec.name().to_string();
-			let genesis_hash = client.hash(0).ok().flatten().expect("Genesis block exists; qed");
-			let properties = chain_spec.properties();
-			module.merge(ChainSpec::new(chain_name, genesis_hash, properties).into_rpc())?;
 
 			Ok(module)
 		};
