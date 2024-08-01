@@ -23,3 +23,6 @@ mod tests;
 
 pub mod api;
 pub mod sudo_session_keys;
+
+pub use api::SudoSessionKeysServer;
+pub use sudo_session_keys::SudoSessionKeys;
