@@ -186,6 +186,7 @@ use ::{
 	log,
 	sp_runtime::TryRuntimeError,
 };
+use cumulus_primitives_storage_weight_reclaim::get_proof_size;
 
 #[allow(dead_code)]
 const LOG_TARGET: &str = "runtime::executive";
@@ -590,9 +591,16 @@ where
 			);
 		}
 		<frame_system::Pallet<System>>::initialize(block_number, parent_hash, digest);
+		let proof_size_before = get_proof_size().expect("Recording should be enabled.");
 		weight = weight.saturating_add(<AllPalletsWithSystem as OnInitialize<
 			BlockNumberFor<System>,
 		>>::on_initialize(*block_number));
+		let proof_size_after = get_proof_size().expect("Recording should be enabled.");
+		let consumed_by_on_initialize = proof_size_after.saturating_sub(proof_size_before);
+		// It is expected that on_initialize reports more than it uses.
+		// Together with the weight of on_finalize it should roughly match again however.
+		log::info!(target: LOG_TARGET, "on_initialize before = {}, after = {}, used = {}, reported = {}", proof_size_before, proof_size_after, consumed_by_on_initialize,  weight.proof_size());
+
 		weight = weight.saturating_add(
 			<System::BlockWeights as frame_support::traits::Get<_>>::get().base_block,
 		);
@@ -727,10 +735,15 @@ where
 		let remaining_weight = max_weight.saturating_sub(weight.total());
 
 		if remaining_weight.all_gt(Weight::zero()) {
+			log::info!(target: LOG_TARGET, "on_idle budget = {}", remaining_weight.proof_size());
+			let proof_size_before = get_proof_size().expect("Recording should be enabled.");
 			let used_weight = <AllPalletsWithSystem as OnIdle<BlockNumberFor<System>>>::on_idle(
 				block_number,
 				remaining_weight,
 			);
+			let proof_size_after = get_proof_size().expect("Recording should be enabled.");
+			let consumed_by_on_idle = proof_size_after.saturating_sub(proof_size_before);
+			log::info!(target: LOG_TARGET, "on_idle before = {}, after = {}, used = {}, reported = {}", proof_size_before, proof_size_after, consumed_by_on_idle,  used_weight);
 			<frame_system::Pallet<System>>::register_extra_weight_unchecked(
 				used_weight,
 				DispatchClass::Mandatory,
@@ -763,7 +776,11 @@ where
 
 	/// Run the `on_finalize` hook of all pallet.
 	fn on_finalize_hook(block_number: NumberFor<Block>) {
+		let proof_size_before = get_proof_size().expect("Recording should be enabled.");
 		<AllPalletsWithSystem as OnFinalize<BlockNumberFor<System>>>::on_finalize(block_number);
+		let proof_size_after = get_proof_size().expect("Recording should be enabled.");
+		let consumed_by_on_finalize = proof_size_after.saturating_sub(proof_size_before);
+		log::info!(target: LOG_TARGET, "on_finalize before = {}, after = {}, used = {}", proof_size_before, proof_size_after, consumed_by_on_finalize);
 	}
 
 	/// Apply extrinsic outside of the block execution function.

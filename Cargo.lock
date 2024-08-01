@@ -5857,6 +5857,7 @@ version = "28.0.0"
 dependencies = [
  "aquamarine",
  "array-bytes",
+ "cumulus-primitives-storage-weight-reclaim",
  "frame-support",
  "frame-system",
  "frame-try-runtime",
