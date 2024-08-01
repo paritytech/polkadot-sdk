@@ -69,6 +69,7 @@ std = [
 	"pallet-asset-rate?/std",
 	"pallet-asset-tx-payment?/std",
 	"pallet-assets-freezer?/std",
+	"pallet-assets-holder?/std",
 	"pallet-assets?/std",
 	"pallet-atomic-swap?/std",
 	"pallet-aura?/std",
@@ -265,6 +266,7 @@ runtime-benchmarks = [
 	"pallet-asset-rate?/runtime-benchmarks",
 	"pallet-asset-tx-payment?/runtime-benchmarks",
 	"pallet-assets-freezer?/runtime-benchmarks",
+	"pallet-assets-holder?/runtime-benchmarks",
 	"pallet-assets?/runtime-benchmarks",
 	"pallet-babe?/runtime-benchmarks",
 	"pallet-bags-list?/runtime-benchmarks",
@@ -389,6 +391,7 @@ try-runtime = [
 	"pallet-asset-rate?/try-runtime",
 	"pallet-asset-tx-payment?/try-runtime",
 	"pallet-assets-freezer?/try-runtime",
+	"pallet-assets-holder?/try-runtime",
 	"pallet-assets?/try-runtime",
 	"pallet-atomic-swap?/try-runtime",
 	"pallet-aura?/try-runtime",
@@ -603,6 +606,7 @@ runtime = [
 	"pallet-asset-tx-payment",
 	"pallet-assets",
 	"pallet-assets-freezer",
+	"pallet-assets-holder",
 	"pallet-atomic-swap",
 	"pallet-aura",
 	"pallet-authority-discovery",
@@ -1100,6 +1104,11 @@ optional = true
 
 [dependencies.pallet-assets-freezer]
 path = "../substrate/frame/assets-freezer"
+default-features = false
+optional = true
+
+[dependencies.pallet-assets-holder]
+path = "../substrate/frame/assets-holder"
 default-features = false
 optional = true
 
