@@ -38,7 +38,6 @@ mod benches {
 	fn step() {
 		let key = v3::Location::new(1, [v3::Junction::Parachain(2004)]);
 		let mock_asset_details = mock_asset_details::<T, I>();
-		//dbg!(&std::any::type_name::<T as pallet_assets::Config<I>>::AssetId>());
 		old::Asset::<T, I>::insert(key.clone(), mock_asset_details);
 
 		let mut meter = WeightMeter::new();

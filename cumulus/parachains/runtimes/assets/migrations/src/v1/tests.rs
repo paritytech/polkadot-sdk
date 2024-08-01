@@ -15,19 +15,17 @@
 
 //! Tests for the foreign assets migration.
 
-use codec::Encode;
 use frame_support::{
 	construct_runtime, derive_impl, migrations::SteppedMigration, traits::AsEnsureOriginWithArg,
-	weights::WeightMeter, Hashable,
+	weights::WeightMeter,
 };
 use frame_system::{EnsureRoot, EnsureSigned};
-use hex_display::HexDisplayExt;
 use pallet_assets::{Asset, AssetDetails, AssetStatus};
-use sp_io::{hashing, storage, TestExternalities};
+use sp_io::TestExternalities;
 use sp_runtime::BuildStorage;
 use xcm::{v3, v4};
 
-use super::{mock_asset_details, old, Migration};
+use super::{old, Migration};
 
 construct_runtime! {
 	pub struct Runtime {
@@ -105,4 +103,21 @@ fn migration_works() {
 		let new_key = v4::Location::new(1, [v4::Junction::Parachain(2004)]);
 		assert!(Asset::<Runtime>::contains_key(new_key));
 	})
+}
+
+fn mock_asset_details() -> AssetDetails<Balance, AccountId, Balance> {
+	AssetDetails {
+		owner: 0,
+		issuer: 0,
+		admin: 0,
+		freezer: 0,
+		supply: Default::default(),
+		deposit: Default::default(),
+		min_balance: 1u32.into(),
+		is_sufficient: false,
+		accounts: Default::default(),
+		sufficients: Default::default(),
+		approvals: Default::default(),
+		status: AssetStatus::Live,
+	}
 }
