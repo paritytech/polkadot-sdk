@@ -1,0 +1,37 @@
+title: "Implement `pallet-assets-holder`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+        This change creates the `pallet-assets-holder` pallet, as well as changes `pallet-assets`
+        to support querying held balances via a new trait: `HeldBalance`.
+        
+        It also adjusts the balance model implementation for fungible
+        sets (see [sdk docs](https://paritytech.github.io/polkadot-sdk/master/frame_support/traits/tokens/fungible/index.html#visualising-balance-components-together-)).
+
+        The `pallet-assets-holder` implements `hold` traits for `pallet-assets`, by extending this
+        pallet and implementing the `HeldBalance` trait so the held balance can be queried by
+        `pallet-assets` to calculate the reducible (a.k.a. spendable) balance.
+        
+        These changes imply adding a configuration type in `pallet-assets` for `Holder`
+        
+        ## Default implementation of `Holder`
+        
+        Use `()` as the default value, when no holding capabilities are wanted in the runtime
+        implementation.
+
+        ## Enable `pallet-assets-holder`
+        
+        Define an instance of `pallet-assets-holder` (we'll call it `AssetsHolder`) and use
+        `AssetsHolder` as the value for `Holder`, when intend to use holding capabilities are
+        wanted in the runtime implementation.
+
+crates:
+  - name: pallet-assets
+    bump: major
+  - name: pallet-assets-holder
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
