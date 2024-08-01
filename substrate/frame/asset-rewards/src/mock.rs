@@ -202,7 +202,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	let pool_zero_account_id = 31086825966906540362769395565;
 	pallet_balances::GenesisConfig::<MockRuntime> {
 		balances: vec![
-			// (0, 10000),
+			(0, 10000),
 			(1, 10000),
 			(2, 20000),
 			(3, 30000),
