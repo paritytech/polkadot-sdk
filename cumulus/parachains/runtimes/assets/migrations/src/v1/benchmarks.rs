@@ -17,13 +17,10 @@
 
 use frame_benchmarking::v2::*;
 use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
-use pallet_assets::{Asset, Config};
+use pallet_assets::{Asset, AssetDetails, AssetStatus, Config};
 use xcm::{v3, v4};
 
-use crate::{
-	v1::{old::AssetDetailsOf, AssetDetails, AssetStatus},
-	Pallet,
-};
+use crate::{v1::old::AssetDetailsOf, Pallet};
 
 use super::{old, Migration};
 
