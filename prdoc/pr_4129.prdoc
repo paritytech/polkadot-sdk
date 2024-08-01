@@ -1,0 +1,24 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Migrate ForeignAssets from xcm::v3::Location to xcm::v4::Location
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      There's a new migration, under the new crate `assets-common-migrations`, that migrates foreign assets
+      from xcm::v3::Location to xcm::v4::Location.
+      This simplifies a lot of code converting v3 to v4 in tests.
+      It was the missing step from v4 and is a stepping stone for XCMv5.
+      This is a multi-block migration (MBM), so when executed, it will potentially take some blocks to execute.
+      The setup for MBMs was done for asset-hub-rococo and asset-hub-westend.
+  - audience: Runtime User
+    description: |
+      There's now a migration for foreign assets from XCMv3 to XCMv4.
+      The underlying assets are still the same.
+
+crates:
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
