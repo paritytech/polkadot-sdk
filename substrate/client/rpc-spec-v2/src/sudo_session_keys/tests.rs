@@ -17,10 +17,10 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{sudo_session_keys::SudoSessionKeys, MethodResult};
+use crate::sudo_session_keys::api::SudoSessionKeysServer;
 use codec::Decode;
 use jsonrpsee::{types::EmptyServerParams as EmptyParams, RpcModule};
-
-use crate::sudo_session_keys::api::SudoSessionKeysServer;
+use sc_rpc_api::DenyUnsafe;
 use sp_core::{
 	crypto::ByteArray,
 	testing::{ED25519, SR25519},
@@ -33,17 +33,19 @@ use substrate_test_runtime_client::{
 	Backend, Client, DefaultTestClientBuilderExt, TestClientBuilderExt,
 };
 
-fn setup_api() -> (Arc<MemoryKeystore>, RpcModule<SudoSessionKeys<Client<Backend>, Block>>) {
+fn setup_api(
+	deny_unsafe: DenyUnsafe,
+) -> (Arc<MemoryKeystore>, RpcModule<SudoSessionKeys<Client<Backend>, Block>>) {
 	let keystore = Arc::new(MemoryKeystore::new());
 	let client = Arc::new(substrate_test_runtime_client::TestClientBuilder::new().build());
-	let api = SudoSessionKeys::new(client, keystore.clone()).into_rpc();
+	let api = SudoSessionKeys::new(client, keystore.clone(), deny_unsafe).into_rpc();
 
 	(keystore, api)
 }
 
 #[tokio::test]
 async fn sudo_session_keys_unstable_generate() {
-	let (keystore, api) = setup_api();
+	let (keystore, api) = setup_api(DenyUnsafe::No);
 
 	let response: MethodResult = api
 		.call("sudo_sessionKeys_unstable_generate", EmptyParams::new())

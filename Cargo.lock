@@ -18141,6 +18141,7 @@ dependencies = [
  "sc-chain-spec",
  "sc-client-api",
  "sc-rpc",
+ "sc-rpc-api",
  "sc-service",
  "sc-transaction-pool",
  "sc-transaction-pool-api",

@@ -19,6 +19,7 @@
 //! API implementation for `sudo_session_keys`.
 
 use jsonrpsee::core::{async_trait, RpcResult};
+use sc_rpc_api::DenyUnsafe;
 use sp_blockchain::HeaderBackend;
 use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::Block as BlockT;
@@ -35,14 +36,16 @@ pub struct SudoSessionKeys<Client, Block: BlockT> {
 	client: Arc<Client>,
 	/// The key store.
 	keystore: KeystorePtr,
+	/// Whether to deny unsafe calls
+	deny_unsafe: DenyUnsafe,
 	/// Phantom data to hold the block type.
 	_phantom: PhantomData<Block>,
 }
 
 impl<Client, Block: BlockT> SudoSessionKeys<Client, Block> {
 	/// Create a new [`SudoSessionKeys`].
-	pub fn new(client: Arc<Client>, keystore: KeystorePtr) -> Self {
-		Self { client, keystore, _phantom: PhantomData }
+	pub fn new(client: Arc<Client>, keystore: KeystorePtr, deny_unsafe: DenyUnsafe) -> Self {
+		Self { client, keystore, deny_unsafe, _phantom: PhantomData }
 	}
 }
 
@@ -54,6 +57,11 @@ where
 	Client::Api: SessionKeys<Block>,
 {
 	fn sudo_session_keys_unstable_generate(&self, seed: Option<String>) -> RpcResult<MethodResult> {
+		// Deny potentially unsafe calls.
+		if let Err(err) = self.deny_unsafe.check_if_safe() {
+			return Ok(MethodResult::err(err.to_string()));
+		}
+
 		// Call into the runtime of the best block hash.
 		let best_block_hash = self.client.info().best_hash;
 		let mut runtime_api = self.client.runtime_api();
