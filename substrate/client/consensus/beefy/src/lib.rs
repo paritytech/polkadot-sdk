@@ -32,7 +32,7 @@ use crate::{
 	metrics::register_metrics,
 };
 use futures::{stream::Fuse, FutureExt, StreamExt};
-use log::{debug, error, info, log_enabled, trace, warn, Level};
+use log::{debug, error, info, trace, warn};
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry;
 use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotification, Finalizer};
