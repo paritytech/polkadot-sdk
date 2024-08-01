@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722427562602,
+  "lastUpdate": 1722508120375,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -13535,6 +13535,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 6.783014953219977,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6a5b6e03bfc8d0c6f5f05f3180313902c15aee84",
+          "message": "Adjust sync templates flow to use new release branch (#5182)\n\nAs the release branch name changed starting from this release, this PR\nadds it to the sync templates flow so that checkout step worked\nproperly.\n\n---------\n\nCo-authored-by: rzadp <roopert7@gmail.com>",
+          "timestamp": "2024-08-01T08:43:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6a5b6e03bfc8d0c6f5f05f3180313902c15aee84"
+        },
+        "date": 1722508088662,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52937.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 64004.1,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.330001695460052,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.246461626520174,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.386040631450024,
             "unit": "seconds"
           }
         ]
