@@ -41,7 +41,6 @@ mod impl_held_balance {
 
 	#[test]
 	fn held_balance_works() {
-		let _ = env_logger::init();
 		new_test_ext(|| {
 			assert_eq!(AssetsHolder::held_balance(ASSET_ID, &WHO), None);
 			test_hold(DummyHoldReason::Governance, 1);
