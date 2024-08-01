@@ -17,15 +17,171 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, StakeImbalance};
+use crate::{mock::*, Error, StakeImbalance, UnsettledTargetScores};
 
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
-use frame_support::assert_ok;
+use frame_support::{assert_noop, assert_ok};
+use sp_runtime::traits::TypedGet;
 use sp_staking::{OnStakingUpdate, Stake, StakerStatus, StakingInterface};
 
 // keeping tests clean.
 type A = AccountId;
 type B = Balance;
+
+mod stake_imbalance {
+	use super::*;
+
+	#[test]
+	fn stake_imbalance_arithmetic_works() {
+		use std::ops::Add;
+
+		// 0 + 0 = 0
+		assert_eq!(StakeImbalance::<u32>::Zero.add(StakeImbalance::Zero), StakeImbalance::Zero,);
+
+		// 1 + 0 = 1
+		assert_eq!(
+			StakeImbalance::Positive(1).add(StakeImbalance::Zero),
+			StakeImbalance::Positive(1),
+		);
+
+		// -1 + 0 = -1
+		assert_eq!(
+			StakeImbalance::Negative(1).add(StakeImbalance::Zero),
+			StakeImbalance::Negative(1),
+		);
+
+		// -2 + 2 = 0
+		assert_eq!(
+			StakeImbalance::Negative(2).add(StakeImbalance::Positive(2)),
+			StakeImbalance::Zero,
+		);
+
+		// 1 + 2 = 3
+		assert_eq!(
+			StakeImbalance::Positive(1).add(StakeImbalance::Positive(2)),
+			StakeImbalance::Positive(3)
+		);
+
+		// 1 + (-2) = -1
+		assert_eq!(
+			StakeImbalance::Positive(1).add(StakeImbalance::Negative(2)),
+			StakeImbalance::Negative(1)
+		);
+
+		// -1 + 2 = 1
+		assert_eq!(
+			StakeImbalance::Negative(1).add(StakeImbalance::Positive(2)),
+			StakeImbalance::Positive(1)
+		);
+
+		// -1 + (-2) = -3
+		assert_eq!(
+			StakeImbalance::Negative(1).add(StakeImbalance::Negative(2)),
+			StakeImbalance::Negative(3)
+		);
+	}
+
+	#[test]
+	fn updates_below_threshold_buffer_works() {
+		ExtBuilder::default().set_update_threshold(Some(10)).build_and_execute(|| {
+			add_validator(10, 100);
+			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 100);
+
+			// updating stake by 200 will reflect in the target list.
+			update_stake(10, 200, stake_of(10));
+			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 200);
+			// unsettled stake list is empty.
+			assert_eq!(UnsettledTargetScores::<Test>::get(), vec![]);
+
+			// updating stake by +5 (below thresahold) will *not* reflect in the target list and
+			// update the unsettled stake list.
+			update_stake(10, 205, stake_of(10));
+			// target list was not updated.
+			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 200);
+			// unsettled stake list has the bufferd score for target 10.
+			assert_eq!(
+				UnsettledTargetScores::<Test>::get(),
+				vec![(10u64, StakeImbalance::Positive(5))]
+			);
+
+			// updating the stake by -7 is still below the threshold and thus target list is not
+			// affected. The buffered score will be updated accordingly.
+			update_stake(10, 198, stake_of(10));
+			// target list was not updated.
+			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 200);
+			// unsettled stake list has the bufferd score for target 10.
+			assert_eq!(
+				UnsettledTargetScores::<Test>::get(),
+				vec![(10u64, StakeImbalance::Negative(2))]
+			);
+
+			// finally, settling the buffered target score for 10 will affect the target's
+			// approvals.
+			assert_ok!(StakeTracker::do_settle(&10));
+			// +5 + (-7) imbalance = (-2), thus approvals is initial approvals - 2.
+			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 198);
+			// unsettled stake list is empty again.
+			assert_eq!(UnsettledTargetScores::<Test>::get(), vec![]);
+		})
+	}
+
+	#[test]
+	fn settle_buffered_score_works() {
+		ExtBuilder::default().set_update_threshold(Some(10)).build_and_execute(|| {
+			add_validator(10, 100);
+			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 100);
+			assert_eq!(UnsettledTargetScores::<Test>::get(), vec![]);
+
+			// updating stake by +5 (below thresahold) will *not* reflect in the target list and
+			// update the unsettled stake list.
+			update_stake(10, 105, stake_of(10));
+			// target list was not updated.
+			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 100);
+			// unsettled stake list has the bufferd score for target 10.
+			assert_eq!(
+				UnsettledTargetScores::<Test>::get(),
+				vec![(10u64, StakeImbalance::Positive(5))]
+			);
+
+			// calls `settle` extrinsic to settle the buffered score of 10.
+			assert_ok!(StakeTracker::settle(RuntimeOrigin::signed(1), 10));
+
+			// approvals were updated accordingly
+			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 105);
+			// unsettled stake list is empty again.
+			assert_eq!(UnsettledTargetScores::<Test>::get(), vec![]);
+
+			// calling `settle` with target account that does not have buffered score errors.
+			assert_noop!(
+				StakeTracker::settle(RuntimeOrigin::signed(1), 10),
+				Error::<Test>::NoScoreToSettle,
+			);
+		})
+	}
+
+	#[test]
+	fn settle_buffered_score_error_works() {
+		ExtBuilder::default().set_update_threshold(Some(10)).build_and_execute(|| {
+			assert!(!TargetBagsList::contains(&100));
+
+			// calling `settle` of an account that does not exist in the target list errors.
+			assert_noop!(
+				StakeTracker::settle(RuntimeOrigin::signed(1), 100),
+				Error::<Test>::NotTarget,
+			);
+
+			add_validator(10, 100);
+			assert!(TargetBagsList::contains(&10));
+			assert_eq!(UnsettledTargetScores::<Test>::get(), vec![]);
+
+			// calling `settle` with target account that does not have buffered score errors.
+			assert_noop!(
+				StakeTracker::settle(RuntimeOrigin::signed(1), 10),
+				Error::<Test>::NoScoreToSettle,
+			);
+		})
+	}
+}
 
 #[test]
 fn setup_works() {

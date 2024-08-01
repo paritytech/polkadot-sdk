@@ -19,6 +19,7 @@ codec = { features = [
 
 scale-info = { features = ["derive", "serde"], workspace = true }
 
+sp-std = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 
@@ -56,6 +57,7 @@ std = [
 	"sp-runtime/std",
 	"sp-runtime/std",
 	"sp-staking/std",
+	"sp-std/std",
 	"sp-tracing/std",
 ]
 

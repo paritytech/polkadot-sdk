@@ -256,6 +256,7 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Runtime {
 
 parameter_types! {
 	pub static UpdateMode: VoterUpdateMode = VoterUpdateMode::Lazy;
+	pub static ScoreStrictUpdateThreshold: Option<u128> = None;
 }
 
 impl pallet_stake_tracker::Config for Runtime {
@@ -264,6 +265,8 @@ impl pallet_stake_tracker::Config for Runtime {
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
 	type VoterUpdateMode = UpdateMode;
+	type ScoreStrictUpdateThreshold = ScoreStrictUpdateThreshold;
+	type WeightInfo = ();
 }
 
 pub struct BalanceToU256;
@@ -330,6 +333,8 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = VoterBagsList;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
 	type TargetList = TargetBagsList;
+	#[cfg(any(feature = "try-runtime", test))]
+	type TargetUnsettledApprovals = pallet_stake_tracker::UnsettledTargetScores<Self>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type EventListeners = (StakeTracker, Pools);
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;

@@ -108,6 +108,7 @@ impl pallet_staking::Config for Runtime {
 
 parameter_types! {
 	pub static VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Lazy;
+	pub static ScoreStrictUpdateThreshold: Option<u128> = None;
 }
 
 impl pallet_stake_tracker::Config for Runtime {
@@ -116,6 +117,8 @@ impl pallet_stake_tracker::Config for Runtime {
 	type VoterList = VoterList;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type VoterUpdateMode = VoterUpdateMode;
+	type ScoreStrictUpdateThreshold = ScoreStrictUpdateThreshold;
+	type WeightInfo = ();
 }
 
 parameter_types! {

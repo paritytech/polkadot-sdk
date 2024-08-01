@@ -697,6 +697,8 @@ impl pallet_staking::Config for Runtime {
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
 	type TargetList = TargetList;
+	#[cfg(any(feature = "try-runtime", test))]
+	type TargetUnsettledApprovals = pallet_stake_tracker::UnsettledTargetScores<Self>;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
 	type MaxUnlockingChunks = ConstU32<32>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
@@ -709,6 +711,8 @@ impl pallet_staking::Config for Runtime {
 
 parameter_types! {
 	pub const VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Lazy;
+	// disables the lazy approvals update.
+	pub const ScoreStrictUpdateThreshold: Option<u128> = None;
 }
 
 impl pallet_stake_tracker::Config for Runtime {
@@ -717,6 +721,8 @@ impl pallet_stake_tracker::Config for Runtime {
 	type VoterList = VoterList;
 	type TargetList = TargetList;
 	type VoterUpdateMode = VoterUpdateMode;
+	type ScoreStrictUpdateThreshold = ScoreStrictUpdateThreshold;
+	type WeightInfo = pallet_stake_tracker::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -2646,6 +2652,7 @@ mod benches {
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_society, Society]
 		[pallet_staking, Staking]
+		[pallet_stake_tracker, StakeTracker]
 		[pallet_state_trie_migration, StateTrieMigration]
 		[pallet_sudo, Sudo]
 		[frame_system, SystemBench::<Runtime>]

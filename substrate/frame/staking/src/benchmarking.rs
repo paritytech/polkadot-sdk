@@ -22,6 +22,7 @@ use crate::{migrations::v13_stake_tracker as v13, ConfigOp, Pallet as Staking};
 use testing_utils::*;
 
 use codec::Decode;
+use frame_benchmarking::v2::*;
 use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProvider};
 use frame_support::{
 	assert_ok,
@@ -31,17 +32,12 @@ use frame_support::{
 	traits::{Currency, Get, Imbalance, UnfilteredDispatchable},
 	weights::WeightMeter,
 };
+use frame_system::RawOrigin;
 use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
 	Perbill, Percent, Saturating,
 };
 use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex, StakingInterface};
-
-pub use frame_benchmarking::v1::{
-	account, impl_benchmark_test_suite, whitelist_account, whitelisted_caller, BenchmarkError,
-};
-use frame_benchmarking::v2::*;
-use frame_system::RawOrigin;
 
 const SEED: u32 = 0;
 const MAX_SPANS: u32 = 100;

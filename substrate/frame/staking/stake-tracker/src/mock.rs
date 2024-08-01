@@ -31,7 +31,7 @@ type Block = frame_system::mocking::MockBlockU32<Test>;
 
 // Configure a mock runtime to test the pallet.
 #[frame_support::runtime]
-mod runtime {
+pub mod runtime {
 	#[runtime::runtime]
 	#[runtime::derive(
 		RuntimeCall,
@@ -98,8 +98,6 @@ const TARGET_THRESHOLDS: [u128; 9] = [100, 200, 300, 400, 500, 600, 700, 800, 90
 parameter_types! {
 	pub static VoterBagThresholds: &'static [VoteWeight] = &VOTER_THRESHOLDS;
 	pub static TargetBagThresholds: &'static [u128] = &TARGET_THRESHOLDS;
-
-	pub static VoterUpdateMode: crate::VoterUpdateMode = crate::VoterUpdateMode::Strict;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -120,12 +118,20 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Test {
 	type Score = u128;
 }
 
+parameter_types! {
+	pub static VoterUpdateMode: crate::VoterUpdateMode = crate::VoterUpdateMode::Strict;
+	// disables the lazy approvals update.
+	pub static ScoreStrictUpdateThreshold: Option<u128> = None;
+}
+
 impl pallet_stake_tracker::Config for Test {
 	type Currency = Balances;
 	type Staking = StakingMock;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
 	type VoterUpdateMode = VoterUpdateMode;
+	type ScoreStrictUpdateThreshold = ScoreStrictUpdateThreshold;
+	type WeightInfo = ();
 }
 
 pub struct StakingMock {}
@@ -194,7 +200,7 @@ impl StakingInterface for StakingMock {
 	}
 
 	fn minimum_validator_bond() -> Self::Balance {
-		unreachable!();
+		1
 	}
 
 	fn stash_by_ctrl(
@@ -216,7 +222,13 @@ impl StakingInterface for StakingMock {
 		_value: Self::Balance,
 		_payee: &Self::AccountId,
 	) -> sp_runtime::DispatchResult {
-		unreachable!();
+		Ok(())
+	}
+
+	fn validate(who: &Self::AccountId) -> DispatchResult {
+		add_validator(*who, 10);
+
+		Ok(())
 	}
 
 	fn nominate(
@@ -500,6 +512,11 @@ impl ExtBuilder {
 
 	pub fn voter_update_mode(self, mode: crate::VoterUpdateMode) -> Self {
 		VoterUpdateMode::set(mode);
+		self
+	}
+
+	pub fn set_update_threshold(self, threshold: Option<u128>) -> Self {
+		ScoreStrictUpdateThreshold::set(threshold);
 		self
 	}
 

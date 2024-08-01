@@ -590,6 +590,7 @@ parameter_types! {
 	pub const TargetBagThresholds: &'static [u128] = &bag_thresholds::TARGET_THRESHOLDS;
 
 	pub const VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Lazy;
+	pub const ScoreStrictUpdateThreshold: Option<u128> = Some(10);
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -616,6 +617,8 @@ impl pallet_stake_tracker::Config for Runtime {
 	type VoterList = VoterList;
 	type TargetList = TargetList;
 	type VoterUpdateMode = VoterUpdateMode;
+	type ScoreStrictUpdateThreshold = ScoreStrictUpdateThreshold;
+	type WeightInfo = pallet_stake_tracker::weights::SubstrateWeight<Runtime>;
 }
 
 pallet_staking_reward_curve::build! {
@@ -667,6 +670,8 @@ impl pallet_staking::Config for Runtime {
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
 	type TargetList = TargetList;
+	#[cfg(any(feature = "try-runtime", test))]
+	type TargetUnsettledApprovals = pallet_stake_tracker::UnsettledTargetScores<Self>;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
