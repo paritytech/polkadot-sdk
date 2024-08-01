@@ -47,8 +47,8 @@ mod benches {
 			Migration::<T, I>::step(None, &mut meter).unwrap();
 		}
 
-		//let new_key = v4::Location::new(1, [v4::Junction::Parachain(2004)]);
-		//assert!(Asset::<T>::contains_key(new_key));
+		let new_key: <T as Config<I>>::AssetId = v4::Location::new(1, [v4::Junction::Parachain(2004)]).into();
+		assert!(Asset::<T, I>::contains_key(new_key));
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::v1::tests::new_test_ext(), crate::v1::tests::Runtime);
