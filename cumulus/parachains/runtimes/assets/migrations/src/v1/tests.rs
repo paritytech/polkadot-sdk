@@ -66,6 +66,7 @@ impl pallet_assets::Config for Runtime {
 }
 
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
+#[cfg(feature = "runtime-benchmarks")]
 pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_assets::BenchmarkHelper<v4::Location> for XcmBenchmarkHelper {
@@ -91,7 +92,7 @@ fn migration_works() {
 	new_test_ext().execute_with(|| {
 		let key = v3::Location::new(1, [v3::Junction::Parachain(2004)]);
 		let mock_asset_details = mock_asset_details();
-		old::Asset::<Runtime, ()>::insert(key.clone(), mock_asset_details);
+		old::Asset::<Runtime, ()>::insert(key, mock_asset_details);
 
 		// Perform one step of the migration.
 		let cursor = Migration::<Runtime>::step(None, &mut WeightMeter::new()).unwrap().unwrap();

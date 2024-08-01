@@ -29,7 +29,7 @@ use frame_support::{
 	pallet_prelude::PhantomData,
 	weights::WeightMeter,
 };
-use pallet_assets::{Asset, AssetDetails, AssetStatus, Config};
+use pallet_assets::{Asset, Config};
 use xcm::{v3, v4};
 
 pub const PALLET_MIGRATIONS_ID: &[u8; 13] = b"pallet-assets";
