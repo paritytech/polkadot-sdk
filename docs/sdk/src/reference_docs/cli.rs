@@ -45,7 +45,7 @@
 //! - `--chain=customSpec.json`: Uses the custom chain specification as input.
 //! - `--disable-default-bootnode`: Disables the default bootnodes in the node template.
 //! - `--raw`: Converts the chain specification into a raw format with encoded storage keys.
-//! - `> customSpecRaw.json`: Outputs to customSpecRaw.json.
+//! - `> customSpecRaw.json`: Outputs to `customSpecRaw.json`.
 //!
 //! #### Starting the First Node in a Private Network
 //! ```bash

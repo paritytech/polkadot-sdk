@@ -21,6 +21,7 @@
 
 use super::*;
 
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelisted_caller, BenchmarkError,
 };
@@ -231,5 +232,5 @@ benchmarks_instance_pallet! {
 		}
 	}
 
-	impl_benchmark_test_suite!(Bounties, crate::tests::new_test_ext(), crate::tests::Test)
+	impl_benchmark_test_suite!(Bounties, crate::tests::ExtBuilder::default().build(), crate::tests::Test)
 }

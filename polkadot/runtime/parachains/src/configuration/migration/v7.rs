@@ -17,6 +17,7 @@
 //! A module that is responsible for migration of storage.
 
 use crate::configuration::{self, Config, Pallet};
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, StorageVersion},
@@ -24,7 +25,6 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
-use sp_std::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
 
@@ -154,7 +154,7 @@ mod v7 {
 	>;
 }
 
-pub struct MigrateToV7<T>(sp_std::marker::PhantomData<T>);
+pub struct MigrateToV7<T>(core::marker::PhantomData<T>);
 impl<T: Config> OnRuntimeUpgrade for MigrateToV7<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {

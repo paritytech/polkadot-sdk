@@ -25,7 +25,9 @@ use crate::{
 	BalanceOf, CodeHash, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter,
 	Error, TrieId, SENTINEL,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support::{
 	storage::child::{self, ChildInfo},
 	weights::{Weight, WeightMeter},
@@ -38,7 +40,6 @@ use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
 	BoundedBTreeMap, DispatchError, DispatchResult, RuntimeDebug,
 };
-use sp_std::{marker::PhantomData, prelude::*};
 
 use self::meter::Diff;
 
@@ -163,13 +164,35 @@ impl<T: Config> ContractInfo<T> {
 		storage_meter: Option<&mut meter::NestedMeter<T>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
-		let child_trie_info = &self.child_trie_info();
 		let hashed_key = key.hash();
+		self.write_raw(&hashed_key, new_value, storage_meter, take)
+	}
+
+	/// Update a storage entry into a contract's kv storage.
+	/// Function used in benchmarks, which can simulate prefix collision in keys.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn bench_write_raw(
+		&self,
+		key: &[u8],
+		new_value: Option<Vec<u8>>,
+		take: bool,
+	) -> Result<WriteOutcome, DispatchError> {
+		self.write_raw(key, new_value, None, take)
+	}
+
+	fn write_raw(
+		&self,
+		key: &[u8],
+		new_value: Option<Vec<u8>>,
+		storage_meter: Option<&mut meter::NestedMeter<T>>,
+		take: bool,
+	) -> Result<WriteOutcome, DispatchError> {
+		let child_trie_info = &self.child_trie_info();
 		let (old_len, old_value) = if take {
-			let val = child::get_raw(child_trie_info, &hashed_key);
+			let val = child::get_raw(child_trie_info, key);
 			(val.as_ref().map(|v| v.len() as u32), val)
 		} else {
-			(child::len(child_trie_info, &hashed_key), None)
+			(child::len(child_trie_info, key), None)
 		};
 
 		if let Some(storage_meter) = storage_meter {
@@ -195,8 +218,8 @@ impl<T: Config> ContractInfo<T> {
 		}
 
 		match &new_value {
-			Some(new_value) => child::put_raw(child_trie_info, &hashed_key, new_value),
-			None => child::kill(child_trie_info, &hashed_key),
+			Some(new_value) => child::put_raw(child_trie_info, key, new_value),
+			None => child::kill(child_trie_info, key),
 		}
 
 		Ok(match (old_len, old_value) {
@@ -334,7 +357,7 @@ impl<T: Config> ContractInfo<T> {
 }
 
 /// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(any(test, feature = "runtime-benchmarks"), derive(Debug, PartialEq))]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
 	New,

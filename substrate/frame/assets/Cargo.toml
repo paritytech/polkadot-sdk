@@ -1,12 +1,12 @@
 [package]
 authors.workspace = true
-description = "FRAME asset management pallet"
 edition.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
+repository.workspace = true
+description = "FRAME asset management pallet"
 license = "Apache-2.0"
 name = "pallet-assets"
 readme = "README.md"
-repository.workspace = true
 version = "29.1.0"
 
 [lints]
@@ -20,7 +20,6 @@ codec = { workspace = true }
 impl-trait-for-tuples = "0.2.2"
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-std = { workspace = true }
 # Needed for various traits. In our case, `OnFinalize`.
 sp-runtime = { workspace = true }
 # Needed for type-safe access to storage DB.
@@ -38,25 +37,24 @@ pallet-balances = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
+std = [
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-balances/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+]
 runtime-benchmarks = [
   "frame-benchmarking/runtime-benchmarks",
   "frame-support/runtime-benchmarks",
   "frame-system/runtime-benchmarks",
   "pallet-balances/runtime-benchmarks",
   "sp-runtime/runtime-benchmarks",
-]
-std = [
-  "codec/std",
-  "frame-benchmarking?/std",
-  "frame-support/std",
-  "frame-system/std",
-  "log/std",
-  "pallet-balances/std",
-  "scale-info/std",
-  "sp-core/std",
-  "sp-io/std",
-  "sp-runtime/std",
-  "sp-std/std",
 ]
 try-runtime = [
   "frame-support/try-runtime",
