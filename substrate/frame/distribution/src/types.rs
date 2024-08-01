@@ -13,11 +13,13 @@ pub use sp_runtime::traits::Saturating;
 pub use sp_runtime::traits::{AccountIdConversion, Convert, StaticLookup, Zero};
 
 pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
-	<T as frame_system::Config>::AccountId,
->>::Balance;
+	<T as frame_system::Config>::AccountId>>::Balance;
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 /// A reward index.
 pub type SpendingIndex = u32;
+
+pub type Id<T> = <<T as Config>::NativeBalance as fungible::freeze::Inspect<
+	<T as frame_system::Config>::AccountId>>::Id;
 
 /// The state of the payment claim.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo, Default)]

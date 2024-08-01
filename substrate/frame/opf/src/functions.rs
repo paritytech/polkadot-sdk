@@ -12,11 +12,16 @@ impl<T: Config> Pallet<T> {
         };
         if Votes::<T>::contains_key(project,voter_id) {
             Votes::<T>::mutate(project,voter_id,|value|{
+
+                    let old_amount = value.ok_or(Error::<T>::InvalidResult).amount;
+
                 *value = Some(new_vote);
             });
         } else{
             Votes::<T>::insert(project, voter_id, new_vote).ok_or(Error::<T>::VoteFailed)?;
         }
+
+        //T::NativeBalance::set_freeze()
 
         
         Ok(())

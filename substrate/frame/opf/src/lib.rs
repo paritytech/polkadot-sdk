@@ -64,7 +64,10 @@ pub mod pallet {
 		NotWhitelistedProject,
 
 		/// The voting action failed.
-		VoteFailed
+		VoteFailed,
+
+		/// Invalid Result
+		InvalidResult,
 	
 	}
 
