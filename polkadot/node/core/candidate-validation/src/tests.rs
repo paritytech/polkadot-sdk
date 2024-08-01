@@ -20,7 +20,7 @@ use super::*;
 use assert_matches::assert_matches;
 use futures::executor;
 use polkadot_node_core_pvf::PrepareError;
-use polkadot_node_primitives::{BlockData, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
+use polkadot_node_primitives::{BlockData, VALIDATION_CODE_BOMB_LIMIT};
 use polkadot_node_subsystem::messages::AllMessages;
 use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
