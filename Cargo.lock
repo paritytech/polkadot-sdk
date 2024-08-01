@@ -1033,6 +1033,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-message-queue",
+ "pallet-migrations",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
