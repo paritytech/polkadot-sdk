@@ -575,7 +575,7 @@ fn handle_child_process(
 						if #[cfg(target_os = "linux")] {
 							let (PrepareOutcome { compiled_artifact, observed_wasm_code_len }, max_rss) = ok;
 						} else {
-							let PrepareOutcome { compiled_artifact, observed_wasm_code_len } = ok;
+							let (PrepareOutcome { compiled_artifact, observed_wasm_code_len },) = ok;
 						}
 					}
 
