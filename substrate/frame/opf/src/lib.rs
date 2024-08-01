@@ -66,6 +66,9 @@ pub mod pallet {
 		/// The voting action failed.
 		VoteFailed,
 
+		/// No such voting data
+		NoVoteData, 
+
 		/// Invalid Result
 		InvalidResult,
 	
