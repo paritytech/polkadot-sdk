@@ -255,7 +255,6 @@ pub(crate) trait NodeSpec {
 
 			let validator = parachain_config.role.is_authority();
 			let prometheus_registry = parachain_config.prometheus_registry().cloned();
-			let chain_spec = parachain_config.chain_spec.cloned();
 			let transaction_pool = params.transaction_pool.clone();
 			let import_queue_service = params.import_queue.service();
 			let net_config = FullNetworkConfiguration::<_, _, Net>::new(
@@ -282,13 +281,12 @@ pub(crate) trait NodeSpec {
 				let transaction_pool = transaction_pool.clone();
 				let backend_for_rpc = backend.clone();
 
-				Box::new(move |deny_unsafe: sc_rpc::DenyUnsafe, _| {
+				Box::new(move |deny_unsafe, _| {
 					Self::BuildRpcExtensions::build_rpc_extensions(
 						deny_unsafe,
 						client.clone(),
 						backend_for_rpc.clone(),
 						transaction_pool.clone(),
-						chain_spec,
 					)
 				})
 			};

@@ -42,7 +42,6 @@ pub(crate) trait BuildRpcExtensions<Client, Backend, Pool> {
 		client: Arc<Client>,
 		backend: Arc<Backend>,
 		pool: Arc<Pool>,
-		chain_spec: Box<dyn sc_chain_spec::ChainSpec>,
 	) -> sc_service::error::Result<RpcExtension>;
 }
 
@@ -62,7 +61,6 @@ where
 		_client: Arc<ParachainClient<RuntimeApi>>,
 		_backend: Arc<ParachainBackend>,
 		_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
-		_chain_spec: Box<dyn sc_chain_spec::ChainSpec>,
 	) -> sc_service::error::Result<RpcExtension> {
 		Ok(RpcExtension::new(()))
 	}
@@ -86,7 +84,6 @@ where
 		client: Arc<ParachainClient<RuntimeApi>>,
 		backend: Arc<ParachainBackend>,
 		pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
-		chain_spec: Box<dyn sc_chain_spec::ChainSpec>,
 	) -> sc_service::error::Result<RpcExtension> {
 		let build = || -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>> {
 			let mut module = RpcExtension::new(());
