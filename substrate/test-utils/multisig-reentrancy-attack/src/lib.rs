@@ -42,6 +42,7 @@ use frame_support::{
 	},
 };
 use sp_runtime::traits::Dispatchable;
+use pallet_democracy::CallOf;
 
 
 /// The log target of this pallet.
@@ -146,7 +147,12 @@ pub mod pallet {
                 Weight::zero(),
             );
 
-			Democracy::Pallet::<T>::propose(frame_system::RawOrigin::Signed(sender).into(), );
+			// let call: CallOf<T> = frame_system::Call::remark { remark: n.encode() }.into();
+
+			// let _democracy_call = DemocracyCall::<T>::propose {proposal, 1};
+
+			// operation that requires a deposit
+			Democracy::Pallet::<T>::propose();
 
 			// <T as pallet::Config>::Currency::reserve(multisig_account, 1);
 
