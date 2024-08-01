@@ -195,7 +195,7 @@ impl pallet_migrations::Config for Runtime {
 }
 
 type MultiBlockMigrations =
-	(assets_common::foreign_assets_migration::Migration<Runtime, ForeignAssetsInstance>,);
+	(assets_common_migrations::v1::Migration<Runtime, ForeignAssetsInstance>,);
 
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
@@ -1141,6 +1141,7 @@ mod benches {
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_xcm_bridge_hub_router, ToWestend]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
+		[assets_common_migrations, AssetsCommonMigrations]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
@@ -1451,6 +1452,8 @@ impl_runtime_apis! {
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
 
+			type AssetsCommonMigrations = assets_common_migrations::Pallet::<Runtime, ForeignAssetsInstance>;
+
 			// Benchmark files generated for `Assets/ForeignAssets` instances are by default
 			// `pallet_assets_assets.rs / pallet_assets_foreign_assets`, which is not really nice,
 			// so with this redefinition we can change names to nicer:
@@ -1753,6 +1756,8 @@ impl_runtime_apis! {
 
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
+
+			type AssetsCommonMigrations = assets_common_migrations::Pallet::<Runtime, ForeignAssetsInstance>;
 
 			type Local = pallet_assets::Pallet::<Runtime, TrustBackedAssetsInstance>;
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;

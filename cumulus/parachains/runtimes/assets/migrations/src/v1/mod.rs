@@ -85,7 +85,7 @@ where
 				old::Asset::<T, I>::remove(&key);
 				let new_key: <T as Config<I>>::AssetId = new_key.into();
 				Asset::<T, I>::insert(&new_key, value);
-				log::info!(target: "migration", "Successfully migrated key: {:?}", new_key);
+				log::trace!(target: "migration", "Successfully migrated key: {:?}", new_key);
 			} else {
 				log::warn!(target: "migration", "{:?} couldn't be converted to V4", key);
 			}

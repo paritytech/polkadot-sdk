@@ -18,7 +18,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-mod v1;
+pub mod v1;
 
 pub use pallet::*;
 
