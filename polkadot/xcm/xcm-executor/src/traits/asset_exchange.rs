@@ -44,8 +44,8 @@ pub trait AssetExchange {
 	/// exchange will be successful.
 	///
 	/// Arguments:
-	/// - `give` The asset that is going to be given.
-	/// - `want` The asset that is wanted.
+	/// - `give` The asset(s) that are going to be given.
+	/// - `want` The asset(s) that are wanted.
 	/// - `maximal`:
 	/// 	  - If `true`, then the return value is the resulting amount of `want` obtained by swapping
 	///      `give`.
