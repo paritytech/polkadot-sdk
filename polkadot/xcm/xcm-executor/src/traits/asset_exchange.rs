@@ -38,7 +38,7 @@ pub trait AssetExchange {
 		maximal: bool,
 	) -> Result<AssetsInHolding, AssetsInHolding>;
 
-	/// Handler for quoting the exchange price of two assets.
+	/// Handler for quoting the exchange price of two asset collections.
 	///
 	/// It's useful before calling `exchange_asset`, to get some information on whether or not the
 	/// exchange will be successful.
