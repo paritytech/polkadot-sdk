@@ -17,11 +17,8 @@
 
 use codec::Encode;
 use frame_support::{
-    construct_runtime, derive_impl,
-    Hashable,
-    traits::AsEnsureOriginWithArg,
-    migrations::SteppedMigration,
-    weights::WeightMeter,
+	construct_runtime, derive_impl, migrations::SteppedMigration, traits::AsEnsureOriginWithArg,
+	weights::WeightMeter, Hashable,
 };
 use frame_system::{EnsureRoot, EnsureSigned};
 use hex_display::HexDisplayExt;
@@ -30,14 +27,14 @@ use sp_io::{hashing, storage, TestExternalities};
 use sp_runtime::BuildStorage;
 use xcm::{v3, v4};
 
-use super::{old, Migration, mock_asset_details};
+use super::{mock_asset_details, old, Migration};
 
 construct_runtime! {
-    pub struct Runtime {
-        System: frame_system,
-        Balances: pallet_balances,
-        ForeignAssets: pallet_assets,
-    }
+	pub struct Runtime {
+		System: frame_system,
+		Balances: pallet_balances,
+		ForeignAssets: pallet_assets,
+	}
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -46,28 +43,28 @@ type Balance = u64;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-    type Block = Block;
-    type AccountId = AccountId;
+	type Block = Block;
+	type AccountId = AccountId;
 	type AccountData = pallet_balances::AccountData<Balance>;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-    type AccountStore = System;
-    type Balance = Balance;
+	type AccountStore = System;
+	type Balance = Balance;
 }
 
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
 impl pallet_assets::Config for Runtime {
-    type AssetId = v4::Location;
-    type AssetIdParameter = v4::Location;
-    type Balance = Balance;
-    type Currency = Balances;
-    type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
-    type ForceOrigin = EnsureRoot<AccountId>;
-    type Freezer = ();
-    #[cfg(feature = "runtime-benchmarks")]
-    type BenchmarkHelper = XcmBenchmarkHelper;
+	type AssetId = v4::Location;
+	type AssetIdParameter = v4::Location;
+	type Balance = Balance;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type Freezer = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = XcmBenchmarkHelper;
 }
 
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
@@ -80,30 +77,32 @@ impl pallet_assets::BenchmarkHelper<v4::Location> for XcmBenchmarkHelper {
 }
 
 pub(crate) fn new_test_ext() -> TestExternalities {
-    let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
-    let test_account = 1;
-    let initial_balance = 1000;
-    pallet_balances::GenesisConfig::<Runtime> {
-        balances: vec![(test_account, initial_balance)],
-    }.assimilate_storage(&mut t).unwrap();
+	let test_account = 1;
+	let initial_balance = 1000;
+	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(test_account, initial_balance)] }
+		.assimilate_storage(&mut t)
+		.unwrap();
 
-    t.into()
+	t.into()
 }
 
 #[test]
 fn migration_works() {
-    new_test_ext().execute_with(|| {
-        let key = v3::Location::new(1, [v3::Junction::Parachain(2004)]);
-        let mock_asset_details = mock_asset_details();
-        old::Asset::<Runtime, ()>::insert(key.clone(), mock_asset_details);
+	new_test_ext().execute_with(|| {
+		let key = v3::Location::new(1, [v3::Junction::Parachain(2004)]);
+		let mock_asset_details = mock_asset_details();
+		old::Asset::<Runtime, ()>::insert(key.clone(), mock_asset_details);
 
-        // Perform one step of the migration.
-        let cursor = Migration::<Runtime>::step(None, &mut WeightMeter::new()).unwrap().unwrap();
-        // Second time works.
-        assert!(Migration::<Runtime>::step(Some(cursor), &mut WeightMeter::new()).unwrap().is_none());
+		// Perform one step of the migration.
+		let cursor = Migration::<Runtime>::step(None, &mut WeightMeter::new()).unwrap().unwrap();
+		// Second time works.
+		assert!(Migration::<Runtime>::step(Some(cursor), &mut WeightMeter::new())
+			.unwrap()
+			.is_none());
 
-        let new_key = v4::Location::new(1, [v4::Junction::Parachain(2004)]);
-        assert!(Asset::<Runtime>::contains_key(new_key));
-    })
+		let new_key = v4::Location::new(1, [v4::Junction::Parachain(2004)]);
+		assert!(Asset::<Runtime>::contains_key(new_key));
+	})
 }

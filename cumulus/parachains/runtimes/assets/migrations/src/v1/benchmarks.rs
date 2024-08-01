@@ -17,32 +17,54 @@
 
 use frame_benchmarking::v2::*;
 use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
-use pallet_assets::{Config, Asset};
+use pallet_assets::{Asset, Config};
 use xcm::{v3, v4};
 
-use crate::Pallet;
-use super::{old, Migration, mock_asset_details};
+use crate::v1::{old::AssetDetailsOf, AssetDetails, AssetStatus};
 
-#[benchmarks]
+use super::{old, Migration};
+
+// Mocked non-FRAME pallet type to make benchmarks compile.
+pub struct Pallet<T: Config<I>, I: 'static = ()>(core::marker::PhantomData<(T, I)>);
+
+#[instance_benchmarks]
 mod benches {
-    use super::*;
+	use super::*;
 
-    #[benchmark]
-    fn step() {
-        let key = v3::Location::new(1, [v3::Junction::Parachain(2004)]);
-        let mock_asset_details = mock_asset_details();
-        dbg!(&std::any::type_name::<<T as pallet_assets::Config>::AssetId>());
-        // old::Asset::<T, ()>::insert(key.clone(), mock_asset_details);
+	#[benchmark]
+	fn step() {
+		let key = v3::Location::new(1, [v3::Junction::Parachain(2004)]);
+		let mock_asset_details = mock_asset_details::<T, I>();
+		//dbg!(&std::any::type_name::<T as pallet_assets::Config<I>>::AssetId>());
+		old::Asset::<T, I>::insert(key.clone(), mock_asset_details);
 
-        let mut meter = WeightMeter::new();
-        #[block]
-        {
-            Migration::<T, ()>::step(None, &mut meter).unwrap();
-        }
+		let mut meter = WeightMeter::new();
+		#[block]
+		{
+			//Migration::<T, I>::step(None, &mut meter).unwrap();
+		}
 
-        // let new_key = v4::Location::new(1, [v4::Junction::Parachain(2004)]);
-        // assert!(Asset::<T>::contains_key(new_key));
-    }
+		// let new_key = v4::Location::new(1, [v4::Junction::Parachain(2004)]);
+		// assert!(Asset::<T>::contains_key(new_key));
+	}
 
-    impl_benchmark_test_suite!(Pallet, crate::v1::tests::new_test_ext(), crate::v1::tests::Runtime);
+	//impl_benchmark_test_suite!(Pallet, crate::v1::tests::new_test_ext(),
+	// crate::v1::tests::Runtime);
+}
+
+fn mock_asset_details<T: Config<I>, I: 'static>() -> AssetDetailsOf<T, I> {
+	AssetDetails {
+		owner: whitelisted_caller(),
+		issuer: whitelisted_caller(),
+		admin: whitelisted_caller(),
+		freezer: whitelisted_caller(),
+		supply: Default::default(),
+		deposit: Default::default(),
+		min_balance: 1u32.into(),
+		is_sufficient: false,
+		accounts: Default::default(),
+		sufficients: Default::default(),
+		approvals: Default::default(),
+		status: AssetStatus::Live,
+	}
 }

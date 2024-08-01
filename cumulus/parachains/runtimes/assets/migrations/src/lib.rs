@@ -17,14 +17,3 @@
 //! It's only a pallet since the benchmarking machinery requires it.
 
 mod v1;
-
-pub use pallet::*;
-
-#[frame_support::pallet]
-pub mod pallet {
-    #[pallet::pallet]
-    pub struct Pallet<T>(_);
-
-    #[pallet::config]
-    pub trait Config: frame_system::Config {}
-}

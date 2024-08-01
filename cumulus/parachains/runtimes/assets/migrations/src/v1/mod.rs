@@ -24,44 +24,37 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks;
 
-use pallet_assets::{Asset, Config, AssetDetails, AssetStatus};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
 	weights::WeightMeter,
 	Hashable,
 };
+use pallet_assets::{Asset, AssetDetails, AssetStatus, Config};
 use xcm::{v3, v4};
 
 pub const PALLET_MIGRATIONS_ID: &[u8; 13] = b"pallet-assets";
 
 /// Storage aliases for on-chain storage types before running the migration.
 pub mod old {
-	use super::{Config, v3};
-	use pallet_assets::{
-		Pallet,
-		AssetDetails, DepositBalanceOf,
-	};
+	use super::{v3, Config};
 	use frame_support::{storage_alias, Blake2_128Concat};
+	use pallet_assets::{AssetDetails, DepositBalanceOf, Pallet};
+
+	pub type AssetDetailsOf<T, I> = AssetDetails<
+		<T as Config<I>>::Balance,
+		<T as frame_system::Config>::AccountId,
+		DepositBalanceOf<T, I>,
+	>;
 
 	/// The storage item we are migrating from.
 	#[storage_alias]
-	pub(super) type Asset<T: Config<I>, I: 'static> = StorageMap<
-		Pallet<T, I>,
-		Blake2_128Concat,
-		v3::Location,
-		AssetDetails<
-			<T as Config<I>>::Balance,
-			<T as frame_system::Config>::AccountId,
-			DepositBalanceOf<T, I>,
-		>,
-	>;
+	pub(super) type Asset<T: Config<I>, I: 'static> =
+		StorageMap<Pallet<T, I>, Blake2_128Concat, v3::Location, AssetDetailsOf<T, I>>;
 }
 
 pub struct Migration<T: Config<I>, I: 'static = ()>(PhantomData<(T, I)>);
-impl<T: Config<I, AssetId = v4::Location>, I: 'static> SteppedMigration
-	for Migration<T, I>
-{
+impl<T: Config<I, AssetId = v4::Location>, I: 'static> SteppedMigration for Migration<T, I> {
 	type Cursor = v3::Location;
 	type Identifier = MigrationId<13>;
 
@@ -103,18 +96,18 @@ impl<T: Config<I, AssetId = v4::Location>, I: 'static> SteppedMigration
 }
 
 fn mock_asset_details() -> AssetDetails<u64, u64, u64> {
-    AssetDetails {
-        owner: 0,
-        issuer: 0,
-        admin: 0,
-        freezer: 0,
-        supply: 0,
-        deposit: 0,
-        min_balance: 1,
-        is_sufficient: false,
-        accounts: 0,
-        sufficients: 0,
-        approvals: 0,
-        status: AssetStatus::Live,
-    }
+	AssetDetails {
+		owner: 0,
+		issuer: 0,
+		admin: 0,
+		freezer: 0,
+		supply: 0,
+		deposit: 0,
+		min_balance: 1,
+		is_sufficient: false,
+		accounts: 0,
+		sufficients: 0,
+		approvals: 0,
+		status: AssetStatus::Live,
+	}
 }
