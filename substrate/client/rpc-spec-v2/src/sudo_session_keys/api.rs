@@ -20,7 +20,7 @@
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 
-use super::MethodResult;
+use crate::MethodResult;
 
 #[rpc(client, server)]
 pub trait SudoSessionKeys {

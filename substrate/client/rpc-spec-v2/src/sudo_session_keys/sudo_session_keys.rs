@@ -24,12 +24,10 @@ use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc};
 
-use crate::{hex_string, sudo_session_keys::api::SudoSessionKeysServer};
+use crate::{hex_string, sudo_session_keys::api::SudoSessionKeysServer, MethodResult};
 
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_session::SessionKeys;
-
-use super::{MethodResult, MethodResultErr, MethodResultOk};
 
 /// An API for `SudoSessionKeys` RPC calls.
 pub struct SudoSessionKeys<Client, Block: BlockT> {
@@ -64,10 +62,8 @@ where
 
 		let response = runtime_api
 			.generate_session_keys(best_block_hash, seed.map(|seed| seed.into_bytes()))
-			.map(|bytes| MethodResult::Ok(MethodResultOk { result: hex_string(&bytes.as_slice()) }))
-			.unwrap_or_else(|api_err| {
-				MethodResult::Err(MethodResultErr { error: api_err.to_string() })
-			});
+			.map(|bytes| MethodResult::ok(hex_string(&bytes.as_slice())))
+			.unwrap_or_else(|api_err| MethodResult::err(api_err.to_string()));
 
 		Ok(response)
 	}

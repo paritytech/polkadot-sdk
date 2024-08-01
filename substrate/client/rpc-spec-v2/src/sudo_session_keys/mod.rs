@@ -18,36 +18,8 @@
 
 //! Substrate sudo sessions key API.
 
-use serde::{Deserialize, Serialize};
-
 #[cfg(test)]
 mod tests;
 
 pub mod api;
 pub mod sudo_session_keys;
-
-/// The result of an RPC method.
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde(untagged)]
-pub enum MethodResult {
-	/// Method generated a result.
-	Ok(MethodResultOk),
-	/// Method generated an error.
-	Err(MethodResultErr),
-}
-
-/// The successful result of an RPC method.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MethodResultOk {
-	/// The result of the method.
-	pub result: String,
-}
-
-/// The error result of an RPC method.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MethodResultErr {
-	/// The error of the method.
-	pub error: String,
-}
