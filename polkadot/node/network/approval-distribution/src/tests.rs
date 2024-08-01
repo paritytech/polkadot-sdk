@@ -4465,7 +4465,7 @@ fn subsystem_rejects_wrong_claimed_assignments() {
 
 	let _ = test_harness(
 		&MockAssignmentCriteria { tranche: Ok(0) },
-		Box::new(DummyClock {}),
+		Arc::new(DummyClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -4549,7 +4549,7 @@ fn subsystem_accepts_tranche0_duplicate_assignments() {
 
 	let _ = test_harness(
 		&MockAssignmentCriteria { tranche: Ok(0) },
-		Box::new(DummyClock {}),
+		Arc::new(DummyClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;

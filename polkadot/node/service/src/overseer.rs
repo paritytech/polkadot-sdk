@@ -318,7 +318,7 @@ where
 			rand::rngs::StdRng::from_entropy(),
 		))
 		.approval_distribution(ApprovalDistributionSubsystem::new(
-			approval_voting_parallel_metrics.0.clone(),
+			approval_voting_parallel_metrics.approval_distribution_metrics(),
 			approval_voting_config.slot_duration_millis,
 			enable_approval_voting_parallel,
 		))
@@ -327,7 +327,7 @@ where
 			parachains_db.clone(),
 			keystore.clone(),
 			Box::new(sync_service.clone()),
-			approval_voting_parallel_metrics.1.clone(),
+			approval_voting_parallel_metrics.approval_voting_metrics(),
 			Arc::new(spawner.clone()),
 			enable_approval_voting_parallel,
 		))

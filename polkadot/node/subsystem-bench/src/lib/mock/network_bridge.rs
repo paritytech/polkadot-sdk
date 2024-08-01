@@ -28,10 +28,7 @@ use polkadot_node_subsystem::{
 	overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::{
-	messages::{
-		ApprovalDistributionMessage, BitfieldDistributionMessage, NetworkBridgeEvent,
-		StatementDistributionMessage,
-	},
+	messages::{BitfieldDistributionMessage, NetworkBridgeEvent, StatementDistributionMessage},
 	OverseerSignal,
 };
 use sc_network::{request_responses::ProtocolConfig, RequestFailure};

@@ -21,12 +21,14 @@
 //! do their work in parallel, rather than serially, when they are run
 //! as independent subsystems.
 use itertools::Itertools;
+use metrics::{Meters, MetricsWatcher};
 use polkadot_node_core_approval_voting::{
 	time::{Clock, SystemClock},
 	Config, RealAssignmentCriteria,
 };
 use polkadot_node_metrics::metered::{
-	self, channel, unbounded, MeteredSender, UnboundedMeteredSender,
+	self, channel, unbounded, MeteredReceiver, MeteredSender, UnboundedMeteredReceiver,
+	UnboundedMeteredSender,
 };
 
 use polkadot_node_primitives::DISPUTE_WINDOW;
@@ -37,7 +39,6 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	self,
 	database::Database,
-	metrics::{self, prometheus},
 	runtime::{Config as RuntimeInfoConfig, RuntimeInfo},
 };
 use polkadot_overseer::{OverseerSignal, Priority, SubsystemSender, TimeoutExt};
@@ -48,6 +49,7 @@ use sc_keystore::LocalKeystore;
 use sp_consensus::SyncOracle;
 
 use futures::{channel::oneshot, prelude::*, StreamExt};
+pub use metrics::Metrics;
 use polkadot_node_core_approval_voting::{
 	approval_db::common::Config as DatabaseConfig, ApprovalVotingWorkProvider,
 };
@@ -58,6 +60,7 @@ use std::{
 	time::Duration,
 };
 use stream::{select_with_strategy, PollNext};
+pub mod metrics;
 
 pub(crate) const LOG_TARGET: &str = "parachain::approval-voting-parallel";
 // Value rather arbitrarily: Should not be hit in practice, it exists to more easily diagnose dead
@@ -78,24 +81,6 @@ pub struct ApprovalVotingParallelSubsystem {
 	spawner: Arc<dyn overseer::gen::Spawner + 'static>,
 	clock: Arc<dyn Clock + Send + Sync>,
 	subsystem_enabled: bool,
-}
-
-/// Approval Voting metrics.
-#[derive(Default, Clone)]
-pub struct Metrics(
-	pub polkadot_approval_distribution::metrics::Metrics,
-	pub polkadot_node_core_approval_voting::Metrics,
-);
-
-impl metrics::Metrics for Metrics {
-	fn try_register(
-		registry: &prometheus::Registry,
-	) -> std::result::Result<Self, prometheus::PrometheusError> {
-		Ok(Metrics(
-			polkadot_approval_distribution::metrics::Metrics::try_register(registry)?,
-			polkadot_node_core_approval_voting::Metrics::try_register(registry)?,
-		))
-	}
 }
 
 impl ApprovalVotingParallelSubsystem {
@@ -174,23 +159,16 @@ fn prio_right<'a>(_val: &'a mut ()) -> PollNext {
 async fn start_workers<Context>(
 	ctx: &mut Context,
 	subsystem: ApprovalVotingParallelSubsystem,
+	metrics_watcher: &mut MetricsWatcher,
 ) -> SubsystemResult<(ToWorker<ApprovalVotingMessage>, Vec<ToWorker<ApprovalDistributionMessage>>)>
 where
 {
 	// Build approval voting handles.
-	let (tx_approval_voting_work, rx_approval_voting_work) =
-		channel::<FromOrchestra<ApprovalVotingMessage>>(WORKERS_CHANNEL_SIZE);
-	let (tx_approval_voting_work_unbounded, rx_approval_voting_work_unbounded) =
-		unbounded::<FromOrchestra<ApprovalVotingMessage>>();
+	let (to_approval_voting_worker, rx_approval_voting_worker) =
+		build_channels("approval-voting-parallel-db".into(), WORKERS_CHANNEL_SIZE, metrics_watcher);
 
-	let to_approval_voting_worker =
-		ToWorker(tx_approval_voting_work, tx_approval_voting_work_unbounded);
-
-	let prioritised = select_with_strategy(
-		rx_approval_voting_work,
-		rx_approval_voting_work_unbounded,
-		prio_right,
-	);
+	let prioritised =
+		select_with_strategy(rx_approval_voting_worker.0, rx_approval_voting_worker.1, prio_right);
 	let approval_voting_work_provider = ApprovalVotingWorkProviderImpl(prioritised);
 
 	gum::info!(target: LOG_TARGET, "Starting approval distribution workers");
@@ -201,21 +179,17 @@ where
 	for i in 0..APPROVAL_DISTRIBUTION_WORKER_COUNT {
 		let approval_distr_instance =
 			polkadot_approval_distribution::ApprovalDistribution::new_with_clock(
-				subsystem.metrics.0.clone(),
+				subsystem.metrics.approval_distribution_metrics(),
 				subsystem.slot_duration_millis,
 				subsystem.clock.clone(),
 				false,
 			);
-
-		let (tx_approval_distribution_work, rx_approval_distribution_work) =
-			channel::<FromOrchestra<ApprovalDistributionMessage>>(WORKERS_CHANNEL_SIZE);
-		let (tx_approval_distribution_work_unbounded, rx_approval_distribution_unbounded) =
-			unbounded::<FromOrchestra<ApprovalDistributionMessage>>();
-
-		let to_approval_distribution_worker =
-			ToWorker(tx_approval_distribution_work, tx_approval_distribution_work_unbounded);
-
 		let task_name = format!("approval-voting-parallel-{}", i);
+
+		let (to_approval_distribution_worker, rx_approval_distribution_worker) =
+			build_channels(task_name.clone(), WORKERS_CHANNEL_SIZE, metrics_watcher);
+
+		metrics_watcher.watch(task_name.clone(), to_approval_distribution_worker.meter());
 
 		let mut network_sender = ctx.sender().clone();
 		let mut runtime_api_sender = ctx.sender().clone();
@@ -235,8 +209,8 @@ where
 				});
 
 				let mut work_channels = select_with_strategy(
-					rx_approval_distribution_work,
-					rx_approval_distribution_unbounded,
+					rx_approval_distribution_worker.0,
+					rx_approval_distribution_worker.1,
 					prio_right,
 				);
 
@@ -284,7 +258,7 @@ where
 		subsystem.db.clone(),
 		subsystem.keystore.clone(),
 		subsystem.sync_oracle,
-		subsystem.metrics.1.clone(),
+		subsystem.metrics.approval_voting_metrics(),
 		subsystem.spawner.clone(),
 		subsystem.clock.clone(),
 	)
@@ -300,7 +274,7 @@ async fn run<Context>(
 	subsystem: ApprovalVotingParallelSubsystem,
 ) -> SubsystemResult<()> {
 	let subsystem_enabled = subsystem.subsystem_enabled;
-
+	let mut metrics_watcher = MetricsWatcher::new(subsystem.metrics.clone());
 	gum::info!(
 		target: LOG_TARGET,
 		subsystem_enabled,
@@ -308,7 +282,7 @@ async fn run<Context>(
 	);
 
 	let (to_approval_voting_worker, to_approval_distribution_workers) =
-		start_workers(&mut ctx, subsystem).await?;
+		start_workers(&mut ctx, subsystem, &mut metrics_watcher).await?;
 
 	gum::info!(
 		target: LOG_TARGET,
@@ -323,6 +297,7 @@ async fn run<Context>(
 		subsystem_enabled,
 		to_approval_voting_worker,
 		to_approval_distribution_workers,
+		metrics_watcher,
 	)
 	.await
 }
@@ -333,6 +308,7 @@ async fn run_main_loop<Context>(
 	subsystem_enabled: bool,
 	mut to_approval_voting_worker: ToWorker<ApprovalVotingMessage>,
 	mut to_approval_distribution_workers: Vec<ToWorker<ApprovalDistributionMessage>>,
+	metrics_watcher: MetricsWatcher,
 ) -> SubsystemResult<()> {
 	loop {
 		futures::select! {
@@ -352,12 +328,16 @@ async fn run_main_loop<Context>(
 
 				match next_msg {
 					FromOrchestra::Signal(msg) => {
+						if matches!(msg, OverseerSignal::ActiveLeaves(_)) {
+							metrics_watcher.collect_metrics();
+						}
 						for worker in to_approval_distribution_workers.iter_mut() {
 							worker
 								.send_signal(msg.clone()).await?;
 						}
 
 						to_approval_voting_worker.send_signal(msg).await?;
+
 					},
 					FromOrchestra::Communication { msg } => match msg {
 						// The message the approval voting subsystem would've handled.
@@ -685,6 +665,10 @@ impl<T: Send + Sync + 'static> ToWorker<T> {
 			.unbounded_send(FromOrchestra::Signal(signal))
 			.map_err(|err| SubsystemError::QueueError(err.into_send_error()))
 	}
+
+	fn meter(&self) -> Meters {
+		Meters::new(self.0.meter(), self.1.meter())
+	}
 }
 
 impl<T: Send + Sync + 'static + Debug> overseer::SubsystemSender<T> for ToWorker<T> {
@@ -790,6 +774,30 @@ impl<T: Send + Sync + 'static + Debug> overseer::SubsystemSender<T> for ToWorker
 			polkadot_overseer::PriorityLevel::High => Ok(self.send_unbounded_message(msg)),
 		}
 	}
+}
+
+/// Handles to use by an worker to receive work.
+pub struct RxWorker<T: Send + Sync + 'static>(
+	MeteredReceiver<FromOrchestra<T>>,
+	UnboundedMeteredReceiver<FromOrchestra<T>>,
+);
+
+/// Build all the necessary channels for sending messages to the workers
+/// and for the workers to receive them.
+fn build_channels<T: Send + Sync + 'static>(
+	channel_name: String,
+	channel_size: usize,
+	metrics_watcher: &mut MetricsWatcher,
+) -> (ToWorker<T>, RxWorker<T>) {
+	let (tx_approval_voting_work, rx_approval_voting_work) =
+		channel::<FromOrchestra<T>>(channel_size);
+	let (tx_approval_voting_work_unbounded, rx_approval_voting_work_unbounded) =
+		unbounded::<FromOrchestra<T>>();
+	let to_worker = ToWorker(tx_approval_voting_work, tx_approval_voting_work_unbounded);
+
+	metrics_watcher.watch(channel_name, to_worker.meter());
+
+	(to_worker, RxWorker(rx_approval_voting_work, rx_approval_voting_work_unbounded))
 }
 
 /// Just a wrapper for implementing overseer::SubsystemSender<ApprovalDistributionMessage>, so that

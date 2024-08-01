@@ -268,7 +268,7 @@ pub struct ApprovalTestState {
 	/// Total unique sent messages.
 	total_unique_messages: Arc<AtomicU64>,
 	/// Approval voting metrics.
-	approval_voting_metrics_rewrite: polkadot_node_core_approval_voting_parallel::Metrics,
+	approval_voting_parallel_metrics: polkadot_node_core_approval_voting_parallel::Metrics,
 	/// The delta ticks from the tick the messages were generated to the the time we start this
 	/// message.
 	delta_tick_from_generated: Arc<AtomicU64>,
@@ -326,7 +326,7 @@ impl ApprovalTestState {
 			total_sent_messages_from_node: Arc::new(AtomicU64::new(0)),
 			total_unique_messages: Arc::new(AtomicU64::new(0)),
 			options,
-			approval_voting_metrics_rewrite:
+			approval_voting_parallel_metrics:
 				polkadot_node_core_approval_voting_parallel::Metrics::try_register(
 					&dependencies.registry,
 				)
@@ -814,15 +814,15 @@ fn build_overseer(
 		db.clone(),
 		keystore.clone(),
 		Box::new(TestSyncOracle {}),
-		state.approval_voting_metrics_rewrite.1.clone(),
+		state.approval_voting_parallel_metrics.approval_voting_metrics(),
 		Arc::new(system_clock.clone()),
 		Arc::new(SpawnGlue(spawn_task_handle.clone())),
 		true,
 	);
 
 	let approval_distribution = ApprovalDistribution::new_with_clock(
-		state.approval_voting_metrics_rewrite.0.clone(),
-		TEST_CONFIG.slot_duration_millis as u64,
+		state.approval_voting_parallel_metrics.approval_distribution_metrics(),
+		TEST_CONFIG.slot_duration_millis,
 		Arc::new(system_clock.clone()),
 		true,
 	);
@@ -833,7 +833,7 @@ fn build_overseer(
 			db.clone(),
 			keystore.clone(),
 			Box::new(TestSyncOracle {}),
-			state.approval_voting_metrics_rewrite.clone(),
+			state.approval_voting_parallel_metrics.clone(),
 			Arc::new(system_clock.clone()),
 			SpawnGlue(spawn_task_handle.clone()),
 			true,
