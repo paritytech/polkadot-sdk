@@ -13,4 +13,6 @@ doc:
 
 crates: 
   - name: sc-service
-    bump: minor
+    bump: patch
+  - name: polkadot-rpc
+    bump: patch
