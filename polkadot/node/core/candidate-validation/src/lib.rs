@@ -853,8 +853,6 @@ async fn validate_candidate_exhaustive(
 
 	// metrics.observe_code_size(raw_validation_code.len()); // TODO!!!
 
-	metrics.observe_pov_size(pov.block_data.0.len(), true);
-
 	let persisted_validation_data = Arc::new(persisted_validation_data);
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
@@ -935,13 +933,11 @@ async fn validate_candidate_exhaustive(
 			);
 			Err(ValidationFailed(e.to_string()))
 		},
-		Ok((res, pov_size)) =>
+		Ok(res) =>
 			if res.head_data.hash() != candidate_receipt.descriptor.para_head {
 				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
 				Ok(ValidationResult::Invalid(InvalidCandidate::ParaHeadHashMismatch))
 			} else {
-				metrics.observe_pov_size(pov_size as usize, false);
-
 				let outputs = CandidateCommitments {
 					head_data: res.head_data,
 					upward_messages: res.upward_messages,
@@ -978,7 +974,7 @@ trait ValidationBackend {
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
-	) -> Result<(WasmValidationResult, u32), ValidationError>;
+	) -> Result<WasmValidationResult, ValidationError>;
 
 	/// Tries executing a PVF. Will retry once if an error is encountered that may have
 	/// been transient.
@@ -998,7 +994,7 @@ trait ValidationBackend {
 		retry_delay: Duration,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
-	) -> Result<(WasmValidationResult, u32), ValidationError> {
+	) -> Result<WasmValidationResult, ValidationError> {
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
 		let pvf = PvfPrepData::from_code(
@@ -1123,7 +1119,7 @@ impl ValidationBackend for ValidationHost {
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
-	) -> Result<(WasmValidationResult, u32), ValidationError> {
+	) -> Result<WasmValidationResult, ValidationError> {
 		let (tx, rx) = oneshot::channel();
 		if let Err(err) = self.execute_pvf(pvf, exec_timeout, pvd, pov, prepare_priority, tx).await
 		{

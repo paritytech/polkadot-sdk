@@ -50,7 +50,7 @@ async fn execute_good_block_on_parent() {
 		.await
 		.unwrap();
 
-	let new_head = HeadData::decode(&mut &ret.0.head_data.0[..]).unwrap();
+	let new_head = HeadData::decode(&mut &ret.head_data.0[..]).unwrap();
 
 	assert_eq!(new_head.number, 1);
 	assert_eq!(new_head.parent_hash, parent_head.hash());
@@ -86,7 +86,7 @@ async fn execute_good_chain_on_parent() {
 			.await
 			.unwrap();
 
-		let new_head = HeadData::decode(&mut &ret.0.head_data.0[..]).unwrap();
+		let new_head = HeadData::decode(&mut &ret.head_data.0[..]).unwrap();
 
 		assert_eq!(new_head.number, number as u64 + 1);
 		assert_eq!(new_head.parent_hash, parent_head.hash());
@@ -149,7 +149,7 @@ async fn stress_spawn() {
 			.await
 			.unwrap();
 
-		let new_head = HeadData::decode(&mut &ret.0.head_data.0[..]).unwrap();
+		let new_head = HeadData::decode(&mut &ret.head_data.0[..]).unwrap();
 
 		assert_eq!(new_head.number, 1);
 		assert_eq!(new_head.parent_hash, parent_head.hash());
@@ -189,7 +189,7 @@ async fn execute_can_run_serially() {
 			.await
 			.unwrap();
 
-		let new_head = HeadData::decode(&mut &ret.0.head_data.0[..]).unwrap();
+		let new_head = HeadData::decode(&mut &ret.head_data.0[..]).unwrap();
 
 		assert_eq!(new_head.number, 1);
 		assert_eq!(new_head.parent_hash, parent_head.hash());

@@ -67,7 +67,7 @@ pub const EXECUTE_BINARY_NAME: &str = "polkadot-execute-worker";
 pub const HOST_MESSAGE_QUEUE_SIZE: usize = 10;
 
 /// An alias to not spell the type for the oneshot sender for the PVF execution result.
-pub(crate) type ResultSender = oneshot::Sender<Result<(ValidationResult, u32), ValidationError>>;
+pub(crate) type ResultSender = oneshot::Sender<Result<ValidationResult, ValidationError>>;
 
 /// Transmission end used for sending the PVF preparation result.
 pub(crate) type PrecheckResultSender = oneshot::Sender<PrecheckResult>;

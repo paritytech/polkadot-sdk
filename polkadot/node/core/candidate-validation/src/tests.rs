@@ -364,17 +364,17 @@ fn check_does_not_match() {
 }
 
 struct MockValidateCandidateBackend {
-	result_list: Vec<Result<(WasmValidationResult, u32), ValidationError>>,
+	result_list: Vec<Result<WasmValidationResult, ValidationError>>,
 	num_times_called: usize,
 }
 
 impl MockValidateCandidateBackend {
-	fn with_hardcoded_result(result: Result<(WasmValidationResult, u32), ValidationError>) -> Self {
+	fn with_hardcoded_result(result: Result<WasmValidationResult, ValidationError>) -> Self {
 		Self { result_list: vec![result], num_times_called: 0 }
 	}
 
 	fn with_hardcoded_result_list(
-		result_list: Vec<Result<(WasmValidationResult, u32), ValidationError>>,
+		result_list: Vec<Result<WasmValidationResult, ValidationError>>,
 	) -> Self {
 		Self { result_list, num_times_called: 0 }
 	}
@@ -389,7 +389,7 @@ impl ValidationBackend for MockValidateCandidateBackend {
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
-	) -> Result<(WasmValidationResult, u32), ValidationError> {
+	) -> Result<WasmValidationResult, ValidationError> {
 		// This is expected to panic if called more times than expected, indicating an error in the
 		// test.
 		let result = self.result_list[self.num_times_called].clone();
@@ -455,7 +455,7 @@ fn candidate_validation_ok_is_ok() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Ok((validation_result, 1))),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
 		validation_data.clone(),
 		validation_code,
 		candidate_receipt,
@@ -587,7 +587,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
-			Ok((validation_result, 1)),
+			Ok(validation_result),
 		]),
 		validation_data.clone(),
 		validation_code,
@@ -714,7 +714,7 @@ fn candidate_validation_dont_retry_panic_errors() {
 
 fn candidate_validation_retry_on_error_helper(
 	exec_kind: PvfExecKind,
-	mock_errors: Vec<Result<(WasmValidationResult, u32), ValidationError>>,
+	mock_errors: Vec<Result<WasmValidationResult, ValidationError>>,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 
@@ -830,7 +830,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 	};
 
 	let result = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Ok((validation_result, 1))),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
 		validation_data,
 		validation_code,
 		candidate_receipt,
@@ -939,7 +939,7 @@ fn compressed_code_works() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Ok((validation_result, 1))),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
 		validation_data,
 		validation_code,
 		candidate_receipt,
@@ -971,7 +971,7 @@ impl ValidationBackend for MockPreCheckBackend {
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
-	) -> Result<(WasmValidationResult, u32), ValidationError> {
+	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}
 
@@ -1125,7 +1125,7 @@ impl ValidationBackend for MockHeadsUp {
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
-	) -> Result<(WasmValidationResult, u32), ValidationError> {
+	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}
 
