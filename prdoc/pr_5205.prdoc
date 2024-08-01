@@ -12,5 +12,5 @@ doc:
       For more info about the `chainSpec`, please see the specification: https://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/chainSpec.md.
 
 crates: 
-  - name: polkadot-parachain-bin
+  - name: sc-service
     bump: minor
