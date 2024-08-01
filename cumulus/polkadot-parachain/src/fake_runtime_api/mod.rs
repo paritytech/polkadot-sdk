@@ -17,5 +17,23 @@
 //! In an ideal world this would be one runtime which would simplify the code massively.
 //! This is not an ideal world - Polkadot Asset Hub has a different key type.
 
-pub mod asset_hub_polkadot_aura;
-pub mod aura;
+mod utils;
+
+use parachains_common::Block;
+use utils::impl_node_runtime_apis;
+
+pub mod asset_hub_polkadot {
+	use super::{utils::imports::*, *};
+	use parachains_common::AssetHubPolkadotAuraId;
+
+	pub struct FakeRuntime;
+	impl_node_runtime_apis!(FakeRuntime, Block, AssetHubPolkadotAuraId);
+}
+
+pub mod aura {
+	use super::{utils::imports::*, *};
+	use parachains_common::AuraId;
+
+	pub struct FakeRuntime;
+	impl_node_runtime_apis!(FakeRuntime, Block, AuraId);
+}

@@ -21,7 +21,7 @@ use crate::{
 	cli::{Cli, RelayChainCli, Subcommand},
 	common::NodeExtraArgs,
 	fake_runtime_api::{
-		asset_hub_polkadot_aura::RuntimeApi as AssetHubPolkadotRuntimeApi,
+		asset_hub_polkadot::RuntimeApi as AssetHubPolkadotRuntimeApi,
 		aura::RuntimeApi as AuraRuntimeApi,
 	},
 	service::{new_aura_node_spec, DynNodeSpec, ShellNode},
