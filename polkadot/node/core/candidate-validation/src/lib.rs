@@ -851,8 +851,6 @@ async fn validate_candidate_exhaustive(
 		return Ok(ValidationResult::Invalid(e))
 	}
 
-	// metrics.observe_code_size(raw_validation_code.len()); // TODO!!!
-
 	let persisted_validation_data = Arc::new(persisted_validation_data);
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and

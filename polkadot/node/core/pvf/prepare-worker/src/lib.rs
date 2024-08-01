@@ -106,6 +106,12 @@ impl AsRef<[u8]> for CompiledArtifact {
 	}
 }
 
+#[derive(Encode, Decode)]
+pub struct PrepareOutcome {
+	pub compiled_artifact: CompiledArtifact,
+	pub observed_wasm_code_len: u32,
+}
+
 /// Get a worker request.
 fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
 	let pvf = framed_recv_blocking(stream)?;
@@ -295,11 +301,12 @@ pub fn worker_entrypoint(
 	);
 }
 
-fn prepare_artifact(pvf: PvfPrepData) -> Result<CompiledArtifact, PrepareError> {
+fn prepare_artifact(pvf: PvfPrepData) -> Result<PrepareOutcome, PrepareError> {
 	let maybe_compressed_code = pvf.maybe_compressed_code();
 	let raw_validation_code =
 		sp_maybe_compressed_blob::decompress(&maybe_compressed_code, VALIDATION_CODE_BOMB_LIMIT)
 			.map_err(|e| PrepareError::CouldNotDecompressCodeBlob(e.to_string()))?;
+	let observed_wasm_code_len = raw_validation_code.len() as u32;
 
 	let blob = match prevalidate(&raw_validation_code) {
 		Err(err) => return Err(PrepareError::Prevalidation(format!("{:?}", err))),
@@ -307,7 +314,10 @@ fn prepare_artifact(pvf: PvfPrepData) -> Result<CompiledArtifact, PrepareError> 
 	};
 
 	match prepare(blob, &pvf.executor_params()) {
-		Ok(compiled_artifact) => Ok(CompiledArtifact::new(compiled_artifact)),
+		Ok(compiled_artifact) => Ok(PrepareOutcome {
+			compiled_artifact: CompiledArtifact::new(compiled_artifact),
+			observed_wasm_code_len,
+		}),
 		Err(err) => Err(PrepareError::Preparation(format!("{:?}", err))),
 	}
 }
@@ -328,6 +338,7 @@ fn runtime_construction_check(
 struct JobResponse {
 	artifact: CompiledArtifact,
 	memory_stats: MemoryStats,
+	observed_wasm_code_len: u32,
 }
 
 #[cfg(target_os = "linux")]
@@ -519,7 +530,10 @@ fn handle_child_process(
 			// anyway.
 			if let PrepareJobKind::Prechecking = prepare_job_kind {
 				result = result.and_then(|output| {
-					runtime_construction_check(output.0.as_ref(), &executor_params)?;
+					runtime_construction_check(
+						output.0.compiled_artifact.as_ref(),
+						&executor_params,
+					)?;
 					Ok(output)
 				});
 			}
@@ -559,9 +573,9 @@ fn handle_child_process(
 				Ok(ok) => {
 					cfg_if::cfg_if! {
 						if #[cfg(target_os = "linux")] {
-							let (artifact, max_rss) = ok;
+							let (PrepareOutcome { compiled_artifact, observed_wasm_code_len }, max_rss) = ok;
 						} else {
-							let artifact = ok;
+							let PrepareOutcome { compiled_artifact, observed_wasm_code_len } = ok;
 						}
 					}
 
@@ -580,7 +594,11 @@ fn handle_child_process(
 						peak_tracked_alloc: if peak_alloc > 0 { peak_alloc as u64 } else { 0u64 },
 					};
 
-					Ok(JobResponse { artifact, memory_stats })
+					Ok(JobResponse {
+						artifact: compiled_artifact,
+						observed_wasm_code_len,
+						memory_stats,
+					})
 				},
 			}
 		},
@@ -671,7 +689,7 @@ fn handle_parent_process(
 
 			match result {
 				Err(err) => Err(err),
-				Ok(JobResponse { artifact, memory_stats }) => {
+				Ok(JobResponse { artifact, memory_stats, observed_wasm_code_len }) => {
 					// The exit status should have been zero if no error occurred.
 					if exit_status != 0 {
 						return Err(PrepareError::JobError(format!(
@@ -702,7 +720,11 @@ fn handle_parent_process(
 					let checksum = blake3::hash(&artifact.as_ref()).to_hex().to_string();
 					Ok(PrepareWorkerSuccess {
 						checksum,
-						stats: PrepareStats { memory_stats, cpu_time_elapsed: cpu_tv },
+						stats: PrepareStats {
+							memory_stats,
+							cpu_time_elapsed: cpu_tv,
+							observed_wasm_code_len,
+						},
 					})
 				},
 			}
