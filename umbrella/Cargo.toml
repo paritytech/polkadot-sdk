@@ -124,6 +124,7 @@ std = [
 	"pallet-nomination-pools?/std",
 	"pallet-offences-benchmarking?/std",
 	"pallet-offences?/std",
+	"pallet-opf?/std",
 	"pallet-paged-list?/std",
 	"pallet-parameters?/std",
 	"pallet-preimage?/std",
@@ -311,6 +312,7 @@ runtime-benchmarks = [
 	"pallet-nomination-pools?/runtime-benchmarks",
 	"pallet-offences-benchmarking?/runtime-benchmarks",
 	"pallet-offences?/runtime-benchmarks",
+	"pallet-opf?/runtime-benchmarks",
 	"pallet-paged-list?/runtime-benchmarks",
 	"pallet-parameters?/runtime-benchmarks",
 	"pallet-preimage?/runtime-benchmarks",
@@ -440,6 +442,7 @@ try-runtime = [
 	"pallet-node-authorization?/try-runtime",
 	"pallet-nomination-pools?/try-runtime",
 	"pallet-offences?/try-runtime",
+	"pallet-opf?/try-runtime",
 	"pallet-paged-list?/try-runtime",
 	"pallet-parameters?/try-runtime",
 	"pallet-preimage?/try-runtime",
@@ -661,6 +664,7 @@ runtime = [
 	"pallet-nomination-pools-runtime-api",
 	"pallet-offences",
 	"pallet-offences-benchmarking",
+	"pallet-opf",
 	"pallet-paged-list",
 	"pallet-parameters",
 	"pallet-preimage",
@@ -1182,11 +1186,6 @@ path = "../substrate/frame/broker"
 default-features = false
 optional = true
 
-[dependencies.pallet-distribution]
-path = "../substrate/frame/distribution"
-default-features = false
-optional = true
-
 [dependencies.pallet-child-bounties]
 path = "../substrate/frame/child-bounties"
 default-features = false
@@ -1244,6 +1243,11 @@ optional = true
 
 [dependencies.pallet-dev-mode]
 path = "../substrate/frame/examples/dev-mode"
+default-features = false
+optional = true
+
+[dependencies.pallet-distribution]
+path = "../substrate/frame/distribution"
 default-features = false
 optional = true
 
@@ -1379,6 +1383,11 @@ optional = true
 
 [dependencies.pallet-offences-benchmarking]
 path = "../substrate/frame/offences/benchmarking"
+default-features = false
+optional = true
+
+[dependencies.pallet-opf]
+path = "../substrate/frame/opf"
 default-features = false
 optional = true
 

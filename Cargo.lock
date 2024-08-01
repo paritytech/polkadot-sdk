@@ -11269,6 +11269,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-opf"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-distribution",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-paged-list"
 version = "0.6.0"
 dependencies = [
@@ -14318,6 +14340,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-offences-benchmarking",
+ "pallet-opf",
  "pallet-paged-list",
  "pallet-parameters",
  "pallet-preimage",
@@ -14594,6 +14617,7 @@ dependencies = [
  "pallet-examples",
  "pallet-multisig",
  "pallet-nfts",
+ "pallet-opf",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-referenda",

@@ -479,6 +479,10 @@ pub use pallet_democracy;
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
 
+/// FRAME Distribution pallet.
+#[cfg(feature = "pallet-distribution")]
+pub use pallet_distribution;
+
 /// PALLET two phase election providers.
 #[cfg(feature = "pallet-election-provider-multi-phase")]
 pub use pallet_election_provider_multi_phase;
@@ -555,10 +559,6 @@ pub use pallet_nft_fractionalization;
 #[cfg(feature = "pallet-nfts")]
 pub use pallet_nfts;
 
-/// FRAME Distribution pallet.
-#[cfg(feature = "pallet-distribution")]
-pub use pallet_distribution;
-
 /// Runtime API for the FRAME NFTs pallet.
 #[cfg(feature = "pallet-nfts-runtime-api")]
 pub use pallet_nfts_runtime_api;
@@ -590,6 +590,10 @@ pub use pallet_offences;
 /// FRAME offences pallet benchmarking.
 #[cfg(feature = "pallet-offences-benchmarking")]
 pub use pallet_offences_benchmarking;
+
+/// FRAME Distribution pallet.
+#[cfg(feature = "pallet-opf")]
+pub use pallet_opf;
 
 /// FRAME pallet that provides a paged list data structure.
 #[cfg(feature = "pallet-paged-list")]

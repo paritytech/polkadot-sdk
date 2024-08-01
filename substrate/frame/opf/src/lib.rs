@@ -40,7 +40,7 @@ pub mod pallet {
 	pub type WhiteListedProjectAccounts<T: Config> = 
 		StorageValue<_, BoundedVec<AccountIdOf<T>, T::MaxWhitelistedProjects>, ValueQuery>;
 
-	/// Returns Votes Infos against (project_id, voter_id)
+	/// Returns Votes Infos against (project_id, voter_id) key
 	#[pallet::storage]
 	pub type Votes<T: Config> =
 		StorageDoubleMap<_, Blake2_128Concat, AccountIdOf<T>,Twox64Concat, AccountIdOf<T>, VoteInfo<T>, OptionQuery>;
