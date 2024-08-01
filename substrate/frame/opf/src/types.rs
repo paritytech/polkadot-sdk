@@ -11,20 +11,14 @@ pub use sp_runtime::traits::Saturating;
 pub use sp_runtime::traits::{AccountIdConversion, Convert, StaticLookup, Zero};
 pub use pallet_distribution::{AccountIdOf, BalanceOf, ProjectInfo };
 
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct VoteInfo<T: Config> {
-    /// Voter account_id
-    voter_id: AccountIdOf<T>,
-
-    /// The amount of stake placed on this vote.
+    /// The amount of stake/slash placed on this vote.
     amount: BalanceOf<T>,
-
-    //conviction: Conviction,
 
     /// Whether the vote is "fund" / "not fund"
     is_fund: bool,
 
-    /// To be unreserved upon removal of the stake.
-	pub deposit: BalanceOf<T>,
   }
+

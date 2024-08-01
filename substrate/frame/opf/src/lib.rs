@@ -22,10 +22,6 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + Distribution::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// Deposit associated with voting.
-		#[pallet::constant]
-		type VotingBond: Get<BalanceOf<Self>> ;
-
 		/// The minimum duration for which votes are locked
 		#[pallet::constant]
 		type VoteLockingPeriod: Get<BlockNumberFor<Self>> ;
@@ -44,16 +40,19 @@ pub mod pallet {
 	pub type WhiteListedProjectAccounts<T: Config> = 
 		StorageValue<_, BoundedVec<AccountIdOf<T>, T::MaxWhitelistedProjects>, ValueQuery>;
 
+	/// Returns Votes Infos against (project_id, voter_id)
+	#[pallet::storage]
+	pub type Votes<T: Config> =
+		StorageDoubleMap<_, Blake2_128Concat, AccountIdOf<T>,Twox64Concat, AccountIdOf<T>, VoteInfo<T>, OptionQuery>;
+	
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 
 		/// Reward successfully claimed
-		RewardClaimed {
+		RewardsAssigned {
 			when: BlockNumberFor<T>,
-			amount: BalanceOf<T>,
-			project_account: AccountIdOf<T>,
 		},
 
 
@@ -61,8 +60,11 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// There was an attempt to increment the value in storage over `u32::MAX`.
-		StorageOverflow,
+		/// This account is not connected to any WhiteListed Project.
+		NotWhitelistedProject,
+
+		/// The voting action failed.
+		VoteFailed
 	
 	}
 

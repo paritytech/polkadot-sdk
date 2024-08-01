@@ -2167,13 +2167,11 @@ impl pallet_distribution::Config for Runtime {
 }
 
 parameter_types!{
-	pub const VotingBond: Balance = deposit(0, 32);
 	pub const NominationRenewalPeriod: BlockNumber = 10;
 	pub const MaxWhitelistedProjects: u32 = 1000;
 }
 impl pallet_opf::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type VotingBond = VotingBondBase;
 	type VoteLockingPeriod = VoteLockingPeriod;
 	type NominationRenewalPeriod = TermDuration;
 	type MaxWhitelistedProjects = MaxCandidates;
