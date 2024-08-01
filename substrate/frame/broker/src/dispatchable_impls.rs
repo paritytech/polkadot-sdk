@@ -494,10 +494,13 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 
+		// Check if the core is expiring in the next bulk period; if so, we will renew it now.
+		//
+		// In case we renew it now, we don't need to check the workload end since we know it is
+		// eligible for renewal.
 		if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
 			.is_some()
 		{
-			// If the core expires in the upcoming bulk period we will renew it now.
 			Self::do_renew(sovereign_account.clone(), core)?;
 		} else if let Some(workload_end) = workload_end_hint {
 			ensure!(
@@ -509,7 +512,7 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::NotAllowed.into())
 		}
 
-		// We are keeping the auto-renewals sorted by `CoreIndex`.
+		// We are sorting auto renewals by `CoreIndex`.
 		AutoRenewals::<T>::try_mutate(|renewals| {
 			let pos = renewals
 				.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core))
