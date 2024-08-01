@@ -1316,7 +1316,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_empty_root() {
 		<span class="comment">// given
-		</span><span class="kw">let _ </span>= env_logger::try_init();
+		</span>sp_tracing::init_for_tests();
 		<span class="kw">let </span>data: Vec&lt;[u8; <span class="number">1</span>]&gt; = Default::default();
 
 		<span class="comment">// when
@@ -1332,7 +1332,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_single_root() {
 		<span class="comment">// given
-		</span><span class="kw">let _ </span>= env_logger::try_init();
+		</span>sp_tracing::init_for_tests();
 		<span class="kw">let </span>data = <span class="macro">vec!</span>[array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">20</span>&gt;(
 			<span class="string">"E04CC55ebEE1cBCE552f250e85c57B70B2E2625b"</span>,
 		)];
@@ -1350,7 +1350,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_root_pow_2() {
 		<span class="comment">// given
-		</span><span class="kw">let _ </span>= env_logger::try_init();
+		</span>sp_tracing::init_for_tests();
 		<span class="kw">let </span>data = <span class="macro">vec!</span>[
 			array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">20</span>&gt;(<span class="string">"E04CC55ebEE1cBCE552f250e85c57B70B2E2625b"</span>),
 			array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">20</span>&gt;(<span class="string">"25451A4de12dcCc2D166922fA938E900fCc4ED24"</span>),
@@ -1368,7 +1368,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_root_complex() {
-		<span class="kw">let _ </span>= env_logger::try_init();
+		sp_tracing::init_for_tests();
 		<span class="kw">let </span>test = |root, data| {
 			<span class="macro">assert_eq!</span>(array_bytes::bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>merkle_root::&lt;Keccak256, <span class="kw">_</span>&gt;(data)), root);
 		};
@@ -1397,7 +1397,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_and_verify_proof_simple() {
 		<span class="comment">// given
-		</span><span class="kw">let _ </span>= env_logger::try_init();
+		</span>sp_tracing::init_for_tests();
 		<span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>];
 
 		<span class="comment">// when
@@ -1461,7 +1461,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_and_verify_proof_complex() {
 		<span class="comment">// given
-		</span><span class="kw">let _ </span>= env_logger::try_init();
+		</span>sp_tracing::init_for_tests();
 		<span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>, <span class="string">"d"</span>, <span class="string">"e"</span>, <span class="string">"f"</span>, <span class="string">"g"</span>, <span class="string">"h"</span>, <span class="string">"i"</span>, <span class="string">"j"</span>];
 
 		<span class="kw">for </span>l <span class="kw">in </span><span class="number">0</span>..data.len() {
@@ -1481,7 +1481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_and_verify_proof_large() {
 		<span class="comment">// given
-		</span><span class="kw">let _ </span>= env_logger::try_init();
+		</span>sp_tracing::init_for_tests();
 		<span class="kw">let </span><span class="kw-2">mut </span>data = <span class="macro">vec!</span>[];
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..<span class="number">16 </span>{
 			<span class="kw">for </span>c <span class="kw">in </span><span class="string">'a'</span>..<span class="string">'z' </span>{
@@ -1508,7 +1508,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_and_verify_proof_large_tree() {
 		<span class="comment">// given
-		</span><span class="kw">let _ </span>= env_logger::try_init();
+		</span>sp_tracing::init_for_tests();
 		<span class="kw">let </span><span class="kw-2">mut </span>data = <span class="macro">vec!</span>[];
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">6000 </span>{
 			data.push(<span class="macro">format!</span>(<span class="string">"{}"</span>, i));
@@ -1531,7 +1531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	#[should_panic]
 	</span><span class="kw">fn </span>should_panic_on_invalid_leaf_index() {
-		<span class="kw">let _ </span>= env_logger::try_init();
+		sp_tracing::init_for_tests();
 		merkle_proof::&lt;Keccak256, <span class="kw">_</span>, <span class="kw">_</span>&gt;(<span class="macro">vec!</span>[<span class="string">"a"</span>], <span class="number">5</span>);
 	}
 

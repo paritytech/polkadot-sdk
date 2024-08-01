@@ -220,76 +220,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
-<a href="#90" id="90">90</a>
-<a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -308,9 +238,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Relayer initialization functions.
 
-</span><span class="kw">use </span>console::style;
-<span class="kw">use </span>parking_lot::Mutex;
-<span class="kw">use </span>std::{cell::RefCell, fmt::Display, io::Write};
+</span><span class="kw">use </span>parking_lot::Mutex;
+<span class="kw">use </span>sp_tracing::{
+	tracing::Level,
+	tracing_subscriber::{
+		fmt::{time::OffsetTime, SubscriberBuilder},
+		EnvFilter,
+	},
+};
+<span class="kw">use </span>std::cell::RefCell;
 
 <span class="doccomment">/// Relayer version that is provided as metric. Must be set by a binary
 /// (get it with `option_env!("CARGO_PKG_VERSION")` from a binary package code).
@@ -333,103 +269,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)
 	.expect(<span class="string">"static format string is valid"</span>);
 
-	<span class="kw">let </span><span class="kw-2">mut </span>builder = env_logger::Builder::new();
-	builder.filter_level(log::LevelFilter::Warn);
-	builder.filter_module(<span class="string">"bridge"</span>, log::LevelFilter::Info);
-	builder.parse_default_env();
+	<span class="kw">let </span>local_time = OffsetTime::new(
+		time::UtcOffset::current_local_offset().unwrap_or(time::UtcOffset::UTC),
+		format,
+	);
+
+	<span class="kw">let </span>env_filter = EnvFilter::from_default_env()
+		.add_directive(Level::WARN.into())
+		.add_directive(<span class="string">"bridge=info"</span>.parse().expect(<span class="string">"static filter string is valid"</span>));
+
+	<span class="kw">let </span>builder = SubscriberBuilder::default().with_env_filter(env_filter);
+
 	<span class="kw">if </span>with_timestamp {
-		builder.format(<span class="kw">move </span>|buf, record| {
-			<span class="kw">let </span>timestamp = time::OffsetDateTime::now_local()
-				.unwrap_or_else(|<span class="kw">_</span>| time::OffsetDateTime::now_utc());
-			<span class="kw">let </span>timestamp = timestamp.format(<span class="kw-2">&amp;</span>format).unwrap_or_else(|<span class="kw">_</span>| timestamp.to_string());
-
-			<span class="kw">let </span>log_level = color_level(record.level());
-			<span class="kw">let </span>log_target = color_target(record.target());
-			<span class="kw">let </span>timestamp = <span class="kw">if </span><span class="macro">cfg!</span>(windows) {
-				Either::Left(timestamp)
-			} <span class="kw">else </span>{
-				Either::Right(style(timestamp).black().bright().bold().to_string())
-			};
-
-			<span class="macro">writeln!</span>(
-				buf,
-				<span class="string">"{}{} {} {} {}"</span>,
-				loop_name_prefix(),
-				timestamp,
-				log_level,
-				log_target,
-				record.args(),
-			)
-		});
+		builder.with_timer(local_time).init();
 	} <span class="kw">else </span>{
-		builder.format(<span class="kw">move </span>|buf, record| {
-			<span class="kw">let </span>log_level = color_level(record.level());
-			<span class="kw">let </span>log_target = color_target(record.target());
-
-			<span class="macro">writeln!</span>(buf, <span class="string">"{}{log_level} {log_target} {}"</span>, loop_name_prefix(), record.args(),)
-		});
+		builder.without_time().init();
 	}
-
-	builder.init();
 }
 
 <span class="doccomment">/// Initialize relay loop. Must only be called once per every loop task.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initialize_loop(loop_name: String) {
 	LOOP_NAME.with(|g_loop_name| <span class="kw-2">*</span>g_loop_name.borrow_mut() = loop_name);
-}
-
-<span class="doccomment">/// Returns loop name prefix to use in logs. The prefix is initialized with the `initialize_loop`
-/// call.
-</span><span class="kw">fn </span>loop_name_prefix() -&gt; String {
-	<span class="comment">// try_with to avoid panic outside of async-std task context
-	</span>LOOP_NAME
-		.try_with(|loop_name| {
-			<span class="comment">// using borrow is ok here, because loop is only initialized once (=&gt; borrow_mut will
-			// only be called once)
-			</span><span class="kw">let </span>loop_name = loop_name.borrow();
-			<span class="kw">if </span>loop_name.is_empty() {
-				String::new()
-			} <span class="kw">else </span>{
-				<span class="macro">format!</span>(<span class="string">"[{loop_name}] "</span>)
-			}
-		})
-		.unwrap_or_else(|<span class="kw">_</span>| String::new())
-}
-
-<span class="kw">enum </span>Either&lt;A, B&gt; {
-	Left(A),
-	Right(B),
-}
-<span class="kw">impl</span>&lt;A: Display, B: Display&gt; Display <span class="kw">for </span>Either&lt;A, B&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::Left(a) =&gt; <span class="macro">write!</span>(fmt, <span class="string">"{a}"</span>),
-			<span class="self">Self</span>::Right(b) =&gt; <span class="macro">write!</span>(fmt, <span class="string">"{b}"</span>),
-		}
-	}
-}
-
-<span class="kw">fn </span>color_target(target: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw">impl </span>Display + <span class="lifetime">'_ </span>{
-	<span class="kw">if </span><span class="macro">cfg!</span>(windows) {
-		Either::Left(target)
-	} <span class="kw">else </span>{
-		Either::Right(style(target).black().bright().to_string())
-	}
-}
-
-<span class="kw">fn </span>color_level(level: log::Level) -&gt; <span class="kw">impl </span>Display {
-	<span class="kw">if </span><span class="macro">cfg!</span>(windows) {
-		Either::Left(level)
-	} <span class="kw">else </span>{
-		<span class="kw">let </span>s = level.to_string();
-		Either::Right(<span class="kw">match </span>level {
-			log::Level::Error =&gt; style(s).red().bright().bold().to_string(),
-			log::Level::Warn =&gt; style(s).yellow().bright().bold().to_string(),
-			log::Level::Info =&gt; style(s).green().bright().to_string(),
-			log::Level::Debug =&gt; style(s).cyan().bright().to_string(),
-			log::Level::Trace =&gt; style(s).blue().bright().to_string(),
-		})
-	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

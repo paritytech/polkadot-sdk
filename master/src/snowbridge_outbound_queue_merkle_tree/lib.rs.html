@@ -950,7 +950,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_empty_root() {
 		<span class="comment">// given
-		</span><span class="kw">let _ </span>= env_logger::try_init();
+		</span>sp_tracing::init_for_tests();
 		<span class="kw">let </span>data = <span class="macro">vec!</span>[];
 
 		<span class="comment">// when
@@ -966,7 +966,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_single_root() {
 		<span class="comment">// given
-		</span><span class="kw">let _ </span>= env_logger::try_init();
+		</span>sp_tracing::init_for_tests();
 		<span class="kw">let </span>data = make_leaves(<span class="number">1</span>);
 
 		<span class="comment">// when
@@ -982,7 +982,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_root_pow_2() {
 		<span class="comment">// given
-		</span><span class="kw">let _ </span>= env_logger::try_init();
+		</span>sp_tracing::init_for_tests();
 		<span class="kw">let </span>data = make_leaves(<span class="number">2</span>);
 
 		<span class="comment">// when
@@ -997,7 +997,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_root_complex() {
-		<span class="kw">let _ </span>= env_logger::try_init();
+		sp_tracing::init_for_tests();
 		<span class="kw">let </span>test = |root, data: Vec&lt;H256&gt;| {
 			<span class="macro">assert_eq!</span>(
 				array_bytes::bytes2hex(<span class="string">""</span>, merkle_root::&lt;Keccak256, <span class="kw">_</span>&gt;(data.into_iter()).as_ref()),
@@ -1016,7 +1016,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[ignore]
 	</span><span class="kw">fn </span>should_generate_and_verify_proof() {
 		<span class="comment">// given
-		</span><span class="kw">let _ </span>= env_logger::try_init();
+		</span>sp_tracing::init_for_tests();
 		<span class="kw">let </span>data: Vec&lt;H256&gt; = make_leaves(<span class="number">3</span>);
 
 		<span class="comment">// when
@@ -1073,7 +1073,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	#[should_panic]
 	</span><span class="kw">fn </span>should_panic_on_invalid_leaf_index() {
-		<span class="kw">let _ </span>= env_logger::try_init();
+		sp_tracing::init_for_tests();
 		merkle_proof::&lt;Keccak256, <span class="kw">_</span>&gt;(make_leaves(<span class="number">1</span>).into_iter(), <span class="number">5</span>);
 	}
 }

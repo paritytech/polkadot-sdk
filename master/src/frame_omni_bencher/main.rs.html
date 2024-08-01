@@ -177,7 +177,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
-<a href="#29" id="29">29</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -198,11 +197,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>command;
 
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>env_logger::Env;
 <span class="kw">use </span>sc_cli::Result;
 
 <span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-	env_logger::Builder::from_env(Env::default().default_filter_or(<span class="string">"info"</span>)).init();
+	sp_tracing::try_init_simple();
 	<span class="macro">log::warn!</span>(<span class="string">"The FRAME omni-bencher is not yet battle tested - double check the results."</span>,);
 
 	command::Command::parse().run()

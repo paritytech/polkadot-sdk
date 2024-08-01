@@ -2469,7 +2469,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>test_store() -&gt; (Store, tempfile::TempDir) {
-		<span class="kw">let _ </span>= env_logger::try_init();
+		sp_tracing::init_for_tests();
 		<span class="kw">let </span>temp_dir = tempfile::Builder::new().tempdir().expect(<span class="string">"Error creating test dir"</span>);
 
 		<span class="kw">let </span>client = std::sync::Arc::new(TestClient);

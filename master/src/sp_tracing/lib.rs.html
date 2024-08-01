@@ -403,6 +403,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -445,11 +448,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">extern crate </span>alloc;
 
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-</span><span class="kw">use </span>tracing;
+</span><span class="kw">pub use </span>tracing;
 <span class="kw">pub use </span>tracing::{
 	debug, debug_span, error, error_span, event, info, info_span, span, trace, trace_span, warn,
 	warn_span, Level, Span,
 };
+
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">pub use </span>tracing_subscriber;
 
 <span class="kw">pub use </span><span class="kw">crate</span>::types::{
 	WasmEntryAttributes, WasmFieldName, WasmFields, WasmLevel, WasmMetadata, WasmValue,
