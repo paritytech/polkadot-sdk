@@ -1,0 +1,22 @@
+title: Make changing of peer-id while active a bit more robust
+
+doc:
+  - audience: Node Dev
+    description: |
+      Implemetation of https://github.com/polkadot-fellows/RFCs/pull/91, to use `creation_time` field to determine
+      the newest DHT record and to update nodes known to have the old record.
+
+      Gossip-support is modified to try to re-resolve new address authorithies every 5 minutes instead of each session,
+      so that we pick autorithies that changed their address faster and try to connect to them.
+
+crates:
+- name: sc-authority-discovery
+  bump: major
+- name: polkadot-gossip-support
+  bump: major
+- name: polkadot-network-bridge
+  bump: major
+- name: polkadot-node-subsystem-types
+  bump: major
+- name: sc-network
+  bump: minor

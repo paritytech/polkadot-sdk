@@ -75,6 +75,7 @@ pub fn genesis() -> Storage {
 					)
 				})
 				.collect::<Vec<_>>(),
+			..Default::default()
 		},
 		babe: rococo_runtime::BabeConfig {
 			authorities: Default::default(),
