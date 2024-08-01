@@ -681,7 +681,7 @@ where
 		let archive_v2 = sc_rpc_spec_v2::archive::Archive::new(
 			client.clone(),
 			backend.clone(),
-			genesis_hash.clone(),
+			genesis_hash,
 			// Defaults to sensible limits for the `Archive`.
 			sc_rpc_spec_v2::archive::ArchiveConfig::default(),
 		)
