@@ -172,7 +172,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 fn params_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(42), 0);
-		assert_eq!(Balances::total_issuance(), 210);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 210);
 	});
 }
 
