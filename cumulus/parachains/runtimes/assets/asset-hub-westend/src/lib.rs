@@ -78,8 +78,7 @@ use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::Weig
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf,
 	PoolAssetsConvertedConcreteId, TrustBackedAssetsConvertedConcreteId,
-	TrustBackedAssetsPalletLocationV3, WestendLocation, WestendLocationV3,
-	XcmOriginToTransactDispatchOrigin,
+	TrustBackedAssetsPalletLocation, WestendLocation, XcmOriginToTransactDispatchOrigin,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -321,11 +320,11 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 	Assets,
 	ForeignAssets,
 	LocalFromLeft<
-		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocationV3, xcm::v3::Location>,
+		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, xcm::v4::Location>,
 		AssetIdForTrustBackedAssets,
-		xcm::v3::Location,
+		xcm::v4::Location,
 	>,
-	xcm::v3::Location,
+	xcm::v4::Location,
 	AccountId,
 >;
 
@@ -333,25 +332,25 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 pub type NativeAndAssets = fungible::UnionOf<
 	Balances,
 	LocalAndForeignAssets,
-	TargetFromLeft<WestendLocationV3, xcm::v3::Location>,
-	xcm::v3::Location,
+	TargetFromLeft<WestendLocation, xcm::v4::Location>,
+	xcm::v4::Location,
 	AccountId,
 >;
 
 pub type PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter<
 	AssetConversionPalletId,
-	(xcm::v3::Location, xcm::v3::Location),
+	(xcm::v4::Location, xcm::v4::Location),
 >;
 
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type HigherPrecisionBalance = sp_core::U256;
-	type AssetKind = xcm::v3::Location;
+	type AssetKind = xcm::v4::Location;
 	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = pallet_asset_conversion::WithFirstAsset<
-		WestendLocationV3,
+		WestendLocation,
 		AccountId,
 		Self::AssetKind,
 		PoolIdToAccountId,
@@ -359,7 +358,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolAssetId = u32;
 	type PoolAssets = PoolAssets;
 	type PoolSetupFee = ConstU128<0>; // Asset class deposit fees are sufficient to prevent spam
-	type PoolSetupFeeAsset = WestendLocationV3;
+	type PoolSetupFeeAsset = WestendLocation;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type LPFee = ConstU32<3>;
@@ -369,10 +368,10 @@ impl pallet_asset_conversion::Config for Runtime {
 	type WeightInfo = weights::pallet_asset_conversion::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
-		WestendLocationV3,
+		WestendLocation,
 		parachain_info::Pallet<Runtime>,
 		xcm_config::TrustBackedAssetsPalletIndex,
-		xcm::v3::Location,
+		xcm::v4::Location,
 	>;
 }
 
@@ -406,14 +405,14 @@ pub type ForeignAssetsInstance = pallet_assets::Instance2;
 impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
-	type AssetId = xcm::v3::Location;
-	type AssetIdParameter = xcm::v3::Location;
+	type AssetId = xcm::v4::Location;
+	type AssetIdParameter = xcm::v4::Location;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
-		FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v3::Location>,
+		FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v4::Location>,
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,
-		xcm::v3::Location,
+		xcm::v4::Location,
 	>;
 	type ForceOrigin = AssetsForceOrigin;
 	type AssetDeposit = ForeignAssetsAssetDeposit;
@@ -793,9 +792,9 @@ parameter_types! {
 
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AssetId = xcm::v3::Location;
+	type AssetId = xcm::v4::Location;
 	type OnChargeAssetTransaction = SwapAssetAdapter<
-		WestendLocationV3,
+		WestendLocation,
 		NativeAndAssets,
 		AssetConversion,
 		ResolveAssetTo<StakingPot, NativeAndAssets>,
@@ -1167,6 +1166,7 @@ mod benches {
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
+		[assets_common_migrations, AssetsCommonMigrations]
 		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
@@ -1323,18 +1323,18 @@ impl_runtime_apis! {
 	impl pallet_asset_conversion::AssetConversionApi<
 		Block,
 		Balance,
-		xcm::v3::Location,
+		xcm::v4::Location,
 	> for Runtime
 	{
-		fn quote_price_exact_tokens_for_tokens(asset1: xcm::v3::Location, asset2: xcm::v3::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
+		fn quote_price_exact_tokens_for_tokens(asset1: xcm::v4::Location, asset2: xcm::v4::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		fn quote_price_tokens_for_exact_tokens(asset1: xcm::v3::Location, asset2: xcm::v3::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
+		fn quote_price_tokens_for_exact_tokens(asset1: xcm::v4::Location, asset2: xcm::v4::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		fn get_reserves(asset1: xcm::v3::Location, asset2: xcm::v3::Location) -> Option<(Balance, Balance)> {
+		fn get_reserves(asset1: xcm::v4::Location, asset2: xcm::v4::Location) -> Option<(Balance, Balance)> {
 			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}
@@ -1520,6 +1520,7 @@ impl_runtime_apis! {
 			// are referenced in that call.
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
+			type AssetsCommonMigrations = assets_common_migrations::Pallet::<Runtime, ForeignAssetsInstance>;
 
 			// Benchmark files generated for `Assets/ForeignAssets` instances are by default
 			// `pallet_assets_assets.rs / pallet_assets_foreign_assets`, which is not really nice,
@@ -1823,6 +1824,7 @@ impl_runtime_apis! {
 
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
+			type AssetsCommonMigrations = assets_common_migrations::Pallet::<Runtime, ForeignAssetsInstance>;
 
 			type Local = pallet_assets::Pallet::<Runtime, TrustBackedAssetsInstance>;
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;

@@ -84,8 +84,8 @@ use sp_runtime::{Perbill, RuntimeDebug};
 use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
-	PoolAssetsConvertedConcreteId, TokenLocation,
-	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocation,
+	PoolAssetsConvertedConcreteId, TokenLocation, TrustBackedAssetsConvertedConcreteId,
+	TrustBackedAssetsPalletLocation,
 };
 
 #[cfg(test)]
@@ -194,9 +194,8 @@ impl pallet_migrations::Config for Runtime {
 	type WeightInfo = ();
 }
 
-type MultiBlockMigrations = (
-	assets_common::foreign_assets_migration::Migration<Runtime, ForeignAssetsInstance>,
-);
+type MultiBlockMigrations =
+	(assets_common::foreign_assets_migration::Migration<Runtime, ForeignAssetsInstance>,);
 
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.

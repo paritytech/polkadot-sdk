@@ -20,12 +20,12 @@ use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
 use pallet_assets::{Asset, Config};
 use xcm::{v3, v4};
 
-use crate::v1::{old::AssetDetailsOf, AssetDetails, AssetStatus};
+use crate::{
+	v1::{old::AssetDetailsOf, AssetDetails, AssetStatus},
+	Pallet,
+};
 
 use super::{old, Migration};
-
-// Mocked non-FRAME pallet type to make benchmarks compile.
-pub struct Pallet<T: Config<I>, I: 'static = ()>(core::marker::PhantomData<(T, I)>);
 
 #[instance_benchmarks(
     // This is needed for the migration and could also be in its own "migration config":
@@ -47,7 +47,8 @@ mod benches {
 			Migration::<T, I>::step(None, &mut meter).unwrap();
 		}
 
-		let new_key: <T as Config<I>>::AssetId = v4::Location::new(1, [v4::Junction::Parachain(2004)]).into();
+		let new_key: <T as Config<I>>::AssetId =
+			v4::Location::new(1, [v4::Junction::Parachain(2004)]).into();
 		assert!(Asset::<T, I>::contains_key(new_key));
 	}
 

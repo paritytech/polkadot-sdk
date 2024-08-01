@@ -22,7 +22,6 @@ pub mod fungible_conversion;
 pub mod local_and_foreign_assets;
 pub mod matching;
 pub mod runtime_api;
-pub mod foreign_assets_migration;
 
 extern crate alloc;
 

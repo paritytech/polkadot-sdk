@@ -16,4 +16,17 @@
 //! A utility pallet for migrating storage items in the asset hub runtimes.
 //! It's only a pallet since the benchmarking machinery requires it.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 mod v1;
+
+pub use pallet::*;
+
+#[frame_support::pallet]
+pub mod pallet {
+	#[pallet::pallet]
+	pub struct Pallet<T, I = ()>(_);
+
+	#[pallet::config]
+	pub trait Config<I: 'static = ()>: frame_system::Config {}
+}

@@ -28,7 +28,6 @@ use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
 	weights::WeightMeter,
-	Hashable,
 };
 use pallet_assets::{Asset, AssetDetails, AssetStatus, Config};
 use xcm::{v3, v4};
@@ -96,22 +95,5 @@ where
 			// Signal the migration is complete.
 			Ok(None)
 		}
-	}
-}
-
-fn mock_asset_details() -> AssetDetails<u64, u64, u64> {
-	AssetDetails {
-		owner: 0,
-		issuer: 0,
-		admin: 0,
-		freezer: 0,
-		supply: 0,
-		deposit: 0,
-		min_balance: 1,
-		is_sufficient: false,
-		accounts: 0,
-		sufficients: 0,
-		approvals: 0,
-		status: AssetStatus::Live,
 	}
 }

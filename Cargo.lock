@@ -999,6 +999,7 @@ version = "0.15.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
+ "assets-common-migrations",
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
  "bp-bridge-hub-rococo",
@@ -1147,7 +1148,6 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-api",
- "sp-io",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-builder",
