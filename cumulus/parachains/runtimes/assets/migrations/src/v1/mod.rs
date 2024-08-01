@@ -54,7 +54,10 @@ pub mod old {
 }
 
 pub struct Migration<T: Config<I>, I: 'static = ()>(PhantomData<(T, I)>);
-impl<T: Config<I>, I: 'static> SteppedMigration for Migration<T, I> {
+impl<T: Config<I>, I: 'static> SteppedMigration for Migration<T, I>
+where
+	<T as Config<I>>::AssetId: From<v4::Location>,
+{
 	type Cursor = v3::Location;
 	type Identifier = MigrationId<13>;
 
@@ -80,8 +83,9 @@ impl<T: Config<I>, I: 'static> SteppedMigration for Migration<T, I> {
 			// we log them to try again later.
 			let maybe_new_key: Result<v4::Location, _> = key.try_into();
 			if let Ok(new_key) = maybe_new_key {
-				old::Asset::<T, I>::remove(key.clone());
-				Asset::<T, I>::insert(new_key.clone(), value);
+				old::Asset::<T, I>::remove(&key);
+				let new_key: <T as Config<I>>::AssetId = new_key.into();
+				Asset::<T, I>::insert(&new_key, value);
 				log::info!(target: "migration", "Successfully migrated key: {:?}", new_key);
 			} else {
 				log::warn!(target: "migration", "{:?} couldn't be converted to V4", key);

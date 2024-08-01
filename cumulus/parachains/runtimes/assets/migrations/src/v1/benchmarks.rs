@@ -27,7 +27,10 @@ use super::{old, Migration};
 // Mocked non-FRAME pallet type to make benchmarks compile.
 pub struct Pallet<T: Config<I>, I: 'static = ()>(core::marker::PhantomData<(T, I)>);
 
-#[instance_benchmarks]
+#[instance_benchmarks(
+    // This is needed for the migration and could also be in its own "migration config":
+    where <T as Config<I>>::AssetId: From<v4::Location>
+)]
 mod benches {
 	use super::*;
 
@@ -41,15 +44,14 @@ mod benches {
 		let mut meter = WeightMeter::new();
 		#[block]
 		{
-			//Migration::<T, I>::step(None, &mut meter).unwrap();
+			Migration::<T, I>::step(None, &mut meter).unwrap();
 		}
 
-		// let new_key = v4::Location::new(1, [v4::Junction::Parachain(2004)]);
-		// assert!(Asset::<T>::contains_key(new_key));
+		//let new_key = v4::Location::new(1, [v4::Junction::Parachain(2004)]);
+		//assert!(Asset::<T>::contains_key(new_key));
 	}
 
-	//impl_benchmark_test_suite!(Pallet, crate::v1::tests::new_test_ext(),
-	// crate::v1::tests::Runtime);
+	impl_benchmark_test_suite!(Pallet, crate::v1::tests::new_test_ext(), crate::v1::tests::Runtime);
 }
 
 fn mock_asset_details<T: Config<I>, I: 'static>() -> AssetDetailsOf<T, I> {
