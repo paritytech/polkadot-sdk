@@ -96,6 +96,23 @@ pub struct TestMetric {
 	value: f64,
 }
 
+impl TestMetric {
+	pub fn name(&self) -> &str {
+		&self.name
+	}
+
+	pub fn value(&self) -> f64 {
+		self.value
+	}
+
+	pub fn label_value(&self, label_name: &str) -> Option<&str> {
+		self.label_names
+			.iter()
+			.position(|name| name == label_name)
+			.and_then(|index| self.label_values.get(index).map(|s| s.as_str()))
+	}
+}
+
 impl Display for TestMetric {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(

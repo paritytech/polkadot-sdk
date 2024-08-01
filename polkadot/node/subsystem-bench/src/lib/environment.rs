@@ -24,7 +24,6 @@ use crate::{
 };
 use core::time::Duration;
 use futures::{Future, FutureExt};
-use polkadot_node_core_approval_voting_parallel::APPROVAL_DISTRIBUTION_WORKER_COUNT;
 use polkadot_node_subsystem::{messages::AllMessages, Overseer, SpawnGlue, TimeoutExt};
 use polkadot_node_subsystem_types::Hash;
 use polkadot_node_subsystem_util::metrics::prometheus::{
@@ -352,10 +351,14 @@ impl TestEnvironment {
 		}
 	}
 
-	pub fn collect_resource_usage(&self, subsystems_under_test: &[&str]) -> BenchmarkUsage {
+	pub fn collect_resource_usage(
+		&self,
+		subsystems_under_test: &[&str],
+		break_down_cpu_usage_per_task: bool,
+	) -> BenchmarkUsage {
 		BenchmarkUsage {
 			network_usage: self.network_usage(),
-			cpu_usage: self.cpu_usage(subsystems_under_test),
+			cpu_usage: self.cpu_usage(subsystems_under_test, break_down_cpu_usage_per_task),
 		}
 	}
 
@@ -379,7 +382,11 @@ impl TestEnvironment {
 		]
 	}
 
-	fn cpu_usage(&self, subsystems_under_test: &[&str]) -> Vec<ResourceUsage> {
+	fn cpu_usage(
+		&self,
+		subsystems_under_test: &[&str],
+		break_down_per_task: bool,
+	) -> Vec<ResourceUsage> {
 		let test_metrics = super::display::parse_metrics(self.registry());
 		let mut usage = vec![];
 		let num_blocks = self.config().num_blocks as f64;
@@ -394,36 +401,20 @@ impl TestEnvironment {
 				per_block: total_cpu / num_blocks,
 			});
 
-			if subsystem == &"approval-voting-parallel" {
-				for i in 0..APPROVAL_DISTRIBUTION_WORKER_COUNT {
-					let task_name = format!("approval-voting-parallel-{}", i);
+			if break_down_per_task {
+				for metric in subsystem_cpu_metrics.all() {
+					if metric.name() != "substrate_tasks_polling_duration_sum" {
+						continue;
+					}
 
-					let subsystem_cpu_metrics =
-						test_metrics.subset_with_label_value("task_name", task_name.as_str());
-
-					let total_cpu =
-						subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
-
-					usage.push(ResourceUsage {
-						resource_name: task_name.to_string(),
-						total: total_cpu,
-						per_block: total_cpu / num_blocks,
-					})
+					if let Some(task_name) = metric.label_value("task_name") {
+						usage.push(ResourceUsage {
+							resource_name: format!("{}/{}", subsystem, task_name),
+							total: metric.value(),
+							per_block: metric.value() / num_blocks,
+						});
+					}
 				}
-
-				let task_name = format!("approval-voting-parallel-db");
-
-				let subsystem_cpu_metrics =
-					test_metrics.subset_with_label_value("task_name", task_name.as_str());
-
-				let total_cpu =
-					subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
-
-				usage.push(ResourceUsage {
-					resource_name: task_name.to_string(),
-					total: total_cpu,
-					per_block: total_cpu / num_blocks,
-				})
 			}
 		}
 

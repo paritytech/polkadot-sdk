@@ -1414,7 +1414,7 @@ pub async fn start_approval_worker<
 	let spawner = approval_voting.spawner.clone();
 	spawner.spawn_blocking(
 		"approval-voting-parallel-db",
-		Some("approval-voting-parallel-subsystem"),
+		Some("approval-voting-parallel"),
 		Box::pin(async move {
 			if let Err(err) = run(
 				work_provider,

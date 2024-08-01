@@ -1114,9 +1114,8 @@ pub async fn bench_approvals_run(
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 	);
 
-	env.collect_resource_usage(&[
-		"approval-distribution",
-		"approval-voting",
-		"approval-voting-parallel",
-	])
+	env.collect_resource_usage(
+		&["approval-distribution", "approval-voting", "approval-voting-parallel"],
+		true,
+	)
 }

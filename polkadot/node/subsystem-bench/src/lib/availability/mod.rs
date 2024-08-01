@@ -372,7 +372,7 @@ pub async fn benchmark_availability_read(
 	);
 
 	env.stop().await;
-	env.collect_resource_usage(&["availability-recovery"])
+	env.collect_resource_usage(&["availability-recovery"], false)
 }
 
 pub async fn benchmark_availability_write(
@@ -506,9 +506,8 @@ pub async fn benchmark_availability_write(
 	);
 
 	env.stop().await;
-	env.collect_resource_usage(&[
-		"availability-distribution",
-		"bitfield-distribution",
-		"availability-store",
-	])
+	env.collect_resource_usage(
+		&["availability-distribution", "bitfield-distribution", "availability-store"],
+		false,
+	)
 }

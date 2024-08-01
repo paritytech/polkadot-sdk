@@ -143,7 +143,7 @@ impl<Context: Send> ApprovalVotingParallelSubsystem {
 }
 
 /// The number of workers used for running the approval-distribution logic.
-pub const APPROVAL_DISTRIBUTION_WORKER_COUNT: usize = 2;
+pub const APPROVAL_DISTRIBUTION_WORKER_COUNT: usize = 4;
 
 /// The channel size for the workers.
 pub const WORKERS_CHANNEL_SIZE: usize = 64000 / APPROVAL_DISTRIBUTION_WORKER_COUNT;
@@ -197,7 +197,7 @@ where
 
 		subsystem.spawner.spawn_blocking(
 			task_name.leak(),
-			Some("approval-voting-parallel-subsystem"),
+			Some("approval-voting-parallel"),
 			Box::pin(async move {
 				let mut state =
 					polkadot_approval_distribution::State::with_config(slot_duration_millis);

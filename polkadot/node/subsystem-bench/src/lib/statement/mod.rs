@@ -445,5 +445,5 @@ pub async fn benchmark_statement_distribution(
 	);
 
 	env.stop().await;
-	env.collect_resource_usage(&["statement-distribution"])
+	env.collect_resource_usage(&["statement-distribution"], false)
 }
