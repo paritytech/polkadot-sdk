@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Snowbridge free consensus updates
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Allow free consensus updates to the Snowbridge Ethereum client if the headers are more than a certain
+      number of headers apart.
+
+crates:
+  - name: snowbridge-pallet-ethereum-client
+    bump: minor
+  - name: snowbridge-pallet-inbound-queue
+    bump: minor
+  - name: snowbridge-runtime-test-common
+    bump: minor
+  - name: bridge-hub-rococo-runtime
+    bump: minor
