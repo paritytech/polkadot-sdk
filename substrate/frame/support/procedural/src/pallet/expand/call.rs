@@ -245,6 +245,13 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		});
 
+	let deprecation = crate::deprecation::get_deprecation_enum(
+		&quote::quote! {#frame_support},
+		def.call.as_ref().map(|call| call.attrs.as_ref()).unwrap_or(&[]),
+		methods.iter().map(|item| (item.call_index as u8, item.attrs.as_ref())),
+	)
+	.unwrap_or_else(syn::Error::into_compile_error);
+
 	quote::quote_spanned!(span =>
 		#[doc(hidden)]
 		mod warnings {
@@ -445,7 +452,10 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			#[allow(dead_code)]
 			#[doc(hidden)]
 			pub fn call_functions() -> #frame_support::__private::metadata_ir::PalletCallMetadataIR {
-				#frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>().into()
+				#frame_support::__private::metadata_ir::PalletCallMetadataIR  {
+					ty: #frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>(),
+					deprecation_info: #deprecation,
+				}
 			}
 		}
 	)

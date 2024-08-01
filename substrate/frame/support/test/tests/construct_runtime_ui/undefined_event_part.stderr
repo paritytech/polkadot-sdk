@@ -34,3 +34,23 @@ help: consider importing one of these items
    |
 18 + use frame_system::Event;
    |
+
+error[E0433]: failed to resolve: could not find `Event` in `pallet`
+  --> tests/construct_runtime_ui/undefined_event_part.rs:66:1
+   |
+66 | / construct_runtime! {
+67 | |     pub struct Runtime
+68 | |     {
+69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+70 | |         Pallet: pallet expanded::{}::{Pallet, Event},
+71 | |     }
+72 | | }
+   | |_^ could not find `Event` in `pallet`
+   |
+   = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider importing one of these items
+   |
+18 + use frame_support_test::Event;
+   |
+18 + use frame_system::Event;
+   |
