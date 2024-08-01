@@ -154,7 +154,7 @@ pub(crate) enum Error {
 	MultiplePaths,
 	#[error("Attempting to directly introduce a Backed candidate. It should first be introduced as Seconded")]
 	IntroduceBackedCandidate,
-	#[error("Relay parent {0:?} of the candidate precedes the relay parent {0:?} of a pending availability candidate")]
+	#[error("Relay parent {0:?} of the candidate precedes the relay parent {1:?} of a pending availability candidate")]
 	RelayParentPrecedesCandidatePendingAvailability(Hash, Hash),
 	#[error("Candidate would introduce a fork with a pending availability candidate: {0:?}")]
 	ForkWithCandidatePendingAvailability(CandidateHash),
