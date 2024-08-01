@@ -40,7 +40,10 @@ pub mod pallet {
 
 	}
 	
-	
+	#[pallet::storage]
+	pub type WhiteListedProjectAccounts<T: Config> = 
+		StorageValue<_, BoundedVec<AccountIdOf<T>, T::MaxWhitelistedProjects>, ValueQuery>;
+
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

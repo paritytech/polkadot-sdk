@@ -107,8 +107,6 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// There was an attempt to increment the value in storage over `u32::MAX`.
-		StorageOverflow,
 		/// Not enough Funds in the Pot
 		InsufficientPotReserves,
 		/// The funds transfer operation failed
