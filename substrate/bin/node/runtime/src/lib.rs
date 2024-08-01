@@ -2166,6 +2166,20 @@ impl pallet_distribution::Config for Runtime {
 	type EpochDurationBlocks = EpochDurationBlocks;
 }
 
+parameter_types!{
+	pub const VotingBond: Balance = deposit(0, 32);
+	pub const NominationRenewalPeriod: BlockNumber = 10;
+	pub const MaxWhitelistedProjects: u32 = 1000;
+}
+impl pallet_opf::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type VotingBond = VotingBondBase;
+	type VoteLockingPeriod = VoteLockingPeriod;
+	type NominationRenewalPeriod = TermDuration;
+	type MaxWhitelistedProjects = MaxCandidates;
+}
+
+
 parameter_types! {
 	pub const MixnetNumCoverToCurrentBlocks: BlockNumber = 3;
 	pub const MixnetNumRequestsToCurrentBlocks: BlockNumber = 3;
@@ -2508,6 +2522,9 @@ mod runtime {
 
 	#[runtime::pallet_index(80)]
 	pub type Distribution = pallet_distribution::Pallet<Runtime>;
+
+	#[runtime::pallet_index(81)]
+	pub type OptimisticProjectFunding = pallet_opf::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.

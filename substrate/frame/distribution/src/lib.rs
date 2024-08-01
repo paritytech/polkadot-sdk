@@ -37,18 +37,22 @@ pub mod pallet {
 			+ fungible::freeze::Mutate<Self::AccountId>;
 
 		/// Treasury account Id
+		#[pallet::constant]
 		type PotId: Get<PalletId>;
 
 		type RuntimeHoldReason: From<HoldReason>;
 
 		/// This the minimum required time period between project whitelisting
 		/// and payment/reward_claim from the treasury.
+		#[pallet::constant]
 		type PaymentPeriod: Get<BlockNumberFor<Self>>;
 		
 		/// Maximum number projects that can be accepted by this pallet 
+		#[pallet::constant]
 		type MaxProjects: Get<u32>;
 
 		/// Epoch duration in blocks
+		#[pallet::constant]
 		type EpochDurationBlocks: Get<BlockNumberFor<Self>>;
 
 
