@@ -868,6 +868,7 @@ version = "0.11.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
+ "assets-common-migrations",
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
  "bp-bridge-hub-rococo",

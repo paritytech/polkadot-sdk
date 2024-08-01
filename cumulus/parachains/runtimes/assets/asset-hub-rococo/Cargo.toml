@@ -87,6 +87,7 @@ parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["rococo"], workspace = true }
 assets-common = { workspace = true }
+assets-common-migrations = { workspace = true }
 
 # Bridges
 pallet-xcm-bridge-hub-router = { workspace = true }
@@ -106,6 +107,7 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 default = ["std"]
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
+	"assets-common-migrations/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
@@ -179,6 +181,7 @@ try-runtime = [
 ]
 std = [
 	"assets-common/std",
+	"assets-common-migrations/std",
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",
 	"bp-bridge-hub-rococo/std",
