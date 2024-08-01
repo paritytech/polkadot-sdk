@@ -1,11 +1,11 @@
 [package]
 name = "pallet-sassafras"
 version = "0.3.5-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Consensus extension module for Sassafras consensus."
 readme = "README.md"
 publish = false
@@ -23,13 +23,16 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
+pallet-session = { workspace = true, optional = true }
+
 sp-consensus-sassafras = { features = ["serde"], workspace = true }
+sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
+env_logger = { workspace = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
 
 [features]
@@ -40,8 +43,10 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-session?/std",
 	"scale-info/std",
 	"sp-consensus-sassafras/std",
+	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 ]
@@ -54,8 +59,10 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-session?/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 # Construct dummy ring context on genesis.
 # Mostly used for testing and development.
 construct-dummy-ring-context = []
+session-pallet-support = ["pallet-session"]

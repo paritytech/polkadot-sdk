@@ -48,6 +48,25 @@ pub mod prelude {
 	pub use super::{AccountKeyring, Sr25519Keyring};
 }
 
+/// A unit struct which implements `NativeExecutionDispatch` feeding in the
+/// hard-coded runtime.
+pub struct LocalExecutorDispatch;
+
+impl sc_executor::NativeExecutionDispatch for LocalExecutorDispatch {
+	type ExtendHostFunctions = (
+		sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
+		sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
+	);
+
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		substrate_test_runtime::api::dispatch(method, data)
+	}
+
+	fn native_version() -> sc_executor::NativeVersion {
+		substrate_test_runtime::native_version()
+	}
+}
+
 /// Test client database backend.
 pub type Backend = substrate_test_client::Backend<substrate_test_runtime::Block>;
 

@@ -27,6 +27,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::crypto::KeyTypeId;
+use sp_inherents::{InherentIdentifier, MakeFatalError};
 use sp_runtime::{ConsensusEngineId, RuntimeDebug};
 
 pub use sp_consensus_slots::{Slot, SlotDuration};
@@ -39,14 +40,22 @@ pub mod ticket;
 pub mod vrf;
 
 pub use ticket::{
-	ticket_id_threshold, EphemeralPublic, EphemeralSignature, TicketBody, TicketClaim,
-	TicketEnvelope, TicketId,
+	ticket_id_threshold, EphemeralPublic, EphemeralSignature, TicketBody, TicketEnvelope, TicketId,
 };
 
 mod app {
 	use sp_application_crypto::{app_crypto, bandersnatch, key_types::SASSAFRAS};
 	app_crypto!(bandersnatch, SASSAFRAS);
 }
+
+/// Errors that can occur while checking the  inherent.
+pub type InherentError = MakeFatalError<()>;
+
+/// The type of the inherent
+pub type InherentType = Vec<TicketEnvelope>;
+
+/// The identifier for the protocol inherent.
+pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"SASSAFRA";
 
 /// Key type identifier.
 pub const KEY_TYPE: KeyTypeId = sp_application_crypto::key_types::SASSAFRAS;
@@ -82,45 +91,45 @@ pub type EquivocationProof<H> = sp_consensus_slots::EquivocationProof<H, Authori
 /// Randomness required by some protocol's operations.
 pub type Randomness = [u8; RANDOMNESS_LENGTH];
 
-/// Protocol configuration that can be modified on epoch change.
-///
-/// Mostly tweaks to the ticketing system parameters.
+/// Protocol configuration.
 #[derive(
 	Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo, Default,
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct EpochConfiguration {
+pub struct Configuration {
+	/// Epoch duration in slots.
+	pub epoch_duration: u32,
+	/// Epoch's tickets' lottery duration in slots.
+	///
+	/// This determines the period during which is allowed to submit new tickets on-chain.
+	pub lottery_duration: u32,
+	/// Max number of authorities allowed.
+	pub max_authorities: u32,
 	/// Tickets redundancy factor.
 	///
 	/// Expected ratio between epoch's slots and the cumulative number of tickets which can
 	/// be submitted by the set of epoch validators.
-	pub redundancy_factor: u32,
+	pub redundancy_factor: u8,
 	/// Tickets max attempts for each validator.
 	///
 	/// Influences the anonymity of block producers. As all published tickets have a public
 	/// attempt number less than `attempts_number` if two tickets share an attempt number
 	/// then they must belong to two different validators, which reduces anonymity late as
-	/// we approach the epoch tail.
+	/// we approach the epoch's tail.
 	///
 	/// This anonymity loss already becomes small when `attempts_number = 64` or `128`.
-	pub attempts_number: u32,
+	pub attempts_number: u8,
 }
 
 /// Sassafras epoch information
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
 pub struct Epoch {
-	/// Epoch index.
-	pub index: u64,
 	/// Starting slot of the epoch.
 	pub start: Slot,
-	/// Number of slots in the epoch.
-	pub length: u32,
-	/// Randomness value.
-	pub randomness: Randomness,
+	/// Randomness accumulator.
+	pub randomness: [Randomness; 4],
 	/// Authorities list.
 	pub authorities: Vec<AuthorityId>,
-	/// Epoch configuration.
-	pub config: EpochConfiguration,
 }
 
 /// An opaque type used to represent the key ownership proof at the runtime API boundary.

@@ -1,0 +1,84 @@
+[package]
+name = "node-sassafras"
+version = "0.3.4-dev"
+authors = ["Davide Galassi <davxy@datawok.net>", "Parity Technologies <admin@parity.io>"]
+description = "Node testbed for Sassafras consensus."
+homepage = "https://substrate.io/"
+edition = "2021"
+license = "Unlicense"
+publish = false
+build = "build.rs"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[[bin]]
+name = "node-sassafras"
+
+[dependencies]
+clap = { version = "4.0.9", features = ["derive"] }
+futures = { version = "0.3.21", features = ["thread-pool"] }
+serde_json = "1.0.108"
+
+sc-cli = { path = "../../../client/cli" }
+sp-core = { path = "../../../primitives/core" }
+sc-executor = { path = "../../../client/executor" }
+sc-network = { path = "../../../client/network" }
+sc-service = { path = "../../../client/service" }
+sc-telemetry = { path = "../../../client/telemetry" }
+sc-keystore = { path = "../../../client/keystore" }
+sc-transaction-pool = { path = "../../../client/transaction-pool" }
+sc-transaction-pool-api = { path = "../../../client/transaction-pool/api" }
+sc-offchain = { path = "../../../client/offchain" }
+sc-consensus-sassafras = { path = "../../../client/consensus/sassafras" }
+sp-consensus-sassafras = { path = "../../../primitives/consensus/sassafras" }
+sp-consensus = { path = "../../../primitives/consensus/common" }
+sc-consensus = { path = "../../../client/consensus/common" }
+sc-consensus-grandpa = { path = "../../../client/consensus/grandpa" }
+sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
+sc-client-api = { path = "../../../client/api" }
+sp-runtime = { path = "../../../primitives/runtime" }
+sp-io = { path = "../../../primitives/io" }
+sp-timestamp = { path = "../../../primitives/timestamp" }
+sp-inherents = { path = "../../../primitives/inherents" }
+sp-keyring = { path = "../../../primitives/keyring" }
+frame-system = { path = "../../../frame/system" }
+pallet-transaction-payment = { path = "../../../frame/transaction-payment" }
+sp-crypto-ec-utils = { path = "../../../primitives/crypto/ec-utils", features = ["bls12-381", "ed-on-bls12-381-bandersnatch"] }
+sp-consensus-slots = { path = "../../../primitives/consensus/slots" }
+sc-consensus-slots = { path = "../../../client/consensus/slots" }
+
+# These dependencies are used for the node template's RPCs
+jsonrpsee = { version = "0.16.2", features = ["server"] }
+sc-rpc = { path = "../../../client/rpc" }
+sp-api = { path = "../../../primitives/api" }
+sc-rpc-api = { path = "../../../client/rpc-api" }
+sp-blockchain = { path = "../../../primitives/blockchain" }
+sp-block-builder = { path = "../../../primitives/block-builder" }
+sc-basic-authorship = { path = "../../../client/basic-authorship" }
+substrate-frame-rpc-system = { path = "../../../utils/frame/rpc/system" }
+pallet-transaction-payment-rpc = { path = "../../../frame/transaction-payment/rpc/" }
+
+# These dependencies are used for runtime benchmarking
+frame-benchmarking = { path = "../../../frame/benchmarking" }
+frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli" }
+
+# Local Dependencies
+node-sassafras-runtime = { path = "../runtime" }
+
+[build-dependencies]
+substrate-build-script-utils = { path = "../../../utils/build-script-utils" }
+
+[features]
+default = []
+runtime-benchmarks = [
+	"frame-benchmarking-cli/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"node-sassafras-runtime/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+use-session-pallet = [
+	"node-sassafras-runtime/use-session-pallet",
+]

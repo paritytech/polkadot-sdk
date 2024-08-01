@@ -26,3 +26,4 @@ sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 substrate-test-client = { workspace = true }
 substrate-test-runtime = { workspace = true }
+sp-crypto-ec-utils = { workspace = true, features = ["bls12-381", "ed-on-bls12-381-bandersnatch"] }

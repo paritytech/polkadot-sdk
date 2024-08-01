@@ -2,11 +2,11 @@
 name = "sp-consensus-sassafras"
 version = "0.3.4-dev"
 authors.workspace = true
-description = "Primitives for Sassafras consensus"
 edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
-repository = "https://github.com/paritytech/polkadot-sdk/"
+repository.workspace = true
+description = "Primitives for Sassafras consensus"
 documentation = "https://docs.rs/sp-consensus-sassafras"
 readme = "README.md"
 publish = false
@@ -26,6 +26,7 @@ sp-application-crypto = { features = ["bandersnatch-experimental"], workspace = 
 sp-consensus-slots = { workspace = true }
 sp-core = { features = ["bandersnatch-experimental"], workspace = true }
 sp-runtime = { workspace = true }
+sp-inherents = { workspace = true }
 
 [features]
 default = ["std"]
@@ -37,6 +38,7 @@ std = [
 	"sp-application-crypto/std",
 	"sp-consensus-slots/std",
 	"sp-core/std",
+	"sp-inherents/std",
 	"sp-runtime/std",
 ]
 

@@ -19,6 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 sp-application-crypto = { features = ["serde"], workspace = true }
 sp-consensus-aura = { features = ["serde"], workspace = true }
 sp-consensus-babe = { features = ["serde"], workspace = true }
+sp-consensus-sassafras = { path = "../../primitives/consensus/sassafras", default-features = false, features = ["serde"] }
 sp-genesis-builder = { workspace = true }
 sp-block-builder = { workspace = true }
 codec = { features = ["derive"], workspace = true }
@@ -35,6 +36,7 @@ sp-session = { workspace = true }
 sp-api = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 pallet-babe = { workspace = true }
+pallet-sassafras = { path = "../../frame/sassafras", default-features = false }
 pallet-balances = { workspace = true }
 frame-executive = { workspace = true }
 frame-metadata-hash-extension = { workspace = true }
@@ -84,6 +86,7 @@ std = [
 	"log/std",
 	"pallet-babe/std",
 	"pallet-balances/std",
+	"pallet-sassafras/std",
 	"pallet-timestamp/std",
 	"sc-executor/std",
 	"sc-service",
@@ -96,6 +99,7 @@ std = [
 	"sp-consensus-aura/std",
 	"sp-consensus-babe/std",
 	"sp-consensus-grandpa/std",
+	"sp-consensus-sassafras/std",
 	"sp-core/std",
 	"sp-crypto-hashing/std",
 	"sp-externalities/std",

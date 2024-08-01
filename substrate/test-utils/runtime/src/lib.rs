@@ -76,7 +76,10 @@ pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration, Slot};
 
 pub use pallet_balances::Call as BalancesCall;
 
+// Ensure Babe, Sassafras and Aura use the same crypto to simplify things a bit.
 pub type AuraId = sp_consensus_aura::sr25519::AuthorityId;
+pub type SassafrasId = sp_consensus_sassafras::AuthorityId;
+
 #[cfg(feature = "std")]
 pub use extrinsic::{ExtrinsicBuilder, Transfer};
 
@@ -310,6 +313,7 @@ construct_runtime!(
 	{
 		System: frame_system,
 		Babe: pallet_babe,
+		Sassafras: pallet_sassafras,
 		SubstrateTest: substrate_test_pallet::pallet,
 		Balances: pallet_balances,
 	}
@@ -403,20 +407,34 @@ impl pallet_timestamp::Config for Runtime {
 	type WeightInfo = pallet_timestamp::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-	pub const EpochDuration: u64 = 6;
-}
+const EPOCH_LENGTH: u32 = 6;
+const MAX_AUTHORITIES: u32 = 10;
 
 impl pallet_babe::Config for Runtime {
-	type EpochDuration = EpochDuration;
+	type EpochDuration = ConstU64<{ EPOCH_LENGTH as u64 }>;
 	type ExpectedBlockTime = ConstU64<10_000>;
 	type EpochChangeTrigger = pallet_babe::SameAuthoritiesForever;
 	type DisabledValidators = ();
 	type KeyOwnerProof = sp_core::Void;
 	type EquivocationReportSystem = ();
 	type WeightInfo = ();
-	type MaxAuthorities = ConstU32<10>;
+	type MaxAuthorities = ConstU32<MAX_AUTHORITIES>;
 	type MaxNominators = ConstU32<100>;
+}
+
+impl pallet_sassafras::Config for Runtime {
+	type EpochLength = ConstU32<EPOCH_LENGTH>;
+	type EpochChangeTrigger = pallet_sassafras::EpochChangeInternalTrigger;
+	type MaxAuthorities = ConstU32<MAX_AUTHORITIES>;
+	type WeightInfo = ();
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+	RuntimeCall: From<C>,
+{
+	type Extrinsic = Extrinsic;
+	type OverarchingCall = RuntimeCall;
 }
 
 /// Adds one to the given input and returns the final result.
@@ -630,7 +648,7 @@ impl_runtime_apis! {
 			let epoch_config = Babe::epoch_config().unwrap_or(TEST_RUNTIME_BABE_EPOCH_CONFIGURATION);
 			sp_consensus_babe::BabeConfiguration {
 				slot_duration: Babe::slot_duration(),
-				epoch_length: EpochDuration::get(),
+				epoch_length: EPOCH_LENGTH as u64,
 				c: epoch_config.c,
 				authorities: Babe::authorities().to_vec(),
 				randomness: Babe::randomness(),
@@ -664,6 +682,51 @@ impl_runtime_apis! {
 			_authority_id: sp_consensus_babe::AuthorityId,
 		) -> Option<sp_consensus_babe::OpaqueKeyOwnershipProof> {
 			None
+		}
+	}
+
+	impl sp_consensus_sassafras::SassafrasApi<Block> for Runtime {
+		fn ring_context() -> Option<sp_consensus_sassafras::vrf::RingContext> {
+			Sassafras::ring_context()
+		}
+
+		fn submit_tickets_unsigned_extrinsic(
+			tickets: Vec<sp_consensus_sassafras::TicketEnvelope>
+		) -> bool {
+			Sassafras::submit_tickets_unsigned_extrinsic(tickets)
+		}
+
+		fn current_epoch() -> sp_consensus_sassafras::Epoch {
+			Sassafras::current_epoch()
+		}
+
+		fn next_epoch() -> sp_consensus_sassafras::Epoch {
+			Sassafras::next_epoch()
+		}
+
+		fn slot_ticket_id(slot: sp_consensus_sassafras::Slot) -> Option<sp_consensus_sassafras::TicketId> {
+			Sassafras::slot_ticket_id(slot)
+		}
+
+		fn slot_ticket(
+			slot: sp_consensus_sassafras::Slot
+		) -> Option<(sp_consensus_sassafras::TicketId, sp_consensus_sassafras::TicketBody)> {
+			Sassafras::slot_ticket(slot)
+		}
+
+		fn generate_key_ownership_proof(
+			_authority_id: sp_consensus_sassafras::AuthorityId,
+		) -> Option<sp_consensus_sassafras::OpaqueKeyOwnershipProof> {
+			// TODO @davxy
+			None
+		}
+
+		fn submit_report_equivocation_unsigned_extrinsic(
+			_equivocation_proof: sp_consensus_sassafras::EquivocationProof<<Block as BlockT>::Header>,
+			_key_owner_proof: sp_consensus_sassafras::OpaqueKeyOwnershipProof,
+		) -> bool {
+			// TODO @davxy
+			false
 		}
 	}
 
@@ -892,6 +955,10 @@ pub mod storage_key_generator {
 			vec![b"Babe", b"EpochConfig"],
 			vec![b"Babe", b"NextAuthorities"],
 			vec![b"Babe", b"SegmentIndex"],
+			vec![b"Sassafras", b":__STORAGE_VERSION__:"],
+			vec![b"Sassafras", b"EpochConfig"],
+			vec![b"Sassafras", b"Authorities"],
+			vec![b"Sassafras", b"NextAuthorities"],
 			vec![b"Balances", b":__STORAGE_VERSION__:"],
 			vec![b"Balances", b"TotalIssuance"],
 			vec![b"SubstrateTest", b":__STORAGE_VERSION__:"],
@@ -950,29 +1017,28 @@ pub mod storage_key_generator {
 		let mut res = vec![
 			//SubstrateTest|:__STORAGE_VERSION__:
 			"00771836bebdd29870ff246d305c578c4e7b9012096b41c4eb3aaf947f6ea429",
-			//SubstrateTest|Authorities
+			// SubstrateTest|Authorities
 			"00771836bebdd29870ff246d305c578c5e0621c4869aa60c02be9adcc98a0d1d",
-			//Babe|:__STORAGE_VERSION__:
+			// Babe|:__STORAGE_VERSION__:
 			"1cb6f36e027abb2091cfb5110ab5087f4e7b9012096b41c4eb3aaf947f6ea429",
-			//Babe|Authorities
+			// Babe|Authorities
 			"1cb6f36e027abb2091cfb5110ab5087f5e0621c4869aa60c02be9adcc98a0d1d",
-			//Babe|SegmentIndex
+			// Babe|SegmentIndex
 			"1cb6f36e027abb2091cfb5110ab5087f66e8f035c8adbe7f1547b43c51e6f8a4",
-			//Babe|NextAuthorities
+			// Babe|NextAuthorities
 			"1cb6f36e027abb2091cfb5110ab5087faacf00b9b41fda7a9268821c2a2b3e4c",
-			//Babe|EpochConfig
+			// Babe|EpochConfig
 			"1cb6f36e027abb2091cfb5110ab5087fdc6b171b77304263c292cc3ea5ed31ef",
-			//System|:__STORAGE_VERSION__:
+			// System|:__STORAGE_VERSION__:
 			"26aa394eea5630e07c48ae0c9558cef74e7b9012096b41c4eb3aaf947f6ea429",
-			//System|UpgradedToU32RefCount
+			// System|UpgradedToU32RefCount
 			"26aa394eea5630e07c48ae0c9558cef75684a022a34dd8bfa2baaf44f172b710",
-			//System|ParentHash
+			// System|ParentHash
 			"26aa394eea5630e07c48ae0c9558cef78a42f33323cb5ced3b44dd825fda9fcc",
-			//System::BlockHash|0
+			// System::BlockHash|0
 			"26aa394eea5630e07c48ae0c9558cef7a44704b568d21667356a5a050c118746bb1bdbcacd6ac9340000000000000000",
-			//System|UpgradedToTripleRefCount
+			// System|UpgradedToTripleRefCount
 			"26aa394eea5630e07c48ae0c9558cef7a7fd6c28836b9a28522dc924110cf439",
-
 			// System|Account|blake2_128Concat("//11")
 			"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da901cae4e3edfbb32c91ed3f01ab964f4eeeab50338d8e5176d3141802d7b010a55dadcd5f23cf8aaafa724627e967e90e",
 			// System|Account|blake2_128Concat("//4")
@@ -1017,6 +1083,14 @@ pub mod storage_key_generator {
 			"3a636f6465",
 			// :extrinsic_index
 			"3a65787472696e7369635f696e646578",
+			// Sassafras|__STORAGE_VERSION__:
+			"be5e1f844c68e483aa815e45bbd9d3184e7b9012096b41c4eb3aaf947f6ea429",
+			// Sassafras|Authorities
+			"be5e1f844c68e483aa815e45bbd9d3185e0621c4869aa60c02be9adcc98a0d1d",
+			// Sassafras|NextAuthorities
+			"be5e1f844c68e483aa815e45bbd9d318aacf00b9b41fda7a9268821c2a2b3e4c",
+			// Sassafras|EpochConfig
+			"be5e1f844c68e483aa815e45bbd9d318dc6b171b77304263c292cc3ea5ed31ef",
 			// Balances|:__STORAGE_VERSION__:
 			"c2261276cc9d1f8598ea4b6a74b15c2f4e7b9012096b41c4eb3aaf947f6ea429",
 			// Balances|TotalIssuance
@@ -1261,7 +1335,7 @@ mod tests {
 		#[test]
 		fn build_minimal_genesis_config_works() {
 			sp_tracing::try_init_simple();
-			let default_minimal_json = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c": [ 3, 10 ],"allowed_slots":"PrimaryAndSecondaryPlainSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
+			let default_minimal_json = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c": [ 3, 10 ],"allowed_slots":"PrimaryAndSecondaryPlainSlots"}},"sassafras":{"authorities":[],"epochConfig":{"redundancy_factor": 1,"attempts_number": 32}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
 			let mut t = BasicExternalities::new_empty();
 
 			executor_call(&mut t, "GenesisBuilder_build_state", &default_minimal_json.encode())
@@ -1302,6 +1376,15 @@ mod tests {
 				"1cb6f36e027abb2091cfb5110ab5087f4e7b9012096b41c4eb3aaf947f6ea429",
 				//SubstrateTest|:__STORAGE_VERSION__:
 				"00771836bebdd29870ff246d305c578c4e7b9012096b41c4eb3aaf947f6ea429",
+
+				// Sassafras|__STORAGE_VERSION__:
+				"be5e1f844c68e483aa815e45bbd9d3184e7b9012096b41c4eb3aaf947f6ea429",
+				// Sassafras|Authorities
+				"be5e1f844c68e483aa815e45bbd9d3185e0621c4869aa60c02be9adcc98a0d1d",
+				// Sassafras|NextAuthorities
+				"be5e1f844c68e483aa815e45bbd9d318aacf00b9b41fda7a9268821c2a2b3e4c",
+				// Sassafras|EpochConfig
+				"be5e1f844c68e483aa815e45bbd9d318dc6b171b77304263c292cc3ea5ed31ef",
 				].into_iter().map(String::from).collect::<Vec<_>>();
 			expected.sort();
 
@@ -1319,7 +1402,8 @@ mod tests {
 				.expect("default config is there");
 			let json = String::from_utf8(r.into()).expect("returned value is json. qed.");
 
-			let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c":[1,4],"allowed_slots":"PrimaryAndSecondaryVRFSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
+			let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c":[1,4],"allowed_slots":"PrimaryAndSecondaryVRFSlots"}},"sassafras":{"authorities":[],"epochConfig":{"redundancy_factor":0,"attempts_number":0}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
+
 			assert_eq!(expected.to_string(), json);
 		}
 
