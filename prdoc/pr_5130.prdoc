@@ -26,8 +26,8 @@ doc:
       It will error out if more than one asset tries to be exchanged.
 
       Also, a new method was added to the `xcm_executor::traits::AssetExchange` trait:
-      `quote_exchange_price`. This is used to get the exchange price between two assets.
-      This is NOT a breaking change since it has a default implementation that just doesn't do anything.
+      `quote_exchange_price`. This is used to get the exchange price between two asset collections.
+      If you were using the trait, you now need to also implement this new function.
 
 crates:
   - name: staging-xcm-executor
