@@ -170,7 +170,7 @@ pub(crate) enum Error {
 	RelayParentMovedBackwards,
 	#[error(transparent)]
 	CandidateEntry(#[from] CandidateEntryError),
-	#[error("Relay parent {0:?} not in scope. Earliest relay parent allowed {0:?}")]
+	#[error("Relay parent {0:?} not in scope. Earliest relay parent allowed {1:?}")]
 	RelayParentNotInScope(Hash, Hash),
 }
 
