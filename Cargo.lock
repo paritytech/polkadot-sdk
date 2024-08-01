@@ -13900,6 +13900,7 @@ dependencies = [
  "sc-network",
  "sc-network-sync",
  "sc-rpc",
+ "sc-rpc-spec-v2",
  "sc-service",
  "sc-sysinfo",
  "sc-telemetry",
