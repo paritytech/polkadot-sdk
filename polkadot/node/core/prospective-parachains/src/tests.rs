@@ -2395,14 +2395,12 @@ fn persists_pending_availability_candidate() {
 		};
 		activate_leaf(&mut virtual_overseer, &leaf_b, &test_state).await;
 
-		// Hypothetical membership for a candidate already pending availability will not return the
-		// leaves where it's pending availability. A is only pending availability on leaf B.
 		get_hypothetical_membership(
 			&mut virtual_overseer,
 			candidate_hash_a,
 			candidate_a,
 			pvd_a,
-			vec![leaf_a.hash],
+			vec![leaf_a.hash, leaf_b.hash],
 		)
 		.await;
 

@@ -1233,7 +1233,7 @@ fn test_populate_and_check_potential() {
 	// Cannot add as potential an already pending availability candidate
 	assert_matches!(
 		chain.can_add_candidate_as_potential(&candidate_a_entry),
-		Err(Error::CandidateAlreadyPendingAvailability)
+		Err(Error::CandidateAlreadyKnown)
 	);
 
 	// Simulate the fact that candidates A, B and C have been included.

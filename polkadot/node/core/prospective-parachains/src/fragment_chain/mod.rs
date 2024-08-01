@@ -144,8 +144,6 @@ use thiserror::Error;
 pub(crate) enum Error {
 	#[error("Candidate already known")]
 	CandidateAlreadyKnown,
-	#[error("Candidate is already pending availability")]
-	CandidateAlreadyPendingAvailability,
 	#[error("Candidate's parent head is equal to its output head. Would introduce a cycle.")]
 	ZeroLengthCycle,
 	#[error("Candidate would introduce a cycle")]
@@ -836,18 +834,12 @@ impl FragmentChain {
 
 	/// Checks if this candidate could be added in the future to this chain.
 	/// This will return `Error::CandidateAlreadyKnown` if the candidate is already in the chain or
-	/// the unconnected candidate storage. It will return
-	/// `Error::CandidateAlreadyPendingAvailability` if the candidate is already pending
-	/// availability.
+	/// the unconnected candidate storage.
 	pub fn can_add_candidate_as_potential(
 		&self,
 		candidate: &impl HypotheticalOrConcreteCandidate,
 	) -> Result<(), Error> {
 		let candidate_hash = candidate.candidate_hash();
-
-		if self.scope.get_pending_availability(&candidate_hash).is_some() {
-			return Err(Error::CandidateAlreadyPendingAvailability)
-		}
 
 		if self.best_chain.contains(&candidate_hash) || self.unconnected.contains(&candidate_hash) {
 			return Err(Error::CandidateAlreadyKnown)

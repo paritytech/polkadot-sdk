@@ -265,9 +265,7 @@ async fn handle_active_leaves_update<Context>(
 				);
 
 				match res {
-					Ok(_) |
-					Err(FragmentChainError::CandidateAlreadyKnown) |
-					Err(FragmentChainError::CandidateAlreadyPendingAvailability) => {},
+					Ok(_) | Err(FragmentChainError::CandidateAlreadyKnown) => {},
 					Err(err) => {
 						gum::warn!(
 							target: LOG_TARGET,
@@ -502,16 +500,6 @@ async fn handle_introduce_seconded_candidate(
 					);
 					added = true;
 				},
-				Err(FragmentChainError::CandidateAlreadyPendingAvailability) => {
-					gum::debug!(
-						target: LOG_TARGET,
-						para = ?para,
-						relay_parent = ?leaf,
-						"Attempting to introduce a candidate which is already pending availability: {:?}",
-						candidate_hash
-					);
-					added = true;
-				},
 				Err(err) => {
 					gum::debug!(
 						target: LOG_TARGET,
@@ -719,9 +707,6 @@ fn answer_hypothetical_membership_request(
 				Err(FragmentChainError::CandidateAlreadyKnown) | Ok(()) => {
 					membership.push(*active_leaf);
 				},
-				// This will also match if the candidate is already pending availability.
-				// In this case, we don't need to validate it again or distribute its statements.
-				// It's already on chain.
 				Err(err) => {
 					gum::debug!(
 						target: LOG_TARGET,
