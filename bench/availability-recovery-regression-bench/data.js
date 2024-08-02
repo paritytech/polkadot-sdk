@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722608247128,
+  "lastUpdate": 1722618250613,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -16589,6 +16589,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.17074724893333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ce6938ae92b77b54aa367e6d367a4d490dede7c4",
+          "message": "rpc: Enable ChainSpec for polkadot-parachain (#5205)\n\nThis PR enables the `chainSpec_v1` class for the polkadot-parachian. \nThe chainSpec is part of the rpc-v2 which is spec-ed at:\nhttps://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/chainSpec.md.\n\nThis also paves the way for enabling a future `chainSpec_unstable_spec`\non all nodes.\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/5191\n\ncc @paritytech/subxt-team\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2024-08-02T15:09:13Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce6938ae92b77b54aa367e6d367a4d490dede7c4"
+        },
+        "date": 1722618220036,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.853573608400003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17758547746666664,
             "unit": "seconds"
           }
         ]
