@@ -828,9 +828,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// d: `0` - if deposit is not present and `1` otherwise.
 	#[benchmark]
-	fn release_proposal_cost(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+	fn release_proposal_cost() -> Result<(), BenchmarkError> {
 		let m = 3;
 		let p = T::MaxProposals::get();
 		let b = MAX_BYTES;
@@ -872,11 +871,6 @@ mod benchmarks {
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
 
-		if d == 0 {
-			CostOf::<T, I>::remove(last_hash);
-		}
-		let cost_present = CostOf::<T, I>::get(last_hash).is_some();
-
 		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
 		let _ = Collective::<T, I>::remove_proposal(last_hash);
 		assert_eq!(Proposals::<T, I>::get().len(), (p - 1) as usize);
@@ -885,11 +879,9 @@ mod benchmarks {
 		_(SystemOrigin::Signed(caller.clone()), last_hash);
 
 		assert_eq!(CostOf::<T, I>::get(last_hash), None);
-		if cost_present {
-			assert_last_event::<T, I>(
-				Event::ProposalCostReleased { proposal_hash: last_hash, who: caller }.into(),
-			);
-		}
+		assert_last_event::<T, I>(
+			Event::ProposalCostReleased { proposal_hash: last_hash, who: caller }.into(),
+		);
 		Ok(())
 	}
 

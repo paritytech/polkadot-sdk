@@ -1601,6 +1601,12 @@ fn kill_proposal_with_deposit() {
 		let balance = Balances::total_balance(&1);
 		System::reset_events();
 
+		let unpublished = make_proposal((ProposalDepositDelay::get() + 1).into());
+		assert_noop!(
+			Collective::kill(RuntimeOrigin::root(), BlakeTwo256::hash_of(&unpublished)),
+			Error::<Test, Instance1>::ProposalMissing
+		);
+
 		assert_ok!(Collective::kill(RuntimeOrigin::root(), last_hash.unwrap()));
 		assert_eq!(Balances::total_balance(&1), balance - last_deposit.unwrap());
 

@@ -362,10 +362,14 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxProposalWeight: Get<Weight>;
 
-		/// Origin from which any proposal may be disapproved.
+		/// Origin from which a proposal in any status may be disapproved without associated cost
+		/// for a proposer.
 		type DisapproveOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 
-		/// Origin from which any proposal may be killed.
+		/// Origin from which any malicious proposal may be killed with associated cost for a
+		/// proposer.
+		///
+		/// The associated cost is set by [`Config::Consideration`] and can be none.
 		type KillOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 
 		/// Mechanism to assess the necessity of some cost for publishing and storing a proposal.
@@ -509,6 +513,8 @@ pub mod pallet {
 		PrimeAccountNotMember,
 		/// Proposal is still active.
 		ProposalActive,
+		/// No associated cost for the proposal.
+		NoCost,
 	}
 
 	#[pallet::hooks]
@@ -831,6 +837,10 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::kill(1, T::MaxProposals::get()))]
 		pub fn kill(origin: OriginFor<T>, proposal_hash: T::Hash) -> DispatchResultWithPostInfo {
 			T::KillOrigin::ensure_origin(origin)?;
+			ensure!(
+				ProposalOf::<T, I>::get(&proposal_hash).is_some(),
+				Error::<T, I>::ProposalMissing
+			);
 			let burned = if let Some((who, cost)) = <CostOf<T, I>>::take(proposal_hash) {
 				cost.burn(&who);
 				Self::deposit_event(Event::ProposalCostBurned { proposal_hash, who });
@@ -853,7 +863,7 @@ pub mod pallet {
 		///
 		/// Emits `ProposalCostReleased` if any cost held for a given proposal.
 		#[pallet::call_index(8)]
-		#[pallet::weight(T::WeightInfo::release_proposal_cost(1))]
+		#[pallet::weight(T::WeightInfo::release_proposal_cost())]
 		pub fn release_proposal_cost(
 			origin: OriginFor<T>,
 			proposal_hash: T::Hash,
@@ -863,14 +873,11 @@ pub mod pallet {
 				ProposalOf::<T, I>::get(&proposal_hash).is_none(),
 				Error::<T, I>::ProposalActive
 			);
-			let dropped = if let Some((who, cost)) = <CostOf<T, I>>::take(proposal_hash) {
-				let _ = cost.drop(&who)?;
-				Self::deposit_event(Event::ProposalCostReleased { proposal_hash, who });
-				true
-			} else {
-				false
-			};
-			Ok(Some(T::WeightInfo::release_proposal_cost(dropped as u32)).into())
+			let (who, cost) = <CostOf<T, I>>::take(proposal_hash).ok_or(Error::<T, I>::NoCost)?;
+			let _ = cost.drop(&who)?;
+			Self::deposit_event(Event::ProposalCostReleased { proposal_hash, who });
+
+			Ok(Some(T::WeightInfo::release_proposal_cost()).into())
 		}
 	}
 }
