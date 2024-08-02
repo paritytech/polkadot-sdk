@@ -342,6 +342,7 @@ impl<T: frame_system::Config> pallet_collective::WeightInfo for WeightInfo<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(175), added: 2650, mode: `MaxEncodedLen`)
 	/// The range of component `d` is `[0, 1]`.
 	fn release_proposal_cost() -> Weight {
+		let d = 1u64;
 		// Proof Size summary in bytes:
 		//  Measured:  `1748 + d * (212 ±0)`
 		//  Estimated: `5213 + d * (212 ±0)`
