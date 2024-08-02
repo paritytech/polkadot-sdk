@@ -9276,7 +9276,6 @@ dependencies = [
  "sc-mixnet",
  "sc-rpc",
  "sc-rpc-api",
- "sc-rpc-spec-v2",
  "sc-sync-state-rpc",
  "sc-transaction-pool-api",
  "sp-api",
