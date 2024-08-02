@@ -208,6 +208,13 @@ async fn handle_active_leaves_update<Context>(
 
 	let _timer = metrics.time_handle_active_leaves_update();
 
+	gum::trace!(
+		target: LOG_TARGET,
+		activated = ?update.activated,
+		deactivated = ?update.deactivated,
+		"Handle ActiveLeavesUpdate"
+	);
+
 	let mut temp_header_cache = HashMap::new();
 	// There can only be one newly activated leaf, `update.activated` is an `Option`.
 	for activated in update.activated.into_iter() {
