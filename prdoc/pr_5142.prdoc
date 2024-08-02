@@ -17,9 +17,9 @@ crates:
   - name: polkadot-overseer
     bump: patch
   - name: polkadot-node-core-pvf
-    bump: patch
+    bump: major
   - name: polkadot-node-core-pvf-common
-    bump: patch
+    bump: major
   - name: polkadot-node-core-pvf-execute-worker
     bump: patch
   - name: polkadot-node-core-pvf-prepare-worker
