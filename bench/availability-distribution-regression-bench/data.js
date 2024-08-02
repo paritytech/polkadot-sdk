@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722607951694,
+  "lastUpdate": 1722617953375,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -20799,6 +20799,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.01185421313333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ce6938ae92b77b54aa367e6d367a4d490dede7c4",
+          "message": "rpc: Enable ChainSpec for polkadot-parachain (#5205)\n\nThis PR enables the `chainSpec_v1` class for the polkadot-parachian. \nThe chainSpec is part of the rpc-v2 which is spec-ed at:\nhttps://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/chainSpec.md.\n\nThis also paves the way for enabling a future `chainSpec_unstable_spec`\non all nodes.\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/5191\n\ncc @paritytech/subxt-team\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2024-08-02T15:09:13Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce6938ae92b77b54aa367e6d367a4d490dede7c4"
+        },
+        "date": 1722617922496,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1711322535133334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012244525546666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010352498020000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022167492266666665,
             "unit": "seconds"
           }
         ]
