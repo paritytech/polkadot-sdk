@@ -228,7 +228,7 @@ where
 					.rpc_logger(1024)
 					.option_layer(middleware_layer.clone());
 				let mut svc =
-					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
+					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle, remote_addr);
 
 				async move {
 					if is_websocket {
