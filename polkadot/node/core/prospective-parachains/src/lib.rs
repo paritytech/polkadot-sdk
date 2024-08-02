@@ -74,16 +74,43 @@ const LOG_TARGET: &str = "parachain::prospective-parachains";
 struct RelayBlockViewData {
 	// The fragment chains for current and upcoming scheduled paras.
 	fragment_chains: HashMap<ParaId, FragmentChain>,
+	// The relay parent number of this leaf.
+	number: u32,
 }
 
 struct View {
-	// Active or recent relay-chain blocks by block hash.
+	// Active relay-chain blocks by block hash.
 	active_leaves: HashMap<Hash, RelayBlockViewData>,
+	// Inactive leaves that are still in scope.
+	implicit_leaves: HashMap<Hash, RelayBlockViewData>,
+	// The minimum relay parent number allowed as ancestry across all active leaves. All implicit
+	// and active leaves have a higher relay parent number.
+	// `None` if it wasn't yet computed. This can be a bit wasteful, as there may be multiple relay
+	// parents at this height. We could keep track of the paths to each active leaf to optimize
+	// this. However, the complexity isn't justified.
+	min_relay_parent: Option<u32>,
 }
 
 impl View {
+	// Initialize with empty values.
 	fn new() -> Self {
-		View { active_leaves: HashMap::new() }
+		View {
+			active_leaves: HashMap::new(),
+			implicit_leaves: HashMap::new(),
+			min_relay_parent: None,
+		}
+	}
+
+	// Get the fragment chains of this leaf (active or inactive).
+	fn get_fragment_chains(&self, leaf: &Hash) -> Option<&HashMap<ParaId, FragmentChain>> {
+		self.active_leaves
+			.get(&leaf)
+			.map(|view_data| &view_data.fragment_chains)
+			.or_else(|| {
+				self.implicit_leaves
+					.get(leaf)
+					.map(|inactive_leaf| &inactive_leaf.fragment_chains)
+			})
 	}
 }
 
@@ -169,18 +196,20 @@ async fn handle_active_leaves_update<Context>(
 	update: ActiveLeavesUpdate,
 	metrics: &Metrics,
 ) -> JfyiErrorResult<()> {
-	// For each active leaf:
+	// For any active leaf:
 	// - determine the scheduled paras
 	// - pre-populate the candidate storage with pending availability candidates and candidates from
-	//   the parent leaf.
+	//   the parent leaf
 	// - populate the fragment chain
 	//
-	// Only then, clean up inactive leaves. They must be cleaned only after new leaves are
-	// processed, because we may reuse their candidates.
+	// Clean up the leaves from the implicit view that have went out of scope.
+	// Process the newly-deactivated leaves. Remove them from the active leaves set and keep them as
+	// implicit leaves if their relay parent is still in scope.
 
 	let _timer = metrics.time_handle_active_leaves_update();
 
 	let mut temp_header_cache = HashMap::new();
+	// There can only be one newly activated leaf, `update.activated` is an `Option`.
 	for activated in update.activated.into_iter() {
 		if update.deactivated.contains(&activated.hash) {
 			continue
@@ -227,7 +256,7 @@ async fn handle_active_leaves_update<Context>(
 			fetch_ancestry(ctx, &mut temp_header_cache, hash, allowed_ancestry_len).await?;
 
 		let prev_fragment_chains =
-			ancestry.first().and_then(|prev_leaf| view.active_leaves.get(&prev_leaf.hash));
+			ancestry.first().and_then(|prev_leaf| view.get_fragment_chains(&prev_leaf.hash));
 
 		let mut fragment_chains = HashMap::new();
 		for para in scheduled_paras {
@@ -305,8 +334,7 @@ async fn handle_active_leaves_update<Context>(
 			};
 
 			// Get the candidate storage of the parent leaf, if present.
-			let prev_fragment_chain =
-				prev_fragment_chains.and_then(|chains| chains.fragment_chains.get(&para));
+			let prev_fragment_chain = prev_fragment_chains.and_then(|chains| chains.get(&para));
 
 			if let Some(prev_fragment_chain) = prev_fragment_chain {
 				// Add old candidates to the new storage only after we added the pending
@@ -362,17 +390,45 @@ async fn handle_active_leaves_update<Context>(
 			fragment_chains.insert(para, chain);
 		}
 
-		view.active_leaves.insert(hash, RelayBlockViewData { fragment_chains });
+		let min_relay_parent = ancestry.last().map_or(block_info.number, |rp| rp.number);
+
+		view.active_leaves
+			.insert(hash, RelayBlockViewData { fragment_chains, number: block_info.number });
+
+		view.min_relay_parent = view
+			.min_relay_parent
+			.map(|min_rp| std::cmp::min(min_rp, min_relay_parent))
+			.or(Some(min_relay_parent));
 	}
 
-	for deactivated in &update.deactivated {
-		view.active_leaves.remove(deactivated);
+	// Delete the already inactive leaves that have now went out of scope.
+	view.implicit_leaves.retain(|_, implicit_leaf| {
+		matches!(
+			view.min_relay_parent,
+			Some(min_relay_parent) if implicit_leaf.number >= min_relay_parent
+		)
+	});
+
+	for deactivated_leaf in update.deactivated {
+		// First, remove the leaves from the active set.
+		let Some(removed) = view.active_leaves.remove(&deactivated_leaf) else { continue };
+		// Add the leaf to the implicit view, if the relay parent is still in scope.
+		if matches!(view.min_relay_parent, Some(min_relay_parent) if removed.number >= min_relay_parent)
+		{
+			view.implicit_leaves.insert(
+				deactivated_leaf,
+				RelayBlockViewData {
+					fragment_chains: removed.fragment_chains,
+					number: removed.number,
+				},
+			);
+		}
 	}
 
 	if metrics.0.is_some() {
 		let mut connected = 0;
 		let mut unconnected = 0;
-		for RelayBlockViewData { fragment_chains } in view.active_leaves.values() {
+		for RelayBlockViewData { fragment_chains, .. } in view.active_leaves.values() {
 			for chain in fragment_chains.values() {
 				connected += chain.best_chain_len();
 				unconnected += chain.unconnected_len();
@@ -380,7 +436,19 @@ async fn handle_active_leaves_update<Context>(
 		}
 
 		metrics.record_candidate_count(connected as u64, unconnected as u64);
+
+		let mut candidates_in_implicit_view = 0;
+		for RelayBlockViewData { fragment_chains, .. } in view.implicit_leaves.values() {
+			for chain in fragment_chains.values() {
+				candidates_in_implicit_view += chain.best_chain_len();
+				candidates_in_implicit_view += chain.unconnected_len();
+			}
+		}
+
+		metrics.record_candidate_count_in_implicit_view(candidates_in_implicit_view as u64);
 	}
+
+	metrics.record_leaves_count(view.active_leaves.len() as u64, view.implicit_leaves.len() as u64);
 
 	Ok(())
 }

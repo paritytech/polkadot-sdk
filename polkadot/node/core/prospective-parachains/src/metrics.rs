@@ -17,7 +17,7 @@
 use polkadot_node_subsystem::prometheus::Opts;
 use polkadot_node_subsystem_util::metrics::{
 	self,
-	prometheus::{self, GaugeVec, U64},
+	prometheus::{self, Gauge, GaugeVec, U64},
 };
 
 #[derive(Clone)]
@@ -27,6 +27,8 @@ pub(crate) struct MetricsInner {
 	time_candidate_backed: prometheus::Histogram,
 	time_hypothetical_membership: prometheus::Histogram,
 	candidate_count: prometheus::GaugeVec<U64>,
+	active_leaves_count: prometheus::GaugeVec<U64>,
+	implicit_view_candidate_count: prometheus::Gauge<U64>,
 }
 
 /// Candidate backing metrics.
@@ -68,14 +70,26 @@ impl Metrics {
 	/// candidates count, second param is the unconnected candidates count.
 	pub fn record_candidate_count(&self, connected_count: u64, unconnected_count: u64) {
 		self.0.as_ref().map(|metrics| {
-			metrics.candidate_count.with_label_values(&["connected"]).set(connected_count)
-		});
-
-		self.0.as_ref().map(|metrics| {
+			metrics.candidate_count.with_label_values(&["connected"]).set(connected_count);
 			metrics
 				.candidate_count
 				.with_label_values(&["unconnected"])
-				.set(unconnected_count)
+				.set(unconnected_count);
+		});
+	}
+
+	/// Record the number of candidates present in the implicit view of the subsystem.
+	pub fn record_candidate_count_in_implicit_view(&self, count: u64) {
+		self.0.as_ref().map(|metrics| {
+			metrics.implicit_view_candidate_count.set(count);
+		});
+	}
+
+	/// Record the number of active/inactive leaves kept by the subsystem.
+	pub fn record_leaves_count(&self, active_count: u64, inactive_count: u64) {
+		self.0.as_ref().map(|metrics| {
+			metrics.active_leaves_count.with_label_values(&["active"]).set(active_count);
+			metrics.active_leaves_count.with_label_values(&["inactive"]).set(inactive_count);
 		});
 	}
 }
@@ -120,6 +134,23 @@ impl metrics::Metrics for Metrics {
 					&["type"],
 				)?,
 				registry,
+			)?,
+			active_leaves_count: prometheus::register(
+				GaugeVec::new(
+					Opts::new(
+						"polkadot_parachain_prospective_parachains_active_leaves_count",
+						"Number of leaves kept by the subsystem, split by active/inactive"
+					),
+					&["type"],
+				)?,
+				registry,
+			)?,
+			implicit_view_candidate_count: prometheus::register(
+				Gauge::new(
+					"polkadot_parachain_prospective_parachains_implicit_view_candidate_count", 
+					"Number of candidates present in the implicit view"
+				)?, 
+				registry
 			)?,
 		};
 		Ok(Metrics(Some(metrics)))
