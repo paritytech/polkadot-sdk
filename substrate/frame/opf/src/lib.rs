@@ -34,6 +34,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxWhitelistedProjects: Get<u32>;
 
+		/// Time during which it is possible to cast a vote or change an existing vote
+		#[pallet::constant]
+		type VotingPeriod: Get<BlockNumberFor<Self>> ;
+
 	}
 	
 	#[pallet::storage]

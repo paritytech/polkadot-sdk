@@ -2167,12 +2167,14 @@ impl pallet_distribution::Config for Runtime {
 }
 
 parameter_types!{
-	pub const NominationRenewalPeriod: BlockNumber = 10;
+	pub const NominationRenewalPeriod: BlockNumber = 25*DAYS;
+	pub const VotingPeriod: BlockNumber = 10*DAYS;
 	pub const MaxWhitelistedProjects: u32 = 1000;
 }
 impl pallet_opf::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type VoteLockingPeriod = VoteLockingPeriod;
+	type VotingPeriod = VotingPeriod;
 	type NominationRenewalPeriod = TermDuration;
 	type MaxWhitelistedProjects = MaxCandidates;
 }
