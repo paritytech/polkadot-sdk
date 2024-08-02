@@ -182,13 +182,13 @@ pub struct Votes<AccountId, BlockNumber> {
 /// ### Example:
 ///
 /// 1. Linear increasing with helper types.
-/// #[doc = docify::embed!("src/tests.rs", deposit_types_with_linear_work)]
+#[doc = docify::embed!("src/tests.rs", deposit_types_with_linear_work)]
 ///
 /// 2. Geometrically increasing with helper types.
-/// #[doc = docify::embed!("src/tests.rs", deposit_types_with_geometric_work)]
+#[doc = docify::embed!("src/tests.rs", deposit_types_with_geometric_work)]
 ///
 /// 3. Geometrically increasing with rounding.
-/// #[doc = docify::embed!("src/tests.rs", deposit_round_with_geometric_work)]
+#[doc = docify::embed!("src/tests.rs", deposit_round_with_geometric_work)]
 pub mod deposit {
 	use core::marker::PhantomData;
 	use sp_core::Get;
