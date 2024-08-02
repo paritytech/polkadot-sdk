@@ -193,7 +193,12 @@ pub mod pallet {
 	}
 
 	/// Stored parameters.
+	/// 
+	/// ## Storage Whitelist
+	/// Since we account for all parameters read weight for each block,
+	/// don't double count it in other pallet benchmarks
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	pub type Parameters<T: Config> =
 		StorageMap<_, Blake2_128Concat, KeyOf<T>, ValueOf<T>, OptionQuery>;
 
