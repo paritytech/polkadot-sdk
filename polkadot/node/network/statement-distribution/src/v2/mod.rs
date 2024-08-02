@@ -2238,8 +2238,8 @@ async fn fragment_chain_update_inner<Context>(
 	gum::debug!(
 		target: LOG_TARGET,
 		active_leaf_hash = ?active_leaf_hash,
-		"Calling getHypotheticalMembership from statement distribution: {:?}",
-		&hypotheticals
+		"Calling getHypotheticalMembership from statement distribution for candidates: {:?}",
+		&hypotheticals.iter().map(|hypo| hypo.candidate_hash()).collect::<Vec<_>>()
 	);
 	let candidate_memberships = {
 		let (tx, rx) = oneshot::channel();
