@@ -205,6 +205,32 @@ async fn activate_leaf(
 	activate_leaf_with_params(virtual_overseer, leaf, test_state, ASYNC_BACKING_PARAMETERS).await;
 }
 
+async fn activate_leaf_with_parent_hash_fn(
+	virtual_overseer: &mut VirtualOverseer,
+	leaf: &TestLeaf,
+	test_state: &TestState,
+	parent_hash_fn: impl Fn(Hash) -> Hash,
+) {
+	let TestLeaf { number, hash, .. } = leaf;
+
+	let activated = new_leaf(*hash, *number);
+
+	virtual_overseer
+		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
+			activated,
+		))))
+		.await;
+
+	handle_leaf_activation(
+		virtual_overseer,
+		leaf,
+		test_state,
+		ASYNC_BACKING_PARAMETERS,
+		parent_hash_fn,
+	)
+	.await;
+}
+
 async fn activate_leaf_with_params(
 	virtual_overseer: &mut VirtualOverseer,
 	leaf: &TestLeaf,
@@ -221,7 +247,14 @@ async fn activate_leaf_with_params(
 		))))
 		.await;
 
-	handle_leaf_activation(virtual_overseer, leaf, test_state, async_backing_params).await;
+	handle_leaf_activation(
+		virtual_overseer,
+		leaf,
+		test_state,
+		async_backing_params,
+		get_parent_hash,
+	)
+	.await;
 }
 
 async fn handle_leaf_activation(
@@ -229,6 +262,7 @@ async fn handle_leaf_activation(
 	leaf: &TestLeaf,
 	test_state: &TestState,
 	async_backing_params: AsyncBackingParams,
+	parent_hash_fn: impl Fn(Hash) -> Hash,
 ) {
 	let TestLeaf { number, hash, para_data } = leaf;
 
@@ -283,7 +317,7 @@ async fn handle_leaf_activation(
 	let min_min = para_data.iter().map(|(_, data)| data.min_relay_parent).min().unwrap_or(*number);
 	let ancestry_len = number - min_min;
 	let ancestry_hashes: Vec<Hash> =
-		std::iter::successors(Some(*hash), |h| Some(get_parent_hash(*h)))
+		std::iter::successors(Some(*hash), |h| Some(parent_hash_fn(*h)))
 			.skip(1)
 			.take(ancestry_len as usize)
 			.collect();
@@ -521,6 +555,26 @@ async fn get_pvd(
 		.await;
 	let resp = rx.await.unwrap();
 	assert_eq!(resp, expected_pvd);
+}
+
+macro_rules! make_and_back_candidate {
+	($test_state:ident, $virtual_overseer:ident, $leaf:ident, $parent:expr, $index:expr) => {{
+		let (mut candidate, pvd) = make_candidate(
+			$leaf.hash,
+			$leaf.number,
+			1.into(),
+			$parent.commitments.head_data.clone(),
+			HeadData(vec![$index]),
+			$test_state.validation_code_hash,
+		);
+		// Set a field to make this candidate unique.
+		candidate.descriptor.para_head = Hash::from_low_u64_le($index);
+		let candidate_hash = candidate.hash();
+		introduce_seconded_candidate(&mut $virtual_overseer, candidate.clone(), pvd).await;
+		back_candidate(&mut $virtual_overseer, &candidate, candidate_hash).await;
+
+		(candidate, candidate_hash)
+	}};
 }
 
 #[test]
@@ -1428,26 +1482,6 @@ fn check_backable_query_single_candidate() {
 // Backs some candidates and tests `GetBackableCandidates` when requesting a multiple candidates.
 #[test]
 fn check_backable_query_multiple_candidates() {
-	macro_rules! make_and_back_candidate {
-		($test_state:ident, $virtual_overseer:ident, $leaf:ident, $parent:expr, $index:expr) => {{
-			let (mut candidate, pvd) = make_candidate(
-				$leaf.hash,
-				$leaf.number,
-				1.into(),
-				$parent.commitments.head_data.clone(),
-				HeadData(vec![$index]),
-				$test_state.validation_code_hash,
-			);
-			// Set a field to make this candidate unique.
-			candidate.descriptor.para_head = Hash::from_low_u64_le($index);
-			let candidate_hash = candidate.hash();
-			introduce_seconded_candidate(&mut $virtual_overseer, candidate.clone(), pvd).await;
-			back_candidate(&mut $virtual_overseer, &candidate, candidate_hash).await;
-
-			(candidate, candidate_hash)
-		}};
-	}
-
 	let test_state = TestState::default();
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf A
@@ -2086,6 +2120,7 @@ fn correctly_updates_leaves(#[case] runtime_api_version: u32) {
 			&leaf_c,
 			&test_state,
 			ASYNC_BACKING_PARAMETERS,
+			get_parent_hash,
 		)
 		.await;
 
@@ -2152,46 +2187,23 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 			HeadData(vec![1]),
 			test_state.validation_code_hash,
 		);
-		let (candidate_b, pvd_b) = make_candidate(
-			leaf_a.hash,
-			leaf_a.number,
-			para_id,
-			HeadData(vec![1]),
-			HeadData(vec![2]),
-			test_state.validation_code_hash,
-		);
-		let (candidate_c, pvd_c) = make_candidate(
-			leaf_a.hash,
-			leaf_a.number,
-			para_id,
-			HeadData(vec![2]),
-			HeadData(vec![3]),
-			test_state.validation_code_hash,
-		);
-		let (candidate_d, pvd_d) = make_candidate(
-			leaf_a.hash,
-			leaf_a.number,
-			para_id,
-			HeadData(vec![3]),
-			HeadData(vec![4]),
-			test_state.validation_code_hash,
-		);
+		let candidate_hash_a = candidate_a.hash();
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a).await;
+		back_candidate(&mut virtual_overseer, &candidate_a, candidate_hash_a).await;
 
-		// Introduce candidates.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
-			.await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b.clone())
-			.await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_c.clone(), pvd_c.clone())
-			.await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_d.clone(), pvd_d.clone())
-			.await;
+		let (candidate_b, candidate_hash_b) =
+			make_and_back_candidate!(test_state, virtual_overseer, leaf_a, &candidate_a, 2);
+		let (candidate_c, candidate_hash_c) =
+			make_and_back_candidate!(test_state, virtual_overseer, leaf_a, &candidate_b, 3);
+		let (candidate_d, candidate_hash_d) =
+			make_and_back_candidate!(test_state, virtual_overseer, leaf_a, &candidate_c, 4);
 
-		// Back candidates. Otherwise, we cannot check membership with GetBackableCandidates.
-		back_candidate(&mut virtual_overseer, &candidate_a, candidate_a.hash()).await;
-		back_candidate(&mut virtual_overseer, &candidate_b, candidate_b.hash()).await;
-		back_candidate(&mut virtual_overseer, &candidate_c, candidate_c.hash()).await;
-		back_candidate(&mut virtual_overseer, &candidate_d, candidate_d.hash()).await;
+		let all_candidates_resp = vec![
+			(candidate_hash_a, leaf_a.hash),
+			(candidate_hash_b, leaf_a.hash),
+			(candidate_hash_c, leaf_a.hash),
+			(candidate_hash_d, leaf_a.hash),
+		];
 
 		// Check candidate tree membership.
 		get_backable_candidates(
@@ -2200,12 +2212,7 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 			para_id,
 			Ancestors::default(),
 			5,
-			vec![
-				(candidate_a.hash(), leaf_a.hash),
-				(candidate_b.hash(), leaf_a.hash),
-				(candidate_c.hash(), leaf_a.hash),
-				(candidate_d.hash(), leaf_a.hash),
-			],
+			all_candidates_resp.clone(),
 		)
 		.await;
 
@@ -2276,12 +2283,7 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 			para_id,
 			Ancestors::default(),
 			5,
-			vec![
-				(candidate_a.hash(), leaf_a.hash),
-				(candidate_b.hash(), leaf_a.hash),
-				(candidate_c.hash(), leaf_a.hash),
-				(candidate_d.hash(), leaf_a.hash),
-			],
+			all_candidates_resp.clone(),
 		)
 		.await;
 
@@ -2308,10 +2310,50 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 		)
 		.await;
 
+		// Now add leaf C, which will be a sibling (fork) of leaf B. It should also inherit the
+		// candidates of leaf A (their common parent).
+		let leaf_c = TestLeaf {
+			number: 101,
+			hash: Hash::from_low_u64_be(12),
+			para_data: vec![(
+				para_id,
+				PerParaData::new_with_pending(98, HeadData(vec![1, 2, 3]), vec![]),
+			)],
+		};
+
+		activate_leaf_with_parent_hash_fn(&mut virtual_overseer, &leaf_c, &test_state, |hash| {
+			if hash == leaf_c.hash {
+				leaf_a.hash
+			} else {
+				get_parent_hash(hash)
+			}
+		})
+		.await;
+
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_b,
+			para_id,
+			[candidate_a.hash(), candidate_b.hash()].into_iter().collect(),
+			5,
+			vec![(candidate_c.hash(), leaf_a.hash), (candidate_d.hash(), leaf_a.hash)],
+		)
+		.await;
+
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_c,
+			para_id,
+			Ancestors::new(),
+			5,
+			all_candidates_resp.clone(),
+		)
+		.await;
+
 		virtual_overseer
 	});
 
-	assert_eq!(view.active_leaves.len(), 1);
+	assert_eq!(view.active_leaves.len(), 2);
 }
 
 #[test]
