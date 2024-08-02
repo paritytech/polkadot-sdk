@@ -124,7 +124,7 @@ pub type FullBackend = sc_service::TFullBackend<Block>;
 pub type FullClient = sc_service::TFullClient<
 	Block,
 	RuntimeApi,
-	WasmExecutor<(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions)>,
+	WasmExecutor<(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions, cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions)>,
 >;
 
 /// The minimum period of blocks on which justifications will be
@@ -449,10 +449,11 @@ fn new_partial_basics(
 		.build();
 
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, _>(
+		sc_service::new_full_parts_record_import::<Block, RuntimeApi, _>(
 			&config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
+			true,
 		)?;
 	let client = Arc::new(client);
 

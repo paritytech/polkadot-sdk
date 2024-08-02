@@ -11,6 +11,8 @@ description = "Utils to tie different Polkadot components together and allow ins
 workspace = true
 
 [dependencies]
+cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
+
 # Substrate Client
 sc-authority-discovery = { workspace = true, default-features = true }
 sc-consensus-babe = { workspace = true, default-features = true }
