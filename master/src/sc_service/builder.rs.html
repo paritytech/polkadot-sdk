@@ -1221,6 +1221,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1070" id="1070">1070</a>
 <a href="#1071" id="1071">1071</a>
 <a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1291,6 +1300,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_rpc_spec_v2::{
 	archive::ArchiveApiServer,
 	chain_head::ChainHeadApiServer,
+	chain_spec::ChainSpecApiServer,
 	transaction::{TransactionApiServer, TransactionBroadcastApiServer},
 };
 <span class="kw">use </span>sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
@@ -1898,9 +1908,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// - block pruning in archive mode: The block's body is kept around
 	</span><span class="kw">let </span>is_archive_node = config.state_pruning.as_ref().map(|sp| sp.is_archive()).unwrap_or(<span class="bool-val">false</span>) &amp;&amp;
 		config.blocks_pruning.is_archive();
+	<span class="kw">let </span>genesis_hash = client.hash(Zero::zero()).ok().flatten().expect(<span class="string">"Genesis block exists; qed"</span>);
 	<span class="kw">if </span>is_archive_node {
-		<span class="kw">let </span>genesis_hash =
-			client.hash(Zero::zero()).ok().flatten().expect(<span class="string">"Genesis block exists; qed"</span>);
 		<span class="kw">let </span>archive_v2 = sc_rpc_spec_v2::archive::Archive::new(
 			client.clone(),
 			backend.clone(),
@@ -1911,6 +1920,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.into_rpc();
 		rpc_api.merge(archive_v2).map_err(|e| Error::Application(e.into()))<span class="question-mark">?</span>;
 	}
+
+	<span class="comment">// ChainSpec RPC-v2.
+	</span><span class="kw">let </span>chain_spec_v2 = sc_rpc_spec_v2::chain_spec::ChainSpec::new(
+		config.chain_spec.name().into(),
+		genesis_hash,
+		config.chain_spec.properties(),
+	)
+	.into_rpc();
 
 	<span class="kw">let </span>author = sc_rpc::author::Author::new(
 		client.clone(),
@@ -1935,6 +1952,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.merge(transaction_broadcast_rpc_v2)
 		.map_err(|e| Error::Application(e.into()))<span class="question-mark">?</span>;
 	rpc_api.merge(chain_head_v2).map_err(|e| Error::Application(e.into()))<span class="question-mark">?</span>;
+	rpc_api.merge(chain_spec_v2).map_err(|e| Error::Application(e.into()))<span class="question-mark">?</span>;
 
 	<span class="comment">// Part of the old RPC spec.
 	</span>rpc_api.merge(chain).map_err(|e| Error::Application(e.into()))<span class="question-mark">?</span>;
