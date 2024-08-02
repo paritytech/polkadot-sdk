@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722508120375,
+  "lastUpdate": 1722607659534,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -13582,6 +13582,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 6.386040631450024,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre",
+            "email": "franciscoaguirreperez@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "8ccb6b33c564da038de2af987d4e8d347f32e9c7",
+          "message": "Add an adapter for configuring AssetExchanger (#5130)\n\nAdded a new adapter to xcm-builder, the `SingleAssetExchangeAdapter`.\nThis adapter makes it easy to use `pallet-asset-conversion` for\nconfiguring the `AssetExchanger` XCM config item.\n\nI also took the liberty of adding a new function to the `AssetExchange`\ntrait, with the following signature:\n\n```rust\nfn quote_exchange_price(give: &Assets, want: &Assets, maximal: bool) -> Option<Assets>;\n```\n\nThe signature is meant to be fairly symmetric to that of\n`exchange_asset`.\nThe way they interact can be seen in the doc comment for it in the\n`AssetExchange` trait.\n\nThis is a breaking change but is needed for\nhttps://github.com/paritytech/polkadot-sdk/pull/5131.\nAnother idea is to create a new trait for this but that would require\nsetting it in the XCM config which is also breaking.\n\nOld PR: https://github.com/paritytech/polkadot-sdk/pull/4375.\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
+          "timestamp": "2024-08-02T12:24:19Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8ccb6b33c564da038de2af987d4e8d347f32e9c7"
+        },
+        "date": 1722607629226,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63971.729999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.632342157680124,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.063022211030017,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.9559232939901947,
             "unit": "seconds"
           }
         ]
