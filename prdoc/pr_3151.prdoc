@@ -37,4 +37,5 @@ crates:
     bump: patch
   - name: pallet-preimage
     bump: patch
-
+  - name: pallet-utility
+    bump: patch
