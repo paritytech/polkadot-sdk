@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet_contracts] Modify the storage host function benchmarks to be run on an unbalanced storage trie"
+
+doc:
+  - audience: Runtime User
+    description: |
+      This PR modifies the storage host function benchmarks. Previously, they were run
+      on an empty storage trie. Now, they are run on an unbalanced storage trie
+      to reflect the worst-case scenario. This approach increases the storage host
+      function weights and decreases the probability of DoS attacks.
+
+crates:
+  - name: pallet-contracts
+    bump: patch
