@@ -17,9 +17,9 @@ pub fn run_to_block(n: BlockNumberFor<Test>) {
 }
 
 pub fn create_project(project_account: AccountId, amount: u128) {
-	let whitelisted_block = System::block_number();
+	let submission_block = System::block_number();
 	let project: types::ProjectInfo<Test> =
-		ProjectInfo { project_account, whitelisted_block, amount };
+		ProjectInfo { project_account, submission_block, amount };
 	Projects::<Test>::mutate(|value| {
 		let mut val = value.clone();
 		let _ = val.try_push(project);
