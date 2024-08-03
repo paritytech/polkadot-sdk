@@ -644,11 +644,15 @@ where
 	/// Actually execute all transitions for `block`.
 	pub fn execute_block(block: Block) {
 		sp_io::init_tracing();
-		sp_tracing::within_span! {
-			sp_tracing::info_span!("execute_block", ?block);
+		sp_tracing::enter_span!(sp_tracing::Level::TRACE, "execute_block");
+		// sp_tracing::within_span! {
+			// sp_tracing::info_span!("execute_block", ?block);
 			// Execute `on_runtime_upgrade` and `on_initialize`.
+			log::info!(target: LOG_TARGET, "Before initialize: {}", get_proof_size().unwrap());
 			let mode = Self::initialize_block(block.header());
+			log::info!(target: LOG_TARGET, "Before initial checks: {}", get_proof_size().unwrap());
 			let num_inherents = Self::initial_checks(&block) as usize;
+			log::info!(target: LOG_TARGET, "Before deconstruct: {}", get_proof_size().unwrap());
 			let (header, extrinsics) = block.deconstruct();
 			let num_extrinsics = extrinsics.len();
 
@@ -657,21 +661,28 @@ where
 				panic!("Only inherents are allowed in this block")
 			}
 
+			log::info!(target: LOG_TARGET, "Before apply extrinsics: {}", get_proof_size().unwrap());
 			Self::apply_extrinsics(extrinsics.into_iter());
 
+			log::info!(target: LOG_TARGET, "Before inherents applied: {}", get_proof_size().unwrap());
 			// In this case there were no transactions to trigger this state transition:
 			if !<frame_system::Pallet<System>>::inherents_applied() {
 				defensive_assert!(num_inherents == num_extrinsics);
 				Self::inherents_applied();
 			}
 
+			log::info!(target: LOG_TARGET, "Before noting finished extrinsics: {}", get_proof_size().unwrap());
 			<frame_system::Pallet<System>>::note_finished_extrinsics();
+			log::info!(target: LOG_TARGET, "Before post transactions: {}", get_proof_size().unwrap());
 			<System as frame_system::Config>::PostTransactions::post_transactions();
 
+			log::info!(target: LOG_TARGET, "Before on idle: {}", get_proof_size().unwrap());
 			Self::on_idle_hook(*header.number());
+			log::info!(target: LOG_TARGET, "Before on finalize: {}", get_proof_size().unwrap());
 			Self::on_finalize_hook(*header.number());
+			log::info!(target: LOG_TARGET, "Before final checks: {}", get_proof_size().unwrap());
 			Self::final_checks(&header);
-		}
+		// }
 	}
 
 	/// Logic that runs directly after inherent application.
@@ -711,16 +722,24 @@ where
 		sp_tracing::enter_span!(sp_tracing::Level::TRACE, "finalize_block");
 
 		// In this case there were no transactions to trigger this state transition:
+		log::info!(target: LOG_TARGET, "Before inherents applied: {}", get_proof_size().unwrap());
 		if !<frame_system::Pallet<System>>::inherents_applied() {
 			Self::inherents_applied();
 		}
 
+		log::info!(target: LOG_TARGET, "Before note finisfed extrinsics: {}", get_proof_size().unwrap());
 		<frame_system::Pallet<System>>::note_finished_extrinsics();
+		log::info!(target: LOG_TARGET, "Before post transactions: {}", get_proof_size().unwrap());
 		<System as frame_system::Config>::PostTransactions::post_transactions();
 		let block_number = <frame_system::Pallet<System>>::block_number();
+		log::info!(target: LOG_TARGET, "Before on idle hook: {}", get_proof_size().unwrap());
 		Self::on_idle_hook(block_number);
+		log::info!(target: LOG_TARGET, "Before on finalize hook: {}", get_proof_size().unwrap());
 		Self::on_finalize_hook(block_number);
-		<frame_system::Pallet<System>>::finalize()
+		log::info!(target: LOG_TARGET, "Before finalize: {}", get_proof_size().unwrap());
+		let f = <frame_system::Pallet<System>>::finalize();
+		log::info!(target: LOG_TARGET, "After finalize: {}", get_proof_size().unwrap());
+		f
 	}
 
 	/// Run the `on_idle` hook of all pallet, but only if there is weight remaining and there are no

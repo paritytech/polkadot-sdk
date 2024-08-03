@@ -16478,10 +16478,12 @@ dependencies = [
  "sp-core",
  "sp-genesis-builder",
  "sp-inherents",
+ "sp-io",
  "sp-offchain",
  "sp-runtime",
  "sp-session",
  "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
  "sp-transaction-pool",
  "sp-version",
  "staging-parachain-info",
@@ -16490,6 +16492,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tracing",
 ]
 
 [[package]]
@@ -17134,6 +17137,7 @@ version = "28.0.0"
 dependencies = [
  "array-bytes",
  "clap 4.5.3",
+ "cumulus-primitives-proof-size-hostfunction",
  "docify",
  "log",
  "memmap2 0.9.3",

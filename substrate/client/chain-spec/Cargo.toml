@@ -37,6 +37,7 @@ log = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 array-bytes = { workspace = true, default-features = true }
 docify = { workspace = true }
+cumulus-primitives-proof-size-hostfunction = { workspace = true }
 
 [dev-dependencies]
 substrate-test-runtime = { workspace = true }

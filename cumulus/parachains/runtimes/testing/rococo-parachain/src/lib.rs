@@ -687,6 +687,16 @@ impl frame_support::traits::OnRuntimeUpgrade for RemoveCollectiveFlip {
 	}
 }
 
+use cumulus_primitives_storage_weight_reclaim::get_proof_size;
+
+fn proof_sizes_for_logs() -> (u64, u64, u64, u64) {
+	let weight = frame_system::Pallet::<Runtime>::block_weight();
+	let n = weight.get(DispatchClass::Normal).proof_size();
+	let o = weight.get(DispatchClass::Operational).proof_size();
+	let m = weight.get(DispatchClass::Mandatory).proof_size();
+	(get_proof_size().unwrap_or(0), n, o, m)
+}
+
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
@@ -694,25 +704,44 @@ impl_runtime_apis! {
 		}
 
 		fn execute_block(block: Block) {
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR Core::execute_block {:?}", proof_sizes_for_logs());
 			Executive::execute_block(block);
+			tracing::warn!("AFTER Core::execute_block {:?}", proof_sizes_for_logs());
 		}
 
 		fn initialize_block(header: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
-			Executive::initialize_block(header)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR Core::initialize_block {:?}", proof_sizes_for_logs());
+			let r = Executive::initialize_block(header);
+			tracing::warn!("AFTER Core::initialize_block {:?}", proof_sizes_for_logs());
+			r
 		}
 	}
 
 	impl sp_api::Metadata<Block> for Runtime {
 		fn metadata() -> OpaqueMetadata {
-			OpaqueMetadata::new(Runtime::metadata().into())
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR Metadata::metadata {:?}", proof_sizes_for_logs());
+			let r = OpaqueMetadata::new(Runtime::metadata().into());
+			tracing::warn!("AFTER Metadata::metadata {:?}", proof_sizes_for_logs());
+			r
 		}
 
 		fn metadata_at_version(version: u32) -> Option<OpaqueMetadata> {
-			Runtime::metadata_at_version(version)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR Metadata::metadata_at_version {:?}", proof_sizes_for_logs());
+			let r = Runtime::metadata_at_version(version);
+			tracing::warn!("AFTER Metadata::metadata_at_version {:?}", proof_sizes_for_logs());
+			r
 		}
 
 		fn metadata_versions() -> sp_std::vec::Vec<u32> {
-			Runtime::metadata_versions()
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR Metadata::metadata_versions {:?}", proof_sizes_for_logs());
+			let r = Runtime::metadata_versions();
+			tracing::warn!("AFTER Metadata::metadata_versions {:?}", proof_sizes_for_logs());
+			r
 		}
 	}
 
@@ -720,19 +749,35 @@ impl_runtime_apis! {
 		fn apply_extrinsic(
 			extrinsic: <Block as BlockT>::Extrinsic,
 		) -> ApplyExtrinsicResult {
-			Executive::apply_extrinsic(extrinsic)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR BlockBuilder::apply_extrinsic {:?}", proof_sizes_for_logs());
+			let r = Executive::apply_extrinsic(extrinsic);
+			tracing::warn!("AFTER BlockBuilder::apply_extrinsic {:?}", proof_sizes_for_logs());
+			r
 		}
 
 		fn finalize_block() -> <Block as BlockT>::Header {
-			Executive::finalize_block()
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR BlockBuilder::finalize_block {:?}", proof_sizes_for_logs());
+			let r = Executive::finalize_block();
+			tracing::warn!("AFTER BlockBuilder::finalize_block {:?}", proof_sizes_for_logs());
+			r
 		}
 
 		fn inherent_extrinsics(data: sp_inherents::InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
-			data.create_extrinsics()
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR BlockBuilder::inherent_extrinsics {:?}", proof_sizes_for_logs());
+			let r = data.create_extrinsics();
+			tracing::warn!("AFTER BlockBuilder::inherent_extrinsics {:?}", proof_sizes_for_logs());
+			r
 		}
 
 		fn check_inherents(block: Block, data: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
-			data.check_extrinsics(&block)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR BlockBuilder::check_inherents {:?}", proof_sizes_for_logs());
+			let r = data.check_extrinsics(&block);
+			tracing::warn!("AFTER BlockBuilder::check_inherents {:?}", proof_sizes_for_logs());
+			r
 		}
 	}
 
@@ -742,13 +787,21 @@ impl_runtime_apis! {
 			tx: <Block as BlockT>::Extrinsic,
 			block_hash: <Block as BlockT>::Hash,
 		) -> TransactionValidity {
-			Executive::validate_transaction(source, tx, block_hash)
+			sp_io::init_tracing();
+			// tracing::warn!("BEFOR TaggedTransactionQueue::validate_transaction {:?}", proof_sizes_for_logs());
+			let r = Executive::validate_transaction(source, tx, block_hash);
+			// tracing::warn!("AFTER TaggedTransactionQueue::validate_transaction {:?}", proof_sizes_for_logs());
+			r
 		}
 	}
 
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
-			Executive::offchain_worker(header)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR OffchainWorkerApi::offchain_worker {:?}", proof_sizes_for_logs());
+			let r = Executive::offchain_worker(header);
+			tracing::warn!("AFTER OffchainWorkerApi::offchain_worker {:?}", proof_sizes_for_logs());
+			r
 		}
 	}
 
@@ -756,27 +809,47 @@ impl_runtime_apis! {
 		fn decode_session_keys(
 			encoded: Vec<u8>,
 		) -> Option<Vec<(Vec<u8>, sp_core::crypto::KeyTypeId)>> {
-			SessionKeys::decode_into_raw_public_keys(&encoded)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR SessionKeys::decode_session_keys {:?}", proof_sizes_for_logs());
+			let r = SessionKeys::decode_into_raw_public_keys(&encoded);
+			tracing::warn!("AFTER SessionKeys::decode_session_keys {:?}", proof_sizes_for_logs());
+			r
 		}
 
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR SessionKeys::generate_session_keys {:?}", proof_sizes_for_logs());
+			let r = SessionKeys::generate(seed);
+			tracing::warn!("AFTER SessionKeys::generate_session_keys {:?}", proof_sizes_for_logs());
+			r
 		}
 	}
 
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR AuraApi::slot_duration {:?}", proof_sizes_for_logs());
+			let r = sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration());
+			tracing::warn!("AFTER AuraApi::slot_duration {:?}", proof_sizes_for_logs());
+			r
 		}
 
 		fn authorities() -> Vec<AuraId> {
-			pallet_aura::Authorities::<Runtime>::get().into_inner()
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR AuraApi::authorities {:?}", proof_sizes_for_logs());
+			let r = pallet_aura::Authorities::<Runtime>::get().into_inner();
+			tracing::warn!("AFTER AuraApi::authorities {:?}", proof_sizes_for_logs());
+			r
 		}
 	}
 
 	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
 		fn account_nonce(account: AccountId) -> Nonce {
-			System::account_nonce(account)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR AccountNonceApi::account_nonce {:?}", proof_sizes_for_logs());
+			let r = System::account_nonce(account);
+			tracing::warn!("AFTER AccountNonceApi::account_nonce {:?}", proof_sizes_for_logs());
+			r
 		}
 	}
 
@@ -785,19 +858,35 @@ impl_runtime_apis! {
 			uxt: <Block as BlockT>::Extrinsic,
 			len: u32,
 		) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<Balance> {
-			TransactionPayment::query_info(uxt, len)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR TransactionPaymentApi::query_info {:?}", proof_sizes_for_logs());
+			let r = TransactionPayment::query_info(uxt, len);
+			tracing::warn!("AFTER TransactionPaymentApi::query_info {:?}", proof_sizes_for_logs());
+			r
 		}
 		fn query_fee_details(
 			uxt: <Block as BlockT>::Extrinsic,
 			len: u32,
 		) -> pallet_transaction_payment::FeeDetails<Balance> {
-			TransactionPayment::query_fee_details(uxt, len)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR TransactionPaymentApi::query_fee_details {:?}", proof_sizes_for_logs());
+			let r = TransactionPayment::query_fee_details(uxt, len);
+			tracing::warn!("AFTER TransactionPaymentApi::query_fee_details {:?}", proof_sizes_for_logs());
+			r
 		}
 		fn query_weight_to_fee(weight: Weight) -> Balance {
-			TransactionPayment::weight_to_fee(weight)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR TransactionPaymentApi::query_weight_to_fee {:?}", proof_sizes_for_logs());
+			let r = TransactionPayment::weight_to_fee(weight);
+			tracing::warn!("AFTER TransactionPaymentApi::query_weight_to_fee {:?}", proof_sizes_for_logs());
+			r
 		}
 		fn query_length_to_fee(length: u32) -> Balance {
-			TransactionPayment::length_to_fee(length)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR TransactionPaymentApi::query_length_to_fee {:?}", proof_sizes_for_logs());
+			let r = TransactionPayment::length_to_fee(length);
+			tracing::warn!("AFTER TransactionPaymentApi::query_length_to_fee {:?}", proof_sizes_for_logs());
+			r
 		}
 	}
 
@@ -808,35 +897,63 @@ impl_runtime_apis! {
 			call: RuntimeCall,
 			len: u32,
 		) -> pallet_transaction_payment::RuntimeDispatchInfo<Balance> {
-			TransactionPayment::query_call_info(call, len)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR TransactionPaymentCallApi::query_call_info {:?}", proof_sizes_for_logs());
+			let r = TransactionPayment::query_call_info(call, len);
+			tracing::warn!("AFTER TransactionPaymentCallApi::query_call_info {:?}", proof_sizes_for_logs());
+			r
 		}
 		fn query_call_fee_details(
 			call: RuntimeCall,
 			len: u32,
 		) -> pallet_transaction_payment::FeeDetails<Balance> {
-			TransactionPayment::query_call_fee_details(call, len)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR TransactionPaymentCallApi::query_call_fee_details {:?}", proof_sizes_for_logs());
+			let r = TransactionPayment::query_call_fee_details(call, len);
+			tracing::warn!("AFTER TransactionPaymentCallApi::query_call_fee_details {:?}", proof_sizes_for_logs());
+			r
 		}
 		fn query_weight_to_fee(weight: Weight) -> Balance {
-			TransactionPayment::weight_to_fee(weight)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR TransactionPaymentCallApi::query_weight_to_fee {:?}", proof_sizes_for_logs());
+			let r = TransactionPayment::weight_to_fee(weight);
+			tracing::warn!("AFTER TransactionPaymentCallApi::query_weight_to_fee {:?}", proof_sizes_for_logs());
+			r
 		}
 		fn query_length_to_fee(length: u32) -> Balance {
-			TransactionPayment::length_to_fee(length)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR TransactionPaymentCallApi::query_length_to_fee {:?}", proof_sizes_for_logs());
+			let r = TransactionPayment::length_to_fee(length);
+			tracing::warn!("AFTER TransactionPaymentCallApi::query_length_to_fee {:?}", proof_sizes_for_logs());
+			r
 		}
 	}
 
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
-			ParachainSystem::collect_collation_info(header)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR CollectCollationInfo::collect_collation_info {:?}", proof_sizes_for_logs());
+			let r = ParachainSystem::collect_collation_info(header);
+			tracing::warn!("AFTER CollectCollationInfo::collect_collation_info {:?}", proof_sizes_for_logs());
+			r
 		}
 	}
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_state::<RuntimeGenesisConfig>(config)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR GenesisBuilder::build_state {:?}", proof_sizes_for_logs());
+			let r = build_state::<RuntimeGenesisConfig>(config);
+			tracing::warn!("AFTER GenesisBuilder::build_state {:?}", proof_sizes_for_logs());
+			r
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR GenesisBuilder::get_preset {:?}", proof_sizes_for_logs());
+			let r = get_preset::<RuntimeGenesisConfig>(id, |_| None);
+			tracing::warn!("AFTER GenesisBuilder::get_preset {:?}", proof_sizes_for_logs());
+			r
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
@@ -849,7 +966,11 @@ impl_runtime_apis! {
 			included_hash: <Block as BlockT>::Hash,
 			slot: cumulus_primitives_aura::Slot,
 		) -> bool {
-			ConsensusHook::can_build_upon(included_hash, slot)
+			sp_io::init_tracing();
+			tracing::warn!("BEFOR AuraUnincludedSegmentApi::can_build_upon {:?}", proof_sizes_for_logs());
+			let r = ConsensusHook::can_build_upon(included_hash, slot);
+			tracing::warn!("AFTER AuraUnincludedSegmentApi::can_build_upon {:?}", proof_sizes_for_logs());
+			r
 		}
 	}
 }
