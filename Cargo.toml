@@ -385,6 +385,7 @@ members = [
 	"substrate/frame/nomination-pools/test-transfer-stake",
 	"substrate/frame/offences",
 	"substrate/frame/offences/benchmarking",
+	"substrate/frame/optimistic-funding",
 	"substrate/frame/paged-list",
 	"substrate/frame/paged-list/fuzzer",
 	"substrate/frame/parameters",
@@ -940,6 +941,7 @@ pallet-nomination-pools-benchmarking = { path = "substrate/frame/nomination-pool
 pallet-nomination-pools-runtime-api = { path = "substrate/frame/nomination-pools/runtime-api", default-features = false }
 pallet-offences = { path = "substrate/frame/offences", default-features = false }
 pallet-offences-benchmarking = { path = "substrate/frame/offences/benchmarking", default-features = false }
+pallet-optimistic-funding = { path = "substrate/frame/optimistic-funding", default-features = false }
 pallet-paged-list = { path = "substrate/frame/paged-list", default-features = false }
 pallet-parachain-template = { path = "templates/parachain/pallets/template", default-features = false }
 pallet-parameters = { path = "substrate/frame/parameters", default-features = false }
