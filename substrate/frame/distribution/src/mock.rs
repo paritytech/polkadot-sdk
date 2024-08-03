@@ -1,15 +1,15 @@
 use crate as pallet_distribution;
+pub use frame_support::traits::OnFinalize;
+pub use frame_support::traits::OnInitialize;
 pub use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU128, ConstU16, ConstU32, ConstU64},
 	PalletId,
 };
-pub use frame_support::traits::OnFinalize;
-pub use frame_support::traits::OnInitialize;
 pub use sp_core::H256;
 pub use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
-	 BuildStorage,
+	BuildStorage,
 };
 
 pub type Block = frame_system::mocking::MockBlock<Test>;
@@ -72,14 +72,11 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ConstU32<10>;
 }
 
-
-
-
 parameter_types! {
-    pub const PotId: PalletId = PalletId(*b"py/potid");
+	pub const PotId: PalletId = PalletId(*b"py/potid");
 	pub const Period: u32 = 1;
-    pub const MaxProjects:u32 = 50;
-    pub const EpochDurationBlocks:u32 = 5;
+	pub const MaxProjects:u32 = 50;
+	pub const EpochDurationBlocks:u32 = 5;
 }
 impl pallet_distribution::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -87,9 +84,8 @@ impl pallet_distribution::Config for Test {
 	type PotId = PotId;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type PaymentPeriod = Period;
-    type MaxProjects = MaxProjects;
+	type MaxProjects = MaxProjects;
 	type EpochDurationBlocks = EpochDurationBlocks;
-
 }
 //Define some accounts and use them
 pub const ALICE: AccountId = 10;

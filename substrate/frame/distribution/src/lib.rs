@@ -1,12 +1,9 @@
-
 #![cfg_attr(not(feature = "std"), no_std)]
-
-
 
 // Re-export all pallet parts, this is needed to properly import the pallet into the runtime.
 pub use pallet::*;
-mod types;
 mod functions;
+mod types;
 pub use types::*;
 
 #[cfg(test)]
@@ -46,18 +43,16 @@ pub mod pallet {
 		/// and payment/reward_claim from the treasury.
 		#[pallet::constant]
 		type PaymentPeriod: Get<BlockNumberFor<Self>>;
-		
-		/// Maximum number projects that can be accepted by this pallet 
+
+		/// Maximum number projects that can be accepted by this pallet
 		#[pallet::constant]
 		type MaxProjects: Get<u32>;
 
 		/// Epoch duration in blocks
 		#[pallet::constant]
 		type EpochDurationBlocks: Get<BlockNumberFor<Self>>;
-
-
 	}
-	
+
 	/// A reason for placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
@@ -82,13 +77,12 @@ pub mod pallet {
 
 	/// List of whitelisted projects to be rewarded
 	#[pallet::storage]
-	pub type Projects<T: Config> = 
+	pub type Projects<T: Config> =
 		StorageValue<_, BoundedVec<ProjectInfo<T>, T::MaxProjects>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-
 		/// Reward successfully claimed
 		RewardClaimed {
 			when: BlockNumberFor<T>,
@@ -97,12 +91,11 @@ pub mod pallet {
 		},
 
 		/// A Spending was created
-		SpendingCreated{
+		SpendingCreated {
 			when: BlockNumberFor<T>,
 			amount: BalanceOf<T>,
 			project_account: AccountIdOf<T>,
-		}
-		
+		},
 	}
 
 	#[pallet::error]
@@ -135,58 +128,51 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-
-
 		#[pallet::call_index(0)]
-		pub fn  claim_reward_for(origin: OriginFor<T>, project_account:AccountIdOf<T>) -> DispatchResult {
+		pub fn claim_reward_for(
+			origin: OriginFor<T>,
+			project_account: AccountIdOf<T>,
+		) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
 			let spending_indexes = Self::get_spending(project_account);
 			let pot = Self::pot_account();
 			for i in spending_indexes {
 				let mut info = Spendings::<T>::get(i).ok_or(Error::<T>::InexistentSpending)?;
-				let project_account = info.whitelisted_project.clone().ok_or(Error::<T>::NoValidAccount)?;
+				let project_account =
+					info.whitelisted_project.clone().ok_or(Error::<T>::NoValidAccount)?;
 				let now = <frame_system::Pallet<T>>::block_number();
 
 				// Check that we're within the claiming period
 				ensure!(now > info.valid_from, Error::<T>::NotClaimingPeriod);
-					// Unlock the funds
-					T::NativeBalance::release(
-						&HoldReason::FundsReserved.into(),
-						&pot,
-						info.amount,
-						Precision::Exact,
-					)?;
-					// transfer the funds
-					Self::spending(info.amount, project_account.clone(), i)?;
+				// Unlock the funds
+				T::NativeBalance::release(
+					&HoldReason::FundsReserved.into(),
+					&pot,
+					info.amount,
+					Precision::Exact,
+				)?;
+				// transfer the funds
+				Self::spending(info.amount, project_account.clone(), i)?;
 
-					// Update SpendingInfo claimed field in the storage
-					Spendings::<T>::mutate(i, |val|{
-						info.claimed = true;
-							info.status = SpendingState::Completed;					
-			
-						*val = Some(info.clone());
-					});
+				// Update SpendingInfo claimed field in the storage
+				Spendings::<T>::mutate(i, |val| {
+					info.claimed = true;
+					info.status = SpendingState::Completed;
 
-					// Move completed spending to corresponding storage
-					CompletedSpendings::<T>::insert(i,info.clone()); 
-					Spendings::<T>::remove(i);
+					*val = Some(info.clone());
+				});
 
-					Self::deposit_event(
-						Event::RewardClaimed {
-							when: now,
-							amount: info.amount,
-							project_account,
-						}
-					);
+				// Move completed spending to corresponding storage
+				CompletedSpendings::<T>::insert(i, info.clone());
+				Spendings::<T>::remove(i);
+
+				Self::deposit_event(Event::RewardClaimed {
+					when: now,
+					amount: info.amount,
+					project_account,
+				});
 			}
-			Ok(())			
-			
+			Ok(())
 		}
-
 	}
-
-
-
-
-	
 }

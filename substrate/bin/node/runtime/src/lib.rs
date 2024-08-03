@@ -2167,8 +2167,9 @@ impl pallet_distribution::Config for Runtime {
 }
 
 parameter_types!{
+	// this should be : VotingPeriod + VoteLockingPeriod.
+	// Having it as a runtime constant might not be necessary.
 	pub const NominationRenewalPeriod: BlockNumber = 25*DAYS;
-	pub const VotingPeriod: BlockNumber = 10*DAYS;
 	pub const MaxWhitelistedProjects: u32 = 1000;
 }
 impl pallet_opf::Config for Runtime {
