@@ -573,14 +573,14 @@ mod staking_integration {
 				100
 			));
 
-			// update_payee to self fails.
+			// set_payee to self fails.
 			assert_noop!(
-				<Staking as StakingInterface>::update_payee(&200, &200),
+				<Staking as StakingInterface>::set_payee(&200, &200),
 				StakingError::<T>::RewardDestinationRestricted
 			);
 
 			// passing correct reward destination works
-			assert_ok!(<Staking as StakingInterface>::update_payee(&200, &201));
+			assert_ok!(<Staking as StakingInterface>::set_payee(&200, &201));
 
 			// amount is staked correctly
 			assert!(eq_stake(200, 100, 100));

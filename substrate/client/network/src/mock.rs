@@ -67,10 +67,6 @@ impl PeerStoreProvider for MockPeerStore {
 		unimplemented!()
 	}
 
-	fn num_known_peers(&self) -> usize {
-		0usize
-	}
-
 	fn add_known_peer(&self, _peer_id: PeerId) {
 		unimplemented!()
 	}
