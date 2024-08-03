@@ -959,19 +959,19 @@ pub fn construct_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let tx_ext: runtime::TxExtension = (
-		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
-		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
-		frame_system::CheckGenesis::<runtime::Runtime>::new(),
-		frame_system::CheckEra::<runtime::Runtime>::from(generic::Era::mortal(
-			period,
-			current_block,
-		)),
-		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
-		frame_system::CheckWeight::<runtime::Runtime>::new(),
-		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<runtime::Runtime>::new(),
-	)
+	let tx_ext: runtime::TxExtension =
+		cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim::new((
+			frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
+			frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
+			frame_system::CheckGenesis::<runtime::Runtime>::new(),
+			frame_system::CheckEra::<runtime::Runtime>::from(generic::Era::mortal(
+				period,
+				current_block,
+			)),
+			frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
+			frame_system::CheckWeight::<runtime::Runtime>::new(),
+			pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
+		))
 		.into();
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),

@@ -108,10 +108,17 @@ pub fn get_proof_size() -> Option<u64> {
 /// This extension checks the size of the node-side storage proof
 /// before and after executing a given extrinsic. The difference between
 /// benchmarked and spent weight can be reclaimed.
+#[deprecated(note = "This extension doesn't provide accurate reclaim for storage intensive \
+	transaction extension pipeline; it ignores the validation and preparation of extensions prior \
+	to itself and ignores the post dispatch logic for extensions subsequent to itself, it also
+	doesn't provide weight information. \
+	Use `StorageWeightReclaim` and `StorageWeightRecord` in the `cumulus-pallet-weight-reclaim-tx`\
+	crate")]
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct StorageWeightReclaim<T: Config + Send + Sync>(PhantomData<T>);
 
+#[allow(deprecated)]
 impl<T: Config + Send + Sync> StorageWeightReclaim<T> {
 	/// Create a new `StorageWeightReclaim` instance.
 	pub fn new() -> Self {
@@ -119,6 +126,7 @@ impl<T: Config + Send + Sync> StorageWeightReclaim<T> {
 	}
 }
 
+#[allow(deprecated)]
 impl<T: Config + Send + Sync> core::fmt::Debug for StorageWeightReclaim<T> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
 		let _ = write!(f, "StorageWeightReclaim");
@@ -126,11 +134,13 @@ impl<T: Config + Send + Sync> core::fmt::Debug for StorageWeightReclaim<T> {
 	}
 }
 
+#[allow(deprecated)]
 impl<T: Config + Send + Sync> TransactionExtensionBase for StorageWeightReclaim<T> {
 	const IDENTIFIER: &'static str = "StorageWeightReclaim";
 	type Implicit = ();
 }
 
+#[allow(deprecated)]
 impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
 	for StorageWeightReclaim<T>
 where

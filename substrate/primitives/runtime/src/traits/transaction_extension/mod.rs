@@ -429,7 +429,7 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 #[macro_export]
 macro_rules! impl_tx_ext_default {
 	($call:ty ; $context:ty ; , $( $rest:tt )*) => {
-		impl_tx_ext_default!{$call ; $context ; $( $rest )*}
+		$crate::impl_tx_ext_default!{$call ; $context ; $( $rest )*}
 	};
 	($call:ty ; $context:ty ; validate $( $rest:tt )*) => {
 		fn validate(
@@ -444,7 +444,7 @@ macro_rules! impl_tx_ext_default {
 		) -> $crate::traits::ValidateResult<Self::Val, $call> {
 			Ok((Default::default(), Default::default(), origin))
 		}
-		impl_tx_ext_default!{$call ; $context ; $( $rest )*}
+		$crate::impl_tx_ext_default!{$call ; $context ; $( $rest )*}
 	};
 	($call:ty ; $context:ty ; prepare $( $rest:tt )*) => {
 		fn prepare(
@@ -458,7 +458,7 @@ macro_rules! impl_tx_ext_default {
 		) -> Result<Self::Pre, $crate::transaction_validity::TransactionValidityError> {
 			Ok(Default::default())
 		}
-		impl_tx_ext_default!{$call ; $context ; $( $rest )*}
+		$crate::impl_tx_ext_default!{$call ; $context ; $( $rest )*}
 	};
 	($call:ty ; $context:ty ;) => {};
 }

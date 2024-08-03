@@ -62,8 +62,8 @@
 //!
 //! In your runtime, you will find a list of TransactionExtensions.
 //! To enable the reclaiming,
-//! add [`StorageWeightReclaim`](cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim)
-//! to that list. For maximum efficiency, make sure that `StorageWeightReclaim` is last in the list.
+//! set [`StorageWeightReclaim`](cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim)
+//! as a warpper of that list.
 //! The extension will check the size of the storage proof before and after an extrinsic execution.
 //! It reclaims the difference between the calculated size and the benchmarked size.
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", template_signed_extra)]

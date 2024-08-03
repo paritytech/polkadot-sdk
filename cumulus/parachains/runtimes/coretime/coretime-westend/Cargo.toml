@@ -73,6 +73,7 @@ cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
 cumulus-primitives-storage-weight-reclaim = { workspace = true }
+cumulus-pallet-weight-reclaim-tx = { workspace = true }
 
 pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
@@ -82,6 +83,7 @@ testnet-parachains-constants = { features = ["westend"], workspace = true }
 [features]
 default = ["std"]
 std = [
+	"cumulus-pallet-weight-reclaim-tx/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",
@@ -143,6 +145,7 @@ std = [
 ]
 
 runtime-benchmarks = [
+	"cumulus-pallet-weight-reclaim-tx/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
@@ -172,6 +175,7 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
+	"cumulus-pallet-weight-reclaim-tx/try-runtime",
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
 	"cumulus-pallet-xcm/try-runtime",
