@@ -11,7 +11,7 @@ pub use pallet_distribution::MutateHold;
 pub use pallet_distribution::{AccountIdOf, BalanceOf, HoldReason, ProjectInfo, ProjectId};
 pub use scale_info::prelude::vec::Vec;
 pub use sp_runtime::traits::Saturating;
-pub use sp_runtime::traits::{AccountIdConversion, Convert, StaticLookup, Zero};
+pub use sp_runtime::traits::{AccountIdConversion, Convert, StaticLookup, Zero,CheckedAdd};
 pub use sp_runtime::Percent;
 
 pub type RoundIndex = u32; 
@@ -43,10 +43,11 @@ pub struct VotingRoundInfo<T: Config>{
 impl<T: Config> VotingRoundInfo<T>{
 	pub fn new() -> Self{
 		let round_starting_block = <frame_system::Pallet<T>>::block_number();
-		let voting_locked_block = round_starting_block.clone().saturating_add(T::VotingPeriod::get());
-		let round_ending_block = voting_locked_block.clone().saturating_add(T::VoteLockingPeriod::get());
+		let voting_locked_block = round_starting_block.clone().checked_add(&T::VotingPeriod::get()).expect("Failed Operation");
+		let round_ending_block = voting_locked_block.clone().checked_add(&T::VoteLockingPeriod::get()).expect("Failed Operation");
 		let round_number = VotingRoundsNumber::<T>::get();
-		VotingRoundsNumber::<T>::put(round_number+1);
+		let new_number = round_number.checked_add(1).expect("Failed Operation");
+		VotingRoundsNumber::<T>::put(new_number);
 
 		VotingRoundInfo{round_number, round_starting_block, voting_locked_block, round_ending_block}
 	}

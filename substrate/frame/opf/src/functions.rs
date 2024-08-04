@@ -59,7 +59,7 @@ impl<T: Config> Pallet<T> {
 		// Total amount from all votes
 		for vote in votes {
 			let info = vote.2.clone();
-			total_votes_amount = total_votes_amount.saturating_add(info.amount);
+			total_votes_amount = total_votes_amount.checked_add(&info.amount).ok_or(Error::<T>::InvalidResult)?;
 		}
 
 		// for each project, calculate the percentage of votes, the amount to be distributed,
@@ -71,7 +71,7 @@ impl<T: Config> Pallet<T> {
 			let mut project_reward = BalanceOf::<T>::zero();
 			for vote in this_project_votes.clone() {
 				if vote.2.is_fund == true{
-				project_reward = project_reward.saturating_add(vote.2.amount);
+				project_reward = project_reward.checked_add(&vote.2.amount).ok_or(Error::<T>::InvalidResult)?;
 			}
 			}
 			for vote in this_project_votes {
@@ -85,7 +85,7 @@ impl<T: Config> Pallet<T> {
 
 			// Send calculated reward for distribution
 			let now =
-				<frame_system::Pallet<T>>::block_number().saturating_add(T::PaymentPeriod::get());
+				<frame_system::Pallet<T>>::block_number().checked_add(&T::PaymentPeriod::get()).ok_or(Error::<T>::InvalidResult)?;
 			let project_info = ProjectInfo {
 				project_account: project,
 				submission_block: now,
