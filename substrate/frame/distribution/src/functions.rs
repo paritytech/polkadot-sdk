@@ -7,7 +7,7 @@ impl<T: Config> Pallet<T> {
 		pot_account
 	}
 
-	pub fn get_spending(project_account: AccountIdOf<T>) -> Vec<SpendingIndex> {
+	pub fn get_spending(project_account: ProjectId<T>) -> Vec<SpendingIndex> {
 		let mut spendings: Vec<SpendingIndex> = Vec::new();
 		let value = Some(project_account);
 

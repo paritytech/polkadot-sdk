@@ -22,10 +22,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type VoteLockingPeriod: Get<BlockNumberFor<Self>>;
 
-		/// The period after which nominations must be renewed
-		#[pallet::constant]
-		type NominationRenewalPeriod: Get<BlockNumberFor<Self>>;
-
 		/// The maximum number of whitelisted projects per nomination round
 		#[pallet::constant]
 		type MaxWhitelistedProjects: Get<u32>;
@@ -36,16 +32,25 @@ pub mod pallet {
 		type VotingPeriod: Get<BlockNumberFor<Self>>;
 	}
 
+	/// Number of Voting Rounds executed so far
+	#[pallet::storage]
+	pub type VotingRoundsNumber<T:Config> = StorageValue<_,u32, ValueQuery>;
+
+	/// Returns Infos about a Voting Round agains the Voting Round index
+	#[pallet::storage]
+	pub type VotingRounds<T:Config> = StorageMap<_,Twox64Concat, RoundIndex, VotingRoundInfo<T>, OptionQuery>;
+
+	/// Returns a list of Whitelisted Project accounts
 	#[pallet::storage]
 	pub type WhiteListedProjectAccounts<T: Config> =
-		StorageValue<_, BoundedVec<AccountIdOf<T>, T::MaxWhitelistedProjects>, ValueQuery>;
+		StorageValue<_, BoundedVec<ProjectId<T>, T::MaxWhitelistedProjects>, ValueQuery>;
 
 	/// Returns Votes Infos against (project_id, voter_id) key
 	#[pallet::storage]
 	pub type Votes<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
-		AccountIdOf<T>,
+		ProjectId<T>,
 		Twox64Concat,
 		AccountIdOf<T>,
 		VoteInfo<T>,
@@ -55,6 +60,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+
 		/// Reward successfully claimed
 		RewardsAssigned { when: BlockNumberFor<T> },
 	}
@@ -70,17 +76,35 @@ pub mod pallet {
 		/// No such voting data
 		NoVoteData,
 
-		/// Invalid Result
+		/// An invalid result  was returned
 		InvalidResult,
 
 		/// Maximum number of projects submission for distribution as been reached
 		MaximumProjectsNumber,
+
+		/// This voting round does not exists
+		NoRoundFound,
+
+		/// Voting period closed for this round
+		VotePeriodClosed,
+
+		/// Not enough funds to vote, you need to decrease your stake
+		NotEnoughFunds
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		pub fn dummy(origin: OriginFor<T>, project_account: AccountIdOf<T>) -> DispatchResult {
+		pub fn vote(origin: OriginFor<T>, project_account: ProjectId<T>, amount: BalanceOf<T>, is_fund: bool) -> DispatchResult {
+			// Get current voting round & check if we are in voting period or not
+			// Check that voter has enough funds to vote
+			// Vote action executed
+			Ok(())
+		}
+		#[pallet::call_index(1)]
+		pub fn remove_vote(origin: OriginFor<T>, project_account: ProjectId<T>, amount: BalanceOf<T>, is_fund: bool) -> DispatchResult {
+			// Get current voting round & check if we are in voting period or not
+			// Removal action executed
 			Ok(())
 		}
 	}

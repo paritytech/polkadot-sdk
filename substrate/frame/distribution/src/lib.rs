@@ -87,14 +87,14 @@ pub mod pallet {
 		RewardClaimed {
 			when: BlockNumberFor<T>,
 			amount: BalanceOf<T>,
-			project_account: AccountIdOf<T>,
+			project_account: ProjectId<T>,
 		},
 
 		/// A Spending was created
 		SpendingCreated {
 			when: BlockNumberFor<T>,
 			amount: BalanceOf<T>,
-			project_account: AccountIdOf<T>,
+			project_account: ProjectId<T>,
 		},
 	}
 
@@ -131,7 +131,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		pub fn claim_reward_for(
 			origin: OriginFor<T>,
-			project_account: AccountIdOf<T>,
+			project_account: ProjectId<T>,
 		) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
 			let spending_indexes = Self::get_spending(project_account);

@@ -3,15 +3,19 @@ impl<T: Config> Pallet<T> {
 	// Helper function for voting action. Existing votes are over-written, and Hold is adjusted
 	pub fn try_vote(
 		voter_id: AccountIdOf<T>,
-		project: AccountIdOf<T>,
+		project: ProjectId<T>,
 		amount: BalanceOf<T>,
 		is_fund: bool,
 	) -> DispatchResult {
 		let projects = WhiteListedProjectAccounts::<T>::get();
 
-		// Project is whiteListed
+		// Check that Project is whiteListed
 		ensure!(projects.contains(&project), Error::<T>::NotWhitelistedProject);
-		let new_vote = VoteInfo { amount, is_fund };
+
+		// Create vote infos and store/adjust them 
+		let round_number = VotingRoundsNumber::<T>::get().saturating_sub(1);
+		let round = VotingRounds::<T>::get(round_number).ok_or(Error::<T>::NoRoundFound)?;
+		let new_vote = VoteInfo { amount, round, is_fund };
 		if Votes::<T>::contains_key(project.clone(), voter_id.clone()) {
 			Votes::<T>::mutate(project.clone(), voter_id.clone(), |value| {
 				*value = Some(new_vote);
@@ -46,6 +50,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// The total reward to be distributed is a portion or inflation, determined in another pallet
+	// Reward calculation is executed within VotingLocked period --> "VotingLockBlock == EpochBeginningBlock" ???
 	pub fn calculate_rewards(total_reward: BalanceOf<T>) -> DispatchResult {
 		let projects = WhiteListedProjectAccounts::<T>::get();
 		let votes = Votes::<T>::iter();
@@ -64,8 +69,15 @@ impl<T: Config> Pallet<T> {
 				Votes::<T>::iter().filter(|x| x.0 == project.clone()).collect();
 
 			let mut project_reward = BalanceOf::<T>::zero();
-			for vote in this_project_votes {
+			for vote in this_project_votes.clone() {
+				if vote.2.is_fund == true{
 				project_reward = project_reward.saturating_add(vote.2.amount);
+			}
+			}
+			for vote in this_project_votes {
+				if vote.2.is_fund == false{
+				project_reward = project_reward.saturating_sub(vote.2.amount);
+			}
 			}
 
 			let project_percentage = Percent::from_rational(project_reward, total_votes_amount);

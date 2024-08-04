@@ -19,9 +19,7 @@ pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 /// A reward index.
 pub type SpendingIndex = u32;
 
-pub type Id<T> = <<T as Config>::NativeBalance as fungible::freeze::Inspect<
-	<T as frame_system::Config>::AccountId,
->>::Id;
+pub type ProjectId<T> = AccountIdOf<T>;
 
 /// The state of the payment claim.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo, Default)]
@@ -78,7 +76,7 @@ impl<T: Config> SpendingInfo<T> {
 #[scale_info(skip_type_params(T))]
 pub struct ProjectInfo<T: Config> {
 	/// AcountId that will receive the payment.
-	pub project_account: AccountIdOf<T>,
+	pub project_account: ProjectId<T>,
 
 	/// Block at which the project was submitted for reward distribution
 	pub submission_block: BlockNumberFor<T>,
