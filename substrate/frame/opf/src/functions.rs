@@ -101,4 +101,19 @@ impl<T: Config> Pallet<T> {
 		}
 		Ok(())
 	}
+
+	// To be executed in a hook, on_initialize 
+	pub fn begin_block(now: BlockNumberFor<T>) -> Weight {
+		let max_block_weight = Weight::from_parts(1000_u64, 0);
+
+		// ToDo
+		// If the block is a multiple of "votingperiod + votingLockedperiod"
+		// Start new voting round
+		// We could make sure that the votingLockedBlock coincides with the beginning of an Epoch
+
+		// Check current round: If block is a multiple of round_locked_period, 
+		// prepare reward distribution
+
+		max_block_weight
+	}
 }

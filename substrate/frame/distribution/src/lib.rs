@@ -128,6 +128,27 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Reward Claim logic
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be signed
+		///
+		/// ## Details
+		///
+		/// From this extrinsic any user can claim a reward for a nominated/whitelisted project
+		///
+		/// ### Parameters
+		/// - `project_account`: The account that will receive the reward
+		///
+		/// ### Errors
+		/// - [`Error::<T>::InexistentSpending`]: Fungible asset creation failed
+		/// - [`Error::<T>::NoValidAccount`]: Fungible Asset minting into the treasury account failed.
+		/// - [`Error::<T>::NotClaimingPeriod`]: Rewards can be claimed only within the claiming period
+		///  
+		/// ## Events
+		/// Emits [`Event::<T>::RewardClaimed`] if successful for a positive approval.
+		///
 		#[pallet::call_index(0)]
 		pub fn claim_reward_for(
 			origin: OriginFor<T>,
