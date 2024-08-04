@@ -1280,23 +1280,35 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	///
 	/// Most common transient error is: `beneficiary` account does not yet exist and the first asset(s) in
 	/// the (sorted) list does not satisfy ED, but a subsequent one in the list does.
+	///
+	/// This function can write into storage and also return an error at the same time, it should always be
+	/// called within a transactional process.
 	fn deposit_assets_with_retry(
 		&mut self,
-		to_deposited: &AssetsInHolding,
+		to_deposit: &AssetsInHolding,
 		beneficiary: &Location,
 	) -> Result<(), XcmError> {
-		let mut failed_deposits = Vec::with_capacity(to_deposited.len());
+		let mut failed_deposits = Vec::with_capacity(to_deposit.len());
+		let mut first_error = None;
 
-		for asset in to_deposited.assets_iter() {
+		for asset in to_deposit.assets_iter() {
 			let asset_result =
 				Config::AssetTransactor::deposit_asset(&asset, &beneficiary, Some(&self.context));
-			// if deposit failed for asset, mark it for retry after depositing the others
+			// if deposit failed for asset, mark it for retry after depositing the others.
 			if asset_result.is_err() {
+				if first_error.is_none() {
+					first_error = Some(asset_result);
+				}
 				failed_deposits.push(asset);
 			}
 		}
 
-		// retry previously failed deposits, this time short-circuiting on any error
+		if failed_deposits.len() == to_deposit.len() && first_error.is_some() {
+			// all deposits failed, in this case return the first error as there is no point in retrying.
+			return first_error.unwrap();
+		}
+
+		// retry previously failed deposits, this time short-circuiting on any error.
 		for asset in failed_deposits {
 			Config::AssetTransactor::deposit_asset(
 				&asset,
