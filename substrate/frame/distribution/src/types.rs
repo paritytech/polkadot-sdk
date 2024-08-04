@@ -63,13 +63,12 @@ impl<T: Config> SpendingInfo<T> {
 
 		let spending = SpendingInfo { amount, valid_from, status, whitelisted_project, claimed };
 
-		// Lock the necessary amount
-
 		// Get the spending index
 		let index = SpendingsCount::<T>::get();
 		//Add it to the Spendings storage
 		Spendings::<T>::insert(index, spending.clone());
-		SpendingsCount::<T>::put(index + 1);
+		let new_index = index.checked_add(1).expect("Failed Operation");
+		SpendingsCount::<T>::put(new_index);
 
 		spending
 	}
