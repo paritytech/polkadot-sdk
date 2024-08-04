@@ -128,7 +128,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Reward Claim logic
+		/// OPF Reward Claim logic
 		///
 		/// ## Dispatch Origin
 		///
@@ -136,7 +136,7 @@ pub mod pallet {
 		///
 		/// ## Details
 		///
-		/// From this extrinsic any user can claim a reward for a nominated/whitelisted project
+		/// From this extrinsic any user can claim a reward for a nominated/whitelisted project 
 		///
 		/// ### Parameters
 		/// - `project_account`: The account that will receive the reward
@@ -148,7 +148,7 @@ pub mod pallet {
 		///  
 		/// ## Events
 		/// Emits [`Event::<T>::RewardClaimed`] if successful for a positive approval.
-		///
+		/// 
 		#[pallet::call_index(0)]
 		pub fn claim_reward_for(
 			origin: OriginFor<T>,
