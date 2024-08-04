@@ -1,9 +1,7 @@
 use crate as pallet_distribution;
-pub use frame_support::traits::OnFinalize;
-pub use frame_support::traits::OnInitialize;
 pub use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU16, ConstU32, ConstU64},
+	traits::{ConstU128, ConstU16, ConstU32, ConstU64, OnFinalize, OnInitialize},
 	PalletId,
 };
 pub use sp_core::H256;

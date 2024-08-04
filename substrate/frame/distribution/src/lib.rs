@@ -63,16 +63,16 @@ pub mod pallet {
 
 	/// Number of spendings that have been executed so far.
 	#[pallet::storage]
-	pub type SpendingsCount<T: Config> = StorageValue<_, SpendingIndex, ValueQuery>;
+	pub(super) type SpendingsCount<T: Config> = StorageValue<_, SpendingIndex, ValueQuery>;
 
 	/// Executed spendings information.
 	#[pallet::storage]
-	pub type CompletedSpendings<T: Config> =
+	pub(super) type CompletedSpendings<T: Config> =
 		StorageMap<_, Twox64Concat, SpendingIndex, SpendingInfo<T>, OptionQuery>;
 
 	/// Spendings that still have to be completed.
 	#[pallet::storage]
-	pub type Spendings<T: Config> =
+	pub(super) type Spendings<T: Config> =
 		StorageMap<_, Twox64Concat, SpendingIndex, SpendingInfo<T>, OptionQuery>;
 
 	/// List of whitelisted projects to be rewarded
@@ -136,19 +136,20 @@ pub mod pallet {
 		///
 		/// ## Details
 		///
-		/// From this extrinsic any user can claim a reward for a nominated/whitelisted project 
+		/// From this extrinsic any user can claim a reward for a nominated/whitelisted project
 		///
 		/// ### Parameters
 		/// - `project_account`: The account that will receive the reward
 		///
 		/// ### Errors
 		/// - [`Error::<T>::InexistentSpending`]: Fungible asset creation failed
-		/// - [`Error::<T>::NoValidAccount`]: Fungible Asset minting into the treasury account failed.
-		/// - [`Error::<T>::NotClaimingPeriod`]: Rewards can be claimed only within the claiming period
+		/// - [`Error::<T>::NoValidAccount`]: Fungible Asset minting into the treasury account
+		///   failed.
+		/// - [`Error::<T>::NotClaimingPeriod`]: Rewards can be claimed only within the claiming
+		///   period
 		///  
 		/// ## Events
 		/// Emits [`Event::<T>::RewardClaimed`] if successful for a positive approval.
-		/// 
 		#[pallet::call_index(0)]
 		pub fn claim_reward_for(
 			origin: OriginFor<T>,

@@ -41,7 +41,8 @@ fn spendings_creation_works() {
 		// The Spendings Storage should be empty
 		assert_eq!(SpendingsCount::<Test>::get(), 0);
 
-		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now = Epoch_Block + 1
+		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
+		// Epoch_Block + 1
 		let now = System::block_number()
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
@@ -116,7 +117,8 @@ fn funds_are_locked() {
 		// The Spendings Storage should be empty
 		assert_eq!(SpendingsCount::<Test>::get(), 0);
 
-		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now = Epoch_Block + 1
+		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
+		// Epoch_Block + 1
 		let now = System::block_number()
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
@@ -146,7 +148,8 @@ fn funds_claim_works() {
 		// The Spendings Storage should be empty
 		assert_eq!(SpendingsCount::<Test>::get(), 0);
 
-		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now = Epoch_Block + 1
+		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
+		// Epoch_Block + 1
 		let mut now = System::block_number()
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
@@ -183,7 +186,8 @@ fn funds_claim_fails_before_claim_period() {
 		// The Spendings Storage should be empty
 		assert_eq!(SpendingsCount::<Test>::get(), 0);
 
-		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now = Epoch_Block + 1
+		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
+		// Epoch_Block + 1
 		let now = System::block_number()
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);

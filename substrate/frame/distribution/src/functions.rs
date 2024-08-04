@@ -84,11 +84,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// ToDo in begin_block
-	// At the beginning of every Epoch, populate the `Spendings` storage from the `Projects` storage (populated by an external process/pallet)
-	// make sure that there is enough funds before creating a new `SpendingInfo`, and `ProjectInfo`
-	// corresponding to a created `SpendingInfo` should be removed from the `Projects` storage.
-	// This is also a good place to Reserve the funds for created `SpendingInfos`.
-	// the function will be use in a hook.
+	// At the beginning of every Epoch, populate the `Spendings` storage from the `Projects` storage
+	// (populated by an external process/pallet) make sure that there is enough funds before
+	// creating a new `SpendingInfo`, and `ProjectInfo` corresponding to a created `SpendingInfo`
+	// should be removed from the `Projects` storage. This is also a good place to Reserve the
+	// funds for created `SpendingInfos`. the function will be use in a hook.
 
 	pub fn begin_block(now: BlockNumberFor<T>) -> Weight {
 		let max_block_weight = Weight::from_parts(1000_u64, 0);
