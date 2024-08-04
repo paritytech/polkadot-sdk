@@ -1975,3 +1975,85 @@ fn execute_overweight_keeps_stack_ov_message() {
 		System::reset_events();
 	});
 }
+
+/// Test that process_message is transactional
+#[test]
+fn test_process_message_transactional() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		// We need to create a mocked message that first reports insufficient weight, and then
+		// `StackLimitReached`:
+		IgnoreStackOvError::set(true);
+		MessageQueue::enqueue_message(msg("stacklimitreached"), Here);
+		MessageQueue::service_queues(0.into_weight());
+
+		assert_last_event::<Test>(
+			Event::OverweightEnqueued {
+				id: blake2_256(b"stacklimitreached"),
+				origin: MessageOrigin::Here,
+				message_index: 0,
+				page_index: 0,
+			}
+				.into(),
+		);
+		// Does not count as 'processed':
+		assert!(MessagesProcessed::take().is_empty());
+		assert_pages(&[0]);
+
+		// create a storage
+		let vec_to_set = vec![1, 2, 3, 4, 5];
+		sp_io::storage::set(b"transactional_storage", &vec_to_set);
+
+		// Now let it return `StackLimitReached`. Note that this case would normally not happen,
+		// since we assume that the top-level execution is the one with the most remaining stack
+		// depth.
+		IgnoreStackOvError::set(false);
+		// Ensure that trying to execute the message does not change any state (besides events).
+		System::reset_events();
+		let storage_noop = StorageNoopGuard::new();
+		assert_eq!(
+			<MessageQueue as ServiceQueues>::execute_overweight(3.into_weight(), (Here, 0, 0)),
+			Err(ExecuteOverweightError::Other)
+		);
+		assert_last_event::<Test>(
+			Event::ProcessingFailed {
+				id: blake2_256(b"stacklimitreached").into(),
+				origin: MessageOrigin::Here,
+				error: ProcessMessageError::StackLimitReached,
+			}
+				.into(),
+		);
+		System::reset_events();
+		drop(storage_noop);
+
+		// because the message was processed with an error, transactional_storage changes wasn't commited
+		// this means storage was rolled back
+		let stored_vec = sp_io::storage::get(b"transactional_storage").unwrap();
+		assert_eq!(stored_vec, vec![1, 2, 3, 4, 5]);
+
+		// Now let's process it normally:
+		IgnoreStackOvError::set(true);
+		assert_eq!(
+			<MessageQueue as ServiceQueues>::execute_overweight(1.into_weight(), (Here, 0, 0))
+				.unwrap(),
+			1.into_weight()
+		);
+
+		// transactional storage changes, this means storage was committed
+		let stored_vec = sp_io::storage::get(b"transactional_storage").unwrap();
+		assert_eq!(stored_vec, vec![1, 2, 3]);
+
+		assert_last_event::<Test>(
+			Event::Processed {
+				id: blake2_256(b"stacklimitreached").into(),
+				origin: MessageOrigin::Here,
+				weight_used: 1.into_weight(),
+				success: true,
+			}
+				.into(),
+		);
+		assert_pages(&[]);
+		System::reset_events();
+	});
+}
+

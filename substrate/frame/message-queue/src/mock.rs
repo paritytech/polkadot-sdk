@@ -164,6 +164,7 @@ impl ProcessMessage for RecordingMessageProcessor {
 		meter: &mut WeightMeter,
 		_id: &mut [u8; 32],
 	) -> Result<bool, ProcessMessageError> {
+		sp_io::storage::set(b"transactional_storage", &vec![1, 2, 3]);
 		processing_message(message, &origin)?;
 
 		let weight = if message.starts_with(&b"weight="[..]) {
