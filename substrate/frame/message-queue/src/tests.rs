@@ -1994,7 +1994,7 @@ fn test_process_message_transactional() {
 				message_index: 0,
 				page_index: 0,
 			}
-				.into(),
+			.into(),
 		);
 		// Does not count as 'processed':
 		assert!(MessagesProcessed::take().is_empty());
@@ -2021,13 +2021,13 @@ fn test_process_message_transactional() {
 				origin: MessageOrigin::Here,
 				error: ProcessMessageError::StackLimitReached,
 			}
-				.into(),
+			.into(),
 		);
 		System::reset_events();
 		drop(storage_noop);
 
-		// because the message was processed with an error, transactional_storage changes wasn't commited
-		// this means storage was rolled back
+		// because the message was processed with an error, transactional_storage changes wasn't
+		// commited this means storage was rolled back
 		let stored_vec = sp_io::storage::get(b"transactional_storage").unwrap();
 		assert_eq!(stored_vec, vec![1, 2, 3, 4, 5]);
 
@@ -2050,10 +2050,9 @@ fn test_process_message_transactional() {
 				weight_used: 1.into_weight(),
 				success: true,
 			}
-				.into(),
+			.into(),
 		);
 		assert_pages(&[]);
 		System::reset_events();
 	});
 }
-
