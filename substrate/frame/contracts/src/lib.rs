@@ -675,8 +675,8 @@ pub mod pallet {
 			// Validators are configured to be able to use more memory than block builders. This is
 			// because in addition to `max_runtime_mem` they need to hold additional data in
 			// memory: PoV in multiple copies (1x encoded + 2x decoded) and all storage which
-			// includes emitted events. The assumption is that max_runtime_mem + storage/events
-			// can be a maximum of half of the validator runtime memory.
+			// includes emitted events. The assumption is that storage/events size
+			// can be a maximum of half of the validator runtime memory - max_runtime_mem.
 			let max_block_ref_time = T::BlockWeights::get()
 				.get(DispatchClass::Normal)
 				.max_total
@@ -702,8 +702,7 @@ pub mod pallet {
 			.expect("Storage size too big");
 
 			let max_validator_runtime_mem: u32 = T::Schedule::get().limits.validator_runtime_memory;
-			let storage_size_limit =
-				(max_validator_runtime_mem / 2).saturating_sub(max_runtime_mem);
+			let storage_size_limit = max_validator_runtime_mem.saturating_sub(max_runtime_mem) / 2;
 
 			assert!(
 				max_storage_size < storage_size_limit,
