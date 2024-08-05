@@ -339,6 +339,10 @@ pub mod pallet {
 		/// * 2s block time, and a default 5mb block size is used.
 		pub struct SolochainDefaultConfig;
 
+		/// A marker type to signal that a certain associated type of `DefaultConfig` needs ot be
+		/// overwritten.
+		pub struct you_cannot_use_derive_impl_on_this_type_please_override_it;
+
 		#[frame_support::register_default_impl(SolochainDefaultConfig)]
 		impl DefaultConfig for SolochainDefaultConfig {
 			/// The default type for storing how many extrinsics an account has signed.
@@ -360,7 +364,7 @@ pub mod pallet {
 			type MaxConsumers = frame_support::traits::ConstU32<128>;
 
 			/// The default data to be stored in an account.
-			type AccountData = crate::AccountInfo<Self::Nonce, ()>;
+			type AccountData = you_cannot_use_derive_impl_on_this_type_please_override_it;
 
 			/// What to do if a new account is created.
 			type OnNewAccount = ();
@@ -368,23 +372,23 @@ pub mod pallet {
 			/// What to do if an account is fully reaped from the system.
 			type OnKilledAccount = ();
 
-			/// Weight information for the extrinsics of this pallet.
-			type SystemWeightInfo = ();
+			/// Weight information for the extrinsics of this pallet.]
+			type SystemWeightInfo = you_cannot_use_derive_impl_on_this_type_please_override_it;
 
 			/// This is used as an identifier of the chain.
-			type SS58Prefix = ();
+			type SS58Prefix = you_cannot_use_derive_impl_on_this_type_please_override_it;
 
 			/// Version of the runtime.
-			type Version = ();
+			type Version = you_cannot_use_derive_impl_on_this_type_please_override_it;
 
 			/// Block & extrinsics weights: base values and limits.
-			type BlockWeights = ();
+			type BlockWeights = you_cannot_use_derive_impl_on_this_type_please_override_it;
 
 			/// The maximum length of a block (in bytes).
-			type BlockLength = ();
+			type BlockLength = you_cannot_use_derive_impl_on_this_type_please_override_it;
 
 			/// The weight of database operations that the runtime can invoke.
-			type DbWeight = ();
+			type DbWeight = you_cannot_use_derive_impl_on_this_type_please_override_it;
 
 			/// The ubiquitous event type injected by `construct_runtime!`.
 			#[inject_runtime_type]
@@ -467,10 +471,12 @@ pub mod pallet {
 
 		/// Block & extrinsics weights: base values and limits.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type BlockWeights: Get<limits::BlockWeights>;
 
 		/// The maximum length of a block (in bytes).
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type BlockLength: Get<limits::BlockLength>;
 
 		/// The `RuntimeOrigin` type used by dispatchable calls.
@@ -551,10 +557,12 @@ pub mod pallet {
 
 		/// The weight of runtime database operations the runtime can invoke.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type DbWeight: Get<RuntimeDbWeight>;
 
 		/// Get the chain's in-code version.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type Version: Get<RuntimeVersion>;
 
 		/// Provides information about the pallet setup in the runtime.
@@ -568,6 +576,7 @@ pub mod pallet {
 
 		/// Data to be associated with an account (other than nonce/transaction counter, which this
 		/// pallet does regardless).
+		#[pallet::no_default_bounds]
 		type AccountData: Member + FullCodec + Clone + Default + TypeInfo + MaxEncodedLen;
 
 		/// Handler for when a new account has just been created.
@@ -578,6 +587,7 @@ pub mod pallet {
 		/// All resources should be cleaned up associated with the given account.
 		type OnKilledAccount: OnKilledAccount<Self::AccountId>;
 
+		#[pallet::no_default_bounds]
 		type SystemWeightInfo: WeightInfo;
 
 		/// The designated SS58 prefix of this chain.
@@ -586,6 +596,7 @@ pub mod pallet {
 		/// that the runtime should know about the prefix in order to make use of it as
 		/// an identifier of the chain.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type SS58Prefix: Get<u16>;
 
 		/// What to do if the runtime wants to change the code to something new.
