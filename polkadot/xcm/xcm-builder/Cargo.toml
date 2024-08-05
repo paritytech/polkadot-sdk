@@ -66,6 +66,7 @@ std = [
 	"pallet-asset-conversion/std",
 	"pallet-transaction-payment/std",
 	"polkadot-parachain-primitives/std",
+	"primitive-types/std",
 	"scale-info/std",
 	"sp-std/std",
 	"sp-arithmetic/std",

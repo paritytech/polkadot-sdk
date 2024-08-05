@@ -360,9 +360,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			Box::new(NativeOrWithId::Native),
 			Box::new(NativeOrWithId::WithId(1)),
 			50_000_000,
-			1,
 			100_000_000,
-			1,
+			0,
+			0,
 			owner,
 		));
 	});

@@ -696,8 +696,18 @@ impl AssetExchange for TestAssetExchange {
 		Ok(get)
 	}
 
-	fn quote_exchange_price(_: &Asset, _: &Asset, _: bool) -> Option<u128> {
-		None
+	fn quote_exchange_price(give: &Assets, want: &Assets, maximal: bool) -> Option<Assets> {
+		let mut have = EXCHANGE_ASSETS.with(|l| l.borrow().clone());
+		if !have.contains_assets(want) {
+			return None;
+		}
+		let get = if maximal {
+			have.saturating_take(give.clone().into())
+		} else {
+			have.saturating_take(want.clone().into())
+		};
+		let result: Vec<Asset> = get.fungible_assets_iter().collect();
+		Some(result.into())
 	}
 }
 

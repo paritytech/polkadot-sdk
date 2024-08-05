@@ -110,8 +110,8 @@ impl AssetExchange for TestAssetExchanger {
 		Ok(want.clone().into())
 	}
 
-	fn quote_exchange_price(_: &Asset, _: &Asset, _: bool) -> Option<u128> {
-		None
+	fn quote_exchange_price(give: &Assets, _want: &Assets, _maximal: bool) -> Option<Assets> {
+		Some(give.clone())
 	}
 }
 

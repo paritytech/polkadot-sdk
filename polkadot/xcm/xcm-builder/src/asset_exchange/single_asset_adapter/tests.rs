@@ -35,9 +35,8 @@ fn maximal_exchange() {
 			true, // Maximal
 		)
 		.unwrap();
-		let amount = get_amount_from_first_fungible(assets);
-		let pool_fee = 6;
-		assert_eq!(amount, 50_000_000 - pool_fee);
+		let amount = get_amount_from_first_fungible(&assets);
+		assert_eq!(amount, 4_533_054);
 	});
 }
 
@@ -51,30 +50,40 @@ fn minimal_exchange() {
 			false, // Minimal
 		)
 		.unwrap();
-		let amount = get_amount_from_first_fungible(assets);
-		assert_eq!(amount, 2_000_000);
+		let (first_amount, second_amount) = get_amount_from_fungibles(&assets);
+		assert_eq!(first_amount, 2_000_000);
+		assert_eq!(second_amount, 5_820_795);
 	});
 }
 
 #[test]
 fn maximal_quote() {
 	new_test_ext().execute_with(|| {
-		let _amount = quote(
-			&([PalletInstance(2), GeneralIndex(1)], 1).into(),
+		let assets = quote(
+			&([PalletInstance(2), GeneralIndex(1)], 10_000_000).into(),
 			&(Here, 2_000_000).into(),
 			true,
-		);
+		)
+		.unwrap();
+		let amount = get_amount_from_first_fungible(&assets.into());
+		// The amount of the native token resulting from swapping all `10_000_000` of the custom
+		// token.
+		assert_eq!(amount, 4_533_054);
 	});
 }
 
 #[test]
 fn minimal_quote() {
 	new_test_ext().execute_with(|| {
-		let _amount = quote(
-			&([PalletInstance(2), GeneralIndex(1)], 10).into(),
+		let assets = quote(
+			&([PalletInstance(2), GeneralIndex(1)], 10_000_000).into(),
 			&(Here, 2_000_000).into(),
 			false,
-		);
+		)
+		.unwrap();
+		let amount = get_amount_from_first_fungible(&assets.into());
+		// The amount of the custom token needed to get `2_000_000` of the native token.
+		assert_eq!(amount, 4_179_205);
 	});
 }
 
@@ -164,18 +173,61 @@ fn want_asset_does_not_match() {
 }
 
 #[test]
-fn exchange_fails() {}
+fn exchange_fails() {
+	new_test_ext().execute_with(|| {
+		assert!(PoolAssetsExchanger::exchange_asset(
+			None,
+			vec![([PalletInstance(2), GeneralIndex(1)], 10_000_000).into()].into(),
+			// We're asking for too much of the native token...
+			&vec![(Here, 200_000_000).into()].into(),
+			false, // Minimal
+		)
+		.is_err());
+	});
+}
+
+#[test]
+fn non_fungible_asset_in_give() {
+	new_test_ext().execute_with(|| {
+		assert!(PoolAssetsExchanger::exchange_asset(
+			None,
+			// Using `u64` here will give us a non-fungible instead of a fungible.
+			vec![([PalletInstance(2), GeneralIndex(2)], 10_000_000u64).into()].into(),
+			&vec![(Here, 10_000_000).into()].into(),
+			false, // Minimal
+		)
+		.is_err());
+	});
+}
 
 // ========== Helper functions ==========
 
-fn get_amount_from_first_fungible(assets: AssetsInHolding) -> u128 {
-	let first_fungible = assets.fungible_assets_iter().next().unwrap();
+fn get_amount_from_first_fungible(assets: &AssetsInHolding) -> u128 {
+	let mut fungibles_iter = assets.fungible_assets_iter();
+	let first_fungible = fungibles_iter.next().unwrap();
 	let Fungible(amount) = first_fungible.fun else {
 		unreachable!("Asset should be fungible");
 	};
 	amount
 }
 
-fn quote(asset_1: &Asset, asset_2: &Asset, maximal: bool) -> Option<u128> {
-	PoolAssetsExchanger::quote_exchange_price(asset_1, asset_2, maximal)
+fn get_amount_from_fungibles(assets: &AssetsInHolding) -> (u128, u128) {
+	let mut fungibles_iter = assets.fungible_assets_iter();
+	let first_fungible = fungibles_iter.next().unwrap();
+	let Fungible(first_amount) = first_fungible.fun else {
+		unreachable!("Asset should be fungible");
+	};
+	let second_fungible = fungibles_iter.next().unwrap();
+	let Fungible(second_amount) = second_fungible.fun else {
+		unreachable!("Asset should be fungible");
+	};
+	(first_amount, second_amount)
+}
+
+fn quote(asset_1: &Asset, asset_2: &Asset, maximal: bool) -> Option<Assets> {
+	PoolAssetsExchanger::quote_exchange_price(
+		&asset_1.clone().into(),
+		&asset_2.clone().into(),
+		maximal,
+	)
 }
