@@ -955,48 +955,45 @@ pub struct BlockDescription {
 	pub candidates: Vec<CandidateHash>,
 }
 
-/// Message to the Approval Voting subsystem running both approval-distribution and approval-voting
-/// logic in parallel. This is a combination of all the messages ApprovalVoting and
+/// Message to the approval voting parallel subsystem running both approval-distribution and
+/// approval-voting logic in parallel. This is a combination of all the messages ApprovalVoting and
 /// ApprovalDistribution subsystems can receive.
+///
+/// The reason this exists is, so that we can keep both mods of running in the same polkadot binary,
+/// based on the value of `--approval-voting-parallel-enabled`, we decide if we run with two
+/// different subsystems for approval-distribution and approval-voting or run the approval-voting
+///  parallel which has  several parallel workers for the approval-distribution and an worker for
+/// approval-voting.
+///
+/// This is meant to be a temporary state until we can safely remove running the two subsystems
+/// individually.
 #[derive(Debug, derive_more::From)]
 pub enum ApprovalVotingParallelMessage {
-	/// Returns the highest possible ancestor hash of the provided block hash which is
-	/// acceptable to vote on finality for.
-	/// The `BlockNumber` provided is the number of the block's ancestor which is the
-	/// earliest possible vote.
-	///
-	/// It can also return the same block hash, if that is acceptable to vote upon.
-	/// Return `None` if the input hash is unrecognized.
+	/// Gets mapped into `ApprovalVotingMessage::ApprovedAncestor`
 	ApprovedAncestor(Hash, BlockNumber, oneshot::Sender<Option<HighestApprovedAncestorBlock>>),
 
-	/// Retrieve all available approval signatures for a candidate from approval-voting.
-	///
-	/// This message involves a linear search for candidates on each relay chain fork and also
-	/// requires calling into `approval-distribution`: Calls should be infrequent and bounded.
+	/// Gets mapped into `ApprovalVotingMessage::GetApprovalSignaturesForCandidate`
 	GetApprovalSignaturesForCandidate(
 		CandidateHash,
 		oneshot::Sender<HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>>,
 	),
-	/// Notify the `ApprovalDistribution` subsystem about new blocks
-	/// and the candidates contained within them.
+	/// Gets mapped into `ApprovalDistributionMessage::NewBlocks`
 	NewBlocks(Vec<BlockApprovalMeta>),
-	/// Distribute an assignment cert from the local validator. The cert is assumed
-	/// to be valid, relevant, and for the given relay-parent and validator index.
+	/// Gets mapped into `ApprovalDistributionMessage::DistributeAssignment`
 	DistributeAssignment(IndirectAssignmentCertV2, CandidateBitfield),
-	/// Distribute an approval vote for the local validator. The approval vote is assumed to be
-	/// valid, relevant, and the corresponding approval already issued.
-	/// If not, the subsystem is free to drop the message.
+	/// Gets mapped into `ApprovalDistributionMessage::DistributeApproval`
 	DistributeApproval(IndirectSignedApprovalVoteV2),
-	/// An update from the network bridge.
+	/// An update from the network bridge, gets mapped into
+	/// `ApprovalDistributionMessage::NetworkBridgeUpdate`
 	#[from]
 	NetworkBridgeUpdate(NetworkBridgeEvent<net_protocol::ApprovalDistributionMessage>),
 
-	/// Get all approval signatures for all chains a candidate appeared in.
+	/// Gets mapped into `ApprovalDistributionMessage::GetApprovalSignatures`
 	GetApprovalSignatures(
 		HashSet<(Hash, CandidateIndex)>,
 		oneshot::Sender<HashMap<ValidatorIndex, (Hash, Vec<CandidateIndex>, ValidatorSignature)>>,
 	),
-	/// Approval checking lag update measured in blocks.
+	/// Gets mapped into `ApprovalDistributionMessage::ApprovalCheckingLagUpdate`
 	ApprovalCheckingLagUpdate(BlockNumber),
 }
 

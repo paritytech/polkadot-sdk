@@ -18,7 +18,7 @@
 
 /// A list of primitives introduced in v1.
 pub mod v1 {
-	use sp_consensus_babe::{self as babe_primitives, SlotDuration};
+	use sp_consensus_babe::{self as babe_primitives};
 	pub use sp_consensus_babe::{
 		Randomness, Slot, VrfPreOutput, VrfProof, VrfSignature, VrfTranscript,
 	};
