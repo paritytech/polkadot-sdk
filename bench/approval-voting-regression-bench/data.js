@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722849971364,
+  "lastUpdate": 1722857281306,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -13723,6 +13723,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 11.373246887820173,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sergej Sakac",
+            "username": "Szegoo",
+            "email": "73715684+Szegoo@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f170af615c0dc413482100892758b236d1fda93b",
+          "message": "Coretime auto-renew (#4424)\n\nThis PR adds functionality that allows tasks to enable auto-renewal.\nEach task eligible for renewal can enable auto-renewal.\n\nA new storage value is added to track all the cores with auto-renewal\nenabled and the associated task running on the core. The `BoundedVec` is\nsorted by `CoreIndex` to make disabling auto-renewal more efficient.\n\nCores are renewed at the start of a new bulk sale. If auto-renewal\nfails(e.g. due to the sovereign account of the task not holding\nsufficient balance), an event will be emitted, and the renewal will\ncontinue for the other cores.\n\nThe two added extrinsics are:\n- `enable_auto_renew`: Extrinsic for enabling auto renewal.\n- `disable_auto_renew`: Extrinsic for disabling auto renewal.\n\nTODOs:\n- [x] Write benchmarks for the newly added extrinsics.\n\nCloses: #4351\n\n---------\n\nCo-authored-by: Dónal Murray <donalm@seadanda.dev>",
+          "timestamp": "2024-08-05T10:53:25Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f170af615c0dc413482100892758b236d1fda93b"
+        },
+        "date": 1722857251008,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 64001.05,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52945.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.983698667170035,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.210714203669974,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.095057548170151,
             "unit": "seconds"
           }
         ]
