@@ -22,4 +22,10 @@ doc:
       It's called `SingleAssetExchangeAdapter`, read more about it in its rust docs.
       This item is already configured in Asset Hub.
 
-crates: [ ]
+crates:
+  - name: staging-xcm-executor
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: minor
