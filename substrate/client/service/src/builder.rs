@@ -37,8 +37,8 @@ use sc_client_api::{
 use sc_client_db::{Backend, DatabaseSettings};
 use sc_consensus::import_queue::ImportQueue;
 use sc_executor::{
-	sp_wasm_interface::HostFunctions, HeapAllocStrategy, NativeElseWasmExecutor,
-	NativeExecutionDispatch, RuntimeVersionOf, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY,
+	sp_wasm_interface::HostFunctions, HeapAllocStrategy, NativeExecutionDispatch, RuntimeVersionOf,
+	WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY,
 };
 use sc_keystore::LocalKeystore;
 use sc_network::{
@@ -68,6 +68,7 @@ use sc_rpc::{
 use sc_rpc_spec_v2::{
 	archive::ArchiveApiServer,
 	chain_head::ChainHeadApiServer,
+	chain_spec::ChainSpecApiServer,
 	transaction::{TransactionApiServer, TransactionBroadcastApiServer},
 };
 use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
@@ -262,11 +263,15 @@ where
 	Ok((client, backend, keystore_container, task_manager))
 }
 
-/// Creates a [`NativeElseWasmExecutor`] according to [`Configuration`].
+/// Creates a [`NativeElseWasmExecutor`](sc_executor::NativeElseWasmExecutor) according to
+/// [`Configuration`].
+#[deprecated(note = "Please switch to `new_wasm_executor`. Will be removed at end of 2024.")]
+#[allow(deprecated)]
 pub fn new_native_or_wasm_executor<D: NativeExecutionDispatch>(
 	config: &Configuration,
-) -> NativeElseWasmExecutor<D> {
-	NativeElseWasmExecutor::new_with_wasm_executor(new_wasm_executor(config))
+) -> sc_executor::NativeElseWasmExecutor<D> {
+	#[allow(deprecated)]
+	sc_executor::NativeElseWasmExecutor::new_with_wasm_executor(new_wasm_executor(config))
 }
 
 /// Creates a [`WasmExecutor`] according to [`Configuration`].
@@ -510,12 +515,7 @@ where
 	spawn_handle.spawn(
 		"informant",
 		None,
-		sc_informant::build(
-			client.clone(),
-			network,
-			sync_service.clone(),
-			config.informant_output_format,
-		),
+		sc_informant::build(client.clone(), network, sync_service.clone()),
 	);
 
 	task_manager.keep_alive((config.base_path, rpc));
@@ -676,9 +676,8 @@ where
 	// - block pruning in archive mode: The block's body is kept around
 	let is_archive_node = config.state_pruning.as_ref().map(|sp| sp.is_archive()).unwrap_or(false) &&
 		config.blocks_pruning.is_archive();
+	let genesis_hash = client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
 	if is_archive_node {
-		let genesis_hash =
-			client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
 		let archive_v2 = sc_rpc_spec_v2::archive::Archive::new(
 			client.clone(),
 			backend.clone(),
@@ -689,6 +688,14 @@ where
 		.into_rpc();
 		rpc_api.merge(archive_v2).map_err(|e| Error::Application(e.into()))?;
 	}
+
+	// ChainSpec RPC-v2.
+	let chain_spec_v2 = sc_rpc_spec_v2::chain_spec::ChainSpec::new(
+		config.chain_spec.name().into(),
+		genesis_hash,
+		config.chain_spec.properties(),
+	)
+	.into_rpc();
 
 	let author = sc_rpc::author::Author::new(
 		client.clone(),
@@ -713,6 +720,7 @@ where
 		.merge(transaction_broadcast_rpc_v2)
 		.map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(chain_head_v2).map_err(|e| Error::Application(e.into()))?;
+	rpc_api.merge(chain_spec_v2).map_err(|e| Error::Application(e.into()))?;
 
 	// Part of the old RPC spec.
 	rpc_api.merge(chain).map_err(|e| Error::Application(e.into()))?;

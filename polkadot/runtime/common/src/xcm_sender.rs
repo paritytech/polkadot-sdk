@@ -16,17 +16,19 @@
 
 //! XCM sender for relay chain.
 
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::traits::Get;
 use frame_system::pallet_prelude::BlockNumberFor;
-use parity_scale_codec::Encode;
-use primitives::Id as ParaId;
-use runtime_parachains::{
+use polkadot_primitives::Id as ParaId;
+use polkadot_runtime_parachains::{
 	configuration::{self, HostConfiguration},
 	dmp, FeeTracker,
 };
 use sp_runtime::FixedPointNumber;
-use sp_std::{marker::PhantomData, prelude::*};
 use xcm::prelude::*;
+use xcm_builder::InspectMessageQueues;
 use SendError::*;
 
 /// Simple value-bearing trait for determining/expressing the assets required to be paid for a
@@ -55,7 +57,7 @@ impl<Id> PriceForMessageDelivery for NoPriceForMessageDelivery<Id> {
 }
 
 /// Implementation of [`PriceForMessageDelivery`] which returns a fixed price.
-pub struct ConstantPrice<T>(sp_std::marker::PhantomData<T>);
+pub struct ConstantPrice<T>(core::marker::PhantomData<T>);
 impl<T: Get<Assets>> PriceForMessageDelivery for ConstantPrice<T> {
 	type Id = ();
 
@@ -78,7 +80,7 @@ impl<T: Get<Assets>> PriceForMessageDelivery for ConstantPrice<T> {
 /// - `B`: The base fee to pay for message delivery.
 /// - `M`: The fee to pay for each and every byte of the message after encoding it.
 /// - `F`: A fee factor multiplier. It can be understood as the exponent term in the formula.
-pub struct ExponentialPrice<A, B, M, F>(sp_std::marker::PhantomData<(A, B, M, F)>);
+pub struct ExponentialPrice<A, B, M, F>(core::marker::PhantomData<(A, B, M, F)>);
 impl<A: Get<AssetId>, B: Get<u128>, M: Get<u128>, F: FeeTracker> PriceForMessageDelivery
 	for ExponentialPrice<A, B, M, F>
 {
@@ -138,6 +140,24 @@ where
 	}
 }
 
+impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P> {
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		dmp::DownwardMessageQueues::<T>::iter()
+			.map(|(para_id, messages)| {
+				let decoded_messages: Vec<VersionedXcm<()>> = messages
+					.iter()
+					.map(|downward_message| {
+						let message = VersionedXcm::<()>::decode(&mut &downward_message.msg[..]).unwrap();
+						log::trace!(target: "xcm::DownwardMessageQueues::get_messages", "Message: {:?}, sent at: {:?}", message, downward_message.sent_at);
+						message
+					})
+					.collect();
+				(VersionedLocation::V4(Parachain(para_id.into()).into()), decoded_messages)
+			})
+			.collect()
+	}
+}
+
 /// Implementation of `xcm_builder::EnsureDelivery` which helps to ensure delivery to the
 /// `ParaId` parachain (sibling or child). Deposits existential deposit for origin (if needed).
 /// Deposits estimated fee to the origin account (if needed).
@@ -150,7 +170,7 @@ pub struct ToParachainDeliveryHelper<
 	ParaId,
 	ToParaIdHelper,
 >(
-	sp_std::marker::PhantomData<(
+	core::marker::PhantomData<(
 		XcmConfig,
 		ExistentialDeposit,
 		PriceForDelivery,
@@ -204,7 +224,7 @@ impl<
 			}
 
 			// overestimate delivery fee
-			let overestimated_xcm = vec![ClearOrigin; 128].into();
+			let overestimated_xcm = alloc::vec![ClearOrigin; 128].into();
 			let overestimated_fees =
 				PriceForDelivery::price_for_delivery(Parachain::get(), &overestimated_xcm);
 
@@ -239,8 +259,9 @@ impl EnsureForParachain for () {
 mod tests {
 	use super::*;
 	use crate::integration_tests::new_test_ext;
+	use alloc::vec;
 	use frame_support::{assert_ok, parameter_types};
-	use runtime_parachains::FeeTracker;
+	use polkadot_runtime_parachains::FeeTracker;
 	use sp_runtime::FixedU128;
 	use xcm::MAX_XCM_DECODE_DEPTH;
 

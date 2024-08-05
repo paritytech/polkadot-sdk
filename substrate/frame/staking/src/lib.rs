@@ -304,6 +304,9 @@ pub mod weights;
 
 mod pallet;
 
+extern crate alloc;
+
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
@@ -326,7 +329,6 @@ use sp_staking::{
 	StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
@@ -363,7 +365,7 @@ pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
@@ -378,7 +380,7 @@ pub struct ActiveEraInfo {
 	///
 	/// Start can be none if start hasn't been set for the era yet,
 	/// Start is set on the first on_finalize of the era to guarantee usage of `Time`.
-	start: Option<u64>,
+	pub start: Option<u64>,
 }
 
 /// Pointer to the last iterated indices for targets and voters used when generating the snapshot.
@@ -700,7 +702,7 @@ impl<T: Config> StakingLedger<T> {
 				// slightly under-slashed, by at most `MaxUnlockingChunks * ED`, which is not a big
 				// deal.
 				slash_from_target =
-					sp_std::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
+					core::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
 			}
 
 			self.total = self.total.saturating_sub(slash_from_target);
@@ -942,7 +944,7 @@ impl<Balance: Default> EraPayout<Balance> for () {
 
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
-pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
+pub struct ConvertCurve<T>(core::marker::PhantomData<T>);
 impl<Balance, T> EraPayout<Balance> for ConvertCurve<T>
 where
 	Balance: AtLeast32BitUnsigned + Clone + Copy,
@@ -1000,7 +1002,7 @@ impl Default for Forcing {
 
 /// A `Convert` implementation that finds the stash of the given controller account,
 /// if any.
-pub struct StashOf<T>(sp_std::marker::PhantomData<T>);
+pub struct StashOf<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 	fn convert(controller: T::AccountId) -> Option<T::AccountId> {
@@ -1013,7 +1015,7 @@ impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 ///
 /// Active exposure is the exposure of the validator set currently validating, i.e. in
 /// `active_era`. It can differ from the latest planned exposure in `current_era`.
-pub struct ExposureOf<T>(sp_std::marker::PhantomData<T>);
+pub struct ExposureOf<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>>
 	for ExposureOf<T>
@@ -1026,7 +1028,7 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 
 /// Filter historical offences out and only allow those from the bonding period.
 pub struct FilterHistoricalOffences<T, R> {
-	_inner: sp_std::marker::PhantomData<(T, R)>,
+	_inner: core::marker::PhantomData<(T, R)>,
 }
 
 impl<T, Reporter, Offender, R, O> ReportOffence<Reporter, Offender, O>
@@ -1059,7 +1061,7 @@ where
 /// Wrapper struct for Era related information. It is not a pure encapsulation as these storage
 /// items can be accessed directly but nevertheless, its recommended to use `EraInfo` where we
 /// can and add more functions to it as needed.
-pub struct EraInfo<T>(sp_std::marker::PhantomData<T>);
+pub struct EraInfo<T>(core::marker::PhantomData<T>);
 impl<T: Config> EraInfo<T> {
 	/// Returns true if validator has one or more page of era rewards not claimed yet.
 	// Also looks at legacy storage that can be cleaned up after #433.
@@ -1264,70 +1266,6 @@ impl<T: Config> EraInfo<T> {
 		exposure_pages.iter().enumerate().for_each(|(page, paged_exposure)| {
 			<ErasStakersPaged<T>>::insert((era, &validator, page as Page), &paged_exposure);
 		});
-	}
-
-	/// Store or update exposure for elected validators at the start of the planning era.
-	///
-	/// An exposure for a given validator may be collected from multiple election results page, thus
-	/// the previously stored exposure must be updated.
-	pub fn set_or_update_exposure(
-		era: EraIndex,
-		validator: &T::AccountId,
-		exposure: Exposure<T::AccountId, BalanceOf<T>>,
-	) {
-		let page_size = T::MaxExposurePageSize::get().defensive_max(1);
-		let nominator_count = exposure.others.len();
-		let expected_page_count = nominator_count
-			.defensive_saturating_add((page_size as usize).defensive_saturating_sub(1))
-			.saturating_div(page_size as usize);
-
-		let (exposure_metadata, mut exposure_pages) = exposure.into_pages(page_size);
-		defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
-
-		// get previous exposure and metadata, if it exists.
-		let (metadata, exposures, start_from) = if let Some(mut stored_metadata) =
-			<ErasStakersOverview<T>>::get(era, &validator)
-		{
-			// how many individual exposures should be crammed into the last stored exposure
-			// page of this validator until its full.
-			let fill_in_count = (page_size * stored_metadata.page_count)
-				.saturating_sub(stored_metadata.nominator_count);
-
-			// *take* first `fill_in_count` individual exposures from the exposure pages to add
-			// them to the last stored exposures page.
-			let fill_in_exposures = if let Some(page) = exposure_pages.get_mut(0) {
-				page.from_split_others(fill_in_count as usize)
-			} else {
-				Default::default()
-			};
-
-			// TODO: this can probably be optimized so that the paged_exposure.others don't
-			// need to be decoded/encoded. However, the codec is bounded per max exposures per
-			// page (do not touch ALL the exposed validator pages).
-			<ErasStakersPaged<T>>::mutate((era, &validator, stored_metadata.page_count), |page| {
-				if let Some(page) = page {
-					(*page).page_total += fill_in_exposures.page_total;
-					(*page).others.extend(fill_in_exposures.others);
-				} else {
-					// defensive?
-				}
-			});
-			stored_metadata.update(exposure_metadata, page_size);
-
-			let start_from = stored_metadata.page_count.saturating_sub(1);
-			(stored_metadata, exposure_pages, start_from)
-		} else {
-			// new exposure, insert exposure pages, metadata and start from page idx 0.
-			(exposure_metadata, exposure_pages, 0)
-		};
-
-		exposures.iter().enumerate().for_each(|(page, paged_exposure)| {
-			<ErasStakersPaged<T>>::insert(
-				(era, &validator, (start_from as usize + page) as Page),
-				&paged_exposure,
-			);
-		});
-		<ErasStakersOverview<T>>::insert(era, &validator, &metadata);
 	}
 
 	/// Store total exposure for all the elected validators in the era.

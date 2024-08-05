@@ -22,7 +22,7 @@ use std::{
 use async_trait::async_trait;
 use parking_lot::Mutex;
 
-use parity_scale_codec::Encode;
+use codec::Encode;
 
 use sc_network::{
 	config::parse_addr, multiaddr::Multiaddr, service::traits::NetworkService, types::ProtocolName,
@@ -177,7 +177,7 @@ fn send_message<M>(
 	// network used `Bytes` this would not be necessary.
 	//
 	// peer may have gotten disconnect by the time `send_message()` is called
-	// at which point the the sink is not available.
+	// at which point the sink is not available.
 	let last_peer = peers.pop();
 	peers.into_iter().for_each(|peer| {
 		if let Some(sink) = notification_sinks.get(&(peer_set, peer)) {
@@ -199,6 +199,13 @@ pub trait Network: Clone + Send + 'static {
 	/// until removed from the protocol's peer set.
 	/// Note that `out_peers` setting has no effect on this.
 	async fn set_reserved_peers(
+		&mut self,
+		protocol: ProtocolName,
+		multiaddresses: HashSet<Multiaddr>,
+	) -> Result<(), String>;
+
+	/// Ask the network to extend the reserved set with these nodes.
+	async fn add_peers_to_reserved_set(
 		&mut self,
 		protocol: ProtocolName,
 		multiaddresses: HashSet<Multiaddr>,
@@ -238,6 +245,14 @@ impl Network for Arc<dyn NetworkService> {
 		multiaddresses: HashSet<Multiaddr>,
 	) -> Result<(), String> {
 		<dyn NetworkService>::set_reserved_peers(&**self, protocol, multiaddresses)
+	}
+
+	async fn add_peers_to_reserved_set(
+		&mut self,
+		protocol: ProtocolName,
+		multiaddresses: HashSet<Multiaddr>,
+	) -> Result<(), String> {
+		<dyn NetworkService>::add_peers_to_reserved_set(&**self, protocol, multiaddresses)
 	}
 
 	async fn remove_from_peers_set(

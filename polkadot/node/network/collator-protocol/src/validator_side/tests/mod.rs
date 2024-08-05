@@ -21,7 +21,12 @@ use sc_network::ProtocolName;
 use sp_core::{crypto::Pair, Encode};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
-use std::{iter, sync::Arc, time::Duration};
+use std::{
+	collections::{BTreeMap, VecDeque},
+	iter,
+	sync::Arc,
+	time::Duration,
+};
 
 use polkadot_node_network_protocol::{
 	our_view,
@@ -37,7 +42,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	CandidateReceipt, CollatorPair, CoreState, GroupIndex, GroupRotationInfo, HeadData,
+	CandidateReceipt, CollatorPair, CoreIndex, CoreState, GroupIndex, GroupRotationInfo, HeadData,
 	OccupiedCore, PersistedValidationData, ScheduledCore, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
@@ -71,6 +76,7 @@ struct TestState {
 	validator_groups: Vec<Vec<ValidatorIndex>>,
 	group_rotation_info: GroupRotationInfo,
 	cores: Vec<CoreState>,
+	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 }
 
 impl Default for TestState {
@@ -104,7 +110,7 @@ impl Default for TestState {
 			CoreState::Scheduled(ScheduledCore { para_id: chain_ids[0], collator: None }),
 			CoreState::Free,
 			CoreState::Occupied(OccupiedCore {
-				next_up_on_available: None,
+				next_up_on_available: Some(ScheduledCore { para_id: chain_ids[1], collator: None }),
 				occupied_since: 0,
 				time_out_at: 1,
 				next_up_on_time_out: None,
@@ -120,6 +126,11 @@ impl Default for TestState {
 			}),
 		];
 
+		let mut claim_queue = BTreeMap::new();
+		claim_queue.insert(CoreIndex(0), [chain_ids[0]].into_iter().collect());
+		claim_queue.insert(CoreIndex(1), VecDeque::new());
+		claim_queue.insert(CoreIndex(2), [chain_ids[1]].into_iter().collect());
+
 		Self {
 			chain_ids,
 			relay_parent,
@@ -128,11 +139,13 @@ impl Default for TestState {
 			validator_groups,
 			group_rotation_info,
 			cores,
+			claim_queue,
 		}
 	}
 }
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<CollatorProtocolMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<CollatorProtocolMessage>;
 
 struct TestHarness {
 	virtual_overseer: VirtualOverseer,
@@ -143,15 +156,12 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	reputation: ReputationAggregator,
 	test: impl FnOnce(TestHarness) -> T,
 ) {
-	let _ = env_logger::builder()
-		.is_test(true)
-		.filter(Some("polkadot_collator_protocol"), log::LevelFilter::Trace)
-		.filter(Some(LOG_TARGET), log::LevelFilter::Trace)
-		.try_init();
+	sp_tracing::init_for_tests();
 
 	let pool = sp_core::testing::TaskExecutor::new();
 
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
 	Keystore::sr25519_generate_new(
@@ -260,6 +270,26 @@ async fn respond_to_core_info_queries(
 			RuntimeApiRequest::AvailabilityCores(tx),
 		)) => {
 			let _ = tx.send(Ok(test_state.cores.clone()));
+		}
+	);
+
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_,
+			RuntimeApiRequest::Version(tx),
+		)) => {
+			let _ = tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT));
+		}
+	);
+
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_,
+			RuntimeApiRequest::ClaimQueue(tx),
+		)) => {
+			let _ = tx.send(Ok(test_state.claim_queue.clone()));
 		}
 	);
 }

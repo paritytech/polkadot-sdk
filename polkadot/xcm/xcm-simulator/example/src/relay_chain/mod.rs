@@ -121,10 +121,6 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 }
 
-parameter_types! {
-	pub const FirstMessageFactorPercent: u64 = 100;
-}
-
 impl origin::Config for Runtime {}
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

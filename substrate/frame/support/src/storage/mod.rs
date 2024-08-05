@@ -24,10 +24,11 @@ use crate::{
 		ReversibleKeyGenerator, TupleToEncodedIter,
 	},
 };
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
+use core::marker::PhantomData;
 use sp_core::storage::ChildInfo;
 use sp_runtime::generic::{Digest, DigestItem};
-use sp_std::{collections::btree_set::BTreeSet, marker::PhantomData, prelude::*};
 
 pub use self::{
 	stream_iter::StorageStreamIter,

@@ -22,6 +22,8 @@ use crate::{
 	Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
 
+use alloc::vec::Vec;
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	ensure,
 	traits::{
@@ -34,10 +36,9 @@ use frame_support::{
 	DefaultNoBound, RuntimeDebugNoBound,
 };
 use sp_runtime::{
-	traits::{Hash as HashT, Saturating, Zero},
+	traits::{Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
 };
-use sp_std::{fmt::Debug, marker::PhantomData, vec, vec::Vec};
 
 /// Deposit that uses the native fungible's balance type.
 pub type DepositOf<T> = Deposit<BalanceOf<T>>;
@@ -551,14 +552,11 @@ impl<T: Config> Ext<T> for ReservingExt {
 					Fortitude::Polite,
 				)?;
 
-				Pallet::<T>::deposit_event(
-					vec![T::Hashing::hash_of(&origin), T::Hashing::hash_of(&contract)],
-					Event::StorageDepositTransferredAndHeld {
-						from: origin.clone(),
-						to: contract.clone(),
-						amount: *amount,
-					},
-				);
+				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndHeld {
+					from: origin.clone(),
+					to: contract.clone(),
+					amount: *amount,
+				});
 			},
 			Deposit::Refund(amount) => {
 				let transferred = T::Currency::transfer_on_hold(
@@ -571,14 +569,11 @@ impl<T: Config> Ext<T> for ReservingExt {
 					Fortitude::Polite,
 				)?;
 
-				Pallet::<T>::deposit_event(
-					vec![T::Hashing::hash_of(&contract), T::Hashing::hash_of(&origin)],
-					Event::StorageDepositTransferredAndReleased {
-						from: contract.clone(),
-						to: origin.clone(),
-						amount: transferred,
-					},
-				);
+				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndReleased {
+					from: contract.clone(),
+					to: origin.clone(),
+					amount: transferred,
+				});
 
 				if transferred < *amount {
 					// This should never happen, if it does it means that there is a bug in the

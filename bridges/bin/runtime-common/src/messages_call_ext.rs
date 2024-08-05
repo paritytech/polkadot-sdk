@@ -14,19 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Signed extension for the `pallet-bridge-messages` that is able to reject obsolete
-//! (and some other invalid) transactions.
+//! Helpers for easier manipulation of call processing with signed extensions.
 
-use crate::messages::{
-	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
+use bp_messages::{
+	target_chain::MessageDispatch, ChainWithMessages, InboundLaneData, LaneId, MessageNonce,
 };
-use bp_messages::{target_chain::MessageDispatch, InboundLaneData, LaneId, MessageNonce};
-use bp_runtime::OwnedBridgeModule;
-use frame_support::{
-	dispatch::CallableCallFor,
-	traits::{Get, IsSubType},
-};
-use pallet_bridge_messages::{Config, Pallet};
+use bp_runtime::{AccountIdOf, OwnedBridgeModule};
+use frame_support::{dispatch::CallableCallFor, traits::IsSubType};
+use pallet_bridge_messages::{BridgedChainOf, Config, Pallet};
 use sp_runtime::{transaction_validity::TransactionValidity, RuntimeDebug};
 use sp_std::ops::RangeInclusive;
 
@@ -213,18 +208,8 @@ pub trait MessagesCallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 }
 
 impl<
-		BridgedHeaderHash,
-		SourceHeaderChain: bp_messages::target_chain::SourceHeaderChain<
-			MessagesProof = FromBridgedChainMessagesProof<BridgedHeaderHash>,
-		>,
-		TargetHeaderChain: bp_messages::source_chain::TargetHeaderChain<
-			<T as Config<I>>::OutboundPayload,
-			<T as frame_system::Config>::AccountId,
-			MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash>,
-		>,
 		Call: IsSubType<CallableCallFor<Pallet<T, I>, T>>,
-		T: frame_system::Config<RuntimeCall = Call>
-			+ Config<I, SourceHeaderChain = SourceHeaderChain, TargetHeaderChain = TargetHeaderChain>,
+		T: frame_system::Config<RuntimeCall = Call> + Config<I>,
 		I: 'static,
 	> MessagesCallSubType<T, I> for T::RuntimeCall
 {
@@ -340,16 +325,17 @@ impl<
 
 /// Returns occupation state of unrewarded relayers vector.
 fn unrewarded_relayers_occupation<T: Config<I>, I: 'static>(
-	inbound_lane_data: &InboundLaneData<T::InboundRelayer>,
+	inbound_lane_data: &InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>,
 ) -> UnrewardedRelayerOccupation {
 	UnrewardedRelayerOccupation {
-		free_relayer_slots: T::MaxUnrewardedRelayerEntriesAtInboundLane::get()
+		free_relayer_slots: T::BridgedChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX
 			.saturating_sub(inbound_lane_data.relayers.len() as MessageNonce),
 		free_message_slots: {
 			let unconfirmed_messages = inbound_lane_data
 				.last_delivered_nonce()
 				.saturating_sub(inbound_lane_data.last_confirmed_nonce);
-			T::MaxUnconfirmedMessagesAtInboundLane::get().saturating_sub(unconfirmed_messages)
+			T::BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX
+				.saturating_sub(unconfirmed_messages)
 		},
 	}
 }
@@ -358,22 +344,20 @@ fn unrewarded_relayers_occupation<T: Config<I>, I: 'static>(
 mod tests {
 	use super::*;
 	use crate::{
-		messages::{
-			source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
-		},
 		messages_call_ext::MessagesCallSubType,
-		mock::{
-			DummyMessageDispatch, MaxUnconfirmedMessagesAtInboundLane,
-			MaxUnrewardedRelayerEntriesAtInboundLane, TestRuntime, ThisChainRuntimeCall,
-		},
+		mock::{BridgedUnderlyingChain, DummyMessageDispatch, TestRuntime, ThisChainRuntimeCall},
 	};
-	use bp_messages::{DeliveredMessages, UnrewardedRelayer, UnrewardedRelayersState};
+	use bp_messages::{
+		source_chain::FromBridgedChainMessagesDeliveryProof,
+		target_chain::FromBridgedChainMessagesProof, DeliveredMessages, UnrewardedRelayer,
+		UnrewardedRelayersState,
+	};
 	use sp_std::ops::RangeInclusive;
 
 	fn fill_unrewarded_relayers() {
 		let mut inbound_lane_state =
 			pallet_bridge_messages::InboundLanes::<TestRuntime>::get(LaneId([0, 0, 0, 0]));
-		for n in 0..MaxUnrewardedRelayerEntriesAtInboundLane::get() {
+		for n in 0..BridgedUnderlyingChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX {
 			inbound_lane_state.relayers.push_back(UnrewardedRelayer {
 				relayer: Default::default(),
 				messages: DeliveredMessages { begin: n + 1, end: n + 1 },
@@ -392,7 +376,7 @@ mod tests {
 			relayer: Default::default(),
 			messages: DeliveredMessages {
 				begin: 1,
-				end: MaxUnconfirmedMessagesAtInboundLane::get(),
+				end: BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 			},
 		});
 		pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(
@@ -418,13 +402,13 @@ mod tests {
 				messages_count: nonces_end.checked_sub(nonces_start).map(|x| x + 1).unwrap_or(0)
 					as u32,
 				dispatch_weight: frame_support::weights::Weight::zero(),
-				proof: FromBridgedChainMessagesProof {
+				proof: Box::new(FromBridgedChainMessagesProof {
 					bridged_header_hash: Default::default(),
-					storage_proof: vec![],
+					storage_proof: Default::default(),
 					lane: LaneId([0, 0, 0, 0]),
 					nonces_start,
 					nonces_end,
-				},
+				}),
 			},
 		)
 		.check_obsolete_call()
@@ -508,8 +492,8 @@ mod tests {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
 			fill_unrewarded_messages();
 			assert!(validate_message_delivery(
-				MaxUnconfirmedMessagesAtInboundLane::get(),
-				MaxUnconfirmedMessagesAtInboundLane::get() - 1
+				BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
+				BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX - 1
 			));
 		});
 	}
@@ -540,7 +524,7 @@ mod tests {
 			pallet_bridge_messages::Call::<TestRuntime>::receive_messages_delivery_proof {
 				proof: FromBridgedChainMessagesDeliveryProof {
 					bridged_header_hash: Default::default(),
-					storage_proof: Vec::new(),
+					storage_proof: Default::default(),
 					lane: LaneId([0, 0, 0, 0]),
 				},
 				relayers_state: UnrewardedRelayersState {
@@ -608,7 +592,7 @@ mod tests {
 					free_message_slots: if is_empty {
 						0
 					} else {
-						MaxUnconfirmedMessagesAtInboundLane::get()
+						BridgedUnderlyingChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX
 					},
 				},
 			},
