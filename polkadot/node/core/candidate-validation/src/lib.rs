@@ -115,7 +115,7 @@ pub struct Config {
 
 /// The candidate validation subsystem.
 pub struct CandidateValidationSubsystem {
-	keystore: KeystorePtr,
+	keystore: Option<KeystorePtr>,
 	#[allow(missing_docs)]
 	pub metrics: Metrics,
 	#[allow(missing_docs)]
@@ -124,14 +124,23 @@ pub struct CandidateValidationSubsystem {
 }
 
 impl CandidateValidationSubsystem {
-	/// Create a new `CandidateValidationSubsystem`.
+	/// Create a new `CandidateValidationSubsystem` without keystore.
 	pub fn with_config(
+		config: Option<Config>,
+		metrics: Metrics,
+		pvf_metrics: polkadot_node_core_pvf::Metrics,
+	) -> Self {
+		CandidateValidationSubsystem { keystore: None, config, metrics, pvf_metrics }
+	}
+
+	/// Create a new `CandidateValidationSubsystem` with keystore.
+	pub fn with_config_and_keystore(
 		config: Option<Config>,
 		keystore: KeystorePtr,
 		metrics: Metrics,
 		pvf_metrics: polkadot_node_core_pvf::Metrics,
 	) -> Self {
-		CandidateValidationSubsystem { keystore, config, metrics, pvf_metrics }
+		CandidateValidationSubsystem { keystore: Some(keystore), config, metrics, pvf_metrics }
 	}
 }
 
@@ -229,7 +238,7 @@ where
 #[overseer::contextbounds(CandidateValidation, prefix = self::overseer)]
 async fn run<Context>(
 	mut ctx: Context,
-	keystore: KeystorePtr,
+	keystore: Option<KeystorePtr>,
 	metrics: Metrics,
 	pvf_metrics: polkadot_node_core_pvf::Metrics,
 	Config {
@@ -268,7 +277,9 @@ async fn run<Context>(
 				comm = ctx.recv().fuse() => {
 					match comm {
 						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update))) => {
-							maybe_prepare_validation(ctx.sender(), keystore.clone(), validation_host.clone(), update, &mut prepare_state).await;
+							if let Some(ref keystore) = keystore {
+								maybe_prepare_validation(ctx.sender(), keystore.clone(), validation_host.clone(), update, &mut prepare_state).await;
+							}
 						},
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
 						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),

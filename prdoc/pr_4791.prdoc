@@ -16,4 +16,4 @@ crates:
   - name: polkadot-service
     bump: patch
   - name: polkadot-node-core-candidate-validation
-    bump: major
+    bump: minor
