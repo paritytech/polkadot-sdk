@@ -160,7 +160,10 @@ impl frame_system::Config for Runtime {
 	type BlockLength = RuntimeBlockLength;
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
+	type AccountData = frame_system::AccountInfo<<Self as frame_system::Config>::Nonce, ()>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type SystemWeightInfo = weights::frame_system::WeightInfo<Self>;
+	type DbWeight = RocksDbWeight;
 }
 
 parameter_types! {

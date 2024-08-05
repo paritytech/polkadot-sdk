@@ -341,7 +341,8 @@ pub mod pallet {
 
 		/// A marker type to signal that a certain associated type of `DefaultConfig` needs ot be
 		/// overwritten.
-		pub struct you_cannot_use_derive_impl_on_this_type_please_override_it;
+		#[allow(non_camel_case_types)]
+		pub struct you_cannot_use_derive_impl_on_the_associated_type_raising_this_error_please_override_it;
 
 		#[frame_support::register_default_impl(SolochainDefaultConfig)]
 		impl DefaultConfig for SolochainDefaultConfig {
@@ -364,7 +365,7 @@ pub mod pallet {
 			type MaxConsumers = frame_support::traits::ConstU32<128>;
 
 			/// The default data to be stored in an account.
-			type AccountData = you_cannot_use_derive_impl_on_this_type_please_override_it;
+			type AccountData = you_cannot_use_derive_impl_on_the_associated_type_raising_this_error_please_override_it;
 
 			/// What to do if a new account is created.
 			type OnNewAccount = ();
@@ -373,22 +374,22 @@ pub mod pallet {
 			type OnKilledAccount = ();
 
 			/// Weight information for the extrinsics of this pallet.]
-			type SystemWeightInfo = you_cannot_use_derive_impl_on_this_type_please_override_it;
+			type SystemWeightInfo = you_cannot_use_derive_impl_on_the_associated_type_raising_this_error_please_override_it;
 
 			/// This is used as an identifier of the chain.
-			type SS58Prefix = you_cannot_use_derive_impl_on_this_type_please_override_it;
+			type SS58Prefix = you_cannot_use_derive_impl_on_the_associated_type_raising_this_error_please_override_it;
 
 			/// Version of the runtime.
-			type Version = you_cannot_use_derive_impl_on_this_type_please_override_it;
+			type Version = you_cannot_use_derive_impl_on_the_associated_type_raising_this_error_please_override_it;
 
 			/// Block & extrinsics weights: base values and limits.
-			type BlockWeights = you_cannot_use_derive_impl_on_this_type_please_override_it;
+			type BlockWeights = you_cannot_use_derive_impl_on_the_associated_type_raising_this_error_please_override_it;
 
 			/// The maximum length of a block (in bytes).
-			type BlockLength = you_cannot_use_derive_impl_on_this_type_please_override_it;
+			type BlockLength = you_cannot_use_derive_impl_on_the_associated_type_raising_this_error_please_override_it;
 
 			/// The weight of database operations that the runtime can invoke.
-			type DbWeight = you_cannot_use_derive_impl_on_this_type_please_override_it;
+			type DbWeight = you_cannot_use_derive_impl_on_the_associated_type_raising_this_error_please_override_it;
 
 			/// The ubiquitous event type injected by `construct_runtime!`.
 			#[inject_runtime_type]

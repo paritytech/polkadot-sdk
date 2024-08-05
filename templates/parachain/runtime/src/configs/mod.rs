@@ -123,6 +123,10 @@ impl frame_system::Config for Runtime {
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	/// The weight information of this pallet.
+	///
+	/// TODO: override this before deploying this pallet.
+	type SystemWeightInfo = ();
 }
 
 impl pallet_timestamp::Config for Runtime {
