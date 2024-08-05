@@ -30,6 +30,9 @@ pub mod pallet {
 		/// 
 		#[pallet::constant]
 		type VotingPeriod: Get<BlockNumberFor<Self>>;
+
+		#[pallet::constant]
+		type TemporaryRewards: Get<BalanceOf<Self>>;
 	}
 
 	/// Number of Voting Rounds executed so far
@@ -89,7 +92,10 @@ pub mod pallet {
 		VotePeriodClosed,
 
 		/// Not enough funds to vote, you need to decrease your stake
-		NotEnoughFunds
+		NotEnoughFunds,
+
+		/// The reward calculation failed due to an internal error
+		FailedRewardCalculation,
 	}
 
 	#[pallet::call]

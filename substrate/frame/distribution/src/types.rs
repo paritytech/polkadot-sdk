@@ -3,6 +3,7 @@ pub use super::*;
 pub use frame_support::{
 	pallet_prelude::*,
 	traits::{
+		DefensiveOption,
 		fungible,
 		fungible::{Inspect, Mutate, MutateHold},
 		fungibles,

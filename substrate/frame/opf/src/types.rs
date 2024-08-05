@@ -3,14 +3,14 @@ pub use super::*;
 pub use frame_support::traits::tokens::{Precision, Preservation};
 pub use frame_support::{
 	pallet_prelude::*,
-	traits::{fungible, fungibles, EnsureOrigin},
+	traits::{fungible, fungibles, EnsureOrigin, DefensiveOption},
 	PalletId, Serialize,
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
 pub use pallet_distribution::MutateHold;
 pub use pallet_distribution::{AccountIdOf, BalanceOf, HoldReason, ProjectInfo, ProjectId};
 pub use scale_info::prelude::vec::Vec;
-pub use sp_runtime::traits::Saturating;
+pub use sp_runtime::traits::{Saturating, CheckedSub};
 pub use sp_runtime::traits::{AccountIdConversion, Convert, StaticLookup, Zero,CheckedAdd};
 pub use sp_runtime::Percent;
 
@@ -42,11 +42,11 @@ pub struct VotingRoundInfo<T: Config>{
 
 impl<T: Config> VotingRoundInfo<T>{
 	pub fn new() -> Self{
-		let round_starting_block = <frame_system::Pallet<T>>::block_number();
-		let voting_locked_block = round_starting_block.clone().checked_add(&T::VotingPeriod::get()).expect("Failed Operation");
-		let round_ending_block = voting_locked_block.clone().checked_add(&T::VoteLockingPeriod::get()).expect("Failed Operation");
+		let round_starting_block = <frame_system::Pallet<T>>::block_number();		
+		let round_ending_block = round_starting_block.clone().checked_add(&T::VotingPeriod::get()).expect("Invalid Result");
+		let voting_locked_block = round_ending_block.checked_sub(&T::VoteLockingPeriod::get()).expect("Invalid Result");
 		let round_number = VotingRoundsNumber::<T>::get();
-		let new_number = round_number.checked_add(1).expect("Failed Operation");
+		let new_number = round_number.checked_add(1).expect("Invalid Result");
 		VotingRoundsNumber::<T>::put(new_number);
 
 		VotingRoundInfo{round_number, round_starting_block, voting_locked_block, round_ending_block}

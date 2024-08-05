@@ -116,6 +116,8 @@ pub mod pallet {
 		NotClaimingPeriod,
 		/// Funds locking failed
 		FundsReserveFailed,
+		/// An invalid result  was returned
+		InvalidResult,
 	}
 
 	#[pallet::hooks]

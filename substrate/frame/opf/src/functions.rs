@@ -105,15 +105,38 @@ impl<T: Config> Pallet<T> {
 	// To be executed in a hook, on_initialize 
 	pub fn begin_block(now: BlockNumberFor<T>) -> Weight {
 		let max_block_weight = Weight::from_parts(1000_u64, 0);
+		let epoch = T::EpochDurationBlocks::get();
+		let voting_period = T::VotingPeriod::get();
+		// Check current round: If block is a multiple of round_locked_period,
+		let round_index = VotingRoundsNumber::<T>::get();
 
-		// ToDo
-		// If the block is a multiple of "votingperiod + votingLockedperiod"
-		// Start new voting round
-		// We could make sure that the votingLockedBlock coincides with the beginning of an Epoch
+		if round_index == 0 {
+			// Start the first voting round
+			let round0 = VotingRoundInfo::<T>::new();
+		}
+	
+		
+		let current_round_index = round_index.saturating_sub(1);
+		let round_infos = VotingRounds::<T>::get(current_round_index).expect("InvalidResult");
+		let voting_locked_block = round_infos.voting_locked_block;
+		let round_ending_block = round_infos.round_ending_block;
 
-		// Check current round: If block is a multiple of round_locked_period, 
-		// prepare reward distribution
+		// Conditions for distribution prepartions are: 
+		// We are within voting_round period
+		// We are past the voting_round_lock block
+		// We are at the beginning of an epoch
+		if (now > voting_locked_block) && (now < round_ending_block) && (now % epoch).is_zero() {
+			// prepare reward distribution
+			// for now we are using the temporary-constant reward. 
+			let _= Self::calculate_rewards(T::TemporaryRewards::get()).map_err(|_| Error::<T>::FailedRewardCalculation);
+		}
 
+		// Create a new round when we reach the end of the round.  
+		if (now % round_ending_block).is_zero(){
+			let _= VotingRoundInfo::<T>::new();
+		}
+		
+		
 		max_block_weight
 	}
 }
