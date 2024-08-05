@@ -101,12 +101,6 @@ impl<T, S> StorageWeightReclaim<T, S> {
 	}
 }
 
-impl<T, S> From<S> for StorageWeightReclaim<T, S> {
-	fn from(s: S) -> Self {
-		Self(s, core::marker::PhantomData)
-	}
-}
-
 impl<T, S: core::fmt::Debug> core::fmt::Debug for StorageWeightReclaim<T, S> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
 		#[cfg(feature = "std")]

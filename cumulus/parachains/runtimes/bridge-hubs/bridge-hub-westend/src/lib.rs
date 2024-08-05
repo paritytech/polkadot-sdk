@@ -1274,7 +1274,7 @@ mod tests {
 				(
 					bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),
 				),
-			)).into();
+			));
 
 			{
 				let bh_indirect_payload = bp_bridge_hub_westend::TransactionExtension::from_params(

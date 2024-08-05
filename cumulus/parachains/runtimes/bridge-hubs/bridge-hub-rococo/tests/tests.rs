@@ -64,8 +64,7 @@ fn construct_extrinsic(
 			bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
 			bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
 		),
-	))
-	.into();
+	));
 	let payload = SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));
 	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), tx_ext)

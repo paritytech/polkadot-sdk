@@ -971,8 +971,7 @@ pub fn construct_extrinsic(
 			frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 			frame_system::CheckWeight::<runtime::Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
-		))
-		.into();
+		));
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),

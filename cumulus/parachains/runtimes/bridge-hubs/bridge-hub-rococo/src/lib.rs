@@ -1627,7 +1627,7 @@ mod tests {
 					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
 					bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
 				),
-			)).into();
+			));
 
 			// for BridgeHubRococo
 			{

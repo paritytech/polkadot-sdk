@@ -144,8 +144,7 @@ pub fn generate_extrinsic_with_pair(
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-		))
-		.into();
+		));
 
 	let function = function.into();
 
