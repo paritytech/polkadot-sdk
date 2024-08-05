@@ -24,6 +24,8 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks;
 
+mod weights;
+
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
@@ -52,8 +54,8 @@ pub mod old {
 		StorageMap<Pallet<T, I>, Blake2_128Concat, v3::Location, AssetDetailsOf<T, I>>;
 }
 
-pub struct Migration<T: Config<I>, I: 'static = ()>(PhantomData<(T, I)>);
-impl<T: Config<I>, I: 'static> SteppedMigration for Migration<T, I>
+pub struct Migration<T, I, W>(PhantomData<(T, I, W)>);
+impl<T: Config<I>, I: 'static, W: weights::WeightInfo> SteppedMigration for Migration<T, I, W>
 where
 	<T as Config<I>>::AssetId: From<v4::Location>,
 {
@@ -65,9 +67,35 @@ where
 	}
 
 	fn step(
-		cursor: Option<Self::Cursor>,
-		_meter: &mut WeightMeter,
+		mut cursor: Option<Self::Cursor>,
+		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		let required = W::conversion_step();
+		if meter.remaining().any_lt(required) {
+			return Err(SteppedMigrationError::InsufficientWeight { required });
+		}
+
+		loop {
+			if meter.try_consume(required).is_err() {
+				break;
+			}
+
+			cursor = Self::conversion_step(cursor);
+
+			if cursor.is_none() {
+				break;
+			}
+		}
+
+		Ok(cursor)
+	}
+}
+
+impl<T: Config<I>, I: 'static, W> Migration<T, I, W>
+where
+	<T as Config<I>>::AssetId: From<v4::Location>,
+{
+	pub fn conversion_step(cursor: Option<v3::Location>) -> Option<v3::Location> {
 		let mut iter = if let Some(last_key) = cursor {
 			// If a cursor is provided, start iterating from the value corresponding
 			// to the last key processed in the previous step of the migration.
@@ -90,10 +118,10 @@ where
 				log::warn!(target: "migration", "{:?} couldn't be converted to V4", key);
 			}
 			// Return the key as the new cursor to continue the migration.
-			Ok(Some(key))
+			Some(key)
 		} else {
 			// Signal the migration is complete.
-			Ok(None)
+			None
 		}
 	}
 }

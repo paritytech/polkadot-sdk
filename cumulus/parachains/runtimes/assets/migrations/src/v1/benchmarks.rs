@@ -16,7 +16,6 @@
 //! Benchmarks for the foreign assets migration.
 
 use frame_benchmarking::v2::*;
-use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
 use pallet_assets::{Asset, AssetDetails, AssetStatus, Config};
 use xcm::{v3, v4};
 
@@ -32,20 +31,19 @@ mod benches {
 	use super::*;
 
 	#[benchmark]
-	fn step() {
+	fn conversion_step() {
 		let key = v3::Location::new(1, [v3::Junction::Parachain(2004)]);
 		let mock_asset_details = mock_asset_details::<T, I>();
-		old::Asset::<T, I>::insert(key.clone(), mock_asset_details);
+		old::Asset::<T, I>::insert(key.clone(), mock_asset_details.clone());
 
-		let mut meter = WeightMeter::new();
 		#[block]
 		{
-			Migration::<T, I>::step(None, &mut meter).unwrap();
+			Migration::<T, I, ()>::conversion_step(None).unwrap();
 		}
 
 		let new_key: <T as Config<I>>::AssetId =
 			v4::Location::new(1, [v4::Junction::Parachain(2004)]).into();
-		assert!(Asset::<T, I>::contains_key(new_key));
+		assert_eq!(Asset::<T, I>::get(new_key), Some(mock_asset_details.clone()));
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::v1::tests::new_test_ext(), crate::v1::tests::Runtime);

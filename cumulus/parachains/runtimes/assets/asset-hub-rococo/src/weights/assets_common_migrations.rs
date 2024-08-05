@@ -13,7 +13,7 @@
 // benchmark
 // pallet
 // --runtime
-// target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.compact.compressed.wasm
+// target/release/wbuild/asset-hub-rococo-runtime/asset_hub_rococo_runtime.compact.compressed.wasm
 // --pallet
 // assets_common_migrations
 // --extrinsic
@@ -21,7 +21,7 @@
 // --template
 // substrate/.maintain/frame-weight-template.hbs
 // --output
-// cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights/assets_common_migrations.rs
+// cumulus/parachains/runtimes/assets/asset-hub-rococo/src/weights/assets_common_migrations.rs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -46,7 +46,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Measured:  `161`
 		//  Estimated: `7556`
 		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(6_000_000, 7556)
+		Weight::from_parts(7_000_000, 7556)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -61,7 +61,7 @@ impl WeightInfo for () {
 		//  Measured:  `161`
 		//  Estimated: `7556`
 		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(6_000_000, 7556)
+		Weight::from_parts(7_000_000, 7556)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}

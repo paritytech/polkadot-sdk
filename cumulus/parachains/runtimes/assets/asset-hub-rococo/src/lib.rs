@@ -183,19 +183,31 @@ impl frame_system::Config for Runtime {
 	type MultiBlockMigrator = MultiBlockMigrator;
 }
 
+// We destine 80% of the block's weight to MBMs.
+parameter_types! {
+	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
+}
+
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations = MultiBlockMigrations;
-	type CursorMaxLen = ConstU32<256>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+	type CursorMaxLen = ConstU32<1024>;
 	type IdentifierMaxLen = ConstU32<256>;
 	type MigrationStatusHandler = ();
 	type FailedMigrationHandler = FreezeChainOnFailedMigration;
-	type MaxServiceWeight = ();
+	type MaxServiceWeight = MbmServiceWeight;
 	type WeightInfo = ();
 }
 
-type MultiBlockMigrations =
-	(assets_common_migrations::v1::Migration<Runtime, ForeignAssetsInstance>,);
+#[cfg(not(feature = "runtime-benchmarks"))]
+type MultiBlockMigrations = assets_common_migrations::v1::Migration<
+	Runtime,
+	ForeignAssetsInstance,
+	weights::assets_common_migrations::SubstrateWeight<Runtime>,
+>;
 
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.

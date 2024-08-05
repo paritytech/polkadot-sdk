@@ -1145,6 +1145,7 @@ dependencies = [
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
+ "pallet-migrations",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",

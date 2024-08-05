@@ -16,8 +16,11 @@
 //! Tests for the foreign assets migration.
 
 use frame_support::{
-	construct_runtime, derive_impl, migrations::SteppedMigration, traits::AsEnsureOriginWithArg,
-	weights::WeightMeter,
+	construct_runtime, derive_impl,
+	migrations::SteppedMigration,
+	parameter_types,
+	traits::{AsEnsureOriginWithArg, OnRuntimeUpgrade},
+	weights::{Weight, WeightMeter},
 };
 use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_assets::{Asset, AssetDetails, AssetStatus};
@@ -25,13 +28,14 @@ use sp_io::TestExternalities;
 use sp_runtime::BuildStorage;
 use xcm::{v3, v4};
 
-use super::{old, Migration};
+use super::{old, weights, Migration};
 
 construct_runtime! {
 	pub struct Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
 		ForeignAssets: pallet_assets,
+		Migrations: pallet_migrations,
 	}
 }
 
@@ -44,6 +48,21 @@ impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountId = AccountId;
 	type AccountData = pallet_balances::AccountData<Balance>;
+	type MultiBlockMigrator = Migrations;
+}
+
+parameter_types! {
+	pub storage MigratorServiceWeight: Weight = Weight::from_parts(100, 100); // do not use in prod
+}
+
+#[derive_impl(pallet_migrations::config_preludes::TestDefaultConfig)]
+impl pallet_migrations::Config for Runtime {
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Migrations =
+		(crate::v1::Migration<Runtime, (), crate::v1::weights::SubstrateWeight<Runtime>>,);
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+	type MaxServiceWeight = MigratorServiceWeight;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -90,19 +109,30 @@ pub(crate) fn new_test_ext() -> TestExternalities {
 #[test]
 fn migration_works() {
 	new_test_ext().execute_with(|| {
-		let key = v3::Location::new(1, [v3::Junction::Parachain(2004)]);
 		let mock_asset_details = mock_asset_details();
-		old::Asset::<Runtime, ()>::insert(key, mock_asset_details);
+
+		// Insert a bunch of items in the old map.
+		for i in 0..1024 {
+			let key = v3::Location::new(1, [v3::Junction::Parachain(2004), v3::Junction::PalletInstance(50), v3::Junction::GeneralIndex(i)]);
+			old::Asset::<Runtime, ()>::insert(key, mock_asset_details.clone());
+		}
+
+		// Give the migration some limit.
+		let limit = <<Runtime as pallet_migrations::Config>::WeightInfo as pallet_migrations::WeightInfo>::progress_mbms_none() +
+			pallet_migrations::Pallet::<Runtime>::exec_migration_max_weight() +
+			<weights::SubstrateWeight::<Runtime> as weights::WeightInfo>::conversion_step() * 16;
+		MigratorServiceWeight::set(&limit);
+
+		System::set_block_number(1);
+		AllPalletsWithSystem::on_runtime_upgrade(); // onboard MBMs
 
 		// Perform one step of the migration.
-		let cursor = Migration::<Runtime>::step(None, &mut WeightMeter::new()).unwrap().unwrap();
-		// Second time works.
-		assert!(Migration::<Runtime>::step(Some(cursor), &mut WeightMeter::new())
-			.unwrap()
-			.is_none());
+		assert!(Migration::<Runtime, (), ()>::step(None, &mut WeightMeter::new()).unwrap().is_none());
 
-		let new_key = v4::Location::new(1, [v4::Junction::Parachain(2004)]);
-		assert!(Asset::<Runtime>::contains_key(new_key));
+		for i in 0..1024 {
+			let new_key = v4::Location::new(1, [v4::Junction::Parachain(2004), v4::Junction::PalletInstance(50), v4::Junction::GeneralIndex(i)]);
+			assert_eq!(Asset::<Runtime>::get(new_key), Some(mock_asset_details.clone()));
+		}
 	})
 }
 

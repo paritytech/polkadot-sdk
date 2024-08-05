@@ -23,6 +23,7 @@ sp-runtime = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-asset-conversion = { workspace = true }
+pallet-migrations = { workspace = true }
 
 # Polkadot
 pallet-xcm = { workspace = true }
@@ -49,6 +50,7 @@ std = [
 	"log/std",
 	"pallet-asset-conversion/std",
 	"pallet-xcm/std",
+	"pallet-migrations/std",
 	"parachains-common/std",
 	"scale-info/std",
 	"sp-api/std",
@@ -67,6 +69,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
