@@ -1779,6 +1779,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1628" id="1628">1628</a>
 <a href="#1629" id="1629">1629</a>
 <a href="#1630" id="1630">1630</a>
+<a href="#1631" id="1631">1631</a>
+<a href="#1632" id="1632">1632</a>
+<a href="#1633" id="1633">1633</a>
+<a href="#1634" id="1634">1634</a>
+<a href="#1635" id="1635">1635</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2239,13 +2244,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			notification.tree_route,
 		);
 
-		<span class="self">self</span>.runtime
-			.runtime_api()
-			.beefy_genesis(notification.hash)
-			.ok()
-			.flatten()
-			.filter(|genesis| <span class="kw-2">*</span>genesis == <span class="self">self</span>.persisted_state.pallet_genesis)
-			.ok_or(Error::ConsensusReset)<span class="question-mark">?</span>;
+		<span class="kw">match </span><span class="self">self</span>.runtime.runtime_api().beefy_genesis(notification.hash) {
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(genesis)) <span class="kw">if </span>genesis != <span class="self">self</span>.persisted_state.pallet_genesis =&gt; {
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 ConsensusReset detected. Expected genesis: {}, found genesis: {}"</span>, <span class="self">self</span>.persisted_state.pallet_genesis, genesis);
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::ConsensusReset)
+			},
+			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {},
+			<span class="prelude-val">Err</span>(api_error) =&gt; {
+				<span class="comment">// This can happen in case the block was already pruned.
+				// Mostly after warp sync when finality notifications are piled up.
+				</span><span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Unable to check beefy genesis: {}"</span>, api_error);
+			},
+		}
 
 		<span class="kw">let </span><span class="kw-2">mut </span>new_session_added = <span class="bool-val">false</span>;
 		<span class="kw">if </span><span class="kw-2">*</span>header.number() &gt; <span class="self">self</span>.best_grandpa_block() {

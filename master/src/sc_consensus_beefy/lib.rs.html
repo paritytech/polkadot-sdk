@@ -962,6 +962,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#811" id="811">811</a>
 <a href="#812" id="812">812</a>
 <a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -996,7 +997,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	metrics::register_metrics,
 };
 <span class="kw">use </span>futures::{stream::Fuse, FutureExt, StreamExt};
-<span class="kw">use </span>log::{debug, error, info, warn};
+<span class="kw">use </span>log::{debug, error, info, trace, warn};
 <span class="kw">use </span>parking_lot::Mutex;
 <span class="kw">use </span>prometheus_endpoint::Registry;
 <span class="kw">use </span>sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotification, Finalizer};
@@ -1415,7 +1416,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>state.set_best_grandpa(best_grandpa.clone());
 			<span class="comment">// Overwrite persisted data with newly provided `min_block_delta`.
 			</span>state.set_min_block_delta(min_block_delta);
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Loading BEEFY voter state from db: {:?}."</span>, state);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Loading BEEFY voter state from db."</span>);
+			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"🥩 Loaded state: {:?}."</span>, state);
 
 			<span class="comment">// Make sure that all the headers that we need have been synced.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>new_sessions = <span class="macro">vec!</span>[];
