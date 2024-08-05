@@ -16,10 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use super::{sudo_session_keys::SudoSessionKeys, MethodResult};
-use crate::sudo_session_keys::api::SudoSessionKeysServer;
+use super::sudo_session_keys::SudoSessionKeys;
+use crate::{sudo_session_keys::api::SudoSessionKeysServer, MethodResult};
 use codec::Decode;
-use jsonrpsee::{types::EmptyServerParams as EmptyParams, RpcModule};
+use jsonrpsee::{rpc_params, RpcModule};
 use sc_rpc_api::DenyUnsafe;
 use sp_core::{
 	crypto::ByteArray,
@@ -47,10 +47,8 @@ fn setup_api(
 async fn sudo_session_keys_unstable_generate() {
 	let (keystore, api) = setup_api(DenyUnsafe::No);
 
-	let response: MethodResult = api
-		.call("sudo_sessionKeys_unstable_generate", EmptyParams::new())
-		.await
-		.unwrap();
+	let response: MethodResult =
+		api.call("sudo_sessionKeys_unstable_generate", rpc_params![]).await.unwrap();
 
 	let bytes = match response {
 		MethodResult::Ok(ok) => hex::decode(ok.result.strip_prefix("0x").unwrap()).unwrap(),
