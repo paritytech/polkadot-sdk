@@ -27,11 +27,6 @@ use std::sync::Arc;
 
 use crate::cli::Consensus;
 
-#[cfg(feature = "runtime-benchmarks")]
-type HostFunctions =
-	(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions);
-
-#[cfg(not(feature = "runtime-benchmarks"))]
 type HostFunctions = sp_io::SubstrateHostFunctions;
 
 #[docify::export]
