@@ -28,7 +28,8 @@ use std::{error::Error as StdError, net::SocketAddr, num::NonZeroU32, sync::Arc,
 use jsonrpsee::{
 	core::BoxError,
 	server::{
-		serve_with_graceful_shutdown, stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
+		serve_with_graceful_shutdown, stop_channel, ws, PingConfig, ServerHandle, StopHandle,
+		TowerServiceBuilder,
 	},
 	Methods, RpcModule,
 };
@@ -49,15 +50,30 @@ pub use middleware::{Metrics, MiddlewareLayer, RpcMetrics};
 
 const MEGABYTE: u32 = 1024 * 1024;
 
-/// Type alias for the JSON-RPC server.
-pub type Server = jsonrpsee::server::ServerHandle;
-
 /// Type to encapsulate the server handle and listening address.
-pub struct ServerAndListenAddress {
+pub struct Server {
 	/// Handle to the rpc server
-	pub handle: Server,
+	handle: ServerHandle,
 	/// Listening address of the server
-	pub listen_addr: Option<SocketAddr>,
+	listen_addr: Option<SocketAddr>,
+}
+
+impl Server {
+	/// Creates a new Server.
+	pub fn new(handle: ServerHandle, listen_addr: Option<SocketAddr>) -> Server {
+		Server { handle, listen_addr }
+	}
+
+	/// Returns the `jsonrpsee::server::ServerHandle` for this Server. Can be used to perform
+	/// in-memory RPC queries.
+	pub fn handle(&self) -> &ServerHandle {
+		&self.handle
+	}
+
+	/// The listen address for the running RPC service.
+	pub fn listen_addr(&self) -> Option<&SocketAddr> {
+		self.listen_addr.as_ref()
+	}
 }
 
 /// RPC server configuration.
@@ -108,7 +124,7 @@ struct PerConnection<RpcMiddleware, HttpMiddleware> {
 /// Start RPC server listening on given address.
 pub async fn start_server<M>(
 	config: Config<'_, M>,
-) -> Result<ServerAndListenAddress, Box<dyn StdError + Send + Sync>>
+) -> Result<Server, Box<dyn StdError + Send + Sync>>
 where
 	M: Send + Sync,
 {
@@ -272,5 +288,5 @@ where
 		format_cors(cors)
 	);
 
-	Ok(ServerAndListenAddress { handle: server_handle, listen_addr: local_addr })
+	Ok(Server::new(server_handle, local_addr))
 }

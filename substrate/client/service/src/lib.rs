@@ -48,7 +48,7 @@ use sc_network::{
 };
 use sc_network_sync::SyncingService;
 use sc_network_types::PeerId;
-use sc_rpc_server::ServerAndListenAddress;
+use sc_rpc_server::Server;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_blockchain::HeaderMetadata;
 use sp_consensus::SyncOracle;
@@ -98,10 +98,15 @@ pub use task_manager::{SpawnTaskHandle, Task, TaskManager, TaskRegistry, DEFAULT
 
 const DEFAULT_PROTOCOL_ID: &str = "sup";
 
-/// RPC handlers that can perform RPC queries.
+/// A running RPC service that can perform in-memory RPC queries.
 #[derive(Clone)]
 pub struct RpcHandlers {
+	// This is legacy and may be removed at some point, it was for WASM stuff before smoldot was a
+	// thing. https://github.com/paritytech/polkadot-sdk/pull/5038#discussion_r1694971805
 	rpc_module: Arc<RpcModule<()>>,
+
+	// This can be used to introspect the port the RPC server is listening on. SDK consumers are
+	// depending on this and it should be supported even if in-memory query support is removed.
 	listen_addresses: Box<Vec<Multiaddr>>,
 }
 
@@ -363,26 +368,12 @@ pub async fn build_system_rpc_future<
 	debug!("`NetworkWorker` has terminated, shutting down the system RPC future.");
 }
 
-// Wrapper for HTTP and WS servers that makes sure they are properly shut down.
-mod waiting {
-	pub struct Server(pub Option<sc_rpc_server::Server>);
-
-	impl Drop for Server {
-		fn drop(&mut self) {
-			if let Some(server) = self.0.take() {
-				// This doesn't not wait for the server to be stopped but fires the signal.
-				let _ = server.stop();
-			}
-		}
-	}
-}
-
 /// Starts RPC servers.
 pub fn start_rpc_servers<R>(
 	config: &Configuration,
 	gen_rpc_module: R,
 	rpc_id_provider: Option<Box<dyn RpcSubscriptionIdProvider>>,
-) -> Result<(Box<dyn std::any::Any + Send + Sync>, Option<SocketAddr>), error::Error>
+) -> Result<Server, error::Error>
 where
 	R: Fn(sc_rpc::DenyUnsafe) -> Result<RpcModule<()>, Error>,
 {
@@ -429,9 +420,7 @@ where
 	match tokio::task::block_in_place(|| {
 		config.tokio_handle.block_on(sc_rpc_server::start_server(server_config))
 	}) {
-		Ok(ServerAndListenAddress { handle, listen_addr }) => {
-			Ok((Box::new(waiting::Server(Some(handle))), listen_addr))
-		},
+		Ok(server) => Ok(server),
 		Err(e) => Err(Error::Application(e)),
 	}
 }
