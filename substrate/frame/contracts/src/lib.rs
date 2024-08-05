@@ -684,7 +684,7 @@ pub mod pallet {
 				.ref_time();
 			let max_payload_size = T::Schedule::get().limits.payload_len;
 			let max_key_size =
-				Key::<T>::try_from_var(vec![0u8; T::MaxStorageKeyLen::get() as usize])
+				Key::<T>::try_from_var(alloc::vec![0u8; T::MaxStorageKeyLen::get() as usize])
 					.expect("Key of maximal size shall be created")
 					.hash()
 					.len() as u32;
