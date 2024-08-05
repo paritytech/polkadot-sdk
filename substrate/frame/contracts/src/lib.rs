@@ -658,10 +658,11 @@ pub mod pallet {
 				T::MaxDebugBufferLen::get(),
 			);
 
-			// Validators are configured to be able to use more memory than block builders. This is because in addition
-			// to `max_runtime_mem` they need to hold additional data in memory: PoV in multiple copies (1x encoded + 2x decoded) and all storage which includes emitted events.
-            // The assumption is that max_runtime_mem + storage/events can be
-			// a maximum of half of the validator runtime memory.
+			// Validators are configured to be able to use more memory than block builders. This is
+			// because in addition to `max_runtime_mem` they need to hold additional data in
+			// memory: PoV in multiple copies (1x encoded + 2x decoded) and all storage which
+			// includes emitted events. The assumption is that max_runtime_mem + storage/events
+			// can be a maximum of half of the validator runtime memory.
 			let max_block_ref_time = T::BlockWeights::get()
 				.get(DispatchClass::Normal)
 				.max_total
