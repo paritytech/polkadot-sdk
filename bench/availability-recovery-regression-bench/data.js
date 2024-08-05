@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722850563969,
+  "lastUpdate": 1722865362608,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -16673,6 +16673,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.961209413399999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "035211d707d0a74a2a768fd658160721f09d5b44",
+          "message": "Remove unused feature gated code from the minimal template (#5237)\n\n- Progresses https://github.com/paritytech/polkadot-sdk/issues/5226\n\nThere is no actual `try-runtime` or `runtime-benchmarks` functionality\nin the minimal template at the moment.",
+          "timestamp": "2024-08-05T11:48:58Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/035211d707d0a74a2a768fd658160721f09d5b44"
+        },
+        "date": 1722865330466,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.179748628,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.856042290633336,
             "unit": "seconds"
           }
         ]
