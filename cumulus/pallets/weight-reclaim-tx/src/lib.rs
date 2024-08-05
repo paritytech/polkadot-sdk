@@ -157,10 +157,9 @@ where
 		// `validate`
 		let proof_size = get_proof_size();
 
-		let res= self.0
-			.validate(origin, call, info, len, context, self_implicit, inherited_implication)?;
-
-		Ok((res.0, (proof_size, res.1), res.2))
+		self.0
+			.validate(origin, call, info, len, context, self_implicit, inherited_implication)
+			.map(|(validity, val, origin)| (validity, (proof_size, val), origin))
 	}
 
 	fn prepare(
@@ -173,9 +172,9 @@ where
 		context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let (proof_size, inner_val) = val;
-		let inner_pre = self.0.prepare(inner_val, origin, call, info, len, context)?;
-
-		Ok((proof_size, inner_pre))
+		self.0
+			.prepare(inner_val, origin, call, info, len, context)
+			.map(|pre| (proof_size, pre))
 	}
 
 	fn post_dispatch_details(
