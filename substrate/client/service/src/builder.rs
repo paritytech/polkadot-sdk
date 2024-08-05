@@ -68,6 +68,7 @@ use sc_rpc::{
 use sc_rpc_spec_v2::{
 	archive::ArchiveApiServer,
 	chain_head::ChainHeadApiServer,
+	chain_spec::ChainSpecApiServer,
 	sudo_session_keys::SudoSessionKeysServer,
 	transaction::{TransactionApiServer, TransactionBroadcastApiServer},
 };
@@ -676,9 +677,8 @@ where
 	// - block pruning in archive mode: The block's body is kept around
 	let is_archive_node = config.state_pruning.as_ref().map(|sp| sp.is_archive()).unwrap_or(false) &&
 		config.blocks_pruning.is_archive();
+	let genesis_hash = client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
 	if is_archive_node {
-		let genesis_hash =
-			client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
 		let archive_v2 = sc_rpc_spec_v2::archive::Archive::new(
 			client.clone(),
 			backend.clone(),
@@ -695,6 +695,14 @@ where
 		client.clone(),
 		keystore.clone(),
 		deny_unsafe,
+	)
+	.into_rpc();
+
+	// ChainSpec RPC-v2.
+	let chain_spec_v2 = sc_rpc_spec_v2::chain_spec::ChainSpec::new(
+		config.chain_spec.name().into(),
+		genesis_hash,
+		config.chain_spec.properties(),
 	)
 	.into_rpc();
 
@@ -722,6 +730,7 @@ where
 		.map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(chain_head_v2).map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(sudo_session_keys).map_err(|e| Error::Application(e.into()))?;
+	rpc_api.merge(chain_spec_v2).map_err(|e| Error::Application(e.into()))?;
 
 	// Part of the old RPC spec.
 	rpc_api.merge(chain).map_err(|e| Error::Application(e.into()))?;
