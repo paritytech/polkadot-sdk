@@ -242,7 +242,7 @@ impl<Runtime: BasicParachainRuntime> ExtBuilder<Runtime> {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		pallet_session::GenesisConfig::<Runtime> { keys: self.keys }
+		pallet_session::GenesisConfig::<Runtime> { keys: self.keys, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 
