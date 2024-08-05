@@ -64,6 +64,8 @@
 //! To enable the reclaiming,
 //! set [`StorageWeightReclaim`](cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim)
 //! as a warpper of that list.
+//! It is necessary that this extension wraps all the other transaction extensions in order to catch
+//! the whole PoV size of the transactions.
 //! The extension will check the size of the storage proof before and after an extrinsic execution.
 //! It reclaims the difference between the calculated size and the benchmarked size.
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", template_signed_extra)]
