@@ -21044,7 +21044,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 14.0.0",
  "sp-weights",
  "staging-xcm",
  "staging-xcm-executor",

@@ -552,11 +552,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			if *asset_wanted_for_fees != asset_needed_for_fees.id {
 				match Config::AssetExchanger::quote_exchange_price(
 					&(asset_wanted_for_fees.clone(), 1u128).into(),
-					&asset_needed_for_fees,
+					&asset_needed_for_fees.clone().into(),
 					false, // Minimal.
 				) {
-					Some(necessary_amount) =>
-						(asset_wanted_for_fees.clone(), necessary_amount).into(),
+					Some(necessary_assets) =>
+					// We only use the first asset for fees.
+					// If this is not enough to swap for the fee asset then it will error later down
+					// the line.
+						necessary_assets.get(0).unwrap_or(&asset_needed_for_fees.clone()).clone(),
 					// If we can't convert, then we return the original asset.
 					// It will error later in any case.
 					None => {
