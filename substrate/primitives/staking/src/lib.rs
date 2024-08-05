@@ -324,9 +324,6 @@ pub trait StakingInterface {
 	fn bond(who: &Self::AccountId, value: Self::Balance, payee: &Self::AccountId)
 		-> DispatchResult;
 
-	/// Have `who` become a validator with default preferences.
-	fn validate(who: &Self::AccountId) -> DispatchResult;
-
 	/// Have `who` nominate `validators`.
 	fn nominate(who: &Self::AccountId, validators: Vec<Self::AccountId>) -> DispatchResult;
 

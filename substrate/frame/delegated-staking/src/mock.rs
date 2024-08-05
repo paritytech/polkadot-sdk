@@ -110,8 +110,6 @@ impl pallet_staking::Config for Runtime {
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = TargetBagsList;
-	#[cfg(any(feature = "try-runtime", test))]
-	type TargetUnsettledApprovals = pallet_stake_tracker::UnsettledTargetScores<Self>;
 	type EventListeners = (StakeTracker, Pools, DelegatedStaking);
 }
 
@@ -131,7 +129,6 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Runtime {
 
 parameter_types! {
 	pub static VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Lazy;
-	pub static ScoreStrictUpdateThreshold: Option<u128> = None;
 }
 
 impl pallet_stake_tracker::Config for Runtime {
@@ -140,8 +137,6 @@ impl pallet_stake_tracker::Config for Runtime {
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = TargetBagsList;
 	type VoterUpdateMode = VoterUpdateMode;
-	type ScoreStrictUpdateThreshold = ScoreStrictUpdateThreshold;
-	type WeightInfo = ();
 }
 
 parameter_types! {
