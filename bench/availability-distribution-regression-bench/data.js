@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722850258723,
+  "lastUpdate": 1722857581760,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -20903,6 +20903,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.016550620713333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sergej Sakac",
+            "username": "Szegoo",
+            "email": "73715684+Szegoo@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f170af615c0dc413482100892758b236d1fda93b",
+          "message": "Coretime auto-renew (#4424)\n\nThis PR adds functionality that allows tasks to enable auto-renewal.\nEach task eligible for renewal can enable auto-renewal.\n\nA new storage value is added to track all the cores with auto-renewal\nenabled and the associated task running on the core. The `BoundedVec` is\nsorted by `CoreIndex` to make disabling auto-renewal more efficient.\n\nCores are renewed at the start of a new bulk sale. If auto-renewal\nfails(e.g. due to the sovereign account of the task not holding\nsufficient balance), an event will be emitted, and the renewal will\ncontinue for the other cores.\n\nThe two added extrinsics are:\n- `enable_auto_renew`: Extrinsic for enabling auto renewal.\n- `disable_auto_renew`: Extrinsic for disabling auto renewal.\n\nTODOs:\n- [x] Write benchmarks for the newly added extrinsics.\n\nCloses: #4351\n\n---------\n\nCo-authored-by: Dónal Murray <donalm@seadanda.dev>",
+          "timestamp": "2024-08-05T10:53:25Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f170af615c0dc413482100892758b236d1fda93b"
+        },
+        "date": 1722857550625,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17098171255999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01047748778666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012468840293333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.0222898409,
             "unit": "seconds"
           }
         ]
