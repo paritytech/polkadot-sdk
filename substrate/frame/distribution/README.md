@@ -26,4 +26,5 @@ a signed extrinsic.
 
 Basic actions:
 - `claim_reward_for` - From this extrinsic any user can claim a reward for a nominated/whitelisted project.
+
 License: Apache-2.0
