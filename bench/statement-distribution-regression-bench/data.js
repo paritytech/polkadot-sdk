@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722618560750,
+  "lastUpdate": 1722850858199,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -7349,6 +7349,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.037832334008,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sebastian Kunert",
+            "username": "skunert",
+            "email": "skunert49@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2abd03ef330c8b55e73755a7ef4b43baf1451657",
+          "message": "beefy: Tolerate pruned state on runtime API call (#5197)\n\nWhile working on #5129 I noticed that after warp sync, nodes would\nprint:\n```\n2024-07-29 17:59:23.898 ERROR ⋮beefy: 🥩 Error: ConsensusReset. Restarting voter.    \n```\n\nAfter some debugging I found that we enter the following loop:\n1. Wait for beefy pallet to be available: Pallet is detected available\ndirectly after warp sync since we are at the tip.\n2. Wait for headers from tip to beefy genesis to be available: During\nthis time we don't process finality notifications, since we later want\nto inspect all the headers for authority set changes.\n3. Gap sync finishes, route to beefy genesis is available.\n4. The worker starts acting, tries to fetch beefy genesis block. It\nfails, since we are acting on old finality notifications where the state\nis already pruned.\n5. Whole beefy subsystem is being restarted, loading the state from db\nagain and iterating a lot of headers.\n\nThis already happened before #5129.",
+          "timestamp": "2024-08-05T07:40:43Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2abd03ef330c8b55e73755a7ef4b43baf1451657"
+        },
+        "date": 1722850827133,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.89999999999992,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.05139142230000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.04084992188800001,
             "unit": "seconds"
           }
         ]
