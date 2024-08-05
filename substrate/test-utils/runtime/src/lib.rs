@@ -254,8 +254,9 @@ impl sp_runtime::traits::Printable for CheckSubstrateCall {
 	}
 }
 
-impl sp_runtime::traits::AccrueWeight for CheckSubstrateCall {
-	fn accrue(&mut self, _weight: frame_support::weights::Weight) {}
+impl sp_runtime::traits::RefundWeight for CheckSubstrateCall {
+	fn refund(&mut self, _weight: frame_support::weights::Weight) {}
+	fn saturating_accrue(&mut self, _weight: frame_support::weights::Weight) {}
 }
 
 impl sp_runtime::traits::Dispatchable for CheckSubstrateCall {

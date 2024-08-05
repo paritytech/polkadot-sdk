@@ -183,7 +183,8 @@ fn transaction_payment_in_native_possible() {
 			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 20 - 10);
 
 			let mut info = info_from_weight(WEIGHT_100);
-			info.extension_weight = ChargeAssetTxPayment::<Runtime>::weight();
+			let extension_weight = ChargeAssetTxPayment::<Runtime>::weight();
+			info.extension_weight = extension_weight;
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(5 /* tipped */, None)
 				.validate_and_prepare(Some(2).into(), CALL, &info, len)
 				.unwrap();
@@ -191,8 +192,11 @@ fn transaction_payment_in_native_possible() {
 
 			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 100 - 20 - 5);
 			let call_actual_weight = WEIGHT_50;
-			let post_info =
-				post_info_from_weight(info.call_weight.saturating_sub(call_actual_weight));
+			let post_info = post_info_from_weight(
+				info.call_weight
+					.saturating_sub(call_actual_weight)
+					.saturating_add(extension_weight),
+			);
 			// The extension weight refund should be taken into account in `post_dispatch`.
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
@@ -467,10 +471,11 @@ fn asset_transaction_payment_with_tip_and_refund() {
 				amount: fee_in_asset,
 			}));
 
+			let post_info = post_info_from_weight(WEIGHT_50.saturating_add(ext_weight));
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info,
-				&post_info_from_weight(WEIGHT_50),
+				&post_info,
 				len,
 				&Ok(()),
 				&()
@@ -741,11 +746,12 @@ fn fee_with_native_asset_passed_with_id() {
 			// No refunds from the extension weight itself.
 			let expected_fee = initial_fee - final_weight;
 
+			let post_info = post_info_from_weight(WEIGHT_50.saturating_add(extension_weight));
 			assert_eq!(
 				ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 					pre,
 					&info_from_weight(WEIGHT_100),
-					&post_info_from_weight(WEIGHT_50),
+					&post_info,
 					len,
 					&Ok(()),
 					&()

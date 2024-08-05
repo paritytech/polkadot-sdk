@@ -628,7 +628,10 @@ fn refund_consistent_with_actual_weight() {
 				.test_run(Some(2).into(), CALL, &info, len, |_| Ok(post_info))
 				.unwrap()
 				.unwrap();
-			post_info.accrue(ext_weight);
+			post_info
+				.actual_weight
+				.as_mut()
+				.map(|w| w.saturating_accrue(ChargeTransactionPayment::<Runtime>::weight()));
 			assert_eq!(post_info, actual_post_info);
 
 			let refund_based_fee = prev_balance - Balances::free_balance(2);

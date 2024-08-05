@@ -147,8 +147,9 @@ fn transaction_payment_in_native_possible() {
 
 			let call_actual_weight = Weight::from_parts(50, 0);
 			// The extension weight refund should be taken into account in `post_dispatch`.
-			let post_info =
-				post_info_from_weight(info.call_weight.saturating_sub(call_actual_weight));
+			let post_info = post_info_from_weight(
+				call_actual_weight.saturating_add(ChargeAssetTxPayment::<Runtime>::weight()),
+			);
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info,
@@ -157,6 +158,12 @@ fn transaction_payment_in_native_possible() {
 				&Ok(()),
 				&()
 			));
+			assert_eq!(
+				post_info.actual_weight,
+				Some(
+					call_actual_weight.saturating_add(MockWeights::charge_asset_tx_payment_asset())
+				)
+			);
 			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 50 - 15 - 5);
 		});
 }
@@ -343,10 +350,15 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			}));
 
 			let final_weight = 50;
+			let mut post_info = post_info_from_weight(Weight::from_parts(final_weight, 0));
+			post_info
+				.actual_weight
+				.as_mut()
+				.map(|w| w.saturating_accrue(MockWeights::charge_asset_tx_payment_asset()));
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info,
-				&post_info_from_weight(Weight::from_parts(final_weight, 0)),
+				&post_info,
 				len,
 				&Ok(()),
 				&()

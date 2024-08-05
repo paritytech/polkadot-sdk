@@ -61,8 +61,8 @@ pub use pallet::*;
 pub use payment::*;
 use sp_runtime::{
 	traits::{
-		AccrueWeight, Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf,
-		SaturatedConversion, Saturating, TransactionExtension, TransactionExtensionBase, Zero,
+		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
+		Saturating, TransactionExtension, TransactionExtensionBase, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidityError, ValidTransaction,
@@ -932,22 +932,12 @@ where
 		_result: &DispatchResult,
 		_context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
-		// Take into account the weight used by this extension before calculating the
-		// refund.
-		let actual_ext_weight = <T as Config>::WeightInfo::charge_transaction_payment();
-		let mut actual_post_info = *post_info;
-		actual_post_info.accrue(actual_ext_weight);
-		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, &actual_post_info, tip);
+		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, &post_info, tip);
 		T::OnChargeTransaction::correct_and_deposit_fee(
-			&who,
-			info,
-			&actual_post_info,
-			actual_fee,
-			tip,
-			imbalance,
+			&who, info, &post_info, actual_fee, tip, imbalance,
 		)?;
 		Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid { who, actual_fee, tip });
-		Ok(Some(actual_ext_weight))
+		Ok(Some(<T as Config>::WeightInfo::charge_transaction_payment()))
 	}
 }
 
