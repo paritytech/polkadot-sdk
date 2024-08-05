@@ -48,6 +48,5 @@ macro_rules! impl_elections_weights {
 	};
 }
 
-
 /// The accuracy type used for genesis election provider;
 pub type OnChainAccuracy = sp_runtime::Perbill;

@@ -147,14 +147,6 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-impl pallet_timestamp::Config for Runtime {
-	/// A timestamp: milliseconds since the unix epoch.
-	type Moment = u64;
-	type OnTimestampSet = Aura;
-	type MinimumPeriod = ConstU64<0>;
-	type WeightInfo = ();
-}
-
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
 	type EventHandler = (CollatorSelection,);
@@ -424,7 +416,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RewardCounter = sp_runtime::FixedU128;
 	type BalanceToU256 = staking_common::BalanceToU256;
 	type U256ToBalance = staking_common::U256ToBalance;
-	type Staking = Staking;
+	type StakeAdapter = pallet_nomination_pools::adapter::TransferStake<Self, Staking>;
 	type PostUnbondingPoolsWindow = ConstU32<4>;
 	type MaxMetadataLen = ConstU32<256>;
 	// we use the same number of allowed unlocking chunks as with staking.
@@ -521,7 +513,7 @@ impl pallet_epm_core::Config for Runtime {
 	type Verifier = ElectionVerifierPallet;
 	type DataProvider = Staking;
 	type BenchmarkingConfig = staking_common::EPMBenchmarkingConfig;
-    type WeightInfo = pallet_epm_core::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_epm_core::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_epm_verifier::Config for Runtime {
@@ -561,7 +553,7 @@ impl pallet_epm_unsigned::Config for Runtime {
 	type MinerTxPriority = MinerTxPriority;
 	type MaxLength = MinerSolutionMaxLength;
 	type MaxWeight = MinerSolutionMaxWeight;
-    type WeightInfo = pallet_epm_unsigned::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_epm_unsigned::weights::SubstrateWeight<Runtime>;
 }
 
 pub struct OnChainSeqPhragmen;

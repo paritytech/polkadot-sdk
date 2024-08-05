@@ -302,7 +302,7 @@ mod runtime {
 	#[runtime::pallet_index(24)]
 	pub type AuraExt = cumulus_pallet_aura_ext;
 
-    // XCM helpers.
+	// XCM helpers.
 	#[runtime::pallet_index(30)]
 	pub type XcmpQueue = cumulus_pallet_xcmp_queue;
 	#[runtime::pallet_index(31)]
@@ -312,29 +312,29 @@ mod runtime {
 	#[runtime::pallet_index(33)]
 	pub type MessageQueue = pallet_message_queue;
 
-    // Utility module.
-    #[runtime::pallet_index(34)]
-    pub type Utility = pallet_utility;
+	// Utility module.
+	#[runtime::pallet_index(34)]
+	pub type Utility = pallet_utility;
 
-    // Staking.
-    #[runtime::pallet_index(35)]
+	// Staking.
+	#[runtime::pallet_index(35)]
 	pub type Staking = pallet_staking;
-    #[runtime::pallet_index(36)]
-    pub type NominationPools: pallet_nomination_pools;
-    #[runtime::pallet_index(37)]
-	pub type FastUnstake: pallet_fast_unstake;
-    #[runtime::pallet_index(38)]
-	pub type VoterList: pallet_bags_list::<Instance1>;
+	#[runtime::pallet_index(36)]
+	pub type NominationPools = pallet_nomination_pools;
+	#[runtime::pallet_index(37)]
+	pub type FastUnstake = pallet_fast_unstake;
+	#[runtime::pallet_index(38)]
+	pub type VoterList = pallet_bags_list<Instance1>;
 
 	// Election provider core pallet and sub-pallets. Note: order matters.
-    #[runtime::pallet_index(39)]
-	pub type ElectionProviderMultiBlock: pallet_epm_core;
-    #[runtime::pallet_index(40)]
-	pub type ElectionVerifierPallet: pallet_epm_verifier;
-    #[runtime::pallet_index(41)]
-	pub type ElectionSignedPallet: pallet_epm_signed;
-    #[runtime::pallet_index(42)]
-	pub type ElectionUnsignedPallet: pallet_epm_unsigned;
+	#[runtime::pallet_index(39)]
+	pub type ElectionProviderMultiBlock = pallet_epm_core;
+	#[runtime::pallet_index(40)]
+	pub type ElectionVerifierPallet = pallet_epm_verifier;
+	#[runtime::pallet_index(41)]
+	pub type ElectionSignedPallet = pallet_epm_signed;
+	#[runtime::pallet_index(42)]
+	pub type ElectionUnsignedPallet = pallet_epm_unsigned;
 }
 
 #[docify::export(register_validate_block)]

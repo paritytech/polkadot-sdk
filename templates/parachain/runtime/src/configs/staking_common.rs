@@ -51,9 +51,8 @@ impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
 /// A reasonable benchmarking config for the multi-block EPM pallet.
 pub struct EPMBenchmarkingConfig;
 impl pallet_election_provider_multi_block::BenchmarkingConfig for EPMBenchmarkingConfig {
-    const VOTERS: u32 = 5000;
-    const TARGETS: u32 = 1000;
-    const VOTERS_PER_PAGE: [u32; 2] = [32, 1024];
+	const VOTERS: u32 = 5000;
+	const TARGETS: u32 = 1000;
+	const VOTERS_PER_PAGE: [u32; 2] = [32, 1024];
 	const TARGETS_PER_PAGE: [u32; 2] = [512, 2048];
 }
-

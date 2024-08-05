@@ -239,6 +239,15 @@ impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
 	type MaxNominators = ConstU32<1000>;
 }
 
+/// A reasonable benchmarking config for the EPM pallet and sub-pallets.
+pub struct EPMBenchmarkingConfig;
+impl pallet_election_provider_multi_block::BenchmarkingConfig for EPMBenchmarkingConfig {
+	const VOTERS: u32 = 5000;
+	const TARGETS: u32 = 1000;
+	const VOTERS_PER_PAGE: [u32; 2] = [32, 1024];
+	const TARGETS_PER_PAGE: [u32; 2] = [512, 2048];
+}
+
 /// Convert a balance to an unsigned 256-bit number, use in nomination pools.
 pub struct BalanceToU256;
 impl sp_runtime::traits::Convert<Balance, sp_core::U256> for BalanceToU256 {

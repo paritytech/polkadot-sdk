@@ -28,7 +28,9 @@ use alloc::{
 	vec::Vec,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen, PageIndex};
+use frame_election_provider_support::{
+	bounds::ElectionBoundsBuilder, onchain, PageIndex, SequentialPhragmen,
+};
 use frame_support::{
 	derive_impl,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
@@ -58,7 +60,7 @@ use polkadot_primitives::{
 };
 use polkadot_runtime_common::{
 	assigned_slots, auctions, crowdloan,
-	elections::{VoterIndex, TargetIndex, OnChainAccuracy},
+	elections::{OnChainAccuracy, TargetIndex, VoterIndex},
 	identity_migrator, impl_runtime_weights,
 	impls::{
 		relay_era_payout, ContainsParts, EraPayoutParams, LocatableAssetConverter, ToAuthor,
@@ -626,6 +628,8 @@ impl pallet_epm_core::Config for Runtime {
 	)>;
 	type Verifier = ElectionVerifierPallet;
 	type DataProvider = Staking;
+	type BenchmarkingConfig = polkadot_runtime_common::EPMBenchmarkingConfig;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -1135,7 +1139,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) |
+						RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::NominationPools(..)
