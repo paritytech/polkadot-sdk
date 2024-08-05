@@ -24,6 +24,7 @@ use crate::{
 	configuration, paras, scheduler, shared,
 	util::{take_active_subset, take_active_subset_and_inactive},
 };
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{OneSessionHandler, ValidatorSet, ValidatorSetWithIdentification},
@@ -32,7 +33,6 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{
 	AssignmentId, AuthorityDiscoveryId, ExecutorParams, SessionIndex, SessionInfo,
 };
-use sp_std::vec::Vec;
 
 pub use pallet::*;
 

@@ -55,7 +55,7 @@ fn split_vote_cancellation_should_work() {
 		assert_ok!(Democracy::remove_vote(RuntimeOrigin::signed(5), r));
 		assert_eq!(tally(r), Tally { ayes: 0, nays: 0, turnout: 0 });
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(Balances::locks(5), vec![]);
+		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![]);
 	});
 }
 
@@ -152,7 +152,7 @@ fn controversial_low_turnout_voting_should_work() {
 fn passing_low_turnout_voting_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(42), 0);
-		assert_eq!(Balances::total_issuance(), 210);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 210);
 
 		let r = Democracy::inject_referendum(
 			2,

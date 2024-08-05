@@ -28,7 +28,6 @@ use sp_runtime::{
 	traits::{AccountIdConversion, Verify},
 	RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 parameter_types! {
 	//   27 | Min encoded size of `Registration`
@@ -151,7 +150,7 @@ impl IdentityInformationProvider for IdentityInfo {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn create_identity_info() -> Self {
-		let data = Data::Raw(vec![0; 32].try_into().unwrap());
+		let data = Data::Raw(alloc::vec![0; 32].try_into().unwrap());
 
 		IdentityInfo {
 			display: data.clone(),

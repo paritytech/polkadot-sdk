@@ -4,7 +4,7 @@ version = "26.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Substrate runtime api primitives"
 readme = "README.md"
@@ -19,7 +19,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 sp-api-proc-macro = { workspace = true }
 sp-core = { workspace = true }
-sp-std = { workspace = true }
 sp-runtime = { workspace = true }
 sp-runtime-interface = { workspace = true }
 sp-externalities = { optional = true, workspace = true }
@@ -53,7 +52,6 @@ std = [
 	"sp-runtime-interface/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 	"sp-test-primitives/std",
 	"sp-trie/std",
 	"sp-version/std",

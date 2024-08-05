@@ -5,8 +5,8 @@
   "bootNodes": [
     "/dns/paseo.bootnode.amforc.com/tcp/29999/wss/p2p/12D3KooWSdf63rZjtGdeWXpQwQwPh8K8c22upcB3B1VmqW8rxrjw",
     "/dns/paseo.bootnode.amforc.com/tcp/30001/p2p/12D3KooWSdf63rZjtGdeWXpQwQwPh8K8c22upcB3B1VmqW8rxrjw",
-    "/dns/boot.stake.plus/tcp/43334/wss/p2p/12D3KooWNhgAC3hjZHxaT52EpPFZohkCL1AHFAijqcN8xB9Rwud2",
-    "/dns/boot.stake.plus/tcp/43333/p2p/12D3KooWNhgAC3hjZHxaT52EpPFZohkCL1AHFAijqcN8xB9Rwud2",
+    "/dns/paseo.boot.stake.plus/tcp/30334/wss/p2p/12D3KooWDVqd8JXGMPsdYynu2RoBhqftTrFibZyBYibqcjQpHoQu",
+    "/dns/paseo.boot.stake.plus/tcp/31334/wss/p2p/12D3KooWJ4HjAGR9FUHZhc2jjLQX5Zb2zdJBxPYwrE6Ldpg5jjk4",
     "/dns/boot.metaspan.io/tcp/36017/wss/p2p/12D3KooWSW6nDfM3SS8rUtjMyjdszivK31bu4a1sRngGa2hFETz7",
     "/dns/boot.metaspan.io/tcp/36018/p2p/12D3KooWSW6nDfM3SS8rUtjMyjdszivK31bu4a1sRngGa2hFETz7",
     "/dns/paseo.bootnodes.polkadotters.com/tcp/30538/p2p/12D3KooWPbbFy4TefEGTRF5eTYhq8LEzc4VAHdNUVCbY4nAnhqPP",

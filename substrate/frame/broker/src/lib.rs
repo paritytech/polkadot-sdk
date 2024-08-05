@@ -47,12 +47,15 @@ pub use core_mask::*;
 pub use coretime_interface::*;
 pub use types::*;
 
+extern crate alloc;
+
 /// The log target for this pallet.
 const LOG_TARGET: &str = "runtime::broker";
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use alloc::vec::Vec;
 	use frame_support::{
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{
@@ -63,7 +66,6 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack};
-	use sp_std::vec::Vec;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
@@ -496,7 +498,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]

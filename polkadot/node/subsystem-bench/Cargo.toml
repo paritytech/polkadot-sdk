@@ -49,7 +49,7 @@ hex = { workspace = true, default-features = true }
 gum = { workspace = true, default-features = true }
 polkadot-erasure-coding = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
-env_logger = { workspace = true }
+sp-tracing = { workspace = true }
 rand = { workspace = true, default-features = true }
 # `rand` only supports uniform distribution, we need normal distribution for latency.
 rand_distr = { workspace = true }
