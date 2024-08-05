@@ -319,13 +319,13 @@
 //! - Learn more about the individual pallet items/macros, such as event and errors and call, in
 //!   [`frame::pallet_macros`].
 //!
-//! [`pallet::storage`]: ../../../frame_support/pallet_macros/attr.storage.html
-//! [`pallet::call`]: ../../../frame_support/pallet_macros/attr.call.html
-//! [`pallet::event`]: ../../../frame_support/pallet_macros/attr.event.html
-//! [`pallet::error`]: ../../../frame_support/pallet_macros/attr.error.html
-//! [`pallet::pallet`]: ../../../frame_support/attr.pallet.html
-//! [`pallet::config`]: ../../../frame_support/pallet_macros/attr.config.html
-//! [`pallet::generate_deposit`]: ../../../frame_support/pallet_macros/attr.generate_deposit.html
+//! [`pallet::storage`]: frame_support::pallet_macros::storage
+//! [`pallet::call`]: frame_support::pallet_macros::call
+//! [`pallet::event`]: frame_support::pallet_macros::event
+//! [`pallet::error`]: frame_support::pallet_macros::error
+//! [`pallet::pallet`]: frame_support::pallet
+//! [`pallet::config`]: frame_support::pallet_macros::config
+//! [`pallet::generate_deposit`]: frame_support::pallet_macros::generate_deposit
 
 #[docify::export]
 #[frame::pallet(dev_mode)]
