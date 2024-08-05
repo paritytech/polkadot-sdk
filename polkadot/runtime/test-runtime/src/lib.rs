@@ -1029,10 +1029,36 @@ sp_api::impl_runtime_apis! {
 			None
 		}
 
+		fn submit_report_fork_voting_unsigned_extrinsic(
+			_equivocation_proof:
+				sp_consensus_beefy::ForkVotingProof<
+					<Block as BlockT>::Header,
+					BeefyId,
+					sp_runtime::OpaqueValue
+				>,
+			_key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			None
+		}
+
+		fn submit_report_future_block_voting_unsigned_extrinsic(
+			_equivocation_proof: sp_consensus_beefy::FutureBlockVotingProof<BlockNumber, BeefyId>,
+			_key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			None
+		}
+
 		fn generate_key_ownership_proof(
 			_set_id: sp_consensus_beefy::ValidatorSetId,
 			_authority_id: BeefyId,
 		) -> Option<sp_consensus_beefy::OpaqueKeyOwnershipProof> {
+			None
+		}
+
+		fn generate_ancestry_proof(
+			_prev_block_number: BlockNumber,
+			_best_known_block_number: Option<BlockNumber>,
+		) -> Option<sp_runtime::OpaqueValue> {
 			None
 		}
 	}

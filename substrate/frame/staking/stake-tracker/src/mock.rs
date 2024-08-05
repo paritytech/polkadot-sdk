@@ -263,7 +263,7 @@ impl StakingInterface for StakingMock {
 		unreachable!();
 	}
 
-	fn update_payee(_stash: &Self::AccountId, _reward_acc: &Self::AccountId) -> DispatchResult {
+	fn set_payee(_stash: &Self::AccountId, _reward_acc: &Self::AccountId) -> DispatchResult {
 		unreachable!();
 	}
 
