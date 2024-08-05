@@ -288,9 +288,12 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
 			Random => T::WeightInfo::seal_random(),
 			// Given a 2-second block time and hardcoding a `ref_time` of 60,000 picoseconds per
-			// byte, the max allocation size is 32MB per block.
+			// byte  (event_ref_time), the max allocation size is 32MB per block.
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len)
-				.saturating_add(Weight::from_parts(60_000u64.saturating_mul(len.into()), 0)),
+				.saturating_add(Weight::from_parts(
+					T::Schedule::get().limits.event_ref_time.saturating_mul(len.into()),
+					0,
+				)),
 			DebugMessage(len) => T::WeightInfo::seal_debug_message(len),
 			SetStorage { new_bytes, old_bytes } =>
 				T::WeightInfo::seal_set_storage(new_bytes, old_bytes),

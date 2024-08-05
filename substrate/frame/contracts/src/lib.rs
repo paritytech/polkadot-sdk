@@ -668,8 +668,11 @@ pub mod pallet {
 				.unwrap_or_else(|| T::BlockWeights::get().max_block)
 				.ref_time();
 			let max_payload_size = T::Schedule::get().limits.payload_len;
-			// Blake2_128Concat is being used.
-			let max_key_size = T::MaxStorageKeyLen::get().saturating_add(128);
+			let max_key_size =
+				Key::<T>::try_from_var(vec![0u8; T::MaxStorageKeyLen::get() as usize])
+					.expect("Key of maximal size shall be created")
+					.hash()
+					.len() as u32;
 
 			// We can use storage to store items using the available block ref_time with the
 			// `set_storage` host function.
