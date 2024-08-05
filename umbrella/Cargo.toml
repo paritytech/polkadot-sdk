@@ -700,6 +700,7 @@ runtime = [
 	"pallet-xcm-benchmarks",
 	"pallet-xcm-bridge-hub",
 	"pallet-xcm-bridge-hub-router",
+	"pallet-xnft",
 	"parachains-common",
 	"polkadot-core-primitives",
 	"polkadot-parachain-primitives",
