@@ -21,7 +21,7 @@
 pub use sp_consensus_grandpa::{AuthorityList, SetId};
 
 use crate::{
-	strategy::chain_sync::validate_blocks,
+	strategy::{chain_sync::validate_blocks, disconnected_peers::DisconnectedPeers},
 	types::{BadPeer, SyncState, SyncStatus},
 	LOG_TARGET,
 };
@@ -240,6 +240,7 @@ pub struct WarpSync<B: BlockT, Client> {
 	total_proof_bytes: u64,
 	total_state_bytes: u64,
 	peers: HashMap<PeerId, Peer<B>>,
+	disconnected_peers: DisconnectedPeers,
 	actions: Vec<WarpSyncAction<B>>,
 	result: Option<WarpSyncResult<B>>,
 }
@@ -264,6 +265,7 @@ where
 				total_proof_bytes: 0,
 				total_state_bytes: 0,
 				peers: HashMap::new(),
+				disconnected_peers: DisconnectedPeers::new(),
 				actions: vec![WarpSyncAction::Finished],
 				result: None,
 			}
@@ -281,6 +283,7 @@ where
 			total_proof_bytes: 0,
 			total_state_bytes: 0,
 			peers: HashMap::new(),
+			disconnected_peers: DisconnectedPeers::new(),
 			actions: Vec::new(),
 			result: None,
 		}
@@ -309,7 +312,15 @@ where
 
 	/// Notify that a peer has disconnected.
 	pub fn remove_peer(&mut self, peer_id: &PeerId) {
-		self.peers.remove(peer_id);
+		if let Some(state) = self.peers.remove(peer_id) {
+			if !state.state.is_available() {
+				if let Some(bad_peer) =
+					self.disconnected_peers.on_disconnect_during_request(*peer_id)
+				{
+					self.actions.push(WarpSyncAction::DropPeer(bad_peer));
+				}
+			}
+		}
 	}
 
 	/// Submit a validated block announcement.
@@ -490,7 +501,10 @@ where
 		// Find a random peer that is synced as much as peer majority and is above
 		// `min_best_number`.
 		for (peer_id, peer) in self.peers.iter_mut() {
-			if peer.state.is_available() && peer.best_number >= threshold {
+			if peer.state.is_available() &&
+				peer.best_number >= threshold &&
+				self.disconnected_peers.is_peer_available(peer_id)
+			{
 				peer.state = new_state;
 				return Some(*peer_id)
 			}
@@ -650,6 +664,7 @@ mod test {
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_blockchain::{BlockStatus, Error as BlockchainError, HeaderBackend, Info};
 	use sp_consensus_grandpa::{AuthorityList, SetId};
+	use sp_core::H256;
 	use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 	use std::{io::ErrorKind, sync::Arc};
 	use substrate_test_runtime_client::{
@@ -858,6 +873,50 @@ mod test {
 			let peer_id = warp_sync.schedule_next_peer(PeerState::DownloadingProofs, Some(10));
 			assert!(warp_sync.peers.get(&peer_id.unwrap()).unwrap().best_number == 10);
 		}
+	}
+
+	#[test]
+	fn backedoff_number_peer_is_not_scheduled() {
+		let client = mock_client_without_state();
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+
+		let ninth_peer =
+			*warp_sync.peers.iter().find(|(_, state)| state.best_number == 9).unwrap().0;
+		let tenth_peer =
+			*warp_sync.peers.iter().find(|(_, state)| state.best_number == 10).unwrap().0;
+
+		// Disconnecting a peer without an inflight request has no effect on persistent states.
+		warp_sync.remove_peer(&tenth_peer);
+		assert!(warp_sync.disconnected_peers.is_peer_available(&tenth_peer));
+
+		warp_sync.add_peer(tenth_peer, H256::random(), 10);
+		let peer_id = warp_sync.schedule_next_peer(PeerState::DownloadingProofs, Some(10));
+		assert_eq!(tenth_peer, peer_id.unwrap());
+		warp_sync.remove_peer(&tenth_peer);
+
+		// Peer is backed off.
+		assert!(!warp_sync.disconnected_peers.is_peer_available(&tenth_peer));
+
+		// No peer available for 10'th best block because of the backoff.
+		warp_sync.add_peer(tenth_peer, H256::random(), 10);
+		let peer_id: Option<PeerId> =
+			warp_sync.schedule_next_peer(PeerState::DownloadingProofs, Some(10));
+		assert!(peer_id.is_none());
+
+		// Other requests can still happen.
+		let peer_id: Option<PeerId> =
+			warp_sync.schedule_next_peer(PeerState::DownloadingProofs, Some(9));
+		assert_eq!(ninth_peer, peer_id.unwrap());
 	}
 
 	#[test]
