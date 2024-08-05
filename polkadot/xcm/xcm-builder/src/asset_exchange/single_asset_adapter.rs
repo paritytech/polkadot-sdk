@@ -21,10 +21,12 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+extern crate alloc;
+
+use alloc::vec;
 use core::marker::PhantomData;
 use frame_support::{ensure, traits::tokens::fungibles};
 use pallet_asset_conversion::{QuotePrice, SwapCredit};
-use sp_std::vec;
 use xcm::prelude::*;
 use xcm_executor::{
 	traits::{AssetExchange, MatchesFungibles},
