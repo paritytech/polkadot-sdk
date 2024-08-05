@@ -61,6 +61,7 @@ std = [
 	"pallet-assets/std",
 	"pallet-balances/std",
 	"sp-io/std",
+	"hex-display/std"
 ]
 
 runtime-benchmarks = [

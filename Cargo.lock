@@ -1140,23 +1140,16 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex-display",
  "log",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
  "pallet-migrations",
- "pallet-xcm",
- "parachains-common",
  "parity-scale-codec",
  "scale-info",
- "sp-api",
  "sp-io",
  "sp-runtime",
  "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
- "substrate-wasm-builder",
 ]
 
 [[package]]
