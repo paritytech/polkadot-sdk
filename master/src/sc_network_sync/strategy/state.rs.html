@@ -898,6 +898,78 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#747" id="747">747</a>
 <a href="#748" id="748">748</a>
 <a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -920,7 +992,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use crate</span>::{
 	schema::v1::StateResponse,
-	strategy::state_sync::{ImportResult, StateSync, StateSyncProvider},
+	strategy::{
+		disconnected_peers::DisconnectedPeers,
+		state_sync::{ImportResult, StateSync, StateSyncProvider},
+	},
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
 	LOG_TARGET,
 };
@@ -978,6 +1053,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>StateStrategy&lt;B: BlockT&gt; {
 	state_sync: Box&lt;<span class="kw">dyn </span>StateSyncProvider&lt;B&gt;&gt;,
 	peers: HashMap&lt;PeerId, Peer&lt;B&gt;&gt;,
+	disconnected_peers: DisconnectedPeers,
 	actions: Vec&lt;StateStrategyAction&lt;B&gt;&gt;,
 	succeeded: bool,
 }
@@ -1009,6 +1085,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				skip_proof,
 			)),
 			peers,
+			disconnected_peers: DisconnectedPeers::new(),
 			actions: Vec::new(),
 			succeeded: <span class="bool-val">false</span>,
 		}
@@ -1028,6 +1105,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					(peer_id, Peer { best_number, state: PeerState::Available })
 				})
 				.collect(),
+			disconnected_peers: DisconnectedPeers::new(),
 			actions: Vec::new(),
 			succeeded: <span class="bool-val">false</span>,
 		}
@@ -1040,7 +1118,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Notify that a peer has disconnected.
 	</span><span class="kw">pub fn </span>remove_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) {
-		<span class="self">self</span>.peers.remove(peer_id);
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(state) = <span class="self">self</span>.peers.remove(peer_id) {
+			<span class="kw">if </span>!state.state.is_available() {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(bad_peer) =
+					<span class="self">self</span>.disconnected_peers.on_disconnect_during_request(<span class="kw-2">*</span>peer_id)
+				{
+					<span class="self">self</span>.actions.push(StateStrategyAction::DropPeer(bad_peer));
+				}
+			}
+		}
 	}
 
 	<span class="doccomment">/// Submit a validated block announcement.
@@ -1205,7 +1291,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Find a random peer that is synced as much as peer majority and is above
 		// `min_best_number`.
 		</span><span class="kw">for </span>(peer_id, peer) <span class="kw">in </span><span class="self">self</span>.peers.iter_mut() {
-			<span class="kw">if </span>peer.state.is_available() &amp;&amp; peer.best_number &gt;= threshold {
+			<span class="kw">if </span>peer.state.is_available() &amp;&amp;
+				peer.best_number &gt;= threshold &amp;&amp;
+				<span class="self">self</span>.disconnected_peers.is_peer_available(peer_id)
+			{
 				peer.state = new_state;
 				<span class="kw">return </span><span class="prelude-val">Some</span>(<span class="kw-2">*</span>peer_id)
 			}
@@ -1260,6 +1349,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sc_block_builder::BlockBuilderBuilder;
 	<span class="kw">use </span>sc_client_api::KeyValueStates;
 	<span class="kw">use </span>sc_consensus::{ImportedAux, ImportedState};
+	<span class="kw">use </span>sp_core::H256;
 	<span class="kw">use </span>sp_runtime::traits::Zero;
 	<span class="kw">use </span>substrate_test_runtime_client::{
 		runtime::{Block, Hash},
@@ -1363,6 +1453,60 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>peer_id = state_strategy.schedule_next_peer(PeerState::DownloadingState, <span class="number">10</span>);
 			<span class="macro">assert!</span>(<span class="kw-2">*</span>peers.get(<span class="kw-2">&amp;</span>peer_id.unwrap()).unwrap() == <span class="number">10</span>);
 		}
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>backedoff_number_peer_is_not_scheduled() {
+		<span class="kw">let </span>client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		<span class="kw">let </span>target_block = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span>client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+
+		<span class="kw">let </span>peers = (<span class="number">1</span>..=<span class="number">10</span>)
+			.map(|best_number| (PeerId::random(), best_number))
+			.collect::&lt;Vec&lt;(<span class="kw">_</span>, <span class="kw">_</span>)&gt;&gt;();
+		<span class="kw">let </span>ninth_peer = peers[<span class="number">8</span>].<span class="number">0</span>;
+		<span class="kw">let </span>tenth_peer = peers[<span class="number">9</span>].<span class="number">0</span>;
+		<span class="kw">let </span>initial_peers = peers.iter().map(|(p, n)| (<span class="kw-2">*</span>p, <span class="kw-2">*</span>n));
+
+		<span class="kw">let </span><span class="kw-2">mut </span>state_strategy = StateStrategy::new(
+			client.clone(),
+			target_block.header().clone(),
+			<span class="prelude-val">None</span>,
+			<span class="prelude-val">None</span>,
+			<span class="bool-val">false</span>,
+			initial_peers,
+		);
+
+		<span class="comment">// Disconnecting a peer without an inflight request has no effect on persistent states.
+		</span>state_strategy.remove_peer(<span class="kw-2">&amp;</span>tenth_peer);
+		<span class="macro">assert!</span>(state_strategy.disconnected_peers.is_peer_available(<span class="kw-2">&amp;</span>tenth_peer));
+
+		<span class="comment">// Disconnect the peer with an inflight request.
+		</span>state_strategy.add_peer(tenth_peer, H256::random(), <span class="number">10</span>);
+		<span class="kw">let </span>peer_id: <span class="prelude-ty">Option</span>&lt;PeerId&gt; =
+			state_strategy.schedule_next_peer(PeerState::DownloadingState, <span class="number">10</span>);
+		<span class="macro">assert_eq!</span>(tenth_peer, peer_id.unwrap());
+		state_strategy.remove_peer(<span class="kw-2">&amp;</span>tenth_peer);
+
+		<span class="comment">// Peer is backed off.
+		</span><span class="macro">assert!</span>(!state_strategy.disconnected_peers.is_peer_available(<span class="kw-2">&amp;</span>tenth_peer));
+
+		<span class="comment">// No peer available for 10'th best block because of the backoff.
+		</span>state_strategy.add_peer(tenth_peer, H256::random(), <span class="number">10</span>);
+		<span class="kw">let </span>peer_id: <span class="prelude-ty">Option</span>&lt;PeerId&gt; =
+			state_strategy.schedule_next_peer(PeerState::DownloadingState, <span class="number">10</span>);
+		<span class="macro">assert!</span>(peer_id.is_none());
+
+		<span class="comment">// Other requests can still happen.
+		</span><span class="kw">let </span>peer_id: <span class="prelude-ty">Option</span>&lt;PeerId&gt; =
+			state_strategy.schedule_next_peer(PeerState::DownloadingState, <span class="number">9</span>);
+		<span class="macro">assert_eq!</span>(ninth_peer, peer_id.unwrap());
 	}
 
 	<span class="attr">#[test]

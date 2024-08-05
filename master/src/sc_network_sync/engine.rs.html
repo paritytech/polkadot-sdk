@@ -1541,6 +1541,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1390" id="1390">1390</a>
 <a href="#1391" id="1391">1391</a>
 <a href="#1392" id="1392">1392</a>
+<a href="#1393" id="1393">1393</a>
+<a href="#1394" id="1394">1394</a>
+<a href="#1395" id="1395">1395</a>
+<a href="#1396" id="1396">1396</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2079,6 +2083,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			BlockAnnounceValidationResult::Failure { peer_id, disconnect } =&gt; {
 				<span class="kw">if </span>disconnect {
+					<span class="macro">log::debug!</span>(
+						target: LOG_TARGET,
+						<span class="string">"Disconnecting peer {peer_id} due to block announce validation failure"</span>,
+					);
 					<span class="self">self</span>.network_service
 						.disconnect_peer(peer_id, <span class="self">self</span>.block_announce_protocol_name.clone());
 				}

@@ -2409,6 +2409,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2258" id="2258">2258</a>
 <a href="#2259" id="2259">2259</a>
 <a href="#2260" id="2260">2260</a>
+<a href="#2261" id="2261">2261</a>
+<a href="#2262" id="2262">2262</a>
+<a href="#2263" id="2263">2263</a>
+<a href="#2264" id="2264">2264</a>
+<a href="#2265" id="2265">2265</a>
+<a href="#2266" id="2266">2266</a>
+<a href="#2267" id="2267">2267</a>
+<a href="#2268" id="2268">2268</a>
+<a href="#2269" id="2269">2269</a>
+<a href="#2270" id="2270">2270</a>
+<a href="#2271" id="2271">2271</a>
+<a href="#2272" id="2272">2272</a>
+<a href="#2273" id="2273">2273</a>
+<a href="#2274" id="2274">2274</a>
+<a href="#2275" id="2275">2275</a>
+<a href="#2276" id="2276">2276</a>
+<a href="#2277" id="2277">2277</a>
+<a href="#2278" id="2278">2278</a>
+<a href="#2279" id="2279">2279</a>
+<a href="#2280" id="2280">2280</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2444,6 +2464,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	justification_requests::ExtraRequests,
 	schema::v1::StateResponse,
 	strategy::{
+		disconnected_peers::DisconnectedPeers,
 		state_sync::{ImportResult, StateSync, StateSyncProvider},
 		warp::{WarpSyncPhase, WarpSyncProgress},
 	},
@@ -2661,6 +2682,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>client: Arc&lt;Client&gt;,
 	<span class="doccomment">/// The active peers that we are using to sync and their PeerSync status
 	</span>peers: HashMap&lt;PeerId, PeerSync&lt;B&gt;&gt;,
+	disconnected_peers: DisconnectedPeers,
 	<span class="doccomment">/// A `BlockCollection` of blocks that are being downloaded from peers
 	</span>blocks: BlockCollection&lt;B&gt;,
 	<span class="doccomment">/// The best block number in our queue of blocks to import
@@ -2789,6 +2811,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>sync = <span class="self">Self </span>{
 			client,
 			peers: HashMap::new(),
+			disconnected_peers: DisconnectedPeers::new(),
 			blocks: BlockCollection::new(),
 			best_queued_hash: Default::default(),
 			best_queued_number: Zero::zero(),
@@ -3552,7 +3575,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(gap_sync) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.gap_sync {
 			gap_sync.blocks.clear_peer_download(peer_id)
 		}
-		<span class="self">self</span>.peers.remove(peer_id);
+
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(state) = <span class="self">self</span>.peers.remove(peer_id) {
+			<span class="kw">if </span>!state.state.is_available() {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(bad_peer) =
+					<span class="self">self</span>.disconnected_peers.on_disconnect_during_request(<span class="kw-2">*</span>peer_id)
+				{
+					<span class="self">self</span>.actions.push(ChainSyncAction::DropPeer(bad_peer));
+				}
+			}
+		}
+
 		<span class="self">self</span>.extra_justifications.peer_disconnected(peer_id);
 		<span class="self">self</span>.allowed_requests.set_all();
 		<span class="self">self</span>.fork_targets.retain(|<span class="kw">_</span>, target| {
@@ -3952,10 +3985,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>max_parallel = <span class="kw">if </span>is_major_syncing { <span class="number">1 </span>} <span class="kw">else </span>{ <span class="self">self</span>.max_parallel_downloads };
 		<span class="kw">let </span>max_blocks_per_request = <span class="self">self</span>.max_blocks_per_request;
 		<span class="kw">let </span>gap_sync = <span class="kw-2">&amp;mut </span><span class="self">self</span>.gap_sync;
+		<span class="kw">let </span>disconnected_peers = <span class="kw-2">&amp;mut </span><span class="self">self</span>.disconnected_peers;
 		<span class="self">self</span>.peers
 			.iter_mut()
 			.filter_map(<span class="kw">move </span>|(<span class="kw-2">&amp;</span>id, peer)| {
-				<span class="kw">if </span>!peer.state.is_available() || !allowed_requests.contains(<span class="kw-2">&amp;</span>id) {
+				<span class="kw">if </span>!peer.state.is_available() ||
+					!allowed_requests.contains(<span class="kw-2">&amp;</span>id) ||
+					!disconnected_peers.is_peer_available(<span class="kw-2">&amp;</span>id)
+				{
 					<span class="kw">return </span><span class="prelude-val">None
 				</span>}
 
@@ -4067,7 +4104,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>}
 
 			<span class="kw">for </span>(id, peer) <span class="kw">in </span><span class="self">self</span>.peers.iter_mut() {
-				<span class="kw">if </span>peer.state.is_available() &amp;&amp; peer.common_number &gt;= sync.target_number() {
+				<span class="kw">if </span>peer.state.is_available() &amp;&amp;
+					peer.common_number &gt;= sync.target_number() &amp;&amp;
+					<span class="self">self</span>.disconnected_peers.is_peer_available(<span class="kw-2">&amp;</span>id)
+				{
 					peer.state = PeerSyncState::DownloadingState;
 					<span class="kw">let </span>request = sync.next_request();
 					<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"New StateRequest for {}: {:?}"</span>, id, request);
