@@ -443,6 +443,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2022 Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -459,7 +470,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use crate</span>::<span class="kw-2">*</span>;
+</span><span class="kw">use crate</span>::{xcm_config::LocationToAccountId, <span class="kw-2">*</span>};
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelaychainDataProvider;
 <span class="kw">use </span>cumulus_primitives_core::relay_chain;
@@ -473,13 +484,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::Pallet <span class="kw">as </span>System;
 <span class="kw">use </span>pallet_broker::{
-	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, Timeslice,
+	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, TaskId, Timeslice,
 };
 <span class="kw">use </span>parachains_common::{AccountId, Balance};
-<span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
+<span class="kw">use </span>sp_runtime::traits::{AccountIdConversion, MaybeConvert};
 <span class="kw">use </span>westend_runtime_constants::system_parachain::coretime;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>xcm_executor::traits::TransactAsset;
+<span class="kw">use </span>xcm_executor::traits::{ConvertLocation, TransactAsset};
 
 <span class="kw">pub struct </span>BurnCoretimeRevenue;
 <span class="kw">impl </span>OnUnbalanced&lt;Credit&lt;AccountId, Balances&gt;&gt; <span class="kw">for </span>BurnCoretimeRevenue {
@@ -722,6 +733,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
+<span class="kw">pub struct </span>SovereignAccountOf;
+<span class="kw">impl </span>MaybeConvert&lt;TaskId, AccountId&gt; <span class="kw">for </span>SovereignAccountOf {
+	<span class="kw">fn </span>maybe_convert(id: TaskId) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+		<span class="comment">// Currently all tasks are parachains.
+		</span><span class="kw">let </span>location = Location::new(<span class="number">1</span>, [Parachain(id)]);
+		LocationToAccountId::convert_location(<span class="kw-2">&amp;</span>location)
+	}
+}
+
 <span class="kw">impl </span>pallet_broker::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Currency = Balances;
@@ -735,6 +755,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightInfo = weights::pallet_broker::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>PalletId = BrokerPalletId;
 	<span class="kw">type </span>AdminOrigin = EnsureRoot&lt;AccountId&gt;;
+	<span class="kw">type </span>SovereignAccountOf = SovereignAccountOf;
+	<span class="kw">type </span>MaxAutoRenewals = ConstU32&lt;<span class="number">20</span>&gt;;
 	<span class="kw">type </span>PriceAdapter = pallet_broker::CenterTargetPrice&lt;Balance&gt;;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

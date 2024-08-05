@@ -462,6 +462,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#311" id="311">311</a>
 <a href="#312" id="312">312</a>
 <a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -774,6 +787,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="prelude-val">Ok</span>(())
 	}
+}
+
+<span class="doccomment">/// A record containing information regarding auto-renewal for a specific core.
+</span><span class="attr">#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+</span><span class="kw">pub struct </span>AutoRenewalRecord {
+	<span class="doccomment">/// The core for which auto renewal is enabled.
+	</span><span class="kw">pub </span>core: CoreIndex,
+	<span class="doccomment">/// The task assigned to the core. We keep track of it so we don't have to look it up when
+	/// performing auto-renewal.
+	</span><span class="kw">pub </span>task: TaskId,
+	<span class="doccomment">/// Specifies when the upcoming renewal should be performed. This is used for lease holding
+	/// tasks to ensure that the renewal process does not begin until the lease expires.
+	</span><span class="kw">pub </span>next_renewal: Timeslice,
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

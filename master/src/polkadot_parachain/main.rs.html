@@ -204,6 +204,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -256,8 +257,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>rpc;
 <span class="kw">mod </span>service;
 
-<span class="kw">fn </span>main() -&gt; sc_cli::Result&lt;()&gt; {
-	command::run()
+<span class="kw">fn </span>main() -&gt; color_eyre::eyre::Result&lt;()&gt; {
+	color_eyre::install()<span class="question-mark">?</span>;
+	<span class="prelude-val">Ok</span>(command::run()<span class="question-mark">?</span>)
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

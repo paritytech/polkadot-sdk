@@ -3478,6 +3478,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3327" id="3327">3327</a>
 <a href="#3328" id="3328">3328</a>
 <a href="#3329" id="3329">3329</a>
+<a href="#3330" id="3330">3330</a>
+<a href="#3331" id="3331">3331</a>
+<a href="#3332" id="3332">3332</a>
+<a href="#3333" id="3333">3333</a>
+<a href="#3334" id="3334">3334</a>
+<a href="#3335" id="3335">3335</a>
+<a href="#3336" id="3336">3336</a>
+<a href="#3337" id="3337">3337</a>
+<a href="#3338" id="3338">3338</a>
+<a href="#3339" id="3339">3339</a>
+<a href="#3340" id="3340">3340</a>
+<a href="#3341" id="3341">3341</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3559,7 +3571,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>pallet_session::historical <span class="kw">as </span>pallet_session_historical;
 <span class="comment">// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // &lt;https://github.com/paritytech/polkadot-sdk/issues/226&gt;
-</span><span class="attr">#[allow(deprecated)]
+</span><span class="kw">use </span>pallet_broker::TaskId;
+<span class="attr">#[allow(deprecated)]
 </span><span class="kw">pub use </span>pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 <span class="kw">use </span>pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 <span class="kw">use </span>pallet_tx_pause::RuntimeCallNameOf;
@@ -3577,8 +3590,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		<span class="self">self</span>, AccountIdConversion, BlakeTwo256, Block <span class="kw">as </span>BlockT, Bounded, ConvertInto, NumberFor,
-		OpaqueKeys, SaturatedConversion, StaticLookup,
+		<span class="self">self</span>, AccountIdConversion, BlakeTwo256, Block <span class="kw">as </span>BlockT, Bounded, ConvertInto,
+		MaybeConvert, NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber, FixedU128, Perbill, Percent, Permill, Perquintill,
@@ -5595,6 +5608,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
+<span class="kw">pub struct </span>SovereignAccountOf;
+<span class="comment">// Dummy implementation which converts `TaskId` to `AccountId`.
+</span><span class="kw">impl </span>MaybeConvert&lt;TaskId, AccountId&gt; <span class="kw">for </span>SovereignAccountOf {
+	<span class="kw">fn </span>maybe_convert(task: TaskId) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>account: [u8; <span class="number">32</span>] = [<span class="number">0</span>; <span class="number">32</span>];
+		account[..<span class="number">4</span>].copy_from_slice(<span class="kw-2">&amp;</span>task.to_le_bytes());
+		<span class="prelude-val">Some</span>(account.into())
+	}
+}
 <span class="kw">impl </span>pallet_broker::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Currency = Balances;
@@ -5607,6 +5629,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightInfo = ();
 	<span class="kw">type </span>PalletId = BrokerPalletId;
 	<span class="kw">type </span>AdminOrigin = EnsureRoot&lt;AccountId&gt;;
+	<span class="kw">type </span>SovereignAccountOf = SovereignAccountOf;
+	<span class="kw">type </span>MaxAutoRenewals = ConstU32&lt;<span class="number">10</span>&gt;;
 	<span class="kw">type </span>PriceAdapter = pallet_broker::CenterTargetPrice&lt;Balance&gt;;
 }
 
