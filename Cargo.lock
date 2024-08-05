@@ -10304,6 +10304,7 @@ dependencies = [
 name = "pallet-election-provider-multi-block"
 version = "4.0.0-dev"
 dependencies = [
+ "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
  "frame-system",

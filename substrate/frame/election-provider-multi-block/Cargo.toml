@@ -23,6 +23,7 @@ log = { version = "0.4.17", default-features = false }
 
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
+frame-benchmarking = { path = "../benchmarking", default-features = false }
 
 sp-io = { path = "../../primitives/io", default-features = false}
 sp-std = { path = "../../primitives/std", default-features = false}
@@ -49,10 +50,19 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"frame-benchmarking/std",
 	"frame-election-provider-support/std",
 	"sp-npos-elections/std",
 	"pallet-balances/std",
 ]
+
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+]
+
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",

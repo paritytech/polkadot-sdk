@@ -138,6 +138,12 @@ where
 			all_voter_pages.iter().cloned().flatten().collect::<Vec<_>>();
 
 		// useless to proceed if the solution will not be feasible.
+		log!(
+			info,
+			"---> all_targets len: {:?}, desired_targets: {:?}",
+			all_targets.len(),
+			desired_targets
+		);
 		ensure!(all_targets.len() >= desired_targets as usize, MinerError::NotEnoughTargets);
 
 		// these closures generate an efficient index mapping of each tvoter -> the snaphot
@@ -358,7 +364,7 @@ where
 
 	// Checks the feasibility of a paged solution and calculates the score associated with the
 	// page.
-	fn compute_partial_score(
+	pub(crate) fn compute_partial_score(
 		solution: &SolutionOf<T>,
 		page: PageIndex,
 	) -> Result<ElectionScore, MinerError> {

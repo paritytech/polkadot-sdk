@@ -109,20 +109,46 @@ use frame_system::pallet_prelude::BlockNumberFor;
 
 #[macro_use]
 pub mod helpers;
-#[cfg(test)]
-mod mock;
-
-const LOG_TARGET: &'static str = "runtime::multiblock-election";
 
 pub mod signed;
 pub mod types;
 pub mod unsigned;
 pub mod verifier;
+pub mod weights;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
+#[cfg(test)]
+mod mock;
 
 pub use pallet::*;
 pub use types::*;
 
-pub use crate::verifier::Verifier;
+pub use crate::{verifier::Verifier, weights::WeightInfo};
+
+/// Internal crate re-exports to use across benchmarking and tests.
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+use crate::{
+	signed::{Config as ConfigSigned, Pallet as PalletSigned},
+	unsigned::{Config as ConfigUnsigned, Pallet as PalletUnsigned},
+	verifier::{Config as ConfigVerifier, Pallet as PalletVerifier},
+	Config as ConfigCore, Pallet as PalletCore,
+};
+
+const LOG_TARGET: &'static str = "runtime::multiblock-election";
+
+/// Trait defining the benchmarking configs.
+pub trait BenchmarkingConfig {
+	/// Range of voters registerd in the system.
+	const VOTERS: u32;
+	/// Range of targets registered in the system.
+	const TARGETS: u32;
+	/// Range of voters per snapshot page.
+	const VOTERS_PER_PAGE: [u32; 2];
+	/// Range of targets per snapshot page.
+	const TARGETS_PER_PAGE: [u32; 2];
+}
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
@@ -216,6 +242,12 @@ pub mod pallet {
 		/// Something that implements an election solution verifier.
 		type Verifier: verifier::Verifier<AccountId = Self::AccountId, Solution = SolutionOf<Self>>
 			+ verifier::AsyncVerifier;
+
+		/// Benchmarking configurations for this and sub-pallets.
+		type BenchmarkingConfig: BenchmarkingConfig;
+
+		/// The weights for this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	/// Election failure strategy.
@@ -375,9 +407,9 @@ pub mod pallet {
 /// - [`PagedVoterSnapshot`]: Paginated map of voters.
 /// - [`PagedTargetSnapshot`]: Paginated map of targets.
 ///
-///	To ensure correctness and data consistency, all the reads and writes to storage items related to
-///	the snapshot and "wrapped" by this struct must be performed through the methods exposed by the
-///	implementation of [`Snapshot`].
+/// To ensure correctness and data consistency, all the reads and writes to storage items related
+/// to the snapshot and "wrapped" by this struct must be performed through the methods exposed by
+/// the implementation of [`Snapshot`].
 pub(crate) struct Snapshot<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> Snapshot<T> {
 	/// Returns the targets snapshot.
@@ -497,9 +529,22 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Note: currently, the pallet uses single page target page only.
 	fn create_targets_snapshot() -> Result<u32, ElectionError<T>> {
+		let targets = Self::create_targets_snapshot_inner(T::TargetSnapshotPerBlock::get())?;
+
+		let count = targets.len() as u32;
+		log!(info, "created target snapshot with {} targets.", count);
+
+		Snapshot::<T>::set_targets(targets);
+
+		Ok(count)
+	}
+
+	fn create_targets_snapshot_inner(
+		targets_per_page: u32,
+	) -> Result<BoundedVec<AccountIdOf<T>, T::TargetSnapshotPerBlock>, ElectionError<T>> {
 		// set target count bound as the max number of targets per block.
 		let bounds = ElectionBoundsBuilder::default()
-			.targets_count(T::TargetSnapshotPerBlock::get().into())
+			.targets_count(targets_per_page.into())
 			.build()
 			.targets;
 
@@ -513,37 +558,42 @@ impl<T: Config> Pallet<T> {
 					ElectionError::<T>::DataProvider
 				})?;
 
-		let count = targets.len() as u32;
-		log!(info, "created target snapshot with {} targets.", count);
-
-		Snapshot::<T>::set_targets(targets);
-
-		Ok(count)
+		Ok(targets)
 	}
 
 	/// Creates and store a single page of the voter snapshot.
 	fn create_voters_snapshot(remaining_pages: u32) -> Result<u32, ElectionError<T>> {
 		ensure!(remaining_pages < T::Pages::get(), ElectionError::<T>::RequestedPageExceeded);
 
+		let paged_voters: BoundedVec<_, T::VoterSnapshotPerBlock> =
+			Self::create_voters_snapshot_inner(remaining_pages, T::VoterSnapshotPerBlock::get())?;
+
+		let count = paged_voters.len() as u32;
+		log!(info, "created voter snapshot with {} voters.", count);
+
+		Snapshot::<T>::set_voters(remaining_pages, paged_voters);
+
+		Ok(count)
+	}
+
+	fn create_voters_snapshot_inner(
+		remaining_pages: u32,
+		voters_per_page: u32,
+	) -> Result<BoundedVec<VoterOf<T::DataProvider>, T::VoterSnapshotPerBlock>, ElectionError<T>> {
 		// set voter count bound as the max number of voters per page.
 		let bounds = ElectionBoundsBuilder::default()
-			.voters_count(T::VoterSnapshotPerBlock::get().into())
+			.voters_count(voters_per_page.into())
 			.build()
 			.voters;
 
-		let voters: BoundedVec<_, T::VoterSnapshotPerBlock> =
+		let paged_voters: BoundedVec<_, T::VoterSnapshotPerBlock> =
 			T::DataProvider::electing_voters(bounds, remaining_pages)
 				.and_then(|v| {
 					v.try_into().map_err(|_| "too many voters returned by the data provider")
 				})
 				.map_err(|_| ElectionError::<T>::DataProvider)?;
 
-		let count = voters.len() as u32;
-		log!(info, "created voter snapshot with {} voters.", count);
-
-		Snapshot::<T>::set_voters(remaining_pages, voters);
-
-		Ok(count)
+		Ok(paged_voters)
 	}
 
 	/// Tries to progress the snapshot.

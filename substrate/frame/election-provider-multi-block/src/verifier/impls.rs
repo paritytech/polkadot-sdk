@@ -189,6 +189,12 @@ pub(crate) mod pallet {
 		/// Computes the score and the winner count of a stored variant solution.
 		pub(crate) fn compute_current_score() -> Result<(ElectionScore, u32), FeasibilityError> {
 			// ensures that all the pages are complete;
+			log!(
+				info,
+				"backings keys: {} vs pages: {}",
+				QueuedSolutionBackings::<T>::iter_keys().count(),
+				T::Pages::get()
+			);
 			if QueuedSolutionBackings::<T>::iter_keys().count() != T::Pages::get() as usize {
 				return Err(FeasibilityError::Incomplete)
 			}
@@ -263,7 +269,7 @@ pub(crate) mod pallet {
 	/// verification. Once the solution is valid (i.e. verified), the solution backings are not
 	/// useful anymore and can be cleared.
 	#[pallet::storage]
-	type QueuedSolutionBackings<T: Config> = StorageMap<
+	pub(crate) type QueuedSolutionBackings<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		PageIndex,
@@ -443,10 +449,18 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 			*status = Status::Nothing;
 		});
 	}
+
+	// Sets current verifications status.
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	fn set_status(status: Status) {
+		VerificationStatus::<T>::put(status);
+	}
 }
 
 impl<T: impls::pallet::Config> Pallet<T> {
 	fn do_on_initialize() -> Weight {
+		log!(info, "do_in_initialize");
+
 		if let Status::Ongoing(current_page) = <VerificationStatus<T>>::get() {
 			let maybe_page_solution =
 				<T::SolutionDataProvider as SolutionDataProvider>::get_paged_solution(current_page);
@@ -513,12 +527,15 @@ impl<T: impls::pallet::Config> Pallet<T> {
 					T::SolutionDataProvider::report_result(VerificationResult::Rejected)
 				},
 			};
+		} else {
+			// nothing to do yet.
+			// TOOD(return weight reads=1)
 		}
 
 		Default::default()
 	}
 
-	fn do_verify_sync(
+	pub(crate) fn do_verify_sync(
 		partial_solution: T::Solution,
 		partial_score: ElectionScore,
 		page: PageIndex,
@@ -538,12 +555,21 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		Ok(supports)
 	}
 
-	pub fn finalize_async_verification(
+	pub(crate) fn finalize_async_verification(
 		claimed_score: ElectionScore,
 	) -> Result<(), FeasibilityError> {
 		let outcome = QueuedSolution::<T>::compute_current_score()
 			.and_then(|(final_score, winner_count)| {
 				let desired_targets = crate::Snapshot::<T>::desired_targets().unwrap_or_default();
+
+				log!(info, "final: {:?}", final_score);
+				log!(info, "claimed: {:?}", claimed_score);
+				log!(
+					info,
+					"\nwinner count: {:?} == desired targets {:?} ??",
+					winner_count,
+					desired_targets
+				);
 
 				match (final_score == claimed_score, winner_count == desired_targets) {
 					(true, true) => {
@@ -675,6 +701,12 @@ impl<T: impls::pallet::Config> Pallet<T> {
 			.map_err(|_| FeasibilityError::WrongWinnerCount)?;
 
 		Ok(bounded_supports)
+	}
+
+	/// Returns the number backings/pages verified and stored.
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	pub(crate) fn pages_backed() -> usize {
+		QueuedSolutionBackings::<T>::iter_keys().count()
 	}
 }
 

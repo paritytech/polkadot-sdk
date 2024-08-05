@@ -111,6 +111,14 @@ parameter_types! {
 	pub static ExportPhaseLimit: BlockNumber = (Pages::get() * 2u32).into();
 }
 
+pub struct EPMBenchmarkingConfigs;
+impl BenchmarkingConfig for EPMBenchmarkingConfigs {
+	const VOTERS: u32 = 100;
+	const TARGETS: u32 = 50;
+	const VOTERS_PER_PAGE: [u32; 2] = [1, 5];
+	const TARGETS_PER_PAGE: [u32; 2] = [1, 8];
+}
+
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SignedPhase = SignedPhase;
@@ -125,6 +133,8 @@ impl Config for Runtime {
 	type Solution = TestNposSolution;
 	type Fallback = MockFallback;
 	type Verifier = VerifierPallet;
+	type BenchmarkingConfig = EPMBenchmarkingConfigs;
+	type WeightInfo = ();
 }
 
 parameter_types! {

@@ -264,7 +264,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 
 parameter_types! {
 	// pub const Period: u32 = 6 * HOURS;
-	pub const Period: u32 = 7 * MINUTES;
+	pub const Period: u32 = 5 * MINUTES;
 	pub const Offset: u32 = 0;
 }
 
@@ -433,16 +433,16 @@ parameter_types! {
 
 	// phase boundaries.
 	pub SignedPhase: u32 = 0; // (1 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
-	pub UnsignedPhase: u32 = (3 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
+	pub UnsignedPhase: u32 = (2 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
 	pub SignedValidationPhase: BlockNumber = 0; // Pages::get() * SignedMaxSubmissions::get();
 	pub Lookhaead: BlockNumber = 5;
 	pub ExportPhaseLimit: BlockNumber = (Pages::get() * 2u32).into();
 
-	pub Pages: PageIndex = 3;
-	pub MaxWinnersPerPage: u32 = 10_000;
+	pub Pages: PageIndex = 2;
+	pub MaxWinnersPerPage: u32 = 100;
 	pub MaxBackersPerWinner: u32 = 10_000;
-	pub VoterSnapshotPerBlock: VoterIndex = 2_500;
-	pub TargetSnapshotPerBlock: TargetIndex = 10_000;
+	pub VoterSnapshotPerBlock: VoterIndex = 1024;
+	pub TargetSnapshotPerBlock: TargetIndex = 2048;
 
 	pub const SignedMaxSubmissions: u32 = 32;
 	pub const SignedMaxRefunds: u32 = 128 / 4;
@@ -513,6 +513,8 @@ impl pallet_epm_core::Config for Runtime {
 	)>;
 	type Verifier = ElectionVerifierPallet;
 	type DataProvider = Staking;
+	type BenchmarkingConfig = staking_common::EPMBenchmarkingConfig;
+    type WeightInfo = pallet_epm_core::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_epm_verifier::Config for Runtime {
@@ -552,7 +554,7 @@ impl pallet_epm_unsigned::Config for Runtime {
 	type MinerTxPriority = MinerTxPriority;
 	type MaxLength = MinerSolutionMaxLength;
 	type MaxWeight = MinerSolutionMaxWeight;
-	type WeightInfo = ();
+    type WeightInfo = pallet_epm_unsigned::weights::SubstrateWeight<Runtime>;
 }
 
 pub struct OnChainSeqPhragmen;

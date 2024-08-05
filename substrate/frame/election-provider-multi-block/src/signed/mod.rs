@@ -45,6 +45,9 @@
 //! allows anyone to clean up the submissions storage with a small reward from the submission
 //! deposit (clean up storage submissions and all corresponding metadata).
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 #[cfg(test)]
 mod tests;
 
@@ -337,7 +340,7 @@ pub mod pallet {
 		/// If `maybe_solution` is None, it will delete the given page from the submission store.
 		/// Successive calls to this with the same page index will replace the existing page
 		/// submission.
-		fn try_mutate_page(
+		pub(crate) fn try_mutate_page(
 			who: &T::AccountId,
 			round: u32,
 			page: PageIndex,
@@ -412,7 +415,6 @@ pub mod pallet {
 	}
 
 	#[allow(dead_code)]
-	#[cfg(any(test, debug_assertions))]
 	impl<T: Config> Submissions<T> {
 		/// Returns the metadata of a submitter for a given account.
 		pub(crate) fn metadata_for(
@@ -447,6 +449,31 @@ pub mod pallet {
 		}
 	}
 
+	impl<T: Config> Pallet<T> {
+		pub(crate) fn do_register(
+			who: &T::AccountId,
+			claimed_score: ElectionScore,
+			round: u32,
+		) -> DispatchResult {
+			let deposit = T::DepositBase::convert(
+				SubmissionMetadataStorage::<T>::iter_key_prefix(round).count(),
+			);
+
+			T::Currency::hold(&HoldReason::ElectionSolutionSubmission.into(), &who, deposit)?;
+
+			let pages: BoundedVec<_, T::Pages> = (0..T::Pages::get())
+				.map(|_| false)
+				.collect::<Vec<_>>()
+				.try_into()
+				.expect("bounded vec constructed from bound; qed.");
+
+			let metadata = SubmissionMetadata { pages, claimed_score, deposit };
+
+			let _ = Submissions::<T>::try_register(&who, round, metadata)?;
+			Ok(())
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Submit a score commitment for a solution in the current round.
@@ -466,21 +493,7 @@ pub mod pallet {
 				Error::<T>::DuplicateRegister
 			);
 
-			let deposit = T::DepositBase::convert(
-				SubmissionMetadataStorage::<T>::iter_key_prefix(round).count(),
-			);
-
-			T::Currency::hold(&HoldReason::ElectionSolutionSubmission.into(), &who, deposit)?;
-
-			let pages: BoundedVec<_, T::Pages> = (0..T::Pages::get())
-				.map(|_| false)
-				.collect::<Vec<_>>()
-				.try_into()
-				.expect("bounded vec constructed from bound; qed.");
-
-			let metadata = SubmissionMetadata { pages, claimed_score, deposit };
-
-			let _ = Submissions::<T>::try_register(&who, round, metadata)?;
+			Self::do_register(&who, claimed_score, round)?;
 
 			Self::deposit_event(Event::<T>::Registered { round, who, claimed_score });
 			Ok(())

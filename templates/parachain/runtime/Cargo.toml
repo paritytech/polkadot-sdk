@@ -190,7 +190,7 @@ runtime-benchmarks = [
   "pallet-staking/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
-  #"pallet-election-provider-multi-block/runtime-benchmarks",
+  "pallet-election-provider-multi-block/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",

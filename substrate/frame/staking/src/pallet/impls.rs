@@ -1447,7 +1447,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn add_target(target: T::AccountId) {
-		let stake = MinValidatorBond::<T>::get() * 100u32.into();
+		let stake = (MinValidatorBond::<T>::get() + 1u32.into()) * 100u32.into();
 		<Bonded<T>>::insert(target.clone(), target.clone());
 		<Ledger<T>>::insert(target.clone(), StakingLedger::<T>::new(target.clone(), stake));
 		Self::do_add_validator(
@@ -1499,6 +1499,11 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 				Nominations { targets: t, submitted_in: 0, suppressed: false },
 			);
 		});
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_desired_targets(count: u32) {
+		ValidatorCount::<T>::put(count);
 	}
 }
 

@@ -63,6 +63,10 @@
 //! solution for the current round.
 
 mod impls;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 #[cfg(test)]
 mod tests;
 
@@ -241,6 +245,10 @@ pub trait AsyncVerifier: Verifier {
 	///
 	/// An implementation must ensure that all related state and storage items are cleaned.
 	fn stop();
+
+	/// Sets current status. Only used for benchmarks and tests.
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	fn set_status(status: Status);
 }
 
 /// Encapsulates the result of the verification of a candidate solution.

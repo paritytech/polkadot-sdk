@@ -55,13 +55,22 @@
 //! is a queued solution for the current era. The solution will be added to the storage through the
 //! inherent [`Call::submit_page_unsigned`] only if the computed (total) solution score is strictly
 //! better than the current queued solution.
+
 pub mod miner;
+pub mod weights;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 #[cfg(test)]
 mod tests;
 
 use crate::{
-	unsigned::miner::{OffchainMinerError, OffchainWorkerMiner},
-	verifier, Pallet as EPM, Phase, SolutionAccuracyOf, SolutionOf, Verifier,
+	unsigned::{
+		miner::{OffchainMinerError, OffchainWorkerMiner},
+		weights::WeightInfo,
+	},
+	verifier, BenchmarkingConfig, Pallet as EPM, Phase, SolutionAccuracyOf, SolutionOf, Verifier,
 };
 use frame_election_provider_support::PageIndex;
 use frame_support::{
@@ -87,7 +96,6 @@ pub(crate) mod pallet {
 	use frame_system::{
 		ensure_none,
 		pallet_prelude::{BlockNumberFor, OriginFor},
-		weights::WeightInfo,
 	};
 
 	#[pallet::config]
@@ -120,6 +128,7 @@ pub(crate) mod pallet {
 		/// The weight is computed using `solution_weight`.
 		type MaxWeight: Get<Weight>;
 
+		/// The weights for this pallet.
 		type WeightInfo: WeightInfo;
 	}
 
@@ -132,9 +141,6 @@ pub(crate) mod pallet {
 		/// Unsigned solution submitted successfully.
 		UnsignedSolutionSubmitted { at: BlockNumberFor<T>, page: PageIndex },
 	}
-
-	#[pallet::storage]
-	pub type Something<T: Config> = StorageMap<_, Twox64Concat, u32, u32>;
 
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
@@ -289,8 +295,11 @@ impl<T: Config> Pallet<T> {
 		match (crate::Pallet::<T>::current_phase(), missing_solution_page) {
 			(Phase::Unsigned(_), Some(page)) => {
 				let (full_score, partial_score, partial_solution) =
-					OffchainWorkerMiner::<T>::mine(page)?;
-				//OffchainWorkerMiner::<T>::fetch_or_mine(page)?;
+					//OffchainWorkerMiner::<T>::fetch_or_mine(page).map_err(|err| {
+					OffchainWorkerMiner::<T>::mine(page).map_err(|err| {
+						sublog!(error, "unsigned", "OCW mine error: {:?}", err);
+						err
+				})?;
 
 				// submit page only if full score improves the current queued score.
 				if <T::Verifier as Verifier>::ensure_score_improves(full_score) {
