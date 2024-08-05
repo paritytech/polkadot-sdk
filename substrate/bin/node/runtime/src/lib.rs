@@ -2157,7 +2157,7 @@ impl pallet_distribution::Config for Runtime {
 
 	/// This the minimum required time period between project whitelisting
 	/// and payment/reward_claim from the treasury.
-	type PaymentPeriod = Period;
+	type BufferPeriod = Period;
 
 	/// Maximum number of whitelisted projects
 	type MaxProjects = MaxProjects;

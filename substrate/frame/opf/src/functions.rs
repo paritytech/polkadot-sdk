@@ -85,7 +85,7 @@ impl<T: Config> Pallet<T> {
 
 			// Send calculated reward for distribution
 			let now =
-				<frame_system::Pallet<T>>::block_number().checked_add(&T::PaymentPeriod::get()).ok_or(Error::<T>::InvalidResult)?;
+				<frame_system::Pallet<T>>::block_number().checked_add(&T::BufferPeriod::get()).ok_or(Error::<T>::InvalidResult)?;
 			let project_info = ProjectInfo {
 				project_account: project,
 				submission_block: now,
@@ -131,7 +131,7 @@ impl<T: Config> Pallet<T> {
 			let _= Self::calculate_rewards(T::TemporaryRewards::get()).map_err(|_| Error::<T>::FailedRewardCalculation);
 		}
 
-		// Create a new round when we reach the end of the round.  
+		// Create a new round when we reach the end of the current round.  
 		if (now % round_ending_block).is_zero(){
 			let _= VotingRoundInfo::<T>::new();
 		}

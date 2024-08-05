@@ -60,7 +60,7 @@ impl<T: Config> SpendingInfo<T> {
 		let claimed = false;
 		let status = SpendingState::default();
 		let valid_from =
-			<frame_system::Pallet<T>>::block_number().saturating_add(T::PaymentPeriod::get());
+			<frame_system::Pallet<T>>::block_number().saturating_add(T::BufferPeriod::get());
 
 		let spending = SpendingInfo { amount, valid_from, status, whitelisted_project, claimed };
 

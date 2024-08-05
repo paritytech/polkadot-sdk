@@ -39,10 +39,10 @@ pub mod pallet {
 
 		type RuntimeHoldReason: From<HoldReason>;
 
-		/// This the minimum required time period between project whitelisting
+		/// This the minimum required buffer time period between project nomination
 		/// and payment/reward_claim from the treasury.
 		#[pallet::constant]
-		type PaymentPeriod: Get<BlockNumberFor<Self>>;
+		type BufferPeriod: Get<BlockNumberFor<Self>>;
 
 		/// Maximum number projects that can be accepted by this pallet
 		#[pallet::constant]
