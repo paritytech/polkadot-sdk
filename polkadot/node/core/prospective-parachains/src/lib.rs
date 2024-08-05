@@ -43,6 +43,7 @@ use polkadot_node_subsystem::{
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_util::{
+	backing_implicit_view::{BlockInfoProspectiveParachains as BlockInfo, View as ImplicitView},
 	inclusion_emulator::{Constraints, RelayChainBlockInfo},
 	request_session_index_for_child,
 	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
@@ -74,43 +75,31 @@ const LOG_TARGET: &str = "parachain::prospective-parachains";
 struct RelayBlockViewData {
 	// The fragment chains for current and upcoming scheduled paras.
 	fragment_chains: HashMap<ParaId, FragmentChain>,
-	// The relay parent number of this leaf.
-	number: u32,
 }
 
 struct View {
-	// Active relay-chain blocks by block hash.
-	active_leaves: HashMap<Hash, RelayBlockViewData>,
-	// Inactive leaves that are still in scope.
-	implicit_leaves: HashMap<Hash, RelayBlockViewData>,
-	// The minimum relay parent number allowed as ancestry across all active leaves. All implicit
-	// and active leaves have a higher relay parent number.
-	// `None` if it wasn't yet computed. This can be a bit wasteful, as there may be multiple relay
-	// parents at this height. We could keep track of the paths to each active leaf to optimize
-	// this. However, the complexity isn't justified.
-	min_relay_parent: Option<u32>,
+	// Per relay parent fragment chains. These includes all relay parents under the implicit view.
+	per_relay_parent: HashMap<Hash, RelayBlockViewData>,
+	// The hashes of the currently active leaves. This is a subset of the keys in
+	// `per_relay_parent`.
+	active_leaves: HashSet<Hash>,
+	// The backing implicit view.
+	implicit_view: ImplicitView,
 }
 
 impl View {
 	// Initialize with empty values.
 	fn new() -> Self {
 		View {
-			active_leaves: HashMap::new(),
-			implicit_leaves: HashMap::new(),
-			min_relay_parent: None,
+			per_relay_parent: HashMap::new(),
+			active_leaves: HashSet::new(),
+			implicit_view: ImplicitView::default(),
 		}
 	}
 
-	// Get the fragment chains of this leaf (active or inactive).
+	// Get the fragment chains of this leaf.
 	fn get_fragment_chains(&self, leaf: &Hash) -> Option<&HashMap<ParaId, FragmentChain>> {
-		self.active_leaves
-			.get(&leaf)
-			.map(|view_data| &view_data.fragment_chains)
-			.or_else(|| {
-				self.implicit_leaves
-					.get(leaf)
-					.map(|inactive_leaf| &inactive_leaf.fragment_chains)
-			})
+		self.per_relay_parent.get(&leaf).map(|view_data| &view_data.fragment_chains)
 	}
 }
 
@@ -196,15 +185,15 @@ async fn handle_active_leaves_update<Context>(
 	update: ActiveLeavesUpdate,
 	metrics: &Metrics,
 ) -> JfyiErrorResult<()> {
-	// For any active leaf:
+	// For any new active leaf:
 	// - determine the scheduled paras
 	// - pre-populate the candidate storage with pending availability candidates and candidates from
 	//   the parent leaf
 	// - populate the fragment chain
+	// - add it to the implicit view
 	//
-	// Clean up the leaves from the implicit view that have went out of scope.
-	// Process the newly-deactivated leaves. Remove them from the active leaves set and keep them as
-	// implicit leaves if their relay parent is still in scope.
+	// Then mark the newly-deactivated leaves as deactivated and update the implicit view.
+	// Finally, remove any relay parents that are no longer part of the implicit view.
 
 	let _timer = metrics.time_handle_active_leaves_update();
 
@@ -242,22 +231,21 @@ async fn handle_active_leaves_update<Context>(
 
 		let scheduled_paras = fetch_upcoming_paras(ctx, hash).await?;
 
-		let block_info: RelayChainBlockInfo =
-			match fetch_block_info(ctx, &mut temp_header_cache, hash).await? {
-				None => {
-					gum::warn!(
-						target: LOG_TARGET,
-						block_hash = ?hash,
-						"Failed to get block info for newly activated leaf block."
-					);
+		let block_info = match fetch_block_info(ctx, &mut temp_header_cache, hash).await? {
+			None => {
+				gum::warn!(
+					target: LOG_TARGET,
+					block_hash = ?hash,
+					"Failed to get block info for newly activated leaf block."
+				);
 
-					// `update.activated` is an option, but we can use this
-					// to exit the 'loop' and skip this block without skipping
-					// pruning logic.
-					continue
-				},
-				Some(info) => info,
-			};
+				// `update.activated` is an option, but we can use this
+				// to exit the 'loop' and skip this block without skipping
+				// pruning logic.
+				continue
+			},
+			Some(info) => info,
+		};
 
 		let ancestry =
 			fetch_ancestry(ctx, &mut temp_header_cache, hash, allowed_ancestry_len).await?;
@@ -319,11 +307,14 @@ async fn handle_active_leaves_update<Context>(
 			}
 
 			let scope = match FragmentChainScope::with_ancestors(
-				block_info.clone(),
+				block_info.clone().into(),
 				constraints,
 				compact_pending,
 				max_candidate_depth,
-				ancestry.iter().cloned(),
+				ancestry
+					.iter()
+					.map(|a| RelayChainBlockInfo::from(a.clone()))
+					.collect::<Vec<_>>(),
 			) {
 				Ok(scope) => scope,
 				Err(unexpected_ancestors) => {
@@ -397,65 +388,52 @@ async fn handle_active_leaves_update<Context>(
 			fragment_chains.insert(para, chain);
 		}
 
-		let min_relay_parent = ancestry.last().map_or(block_info.number, |rp| rp.number);
+		view.per_relay_parent.insert(hash, RelayBlockViewData { fragment_chains });
 
-		view.active_leaves
-			.insert(hash, RelayBlockViewData { fragment_chains, number: block_info.number });
+		view.active_leaves.insert(hash);
 
-		view.min_relay_parent = view
-			.min_relay_parent
-			.map(|min_rp| std::cmp::min(min_rp, min_relay_parent))
-			.or(Some(min_relay_parent));
+		view.implicit_view
+			.activate_leaf_from_prospective_parachains(block_info, &ancestry);
 	}
 
-	// Delete the already inactive leaves that have now went out of scope.
-	view.implicit_leaves.retain(|_, implicit_leaf| {
-		matches!(
-			view.min_relay_parent,
-			Some(min_relay_parent) if implicit_leaf.number >= min_relay_parent
-		)
-	});
+	for deactivated in update.deactivated {
+		view.active_leaves.remove(&deactivated);
+		view.implicit_view.deactivate_leaf(deactivated);
+	}
 
-	for deactivated_leaf in update.deactivated {
-		// First, remove the leaves from the active set.
-		let Some(removed) = view.active_leaves.remove(&deactivated_leaf) else { continue };
-		// Add the leaf to the implicit view, if the relay parent is still in scope.
-		if matches!(view.min_relay_parent, Some(min_relay_parent) if removed.number >= min_relay_parent)
-		{
-			view.implicit_leaves.insert(
-				deactivated_leaf,
-				RelayBlockViewData {
-					fragment_chains: removed.fragment_chains,
-					number: removed.number,
-				},
-			);
-		}
+	{
+		let remaining: HashSet<_> = view.implicit_view.all_allowed_relay_parents().collect();
+
+		view.per_relay_parent.retain(|r, _| remaining.contains(&r));
 	}
 
 	if metrics.0.is_some() {
-		let mut connected = 0;
-		let mut unconnected = 0;
-		for RelayBlockViewData { fragment_chains, .. } in view.active_leaves.values() {
-			for chain in fragment_chains.values() {
-				connected += chain.best_chain_len();
-				unconnected += chain.unconnected_len();
-			}
-		}
-
-		metrics.record_candidate_count(connected as u64, unconnected as u64);
-
+		let mut active_connected = 0;
+		let mut active_unconnected = 0;
 		let mut candidates_in_implicit_view = 0;
-		for RelayBlockViewData { fragment_chains, .. } in view.implicit_leaves.values() {
-			for chain in fragment_chains.values() {
-				candidates_in_implicit_view += chain.best_chain_len();
-				candidates_in_implicit_view += chain.unconnected_len();
+
+		for (hash, RelayBlockViewData { fragment_chains, .. }) in view.per_relay_parent.iter() {
+			if view.active_leaves.contains(hash) {
+				for chain in fragment_chains.values() {
+					active_connected += chain.best_chain_len();
+					active_unconnected += chain.unconnected_len();
+				}
+			} else {
+				for chain in fragment_chains.values() {
+					candidates_in_implicit_view += chain.best_chain_len();
+					candidates_in_implicit_view += chain.unconnected_len();
+				}
 			}
 		}
 
+		metrics.record_candidate_count(active_connected as u64, active_unconnected as u64);
 		metrics.record_candidate_count_in_implicit_view(candidates_in_implicit_view as u64);
 	}
 
-	metrics.record_leaves_count(view.active_leaves.len() as u64, view.implicit_leaves.len() as u64);
+	let num_active_leaves = view.active_leaves.len() as u64;
+	let num_inactive_leaves =
+		(view.per_relay_parent.len() as u64).saturating_sub(num_active_leaves);
+	metrics.record_leaves_count(num_active_leaves, num_inactive_leaves);
 
 	Ok(())
 }
@@ -508,7 +486,7 @@ async fn preprocess_candidates_pending_availability<Context>(
 			},
 			compact: fragment_chain::PendingAvailability {
 				candidate_hash: pending.candidate_hash,
-				relay_parent,
+				relay_parent: relay_parent.into(),
 			},
 		});
 
@@ -550,7 +528,9 @@ async fn handle_introduce_seconded_candidate(
 
 	let mut added = false;
 	let mut para_scheduled = false;
-	for (leaf, leaf_data) in view.active_leaves.iter_mut() {
+	for leaf in view.active_leaves.iter() {
+		let Some(leaf_data) = view.per_relay_parent.get_mut(leaf) else { continue };
+
 		if let Some(chain) = leaf_data.fragment_chains.get_mut(&para) {
 			para_scheduled = true;
 
@@ -620,7 +600,9 @@ async fn handle_candidate_backed(
 
 	let mut found_candidate = false;
 	let mut found_para = false;
-	for (leaf, leaf_data) in view.active_leaves.iter_mut() {
+	for leaf in view.active_leaves.iter() {
+		let Some(leaf_data) = view.per_relay_parent.get_mut(leaf) else { continue };
+
 		if let Some(chain) = leaf_data.fragment_chains.get_mut(&para) {
 			found_para = true;
 			if chain.is_candidate_backed(&candidate_hash) {
@@ -691,12 +673,23 @@ fn answer_get_backable_candidates(
 	ancestors: Ancestors,
 	tx: oneshot::Sender<Vec<(CandidateHash, Hash)>>,
 ) {
-	let Some(data) = view.active_leaves.get(&relay_parent) else {
+	if !view.active_leaves.contains(&relay_parent) {
 		gum::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
 			para_id = ?para,
 			"Requested backable candidate for inactive relay-parent."
+		);
+
+		let _ = tx.send(vec![]);
+		return
+	}
+	let Some(data) = view.per_relay_parent.get(&relay_parent) else {
+		gum::debug!(
+			target: LOG_TARGET,
+			?relay_parent,
+			para_id = ?para,
+			"Requested backable candidate for inexistent relay-parent."
 		);
 
 		let _ = tx.send(vec![]);
@@ -768,11 +761,12 @@ fn answer_hypothetical_membership_request(
 	}
 
 	let required_active_leaf = request.fragment_chain_relay_parent;
-	for (active_leaf, leaf_view) in view
+	for active_leaf in view
 		.active_leaves
 		.iter()
-		.filter(|(h, _)| required_active_leaf.as_ref().map_or(true, |x| h == &x))
+		.filter(|h| required_active_leaf.as_ref().map_or(true, |x| h == &x))
 	{
+		let Some(leaf_view) = view.per_relay_parent.get(&active_leaf) else { continue };
 		for &mut (ref candidate, ref mut membership) in &mut response {
 			let para_id = &candidate.candidate_para();
 			let Some(fragment_chain) = leaf_view.fragment_chains.get(para_id) else { continue };
@@ -805,9 +799,11 @@ fn answer_minimum_relay_parents_request(
 	tx: oneshot::Sender<Vec<(ParaId, BlockNumber)>>,
 ) {
 	let mut v = Vec::new();
-	if let Some(leaf_data) = view.active_leaves.get(&relay_parent) {
-		for (para_id, fragment_chain) in &leaf_data.fragment_chains {
-			v.push((*para_id, fragment_chain.scope().earliest_relay_parent().number));
+	if view.active_leaves.contains(&relay_parent) {
+		if let Some(leaf_data) = view.per_relay_parent.get(&relay_parent) {
+			for (para_id, fragment_chain) in &leaf_data.fragment_chains {
+				v.push((*para_id, fragment_chain.scope().earliest_relay_parent().number));
+			}
 		}
 	}
 
@@ -829,11 +825,11 @@ fn answer_prospective_validation_data_request(
 	let mut relay_parent_info = None;
 	let mut max_pov_size = None;
 
-	for fragment_chain in view
-		.active_leaves
-		.values()
-		.filter_map(|x| x.fragment_chains.get(&request.para_id))
-	{
+	for fragment_chain in view.active_leaves.iter().filter_map(|x| {
+		view.per_relay_parent
+			.get(&x)
+			.and_then(|data| data.fragment_chains.get(&request.para_id))
+	}) {
 		if head_data.is_some() && relay_parent_info.is_some() && max_pov_size.is_some() {
 			break
 		}
@@ -944,7 +940,7 @@ async fn fetch_ancestry<Context>(
 	cache: &mut HashMap<Hash, Header>,
 	relay_hash: Hash,
 	ancestors: usize,
-) -> JfyiErrorResult<Vec<RelayChainBlockInfo>> {
+) -> JfyiErrorResult<Vec<BlockInfo>> {
 	if ancestors == 0 {
 		return Ok(Vec::new())
 	}
@@ -1023,12 +1019,13 @@ async fn fetch_block_info<Context>(
 	ctx: &mut Context,
 	cache: &mut HashMap<Hash, Header>,
 	relay_hash: Hash,
-) -> JfyiErrorResult<Option<RelayChainBlockInfo>> {
+) -> JfyiErrorResult<Option<BlockInfo>> {
 	let header = fetch_block_header_with_cache(ctx, cache, relay_hash).await?;
 
-	Ok(header.map(|header| RelayChainBlockInfo {
+	Ok(header.map(|header| BlockInfo {
 		hash: relay_hash,
 		number: header.number,
+		parent_hash: header.parent_hash,
 		storage_root: header.state_root,
 	}))
 }
