@@ -4,7 +4,7 @@ version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "PALLET two phase election providers"
 
@@ -27,7 +27,6 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 
 sp-io = { workspace = true }
-sp-std = { workspace = true }
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }
 sp-npos-elections = { workspace = true }
@@ -68,7 +67,6 @@ std = [
 	"sp-io/std",
 	"sp-npos-elections/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-tracing/std",
 	"strum/std",
 ]

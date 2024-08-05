@@ -32,6 +32,9 @@ mod trie_recorder;
 
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
+pub use alloc::{boxed::Box, slice};
+#[cfg(not(feature = "std"))]
+#[doc(hidden)]
 pub use bytes;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]

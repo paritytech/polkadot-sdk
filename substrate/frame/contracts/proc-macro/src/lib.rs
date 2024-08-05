@@ -649,7 +649,7 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 			quote! {
 				let result = #body;
 				if ::log::log_enabled!(target: "runtime::contracts::strace", ::log::Level::Trace) {
-						use sp_std::fmt::Write;
+						use core::fmt::Write;
 						let mut w = sp_std::Writer::default();
 						let _ = core::write!(&mut w, #trace_fmt_str, #( #trace_fmt_args, )* result);
 						let msg = core::str::from_utf8(&w.inner()).unwrap_or_default();

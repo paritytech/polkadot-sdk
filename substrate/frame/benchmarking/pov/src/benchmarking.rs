@@ -247,7 +247,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn measured_storage_value_read_linear_size(l: Linear<0, { 1 << 22 }>) {
-		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
+		let v: sp_runtime::BoundedVec<u8, _> = alloc::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
 		#[block]
 		{
@@ -257,7 +257,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = MaxEncodedLen)]
 	fn mel_storage_value_read_linear_size(l: Linear<0, { 1 << 22 }>) {
-		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
+		let v: sp_runtime::BoundedVec<u8, _> = alloc::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
 		#[block]
 		{
@@ -267,7 +267,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn measured_storage_double_value_read_linear_size(l: Linear<0, { 1 << 22 }>) {
-		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
+		let v: sp_runtime::BoundedVec<u8, _> = alloc::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
 		LargeValue2::<T>::put(&v);
 		#[block]
@@ -279,7 +279,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = MaxEncodedLen)]
 	fn mel_storage_double_value_read_linear_size(l: Linear<0, { 1 << 22 }>) {
-		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
+		let v: sp_runtime::BoundedVec<u8, _> = alloc::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
 		LargeValue2::<T>::put(&v);
 		#[block]
@@ -293,7 +293,7 @@ mod benchmarks {
 		Pov::LargeValue2: Measured
 	})]
 	fn mel_mixed_storage_double_value_read_linear_size(l: Linear<0, { 1 << 22 }>) {
-		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
+		let v: sp_runtime::BoundedVec<u8, _> = alloc::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
 		LargeValue2::<T>::put(&v);
 		#[block]
@@ -307,7 +307,7 @@ mod benchmarks {
 		Pov::LargeValue2: MaxEncodedLen
 	})]
 	fn measured_mixed_storage_double_value_read_linear_size(l: Linear<0, { 1 << 22 }>) {
-		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
+		let v: sp_runtime::BoundedVec<u8, _> = alloc::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
 		LargeValue2::<T>::put(&v);
 		#[block]
@@ -319,8 +319,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn storage_map_unbounded_both_measured_read(i: Linear<0, 1000>) {
-		UnboundedMap::<T>::insert(i, sp_std::vec![0; i as usize]);
-		UnboundedMap2::<T>::insert(i, sp_std::vec![0; i as usize]);
+		UnboundedMap::<T>::insert(i, alloc::vec![0; i as usize]);
+		UnboundedMap2::<T>::insert(i, alloc::vec![0; i as usize]);
 		#[block]
 		{
 			assert!(UnboundedMap::<T>::get(i).is_some());
@@ -333,7 +333,7 @@ mod benchmarks {
 	})]
 	fn storage_map_partial_unbounded_read(i: Linear<0, 1000>) {
 		Map1M::<T>::insert(i, 0);
-		UnboundedMap::<T>::insert(i, sp_std::vec![0; i as usize]);
+		UnboundedMap::<T>::insert(i, alloc::vec![0; i as usize]);
 		#[block]
 		{
 			assert!(Map1M::<T>::get(i).is_some());
@@ -346,7 +346,7 @@ mod benchmarks {
 	})]
 	fn storage_map_partial_unbounded_ignored_read(i: Linear<0, 1000>) {
 		Map1M::<T>::insert(i, 0);
-		UnboundedMap::<T>::insert(i, sp_std::vec![0; i as usize]);
+		UnboundedMap::<T>::insert(i, alloc::vec![0; i as usize]);
 		#[block]
 		{
 			assert!(Map1M::<T>::get(i).is_some());
@@ -379,7 +379,7 @@ mod benchmarks {
 	#[benchmark]
 	fn storage_iteration() {
 		for i in 0..65000 {
-			UnboundedMapTwox::<T>::insert(i, sp_std::vec![0; 64]);
+			UnboundedMapTwox::<T>::insert(i, alloc::vec![0; 64]);
 		}
 		#[block]
 		{

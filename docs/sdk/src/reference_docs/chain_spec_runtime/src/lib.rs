@@ -19,6 +19,8 @@
 
 //! A minimal runtime that shows runtime genesis state.
 
+extern crate alloc;
+
 pub mod pallets;
 pub mod presets;
 pub mod runtime;

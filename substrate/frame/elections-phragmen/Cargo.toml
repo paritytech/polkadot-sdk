@@ -4,7 +4,7 @@ version = "29.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet based on seq-Phragmén election method."
 readme = "README.md"
@@ -28,7 +28,6 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-npos-elections = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 sp-staking = { workspace = true }
 
 [dev-dependencies]
@@ -52,7 +51,6 @@ std = [
 	"sp-npos-elections/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 	"sp-tracing/std",
 ]
 runtime-benchmarks = [
