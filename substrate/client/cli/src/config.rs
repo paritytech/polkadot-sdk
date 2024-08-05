@@ -187,13 +187,8 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			NetworkConfiguration::new(node_name, client_id, node_key, Some(net_config_dir))
 		};
 
-		if is_validator && network_config.public_addresses.is_empty() {
-			eprintln!(
-				"WARNING: No public address specified, validator node may not be reachable.
-				Consider setting `--public-addr` to the public IP address of this node.
-				This will become a hard requirement in future versions."
-			);
-		}
+		// TODO: Return error here in the next release.
+		if is_validator && network_config.public_addresses.is_empty() {}
 
 		Ok(network_config)
 	}
@@ -647,6 +642,14 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		logger_hook(&mut logger, config);
 
 		logger.init()?;
+
+		if config.role.is_authority() && config.network.public_addresses.is_empty() {
+			warn!(
+				"WARNING: No public address specified, validator node may not be reachable.
+				Consider setting `--public-addr` to the public IP address of this node.
+				This will become a hard requirement in future versions."
+			);
+		}
 
 		match fdlimit::raise_fd_limit() {
 			Ok(fdlimit::Outcome::LimitRaised { to, .. }) =>
