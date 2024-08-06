@@ -107,7 +107,7 @@ pub struct RpcHandlers {
 
 	// This can be used to introspect the port the RPC server is listening on. SDK consumers are
 	// depending on this and it should be supported even if in-memory query support is removed.
-	listen_addresses: Box<Vec<Multiaddr>>,
+	listen_addresses: Vec<Multiaddr>,
 }
 
 impl RpcHandlers {

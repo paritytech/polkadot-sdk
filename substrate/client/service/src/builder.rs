@@ -534,7 +534,7 @@ where
 
 	let rpc_handlers = RpcHandlers {
 		rpc_module: Arc::new(gen_rpc_module(sc_rpc::DenyUnsafe::No)?.into()),
-		listen_addresses: Box::new(listen_addrs),
+		listen_addresses: listen_addrs,
 	};
 
 	// Spawn informant task
