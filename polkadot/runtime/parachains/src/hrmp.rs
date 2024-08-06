@@ -945,7 +945,7 @@ impl<T: Config> Pallet<T> {
 			outgoing_paras.len() as u32
 		))
 		.saturating_add(<T as Config>::WeightInfo::force_process_hrmp_close(
-			outgoing_paras.len() as u32,
+			outgoing_paras.len() as u32
 		))
 	}
 
