@@ -17,10 +17,15 @@
 use crate::{
 	chain_spec::{self, GenericChainSpec},
 	cli::{Cli, RelayChainCli, Subcommand},
-	common::{spec::DynNodeSpec, types::Block, NodeExtraArgs},
+	common::{
+		spec::DynNodeSpec,
+		types::{Block, CustomBlock},
+		NodeExtraArgs,
+	},
+	fake_runtime_api,
 	fake_runtime_api::{
 		asset_hub_polkadot::RuntimeApi as AssetHubPolkadotRuntimeApi,
-		aura::RuntimeApi as AuraRuntimeApi,
+		aura::default::RuntimeApi as AuraRuntimeApi,
 	},
 	service::{new_aura_node_spec, ShellNode},
 };
@@ -40,18 +45,22 @@ use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::traits::HashingFor;
 use std::{net::SocketAddr, path::PathBuf};
 
+/// The choice of block number for the parachain omni-node.
+#[derive(PartialEq, Eq, Debug, Default)]
+enum BlockNumber {
+	#[default]
+	U32,
+	// TODO: Expose this option in the CLI or read it from the chain spec if possible
+	#[allow(dead_code)]
+	U64,
+}
+
 /// The choice of consensus for the parachain omni-node.
 #[derive(PartialEq, Eq, Debug, Default)]
-pub enum Consensus {
+enum Consensus {
 	/// Aura consensus.
 	#[default]
 	Aura,
-	/// Use the relay chain consensus.
-	// TODO: atm this is just a demonstration, not really reach-able. We can add it to the CLI,
-	// env, or the chain spec. Or, just don't, and when we properly refactor this mess we will
-	// re-introduce it.
-	#[allow(unused)]
-	Relay,
 }
 
 /// Helper enum that is used for better distinction of different parachain/runtime configuration
@@ -60,7 +69,7 @@ pub enum Consensus {
 enum Runtime {
 	/// None of the system-chain runtimes, rather the node will act agnostic to the runtime ie. be
 	/// an omni-node, and simply run a node with the given consensus algorithm.
-	Omni(Consensus),
+	Omni(BlockNumber, Consensus),
 	Shell,
 	Seedling,
 	AssetHubPolkadot,
@@ -144,7 +153,7 @@ fn runtime(id: &str) -> Runtime {
 			so Runtime::Omni(Consensus::Aura) will be used",
 			id
 		);
-		Runtime::Omni(Consensus::Aura)
+		Runtime::Omni(BlockNumber::U32, Consensus::Aura)
 	}
 }
 
@@ -401,9 +410,14 @@ fn new_node_spec(
 		Runtime::Glutton |
 		Runtime::Penpal(_) => new_aura_node_spec::<Block, AuraRuntimeApi, AuraId>(extra_args),
 		Runtime::Shell | Runtime::Seedling => Box::new(ShellNode),
-		Runtime::Omni(consensus) => match consensus {
-			Consensus::Aura => new_aura_node_spec::<Block, AuraRuntimeApi, AuraId>(extra_args),
-			Consensus::Relay => Box::new(ShellNode),
+		Runtime::Omni(block_num, consensus) => match (block_num, consensus) {
+			(BlockNumber::U32, Consensus::Aura) =>
+				new_aura_node_spec::<Block, AuraRuntimeApi, AuraId>(extra_args),
+			(BlockNumber::U64, Consensus::Aura) => new_aura_node_spec::<
+				CustomBlock<u64>,
+				fake_runtime_api::aura::u64_block::RuntimeApi,
+				AuraId,
+			>(extra_args),
 		},
 	})
 }
@@ -742,7 +756,7 @@ impl CliConfiguration<Self> for RelayChainCli {
 mod tests {
 	use crate::{
 		chain_spec::{get_account_id_from_seed, get_from_seed},
-		command::{Consensus, Runtime, RuntimeResolver},
+		command::{BlockNumber, Consensus, Runtime, RuntimeResolver},
 	};
 	use sc_chain_spec::{ChainSpec, ChainSpecExtension, ChainSpecGroup, ChainType, Extension};
 	use serde::{Deserialize, Serialize};
@@ -850,6 +864,6 @@ mod tests {
 			&temp_dir,
 			&crate::chain_spec::rococo_parachain::rococo_parachain_local_config(),
 		);
-		assert_eq!(Runtime::Omni(Consensus::Aura), path.runtime().unwrap());
+		assert_eq!(Runtime::Omni(BlockNumber::U32, Consensus::Aura), path.runtime().unwrap());
 	}
 }

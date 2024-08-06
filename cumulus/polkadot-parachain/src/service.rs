@@ -25,7 +25,7 @@ use crate::{
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	fake_runtime_api::aura::RuntimeApi as FakeRuntimeApi,
+	fake_runtime_api::aura::default::RuntimeApi as FakeRuntimeApi,
 };
 use cumulus_client_collator::service::{
 	CollatorService, ServiceInterface as CollatorServiceInterface,

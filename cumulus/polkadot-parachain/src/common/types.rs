@@ -15,14 +15,20 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
+use cumulus_primitives_core::relay_chain::UncheckedExtrinsic;
 use sc_consensus::DefaultImportQueue;
 use sc_executor::WasmExecutor;
 use sc_service::{PartialComponents, TFullBackend, TFullClient};
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
 use sc_transaction_pool::FullPool;
+use sp_runtime::{generic, traits::BlakeTwo256};
 use std::sync::Arc;
 
-pub use parachains_common::{AccountId, Balance, Block, Hash, Nonce};
+pub use parachains_common::{AccountId, Balance, Hash, Nonce};
+
+type Header<BlockNumber> = generic::Header<BlockNumber, BlakeTwo256>;
+pub type CustomBlock<BlockNumber> = generic::Block<Header<BlockNumber>, UncheckedExtrinsic>;
+pub type Block = CustomBlock<u32>;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 pub type ParachainHostFunctions = cumulus_client_service::ParachainHostFunctions;

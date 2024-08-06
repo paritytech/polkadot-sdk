@@ -34,6 +34,18 @@ pub mod aura {
 	use super::{utils::imports::*, *};
 	use parachains_common::AuraId;
 
-	pub struct FakeRuntime;
-	impl_node_runtime_apis!(FakeRuntime, Block, AuraId);
+	pub mod default {
+		use super::*;
+		pub struct FakeRuntime;
+		impl_node_runtime_apis!(FakeRuntime, Block, AuraId);
+	}
+
+	pub mod u64_block {
+		use super::*;
+		use crate::common::types::CustomBlock;
+
+		type Block = CustomBlock<u64>;
+		pub struct FakeRuntime;
+		impl_node_runtime_apis!(FakeRuntime, Block, AuraId);
+	}
 }
