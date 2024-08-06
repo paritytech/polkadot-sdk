@@ -227,11 +227,12 @@ impl PalletCmd {
 			// Enable storage tracking
 			true,
 		)?;
+
 		let state_without_tracking = BenchmarkingState::<Hasher>::new(
 			genesis_storage,
 			cache_size,
-			// Do not record proof size
-			false,
+			// Proof recording depends on CLI settings
+			!self.disable_proof_recording,
 			// Do not enable storage tracking
 			false,
 		)?;
