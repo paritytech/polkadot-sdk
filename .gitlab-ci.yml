@@ -262,7 +262,6 @@ test-frame-ui-fl:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -282,7 +281,6 @@ test-frame-ui:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
   before_script:
     - !reference [.common-before-script, before_script]
     - !reference [.prepare-env, before_script]
