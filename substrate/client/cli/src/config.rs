@@ -188,7 +188,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		};
 
 		// TODO: Return error here in the next release.
-		if is_validator && network_config.public_addresses.is_empty() {}
+		// if is_validator && network_config.public_addresses.is_empty() {}
 
 		Ok(network_config)
 	}
