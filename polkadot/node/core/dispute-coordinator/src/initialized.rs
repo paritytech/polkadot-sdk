@@ -1351,7 +1351,7 @@ impl Initialized {
 				}
 			}
 			for validator_index in new_state.votes().invalid.keys() {
-				gum::trace!(
+				gum::debug!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?validator_index,
@@ -1381,7 +1381,7 @@ impl Initialized {
 			}
 			for (validator_index, (kind, _sig)) in new_state.votes().valid.raw() {
 				let is_backer = kind.is_backing();
-				gum::trace!(
+				gum::debug!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?validator_index,
