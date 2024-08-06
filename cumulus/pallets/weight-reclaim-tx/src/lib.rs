@@ -181,8 +181,12 @@ where
 	) -> Result<Option<Weight>, TransactionValidityError> {
 		let (pre_dispatch_proof_size, inner_pre) = pre;
 
-		let inner_weight =
-			S::post_dispatch_details(inner_pre, info, post_info, len, result, context)?;
+		let mut actual_post_info = *post_info;
+		S::post_dispatch(inner_pre, info, &mut actual_post_info, len, result, context)?;
+
+		let inner_weight = actual_post_info
+			.actual_weight
+			.map(|actual_weight| actual_weight.saturating_sub(post_info.actual_weight.unwrap()));
 
 		let Some(pre_dispatch_proof_size) = pre_dispatch_proof_size else {
 			// No information
