@@ -54,7 +54,8 @@ impl<T: Config> Pallet<T> {
 	pub fn calculate_rewards(total_reward: BalanceOf<T>) -> DispatchResult {
 		let projects = WhiteListedProjectAccounts::<T>::get();
 		let votes = Votes::<T>::iter();
-		let mut total_votes_amount = BalanceOf::<T>::zero();
+		if projects.clone().len() > 0 as usize{
+			let mut total_votes_amount = BalanceOf::<T>::zero();
 
 		// Total amount from all votes
 		for vote in votes {
@@ -80,7 +81,9 @@ impl<T: Config> Pallet<T> {
 			}
 			}
 
-			let project_percentage = Percent::from_rational(project_reward, total_votes_amount);
+
+			if !project_reward.is_zero(){
+				let project_percentage = Percent::from_rational(project_reward, total_votes_amount);
 			let final_amount = project_percentage.mul_floor(total_reward);
 
 			// Send calculated reward for distribution
@@ -98,7 +101,23 @@ impl<T: Config> Pallet<T> {
 			Distribution::Projects::<T>::mutate(|value| {
 				*value = rewarded;
 			});
+			} else {
+				// remove unfunded project from whitelisted storage
+				Self::remove_unfunded_project(project)?;
+			}
+			
 		}
+		}
+		
+		Ok(())
+	}
+
+	pub fn remove_unfunded_project(project_id: ProjectId<T>) -> DispatchResult{
+		WhiteListedProjectAccounts::<T>::mutate(|value|{
+			let mut val = value.clone();
+			val.retain(|x| *x != project_id);
+			*value = val;
+		});
 		Ok(())
 	}
 
@@ -110,6 +129,7 @@ impl<T: Config> Pallet<T> {
 		// Check current round: If block is a multiple of round_locked_period,
 		let round_index = VotingRoundsNumber::<T>::get();
 
+		// No active round?
 		if round_index == 0 {
 			// Start the first voting round
 			let round0 = VotingRoundInfo::<T>::new();
@@ -121,10 +141,10 @@ impl<T: Config> Pallet<T> {
 		let voting_locked_block = round_infos.voting_locked_block;
 		let round_ending_block = round_infos.round_ending_block;
 
-		// Conditions for distribution prepartions are: 
-		// We are within voting_round period
-		// We are past the voting_round_lock block
-		// We are at the beginning of an epoch
+		// Conditions for distribution preparations are: 
+		// - We are within voting_round period
+		// - We are past the voting_round_lock block
+		// - We are at the beginning of an epoch
 		if (now > voting_locked_block) && (now < round_ending_block) && (now % epoch).is_zero() {
 			// prepare reward distribution
 			// for now we are using the temporary-constant reward. 

@@ -73,6 +73,9 @@ pub mod pallet {
 		/// This account is not connected to any WhiteListed Project.
 		NotWhitelistedProject,
 
+		/// There are no whitelisted project
+		NoWhitelistedProject,
+
 		/// The voting action failed.
 		VoteFailed,
 

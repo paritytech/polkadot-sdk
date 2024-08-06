@@ -8,7 +8,7 @@ to offer to the user claiming rewards for a project, a choice between more than 
  
 The **Distribution Pallet** receives a list of Whitelisted/Nominated Projects with
 their respective calculated rewards. For each project,it will create a corresponding 
-spending that will be stored until until the project reward can be claimed. At the moment, the reward claim period corresponds to the beginning of an ***Epoch*** + a ***BufferPeriod*** (The ***BufferPeriod*** can be configured in the runtime).
+spending that will be stored until until the project reward can be claimed. At the moment, the reward claim period corresponds to: [beginning of an ***Epoch*** + ***BufferPeriod***] (The ***BufferPeriod*** can be configured in the runtime).
 
 
 ### Terminology
