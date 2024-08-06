@@ -21,6 +21,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_must_use)]
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
@@ -44,7 +47,6 @@ use sp_runtime::{
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::{offence::OffenceReportSystem, SessionIndex};
-use sp_std::prelude::*;
 
 pub use sp_consensus_babe::AuthorityId;
 
@@ -315,7 +317,7 @@ pub mod pallet {
 		pub authorities: Vec<(AuthorityId, BabeAuthorityWeight)>,
 		pub epoch_config: BabeEpochConfiguration,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -687,7 +689,7 @@ impl<T: Config> Pallet<T> {
 
 		// Update the start blocks of the previous and new current epoch.
 		EpochStart::<T>::mutate(|(previous_epoch_start_block, current_epoch_start_block)| {
-			*previous_epoch_start_block = sp_std::mem::take(current_epoch_start_block);
+			*previous_epoch_start_block = core::mem::take(current_epoch_start_block);
 			*current_epoch_start_block = <frame_system::Pallet<T>>::block_number();
 		});
 
@@ -868,7 +870,7 @@ impl<T: Config> Pallet<T> {
 	/// randomness. Returns the new randomness.
 	fn randomness_change_epoch(next_epoch_index: u64) -> BabeRandomness {
 		let this_randomness = NextRandomness::<T>::get();
-		let segment_idx: u32 = SegmentIndex::<T>::mutate(|s| sp_std::mem::replace(s, 0));
+		let segment_idx: u32 = SegmentIndex::<T>::mutate(|s| core::mem::replace(s, 0));
 
 		// overestimate to the segment being full.
 		let rho_size = (segment_idx.saturating_add(1) * UNDER_CONSTRUCTION_SEGMENT_LENGTH) as usize;
@@ -1055,7 +1057,7 @@ pub mod migrations {
 		fn pallet_prefix() -> &'static str;
 	}
 
-	struct __OldNextEpochConfig<T>(sp_std::marker::PhantomData<T>);
+	struct __OldNextEpochConfig<T>(core::marker::PhantomData<T>);
 	impl<T: BabePalletPrefix> frame_support::traits::StorageInstance for __OldNextEpochConfig<T> {
 		fn pallet_prefix() -> &'static str {
 			T::pallet_prefix()

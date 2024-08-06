@@ -16,7 +16,6 @@ codec = { features = ["derive"], workspace = true }
 sp-runtime = { workspace = true }
 sp-state-machine = { workspace = true }
 sp-trie = { workspace = true }
-sp-std = { workspace = true }
 
 # Polkadot
 polkadot-primitives = { workspace = true }
@@ -32,6 +31,5 @@ std = [
 	"polkadot-primitives/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 	"sp-trie/std",
 ]

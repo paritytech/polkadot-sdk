@@ -40,7 +40,9 @@ mod imports {
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test,
 			TestArgs, TestContext, TestExt,
 		},
-		xcm_helpers::{non_fee_asset, xcm_transact_paid_execution},
+		xcm_helpers::{
+			get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution,
+		},
 		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, XCM_V3,
 	};
 	pub use parachains_common::Balance;
@@ -52,6 +54,7 @@ mod imports {
 					XcmConfig as AssetHubRococoXcmConfig,
 				},
 				AssetConversionOrigin as AssetHubRococoAssetConversionOrigin,
+				ExistentialDeposit as AssetHubRococoExistentialDeposit,
 			},
 			genesis::{AssetHubRococoAssetOwner, ED as ASSET_HUB_ROCOCO_ED},
 			AssetHubRococoParaPallet as AssetHubRococoPallet,

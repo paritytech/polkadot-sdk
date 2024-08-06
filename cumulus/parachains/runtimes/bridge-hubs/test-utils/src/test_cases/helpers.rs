@@ -22,7 +22,9 @@ use asset_test_utils::BasicParachainRuntime;
 use bp_messages::{LaneId, MessageNonce};
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
 use bp_relayers::RewardsAccountParams;
+use bp_runtime::Chain;
 use codec::Decode;
+use core::marker::PhantomData;
 use frame_support::{
 	assert_ok,
 	traits::{OnFinalize, OnInitialize, PalletInfoAccess},
@@ -37,7 +39,6 @@ use parachains_runtimes_test_utils::{
 use sp_core::Get;
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::TrailingZeroInput, AccountId32};
-use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 
 /// Verify that the transaction has succeeded.
@@ -267,6 +268,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 		InteriorLocation,
 		MessageNonce,
 		Xcm<()>,
+		bp_runtime::ChainId,
 	) -> CallsAndVerifiers<Runtime>,
 ) where
 	Runtime: BasicParachainRuntime + cumulus_pallet_xcmp_queue::Config + BridgeMessagesConfig<MPI>,
@@ -278,6 +280,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 	let relayer_at_target = Bob;
 	let relayer_id_on_target: AccountId32 = relayer_at_target.public().into();
 	let relayer_id_on_source = relayer_id_at_bridged_chain::<Runtime, MPI>();
+	let bridged_chain_id = Runtime::BridgedChain::ID;
 
 	assert_ne!(runtime_para_id, sibling_parachain_id);
 
@@ -290,7 +293,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 			// value here is tricky - there are several transaction payment pallets and we don't
 			// want to introduce additional bounds and traits here just for that, so let's just
 			// select some presumably large value
-			sp_std::cmp::max::<Runtime::Balance>(Runtime::ExistentialDeposit::get(), 1u32.into()) *
+			core::cmp::max::<Runtime::Balance>(Runtime::ExistentialDeposit::get(), 1u32.into()) *
 				100_000_000u32.into(),
 		)],
 		|| {
@@ -339,6 +342,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 					message_destination,
 					message_nonce,
 					xcm.clone().into(),
+					bridged_chain_id,
 				),
 			);
 

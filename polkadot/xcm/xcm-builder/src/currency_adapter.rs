@@ -19,9 +19,9 @@
 #![allow(deprecated)]
 
 use super::MintLocation;
+use core::{marker::PhantomData, result};
 use frame_support::traits::{ExistenceRequirement::AllowDeath, Get, WithdrawReasons};
 use sp_runtime::traits::CheckedSub;
-use sp_std::{marker::PhantomData, result};
 use xcm::latest::{Asset, Error as XcmError, Location, Result, XcmContext};
 use xcm_executor::{
 	traits::{ConvertLocation, MatchesFungible, TransactAsset},
