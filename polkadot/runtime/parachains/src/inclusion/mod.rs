@@ -588,7 +588,20 @@ impl<T: Config> Pallet<T> {
 								commitments: candidate.commitments,
 							};
 
-							let enact_weight = Self::enact_candidate(
+							let has_runtime_upgrade =
+								if receipt.commitments.new_validation_code.is_some() {
+									1
+								} else {
+									0
+								};
+							let u = receipt.commitments.upward_messages.len() as u32;
+							let h = receipt.commitments.horizontal_messages.len() as u32;
+							let enact_weight = <T as Config>::WeightInfo::enact_candidate(
+								u,
+								h,
+								has_runtime_upgrade,
+							);
+							Self::enact_candidate(
 								candidate.relay_parent_number,
 								receipt,
 								candidate.backers,
@@ -850,7 +863,7 @@ impl<T: Config> Pallet<T> {
 		availability_votes: BitVec<u8, BitOrderLsb0>,
 		core_index: CoreIndex,
 		backing_group: GroupIndex,
-	) -> Weight {
+	) {
 		let plain = receipt.to_plain();
 		let commitments = receipt.commitments;
 		let config = configuration::ActiveConfig::<T>::get();
@@ -871,38 +884,36 @@ impl<T: Config> Pallet<T> {
 				.map(|(i, _)| ValidatorIndex(i as _)),
 		);
 
-		// initial weight is config read.
-		let mut weight = T::DbWeight::get().reads_writes(1, 0);
 		if let Some(new_code) = commitments.new_validation_code {
 			// Block number of candidate's inclusion.
 			let now = frame_system::Pallet::<T>::block_number();
 
-			weight.saturating_add(paras::Pallet::<T>::schedule_code_upgrade(
+			paras::Pallet::<T>::schedule_code_upgrade(
 				receipt.descriptor.para_id,
 				new_code,
 				now,
 				&config,
 				UpgradeStrategy::SetGoAheadSignal,
-			));
+			);
 		}
 
 		// enact the messaging facet of the candidate.
-		weight.saturating_accrue(dmp::Pallet::<T>::prune_dmq(
+		dmp::Pallet::<T>::prune_dmq(
 			receipt.descriptor.para_id,
 			commitments.processed_downward_messages,
-		));
+		);
 		Self::receive_upward_messages(
 			receipt.descriptor.para_id,
 			commitments.upward_messages.as_slice(),
 		);
-		weight.saturating_accrue(hrmp::Pallet::<T>::prune_hrmp(
+		hrmp::Pallet::<T>::prune_hrmp(
 			receipt.descriptor.para_id,
 			BlockNumberFor::<T>::from(commitments.hrmp_watermark),
-		));
-		weight.saturating_accrue(hrmp::Pallet::<T>::queue_outbound_hrmp(
+		);
+		hrmp::Pallet::<T>::queue_outbound_hrmp(
 			receipt.descriptor.para_id,
 			commitments.horizontal_messages,
-		));
+		);
 
 		Self::deposit_event(Event::<T>::CandidateIncluded(
 			plain,
@@ -911,11 +922,11 @@ impl<T: Config> Pallet<T> {
 			backing_group,
 		));
 
-		weight.saturating_add(paras::Pallet::<T>::note_new_head(
+		paras::Pallet::<T>::note_new_head(
 			receipt.descriptor.para_id,
 			commitments.head_data,
 			relay_parent_number,
-		))
+		);
 	}
 
 	pub(crate) fn relay_dispatch_queue_size(para_id: ParaId) -> (u32, u32) {
@@ -1119,7 +1130,7 @@ impl<T: Config> Pallet<T> {
 						commitments: candidate.commitments,
 					};
 
-					let _weight = Self::enact_candidate(
+					Self::enact_candidate(
 						candidate.relay_parent_number,
 						receipt,
 						candidate.backers,
