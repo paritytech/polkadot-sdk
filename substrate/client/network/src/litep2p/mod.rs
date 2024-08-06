@@ -920,7 +920,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						let mut addresses = self.external_addresses.write();
 
 						if addresses.insert(address.clone()) {
-							log::info!(target: LOG_TARGET, "discovered new external address for our node: {address}");
+							log::info!(target: LOG_TARGET, "🔍 Discovered new external address for our node: {address}");
 						}
 					}
 					Some(DiscoveryEvent::Ping { peer, rtt }) => {
