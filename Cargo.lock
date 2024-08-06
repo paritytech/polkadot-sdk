@@ -13845,6 +13845,7 @@ dependencies = [
  "bridge-hub-westend-runtime",
  "clap 4.5.11",
  "collectives-westend-runtime",
+ "color-eyre",
  "color-print",
  "contracts-rococo-runtime",
  "coretime-rococo-runtime",
