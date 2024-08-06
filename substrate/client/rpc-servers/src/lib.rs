@@ -65,7 +65,6 @@ impl Server {
 	}
 
 	/// Returns the `jsonrpsee::server::ServerHandle` for this Server. Can be used to perform
-	/// in-memory RPC queries.
 	pub fn handle(&self) -> &ServerHandle {
 		&self.handle
 	}
