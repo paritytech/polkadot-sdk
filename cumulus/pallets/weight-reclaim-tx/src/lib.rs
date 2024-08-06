@@ -36,7 +36,7 @@ use frame_support::{
 use sp_runtime::{
 	traits::{
 		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
-		TransactionExtensionBase,
+		TransactionExtensionBase, AccrueWeight,
 	},
 	transaction_validity::{TransactionValidityError, ValidTransaction},
 	DispatchResult,
@@ -179,18 +179,36 @@ where
 		result: &DispatchResult,
 		context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
+		log::error!(
+			target: LOG_TARGET,
+			"Calling the post dispatch details of an aggregating transaction extensions is \
+			invalid. No information can sensibly be returned for `pays_fee`."
+		);
+
+		let mut post_info_copy = *post_info;
+
+		Self::post_dispatch(pre, info, &mut post_info_copy, len, result, context)?;
+		post_info_copy.accrue(T::WeightInfo::storage_weight_reclaim());
+
+		Ok(post_info_copy.actual_weight)
+	}
+
+	fn post_dispatch(
+		pre: Self::Pre,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &mut PostDispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+		result: &DispatchResult,
+		context: &Context,
+	) -> Result<(), TransactionValidityError> {
 		let (pre_dispatch_proof_size, inner_pre) = pre;
 
-		let mut actual_post_info = *post_info;
-		S::post_dispatch(inner_pre, info, &mut actual_post_info, len, result, context)?;
-
-		let inner_weight = actual_post_info
-			.actual_weight
-			.map(|actual_weight| actual_weight.saturating_sub(post_info.actual_weight.unwrap()));
+		S::post_dispatch(inner_pre, info, post_info, len, result, context)?;
+		post_info.accrue(T::WeightInfo::storage_weight_reclaim());
 
 		let Some(pre_dispatch_proof_size) = pre_dispatch_proof_size else {
 			// No information
-			return Ok(inner_weight);
+			return Ok(());
 		};
 
 		let Some(post_dispatch_proof_size) = get_proof_size() else {
@@ -198,7 +216,7 @@ where
 				target: LOG_TARGET,
 				"Proof recording enabled during prepare, now disabled. This should not happen."
 			);
-			return Ok(inner_weight)
+			return Ok(())
 		};
 
 		let benchmarked_weight = info.total_weight().proof_size();
@@ -232,6 +250,6 @@ where
 			}
 		});
 
-		Ok(inner_weight)
+		Ok(())
 	}
 }
