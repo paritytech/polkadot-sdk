@@ -2692,6 +2692,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2541" id="2541">2541</a>
 <a href="#2542" id="2542">2542</a>
 <a href="#2543" id="2543">2543</a>
+<a href="#2544" id="2544">2544</a>
+<a href="#2545" id="2545">2545</a>
+<a href="#2546" id="2546">2546</a>
+<a href="#2547" id="2547">2547</a>
+<a href="#2548" id="2548">2548</a>
+<a href="#2549" id="2549">2549</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3023,7 +3029,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			WeightToFee =&gt; T::WeightInfo::seal_weight_to_fee(),
 			Terminate(locked_dependencies) =&gt; T::WeightInfo::seal_terminate(locked_dependencies),
 			Random =&gt; T::WeightInfo::seal_random(),
-			DepositEvent { num_topic, len } =&gt; T::WeightInfo::seal_deposit_event(num_topic, len),
+			<span class="comment">// Given a 2-second block time and hardcoding a `ref_time` of 60,000 picoseconds per
+			// byte  (event_ref_time), the max allocation size is 32MB per block.
+			</span>DepositEvent { num_topic, len } =&gt; T::WeightInfo::seal_deposit_event(num_topic, len)
+				.saturating_add(Weight::from_parts(
+					T::Schedule::get().limits.event_ref_time.saturating_mul(len.into()),
+					<span class="number">0</span>,
+				)),
 			DebugMessage(len) =&gt; T::WeightInfo::seal_debug_message(len),
 			SetStorage { new_bytes, old_bytes } =&gt;
 				<span class="macro">cost_storage!</span>(write, seal_set_storage, new_bytes, old_bytes),

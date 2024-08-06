@@ -2076,6 +2076,65 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1925" id="1925">1925</a>
 <a href="#1926" id="1926">1926</a>
 <a href="#1927" id="1927">1927</a>
+<a href="#1928" id="1928">1928</a>
+<a href="#1929" id="1929">1929</a>
+<a href="#1930" id="1930">1930</a>
+<a href="#1931" id="1931">1931</a>
+<a href="#1932" id="1932">1932</a>
+<a href="#1933" id="1933">1933</a>
+<a href="#1934" id="1934">1934</a>
+<a href="#1935" id="1935">1935</a>
+<a href="#1936" id="1936">1936</a>
+<a href="#1937" id="1937">1937</a>
+<a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
+<a href="#1940" id="1940">1940</a>
+<a href="#1941" id="1941">1941</a>
+<a href="#1942" id="1942">1942</a>
+<a href="#1943" id="1943">1943</a>
+<a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
+<a href="#1950" id="1950">1950</a>
+<a href="#1951" id="1951">1951</a>
+<a href="#1952" id="1952">1952</a>
+<a href="#1953" id="1953">1953</a>
+<a href="#1954" id="1954">1954</a>
+<a href="#1955" id="1955">1955</a>
+<a href="#1956" id="1956">1956</a>
+<a href="#1957" id="1957">1957</a>
+<a href="#1958" id="1958">1958</a>
+<a href="#1959" id="1959">1959</a>
+<a href="#1960" id="1960">1960</a>
+<a href="#1961" id="1961">1961</a>
+<a href="#1962" id="1962">1962</a>
+<a href="#1963" id="1963">1963</a>
+<a href="#1964" id="1964">1964</a>
+<a href="#1965" id="1965">1965</a>
+<a href="#1966" id="1966">1966</a>
+<a href="#1967" id="1967">1967</a>
+<a href="#1968" id="1968">1968</a>
+<a href="#1969" id="1969">1969</a>
+<a href="#1970" id="1970">1970</a>
+<a href="#1971" id="1971">1971</a>
+<a href="#1972" id="1972">1972</a>
+<a href="#1973" id="1973">1973</a>
+<a href="#1974" id="1974">1974</a>
+<a href="#1975" id="1975">1975</a>
+<a href="#1976" id="1976">1976</a>
+<a href="#1977" id="1977">1977</a>
+<a href="#1978" id="1978">1978</a>
+<a href="#1979" id="1979">1979</a>
+<a href="#1980" id="1980">1980</a>
+<a href="#1981" id="1981">1981</a>
+<a href="#1982" id="1982">1982</a>
+<a href="#1983" id="1983">1983</a>
+<a href="#1984" id="1984">1984</a>
+<a href="#1985" id="1985">1985</a>
+<a href="#1986" id="1986">1986</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2192,7 +2251,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	gas::GasMeter,
 	storage::{meter::Meter <span class="kw">as </span>StorageMeter, ContractInfo, DeletionQueueManager},
-	wasm::{CodeInfo, WasmBlob},
+	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
 };
 <span class="kw">use </span>codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
 <span class="kw">use </span>core::fmt::Debug;
@@ -2748,7 +2807,66 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="string">"Debug buffer should have minimum size of {} (current setting is {})"</span>,
 				MIN_DEBUG_BUF_SIZE,
 				T::MaxDebugBufferLen::get(),
-			)
+			);
+
+			<span class="comment">// Validators are configured to be able to use more memory than block builders. This is
+			// because in addition to `max_runtime_mem` they need to hold additional data in
+			// memory: PoV in multiple copies (1x encoded + 2x decoded) and all storage which
+			// includes emitted events. The assumption is that storage/events size
+			// can be a maximum of half of the validator runtime memory - max_runtime_mem.
+			</span><span class="kw">let </span>max_block_ref_time = T::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.max_total
+				.unwrap_or_else(|| T::BlockWeights::get().max_block)
+				.ref_time();
+			<span class="kw">let </span>max_payload_size = T::Schedule::get().limits.payload_len;
+			<span class="kw">let </span>max_key_size =
+				Key::&lt;T&gt;::try_from_var(<span class="macro">alloc::vec!</span>[<span class="number">0u8</span>; T::MaxStorageKeyLen::get() <span class="kw">as </span>usize])
+					.expect(<span class="string">"Key of maximal size shall be created"</span>)
+					.hash()
+					.len() <span class="kw">as </span>u32;
+
+			<span class="comment">// We can use storage to store items using the available block ref_time with the
+			// `set_storage` host function.
+			</span><span class="kw">let </span>max_storage_size: u32 = ((max_block_ref_time /
+				(&lt;RuntimeCosts <span class="kw">as </span>gas::Token&lt;T&gt;&gt;::weight(<span class="kw-2">&amp;</span>RuntimeCosts::SetStorage {
+					new_bytes: max_payload_size,
+					old_bytes: <span class="number">0</span>,
+				})
+				.ref_time()))
+			.saturating_mul(max_payload_size.saturating_add(max_key_size) <span class="kw">as </span>u64))
+			.try_into()
+			.expect(<span class="string">"Storage size too big"</span>);
+
+			<span class="kw">let </span>max_validator_runtime_mem: u32 = T::Schedule::get().limits.validator_runtime_memory;
+			<span class="kw">let </span>storage_size_limit = max_validator_runtime_mem.saturating_sub(max_runtime_mem) / <span class="number">2</span>;
+
+			<span class="macro">assert!</span>(
+				max_storage_size &lt; storage_size_limit,
+				<span class="string">"Maximal storage size {} exceeds the storage limit {}"</span>,
+				max_storage_size,
+				storage_size_limit
+			);
+
+			<span class="comment">// We can use storage to store events using the available block ref_time with the
+			// `deposit_event` host function. The overhead of stored events, which is around 100B,
+			// is not taken into account to simplify calculations, as it does not change much.
+			</span><span class="kw">let </span>max_events_size: u32 = ((max_block_ref_time /
+				(&lt;RuntimeCosts <span class="kw">as </span>gas::Token&lt;T&gt;&gt;::weight(<span class="kw-2">&amp;</span>RuntimeCosts::DepositEvent {
+					num_topic: <span class="number">0</span>,
+					len: max_payload_size,
+				})
+				.ref_time()))
+			.saturating_mul(max_payload_size <span class="kw">as </span>u64))
+			.try_into()
+			.expect(<span class="string">"Events size too big"</span>);
+
+			<span class="macro">assert!</span>(
+				max_events_size &lt; storage_size_limit,
+				<span class="string">"Maximal events size {} exceeds the events limit {}"</span>,
+				max_events_size,
+				storage_size_limit
+			);
 		}
 	}
 

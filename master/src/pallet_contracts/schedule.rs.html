@@ -288,6 +288,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -379,6 +389,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The maximum node runtime memory. This is for integrity checks only and does not affect the
 	/// real setting.
 	</span><span class="kw">pub </span>runtime_memory: u32,
+
+	<span class="doccomment">/// The maximum validator node runtime memory. This is for integrity checks only and does not
+	/// affect the real setting.
+	</span><span class="kw">pub </span>validator_runtime_memory: u32,
+
+	<span class="doccomment">/// The additional ref_time added to the `deposit_event` host function call per event data
+	/// byte.
+	</span><span class="kw">pub </span>event_ref_time: u64,
 }
 
 <span class="kw">impl </span>Limits {
@@ -411,6 +429,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			subject_len: <span class="number">32</span>,
 			payload_len: <span class="number">16 </span>* <span class="number">1024</span>,
 			runtime_memory: <span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">128</span>,
+			validator_runtime_memory: <span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">512</span>,
+			event_ref_time: <span class="number">60_000</span>,
 		}
 	}
 }
