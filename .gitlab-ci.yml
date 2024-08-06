@@ -262,6 +262,7 @@ test-frame-ui-fl:
   extends:
     - .docker-env
     - .common-refs
+  parallel: 3
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -285,6 +286,7 @@ test-frame-ui:
     - !reference [.common-before-script, before_script]
     - !reference [.prepare-env, before_script]
     - !reference [.rust-info-script, script]
+  parallel: 3
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
