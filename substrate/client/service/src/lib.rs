@@ -62,6 +62,7 @@ pub use self::{
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
+	metrics::MetricsService,
 };
 #[allow(deprecated)]
 pub use builder::new_native_or_wasm_executor;
