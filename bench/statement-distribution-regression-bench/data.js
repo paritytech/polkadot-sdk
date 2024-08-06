@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722964177591,
+  "lastUpdate": 1722974396325,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -7475,6 +7475,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04587051390599999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "291c082cbbb0c838c886f38040e54424c55d9618",
+          "message": "Improve Pallet UI doc test (#5264)\n\nTest currently failing, therefore improving to include a file from the\nsame crate to not trip up the caching.\n\nR0 silent since this is only modifying unpublished crates.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2024-08-06T18:04:21Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/291c082cbbb0c838c886f38040e54424c55d9618"
+        },
+        "date": 1722974365106,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.93399999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03702615041400001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.045834972454000006,
             "unit": "seconds"
           }
         ]
