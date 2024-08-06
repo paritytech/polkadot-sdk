@@ -262,7 +262,7 @@ test-frame-ui-fl:
   extends:
     - .docker-env
     - .common-refs
-  parallel: 3
+  parallel: 5
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -273,7 +273,7 @@ test-frame-ui-fl:
     # Ensure we run the UI tests.
     RUN_UI_TESTS: 1
   script:
-    - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental
+    - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental --test pallet
 
 # if this fails run `bot update-ui` in the Pull Request or "./scripts/update-ui-tests.sh" locally
 # see ./docs/contributor/CONTRIBUTING.md#ui-tests
@@ -286,7 +286,7 @@ test-frame-ui:
     - !reference [.common-before-script, before_script]
     - !reference [.prepare-env, before_script]
     - !reference [.rust-info-script, script]
-  parallel: 3
+  parallel: 5
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
@@ -297,7 +297,7 @@ test-frame-ui:
     # Ensure we run the UI tests.
     RUN_UI_TESTS: 1
   script:
-    - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental
+    - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental --test pallet
 
 remove-cancel-pipeline-message:
   stage: .post
