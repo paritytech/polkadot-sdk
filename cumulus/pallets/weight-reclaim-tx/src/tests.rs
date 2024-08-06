@@ -19,15 +19,15 @@
 
 use super::*;
 use cumulus_primitives_proof_size_hostfunction::PROOF_RECORDING_DISABLED;
-use frame_support::{assert_ok, derive_impl, pallet_prelude::DispatchClass};
+use frame_support::{
+	assert_ok, derive_impl, dispatch::GetDispatchInfo, pallet_prelude::DispatchClass,
+};
 use sp_runtime::{
 	generic,
-	traits::{BlakeTwo256, DispatchTransaction},
+	traits::{Applyable, BlakeTwo256, DispatchTransaction},
 	BuildStorage,
 };
 use sp_trie::proof_size_extension::ProofSizeExt;
-use frame_support::dispatch::GetDispatchInfo;
-use sp_runtime::traits::Applyable;
 
 thread_local! {
 	static CHECK_WEIGHT_WEIGHT: core::cell::RefCell<Weight> = Default::default();
@@ -65,13 +65,8 @@ impl<Context> TransactionExtension<RuntimeCall, Context> for MockExtensionWithRe
 	sp_runtime::impl_tx_ext_default!(RuntimeCall; Context; validate prepare);
 }
 
-pub type Tx = crate::StorageWeightReclaim<
-	Test,
-	(
-		MockExtensionWithRefund,
-		frame_system::CheckWeight<Test>,
-	)
->;
+pub type Tx =
+	crate::StorageWeightReclaim<Test, (MockExtensionWithRefund, frame_system::CheckWeight<Test>)>;
 type AccountId = u64;
 type Extrinsic = generic::UncheckedExtrinsic<AccountId, RuntimeCall, (), Tx>;
 type Block = generic::Block<generic::Header<AccountId, BlakeTwo256>, Extrinsic>;
@@ -102,13 +97,27 @@ mod runtime {
 pub struct MockWeightInfo;
 
 impl frame_system::ExtensionsWeightInfo for MockWeightInfo {
-	fn check_genesis() -> Weight { Default::default() }
-	fn check_mortality() -> Weight { Default::default() }
-	fn check_non_zero_sender() -> Weight { Default::default() }
-	fn check_nonce() -> Weight { Default::default() }
-	fn check_spec_version() -> Weight { Default::default() }
-	fn check_tx_version() -> Weight { Default::default() }
-	fn check_weight() -> Weight { CHECK_WEIGHT_WEIGHT.with_borrow(|v| v.clone()) }
+	fn check_genesis() -> Weight {
+		Default::default()
+	}
+	fn check_mortality() -> Weight {
+		Default::default()
+	}
+	fn check_non_zero_sender() -> Weight {
+		Default::default()
+	}
+	fn check_nonce() -> Weight {
+		Default::default()
+	}
+	fn check_spec_version() -> Weight {
+		Default::default()
+	}
+	fn check_tx_version() -> Weight {
+		Default::default()
+	}
+	fn check_weight() -> Weight {
+		CHECK_WEIGHT_WEIGHT.with_borrow(|v| v.clone())
+	}
 }
 
 impl crate::WeightInfo for MockWeightInfo {
@@ -179,10 +188,7 @@ const ALICE_ORIGIN: frame_system::Origin<Test> = frame_system::Origin::<Test>::S
 const LEN: usize = 150;
 
 fn new_tx() -> Tx {
-	Tx::new((
-		MockExtensionWithRefund,
-		frame_system::CheckWeight::new(),
-	))
+	Tx::new((MockExtensionWithRefund, frame_system::CheckWeight::new()))
 }
 
 fn new_extrinsic() -> generic::CheckedExtrinsic<AccountId, RuntimeCall, Tx> {

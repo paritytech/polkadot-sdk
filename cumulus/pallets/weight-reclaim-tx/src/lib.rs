@@ -35,8 +35,8 @@ use frame_support::{
 };
 use sp_runtime::{
 	traits::{
-		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
-		TransactionExtensionBase, AccrueWeight,
+		AccrueWeight, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
+		TransactionExtensionBase,
 	},
 	transaction_validity::{TransactionValidityError, ValidTransaction},
 	DispatchResult,
