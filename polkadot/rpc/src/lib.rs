@@ -124,7 +124,6 @@ where
 	use sc_consensus_babe_rpc::{Babe, BabeApiServer};
 	use sc_consensus_beefy_rpc::{Beefy, BeefyApiServer};
 	use sc_consensus_grandpa_rpc::{Grandpa, GrandpaApiServer};
-	use sc_rpc_spec_v2::chain_spec::{ChainSpec, ChainSpecApiServer};
 	use sc_sync_state_rpc::{SyncState, SyncStateApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};
 	use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
@@ -139,11 +138,6 @@ where
 		finality_provider,
 	} = grandpa;
 
-	let chain_name = chain_spec.name().to_string();
-	let genesis_hash = client.hash(0).ok().flatten().expect("Genesis block exists; qed");
-	let properties = chain_spec.properties();
-
-	io.merge(ChainSpec::new(chain_name, genesis_hash, properties).into_rpc())?;
 	io.merge(StateMigration::new(client.clone(), backend.clone(), deny_unsafe).into_rpc())?;
 	io.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
 	io.merge(TransactionPayment::new(client.clone()).into_rpc())?;

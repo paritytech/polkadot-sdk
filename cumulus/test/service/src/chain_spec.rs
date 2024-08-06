@@ -66,9 +66,10 @@ where
 pub fn get_chain_spec_with_extra_endowed(
 	id: Option<ParaId>,
 	extra_endowed_accounts: Vec<AccountId>,
+	code: &[u8],
 ) -> ChainSpec {
 	ChainSpec::builder(
-		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		code,
 		Extensions { para_id: id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into()).into() },
 	)
 	.with_name("Local Testnet")
@@ -83,7 +84,21 @@ pub fn get_chain_spec_with_extra_endowed(
 
 /// Get the chain spec for a specific parachain ID.
 pub fn get_chain_spec(id: Option<ParaId>) -> ChainSpec {
-	get_chain_spec_with_extra_endowed(id, Default::default())
+	get_chain_spec_with_extra_endowed(
+		id,
+		Default::default(),
+		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+	)
+}
+
+/// Get the chain spec for a specific parachain ID.
+pub fn get_elastic_scaling_chain_spec(id: Option<ParaId>) -> ChainSpec {
+	get_chain_spec_with_extra_endowed(
+		id,
+		Default::default(),
+		cumulus_test_runtime::elastic_scaling::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
+	)
 }
 
 /// Local testnet genesis for testing.

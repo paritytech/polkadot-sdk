@@ -89,7 +89,7 @@ impl TestSetup {
 
 #[tokio::test]
 async fn author_submit_transaction_should_not_cause_error() {
-	let _ = env_logger::try_init();
+	sp_tracing::init_for_tests();
 	let author = TestSetup::default().author();
 	let api = author.into_rpc();
 	let xt: Bytes = uxt(AccountKeyring::Alice, 1).encode().into();
@@ -279,7 +279,7 @@ async fn author_has_session_keys() {
 
 #[tokio::test]
 async fn author_has_key() {
-	let _ = env_logger::try_init();
+	sp_tracing::init_for_tests();
 
 	let api = TestSetup::into_rpc();
 	let suri = "//Alice";
