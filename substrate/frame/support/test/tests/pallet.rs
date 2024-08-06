@@ -1944,7 +1944,7 @@ fn extrinsic_metadata_ir_types() {
 fn test_pallet_runtime_docs() {
 	let docs = crate::pallet::Pallet::<Runtime>::pallet_documentation_metadata();
 	let readme = "Very important information :D\n";
-	let pallet_doc = "This is best pallet\n";
+	let pallet_doc = "This is the best pallet\n";
 	let expected = vec![" Pallet documentation", readme, pallet_doc];
 	assert_eq!(docs, expected);
 }
