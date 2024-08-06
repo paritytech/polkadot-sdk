@@ -29,3 +29,9 @@ crates:
     bump: minor
   - name: asset-hub-rococo-runtime
     bump: minor
+  - name: staging-xcm-builder
+    bump: patch
+  - name: assets-common
+    bump: patch
+  - name: penpal-runtime
+    bump: minor
