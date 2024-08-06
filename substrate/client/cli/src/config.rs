@@ -187,7 +187,8 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			NetworkConfiguration::new(node_name, client_id, node_key, Some(net_config_dir))
 		};
 
-		// TODO: Return error here in the next release.
+		// TODO: Return error here in the next release:
+		// https://github.com/paritytech/polkadot-sdk/issues/5266
 		// if is_validator && network_config.public_addresses.is_empty() {}
 
 		Ok(network_config)
