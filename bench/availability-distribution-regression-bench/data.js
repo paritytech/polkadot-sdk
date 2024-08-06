@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722865056803,
+  "lastUpdate": 1722963555410,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21007,6 +21007,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16677780647333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sebastian Miasojed",
+            "username": "smiasojed",
+            "email": "s.miasojed@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "11fdff18e8cddcdee90b0e2c3e35a2b0124de4de",
+          "message": "[pallet_contracts] Increase the weight of the deposit_event host function to limit the memory used by events. (#4973)\n\nThis PR updates the weight of the `deposit_event` host function by\nadding\na fixed ref_time of 60,000 picoseconds per byte. Given a block time of 2\nseconds\nand this specified ref_time, the total allocation size is 32MB.\n\n---------\n\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
+          "timestamp": "2024-08-06T15:12:47Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/11fdff18e8cddcdee90b0e2c3e35a2b0124de4de"
+        },
+        "date": 1722963524104,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010718954006666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012750096346666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17428679244666662,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022376936673333337,
             "unit": "seconds"
           }
         ]
