@@ -125,6 +125,7 @@ use frame_support::traits::{
 	dynamic_params::{AggregatedKeyValue, IntoKey, Key, RuntimeParameterStore, TryIntoKey},
 	EnsureOriginWithArg,
 };
+use cumulus_primitives_storage_weight_reclaim::get_proof_size;
 
 mod benchmarking;
 #[cfg(test)]
@@ -165,6 +166,22 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this module.
 		type WeightInfo: WeightInfo;
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+			let proof_size_before: u64 = get_proof_size().unwrap_or(0);
+
+			let items = Parameters::<T>::iter().count() as u64;
+
+			let proof_size_after: u64 = get_proof_size().unwrap_or(0);
+
+			let proof_size_diff = proof_size_after.saturating_sub(proof_size_before);
+
+			Weight::from_parts(0, proof_size_diff)
+				.saturating_add(T::DbWeight::get().reads(items))
+		}
 	}
 
 	#[pallet::event]
