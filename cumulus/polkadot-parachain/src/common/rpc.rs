@@ -18,12 +18,11 @@
 
 #![warn(missing_docs)]
 
-use crate::{
-	common::ConstructNodeRuntimeApi,
-	service::{ParachainBackend, ParachainClient},
+use crate::common::{
+	types::{AccountId, Balance, Nonce, ParachainBackend, ParachainClient},
+	ConstructNodeRuntimeApi,
 };
 use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
-use parachains_common::{AccountId, Balance, Nonce};
 use sc_rpc::{
 	dev::{Dev, DevApiServer},
 	DenyUnsafe,

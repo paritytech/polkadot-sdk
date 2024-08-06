@@ -14,17 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(feature = "runtime-benchmarks")]
-use crate::service::Block;
 use crate::{
 	chain_spec::{self, GenericChainSpec},
 	cli::{Cli, RelayChainCli, Subcommand},
-	common::NodeExtraArgs,
+	common::{spec::DynNodeSpec, types::Block, NodeExtraArgs},
 	fake_runtime_api::{
 		asset_hub_polkadot::RuntimeApi as AssetHubPolkadotRuntimeApi,
 		aura::RuntimeApi as AuraRuntimeApi,
 	},
-	service::{new_aura_node_spec, DynNodeSpec, ShellNode},
+	service::{new_aura_node_spec, ShellNode},
 };
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;

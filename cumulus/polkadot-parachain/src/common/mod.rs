@@ -19,6 +19,10 @@
 #![warn(missing_docs)]
 
 pub mod aura;
+pub mod command;
+pub mod rpc;
+pub mod spec;
+pub mod types;
 
 use cumulus_primitives_core::CollectCollationInfo;
 use sc_client_db::DbHash;
