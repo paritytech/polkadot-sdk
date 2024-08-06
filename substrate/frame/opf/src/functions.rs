@@ -134,7 +134,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// To be executed in a hook, on_initialize 
-	pub fn begin_block(now: BlockNumberFor<T>, limit: Weight) -> Weight {
+	pub fn on_idle_function(now: BlockNumberFor<T>, limit: Weight) -> Weight {
 		let mut meter = WeightMeter::with_limit(limit);
 		let max_block_weight = Weight::from_parts(1000_u64, 0);
 
