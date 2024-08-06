@@ -7,7 +7,7 @@
 #   changes:
 #     permissions:
 #       pull-requests: read
-#     uses: ./.github/workflows/check-changed-files.yml
+#     uses: ./.github/workflows/reusable-check-changed-files.yml
 #   some-job:
 #     needs: changes
 #     if: ${{ needs.changes.outputs.rust }}
