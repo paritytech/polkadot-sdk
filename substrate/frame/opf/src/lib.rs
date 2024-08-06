@@ -99,21 +99,56 @@ pub mod pallet {
 
 		/// The reward calculation failed due to an internal error
 		FailedRewardCalculation,
+
+		/// Voting round is over
+		VotingRoundOver,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		
+		/// Weight: see `begin_block`
+		fn on_idle(n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			Self::on_idle_function(n,remaining_weight)
+		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+
 		#[pallet::call_index(0)]
 		pub fn vote(origin: OriginFor<T>, project_account: ProjectId<T>, amount: BalanceOf<T>, is_fund: bool) -> DispatchResult {
+			let voter = ensure_signed(origin)?;
 			// Get current voting round & check if we are in voting period or not
+			Self::period_check()?;
 			// Check that voter has enough funds to vote
+			let voter_balance = T::NativeBalance::total_balance(&voter);
+			ensure!(voter_balance>amount, Error::<T>::NotEnoughFunds);
+			let mut voter_holds = BalanceOf::<T>::zero();
+			
+			let all_votes = Votes::<T>::iter();
+			for vote in all_votes{
+				if vote.0 != project_account.clone() && vote.1 == voter.clone(){
+					voter_holds.saturating_add(vote.2.amount);
+				} 
+			}
+			let available_funds = voter_balance.saturating_sub(voter_holds);
+			ensure!(available_funds > amount, Error::<T>::NotEnoughFunds);
+
 			// Vote action executed
+
+			Self::try_vote(voter,project_account,amount,is_fund)?;
 			Ok(())
 		}
+
 		#[pallet::call_index(1)]
-		pub fn remove_vote(origin: OriginFor<T>, project_account: ProjectId<T>, amount: BalanceOf<T>, is_fund: bool) -> DispatchResult {
+		pub fn remove_vote(origin: OriginFor<T>, project_account: ProjectId<T>, amount: BalanceOf<T>) -> DispatchResult {
+			let voter = ensure_signed(origin)?;
 			// Get current voting round & check if we are in voting period or not
+			Self::period_check()?;
 			// Removal action executed
+			Self::try_remove_vote(voter,project_account)?;
+
 			Ok(())
 		}
 	}

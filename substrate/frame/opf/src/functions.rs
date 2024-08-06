@@ -31,6 +31,18 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	// Voting Period checks
+	pub fn period_check() -> DispatchResult{
+		// Get current voting round & check if we are in voting period or not
+		let current_round_index = VotingRoundsNumber::<T>::get().saturating_sub(1);
+		let round = VotingRounds::<T>::get(current_round_index).ok_or(Error::<T>::NoRoundFound)?;
+		let now = <frame_system::Pallet<T>>::block_number();
+		ensure!(now >= round.voting_locked_block, Error::<T>::VotePeriodClosed);
+		ensure!(now < round.round_ending_block, Error::<T>::VotingRoundOver);
+		Ok(())
+	}
+
+
 	// Helper function for complete vote data removal from storage.
 	pub fn try_remove_vote(voter_id: AccountIdOf<T>, project: AccountIdOf<T>) -> DispatchResult {
 		if Votes::<T>::contains_key(project.clone(), voter_id.clone()) {
@@ -122,8 +134,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// To be executed in a hook, on_initialize 
-	pub fn begin_block(now: BlockNumberFor<T>) -> Weight {
+	pub fn begin_block(now: BlockNumberFor<T>, limit: Weight) -> Weight {
+		let mut meter = WeightMeter::with_limit(limit);
 		let max_block_weight = Weight::from_parts(1000_u64, 0);
+
+			if meter.try_consume(max_block_weight).is_err() {
+				return meter.consumed()
+			}
 		let epoch = T::EpochDurationBlocks::get();
 		let voting_period = T::VotingPeriod::get();
 		// Check current round: If block is a multiple of round_locked_period,
@@ -145,7 +162,7 @@ impl<T: Config> Pallet<T> {
 		// - We are within voting_round period
 		// - We are past the voting_round_lock block
 		// - We are at the beginning of an epoch
-		if (now > voting_locked_block) && (now < round_ending_block) && (now % epoch).is_zero() {
+		if (now >= voting_locked_block) && (now < round_ending_block) && (now % epoch).is_zero() {
 			// prepare reward distribution
 			// for now we are using the temporary-constant reward. 
 			let _= Self::calculate_rewards(T::TemporaryRewards::get()).map_err(|_| Error::<T>::FailedRewardCalculation);
@@ -157,6 +174,6 @@ impl<T: Config> Pallet<T> {
 		}
 		
 		
-		max_block_weight
+		meter.consumed()
 	}
 }
