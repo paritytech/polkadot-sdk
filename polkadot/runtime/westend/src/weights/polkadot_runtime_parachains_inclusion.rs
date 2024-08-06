@@ -72,4 +72,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::inclusion::WeightInfo
 			.saturating_add(T::DbWeight::get().writes(3))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(i.into())))
 	}
+	fn enact_candidate(u: u32, h: u32, c: u32) -> Weight {
+	   Weight::zero()
+	}
 }
