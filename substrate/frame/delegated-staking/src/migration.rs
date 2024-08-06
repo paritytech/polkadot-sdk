@@ -52,7 +52,7 @@ pub mod unversioned {
 					weight.saturating_accrue(T::DbWeight::get().reads_writes(8, 8));
 					let _ = Pallet::<T>::do_migrate_delegation(
 						Delegator::from(old_proxy.clone()),
-						Delegator::from(new_proxy.clone()),
+						new_proxy.clone(),
 						delegation.amount,
 					)
 					.map_err(|e| {
