@@ -12430,6 +12430,7 @@ dependencies = [
 name = "pallet-parameters"
 version = "0.10.1"
 dependencies = [
+ "cumulus-primitives-storage-weight-reclaim",
  "docify",
  "frame-benchmarking",
  "frame-support",

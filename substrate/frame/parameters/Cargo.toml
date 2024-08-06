@@ -18,6 +18,7 @@ frame-system.workspace = true
 sp-core.workspace = true
 sp-runtime.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
+cumulus-primitives-storage-weight-reclaim = { workspace = true, default-features = false}
 
 [dev-dependencies]
 sp-core = { features = ["std"], default-features = true, path = "../../primitives/core" }
@@ -36,6 +37,7 @@ std = [
 	"serde",
 	"sp-core/std",
 	"sp-runtime/std",
+	"cumulus-primitives-storage-weight-reclaim/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
