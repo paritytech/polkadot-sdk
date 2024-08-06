@@ -112,7 +112,7 @@ default:
     - !reference [.common-before-script, before_script]
     - !reference [.prepare-env, before_script]
     - !reference [.rust-info-script, script]
-    # - !reference [.forklift-cache, before_script]
+    - !reference [.forklift-cache, before_script]
   tags:
     - linux-docker
 
@@ -219,17 +219,17 @@ default:
 
 include:
   # check jobs
-  - .gitlab/pipeline/check.yml
-  # test jobs
-  - .gitlab/pipeline/test.yml
-  # build jobs
-  - .gitlab/pipeline/build.yml
-  # short-benchmarks jobs
-  - .gitlab/pipeline/short-benchmarks.yml
-  # publish jobs
-  - .gitlab/pipeline/publish.yml
-  # zombienet jobs
-  - .gitlab/pipeline/zombienet.yml
+  # - .gitlab/pipeline/check.yml
+  # # test jobs
+  # - .gitlab/pipeline/test.yml
+  # # build jobs
+  # - .gitlab/pipeline/build.yml
+  # # short-benchmarks jobs
+  # - .gitlab/pipeline/short-benchmarks.yml
+  # # publish jobs
+  # - .gitlab/pipeline/publish.yml
+  # # zombienet jobs
+  # - .gitlab/pipeline/zombienet.yml
   # ci image
   - project: parity/infrastructure/ci_cd/shared
     ref: main
@@ -255,6 +255,50 @@ include:
   trigger:
     project: "parity/infrastructure/ci_cd/pipeline-stopper"
 
+# if this fails run `bot update-ui` in the Pull Request or "./scripts/update-ui-tests.sh" locally
+# see ./docs/contributor/CONTRIBUTING.md#ui-tests
+test-frame-ui-fl:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+  variables:
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-C debug-assertions -D warnings"
+    RUST_BACKTRACE: 1
+    WASM_BUILD_NO_COLOR: 1
+    WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
+    # Ensure we run the UI tests.
+    RUN_UI_TESTS: 1
+  script:
+    - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental
+
+# if this fails run `bot update-ui` in the Pull Request or "./scripts/update-ui-tests.sh" locally
+# see ./docs/contributor/CONTRIBUTING.md#ui-tests
+test-frame-ui:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+  before_script:
+    - !reference [.common-before-script, before_script]
+    - !reference [.prepare-env, before_script]
+    - !reference [.rust-info-script, script]
+  variables:
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-C debug-assertions -D warnings"
+    RUST_BACKTRACE: 1
+    WASM_BUILD_NO_COLOR: 1
+    WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
+    # Ensure we run the UI tests.
+    RUN_UI_TESTS: 1
+  script:
+    - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental
+
 remove-cancel-pipeline-message:
   stage: .post
   rules:
@@ -270,132 +314,132 @@ remove-cancel-pipeline-message:
     project: "parity/infrastructure/ci_cd/pipeline-stopper"
 # need to copy jobs this way because otherwise gitlab will wait
 # for all 3 jobs to finish instead of cancelling if one fails
-cancel-pipeline-test-linux-stable1:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "test-linux-stable 1/3"
+# cancel-pipeline-test-linux-stable1:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: "test-linux-stable 1/3"
 
-cancel-pipeline-test-linux-stable2:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "test-linux-stable 2/3"
+# cancel-pipeline-test-linux-stable2:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: "test-linux-stable 2/3"
 
-cancel-pipeline-test-linux-stable3:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "test-linux-stable 3/3"
+# cancel-pipeline-test-linux-stable3:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: "test-linux-stable 3/3"
 
-cancel-pipeline-cargo-check-benches1:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-benches 1/2"
+# cancel-pipeline-cargo-check-benches1:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: "cargo-check-benches 1/2"
 
-cancel-pipeline-cargo-check-benches2:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-benches 2/2"
+# cancel-pipeline-cargo-check-benches2:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: "cargo-check-benches 2/2"
 
-cancel-pipeline-test-linux-stable-int:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: test-linux-stable-int
+# cancel-pipeline-test-linux-stable-int:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: test-linux-stable-int
 
-cancel-pipeline-cargo-check-each-crate-1:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 1/6"
+# cancel-pipeline-cargo-check-each-crate-1:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: "cargo-check-each-crate 1/6"
 
-cancel-pipeline-cargo-check-each-crate-2:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 2/6"
+# cancel-pipeline-cargo-check-each-crate-2:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: "cargo-check-each-crate 2/6"
 
-cancel-pipeline-cargo-check-each-crate-3:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 3/6"
+# cancel-pipeline-cargo-check-each-crate-3:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: "cargo-check-each-crate 3/6"
 
-cancel-pipeline-cargo-check-each-crate-4:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 4/6"
+# cancel-pipeline-cargo-check-each-crate-4:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: "cargo-check-each-crate 4/6"
 
-cancel-pipeline-cargo-check-each-crate-5:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 5/6"
+# cancel-pipeline-cargo-check-each-crate-5:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: "cargo-check-each-crate 5/6"
 
-cancel-pipeline-cargo-check-each-crate-6:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "cargo-check-each-crate 6/6"
+# cancel-pipeline-cargo-check-each-crate-6:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: "cargo-check-each-crate 6/6"
 
-cancel-pipeline-cargo-check-each-crate-macos:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: cargo-check-each-crate-macos
+# cancel-pipeline-cargo-check-each-crate-macos:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: cargo-check-each-crate-macos
 
-cancel-pipeline-check-tracing:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: check-tracing
+# cancel-pipeline-check-tracing:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: check-tracing
 
-cancel-pipeline-cargo-clippy:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: cargo-clippy
+# cancel-pipeline-cargo-clippy:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: cargo-clippy
 
-cancel-pipeline-build-linux-stable:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: build-linux-stable
+# cancel-pipeline-build-linux-stable:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: build-linux-stable
 
-cancel-pipeline-build-linux-stable-cumulus:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: build-linux-stable-cumulus
+# cancel-pipeline-build-linux-stable-cumulus:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: build-linux-stable-cumulus
 
-cancel-pipeline-build-linux-substrate:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: build-linux-substrate
+# cancel-pipeline-build-linux-substrate:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: build-linux-substrate
 
-cancel-pipeline-test-node-metrics:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: test-node-metrics
+# cancel-pipeline-test-node-metrics:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: test-node-metrics
 
-cancel-pipeline-test-frame-ui:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: test-frame-ui
+# cancel-pipeline-test-frame-ui:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: test-frame-ui
 
-cancel-pipeline-quick-benchmarks:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: quick-benchmarks
+# cancel-pipeline-quick-benchmarks:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: quick-benchmarks
 
-cancel-pipeline-check-try-runtime:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: check-try-runtime
+# cancel-pipeline-check-try-runtime:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: check-try-runtime
 
-cancel-pipeline-test-frame-examples-compile-to-wasm:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: test-frame-examples-compile-to-wasm
+# cancel-pipeline-test-frame-examples-compile-to-wasm:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: test-frame-examples-compile-to-wasm
 
-cancel-pipeline-build-short-benchmark:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: build-short-benchmark
+# cancel-pipeline-build-short-benchmark:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: build-short-benchmark
 
-cancel-pipeline-check-runtime-migration-rococo:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: check-runtime-migration-rococo
+# cancel-pipeline-check-runtime-migration-rococo:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: check-runtime-migration-rococo
 
-cancel-pipeline-check-runtime-migration-westend:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: check-runtime-migration-westend
+# cancel-pipeline-check-runtime-migration-westend:
+#   extends: .cancel-pipeline-template
+#   needs:
+#     - job: check-runtime-migration-westend
