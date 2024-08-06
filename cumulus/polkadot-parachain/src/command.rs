@@ -391,7 +391,9 @@ fn new_node_spec(
 ) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
 	Ok(match config.chain_spec.runtime()? {
 		Runtime::AssetHubPolkadot =>
-			new_aura_node_spec::<AssetHubPolkadotRuntimeApi, AssetHubPolkadotAuraId>(extra_args),
+			new_aura_node_spec::<Block, AssetHubPolkadotRuntimeApi, AssetHubPolkadotAuraId>(
+				extra_args,
+			),
 		Runtime::AssetHub |
 		Runtime::BridgeHub(_) |
 		Runtime::Collectives |
@@ -399,10 +401,10 @@ fn new_node_spec(
 		Runtime::People(_) |
 		Runtime::ContractsRococo |
 		Runtime::Glutton |
-		Runtime::Penpal(_) => new_aura_node_spec::<AuraRuntimeApi, AuraId>(extra_args),
+		Runtime::Penpal(_) => new_aura_node_spec::<Block, AuraRuntimeApi, AuraId>(extra_args),
 		Runtime::Shell | Runtime::Seedling => Box::new(ShellNode),
 		Runtime::Omni(consensus) => match consensus {
-			Consensus::Aura => new_aura_node_spec::<AuraRuntimeApi, AuraId>(extra_args),
+			Consensus::Aura => new_aura_node_spec::<Block, AuraRuntimeApi, AuraId>(extra_args),
 			Consensus::Relay => Box::new(ShellNode),
 		},
 	})

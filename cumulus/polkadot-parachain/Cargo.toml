@@ -63,6 +63,7 @@ sp-tracing = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 sc-cli = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
+sc-client-db = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
@@ -149,6 +150,7 @@ runtime-benchmarks = [
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-service/runtime-benchmarks",
 	"rococo-parachain-runtime/runtime-benchmarks",
+	"sc-client-db/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
