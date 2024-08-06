@@ -165,7 +165,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         reason: &amp;Self::<a class="associatedtype" href="trait.InspectHold.html#associatedtype.Reason" title="type polkadot_sdk_frame::traits::tokens::fungible::InspectHold::Reason">Reason</a>,
         who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
         amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungible::Inspect::Balance">Balance</a>
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, DispatchError&gt; { ... }
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="../../../../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt; { ... }
 <span class="item-spacer"></span>    fn <a href="#method.can_hold" class="fn">can_hold</a>(
         reason: &amp;Self::<a class="associatedtype" href="trait.InspectHold.html#associatedtype.Reason" title="type polkadot_sdk_frame::traits::tokens::fungible::InspectHold::Reason">Reason</a>,
         who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
@@ -195,7 +195,7 @@ therefore ensure the account is already in the appropriate state prior to callin
     reason: &amp;Self::<a class="associatedtype" href="trait.InspectHold.html#associatedtype.Reason" title="type polkadot_sdk_frame::traits::tokens::fungible::InspectHold::Reason">Reason</a>,
     who: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;AccountId</a>,
     amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungible::Inspect::Balance">Balance</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Check to see if some <code>amount</code> of funds of <code>who</code> may be placed on hold with the given
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="../../../../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Check to see if some <code>amount</code> of funds of <code>who</code> may be placed on hold with the given
 <code>reason</code>. Reasons why this may not be true:</p>
 <ul>
 <li>The implementor supports only a limited number of concurrent holds on an account which is
