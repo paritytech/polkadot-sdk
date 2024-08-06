@@ -64,7 +64,7 @@ impl Server {
 		Server { handle, listen_addr }
 	}
 
-	/// Returns the `jsonrpsee::server::ServerHandle` for this Server. Can be used to perform
+	/// Returns the `jsonrpsee::server::ServerHandle` for this Server. Can be used to stop the server.
 	pub fn handle(&self) -> &ServerHandle {
 		&self.handle
 	}
