@@ -226,6 +226,7 @@ runtime-benchmarks = [
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-beefy-mmr/runtime-benchmarks",
 	"pallet-bounties/runtime-benchmarks",
 	"pallet-child-bounties/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
@@ -330,7 +331,10 @@ metadata-hash = ["substrate-wasm-builder/metadata-hash"]
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
 fast-runtime = ["rococo-runtime-constants/fast-runtime"]
 
-runtime-metrics = ["polkadot-runtime-parachains/runtime-metrics", "sp-io/with-tracing"]
+runtime-metrics = [
+	"polkadot-runtime-parachains/runtime-metrics",
+	"sp-io/with-tracing",
+]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
