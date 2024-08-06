@@ -1913,7 +1913,7 @@ fn metadata_ir_pallet_runtime_docs() {
 		.expect("Pallet should be present");
 
 	let readme = "Very important information :D\n";
-	let pallet_doc = "This is best pallet\n";
+	let pallet_doc = "This is the best pallet\n";
 	let expected = vec![" Pallet documentation", readme, pallet_doc];
 	assert_eq!(pallet.docs, expected);
 }
