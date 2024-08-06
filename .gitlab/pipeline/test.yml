@@ -382,10 +382,7 @@ test-frame-ui:
   extends:
     - .docker-env
     - .common-refs
-  # DAG
-  needs:
-    - job: test-frame-examples-compile-to-wasm
-      artifacts: false
+    - .run-immediately
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
