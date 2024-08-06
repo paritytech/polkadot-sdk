@@ -1,1 +1,1 @@
-This is best pallet
+This is the best pallet
