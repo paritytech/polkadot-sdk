@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722865362608,
+  "lastUpdate": 1722963849829,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -16715,6 +16715,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.856042290633336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sebastian Miasojed",
+            "username": "smiasojed",
+            "email": "s.miasojed@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "11fdff18e8cddcdee90b0e2c3e35a2b0124de4de",
+          "message": "[pallet_contracts] Increase the weight of the deposit_event host function to limit the memory used by events. (#4973)\n\nThis PR updates the weight of the `deposit_event` host function by\nadding\na fixed ref_time of 60,000 picoseconds per byte. Given a block time of 2\nseconds\nand this specified ref_time, the total allocation size is 32MB.\n\n---------\n\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
+          "timestamp": "2024-08-06T15:12:47Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/11fdff18e8cddcdee90b0e2c3e35a2b0124de4de"
+        },
+        "date": 1722963818681,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.890315361599997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17748978679999997,
             "unit": "seconds"
           }
         ]
