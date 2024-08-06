@@ -1452,17 +1452,17 @@ impl<T: BlindCheckable, Context> Checkable<Context> for T {
 }
 
 /// A type that can handle weight refunds.
-pub trait RefundWeight {
+pub trait RefundWeight<DispatchInfo> {
 	/// Refund some unspent weight.
 	fn refund(&mut self, weight: sp_weights::Weight);
 
-	/// Accrue some weight.
-	fn saturating_accrue(&mut self, weight: sp_weights::Weight);
+	/// Accrue some weight pertaining to the extension.
+	fn set_extension_weight(&mut self, info: &DispatchInfo, weight: sp_weights::Weight);
 }
 
-impl RefundWeight for () {
+impl RefundWeight<()> for () {
 	fn refund(&mut self, _weight: sp_weights::Weight) {}
-	fn saturating_accrue(&mut self, _weight: sp_weights::Weight) {}
+	fn set_extension_weight(&mut self, _info: &(), _weight: sp_weights::Weight) {}
 }
 
 /// A lazy call (module function and argument values) that can be executed via its `dispatch`
@@ -1480,7 +1480,14 @@ pub trait Dispatchable {
 	type Info;
 	/// Additional information that is returned by `dispatch`. Can be used to supply the caller
 	/// with information about a `Dispatchable` that is only known post dispatch.
-	type PostInfo: Eq + PartialEq + Clone + Copy + Encode + Decode + Printable + RefundWeight;
+	type PostInfo: Eq
+		+ PartialEq
+		+ Clone
+		+ Copy
+		+ Encode
+		+ Decode
+		+ Printable
+		+ RefundWeight<Self::Info>;
 	/// Actually dispatch this call and return the result of it.
 	fn dispatch(self, origin: Self::RuntimeOrigin)
 		-> crate::DispatchResultWithInfo<Self::PostInfo>;

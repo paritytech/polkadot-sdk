@@ -579,17 +579,16 @@ impl<T> ClassifyDispatch<T> for (Weight, DispatchClass, Pays) {
 	}
 }
 
-impl RefundWeight for PostDispatchInfo {
+impl RefundWeight<DispatchInfo> for PostDispatchInfo {
 	fn refund(&mut self, weight: Weight) {
 		if let Some(actual_weight) = self.actual_weight.as_mut() {
 			actual_weight.saturating_reduce(weight);
 		}
 	}
 
-	fn saturating_accrue(&mut self, weight: Weight) {
-		if let Some(actual_weight) = self.actual_weight.as_mut() {
-			actual_weight.saturating_accrue(weight);
-		}
+	fn set_extension_weight(&mut self, info: &DispatchInfo, weight: Weight) {
+		let actual_weight = self.actual_weight.unwrap_or(info.call_weight).saturating_add(weight);
+		self.actual_weight = Some(actual_weight);
 	}
 }
 
@@ -1442,6 +1441,24 @@ mod extension_weight_tests {
 	}
 
 	#[test]
+	fn no_post_dispatch_refunds_when_dispatched() {
+		ExtBuilder::default().build_and_execute(|| {
+			let call = RuntimeCall::System(frame_system::Call::<ExtRuntime>::f99 {});
+			let ext: TxExtension = (HalfCostIf(true), FreeIfUnder(100), ActualWeightIs(0));
+			let uxt = UncheckedExtrinsic::new_signed(call.clone(), 0, (), ext.clone());
+			assert_eq!(uxt.extension_weight(), Weight::from_parts(600, 0));
+
+			let mut info = call.get_dispatch_info();
+			assert_eq!(info.total_weight(), Weight::from_parts(1000, 0));
+			info.extension_weight = TxExtension::weight();
+			let post_info =
+				ext.dispatch_transaction(Some(0).into(), call, &info, 0).unwrap().unwrap();
+			// 1000 call weight + 50 + 200 + 0
+			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(1250, 0)));
+		});
+	}
+
+	#[test]
 	fn post_dispatch_with_refunds() {
 		ExtBuilder::default().build_and_execute(|| {
 			let call = RuntimeCall::System(frame_system::Call::<ExtRuntime>::f100 {});
@@ -1460,7 +1477,7 @@ mod extension_weight_tests {
 			// 500 actual call weight
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
 			// add the 600 worst case extension weight
-			post_info.saturating_accrue(TxExtension::weight());
+			post_info.set_extension_weight(&info, TxExtension::weight());
 			// extension weight should be refunded
 			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch(
 				pre,
@@ -1481,7 +1498,7 @@ mod extension_weight_tests {
 			// 500 actual call weight
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
 			// add the 600 worst case extension weight
-			post_info.saturating_accrue(TxExtension::weight());
+			post_info.set_extension_weight(&info, TxExtension::weight());
 			// extension weight should be refunded
 			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch(
 				pre,
@@ -1502,7 +1519,7 @@ mod extension_weight_tests {
 			// 500 actual call weight
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
 			// add the 600 worst case extension weight
-			post_info.saturating_accrue(TxExtension::weight());
+			post_info.set_extension_weight(&info, TxExtension::weight());
 			// extension weight should be refunded
 			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch(
 				pre,
@@ -1523,7 +1540,7 @@ mod extension_weight_tests {
 			// 500 actual call weight
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(500, 0)));
 			// add the 600 worst case extension weight
-			post_info.saturating_accrue(TxExtension::weight());
+			post_info.set_extension_weight(&info, TxExtension::weight());
 			// extension weight should be refunded
 			assert_ok!(<TxExtension as TransactionExtension<RuntimeCall, ()>>::post_dispatch(
 				pre,
