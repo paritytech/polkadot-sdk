@@ -1409,7 +1409,7 @@ fn metadata() {
 	use frame_metadata::{v15::*, *};
 
 	let readme = "Very important information :D\n";
-	let pallet_doc = "This is best pallet\n";
+	let pallet_doc = "This is the best pallet\n";
 	let expected_pallet_doc = vec![" Pallet documentation", readme, pallet_doc];
 
 	let pallets = vec![
