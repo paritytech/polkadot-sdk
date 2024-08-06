@@ -112,7 +112,7 @@ default:
     - !reference [.common-before-script, before_script]
     - !reference [.prepare-env, before_script]
     - !reference [.rust-info-script, script]
-    - !reference [.forklift-cache, before_script]
+    # - !reference [.forklift-cache, before_script]
   tags:
     - linux-docker
 
