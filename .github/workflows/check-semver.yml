@@ -27,7 +27,7 @@ jobs:
         run: |
           git config --global --add safe.directory '*'
           git fetch --no-tags --no-recurse-submodules --depth=1 origin $BASE
-          git branch old origin/BASE
+          git branch old origin/$BASE
 
       - name: Comment If Backport
         if: ${{ startsWith(github.event.pull_request.base.ref, 'stable') }}
