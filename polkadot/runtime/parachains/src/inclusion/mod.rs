@@ -65,7 +65,6 @@ mod benchmarking;
 pub mod migration;
 
 pub trait WeightInfo {
-	fn receive_upward_messages(i: u32) -> Weight;
 	/// Weight for `enact_candidate` extrinsic given the number of sent messages
 	/// (ump, hrmp) and whether there is a new code for a runtime upgrade.
 	///
@@ -76,18 +75,12 @@ pub trait WeightInfo {
 
 pub struct TestWeightInfo;
 impl WeightInfo for TestWeightInfo {
-	fn receive_upward_messages(_: u32) -> Weight {
-		Weight::MAX
-	}
 	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
 		Weight::zero()
 	}
 }
 
 impl WeightInfo for () {
-	fn receive_upward_messages(_: u32) -> Weight {
-		Weight::zero()
-	}
 	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
 		Weight::zero()
 	}
@@ -895,10 +888,10 @@ impl<T: Config> Pallet<T> {
 			receipt.descriptor.para_id,
 			commitments.processed_downward_messages,
 		));
-		weight.saturating_accrue(Self::receive_upward_messages(
+		Self::receive_upward_messages(
 			receipt.descriptor.para_id,
 			commitments.upward_messages.as_slice(),
-		));
+		);
 		weight.saturating_accrue(hrmp::Pallet::<T>::prune_hrmp(
 			receipt.descriptor.para_id,
 			BlockNumberFor::<T>::from(commitments.hrmp_watermark),
@@ -984,7 +977,7 @@ impl<T: Config> Pallet<T> {
 	/// This function is infallible since the candidate was already accepted and we therefore need
 	/// to deal with the messages as given. Messages that are too long will be ignored since such
 	/// candidates should have already been rejected in [`Self::check_upward_messages`].
-	pub(crate) fn receive_upward_messages(para: ParaId, upward_messages: &[Vec<u8>]) -> Weight {
+	pub(crate) fn receive_upward_messages(para: ParaId, upward_messages: &[Vec<u8>]) {
 		let bounded = upward_messages
 			.iter()
 			.filter_map(|d| {
@@ -1003,19 +996,17 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn receive_bounded_upward_messages(
 		para: ParaId,
 		messages: Vec<BoundedSlice<'_, u8, MaxUmpMessageLenOf<T>>>,
-	) -> Weight {
+	) {
 		let count = messages.len() as u32;
 		if count == 0 {
-			return Weight::zero()
+			return
 		}
 
 		T::MessageQueue::enqueue_messages(
 			messages.into_iter(),
 			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)),
 		);
-		let weight = <T as Config>::WeightInfo::receive_upward_messages(count);
 		Self::deposit_event(Event::UpwardMessagesReceived { from: para, count });
-		weight
 	}
 
 	/// Cleans up all timed out candidates as well as their descendant candidates.

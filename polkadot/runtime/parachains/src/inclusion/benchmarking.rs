@@ -94,15 +94,6 @@ benchmarks! {
 			T: mq::Config + configuration::Config + initializer::Config,
 	}
 
-	receive_upward_messages {
-		let i in 1 .. 1000;
-
-		let max_len = mq::MaxMessageLenOf::<T>::get() as usize;
-		let para = 42u32.into();	// not especially important.
-		let upward_messages = vec![vec![0; max_len]; i as usize];
-		Pallet::<T>::receive_upward_messages(para, vec![vec![0; max_len]; 1].as_slice());
-	}: { Pallet::<T>::receive_upward_messages(para, upward_messages.as_slice()) }
-
 	enact_candidate {
 		let u in 1 .. 32;
 		let h in 1 .. 32;
