@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722963555410,
+  "lastUpdate": 1722973798796,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21059,6 +21059,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022376936673333337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "291c082cbbb0c838c886f38040e54424c55d9618",
+          "message": "Improve Pallet UI doc test (#5264)\n\nTest currently failing, therefore improving to include a file from the\nsame crate to not trip up the caching.\n\nR0 silent since this is only modifying unpublished crates.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2024-08-06T18:04:21Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/291c082cbbb0c838c886f38040e54424c55d9618"
+        },
+        "date": 1722973767267,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022053491313333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01229981776,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01005433900666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16977515894666673,
             "unit": "seconds"
           }
         ]
