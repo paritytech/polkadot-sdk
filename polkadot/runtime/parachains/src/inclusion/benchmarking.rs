@@ -79,7 +79,7 @@ fn create_candidate_commitments<T: crate::hrmp::pallet::Config>(
 		new_validation_code,
 		head_data,
 		processed_downward_messages: 0,
-		hrmp_watermark: 10, // TODO: is this really important?
+		hrmp_watermark: 10,
 	}
 }
 
