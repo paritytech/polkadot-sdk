@@ -59,8 +59,11 @@ use std::{
 	sync::Arc,
 	time::Duration,
 };
-use stream::{select_with_strategy, PollNext};
+use stream::{select_with_strategy, PollNext, SelectWithStrategy};
 pub mod metrics;
+
+#[cfg(test)]
+mod tests;
 
 pub(crate) const LOG_TARGET: &str = "parachain::approval-voting-parallel";
 // Value rather arbitrarily: Should not be hit in practice, it exists to more easily diagnose dead
@@ -164,12 +167,12 @@ async fn start_workers<Context>(
 where
 {
 	// Build approval voting handles.
-	let (to_approval_voting_worker, rx_approval_voting_worker) =
-		build_channels("approval-voting-parallel-db".into(), WORKERS_CHANNEL_SIZE, metrics_watcher);
-
-	let prioritised =
-		select_with_strategy(rx_approval_voting_worker.0, rx_approval_voting_worker.1, prio_right);
-	let approval_voting_work_provider = ApprovalVotingWorkProviderImpl(prioritised);
+	let (to_approval_voting_worker, approval_voting_work_provider) = build_worker_handles(
+		"approval-voting-parallel-db".into(),
+		WORKERS_CHANNEL_SIZE,
+		metrics_watcher,
+		prio_right,
+	);
 
 	gum::info!(target: LOG_TARGET, "Starting approval distribution workers");
 
@@ -186,8 +189,13 @@ where
 			);
 		let task_name = format!("approval-voting-parallel-{}", i);
 
-		let (to_approval_distribution_worker, rx_approval_distribution_worker) =
-			build_channels(task_name.clone(), WORKERS_CHANNEL_SIZE, metrics_watcher);
+		let (to_approval_distribution_worker, mut approval_distribution_work_provider) =
+			build_worker_handles(
+				task_name.clone(),
+				WORKERS_CHANNEL_SIZE,
+				metrics_watcher,
+				prio_right,
+			);
 
 		metrics_watcher.watch(task_name.clone(), to_approval_distribution_worker.meter());
 
@@ -208,14 +216,8 @@ where
 					session_cache_lru_size: DISPUTE_WINDOW.get(),
 				});
 
-				let mut work_channels = select_with_strategy(
-					rx_approval_distribution_worker.0,
-					rx_approval_distribution_worker.1,
-					prio_right,
-				);
-
 				loop {
-					let message = match work_channels.next().await {
+					let message = match approval_distribution_work_provider.next().await {
 						Some(message) => message,
 						None => {
 							gum::info!(
@@ -324,20 +326,20 @@ async fn run_main_loop<Context>(
 					gum::trace!(target: LOG_TARGET, ?next_msg, "Parallel processing is not enabled skipping message");
 					continue;
 				}
-				gum::trace!(target: LOG_TARGET, ?next_msg, "Parallel processing is not enabled skipping message");
 
 				match next_msg {
 					FromOrchestra::Signal(msg) => {
 						if matches!(msg, OverseerSignal::ActiveLeaves(_)) {
 							metrics_watcher.collect_metrics();
 						}
+						gum::info!(target: LOG_TARGET, "To approval distribution");
+
 						for worker in to_approval_distribution_workers.iter_mut() {
 							worker
 								.send_signal(msg.clone()).await?;
 						}
 
 						to_approval_voting_worker.send_signal(msg).await?;
-
 					},
 					FromOrchestra::Communication { msg } => match msg {
 						// The message the approval voting subsystem would've handled.
@@ -628,12 +630,37 @@ fn validator_index_for_msg(
 	}
 }
 
-/// Just a wrapper over a channel Receiver, that is injected into approval-voting worker for
-/// providing the messages to be processed.
-pub struct ApprovalVotingWorkProviderImpl<T>(T);
+/// A handler object that both type of workers use for receiving work.
+///
+/// In practive this just a wrapper over a channel Receiver, that is injected into approval-voting
+/// worker and approval-distribution workers.
+type WorkProvider<M, Clos, State> = WorkProviderImpl<
+	SelectWithStrategy<
+		MeteredReceiver<FromOrchestra<M>>,
+		UnboundedMeteredReceiver<FromOrchestra<M>>,
+		Clos,
+		State,
+	>,
+>;
+
+pub struct WorkProviderImpl<T>(T);
+
+impl<T, M> Stream for WorkProviderImpl<T>
+where
+	T: Stream<Item = FromOrchestra<M>> + Unpin + Send,
+{
+	type Item = FromOrchestra<M>;
+
+	fn poll_next(
+		mut self: std::pin::Pin<&mut Self>,
+		cx: &mut std::task::Context<'_>,
+	) -> std::task::Poll<Option<Self::Item>> {
+		self.0.poll_next_unpin(cx)
+	}
+}
 
 #[async_trait::async_trait]
-impl<T> ApprovalVotingWorkProvider for ApprovalVotingWorkProviderImpl<T>
+impl<T> ApprovalVotingWorkProvider for WorkProviderImpl<T>
 where
 	T: Stream<Item = FromOrchestra<ApprovalVotingMessage>> + Unpin + Send,
 {
@@ -641,6 +668,19 @@ where
 		self.0.next().await.ok_or(SubsystemError::Context(
 			"ApprovalVotingWorkProviderImpl: Channel closed".to_string(),
 		))
+	}
+}
+
+impl<M, Clos, State> WorkProvider<M, Clos, State>
+where
+	M: Send + Sync + 'static,
+	Clos: FnMut(&mut State) -> PollNext,
+	State: Default,
+{
+	// Constructs a work providers from the channels handles.
+	fn from_rx_worker(rx: RxWorker<M>, prio: Clos) -> Self {
+		let prioritised = select_with_strategy(rx.0, rx.1, prio);
+		WorkProviderImpl(prioritised)
 	}
 }
 
@@ -798,6 +838,25 @@ fn build_channels<T: Send + Sync + 'static>(
 	metrics_watcher.watch(channel_name, to_worker.meter());
 
 	(to_worker, RxWorker(rx_approval_voting_work, rx_approval_voting_work_unbounded))
+}
+
+/// Build the worker handles used for interacting with the workers.
+///
+/// `ToWorker` is used for sending messages to the workers.
+/// `WorkProvider` is used by the workers for receiving the messages.
+fn build_worker_handles<M, Clos, State>(
+	channel_name: String,
+	channel_size: usize,
+	metrics_watcher: &mut MetricsWatcher,
+	prio_right: Clos,
+) -> (ToWorker<M>, WorkProvider<M, Clos, State>)
+where
+	M: Send + Sync + 'static,
+	Clos: FnMut(&mut State) -> PollNext,
+	State: Default,
+{
+	let (to_worker, rx_worker) = build_channels(channel_name, channel_size, metrics_watcher);
+	(to_worker, WorkProviderImpl::from_rx_worker(rx_worker, prio_right))
 }
 
 /// Just a wrapper for implementing overseer::SubsystemSender<ApprovalDistributionMessage>, so that
