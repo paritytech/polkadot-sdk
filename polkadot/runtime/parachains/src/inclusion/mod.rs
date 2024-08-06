@@ -66,6 +66,12 @@ pub mod migration;
 
 pub trait WeightInfo {
 	fn receive_upward_messages(i: u32) -> Weight;
+	/// Weight for `enact_candidate` extrinsic given the number of sent messages
+	/// (ump, hrmp) and whether there is a new code for a runtime upgrade.
+	///
+	/// NOTE: due to a shortcoming of the current benchmarking framework,
+	/// we use `u32` for the code upgrade, even though it is a `bool`.
+	fn enact_candidate(u: u32, h: u32, c: u32) -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -73,10 +79,16 @@ impl WeightInfo for TestWeightInfo {
 	fn receive_upward_messages(_: u32) -> Weight {
 		Weight::MAX
 	}
+	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
+		Weight::zero()
+	}
 }
 
 impl WeightInfo for () {
 	fn receive_upward_messages(_: u32) -> Weight {
+		Weight::zero()
+	}
+	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
 		Weight::zero()
 	}
 }
