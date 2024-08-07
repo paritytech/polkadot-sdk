@@ -895,7 +895,13 @@ mod test {
 	use super::*;
 	use crate::{
 		hash::*,
-		storage::{types::ValueQuery, IterableStorageMap},
+		storage::{
+			types::{
+				test::{frame_system, Runtime, key_after_prefix, key_before_prefix},
+				ValueQuery,
+			},
+			IterableStorageMap,
+		},
 	};
 	use sp_io::{hashing::twox_128, TestExternalities};
 	use sp_metadata_ir::{StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR};
@@ -1156,6 +1162,139 @@ mod test {
 			assert_eq!(WithLen::decode_len(3), None);
 			WithLen::append(0, 10);
 			assert_eq!(WithLen::decode_len(0), Some(1));
+		})
+	}
+
+	#[test]
+	fn map_iter_from() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			use crate::hash::Identity;
+			#[crate::storage_alias]
+			type MyMap = StorageMap<MyModule, Identity, u64, u64>;
+
+			MyMap::insert(1, 10);
+			MyMap::insert(2, 20);
+			MyMap::insert(3, 30);
+			MyMap::insert(4, 40);
+			MyMap::insert(5, 50);
+
+			let starting_raw_key = MyMap::storage_map_final_key(3);
+			let iter = MyMap::iter_from(starting_raw_key);
+			assert_eq!(iter.collect::<Vec<_>>(), vec![(4, 40), (5, 50)]);
+
+			let starting_raw_key = MyMap::storage_map_final_key(2);
+			let iter = MyMap::iter_keys_from(starting_raw_key);
+			assert_eq!(iter.collect::<Vec<_>>(), vec![3, 4, 5]);
+		});
+	}
+
+	#[cfg(debug_assertions)]
+	#[test]
+	#[should_panic]
+	fn map_translate_with_bad_key_in_debug_mode() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			type Map = frame_system::Map<Runtime>;
+			let prefix = Map::prefix_hash().to_vec();
+
+			// Wrong key
+			unhashed::put(&[prefix.clone(), vec![1, 2, 3]].concat(), &3u64.encode());
+
+			// debug_assert should cause a
+			Map::translate(|_k1, v: u64| Some(v * 2));
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![(3, 6), (0, 0), (2, 4), (1, 2)]);
+		})
+	}
+
+	#[cfg(debug_assertions)]
+	#[test]
+	#[should_panic]
+	fn map_translate_with_bad_value_in_debug_mode() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			type Map = frame_system::Map<Runtime>;
+			let prefix = Map::prefix_hash().to_vec();
+
+			// Wrong value
+			unhashed::put(
+				&[prefix.clone(), crate::Blake2_128Concat::hash(&6u16.encode())].concat(),
+				&vec![1],
+			);
+
+			Map::translate(|_k1, v: u64| Some(v * 2));
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![(3, 6), (0, 0), (2, 4), (1, 2)]);
+		})
+	}
+
+	#[cfg(not(debug_assertions))]
+	#[test]
+	fn map_translate_with_bad_key_in_production_mode() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			type Map = frame_system::Map<Runtime>;
+			let prefix = Map::prefix_hash().to_vec();
+
+			// Wrong key
+			unhashed::put(&[prefix.clone(), vec![1, 2, 3]].concat(), &3u64.encode());
+
+			Map::translate(|_k1, v: u64| Some(v * 2));
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![]);
+		})
+	}
+
+	#[cfg(not(debug_assertions))]
+	#[test]
+	fn map_translate_with_bad_value_in_production_mode() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			type Map = frame_system::Map<Runtime>;
+			let prefix = Map::prefix_hash().to_vec();
+
+			// Wrong value
+			unhashed::put(
+				&[prefix.clone(), crate::Blake2_128Concat::hash(&6u16.encode())].concat(),
+				&vec![1],
+			);
+
+			Map::translate(|_k1, v: u64| Some(v * 2));
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![]);
+		})
+	}
+
+	#[test]
+	fn map_reversible_reversible_iteration() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			type Map = frame_system::Map<Runtime>;
+
+			// All map iterator
+			let prefix = Map::prefix_hash().to_vec();
+
+			unhashed::put(&key_before_prefix(prefix.clone()), &1u64);
+			unhashed::put(&key_after_prefix(prefix.clone()), &1u64);
+
+			for i in 0..4 {
+				Map::insert(i as u16, i as u64);
+			}
+
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![(3, 3), (0, 0), (2, 2), (1, 1)]);
+
+			assert_eq!(Map::iter_keys().collect::<Vec<_>>(), vec![3, 0, 2, 1]);
+
+			assert_eq!(Map::iter_values().collect::<Vec<_>>(), vec![3, 0, 2, 1]);
+
+			assert_eq!(Map::drain().collect::<Vec<_>>(), vec![(3, 3), (0, 0), (2, 2), (1, 1)]);
+
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![]);
+			assert_eq!(unhashed::get(&key_before_prefix(prefix.clone())), Some(1u64));
+			assert_eq!(unhashed::get(&key_after_prefix(prefix.clone())), Some(1u64));
+
+			// Translate
+			let prefix = Map::prefix_hash().to_vec();
+
+			unhashed::put(&key_before_prefix(prefix.clone()), &1u64);
+			unhashed::put(&key_after_prefix(prefix.clone()), &1u64);
+			for i in 0..4 {
+				Map::insert(i as u16, i as u64);
+			}
+
+			Map::translate(|_k1, v: u64| Some(v * 2));
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![(3, 6), (0, 0), (2, 4), (1, 2)]);
 		})
 	}
 }

@@ -1100,7 +1100,7 @@ impl<T, OnRemoval: PrefixIteratorOnRemoval> Iterator for PrefixIterator<T, OnRem
 								"next_key returned a key with no value at {:?}",
 								self.previous_key,
 							);
-							continue;
+							continue
 						},
 					};
 					if self.drain {
@@ -1116,14 +1116,14 @@ impl<T, OnRemoval: PrefixIteratorOnRemoval> Iterator for PrefixIterator<T, OnRem
 								self.previous_key,
 								e,
 							);
-							continue;
+							continue
 						},
 					};
 
 					Some(item)
 				},
 				None => None,
-			};
+			}
 		}
 	}
 }
@@ -1203,7 +1203,7 @@ impl<T> Iterator for KeyPrefixIterator<T> {
 				}
 			}
 
-			return None;
+			return None
 		}
 	}
 }
@@ -1313,7 +1313,7 @@ impl<T> Iterator for ChildTriePrefixIterator<T> {
 								"next_key returned a key with no value at {:?}",
 								self.previous_key,
 							);
-							continue;
+							continue
 						},
 					};
 					if self.drain {
@@ -1328,14 +1328,14 @@ impl<T> Iterator for ChildTriePrefixIterator<T> {
 								self.previous_key,
 								e,
 							);
-							continue;
+							continue
 						},
 					};
 
 					Some(item)
 				},
 				None => None,
-			};
+			}
 		}
 	}
 }
@@ -1457,7 +1457,7 @@ pub trait StoragePrefixedMap<Value: FullCodec> {
 				},
 				None => {
 					log::error!("old key failed to decode at {:?}", previous_key);
-					continue;
+					continue
 				},
 			}
 		}
@@ -1625,33 +1625,7 @@ pub trait TryAppendMap<K: Encode, T: StorageTryAppend<I>, I: Encode> {
 	) -> Result<(), ()>;
 }
 
-/*
-impl<K, T, I, StorageMapT> TryAppendMap<K, T, I> for StorageMapT
-where
-	K: FullCodec,
-	T: FullCodec + StorageTryAppend<I>,
-	I: Encode,
-	StorageMapT: generator::StorageMap<K, T>,
-{
-	fn try_append<LikeK: EncodeLike<K> + Clone, LikeI: EncodeLike<I>>(
-		key: LikeK,
-		item: LikeI,
-	) -> Result<(), ()> {
-		let bound = T::bound();
-		let current = Self::decode_len(key.clone()).unwrap_or_default();
-		if current < bound {
-			let key = Self::storage_map_final_key(key);
-			sp_io::storage::append(&key, item.encode());
-			Ok(())
-		} else {
-			Err(())
-		}
-	}
-}
-*/
-
 /// Storage double map that is capable of [`StorageTryAppend`].
-
 pub trait TryAppendDoubleMap<K1: Encode, K2: Encode, T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage double map at the given `key`.
 	///
@@ -1666,36 +1640,7 @@ pub trait TryAppendDoubleMap<K1: Encode, K2: Encode, T: StorageTryAppend<I>, I: 
 		item: LikeI,
 	) -> Result<(), ()>;
 }
-/*
-impl<K1, K2, T, I, StorageDoubleMapT> TryAppendDoubleMap<K1, K2, T, I> for StorageDoubleMapT
-where
-	K1: FullCodec,
-	K2: FullCodec,
-	T: FullCodec + StorageTryAppend<I>,
-	I: Encode,
-	StorageDoubleMapT: generator::StorageDoubleMap<K1, K2, T>,
-{
-	fn try_append<
-		LikeK1: EncodeLike<K1> + Clone,
-		LikeK2: EncodeLike<K2> + Clone,
-		LikeI: EncodeLike<I>,
-	>(
-		key1: LikeK1,
-		key2: LikeK2,
-		item: LikeI,
-	) -> Result<(), ()> {
-		let bound = T::bound();
-		let current = Self::decode_len(key1.clone(), key2.clone()).unwrap_or_default();
-		if current < bound {
-			let double_map_key = Self::storage_double_map_final_key(key1, key2);
-			sp_io::storage::append(&double_map_key, item.encode());
-			Ok(())
-		} else {
-			Err(())
-		}
-	}
-}
-*/
+
 /// Returns the storage prefix for a specific pallet name and storage name.
 ///
 /// The storage prefix is `concat(twox_128(pallet_name), twox_128(storage_name))`.
@@ -1723,7 +1668,6 @@ mod test {
 	};
 	use bounded_vec::BoundedVec;
 	use frame_support::traits::ConstU32;
-	// use generator::;
 	use sp_core::hashing::twox_128;
 	use sp_io::TestExternalities;
 	use weak_bounded_vec::WeakBoundedVec;
@@ -1806,31 +1750,6 @@ mod test {
 	#[test]
 	fn digest_storage_append_works_as_expected() {
 		TestExternalities::default().execute_with(|| {
-			/*
-			struct Storage;
-			impl generator::StorageValue<Digest> for Storage {
-				type Query = Digest;
-
-				fn pallet_prefix() -> &'static [u8] {
-					b"MyModule"
-				}
-
-				fn storage_prefix() -> &'static [u8] {
-					b"Storage"
-				}
-
-				fn from_optional_value_to_query(v: Option<Digest>) -> Self::Query {
-					v.unwrap()
-				}
-
-				fn from_query_to_optional_value(v: Self::Query) -> Option<Digest> {
-					Some(v)
-				}
-
-				fn storage_value_final_key() -> [u8; 32] {
-					storage_prefix(Self::pallet_prefix(), Self::storage_prefix())
-				}
-			}*/
 			struct Prefix;
 			impl StorageInstance for Prefix {
 				fn pallet_prefix() -> &'static str {
@@ -1855,34 +1774,6 @@ mod test {
 	fn key_prefix_iterator_works() {
 		TestExternalities::default().execute_with(|| {
 			use crate::hash::Twox64Concat;
-			/*
-			struct MyStorageMap;
-			impl StorageMap<u64, u64> for MyStorageMap {
-				type Query = u64;
-				type Hasher = Twox64Concat;
-
-				fn pallet_prefix() -> &'static [u8] {
-					b"MyModule"
-				}
-
-				fn storage_prefix() -> &'static [u8] {
-					b"MyStorageMap"
-				}
-
-				fn prefix_hash() -> [u8; 32] {
-					storage_prefix(Self::pallet_prefix(), Self::storage_prefix())
-				}
-
-				fn from_optional_value_to_query(v: Option<u64>) -> Self::Query {
-					v.unwrap_or_default()
-				}
-
-				fn from_query_to_optional_value(v: Self::Query) -> Option<u64> {
-					Some(v)
-				}
-			}
-			*/
-
 			struct Prefix;
 			impl StorageInstance for Prefix {
 				fn pallet_prefix() -> &'static str {

@@ -1305,6 +1305,7 @@ mod test {
 	use crate::{hash::*, storage::types::ValueQuery};
 	use sp_io::{hashing::twox_128, TestExternalities};
 	use sp_metadata_ir::{StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR};
+	use storage::types::test::{key_after_prefix, key_before_prefix, frame_system, Runtime};
 	use std::collections::BTreeSet;
 
 	struct Prefix;
@@ -1561,5 +1562,141 @@ mod test {
 			// Values associated with (0, _) should have been removed
 			assert_eq!(FooDoubleMap::iter_prefix(0).collect::<Vec<_>>(), vec![]);
 		});
+	}
+
+	#[test]
+	fn double_map_iter_from() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			use crate::hash::Identity;
+			#[crate::storage_alias]
+			type MyDoubleMap = StorageDoubleMap<MyModule, Identity, u64, Identity, u64, u64>;
+
+			MyDoubleMap::insert(1, 10, 100);
+			MyDoubleMap::insert(1, 21, 201);
+			MyDoubleMap::insert(1, 31, 301);
+			MyDoubleMap::insert(1, 41, 401);
+			MyDoubleMap::insert(2, 20, 200);
+			MyDoubleMap::insert(3, 30, 300);
+			MyDoubleMap::insert(4, 40, 400);
+			MyDoubleMap::insert(5, 50, 500);
+
+			let starting_raw_key = MyDoubleMap::storage_double_map_final_key(1, 21);
+			let iter = MyDoubleMap::iter_key_prefix_from(1, starting_raw_key);
+			assert_eq!(iter.collect::<Vec<_>>(), vec![31, 41]);
+
+			let starting_raw_key = MyDoubleMap::storage_double_map_final_key(1, 31);
+			let iter = MyDoubleMap::iter_prefix_from(1, starting_raw_key);
+			assert_eq!(iter.collect::<Vec<_>>(), vec![(41, 401)]);
+
+			let starting_raw_key = MyDoubleMap::storage_double_map_final_key(2, 20);
+			let iter = MyDoubleMap::iter_keys_from(starting_raw_key);
+			assert_eq!(iter.collect::<Vec<_>>(), vec![(3, 30), (4, 40), (5, 50)]);
+
+			let starting_raw_key = MyDoubleMap::storage_double_map_final_key(3, 30);
+			let iter = MyDoubleMap::iter_from(starting_raw_key);
+			assert_eq!(iter.collect::<Vec<_>>(), vec![(4, 40, 400), (5, 50, 500)]);
+		});
+	}
+
+	#[test]
+	fn double_map_reversible_reversible_iteration() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			type DoubleMap = self::frame_system::DoubleMap<Runtime>;
+
+			// All map iterator
+			let prefix = DoubleMap::prefix_hash().to_vec();
+
+			unhashed::put(&key_before_prefix(prefix.clone()), &1u64);
+			unhashed::put(&key_after_prefix(prefix.clone()), &1u64);
+
+			for i in 0..4 {
+				DoubleMap::insert(i as u16, i as u32, i as u64);
+			}
+
+			assert_eq!(
+				DoubleMap::iter().collect::<Vec<_>>(),
+				vec![(3, 3, 3), (0, 0, 0), (2, 2, 2), (1, 1, 1)],
+			);
+
+			assert_eq!(
+				DoubleMap::iter_keys().collect::<Vec<_>>(),
+				vec![(3, 3), (0, 0), (2, 2), (1, 1)],
+			);
+
+			assert_eq!(DoubleMap::iter_values().collect::<Vec<_>>(), vec![3, 0, 2, 1]);
+
+			assert_eq!(
+				DoubleMap::drain().collect::<Vec<_>>(),
+				vec![(3, 3, 3), (0, 0, 0), (2, 2, 2), (1, 1, 1)],
+			);
+
+			assert_eq!(DoubleMap::iter().collect::<Vec<_>>(), vec![]);
+			assert_eq!(unhashed::get(&key_before_prefix(prefix.clone())), Some(1u64));
+			assert_eq!(unhashed::get(&key_after_prefix(prefix.clone())), Some(1u64));
+
+			// Prefix iterator
+			let k1 = 3 << 8;
+			let prefix = DoubleMap::storage_double_map_final_key1(k1);
+
+			unhashed::put(&key_before_prefix(prefix.clone()), &1u64);
+			unhashed::put(&key_after_prefix(prefix.clone()), &1u64);
+
+			for i in 0..4 {
+				DoubleMap::insert(k1, i as u32, i as u64);
+			}
+
+			assert_eq!(
+				DoubleMap::iter_prefix(k1).collect::<Vec<_>>(),
+				vec![(1, 1), (2, 2), (0, 0), (3, 3)],
+			);
+
+			assert_eq!(DoubleMap::iter_key_prefix(k1).collect::<Vec<_>>(), vec![1, 2, 0, 3]);
+
+			assert_eq!(DoubleMap::iter_prefix_values(k1).collect::<Vec<_>>(), vec![1, 2, 0, 3]);
+
+			assert_eq!(
+				DoubleMap::drain_prefix(k1).collect::<Vec<_>>(),
+				vec![(1, 1), (2, 2), (0, 0), (3, 3)],
+			);
+
+			assert_eq!(DoubleMap::iter_prefix(k1).collect::<Vec<_>>(), vec![]);
+			assert_eq!(unhashed::get(&key_before_prefix(prefix.clone())), Some(1u64));
+			assert_eq!(unhashed::get(&key_after_prefix(prefix.clone())), Some(1u64));
+
+			// Translate
+			let prefix = DoubleMap::prefix_hash().to_vec();
+
+			unhashed::put(&key_before_prefix(prefix.clone()), &1u64);
+			unhashed::put(&key_after_prefix(prefix.clone()), &1u64);
+			for i in 0..4 {
+				DoubleMap::insert(i as u16, i as u32, i as u64);
+			}
+
+			// Wrong key1
+			unhashed::put(&[prefix.clone(), vec![1, 2, 3]].concat(), &3u64.encode());
+
+			// Wrong key2
+			unhashed::put(
+				&[prefix.clone(), crate::Blake2_128Concat::hash(&1u16.encode())].concat(),
+				&3u64.encode(),
+			);
+
+			// Wrong value
+			unhashed::put(
+				&[
+					prefix.clone(),
+					crate::Blake2_128Concat::hash(&1u16.encode()),
+					crate::Twox64Concat::hash(&2u32.encode()),
+				]
+				.concat(),
+				&vec![1],
+			);
+
+			DoubleMap::translate(|_k1, _k2, v: u64| Some(v * 2));
+			assert_eq!(
+				DoubleMap::iter().collect::<Vec<_>>(),
+				vec![(3, 3, 6), (0, 0, 0), (2, 2, 4), (1, 1, 2)],
+			);
+		})
 	}
 }
