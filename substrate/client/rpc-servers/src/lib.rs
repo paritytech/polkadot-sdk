@@ -227,9 +227,9 @@ where
 				let rpc_middleware = RpcServiceBuilder::new()
 					.rpc_logger(1024)
 					.option_layer(middleware_layer.clone());
-				let remote_addr = (get_proxy_ip(&req).unwrap_or(ip), 0).into();
+				let ip_addr = get_proxy_ip(&req).unwrap_or(ip);
 				let mut svc =
-					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle, remote_addr);
+					service_builder.set_ip_addr(ip_addr).set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
 
 				async move {
 					if is_websocket {
