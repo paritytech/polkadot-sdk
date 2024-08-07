@@ -457,3 +457,15 @@ function get_polkadot_node_version_from_code() {
   # Remove the semicolon
   sed 's/;//g'
 }
+
+validate_stable_tag() {
+    tag="$1"
+    pattern='^stable[0-9]+(-[0-9]+)?$'
+
+    if [[ $tag =~ $pattern ]]; then
+        echo $tag
+    else
+        echo "The input '$tag' does not match the pattern."
+        exit 1
+    fi
+}
