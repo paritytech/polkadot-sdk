@@ -105,14 +105,14 @@ impl TransactionExtensionBase for TransactionExtension {
 	}
 }
 
-impl<C, Context> sp_runtime::traits::TransactionExtension<C, Context> for TransactionExtension
+impl<C> sp_runtime::traits::TransactionExtension<C> for TransactionExtension
 where
 	C: Dispatchable,
 {
 	type Pre = ();
 	type Val = ();
 
-	impl_tx_ext_default!(C; Context; validate prepare);
+	impl_tx_ext_default!(C; validate prepare);
 }
 
 impl TransactionExtension {

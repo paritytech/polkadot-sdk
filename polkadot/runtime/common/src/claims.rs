@@ -633,7 +633,7 @@ where
 	type Implicit = ();
 }
 
-impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context> for PrevalidateAttests<T>
+impl<T: Config> TransactionExtension<T::RuntimeCall> for PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
@@ -651,7 +651,6 @@ where
 		call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<
@@ -671,7 +670,7 @@ where
 		}
 		Ok((ValidTransaction::default(), (), origin))
 	}
-	impl_tx_ext_default!(T::RuntimeCall; Context; prepare);
+	impl_tx_ext_default!(T::RuntimeCall; prepare);
 }
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]

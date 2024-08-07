@@ -277,7 +277,7 @@ where
 	}
 }
 
-impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context> for ChargeAssetTxPayment<T>
+impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeAssetTxPayment<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	AssetBalanceOf<T>: Send + Sync,
@@ -311,7 +311,6 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<
@@ -336,7 +335,6 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let (tip, who, fee) = val;
 		// Mutating call of `withdraw_fee` to actually charge for the transaction.
@@ -350,7 +348,6 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		result: &DispatchResult,
-		_context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
 		let (tip, who, initial_payment, asset_id) = pre;
 		match initial_payment {
@@ -367,7 +364,6 @@ where
 					&actual_post_info,
 					len,
 					result,
-					&(),
 				)?;
 				Ok(Some(<T as Config>::WeightInfo::charge_asset_tx_payment_native()))
 			},

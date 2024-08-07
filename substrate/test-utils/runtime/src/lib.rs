@@ -282,12 +282,10 @@ impl sp_runtime::traits::TransactionExtensionBase for CheckSubstrateCall {
 	const IDENTIFIER: &'static str = "CheckSubstrateCall";
 	type Implicit = ();
 }
-impl<Context> sp_runtime::traits::TransactionExtension<RuntimeCall, Context>
-	for CheckSubstrateCall
-{
+impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCall {
 	type Pre = ();
 	type Val = ();
-	impl_tx_ext_default!(RuntimeCall; Context; prepare);
+	impl_tx_ext_default!(RuntimeCall; prepare);
 
 	fn validate(
 		&self,
@@ -295,7 +293,6 @@ impl<Context> sp_runtime::traits::TransactionExtension<RuntimeCall, Context>
 		call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<

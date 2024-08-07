@@ -178,7 +178,6 @@ fn transaction_payment_in_native_possible() {
 				&default_post_info(),
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 20 - 10);
 
@@ -204,7 +203,6 @@ fn transaction_payment_in_native_possible() {
 				&post_info,
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 50 - 15 - 5);
 		});
@@ -278,7 +276,6 @@ fn transaction_payment_in_asset_possible() {
 				&default_post_info(),        // weight actually used == estimated
 				len,
 				&Ok(()),
-				&()
 			));
 
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
@@ -391,7 +388,6 @@ fn transaction_payment_without_fee() {
 				&post_info_from_pays(Pays::No),
 				len,
 				&Ok(()),
-				&()
 			));
 
 			// caller should get refunded
@@ -478,7 +474,6 @@ fn asset_transaction_payment_with_tip_and_refund() {
 				&post_info,
 				len,
 				&Ok(()),
-				&()
 			));
 
 			assert_eq!(TipUnbalancedAmount::get(), tip);
@@ -556,7 +551,6 @@ fn payment_from_account_with_only_assets() {
 				&default_post_info(),
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 			assert_eq!(Balances::free_balance(caller), 0);
@@ -613,7 +607,6 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 					&post_info_from_pays(Pays::No),
 					len,
 					&Ok(()),
-					&()
 				));
 				assert_eq!(Assets::balance(asset_id, caller), balance);
 			}
@@ -644,7 +637,6 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 				&default_post_info(),
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 		});
@@ -706,7 +698,6 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 				&post_info_from_pays(Pays::Yes),
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 		});
@@ -754,7 +745,6 @@ fn fee_with_native_asset_passed_with_id() {
 					&post_info,
 					len,
 					&Ok(()),
-					&()
 				)
 				.unwrap()
 				.unwrap(),
@@ -854,7 +844,6 @@ fn transfer_add_and_remove_account() {
 				&post_info_from_weight(WEIGHT_50),
 				len,
 				&Ok(()),
-				&()
 			));
 
 			// fee paid with no refund.

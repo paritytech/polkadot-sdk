@@ -859,8 +859,7 @@ impl<T: Config> TransactionExtensionBase for ChargeTransactionPayment<T> {
 	}
 }
 
-impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context>
-	for ChargeTransactionPayment<T>
+impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPayment<T>
 where
 	BalanceOf<T>: Send + Sync + From<u64>,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -888,7 +887,6 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		_context: &mut Context,
 		_: (),
 		_implication: &impl Encode,
 	) -> Result<
@@ -916,7 +914,6 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let (tip, who, fee) = val;
 		// Mutating call to `withdraw_fee` to actually charge for the transaction.
@@ -930,7 +927,6 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		_result: &DispatchResult,
-		_context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
 		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, &post_info, tip);
 		T::OnChargeTransaction::correct_and_deposit_fee(

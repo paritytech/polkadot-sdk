@@ -409,7 +409,7 @@ where
 	Call: Encode + Member + Dispatchable,
 	Signature: Member + traits::Verify,
 	<Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountId>,
-	Extension: Encode + TransactionExtension<Call, ()>,
+	Extension: Encode + TransactionExtension<Call>,
 	AccountId: Member + MaybeDisplay,
 	Lookup: traits::Lookup<Source = LookupSource, Target = AccountId>,
 {
@@ -464,7 +464,7 @@ where
 	}
 }
 
-impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call, ()>>
+impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call>>
 	ExtrinsicMetadata for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
 	const VERSION: u8 = EXTRINSIC_FORMAT_VERSION;
@@ -546,7 +546,7 @@ where
 	Address: Encode,
 	Signature: Encode,
 	Call: Encode + Dispatchable,
-	Extension: TransactionExtension<Call, ()>,
+	Extension: TransactionExtension<Call>,
 {
 }
 
@@ -836,10 +836,10 @@ mod tests {
 		const IDENTIFIER: &'static str = "DummyExtension";
 		type Implicit = ();
 	}
-	impl<Context> TransactionExtension<TestCall, Context> for DummyExtension {
+	impl TransactionExtension<TestCall> for DummyExtension {
 		type Val = ();
 		type Pre = ();
-		impl_tx_ext_default!(TestCall; Context; validate prepare);
+		impl_tx_ext_default!(TestCall; validate prepare);
 	}
 
 	type Ex = UncheckedExtrinsic<TestAccountId, TestCall, TestSig, DummyExtension>;
