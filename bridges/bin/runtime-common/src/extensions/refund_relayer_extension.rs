@@ -1675,7 +1675,6 @@ pub(crate) mod tests {
 			&post_dispatch_info(),
 			1024,
 			&dispatch_result,
-			&(),
 		);
 		assert_eq!(post_dispatch_result, Ok(None));
 	}
