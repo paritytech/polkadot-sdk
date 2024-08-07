@@ -445,8 +445,8 @@ pub mod pallet {
 
 			// Insert it into storage.
 			Pools::<T>::insert(pool_id, pool);
-			// TODO should be checked add
-			NextPoolId::<T>::put(pool_id.saturating_add(1));
+
+			NextPoolId::<T>::put(pool_id.checked_add(1).ok_or(Error::<T>::Overflow)?);
 
 			// Emit created event.
 			Self::deposit_event(Event::PoolCreated {
