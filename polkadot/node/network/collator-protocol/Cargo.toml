@@ -29,8 +29,7 @@ thiserror = { workspace = true }
 tokio-util = { workspace = true }
 
 [dev-dependencies]
-log = { workspace = true, default-features = true }
-env_logger = { workspace = true }
+sp-tracing = { workspace = true }
 assert_matches = { workspace = true }
 rstest = { workspace = true }
 

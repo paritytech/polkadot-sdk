@@ -28,6 +28,8 @@ use sp_runtime::Perbill;
 
 use crate::mock::RuntimeOrigin;
 
+use pallet_election_provider_multi_phase::CurrentPhase;
+
 // syntactic sugar for logging.
 #[macro_export]
 macro_rules! log {
@@ -46,7 +48,7 @@ fn log_current_time() {
 		System::block_number(),
 		Session::current_index(),
 		Staking::current_era(),
-		ElectionProviderMultiPhase::current_phase(),
+		CurrentPhase::<Runtime>::get(),
 		Now::<Runtime>::get()
 	);
 }
@@ -58,16 +60,16 @@ fn block_progression_works() {
 	execute_with(ext, || {
 		assert_eq!(active_era(), 0);
 		assert_eq!(Session::current_index(), 0);
-		assert!(ElectionProviderMultiPhase::current_phase().is_off());
+		assert!(CurrentPhase::<Runtime>::get().is_off());
 
 		assert!(start_next_active_era(pool_state.clone()).is_ok());
 		assert_eq!(active_era(), 1);
 		assert_eq!(Session::current_index(), <SessionsPerEra as Get<u32>>::get());
 
-		assert!(ElectionProviderMultiPhase::current_phase().is_off());
+		assert!(CurrentPhase::<Runtime>::get().is_off());
 
 		roll_to_epm_signed();
-		assert!(ElectionProviderMultiPhase::current_phase().is_signed());
+		assert!(CurrentPhase::<Runtime>::get().is_signed());
 	});
 
 	let (ext, pool_state, _) = ExtBuilder::default().build_offchainify();
@@ -75,11 +77,11 @@ fn block_progression_works() {
 	execute_with(ext, || {
 		assert_eq!(active_era(), 0);
 		assert_eq!(Session::current_index(), 0);
-		assert!(ElectionProviderMultiPhase::current_phase().is_off());
+		assert!(CurrentPhase::<Runtime>::get().is_off());
 
 		assert!(start_next_active_era_delayed_solution(pool_state).is_ok());
 		// if the solution is delayed, EPM will end up in emergency mode..
-		assert!(ElectionProviderMultiPhase::current_phase().is_emergency());
+		assert!(CurrentPhase::<Runtime>::get().is_emergency());
 		// .. era won't progress..
 		assert_eq!(active_era(), 0);
 		// .. but session does.
@@ -103,7 +105,7 @@ fn offchainify_works() {
 		// not delayed.
 		for _ in 0..100 {
 			roll_one(pool_state.clone(), false);
-			let current_phase = ElectionProviderMultiPhase::current_phase();
+			let current_phase = CurrentPhase::<Runtime>::get();
 
 			assert!(
 				match QueuedSolution::<Runtime>::get() {
@@ -209,7 +211,7 @@ fn continuous_slashes_below_offending_threshold() {
 			// break loop when era does not progress; EPM is in emergency phase as election
 			// failed due to election minimum score.
 			if start_next_active_era(pool_state.clone()).is_err() {
-				assert!(ElectionProviderMultiPhase::current_phase().is_emergency());
+				assert!(CurrentPhase::<Runtime>::get().is_emergency());
 				break;
 			}
 
