@@ -349,8 +349,6 @@ async fn handle_active_leaves_update<Context>(
 						.get_pending_availability(&candidate.hash())
 						.is_none()
 					{
-						// We need to swallow any potential errors here, as they can happen under
-						// normal operation, with candidates becoming out of scope for example.
 						let _ = new_storage.add_candidate_entry(candidate);
 					}
 				}
