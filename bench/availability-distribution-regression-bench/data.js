@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723031159619,
+  "lastUpdate": 1723047483764,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21163,6 +21163,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16762533119333337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0fb6e3c51eb37575f33ac7f06b6350c0aab4f0c7",
+          "message": "Umbrella crate: exclude chain-specific crates (#5173)\n\nUses custom metadata to exclude chain-specific crates.  \nThe only concern is that devs who want to use chain-specific crates,\nstill need to select matching versions numbers. Could possibly be\naddresses with chain-specific umbrella crates, but currently it should\nbe possible to use [psvm](https://github.com/paritytech/psvm).\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-08-07T14:30:33Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0fb6e3c51eb37575f33ac7f06b6350c0aab4f0c7"
+        },
+        "date": 1723047452564,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012418053873333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17119980376000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01015025193333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.0220805585,
             "unit": "seconds"
           }
         ]
