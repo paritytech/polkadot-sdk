@@ -321,7 +321,7 @@ where
 	RuntimeCall: From<LocalCall>,
 {
 	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
-		UncheckedExtrinsic::new_bare(call)
+		Extrinsic::new_bare(call)
 	}
 }
 
