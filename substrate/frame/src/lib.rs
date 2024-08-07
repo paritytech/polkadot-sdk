@@ -204,6 +204,12 @@ pub mod runtime {
 		/// Macro to implement runtime APIs.
 		pub use sp_api::impl_runtime_apis;
 
+		/// Some types often used in `impl_runtime_apis`
+		pub use frame_support::genesis_builder_helper::*;
+		pub use sp_core::OpaqueMetadata;
+		pub use sp_inherents::{CheckInherentsResult, InherentData};
+		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
+
 		#[cfg(feature = "std")]
 		pub use sp_version::NativeVersion;
 	}
@@ -215,7 +221,7 @@ pub mod runtime {
 	/// A non-testing runtime should have this enabled, as such:
 	///
 	/// ```
-	/// use polkadot_sdk_frame::runtime::{prelude::*, apis::{*,}};
+	/// use polkadot_sdk_frame::runtime::{prelude::*, apis};
 	/// ```
 	// TODO: This is because of wildcard imports, and it should be not needed once we can avoid
 	// that. Imports like that are needed because we seem to need some unknown types in the macro
@@ -223,16 +229,12 @@ pub mod runtime {
 	// moved to file similarly.
 	#[allow(ambiguous_glob_reexports)]
 	pub mod apis {
-		// Types often used in the runtime APIs.
-		pub use sp_core::OpaqueMetadata;
-		pub use sp_inherents::{CheckInherentsResult, InherentData};
-		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
-
 		pub use frame_system_rpc_runtime_api::*;
 		pub use sp_api::{self, *};
 		pub use sp_block_builder::*;
 		pub use sp_consensus_aura::*;
 		pub use sp_consensus_grandpa::*;
+		pub use sp_genesis_builder::*;
 		pub use sp_offchain::*;
 		pub use sp_session::runtime_api::*;
 		pub use sp_transaction_pool::runtime_api::*;
