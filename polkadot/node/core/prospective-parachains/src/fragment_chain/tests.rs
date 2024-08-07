@@ -1145,7 +1145,8 @@ fn test_populate_and_check_potential() {
 
 	// Simulate a best chain reorg by backing a2.
 	{
-		let chain = chain.candidate_backed(&candidate_a2_hash);
+		let mut chain = chain.clone();
+		chain.candidate_backed(&candidate_a2_hash);
 		assert_eq!(chain.best_chain_vec(), vec![candidate_a2_hash, candidate_b2_hash]);
 		// F is kept as it was truly unconnected. The rest will be trimmed.
 		assert_eq!(
@@ -1249,7 +1250,7 @@ fn test_populate_and_check_potential() {
 	)
 	.unwrap();
 
-	let chain = FragmentChain::populate(scope, new_storage);
+	let mut chain = FragmentChain::populate(scope, new_storage);
 	assert_eq!(chain.best_chain_vec(), vec![candidate_d_hash]);
 	assert_eq!(
 		chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
@@ -1257,7 +1258,7 @@ fn test_populate_and_check_potential() {
 	);
 
 	// Mark E as backed. F will be dropped for invalid watermark. No other unconnected candidates.
-	let chain = chain.candidate_backed(&candidate_e_hash);
+	chain.candidate_backed(&candidate_e_hash);
 	assert_eq!(chain.best_chain_vec(), vec![candidate_d_hash, candidate_e_hash]);
 	assert_eq!(chain.unconnected_len(), 0);
 
@@ -1374,30 +1375,30 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 
 	// Do tests with only a couple of candidates being backed.
 	{
-		let chain = chain.clone();
-		let chain = chain.candidate_backed(&&candidates[5]);
+		let mut chain = chain.clone();
+		chain.candidate_backed(&&candidates[5]);
 		for count in 0..10 {
 			assert_eq!(chain.find_backable_chain(Ancestors::new(), count).len(), 0);
 		}
-		let chain = chain.candidate_backed(&&candidates[3]);
-		let chain = chain.candidate_backed(&&candidates[4]);
-		for count in 0..10 {
-			assert_eq!(chain.find_backable_chain(Ancestors::new(), count).len(), 0);
-		}
-
-		let chain = chain.candidate_backed(&&candidates[1]);
+		chain.candidate_backed(&&candidates[3]);
+		chain.candidate_backed(&&candidates[4]);
 		for count in 0..10 {
 			assert_eq!(chain.find_backable_chain(Ancestors::new(), count).len(), 0);
 		}
 
-		let chain = chain.candidate_backed(&&candidates[0]);
+		chain.candidate_backed(&&candidates[1]);
+		for count in 0..10 {
+			assert_eq!(chain.find_backable_chain(Ancestors::new(), count).len(), 0);
+		}
+
+		chain.candidate_backed(&&candidates[0]);
 		assert_eq!(chain.find_backable_chain(Ancestors::new(), 1), hashes(0..1));
 		for count in 2..10 {
 			assert_eq!(chain.find_backable_chain(Ancestors::new(), count), hashes(0..2));
 		}
 
 		// Now back the missing piece.
-		let chain = chain.candidate_backed(&&candidates[2]);
+		chain.candidate_backed(&&candidates[2]);
 		assert_eq!(chain.best_chain_len(), 6);
 		for count in 0..10 {
 			assert_eq!(
@@ -1414,7 +1415,7 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 	let mut candidates_shuffled = candidates.clone();
 	candidates_shuffled.shuffle(&mut thread_rng());
 	for candidate in candidates.iter() {
-		chain = chain.candidate_backed(candidate);
+		chain.candidate_backed(candidate);
 		storage.mark_backed(candidate);
 	}
 

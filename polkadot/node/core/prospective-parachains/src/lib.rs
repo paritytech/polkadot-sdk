@@ -28,7 +28,7 @@
 
 #![deny(unused_crate_dependencies)]
 
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 use fragment_chain::CandidateStorage;
 use futures::{channel::oneshot, prelude::*};
@@ -590,9 +590,9 @@ async fn handle_candidate_backed(
 	for leaf in view.active_leaves.iter() {
 		let Some(leaf_data) = view.per_relay_parent.get_mut(leaf) else { continue };
 
-		if let Entry::Occupied(chain) = leaf_data.fragment_chains.entry(para) {
+		if let Some(chain) = leaf_data.fragment_chains.get_mut(&para) {
 			found_para = true;
-			if chain.get().is_candidate_backed(&candidate_hash) {
+			if chain.is_candidate_backed(&candidate_hash) {
 				gum::debug!(
 					target: LOG_TARGET,
 					para_id = ?para,
@@ -600,17 +600,17 @@ async fn handle_candidate_backed(
 					"Received redundant instruction to mark as backed an already backed candidate",
 				);
 				found_candidate = true;
-			} else if chain.get().contains_unconnected_candidate(&candidate_hash) {
+			} else if chain.contains_unconnected_candidate(&candidate_hash) {
 				found_candidate = true;
-				// Now that a candidate was backed, recreate the fragment chain.
-				let new_chain = chain.remove().candidate_backed(&candidate_hash);
+				// Mark the candidate as backed. This can recreate the fragment chain.
+				chain.candidate_backed(&candidate_hash);
 
 				gum::trace!(
 					target: LOG_TARGET,
 					relay_parent = ?leaf,
 					para_id = ?para,
 					"Candidate backed. Candidate chain for para: {:?}",
-					new_chain.best_chain_vec()
+					chain.best_chain_vec()
 				);
 
 				gum::trace!(
@@ -618,11 +618,8 @@ async fn handle_candidate_backed(
 					relay_parent = ?leaf,
 					para_id = ?para,
 					"Potential candidate storage for para: {:?}",
-					new_chain.unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
+					chain.unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
 				);
-
-				// We removed the old chain, add the new one.
-				leaf_data.fragment_chains.insert(para, new_chain);
 			}
 		}
 	}
