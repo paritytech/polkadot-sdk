@@ -85,6 +85,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
 
+use codec::Codec;
 use frame_support::{
 	traits::{
 		fungibles::{Inspect, Mutate},
@@ -95,7 +96,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
-	traits::{CheckedAdd, Zero},
+	traits::{CheckedAdd, MaybeDisplay, Zero},
 	DispatchError,
 };
 use sp_std::boxed::Box;
@@ -154,6 +155,16 @@ pub struct PoolInfo<AccountId, AssetId, Balance, BlockNumber> {
 	reward_per_token_stored: Balance,
 	/// Last block number the pool was updated.
 	last_update_block: BlockNumber,
+}
+
+sp_api::decl_runtime_apis! {
+	/// The runtime API for the asset rewards pallet.
+	pub trait AssetRewards<Cost: MaybeDisplay + Codec> {
+		/// Get the cost of creating a pool.
+		///
+		/// This is especially useful when the cost is dynamic.
+		fn pool_creation_cost() -> Cost;
+	}
 }
 
 #[frame_support::pallet]
@@ -420,7 +431,7 @@ pub mod pallet {
 
 			let pool_id = NextPoolId::<T>::get();
 
-			let footprint = Footprint::from_mel::<(PoolId, PoolInfoFor<T>)>();
+			let footprint = Self::pool_creation_footprint();
 			if let Some(cost) = T::Consideration::new(&creator, footprint)
 				.map_err(|_| Error::<T>::PoolCostNotApplied)?
 			{
@@ -724,6 +735,14 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// The pool creation footprint.
+		///
+		/// The footprint specifically accounts for the storage footprint of the pool's information
+		/// itself, excluding any potential storage footprint related to the stakers.
+		pub fn pool_creation_footprint() -> Footprint {
+			Footprint::from_mel::<(PoolId, PoolInfoFor<T>)>()
+		}
+
 		/// Derive a pool account ID from the pallet's ID.
 		pub fn pool_account_id(id: &PoolId) -> Result<T::AccountId, DispatchError> {
 			if Pools::<T>::contains_key(id) {
