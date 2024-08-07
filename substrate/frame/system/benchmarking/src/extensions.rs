@@ -27,7 +27,8 @@ use frame_support::{
 };
 use frame_system::{
 	pallet_prelude::*, CheckGenesis, CheckMortality, CheckNonZeroSender, CheckNonce,
-	CheckSpecVersion, CheckTxVersion, CheckWeight, Config, Pallet as System, RawOrigin,
+	CheckSpecVersion, CheckTxVersion, CheckWeight, Config, ExtensionsWeightInfo, Pallet as System,
+	RawOrigin,
 };
 use sp_runtime::{
 	generic::Era,
@@ -172,8 +173,10 @@ mod benchmarks {
 		let base_extrinsic = <T as frame_system::Config>::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.base_extrinsic;
+		let extension_weight = <T as frame_system::Config>::ExtensionsWeightInfo::check_weight();
 		let info = DispatchInfo {
 			call_weight: Weight::from_parts(base_extrinsic.ref_time() * 5, 0),
+			extension_weight,
 			class: DispatchClass::Normal,
 			..Default::default()
 		};
@@ -204,7 +207,8 @@ mod benchmarks {
 
 		assert_eq!(
 			System::<T>::block_weight().total(),
-			initial_block_weight + base_extrinsic + post_info.actual_weight.unwrap(),
+			initial_block_weight +
+				base_extrinsic + post_info.actual_weight.unwrap().saturating_add(extension_weight),
 		);
 		Ok(())
 	}

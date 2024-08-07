@@ -30,7 +30,7 @@ use sp_std::{self, fmt::Debug, prelude::*};
 use sp_weights::Weight;
 use tuplex::{PopFront, PushBack};
 
-use super::{AccrueWeight, DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf};
+use super::{DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf, RefundWeight};
 
 mod as_transaction_extension;
 mod dispatch_transaction;
@@ -322,14 +322,14 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	}
 
 	/// A wrapper for [post_dispatch_details](TransactionExtension::post_dispatch_details) that
-	/// accrues the weight consumed by this extension into the post dispatch information.
+	/// refunds the unspent weight consumed by this extension into the post dispatch information.
 	///
 	/// If `post_dispatch` returns a consumed weight, which should be less than the worst case
-	/// weight provided by [weight](TransactionExtensionBase::weight), that is the value accrued in
+	/// weight provided by [weight](TransactionExtensionBase::weight), that is the value refunded in
 	/// `post_info`.
 	///
-	/// If no weight is returned by `post_dispatch_details`, this function accrues the worst case
-	/// weight.
+	/// If no weight is returned by `post_dispatch_details`, this function assumes the worst case
+	/// weight and does not refund anything.
 	///
 	/// For more information, look into
 	/// [post_dispatch_details](TransactionExtension::post_dispatch_details).
@@ -341,9 +341,12 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 		result: &DispatchResult,
 		context: &Context,
 	) -> Result<(), TransactionValidityError> {
-		let weight = Self::post_dispatch_details(pre, info, &post_info, len, result, context)?
-			.unwrap_or_else(|| Self::weight());
-		post_info.accrue(weight);
+		if let Some(unspent_weight) =
+			Self::post_dispatch_details(pre, info, &post_info, len, result, context)?
+				.map(|actual_ext_weight| Self::weight().saturating_sub(actual_ext_weight))
+		{
+			post_info.refund(unspent_weight);
+		}
 		Ok(())
 	}
 

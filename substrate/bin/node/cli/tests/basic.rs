@@ -341,11 +341,9 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(0),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: timestamp_weight,
-						class: DispatchClass::Mandatory,
-						..Default::default()
-					},
+					weight: timestamp_weight,
+					class: DispatchClass::Mandatory,
+					..Default::default()
 				}),
 				topics: vec![],
 			},
@@ -402,10 +400,8 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: transfer_weight.saturating_add(TxExtension::weight()),
-						..Default::default()
-					},
+					weight: transfer_weight.saturating_add(TxExtension::weight()),
+					..Default::default()
 				}),
 				topics: vec![],
 			},
@@ -436,11 +432,9 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(0),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: timestamp_weight,
-						class: DispatchClass::Mandatory,
-						..Default::default()
-					},
+					weight: timestamp_weight,
+					class: DispatchClass::Mandatory,
+					..Default::default()
 				}),
 				topics: vec![],
 			},
@@ -497,10 +491,8 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: transfer_weight.saturating_add(TxExtension::weight()),
-						..Default::default()
-					},
+					weight: transfer_weight.saturating_add(TxExtension::weight()),
+					..Default::default()
 				}),
 				topics: vec![],
 			},
@@ -557,10 +549,8 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: transfer_weight.saturating_add(TxExtension::weight()),
-						..Default::default()
-					},
+					weight: transfer_weight.saturating_add(TxExtension::weight()),
+					..Default::default()
 				}),
 				topics: vec![],
 			},
