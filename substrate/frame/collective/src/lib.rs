@@ -251,8 +251,13 @@ pub mod deposit {
 		fn convert(proposal_count: u32) -> Balance {
 			let deposit = Deposit::convert(proposal_count);
 			if !deposit.is_zero() {
-				let factor: Balance = 10u32.pow(Precision::get()).into();
-				(deposit / factor) * factor
+				let factor: Balance =
+					Balance::from(10u32).saturating_pow(Precision::get() as usize);
+				if factor > deposit {
+					deposit
+				} else {
+					(deposit / factor) * factor
+				}
 			} else {
 				deposit
 			}
