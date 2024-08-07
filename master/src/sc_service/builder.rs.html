@@ -1741,7 +1741,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">let </span>rpc = start_rpc_servers(<span class="kw-2">&amp;</span>config, gen_rpc_module, rpc_id_provider)<span class="question-mark">?</span>;
-	<span class="kw">let </span>rpc_handlers = RpcHandlers(Arc::new(gen_rpc_module(sc_rpc::DenyUnsafe::No)<span class="question-mark">?</span>.into()));
+	<span class="kw">let </span>rpc_handlers = RpcHandlers::new(Arc::new(gen_rpc_module(sc_rpc::DenyUnsafe::No)<span class="question-mark">?</span>.into()));
 
 	<span class="comment">// Spawn informant task
 	</span>spawn_handle.spawn(

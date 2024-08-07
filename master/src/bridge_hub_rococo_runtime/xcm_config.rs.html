@@ -557,6 +557,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#406" id="406">406</a>
 <a href="#407" id="407">407</a>
 <a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -956,7 +958,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>is_waived(origin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;, fee_reason: FeeReason) -&gt; bool {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(loc) = origin <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
 		<span class="kw">if let </span>Export { network, destination: Here } = fee_reason {
-			<span class="kw">return </span>!(network == EthereumNetwork::get())
+			<span class="kw">if </span>network == EthereumNetwork::get() {
+				<span class="kw">return </span><span class="bool-val">false
+			</span>}
 		}
 		WaivedLocations::contains(loc)
 	}

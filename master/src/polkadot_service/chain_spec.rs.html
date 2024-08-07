@@ -864,6 +864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#713" id="713">713</a>
 <a href="#714" id="714">714</a>
 <a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1524,7 +1525,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">pub fn </span>westend_local_testnet_config() -&gt; <span class="prelude-ty">Result</span>&lt;WestendChainSpec, String&gt; {
 	<span class="prelude-val">Ok</span>(WestendChainSpec::builder(
-		westend::WASM_BINARY.ok_or(<span class="string">"Westend development wasm not available"</span>)<span class="question-mark">?</span>,
+		westend::fast_runtime_binary::WASM_BINARY
+			.ok_or(<span class="string">"Westend development wasm not available"</span>)<span class="question-mark">?</span>,
 		Default::default(),
 	)
 	.with_name(<span class="string">"Westend Local Testnet"</span>)

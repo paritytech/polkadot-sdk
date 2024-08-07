@@ -1432,6 +1432,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1281" id="1281">1281</a>
 <a href="#1282" id="1282">1282</a>
 <a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1462,6 +1499,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/wasm_binary.rs"</span>));
 
 <span class="kw">pub mod </span>bridge_common_config;
+<span class="kw">pub mod </span>bridge_to_ethereum_config;
 <span class="kw">pub mod </span>bridge_to_rococo_config;
 <span class="kw">mod </span>weights;
 <span class="kw">pub mod </span>xcm_config;
@@ -1530,7 +1568,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	impls::DealWithFees, AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
+<span class="kw">use </span>snowbridge_core::{
+	outbound::{Command, Fee},
+	AgentId, PricingParameters,
+};
 <span class="kw">use </span>testnet_parachains_constants::westend::{consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee, time::<span class="kw-2">*</span>};
+<span class="kw">use </span>xcm::VersionedLocation;
 
 <span class="doccomment">/// The address format for describing accounts.
 </span><span class="kw">pub type </span>Address = MultiAddress&lt;AccountId, ()&gt;;
@@ -1557,6 +1600,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BridgeRejectObsoleteHeadersAndMessages,
 	(bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages,),
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim&lt;Runtime&gt;,
+	frame_metadata_hash_extension::CheckMetadataHash&lt;Runtime&gt;,
 );
 
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
@@ -1785,10 +1829,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>MessageProcessor =
 		pallet_message_queue::mock_helpers::NoopMessageProcessor&lt;AggregateMessageOrigin&gt;;
 	<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
-	</span><span class="kw">type </span>MessageProcessor = xcm_builder::ProcessXcmMessage&lt;
-		AggregateMessageOrigin,
-		xcm_executor::XcmExecutor&lt;xcm_config::XcmConfig&gt;,
-		RuntimeCall,
+	</span><span class="kw">type </span>MessageProcessor = bridge_hub_common::BridgeHubMessageRouter&lt;
+		xcm_builder::ProcessXcmMessage&lt;
+			AggregateMessageOrigin,
+			xcm_executor::XcmExecutor&lt;xcm_config::XcmConfig&gt;,
+			RuntimeCall,
+		&gt;,
+		EthereumOutboundQueue,
 	&gt;;
 	<span class="kw">type </span>Size = u32;
 	<span class="comment">// The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
@@ -1950,6 +1997,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		BridgeRococoMessages: pallet_bridge_messages::&lt;Instance1&gt; = <span class="number">44</span>,
 		XcmOverBridgeHubRococo: pallet_xcm_bridge_hub::&lt;Instance1&gt; = <span class="number">45</span>,
 
+		EthereumInboundQueue: snowbridge_pallet_inbound_queue = <span class="number">80</span>,
+		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = <span class="number">81</span>,
+		EthereumBeaconClient: snowbridge_pallet_ethereum_client = <span class="number">82</span>,
+		EthereumSystem: snowbridge_pallet_system = <span class="number">83</span>,
+
 		<span class="comment">// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
 		</span>MessageQueue: pallet_message_queue = <span class="number">250</span>,
@@ -2002,6 +2054,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		[pallet_bridge_grandpa, RococoFinality]
 		[pallet_bridge_parachains, WithinRococo]
 		[pallet_bridge_messages, WestendToRococo]
+		<span class="comment">// Ethereum Bridge
+		</span>[snowbridge_pallet_inbound_queue, EthereumInboundQueue]
+		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
+		[snowbridge_pallet_system, EthereumSystem]
+		[snowbridge_pallet_ethereum_client, EthereumBeaconClient]
 	);
 }
 
@@ -2261,6 +2318,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Runtime,
 				bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
 			&gt;(lane, begin, end)
+		}
+	}
+
+	<span class="kw">impl </span>snowbridge_outbound_queue_runtime_api::OutboundQueueApi&lt;Block, Balance&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>prove_message(leaf_index: u64) -&gt; <span class="prelude-ty">Option</span>&lt;snowbridge_pallet_outbound_queue::MerkleProof&gt; {
+			snowbridge_pallet_outbound_queue::api::prove_message::&lt;Runtime&gt;(leaf_index)
+		}
+
+		<span class="kw">fn </span>calculate_fee(command: Command, parameters: <span class="prelude-ty">Option</span>&lt;PricingParameters&lt;Balance&gt;&gt;) -&gt; Fee&lt;Balance&gt; {
+			snowbridge_pallet_outbound_queue::api::calculate_fee::&lt;Runtime&gt;(command, parameters)
+		}
+	}
+
+	<span class="kw">impl </span>snowbridge_system_runtime_api::ControlApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>agent_id(location: VersionedLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AgentId&gt; {
+			snowbridge_pallet_system::api::agent_id::&lt;Runtime&gt;(location)
 		}
 	}
 
@@ -2693,7 +2766,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				(
 					bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),
 				),
-				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new()
+				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
+				frame_metadata_hash_extension::CheckMetadataHash::new(<span class="bool-val">false</span>),
 			);
 
 			{
@@ -2706,9 +2780,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="number">10</span>,
 					(((), ()), ((), ())),
 				);
-				<span class="macro">assert_eq!</span>(payload.encode(), bh_indirect_payload.encode());
+				<span class="macro">assert_eq!</span>(payload.encode().split_last().unwrap().<span class="number">1</span>, bh_indirect_payload.encode());
 				<span class="macro">assert_eq!</span>(
-					payload.additional_signed().unwrap().encode(),
+					payload.additional_signed().unwrap().encode().split_last().unwrap().<span class="number">1</span>,
 					bh_indirect_payload.additional_signed().unwrap().encode()
 				)
 			}

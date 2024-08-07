@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["ED","PARA_ID"],"fn":["genesis"]};
+window.SIDEBAR_ITEMS = {"constant":["ASSETHUB_PARA_ID","ED","PARA_ID"],"fn":["genesis"]};

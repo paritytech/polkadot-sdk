@@ -412,6 +412,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -449,19 +488,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
 <span class="kw">use </span>polkadot_runtime_common::xcm_sender::ExponentialPrice;
+<span class="kw">use </span>snowbridge_runtime_common::XcmExportFeeToSibling;
 <span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
+<span class="kw">use </span>sp_std::marker::PhantomData;
+<span class="kw">use </span>testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FrameTransactionalProcessor,
-	FungibleAdapter, IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	FungibleAdapter, HandleFee, IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
 	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents,
 };
-<span class="kw">use </span>xcm_executor::XcmExecutor;
+<span class="kw">use </span>xcm_executor::{
+	traits::{FeeManager, FeeReason, FeeReason::Export},
+	XcmExecutor,
+};
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>WestendLocation: Location = Location::parent();
@@ -607,11 +651,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>SubscriptionService = PolkadotXcm;
 	<span class="kw">type </span>PalletInstancesInfo = AllPalletsWithSystem;
 	<span class="kw">type </span>MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	<span class="kw">type </span>FeeManager = XcmFeeManagerFromComponents&lt;
+	<span class="kw">type </span>FeeManager = XcmFeeManagerFromComponentsBridgeHub&lt;
 		WaivedLocations,
-		SendXcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, TreasuryAccount&gt;,
+		(
+			XcmExportFeeToSibling&lt;
+				bp_westend::Balance,
+				AccountId,
+				WestendLocation,
+				EthereumNetwork,
+				<span class="self">Self</span>::AssetTransactor,
+				<span class="kw">crate</span>::EthereumOutboundQueue,
+			&gt;,
+			SendXcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, TreasuryAccount&gt;,
+		),
 	&gt;;
-	<span class="kw">type </span>MessageExporter = (<span class="kw">crate</span>::bridge_to_rococo_config::ToBridgeHubRococoHaulBlobExporter,);
+	<span class="kw">type </span>MessageExporter = (
+		<span class="kw">crate</span>::bridge_to_rococo_config::ToBridgeHubRococoHaulBlobExporter,
+		<span class="kw">crate</span>::bridge_to_ethereum_config::SnowbridgeExporter,
+	);
 	<span class="kw">type </span>UniversalAliases = Nothing;
 	<span class="kw">type </span>CallDispatcher = RuntimeCall;
 	<span class="kw">type </span>SafeCallFilter = Everything;
@@ -674,6 +731,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>cumulus_pallet_xcm::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
+}
+
+<span class="kw">pub struct </span>XcmFeeManagerFromComponentsBridgeHub&lt;WaivedLocations, HandleFee&gt;(
+	PhantomData&lt;(WaivedLocations, HandleFee)&gt;,
+);
+<span class="kw">impl</span>&lt;WaivedLocations: Contains&lt;Location&gt;, FeeHandler: HandleFee&gt; FeeManager
+	<span class="kw">for </span>XcmFeeManagerFromComponentsBridgeHub&lt;WaivedLocations, FeeHandler&gt;
+{
+	<span class="kw">fn </span>is_waived(origin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;, fee_reason: FeeReason) -&gt; bool {
+		<span class="kw">let </span><span class="prelude-val">Some</span>(loc) = origin <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
+		<span class="kw">if let </span>Export { network, destination: Here } = fee_reason {
+			<span class="kw">if </span>network == EthereumNetwork::get() {
+				<span class="kw">return </span><span class="bool-val">false
+			</span>}
+		}
+		WaivedLocations::contains(loc)
+	}
+
+	<span class="kw">fn </span>handle_fee(fee: Assets, context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, reason: FeeReason) {
+		FeeHandler::handle_fee(fee, context, reason);
+	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

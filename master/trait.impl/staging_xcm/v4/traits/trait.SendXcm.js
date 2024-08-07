@@ -1,5 +1,6 @@
 (function() {var implementors = {
 "bridge_hub_rococo_runtime":[["impl <a class=\"trait\" href=\"staging_xcm/v4/traits/trait.SendXcm.html\" title=\"trait staging_xcm::v4::traits::SendXcm\">SendXcm</a> for <a class=\"struct\" href=\"bridge_hub_rococo_runtime/benchmark_helpers/struct.DoNothingRouter.html\" title=\"struct bridge_hub_rococo_runtime::benchmark_helpers::DoNothingRouter\">DoNothingRouter</a>"]],
+"bridge_hub_westend_runtime":[["impl <a class=\"trait\" href=\"staging_xcm/v4/traits/trait.SendXcm.html\" title=\"trait staging_xcm::v4::traits::SendXcm\">SendXcm</a> for <a class=\"struct\" href=\"bridge_hub_westend_runtime/bridge_to_ethereum_config/benchmark_helpers/struct.DoNothingRouter.html\" title=\"struct bridge_hub_westend_runtime::bridge_to_ethereum_config::benchmark_helpers::DoNothingRouter\">DoNothingRouter</a>"]],
 "collectives_westend_integration_tests":[],
 "cumulus_pallet_xcmp_queue":[["impl&lt;T: <a class=\"trait\" href=\"cumulus_pallet_xcmp_queue/pallet/trait.Config.html\" title=\"trait cumulus_pallet_xcmp_queue::pallet::Config\">Config</a>&gt; SendXcm for <a class=\"struct\" href=\"cumulus_pallet_xcmp_queue/pallet/struct.Pallet.html\" title=\"struct cumulus_pallet_xcmp_queue::pallet::Pallet\">Pallet</a>&lt;T&gt;"]],
 "cumulus_primitives_core":[],
