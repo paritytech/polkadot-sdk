@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723047483764,
+  "lastUpdate": 1723056765955,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21215,6 +21215,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.0220805585,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Maksym H",
+            "username": "mordamax",
+            "email": "1177472+mordamax@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "711d91aaabb9687cd26904443c23706cd4dbd1ee",
+          "message": "frame-omni-bencher short checks (#5268)\n\n- Part of https://github.com/paritytech/ci_cd/issues/1006\n- Closes: https://github.com/paritytech/ci_cd/issues/1010\n- Related: https://github.com/paritytech/polkadot-sdk/pull/4405\n\n- Possibly affecting how frame-omni-bencher works on different runtimes:\nhttps://github.com/paritytech/polkadot-sdk/pull/5083\n\nCurrently works in parallel with gitlab short benchmarks. \nTriggered only by adding `GHA-migration` label to assure smooth\ntransition (kind of feature-flag).\nLater when tested on random PRs we'll remove the gitlab and turn on by\ndefault these tests\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-08-07T17:03:26Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/711d91aaabb9687cd26904443c23706cd4dbd1ee"
+        },
+        "date": 1723056733946,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012024024733333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022012383686666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16825554763999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009718192960000009,
             "unit": "seconds"
           }
         ]
