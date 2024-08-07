@@ -19,7 +19,7 @@ use super::*;
 use alloc::{vec, vec::Vec};
 use frame_support::{pallet_prelude::*, traits::defensive_prelude::*, weights::WeightMeter};
 use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
-use sp_runtime::traits::ConvertBack;
+use sp_runtime::traits::{ConvertBack, MaybeConvert};
 use CompletionStatus::Complete;
 
 impl<T: Config> Pallet<T> {
@@ -263,6 +263,9 @@ impl<T: Config> Pallet<T> {
 		};
 
 		SaleInfo::<T>::put(&new_sale);
+
+		Self::renew_cores(&new_sale);
+
 		Self::deposit_event(Event::SaleInitialized {
 			sale_start,
 			leadin_length,
@@ -333,5 +336,51 @@ impl<T: Config> Pallet<T> {
 		}
 		T::Coretime::assign_core(core, rc_begin, assignment.clone(), None);
 		Self::deposit_event(Event::<T>::CoreAssigned { core, when: rc_begin, assignment });
+	}
+
+	/// Renews all the cores which have auto-renewal enabled.
+	pub(crate) fn renew_cores(sale: &SaleInfoRecordOf<T>) {
+		let renewals = AutoRenewals::<T>::get();
+
+		let Ok(auto_renewals) = renewals
+			.into_iter()
+			.flat_map(|record| {
+				// Check if the next renewal is scheduled further in the future than the start of
+				// the next region beginning. If so, we skip the renewal for this core.
+				if sale.region_begin < record.next_renewal {
+					return Some(record)
+				}
+
+				let Some(payer) = T::SovereignAccountOf::maybe_convert(record.task) else {
+					Self::deposit_event(Event::<T>::AutoRenewalFailed {
+						core: record.core,
+						payer: None,
+					});
+					return None
+				};
+
+				if let Ok(new_core_index) = Self::do_renew(payer.clone(), record.core) {
+					Some(AutoRenewalRecord {
+						core: new_core_index,
+						task: record.task,
+						next_renewal: sale.region_end,
+					})
+				} else {
+					Self::deposit_event(Event::<T>::AutoRenewalFailed {
+						core: record.core,
+						payer: Some(payer),
+					});
+
+					None
+				}
+			})
+			.collect::<Vec<AutoRenewalRecord>>()
+			.try_into()
+		else {
+			Self::deposit_event(Event::<T>::AutoRenewalLimitReached);
+			return;
+		};
+
+		AutoRenewals::<T>::set(auto_renewals);
 	}
 }
