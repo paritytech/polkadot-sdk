@@ -1670,58 +1670,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1519" id="1519">1519</a>
 <a href="#1520" id="1520">1520</a>
 <a href="#1521" id="1521">1521</a>
-<a href="#1522" id="1522">1522</a>
-<a href="#1523" id="1523">1523</a>
-<a href="#1524" id="1524">1524</a>
-<a href="#1525" id="1525">1525</a>
-<a href="#1526" id="1526">1526</a>
-<a href="#1527" id="1527">1527</a>
-<a href="#1528" id="1528">1528</a>
-<a href="#1529" id="1529">1529</a>
-<a href="#1530" id="1530">1530</a>
-<a href="#1531" id="1531">1531</a>
-<a href="#1532" id="1532">1532</a>
-<a href="#1533" id="1533">1533</a>
-<a href="#1534" id="1534">1534</a>
-<a href="#1535" id="1535">1535</a>
-<a href="#1536" id="1536">1536</a>
-<a href="#1537" id="1537">1537</a>
-<a href="#1538" id="1538">1538</a>
-<a href="#1539" id="1539">1539</a>
-<a href="#1540" id="1540">1540</a>
-<a href="#1541" id="1541">1541</a>
-<a href="#1542" id="1542">1542</a>
-<a href="#1543" id="1543">1543</a>
-<a href="#1544" id="1544">1544</a>
-<a href="#1545" id="1545">1545</a>
-<a href="#1546" id="1546">1546</a>
-<a href="#1547" id="1547">1547</a>
-<a href="#1548" id="1548">1548</a>
-<a href="#1549" id="1549">1549</a>
-<a href="#1550" id="1550">1550</a>
-<a href="#1551" id="1551">1551</a>
-<a href="#1552" id="1552">1552</a>
-<a href="#1553" id="1553">1553</a>
-<a href="#1554" id="1554">1554</a>
-<a href="#1555" id="1555">1555</a>
-<a href="#1556" id="1556">1556</a>
-<a href="#1557" id="1557">1557</a>
-<a href="#1558" id="1558">1558</a>
-<a href="#1559" id="1559">1559</a>
-<a href="#1560" id="1560">1560</a>
-<a href="#1561" id="1561">1561</a>
-<a href="#1562" id="1562">1562</a>
-<a href="#1563" id="1563">1563</a>
-<a href="#1564" id="1564">1564</a>
-<a href="#1565" id="1565">1565</a>
-<a href="#1566" id="1566">1566</a>
-<a href="#1567" id="1567">1567</a>
-<a href="#1568" id="1568">1568</a>
-<a href="#1569" id="1569">1569</a>
-<a href="#1570" id="1570">1570</a>
-<a href="#1571" id="1571">1571</a>
-<a href="#1572" id="1572">1572</a>
-<a href="#1573" id="1573">1573</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1747,41 +1695,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(feature = <span class="string">"binary-merkle-tree"</span>)]
 </span><span class="kw">pub use </span>binary_merkle_tree;
 
-<span class="doccomment">/// Primitives of AssetHubRococo parachain runtime.
-</span><span class="attr">#[cfg(feature = <span class="string">"bp-asset-hub-rococo"</span>)]
-</span><span class="kw">pub use </span>bp_asset_hub_rococo;
-
-<span class="doccomment">/// Primitives of AssetHubWestend parachain runtime.
-</span><span class="attr">#[cfg(feature = <span class="string">"bp-asset-hub-westend"</span>)]
-</span><span class="kw">pub use </span>bp_asset_hub_westend;
-
-<span class="doccomment">/// Primitives for BridgeHub parachain runtimes.
-</span><span class="attr">#[cfg(feature = <span class="string">"bp-bridge-hub-cumulus"</span>)]
-</span><span class="kw">pub use </span>bp_bridge_hub_cumulus;
-
-<span class="doccomment">/// Primitives of BridgeHubKusama parachain runtime.
-</span><span class="attr">#[cfg(feature = <span class="string">"bp-bridge-hub-kusama"</span>)]
-</span><span class="kw">pub use </span>bp_bridge_hub_kusama;
-
-<span class="doccomment">/// Primitives of BridgeHubPolkadot parachain runtime.
-</span><span class="attr">#[cfg(feature = <span class="string">"bp-bridge-hub-polkadot"</span>)]
-</span><span class="kw">pub use </span>bp_bridge_hub_polkadot;
-
-<span class="doccomment">/// Primitives of BridgeHubRococo parachain runtime.
-</span><span class="attr">#[cfg(feature = <span class="string">"bp-bridge-hub-rococo"</span>)]
-</span><span class="kw">pub use </span>bp_bridge_hub_rococo;
-
-<span class="doccomment">/// Primitives of BridgeHubWestend parachain runtime.
-</span><span class="attr">#[cfg(feature = <span class="string">"bp-bridge-hub-westend"</span>)]
-</span><span class="kw">pub use </span>bp_bridge_hub_westend;
-
 <span class="doccomment">/// A common interface for describing what a bridge pallet should be able to do.
 </span><span class="attr">#[cfg(feature = <span class="string">"bp-header-chain"</span>)]
 </span><span class="kw">pub use </span>bp_header_chain;
-
-<span class="doccomment">/// Primitives of Kusama runtime.
-</span><span class="attr">#[cfg(feature = <span class="string">"bp-kusama"</span>)]
-</span><span class="kw">pub use </span>bp_kusama;
 
 <span class="doccomment">/// Primitives of messages module.
 </span><span class="attr">#[cfg(feature = <span class="string">"bp-messages"</span>)]
@@ -1795,10 +1711,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(feature = <span class="string">"bp-polkadot"</span>)]
 </span><span class="kw">pub use </span>bp_polkadot;
 
-<span class="doccomment">/// Primitives of Polkadot Bulletin chain runtime.
-</span><span class="attr">#[cfg(feature = <span class="string">"bp-polkadot-bulletin"</span>)]
-</span><span class="kw">pub use </span>bp_polkadot_bulletin;
-
 <span class="doccomment">/// Primitives of Polkadot-like runtime.
 </span><span class="attr">#[cfg(feature = <span class="string">"bp-polkadot-core"</span>)]
 </span><span class="kw">pub use </span>bp_polkadot_core;
@@ -1807,10 +1719,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(feature = <span class="string">"bp-relayers"</span>)]
 </span><span class="kw">pub use </span>bp_relayers;
 
-<span class="doccomment">/// Primitives of Rococo runtime.
-</span><span class="attr">#[cfg(feature = <span class="string">"bp-rococo"</span>)]
-</span><span class="kw">pub use </span>bp_rococo;
-
 <span class="doccomment">/// Primitives that may be used at (bridges) runtime level.
 </span><span class="attr">#[cfg(feature = <span class="string">"bp-runtime"</span>)]
 </span><span class="kw">pub use </span>bp_runtime;
@@ -1818,10 +1726,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Utilities for testing substrate-based runtime bridge code.
 </span><span class="attr">#[cfg(feature = <span class="string">"bp-test-utils"</span>)]
 </span><span class="kw">pub use </span>bp_test_utils;
-
-<span class="doccomment">/// Primitives of Westend runtime.
-</span><span class="attr">#[cfg(feature = <span class="string">"bp-westend"</span>)]
-</span><span class="kw">pub use </span>bp_westend;
 
 <span class="doccomment">/// Primitives of the xcm-bridge-hub pallet.
 </span><span class="attr">#[cfg(feature = <span class="string">"bp-xcm-bridge-hub"</span>)]
@@ -2691,10 +2595,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(feature = <span class="string">"polkadot-statement-table"</span>)]
 </span><span class="kw">pub use </span>polkadot_statement_table;
 
-<span class="doccomment">/// Constants used throughout the Rococo network.
-</span><span class="attr">#[cfg(feature = <span class="string">"rococo-runtime-constants"</span>)]
-</span><span class="kw">pub use </span>rococo_runtime_constants;
-
 <span class="doccomment">/// Collection of allocator implementations.
 </span><span class="attr">#[cfg(feature = <span class="string">"sc-allocator"</span>)]
 </span><span class="kw">pub use </span>sc_allocator;
@@ -3275,10 +3175,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// struct definition.
 </span><span class="attr">#[cfg(feature = <span class="string">"tracing-gum-proc-macro"</span>)]
 </span><span class="kw">pub use </span>tracing_gum_proc_macro;
-
-<span class="doccomment">/// Constants used throughout the Westend network.
-</span><span class="attr">#[cfg(feature = <span class="string">"westend-runtime-constants"</span>)]
-</span><span class="kw">pub use </span>westend_runtime_constants;
 
 <span class="doccomment">/// Test kit to emulate XCM program execution.
 </span><span class="attr">#[cfg(feature = <span class="string">"xcm-emulator"</span>)]
