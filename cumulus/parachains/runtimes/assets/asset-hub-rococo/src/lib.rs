@@ -203,7 +203,7 @@ impl pallet_migrations::Config for Runtime {
 }
 
 #[cfg(not(feature = "runtime-benchmarks"))]
-type MultiBlockMigrations = assets_common_migrations::v1::Migration<
+type MultiBlockMigrations = assets_common_migrations::foreign_assets_to_v4::Migration<
 	Runtime,
 	ForeignAssetsInstance,
 	weights::assets_common_migrations::SubstrateWeight<Runtime>,

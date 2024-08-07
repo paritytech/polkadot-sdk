@@ -45,14 +45,9 @@
 use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use core::marker::PhantomData;
 
-/// Weight functions needed for `assets_common_migrations`.
-pub trait WeightInfo {
-	fn conversion_step() -> Weight;
-}
-
 /// Weights for `assets_common_migrations` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+impl<T: frame_system::Config> assets_common_migrations::foreign_assets_to_v4::WeightInfo for SubstrateWeight<T> {
 	/// Storage: `ForeignAssets::Asset` (r:2 w:1)
 	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
 	fn conversion_step() -> Weight {
@@ -63,20 +58,5 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(6_000_000, 7556)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-}
-
-// For backwards compatibility and tests.
-impl WeightInfo for () {
-	/// Storage: `ForeignAssets::Asset` (r:2 w:1)
-	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
-	fn conversion_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `161`
-		//  Estimated: `7556`
-		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(6_000_000, 7556)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

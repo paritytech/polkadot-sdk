@@ -25,6 +25,7 @@ mod tests;
 mod benchmarks;
 
 mod weights;
+pub use weights::WeightInfo;
 
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},

@@ -59,7 +59,7 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations =
-		(crate::v1::Migration<Runtime, (), crate::v1::weights::SubstrateWeight<Runtime>>,);
+		(crate::foreign_assets_to_v4::Migration<Runtime, (), crate::foreign_assets_to_v4::weights::SubstrateWeight<Runtime>>,);
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
 	type MaxServiceWeight = MigratorServiceWeight;

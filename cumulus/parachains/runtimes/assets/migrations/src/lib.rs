@@ -18,7 +18,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod v1;
+pub mod foreign_assets_to_v4;
 
 pub use pallet::*;
 
