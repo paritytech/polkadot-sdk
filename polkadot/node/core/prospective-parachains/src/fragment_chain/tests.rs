@@ -278,7 +278,6 @@ fn candidate_storage_methods() {
 		);
 	}
 	assert!(!storage.contains(&candidate_hash));
-	assert_eq!(storage.mark_backed(&candidate_hash), false);
 	assert_eq!(storage.possible_backed_para_children(&parent_head_hash).count(), 0);
 	assert_eq!(storage.head_data_by_hash(&candidate.descriptor.para_head), None);
 	assert_eq!(storage.head_data_by_hash(&parent_head_hash), None);
@@ -302,9 +301,9 @@ fn candidate_storage_methods() {
 	assert_eq!(storage.head_data_by_hash(&parent_head_hash).unwrap(), &pvd.parent_head);
 
 	// Now mark it as backed
-	assert_eq!(storage.mark_backed(&candidate_hash), true);
+	storage.mark_backed(&candidate_hash);
 	// Marking it twice is fine.
-	assert_eq!(storage.mark_backed(&candidate_hash), true);
+	storage.mark_backed(&candidate_hash);
 	assert_eq!(
 		storage
 			.possible_backed_para_children(&parent_head_hash)
@@ -1146,7 +1145,7 @@ fn test_populate_and_check_potential() {
 
 	// Simulate a best chain reorg by backing a2.
 	{
-		let chain = chain.candidate_backed(&candidate_a2_hash).unwrap();
+		let chain = chain.candidate_backed(&candidate_a2_hash);
 		assert_eq!(chain.best_chain_vec(), vec![candidate_a2_hash, candidate_b2_hash]);
 		// F is kept as it was truly unconnected. The rest will be trimmed.
 		assert_eq!(
@@ -1263,7 +1262,7 @@ fn test_populate_and_check_potential() {
 	);
 
 	// Mark E as backed. F will be dropped for invalid watermark. No other unconnected candidates.
-	let chain = chain.candidate_backed(&candidate_e_hash).unwrap();
+	let chain = chain.candidate_backed(&candidate_e_hash);
 	assert_eq!(chain.best_chain_vec(), vec![candidate_d_hash, candidate_e_hash]);
 	assert_eq!(chain.unconnected_len(), 0);
 
@@ -1380,29 +1379,30 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 
 	// Do tests with only a couple of candidates being backed.
 	{
-		let chain = chain.candidate_backed(&&candidates[5]).unwrap();
+		let chain = chain.clone();
+		let chain = chain.candidate_backed(&&candidates[5]);
 		for count in 0..10 {
 			assert_eq!(chain.find_backable_chain(Ancestors::new(), count).len(), 0);
 		}
-		let chain = chain.candidate_backed(&&candidates[3]).unwrap();
-		let chain = chain.candidate_backed(&&candidates[4]).unwrap();
-		for count in 0..10 {
-			assert_eq!(chain.find_backable_chain(Ancestors::new(), count).len(), 0);
-		}
-
-		let chain = chain.candidate_backed(&&candidates[1]).unwrap();
+		let chain = chain.candidate_backed(&&candidates[3]);
+		let chain = chain.candidate_backed(&&candidates[4]);
 		for count in 0..10 {
 			assert_eq!(chain.find_backable_chain(Ancestors::new(), count).len(), 0);
 		}
 
-		let chain = chain.candidate_backed(&&candidates[0]).unwrap();
+		let chain = chain.candidate_backed(&&candidates[1]);
+		for count in 0..10 {
+			assert_eq!(chain.find_backable_chain(Ancestors::new(), count).len(), 0);
+		}
+
+		let chain = chain.candidate_backed(&&candidates[0]);
 		assert_eq!(chain.find_backable_chain(Ancestors::new(), 1), hashes(0..1));
 		for count in 2..10 {
 			assert_eq!(chain.find_backable_chain(Ancestors::new(), count), hashes(0..2));
 		}
 
 		// Now back the missing piece.
-		let chain = chain.candidate_backed(&&candidates[2]).unwrap();
+		let chain = chain.candidate_backed(&&candidates[2]);
 		assert_eq!(chain.best_chain_len(), 6);
 		for count in 0..10 {
 			assert_eq!(
@@ -1419,8 +1419,8 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 	let mut candidates_shuffled = candidates.clone();
 	candidates_shuffled.shuffle(&mut thread_rng());
 	for candidate in candidates.iter() {
-		chain = chain.candidate_backed(candidate).unwrap();
-		assert!(storage.mark_backed(candidate));
+		chain = chain.candidate_backed(candidate);
+		storage.mark_backed(candidate);
 	}
 
 	// No ancestors supplied.

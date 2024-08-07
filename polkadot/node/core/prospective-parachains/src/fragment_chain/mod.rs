@@ -254,16 +254,13 @@ impl CandidateStorage {
 		}
 	}
 
-	/// Note that an existing candidate has been backed. Return false if the candidate was not
-	/// found.
-	fn mark_backed(&mut self, candidate_hash: &CandidateHash) -> bool {
+	/// Note that an existing candidate has been backed.
+	fn mark_backed(&mut self, candidate_hash: &CandidateHash) {
 		if let Some(entry) = self.by_candidate_hash.get_mut(candidate_hash) {
 			gum::trace!(target: LOG_TARGET, ?candidate_hash, "Candidate marked as backed");
 			entry.state = CandidateState::Backed;
-			true
 		} else {
 			gum::trace!(target: LOG_TARGET, ?candidate_hash, "Candidate not found while marking as backed");
-			false
 		}
 	}
 
@@ -559,6 +556,7 @@ impl Scope {
 	}
 }
 
+#[cfg_attr(test, derive(Clone))]
 pub struct FragmentNode {
 	fragment: Fragment,
 	candidate_hash: CandidateHash,
@@ -576,6 +574,7 @@ impl FragmentNode {
 /// A candidate chain of backed/backable candidates.
 /// Includes the candidates pending availability and candidates which may be backed on-chain.
 #[derive(Default)]
+#[cfg_attr(test, derive(Clone))]
 struct BackedChain {
 	// Holds the candidate chain.
 	chain: Vec<FragmentNode>,
@@ -609,6 +608,7 @@ impl BackedChain {
 /// It holds the current best backable candidate chain, as well as potential candidates
 /// which could become connected to the chain in the future or which could even overwrite the
 /// existing chain.
+#[cfg_attr(test, derive(Clone))]
 pub(crate) struct FragmentChain {
 	// The current scope, which dictates the on-chain operating constraints that all future
 	// candidates must adhere to.
@@ -706,6 +706,25 @@ impl FragmentChain {
 		}
 
 		storage
+	}
+
+	/// Consume `self` and return the [`Scope`] and a new [`CandidateStorage`] containing all the
+	/// candidates from this `FragmentChain`, as well as the unconnected ones.
+	pub fn into_candidate_storage_and_scope(self) -> (CandidateStorage, Scope) {
+		let mut storage = self.unconnected;
+
+		for candidate in self.best_chain.chain {
+			let _ = storage.add_candidate_entry(CandidateEntry {
+				candidate_hash: candidate.candidate_hash,
+				parent_head_data_hash: candidate.parent_head_data_hash,
+				output_head_data_hash: candidate.output_head_data_hash,
+				relay_parent: candidate.relay_parent(),
+				candidate: candidate.fragment.candidate_clone(),
+				state: CandidateState::Backed,
+			});
+		}
+
+		(storage, self.scope)
 	}
 
 	/// Try getting the full head data associated with this hash.
@@ -1225,18 +1244,15 @@ impl FragmentChain {
 		}
 	}
 
-	/// Mark a candidate as backed. Return `None` if the candidate is not part of the unconnected
-	/// storage.
-	/// This will trigger a recreation of the best backable chain.
-	pub fn candidate_backed(&self, newly_backed_candidate: &CandidateHash) -> Option<Self> {
+	/// Mark a candidate as backed. The caller should make sure that the candidate is present in the
+	/// unconnected storage. This will trigger a recreation of the best backable chain.
+	pub fn candidate_backed(self, newly_backed_candidate: &CandidateHash) -> Self {
 		// Get the storage containing both the backable chain and the unconnected candidates.
-		let mut old_storage = self.as_candidate_storage();
+		let (mut old_storage, scope) = self.into_candidate_storage_and_scope();
 
-		if !old_storage.mark_backed(newly_backed_candidate) {
-			return None
-		}
+		old_storage.mark_backed(newly_backed_candidate);
 
 		// Repopulate.
-		Some(Self::populate(self.scope.clone(), old_storage))
+		Self::populate(scope, old_storage)
 	}
 }
