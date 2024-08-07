@@ -48,7 +48,7 @@ impl TransactionExtensionBase for MockExtensionWithRefund {
 	}
 }
 
-impl<Context> TransactionExtension<RuntimeCall, Context> for MockExtensionWithRefund {
+impl TransactionExtension<RuntimeCall> for MockExtensionWithRefund {
 	type Val = ();
 	type Pre = ();
 	fn post_dispatch_details(
@@ -57,12 +57,11 @@ impl<Context> TransactionExtension<RuntimeCall, Context> for MockExtensionWithRe
 		_post_info: &PostDispatchInfoOf<RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
-		_context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
 		Ok(Some(MOCK_EXT_REFUND.with_borrow(|v| v.clone())))
 	}
 
-	sp_runtime::impl_tx_ext_default!(RuntimeCall; Context; validate prepare);
+	sp_runtime::impl_tx_ext_default!(RuntimeCall; validate prepare);
 }
 
 pub type Tx =

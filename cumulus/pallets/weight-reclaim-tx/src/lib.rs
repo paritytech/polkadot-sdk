@@ -151,7 +151,7 @@ where
 		let proof_size = get_proof_size();
 
 		self.0
-			.validate(origin, call, info, len, context, self_implicit, inherited_implication)
+			.validate(origin, call, info, len, self_implicit, inherited_implication)
 			.map(|(validity, val, origin)| (validity, (proof_size, val), origin))
 	}
 
@@ -165,7 +165,7 @@ where
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let (proof_size, inner_val) = val;
 		self.0
-			.prepare(inner_val, origin, call, info, len, context)
+			.prepare(inner_val, origin, call, info, len)
 			.map(|pre| (proof_size, pre))
 	}
 
@@ -179,7 +179,7 @@ where
 		let (pre_dispatch_proof_size, inner_pre) = pre;
 
 		let mut post_info_with_inner = *post_info;
-		S::post_dispatch(inner_pre, info, &mut post_info_with_inner, len, result, context)?;
+		S::post_dispatch(inner_pre, info, &mut post_info_with_inner, len, result)?;
 
 		let post_dispatch_weight = post_info_with_inner.actual_weight.map(|post_info_with_inner| {
 			let weight_reduced_by_inner = post_info
