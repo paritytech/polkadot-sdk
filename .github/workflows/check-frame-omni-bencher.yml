@@ -79,7 +79,7 @@ jobs:
           ./target/release/frame-omni-bencher v1 benchmark pallet --runtime $RUNTIME_BLOB_PATH --all --steps 2 --repeat 1
   confirm-frame-omni-benchers-passed:
     runs-on: ubuntu-latest
-    name: All migrations passed
+    name: All benchmarks passed
     needs: run-frame-omni-bencher
     steps:
       - run: echo '### Good job! All the benchmarks passed 🚀' >> $GITHUB_STEP_SUMMARY
