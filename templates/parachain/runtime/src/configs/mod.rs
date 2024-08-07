@@ -438,7 +438,7 @@ parameter_types! {
 	pub ExportPhaseLimit: BlockNumber = (Pages::get() * 2u32).into();
 
 	pub Pages: PageIndex = 2;
-	pub MaxWinnersPerPage: u32 = 100;
+	pub MaxWinnersPerPage: u32 = 2048;
 	pub MaxBackersPerWinner: u32 = 10_000;
 	pub VoterSnapshotPerBlock: VoterIndex = 1024;
 	pub TargetSnapshotPerBlock: TargetIndex = 2048;
@@ -523,7 +523,7 @@ impl pallet_epm_verifier::Config for Runtime {
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type SolutionDataProvider = ElectionSignedPallet;
-	type WeightInfo = ();
+	type WeightInfo = pallet_epm_verifier::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_epm_signed::Config for Runtime {

@@ -23,8 +23,8 @@ use crate::{
 	signed::pallet::Submissions,
 	unsigned::miner::OffchainWorkerMiner,
 	verifier::{AsyncVerifier, Status, Verifier},
-	BenchmarkingConfig, ConfigCore, ConfigSigned, ConfigUnsigned, CurrentPhase, PalletCore,
-	PalletVerifier, Phase,
+	BenchmarkingConfig, ConfigCore, ConfigSigned, ConfigUnsigned, ConfigVerifier, CurrentPhase,
+	PalletCore, PalletVerifier, Phase,
 };
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
@@ -32,7 +32,7 @@ use frame_system::RawOrigin;
 use frame_benchmarking::v2::*;
 
 #[benchmarks(
-    where T: ConfigCore + ConfigSigned + ConfigUnsigned,
+    where T: ConfigCore + ConfigSigned + ConfigUnsigned + ConfigVerifier,
 )]
 mod benchmarks {
 	use super::*;
@@ -50,8 +50,8 @@ mod benchmarks {
 		>,
 	) -> Result<(), BenchmarkError> {
 		helpers::setup_data_provider::<T>(
-			<T as ConfigCore>::BenchmarkingConfig::VOTERS,
-			<T as ConfigCore>::BenchmarkingConfig::TARGETS,
+			<T as ConfigCore>::BenchmarkingConfig::VOTERS.max(v),
+			<T as ConfigCore>::BenchmarkingConfig::TARGETS.max(t),
 		);
 
 		if let Err(err) = helpers::setup_snapshot::<T>(v, t) {
@@ -105,8 +105,8 @@ mod benchmarks {
 		>,
 	) -> Result<(), BenchmarkError> {
 		helpers::setup_data_provider::<T>(
-			<T as ConfigCore>::BenchmarkingConfig::VOTERS,
-			<T as ConfigCore>::BenchmarkingConfig::TARGETS,
+			<T as ConfigCore>::BenchmarkingConfig::VOTERS.max(v),
+			<T as ConfigCore>::BenchmarkingConfig::TARGETS.max(t),
 		);
 
 		if let Err(err) = helpers::setup_snapshot::<T>(v, t) {
@@ -160,8 +160,8 @@ mod benchmarks {
 		>,
 	) -> Result<(), BenchmarkError> {
 		helpers::setup_data_provider::<T>(
-			<T as ConfigCore>::BenchmarkingConfig::VOTERS,
-			<T as ConfigCore>::BenchmarkingConfig::TARGETS,
+			<T as ConfigCore>::BenchmarkingConfig::VOTERS.max(v),
+			<T as ConfigCore>::BenchmarkingConfig::TARGETS.max(t),
 		);
 
 		if let Err(err) = helpers::setup_snapshot::<T>(v, t) {
@@ -221,8 +221,8 @@ mod benchmarks {
 		>,
 	) -> Result<(), BenchmarkError> {
 		helpers::setup_data_provider::<T>(
-			<T as ConfigCore>::BenchmarkingConfig::VOTERS,
-			<T as ConfigCore>::BenchmarkingConfig::TARGETS,
+			<T as ConfigCore>::BenchmarkingConfig::VOTERS.max(v),
+			<T as ConfigCore>::BenchmarkingConfig::TARGETS.max(t),
 		);
 
 		if let Err(err) = helpers::setup_snapshot::<T>(v, t) {
@@ -250,8 +250,8 @@ mod benchmarks {
 		>,
 	) -> Result<(), BenchmarkError> {
 		helpers::setup_data_provider::<T>(
-			<T as ConfigCore>::BenchmarkingConfig::VOTERS,
-			<T as ConfigCore>::BenchmarkingConfig::TARGETS,
+			<T as ConfigCore>::BenchmarkingConfig::VOTERS.max(v),
+			<T as ConfigCore>::BenchmarkingConfig::TARGETS.max(t),
 		);
 
 		if let Err(err) = helpers::setup_snapshot::<T>(v, t) {
@@ -279,8 +279,8 @@ mod benchmarks {
 		>,
 	) -> Result<(), BenchmarkError> {
 		helpers::setup_data_provider::<T>(
-			<T as ConfigCore>::BenchmarkingConfig::VOTERS,
-			<T as ConfigCore>::BenchmarkingConfig::TARGETS,
+			<T as ConfigCore>::BenchmarkingConfig::VOTERS.max(v),
+			<T as ConfigCore>::BenchmarkingConfig::TARGETS.max(t),
 		);
 
 		if let Err(err) = helpers::setup_snapshot::<T>(v, t) {

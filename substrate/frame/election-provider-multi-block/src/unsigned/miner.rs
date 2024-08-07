@@ -129,7 +129,7 @@ where
 			.try_into()
 			.expect("range was constructed from the bounded vec bounds; qed.");
 
-		// ||fetch all pages of the target snapshot and collect them in a bounded vec.
+		// fetch all pages of the target snapshot and collect them in a bounded vec.
 		let all_targets = Snapshot::<T>::targets()
 			.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Targets))?;
 
@@ -138,12 +138,6 @@ where
 			all_voter_pages.iter().cloned().flatten().collect::<Vec<_>>();
 
 		// useless to proceed if the solution will not be feasible.
-		log!(
-			info,
-			"---> all_targets len: {:?}, desired_targets: {:?}",
-			all_targets.len(),
-			desired_targets
-		);
 		ensure!(all_targets.len() >= desired_targets as usize, MinerError::NotEnoughTargets);
 
 		// these closures generate an efficient index mapping of each tvoter -> the snaphot

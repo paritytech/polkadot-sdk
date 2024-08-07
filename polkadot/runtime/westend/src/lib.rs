@@ -629,7 +629,7 @@ impl pallet_epm_core::Config for Runtime {
 	type Verifier = ElectionVerifierPallet;
 	type DataProvider = Staking;
 	type BenchmarkingConfig = polkadot_runtime_common::EPMBenchmarkingConfig;
-	type WeightInfo = ();
+	type WeightInfo = pallet_epm_core::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -643,7 +643,7 @@ impl pallet_epm_verifier::Config for Runtime {
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type SolutionDataProvider = ElectionSignedPallet;
-	type WeightInfo = ();
+	type WeightInfo = pallet_epm_verifier::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -688,7 +688,7 @@ impl pallet_epm_unsigned::Config for Runtime {
 	type MinerTxPriority = MinerTxPriority;
 	type MaxLength = MinerSolutionMaxLength;
 	type MaxWeight = MinerSolutionMaxWeight;
-	type WeightInfo = ();
+	type WeightInfo = pallet_epm_unsigned::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {

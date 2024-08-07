@@ -336,13 +336,7 @@ pub mod pallet {
 				Phase::Snapshot(0)
 					if remaining_blocks <= signed_deadline &&
 						remaining_blocks > signed_validation_deadline =>
-				{
-					// done with the snapshot, release the data provider lock.
-					<T::DataProvider as LockableElectionDataProvider>::unlock();
-
-					Self::phase_transition(Phase::Signed);
-					Weight::default()
-				},
+					Self::start_signed_phase(),
 
 				// start signed validation. The `signed` pallet will take further actions now.
 				Phase::Signed
@@ -350,7 +344,7 @@ pub mod pallet {
 						remaining_blocks > unsigned_deadline =>
 				{
 					Self::phase_transition(Phase::SignedValidation(now));
-					Weight::default()
+					T::WeightInfo::on_phase_transition()
 				},
 
 				// start unsigned phase. The `unsigned` pallet will take further actions now.
@@ -358,29 +352,13 @@ pub mod pallet {
 					if remaining_blocks <= unsigned_deadline && remaining_blocks > Zero::zero() =>
 				{
 					Self::phase_transition(Phase::Unsigned(now));
-					Weight::default() // weights
+					T::WeightInfo::on_phase_transition()
 				},
 
 				// EPM is "serving" the staking pallet with the election results.
-				Phase::Export(started_at) => {
-					if now > started_at + T::ExportPhaseLimit::get() {
-						log!(
-					    error,
-					    "phase `Export` has been open for too long ({:?} blocks). election round failed.",
-					    T::ExportPhaseLimit::get(),
-				    );
+				Phase::Export(started_at) => Self::do_export_phase(now, started_at),
 
-						match ElectionFailure::<T>::get() {
-							ElectionFailureStrategy::Restart => Self::reset_round(),
-							ElectionFailureStrategy::Emergency =>
-								Self::phase_transition(Phase::Emergency),
-						}
-					}
-
-					Weight::default()
-				},
-
-				_ => Weight::default(), // TODO(gpestana): T::WeightInfo::on_initialize_nothing()
+				_ => T::WeightInfo::on_initialize_do_nothing(),
 			}
 		}
 
@@ -529,19 +507,13 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Note: currently, the pallet uses single page target page only.
 	fn create_targets_snapshot() -> Result<u32, ElectionError<T>> {
-		let targets = Self::create_targets_snapshot_inner(T::TargetSnapshotPerBlock::get())?;
+		let stored_count = Self::create_targets_snapshot_inner(T::TargetSnapshotPerBlock::get())?;
+		log!(info, "created target snapshot with {} targets.", stored_count);
 
-		let count = targets.len() as u32;
-		log!(info, "created target snapshot with {} targets.", count);
-
-		Snapshot::<T>::set_targets(targets);
-
-		Ok(count)
+		Ok(stored_count)
 	}
 
-	fn create_targets_snapshot_inner(
-		targets_per_page: u32,
-	) -> Result<BoundedVec<AccountIdOf<T>, T::TargetSnapshotPerBlock>, ElectionError<T>> {
+	fn create_targets_snapshot_inner(targets_per_page: u32) -> Result<u32, ElectionError<T>> {
 		// set target count bound as the max number of targets per block.
 		let bounds = ElectionBoundsBuilder::default()
 			.targets_count(targets_per_page.into())
@@ -551,35 +523,37 @@ impl<T: Config> Pallet<T> {
 		let targets: BoundedVec<_, T::TargetSnapshotPerBlock> =
 			T::DataProvider::electable_targets(bounds, Zero::zero())
 				.and_then(|t| {
-					t.try_into().map_err(|_| "too many targets returned by the data provider.")
+					t.try_into().map_err(|e| {
+						log!(error, "too many targets? err: {:?}", e);
+						"too many targets returned by the data provider."
+					})
 				})
 				.map_err(|e| {
-					log!(debug, "error fetching electable targets from data provider: {:?}", e);
+					log!(info, "error fetching electable targets from data provider: {:?}", e);
 					ElectionError::<T>::DataProvider
 				})?;
 
-		Ok(targets)
+		let count = targets.len() as u32;
+		Snapshot::<T>::set_targets(targets);
+
+		Ok(count)
 	}
 
 	/// Creates and store a single page of the voter snapshot.
 	fn create_voters_snapshot(remaining_pages: u32) -> Result<u32, ElectionError<T>> {
 		ensure!(remaining_pages < T::Pages::get(), ElectionError::<T>::RequestedPageExceeded);
 
-		let paged_voters: BoundedVec<_, T::VoterSnapshotPerBlock> =
+		let paged_voters_count =
 			Self::create_voters_snapshot_inner(remaining_pages, T::VoterSnapshotPerBlock::get())?;
+		log!(info, "created voter snapshot with {} voters.", paged_voters_count);
 
-		let count = paged_voters.len() as u32;
-		log!(info, "created voter snapshot with {} voters.", count);
-
-		Snapshot::<T>::set_voters(remaining_pages, paged_voters);
-
-		Ok(count)
+		Ok(paged_voters_count)
 	}
 
 	fn create_voters_snapshot_inner(
 		remaining_pages: u32,
 		voters_per_page: u32,
-	) -> Result<BoundedVec<VoterOf<T::DataProvider>, T::VoterSnapshotPerBlock>, ElectionError<T>> {
+	) -> Result<u32, ElectionError<T>> {
 		// set voter count bound as the max number of voters per page.
 		let bounds = ElectionBoundsBuilder::default()
 			.voters_count(voters_per_page.into())
@@ -593,7 +567,10 @@ impl<T: Config> Pallet<T> {
 				})
 				.map_err(|_| ElectionError::<T>::DataProvider)?;
 
-		Ok(paged_voters)
+		let count = paged_voters.len() as u32;
+		Snapshot::<T>::set_voters(remaining_pages, paged_voters);
+
+		Ok(count)
 	}
 
 	/// Tries to progress the snapshot.
@@ -614,11 +591,11 @@ impl<T: Config> Pallet<T> {
 				Ok(target_count) => {
 					log!(info, "target snapshot created with {} targets", target_count);
 					Self::phase_transition(Phase::Snapshot(remaining_pages.saturating_sub(1)));
-
-					Weight::default()
+					T::WeightInfo::create_targets_snapshot_paged(T::TargetSnapshotPerBlock::get())
 				},
 				Err(err) => {
 					log!(error, "error preparing targets snapshot: {:?}", err);
+					// TODO: T::WeightInfo::snapshot_error();
 					Weight::default()
 				},
 			}
@@ -633,15 +610,40 @@ impl<T: Config> Pallet<T> {
 						voter_count,
 					);
 					Self::phase_transition(Phase::Snapshot(remaining_pages));
-
-					Weight::default()
+					T::WeightInfo::create_voters_snapshot_paged(T::VoterSnapshotPerBlock::get())
 				},
 				Err(err) => {
 					log!(error, "error preparing voter snapshot: {:?}", err);
+					// TODO: T::WeightInfo::snapshot_error();
 					Weight::default()
 				},
 			}
 		}
+	}
+
+	pub(crate) fn start_signed_phase() -> Weight {
+		// done with the snapshot, release the data provider lock.
+		<T::DataProvider as LockableElectionDataProvider>::unlock();
+		Self::phase_transition(Phase::Signed);
+
+		T::WeightInfo::on_initialize_start_signed()
+	}
+
+	pub(crate) fn do_export_phase(now: BlockNumberFor<T>, started_at: BlockNumberFor<T>) -> Weight {
+		if now > started_at + T::ExportPhaseLimit::get() {
+			log!(
+				error,
+				"phase `Export` has been open for too long ({:?} blocks). election round failed.",
+				T::ExportPhaseLimit::get(),
+			);
+
+			match ElectionFailure::<T>::get() {
+				ElectionFailureStrategy::Restart => Self::reset_round(),
+				ElectionFailureStrategy::Emergency => Self::phase_transition(Phase::Emergency),
+			}
+		}
+
+		T::WeightInfo::on_initialize_start_export()
 	}
 
 	/// Performs all tasks required after a successful election:

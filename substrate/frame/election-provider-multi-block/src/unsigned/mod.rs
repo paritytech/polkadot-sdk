@@ -70,7 +70,7 @@ use crate::{
 		miner::{OffchainMinerError, OffchainWorkerMiner},
 		weights::WeightInfo,
 	},
-	verifier, BenchmarkingConfig, Pallet as EPM, Phase, SolutionAccuracyOf, SolutionOf, Verifier,
+	verifier, Pallet as EPM, Phase, SolutionAccuracyOf, SolutionOf, Verifier,
 };
 use frame_election_provider_support::PageIndex;
 use frame_support::{
@@ -187,7 +187,10 @@ pub(crate) mod pallet {
 		///
 		/// No deposit or reward is associated with this submission.
 		#[pallet::call_index(1)]
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::submit_page_unsigned(
+			<T::Verifier as verifier::Verifier>::MaxBackersPerWinner::get(),
+			<T::Verifier as verifier::Verifier>::MaxWinnersPerPage::get(),
+		))]
 		pub fn submit_page_unsigned(
 			origin: OriginFor<T>,
 			page: PageIndex,

@@ -21,7 +21,7 @@ use super::*;
 use crate::Snapshot;
 
 use frame_benchmarking::v2::*;
-use frame_support::assert_ok;
+use frame_support::{assert_ok, traits::OnInitialize};
 
 /// Seed to generate account IDs.
 const SEED: u32 = 999;
@@ -33,7 +33,7 @@ const MIN_VOTERS: u32 = 10;
 const MIN_TARGETS: u32 = 10;
 
 #[benchmarks(
-    where T: ConfigCore + ConfigSigned,
+    where T: ConfigCore + ConfigSigned + ConfigVerifier,
 )]
 mod benchmarks {
 	use super::*;
@@ -47,12 +47,10 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		helpers::setup_data_provider::<T>(
 			T::BenchmarkingConfig::VOTERS,
-			T::BenchmarkingConfig::TARGETS,
+			T::BenchmarkingConfig::TARGETS.max(t),
 		);
 
 		assert!(Snapshot::<T>::targets().is_none());
-
-		log!(info, "benchmarking: create_targets_snapshot with max {} targets per page", t);
 
 		#[block]
 		{
@@ -72,13 +70,11 @@ mod benchmarks {
 		>,
 	) -> Result<(), BenchmarkError> {
 		helpers::setup_data_provider::<T>(
-			T::BenchmarkingConfig::VOTERS,
+			T::BenchmarkingConfig::VOTERS.max(v),
 			T::BenchmarkingConfig::TARGETS,
 		);
 
 		assert!(Snapshot::<T>::voters(PAGE).is_none());
-
-		log!(info, "benchmarking: create_voters_snapshot with {} max voters per page", v);
 
 		#[block]
 		{
@@ -86,6 +82,58 @@ mod benchmarks {
 		}
 
 		assert!(Snapshot::<T>::voters(PAGE).is_some());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn on_initialize_start_signed() -> Result<(), BenchmarkError> {
+		assert!(PalletCore::<T>::current_phase() == Phase::Off);
+
+		#[block]
+		{
+			let _ = PalletCore::<T>::start_signed_phase();
+		}
+
+		assert!(PalletCore::<T>::current_phase() == Phase::Signed);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn on_phase_transition() -> Result<(), BenchmarkError> {
+		assert!(PalletCore::<T>::current_phase() == Phase::Off);
+
+		#[block]
+		{
+			let _ = PalletCore::<T>::phase_transition(Phase::Snapshot(0));
+		}
+
+		assert!(PalletCore::<T>::current_phase() == Phase::Snapshot(0));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn on_initialize_start_export() -> Result<(), BenchmarkError> {
+		#[block]
+		{
+			let _ = PalletCore::<T>::do_export_phase(1u32.into(), 100u32.into());
+		}
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn on_initialize_do_nothing() -> Result<(), BenchmarkError> {
+		assert!(PalletCore::<T>::current_phase() == Phase::Off);
+
+		#[block]
+		{
+			let _ = PalletCore::<T>::on_initialize(0u32.into());
+		}
+
+		assert!(PalletCore::<T>::current_phase() == Phase::Off);
 
 		Ok(())
 	}
@@ -101,11 +149,7 @@ mod benchmarks {
 /// Helper fns to use across the benchmarking of the core pallet and its sub-pallets.
 pub(crate) mod helpers {
 	use super::*;
-	use crate::{
-		signed::{pallet::Submissions, SubmissionMetadata},
-		unsigned::miner::{Miner, OffchainWorkerMiner},
-		SolutionOf,
-	};
+	use crate::{signed::pallet::Submissions, unsigned::miner::Miner, SolutionOf};
 	use frame_election_provider_support::ElectionDataProvider;
 	use frame_support::traits::tokens::Precision;
 	use sp_std::vec::Vec;
@@ -118,7 +162,7 @@ pub(crate) mod helpers {
 		use frame_support::traits::fungible::{Balanced, Inspect};
 
 		let account = frame_benchmarking::account::<T::AccountId>(domain, id, SEED);
-		let funds = T::Currency::minimum_balance() * balance_factor.into();
+		let funds = (T::Currency::minimum_balance() + 1u32.into()) * balance_factor.into();
 		// increase issuance to ensure a sane voter weight.
 		let _ = T::Currency::deposit(&account, funds.into(), Precision::Exact);
 
@@ -130,7 +174,7 @@ pub(crate) mod helpers {
 	pub(crate) fn setup_data_provider<T: ConfigCore + ConfigSigned>(v: u32, t: u32) {
 		<T as Config>::DataProvider::clear();
 
-		log!(info, "setup_data_provider with v: {}, t: {}", v, t);
+		log!(info, "setup_data_provider with v: {}, t: {}", v, t,);
 
 		// generate and add targets.
 		let mut targets = (0..t)
@@ -154,10 +198,10 @@ pub(crate) mod helpers {
 
 		// generate and add voters with `MaxVotesPerVoter` nominations from the list of targets.
 		(0..v.max(MIN_VOTERS)).for_each(|i| {
-			let voter = setup_funded_account::<T>("Voter", i, 200);
+			let voter = setup_funded_account::<T>("Voter", i, 2_000);
 			<<T as Config>::DataProvider as ElectionDataProvider>::add_voter(
 				voter,
-				10,
+				1_000,
 				targets.clone().try_into().unwrap(),
 			);
 		});
@@ -165,19 +209,23 @@ pub(crate) mod helpers {
 
 	/// Generates the full paged snapshot for both targets and voters.
 	pub(crate) fn setup_snapshot<T: ConfigCore>(v: u32, t: u32) -> Result<(), &'static str> {
-		// ensure that the target per page and DataProvider::desired_targets match.
+		// set desired targets to match the size off the target page.
 		<T::DataProvider as ElectionDataProvider>::set_desired_targets(t);
 
-		let targets = PalletCore::<T>::create_targets_snapshot_inner(t)
+		log!(
+            info,
+            "setting up the snapshot. voters/page: {:?}, targets/page: {:?} (desired_targets: {:?})",
+            v,
+            t,
+            <T::DataProvider as ElectionDataProvider>::desired_targets(),
+        );
+
+		let _ = PalletCore::<T>::create_targets_snapshot_inner(t)
 			.map_err(|_| "error creating the target snapshot, most likely `T::TargetSnapshotPerBlock` config needs to be adjusted")?;
 
-		Snapshot::<T>::set_targets(targets);
-
 		for page in 0..T::Pages::get() {
-			let voters = PalletCore::<T>::create_voters_snapshot_inner(page, v)
+			let _ = PalletCore::<T>::create_voters_snapshot_inner(page, v)
 			    .map_err(|_| "error creating the voter snapshot, most likely `T::VoterSnapshotPerBlock` config needs to be adjusted")?;
-
-			Snapshot::<T>::set_voters(page, voters);
 		}
 
 		Ok(())
@@ -185,10 +233,21 @@ pub(crate) mod helpers {
 
 	/// Mines a full solution for the current snapshot and submits `maybe_page`. Otherwise submits
 	/// all pages. `valid` defines whether the solution is valid or not.
-	pub(crate) fn mine_and_submit<T: ConfigCore + ConfigUnsigned + ConfigSigned>(
+	pub(crate) fn mine_and_submit<
+		T: ConfigCore + ConfigUnsigned + ConfigSigned + ConfigVerifier,
+	>(
 		maybe_page: Option<u32>,
 		valid: bool,
 	) -> Result<T::AccountId, &'static str> {
+		// ensure that the number of desired targets fits within the bound of max winners per page,
+		// otherwise preemptively since the feasibilty check will fail.
+		ensure!(
+			<T::DataProvider as ElectionDataProvider>::desired_targets()
+				.expect("desired_targets is set") <=
+				<T as ConfigVerifier>::MaxWinnersPerPage::get(),
+			"`MaxWinnersPerPage` must be equal or higher than desired_targets. fix the configs.",
+		);
+
 		let submitter = setup_funded_account::<T>("Submitter", 1, 1_000);
 
 		let (mut solution, _) =
@@ -214,7 +273,7 @@ pub(crate) mod helpers {
 
 		// first register submission.
 		PalletSigned::<T>::do_register(&submitter, claimed_score, PalletCore::<T>::current_round())
-			.map_err(|e| "error registering solution")?;
+			.map_err(|_| "error registering solution")?;
 
 		for page in maybe_page
 			.map(|p| sp_std::vec![p])
@@ -237,7 +296,7 @@ pub(crate) mod helpers {
 				page,
 				Some(paged_solution.clone()),
 			)
-			.map_err(|err| "error storing page")?;
+			.map_err(|_| "error storing page")?;
 		}
 
 		Ok(submitter)
@@ -253,10 +312,8 @@ pub(crate) mod helpers {
 		let new_count_targets = solution.unique_targets().len().saturating_sub(1);
 
 		// remove a target from the snapshot to invalidate solution.
-		let targets = PalletCore::<T>::create_targets_snapshot_inner(new_count_targets as u32)
+		let _ = PalletCore::<T>::create_targets_snapshot_inner(new_count_targets as u32)
 			.map_err(|_| "error regenerating the target snapshot")?;
-
-		Snapshot::<T>::set_targets(targets);
 
 		Ok(())
 	}

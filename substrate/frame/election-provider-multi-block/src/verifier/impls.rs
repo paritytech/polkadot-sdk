@@ -28,7 +28,7 @@ use sp_std::collections::btree_map::BTreeMap;
 use super::*;
 use pallet::*;
 
-use crate::{helpers, SolutionOf};
+use crate::{helpers, verifier::weights::WeightInfo, SolutionOf};
 
 #[frame_support::pallet(dev_mode)]
 pub(crate) mod pallet {
@@ -66,7 +66,7 @@ pub(crate) mod pallet {
 		type SolutionDataProvider: crate::verifier::SolutionDataProvider<Solution = Self::Solution>;
 
 		/// The weight information of this pallet.
-		type WeightInfo;
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::event]
@@ -189,12 +189,6 @@ pub(crate) mod pallet {
 		/// Computes the score and the winner count of a stored variant solution.
 		pub(crate) fn compute_current_score() -> Result<(ElectionScore, u32), FeasibilityError> {
 			// ensures that all the pages are complete;
-			log!(
-				info,
-				"backings keys: {} vs pages: {}",
-				QueuedSolutionBackings::<T>::iter_keys().count(),
-				T::Pages::get()
-			);
 			if QueuedSolutionBackings::<T>::iter_keys().count() != T::Pages::get() as usize {
 				return Err(FeasibilityError::Incomplete)
 			}
@@ -459,7 +453,8 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 
 impl<T: impls::pallet::Config> Pallet<T> {
 	fn do_on_initialize() -> Weight {
-		log!(info, "do_in_initialize");
+		let max_backers_winner = T::MaxBackersPerWinner::get();
+		let max_winners_page = T::MaxWinnersPerPage::get();
 
 		if let Status::Ongoing(current_page) = <VerificationStatus<T>>::get() {
 			let maybe_page_solution =
@@ -480,13 +475,17 @@ impl<T: impls::pallet::Config> Pallet<T> {
 
 				Self::deposit_event(Event::<T>::SolutionDataUnavailable(current_page));
 
-				return Default::default()
+				return <T as Config>::WeightInfo::on_initialize_ongoing_failed(
+					max_backers_winner,
+					max_winners_page,
+				);
 			}
 
 			let page_solution = maybe_page_solution.expect("page solution checked to exist; qed.");
 			let maybe_supports = Self::feasibility_check(page_solution, current_page);
 
-			match maybe_supports {
+			// TODO: can refator out some of these code blocks to clean up the code.
+			let weight_consumed = match maybe_supports {
 				Ok(supports) => {
 					Self::deposit_event(Event::<T>::Verified(current_page, supports.len() as u32));
 					QueuedSolution::<T>::set_page(current_page, supports);
@@ -496,6 +495,10 @@ impl<T: impls::pallet::Config> Pallet<T> {
 						VerificationStatus::<T>::put(Status::Ongoing(
 							current_page.saturating_sub(1),
 						));
+						<T as Config>::WeightInfo::on_initialize_ongoing(
+							max_backers_winner,
+							max_winners_page,
+						)
 					} else {
 						// last page, finalize everything. At this point, the solution data
 						// provider should have a score ready for us. Otherwise, a default score
@@ -507,14 +510,23 @@ impl<T: impls::pallet::Config> Pallet<T> {
 						VerificationStatus::<T>::put(Status::Nothing);
 
 						match Self::finalize_async_verification(claimed_score) {
-							Ok(_) =>
-								T::SolutionDataProvider::report_result(VerificationResult::Queued),
+							Ok(_) => {
+								T::SolutionDataProvider::report_result(VerificationResult::Queued);
+								<T as Config>::WeightInfo::on_initialize_ongoing_finalize(
+									max_backers_winner,
+									max_winners_page,
+								)
+							},
 							Err(_) => {
 								T::SolutionDataProvider::report_result(
 									VerificationResult::Rejected,
 								);
 								// kill the solution in case of error.
 								QueuedSolution::<T>::clear_invalid_and_backings();
+								<T as Config>::WeightInfo::on_initialize_ongoing_finalize_failed(
+									max_backers_winner,
+									max_winners_page,
+								)
 							},
 						}
 					}
@@ -524,15 +536,22 @@ impl<T: impls::pallet::Config> Pallet<T> {
 					Self::deposit_event(Event::<T>::VerificationFailed(current_page, err));
 					VerificationStatus::<T>::put(Status::Nothing);
 					QueuedSolution::<T>::clear_invalid_and_backings();
-					T::SolutionDataProvider::report_result(VerificationResult::Rejected)
+					T::SolutionDataProvider::report_result(VerificationResult::Rejected);
+
+					// TODO: may need to be a differnt another branch.
+					<T as Config>::WeightInfo::on_initialize_ongoing_finalize_failed(
+						max_backers_winner,
+						max_winners_page,
+					)
 				},
 			};
+
+			weight_consumed
 		} else {
 			// nothing to do yet.
 			// TOOD(return weight reads=1)
+			Default::default()
 		}
-
-		Default::default()
 	}
 
 	pub(crate) fn do_verify_sync(
@@ -562,16 +581,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 			.and_then(|(final_score, winner_count)| {
 				let desired_targets = crate::Snapshot::<T>::desired_targets().unwrap_or_default();
 
-				log!(info, "final: {:?}", final_score);
-				log!(info, "claimed: {:?}", claimed_score);
-				log!(
-					info,
-					"\nwinner count: {:?} == desired targets {:?} ??",
-					winner_count,
-					desired_targets
-				);
-
-				match (final_score == claimed_score, winner_count == desired_targets) {
+				match (final_score == claimed_score, winner_count <= desired_targets) {
 					(true, true) => {
 						QueuedSolution::<T>::finalize_solution(final_score);
 						Self::deposit_event(Event::<T>::Queued(
@@ -696,9 +706,10 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		// almost-defensive-only: `MaxBackersPerWinner` is already checked. A sane value of
 		// `MaxWinnersPerPage` should be more than any possible value of `desired_targets()`, which
 		// is ALSO checked, so this conversion can almost never fail.
-		let bounded_supports = supports
-			.try_into_bounded_supports()
-			.map_err(|_| FeasibilityError::WrongWinnerCount)?;
+		let bounded_supports = supports.try_into_bounded_supports().map_err(|e| {
+			log!(info, "ERR: {:?}", e);
+			FeasibilityError::WrongWinnerCount
+		})?;
 
 		Ok(bounded_supports)
 	}

@@ -22,7 +22,7 @@ use crate::{
 	benchmarking::helpers,
 	signed::Config as ConfigSigned,
 	unsigned::{Config, Pallet as PalletUnsigned},
-	Config as ConfigCore, CurrentPhase, Pallet as PalletCore, Phase,
+	Config as ConfigCore, ConfigVerifier, CurrentPhase, Pallet as PalletCore, Phase,
 };
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
@@ -30,7 +30,7 @@ use frame_system::RawOrigin;
 use frame_benchmarking::v2::*;
 
 #[benchmarks(
-    where T: Config + ConfigCore + ConfigSigned,
+    where T: Config + ConfigCore + ConfigSigned + ConfigVerifier,
 )]
 mod benchmarks {
 	use super::*;
@@ -50,8 +50,8 @@ mod benchmarks {
 		PalletCore::<T>::phase_transition(Phase::Unsigned(0u32.into()));
 
 		helpers::setup_data_provider::<T>(
-			<T as ConfigCore>::BenchmarkingConfig::VOTERS,
-			<T as ConfigCore>::BenchmarkingConfig::TARGETS,
+			<T as ConfigCore>::BenchmarkingConfig::VOTERS.max(v),
+			<T as ConfigCore>::BenchmarkingConfig::TARGETS.max(t),
 		);
 
 		if let Err(err) = helpers::setup_snapshot::<T>(v, t) {
@@ -61,7 +61,7 @@ mod benchmarks {
 
 		// the last page (0) will also perfom a full feasibility check for all the pages in the
 		// queue. For this benchmark, we want to ensure that we do not call `submit_page_unsigned`
-		// on the last page, to avoid this step.
+		// on the last page, to avoid this extra step.
 		assert!(T::Pages::get() >= 2);
 
 		let (claimed_full_score, partial_score, paged_solution) =

@@ -63,6 +63,7 @@
 //! solution for the current round.
 
 mod impls;
+pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
