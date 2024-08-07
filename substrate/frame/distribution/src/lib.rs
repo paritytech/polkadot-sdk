@@ -138,17 +138,15 @@ pub mod pallet {
 		///
 		/// ## Details
 		///
-		/// From this extrinsic any user can claim a reward for a nominated/whitelisted project
+		/// From this extrinsic any user can claim a reward for a nominated/whitelisted project.
 		///
 		/// ### Parameters
-		/// - `project_account`: The account that will receive the reward
+		/// - `project_account`: The account that will receive the reward.
 		///
 		/// ### Errors
-		/// - [`Error::<T>::InexistentSpending`]: Fungible asset creation failed
-		/// - [`Error::<T>::NoValidAccount`]: Fungible Asset minting into the treasury account
-		///   failed.
-		/// - [`Error::<T>::NotClaimingPeriod`]: Rewards can be claimed only within the claiming
-		///   period
+		/// - [`Error::<T>::InexistentSpending`]:Spending or spending index does not exists
+		/// - [`Error::<T>::NoValidAccount`]:  No valid Account_id found
+		/// - [`Error::<T>::NotClaimingPeriod`]: Still not in claiming period
 		///  
 		/// ## Events
 		/// Emits [`Event::<T>::RewardClaimed`] if successful for a positive approval.
