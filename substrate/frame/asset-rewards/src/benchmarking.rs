@@ -153,7 +153,7 @@ mod benchmarks {
 		assert_last_event::<T>(
 			Event::PoolCreated {
 				creator: caller.clone(),
-				admin: Some(caller),
+				admin: caller,
 				staked_asset_id: staked_asset,
 				reward_asset_id: reward_asset,
 				reward_rate_per_block: min_balance,
@@ -263,9 +263,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(caller_origin as T::RuntimeOrigin, 0, new_admin.clone());
 
-		assert_last_event::<T>(
-			Event::PoolAdminModified { pool_id: 0, new_admin: Some(new_admin) }.into(),
-		);
+		assert_last_event::<T>(Event::PoolAdminModified { pool_id: 0, new_admin }.into());
 
 		Ok(())
 	}

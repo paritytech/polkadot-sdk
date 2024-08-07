@@ -122,8 +122,7 @@ impl EnsureOrigin<RuntimeOrigin> for MockPermissionedOrigin {
 }
 
 /// Allow Freezes for the `Assets` pallet
-pub type AssetsFreezerInstance = pallet_assets_freezer::Instance1;
-impl pallet_assets_freezer::Config<AssetsFreezerInstance> for MockRuntime {
+impl pallet_assets_freezer::Config<pallet_assets_freezer::Instance1> for MockRuntime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RuntimeEvent = RuntimeEvent;
 }
