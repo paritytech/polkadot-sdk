@@ -116,6 +116,32 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 
+
+		/// OPF voting logic
+        ///
+        /// ## Dispatch Origin
+        ///
+        /// Must be signed
+        ///
+        /// ## Details
+        ///
+        /// This extrinsic allows users to [vote for/nominate] a whitelisted project using their funds.
+        /// As a first implementation, the `conviction` parameter was not included for simplicity, but /// should be in the next iteration of the pallet.
+        /// The amount defined by the user is locked and released only when the project reward is /// sent for distribution, or when the project is not dimmed fundable.
+        /// Users can edit an existing vote within the vote-casting period.
+        /// Then, during the vote-locked period, rewards are calculated based on the total user amount 
+        /// attributed to each project by the user’s votes.
+        ///
+        /// ### Parameters
+        /// - `project_account`: The account that will receive the reward.
+        /// - `amount`: Amount that will be locked in user’s balance to nominate a project.
+        /// - `is_fund`: Parameter that defines if user’s vote is in favor (*true*), or against (*false*)
+        /// the project funding.
+         
+        /// ### Errors
+        /// - [`Error::<T>::NotEnoughFunds`]: The user does not have enough balance to cast a vote
+        ///  
+        /// ## Events
 		#[pallet::call_index(0)]
 		pub fn vote(origin: OriginFor<T>, project_account: ProjectId<T>, amount: BalanceOf<T>, is_fund: bool) -> DispatchResult {
 			let voter = ensure_signed(origin)?;
@@ -141,8 +167,26 @@ pub mod pallet {
 			Ok(())
 		}
 
+
+		/// OPF vote removal logic
+        ///
+        /// ## Dispatch Origin
+        ///
+        /// Must be signed
+        ///
+        /// ## Details
+        ///
+        /// This extrinsic allows users to remove a casted vote, as long as it is within the vote-casting period.
+        ///
+        /// ### Parameters
+        /// - `project_account`: The account that will receive the reward.
+        ///
+        /// ### Errors
+        /// - [`Error::<T>::NotEnoughFunds`]: The user does not have enough balance to cast a vote
+        ///  
+        /// ## Events
 		#[pallet::call_index(1)]
-		pub fn remove_vote(origin: OriginFor<T>, project_account: ProjectId<T>, amount: BalanceOf<T>) -> DispatchResult {
+		pub fn remove_vote(origin: OriginFor<T>, project_account: ProjectId<T>) -> DispatchResult {
 			let voter = ensure_signed(origin)?;
 			// Get current voting round & check if we are in voting period or not
 			Self::period_check()?;

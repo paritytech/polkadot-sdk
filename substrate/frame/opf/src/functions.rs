@@ -73,6 +73,7 @@ impl<T: Config> Pallet<T> {
 		for vote in votes {
 			let info = vote.2.clone();
 			total_votes_amount = total_votes_amount.checked_add(&info.amount).ok_or(Error::<T>::InvalidResult)?;
+			
 		}
 
 		// for each project, calculate the percentage of votes, the amount to be distributed,
@@ -82,16 +83,26 @@ impl<T: Config> Pallet<T> {
 				Votes::<T>::iter().filter(|x| x.0 == project.clone()).collect();
 
 			let mut project_reward = BalanceOf::<T>::zero();
+			
 			for vote in this_project_votes.clone() {
-				if vote.2.is_fund == true{
-				project_reward = project_reward.checked_add(&vote.2.amount).ok_or(Error::<T>::InvalidResult)?;
+				match vote.2.is_fund{
+					true => {
+						project_reward = project_reward.checked_add(&vote.2.amount).ok_or(Error::<T>::InvalidResult)?;
+					},
+					false => {
+						project_reward = project_reward.saturating_sub(vote.2.amount);
+					}
+				}
+				// release voter's funds
+				T::NativeBalance::release(
+					&HoldReason::FundsReserved.into(),
+					&vote.1,
+					vote.2.amount.clone(),
+					Precision::Exact,
+				)?;
+
 			}
-			}
-			for vote in this_project_votes {
-				if vote.2.is_fund == false{
-				project_reward = project_reward.saturating_sub(vote.2.amount);
-			}
-			}
+			
 
 
 			if !project_reward.is_zero(){
