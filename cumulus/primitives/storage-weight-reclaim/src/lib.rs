@@ -295,7 +295,7 @@ mod tests {
 
 	#[test]
 	fn underestimating_refund() {
-		// We fixed a bug where weight info weight > actually consumed weight > post info weight
+		// We fixed a bug where `pre dispatch info weight > consumed weight > post info weight`
 		// resulted in error.
 
 		// The real cost will be 100 bytes of storage size
