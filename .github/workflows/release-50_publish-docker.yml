@@ -84,6 +84,9 @@ jobs:
         stable_tag: ${{ steps.validate_inputs.outputs.stable_tag }}
 
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
       - name: Validate inputs
         id: validate_inputs
         run: |
