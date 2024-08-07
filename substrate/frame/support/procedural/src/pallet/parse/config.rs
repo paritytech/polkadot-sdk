@@ -55,6 +55,8 @@ pub struct ConfigDef {
 	pub has_instance: bool,
 	/// Const associated type.
 	pub consts_metadata: Vec<ConstMetadataDef>,
+	/// Associated types metadata.
+	pub associated_types_metadata: Vec<AssociatedTypeMetadataDef>,
 	/// Whether the trait has the associated type `Event`, note that those bounds are
 	/// checked:
 	/// * `IsType<Self as frame_system::Config>::RuntimeEvent`
@@ -68,6 +70,23 @@ pub struct ConfigDef {
 	/// Vec will be empty if `#[pallet::config(with_default)]` is not specified or if there are
 	/// no trait items.
 	pub default_sub_trait: Option<DefaultTrait>,
+}
+
+/// Input definition for an associated type in pallet config.
+pub struct AssociatedTypeMetadataDef {
+	/// Name of the associated type.
+	pub ident: syn::Ident,
+	/// The doc associated.
+	pub doc: Vec<syn::Expr>,
+}
+
+impl From<&syn::TraitItemType> for AssociatedTypeMetadataDef {
+	fn from(trait_ty: &syn::TraitItemType) -> Self {
+		let ident = trait_ty.ident.clone();
+		let doc = get_doc_literals(&trait_ty.attrs);
+
+		Self { ident, doc }
+	}
 }
 
 /// Input definition for a constant in pallet config.
@@ -366,6 +385,7 @@ impl ConfigDef {
 
 		let mut has_event_type = false;
 		let mut consts_metadata = vec![];
+		let mut associated_types_metadata = vec![];
 		let mut default_sub_trait = if enable_default {
 			Some(DefaultTrait {
 				items: Default::default(),
@@ -405,7 +425,7 @@ impl ConfigDef {
 						if !enable_default {
 							return Err(syn::Error::new(
 								pallet_attr._bracket.span.join(),
-								"`#[pallet:no_default]` can only be used if `#[pallet::config(with_default)]` \
+								"`#[pallet::no_default]` can only be used if `#[pallet::config(with_default)]` \
 								has been specified"
 							))
 						}
@@ -434,6 +454,12 @@ impl ConfigDef {
 						}
 						already_no_default_bounds = true;
 					},
+				}
+			}
+
+			if !is_event && !already_constant {
+				if let syn::TraitItem::Type(ref ty) = trait_item {
+					associated_types_metadata.push(AssociatedTypeMetadataDef::from(ty));
 				}
 			}
 
@@ -479,6 +505,7 @@ impl ConfigDef {
 			index,
 			has_instance,
 			consts_metadata,
+			associated_types_metadata,
 			has_event_type,
 			where_clause,
 			default_sub_trait,
