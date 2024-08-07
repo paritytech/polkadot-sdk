@@ -451,7 +451,7 @@ mod stake {
 			);
 			assert_err!(
 				StakingRewards::stake(RuntimeOrigin::signed(user), pool_id, initial_balance + 1),
-				Error::<MockRuntime>::InsufficientFunds
+				TokenError::FundsUnavailable,
 			);
 		})
 	}

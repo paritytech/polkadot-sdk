@@ -82,7 +82,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::traits::fungibles::InspectFreeze;
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
 
@@ -164,7 +163,7 @@ pub mod pallet {
 		pallet_prelude::*,
 		traits::{
 			fungibles::MutateFreeze,
-			tokens::{AssetId, Fortitude, Preservation},
+			tokens::{AssetId, Preservation},
 			Consideration, Footprint,
 		},
 	};
@@ -475,28 +474,11 @@ pub mod pallet {
 			let (mut pool_info, mut staker_info) =
 				Self::update_pool_and_staker_rewards(&pool_info, &staker_info)?;
 
-			// Try to freeze the staker assets.
-			let reducible_balance = T::Assets::reducible_balance(
-				pool_info.staked_asset_id.clone(),
-				&caller,
-				Preservation::Expendable,
-				Fortitude::Force,
-			);
-
-			ensure!(reducible_balance >= amount, Error::<T>::InsufficientFunds);
-
-			// Can't use `extend_frozen` because it takes the max of the current and new
-			// amount instead of summing them.
-			let prev_frozen = T::AssetsFreezer::balance_frozen(
+			T::AssetsFreezer::increase_frozen(
 				pool_info.staked_asset_id.clone(),
 				&FreezeReason::Staked.into(),
 				&caller,
-			);
-			T::AssetsFreezer::set_freeze(
-				pool_info.staked_asset_id.clone(),
-				&FreezeReason::Staked.into(),
-				&caller,
-				prev_frozen.checked_add(&amount).ok_or(Error::<T>::Overflow)?,
+				amount,
 			)?;
 
 			// Update Pools.
