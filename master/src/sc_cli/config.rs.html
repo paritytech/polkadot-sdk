@@ -857,6 +857,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#706" id="706">706</a>
 <a href="#707" id="707">707</a>
 <a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1031,7 +1045,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		node_key: NodeKeyConfig,
 		default_listen_port: u16,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfiguration&gt; {
-		<span class="prelude-val">Ok</span>(<span class="kw">if let </span><span class="prelude-val">Some</span>(network_params) = <span class="self">self</span>.network_params() {
+		<span class="kw">let </span>network_config = <span class="kw">if let </span><span class="prelude-val">Some</span>(network_params) = <span class="self">self</span>.network_params() {
 			network_params.network_config(
 				chain_spec,
 				is_dev,
@@ -1044,7 +1058,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		} <span class="kw">else </span>{
 			NetworkConfiguration::new(node_name, client_id, node_key, <span class="prelude-val">Some</span>(net_config_dir))
-		})
+		};
+
+		<span class="comment">// TODO: Return error here in the next release:
+		// https://github.com/paritytech/polkadot-sdk/issues/5266
+		// if is_validator &amp;&amp; network_config.public_addresses.is_empty() {}
+
+		</span><span class="prelude-val">Ok</span>(network_config)
 	}
 
 	<span class="doccomment">/// Get the keystore configuration.
@@ -1496,6 +1516,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>logger_hook(<span class="kw-2">&amp;mut </span>logger, config);
 
 		logger.init()<span class="question-mark">?</span>;
+
+		<span class="kw">if </span>config.role.is_authority() &amp;&amp; config.network.public_addresses.is_empty() {
+			<span class="macro">warn!</span>(
+				<span class="string">"WARNING: No public address specified, validator node may not be reachable.
+				Consider setting `--public-addr` to the public IP address of this node.
+				This will become a hard requirement in future versions."
+			</span>);
+		}
 
 		<span class="kw">match </span>fdlimit::raise_fd_limit() {
 			<span class="prelude-val">Ok</span>(fdlimit::Outcome::LimitRaised { to, .. }) =&gt;
