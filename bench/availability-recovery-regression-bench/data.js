@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723031459993,
+  "lastUpdate": 1723047676065,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -16841,6 +16841,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.18167787403333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0fb6e3c51eb37575f33ac7f06b6350c0aab4f0c7",
+          "message": "Umbrella crate: exclude chain-specific crates (#5173)\n\nUses custom metadata to exclude chain-specific crates.  \nThe only concern is that devs who want to use chain-specific crates,\nstill need to select matching versions numbers. Could possibly be\naddresses with chain-specific umbrella crates, but currently it should\nbe possible to use [psvm](https://github.com/paritytech/psvm).\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-08-07T14:30:33Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0fb6e3c51eb37575f33ac7f06b6350c0aab4f0c7"
+        },
+        "date": 1723047645131,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.893058546933332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1876352896,
             "unit": "seconds"
           }
         ]
