@@ -17,7 +17,7 @@
 
 use codec::{Decode, Encode, Joiner};
 use frame_support::{
-	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo},
+	dispatch::{DispatchClass, GetDispatchInfo},
 	traits::Currency,
 	weights::Weight,
 };
@@ -343,7 +343,7 @@ fn full_native_block_import_works() {
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					weight: timestamp_weight,
 					class: DispatchClass::Mandatory,
-					..Default::default()
+					pays: Default::default(),
 				}),
 				topics: vec![],
 			},
@@ -401,7 +401,8 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					weight: transfer_weight.saturating_add(TxExtension::weight()),
-					..Default::default()
+					class: Default::default(),
+					pays: Default::default(),
 				}),
 				topics: vec![],
 			},
@@ -434,7 +435,7 @@ fn full_native_block_import_works() {
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					weight: timestamp_weight,
 					class: DispatchClass::Mandatory,
-					..Default::default()
+					pays: Default::default(),
 				}),
 				topics: vec![],
 			},
@@ -492,7 +493,8 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					weight: transfer_weight.saturating_add(TxExtension::weight()),
-					..Default::default()
+					class: Default::default(),
+					pays: Default::default(),
 				}),
 				topics: vec![],
 			},
@@ -550,7 +552,8 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					weight: transfer_weight.saturating_add(TxExtension::weight()),
-					..Default::default()
+					class: Default::default(),
+					pays: Default::default(),
 				}),
 				topics: vec![],
 			},

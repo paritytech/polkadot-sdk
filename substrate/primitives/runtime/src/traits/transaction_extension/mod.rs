@@ -30,7 +30,10 @@ use sp_std::{self, fmt::Debug, prelude::*};
 use sp_weights::Weight;
 use tuplex::{PopFront, PushBack};
 
-use super::{DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf, RefundWeight};
+use super::{
+	DispatchInfoOf, Dispatchable, ExtensionPostDispatchWeightHandler, OriginOf, PostDispatchInfoOf,
+	RefundWeight,
+};
 
 mod as_transaction_extension;
 mod dispatch_transaction;

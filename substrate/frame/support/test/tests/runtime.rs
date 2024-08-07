@@ -533,7 +533,8 @@ fn origin_codec() {
 fn event_codec() {
 	use codec::Encode;
 
-	let event = frame_system::Event::<Runtime>::ExtrinsicSuccess { ..Default::default() };
+	let event = frame_system::Event::<Runtime>::ExtrinsicSuccess { weight: Default::default(), class: Default::default(),
+		pays: Default::default(), };
 	assert_eq!(RuntimeEvent::from(event).encode()[0], 30);
 
 	let event = module1::Event::<Runtime, module1::Instance1>::A(test_pub());
