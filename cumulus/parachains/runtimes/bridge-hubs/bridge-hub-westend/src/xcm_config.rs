@@ -35,19 +35,24 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
+use snowbridge_runtime_common::XcmExportFeeToSibling;
 use sp_runtime::traits::AccountIdConversion;
+use sp_std::marker::PhantomData;
+use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FrameTransactionalProcessor,
-	FungibleAdapter, IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	FungibleAdapter, HandleFee, IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
 	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents,
 };
-use xcm_executor::XcmExecutor;
+use xcm_executor::{
+	traits::{FeeManager, FeeReason, FeeReason::Export},
+	XcmExecutor,
+};
 
 parameter_types! {
 	pub const WestendLocation: Location = Location::parent();
@@ -193,11 +198,24 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = PolkadotXcm;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = XcmFeeManagerFromComponents<
+	type FeeManager = XcmFeeManagerFromComponentsBridgeHub<
 		WaivedLocations,
-		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
+		(
+			XcmExportFeeToSibling<
+				bp_westend::Balance,
+				AccountId,
+				WestendLocation,
+				EthereumNetwork,
+				Self::AssetTransactor,
+				crate::EthereumOutboundQueue,
+			>,
+			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
+		),
 	>;
-	type MessageExporter = (crate::bridge_to_rococo_config::ToBridgeHubRococoHaulBlobExporter,);
+	type MessageExporter = (
+		crate::bridge_to_rococo_config::ToBridgeHubRococoHaulBlobExporter,
+		crate::bridge_to_ethereum_config::SnowbridgeExporter,
+	);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
@@ -260,4 +278,25 @@ impl pallet_xcm::Config for Runtime {
 impl cumulus_pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
+}
+
+pub struct XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, HandleFee>(
+	PhantomData<(WaivedLocations, HandleFee)>,
+);
+impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
+	for XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, FeeHandler>
+{
+	fn is_waived(origin: Option<&Location>, fee_reason: FeeReason) -> bool {
+		let Some(loc) = origin else { return false };
+		if let Export { network, destination: Here } = fee_reason {
+			if network == EthereumNetwork::get() {
+				return false
+			}
+		}
+		WaivedLocations::contains(loc)
+	}
+
+	fn handle_fee(fee: Assets, context: Option<&XcmContext>, reason: FeeReason) {
+		FeeHandler::handle_fee(fee, context, reason);
+	}
 }
