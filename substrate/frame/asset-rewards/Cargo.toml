@@ -40,6 +40,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-assets-freezer/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
 	"primitive-types/std",
