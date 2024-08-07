@@ -68,13 +68,12 @@ pub mod unversioned {
 				};
 			});
 
-			log!(info, "Finished migrating old proxy delegator accounts to new ones",);
-
+			log!(info, "Finished migrating old proxy delegator accounts to new ones");
 			weight
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(data: Vec<u8>) -> Result<(), TryRuntimeError> {
+		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
 			let mut unmigrated_count = 0;
 			let old_proxy_delegator = |agent: T::AccountId| {
 				T::PalletId::get()
@@ -92,7 +91,7 @@ pub mod unversioned {
 						old_proxy,
 						agent,
 					);
-					unmigrated_count = unmigrated_count + 1;
+					unmigrated_count += 1;
 				}
 			});
 
