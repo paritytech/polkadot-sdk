@@ -20,6 +20,14 @@ doc:
         of the associated cost/consideration ticket.
         - release_proposal_cost(origin, proposal_hash): the release of the cost for a non-active proposal.
 
+      New config parameters:
+        - DisapproveOrigin: origin from which a proposal in any status may be disapproved without 
+        associated cost for a proposer;
+        - KillOrigin: Origin from which any malicious proposal may be killed with associated cost 
+        for a proposer;
+        - Consideration: mechanism to assess the necessity of some cost for publishing and storing 
+        a proposal. Set to unit type to have not submission cost;
+
       Additionally change: 
         - benchmarks have been upgraded to benchmarks::v2 for collective pallet;
         - `ensure_successful` function added to the `Consideration` under `runtime-benchmarks` feature.
