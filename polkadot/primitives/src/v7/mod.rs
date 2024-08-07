@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! `V7` Primitives.
-
 use alloc::{
 	vec,
 	vec::{IntoIter, Vec},
