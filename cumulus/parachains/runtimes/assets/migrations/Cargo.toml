@@ -33,28 +33,28 @@ sp-io = { workspace = true }
 [features]
 default = ["std"]
 std = [
-	"frame-benchmarking?/std",
 	"codec/std",
+	"frame-benchmarking?/std",
 	"frame-support/std",
+	"frame-system/std",
 	"log/std",
 	"pallet-asset-conversion/std",
-	"pallet-migrations/std",
-	"scale-info/std",
-	"sp-runtime/std",
-	"xcm/std",
-	"frame-system/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
+	"pallet-migrations/std",
+	"scale-info/std",
 	"sp-io/std",
+	"sp-runtime/std",
+	"xcm/std",
 ]
 
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
-	"pallet-asset-conversion/runtime-benchmarks",
-	"pallet-migrations/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
