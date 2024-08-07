@@ -21,15 +21,11 @@ use std::collections::BTreeMap;
 use frame_support::{
 	derive_impl,
 	dispatch::Parameter,
-	dispatch_context::with_context,
 	parameter_types,
 	traits::{ConstU32, StorageVersion},
-	weights::Weight,
 	OrdNoBound, PartialOrdNoBound,
 };
 use scale_info::TypeInfo;
-
-use sp_runtime::DispatchError;
 
 parameter_types! {
 	/// Used to control if the storage version should be updated.
@@ -43,27 +39,6 @@ impl From<SomeType1> for u64 {
 	}
 }
 
-pub struct SomeType2;
-impl From<SomeType2> for u64 {
-	fn from(_t: SomeType2) -> Self {
-		100u64
-	}
-}
-
-pub struct SomeType3;
-impl From<SomeType3> for u64 {
-	fn from(_t: SomeType3) -> Self {
-		0u64
-	}
-}
-
-pub struct SomeType4;
-impl From<SomeType4> for u64 {
-	fn from(_t: SomeType4) -> Self {
-		0u64
-	}
-}
-
 pub trait SomeAssociation1 {
 	type _1: Parameter + codec::MaxEncodedLen + TypeInfo;
 }
@@ -71,19 +46,10 @@ impl SomeAssociation1 for u64 {
 	type _1 = u64;
 }
 
-pub trait SomeAssociation2 {
-	type _2: Parameter + codec::MaxEncodedLen + TypeInfo;
-}
-impl SomeAssociation2 for u64 {
-	type _2 = u64;
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-	use sp_runtime::DispatchResult;
 
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(10);
 
@@ -92,118 +58,14 @@ pub mod pallet {
 	where
 		<Self as frame_system::Config>::AccountId: From<SomeType1> + SomeAssociation1,
 	{
-		/// Some comment
-		/// Some comment
-		#[pallet::constant]
-		type MyGetParam: Get<u32>;
-
-		/// Some comment
-		/// Some comment
-		#[pallet::constant]
-		type MyGetParam2: Get<u32>;
-
-		#[pallet::constant]
-		type MyGetParam3: Get<<Self::AccountId as SomeAssociation1>::_1>;
-
 		type Balance: Parameter + Default + TypeInfo;
 
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
-	#[pallet::extra_constants]
-	impl<T: Config> Pallet<T>
-	where
-		T::AccountId: From<SomeType1> + SomeAssociation1 + From<SomeType2>,
-	{
-		/// Some doc
-		/// Some doc
-		fn some_extra() -> T::AccountId {
-			SomeType2.into()
-		}
-
-		/// Some doc
-		fn some_extra_extra() -> T::AccountId {
-			SomeType1.into()
-		}
-
-		/// Some doc
-		#[pallet::constant_name(SomeExtraRename)]
-		fn some_extra_rename() -> T::AccountId {
-			SomeType1.into()
-		}
-	}
-
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
-	where
-		T::AccountId: From<SomeType2> + From<SomeType1> + SomeAssociation1,
-	{
-		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			let _ = T::AccountId::from(SomeType1); // Test for where clause
-			let _ = T::AccountId::from(SomeType2); // Test for where clause
-			Self::deposit_event(Event::B);
-			Weight::from_parts(10, 0)
-		}
-		fn on_finalize(_: BlockNumberFor<T>) {
-			let _ = T::AccountId::from(SomeType1); // Test for where clause
-			let _ = T::AccountId::from(SomeType2); // Test for where clause
-			Self::deposit_event(Event::A);
-		}
-		fn on_runtime_upgrade() -> Weight {
-			let _ = T::AccountId::from(SomeType1); // Test for where clause
-			let _ = T::AccountId::from(SomeType2); // Test for where clause
-			Self::deposit_event(Event::A);
-			Weight::from_parts(30, 0)
-		}
-		fn integrity_test() {
-			let _ = T::AccountId::from(SomeType1); // Test for where clause
-			let _ = T::AccountId::from(SomeType2); // Test for where clause
-		}
-	}
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T>
-	where
-		T::AccountId: From<SomeType1> + From<SomeType2> + SomeAssociation1,
-	{
-		/// call foo_storage_layer doc comment put in metadata
-		#[pallet::call_index(1)]
-		#[pallet::weight({1})]
-		pub fn foo_storage_layer(
-			_origin: OriginFor<T>,
-			#[pallet::compact] foo: u32,
-		) -> DispatchResultWithPostInfo {
-			Self::deposit_event(Event::B);
-			if foo == 0 {
-				Err(Error::<T>::InsufficientProposersBalance)?;
-			}
-
-			Ok(().into())
-		}
-
-		#[pallet::call_index(4)]
-		#[pallet::weight({1})]
-		pub fn foo_index_out_of_order(_origin: OriginFor<T>) -> DispatchResult {
-			Ok(())
-		}
-
-		// Test for DispatchResult return type
-		#[pallet::call_index(2)]
-		#[pallet::weight({1})]
-		pub fn foo_no_post_info(_origin: OriginFor<T>) -> DispatchResult {
-			Ok(())
-		}
-
-		#[pallet::call_index(3)]
-		#[pallet::weight({1})]
-		pub fn check_for_dispatch_context(_origin: OriginFor<T>) -> DispatchResult {
-			with_context::<(), _>(|_| ()).ok_or_else(|| DispatchError::Unavailable)
-		}
-	}
 
 	#[pallet::error]
 	#[derive(PartialEq, Eq)]
@@ -218,7 +80,6 @@ pub mod pallet {
 	}
 
 	#[pallet::event]
-	#[pallet::generate_deposit(fn deposit_event)]
 	pub enum Event<T: Config>
 	where
 		T::AccountId: SomeAssociation1 + From<SomeType1>,
@@ -228,28 +89,6 @@ pub mod pallet {
 		#[deprecated = "first"]
 		#[codec(index = 0)]
 		B,
-	}
-
-	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
-	pub struct GenesisConfig<T: Config>
-	where
-		T::AccountId: From<SomeType1> + SomeAssociation1 + From<SomeType4>,
-	{
-		#[serde(skip)]
-		_config: std::marker::PhantomData<T>,
-		_myfield: u32,
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
-	where
-		T::AccountId: From<SomeType1> + SomeAssociation1 + From<SomeType4>,
-	{
-		fn build(&self) {
-			let _ = T::AccountId::from(SomeType1); // Test for where clause
-			let _ = T::AccountId::from(SomeType4); // Test for where clause
-		}
 	}
 
 	#[pallet::origin]
@@ -284,24 +123,10 @@ impl frame_system::Config for Runtime {
 	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
 }
 impl pallet::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type MyGetParam = ConstU32<10>;
-	type MyGetParam2 = ConstU32<11>;
-	type MyGetParam3 = MyGetParam3;
 	type Balance = u64;
 }
 

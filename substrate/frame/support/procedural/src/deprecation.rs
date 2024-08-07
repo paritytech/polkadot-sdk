@@ -61,7 +61,7 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 				Ok::<(Option<&syn::Lit>, Option<&syn::Lit>), Error>(acc)
 			})?;
 			note.map_or_else(
-				|| Err(Error::new(attr.span(), 						deprecation_msg_formatter(
+		  || Err(Error::new(attr.span(), 						deprecation_msg_formatter(
 					"Invalid deprecation attribute: missing `note`"))),
 				|note| {
 					let since = if let Some(str) = since {
@@ -97,13 +97,19 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 
 /// collects deprecation attribute if its present.
 pub fn get_deprecation(path: &TokenStream, attrs: &[syn::Attribute]) -> Result<TokenStream> {
+	parse_deprecation(path, attrs).map(|item| {
+		item.unwrap_or_else(|| {
+			quote! {#path::__private::metadata_ir::DeprecationStatusIR::NotDeprecated}
+		})
+	})
+}
+
+fn parse_deprecation(path: &TokenStream, attrs: &[syn::Attribute]) -> Result<Option<TokenStream>> {
 	attrs
 		.iter()
 		.find(|a| a.path().is_ident("deprecated"))
-		.map(|a| parse_deprecated_meta(path, a))
-		.unwrap_or_else(|| {
-			Ok(quote! {#path::__private::metadata_ir::DeprecationStatusIR::NotDeprecated})
-		})
+		.map(|a| parse_deprecated_meta(path, a).map(|x| Some(x)))
+		.unwrap_or_else(|| Ok(None))
 }
 
 /// collects deprecation attribute if its present for enum-like types
@@ -112,17 +118,6 @@ pub fn get_deprecation_enum<'a>(
 	parent_attrs: &[syn::Attribute],
 	children_attrs: impl Iterator<Item = (u8, &'a [syn::Attribute])>,
 ) -> Result<TokenStream> {
-	fn parse_deprecation(
-		path: &TokenStream,
-		attrs: &[syn::Attribute],
-	) -> Result<Option<TokenStream>> {
-		attrs
-			.iter()
-			.find(|a| a.path().is_ident("deprecated"))
-			.map(|a| parse_deprecated_meta(path, a).map(|x| Some(x)))
-			.unwrap_or_else(|| Ok(None))
-	}
-
 	let parent_deprecation = parse_deprecation(path, parent_attrs)?;
 
 	let children = children_attrs
