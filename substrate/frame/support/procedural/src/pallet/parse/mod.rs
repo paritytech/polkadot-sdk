@@ -43,6 +43,7 @@ pub mod tests;
 use composite::{keyword::CompositeKeyword, CompositeDef};
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use quote::ToTokens;
+use std::collections::HashSet;
 use syn::spanned::Spanned;
 
 /// Parsed definition of a pallet.
@@ -109,12 +110,13 @@ impl Def {
 			let pallet_attr: Option<PalletAttr> = helper::take_first_item_pallet_attr(item)?;
 
 			match pallet_attr {
-				Some(PalletAttr::Config(_, with_default)) if config.is_none() =>
+				Some(PalletAttr::Config{ with_default, without_metadata, ..}) if config.is_none() =>
 					config = Some(config::ConfigDef::try_from(
 						&frame_system,
 						index,
 						item,
 						with_default,
+						without_metadata,
 					)?),
 				Some(PalletAttr::Pallet(span)) if pallet_struct.is_none() => {
 					let p = pallet_struct::PalletStructDef::try_from(span, index, item)?;
@@ -548,6 +550,7 @@ mod keyword {
 	syn::custom_keyword!(event);
 	syn::custom_keyword!(config);
 	syn::custom_keyword!(with_default);
+	syn::custom_keyword!(without_metadata);
 	syn::custom_keyword!(hooks);
 	syn::custom_keyword!(inherent);
 	syn::custom_keyword!(error);
@@ -561,10 +564,35 @@ mod keyword {
 	syn::custom_keyword!(composite_enum);
 }
 
+/// The possible values for the `#[pallet::config]` attribute.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum ConfigValue {
+	/// `#[pallet::config(with_default)]`
+	WithDefault(keyword::with_default),
+	/// `#[pallet::config(without_metadata)]`
+	WithoutMetadata(keyword::without_metadata),
+}
+
+impl syn::parse::Parse for ConfigValue {
+	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+		if input.peek(keyword::with_default) {
+			Ok(ConfigValue::WithDefault(input.parse()?))
+		} else if input.peek(keyword::without_metadata) {
+			Ok(ConfigValue::WithoutMetadata(input.parse()?))
+		} else {
+			Err(input.error("expected `with_default` or `without_metadata`"))
+		}
+	}
+}
+
 /// Parse attributes for item in pallet module
 /// syntax must be `pallet::` (e.g. `#[pallet::config]`)
 enum PalletAttr {
-	Config(proc_macro2::Span, bool),
+	Config {
+		span: proc_macro2::Span,
+		with_default: bool,
+		without_metadata: bool,
+	},
 	Pallet(proc_macro2::Span),
 	Hooks(proc_macro2::Span),
 	/// A `#[pallet::call]` with optional attributes to specialize the behaviour.
@@ -626,7 +654,7 @@ enum PalletAttr {
 impl PalletAttr {
 	fn span(&self) -> proc_macro2::Span {
 		match self {
-			Self::Config(span, _) => *span,
+			Self::Config { span, .. } => *span,
 			Self::Pallet(span) => *span,
 			Self::Hooks(span) => *span,
 			Self::Tasks(span) => *span,
@@ -661,13 +689,31 @@ impl syn::parse::Parse for PalletAttr {
 		let lookahead = content.lookahead1();
 		if lookahead.peek(keyword::config) {
 			let span = content.parse::<keyword::config>()?.span();
-			let with_default = content.peek(syn::token::Paren);
-			if with_default {
+			if content.peek(syn::token::Paren) {
 				let inside_config;
+
+				// Parse (with_default, without_metadata) attributes.
 				let _paren = syn::parenthesized!(inside_config in content);
-				inside_config.parse::<keyword::with_default>()?;
+
+				let fields: syn::punctuated::Punctuated<ConfigValue, syn::Token![,]> =
+					inside_config.parse_terminated(ConfigValue::parse, syn::Token![,])?;
+				let config_values = fields.iter().collect::<Vec<_>>();
+
+				let with_default =
+					config_values.iter().any(|v| matches!(v, ConfigValue::WithDefault(_)));
+				let without_metadata =
+					config_values.iter().any(|v| matches!(v, ConfigValue::WithoutMetadata(_)));
+
+				// Check for duplicated attributes.
+				let config_set = config_values.iter().collect::<HashSet<_>>();
+				if config_set.len() != config_values.len() {
+					return Err(syn::Error::new(span, "Invalid duplicated attribute"))
+				}
+
+				Ok(PalletAttr::Config { span, with_default, without_metadata })
+			} else {
+				Ok(PalletAttr::Config { span, with_default: false, without_metadata: false })
 			}
-			Ok(PalletAttr::Config(span, with_default))
 		} else if lookahead.peek(keyword::pallet) {
 			Ok(PalletAttr::Pallet(content.parse::<keyword::pallet>()?.span()))
 		} else if lookahead.peek(keyword::hooks) {

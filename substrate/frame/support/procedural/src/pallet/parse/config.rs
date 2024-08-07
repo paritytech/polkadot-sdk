@@ -36,6 +36,7 @@ mod keyword {
 	syn::custom_keyword!(no_default);
 	syn::custom_keyword!(no_default_bounds);
 	syn::custom_keyword!(constant);
+	syn::custom_keyword!(without_metadata);
 }
 
 #[derive(Default)]
@@ -348,6 +349,7 @@ impl ConfigDef {
 		index: usize,
 		item: &mut syn::Item,
 		enable_default: bool,
+		without_metadata: bool,
 	) -> syn::Result<Self> {
 		let syn::Item::Trait(item) = item else {
 			let msg = "Invalid pallet::config, expected trait definition";
@@ -460,7 +462,7 @@ impl ConfigDef {
 				}
 			}
 
-			if !is_event && !already_constant {
+			if !without_metadata && !is_event && !already_constant {
 				if let syn::TraitItem::Type(ref ty) = trait_item {
 					associated_types_metadata.push(AssociatedTypeMetadataDef::from(ty));
 				}
