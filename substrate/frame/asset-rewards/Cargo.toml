@@ -1,13 +1,12 @@
 [package]
 name = "pallet-asset-rewards"
-version = "1.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME asset rewards pallet"
-readme = "README.md"
 
 [lints]
 workspace = true
@@ -16,23 +15,23 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
-frame-support = { path = "../support", default-features = false, features = ["experimental"] }
-frame-system = { path = "../system", default-features = false }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-sp-api = { path = "../../primitives/api", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false }
+codec = { workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false, features = ["experimental"] }
+frame-system = { workspace = true, default-features = false }
+frame-benchmarking = { workspace = true, default-features = false, optional = true }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
+sp-api = { workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+sp-arithmetic = { workspace = true, default-features = false }
 
 [dev-dependencies]
-pallet-balances = { path = "../balances" }
-pallet-assets = { path = "../assets" }
-pallet-assets-freezer = { path = "../assets-freezer" }
-primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "num-traits", "scale-info"] }
+pallet-balances = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-assets-freezer = { workspace = true }
+primitive-types = { workspace = true, default-features = false, features = ["codec", "num-traits", "scale-info"] }
 
 [features]
 default = ["std"]
