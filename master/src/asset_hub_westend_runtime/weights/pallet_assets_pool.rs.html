@@ -681,6 +681,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1211,6 +1221,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">3675</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">2</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
+	}
+
+	<span class="kw">fn </span>transfer_all() -&gt; Weight {
+		<span class="comment">// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `3593`
+		// Minimum execution time: 46_573_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">47_385_000</span>, <span class="number">3593</span>)
+			.saturating_add(T::DbWeight::get().reads(<span class="number">1_u64</span>))
+			.saturating_add(T::DbWeight::get().writes(<span class="number">1_u64</span>))
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

@@ -1945,6 +1945,53 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1794" id="1794">1794</a>
 <a href="#1795" id="1795">1795</a>
 <a href="#1796" id="1796">1796</a>
+<a href="#1797" id="1797">1797</a>
+<a href="#1798" id="1798">1798</a>
+<a href="#1799" id="1799">1799</a>
+<a href="#1800" id="1800">1800</a>
+<a href="#1801" id="1801">1801</a>
+<a href="#1802" id="1802">1802</a>
+<a href="#1803" id="1803">1803</a>
+<a href="#1804" id="1804">1804</a>
+<a href="#1805" id="1805">1805</a>
+<a href="#1806" id="1806">1806</a>
+<a href="#1807" id="1807">1807</a>
+<a href="#1808" id="1808">1808</a>
+<a href="#1809" id="1809">1809</a>
+<a href="#1810" id="1810">1810</a>
+<a href="#1811" id="1811">1811</a>
+<a href="#1812" id="1812">1812</a>
+<a href="#1813" id="1813">1813</a>
+<a href="#1814" id="1814">1814</a>
+<a href="#1815" id="1815">1815</a>
+<a href="#1816" id="1816">1816</a>
+<a href="#1817" id="1817">1817</a>
+<a href="#1818" id="1818">1818</a>
+<a href="#1819" id="1819">1819</a>
+<a href="#1820" id="1820">1820</a>
+<a href="#1821" id="1821">1821</a>
+<a href="#1822" id="1822">1822</a>
+<a href="#1823" id="1823">1823</a>
+<a href="#1824" id="1824">1824</a>
+<a href="#1825" id="1825">1825</a>
+<a href="#1826" id="1826">1826</a>
+<a href="#1827" id="1827">1827</a>
+<a href="#1828" id="1828">1828</a>
+<a href="#1829" id="1829">1829</a>
+<a href="#1830" id="1830">1830</a>
+<a href="#1831" id="1831">1831</a>
+<a href="#1832" id="1832">1832</a>
+<a href="#1833" id="1833">1833</a>
+<a href="#1834" id="1834">1834</a>
+<a href="#1835" id="1835">1835</a>
+<a href="#1836" id="1836">1836</a>
+<a href="#1837" id="1837">1837</a>
+<a href="#1838" id="1838">1838</a>
+<a href="#1839" id="1839">1839</a>
+<a href="#1840" id="1840">1840</a>
+<a href="#1841" id="1841">1841</a>
+<a href="#1842" id="1842">1842</a>
+<a href="#1843" id="1843">1843</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2130,7 +2177,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	pallet_prelude::DispatchResultWithPostInfo,
 	storage::KeyPrefixIterator,
 	traits::{
-		tokens::{fungibles, DepositConsequence, WithdrawConsequence},
+		tokens::{
+			fungibles, DepositConsequence, Fortitude,
+			Preservation::{Expendable, Preserve},
+			WithdrawConsequence,
+		},
 		BalanceStatus::Reserved,
 		Currency, EnsureOriginWithArg, Incrementable, ReservableCurrency, StoredMap,
 	},
@@ -3698,6 +3749,49 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})<span class="question-mark">?</span>;
 
 			<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::Blocked { asset_id: id, who });
+			<span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="doccomment">/// Transfer the entire transferable balance from the caller asset account.
+		///
+		/// NOTE: This function only attempts to transfer _transferable_ balances. This means that
+		/// any held, frozen, or minimum balance (when `keep_alive` is `true`), will not be
+		/// transferred by this function. To ensure that this function results in a killed account,
+		/// you might need to prepare the account by removing any reference counters, storage
+		/// deposits, etc...
+		///
+		/// The dispatch origin of this call must be Signed.
+		///
+		/// - `id`: The identifier of the asset for the account holding a deposit.
+		/// - `dest`: The recipient of the transfer.
+		/// - `keep_alive`: A boolean to determine if the `transfer_all` operation should send all
+		///   of the funds the asset account has, causing the sender asset account to be killed
+		///   (false), or transfer everything except at least the minimum balance, which will
+		///   guarantee to keep the sender asset account alive (true).
+		</span><span class="attr">#[pallet::call_index(<span class="number">32</span>)]
+		#[pallet::weight(T::WeightInfo::refund_other())]
+		</span><span class="kw">pub fn </span>transfer_all(
+			origin: OriginFor&lt;T&gt;,
+			id: T::AssetIdParameter,
+			dest: AccountIdLookupOf&lt;T&gt;,
+			keep_alive: bool,
+		) -&gt; DispatchResult {
+			<span class="kw">let </span>transactor = ensure_signed(origin)<span class="question-mark">?</span>;
+			<span class="kw">let </span>keep_alive = <span class="kw">if </span>keep_alive { Preserve } <span class="kw">else </span>{ Expendable };
+			<span class="kw">let </span>reducible_balance = &lt;<span class="self">Self </span><span class="kw">as </span>fungibles::Inspect&lt;<span class="kw">_</span>&gt;&gt;::reducible_balance(
+				id.clone().into(),
+				<span class="kw-2">&amp;</span>transactor,
+				keep_alive,
+				Fortitude::Polite,
+			);
+			<span class="kw">let </span>dest = T::Lookup::lookup(dest)<span class="question-mark">?</span>;
+			&lt;<span class="self">Self </span><span class="kw">as </span>fungibles::Mutate&lt;<span class="kw">_</span>&gt;&gt;::transfer(
+				id.into(),
+				<span class="kw-2">&amp;</span>transactor,
+				<span class="kw-2">&amp;</span>dest,
+				reducible_balance,
+				keep_alive,
+			)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
 		}
 	}

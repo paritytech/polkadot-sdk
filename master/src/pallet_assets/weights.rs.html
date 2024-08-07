@@ -1128,6 +1128,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#977" id="977">977</a>
 <a href="#978" id="978">978</a>
 <a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1213,6 +1234,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>refund() -&gt; Weight;
 	<span class="kw">fn </span>refund_other() -&gt; Weight;
 	<span class="kw">fn </span>block() -&gt; Weight;
+	<span class="kw">fn </span>transfer_all() -&gt; Weight;
 }
 
 <span class="doccomment">/// Weights for `pallet_assets` using the Substrate node and recommended hardware.
@@ -1660,6 +1682,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.saturating_add(T::DbWeight::get().reads(<span class="number">2_u64</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1_u64</span>))
 	}
+
+	<span class="kw">fn </span>transfer_all() -&gt; Weight {
+		<span class="comment">// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `3593`
+		// Minimum execution time: 46_573_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">47_385_000</span>, <span class="number">3593</span>)
+			.saturating_add(T::DbWeight::get().reads(<span class="number">1_u64</span>))
+			.saturating_add(T::DbWeight::get().writes(<span class="number">1_u64</span>))
+	}
 }
 
 <span class="comment">// For backwards compatibility and tests.
@@ -2104,6 +2136,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// Minimum execution time: 15_741_000 picoseconds.
 		</span>Weight::from_parts(<span class="number">16_558_000</span>, <span class="number">3675</span>)
 			.saturating_add(RocksDbWeight::get().reads(<span class="number">2_u64</span>))
+			.saturating_add(RocksDbWeight::get().writes(<span class="number">1_u64</span>))
+	}
+
+	<span class="kw">fn </span>transfer_all() -&gt; Weight {
+		<span class="comment">// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `3593`
+		// Minimum execution time: 46_573_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">47_385_000</span>, <span class="number">3593</span>)
+			.saturating_add(RocksDbWeight::get().reads(<span class="number">1_u64</span>))
 			.saturating_add(RocksDbWeight::get().writes(<span class="number">1_u64</span>))
 	}
 }
