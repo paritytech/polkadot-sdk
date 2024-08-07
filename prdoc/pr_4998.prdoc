@@ -14,7 +14,7 @@ crates:
   - name: pallet-delegated-staking
     bump: patch
   - name: pallet-nomination-pools
-    bump: minor
+    bump: major
   - name: sp-staking
-    bump: minor
+    bump: major
 

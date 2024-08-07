@@ -1831,9 +1831,9 @@ pub mod pallet {
 		/// A member has been removed from a pool.
 		///
 		/// The removal can be voluntary (withdrawn all unbonded funds) or involuntary (kicked).
-		/// Any funds that was still delegated (dangling delegation) is cleared and is represented
-		/// by `balance`.
-		MemberRemoved { pool_id: PoolId, member: T::AccountId, balance: BalanceOf<T> },
+		/// Any funds that was still delegated (dangling delegation) is released and is represented
+		/// by `released_balance`.
+		MemberRemoved { pool_id: PoolId, member: T::AccountId, released_balance: BalanceOf<T> },
 		/// The roles of a pool have been updated to the given new roles. Note that the depositor
 		/// can never change.
 		RolesUpdated {
@@ -2391,7 +2391,7 @@ pub mod pallet {
 				Self::deposit_event(Event::<T>::MemberRemoved {
 					pool_id: member.pool_id,
 					member: member_account.clone(),
-					balance: dangling_withdrawal,
+					released_balance: dangling_withdrawal,
 				});
 
 				if member_account == bonded_pool.roles.depositor {

@@ -152,9 +152,9 @@ fn pool_lifecycle_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 20, pool_id: 1, points: 10, balance: 10 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 20, balance: 0 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 20, released_balance: 0 },
 				PoolsEvent::Withdrawn { member: 21, pool_id: 1, points: 10, balance: 10 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 21, balance: 0 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 21, released_balance: 0 },
 			]
 		);
 
@@ -193,7 +193,7 @@ fn pool_lifecycle_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 10, pool_id: 1, points: 50, balance: 50 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 10, balance: 0 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
@@ -476,10 +476,10 @@ fn pool_slash_e2e() {
 			vec![
 				// 20 had unbonded 10 safely, and 10 got slashed by half.
 				PoolsEvent::Withdrawn { member: 20, pool_id: 1, balance: 10 + 5, points: 20 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 20, balance: 0 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 20, released_balance: 0 },
 				// 21 unbonded all of it after the slash
 				PoolsEvent::Withdrawn { member: 21, pool_id: 1, balance: 5 + 5, points: 15 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 21, balance: 0 }
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 21, released_balance: 0 }
 			]
 		);
 		assert_eq!(
@@ -525,7 +525,7 @@ fn pool_slash_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 10, pool_id: 1, balance: 10 + 15, points: 30 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 10, balance: 0 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
@@ -1160,7 +1160,7 @@ fn pool_migration_e2e() {
 			vec![
 				PoolsEvent::Withdrawn { member: 21, pool_id: 1, balance: 10, points: 10 },
 				// 21 was fully unbonding and removed from pool.
-				PoolsEvent::MemberRemoved { member: 21, pool_id: 1, balance: 0 },
+				PoolsEvent::MemberRemoved { member: 21, pool_id: 1, released_balance: 0 },
 				PoolsEvent::Withdrawn { member: 22, pool_id: 1, balance: 5, points: 5 },
 			]
 		);
@@ -1408,7 +1408,7 @@ fn pool_no_dangling_delegation() {
 			vec![
 				PoolsEvent::Withdrawn { pool_id: 1, member: bob, balance: 15, points: 20 },
 				// dangling delegation of 5 is released
-				PoolsEvent::MemberRemoved { pool_id: 1, member: bob, balance: 5 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: bob, released_balance: 5 },
 			]
 		);
 		assert_eq!(
@@ -1437,7 +1437,7 @@ fn pool_no_dangling_delegation() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { pool_id: 1, member: charlie, balance: 10, points: 15 },
-				PoolsEvent::MemberRemoved { member: charlie, pool_id: 1, balance: 0 }
+				PoolsEvent::MemberRemoved { member: charlie, pool_id: 1, released_balance: 0 }
 			]
 		);
 		assert_eq!(
@@ -1482,7 +1482,7 @@ fn pool_no_dangling_delegation() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: alice, pool_id: 1, balance: 20, points: 25 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: alice, balance: 0 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: alice, released_balance: 0 },
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
