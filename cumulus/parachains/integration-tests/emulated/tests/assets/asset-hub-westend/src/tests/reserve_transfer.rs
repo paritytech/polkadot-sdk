@@ -940,7 +940,7 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 	);
 }
 
-/// Reserve Transfers of a foreign asset and native asset from Parachain to System Para should
+/// Reserve Transfers of a random asset and native asset from Parachain to System Para should
 /// work
 #[test]
 fn reserve_transfer_assets_from_para_to_system_para() {
