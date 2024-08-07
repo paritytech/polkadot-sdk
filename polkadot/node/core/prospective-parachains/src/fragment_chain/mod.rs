@@ -690,19 +690,30 @@ impl FragmentChain {
 	}
 
 	/// Return a new [`CandidateStorage`] containing all the candidates from this `FragmentChain`,
-	/// as well as the unconnected ones.
-	pub fn as_candidate_storage(&self) -> CandidateStorage {
+	/// as well as the unconnected ones. This does not contain the candidates that used to be
+	/// pending availability.
+	pub fn advance_scope(&self) -> CandidateStorage {
 		let mut storage = self.unconnected.clone();
 
 		for candidate in self.best_chain.chain.iter() {
-			let _ = storage.add_candidate_entry(CandidateEntry {
-				candidate_hash: candidate.candidate_hash,
-				parent_head_data_hash: candidate.parent_head_data_hash,
-				output_head_data_hash: candidate.output_head_data_hash,
-				relay_parent: candidate.relay_parent(),
-				candidate: candidate.fragment.candidate_clone(), // This clone is very cheap.
-				state: CandidateState::Backed,
-			});
+			// If they used to be pending availability, don't add them. This is fine
+			// because:
+			// - if they still are pending availability, they have already been added to the new
+			//   storage.
+			// - if they were included, no point in keeping them.
+			//
+			// This cannot happen for the candidates in the unconnected storage. The pending
+			// availability candidates will always be part of the best chain.
+			if self.scope.get_pending_availability(&candidate.candidate_hash).is_none() {
+				let _ = storage.add_candidate_entry(CandidateEntry {
+					candidate_hash: candidate.candidate_hash,
+					parent_head_data_hash: candidate.parent_head_data_hash,
+					output_head_data_hash: candidate.output_head_data_hash,
+					relay_parent: candidate.relay_parent(),
+					candidate: candidate.fragment.candidate_clone(), // This clone is very cheap.
+					state: CandidateState::Backed,
+				});
+			}
 		}
 
 		storage

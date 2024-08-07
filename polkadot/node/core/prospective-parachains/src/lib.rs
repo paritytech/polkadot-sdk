@@ -338,19 +338,8 @@ async fn handle_active_leaves_update<Context>(
 				// Add old candidates to the new storage only after we added the pending
 				// availability candidates. The pending candidates have higher priority and can
 				// conflict with the old candidates.
-				for candidate in prev_fragment_chain.as_candidate_storage().into_candidates() {
-					// If they used to be pending availability, don't add them. This is fine
-					// because:
-					// - if they still are pending availability, they have already been added to the
-					//   new storage.
-					// - if they were included, no point in keeping them.
-					if prev_fragment_chain
-						.scope()
-						.get_pending_availability(&candidate.hash())
-						.is_none()
-					{
-						let _ = new_storage.add_candidate_entry(candidate);
-					}
+				for candidate in prev_fragment_chain.advance_scope().into_candidates() {
+					let _ = new_storage.add_candidate_entry(candidate);
 				}
 			}
 

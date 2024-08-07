@@ -1237,12 +1237,7 @@ fn test_populate_and_check_potential() {
 
 	// Simulate the fact that candidates A, B and C have been included.
 
-	let mut new_storage = chain.as_candidate_storage();
-	// We need to remove the candidates that used to be pending availability. This is what the
-	// subsystem is doing.
-	for candidate in scope.pending_availability {
-		new_storage.remove_candidate(&candidate.candidate_hash);
-	}
+	let new_storage = chain.advance_scope();
 
 	let base_constraints = make_constraints(0, vec![0], HeadData(vec![0x0d]));
 	let scope = Scope::with_ancestors(
