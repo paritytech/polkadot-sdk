@@ -188,13 +188,13 @@ where
 	}
 
 	pub fn add_view(&self, key: BlockHash<C>, view: StreamOf<C>) {
-		let _ = self.ctrl.unbounded_send(Command::AddView(key.clone(), view)).map_err(|e| {
+		let _ = self.ctrl.unbounded_send(Command::AddView(key, view)).map_err(|e| {
 			debug!(target: LOG_TARGET, "dropped_watcher: add_view {key:?} send message failed: {e}");
 		});
 	}
 
 	pub fn remove_view(&self, key: BlockHash<C>) {
-		let _ = self.ctrl.unbounded_send(Command::RemoveView(key.clone())).map_err(|e| {
+		let _ = self.ctrl.unbounded_send(Command::RemoveView(key)).map_err(|e| {
 			debug!(target: LOG_TARGET, "dropped_watcher: remove_view {key:?} send message failed: {e}");
 		});
 	}
