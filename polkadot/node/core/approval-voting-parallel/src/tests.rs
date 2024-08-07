@@ -13,7 +13,7 @@ use assert_matches::assert_matches;
 use futures::{channel::oneshot, future, stream::PollNext, StreamExt};
 use itertools::Itertools;
 use polkadot_node_core_approval_voting::{time::SystemClock, ApprovalVotingWorkProvider, Config};
-use polkadot_node_network_protocol::{peer_set::ValidationVersion, ObservedRole, PeerId};
+use polkadot_node_network_protocol::{peer_set::ValidationVersion, ObservedRole, PeerId, View};
 use polkadot_node_primitives::approval::{
 	v1::{
 		AssignmentCert, AssignmentCertKind, IndirectAssignmentCert, IndirectSignedApprovalVote,
@@ -155,6 +155,7 @@ impl SyncOracle for TestSyncOracle {
 fn test_harness<T, Clos, State>(
 	num_approval_distro_workers: usize,
 	prio_right: Clos,
+	subsystem_gracefully_exits: bool,
 	test_fn: impl FnOnce(
 		VirtualOverseer,
 		WorkProvider<ApprovalVotingMessage, Clos, State>,
@@ -167,7 +168,7 @@ fn test_harness<T, Clos, State>(
 {
 	let (subsystem, context, virtual_overseer) = build_subsystem(Box::new(TestSyncOracle {}));
 	let mut metrics_watcher = MetricsWatcher::new(subsystem.metrics.clone());
-	let channel_size = 1;
+	let channel_size = 5;
 
 	let (to_approval_voting_worker, approval_voting_work_provider) =
 		build_worker_handles::<ApprovalVotingMessage, _, _>(
@@ -194,13 +195,22 @@ fn test_harness<T, Clos, State>(
 	let approval_distribution_work_providers =
 		approval_distribution_channels.into_iter().map(|(_, rx)| rx).collect_vec();
 
-	let subsystem = run_main_loop(
-		context,
-		true,
-		to_approval_voting_worker,
-		to_approval_distribution_workers,
-		metrics_watcher,
-	);
+	let subsystem = async move {
+		let result = run_main_loop(
+			context,
+			true,
+			to_approval_voting_worker,
+			to_approval_distribution_workers,
+			metrics_watcher,
+		)
+		.await;
+
+		if subsystem_gracefully_exits && result.is_err() {
+			result
+		} else {
+			Ok(())
+		}
+	};
 
 	let test_fut = test_fn(
 		virtual_overseer,
@@ -258,6 +268,7 @@ fn test_main_loop_forwards_correctly() {
 	test_harness(
 		num_approval_distro_workers,
 		prio_right,
+		true,
 		|mut overseer, mut approval_voting_work_provider, mut rx_approval_distribution_workers| async move {
 			// 1. Check Signals are correctly forwarded to the workers.
 			let signal = OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
@@ -546,6 +557,8 @@ fn test_main_loop_forwards_correctly() {
 				.await
 				.is_none());
 
+			overseer_signal(&mut overseer, OverseerSignal::Conclude).await;
+
 			overseer
 		},
 	);
@@ -559,6 +572,7 @@ fn test_handle_get_approval_signatures() {
 	test_harness(
 		num_approval_distro_workers,
 		prio_right,
+		true,
 		|mut overseer, mut approval_voting_work_provider, mut rx_approval_distribution_workers| async move {
 			let (tx, rx) = oneshot::channel();
 			let first_block = Hash::random();
@@ -604,6 +618,237 @@ fn test_handle_get_approval_signatures() {
 
 			let received_votes = rx.await.unwrap();
 			assert_eq!(received_votes, all_votes);
+			overseer_signal(&mut overseer, OverseerSignal::Conclude).await;
+
+			overseer
+		},
+	)
+}
+
+/// Test subsystem exits with error when approval_voting_work_provider exits.
+#[test]
+fn test_subsystem_exits_with_error_if_approval_voting_worker_errors() {
+	let num_approval_distro_workers = 4;
+
+	test_harness(
+		num_approval_distro_workers,
+		prio_right,
+		false,
+		|overseer, approval_voting_work_provider, _rx_approval_distribution_workers| async move {
+			// Drop the approval_voting_work_provider to simulate an error.
+			std::mem::drop(approval_voting_work_provider);
+
+			overseer
+		},
+	)
+}
+
+/// Test subsystem exits with error when approval_distribution_workers exits.
+#[test]
+fn test_subsystem_exits_with_error_if_approval_distribution_worker_errors() {
+	let num_approval_distro_workers = 4;
+
+	test_harness(
+		num_approval_distro_workers,
+		prio_right,
+		false,
+		|overseer, _approval_voting_work_provider, rx_approval_distribution_workers| async move {
+			// Drop the approval_distribution_workers to simulate an error.
+			std::mem::drop(rx_approval_distribution_workers.into_iter().next().unwrap());
+			overseer
+		},
+	)
+}
+
+/// Test signals sent before messages are processed in order.
+#[test]
+fn test_signal_before_message_keeps_receive_order() {
+	let num_approval_distro_workers = 4;
+
+	test_harness(
+		num_approval_distro_workers,
+		prio_right,
+		true,
+		|mut overseer, mut approval_voting_work_provider, mut rx_approval_distribution_workers| async move {
+			let signal = OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+				Hash::random(),
+				1,
+			)));
+			overseer_signal(&mut overseer, signal.clone()).await;
+
+			let validator_index = ValidatorIndex(17);
+			let assignment =
+				fake_assignment_cert_v2(Hash::random(), validator_index, CoreIndex(1).into());
+			overseer_message(
+				&mut overseer,
+				ApprovalVotingParallelMessage::DistributeAssignment(assignment.clone(), 1.into()),
+			)
+			.await;
+
+			let approval_voting_receives = approval_voting_work_provider.recv().await.unwrap();
+			assert!(matches!(approval_voting_receives, FromOrchestra::Signal(_)));
+			let rx_approval_distribution_worker = rx_approval_distribution_workers
+				.get_mut(validator_index.0 as usize % num_approval_distro_workers)
+				.unwrap();
+			let approval_distribution_receives =
+				rx_approval_distribution_worker.next().await.unwrap();
+			assert!(matches!(approval_distribution_receives, FromOrchestra::Signal(_)));
+			assert_matches!(
+				rx_approval_distribution_worker.next().await.unwrap(),
+				FromOrchestra::Communication {
+					msg: ApprovalDistributionMessage::DistributeAssignment(_, _)
+				} => {
+				}
+			);
+
+			overseer_signal(&mut overseer, OverseerSignal::Conclude).await;
+			overseer
+		},
+	)
+}
+
+/// Test signals sent after messages are processed with the highest priority.
+#[test]
+fn test_signal_is_prioritized_when_unread_messages_in_the_queue() {
+	let num_approval_distro_workers = 4;
+
+	test_harness(
+		num_approval_distro_workers,
+		prio_right,
+		true,
+		|mut overseer, mut approval_voting_work_provider, mut rx_approval_distribution_workers| async move {
+			let validator_index = ValidatorIndex(17);
+			let assignment =
+				fake_assignment_cert_v2(Hash::random(), validator_index, CoreIndex(1).into());
+			overseer_message(
+				&mut overseer,
+				ApprovalVotingParallelMessage::DistributeAssignment(assignment.clone(), 1.into()),
+			)
+			.await;
+
+			let signal = OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+				Hash::random(),
+				1,
+			)));
+			overseer_signal(&mut overseer, signal.clone()).await;
+
+			let approval_voting_receives = approval_voting_work_provider.recv().await.unwrap();
+			assert!(matches!(approval_voting_receives, FromOrchestra::Signal(_)));
+			let rx_approval_distribution_worker = rx_approval_distribution_workers
+				.get_mut(validator_index.0 as usize % num_approval_distro_workers)
+				.unwrap();
+			let approval_distribution_receives =
+				rx_approval_distribution_worker.next().await.unwrap();
+			assert!(matches!(approval_distribution_receives, FromOrchestra::Signal(_)));
+			assert_matches!(
+				rx_approval_distribution_worker.next().await.unwrap(),
+				FromOrchestra::Communication {
+					msg: ApprovalDistributionMessage::DistributeAssignment(_, _)
+				} => {
+				}
+			);
+
+			overseer_signal(&mut overseer, OverseerSignal::Conclude).await;
+			overseer
+		},
+	)
+}
+
+/// Test peer view updates have higher priority than normal messages.
+#[test]
+fn test_peer_view_is_prioritized_when_unread_messages_in_the_queue() {
+	let num_approval_distro_workers = 4;
+
+	test_harness(
+		num_approval_distro_workers,
+		prio_right,
+		true,
+		|mut overseer, mut approval_voting_work_provider, mut rx_approval_distribution_workers| async move {
+			let validator_index = ValidatorIndex(17);
+			let approvals = vec![
+				IndirectSignedApprovalVoteV2 {
+					block_hash: H256::random(),
+					candidate_indices: 1.into(),
+					validator: validator_index,
+					signature: dummy_signature(),
+				},
+				IndirectSignedApprovalVoteV2 {
+					block_hash: H256::random(),
+					candidate_indices: 2.into(),
+					validator: validator_index,
+					signature: dummy_signature(),
+				},
+			];
+			let expected_msg = polkadot_node_network_protocol::Versioned::V3(
+				polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(
+					approvals.clone(),
+				),
+			);
+			overseer_message(
+				&mut overseer,
+				ApprovalVotingParallelMessage::NetworkBridgeUpdate(
+					polkadot_node_subsystem::messages::NetworkBridgeEvent::PeerMessage(
+						PeerId::random(),
+						expected_msg.clone(),
+					),
+				),
+			)
+			.await;
+
+			overseer_message(
+				&mut overseer,
+				ApprovalVotingParallelMessage::NetworkBridgeUpdate(
+					polkadot_node_subsystem::messages::NetworkBridgeEvent::PeerViewChange(
+						PeerId::random(),
+						View::default(),
+					),
+				),
+			)
+			.await;
+
+			for (index, rx_approval_distribution_worker) in
+				rx_approval_distribution_workers.iter_mut().enumerate()
+			{
+				assert_matches!(rx_approval_distribution_worker.next().await.unwrap(),
+					FromOrchestra::Communication {
+						msg: ApprovalDistributionMessage::NetworkBridgeUpdate(
+							polkadot_node_subsystem::messages::NetworkBridgeEvent::PeerViewChange(
+								_,
+								_,
+							),
+						)
+					} => {
+					}
+				);
+				if index == validator_index.0 as usize % num_approval_distro_workers {
+					assert_matches!(rx_approval_distribution_worker.next().await.unwrap(),
+						FromOrchestra::Communication {
+							msg: ApprovalDistributionMessage::NetworkBridgeUpdate(
+								polkadot_node_subsystem::messages::NetworkBridgeEvent::PeerMessage(
+									_,
+									msg,
+								),
+							)
+						} => {
+							assert_eq!(msg, expected_msg);
+						}
+					);
+				} else {
+					assert!(rx_approval_distribution_worker
+						.next()
+						.timeout(Duration::from_millis(200))
+						.await
+						.is_none());
+				}
+			}
+
+			assert!(approval_voting_work_provider
+				.recv()
+				.timeout(Duration::from_millis(200))
+				.await
+				.is_none());
+
+			overseer_signal(&mut overseer, OverseerSignal::Conclude).await;
 			overseer
 		},
 	)

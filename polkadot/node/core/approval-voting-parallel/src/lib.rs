@@ -319,7 +319,7 @@ async fn run_main_loop<Context>(
 					Ok(msg) => msg,
 					Err(err) => {
 						gum::info!(target: LOG_TARGET, ?err, "Approval voting parallel subsystem received an error");
-						break;
+						return Err(err);
 					}
 				};
 				if !subsystem_enabled {
@@ -332,14 +332,16 @@ async fn run_main_loop<Context>(
 						if matches!(msg, OverseerSignal::ActiveLeaves(_)) {
 							metrics_watcher.collect_metrics();
 						}
-						gum::info!(target: LOG_TARGET, "To approval distribution");
 
 						for worker in to_approval_distribution_workers.iter_mut() {
 							worker
 								.send_signal(msg.clone()).await?;
 						}
 
-						to_approval_voting_worker.send_signal(msg).await?;
+						to_approval_voting_worker.send_signal(msg.clone()).await?;
+						if matches!(msg, OverseerSignal::Conclude) {
+							break;
+						}
 					},
 					FromOrchestra::Communication { msg } => match msg {
 						// The message the approval voting subsystem would've handled.

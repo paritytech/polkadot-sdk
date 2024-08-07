@@ -34,7 +34,7 @@ use gum::CandidateHash;
 use sc_keystore::LocalKeystore;
 
 use polkadot_node_primitives::{
-	approval, CandidateVotes, DisputeMessage, DisputeMessageCheckError, SignedDisputeStatement,
+	CandidateVotes, DisputeMessage, DisputeMessageCheckError, SignedDisputeStatement,
 	DISPUTE_WINDOW,
 };
 use polkadot_node_subsystem::{
