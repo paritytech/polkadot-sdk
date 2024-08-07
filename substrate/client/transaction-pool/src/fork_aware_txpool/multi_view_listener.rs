@@ -23,7 +23,7 @@ use crate::{
 	LOG_TARGET,
 };
 use futures::{stream, stream::Fuse, StreamExt};
-use log::{debug, trace};
+use log::{debug, info, trace};
 use sc_transaction_pool_api::{TransactionStatus, TransactionStatusStream, TxIndex};
 use sc_utils::mpsc;
 use sp_runtime::traits::Block as BlockT;
@@ -44,9 +44,10 @@ pub type TxStatusStream<T> = Pin<Box<TransactionStatusStream<ExtrinsicHash<T>, B
 enum ControllerCommand<ChainApi: graph::ChainApi> {
 	AddView(BlockHash<ChainApi>, TxStatusStream<ChainApi>),
 	RemoveView(BlockHash<ChainApi>),
-	InvalidateTransaction,
+	TransactionInvalidated,
 	FinalizeTransaction(BlockHash<ChainApi>, TxIndex),
 	TransactionBroadcasted(Vec<String>),
+	TransactionDropped,
 }
 
 impl<ChainApi> std::fmt::Debug for ControllerCommand<ChainApi>
@@ -57,14 +58,17 @@ where
 		match self {
 			ControllerCommand::AddView(h, _) => write!(f, "ListenerAction::AddView({h})"),
 			ControllerCommand::RemoveView(h) => write!(f, "ListenerAction::RemoveView({h})"),
-			ControllerCommand::InvalidateTransaction => {
-				write!(f, "ListenerAction::InvalidateTransaction")
+			ControllerCommand::TransactionInvalidated => {
+				write!(f, "ListenerAction::TransactionInvalidated")
 			},
 			ControllerCommand::FinalizeTransaction(h, i) => {
 				write!(f, "ListenerAction::FinalizeTransaction({h},{i})")
 			},
 			ControllerCommand::TransactionBroadcasted(_) => {
 				write!(f, "ListenerAction::TransactionBroadcasted(...)")
+			},
+			ControllerCommand::TransactionDropped => {
+				write!(f, "ListenerAction::TransactionDropped")
 			},
 		}
 	}
@@ -187,6 +191,8 @@ where
 			self.terminate = true;
 			true
 		} else {
+			//todo: this seems to be shitty, add debug / metrics, should we re-add (or not remove)
+			// tx to mempool
 			false
 		}
 	}
@@ -255,7 +261,7 @@ where
 							Some(ControllerCommand::RemoveView(h)) => {
 								ctx.remove_view(h);
 							},
-							Some(ControllerCommand::InvalidateTransaction) => {
+							Some(ControllerCommand::TransactionInvalidated) => {
 								if ctx.handle_invalidate_transaction() {
 									log::debug!(target: LOG_TARGET, "[{:?}] sending out: Invalid", ctx.tx_hash);
 									return Some((TransactionStatus::Invalid, ctx))
@@ -269,6 +275,11 @@ where
 							Some(ControllerCommand::TransactionBroadcasted(peers)) => {
 								log::debug!(target: LOG_TARGET, "[{:?}] sending out: Broadcasted", ctx.tx_hash);
 								return Some((TransactionStatus::Broadcast(peers), ctx))
+							},
+							Some(ControllerCommand::TransactionDropped) => {
+								log::debug!(target: LOG_TARGET, "[{:?}] sending out: Dropped", ctx.tx_hash);
+								ctx.terminate = true;
+								return Some((TransactionStatus::Dropped, ctx))
 							},
 							None => {},
 						}
@@ -326,7 +337,7 @@ where
 		for tx_hash in invalid_hashes {
 			if let Some(tx) = controllers.get(&tx_hash) {
 				trace!(target: LOG_TARGET, "[{:?}] invalidate_transaction", tx_hash);
-				match tx.unbounded_send(ControllerCommand::InvalidateTransaction) {
+				match tx.unbounded_send(ControllerCommand::TransactionInvalidated) {
 					Err(e) => {
 						debug!(target: LOG_TARGET, "[{:?}] invalidate_transaction: send message failed: {:?}", tx_hash, e);
 						controllers.remove(&tx_hash);
@@ -337,6 +348,7 @@ where
 		}
 	}
 
+	/// Send `Broadcasted` event to listeners of transactions.
 	pub(crate) fn transactions_broadcasted(
 		&self,
 		propagated: HashMap<ExtrinsicHash<ChainApi>, Vec<String>>,
@@ -350,6 +362,26 @@ where
 				match tx.unbounded_send(ControllerCommand::TransactionBroadcasted(peers)) {
 					Err(e) => {
 						debug!(target: LOG_TARGET, "[{:?}] transactions_broadcasted: send message failed: {:?}", tx_hash, e);
+						controllers.remove(&tx_hash);
+					},
+					Ok(_) => {},
+				}
+			}
+		}
+	}
+
+	/// Send `Dropped` event to listeners of transactions.
+	pub(crate) fn transactions_dropped(&self, dropped: &Vec<ExtrinsicHash<ChainApi>>) {
+		// pub fn on_broadcasted(&self, propagated: HashMap<ExtrinsicHash<B>, Vec<String>>) {
+		let mut controllers = self.controllers.write();
+
+		info!(target: LOG_TARGET, "mvl::transactions_dropped: {:?}", dropped);
+		for tx_hash in dropped {
+			if let Some(tx) = controllers.get(&tx_hash) {
+				info!(target: LOG_TARGET, "[{:?}] transaction_dropped", tx_hash);
+				match tx.unbounded_send(ControllerCommand::TransactionDropped) {
+					Err(e) => {
+						debug!(target: LOG_TARGET, "[{:?}] transactions_dropped: send message failed: {:?}", tx_hash, e);
 						controllers.remove(&tx_hash);
 					},
 					Ok(_) => {},

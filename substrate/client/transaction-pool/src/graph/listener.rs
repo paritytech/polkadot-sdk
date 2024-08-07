@@ -127,7 +127,8 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 
 		if limits_enforced {
 			if let Some(ref sink) = self.dropped_by_limits_sink {
-				sink.unbounded_send((tx.clone(), TransactionStatus::Dropped));
+				//todo
+				let _ = sink.unbounded_send((tx.clone(), TransactionStatus::Dropped));
 			}
 		}
 	}

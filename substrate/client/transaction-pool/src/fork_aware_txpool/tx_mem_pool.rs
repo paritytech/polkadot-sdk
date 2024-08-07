@@ -234,13 +234,18 @@ where
 		.map(|_| ())
 	}
 
-	pub(super) async fn remove_transactions(&self, to_be_removed: &Vec<ExtrinsicHash<ChainApi>>) {
-		log::info!(target: LOG_TARGET, "remove_transactions count:{:?}", to_be_removed.len());
-		log_xt_debug!(target: LOG_TARGET, to_be_removed, "[{:?}] mempool::remove_transactions");
+	pub(super) async fn remove_dropped_transactions(
+		&self,
+		to_be_removed: &Vec<ExtrinsicHash<ChainApi>>,
+	) {
+		log::info!(target: LOG_TARGET, "remove_dropped_transactions count:{:?}", to_be_removed.len());
+		log_xt_debug!(target: LOG_TARGET, to_be_removed, "[{:?}] mempool::remove_dropped_transactions");
 		let mut transactions = self.transactions.write();
 		to_be_removed.iter().for_each(|t| {
 			transactions.remove(t);
 		});
+
+		self.listener.transactions_dropped(to_be_removed);
 	}
 
 	pub(super) fn clone_unwatched(

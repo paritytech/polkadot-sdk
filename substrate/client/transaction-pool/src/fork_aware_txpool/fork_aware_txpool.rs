@@ -196,7 +196,7 @@ where
 				break;
 			};
 			log::debug!("[{:?}] fatp::dropped notification, removing", dropped);
-			mempool.remove_transactions(&vec![dropped]).await;
+			mempool.remove_dropped_transactions(&vec![dropped]).await;
 		}
 	}
 
