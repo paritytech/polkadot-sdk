@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722974095642,
+  "lastUpdate": 1723031459993,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -16799,6 +16799,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.18950265740000008,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Ron",
+            "username": "yrong",
+            "email": "yrong1997@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "efdc1e9b1615c5502ed63ffc9683d99af6397263",
+          "message": "Snowbridge on Westend (#5074)\n\n### Context\n\nSince Rococo is now deprecated, we need another testnet to detect\nbleeding-edge changes to Substrate, Polkadot, & BEEFY consensus\nprotocols that could brick the bridge.\n\nIt's the mirror PR of https://github.com/Snowfork/polkadot-sdk/pull/157\nwhich has reviewed by Snowbridge team internally.\n\nSynced with @acatangiu about that in channel\nhttps://matrix.to/#/!gxqZwOyvhLstCgPJHO:matrix.parity.io/$N0CvTfDSl3cOQLEJeZBh-wlKJUXx7EDHAuNN5HuYHY4?via=matrix.parity.io&via=parity.io&via=matrix.org\n\n---------\n\nCo-authored-by: Clara van Staden <claravanstaden64@gmail.com>",
+          "timestamp": "2024-08-07T09:49:21Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/efdc1e9b1615c5502ed63ffc9683d99af6397263"
+        },
+        "date": 1723031428957,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.825711861000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.18167787403333335,
             "unit": "seconds"
           }
         ]
