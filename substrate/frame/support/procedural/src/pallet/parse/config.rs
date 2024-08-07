@@ -36,7 +36,7 @@ mod keyword {
 	syn::custom_keyword!(no_default);
 	syn::custom_keyword!(no_default_bounds);
 	syn::custom_keyword!(constant);
-	syn::custom_keyword!(without_metadata);
+	syn::custom_keyword!(include_metadata);
 }
 
 #[derive(Default)]
@@ -167,6 +167,8 @@ pub enum PalletAttrType {
 	NoBounds(keyword::no_default_bounds),
 	#[peek(keyword::constant, name = "constant")]
 	Constant(keyword::constant),
+	#[peek(keyword::include_metadata, name = "include_metadata")]
+	IncludeMetadata(keyword::include_metadata),
 }
 
 /// Parsing for `#[pallet::X]`
@@ -349,7 +351,7 @@ impl ConfigDef {
 		index: usize,
 		item: &mut syn::Item,
 		enable_default: bool,
-		without_metadata: bool,
+		enable_associated_metadata: bool,
 	) -> syn::Result<Self> {
 		let syn::Item::Trait(item) = item else {
 			let msg = "Invalid pallet::config, expected trait definition";
@@ -406,6 +408,7 @@ impl ConfigDef {
 			let mut already_no_default = false;
 			let mut already_constant = false;
 			let mut already_no_default_bounds = false;
+			let mut already_collected_associated_type = false;
 
 			while let Ok(Some(pallet_attr)) =
 				helper::take_first_item_pallet_attr::<PalletAttr>(trait_item)
@@ -425,6 +428,31 @@ impl ConfigDef {
 						return Err(syn::Error::new(
 							trait_item.span(),
 							"Invalid #[pallet::constant] in #[pallet::config], expected type item",
+						)),
+					(PalletAttrType::IncludeMetadata(_), syn::TraitItem::Type(ref typ)) => {
+						if is_event {
+							return Err(syn::Error::new(
+								pallet_attr._bracket.span.join(),
+								"Invalid #[pallet::include_metadata] in `type RuntimeEvent`, \
+								expected type item. The associated type `RuntimeEvent` is already collected.",
+							))
+						}
+
+						if already_constant {
+							return Err(syn::Error::new(
+								pallet_attr._bracket.span.join(),
+								"Invalid #[pallet::include_metadata] in #[pallet::constant], \
+								expected type item. Pallet constant's metadata is already collected.",
+							))
+						}
+
+						already_collected_associated_type = true;
+						associated_types_metadata.push(AssociatedTypeMetadataDef::from(typ));
+					}
+					(PalletAttrType::IncludeMetadata(_), _) =>
+						return Err(syn::Error::new(
+							pallet_attr._bracket.span.join(),
+							"Invalid #[pallet::include_metadata] in #[pallet::config], expected type item",
 						)),
 					(PalletAttrType::NoDefault(_), _) => {
 						if !enable_default {
@@ -462,7 +490,7 @@ impl ConfigDef {
 				}
 			}
 
-			if !without_metadata && !is_event && !already_constant {
+			if !already_collected_associated_type && enable_associated_metadata {
 				if let syn::TraitItem::Type(ref ty) = trait_item {
 					associated_types_metadata.push(AssociatedTypeMetadataDef::from(ty));
 				}
