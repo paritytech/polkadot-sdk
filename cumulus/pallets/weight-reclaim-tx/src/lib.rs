@@ -129,8 +129,8 @@ impl<T: Config + Send + Sync, S: TransactionExtensionBase> TransactionExtensionB
 	}
 }
 
-impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall, Context>, Context>
-	TransactionExtension<T::RuntimeCall, Context> for StorageWeightReclaim<T, S>
+impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
+	TransactionExtension<T::RuntimeCall> for StorageWeightReclaim<T, S>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
@@ -143,7 +143,6 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		context: &mut Context,
 		self_implicit: Self::Implicit,
 		inherited_implication: &impl Encode,
 	) -> Result<(ValidTransaction, Self::Val, T::RuntimeOrigin), TransactionValidityError> {
@@ -163,7 +162,6 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let (proof_size, inner_val) = val;
 		self.0
@@ -177,7 +175,6 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		result: &DispatchResult,
-		context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
 		let (pre_dispatch_proof_size, inner_pre) = pre;
 
@@ -185,7 +182,8 @@ where
 		S::post_dispatch(inner_pre, info, &mut post_info_with_inner, len, result, context)?;
 
 		let post_dispatch_weight = post_info_with_inner.actual_weight.map(|post_info_with_inner| {
-			let weight_reduced_by_inner = post_info.actual_weight
+			let weight_reduced_by_inner = post_info
+				.actual_weight
 				.unwrap_or_else(|| info.total_weight())
 				.saturating_sub(post_info_with_inner);
 			Self::weight().saturating_sub(weight_reduced_by_inner)

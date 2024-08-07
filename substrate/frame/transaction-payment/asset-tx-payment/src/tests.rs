@@ -133,7 +133,6 @@ fn transaction_payment_in_native_possible() {
 				&default_post_info(),
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 20 - 10);
 
@@ -156,7 +155,6 @@ fn transaction_payment_in_native_possible() {
 				&post_info,
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(
 				post_info.actual_weight,
@@ -227,7 +225,6 @@ fn transaction_payment_in_asset_possible() {
 				&default_post_info(),
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee);
 			// check that the block author gets rewarded
@@ -292,7 +289,6 @@ fn transaction_payment_without_fee() {
 				&post_info_from_pays(Pays::No),
 				len,
 				&Ok(()),
-				&()
 			));
 			// caller should be refunded
 			assert_eq!(Assets::balance(asset_id, caller), balance);
@@ -361,7 +357,6 @@ fn asset_transaction_payment_with_tip_and_refund() {
 				&post_info,
 				len,
 				&Ok(()),
-				&()
 			));
 			let final_fee = fee_with_tip -
 				(weight - final_weight + ext_weight.ref_time() -
@@ -428,7 +423,6 @@ fn payment_from_account_with_only_assets() {
 				&default_post_info(),
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee);
 			assert_eq!(Balances::free_balance(caller), 0);
@@ -523,7 +517,6 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 					&post_info_from_pays(Pays::No),
 					len,
 					&Ok(()),
-					&()
 				));
 				assert_eq!(Assets::balance(asset_id, caller), balance);
 			}
@@ -544,7 +537,6 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 				&default_post_info(),
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(Assets::balance(asset_id, caller), balance - 1);
 		});
@@ -602,7 +594,6 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 				&post_info_from_pays(Pays::Yes),
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 		});

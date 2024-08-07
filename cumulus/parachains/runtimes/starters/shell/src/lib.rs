@@ -284,7 +284,7 @@ impl TransactionExtensionBase for DisallowSigned {
 	type Implicit = ();
 }
 
-impl<C> TransactionExtension<RuntimeCall, C> for DisallowSigned {
+impl TransactionExtension<RuntimeCall> for DisallowSigned {
 	type Val = ();
 	type Pre = ();
 	fn validate(
@@ -293,7 +293,6 @@ impl<C> TransactionExtension<RuntimeCall, C> for DisallowSigned {
 		_call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
-		_context: &mut C,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, RuntimeCall> {
@@ -306,7 +305,6 @@ impl<C> TransactionExtension<RuntimeCall, C> for DisallowSigned {
 		_call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
-		_context: &C,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Err(InvalidTransaction::BadProof.into())
 	}

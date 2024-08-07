@@ -1452,16 +1452,23 @@ impl<T: BlindCheckable, Context> Checkable<Context> for T {
 }
 
 /// A type that can handle weight refunds.
-pub trait RefundWeight<DispatchInfo> {
+pub trait RefundWeight {
 	/// Refund some unspent weight.
 	fn refund(&mut self, weight: sp_weights::Weight);
+}
 
+/// A type that can handle weight refunds and incorporate extension weights into the call weight
+/// after dispatch.
+pub trait ExtensionPostDispatchWeightHandler<DispatchInfo>: RefundWeight {
 	/// Accrue some weight pertaining to the extension.
 	fn set_extension_weight(&mut self, info: &DispatchInfo, weight: sp_weights::Weight);
 }
 
-impl RefundWeight<()> for () {
+impl RefundWeight for () {
 	fn refund(&mut self, _weight: sp_weights::Weight) {}
+}
+
+impl ExtensionPostDispatchWeightHandler<()> for () {
 	fn set_extension_weight(&mut self, _info: &(), _weight: sp_weights::Weight) {}
 }
 
@@ -1487,7 +1494,7 @@ pub trait Dispatchable {
 		+ Encode
 		+ Decode
 		+ Printable
-		+ RefundWeight<Self::Info>;
+		+ ExtensionPostDispatchWeightHandler<Self::Info>;
 	/// Actually dispatch this call and return the result of it.
 	fn dispatch(self, origin: Self::RuntimeOrigin)
 		-> crate::DispatchResultWithInfo<Self::PostInfo>;

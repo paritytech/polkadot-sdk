@@ -135,8 +135,8 @@ impl<T: Config + Send + Sync, S: TransactionExtensionBase> TransactionExtensionB
 	}
 }
 
-impl<T: Config + Send + Sync, Context, S: TransactionExtension<T::RuntimeCall, Context>>
-	TransactionExtension<T::RuntimeCall, Context> for SkipCheckIfFeeless<T, S>
+impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
+	TransactionExtension<T::RuntimeCall> for SkipCheckIfFeeless<T, S>
 where
 	T::RuntimeCall: CheckIfFeeless<Origin = frame_system::pallet_prelude::OriginFor<T>>,
 {
@@ -149,22 +149,14 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		context: &mut Context,
 		self_implicit: S::Implicit,
 		inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		if call.is_feeless(&origin) {
 			Ok((Default::default(), Skip(origin.caller().clone()), origin))
 		} else {
-			let (x, y, z) = self.0.validate(
-				origin,
-				call,
-				info,
-				len,
-				context,
-				self_implicit,
-				inherited_implication,
-			)?;
+			let (x, y, z) =
+				self.0.validate(origin, call, info, len, self_implicit, inherited_implication)?;
 			Ok((x, Apply(y), z))
 		}
 	}
@@ -176,10 +168,9 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		match val {
-			Apply(val) => self.0.prepare(val, origin, call, info, len, context).map(Apply),
+			Apply(val) => self.0.prepare(val, origin, call, info, len).map(Apply),
 			Skip(origin) => Ok(Skip(origin)),
 		}
 	}
@@ -190,10 +181,9 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		result: &DispatchResult,
-		context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
 		match pre {
-			Apply(pre) => S::post_dispatch_details(pre, info, post_info, len, result, context),
+			Apply(pre) => S::post_dispatch_details(pre, info, post_info, len, result),
 			Skip(origin) => {
 				Pallet::<T>::deposit_event(Event::<T>::FeeSkipped { origin });
 				Ok(None)

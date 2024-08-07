@@ -78,8 +78,8 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckOnlySudoAccount<
 		T::WeightInfo::check_only_sudo_account()
 	}
 }
-impl<T: Config + Send + Sync, Context>
-	TransactionExtension<<T as frame_system::Config>::RuntimeCall, Context> for CheckOnlySudoAccount<T>
+impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::RuntimeCall>
+	for CheckOnlySudoAccount<T>
 where
 	<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
@@ -94,7 +94,6 @@ where
 		_call: &<T as frame_system::Config>::RuntimeCall,
 		info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		_len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<
@@ -119,5 +118,5 @@ where
 		))
 	}
 
-	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; Context; prepare);
+	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; prepare);
 }

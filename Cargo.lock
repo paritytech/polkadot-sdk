@@ -1019,6 +1019,7 @@ dependencies = [
  "polkadot-runtime-common",
  "primitive-types",
  "scale-info",
+ "snowbridge-router-primitives",
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -1028,6 +1029,7 @@ dependencies = [
  "sp-offchain",
  "sp-runtime",
  "sp-session",
+ "sp-std 14.0.0",
  "sp-storage 19.0.0",
  "sp-transaction-pool",
  "sp-version",
@@ -1479,11 +1481,11 @@ name = "binary-merkle-tree"
 version = "13.0.0"
 dependencies = [
  "array-bytes",
- "env_logger 0.11.3",
  "hash-db",
  "log",
  "sp-core",
  "sp-runtime",
+ "sp-tracing 16.0.0",
 ]
 
 [[package]]
@@ -2113,6 +2115,7 @@ dependencies = [
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
+ "frame-metadata-hash-extension",
  "frame-support",
  "frame-system",
  "frame-system-benchmarking",
@@ -2235,10 +2238,13 @@ dependencies = [
 name = "bridge-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
+ "asset-hub-westend-runtime",
+ "bridge-hub-westend-runtime",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
  "hex-literal",
+ "log",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
@@ -2246,10 +2252,20 @@ dependencies = [
  "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
+ "parity-scale-codec",
  "rococo-westend-system-emulated-network",
+ "scale-info",
+ "snowbridge-core",
+ "snowbridge-pallet-inbound-queue",
+ "snowbridge-pallet-inbound-queue-fixtures",
+ "snowbridge-pallet-outbound-queue",
+ "snowbridge-pallet-system",
+ "snowbridge-router-primitives",
+ "sp-core",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -2283,6 +2299,7 @@ dependencies = [
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
+ "frame-metadata-hash-extension",
  "frame-support",
  "frame-system",
  "frame-system-benchmarking",
@@ -2314,6 +2331,17 @@ dependencies = [
  "polkadot-runtime-common",
  "scale-info",
  "serde",
+ "snowbridge-beacon-primitives",
+ "snowbridge-core",
+ "snowbridge-outbound-queue-runtime-api",
+ "snowbridge-pallet-ethereum-client",
+ "snowbridge-pallet-inbound-queue",
+ "snowbridge-pallet-outbound-queue",
+ "snowbridge-pallet-system",
+ "snowbridge-router-primitives",
+ "snowbridge-runtime-common",
+ "snowbridge-runtime-test-common",
+ "snowbridge-system-runtime-api",
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -5299,7 +5327,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a009aa4810eb158359dda09d0c87378e4bbb89b5a801f016885a4707ba24f7ea"
 dependencies = [
  "log",
- "regex",
 ]
 
 [[package]]
@@ -5334,7 +5361,6 @@ dependencies = [
  "anstream",
  "anstyle",
  "env_filter",
- "humantime",
  "log",
 ]
 
@@ -5999,12 +6025,12 @@ version = "0.1.0"
 dependencies = [
  "clap 4.5.11",
  "cumulus-primitives-proof-size-hostfunction",
- "env_logger 0.11.3",
  "frame-benchmarking-cli",
  "log",
  "sc-cli",
  "sp-runtime",
  "sp-statement-store",
+ "sp-tracing 16.0.0",
 ]
 
 [[package]]
@@ -9310,7 +9336,6 @@ dependencies = [
  "sc-mixnet",
  "sc-rpc",
  "sc-rpc-api",
- "sc-rpc-spec-v2",
  "sc-sync-state-rpc",
  "sc-transaction-pool-api",
  "sp-api",
@@ -10340,7 +10365,6 @@ dependencies = [
  "array-bytes",
  "assert_matches",
  "bitflags 1.3.2",
- "env_logger 0.11.3",
  "environmental",
  "frame-benchmarking",
  "frame-support",
@@ -11018,7 +11042,6 @@ name = "pallet-mmr"
 version = "27.0.0"
 dependencies = [
  "array-bytes",
- "env_logger 0.11.3",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11030,6 +11053,7 @@ dependencies = [
  "sp-io",
  "sp-mmr-primitives",
  "sp-runtime",
+ "sp-tracing 16.0.0",
 ]
 
 [[package]]
@@ -12898,7 +12922,6 @@ version = "7.0.0"
 dependencies = [
  "assert_matches",
  "bitvec",
- "env_logger 0.11.3",
  "futures",
  "futures-timer",
  "itertools 0.11.0",
@@ -12918,6 +12941,7 @@ dependencies = [
  "schnorrkel 0.11.4",
  "sp-authority-discovery",
  "sp-core",
+ "sp-tracing 16.0.0",
  "tracing-gum",
 ]
 
@@ -12928,10 +12952,8 @@ dependencies = [
  "always-assert",
  "assert_matches",
  "bitvec",
- "env_logger 0.11.3",
  "futures",
  "futures-timer",
- "log",
  "maplit",
  "polkadot-node-network-protocol",
  "polkadot-node-subsystem",
@@ -12945,6 +12967,7 @@ dependencies = [
  "sp-core",
  "sp-keyring",
  "sp-keystore",
+ "sp-tracing 16.0.0",
  "tracing-gum",
 ]
 
@@ -13057,11 +13080,9 @@ version = "7.0.0"
 dependencies = [
  "assert_matches",
  "bitvec",
- "env_logger 0.11.3",
  "fatality",
  "futures",
  "futures-timer",
- "log",
  "parity-scale-codec",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
@@ -13077,6 +13098,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore",
  "sp-runtime",
+ "sp-tracing 16.0.0",
  "thiserror",
  "tokio-util",
  "tracing-gum",
@@ -13230,7 +13252,6 @@ dependencies = [
  "async-trait",
  "bitvec",
  "derive_more",
- "env_logger 0.11.3",
  "futures",
  "futures-timer",
  "itertools 0.11.0",
@@ -13263,6 +13284,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore",
  "sp-runtime",
+ "sp-tracing 16.0.0",
  "thiserror",
  "tracing-gum",
 ]
@@ -13273,7 +13295,6 @@ version = "7.0.0"
 dependencies = [
  "assert_matches",
  "bitvec",
- "env_logger 0.11.3",
  "futures",
  "futures-timer",
  "kvdb",
@@ -13293,6 +13314,7 @@ dependencies = [
  "sp-consensus",
  "sp-core",
  "sp-keyring",
+ "sp-tracing 16.0.0",
  "thiserror",
  "tracing-gum",
 ]
@@ -13589,7 +13611,6 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-io",
  "sp-tracing 16.0.0",
- "tempfile",
  "thiserror",
  "tracing-gum",
 ]
@@ -13814,7 +13835,6 @@ dependencies = [
  "assert_matches",
  "async-trait",
  "derive_more",
- "env_logger 0.11.3",
  "fatality",
  "futures",
  "futures-channel",
@@ -13889,6 +13909,7 @@ dependencies = [
  "bridge-hub-westend-runtime",
  "clap 4.5.11",
  "collectives-westend-runtime",
+ "color-eyre",
  "color-print",
  "contracts-rococo-runtime",
  "coretime-rococo-runtime",
@@ -14194,25 +14215,14 @@ dependencies = [
  "asset-test-utils",
  "assets-common",
  "binary-merkle-tree",
- "bp-asset-hub-rococo",
- "bp-asset-hub-westend",
- "bp-bridge-hub-cumulus",
- "bp-bridge-hub-kusama",
- "bp-bridge-hub-polkadot",
- "bp-bridge-hub-rococo",
- "bp-bridge-hub-westend",
  "bp-header-chain",
- "bp-kusama",
  "bp-messages",
  "bp-parachains",
  "bp-polkadot",
- "bp-polkadot-bulletin",
  "bp-polkadot-core",
  "bp-relayers",
- "bp-rococo",
  "bp-runtime",
  "bp-test-utils",
- "bp-westend",
  "bp-xcm-bridge-hub",
  "bp-xcm-bridge-hub-router",
  "bridge-hub-common",
@@ -14423,7 +14433,6 @@ dependencies = [
  "polkadot-service",
  "polkadot-statement-distribution",
  "polkadot-statement-table",
- "rococo-runtime-constants",
  "sc-allocator",
  "sc-authority-discovery",
  "sc-basic-authorship",
@@ -14567,7 +14576,6 @@ dependencies = [
  "testnet-parachains-constants",
  "tracing-gum",
  "tracing-gum-proc-macro",
- "westend-runtime-constants",
  "xcm-emulator",
  "xcm-procedural",
  "xcm-runtime-apis",
@@ -14702,7 +14710,6 @@ dependencies = [
  "assert_matches",
  "async-trait",
  "bitvec",
- "env_logger 0.11.3",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-metadata-hash-extension",
@@ -14810,6 +14817,7 @@ dependencies = [
  "sp-state-machine",
  "sp-storage 19.0.0",
  "sp-timestamp",
+ "sp-tracing 16.0.0",
  "sp-transaction-pool",
  "sp-version",
  "sp-weights",
@@ -14880,7 +14888,6 @@ dependencies = [
  "clap-num",
  "color-eyre",
  "colored",
- "env_logger 0.11.3",
  "futures",
  "futures-timer",
  "hex",
@@ -14933,6 +14940,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-timestamp",
+ "sp-tracing 16.0.0",
  "strum 0.26.2",
  "substrate-prometheus-endpoint",
  "tokio",
@@ -16251,7 +16259,6 @@ dependencies = [
  "backoff",
  "bp-runtime",
  "console",
- "env_logger 0.11.3",
  "futures",
  "isahc",
  "jsonpath_lib",
@@ -16260,6 +16267,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "serde_json",
  "sp-runtime",
+ "sp-tracing 16.0.0",
  "substrate-prometheus-endpoint",
  "sysinfo",
  "thiserror",
@@ -17640,7 +17648,6 @@ dependencies = [
  "array-bytes",
  "assert_matches",
  "criterion",
- "env_logger 0.11.3",
  "num_cpus",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -18083,7 +18090,6 @@ name = "sc-rpc"
 version = "29.0.0"
 dependencies = [
  "assert_matches",
- "env_logger 0.11.3",
  "futures",
  "jsonrpsee",
  "log",
@@ -18114,6 +18120,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-statement-store",
+ "sp-tracing 16.0.0",
  "sp-version",
  "substrate-test-runtime-client",
  "tokio",
@@ -18329,7 +18336,6 @@ dependencies = [
 name = "sc-statement-store"
 version = "10.0.0"
 dependencies = [
- "env_logger 0.11.3",
  "log",
  "parity-db",
  "parking_lot 0.12.3",
@@ -18340,6 +18346,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-statement-store",
+ "sp-tracing 16.0.0",
  "substrate-prometheus-endpoint",
  "tempfile",
  "tokio",
@@ -19494,7 +19501,6 @@ name = "snowbridge-outbound-queue-merkle-tree"
 version = "0.3.0"
 dependencies = [
  "array-bytes",
- "env_logger 0.11.3",
  "hex",
  "hex-literal",
  "parity-scale-codec",
@@ -19502,6 +19508,7 @@ dependencies = [
  "sp-core",
  "sp-crypto-hashing",
  "sp-runtime",
+ "sp-tracing 16.0.0",
 ]
 
 [[package]]
@@ -21070,6 +21077,7 @@ dependencies = [
  "frame-system",
  "impl-trait-for-tuples",
  "log",
+ "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
  "pallet-salary",
@@ -21083,6 +21091,7 @@ dependencies = [
  "primitive-types",
  "scale-info",
  "sp-arithmetic",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-weights",
@@ -22552,6 +22561,7 @@ dependencies = [
  "sharded-slab",
  "smallvec",
  "thread_local",
+ "time",
  "tracing",
  "tracing-core",
  "tracing-log 0.2.0",
@@ -24191,7 +24201,6 @@ dependencies = [
 name = "xcm-runtime-apis"
 version = "0.1.0"
 dependencies = [
- "env_logger 0.11.3",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -24204,6 +24213,7 @@ dependencies = [
  "scale-info",
  "sp-api",
  "sp-io",
+ "sp-tracing 16.0.0",
  "sp-weights",
  "staging-xcm",
  "staging-xcm-builder",

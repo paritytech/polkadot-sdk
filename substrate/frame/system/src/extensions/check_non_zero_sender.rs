@@ -59,9 +59,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckNonZeroSender<T>
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_non_zero_sender()
 	}
 }
-impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
-	for CheckNonZeroSender<T>
-{
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZeroSender<T> {
 	type Val = ();
 	type Pre = ();
 	fn validate(
@@ -70,7 +68,6 @@ impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Cont
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> sp_runtime::traits::ValidateResult<Self::Val, T::RuntimeCall> {
@@ -81,7 +78,7 @@ impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Cont
 		}
 		Ok((Default::default(), (), origin))
 	}
-	impl_tx_ext_default!(T::RuntimeCall; Context; prepare);
+	impl_tx_ext_default!(T::RuntimeCall; prepare);
 }
 
 #[cfg(test)]

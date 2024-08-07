@@ -444,7 +444,7 @@ where
 	type Implicit = ();
 }
 
-impl<T: RefundTransactionExtension, Context> TransactionExtension<CallOf<T::Runtime>, Context>
+impl<T: RefundTransactionExtension> TransactionExtension<CallOf<T::Runtime>>
 	for RefundTransactionExtensionAdapter<T>
 where
 	<CallOf<T::Runtime> as Dispatchable>::RuntimeOrigin:
@@ -461,7 +461,6 @@ where
 		call: &CallOf<T::Runtime>,
 		_info: &DispatchInfoOf<CallOf<T::Runtime>>,
 		_len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, CallOf<T::Runtime>> {
@@ -514,7 +513,6 @@ where
 		_call: &CallOf<T::Runtime>,
 		_info: &DispatchInfoOf<CallOf<T::Runtime>>,
 		_len: usize,
-		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		Ok(val.map(|call_info| {
@@ -535,7 +533,6 @@ where
 		post_info: &PostDispatchInfoOf<CallOf<T::Runtime>>,
 		len: usize,
 		result: &DispatchResult,
-		_context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
 		let call_result = T::analyze_call_result(Some(pre), info, post_info, len, result);
 
@@ -1678,7 +1675,6 @@ pub(crate) mod tests {
 			&post_dispatch_info(),
 			1024,
 			&dispatch_result,
-			&(),
 		);
 		assert_eq!(post_dispatch_result, Ok(None));
 	}

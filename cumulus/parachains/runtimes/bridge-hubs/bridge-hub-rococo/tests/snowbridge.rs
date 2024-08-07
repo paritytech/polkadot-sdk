@@ -181,6 +181,7 @@ fn construct_extrinsic(
 			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
 		),
 		frame_system::CheckWeight::<Runtime>::new(),
+		frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(

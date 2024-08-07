@@ -153,11 +153,9 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckMetadataHash<T> 
 		Ok(signed)
 	}
 }
-impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
-	for CheckMetadataHash<T>
-{
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMetadataHash<T> {
 	type Val = ();
 	type Pre = ();
 
-	impl_tx_ext_default!(T::RuntimeCall; Context; validate prepare);
+	impl_tx_ext_default!(T::RuntimeCall; validate prepare);
 }

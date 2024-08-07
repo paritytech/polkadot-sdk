@@ -56,8 +56,7 @@ where
 	type Implicit = ();
 }
 
-impl<V: Verify, Call: Dispatchable + Encode, Context> TransactionExtension<Call, Context>
-	for VerifyMultiSignature<V>
+impl<V: Verify, Call: Dispatchable + Encode> TransactionExtension<Call> for VerifyMultiSignature<V>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
@@ -66,7 +65,7 @@ where
 {
 	type Val = ();
 	type Pre = ();
-	impl_tx_ext_default!(Call; Context; prepare);
+	impl_tx_ext_default!(Call; prepare);
 
 	fn validate(
 		&self,
@@ -74,7 +73,6 @@ where
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
-		_: &mut Context,
 		_: (),
 		inherited_implication: &impl Encode,
 	) -> Result<

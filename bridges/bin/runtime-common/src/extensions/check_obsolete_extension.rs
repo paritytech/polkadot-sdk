@@ -271,7 +271,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 			const IDENTIFIER: &'static str = "BridgeRejectObsoleteHeadersAndMessages";
 			type Implicit = ();
 		}
-		impl<Context> sp_runtime::traits::TransactionExtension<$call, Context> for BridgeRejectObsoleteHeadersAndMessages {
+		impl sp_runtime::traits::TransactionExtension<$call> for BridgeRejectObsoleteHeadersAndMessages {
 			type Pre = Option<(
 				$account_id,
 				( $(
@@ -289,7 +289,6 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				call: &$call,
 				_info: &sp_runtime::traits::DispatchInfoOf<$call>,
 				_len: usize,
-				_context: &mut Context,
 				_self_implicit: Self::Implicit,
 				_inherited_implication: &impl codec::Encode,
 			) -> Result<
@@ -321,7 +320,6 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				call: &$call,
 				_info: &sp_runtime::traits::DispatchInfoOf<$call>,
 				_len: usize,
-				_context: &Context,
 			) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
 				use $crate::extensions::check_obsolete_extension::__private::tuplex::PushBack;
 				use sp_runtime::traits::AsSystemOriginSigner;
@@ -346,7 +344,6 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				post_info: &sp_runtime::traits::PostDispatchInfoOf<$call>,
 				len: usize,
 				result: &sp_runtime::DispatchResult,
-				_context: &Context,
 			) -> Result<Option<frame_support::pallet_prelude::Weight>, sp_runtime::transaction_validity::TransactionValidityError> {
 				use $crate::extensions::check_obsolete_extension::__private::tuplex::PopFront;
 				let Some((relayer, to_post_dispatch)) = to_post_dispatch else { return Ok(None) };
@@ -551,7 +548,6 @@ mod tests {
 				&(),
 				0,
 				&Ok(()),
-				&()
 			));
 			FirstFilterCall::verify_post_dispatch_called_with(true);
 			SecondFilterCall::verify_post_dispatch_called_with(true);
@@ -564,7 +560,6 @@ mod tests {
 				&(),
 				0,
 				&Err(DispatchError::BadOrigin),
-				&()
 			));
 			FirstFilterCall::verify_post_dispatch_called_with(false);
 			SecondFilterCall::verify_post_dispatch_called_with(false);

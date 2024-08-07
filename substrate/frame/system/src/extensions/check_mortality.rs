@@ -76,9 +76,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckMortality<T> {
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality()
 	}
 }
-impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
-	for CheckMortality<T>
-{
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMortality<T> {
 	type Pre = ();
 	type Val = ();
 
@@ -88,7 +86,6 @@ impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Cont
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
@@ -103,7 +100,7 @@ impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Cont
 			origin,
 		))
 	}
-	impl_tx_ext_default!(T::RuntimeCall; Context; prepare);
+	impl_tx_ext_default!(T::RuntimeCall; prepare);
 }
 
 #[cfg(test)]

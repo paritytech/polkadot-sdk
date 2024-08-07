@@ -254,9 +254,13 @@ impl sp_runtime::traits::Printable for CheckSubstrateCall {
 	}
 }
 
-impl sp_runtime::traits::RefundWeight<CheckSubstrateCall> for CheckSubstrateCall {
+impl sp_runtime::traits::RefundWeight for CheckSubstrateCall {
 	fn refund(&mut self, _weight: frame_support::weights::Weight) {}
-	fn saturating_accrue(
+}
+impl sp_runtime::traits::ExtensionPostDispatchWeightHandler<CheckSubstrateCall>
+	for CheckSubstrateCall
+{
+	fn set_extension_weight(
 		&mut self,
 		_info: &CheckSubstrateCall,
 		_weight: frame_support::weights::Weight,
@@ -282,12 +286,10 @@ impl sp_runtime::traits::TransactionExtensionBase for CheckSubstrateCall {
 	const IDENTIFIER: &'static str = "CheckSubstrateCall";
 	type Implicit = ();
 }
-impl<Context> sp_runtime::traits::TransactionExtension<RuntimeCall, Context>
-	for CheckSubstrateCall
-{
+impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCall {
 	type Pre = ();
 	type Val = ();
-	impl_tx_ext_default!(RuntimeCall; Context; prepare);
+	impl_tx_ext_default!(RuntimeCall; prepare);
 
 	fn validate(
 		&self,
@@ -295,7 +297,6 @@ impl<Context> sp_runtime::traits::TransactionExtension<RuntimeCall, Context>
 		call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<

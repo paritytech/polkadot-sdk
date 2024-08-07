@@ -143,7 +143,7 @@ where
 			))
 	}
 }
-impl<S, C, Context> TransactionExtension<C, Context> for GenericTransactionExtension<S>
+impl<S, C> TransactionExtension<C> for GenericTransactionExtension<S>
 where
 	C: Dispatchable,
 	S: TransactionExtensionSchema,
@@ -153,5 +153,5 @@ where
 	type Pre = ();
 	type Val = ();
 
-	impl_tx_ext_default!(C; Context; validate prepare);
+	impl_tx_ext_default!(C; validate prepare);
 }
