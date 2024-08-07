@@ -453,8 +453,18 @@ impl SendXcm for DummyXcmSender {
 	}
 }
 
+pub struct InclusionWeightInfo;
+
+impl crate::inclusion::WeightInfo for InclusionWeightInfo {
+	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
+		Weight::zero()
+			.saturating_add(<Test as frame_system::Config>::DbWeight::get().reads(29))
+			.saturating_add(<Test as frame_system::Config>::DbWeight::get().writes(16))
+	}
+}
+
 impl crate::inclusion::Config for Test {
-	type WeightInfo = ();
+	type WeightInfo = InclusionWeightInfo;
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = Disputes;
 	type RewardValidators = TestRewardValidators;
