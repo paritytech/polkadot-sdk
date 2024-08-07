@@ -27,8 +27,7 @@ pub mod unversioned {
 	#[cfg(feature = "try-runtime")]
 	use alloc::vec::Vec;
 
-	/// Migrates delegation from older derivation of [`AccountType::ProxyDelegator`] accounts
-	/// to the new one for all agents.
+	/// Migrates `ProxyDelegator` accounts with better entropy than the previous.
 	pub struct ProxyDelegatorMigration<T, MaxAgents>(PhantomData<(T, MaxAgents)>);
 
 	impl<T: Config, MaxAgents: Get<u32>> OnRuntimeUpgrade for ProxyDelegatorMigration<T, MaxAgents> {
