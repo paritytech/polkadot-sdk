@@ -494,7 +494,7 @@ fn full_basic_refund() {
 	CHECK_WEIGHT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(1, check_weight));
 	STORAGE_WEIGHT_RECLAIM_WEIGHT
 		.with_borrow_mut(|v| *v = Weight::from_parts(1, storage_weight_reclaim));
-	MOCK_EXT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(2, mock_ext_refund + 42));
+	MOCK_EXT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(36, mock_ext_refund + 42));
 	MOCK_EXT_REFUND.with_borrow_mut(|v| *v = Weight::from_parts(1, mock_ext_refund));
 
 	let initial_storage_weight = 1212;
@@ -511,10 +511,15 @@ fn full_basic_refund() {
 		let post_info = extrinsic.apply::<Test>(&info, LEN).unwrap().unwrap();
 
 		// Assertions:
-		// TODO TODO: after https://github.com/paritytech/polkadot-sdk/pull/3685/files#r1704970934
-		// let post_info_tx_proof_size = check_weight + storage_weight_reclaim + mock_ext_refund;
-		// assert_eq!(post_info.actual_weight, Some(call_info.call_weight + Weight::from_parts(3, post_info_tx_proof_size)));
-		// assert_eq!(get_storage_weight().proof_size(), initial_storage_weight + actual_used_proof_size as u64);
+		let post_info_tx_proof_size = check_weight + storage_weight_reclaim + mock_ext_refund;
+		assert_eq!(
+			post_info.actual_weight,
+			Some(call_info.call_weight + Weight::from_parts(3, post_info_tx_proof_size))
+		);
+		assert_eq!(
+			get_storage_weight().proof_size(),
+			initial_storage_weight + actual_used_proof_size as u64 + LEN as u64
+		);
 	});
 }
 
@@ -530,7 +535,7 @@ fn full_accrue() {
 	CHECK_WEIGHT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(1, check_weight));
 	STORAGE_WEIGHT_RECLAIM_WEIGHT
 		.with_borrow_mut(|v| *v = Weight::from_parts(1, storage_weight_reclaim));
-	MOCK_EXT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(2, mock_ext_refund + 42));
+	MOCK_EXT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(36, mock_ext_refund + 42));
 	MOCK_EXT_REFUND.with_borrow_mut(|v| *v = Weight::from_parts(1, mock_ext_refund));
 
 	let initial_storage_weight = 1212;
@@ -547,9 +552,14 @@ fn full_accrue() {
 		let post_info = extrinsic.apply::<Test>(&info, LEN).unwrap().unwrap();
 
 		// Assertions:
-		// TODO TODO: after https://github.com/paritytech/polkadot-sdk/pull/3685/files#r1704970934
-		// let post_info_tx_proof_size = check_weight + storage_weight_reclaim + mock_ext_refund;
-		// assert_eq!(post_info.actual_weight, Some(call_info.call_weight + Weight::from_parts(3, post_info_tx_proof_size)));
-		// assert_eq!(get_storage_weight().proof_size(), initial_storage_weight + actual_used_proof_size as u64);
+		let post_info_tx_proof_size = check_weight + storage_weight_reclaim + mock_ext_refund;
+		assert_eq!(
+			post_info.actual_weight,
+			Some(call_info.call_weight + Weight::from_parts(3, post_info_tx_proof_size))
+		);
+		assert_eq!(
+			get_storage_weight().proof_size(),
+			initial_storage_weight + actual_used_proof_size as u64 + LEN as u64
+		);
 	});
 }

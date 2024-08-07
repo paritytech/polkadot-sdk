@@ -35,7 +35,7 @@ use frame_support::{
 };
 use sp_runtime::{
 	traits::{
-		AccrueWeight, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
+		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
 		TransactionExtensionBase,
 	},
 	transaction_validity::{TransactionValidityError, ValidTransaction},
@@ -184,13 +184,17 @@ where
 		let mut post_info_with_inner = *post_info;
 		S::post_dispatch(inner_pre, info, &mut post_info_with_inner, len, result, context)?;
 
-		let inner_weight = post_info_with_inner.actual_weight.map(|actual_weight| {
-			actual_weight.saturating_sub(post_info.actual_weight.unwrap_or_default())
+		let post_dispatch_weight = post_info_with_inner.actual_weight.map(|post_info_with_inner| {
+			let weight_reduced_by_inner = post_info.actual_weight
+				.unwrap_or_else(|| info.total_weight())
+				.saturating_sub(post_info_with_inner);
+			Self::weight().saturating_sub(weight_reduced_by_inner)
 		});
 
-		let post_dispatch_weight = inner_weight.map(|actual_weight| {
-			actual_weight.saturating_add(T::WeightInfo::storage_weight_reclaim())
-		});
+		let Some(pre_dispatch_proof_size) = pre_dispatch_proof_size else {
+			// We have no proof size information, there is nothing we can do.
+			return Ok(post_dispatch_weight);
+		};
 
 		let Some(post_dispatch_proof_size) = get_proof_size() else {
 			log::debug!(
@@ -200,23 +204,25 @@ where
 			return Ok(post_dispatch_weight)
 		};
 
-		let benchmarked_weight = info.total_weight().proof_size();
-		let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
-
 		// Unspent weight according to the `actual_weight` from `PostDispatchInfo`
 		// This unspent weight will be refunded by the `CheckWeight` extension, so we need to
 		// account for that.
-		// We don't include `T::WeightInfo::storage_weight_reclaim` into the `post_info_with_inner`
-		// because it is not taken into account when `CheckWeight` computes the unspent weight.
-		// TODO: anyway decreasing post info will make things accurate for `CheckWeight`.
+		//
+		// Also we don't need to include the unspent weight of this transaction extension because:
+		// 1 - There is no unspent weight for this extension.
+		// 2 - `CheckWeight` computes the unspent weight wihout seeing the unspent weight of this
+		// extension even if there was any. Thus `post_info_with_inner` is what we want.
 		let unspent = post_info_with_inner.calc_unspent(info).proof_size();
-		let storage_size_diff =
-			benchmarked_weight.saturating_sub(unspent).abs_diff(consumed_weight as u64);
+		let benchmarked_weight = info.total_weight().proof_size().saturating_sub(unspent);
+		let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
+
+		let storage_size_diff = benchmarked_weight.abs_diff(consumed_weight as u64);
 
 		// This value will be reclaimed by [`frame_system::CheckWeight`], so we need to calculate
 		// that in.
 		frame_system::BlockWeight::<T>::mutate(|current| {
 			if consumed_weight > benchmarked_weight {
+				println!("consumed_weight > benchmarked_weight");
 				log::error!(
 					target: LOG_TARGET,
 					"Benchmarked storage weight smaller than consumed storage weight. \
@@ -225,6 +231,7 @@ where
 				);
 				current.accrue(Weight::from_parts(0, storage_size_diff), info.class)
 			} else {
+				println!("consumed_weight <= benchmarked_weight");
 				log::trace!(
 					target: LOG_TARGET,
 					"Reclaiming storage weight. benchmarked: {benchmarked_weight}, consumed: \
