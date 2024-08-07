@@ -138,6 +138,7 @@ pub type TxExtension = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteHeadersAndMessages,
 	(
@@ -1612,6 +1613,7 @@ mod tests {
 				frame_system::CheckEra::from(Era::Immortal),
 				frame_system::CheckNonce::from(10),
 				frame_system::CheckWeight::new(),
+				frame_metadata_hash_extension::CheckMetadataHash::new(false),
 				pallet_transaction_payment::ChargeTransactionPayment::from(10),
 				BridgeRejectObsoleteHeadersAndMessages,
 				(
@@ -1632,9 +1634,9 @@ mod tests {
 					10,
 					(((), ()), ((), ())),
 				);
-				assert_eq!(payload.encode(), bhr_indirect_payload.encode());
+				assert_eq!(payload.encode().split_last().unwrap().1, bhr_indirect_payload.encode());
 				assert_eq!(
-					payload.implicit().unwrap().encode(),
+					payload.implicit().unwrap().encode().split_last().unwrap().1,
 					bhr_indirect_payload.implicit().unwrap().encode()
 				)
 			}

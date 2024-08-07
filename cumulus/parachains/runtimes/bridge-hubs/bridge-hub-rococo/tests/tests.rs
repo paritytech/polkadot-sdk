@@ -58,6 +58,7 @@ fn construct_extrinsic(
 			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
 		),
 		frame_system::CheckWeight::<Runtime>::new(),
+		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(
@@ -400,8 +401,8 @@ mod bridge_hub_westend_tests {
 					WeightToFee,
 				>()
 			},
-			Perbill::from_percent(33),
-			Some(-33),
+			Perbill::from_percent(25),
+			Some(-25),
 			&format!(
 				"Estimate fee for `ExportMessage` for runtime: {:?}",
 				<Runtime as frame_system::Config>::Version::get()
@@ -419,8 +420,8 @@ mod bridge_hub_westend_tests {
 					RuntimeTestsAdapter,
 				>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
 			},
-			Perbill::from_percent(33),
-			Some(-33),
+			Perbill::from_percent(25),
+			Some(-25),
 			&format!(
 				"Estimate fee for `single message delivery` for runtime: {:?}",
 				<Runtime as frame_system::Config>::Version::get()
@@ -438,8 +439,8 @@ mod bridge_hub_westend_tests {
 					RuntimeTestsAdapter,
 				>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
 			},
-			Perbill::from_percent(33),
-			Some(-33),
+			Perbill::from_percent(25),
+			Some(-25),
 			&format!(
 				"Estimate fee for `single message confirmation` for runtime: {:?}",
 				<Runtime as frame_system::Config>::Version::get()
