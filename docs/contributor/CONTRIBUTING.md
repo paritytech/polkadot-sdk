@@ -82,6 +82,45 @@ Non "silent" PRs must come with documentation in the form of a `.prdoc` file.
 
 See more about `prdoc` [here](./prdoc.md)
 
+## Crate Configuration `Cargo.toml`
+
+The Polkadot SDK uses many conventions when configuring a crate. Watch out for these things when you
+are creating a new crate.
+
+### Is the Crate chain-specific?
+
+Chain-specific crates, for example
+[`bp-bridge-hub-rococo`](https://github.com/paritytech/polkadot-sdk/blob/4014b9bf2bf8f74862f63e7114e5c78009529be5/bridges/chains/chain-bridge-hub-rococo/Cargo.toml#L10-L11)
+, should not be released as part of the Polkadot-SDK umbrella crate. We have a custom metadata
+attribute that is picked up by the [generate-umbrella.py](../../scripts/generate-umbrella.py)
+script, that should be applied to all chain-specific crates like such:
+
+```toml
+[package]
+# Other stuff...
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
+# Other stuff...
+```
+
+### Is the Crate a Test, Example or Fuzzer?
+
+Test or example crates, like
+[`pallet-example-task`](https://github.com/paritytech/polkadot-sdk/blob/9b4acf27b869d7cbb07b03f0857763b8c8cc7566/substrate/frame/examples/tasks/Cargo.toml#L9)
+, should not be released to crates.io. To ensure this, you must add `publish = false` to your
+crate's `package` section:
+
+```toml
+[package]
+# Other stuff...
+
+publish = false
+
+# Other stuff...
+```
+
 ## Helping out
 
 We use [labels](https://github.com/paritytech/polkadot-sdk/labels) to manage PRs and issues and communicate state of a
