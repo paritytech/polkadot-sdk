@@ -222,7 +222,6 @@ where
 		// that in.
 		frame_system::BlockWeight::<T>::mutate(|current| {
 			if consumed_weight > benchmarked_weight {
-				println!("consumed_weight > benchmarked_weight");
 				log::error!(
 					target: LOG_TARGET,
 					"Benchmarked storage weight smaller than consumed storage weight. \
@@ -231,7 +230,6 @@ where
 				);
 				current.accrue(Weight::from_parts(0, storage_size_diff), info.class)
 			} else {
-				println!("consumed_weight <= benchmarked_weight");
 				log::trace!(
 					target: LOG_TARGET,
 					"Reclaiming storage weight. benchmarked: {benchmarked_weight}, consumed: \
