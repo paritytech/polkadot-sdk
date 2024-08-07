@@ -131,8 +131,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for StorageWeightReclaim<
 	type Implicit = ();
 }
 
-impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
-	for StorageWeightReclaim<T>
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for StorageWeightReclaim<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
@@ -146,7 +145,6 @@ where
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Ok(get_proof_size())
 	}
@@ -157,7 +155,6 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
-		_context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
 		let Some(pre_dispatch_proof_size) = pre else {
 			return Ok(None);
@@ -200,5 +197,5 @@ where
 		Ok(None)
 	}
 
-	impl_tx_ext_default!(T::RuntimeCall; Context; validate);
+	impl_tx_ext_default!(T::RuntimeCall; validate);
 }

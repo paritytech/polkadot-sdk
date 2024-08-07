@@ -54,7 +54,7 @@ use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		AccrueWeight, AsSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf,
+		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, RefundWeight,
 		TransactionExtension, TransactionExtensionBase, ValidateResult, Zero,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
@@ -264,7 +264,7 @@ where
 	}
 }
 
-impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context> for ChargeAssetTxPayment<T>
+impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeAssetTxPayment<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	BalanceOf<T>: Send + Sync + From<u64>,
@@ -294,7 +294,6 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
@@ -315,7 +314,6 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let (_tip, who, fee) = val;
 		// Mutating call of `withdraw_fee` to actually charge for the transaction.
@@ -329,7 +327,6 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		_result: &DispatchResult,
-		_context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
 		let (tip, who, initial_payment) = pre;
 		match initial_payment {
@@ -337,8 +334,9 @@ where
 				// Take into account the weight used by this extension before calculating the
 				// refund.
 				let actual_ext_weight = <T as Config>::WeightInfo::charge_asset_tx_payment_native();
+				let unspent_weight = Self::weight().saturating_sub(actual_ext_weight);
 				let mut actual_post_info = *post_info;
-				actual_post_info.accrue(actual_ext_weight);
+				actual_post_info.refund(unspent_weight);
 				let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
 					len as u32,
 					info,
@@ -362,8 +360,9 @@ where
 				// Take into account the weight used by this extension before calculating the
 				// refund.
 				let actual_ext_weight = <T as Config>::WeightInfo::charge_asset_tx_payment_asset();
+				let unspent_weight = Self::weight().saturating_sub(actual_ext_weight);
 				let mut actual_post_info = *post_info;
-				actual_post_info.accrue(actual_ext_weight);
+				actual_post_info.refund(unspent_weight);
 				let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
 					len as u32,
 					info,

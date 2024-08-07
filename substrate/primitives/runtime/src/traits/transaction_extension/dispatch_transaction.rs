@@ -75,9 +75,7 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 	) -> Self::Result;
 }
 
-impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTransaction<Call>
-	for T
-{
+impl<T: TransactionExtension<Call>, Call: Dispatchable + Encode> DispatchTransaction<Call> for T {
 	type Origin = <Call as Dispatchable>::RuntimeOrigin;
 	type Info = DispatchInfoOf<Call>;
 	type Result = crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>>;
@@ -91,7 +89,7 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 		info: &DispatchInfoOf<Call>,
 		len: usize,
 	) -> Result<(ValidTransaction, T::Val, Self::Origin), TransactionValidityError> {
-		self.validate(origin, call, info, len, &mut (), self.implicit()?, call)
+		self.validate(origin, call, info, len, self.implicit()?, call)
 	}
 	fn validate_and_prepare(
 		self,
@@ -101,7 +99,7 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 		len: usize,
 	) -> Result<(T::Pre, Self::Origin), TransactionValidityError> {
 		let (_, val, origin) = self.validate_only(origin, call, info, len)?;
-		let pre = self.prepare(val, &origin, &call, info, len, &())?;
+		let pre = self.prepare(val, &origin, &call, info, len)?;
 		Ok((pre, origin))
 	}
 	fn dispatch_transaction(
@@ -118,7 +116,8 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 			Ok(info) => info,
 			Err(err) => &mut err.post_info,
 		};
-		T::post_dispatch(pre, info, post_info, len, &pd_res, &())?;
+		post_info.set_extension_weight(info, Self::weight());
+		T::post_dispatch(pre, info, post_info, len, &pd_res)?;
 		Ok(res)
 	}
 	fn test_run(
@@ -138,7 +137,8 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 			Ok(info) => info,
 			Err(err) => &mut err.post_info,
 		};
-		T::post_dispatch(pre, info, post_info, len, &pd_res, &())?;
+		post_info.set_extension_weight(info, Self::weight());
+		T::post_dispatch(pre, info, post_info, len, &pd_res)?;
 		Ok(res)
 	}
 }

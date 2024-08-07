@@ -73,7 +73,7 @@ impl TryFrom<&Extrinsic> for TransferData {
 			} => Ok(TransferData { from: *from, to: *dest, amount: *value, nonce: *nonce }),
 			Extrinsic {
 				function: RuntimeCall::SubstrateTest(PalletCall::bench_call { transfer }),
-				preamble: Preamble::Bare,
+				preamble: Preamble::Bare(_),
 			} => Ok(transfer.clone()),
 			_ => Err(()),
 		}

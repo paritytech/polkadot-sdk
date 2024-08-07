@@ -266,10 +266,9 @@ fn deposit_event_should_work() {
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(0),
 					event: SysEvent::ExtrinsicSuccess {
-						dispatch_info: DispatchInfo {
-							call_weight: normal_base,
-							..Default::default()
-						}
+						weight: normal_base,
+						class: Default::default(),
+						pays: Default::default()
 					}
 					.into(),
 					topics: vec![]
@@ -278,10 +277,9 @@ fn deposit_event_should_work() {
 					phase: Phase::ApplyExtrinsic(1),
 					event: SysEvent::ExtrinsicFailed {
 						dispatch_error: DispatchError::BadOrigin.into(),
-						dispatch_info: DispatchInfo {
-							call_weight: normal_base,
-							..Default::default()
-						}
+						weight: normal_base,
+						class: Default::default(),
+						pays: Default::default()
 					}
 					.into(),
 					topics: vec![]
@@ -374,10 +372,9 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(0),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: Weight::from_parts(300, 0).saturating_add(normal_base),
-						..Default::default()
-					},
+					weight: Weight::from_parts(300, 0).saturating_add(normal_base),
+					class: Default::default(),
+					pays: Default::default(),
 				}
 				.into(),
 				topics: vec![],
@@ -385,10 +382,9 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
-						..Default::default()
-					},
+					weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
+					class: Default::default(),
+					pays: Default::default(),
 				}
 				.into(),
 				topics: vec![],
@@ -396,10 +392,9 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(2),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
-						..Default::default()
-					},
+					weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
+					class: Default::default(),
+					pays: Default::default(),
 				}
 				.into(),
 				topics: vec![],
@@ -407,11 +402,9 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(3),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
-						pays_fee: Pays::Yes,
-						..Default::default()
-					},
+					weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
+					pays: Pays::Yes,
+					class: Default::default(),
 				}
 				.into(),
 				topics: vec![],
@@ -419,11 +412,9 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(4),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
-						pays_fee: Pays::No,
-						..Default::default()
-					},
+					weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
+					pays: Pays::No,
+					class: Default::default(),
 				}
 				.into(),
 				topics: vec![],
@@ -431,11 +422,9 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(5),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
-						pays_fee: Pays::No,
-						..Default::default()
-					},
+					weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
+					pays: Pays::No,
+					class: Default::default(),
 				}
 				.into(),
 				topics: vec![],
@@ -443,11 +432,9 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(6),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: Weight::from_parts(500, 0).saturating_add(normal_base),
-						pays_fee: Pays::No,
-						..Default::default()
-					},
+					weight: Weight::from_parts(500, 0).saturating_add(normal_base),
+					pays: Pays::No,
+					class: Default::default(),
 				}
 				.into(),
 				topics: vec![],
@@ -456,10 +443,10 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 				phase: Phase::ApplyExtrinsic(7),
 				event: SysEvent::ExtrinsicFailed {
 					dispatch_error: DispatchError::BadOrigin.into(),
-					dispatch_info: DispatchInfo {
-						call_weight: Weight::from_parts(999, 0).saturating_add(normal_base),
-						..Default::default()
-					},
+
+					weight: Weight::from_parts(999, 0).saturating_add(normal_base),
+					class: Default::default(),
+					pays: Default::default(),
 				}
 				.into(),
 				topics: vec![],
@@ -468,11 +455,10 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 				phase: Phase::ApplyExtrinsic(8),
 				event: SysEvent::ExtrinsicFailed {
 					dispatch_error: DispatchError::BadOrigin.into(),
-					dispatch_info: DispatchInfo {
-						call_weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
-						pays_fee: Pays::Yes,
-						..Default::default()
-					},
+
+					weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
+					pays: Pays::Yes,
+					class: Default::default(),
 				}
 				.into(),
 				topics: vec![],
@@ -481,11 +467,9 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 				phase: Phase::ApplyExtrinsic(9),
 				event: SysEvent::ExtrinsicFailed {
 					dispatch_error: DispatchError::BadOrigin.into(),
-					dispatch_info: DispatchInfo {
-						call_weight: Weight::from_parts(800, 0).saturating_add(normal_base),
-						pays_fee: Pays::Yes,
-						..Default::default()
-					},
+					weight: Weight::from_parts(800, 0).saturating_add(normal_base),
+					pays: Pays::Yes,
+					class: Default::default(),
 				}
 				.into(),
 				topics: vec![],
@@ -494,11 +478,10 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 				phase: Phase::ApplyExtrinsic(10),
 				event: SysEvent::ExtrinsicFailed {
 					dispatch_error: DispatchError::BadOrigin.into(),
-					dispatch_info: DispatchInfo {
-						call_weight: Weight::from_parts(800, 0).saturating_add(normal_base),
-						pays_fee: Pays::No,
-						..Default::default()
-					},
+
+					weight: Weight::from_parts(800, 0).saturating_add(normal_base),
+					pays: Pays::No,
+					class: Default::default(),
 				}
 				.into(),
 				topics: vec![],
@@ -506,11 +489,9 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(11),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: Weight::from_parts(300, 0).saturating_add(operational_base),
-						class: DispatchClass::Operational,
-						..Default::default()
-					},
+					weight: Weight::from_parts(300, 0).saturating_add(operational_base),
+					class: DispatchClass::Operational,
+					pays: Default::default(),
 				}
 				.into(),
 				topics: vec![],

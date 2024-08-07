@@ -63,10 +63,10 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckTxVersion<T> {
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_tx_version()
 	}
 }
-impl<T: Config + Send + Sync, Context> TransactionExtension<<T as Config>::RuntimeCall, Context>
+impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
 	for CheckTxVersion<T>
 {
 	type Val = ();
 	type Pre = ();
-	impl_tx_ext_default!(<T as Config>::RuntimeCall; Context; validate prepare);
+	impl_tx_ext_default!(<T as Config>::RuntimeCall; validate prepare);
 }

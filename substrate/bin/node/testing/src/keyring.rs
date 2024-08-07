@@ -122,7 +122,7 @@ pub fn sign(
 			}
 		},
 		ExtrinsicFormat::Bare => UncheckedExtrinsic {
-			preamble: sp_runtime::generic::Preamble::Bare,
+			preamble: sp_runtime::generic::Preamble::Bare(EXTRINSIC_FORMAT_VERSION),
 			function: xt.function,
 		},
 		ExtrinsicFormat::General(tx_ext) => UncheckedExtrinsic {

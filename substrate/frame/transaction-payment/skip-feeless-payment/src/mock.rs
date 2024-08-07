@@ -46,7 +46,7 @@ impl TransactionExtensionBase for DummyExtension {
 	const IDENTIFIER: &'static str = "DummyExtension";
 	type Implicit = ();
 }
-impl<C> TransactionExtension<RuntimeCall, C> for DummyExtension {
+impl TransactionExtension<RuntimeCall> for DummyExtension {
 	type Val = ();
 	type Pre = ();
 
@@ -56,7 +56,6 @@ impl<C> TransactionExtension<RuntimeCall, C> for DummyExtension {
 		_call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
-		_context: &mut C,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, RuntimeCall> {
@@ -71,7 +70,6 @@ impl<C> TransactionExtension<RuntimeCall, C> for DummyExtension {
 		_call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
-		_context: &C,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		PrepareCount::mutate(|c| *c += 1);
 		Ok(())

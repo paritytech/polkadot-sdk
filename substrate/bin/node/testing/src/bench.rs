@@ -588,8 +588,10 @@ impl BenchKeyring {
 					function: payload.0,
 				}
 			},
-			ExtrinsicFormat::Bare =>
-				UncheckedExtrinsic { preamble: Preamble::Bare, function: xt.function },
+			ExtrinsicFormat::Bare => UncheckedExtrinsic {
+				preamble: Preamble::Bare(EXTRINSIC_FORMAT_VERSION),
+				function: xt.function,
+			},
 			ExtrinsicFormat::General(tx_ext) => UncheckedExtrinsic {
 				preamble: sp_runtime::generic::Preamble::General(EXTENSION_VERSION, tx_ext),
 				function: xt.function,

@@ -78,11 +78,11 @@ pub mod transaction_extensions_example {
 		type Implicit = ();
 	}
 
-	impl<Call: Dispatchable> TransactionExtension<Call, ()> for AddToPayload {
+	impl<Call: Dispatchable> TransactionExtension<Call> for AddToPayload {
 		type Pre = ();
 		type Val = ();
 
-		impl_tx_ext_default!(Call; (); validate prepare);
+		impl_tx_ext_default!(Call; validate prepare);
 	}
 
 	// This is the opposite; nothing will be added to the extrinsic payload,
@@ -100,10 +100,10 @@ pub mod transaction_extensions_example {
 		}
 	}
 
-	impl<Call: Dispatchable> TransactionExtension<Call, ()> for AddToSignaturePayload {
+	impl<Call: Dispatchable> TransactionExtension<Call> for AddToSignaturePayload {
 		type Pre = ();
 		type Val = ();
 
-		impl_tx_ext_default!(Call; (); validate prepare);
+		impl_tx_ext_default!(Call; validate prepare);
 	}
 }

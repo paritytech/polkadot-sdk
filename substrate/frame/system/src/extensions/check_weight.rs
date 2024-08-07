@@ -216,7 +216,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckWeight<T> {
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_weight()
 	}
 }
-impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall>
 	for CheckWeight<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -230,7 +230,6 @@ where
 		_call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
@@ -245,7 +244,6 @@ where
 		_call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Self::do_prepare(info, len, val)
 	}
@@ -256,7 +254,6 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
-		_context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
 		let unspent = post_info.calc_unspent(info);
 		if unspent.any_gt(Weight::zero()) {
@@ -659,8 +656,7 @@ mod tests {
 				&info,
 				&post_info,
 				len,
-				&Ok(()),
-				&()
+				&Ok(())
 			));
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
@@ -701,8 +697,7 @@ mod tests {
 				&info,
 				&post_info,
 				len,
-				&Ok(()),
-				&()
+				&Ok(())
 			));
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),

@@ -61,8 +61,8 @@ pub use pallet::*;
 pub use payment::*;
 use sp_runtime::{
 	traits::{
-		AccrueWeight, Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf,
-		SaturatedConversion, Saturating, TransactionExtension, TransactionExtensionBase, Zero,
+		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
+		Saturating, TransactionExtension, TransactionExtensionBase, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidityError, ValidTransaction,
@@ -859,8 +859,7 @@ impl<T: Config> TransactionExtensionBase for ChargeTransactionPayment<T> {
 	}
 }
 
-impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context>
-	for ChargeTransactionPayment<T>
+impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPayment<T>
 where
 	BalanceOf<T>: Send + Sync + From<u64>,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -888,7 +887,6 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		_context: &mut Context,
 		_: (),
 		_implication: &impl Encode,
 	) -> Result<
@@ -916,7 +914,6 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let (tip, who, fee) = val;
 		// Mutating call to `withdraw_fee` to actually charge for the transaction.
@@ -930,24 +927,13 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		_result: &DispatchResult,
-		_context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
-		// Take into account the weight used by this extension before calculating the
-		// refund.
-		let actual_ext_weight = <T as Config>::WeightInfo::charge_transaction_payment();
-		let mut actual_post_info = *post_info;
-		actual_post_info.accrue(actual_ext_weight);
-		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, &actual_post_info, tip);
+		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, &post_info, tip);
 		T::OnChargeTransaction::correct_and_deposit_fee(
-			&who,
-			info,
-			&actual_post_info,
-			actual_fee,
-			tip,
-			imbalance,
+			&who, info, &post_info, actual_fee, tip, imbalance,
 		)?;
 		Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid { who, actual_fee, tip });
-		Ok(Some(actual_ext_weight))
+		Ok(Some(<T as Config>::WeightInfo::charge_transaction_payment()))
 	}
 }
 

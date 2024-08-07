@@ -493,8 +493,8 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for WatchDummy<T> {
 	const IDENTIFIER: &'static str = "WatchDummy";
 	type Implicit = ();
 }
-impl<T: Config + Send + Sync, Context>
-	TransactionExtension<<T as frame_system::Config>::RuntimeCall, Context> for WatchDummy<T>
+impl<T: Config + Send + Sync>
+	TransactionExtension<<T as frame_system::Config>::RuntimeCall> for WatchDummy<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
@@ -507,7 +507,6 @@ where
 		call: &<T as frame_system::Config>::RuntimeCall,
 		_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
@@ -529,5 +528,5 @@ where
 		};
 		Ok((validity, (), origin))
 	}
-	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; Context; prepare);
+	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; prepare);
 }

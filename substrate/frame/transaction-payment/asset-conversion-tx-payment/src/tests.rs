@@ -178,12 +178,12 @@ fn transaction_payment_in_native_possible() {
 				&default_post_info(),
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 20 - 10);
 
 			let mut info = info_from_weight(WEIGHT_100);
-			info.extension_weight = ChargeAssetTxPayment::<Runtime>::weight();
+			let extension_weight = ChargeAssetTxPayment::<Runtime>::weight();
+			info.extension_weight = extension_weight;
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(5 /* tipped */, None)
 				.validate_and_prepare(Some(2).into(), CALL, &info, len)
 				.unwrap();
@@ -191,8 +191,11 @@ fn transaction_payment_in_native_possible() {
 
 			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 100 - 20 - 5);
 			let call_actual_weight = WEIGHT_50;
-			let post_info =
-				post_info_from_weight(info.call_weight.saturating_sub(call_actual_weight));
+			let post_info = post_info_from_weight(
+				info.call_weight
+					.saturating_sub(call_actual_weight)
+					.saturating_add(extension_weight),
+			);
 			// The extension weight refund should be taken into account in `post_dispatch`.
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
@@ -200,7 +203,6 @@ fn transaction_payment_in_native_possible() {
 				&post_info,
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 50 - 15 - 5);
 		});
@@ -274,7 +276,6 @@ fn transaction_payment_in_asset_possible() {
 				&default_post_info(),        // weight actually used == estimated
 				len,
 				&Ok(()),
-				&()
 			));
 
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
@@ -387,7 +388,6 @@ fn transaction_payment_without_fee() {
 				&post_info_from_pays(Pays::No),
 				len,
 				&Ok(()),
-				&()
 			));
 
 			// caller should get refunded
@@ -467,13 +467,13 @@ fn asset_transaction_payment_with_tip_and_refund() {
 				amount: fee_in_asset,
 			}));
 
+			let post_info = post_info_from_weight(WEIGHT_50.saturating_add(ext_weight));
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info,
-				&post_info_from_weight(WEIGHT_50),
+				&post_info,
 				len,
 				&Ok(()),
-				&()
 			));
 
 			assert_eq!(TipUnbalancedAmount::get(), tip);
@@ -551,7 +551,6 @@ fn payment_from_account_with_only_assets() {
 				&default_post_info(),
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 			assert_eq!(Balances::free_balance(caller), 0);
@@ -608,7 +607,6 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 					&post_info_from_pays(Pays::No),
 					len,
 					&Ok(()),
-					&()
 				));
 				assert_eq!(Assets::balance(asset_id, caller), balance);
 			}
@@ -639,7 +637,6 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 				&default_post_info(),
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 		});
@@ -701,7 +698,6 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 				&post_info_from_pays(Pays::Yes),
 				len,
 				&Ok(()),
-				&()
 			));
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 		});
@@ -741,14 +737,14 @@ fn fee_with_native_asset_passed_with_id() {
 			// No refunds from the extension weight itself.
 			let expected_fee = initial_fee - final_weight;
 
+			let post_info = post_info_from_weight(WEIGHT_50.saturating_add(extension_weight));
 			assert_eq!(
 				ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 					pre,
 					&info_from_weight(WEIGHT_100),
-					&post_info_from_weight(WEIGHT_50),
+					&post_info,
 					len,
 					&Ok(()),
-					&()
 				)
 				.unwrap()
 				.unwrap(),
@@ -848,7 +844,6 @@ fn transfer_add_and_remove_account() {
 				&post_info_from_weight(WEIGHT_50),
 				len,
 				&Ok(()),
-				&()
 			));
 
 			// fee paid with no refund.

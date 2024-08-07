@@ -73,7 +73,7 @@ impl<T: Config> TransactionExtensionBase for CheckNonce<T> {
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_nonce()
 	}
 }
-impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context> for CheckNonce<T>
+impl<T: Config> TransactionExtension<T::RuntimeCall> for CheckNonce<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
@@ -87,7 +87,6 @@ where
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
@@ -128,7 +127,6 @@ where
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let Some((who, mut nonce)) = val else { return Ok(()) };
 		// `self.0 < nonce` already checked in `validate`.
@@ -309,21 +307,14 @@ mod tests {
 			let len = 0_usize;
 			// run the validation step
 			let (_, val, origin) = CheckNonce::<Test>(1u64.into())
-				.validate(Some(1).into(), CALL, &info, len, &mut (), (), CALL)
+				.validate(Some(1).into(), CALL, &info, len, (), CALL)
 				.unwrap();
 			// mutate `AccountData` for the caller
 			crate::Account::<Test>::mutate(1, |info| {
 				info.data = 42;
 			});
 			// run the preparation step
-			assert_ok!(CheckNonce::<Test>(1u64.into()).prepare(
-				val,
-				&origin,
-				CALL,
-				&info,
-				len,
-				&()
-			));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).prepare(val, &origin, CALL, &info, len));
 			// only the nonce should be altered by the preparation step
 			let expected_info = crate::AccountInfo {
 				nonce: 2u64.into(),

@@ -25,13 +25,15 @@ use frame_system::{self, AccountInfo, EventRecord, Phase};
 use polkadot_sdk::*;
 use sp_core::{storage::well_known_keys, traits::Externalities};
 use sp_runtime::{
-	traits::Hash as HashT, transaction_validity::InvalidTransaction, ApplyExtrinsicResult,
+	traits::{Hash as HashT, TransactionExtensionBase},
+	transaction_validity::InvalidTransaction,
+	ApplyExtrinsicResult,
 };
 
 use kitchensink_runtime::{
 	constants::{currency::*, time::SLOT_DURATION},
 	Balances, CheckedExtrinsic, Header, Runtime, RuntimeCall, RuntimeEvent, System,
-	TransactionPayment, Treasury, UncheckedExtrinsic,
+	TransactionPayment, Treasury, TxExtension, UncheckedExtrinsic,
 };
 use node_primitives::{Balance, Hash};
 use node_testing::keyring::*;
@@ -60,11 +62,9 @@ pub fn bloaty_code_unwrap() -> &'static [u8] {
 /// at block `n`, it must be called prior to executing block `n` to do the calculation with the
 /// correct multiplier.
 fn transfer_fee<E: Encode>(extrinsic: &E) -> Balance {
-	TransactionPayment::compute_fee(
-		extrinsic.encode().len() as u32,
-		&default_transfer_call().get_dispatch_info(),
-		0,
-	)
+	let mut info = default_transfer_call().get_dispatch_info();
+	info.extension_weight = TxExtension::weight();
+	TransactionPayment::compute_fee(extrinsic.encode().len() as u32, &info, 0)
 }
 
 fn xt() -> UncheckedExtrinsic {
@@ -341,11 +341,9 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(0),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: timestamp_weight,
-						class: DispatchClass::Mandatory,
-						..Default::default()
-					},
+					weight: timestamp_weight,
+					class: DispatchClass::Mandatory,
+					..Default::default()
 				}),
 				topics: vec![],
 			},
@@ -402,10 +400,8 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: transfer_weight,
-						..Default::default()
-					},
+					weight: transfer_weight.saturating_add(TxExtension::weight()),
+					..Default::default()
 				}),
 				topics: vec![],
 			},
@@ -436,11 +432,9 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(0),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: timestamp_weight,
-						class: DispatchClass::Mandatory,
-						..Default::default()
-					},
+					weight: timestamp_weight,
+					class: DispatchClass::Mandatory,
+					..Default::default()
 				}),
 				topics: vec![],
 			},
@@ -497,10 +491,8 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: transfer_weight,
-						..Default::default()
-					},
+					weight: transfer_weight.saturating_add(TxExtension::weight()),
+					..Default::default()
 				}),
 				topics: vec![],
 			},
@@ -557,10 +549,8 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						call_weight: transfer_weight,
-						..Default::default()
-					},
+					weight: transfer_weight.saturating_add(TxExtension::weight()),
+					..Default::default()
 				}),
 				topics: vec![],
 			},

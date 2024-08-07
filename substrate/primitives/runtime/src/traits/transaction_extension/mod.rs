@@ -30,7 +30,7 @@ use sp_std::{self, fmt::Debug, prelude::*};
 use sp_weights::Weight;
 use tuplex::{PopFront, PushBack};
 
-use super::{AccrueWeight, DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf};
+use super::{DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf, RefundWeight};
 
 mod as_transaction_extension;
 mod dispatch_transaction;
@@ -200,7 +200,7 @@ pub trait TransactionExtensionBase:
 /// transaction payment and refunds should be at the end of the pipeline in order to capture the
 /// correct amount of weight used during the call. This is because one canot know the actual weight
 /// of an extension after post dispatch without running the post dispatch ahead of time.
-pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensionBase {
+pub trait TransactionExtension<Call: Dispatchable>: TransactionExtensionBase {
 	/// The type that encodes information that can be passed from validate to prepare.
 	type Val;
 
@@ -230,7 +230,6 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	///   a composite type, then the latter component is equal to any further implications to which
 	///   the returned `origin` could potentially apply. See Pipelines, Inherited Implications, and
 	///   Authorized Origins for more information.
-	/// - `context`: Some opaque mutable context, as yet unused.
 	///
 	/// Returns a [ValidateResult], which is a [Result] whose success type is a tuple of
 	/// [ValidTransaction] (defining useful metadata for the transaction queue), the [Self::Val]
@@ -243,7 +242,6 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
-		context: &mut Context,
 		self_implicit: Self::Implicit,
 		inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, Call>;
@@ -265,7 +263,6 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	/// - `call`: The `Call` wrapped by this extension.
 	/// - `info`: Information concerning, and inherent to, the transaction's call.
 	/// - `len`: The total length of the encoded transaction.
-	/// - `context`: Some opaque mutable context, as yet unused.
 	///
 	/// Returns a [Self::Pre] value on success, which gets passed into
 	/// [post_dispatch](TransactionExtension::post_dispatch) and after the call is dispatched.
@@ -278,7 +275,6 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
-		context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError>;
 
 	/// Do any post-flight stuff for an extrinsic.
@@ -303,7 +299,6 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	/// - `post_info`: Information concerning the dispatch of the transaction's call.
 	/// - `len`: The total length of the encoded transaction.
 	/// - `result`: The result of the dispatch.
-	/// - `context`: Some opaque mutable context, as yet unused.
 	///
 	/// WARNING: It is dangerous to return an error here. To do so will fundamentally invalidate the
 	/// transaction and any block that it is included in, causing the block author to not be
@@ -316,20 +311,19 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 		_post_info: &PostDispatchInfoOf<Call>,
 		_len: usize,
 		_result: &DispatchResult,
-		_context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
 		Ok(None)
 	}
 
 	/// A wrapper for [post_dispatch_details](TransactionExtension::post_dispatch_details) that
-	/// accrues the weight consumed by this extension into the post dispatch information.
+	/// refunds the unspent weight consumed by this extension into the post dispatch information.
 	///
 	/// If `post_dispatch` returns a consumed weight, which should be less than the worst case
-	/// weight provided by [weight](TransactionExtensionBase::weight), that is the value accrued in
+	/// weight provided by [weight](TransactionExtensionBase::weight), that is the value refunded in
 	/// `post_info`.
 	///
-	/// If no weight is returned by `post_dispatch_details`, this function accrues the worst case
-	/// weight.
+	/// If no weight is returned by `post_dispatch_details`, this function assumes the worst case
+	/// weight and does not refund anything.
 	///
 	/// For more information, look into
 	/// [post_dispatch_details](TransactionExtension::post_dispatch_details).
@@ -339,11 +333,13 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 		post_info: &mut PostDispatchInfoOf<Call>,
 		len: usize,
 		result: &DispatchResult,
-		context: &Context,
 	) -> Result<(), TransactionValidityError> {
-		let weight = Self::post_dispatch_details(pre, info, &post_info, len, result, context)?
-			.unwrap_or_else(|| Self::weight());
-		post_info.accrue(weight);
+		if let Some(unspent_weight) =
+			Self::post_dispatch_details(pre, info, &post_info, len, result)?
+				.map(|actual_ext_weight| Self::weight().saturating_sub(actual_ext_weight))
+		{
+			post_info.refund(unspent_weight);
+		}
 		Ok(())
 	}
 
@@ -394,19 +390,18 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 ///
 /// The macro is to be used with 3 parameters, separated by ";":
 /// - the `Call` type;
-/// - the `Context` type;
 /// - the functions for which a default implementation should be generated, separated by " ";
 ///
 /// Example usage:
 /// ```nocompile
-/// impl<C> TransactionExtension<FirstCall, C> for EmptyExtension {
+/// impl TransactionExtension<FirstCall> for EmptyExtension {
 /// 	type Val = ();
 /// 	type Pre = ();
 ///
-/// 	impl_tx_ext_default!(FirstCall; C; validate prepare);
+/// 	impl_tx_ext_default!(FirstCall; validate prepare);
 /// }
 ///
-/// impl<C> TransactionExtension<SecondCall, C> for SimpleExtension {
+/// impl TransactionExtension<SecondCall> for SimpleExtension {
 /// 	type Val = u32;
 /// 	type Pre = ();
 ///
@@ -416,37 +411,35 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 /// 			_call: &SecondCall,
 /// 			_info: &DispatchInfoOf<SecondCall>,
 /// 			_len: usize,
-/// 			_context: &mut C,
 /// 			_self_implicit: Self::Implicit,
 /// 			_inherited_implication: &impl Encode,
 /// 		) -> ValidateResult<Self::Val, SecondCall> {
 /// 		Ok((Default::default(), 42u32, origin))
 /// 	}
 ///
-/// 	impl_tx_ext_default!(SecondCall; C; prepare);
+/// 	impl_tx_ext_default!(SecondCall; prepare);
 /// }
 /// ```
 #[macro_export]
 macro_rules! impl_tx_ext_default {
-	($call:ty ; $context:ty ; , $( $rest:tt )*) => {
-		impl_tx_ext_default!{$call ; $context ; $( $rest )*}
+	($call:ty ; , $( $rest:tt )*) => {
+		impl_tx_ext_default!{$call ; $( $rest )*}
 	};
-	($call:ty ; $context:ty ; validate $( $rest:tt )*) => {
+	($call:ty ; validate $( $rest:tt )*) => {
 		fn validate(
 			&self,
 			origin: $crate::traits::OriginOf<$call>,
 			_call: &$call,
 			_info: &$crate::traits::DispatchInfoOf<$call>,
 			_len: usize,
-			_context: &mut $context,
 			_self_implicit: Self::Implicit,
 			_inherited_implication: &impl $crate::codec::Encode,
 		) -> $crate::traits::ValidateResult<Self::Val, $call> {
 			Ok((Default::default(), Default::default(), origin))
 		}
-		impl_tx_ext_default!{$call ; $context ; $( $rest )*}
+		impl_tx_ext_default!{$call ; $( $rest )*}
 	};
-	($call:ty ; $context:ty ; prepare $( $rest:tt )*) => {
+	($call:ty ; prepare $( $rest:tt )*) => {
 		fn prepare(
 			self,
 			_val: Self::Val,
@@ -454,13 +447,12 @@ macro_rules! impl_tx_ext_default {
 			_call: &$call,
 			_info: &$crate::traits::DispatchInfoOf<$call>,
 			_len: usize,
-			_context: & $context,
 		) -> Result<Self::Pre, $crate::transaction_validity::TransactionValidityError> {
 			Ok(Default::default())
 		}
-		impl_tx_ext_default!{$call ; $context ; $( $rest )*}
+		impl_tx_ext_default!{$call ; $( $rest )*}
 	};
-	($call:ty ; $context:ty ;) => {};
+	($call:ty ;) => {};
 }
 
 /// Information about a [`TransactionExtension`] for the runtime metadata.
@@ -495,8 +487,8 @@ impl TransactionExtensionBase for Tuple {
 }
 
 #[impl_for_tuples(1, 12)]
-impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for Tuple {
-	for_tuples!( where #( Tuple: TransactionExtension<Call, Context> )* );
+impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
+	for_tuples!( where #( Tuple: TransactionExtension<Call> )* );
 	for_tuples!( type Val = ( #( Tuple::Val ),* ); );
 	for_tuples!( type Pre = ( #( Tuple::Pre ),* ); );
 
@@ -506,7 +498,6 @@ impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for Tuple 
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
-		context: &mut Context,
 		self_implicit: Self::Implicit,
 		inherited_implication: &impl Encode,
 	) -> Result<
@@ -534,7 +525,7 @@ impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for Tuple 
 					// passed into the next items in this pipeline-tuple.
 					&following_implicit_implications,
 				);
-				Tuple.validate(origin, call, info, len, context, item_implicit, &implications)?
+				Tuple.validate(origin, call, info, len, item_implicit, &implications)?
 			};
 			let valid = valid.combine_with(item_valid);
 			let val = val.push_back(item_val);
@@ -549,10 +540,9 @@ impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for Tuple 
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
-		context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Ok(for_tuples!( ( #(
-			Tuple::prepare(self.Tuple, val.Tuple, origin, call, info, len, context)?
+			Tuple::prepare(self.Tuple, val.Tuple, origin, call, info, len)?
 		),* ) ))
 	}
 
@@ -562,11 +552,10 @@ impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for Tuple 
 		post_info: &PostDispatchInfoOf<Call>,
 		len: usize,
 		result: &DispatchResult,
-		context: &Context,
 	) -> Result<Option<Weight>, TransactionValidityError> {
 		let mut weight = Weight::zero();
 		for_tuples!( #({
-			let maybe_weight = Tuple::post_dispatch_details(pre.Tuple, info, post_info, len, result, context)?;
+			let maybe_weight = Tuple::post_dispatch_details(pre.Tuple, info, post_info, len, result)?;
 			let actual_weight = maybe_weight.unwrap_or_else(|| Tuple::weight());
 			weight = weight.saturating_add(actual_weight);
 		})* );
@@ -579,9 +568,8 @@ impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for Tuple 
 		post_info: &mut PostDispatchInfoOf<Call>,
 		len: usize,
 		result: &DispatchResult,
-		context: &Context,
 	) -> Result<(), TransactionValidityError> {
-		for_tuples!( #( Tuple::post_dispatch(pre.Tuple, info, post_info, len, result, context)?; )* );
+		for_tuples!( #( Tuple::post_dispatch(pre.Tuple, info, post_info, len, result)?; )* );
 		Ok(())
 	}
 }
@@ -597,7 +585,7 @@ impl TransactionExtensionBase for () {
 	}
 }
 
-impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for () {
+impl<Call: Dispatchable> TransactionExtension<Call> for () {
 	type Val = ();
 	type Pre = ();
 	fn validate(
@@ -606,7 +594,6 @@ impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for () {
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<
@@ -622,7 +609,6 @@ impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for () {
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
-		_context: &Context,
 	) -> Result<(), TransactionValidityError> {
 		Ok(())
 	}
