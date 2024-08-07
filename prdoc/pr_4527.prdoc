@@ -1,0 +1,21 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Call implementation for `transfer_all`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces the `transfer_all` call for `pallet-assets`.
+      The parameters are analog to the same call in `pallet-balances`.
+      This change is expected to be backwards-compatible.
+      This change requires running benchmarkings to set accurate weights for
+      the call.
+
+crates:
+  - name: pallet-assets
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
