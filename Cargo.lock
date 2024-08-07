@@ -14264,6 +14264,7 @@ version = "0.1.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
+ "assets-common-migrations",
  "binary-merkle-tree",
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
