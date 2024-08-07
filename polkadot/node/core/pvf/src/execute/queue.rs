@@ -658,6 +658,13 @@ impl Unscheduled {
 	}
 
 	fn select_next_priority(&self) -> PvfExecPriority {
+		gum::debug!(
+			target: LOG_TARGET,
+			unscheduled = ?self.unscheduled.iter().map(|(p, q)| (*p, q.len())).collect::<HashMap<PvfExecPriority, usize>>(),
+			counter = ?self.counter,
+			"Selecting next execution priority...",
+		);
+
 		let priority = PvfExecPriority::iter()
 			.find(|priority| self.has_pending(priority) && !self.is_fulfilled(priority))
 			.unwrap_or_else(|| {
@@ -703,25 +710,25 @@ impl Unscheduled {
 		let Some(threshold) = Self::fulfilled_threshold(priority) else { return false };
 		let Some(count) = self.counter.get(&priority) else { return false };
 		// Every time we iterate by lower level priorities
-		let total_count: usize = self
+		let total_scheduled_at_priority_or_lower: usize = self
 			.counter
 			.iter()
 			.filter_map(|(p, c)| if *p >= *priority { Some(c) } else { None })
 			.sum();
-		if total_count == 0 {
+		if total_scheduled_at_priority_or_lower == 0 {
 			return false
 		}
 
-		let is_fulfilled = count * 100 / total_count >= threshold;
+		let is_fulfilled = count * 100 / total_scheduled_at_priority_or_lower >= threshold;
 
 		gum::debug!(
 			target: LOG_TARGET,
 			?priority,
 			?count,
-			?total_count,
+			?total_scheduled_at_priority_or_lower,
 			"Execution priority is {}fulfilled: {}/{}%",
 			if is_fulfilled {""} else {"not "},
-			count * 100 / total_count,
+			count * 100 / total_scheduled_at_priority_or_lower,
 			threshold
 		);
 
