@@ -181,24 +181,23 @@ where
 	) -> Result<Option<Weight>, TransactionValidityError> {
 		let (pre_dispatch_proof_size, inner_pre) = pre;
 
-		let mut actual_post_info = *post_info;
-		S::post_dispatch(inner_pre, info, &mut actual_post_info, len, result, context)?;
+		let mut post_info_with_inner = *post_info;
+		S::post_dispatch(inner_pre, info, &mut post_info_with_inner, len, result, context)?;
 
-		let inner_weight = actual_post_info
-			.actual_weight
-			.map(|actual_weight| actual_weight.saturating_sub(post_info.actual_weight.unwrap()));
+		let inner_weight = post_info_with_inner.actual_weight.map(|actual_weight| {
+			actual_weight.saturating_sub(post_info.actual_weight.unwrap_or_default())
+		});
 
-		let Some(pre_dispatch_proof_size) = pre_dispatch_proof_size else {
-			// No information
-			return Ok(inner_weight);
-		};
+		let post_dispatch_weight = inner_weight.map(|actual_weight| {
+			actual_weight.saturating_add(T::WeightInfo::storage_weight_reclaim())
+		});
 
 		let Some(post_dispatch_proof_size) = get_proof_size() else {
 			log::debug!(
 				target: LOG_TARGET,
 				"Proof recording enabled during prepare, now disabled. This should not happen."
 			);
-			return Ok(inner_weight)
+			return Ok(post_dispatch_weight)
 		};
 
 		let benchmarked_weight = info.total_weight().proof_size();
@@ -207,7 +206,10 @@ where
 		// Unspent weight according to the `actual_weight` from `PostDispatchInfo`
 		// This unspent weight will be refunded by the `CheckWeight` extension, so we need to
 		// account for that.
-		let unspent = post_info.calc_unspent(info).proof_size();
+		// We don't include `T::WeightInfo::storage_weight_reclaim` into the `post_info_with_inner`
+		// because it is not taken into account when `CheckWeight` computes the unspent weight.
+		// TODO: anyway decreasing post info will make things accurate for `CheckWeight`.
+		let unspent = post_info_with_inner.calc_unspent(info).proof_size();
 		let storage_size_diff =
 			benchmarked_weight.saturating_sub(unspent).abs_diff(consumed_weight as u64);
 
@@ -232,6 +234,6 @@ where
 			}
 		});
 
-		Ok(inner_weight)
+		Ok(post_dispatch_weight)
 	}
 }
