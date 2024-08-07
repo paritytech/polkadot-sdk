@@ -14,10 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::common::NodeExtraArgs;
+use crate::common::{
+	chain_spec::{Extensions, GenericChainSpec, LoadSpec},
+	NodeExtraArgs,
+};
 use clap::{Command, CommandFactory, FromArgMatches};
+use sc_chain_spec::ChainSpec;
 use sc_cli::SubstrateCli;
-use std::path::PathBuf;
+use std::{fmt::Debug, path::PathBuf};
 
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
@@ -68,6 +72,9 @@ pub enum Subcommand {
 	after_help = crate::examples(Self::executable_name())
 )]
 pub struct Cli {
+	#[arg(skip)]
+	pub(crate) chain_spec_loader: Option<Box<dyn LoadSpec>>,
+
 	#[command(subcommand)]
 	pub subcommand: Option<Subcommand>,
 
@@ -111,6 +118,48 @@ impl Cli {
 	}
 }
 
+impl SubstrateCli for Cli {
+	fn impl_name() -> String {
+		Self::executable_name()
+	}
+
+	fn impl_version() -> String {
+		env!("SUBSTRATE_CLI_IMPL_VERSION").into()
+	}
+
+	fn description() -> String {
+		format!(
+			"The command-line arguments provided first will be passed to the parachain node, \n\
+			and the arguments provided after -- will be passed to the relay chain node. \n\
+			\n\
+			Example: \n\
+			\n\
+			{} [parachain-args] -- [relay-chain-args]",
+			Self::executable_name()
+		)
+	}
+
+	fn author() -> String {
+		env!("CARGO_PKG_AUTHORS").into()
+	}
+
+	fn support_url() -> String {
+		"https://github.com/paritytech/polkadot-sdk/issues/new".into()
+	}
+
+	fn copyright_start_year() -> i32 {
+		2017
+	}
+
+	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
+		if let Some(chain_spec_loader) = &self.chain_spec_loader {
+			return chain_spec_loader.load_spec(id);
+		}
+
+		Ok(Box::new(GenericChainSpec::from_json_file(id.into())?))
+	}
+}
+
 #[derive(Debug)]
 pub struct RelayChainCli {
 	/// The actual relay chain cli object.
@@ -121,6 +170,36 @@ pub struct RelayChainCli {
 
 	/// The base path that should be used by the relay chain.
 	pub base_path: Option<PathBuf>,
+}
+
+impl SubstrateCli for RelayChainCli {
+	fn impl_name() -> String {
+		Cli::impl_name()
+	}
+
+	fn impl_version() -> String {
+		Cli::impl_version()
+	}
+
+	fn description() -> String {
+		Cli::description()
+	}
+
+	fn author() -> String {
+		Cli::author()
+	}
+
+	fn support_url() -> String {
+		Cli::support_url()
+	}
+
+	fn copyright_start_year() -> i32 {
+		Cli::copyright_start_year()
+	}
+
+	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
+		polkadot_cli::Cli::from_iter([RelayChainCli::executable_name()].iter()).load_spec(id)
+	}
 }
 
 impl RelayChainCli {
@@ -146,7 +225,7 @@ impl RelayChainCli {
 		let matches = polkadot_cmd.get_matches_from(relay_chain_args);
 		let base = FromArgMatches::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
 
-		let extension = crate::chain_spec::Extensions::try_get(&*para_config.chain_spec);
+		let extension = Extensions::try_get(&*para_config.chain_spec);
 		let chain_id = extension.map(|e| e.relay_chain.clone());
 
 		let base_path = para_config.base_path.path().join("polkadot");

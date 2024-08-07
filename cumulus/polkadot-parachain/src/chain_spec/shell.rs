@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::{Extensions, GenericChainSpec};
+use crate::common::chain_spec::{Extensions, GenericChainSpec};
 use cumulus_primitives_core::ParaId;
 use parachains_common::AuraId;
 use sc_service::ChainType;

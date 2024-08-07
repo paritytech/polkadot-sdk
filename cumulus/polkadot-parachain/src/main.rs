@@ -19,6 +19,8 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
+use crate::command::CommandConfig;
+
 pub(crate) fn examples(executable_name: String) -> String {
 	color_print::cformat!(
 		r#"<bold><underline>Examples:</></>
@@ -52,5 +54,10 @@ mod service;
 
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
-	Ok(command::run()?)
+
+	let config = CommandConfig {
+		chain_spec_loader: Some(Box::new(chain_spec::ChainSpecLoader)),
+		runtime_resolver: Some(Box::new(chain_spec::RuntimeResolver)),
+	};
+	Ok(command::run(config)?)
 }
