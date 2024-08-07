@@ -24,6 +24,8 @@ use sp_runtime::TryRuntimeError;
 pub mod unversioned {
 	use super::*;
 	use sp_runtime::traits::AccountIdConversion;
+	#[cfg(feature = "try-runtime")]
+	use alloc::vec::Vec;
 
 	/// Migrates delegation from older derivation of [`AccountType::ProxyDelegator`] accounts
 	/// to the new one for all agents.
