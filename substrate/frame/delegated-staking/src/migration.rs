@@ -27,7 +27,7 @@ pub mod unversioned {
 
 	/// Migrates delegation from older derivation of [`AccountType::ProxyDelegator`] accounts
 	/// to the new one for all agents.
-	pub struct ProxyDelegatorMigration<T, MaxAgents>(sp_std::marker::PhantomData<(T, MaxAgents)>);
+	pub struct ProxyDelegatorMigration<T, MaxAgents>(PhantomData<(T, MaxAgents)>);
 
 	impl<T: Config, MaxAgents: Get<u32>> OnRuntimeUpgrade for ProxyDelegatorMigration<T, MaxAgents> {
 		fn on_runtime_upgrade() -> Weight {
