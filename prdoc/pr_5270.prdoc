@@ -1,0 +1,18 @@
+title: "Inclusion: account for enact_candidate weight"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      We are now properly accounting for the `enact_candidate`s weight in
+      processing of a relay chain block inherent. This may result in some
+      of the user relay chain transactions not being included in the block if
+      it's really heavy. This should be fine though as we are moving towards
+      the minimum relay chain.
+
+crates:
+- name: polkadot-runtime-parachains
+  bump: major
+- name: westend-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
