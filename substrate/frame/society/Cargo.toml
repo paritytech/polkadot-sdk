@@ -4,7 +4,7 @@ version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME society pallet"
 readme = "README.md"
@@ -17,24 +17,23 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 log = { workspace = true }
-rand_chacha = { version = "0.3.1", default-features = false }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
+rand_chacha = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+codec = { features = ["derive"], workspace = true }
 
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
+sp-io = { workspace = true }
+sp-arithmetic = { workspace = true }
+sp-runtime = { workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 
 [dev-dependencies]
-frame-support-test = { path = "../support/test" }
-pallet-balances = { path = "../balances" }
-sp-core = { path = "../../primitives/core" }
-sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
-sp-io = { path = "../../primitives/io" }
+frame-support-test = { workspace = true }
+pallet-balances = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -52,7 +51,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

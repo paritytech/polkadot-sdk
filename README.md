@@ -10,10 +10,7 @@
 forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 <!-- markdownlint-disable-next-line MD013 -->
-[![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)&nbsp;&nbsp;![GitHub contributors](https://img.shields.io/github/contributors/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub commit activity](https://img.shields.io/github/commit-activity/m/paritytech/polkadot-sdk)
-
-![GitHub lines of code](https://tokei.rs/b1/github/paritytech/polkadot-sdk)&nbsp;&nbsp;
-![GitHub last commit](https://img.shields.io/github/last-commit/paritytech/polkadot-sdk)
+[![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)&nbsp;&nbsp;![GitHub contributors](https://img.shields.io/github/contributors/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub commit activity](https://img.shields.io/github/commit-activity/m/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub last commit](https://img.shields.io/github/last-commit/paritytech/polkadot-sdk)
 
 > The Polkadot SDK repository provides all the components needed to start building on the
 > [Polkadot](https://polkadot.network) network, a multi-chain blockchain platform that enables
@@ -21,11 +18,21 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 </div>
 
+## ⚡ Quickstart
+If you want to get an example node running quickly you can execute the following getting started script:
+```
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/scripts/getting-started.sh | bash
+```
+
 ## 📚 Documentation
 
 * [🦀 rust-docs](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html)
- * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
-   to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
+  * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
+	to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
+  * [Guides](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/index.html),
+	namely how to build your first FRAME pallet.
+  * [Templates](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/templates/index.html)
+    for starting a new project.
 * Other Resources:
   * [Polkadot Wiki -> Build](https://wiki.polkadot.network/docs/build-guide)
 
@@ -38,6 +45,9 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 The Polkadot-SDK has two release channels: `stable` and `nightly`. Production software is advised to
 only use `stable`. `nightly` is meant for tinkerers to try out the latest features. The detailed
 release process is described in [RELEASE.md](docs/RELEASE.md).
+
+You can use [`psvm`](https://github.com/paritytech/psvm) to manage your Polkadot-SDK dependency
+versions in downstream projects.
 
 ### 😌 Stable
 

@@ -5,7 +5,7 @@ version = "29.0.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 
@@ -16,46 +16,45 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-array-bytes = "6.2.2"
-bytes = "1.1"
-codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
-fnv = "1.0.6"
-futures = "0.3.30"
-futures-timer = "3.0.2"
-hyper = { version = "0.14.16", features = ["http2", "stream"] }
-hyper-rustls = { version = "0.24.0", features = ["http2"] }
-libp2p = "0.51.4"
-num_cpus = "1.13"
-once_cell = "1.19"
-parking_lot = "0.12.1"
-rand = "0.8.5"
-threadpool = "1.7"
-tracing = "0.1.29"
-sc-client-api = { path = "../api" }
-sc-network = { path = "../network" }
-sc-network-common = { path = "../network/common" }
-sc-network-types = { path = "../network/types" }
-sc-transaction-pool-api = { path = "../transaction-pool/api" }
-sc-utils = { path = "../utils" }
-sp-api = { path = "../../primitives/api" }
-sp-core = { path = "../../primitives/core" }
-sp-offchain = { path = "../../primitives/offchain" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-keystore = { path = "../../primitives/keystore" }
-sp-externalities = { path = "../../primitives/externalities" }
+array-bytes = { workspace = true, default-features = true }
+bytes = { workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
+fnv = { workspace = true }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+hyperv14 = { features = ["http2", "stream"], workspace = true, default-features = true }
+hyper-rustls = { features = ["http2"], workspace = true }
+num_cpus = { workspace = true }
+once_cell = { workspace = true }
+parking_lot = { workspace = true, default-features = true }
+rand = { workspace = true, default-features = true }
+threadpool = { workspace = true }
+tracing = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-common = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
+sc-transaction-pool-api = { workspace = true, default-features = true }
+sc-utils = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-offchain = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-externalities = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 
 [dev-dependencies]
-async-trait = "0.1"
-lazy_static = "1.4.0"
-tokio = "1.37"
-sc-block-builder = { path = "../block-builder" }
-sc-client-db = { path = "../db", default-features = true }
-sc-transaction-pool = { path = "../transaction-pool" }
-sc-transaction-pool-api = { path = "../transaction-pool/api" }
-sp-consensus = { path = "../../primitives/consensus/common" }
-sp-tracing = { path = "../../primitives/tracing" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+async-trait = { workspace = true }
+lazy_static = { workspace = true }
+tokio = { workspace = true, default-features = true }
+sc-block-builder = { workspace = true, default-features = true }
+sc-client-db = { default-features = true, workspace = true }
+sc-transaction-pool = { workspace = true, default-features = true }
+sc-transaction-pool-api = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
 
 [features]
 default = []

@@ -333,8 +333,8 @@ pub mod json_patch;
 
 pub use self::{
 	chain_spec::{
-		update_code_in_json_chain_spec, ChainSpec as GenericChainSpec, ChainSpecBuilder,
-		NoExtension,
+		set_code_substitute_in_json_chain_spec, update_code_in_json_chain_spec,
+		ChainSpec as GenericChainSpec, ChainSpecBuilder, NoExtension,
 	},
 	extension::{get_extension, get_extension_mut, Extension, Fork, Forks, GetExtension, Group},
 	genesis_block::{

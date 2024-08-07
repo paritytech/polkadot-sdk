@@ -58,13 +58,18 @@
 //!   3 holds for 100 units, the account can spend its funds for any reason down to 300 units, at
 //!   which point the holds will start to come into play.
 //!
-//! - **Frozen Balance**: A freeze on a specified amount of an account's free balance until a
-//!   specified block number.
+//! - **Frozen Balance**: A freeze on a specified amount of an account's balance. Tokens that are
+//!   frozen cannot be transferred.
 //!
 //!   Multiple freezes always operate over the same funds, so they "overlay" rather than
 //!   "stack". This means that if an account has 3 freezes for 100 units, the account can spend its
 //!   funds for any reason down to 100 units, at which point the freezes will start to come into
 //!   play.
+//!
+//!   It's important to note that the frozen balance can exceed the total balance of the account.
+//!   This is useful, eg, in cases where you want to prevent a user from transferring any fund. In
+//!   such a case, setting the frozen balance to `Balance::MAX` would serve that purpose
+//! effectively.
 //!
 //! - **Minimum Balance (a.k.a. Existential Deposit, a.k.a. ED)**: The minimum balance required to
 //!   create or keep an account open. This is to prevent "dust accounts" from filling storage. When
@@ -156,9 +161,9 @@ mod regular;
 mod union_of;
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use sp_std::marker::PhantomData;
 
 use super::{
 	Fortitude::{Force, Polite},
@@ -198,31 +203,40 @@ use crate::{
 	MaxEncodedLen,
 	RuntimeDebugNoBound,
 )]
-#[scale_info(skip_type_params(A, F, R, D))]
+#[scale_info(skip_type_params(A, F, R, D, Fp))]
 #[codec(mel_bound())]
-pub struct FreezeConsideration<A, F, R, D>(F::Balance, PhantomData<fn() -> (A, R, D)>)
+pub struct FreezeConsideration<A, F, R, D, Fp>(F::Balance, PhantomData<fn() -> (A, R, D, Fp)>)
 where
 	F: MutateFreeze<A>;
 impl<
 		A: 'static,
 		F: 'static + MutateFreeze<A>,
 		R: 'static + Get<F::Id>,
-		D: 'static + Convert<Footprint, F::Balance>,
-	> Consideration<A> for FreezeConsideration<A, F, R, D>
+		D: 'static + Convert<Fp, F::Balance>,
+		Fp: 'static,
+	> Consideration<A, Fp> for FreezeConsideration<A, F, R, D, Fp>
 {
-	fn new(who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
+	fn new(who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
 		let new = D::convert(footprint);
-		F::increase_frozen(&R::get(), who, new)?;
-		Ok(Self(new, PhantomData))
+		if new.is_zero() {
+			Ok(None)
+		} else {
+			F::increase_frozen(&R::get(), who, new)?;
+			Ok(Some(Self(new, PhantomData)))
+		}
 	}
-	fn update(self, who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
+	fn update(self, who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
 		let new = D::convert(footprint);
 		if self.0 > new {
 			F::decrease_frozen(&R::get(), who, self.0 - new)?;
 		} else if new > self.0 {
 			F::increase_frozen(&R::get(), who, new - self.0)?;
 		}
-		Ok(Self(new, PhantomData))
+		if new.is_zero() {
+			Ok(None)
+		} else {
+			Ok(Some(Self(new, PhantomData)))
+		}
 	}
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		F::decrease_frozen(&R::get(), who, self.0).map(|_| ())
@@ -240,31 +254,43 @@ impl<
 	MaxEncodedLen,
 	RuntimeDebugNoBound,
 )]
-#[scale_info(skip_type_params(A, F, R, D))]
+#[scale_info(skip_type_params(A, F, R, D, Fp))]
 #[codec(mel_bound())]
-pub struct HoldConsideration<A, F, R, D>(F::Balance, PhantomData<fn() -> (A, R, D)>)
+pub struct HoldConsideration<A, F, R, D, Fp = Footprint>(
+	F::Balance,
+	PhantomData<fn() -> (A, R, D, Fp)>,
+)
 where
 	F: MutateHold<A>;
 impl<
 		A: 'static,
 		F: 'static + MutateHold<A>,
 		R: 'static + Get<F::Reason>,
-		D: 'static + Convert<Footprint, F::Balance>,
-	> Consideration<A> for HoldConsideration<A, F, R, D>
+		D: 'static + Convert<Fp, F::Balance>,
+		Fp: 'static,
+	> Consideration<A, Fp> for HoldConsideration<A, F, R, D, Fp>
 {
-	fn new(who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
+	fn new(who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
 		let new = D::convert(footprint);
-		F::hold(&R::get(), who, new)?;
-		Ok(Self(new, PhantomData))
+		if new.is_zero() {
+			Ok(None)
+		} else {
+			F::hold(&R::get(), who, new)?;
+			Ok(Some(Self(new, PhantomData)))
+		}
 	}
-	fn update(self, who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
+	fn update(self, who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
 		let new = D::convert(footprint);
 		if self.0 > new {
 			F::release(&R::get(), who, self.0 - new, BestEffort)?;
 		} else if new > self.0 {
 			F::hold(&R::get(), who, new - self.0)?;
 		}
-		Ok(Self(new, PhantomData))
+		if new.is_zero() {
+			Ok(None)
+		} else {
+			Ok(Some(Self(new, PhantomData)))
+		}
 	}
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		F::release(&R::get(), who, self.0, BestEffort).map(|_| ())
@@ -291,22 +317,34 @@ impl<
 	MaxEncodedLen,
 	RuntimeDebugNoBound,
 )]
-#[scale_info(skip_type_params(A, Fx, Rx, D))]
+#[scale_info(skip_type_params(A, Fx, Rx, D, Fp))]
 #[codec(mel_bound())]
-pub struct LoneFreezeConsideration<A, Fx, Rx, D>(PhantomData<fn() -> (A, Fx, Rx, D)>);
+pub struct LoneFreezeConsideration<A, Fx, Rx, D, Fp>(PhantomData<fn() -> (A, Fx, Rx, D, Fp)>);
 impl<
 		A: 'static,
 		Fx: 'static + MutateFreeze<A>,
 		Rx: 'static + Get<Fx::Id>,
-		D: 'static + Convert<Footprint, Fx::Balance>,
-	> Consideration<A> for LoneFreezeConsideration<A, Fx, Rx, D>
+		D: 'static + Convert<Fp, Fx::Balance>,
+		Fp: 'static,
+	> Consideration<A, Fp> for LoneFreezeConsideration<A, Fx, Rx, D, Fp>
 {
-	fn new(who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
+	fn new(who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
 		ensure!(Fx::balance_frozen(&Rx::get(), who).is_zero(), DispatchError::Unavailable);
-		Fx::set_frozen(&Rx::get(), who, D::convert(footprint), Polite).map(|_| Self(PhantomData))
+		let new = D::convert(footprint);
+		if new.is_zero() {
+			Ok(None)
+		} else {
+			Fx::set_frozen(&Rx::get(), who, new, Polite).map(|_| Some(Self(PhantomData)))
+		}
 	}
-	fn update(self, who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
-		Fx::set_frozen(&Rx::get(), who, D::convert(footprint), Polite).map(|_| Self(PhantomData))
+	fn update(self, who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
+		let new = D::convert(footprint);
+		let _ = Fx::set_frozen(&Rx::get(), who, new, Polite)?;
+		if new.is_zero() {
+			Ok(None)
+		} else {
+			Ok(Some(Self(PhantomData)))
+		}
 	}
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		Fx::thaw(&Rx::get(), who).map(|_| ())
@@ -330,22 +368,34 @@ impl<
 	MaxEncodedLen,
 	RuntimeDebugNoBound,
 )]
-#[scale_info(skip_type_params(A, Fx, Rx, D))]
+#[scale_info(skip_type_params(A, Fx, Rx, D, Fp))]
 #[codec(mel_bound())]
-pub struct LoneHoldConsideration<A, Fx, Rx, D>(PhantomData<fn() -> (A, Fx, Rx, D)>);
+pub struct LoneHoldConsideration<A, Fx, Rx, D, Fp>(PhantomData<fn() -> (A, Fx, Rx, D, Fp)>);
 impl<
 		A: 'static,
 		F: 'static + MutateHold<A>,
 		R: 'static + Get<F::Reason>,
-		D: 'static + Convert<Footprint, F::Balance>,
-	> Consideration<A> for LoneHoldConsideration<A, F, R, D>
+		D: 'static + Convert<Fp, F::Balance>,
+		Fp: 'static,
+	> Consideration<A, Fp> for LoneHoldConsideration<A, F, R, D, Fp>
 {
-	fn new(who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
+	fn new(who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
 		ensure!(F::balance_on_hold(&R::get(), who).is_zero(), DispatchError::Unavailable);
-		F::set_on_hold(&R::get(), who, D::convert(footprint)).map(|_| Self(PhantomData))
+		let new = D::convert(footprint);
+		if new.is_zero() {
+			Ok(None)
+		} else {
+			F::set_on_hold(&R::get(), who, new).map(|_| Some(Self(PhantomData)))
+		}
 	}
-	fn update(self, who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
-		F::set_on_hold(&R::get(), who, D::convert(footprint)).map(|_| Self(PhantomData))
+	fn update(self, who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
+		let new = D::convert(footprint);
+		let _ = F::set_on_hold(&R::get(), who, new)?;
+		if new.is_zero() {
+			Ok(None)
+		} else {
+			Ok(Some(Self(PhantomData)))
+		}
 	}
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		F::release_all(&R::get(), who, BestEffort).map(|_| ())
