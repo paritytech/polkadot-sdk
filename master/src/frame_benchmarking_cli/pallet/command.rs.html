@@ -1202,6 +1202,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1051" id="1051">1051</a>
 <a href="#1052" id="1052">1052</a>
 <a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1241,12 +1250,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
 	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt, WrappedRuntimeCode},
+	Hasher,
 };
 <span class="kw">use </span>sp_externalities::Extensions;
 <span class="kw">use </span>sp_genesis_builder::{PresetId, <span class="prelude-ty">Result </span><span class="kw">as </span>GenesisBuildResult};
 <span class="kw">use </span>sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 <span class="kw">use </span>sp_runtime::traits::Hash;
 <span class="kw">use </span>sp_state_machine::{OverlayedChanges, StateMachine};
+<span class="kw">use </span>sp_trie::{proof_size_extension::ProofSizeExt, recorder::Recorder};
 <span class="kw">use </span>sp_wasm_interface::HostFunctions;
 <span class="kw">use </span>std::{
 	borrow::Cow,
@@ -1429,11 +1440,12 @@ become a hard error any time after December 2024."</span>;
 			<span class="comment">// Enable storage tracking
 			</span><span class="bool-val">true</span>,
 		)<span class="question-mark">?</span>;
+
 		<span class="kw">let </span>state_without_tracking = BenchmarkingState::&lt;Hasher&gt;::new(
 			genesis_storage,
 			cache_size,
-			<span class="comment">// Do not record proof size
-			</span><span class="bool-val">false</span>,
+			<span class="comment">// Proof recording depends on CLI settings
+			</span>!<span class="self">self</span>.disable_proof_recording,
 			<span class="comment">// Do not enable storage tracking
 			</span><span class="bool-val">false</span>,
 		)<span class="question-mark">?</span>;
@@ -1467,7 +1479,7 @@ become a hard error any time after December 2024."</span>;
 					<span class="kw-2">&amp;</span>executor,
 					<span class="string">"Benchmark_benchmark_metadata"</span>,
 					<span class="kw-2">&amp;</span>(<span class="self">self</span>.extra).encode(),
-					<span class="kw-2">&amp;mut </span><span class="self">Self</span>::build_extensions(executor.clone()),
+					<span class="kw-2">&amp;mut </span><span class="self">Self</span>::build_extensions(executor.clone(), state.recorder()),
 					<span class="kw-2">&amp;</span>runtime_code,
 					CallContext::Offchain,
 				),
@@ -1569,7 +1581,7 @@ become a hard error any time after December 2024."</span>;
 								</span><span class="number">1</span>,    <span class="comment">// no need to do internal repeats
 							</span>)
 								.encode(),
-							<span class="kw-2">&amp;mut </span><span class="self">Self</span>::build_extensions(executor.clone()),
+							<span class="kw-2">&amp;mut </span><span class="self">Self</span>::build_extensions(executor.clone(), state.recorder()),
 							<span class="kw-2">&amp;</span>runtime_code,
 							CallContext::Offchain,
 						),
@@ -1610,7 +1622,7 @@ become a hard error any time after December 2024."</span>;
 								</span><span class="self">self</span>.repeat,
 							)
 								.encode(),
-							<span class="kw-2">&amp;mut </span><span class="self">Self</span>::build_extensions(executor.clone()),
+							<span class="kw-2">&amp;mut </span><span class="self">Self</span>::build_extensions(executor.clone(), state.recorder()),
 							<span class="kw-2">&amp;</span>runtime_code,
 							CallContext::Offchain,
 						),
@@ -1653,7 +1665,7 @@ become a hard error any time after December 2024."</span>;
 								</span><span class="self">self</span>.repeat,
 							)
 								.encode(),
-							<span class="kw-2">&amp;mut </span><span class="self">Self</span>::build_extensions(executor.clone()),
+							<span class="kw-2">&amp;mut </span><span class="self">Self</span>::build_extensions(executor.clone(), state.recorder()),
 							<span class="kw-2">&amp;</span>runtime_code,
 							CallContext::Offchain,
 						),
@@ -1830,7 +1842,7 @@ become a hard error any time after December 2024."</span>;
 				<span class="kw-2">&amp;</span>executor,
 				<span class="string">"GenesisBuilder_get_preset"</span>,
 				<span class="kw-2">&amp;</span><span class="prelude-val">None</span>::&lt;PresetId&gt;.encode(), <span class="comment">// Use the default preset
-				</span><span class="kw-2">&amp;mut </span><span class="self">Self</span>::build_extensions(executor.clone()),
+				</span><span class="kw-2">&amp;mut </span><span class="self">Self</span>::build_extensions(executor.clone(), state.recorder()),
 				<span class="kw-2">&amp;</span>runtime_code,
 				CallContext::Offchain,
 			),
@@ -1851,7 +1863,7 @@ become a hard error any time after December 2024."</span>;
 				<span class="kw-2">&amp;</span>executor,
 				<span class="string">"GenesisBuilder_get_preset"</span>,
 				<span class="kw-2">&amp;</span><span class="prelude-val">Some</span>::&lt;PresetId&gt;(GENESIS_PRESET.into()).encode(), <span class="comment">// Use the default preset
-				</span><span class="kw-2">&amp;mut </span><span class="self">Self</span>::build_extensions(executor.clone()),
+				</span><span class="kw-2">&amp;mut </span><span class="self">Self</span>::build_extensions(executor.clone(), state.recorder()),
 				<span class="kw-2">&amp;</span>runtime_code,
 				CallContext::Offchain,
 			),
@@ -1911,7 +1923,10 @@ become a hard error any time after December 2024."</span>;
 	}
 
 	<span class="doccomment">/// Build the extension that are available for pallet benchmarks.
-	</span><span class="kw">fn </span>build_extensions&lt;E: CodeExecutor&gt;(exe: E) -&gt; Extensions {
+	</span><span class="kw">fn </span>build_extensions&lt;E: CodeExecutor, H: Hasher + <span class="lifetime">'static</span>&gt;(
+		exe: E,
+		maybe_recorder: <span class="prelude-ty">Option</span>&lt;Recorder&lt;H&gt;&gt;,
+	) -&gt; Extensions {
 		<span class="kw">let </span><span class="kw-2">mut </span>extensions = Extensions::default();
 		<span class="kw">let </span>(offchain, <span class="kw">_</span>) = TestOffchainExt::new();
 		<span class="kw">let </span>(pool, <span class="kw">_</span>) = TestTransactionPoolExt::new();
@@ -1921,6 +1936,9 @@ become a hard error any time after December 2024."</span>;
 		extensions.register(OffchainDbExt::new(offchain));
 		extensions.register(TransactionPoolExt::new(pool));
 		extensions.register(ReadRuntimeVersionExt::new(exe));
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(recorder) = maybe_recorder {
+			extensions.register(ProofSizeExt::new(recorder));
+		}
 		extensions
 	}
 

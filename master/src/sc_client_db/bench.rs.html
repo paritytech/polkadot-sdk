@@ -877,6 +877,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#726" id="726">726</a>
 <a href="#727" id="727">727</a>
 <a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1056,6 +1061,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		state.commit(root, transaction, Vec::new(), Vec::new())<span class="question-mark">?</span>;
 		state.record.take();
 		<span class="prelude-val">Ok</span>(state)
+	}
+
+	<span class="doccomment">/// Get the proof recorder for this state
+	</span><span class="kw">pub fn </span>recorder(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;sp_trie::recorder::Recorder&lt;Hasher&gt;&gt; {
+		<span class="self">self</span>.proof_recorder.clone()
 	}
 
 	<span class="kw">fn </span>reopen(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {

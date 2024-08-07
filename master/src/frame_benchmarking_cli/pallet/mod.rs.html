@@ -395,6 +395,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#244" id="244">244</a>
 <a href="#245" id="245">245</a>
 <a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -640,6 +649,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// use-cases, this option reduces the noise.
 	</span><span class="attr">#[arg(long)]
 	</span>quiet: bool,
+
+	<span class="doccomment">/// Do not enable proof recording during time benchmarking.
+	///
+	/// By default, proof recording is enabled during benchmark execution. This can slightly
+	/// inflate the resulting time weights. For parachains using PoV-reclaim, this is typically the
+	/// correct setting. Chains that ignore the proof size dimension of weight (e.g. relay chain,
+	/// solo-chains) can disable proof recording to get more accurate results.
+	</span><span class="attr">#[arg(long)]
+	</span>disable_proof_recording: bool,
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
