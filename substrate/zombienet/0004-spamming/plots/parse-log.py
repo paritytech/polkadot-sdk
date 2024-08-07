@@ -97,7 +97,7 @@ def main():
         },
         {
             "type": "txpool_maintain",
-            "regex": "(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d{3})?).*maintain: txs:\((\d+), (\d+)\) views:\[(\d+);.*\] event:(NewBestBlock|Finalized) {.*}  took:(\d+\.\d+)([µms]+)",
+            "regex": "(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d{3})?).*maintain: txs:\((\d+), (\d+)\) views:\[(\d+);.*\] event:(NewBlock|NewBestBlock|Finalized) {.*}  took:(\d+\.\d+)([µms]+)",
             "guard": "maintain: txs:",
             "column_names": ["date", "time", "unwatched_txs", "watched_txs", "views_count", "event", "duration"],
             "extract_data": lambda match: (
@@ -106,7 +106,7 @@ def main():
                     match.group(3),
                     match.group(4),
                     match.group(5),
-                    2 if match.group(6) == "Finalized" else 1,
+                    2 if match.group(6) == "Finalized" else 1 if match.group(6) == "NewBestBlock" else 0,
                     convert_to_microseconds(match.group(7), match.group(8))
                 )
         },

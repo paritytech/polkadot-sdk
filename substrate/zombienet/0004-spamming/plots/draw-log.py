@@ -18,11 +18,15 @@ def file_line_count(file):
 def import_graph():
     return f"""
 set style line 1 lc rgb 'red' lt 1 lw 1 pt 1 pi -1 ps 3
-filter(x)=(x==2)?(2):(1/0)
+filter(v,x)=(x==v)?(v):(1/0)
+set y2range [0:10]
 plot \
   file1 using (combine_datetime("date","time")):"block_number" with steps ls 1 axes x1y1 title "import", \
-  file1 using (combine_datetime("date","time")):"block_number" with points pt 2 ps 3 lc rgb "blue" title "NBB", \
-  file2 using (combine_datetime("date","time")):(filter(column("event"))) with points ps 3 title "Finalized" axes x1y2
+  file1 using (combine_datetime("date","time")):"block_number" with points pt 2 ps 3 lc rgb "blue" title "new block", \
+  file2 using (combine_datetime("date","time")):(filter(2,column("event"))) with points lc rgb "red" pt 1 ps 3 title "Finalized" axes x1y2, \
+  file2 using (combine_datetime("date","time")):(filter(1,column("event"))) with points lc rgb "blue" pt 2 ps 3 title "NewBestBlock" axes x1y2, \
+  file2 using (combine_datetime("date","time")):(filter(0,column("event"))) with points lc rgb "green" pt 3 ps 3 title "NewBlock" axes x1y2 
+unset y2range
 """
 
 def import_transaction_graph():
