@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722973798796,
+  "lastUpdate": 1723031159619,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21111,6 +21111,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16977515894666673,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Ron",
+            "username": "yrong",
+            "email": "yrong1997@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "efdc1e9b1615c5502ed63ffc9683d99af6397263",
+          "message": "Snowbridge on Westend (#5074)\n\n### Context\n\nSince Rococo is now deprecated, we need another testnet to detect\nbleeding-edge changes to Substrate, Polkadot, & BEEFY consensus\nprotocols that could brick the bridge.\n\nIt's the mirror PR of https://github.com/Snowfork/polkadot-sdk/pull/157\nwhich has reviewed by Snowbridge team internally.\n\nSynced with @acatangiu about that in channel\nhttps://matrix.to/#/!gxqZwOyvhLstCgPJHO:matrix.parity.io/$N0CvTfDSl3cOQLEJeZBh-wlKJUXx7EDHAuNN5HuYHY4?via=matrix.parity.io&via=parity.io&via=matrix.org\n\n---------\n\nCo-authored-by: Clara van Staden <claravanstaden64@gmail.com>",
+          "timestamp": "2024-08-07T09:49:21Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/efdc1e9b1615c5502ed63ffc9683d99af6397263"
+        },
+        "date": 1723031128936,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.011901658593333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009089438946666669,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02196891750666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16762533119333337,
             "unit": "seconds"
           }
         ]
