@@ -14,6 +14,7 @@
 // limitations under the License.
 
 mod burn_at_relay;
+mod claim_assets;
 mod fellowship_treasury;
 mod hybrid_transfers;
 mod reserve_transfer;

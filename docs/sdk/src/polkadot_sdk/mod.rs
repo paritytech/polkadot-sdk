@@ -12,7 +12,7 @@
 //!
 //! [![RFCs](https://img.shields.io/badge/fellowship-RFCs-e6007a?logo=polkadot)](https://github.com/polkadot-fellows/rfcs)
 //! [![Runtime](https://img.shields.io/badge/fellowship-runtimes-e6007a?logo=polkadot)](https://github.com/polkadot-fellows/runtimes)
-//! [![Manifesto](https://img.shields.io/badge/fellowship-manifesto-e6007a?logo=polkadot)](https://github.com/polkadot-fellows/manifesto)
+//! [![Manifesto](https://img.shields.io/badge/fellowship-manifesto-e6007a?logo=polkadot)](https://github.com/polkadot-fellows/manifesto/blob/main/manifesto.pdf)
 //!
 //! ## Getting Started
 //!
@@ -34,7 +34,7 @@
 //! Repo](https://img.shields.io/badge/github-substrate-2324CC85)](https://github.com/paritytech/polkadot-sdk/blob/master/substrate)
 //!
 //! [`substrate`] is the base blockchain framework used to power the Polkadot SDK. It is a full
-//! toolkit to create sovereign blockchains, including but not limited to those who connect to
+//! toolkit to create sovereign blockchains, including but not limited to those which connect to
 //! Polkadot as parachains.
 //!
 //! #### FRAME
@@ -82,7 +82,7 @@
 //!
 //! A Substrate-based chain is a blockchain composed of a runtime and a node. As noted above, the
 //! runtime is the application logic of the blockchain, and the node is everything else.
-//! See [`crate::reference_docs::wasm_meta_protocol`] for an in-depth explanation of this. The
+//! See [`reference_docs::wasm_meta_protocol`] for an in-depth explanation of this. The
 //! former is built with [`frame`], and the latter is built with rest of Substrate.
 //!
 //! > You can think of a Substrate-based chain as a white-labeled blockchain.
@@ -103,8 +103,8 @@
 //!
 //! ## Trophy Section: Notable Downstream Projects
 //!
-//! A list of projects and tools in the blockchain ecosystem that one way or another parts of the
-//! Polkadot SDK:
+//! A list of projects and tools in the blockchain ecosystem that one way or another use parts of
+//! the Polkadot SDK:
 //!
 //! * [Polygon's spin-off, Avail](https://github.com/availproject/avail)
 //! * [Cardano Partner Chains](https://iohk.io/en/blog/posts/2023/11/03/partner-chains-are-coming-to-cardano/)
@@ -116,7 +116,7 @@
 //! [`polkadot`]: crate::polkadot_sdk::polkadot
 //! [`xcm`]: crate::polkadot_sdk::xcm
 
-/// Lean about Cumulus, the framework that transforms [`substrate`]-based chains into
+/// Learn about Cumulus, the framework that transforms [`substrate`]-based chains into
 /// [`polkadot`]-enabled parachains.
 pub mod cumulus;
 /// Learn about FRAME, the framework used to build Substrate runtimes.

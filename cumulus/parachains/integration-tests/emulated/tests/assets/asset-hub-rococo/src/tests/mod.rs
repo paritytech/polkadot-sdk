@@ -14,6 +14,7 @@
 // limitations under the License.
 
 mod burn_at_relay;
+mod claim_assets;
 mod hybrid_transfers;
 mod reserve_transfer;
 mod send;
@@ -21,3 +22,4 @@ mod set_xcm_versions;
 mod swap;
 mod teleport;
 mod treasury;
+mod xcm_fee_estimation;

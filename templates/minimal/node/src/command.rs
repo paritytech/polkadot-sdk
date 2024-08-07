@@ -23,9 +23,6 @@ use crate::{
 use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
 
-#[cfg(feature = "try-runtime")]
-use try_runtime_cli::block_building_info::timestamp_with_aura_info;
-
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
 		"Substrate Node".into()

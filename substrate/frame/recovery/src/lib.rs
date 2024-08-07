@@ -150,13 +150,15 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedAdd, CheckedMul, Dispatchable, SaturatedConversion, StaticLookup},
 	RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 use frame_support::{
 	dispatch::{GetDispatchInfo, PostDispatchInfo},

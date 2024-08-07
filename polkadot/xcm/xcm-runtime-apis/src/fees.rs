@@ -16,9 +16,9 @@
 
 //! Runtime API definition for getting XCM fees.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::TypeInfo;
-use sp_std::vec::Vec;
 use sp_weights::Weight;
 use xcm::{Version, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
 

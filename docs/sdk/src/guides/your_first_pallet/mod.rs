@@ -1,6 +1,6 @@
 //! # Currency Pallet
 //!
-//! By the end of this guide, you will write a small FRAME pallet (see
+//! By the end of this guide, you will have written a small FRAME pallet (see
 //! [`crate::polkadot_sdk::frame_runtime`]) that is capable of handling a simple crypto-currency.
 //! This pallet will:
 //!
@@ -18,7 +18,7 @@
 //!
 //! To get started, use one of the templates mentioned in [`crate::polkadot_sdk::templates`]. We
 //! recommend using the `polkadot-sdk-minimal-template`. You might need to change small parts of
-//! this guide, namely the crate/package names, based on which tutorial you use.
+//! this guide, namely the crate/package names, based on which template you use.
 //!
 //! > Be aware that you can read the entire source code backing this tutorial by clicking on the
 //! > [`source`](./mod.rs.html) button at the top right of the page.
@@ -45,8 +45,8 @@
 //! Consider the following as a "shell pallet". We continue building the rest of this pallet based
 //! on this template.
 //!
-//! [`pallet::config`] and [`pallet::pallet`] are both mandatory parts of any pallet. Refer to the
-//! documentation of each to get an overview of what they do.
+//! [`pallet::config`] and [`pallet::pallet`](frame_support::pallet) are both mandatory parts of any
+//! pallet. Refer to the documentation of each to get an overview of what they do.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", shell_pallet)]
 //!
 //! All of the code that follows in this guide should live inside of the `mod pallet`.
@@ -73,7 +73,7 @@
 //! as normal `fn`s attached to `struct Pallet`.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", impl_pallet)]
 //!
-//! The logic of the functions is self-explanatory. Instead, we will focus on the FRAME-related
+//! The logic of these functions is self-explanatory. Instead, we will focus on the FRAME-related
 //! details:
 //!
 //! - Where do `T::AccountId` and `T::RuntimeOrigin` come from? These are both defined in
@@ -83,7 +83,7 @@
 //!   document ([`crate::reference_docs::frame_origin`]). For now, you should only know the
 //!   signature of the function: it takes a generic `T::RuntimeOrigin` and returns a
 //!   `Result<T::AccountId, _>`. So by the end of this function call, we know that this dispatchable
-//!   was signed by `who`.
+//!   was signed by `sender`.
 #![doc = docify::embed!("../../substrate/frame/system/src/lib.rs", ensure_signed)]
 //!
 //! - Where does `mutate`, `get` and `insert` and other storage APIs come from? All of them are
@@ -96,7 +96,7 @@
 //! Which is more or less a normal Rust `Result`, with a custom [`frame::prelude::DispatchError`] as
 //! the `Err` variant. We won't cover this error in detail here, but importantly you should know
 //! that there is an `impl From<&'static string> for DispatchError` provided (see
-//! [here](`frame::prelude::DispatchError#impl-From<%26'static+str>-for-DispatchError`)). Therefore,
+//! [here](`frame::prelude::DispatchError#impl-From<%26str>-for-DispatchError`)). Therefore,
 //! we can use basic string literals as our error type and `.into()` them into `DispatchError`.
 //!
 //! - Why are all `get` and `mutate` functions returning an `Option`? This is the default behavior
@@ -117,7 +117,7 @@
 //! ergonomic.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", transfer_better_checked)]
 //!
-//! This is more or less all the logic that there is this basic currency pallet!
+//! This is more or less all the logic that there is in this basic currency pallet!
 //!
 //! ### Your First (Test) Runtime
 //!

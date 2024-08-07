@@ -1022,7 +1022,7 @@ mod tests {
 	}
 
 	fn test_store() -> (Store, tempfile::TempDir) {
-		let _ = env_logger::try_init();
+		sp_tracing::init_for_tests();
 		let temp_dir = tempfile::Builder::new().tempdir().expect("Error creating test dir");
 
 		let client = std::sync::Arc::new(TestClient);

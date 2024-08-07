@@ -18,6 +18,7 @@
 //! Functions for the Assets pallet.
 
 use super::*;
+use alloc::vec;
 use frame_support::{defensive, traits::Get, BoundedVec};
 
 #[must_use]
@@ -35,20 +36,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Return the extra "sid-car" data for `id`/`who`, or `None` if the account doesn't exist.
 	pub fn adjust_extra(
 		id: T::AssetId,
-		who: impl sp_std::borrow::Borrow<T::AccountId>,
+		who: impl core::borrow::Borrow<T::AccountId>,
 	) -> Option<ExtraMutator<T, I>> {
 		ExtraMutator::maybe_new(id, who)
 	}
 
 	/// Get the asset `id` balance of `who`, or zero if the asset-account doesn't exist.
-	pub fn balance(id: T::AssetId, who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+	pub fn balance(id: T::AssetId, who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 		Self::maybe_balance(id, who).unwrap_or_default()
 	}
 
 	/// Get the asset `id` balance of `who` if the asset-account exists.
 	pub fn maybe_balance(
 		id: T::AssetId,
-		who: impl sp_std::borrow::Borrow<T::AccountId>,
+		who: impl core::borrow::Borrow<T::AccountId>,
 	) -> Option<T::Balance> {
 		Account::<T, I>::get(id, who.borrow()).map(|a| a.balance)
 	}
@@ -132,6 +133,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Some(details) => details,
 			None => return DepositConsequence::UnknownAsset,
 		};
+		if details.status == AssetStatus::Destroying {
+			return DepositConsequence::UnknownAsset
+		}
 		if increase_supply && details.supply.checked_add(&amount).is_none() {
 			return DepositConsequence::Overflow
 		}
@@ -174,6 +178,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 		if details.status == AssetStatus::Frozen {
 			return Frozen
+		}
+		if details.status == AssetStatus::Destroying {
+			return UnknownAsset
 		}
 		if amount.is_zero() {
 			return Success

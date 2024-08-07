@@ -5,13 +5,17 @@ updates:
     directory: '/'
     labels: ["A1-insubstantial", "R0-silent"]
     schedule:
-      interval: daily
+      interval: weekly
+    groups:
+      ci_dependencies:
+        patterns:
+        - "*"
   # Update Rust dependencies:
   - package-ecosystem: "cargo"
     directory: "/"
     labels: ["A1-insubstantial", "R0-silent"]
     schedule:
-      interval: "daily"
+      interval: "weekly"
     groups:
       # We assume these crates to be semver abiding and can therefore group them together.
       known_good_semver:

@@ -32,21 +32,14 @@
 //!
 //! ## Comparative Table
 //!
-//! | Aspect                | Runtime
-//! | Smart Contracts                                                      |
+//! | Aspect                | Runtime                                                                 | Smart Contracts                                                      |
 //! |-----------------------|-------------------------------------------------------------------------|----------------------------------------------------------------------|
-//! | **Design Philosophy** | Core logic of a blockchain, allowing broad and deep customization.
-//! | Designed for DApps deployed on the blockchain runtime.| | **Development Complexity** | Requires in-depth knowledge of Rust and Substrate. Suitable for complex blockchain architectures.         | Easier to develop with knowledge of Smart Contract languages like Solidity or [ink!](https://use.ink/). |
-//! | **Upgradeability and Flexibility** | Offers comprehensive upgradeability with migration logic
-//! and on-chain governance, allowing modifications to the entire blockchain logic without hard
-//! forks. | Less flexible in upgrade migrations but offers more straightforward deployment and
-//! iteration. | | **Performance and Efficiency** | More efficient, optimized for specific needs of
-//! the blockchain.        | Can be less efficient due to its generic nature (e.g. the overhead of a
-//! virtual machine).     | | **Security Considerations** | Security flaws can affect the entire
-//! blockchain.                        | Security risks usually localized to the individual
-//! contract.        | | **Weighing and Metering** | Operations can be weighed, allowing for precise
-//! benchmarking.           | Execution is metered, allowing for measurement of resource
-//! consumption. |
+//! | **Design Philosophy** | Core logic of a blockchain, allowing broad and deep customization. | Designed for DApps deployed on the blockchain runtime. |
+//! | **Development Complexity** | Requires in-depth knowledge of Rust and Substrate. Suitable for complex blockchain architectures. | Easier to develop with knowledge of Smart Contract languages like Solidity or [ink!](https://use.ink/). |
+//! | **Upgradeability and Flexibility** | Offers comprehensive upgradeability with migration logic and on-chain governance, allowing modifications to the entire blockchain logic without hard forks. | Less flexible in upgrade migrations but offers more straightforward deployment and iteration. |
+//! | **Performance and Efficiency** | More efficient, optimized for specific needs of the blockchain. | Can be less efficient due to its generic nature (e.g. the overhead of a virtual machine). |
+//! | **Security Considerations** | Security flaws can affect the entire blockchain. | Security risks usually localized to the individual contract. |
+//! | **Weighing and Metering** | Operations can be weighed, allowing for precise benchmarking. | Execution is metered, allowing for measurement of resource consumption. |
 //!
 //! We will now explore these differences in more detail.
 //!
