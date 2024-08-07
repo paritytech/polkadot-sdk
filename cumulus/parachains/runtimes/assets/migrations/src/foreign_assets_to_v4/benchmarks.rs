@@ -34,7 +34,7 @@ mod benches {
 	fn conversion_step() {
 		let key = v3::Location::new(1, [v3::Junction::Parachain(2004)]);
 		let mock_asset_details = mock_asset_details::<T, I>();
-		old::Asset::<T, I>::insert(key.clone(), mock_asset_details.clone());
+		old::Asset::<T, I>::insert(key, mock_asset_details.clone());
 
 		#[block]
 		{
@@ -46,7 +46,11 @@ mod benches {
 		assert_eq!(Asset::<T, I>::get(new_key), Some(mock_asset_details.clone()));
 	}
 
-	impl_benchmark_test_suite!(Pallet, crate::v1::tests::new_test_ext(), crate::v1::tests::Runtime);
+	impl_benchmark_test_suite!(
+		Pallet,
+		crate::foreign_assets_to_v4::tests::new_test_ext(),
+		crate::foreign_assets_to_v4::tests::Runtime
+	);
 }
 
 fn mock_asset_details<T: Config<I>, I: 'static>() -> AssetDetailsOf<T, I> {
