@@ -191,7 +191,7 @@ pub mod v2 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			Ok(vec![])
+			Ok(alloc::vec![])
 		}
 
 		#[cfg(feature = "try-runtime")]
