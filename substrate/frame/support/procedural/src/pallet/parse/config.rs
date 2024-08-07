@@ -18,7 +18,7 @@
 use super::helper;
 use frame_support_procedural_tools::{get_cfg_attributes, get_doc_literals, is_using_frame_crate};
 use quote::ToTokens;
-use syn::{spanned::Spanned, token, Token};
+use syn::{spanned::Spanned, token, Token, TraitItemType};
 
 /// List of additional token to be used for parsing.
 mod keyword {
@@ -345,6 +345,23 @@ pub fn replace_self_by_t(input: proc_macro2::TokenStream) -> proc_macro2::TokenS
 		.collect()
 }
 
+/// Check that the trait item requires the `TypeInfo` bound (or similar).
+fn contains_type_info_bound(ty: &TraitItemType) -> bool {
+	const KNOWN_TYPE_INFO_BOUNDS: &[&str] = &[
+		// Explicit TypeInfo trait.
+		"TypeInfo",
+		// Implicit known substrate traits that implement type info.
+		// Note: Aim to keep this list as small as possible.
+		"Parameter",
+	];
+
+	ty.bounds.iter().any(|bound| {
+		let syn::TypeParamBound::Trait(bound) = bound else { return false };
+
+		KNOWN_TYPE_INFO_BOUNDS.iter().any(|known| bound.path.is_ident(known))
+	})
+}
+
 impl ConfigDef {
 	pub fn try_from(
 		frame_system: &syn::Path,
@@ -429,6 +446,9 @@ impl ConfigDef {
 							trait_item.span(),
 							"Invalid #[pallet::constant] in #[pallet::config], expected type item",
 						)),
+					// Pallet developer has explicitly requested to include metadata for this associated type.
+					//
+					// They must provide a type item that implements `TypeInfo`.
 					(PalletAttrType::IncludeMetadata(_), syn::TraitItem::Type(ref typ)) => {
 						if is_event {
 							return Err(syn::Error::new(
@@ -490,9 +510,17 @@ impl ConfigDef {
 				}
 			}
 
-			if !already_collected_associated_type && enable_associated_metadata {
+			// Metadata of associated types is collected by default, iff the associated type
+			// implements `TypeInfo`, or a similar trait that requires the `TypeInfo` bound.
+			if !already_collected_associated_type &&
+				enable_associated_metadata &&
+				!is_event && !already_constant
+			{
 				if let syn::TraitItem::Type(ref ty) = trait_item {
-					associated_types_metadata.push(AssociatedTypeMetadataDef::from(ty));
+					// Collect the metadata of the associated type if it implements `TypeInfo`.
+					if contains_type_info_bound(ty) {
+						associated_types_metadata.push(AssociatedTypeMetadataDef::from(ty));
+					}
 				}
 			}
 
