@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723047979612,
+  "lastUpdate": 1723057756086,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -7601,6 +7601,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04706038380599999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Maksym H",
+            "username": "mordamax",
+            "email": "1177472+mordamax@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "711d91aaabb9687cd26904443c23706cd4dbd1ee",
+          "message": "frame-omni-bencher short checks (#5268)\n\n- Part of https://github.com/paritytech/ci_cd/issues/1006\n- Closes: https://github.com/paritytech/ci_cd/issues/1010\n- Related: https://github.com/paritytech/polkadot-sdk/pull/4405\n\n- Possibly affecting how frame-omni-bencher works on different runtimes:\nhttps://github.com/paritytech/polkadot-sdk/pull/5083\n\nCurrently works in parallel with gitlab short benchmarks. \nTriggered only by adding `GHA-migration` label to assure smooth\ntransition (kind of feature-flag).\nLater when tested on random PRs we'll remove the gitlab and turn on by\ndefault these tests\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-08-07T17:03:26Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/711d91aaabb9687cd26904443c23706cd4dbd1ee"
+        },
+        "date": 1723057724827,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.93199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038549133253999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.048609769338000014,
             "unit": "seconds"
           }
         ]
