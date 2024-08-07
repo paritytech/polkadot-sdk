@@ -256,7 +256,7 @@ impl sp_runtime::traits::Printable for CheckSubstrateCall {
 
 impl sp_runtime::traits::RefundWeight<CheckSubstrateCall> for CheckSubstrateCall {
 	fn refund(&mut self, _weight: frame_support::weights::Weight) {}
-	fn saturating_accrue(
+	fn set_extension_weight(
 		&mut self,
 		_info: &CheckSubstrateCall,
 		_weight: frame_support::weights::Weight,
