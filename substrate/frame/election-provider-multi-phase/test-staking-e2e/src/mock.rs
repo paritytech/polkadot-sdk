@@ -316,6 +316,15 @@ where
 	type Extrinsic = Extrinsic;
 }
 
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		UncheckedExtrinsic::new_bare(call)
+	}
+}
+
 pub struct OnChainSeqPhragmen;
 
 parameter_types! {

@@ -77,6 +77,15 @@ where
 	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 }
 
+impl<C> frame_system::offchain::CreateInherent<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		UncheckedExtrinsic::new_bare(call)
+	}
+}
+
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
 		pub babe_authority: super::Pallet<Test>,

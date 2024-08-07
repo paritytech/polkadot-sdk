@@ -57,6 +57,15 @@ where
 	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 }
 
+impl<C> frame_system::offchain::CreateInherent<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		UncheckedExtrinsic::new_bare(call)
+	}
+}
+
 impl pallet_sassafras::Config for Test {
 	type EpochLength = ConstU32<EPOCH_LENGTH>;
 	type MaxAuthorities = ConstU32<MAX_AUTHORITIES>;

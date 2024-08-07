@@ -25,7 +25,7 @@ use frame_support::{
 use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
 use sp_api::{Metadata, ProvideRuntimeApi};
 use sp_runtime::{
-	traits::{Extrinsic as _, TransactionExtensionBase},
+	traits::{ExtrinsicLike, TransactionExtensionBase},
 	transaction_validity::{TransactionSource, UnknownTransaction},
 };
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;

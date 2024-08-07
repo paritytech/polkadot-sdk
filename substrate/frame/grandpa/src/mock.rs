@@ -77,6 +77,15 @@ where
 	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 }
 
+impl<C> frame_system::offchain::CreateInherent<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		UncheckedExtrinsic::new_bare(call)
+	}
+}
+
 parameter_types! {
 	pub const Period: u64 = 1;
 	pub const Offset: u64 = 0;

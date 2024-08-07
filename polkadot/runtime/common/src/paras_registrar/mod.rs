@@ -760,6 +760,15 @@ mod tests {
 		type RuntimeCall = RuntimeCall;
 	}
 
+	impl<C> frame_system::offchain::CreateInherent<C> for Test
+	where
+		RuntimeCall: From<C>,
+	{
+		fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+			UncheckedExtrinsic::new_bare(call)
+		}
+	}
+
 	const NORMAL_RATIO: Perbill = Perbill::from_percent(75);
 	parameter_types! {
 		pub BlockWeights: limits::BlockWeights =

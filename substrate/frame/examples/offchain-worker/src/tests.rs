@@ -95,7 +95,7 @@ where
 	type Extension = ();
 
 	fn create_transaction(call: RuntimeCall, _extension: Self::Extension) -> Extrinsic {
-		Extrinsic::new(call, ())
+		Extrinsic::new_transaction(call, ())
 	}
 }
 
