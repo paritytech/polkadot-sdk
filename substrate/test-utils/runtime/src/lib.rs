@@ -254,8 +254,12 @@ impl sp_runtime::traits::Printable for CheckSubstrateCall {
 	}
 }
 
-impl sp_runtime::traits::RefundWeight<CheckSubstrateCall> for CheckSubstrateCall {
+impl sp_runtime::traits::RefundWeight for CheckSubstrateCall {
 	fn refund(&mut self, _weight: frame_support::weights::Weight) {}
+}
+impl sp_runtime::traits::ExtensionPostDispatchWeightHandler<CheckSubstrateCall>
+	for CheckSubstrateCall
+{
 	fn set_extension_weight(
 		&mut self,
 		_info: &CheckSubstrateCall,

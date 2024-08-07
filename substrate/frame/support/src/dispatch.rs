@@ -26,7 +26,9 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
 	generic::{CheckedExtrinsic, UncheckedExtrinsic},
-	traits::{Dispatchable, RefundWeight, TransactionExtensionBase},
+	traits::{
+		Dispatchable, ExtensionPostDispatchWeightHandler, RefundWeight, TransactionExtensionBase,
+	},
 	DispatchError, RuntimeDebug,
 };
 use sp_weights::Weight;
@@ -579,16 +581,26 @@ impl<T> ClassifyDispatch<T> for (Weight, DispatchClass, Pays) {
 	}
 }
 
-impl RefundWeight<DispatchInfo> for PostDispatchInfo {
+impl RefundWeight for PostDispatchInfo {
 	fn refund(&mut self, weight: Weight) {
 		if let Some(actual_weight) = self.actual_weight.as_mut() {
 			actual_weight.saturating_reduce(weight);
 		}
 	}
+}
 
+impl ExtensionPostDispatchWeightHandler<DispatchInfo> for PostDispatchInfo {
 	fn set_extension_weight(&mut self, info: &DispatchInfo, weight: Weight) {
 		let actual_weight = self.actual_weight.unwrap_or(info.call_weight).saturating_add(weight);
 		self.actual_weight = Some(actual_weight);
+	}
+}
+
+impl ExtensionPostDispatchWeightHandler<()> for PostDispatchInfo {
+	fn set_extension_weight(&mut self, _info: &(), weight: sp_weights::Weight) {
+		if let Some(actual) = &mut self.actual_weight {
+			actual.saturating_add(weight);
+		}
 	}
 }
 
