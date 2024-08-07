@@ -19,7 +19,7 @@ use frame_benchmarking::v2::*;
 use pallet_assets::{Asset, AssetDetails, AssetStatus, Config};
 use xcm::{v3, v4};
 
-use crate::{v1::old::AssetDetailsOf, Pallet};
+use crate::{foreign_assets_to_v4::old::AssetDetailsOf, Pallet};
 
 use super::{old, Migration};
 
