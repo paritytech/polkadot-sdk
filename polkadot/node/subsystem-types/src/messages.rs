@@ -969,23 +969,68 @@ pub struct HighestApprovedAncestorBlock {
 	pub descriptions: Vec<BlockDescription>,
 }
 
+/// A checked indirect assignment, the crypto for the cert has been validated
+/// and the `candidate_bitfield` is correctly claimed at `delay_tranche`.
+#[derive(Debug)]
+pub struct CheckedIndirectAssignment {
+	assignment: IndirectAssignmentCertV2,
+	candidate_indices: CandidateBitfield,
+	tranche: DelayTranche,
+}
+
+impl CheckedIndirectAssignment {
+	/// Builds a checked assignment from an assignment that was checked to be valid for the
+	/// `claimed_candidate_indices` at the give tranche
+	pub fn from_checked(
+		assignment: IndirectAssignmentCertV2,
+		claimed_candidate_indices: CandidateBitfield,
+		tranche: DelayTranche,
+	) -> Self {
+		Self { assignment, candidate_indices: claimed_candidate_indices, tranche }
+	}
+
+	/// Returns the indirect assignment.
+	pub fn assignment(&self) -> &IndirectAssignmentCertV2 {
+		&self.assignment
+	}
+
+	/// Returns the candidate bitfield claimed by the assignment.
+	pub fn candidate_indices(&self) -> &CandidateBitfield {
+		&self.candidate_indices
+	}
+
+	/// Returns the tranche this assignment is claimed at.
+	pub fn tranche(&self) -> DelayTranche {
+		self.tranche
+	}
+}
+
+/// A checked indirect signed approval vote.
+///
+/// The crypto for the vote has been validated and the signature can be trusted as being valid and
+/// to correspond to the `validator_index` inside the structure.
+#[derive(Debug, derive_more::Deref, derive_more::Into)]
+pub struct CheckedIndirectSignedApprovalVote(IndirectSignedApprovalVoteV2);
+
+impl CheckedIndirectSignedApprovalVote {
+	/// Builds a checked vote from a vote that was checked to be valid and correctly signed.
+	pub fn from_checked(vote: IndirectSignedApprovalVoteV2) -> Self {
+		Self(vote)
+	}
+}
+
 /// Message to the Approval Voting subsystem.
 #[derive(Debug)]
 pub enum ApprovalVotingMessage {
 	/// Import an assignment into the approval-voting database.
 	///
 	/// Should not be sent unless the block hash is known and the VRF assignment checks out.
-	ImportAssignment(
-		IndirectAssignmentCertV2,
-		CandidateBitfield,
-		DelayTranche,
-		Option<oneshot::Sender<AssignmentCheckResult>>,
-	),
+	ImportAssignment(CheckedIndirectAssignment, Option<oneshot::Sender<AssignmentCheckResult>>),
 	/// Import an approval vote into approval-voting database
 	///
 	/// Should not be sent unless the block hash within the indirect vote is known, vote is
 	/// correctly signed and we had a previous assignment for the candidate.
-	ImportApproval(IndirectSignedApprovalVoteV2, Option<oneshot::Sender<ApprovalCheckResult>>),
+	ImportApproval(CheckedIndirectSignedApprovalVote, Option<oneshot::Sender<ApprovalCheckResult>>),
 	/// Returns the highest possible ancestor hash of the provided block hash which is
 	/// acceptable to vote on finality for.
 	/// The `BlockNumber` provided is the number of the block's ancestor which is the

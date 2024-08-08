@@ -55,8 +55,9 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		ApprovalDistributionMessage, ApprovalVotingMessage, NetworkBridgeEvent,
-		NetworkBridgeTxMessage, RuntimeApiMessage,
+		ApprovalDistributionMessage, ApprovalVotingMessage, CheckedIndirectAssignment,
+		CheckedIndirectSignedApprovalVote, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		RuntimeApiMessage,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -369,6 +370,7 @@ pub struct State {
 
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
+
 	/// Slot duration in millis
 	slot_duration_millis: u64,
 }
@@ -672,7 +674,7 @@ enum MessageSource {
 // Encountered error while validating an assignment.
 #[derive(Debug)]
 enum InvalidAssignmentError {
-	// The the vrf check for the assignment failed.
+	// The vrf check for the assignment failed.
 	#[allow(dead_code)]
 	CryptoCheckFailed(InvalidAssignment),
 	// The assignment did not claim any valid candidate.
@@ -685,7 +687,7 @@ enum InvalidAssignmentError {
 	},
 	// The assignment claimes more candidates than the maximum allowed.
 	OversizedClaimedBitfield,
-	// Session Info was not found for the block hash in the assignment.
+	// `SessionInfo`  was not found for the block hash in the assignment.
 	#[allow(dead_code)]
 	SessionInfoNotFound(polkadot_node_subsystem_util::runtime::Error),
 }
@@ -699,7 +701,7 @@ enum InvalidVoteError {
 	ValidatorIndexOutOfBounds,
 	// The signature of the vote was invalid.
 	InvalidSignature,
-	// Session Info was not found for the block hash in the approval.
+	// `SessionInfo` was not found for the block hash in the approval.
 	#[allow(dead_code)]
 	SessionInfoNotFound(polkadot_node_subsystem_util::runtime::Error),
 }
@@ -1489,12 +1491,12 @@ impl State {
 			.await;
 
 			match result {
-				Ok(tranche) => {
+				Ok(checked_assignment) => {
 					let current_tranche = clock.tranche_now(self.slot_duration_millis, entry.slot);
 					let too_far_in_future =
 						current_tranche + TICK_TOO_FAR_IN_FUTURE as DelayTranche;
 
-					if tranche >= too_far_in_future {
+					if checked_assignment.tranche() >= too_far_in_future {
 						gum::debug!(
 							target: LOG_TARGET,
 							hash = ?block_hash,
@@ -1515,9 +1517,7 @@ impl State {
 
 					approval_voting_sender
 						.send_message(ApprovalVotingMessage::ImportAssignment(
-							assignment.clone(),
-							claimed_candidate_indices.clone(),
-							tranche,
+							checked_assignment,
 							None,
 						))
 						.await;
@@ -1686,7 +1686,7 @@ impl State {
 		claimed_candidate_indices: &CandidateBitfield,
 		runtime_info: &mut RuntimeInfo,
 		runtime_api_sender: &mut RA,
-	) -> Result<u32, InvalidAssignmentError> {
+	) -> Result<CheckedIndirectAssignment, InvalidAssignmentError> {
 		let ExtendedSessionInfo { ref session_info, .. } = runtime_info
 			.get_session_info_by_index(runtime_api_sender, assignment.block_hash, entry.session)
 			.await
@@ -1708,9 +1708,9 @@ impl State {
 			})
 			.collect::<Result<Vec<_>, InvalidAssignmentError>>()?;
 
-		if claimed_cores.is_empty() {
+		let Ok(claimed_cores) = claimed_cores.try_into() else {
 			return Err(InvalidAssignmentError::NoClaimedCandidates)
-		}
+		};
 
 		let backing_groups = claimed_candidate_indices
 			.iter_ones()
@@ -1721,7 +1721,7 @@ impl State {
 
 		assignment_criteria
 			.check_assignment_cert(
-				claimed_cores.try_into().expect("Non-empty vec; qed"),
+				claimed_cores,
 				assignment.validator,
 				&polkadot_node_core_approval_voting::AssignmentConfig::from(session_info),
 				entry.vrf_story.clone(),
@@ -1729,6 +1729,13 @@ impl State {
 				backing_groups,
 			)
 			.map_err(|err| InvalidAssignmentError::CryptoCheckFailed(err))
+			.map(|tranche| {
+				CheckedIndirectAssignment::from_checked(
+					assignment.clone(),
+					claimed_candidate_indices.clone(),
+					tranche,
+				)
+			})
 	}
 	// Checks if an approval can be processed.
 	// Returns true if we can continue with processing the approval and false otherwise.
@@ -1901,9 +1908,9 @@ impl State {
 					.await;
 
 			match result {
-				Ok(_) => {
+				Ok(vote) => {
 					approval_voting_sender
-						.send_message(ApprovalVotingMessage::ImportApproval(vote.clone(), None))
+						.send_message(ApprovalVotingMessage::ImportApproval(vote, None))
 						.await;
 
 					modify_reputation(
@@ -2039,7 +2046,7 @@ impl State {
 		entry: &BlockEntry,
 		runtime_info: &mut RuntimeInfo,
 		runtime_api_sender: &mut RA,
-	) -> Result<(), InvalidVoteError> {
+	) -> Result<CheckedIndirectSignedApprovalVote, InvalidVoteError> {
 		if vote.candidate_indices.len() > entry.candidates_metadata.len() {
 			return Err(InvalidVoteError::CandidateIndexOutOfBounds)
 		}
@@ -2074,6 +2081,7 @@ impl State {
 			&vote.signature,
 		)
 		.map_err(|_| InvalidVoteError::InvalidSignature)
+		.map(|_| CheckedIndirectSignedApprovalVote::from_checked(vote.clone()))
 	}
 
 	/// Retrieve approval signatures from state for the given relay block/indices:
