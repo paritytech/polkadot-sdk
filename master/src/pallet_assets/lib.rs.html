@@ -3769,7 +3769,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///   (false), or transfer everything except at least the minimum balance, which will
 		///   guarantee to keep the sender asset account alive (true).
 		</span><span class="attr">#[pallet::call_index(<span class="number">32</span>)]
-		#[pallet::weight(T::WeightInfo::refund_other())]
+		#[pallet::weight(T::WeightInfo::transfer_all())]
 		</span><span class="kw">pub fn </span>transfer_all(
 			origin: OriginFor&lt;T&gt;,
 			id: T::AssetIdParameter,
