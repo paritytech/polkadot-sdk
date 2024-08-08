@@ -490,7 +490,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			Some(fee) => fee,
 			None => return Ok(()), // No delivery fees need to be paid.
 		};
-		// If `BuyExecution` was called, we use that asset for transport fees as well.
+		// If `BuyExecution` was called, we use that asset for delivery fees as well.
 		let asset_to_pay_for_fees =
 			self.calculate_asset_for_delivery_fees(asset_needed_for_fees.clone());
 		tracing::trace!(target: "xcm::fees", ?asset_to_pay_for_fees);
@@ -973,7 +973,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let maybe_delivery_fee = fee.get(0).map(|asset_needed_for_fees| {
 						tracing::trace!(
 							target: "xcm::DepositReserveAsset",
-							"Asset provided to pay for fees {:?}, asset required for transport fees: {:?}",
+							"Asset provided to pay for fees {:?}, asset required for delivery fees: {:?}",
 							self.asset_used_for_fees, asset_needed_for_fees,
 						);
 						let asset_to_pay_for_fees =
