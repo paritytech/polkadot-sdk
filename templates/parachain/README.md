@@ -63,7 +63,9 @@ You still need a relaychain node - you can download the `polkadot`
 (and the accompanying `polkadot-prepare-worker` and `polkadot-execute-worker`)
 binaries from [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
 
-Make sure to bring `zombienet` and the relaychain binaries (`polkadot`, `polkadot-prepare-worker`, `polkadot-execute-worker`) into `PATH`, so that they are available in the following steps.
+Make sure to bring `zombienet` and the relaychain binaries
+(`polkadot`, `polkadot-prepare-worker`, `polkadot-execute-worker`)
+into `PATH`, so that they are available in the following steps.
 
 👥 The following command starts a local development chain, with a single relay chain node and a single parachain collator:
 
