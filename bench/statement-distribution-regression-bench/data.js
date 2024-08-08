@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723113911943,
+  "lastUpdate": 1723138493497,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -7685,6 +7685,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04615549656999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "12539e7a931e82a040e74c84e413baa712ecd638",
+          "message": "[ci] Add test-linux-stable jobs GHA (#4897)\n\nPR adds github-action for jobs test-linux-stable-oldkernel.\nPR waits the latest release of forklift.\n\ncc https://github.com/paritytech/ci_cd/issues/939\ncc https://github.com/paritytech/ci_cd/issues/1006\n\n---------\n\nCo-authored-by: Maksym H <1177472+mordamax@users.noreply.github.com>",
+          "timestamp": "2024-08-08T15:20:20Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/12539e7a931e82a040e74c84e413baa712ecd638"
+        },
+        "date": 1723138461795,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.92199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.036835195034000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.046310132088000014,
             "unit": "seconds"
           }
         ]
