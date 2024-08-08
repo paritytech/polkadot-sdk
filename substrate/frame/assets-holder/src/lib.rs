@@ -65,7 +65,9 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config(with_default)]
-	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_assets::Config<I> {
+	pub trait Config<I: 'static = ()>:
+		frame_system::Config + pallet_assets::Config<I, Holder = Pallet<Self, I>>
+	{
 		/// The overarching freeze reason.
 		#[pallet::no_default_bounds]
 		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Copy + VariantCount;
