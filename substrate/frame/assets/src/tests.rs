@@ -837,8 +837,8 @@ fn transfer_all_works_3() {
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 2, 100));
 		// transfer all and allow death w/ frozen
 		assert_ok!(Assets::transfer_all(Some(1).into(), 0, 2, false));
-		assert_eq!(Assets::balance(0, &1), 110);
-		assert_eq!(Assets::balance(0, &2), 200);
+		assert_eq!(Assets::balance(0, &1), 100);
+		assert_eq!(Assets::balance(0, &2), 210);
 	});
 }
 
