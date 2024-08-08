@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723056765955,
+  "lastUpdate": 1723113304989,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21267,6 +21267,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009718192960000009,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "joe petrowski",
+            "username": "joepetrowski",
+            "email": "25483142+joepetrowski@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "eb0a9e593fb6a0f2bbfdb75602a51f4923995529",
+          "message": "Fix Weight Annotation (#5275)\n\nhttps://github.com/paritytech/polkadot-sdk/pull/4527/files#r1706673828",
+          "timestamp": "2024-08-08T08:47:24Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/eb0a9e593fb6a0f2bbfdb75602a51f4923995529"
+        },
+        "date": 1723113274550,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022167524019999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17199542549333327,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012431163400000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01036521199333334,
             "unit": "seconds"
           }
         ]
