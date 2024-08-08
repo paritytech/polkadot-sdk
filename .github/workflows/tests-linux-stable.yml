@@ -6,7 +6,7 @@ on:
     branches:
       - master
   pull_request:
-    types: [ opened, synchronize, reopened, ready_for_review ]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -14,6 +14,8 @@ concurrency:
 
 jobs:
   changes:
+    # TODO: remove once migration is complete or this workflow is fully stable
+    if: contains(github.event.label.name, 'GHA-migration')
     permissions:
       pull-requests: read
     uses: ./.github/workflows/reusable-check-changed-files.yml
@@ -34,7 +36,7 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
 
   test-linux-stable-int:
-    needs: [ set-image, changes ]
+    needs: [set-image, changes]
     if: ${{ needs.changes.outputs.rust }}
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 60
@@ -55,7 +57,7 @@ jobs:
 
   # https://github.com/paritytech/ci_cd/issues/864
   test-linux-stable-runtime-benchmarks:
-    needs: [ set-image, changes ]
+    needs: [set-image, changes]
     if: ${{ needs.changes.outputs.rust }}
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 60
