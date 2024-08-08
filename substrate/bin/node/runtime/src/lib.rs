@@ -69,6 +69,7 @@ use frame_system::{
 pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
+use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
@@ -78,6 +79,7 @@ use pallet_nis::WithMaximumOf;
 use pallet_session::historical as pallet_session_historical;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
+use pallet_broker::TaskId;
 #[allow(deprecated)]
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
@@ -96,8 +98,8 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		self, AccountIdConversion, BlakeTwo256, Block as BlockT, Bounded, ConvertInto, NumberFor,
-		OpaqueKeys, SaturatedConversion, StaticLookup,
+		self, AccountIdConversion, BlakeTwo256, Block as BlockT, Bounded, ConvertInto,
+		MaybeConvert, NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber, FixedU128, Perbill, Percent, Permill, Perquintill,
@@ -123,7 +125,7 @@ pub use sp_runtime::BuildStorage;
 pub mod impls;
 #[cfg(not(feature = "runtime-benchmarks"))]
 use impls::AllianceIdentityVerifier;
-use impls::{AllianceProposalProvider, Author, CreditToBlockAuthor};
+use impls::{AllianceProposalProvider, Author};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -574,22 +576,14 @@ impl pallet_transaction_payment::Config for Runtime {
 	>;
 }
 
-impl pallet_asset_tx_payment::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = Assets;
-	type OnChargeAssetTransaction = pallet_asset_tx_payment::FungiblesAdapter<
-		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, Instance1>,
-		CreditToBlockAuthor,
-	>;
-}
-
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = Assets;
-	type OnChargeAssetTransaction = pallet_asset_conversion_tx_payment::AssetConversionAdapter<
-		Balances,
-		AssetConversion,
+	type AssetId = NativeOrWithId<u32>;
+	type OnChargeAssetTransaction = SwapAssetAdapter<
 		Native,
+		NativeAndAssets,
+		AssetConversion,
+		ResolveAssetTo<TreasuryAccount, NativeAndAssets>,
 	>;
 }
 
@@ -859,7 +853,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type SignedDepositWeight = ();
 	type SignedMaxWeight = MinerMaxWeight;
 	type SlashHandler = (); // burn slashes
-	type RewardHandler = (); // nothing to do upon rewards
+	type RewardHandler = (); // rewards are minted from the void
 	type DataProvider = Staking;
 	type Fallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
@@ -1705,12 +1699,15 @@ parameter_types! {
 	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
 }
 
+pub type NativeAndAssets =
+	UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = u128;
 	type HigherPrecisionBalance = sp_core::U256;
 	type AssetKind = NativeOrWithId<u32>;
-	type Assets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = Chain<
 		WithFirstAsset<
@@ -2119,6 +2116,15 @@ impl CoretimeInterface for CoretimeProvider {
 	}
 }
 
+pub struct SovereignAccountOf;
+// Dummy implementation which converts `TaskId` to `AccountId`.
+impl MaybeConvert<TaskId, AccountId> for SovereignAccountOf {
+	fn maybe_convert(task: TaskId) -> Option<AccountId> {
+		let mut account: [u8; 32] = [0; 32];
+		account[..4].copy_from_slice(&task.to_le_bytes());
+		Some(account.into())
+	}
+}
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -2131,6 +2137,8 @@ impl pallet_broker::Config for Runtime {
 	type WeightInfo = ();
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type SovereignAccountOf = SovereignAccountOf;
+	type MaxAutoRenewals = ConstU32<10>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 }
 
@@ -2258,9 +2266,6 @@ mod runtime {
 
 	#[runtime::pallet_index(7)]
 	pub type TransactionPayment = pallet_transaction_payment::Pallet<Runtime>;
-
-	#[runtime::pallet_index(8)]
-	pub type AssetTxPayment = pallet_asset_tx_payment::Pallet<Runtime>;
 
 	#[runtime::pallet_index(9)]
 	pub type AssetConversionTxPayment = pallet_asset_conversion_tx_payment::Pallet<Runtime>;
