@@ -64,12 +64,35 @@ pub enum Subcommand {
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
+fn examples(executable_name: String) -> String {
+	color_print::cformat!(
+		r#"<bold><underline>Examples:</></>
+
+   <bold>{0} --chain para.json --sync warp -- --chain relay.json --sync warp</>
+        Launch a warp-syncing full node of a given para's chain-spec, and a given relay's chain-spec.
+
+	<green><italic>The above approach is the most flexible, and the most forward-compatible way to spawn an omni-node.</></>
+
+	You can find the chain-spec of some networks in:
+	https://paritytech.github.io/chainspecs
+
+   <bold>{0} --chain asset-hub-polkadot --sync warp -- --chain polkadot --sync warp</>
+        Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Polkadot</> Relay Chain.
+
+   <bold>{0} --chain asset-hub-kusama --sync warp --relay-chain-rpc-url ws://rpc.example.com -- --chain kusama</>
+        Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Kusama</> Relay Chain.
+        Uses <italic>ws://rpc.example.com</> as remote relay chain node.
+ "#,
+		executable_name,
+	)
+}
+
 #[derive(Debug, clap::Parser)]
 #[command(
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
 	subcommand_negates_reqs = true,
-	after_help = crate::examples(Self::executable_name())
+	after_help = examples(Self::executable_name())
 )]
 pub struct Cli {
 	#[arg(skip)]

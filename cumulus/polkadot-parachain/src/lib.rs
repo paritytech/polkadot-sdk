@@ -14,21 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Polkadot parachain node.
+mod cli;
+mod command;
+mod common;
+mod fake_runtime_api;
+mod rpc;
+mod service;
 
-#![warn(missing_docs)]
-#![warn(unused_extern_crates)]
-
-mod chain_spec;
-
-use polkadot_parachain_bin::{run, CommandConfig};
-
-fn main() -> color_eyre::eyre::Result<()> {
-	color_eyre::install()?;
-
-	let config = CommandConfig {
-		chain_spec_loader: Some(Box::new(chain_spec::ChainSpecLoader)),
-		runtime_resolver: Some(Box::new(chain_spec::RuntimeResolver)),
-	};
-	Ok(run(config)?)
-}
+pub use command::{run, CommandConfig};
+pub use common::{
+	chain_spec,
+	runtime::{AuraConsensusId, Consensus, Runtime, RuntimeResolver},
+};

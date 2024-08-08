@@ -17,9 +17,12 @@
 use sc_chain_spec::ChainSpec;
 use std::fmt::Debug;
 
+/// The Aura ID used by the Aura consensus
 #[derive(Debug, PartialEq)]
 pub enum AuraConsensusId {
+	/// Ed25519
 	Ed25519,
+	/// Sr25519
 	Sr25519,
 }
 
@@ -36,9 +39,12 @@ pub enum Runtime {
 	/// None of the system-chain runtimes, rather the node will act agnostic to the runtime ie. be
 	/// an omni-node, and simply run a node with the given consensus algorithm.
 	Omni(Consensus),
+	/// Shell
 	Shell,
 }
 
+/// Helper trait used for extracting the Runtime variant from the chain spec ID.
 pub trait RuntimeResolver: Debug {
+	/// Extract the Runtime variant from the chain spec ID.
 	fn runtime(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime>;
 }

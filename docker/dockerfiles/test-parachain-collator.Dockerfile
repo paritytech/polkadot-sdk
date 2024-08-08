@@ -4,7 +4,7 @@ FROM docker.io/paritytech/ci-linux:production as builder
 WORKDIR /cumulus
 COPY . /cumulus
 
-RUN cargo build --release --locked -p polkadot-parachain
+RUN cargo build --release --locked -p polkadot-parachain-bin --bin polkadot-parachain --features binary
 
 # the collator stage is normally built once, cached, and then ignored, but can
 # be specified with the --target build flag. This adds some extra tooling to the

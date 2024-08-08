@@ -536,6 +536,7 @@ members = [
 ]
 
 default-members = [
+	"cumulus/polkadot-parachain",
 	"polkadot",
 	"substrate/bin/node/cli",
 ]

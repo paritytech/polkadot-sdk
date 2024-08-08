@@ -14,16 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Chain spec primitives.
+
 use frame_support::{Deserialize, Serialize};
-use sc_chain_spec::{ChainSpec, ChainSpecExtension, ChainSpecGroup};
+use sc_chain_spec::{ChainSpec, ChainSpecExtension};
 use std::fmt::Debug;
 
+/// Helper trait used for loading/building a chain spec starting from the chain ID.
 pub trait LoadSpec: Debug {
+	/// Load/Build a chain spec starting from the chain ID.
 	fn load_spec(&self, id: &str) -> Result<Box<dyn ChainSpec>, String>;
 }
 
 /// Generic extensions for Parachain ChainSpecs.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecExtension)]
 pub struct Extensions {
 	/// The relay chain of the Parachain.
 	#[serde(alias = "relayChain", alias = "RelayChain")]

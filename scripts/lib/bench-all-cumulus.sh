@@ -75,7 +75,7 @@ run_cumulus_bench() {
 
 
 echo "[+] Compiling benchmarks..."
-cargo build --profile $profile --locked --features=runtime-benchmarks -p polkadot-parachain-bin
+cargo build --profile $profile --locked --features=runtime-benchmarks -p polkadot-parachain-bin --features binary
 
 # Run benchmarks for all pallets of a given runtime if runtime argument provided
 get_arg optional --runtime "$@"
