@@ -438,10 +438,10 @@ impl TryFrom<MultiSigner> for ecdsa::Public {
 #[cfg(feature = "std")]
 impl std::fmt::Display for MultiSigner {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match *self {
-			Self::Ed25519(ref who) => write!(fmt, "ed25519: {}", who),
-			Self::Sr25519(ref who) => write!(fmt, "sr25519: {}", who),
-			Self::Ecdsa(ref who) => write!(fmt, "ecdsa: {}", who),
+		match self {
+			Self::Ed25519(who) => write!(fmt, "ed25519: {}", who),
+			Self::Sr25519(who) => write!(fmt, "sr25519: {}", who),
+			Self::Ecdsa(who) => write!(fmt, "ecdsa: {}", who),
 		}
 	}
 }
