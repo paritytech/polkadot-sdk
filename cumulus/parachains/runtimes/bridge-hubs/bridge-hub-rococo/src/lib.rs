@@ -138,13 +138,13 @@ pub type TxExtension = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
-	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteHeadersAndMessages,
 	(
 		bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
 		bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages,
 	),
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
 );
 
@@ -1613,13 +1613,13 @@ mod tests {
 				frame_system::CheckEra::from(Era::Immortal),
 				frame_system::CheckNonce::from(10),
 				frame_system::CheckWeight::new(),
-				frame_metadata_hash_extension::CheckMetadataHash::new(false),
 				pallet_transaction_payment::ChargeTransactionPayment::from(10),
 				BridgeRejectObsoleteHeadersAndMessages,
 				(
 					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
 					bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
 				),
+				frame_metadata_hash_extension::CheckMetadataHash::new(false),
 				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 			).into();
 
