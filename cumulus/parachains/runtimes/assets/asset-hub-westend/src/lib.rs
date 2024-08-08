@@ -41,7 +41,6 @@ use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
-	migrations::FreezeChainOnFailedMigration,
 	ord_parameter_types, parameter_types,
 	traits::{
 		fungible, fungibles,
@@ -179,35 +178,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
-	type SingleBlockMigrations = SingleBlockMigrations;
-	type MultiBlockMigrator = MultiBlockMigrator;
 }
-
-// We destine 80% of the block's weight to MBMs.
-parameter_types! {
-	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
-}
-
-impl pallet_migrations::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = MultiBlockMigrations;
-	#[cfg(feature = "runtime-benchmarks")]
-	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
-	type CursorMaxLen = ConstU32<1024>;
-	type IdentifierMaxLen = ConstU32<256>;
-	type MigrationStatusHandler = ();
-	type FailedMigrationHandler = FreezeChainOnFailedMigration;
-	type MaxServiceWeight = MbmServiceWeight;
-	type WeightInfo = ();
-}
-
-#[cfg(not(feature = "runtime-benchmarks"))]
-type MultiBlockMigrations = assets_common_migrations::foreign_assets_to_v4::Migration<
-	Runtime,
-	ForeignAssetsInstance,
-	weights::assets_common_migrations::SubstrateWeight<Runtime>,
->;
 
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
@@ -975,7 +946,6 @@ construct_runtime!(
 		// RandomnessCollectiveFlip = 2 removed
 		Timestamp: pallet_timestamp = 3,
 		ParachainInfo: parachain_info = 4,
-		MultiBlockMigrator: pallet_migrations = 5,
 
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
@@ -1049,7 +1019,7 @@ pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
 /// Migrations to apply on runtime upgrade.
-pub type SingleBlockMigrations = (
+pub type Migrations = (
 	// v9420
 	pallet_nfts::migration::v1::MigrateToV1<Runtime>,
 	// unreleased
@@ -1176,7 +1146,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	(),
+	Migrations,
 >;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -1202,7 +1172,6 @@ mod benches {
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_xcm_bridge_hub_router, ToRococo]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
-		[assets_common_migrations, AssetsCommonMigrations]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
@@ -1558,7 +1527,6 @@ impl_runtime_apis! {
 			// are referenced in that call.
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
-			type AssetsCommonMigrations = assets_common_migrations::Pallet::<Runtime, ForeignAssetsInstance>;
 
 			// Benchmark files generated for `Assets/ForeignAssets` instances are by default
 			// `pallet_assets_assets.rs / pallet_assets_foreign_assets`, which is not really nice,
@@ -1862,7 +1830,6 @@ impl_runtime_apis! {
 
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
-			type AssetsCommonMigrations = assets_common_migrations::Pallet::<Runtime, ForeignAssetsInstance>;
 
 			type Local = pallet_assets::Pallet::<Runtime, TrustBackedAssetsInstance>;
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;

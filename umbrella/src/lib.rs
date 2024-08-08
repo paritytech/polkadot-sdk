@@ -19,10 +19,6 @@ pub use asset_test_utils;
 #[cfg(feature = "assets-common")]
 pub use assets_common;
 
-/// Common migrations for assets.
-#[cfg(feature = "assets-common-migrations")]
-pub use assets_common_migrations;
-
 /// A no-std/Substrate compatible library to construct binary merkle tree.
 #[cfg(feature = "binary-merkle-tree")]
 pub use binary_merkle_tree;

@@ -8,7 +8,6 @@ license = "Apache-2.0"
 default = ["std"]
 std = [
 	"asset-test-utils?/std",
-	"assets-common-migrations?/std",
 	"assets-common?/std",
 	"binary-merkle-tree?/std",
 	"bp-asset-hub-rococo?/std",
@@ -244,7 +243,6 @@ std = [
 	"xcm-runtime-apis?/std",
 ]
 runtime-benchmarks = [
-	"assets-common-migrations?/runtime-benchmarks",
 	"assets-common?/runtime-benchmarks",
 	"bridge-hub-common?/runtime-benchmarks",
 	"bridge-runtime-common?/runtime-benchmarks",
@@ -544,7 +542,6 @@ with-tracing = [
 ]
 runtime = [
 	"assets-common",
-	"assets-common-migrations",
 	"binary-merkle-tree",
 	"bp-asset-hub-rococo",
 	"bp-asset-hub-westend",
@@ -798,11 +795,6 @@ workspace = true
 
 [dependencies.assets-common]
 path = "../cumulus/parachains/runtimes/assets/common"
-default-features = false
-optional = true
-
-[dependencies.assets-common-migrations]
-path = "../cumulus/parachains/runtimes/assets/migrations"
 default-features = false
 optional = true
 

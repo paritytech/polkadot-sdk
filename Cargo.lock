@@ -868,7 +868,6 @@ version = "0.11.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
- "assets-common-migrations",
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
  "bp-bridge-hub-rococo",
@@ -902,7 +901,6 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-message-queue",
- "pallet-migrations",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
@@ -1000,7 +998,6 @@ version = "0.15.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
- "assets-common-migrations",
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
  "bp-bridge-hub-rococo",
@@ -1034,7 +1031,6 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-message-queue",
- "pallet-migrations",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
@@ -1115,42 +1111,19 @@ version = "0.7.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
- "frame-system",
  "impl-trait-for-tuples",
  "log",
  "pallet-asset-conversion",
- "pallet-assets",
- "pallet-balances",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
- "sp-io",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
-]
-
-[[package]]
-name = "assets-common-migrations"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-asset-conversion",
- "pallet-assets",
- "pallet-balances",
- "pallet-migrations",
- "parity-scale-codec",
- "scale-info",
- "sp-io",
- "sp-runtime",
- "staging-xcm",
 ]
 
 [[package]]
@@ -14264,7 +14237,6 @@ version = "0.1.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
- "assets-common-migrations",
  "binary-merkle-tree",
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",

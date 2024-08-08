@@ -24,7 +24,7 @@ use frame_support::{
 };
 use sp_runtime::{traits::Convert, FixedPointNumber, FixedU128};
 
-pub type DepositBalanceOf<T, I = ()> =
+pub(super) type DepositBalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 pub(super) type AssetAccountOf<T, I> = AssetAccount<
 	<T as Config<I>>::Balance,
@@ -38,7 +38,7 @@ pub(super) type ExistenceReasonOf<T, I> =
 /// AssetStatus holds the current state of the asset. It could either be Live and available for use,
 /// or in a Destroying state.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
-pub enum AssetStatus {
+pub(super) enum AssetStatus {
 	/// The asset is active and able to be used.
 	Live,
 	/// Whether the asset is frozen for non-admin transfers.
@@ -51,30 +51,30 @@ pub enum AssetStatus {
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct AssetDetails<Balance, AccountId, DepositBalance> {
 	/// Can change `owner`, `issuer`, `freezer` and `admin` accounts.
-	pub owner: AccountId,
+	pub(super) owner: AccountId,
 	/// Can mint tokens.
-	pub issuer: AccountId,
+	pub(super) issuer: AccountId,
 	/// Can thaw tokens, force transfers and burn tokens from any account.
-	pub admin: AccountId,
+	pub(super) admin: AccountId,
 	/// Can freeze tokens.
-	pub freezer: AccountId,
+	pub(super) freezer: AccountId,
 	/// The total supply across all accounts.
-	pub supply: Balance,
+	pub(super) supply: Balance,
 	/// The balance deposited for this asset. This pays for the data stored here.
-	pub deposit: DepositBalance,
+	pub(super) deposit: DepositBalance,
 	/// The ED for virtual accounts.
-	pub min_balance: Balance,
+	pub(super) min_balance: Balance,
 	/// If `true`, then any account with this asset is given a provider reference. Otherwise, it
 	/// requires a consumer reference.
-	pub is_sufficient: bool,
+	pub(super) is_sufficient: bool,
 	/// The total number of accounts.
-	pub accounts: u32,
+	pub(super) accounts: u32,
 	/// The total number of accounts for which we have placed a self-sufficient reference.
-	pub sufficients: u32,
+	pub(super) sufficients: u32,
 	/// The total number of approvals.
-	pub approvals: u32,
+	pub(super) approvals: u32,
 	/// The status of the asset
-	pub status: AssetStatus,
+	pub(super) status: AssetStatus,
 }
 
 /// Data concerning an approval.

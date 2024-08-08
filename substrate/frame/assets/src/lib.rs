@@ -414,7 +414,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Details of an asset.
-	pub type Asset<T: Config<I>, I: 'static = ()> = StorageMap<
+	pub(super) type Asset<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
 		T::AssetId,
