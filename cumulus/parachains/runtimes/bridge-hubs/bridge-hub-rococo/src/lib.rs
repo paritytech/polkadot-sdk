@@ -108,8 +108,6 @@ use parachains_common::{
 
 #[cfg(feature = "runtime-benchmarks")]
 use alloc::boxed::Box;
-#[cfg(feature = "runtime-benchmarks")]
-use benchmark_helpers::DoNothingRouter;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;

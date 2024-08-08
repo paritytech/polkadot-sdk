@@ -187,8 +187,6 @@ mod benchmarks {
 		// Check that the header is removed
 		assert_eq!(ExecutionHeaderMapping::<T>::get(0u32), H256::zero());
 		assert!(ExecutionHeaders::<T>::get(block_root).is_none());
-		assert!(LatestExecutionState::<T>::get().beacon_block_root == H256::zero());
-		assert!(ExecutionHeaderIndex::<T>::get() == 0);
 	}
 
 	impl_benchmark_test_suite!(EthereumBeaconClient, crate::mock::new_tester(), crate::mock::Test);
