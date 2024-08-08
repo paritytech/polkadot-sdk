@@ -77,6 +77,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				ExistenceReason::DepositFrom(depositor.clone(), deposit)
 			}
 		} else if d.is_sufficient {
+			// this only bumps account 'sufficients', but 'providers' is still zero
 			frame_system::Pallet::<T>::inc_sufficients(who);
 			d.sufficients.saturating_inc();
 			ExistenceReason::Sufficient
@@ -150,6 +151,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			if amount < details.min_balance {
 				return DepositConsequence::BelowMinimum
 			}
+			// for non-sufficient assets, the account must be able to accrue consumers
 			if !details.is_sufficient && !frame_system::Pallet::<T>::can_accrue_consumers(who, 2) {
 				return DepositConsequence::CannotCreate
 			}

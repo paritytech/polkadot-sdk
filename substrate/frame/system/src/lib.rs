@@ -1677,6 +1677,8 @@ impl<T: Config> Pallet<T> {
 	/// True if the account has at least one provider reference and adding `amount` consumer
 	/// references would not take it above the the maximum.
 	pub fn can_accrue_consumers(who: &T::AccountId, amount: u32) -> bool {
+		// frame-system only allows accruing consumers iff `providers > 0`, which is not the case
+		// for accounts holding only sufficient assets (but no DOT)...
 		let a = Account::<T>::get(who);
 		match a.consumers.checked_add(amount) {
 			Some(c) => a.providers > 0 && c <= T::MaxConsumers::max_consumers(),
