@@ -1,0 +1,41 @@
+name: 'build and push image'
+inputs:
+  dockerfile:
+    description: "dockerfile to build"
+    required: true
+  image-name:
+    description: ""
+    required: true
+  pr-number:
+    description: "Number of the PR"
+    required: true
+  GH_TOKEN:
+    description: "GitHub token"
+    required: true
+outputs:
+  branch:
+    description: 'Branch name for the PR'
+    value: ${{ steps.branch.outputs.branch }}
+
+
+runs:
+  using: "composite"
+  steps:
+    - name: build
+      env:
+        BUILDAH_COMMAND: "buildah --storage-driver overlay2"
+        DOCKER_IMAGES_VERSION: "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+      run: |
+        export BRANCH_NAME=${{ github.head_ref || github.ref_name }}
+        export DOCKER_IMAGES_VERSION=${BRANCH_NAME/\//-}
+        if [[ ${{ github.event_name }} == "merge_group" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
+        $BUILDAH_COMMAND build
+        --format=docker
+        --build-arg VCS_REF="${GITHUB_SHA}"
+        --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        --build-arg IMAGE_NAME="${{ inputs.image-name }}"
+        --build-arg ZOMBIENET_IMAGE="${ZOMBIENET_IMAGE}"
+        --tag "$IMAGE_NAME:${DOCKER_IMAGES_VERSION}"
+        --file ${{ inputs.dockerfile }} .
+    - name: push
+      run: echo "push"
