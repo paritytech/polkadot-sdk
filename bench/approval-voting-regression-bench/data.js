@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723056463828,
+  "lastUpdate": 1723113135831,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -14052,6 +14052,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.48345716742016,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "joe petrowski",
+            "username": "joepetrowski",
+            "email": "25483142+joepetrowski@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "eb0a9e593fb6a0f2bbfdb75602a51f4923995529",
+          "message": "Fix Weight Annotation (#5275)\n\nhttps://github.com/paritytech/polkadot-sdk/pull/4527/files#r1706673828",
+          "timestamp": "2024-08-08T08:47:24Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/eb0a9e593fb6a0f2bbfdb75602a51f4923995529"
+        },
+        "date": 1723113105411,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63954.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.0328102426701227,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.141307258149994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.777787834499936,
             "unit": "seconds"
           }
         ]
