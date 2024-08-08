@@ -707,7 +707,10 @@ impl syn::parse::Parse for PalletAttr {
 				// Check for duplicated attributes.
 				let config_set = config_values.iter().collect::<HashSet<_>>();
 				if config_set.len() != config_values.len() {
-					return Err(syn::Error::new(span, "Invalid duplicated attribute"))
+					return Err(syn::Error::new(
+						span,
+						"Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates.",
+					));
 				}
 
 				Ok(PalletAttr::Config { span, with_default, without_metadata })
