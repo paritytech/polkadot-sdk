@@ -187,6 +187,7 @@ fn construct_extrinsic(
 			OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
 			OnBridgeHubRococoRefundRococoBulletinMessages::default(),
 		),
+		frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 	);
 	let payload = SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();

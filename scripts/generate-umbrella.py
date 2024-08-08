@@ -24,12 +24,13 @@ Crate names that should be excluded from the umbrella crate.
 """
 def exclude(crate):
 	name = crate.name
-	if crate.metadata.get("polkadot-sdk.skip-umbrella", False):
+	if crate.metadata.get("polkadot-sdk.exclude-from-umbrella", False):
 		return True
 
 	# No fuzzers or examples:
 	if "example" in name or name.endswith("fuzzer"):
 		return True
+
 	# No runtime crates:
 	if name.endswith("-runtime"):
 		# Note: this is a bit hacky. We should use custom crate metadata instead.

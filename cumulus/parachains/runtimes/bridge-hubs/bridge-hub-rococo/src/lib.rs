@@ -144,6 +144,7 @@ pub type TxExtension = (
 		bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
 		bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages,
 	),
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
 );
 
@@ -1618,6 +1619,7 @@ mod tests {
 					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
 					bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
 				),
+				frame_metadata_hash_extension::CheckMetadataHash::new(false),
 				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 			).into();
 
@@ -1632,9 +1634,9 @@ mod tests {
 					10,
 					(((), ()), ((), ())),
 				);
-				assert_eq!(payload.encode(), bhr_indirect_payload.encode());
+				assert_eq!(payload.encode().split_last().unwrap().1, bhr_indirect_payload.encode());
 				assert_eq!(
-					payload.implicit().unwrap().encode(),
+					payload.implicit().unwrap().encode().split_last().unwrap().1,
 					bhr_indirect_payload.implicit().unwrap().encode()
 				)
 			}

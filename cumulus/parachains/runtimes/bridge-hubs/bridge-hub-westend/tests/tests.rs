@@ -76,6 +76,7 @@ fn construct_extrinsic(
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),),
+		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 	)
 		.into();
@@ -300,8 +301,8 @@ pub fn can_calculate_fee_for_standalone_message_delivery_transaction() {
 				RuntimeTestsAdapter,
 			>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
 		},
-		Perbill::from_percent(33),
-		Some(-33),
+		Perbill::from_percent(25),
+		Some(-25),
 		&format!(
 			"Estimate fee for `single message delivery` for runtime: {:?}",
 			<Runtime as frame_system::Config>::Version::get()
@@ -319,8 +320,8 @@ pub fn can_calculate_fee_for_standalone_message_confirmation_transaction() {
 				RuntimeTestsAdapter,
 			>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
 		},
-		Perbill::from_percent(33),
-		Some(-33),
+		Perbill::from_percent(25),
+		Some(-25),
 		&format!(
 			"Estimate fee for `single message confirmation` for runtime: {:?}",
 			<Runtime as frame_system::Config>::Version::get()
