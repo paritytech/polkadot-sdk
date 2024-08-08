@@ -14,6 +14,8 @@ doc:
       attribute to selectively include only certain associated types in the metadata collection.
 
 crates:
+  - name: frame-support
+    bump: patch
   - name: frame-support-procedural
     bump: patch
   - name: frame-support-procedural-tools
