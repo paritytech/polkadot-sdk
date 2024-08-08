@@ -47,6 +47,22 @@ fn asset_account_counts(asset_id: u32) -> (u32, u32) {
 }
 
 #[test]
+fn holding_sufficient_asset_should_act_as_ED_for_account() {
+	new_test_ext().execute_with(|| {
+		let sufficient_id = 42;
+		let not_sufficient_id = 23;
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), sufficient_id, 1, true, 10));
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), not_sufficient_id, 1, false, 10));
+		assert_eq!(asset_ids(), vec![23, 42, 999]);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), sufficient_id, 1, 100));
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), not_sufficient_id, 1, 100)); // <-- this fails
+		                                                                         // with "CannotCreate"
+	});
+}
+
+#[test]
 fn transfer_should_never_burn() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
