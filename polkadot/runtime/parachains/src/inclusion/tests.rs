@@ -363,13 +363,14 @@ fn simple_sanitize_bitfields(
 /// Process a set of already sanitized bitfields.
 pub(crate) fn process_bitfields(
 	signed_bitfields: SignedAvailabilityBitfields,
-) -> (Weight, Vec<(CoreIndex, CandidateHash)>) {
+) -> Vec<(CoreIndex, CandidateHash)> {
 	let validators = shared::ActiveValidatorKeys::<Test>::get();
 
-	ParaInclusion::update_pending_availability_and_get_freed_cores(
+	let (_weight, bitfields) = ParaInclusion::update_pending_availability_and_get_freed_cores(
 		&validators[..],
 		signed_bitfields,
-	)
+	);
+	bitfields
 }
 
 #[test]
@@ -751,7 +752,7 @@ fn bitfield_checks() {
 			);
 			assert_eq!(checked_bitfields.len(), 1, "No bitfields should have been filtered!");
 
-			let (_weight, x) = process_bitfields(checked_bitfields);
+			let x = process_bitfields(checked_bitfields);
 			assert!(x.is_empty(), "No core should be freed.");
 		}
 
@@ -772,7 +773,7 @@ fn bitfield_checks() {
 			);
 			assert_eq!(checked_bitfields.len(), 1, "No bitfields should have been filtered!");
 
-			let (_weight, x) = process_bitfields(checked_bitfields);
+			let x = process_bitfields(checked_bitfields);
 			assert!(x.is_empty(), "No core should be freed.");
 		}
 
@@ -814,7 +815,7 @@ fn bitfield_checks() {
 			);
 			assert_eq!(checked_bitfields.len(), 1, "No bitfields should have been filtered!");
 
-			let (_weight, x) = process_bitfields(checked_bitfields);
+			let x = process_bitfields(checked_bitfields);
 			assert!(x.is_empty(), "No core should be freed.");
 
 			PendingAvailability::<Test>::remove(chain_a);
@@ -1035,7 +1036,7 @@ fn supermajority_bitfields_trigger_availability() {
 		assert_eq!(checked_bitfields.len(), old_len, "No bitfields should have been filtered!");
 
 		// only chain A's core and candidate's C1 core are freed.
-		let (_weight, v) = process_bitfields(checked_bitfields);
+		let v = process_bitfields(checked_bitfields);
 		assert_eq!(
 			vec![(CoreIndex(2), candidate_c_1.hash()), (CoreIndex(0), candidate_a.hash())],
 			v
@@ -1113,7 +1114,7 @@ fn supermajority_bitfields_trigger_availability() {
 		);
 		assert_eq!(checked_bitfields.len(), old_len, "No bitfields should have been filtered!");
 
-		let (_weight, v) = process_bitfields(checked_bitfields);
+		let v = process_bitfields(checked_bitfields);
 		assert_eq!(
 			vec![(CoreIndex(3), candidate_c_2.hash()), (CoreIndex(4), candidate_c_3.hash())],
 			v
@@ -2884,7 +2885,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 			expected_bits(),
 		);
 
-		let (_weight, v) = process_bitfields(checked_bitfields);
+		let v = process_bitfields(checked_bitfields);
 		assert_eq!(vec![(CoreIndex(0), candidate_a.hash())], v);
 
 		assert!(PendingAvailability::<Test>::get(&chain_a).unwrap().is_empty());

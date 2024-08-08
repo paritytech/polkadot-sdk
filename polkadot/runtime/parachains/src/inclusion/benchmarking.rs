@@ -34,17 +34,17 @@ fn create_candidate_commitments<T: crate::hrmp::pallet::Config>(
 	para_id: ParaId,
 	head_data: HeadData,
 	max_msg_len: usize,
-	u: u32,
-	h: u32,
-	c: bool,
+	ump_msg_count: u32,
+	hrmp_msg_count: u32,
+	code_upgrade: bool,
 ) -> CandidateCommitments {
 	let upward_messages = {
-		let unbounded = create_messages(max_msg_len, u as _);
+		let unbounded = create_messages(max_msg_len, ump_msg_count as _);
 		BoundedVec::truncate_from(unbounded)
 	};
 
 	let horizontal_messages = {
-		let unbounded = create_messages(max_msg_len, h as _);
+		let unbounded = create_messages(max_msg_len, hrmp_msg_count as _);
 
 		for n in 0..unbounded.len() {
 			let channel_id = HrmpChannelId { sender: para_id, recipient: para_id + n as u32 + 1 };
@@ -71,7 +71,7 @@ fn create_candidate_commitments<T: crate::hrmp::pallet::Config>(
 		BoundedVec::truncate_from(unbounded)
 	};
 
-	let new_validation_code = c.then_some(ValidationCode(vec![42u8; 1024]));
+	let new_validation_code = code_upgrade.then_some(ValidationCode(vec![42u8; 1024]));
 
 	CandidateCommitments::<u32> {
 		upward_messages,
