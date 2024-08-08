@@ -28,7 +28,7 @@ pub fn create_project(project_account: AccountId, amount: u128) {
 }
 
 #[test]
-fn spendings_creation_works() {
+fn spends_creation_works() {
 	new_test_ext().execute_with(|| {
 		// Add 3 projects
 		let amount1 = 1_000_000 * BSX;
@@ -38,8 +38,8 @@ fn spendings_creation_works() {
 		create_project(BOB, amount2);
 		create_project(DAVE, amount3);
 
-		// The Spendings Storage should be empty
-		assert_eq!(SpendingsCount::<Test>::get(), 0);
+		// The Spends Storage should be empty
+		assert_eq!(SpendsCount::<Test>::get(), 0);
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
@@ -47,59 +47,59 @@ fn spendings_creation_works() {
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
-		// We should have 3 spendings
-		assert!(SpendingsCount::<Test>::get() == 3);
+		// We should have 3 Spends
+		assert!(SpendsCount::<Test>::get() == 3);
 
-		// The 3 spendings are known
-		let alice_spending: types::SpendingInfo<Test> = SpendingInfo {
+		// The 3 Spends are known
+		let alice_spend: types::SpendInfo<Test> = SpendInfo {
 			amount: amount1,
 			valid_from: now,
-			status: types::SpendingState::default(),
+			status: types::SpendState::default(),
 			whitelisted_project: Some(ALICE),
 			claimed: false,
 		};
 
-		let bob_spending: types::SpendingInfo<Test> = SpendingInfo {
+		let bob_spend: types::SpendInfo<Test> = SpendInfo {
 			amount: amount2,
 			valid_from: now,
-			status: types::SpendingState::default(),
+			status: types::SpendState::default(),
 			whitelisted_project: Some(BOB),
 			claimed: false,
 		};
 
-		let dave_spending: types::SpendingInfo<Test> = SpendingInfo {
+		let dave_spend: types::SpendInfo<Test> = SpendInfo {
 			amount: amount3,
 			valid_from: now,
-			status: types::SpendingState::default(),
+			status: types::SpendState::default(),
 			whitelisted_project: Some(DAVE),
 			claimed: false,
 		};
 
-		// List of spendings actually created & stored
-		let list0: Vec<_> = Spendings::<Test>::iter_keys().collect();
-		let list: Vec<_> = list0.into_iter().map(|x| Spendings::<Test>::get(x)).collect();
+		// List of Spends actually created & stored
+		let list0: Vec<_> = Spends::<Test>::iter_keys().collect();
+		let list: Vec<_> = list0.into_iter().map(|x| Spends::<Test>::get(x)).collect();
 
 		expect_events(vec![
-			RuntimeEvent::Distribution(Event::SpendingCreated {
+			RuntimeEvent::Distribution(Event::SpendCreated {
 				when: now.saturating_sub(1),
 				amount: list[0].clone().unwrap().amount,
 				project_account: list[0].clone().unwrap().whitelisted_project.unwrap(),
 			}),
-			RuntimeEvent::Distribution(Event::SpendingCreated {
+			RuntimeEvent::Distribution(Event::SpendCreated {
 				when: now.saturating_sub(1),
 				amount: list[1].clone().unwrap().amount,
 				project_account: list[1].clone().unwrap().whitelisted_project.unwrap(),
 			}),
-			RuntimeEvent::Distribution(Event::SpendingCreated {
+			RuntimeEvent::Distribution(Event::SpendCreated {
 				when: now.saturating_sub(1),
 				amount: list[2].clone().unwrap().amount,
 				project_account: list[2].clone().unwrap().whitelisted_project.unwrap(),
 			}),
 		]);
 
-		assert!(list.contains(&Some(alice_spending)));
-		assert!(list.contains(&Some(bob_spending)));
-		assert!(list.contains(&Some(dave_spending)));
+		assert!(list.contains(&Some(alice_spend)));
+		assert!(list.contains(&Some(bob_spend)));
+		assert!(list.contains(&Some(dave_spend)));
 	})
 }
 
@@ -114,8 +114,8 @@ fn funds_are_locked() {
 		create_project(BOB, amount2);
 		create_project(DAVE, amount3);
 
-		// The Spendings Storage should be empty
-		assert_eq!(SpendingsCount::<Test>::get(), 0);
+		// The Spends Storage should be empty
+		assert_eq!(SpendsCount::<Test>::get(), 0);
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
@@ -145,8 +145,8 @@ fn funds_claim_works() {
 		create_project(BOB, amount2);
 		create_project(DAVE, amount3);
 
-		// The Spendings Storage should be empty
-		assert_eq!(SpendingsCount::<Test>::get(), 0);
+		// The Spends Storage should be empty
+		assert_eq!(SpendsCount::<Test>::get(), 0);
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
@@ -154,7 +154,7 @@ fn funds_claim_works() {
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
-		let project = Spendings::<Test>::get(0).unwrap();
+		let project = Spends::<Test>::get(0).unwrap();
 		let project_account = project.whitelisted_project.unwrap();
 		let balance_0 =
 			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_account);
@@ -183,8 +183,8 @@ fn funds_claim_fails_before_claim_period() {
 		create_project(BOB, amount2);
 		create_project(DAVE, amount3);
 
-		// The Spendings Storage should be empty
-		assert_eq!(SpendingsCount::<Test>::get(), 0);
+		// The Spends Storage should be empty
+		assert_eq!(SpendsCount::<Test>::get(), 0);
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
@@ -192,7 +192,7 @@ fn funds_claim_fails_before_claim_period() {
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
-		let project = Spendings::<Test>::get(0).unwrap();
+		let project = Spends::<Test>::get(0).unwrap();
 		let project_account = project.whitelisted_project.unwrap();
 
 		assert_noop!(

@@ -21,13 +21,13 @@ pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
 >>::Balance;
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 /// A reward index.
-pub type SpendingIndex = u32;
+pub type SpendIndex = u32;
 
 pub type ProjectId<T> = AccountIdOf<T>;
 
 /// The state of the payment claim.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo, Default)]
-pub enum SpendingState {
+pub enum SpendState {
 	/// Unclaimed
 	#[default]
 	Unclaimed,
@@ -40,38 +40,38 @@ pub enum SpendingState {
 //Processed Reward status
 #[derive(Encode, Decode, Clone, PartialEq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct SpendingInfo<T: Config> {
+pub struct SpendInfo<T: Config> {
 	/// The asset amount of the spend.
 	pub amount: BalanceOf<T>,
 	/// The block number from which the spend can be claimed(24h after SpendStatus Creation).
 	pub valid_from: BlockNumberFor<T>,
 	/// The status of the payout/claim.
-	pub status: SpendingState,
+	pub status: SpendState,
 	/// Corresponding project id
 	pub whitelisted_project: Option<AccountIdOf<T>>,
 	/// Has it been claimed?
 	pub claimed: bool,
 }
 
-impl<T: Config> SpendingInfo<T> {
+impl<T: Config> SpendInfo<T> {
 	pub fn new(whitelisted: ProjectInfo<T>) -> Self {
 		let amount = whitelisted.amount;
 		let whitelisted_project = Some(whitelisted.project_account);
 		let claimed = false;
-		let status = SpendingState::default();
+		let status = SpendState::default();
 		let valid_from =
 			<frame_system::Pallet<T>>::block_number().saturating_add(T::BufferPeriod::get());
 
-		let spending = SpendingInfo { amount, valid_from, status, whitelisted_project, claimed };
+		let spend = SpendInfo { amount, valid_from, status, whitelisted_project, claimed };
 
-		// Get the spending index
-		let index = SpendingsCount::<T>::get();
-		//Add it to the Spendings storage
-		Spendings::<T>::insert(index, spending.clone());
+		// Get the Spend index
+		let index = SpendsCount::<T>::get();
+		//Add it to the Spends storage
+		Spends::<T>::insert(index, spend.clone());
 		let new_index = index.checked_add(1).expect("Failed Operation");
-		SpendingsCount::<T>::put(new_index);
+		SpendsCount::<T>::put(new_index);
 
-		spending
+		spend
 	}
 }
 

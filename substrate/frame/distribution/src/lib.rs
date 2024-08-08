@@ -64,19 +64,19 @@ pub mod pallet {
 		FundsReserved,
 	}
 
-	/// Number of spendings that have been executed so far.
+	/// Number of Spends that have been executed so far.
 	#[pallet::storage]
-	pub(super) type SpendingsCount<T: Config> = StorageValue<_, SpendingIndex, ValueQuery>;
+	pub(super) type SpendsCount<T: Config> = StorageValue<_, SpendIndex, ValueQuery>;
 
-	/// Executed spendings information.
+	/// Executed Spends information.
 	#[pallet::storage]
-	pub(super) type CompletedSpendings<T: Config> =
-		StorageMap<_, Twox64Concat, SpendingIndex, SpendingInfo<T>, OptionQuery>;
+	pub(super) type CompletedSpends<T: Config> =
+		StorageMap<_, Twox64Concat, SpendIndex, SpendInfo<T>, OptionQuery>;
 
-	/// Spendings that still have to be completed.
+	/// Spends that still have to be completed.
 	#[pallet::storage]
-	pub(super) type Spendings<T: Config> =
-		StorageMap<_, Twox64Concat, SpendingIndex, SpendingInfo<T>, OptionQuery>;
+	pub(super) type Spends<T: Config> =
+		StorageMap<_, Twox64Concat, SpendIndex, SpendInfo<T>, OptionQuery>;
 
 	/// List of whitelisted projects to be rewarded
 	#[pallet::storage]
@@ -93,8 +93,8 @@ pub mod pallet {
 			project_account: ProjectId<T>,
 		},
 
-		/// A Spending was created
-		SpendingCreated {
+		/// A Spend was created
+		SpendCreated {
 			when: BlockNumberFor<T>,
 			amount: BalanceOf<T>,
 			project_account: ProjectId<T>,
@@ -107,14 +107,14 @@ pub mod pallet {
 		InsufficientPotReserves,
 		/// The funds transfer operation failed
 		TransferFailed,
-		/// Spending or spending index does not exists
-		InexistentSpending,
+		/// Spend or Spend index does not exists
+		InexistentSpend,
 		/// No valid Account_id found
 		NoValidAccount,
 		/// No project available for funding
 		NoProjectAvailable,
 		/// The Funds transfer failed
-		FailedSpendingOperation,
+		FailedSpendOperation,
 		/// Still not in claiming period
 		NotClaimingPeriod,
 		/// Funds locking failed
@@ -147,7 +147,7 @@ pub mod pallet {
 		/// - `project_account`: The account that will receive the reward.
 		///
 		/// ### Errors
-		/// - [`Error::<T>::InexistentSpending`]:Spending or spending index does not exists
+		/// - [`Error::<T>::InexistentSpend`]:Spend or Spend index does not exists
 		/// - [`Error::<T>::NoValidAccount`]:  No valid Account_id found
 		/// - [`Error::<T>::NotClaimingPeriod`]: Still not in claiming period
 		///  
@@ -159,10 +159,10 @@ pub mod pallet {
 			project_account: ProjectId<T>,
 		) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
-			let spending_indexes = Self::get_spending(project_account);
+			let spend_indexes = Self::get_spend(project_account);
 			let pot = Self::pot_account();
-			for i in spending_indexes {
-				let mut info = Spendings::<T>::get(i).ok_or(Error::<T>::InexistentSpending)?;
+			for i in spend_indexes {
+				let mut info = Spends::<T>::get(i).ok_or(Error::<T>::InexistentSpend)?;
 				let project_account =
 					info.whitelisted_project.clone().ok_or(Error::<T>::NoValidAccount)?;
 				let now = <frame_system::Pallet<T>>::block_number();
@@ -177,19 +177,19 @@ pub mod pallet {
 					Precision::Exact,
 				)?;
 				// transfer the funds
-				Self::spending(info.amount, project_account.clone(), i)?;
+				Self::Spend(info.amount, project_account.clone(), i)?;
 
-				// Update SpendingInfo claimed field in the storage
-				Spendings::<T>::mutate(i, |val| {
+				// Update SpendInfo claimed field in the storage
+				Spends::<T>::mutate(i, |val| {
 					info.claimed = true;
-					info.status = SpendingState::Completed;
+					info.status = SpendState::Completed;
 
 					*val = Some(info.clone());
 				});
 
-				// Move completed spending to corresponding storage
-				CompletedSpendings::<T>::insert(i, info.clone());
-				Spendings::<T>::remove(i);
+				// Move completed Spend to corresponding storage
+				CompletedSpends::<T>::insert(i, info.clone());
+				Spends::<T>::remove(i);
 
 				Self::deposit_event(Event::RewardClaimed {
 					when: now,
