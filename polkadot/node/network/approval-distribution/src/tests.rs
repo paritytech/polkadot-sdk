@@ -600,13 +600,11 @@ fn try_import_the_same_assignment() {
 				overseer_recv(overseer).await,
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					assignment,
-					claimed_indices,
-					tranche,
 					_,
 				)) => {
-					assert_eq!(claimed_indices, 0u32.into());
-					assert_eq!(assignment, cert.into());
-					assert_eq!(tranche, 0);
+					assert_eq!(assignment.candidate_indices(), &0u32.into());
+					assert_eq!(assignment.assignment(), &cert.into());
+					assert_eq!(assignment.tranche(), 0);
 				}
 			);
 
@@ -716,13 +714,11 @@ fn try_import_the_same_assignment_v2() {
 				overseer_recv(overseer).await,
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					assignment,
-					claimed_indices,
-					tranche,
 					_,
 				)) => {
-					assert_eq!(claimed_indices, cores.try_into().unwrap());
-					assert_eq!(assignment, cert.into());
-					assert_eq!(tranche, 0);
+					assert_eq!(assignment.candidate_indices(), &cores.try_into().unwrap());
+					assert_eq!(assignment.assignment(), &cert.into());
+					assert_eq!(assignment.tranche(), 0);
 				}
 			);
 
@@ -807,13 +803,11 @@ fn delay_reputation_change() {
 				overseer_recv(overseer).await,
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					assignment,
-					claimed_candidates,
-					tranche,
 					_,
 				)) => {
-					assert_eq!(assignment.cert, cert.cert.into());
-					assert_eq!(claimed_candidates, vec![0u32].try_into().unwrap());
-					assert_eq!(tranche, 0);
+					assert_eq!(assignment.assignment().cert, cert.cert.into());
+					assert_eq!(assignment.candidate_indices(), &vec![0u32].try_into().unwrap());
+					assert_eq!(assignment.tranche(), 0);
 				}
 			);
 			expect_reputation_changes(
@@ -891,13 +885,11 @@ fn spam_attack_results_in_negative_reputation_change() {
 					overseer_recv(overseer).await,
 					AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 						assignment,
-						claimed_candidate_index,
-						tranche,
 						_,
 					)) => {
-						assert_eq!(assignment, assignments[i].0.clone().into());
-						assert_eq!(claimed_candidate_index, assignments[i].1.into());
-						assert_eq!(tranche, 0);
+						assert_eq!(assignment.assignment(), &assignments[i].0.clone().into());
+						assert_eq!(assignment.candidate_indices(), &assignments[i].1.into());
+						assert_eq!(assignment.tranche(), 0);
 					}
 				);
 
@@ -1146,7 +1138,7 @@ fn import_approval_happy_path_v1_v2_peers() {
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportApproval(
 					vote, _,
 				)) => {
-					assert_eq!(vote, approval);
+					assert_eq!(Into::<IndirectSignedApprovalVoteV2>::into(vote), approval);
 				}
 			);
 
@@ -1275,7 +1267,7 @@ fn import_approval_happy_path_v2() {
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportApproval(
 					vote, _,
 				)) => {
-					assert_eq!(vote, approval);
+					assert_eq!(Into::<IndirectSignedApprovalVoteV2>::into(vote), approval);
 				}
 			);
 
@@ -1377,11 +1369,10 @@ fn multiple_assignments_covered_with_one_approval_vote() {
 			assert_matches!(
 				overseer_recv(overseer).await,
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
-					_, _,
-					tranche,
+					assignment,
 					_,
 				)) => {
-					assert_eq!(tranche, 0);
+					assert_eq!(assignment.tranche(), 0);
 				}
 			);
 			expect_reputation_change(overseer, &peer_d, BENEFIT_VALID_MESSAGE_FIRST).await;
@@ -1420,10 +1411,9 @@ fn multiple_assignments_covered_with_one_approval_vote() {
 			assert_matches!(
 				overseer_recv(overseer).await,
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
-					_, _,
-					tranche, _,
+					assignment, _,
 				)) => {
-					assert_eq!(tranche, 0);
+					assert_eq!(assignment.tranche(), 0);
 				}
 			);
 			expect_reputation_change(overseer, &peer_c, BENEFIT_VALID_MESSAGE_FIRST).await;
@@ -1463,7 +1453,7 @@ fn multiple_assignments_covered_with_one_approval_vote() {
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportApproval(
 					vote, _,
 				)) => {
-					assert_eq!(vote, approval);
+					assert_eq!(Into::<IndirectSignedApprovalVoteV2>::into(vote), approval);
 				}
 			);
 
@@ -1584,10 +1574,9 @@ fn unify_with_peer_multiple_assignments_covered_with_one_approval_vote() {
 			assert_matches!(
 				overseer_recv(overseer).await,
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
-					_, _,
-					tranche, _,
+					assignment, _,
 				)) => {
-					assert_eq!(tranche, 0);
+					assert_eq!(assignment.tranche(), 0);
 				}
 			);
 			expect_reputation_change(overseer, &peer_d, BENEFIT_VALID_MESSAGE_FIRST).await;
@@ -1611,10 +1600,9 @@ fn unify_with_peer_multiple_assignments_covered_with_one_approval_vote() {
 			assert_matches!(
 				overseer_recv(overseer).await,
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
-					_, _,
-					tranche, _,
+					assignment, _,
 				)) => {
-					assert_eq!(tranche, 0);
+					assert_eq!(assignment.tranche(), 0);
 				}
 			);
 			expect_reputation_change(overseer, &peer_d, BENEFIT_VALID_MESSAGE_FIRST).await;
@@ -1639,7 +1627,7 @@ fn unify_with_peer_multiple_assignments_covered_with_one_approval_vote() {
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportApproval(
 					vote, _,
 				)) => {
-					assert_eq!(vote, approval);
+					assert_eq!(Into::<IndirectSignedApprovalVoteV2>::into(vote), approval);
 				}
 			);
 
@@ -1784,12 +1772,11 @@ fn import_approval_bad() {
 				overseer_recv(overseer).await,
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					assignment,
-					i,
-					tranche, _,
+					_,
 				)) => {
-					assert_eq!(assignment, cert.into());
-					assert_eq!(i, candidate_index.into());
-					assert_eq!(tranche, 0);
+					assert_eq!(assignment.assignment(), &cert.into());
+					assert_eq!(assignment.candidate_indices(), &candidate_index.into());
+					assert_eq!(assignment.tranche(), 0);
 				}
 			);
 
@@ -2336,12 +2323,11 @@ fn import_remotely_then_locally() {
 				overseer_recv(overseer).await,
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					assignment,
-					i,
-					tranche, _,
+					 _,
 				)) => {
-					assert_eq!(assignment, cert.clone().into());
-					assert_eq!(i, candidate_index.into());
-					assert_eq!(tranche, 0);
+					assert_eq!(assignment.assignment(), &cert.clone().into());
+					assert_eq!(assignment.candidate_indices(), &candidate_index.into());
+					assert_eq!(assignment.tranche(), 0);
 				}
 			);
 
@@ -2374,7 +2360,7 @@ fn import_remotely_then_locally() {
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportApproval(
 					vote, _,
 				)) => {
-					assert_eq!(vote, approval);
+					assert_eq!(Into::<IndirectSignedApprovalVoteV2>::into(vote), approval);
 				}
 			);
 			expect_reputation_change(overseer, peer, BENEFIT_VALID_MESSAGE_FIRST).await;
@@ -2691,12 +2677,11 @@ fn race_condition_in_local_vs_remote_view_update() {
 					overseer_recv(overseer).await,
 					AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 						assignment,
-						claimed_candidate_index,
-						tranche, _,
+						_,
 					)) => {
-						assert_eq!(assignment, assignments[i].0.clone().into());
-						assert_eq!(claimed_candidate_index, assignments[i].1.into());
-						assert_eq!(tranche, 0);
+						assert_eq!(assignment.assignment(), &assignments[i].0.clone().into());
+						assert_eq!(assignment.candidate_indices(), &assignments[i].1.into());
+						assert_eq!(assignment.tranche(), 0);
 					}
 				);
 
@@ -2913,11 +2898,9 @@ fn propagates_assignments_along_unshared_dimension() {
 				assert_matches!(
 					overseer_recv(overseer).await,
 					AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
-						_,
-						_,
-						tranche, _,
+						assignment, _,
 					)) => {
-						assert_eq!(tranche, 0);
+						assert_eq!(assignment.tranche(), 0);
 					}
 				);
 				expect_reputation_change(overseer, &peers[99].0, BENEFIT_VALID_MESSAGE_FIRST).await;
@@ -2963,11 +2946,9 @@ fn propagates_assignments_along_unshared_dimension() {
 				assert_matches!(
 					overseer_recv(overseer).await,
 					AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
-						_,
-						_,
-						tranche, _,
+						assignment, _,
 					)) => {
-						assert_eq!(tranche, 0);
+						assert_eq!(assignment.tranche(), 0);
 					}
 				);
 				expect_reputation_change(overseer, &peers[99].0, BENEFIT_VALID_MESSAGE_FIRST).await;
@@ -3556,11 +3537,9 @@ fn non_originator_aggression_l1() {
 			assert_matches!(
 				overseer_recv(overseer).await,
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
-					_,
-					_,
-					tranche, _,
+					assignment, _,
 				)) => {
-					assert_eq!(tranche, 0);
+					assert_eq!(assignment.tranche(), 0);
 				}
 			);
 
@@ -3682,11 +3661,9 @@ fn non_originator_aggression_l2() {
 			assert_matches!(
 				overseer_recv(overseer).await,
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
-					_,
-					_,
-					tranche, _,
+					assignment, _,
 				)) => {
-					assert_eq!(tranche, 0);
+					assert_eq!(assignment.tranche(), 0);
 				}
 			);
 
@@ -3872,11 +3849,9 @@ fn resends_messages_periodically() {
 				assert_matches!(
 					overseer_recv(overseer).await,
 					AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
-						_,
-						_,
-						tranche, _,
+						assignment, _,
 					)) => {
-						assert_eq!(tranche, 0);
+						assert_eq!(assignment.tranche(), 0);
 					}
 				);
 				expect_reputation_change(overseer, &peers[99].0, BENEFIT_VALID_MESSAGE_FIRST).await;
@@ -4074,7 +4049,7 @@ fn import_versioned_approval() {
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportApproval(
 					vote, _,
 				)) => {
-					assert_eq!(vote, approval.into());
+					assert_eq!(Into::<IndirectSignedApprovalVoteV2>::into(vote), approval.into());
 				}
 			);
 
@@ -4613,13 +4588,11 @@ fn subsystem_accepts_tranche0_duplicate_assignments() {
 				overseer_recv(overseer).await,
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					assignment,
-					claimed_indices,
-					tranche,
 					_,
 				)) => {
-					assert_eq!(claimed_indices, candidate_indices);
-					assert_eq!(assignment, cert.into());
-					assert_eq!(tranche, 0);
+					assert_eq!(assignment.candidate_indices(), &candidate_indices);
+					assert_eq!(assignment.assignment(), &cert.into());
+					assert_eq!(assignment.tranche(), 0);
 				}
 			);
 
@@ -4653,13 +4626,11 @@ fn subsystem_accepts_tranche0_duplicate_assignments() {
 				overseer_recv(overseer).await,
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					assignment,
-					claimed_indices,
-					tranche,
 					_,
 				)) => {
-					assert_eq!(claimed_indices, candidate_indices);
-					assert_eq!(assignment, cert.into());
-					assert_eq!(tranche, 0);
+					assert_eq!(assignment.candidate_indices(), &candidate_indices);
+					assert_eq!(assignment.assignment(), &cert.into());
+					assert_eq!(assignment.tranche(), 0);
 				}
 			);
 
@@ -4693,13 +4664,11 @@ fn subsystem_accepts_tranche0_duplicate_assignments() {
 				overseer_recv(overseer).await,
 				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(
 					assignment,
-					claimed_indices,
-					tranche,
 					_,
 				)) => {
-					assert_eq!(claimed_indices, candidate_indices);
-					assert_eq!(assignment, cert.into());
-					assert_eq!(tranche, 0);
+					assert_eq!(assignment.candidate_indices(), &candidate_indices);
+					assert_eq!(assignment.assignment(), &cert.into());
+					assert_eq!(assignment.tranche(), 0);
 				}
 			);
 

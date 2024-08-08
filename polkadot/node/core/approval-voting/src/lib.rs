@@ -40,8 +40,9 @@ use polkadot_node_subsystem::{
 		ApprovalCheckError, ApprovalCheckResult, ApprovalDistributionMessage,
 		ApprovalVotingMessage, AssignmentCheckError, AssignmentCheckResult,
 		AvailabilityRecoveryMessage, BlockDescription, CandidateValidationMessage, ChainApiMessage,
-		ChainSelectionMessage, DisputeCoordinatorMessage, HighestApprovedAncestorBlock,
-		RuntimeApiMessage, RuntimeApiRequest,
+		ChainSelectionMessage, CheckedIndirectAssignment, CheckedIndirectSignedApprovalVote,
+		DisputeCoordinatorMessage, HighestApprovedAncestorBlock, RuntimeApiMessage,
+		RuntimeApiRequest,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
@@ -2023,15 +2024,13 @@ async fn handle_from_overseer<
 			vec![Action::Conclude]
 		},
 		FromOrchestra::Communication { msg } => match msg {
-			ApprovalVotingMessage::ImportAssignment(a, claimed_cores, tranche, tx) => {
+			ApprovalVotingMessage::ImportAssignment(checked_assignment, tx) => {
 				let (check_outcome, actions) = import_assignment(
 					sender,
 					state,
 					db,
 					session_info_provider,
-					a,
-					claimed_cores,
-					tranche,
+					checked_assignment,
 				)
 				.await?;
 				// approval-distribution makes sure this assignment is valid and expected,
@@ -2620,15 +2619,15 @@ async fn import_assignment<Sender>(
 	state: &State,
 	db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
-	assignment: IndirectAssignmentCertV2,
-	candidate_indices: CandidateBitfield,
-	tranche: DelayTranche,
+	checked_assignment: CheckedIndirectAssignment,
 ) -> SubsystemResult<(AssignmentCheckResult, Vec<Action>)>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
 	let tick_now = state.clock.tick_now();
-
+	let assignment = checked_assignment.assignment();
+	let candidate_indices = checked_assignment.candidate_indices();
+	let tranche = checked_assignment.tranche();
 	let mut import_assignment_span = state
 		.spans
 		.get(&assignment.block_hash)
@@ -2846,7 +2845,7 @@ async fn import_approval<Sender>(
 	db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
 	metrics: &Metrics,
-	approval: IndirectSignedApprovalVoteV2,
+	approval: CheckedIndirectSignedApprovalVote,
 	wakeups: &Wakeups,
 ) -> SubsystemResult<(Vec<Action>, ApprovalCheckResult)>
 where

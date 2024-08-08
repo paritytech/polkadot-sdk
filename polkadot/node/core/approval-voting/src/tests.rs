@@ -677,12 +677,12 @@ async fn import_approval(
 		overseer,
 		FromOrchestra::Communication {
 			msg: ApprovalVotingMessage::ImportApproval(
-				IndirectSignedApprovalVoteV2 {
+				CheckedIndirectSignedApprovalVote::from_checked(IndirectSignedApprovalVoteV2 {
 					block_hash,
 					candidate_indices: candidate_index.into(),
 					validator,
 					signature,
-				},
+				}),
 				Some(tx),
 			),
 		},
@@ -711,14 +711,18 @@ async fn import_assignment(
 		overseer,
 		FromOrchestra::Communication {
 			msg: ApprovalVotingMessage::ImportAssignment(
-				IndirectAssignmentCertV2 {
-					block_hash,
-					validator,
-					cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo { sample: 0 })
+				CheckedIndirectAssignment::from_checked(
+					IndirectAssignmentCertV2 {
+						block_hash,
+						validator,
+						cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo {
+							sample: 0,
+						})
 						.into(),
-				},
-				candidate_index.into(),
-				tranche,
+					},
+					candidate_index.into(),
+					tranche,
+				),
 				Some(tx),
 			),
 		},
@@ -738,21 +742,25 @@ async fn import_assignment_v2(
 		overseer,
 		FromOrchestra::Communication {
 			msg: ApprovalVotingMessage::ImportAssignment(
-				IndirectAssignmentCertV2 {
-					block_hash,
-					validator,
-					cert: garbage_assignment_cert_v2(AssignmentCertKindV2::RelayVRFModuloCompact {
-						core_bitfield: core_indices
-							.clone()
-							.into_iter()
-							.map(|c| CoreIndex(c))
-							.collect::<Vec<_>>()
-							.try_into()
-							.unwrap(),
-					}),
-				},
-				core_indices.try_into().unwrap(),
-				0,
+				CheckedIndirectAssignment::from_checked(
+					IndirectAssignmentCertV2 {
+						block_hash,
+						validator,
+						cert: garbage_assignment_cert_v2(
+							AssignmentCertKindV2::RelayVRFModuloCompact {
+								core_bitfield: core_indices
+									.clone()
+									.into_iter()
+									.map(|c| CoreIndex(c))
+									.collect::<Vec<_>>()
+									.try_into()
+									.unwrap(),
+							},
+						),
+					},
+					core_indices.try_into().unwrap(),
+					0,
+				),
 				Some(tx),
 			),
 		},
@@ -1175,16 +1183,18 @@ fn blank_subsystem_act_on_bad_block() {
 			&mut virtual_overseer,
 			FromOrchestra::Communication {
 				msg: ApprovalVotingMessage::ImportAssignment(
-					IndirectAssignmentCertV2 {
-						block_hash: bad_block_hash,
-						validator: 0u32.into(),
-						cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo {
-							sample: 0,
-						})
-						.into(),
-					},
-					0u32.into(),
-					0,
+					CheckedIndirectAssignment::from_checked(
+						IndirectAssignmentCertV2 {
+							block_hash: bad_block_hash,
+							validator: 0u32.into(),
+							cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo {
+								sample: 0,
+							})
+							.into(),
+						},
+						0u32.into(),
+						0,
+					),
 					Some(tx),
 				),
 			},
@@ -2058,16 +2068,18 @@ fn linear_import_act_on_leaf() {
 			&mut virtual_overseer,
 			FromOrchestra::Communication {
 				msg: ApprovalVotingMessage::ImportAssignment(
-					IndirectAssignmentCertV2 {
-						block_hash: head,
-						validator: 0u32.into(),
-						cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo {
-							sample: 0,
-						})
-						.into(),
-					},
-					0u32.into(),
-					0,
+					CheckedIndirectAssignment::from_checked(
+						IndirectAssignmentCertV2 {
+							block_hash: head,
+							validator: 0u32.into(),
+							cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo {
+								sample: 0,
+							})
+							.into(),
+						},
+						0u32.into(),
+						0,
+					),
 					Some(tx),
 				),
 			},
@@ -2130,16 +2142,18 @@ fn forkful_import_at_same_height_act_on_leaf() {
 				&mut virtual_overseer,
 				FromOrchestra::Communication {
 					msg: ApprovalVotingMessage::ImportAssignment(
-						IndirectAssignmentCertV2 {
-							block_hash: head,
-							validator: 0u32.into(),
-							cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo {
-								sample: 0,
-							})
-							.into(),
-						},
-						0u32.into(),
-						0,
+						CheckedIndirectAssignment::from_checked(
+							IndirectAssignmentCertV2 {
+								block_hash: head,
+								validator: 0u32.into(),
+								cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo {
+									sample: 0,
+								})
+								.into(),
+							},
+							0u32.into(),
+							0,
+						),
 						Some(tx),
 					),
 				},
