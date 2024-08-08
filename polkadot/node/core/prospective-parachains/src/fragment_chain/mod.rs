@@ -568,6 +568,22 @@ impl FragmentNode {
 	}
 }
 
+impl From<&FragmentNode> for CandidateEntry {
+	fn from(node: &FragmentNode) -> Self {
+		// We don't need to perform the checks done in `CandidateEntry::new()`, since a
+		// `FragmentNode` always comes from a `CandidateEntry`
+		Self {
+			candidate_hash: node.candidate_hash,
+			parent_head_data_hash: node.parent_head_data_hash,
+			output_head_data_hash: node.output_head_data_hash,
+			candidate: node.fragment.candidate_clone(),
+			relay_parent: node.relay_parent(),
+			// A fragment node is always backed.
+			state: CandidateState::Backed,
+		}
+	}
+}
+
 /// A candidate chain of backed/backable candidates.
 /// Includes the candidates pending availability and candidates which may be backed on-chain.
 #[derive(Default)]
@@ -693,14 +709,7 @@ impl FragmentChain {
 				.get_pending_availability(&candidate.candidate_hash)
 				.is_none()
 			{
-				let _ = prev_storage.add_candidate_entry(CandidateEntry {
-					candidate_hash: candidate.candidate_hash,
-					parent_head_data_hash: candidate.parent_head_data_hash,
-					output_head_data_hash: candidate.output_head_data_hash,
-					relay_parent: candidate.relay_parent(),
-					candidate: candidate.fragment.candidate_clone(), // This clone is very cheap.
-					state: CandidateState::Backed,
-				});
+				let _ = prev_storage.add_candidate_entry(candidate.into());
 			}
 		}
 
@@ -1337,15 +1346,8 @@ impl FragmentChain {
 
 		// Even if it's empty, we need to return true, because we'll be able to add a new candidate
 		// to the chain.
-		for node in removed_items {
-			let _ = self.unconnected.add_candidate_entry(CandidateEntry {
-				candidate_hash: node.candidate_hash,
-				parent_head_data_hash: node.parent_head_data_hash,
-				output_head_data_hash: node.output_head_data_hash,
-				candidate: node.fragment.candidate_clone(),
-				relay_parent: node.relay_parent(),
-				state: CandidateState::Backed,
-			});
+		for node in &removed_items {
+			let _ = self.unconnected.add_candidate_entry(node.into());
 		}
 		true
 	}
