@@ -21,4 +21,4 @@ crates:
   - name: frame-support-procedural-tools
     bump: patch
   - name: sp-metadata-ir
-    bump: patch
+    bump: major
