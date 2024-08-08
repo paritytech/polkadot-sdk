@@ -156,12 +156,6 @@ where
 			ext_builder
 		} else {
 			let proof_size = builder.estimate_block_size(true) - builder.estimate_block_size(false);
-			println!(
-				"HEYYYY: {}, with: {}, without: {}",
-				proof_size,
-				builder.estimate_block_size(true),
-				builder.estimate_block_size(false)
-			);
 			return Ok((builder.build()?.block, None, proof_size as u64))
 		};
 
