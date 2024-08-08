@@ -15,14 +15,14 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Staging Primitives.
-use crate::ValidityAttestation;
+use crate::{ValidatorIndex, ValidityAttestation};
 
 // Put any primitives used by staging APIs functions here
 use super::{
 	Balance, BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash,
 	CollatorId, CollatorSignature, CoreIndex, Hash, HashT, Header, Id, Id as ParaId,
 	MultiDisputeStatementSet, UncheckedSignedAvailabilityBitfields, ValidationCodeHash,
-	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE, HeadData, GroupIndex, async_backing::Constraints, ScheduledCore
 };
 use bitvec::prelude::*;
 use sp_application_crypto::ByteArray;
@@ -158,6 +158,7 @@ pub struct CandidateDescriptorV2<H = Hash> {
 	validation_code_hash: ValidationCodeHash,
 }
 
+
 impl<H> CandidateDescriptorV2<H> {
 	/// Constructor
 	pub fn new(
@@ -206,6 +207,27 @@ pub struct CommittedCandidateReceiptV2<H = Hash> {
 	pub descriptor: CandidateDescriptorV2<H>,
 	/// The commitments of the candidate receipt.
 	pub commitments: CandidateCommitments,
+}
+
+
+
+/// An even concerning a candidate.
+#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(PartialEq))]
+pub enum CandidateEvent<H = Hash> {
+	/// This candidate receipt was backed in the most recent block.
+	/// This includes the core index the candidate is now occupying.
+	#[codec(index = 0)]
+	CandidateBacked(CandidateReceiptV2<H>, HeadData, CoreIndex, GroupIndex),
+	/// This candidate receipt was included and became a parablock at the most recent block.
+	/// This includes the core index the candidate was occupying as well as the group responsible
+	/// for backing the candidate.
+	#[codec(index = 1)]
+	CandidateIncluded(CandidateReceiptV2<H>, HeadData, CoreIndex, GroupIndex),
+	/// This candidate receipt was not made available in time and timed out.
+	/// This includes the core index the candidate was occupying.
+	#[codec(index = 2)]
+	CandidateTimedOut(CandidateReceiptV2<H>, HeadData, CoreIndex),
 }
 
 impl<H> CandidateReceiptV2<H> {
@@ -336,16 +358,17 @@ pub enum CandidateReceiptError {
 
 macro_rules! impl_getter {
 	($field:ident, $type:ident) => {
-		fn $field(&self) -> $type {
+		/// Returns the value of $field field.
+		pub fn $field(&self) -> $type {
 			self.$field
 		}
 	};
 }
 
-impl CandidateDescriptorV2<Hash> {
+impl<H: Copy> CandidateDescriptorV2<H> {
 	impl_getter!(erasure_root, Hash);
 	impl_getter!(para_head, Hash);
-	impl_getter!(relay_parent, Hash);
+	impl_getter!(relay_parent, H);
 	impl_getter!(para_id, ParaId);
 	impl_getter!(persisted_validation_data_hash, Hash);
 	impl_getter!(pov_hash, Hash);
@@ -454,18 +477,17 @@ impl CommittedCandidateReceiptV2 {
 					None
 				}
 			})
-			.cloned()
 			.collect::<Vec<_>>();
 
 		if assigned_cores.is_empty() {
 			return Err(CandidateReceiptError::NoAssignment)
 		}
 
-		let core_index = *assigned_cores
+		let core_index = assigned_cores
 			.get(core_selector.0 as usize % assigned_cores.len())
 			.expect("provided index is always less than queue len; qed");
 
-		if core_index != descriptor_core_index {
+		if **core_index != descriptor_core_index {
 			return Err(CandidateReceiptError::CoreIndexMismatch)
 		}
 
@@ -521,6 +543,11 @@ impl<H> BackedCandidate<H> {
 	/// Get a reference to the committed candidate receipt of the candidate.
 	pub fn candidate(&self) -> &CommittedCandidateReceiptV2<H> {
 		&self.candidate
+	}
+
+	/// Get a reference to the descriptor of the candidate.
+	pub fn descriptor(&self) -> &CandidateDescriptorV2<H> {
+		&self.candidate.descriptor
 	}
 
 	/// Get a reference to the validity votes of the candidate.
@@ -591,6 +618,102 @@ impl<H> BackedCandidate<H> {
 		}
 	}
 }
+
+/// Scraped runtime backing votes and resolved disputes.
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[cfg_attr(feature = "std", derive(PartialEq))]
+pub struct ScrapedOnChainVotes<H: Encode + Decode = Hash> {
+	/// The session in which the block was included.
+	pub session: SessionIndex,
+	/// Set of backing validators for each candidate, represented by its candidate
+	/// receipt.
+	pub backing_validators_per_candidate:
+		Vec<(CandidateReceiptV2<H>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
+	/// On-chain-recorded set of disputes.
+	/// Note that the above `backing_validators` are
+	/// unrelated to the backers of the disputes candidates.
+	pub disputes: MultiDisputeStatementSet,
+}
+
+
+/// A candidate pending availability.
+#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
+pub struct CandidatePendingAvailability<H = Hash, N = BlockNumber> {
+	/// The hash of the candidate.
+	pub candidate_hash: CandidateHash,
+	/// The candidate's descriptor.
+	pub descriptor: CandidateDescriptorV2<H>,
+	/// The commitments of the candidate.
+	pub commitments: CandidateCommitments,
+	/// The candidate's relay parent's number.
+	pub relay_parent_number: N,
+	/// The maximum Proof-of-Validity size allowed, in bytes.
+	pub max_pov_size: u32,
+}
+
+/// The per-parachain state of the backing system, including
+/// state-machine constraints and candidates pending availability.
+#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
+pub struct BackingState<H = Hash, N = BlockNumber> {
+	/// The state-machine constraints of the parachain.
+	pub constraints: Constraints<N>,
+	/// The candidates pending availability. These should be ordered, i.e. they should form
+	/// a sub-chain, where the first candidate builds on top of the required parent of the
+	/// constraints and each subsequent builds on top of the previous head-data.
+	pub pending_availability: Vec<CandidatePendingAvailability<H, N>>,
+}
+
+
+/// Information about a core which is currently occupied.
+#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(PartialEq))]
+pub struct OccupiedCore<H = Hash, N = BlockNumber> {
+	// NOTE: this has no ParaId as it can be deduced from the candidate descriptor.
+	/// If this core is freed by availability, this is the assignment that is next up on this
+	/// core, if any. None if there is nothing queued for this core.
+	pub next_up_on_available: Option<ScheduledCore>,
+	/// The relay-chain block number this began occupying the core at.
+	pub occupied_since: N,
+	/// The relay-chain block this will time-out at, if any.
+	pub time_out_at: N,
+	/// If this core is freed by being timed-out, this is the assignment that is next up on this
+	/// core. None if there is nothing queued for this core or there is no possibility of timing
+	/// out.
+	pub next_up_on_time_out: Option<ScheduledCore>,
+	/// A bitfield with 1 bit for each validator in the set. `1` bits mean that the corresponding
+	/// validators has attested to availability on-chain. A 2/3+ majority of `1` bits means that
+	/// this will be available.
+	pub availability: BitVec<u8, bitvec::order::Lsb0>,
+	/// The group assigned to distribute availability pieces of this candidate.
+	pub group_responsible: GroupIndex,
+	/// The hash of the candidate occupying the core.
+	pub candidate_hash: CandidateHash,
+	/// The descriptor of the candidate occupying the core.
+	pub candidate_descriptor: CandidateDescriptorV2<H>,
+}
+
+
+/// The state of a particular availability core.
+#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(PartialEq))]
+pub enum CoreState<H = Hash, N = BlockNumber> {
+	/// The core is currently occupied.
+	#[codec(index = 0)]
+	Occupied(OccupiedCore<H, N>),
+	/// The core is currently free, with a para scheduled and given the opportunity
+	/// to occupy.
+	///
+	/// If a particular Collator is required to author this block, that is also present in this
+	/// variant.
+	#[codec(index = 1)]
+	Scheduled(ScheduledCore),
+	/// The core is currently free and there is nothing scheduled. This can be the case for
+	/// parathread cores when there are no parathread blocks queued. Parachain cores will never be
+	/// left idle.
+	#[codec(index = 2)]
+	Free,
+}
+
 
 #[cfg(test)]
 mod tests {
