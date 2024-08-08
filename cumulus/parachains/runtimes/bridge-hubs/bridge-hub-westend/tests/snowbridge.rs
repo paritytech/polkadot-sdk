@@ -16,13 +16,13 @@
 
 #![cfg(test)]
 
+use bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID;
+use bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID;
 use bp_polkadot_core::Signature;
-use bridge_hub_rococo_runtime::{
-	bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages,
-	bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
-	xcm_config::XcmConfig, AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages,
-	Executive, MessageQueueServiceWeight, Runtime, RuntimeCall, RuntimeEvent, SessionKeys,
-	SignedExtra, UncheckedExtrinsic,
+use bridge_hub_westend_runtime::{
+	bridge_to_rococo_config, xcm_config::XcmConfig, AllPalletsWithoutSystem,
+	BridgeRejectObsoleteHeadersAndMessages, Executive, MessageQueueServiceWeight, Runtime,
+	RuntimeCall, RuntimeEvent, SessionKeys, SignedExtra, UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
 use cumulus_primitives_core::XcmError::{FailedToTransactAsset, NotHoldingFees};
@@ -53,8 +53,8 @@ pub fn transfer_token_to_ethereum_works() {
 	snowbridge_runtime_test_common::send_transfer_token_message_success::<Runtime, XcmConfig>(
 		11155111,
 		collator_session_keys(),
-		1013,
-		1000,
+		BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		ASSET_HUB_WESTEND_PARACHAIN_ID,
 		H160::random(),
 		H160::random(),
 		DefaultBridgeHubEthereumBaseFee::get(),
@@ -72,8 +72,8 @@ pub fn unpaid_transfer_token_to_ethereum_fails_with_barrier() {
 	snowbridge_runtime_test_common::send_unpaid_transfer_token_message::<Runtime, XcmConfig>(
 		11155111,
 		collator_session_keys(),
-		1013,
-		1000,
+		BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		ASSET_HUB_WESTEND_PARACHAIN_ID,
 		H160::random(),
 		H160::random(),
 	)
@@ -84,13 +84,13 @@ pub fn transfer_token_to_ethereum_fee_not_enough() {
 	snowbridge_runtime_test_common::send_transfer_token_message_failure::<Runtime, XcmConfig>(
 		11155111,
 		collator_session_keys(),
-		1013,
-		1000,
-		DefaultBridgeHubEthereumBaseFee::get() + 1_000_000_000,
+		BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		ASSET_HUB_WESTEND_PARACHAIN_ID,
+		DefaultBridgeHubEthereumBaseFee::get() + 10_000_000_000,
 		H160::random(),
 		H160::random(),
 		// fee not enough
-		1_000_000_000,
+		10_000_000_000,
 		NotHoldingFees,
 	)
 }
@@ -100,8 +100,8 @@ pub fn transfer_token_to_ethereum_insufficient_fund() {
 	snowbridge_runtime_test_common::send_transfer_token_message_failure::<Runtime, XcmConfig>(
 		11155111,
 		collator_session_keys(),
-		1013,
-		1000,
+		BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		ASSET_HUB_WESTEND_PARACHAIN_ID,
 		1_000_000_000,
 		H160::random(),
 		H160::random(),
@@ -125,7 +125,7 @@ fn max_message_queue_service_weight_is_more_than_beacon_extrinsic_weights() {
 fn ethereum_client_consensus_extrinsics_work() {
 	snowbridge_runtime_test_common::ethereum_extrinsic(
 		collator_session_keys(),
-		1013,
+		BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		construct_and_apply_extrinsic,
 	);
 }
@@ -134,7 +134,7 @@ fn ethereum_client_consensus_extrinsics_work() {
 fn ethereum_to_polkadot_message_extrinsics_work() {
 	snowbridge_runtime_test_common::ethereum_to_polkadot_message_extrinsics_work(
 		collator_session_keys(),
-		1013,
+		BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		construct_and_apply_extrinsic,
 	);
 }
@@ -152,8 +152,8 @@ pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works() {
 	>(
 		11155111,
 		collator_session_keys(),
-		1013,
-		1000,
+		BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		ASSET_HUB_WESTEND_PARACHAIN_ID,
 		H160::random(),
 		H160::random(),
 		DefaultBridgeHubEthereumBaseFee::get(),
@@ -183,10 +183,7 @@ fn construct_extrinsic(
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
-		(
-			OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
-			OnBridgeHubRococoRefundRococoBulletinMessages::default(),
-		),
+		(bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),),
 		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 		frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 	);
