@@ -203,7 +203,7 @@ unbonding all or a portion of the members funds.</p>
 <blockquote>
 <p>A member can have up to <a href="pallet/trait.Config.html#associatedtype.MaxUnbonding" title="associated type pallet_nomination_pools::pallet::Config::MaxUnbonding"><code>Config::MaxUnbonding</code></a> distinct active unbonding requests.</p>
 </blockquote>
-<p>Second, once [<code>sp_staking::StakingInterface::bonding_duration</code>] eras have passed, the member can
+<p>Second, once <a href="../sp_staking/trait.StakingInterface.html#tymethod.bonding_duration" title="associated function sp_staking::StakingInterface::bonding_duration"><code>sp_staking::StakingInterface::bonding_duration</code></a> eras have passed, the member can
 call <a href="pallet/enum.Call.html#variant.withdraw_unbonded" title="variant pallet_nomination_pools::pallet::Call::withdraw_unbonded"><code>Call::withdraw_unbonded</code></a> to withdraw any funds that are free.</p>
 <p>For design docs see the <a href="#bonded-pool">bonded pool</a> and <a href="#unbonding-sub-pools">unbonding sub
 pools</a> sections.</p>
@@ -396,7 +396,7 @@ corresponding unbonding pool. If it’s <code>unbonding_era</code> is older than
 <h4 id="slashing"><a class="doc-anchor" href="#slashing">§</a>Slashing</h4>
 <p>This section assumes that the slash computation is executed by
 <code>pallet_staking::StakingLedger::slash</code>, which passes the information to this pallet via
-[<code>sp_staking::OnStakingUpdate::on_slash</code>].</p>
+<a href="../sp_staking/trait.OnStakingUpdate.html#method.on_slash" title="associated function sp_staking::OnStakingUpdate::on_slash"><code>sp_staking::OnStakingUpdate::on_slash</code></a>.</p>
 <p>Unbonding pools need to be slashed to ensure all nominators whom where in the bonded pool while
 it was backing a validator that equivocated are punished. Without these measures a member could
 unbond right after a validator equivocated with no consequences.</p>
