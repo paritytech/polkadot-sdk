@@ -87,6 +87,18 @@ fn make_committed_candidate(
 	(persisted_validation_data, candidate)
 }
 
+fn populate_chain_from_previous_storage(
+	scope: &Scope,
+	storage: &CandidateStorage,
+) -> FragmentChain {
+	let mut chain = FragmentChain::init(scope.clone(), CandidateStorage::default());
+	let mut prev_chain = chain.clone();
+	prev_chain.unconnected = storage.clone();
+
+	chain.populate_from_previous(&prev_chain);
+	chain
+}
+
 #[test]
 fn scope_rejects_ancestors_that_skip_blocks() {
 	let relay_parent = RelayChainBlockInfo {
@@ -378,9 +390,8 @@ fn candidate_storage_methods() {
 }
 
 #[test]
-fn populate_empty() {
+fn init_and_populate_from_empty() {
 	// Empty chain and empty storage.
-	let storage = CandidateStorage::default();
 	let base_constraints = make_constraints(0, vec![0], vec![0x0a].into());
 
 	let scope = Scope::with_ancestors(
@@ -395,7 +406,12 @@ fn populate_empty() {
 		vec![],
 	)
 	.unwrap();
-	let chain = FragmentChain::populate(scope, storage);
+	let chain = FragmentChain::init(scope.clone(), CandidateStorage::default());
+	assert_eq!(chain.best_chain_len(), 0);
+	assert_eq!(chain.unconnected_len(), 0);
+
+	let mut new_chain = FragmentChain::init(scope, CandidateStorage::default());
+	new_chain.populate_from_previous(&chain);
 	assert_eq!(chain.best_chain_len(), 0);
 	assert_eq!(chain.unconnected_len(), 0);
 }
@@ -482,7 +498,7 @@ fn test_populate_and_check_potential() {
 				ancestors.clone(),
 			)
 			.unwrap();
-			let chain = FragmentChain::populate(scope, storage.clone());
+			let chain = populate_chain_from_previous_storage(&scope, &storage);
 
 			assert!(chain.best_chain_vec().is_empty());
 
@@ -520,12 +536,12 @@ fn test_populate_and_check_potential() {
 			ancestors.clone(),
 		)
 		.unwrap();
-		let chain = FragmentChain::populate(scope.clone(), CandidateStorage::default());
+		let chain = FragmentChain::init(scope.clone(), CandidateStorage::default());
 		assert!(chain.can_add_candidate_as_potential(&candidate_a_entry).is_ok());
 		assert!(chain.can_add_candidate_as_potential(&candidate_b_entry).is_ok());
 		assert!(chain.can_add_candidate_as_potential(&candidate_c_entry).is_ok());
 
-		let chain = FragmentChain::populate(scope, storage.clone());
+		let chain = populate_chain_from_previous_storage(&scope, &storage);
 		assert_eq!(chain.best_chain_vec(), vec![candidate_a_hash]);
 		assert_eq!(
 			chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
@@ -541,12 +557,12 @@ fn test_populate_and_check_potential() {
 			ancestors.clone(),
 		)
 		.unwrap();
-		let chain = FragmentChain::populate(scope.clone(), CandidateStorage::default());
+		let chain = FragmentChain::init(scope.clone(), CandidateStorage::default());
 		assert!(chain.can_add_candidate_as_potential(&candidate_a_entry).is_ok());
 		assert!(chain.can_add_candidate_as_potential(&candidate_b_entry).is_ok());
 		assert!(chain.can_add_candidate_as_potential(&candidate_c_entry).is_ok());
 
-		let chain = FragmentChain::populate(scope, storage.clone());
+		let chain = populate_chain_from_previous_storage(&scope, &storage);
 		assert_eq!(chain.best_chain_vec(), vec![candidate_a_hash, candidate_b_hash]);
 		assert_eq!(
 			chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
@@ -563,12 +579,12 @@ fn test_populate_and_check_potential() {
 				ancestors.clone(),
 			)
 			.unwrap();
-			let chain = FragmentChain::populate(scope.clone(), CandidateStorage::default());
+			let chain = FragmentChain::init(scope.clone(), CandidateStorage::default());
 			assert!(chain.can_add_candidate_as_potential(&candidate_a_entry).is_ok());
 			assert!(chain.can_add_candidate_as_potential(&candidate_b_entry).is_ok());
 			assert!(chain.can_add_candidate_as_potential(&candidate_c_entry).is_ok());
 
-			let chain = FragmentChain::populate(scope, storage.clone());
+			let chain = populate_chain_from_previous_storage(&scope, &storage);
 			assert_eq!(
 				chain.best_chain_vec(),
 				vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]
@@ -590,7 +606,7 @@ fn test_populate_and_check_potential() {
 			ancestors_without_x,
 		)
 		.unwrap();
-		let chain = FragmentChain::populate(scope, storage.clone());
+		let chain = populate_chain_from_previous_storage(&scope, &storage);
 		assert!(chain.best_chain_vec().is_empty());
 		assert_eq!(chain.unconnected_len(), 0);
 
@@ -613,7 +629,8 @@ fn test_populate_and_check_potential() {
 			vec![],
 		)
 		.unwrap();
-		let chain = FragmentChain::populate(scope, storage.clone());
+		let chain = populate_chain_from_previous_storage(&scope, &storage);
+
 		assert!(chain.best_chain_vec().is_empty());
 		assert_eq!(chain.unconnected_len(), 0);
 
@@ -659,7 +676,7 @@ fn test_populate_and_check_potential() {
 		)
 		.unwrap();
 
-		let chain = FragmentChain::populate(scope.clone(), modified_storage);
+		let chain = populate_chain_from_previous_storage(&scope, &modified_storage);
 		assert_eq!(chain.best_chain_vec(), vec![candidate_a_hash, candidate_b_hash]);
 		assert_eq!(chain.unconnected_len(), 0);
 
@@ -668,7 +685,7 @@ fn test_populate_and_check_potential() {
 			Err(Error::Cycle)
 		);
 		// However, if taken independently, C still has potential, since we don't know A and B.
-		let chain = FragmentChain::populate(scope.clone(), CandidateStorage::default());
+		let chain = FragmentChain::init(scope.clone(), CandidateStorage::default());
 		assert!(chain.can_add_candidate_as_potential(&wrong_candidate_c_entry).is_ok());
 	}
 
@@ -701,7 +718,8 @@ fn test_populate_and_check_potential() {
 	)
 	.unwrap();
 
-	let chain = FragmentChain::populate(scope, modified_storage);
+	let chain = populate_chain_from_previous_storage(&scope, &modified_storage);
+
 	assert_eq!(chain.best_chain_vec(), vec![candidate_a_hash, candidate_b_hash]);
 	assert_eq!(chain.unconnected_len(), 0);
 	assert_matches!(
@@ -741,10 +759,11 @@ fn test_populate_and_check_potential() {
 		ancestors.clone(),
 	)
 	.unwrap();
-	let chain = FragmentChain::populate(scope.clone(), CandidateStorage::default());
+	let chain = FragmentChain::init(scope.clone(), CandidateStorage::default());
 	assert!(chain.can_add_candidate_as_potential(&unconnected_candidate_c_entry).is_ok());
 
-	let chain = FragmentChain::populate(scope, modified_storage.clone());
+	let chain = populate_chain_from_previous_storage(&scope, &modified_storage);
+
 	assert_eq!(chain.best_chain_vec(), vec![candidate_a_hash, candidate_b_hash]);
 	assert_eq!(
 		chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
@@ -790,7 +809,7 @@ fn test_populate_and_check_potential() {
 	)
 	.unwrap();
 
-	let chain = FragmentChain::populate(scope, modified_storage.clone());
+	let chain = populate_chain_from_previous_storage(&scope, &modified_storage);
 	assert_eq!(chain.best_chain_vec(), vec![modified_candidate_a_hash, candidate_b_hash]);
 	assert_eq!(chain.unconnected_len(), 0);
 	assert_matches!(
@@ -836,7 +855,7 @@ fn test_populate_and_check_potential() {
 	)
 	.unwrap();
 
-	let chain = FragmentChain::populate(scope, modified_storage.clone());
+	let chain = populate_chain_from_previous_storage(&scope, &modified_storage);
 	assert_eq!(chain.best_chain_vec(), vec![modified_candidate_a_hash, candidate_b_hash]);
 	assert_eq!(chain.unconnected_len(), 0);
 	assert_matches!(
@@ -885,7 +904,7 @@ fn test_populate_and_check_potential() {
 				ancestors.clone(),
 			)
 			.unwrap();
-			let chain = FragmentChain::populate(scope, storage.clone());
+			let chain = populate_chain_from_previous_storage(&scope, &storage);
 			assert_eq!(
 				chain.best_chain_vec(),
 				vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]
@@ -907,7 +926,8 @@ fn test_populate_and_check_potential() {
 			ancestors_without_x,
 		)
 		.unwrap();
-		let chain = FragmentChain::populate(scope, storage.clone());
+		let chain = populate_chain_from_previous_storage(&scope, &storage);
+
 		assert_eq!(
 			chain.best_chain_vec(),
 			vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]
@@ -941,7 +961,7 @@ fn test_populate_and_check_potential() {
 			vec![],
 		)
 		.unwrap();
-		let chain = FragmentChain::populate(scope, storage.clone());
+		let chain = populate_chain_from_previous_storage(&scope, &storage);
 		assert!(chain.best_chain_vec().is_empty());
 		assert_eq!(chain.unconnected_len(), 0);
 	}
@@ -981,7 +1001,7 @@ fn test_populate_and_check_potential() {
 	let candidate_d_hash = candidate_d.hash();
 	let candidate_d_entry =
 		CandidateEntry::new(candidate_d_hash, candidate_d, pvd_d, CandidateState::Backed).unwrap();
-	assert!(FragmentChain::populate(scope.clone(), storage.clone())
+	assert!(populate_chain_from_previous_storage(&scope, &storage)
 		.can_add_candidate_as_potential(&candidate_d_entry)
 		.is_ok());
 	storage.add_candidate_entry(candidate_d_entry).unwrap();
@@ -999,7 +1019,7 @@ fn test_populate_and_check_potential() {
 	let candidate_f_entry =
 		CandidateEntry::new(candidate_f_hash, candidate_f, pvd_f, CandidateState::Seconded)
 			.unwrap();
-	assert!(FragmentChain::populate(scope.clone(), storage.clone())
+	assert!(populate_chain_from_previous_storage(&scope, &storage)
 		.can_add_candidate_as_potential(&candidate_f_entry)
 		.is_ok());
 	storage.add_candidate_entry(candidate_f_entry.clone()).unwrap();
@@ -1021,7 +1041,7 @@ fn test_populate_and_check_potential() {
 	assert_eq!(fork_selection_rule(&candidate_a_hash, &candidate_a1_hash), Ordering::Less);
 
 	assert_matches!(
-		FragmentChain::populate(scope.clone(), storage.clone())
+		populate_chain_from_previous_storage(&scope, &storage)
 			.can_add_candidate_as_potential(&candidate_a1_entry),
 		Err(Error::ForkChoiceRule(other)) if candidate_a_hash == other
 	);
@@ -1041,7 +1061,7 @@ fn test_populate_and_check_potential() {
 	let candidate_b1_entry =
 		CandidateEntry::new(candidate_b1_hash, candidate_b1, pvd_b1, CandidateState::Seconded)
 			.unwrap();
-	assert!(FragmentChain::populate(scope.clone(), storage.clone())
+	assert!(populate_chain_from_previous_storage(&scope, &storage)
 		.can_add_candidate_as_potential(&candidate_b1_entry)
 		.is_ok());
 
@@ -1060,7 +1080,7 @@ fn test_populate_and_check_potential() {
 	let candidate_c1_entry =
 		CandidateEntry::new(candidate_c1_hash, candidate_c1, pvd_c1, CandidateState::Backed)
 			.unwrap();
-	assert!(FragmentChain::populate(scope.clone(), storage.clone())
+	assert!(populate_chain_from_previous_storage(&scope, &storage)
 		.can_add_candidate_as_potential(&candidate_c1_entry)
 		.is_ok());
 
@@ -1079,7 +1099,7 @@ fn test_populate_and_check_potential() {
 	let candidate_c2_entry =
 		CandidateEntry::new(candidate_c2_hash, candidate_c2, pvd_c2, CandidateState::Seconded)
 			.unwrap();
-	assert!(FragmentChain::populate(scope.clone(), storage.clone())
+	assert!(populate_chain_from_previous_storage(&scope, &storage)
 		.can_add_candidate_as_potential(&candidate_c2_entry)
 		.is_ok());
 	storage.add_candidate_entry(candidate_c2_entry).unwrap();
@@ -1100,7 +1120,7 @@ fn test_populate_and_check_potential() {
 	// Candidate A2 is created so that its hash is larger than the candidate A hash.
 	assert_eq!(fork_selection_rule(&candidate_a2_hash, &candidate_a_hash), Ordering::Less);
 
-	assert!(FragmentChain::populate(scope.clone(), storage.clone())
+	assert!(populate_chain_from_previous_storage(&scope, &storage)
 		.can_add_candidate_as_potential(&candidate_a2_entry)
 		.is_ok());
 
@@ -1119,12 +1139,12 @@ fn test_populate_and_check_potential() {
 	let candidate_b2_entry =
 		CandidateEntry::new(candidate_b2_hash, candidate_b2, pvd_b2, CandidateState::Backed)
 			.unwrap();
-	assert!(FragmentChain::populate(scope.clone(), storage.clone())
+	assert!(populate_chain_from_previous_storage(&scope, &storage)
 		.can_add_candidate_as_potential(&candidate_b2_entry)
 		.is_ok());
 	storage.add_candidate_entry(candidate_b2_entry).unwrap();
 
-	let chain = FragmentChain::populate(scope.clone(), storage.clone());
+	let chain = populate_chain_from_previous_storage(&scope, &storage);
 	assert_eq!(chain.best_chain_vec(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
 	assert_eq!(
 		chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
@@ -1185,7 +1205,7 @@ fn test_populate_and_check_potential() {
 		)
 		.unwrap();
 
-	let chain = FragmentChain::populate(scope, storage.clone());
+	let chain = populate_chain_from_previous_storage(&scope, &storage);
 	assert_eq!(chain.best_chain_vec(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
 	assert_eq!(
 		chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
@@ -1224,7 +1244,7 @@ fn test_populate_and_check_potential() {
 	.unwrap();
 
 	// A2 and B2 will now be trimmed
-	let chain = FragmentChain::populate(scope.clone(), storage.clone());
+	let chain = populate_chain_from_previous_storage(&scope, &storage);
 	assert_eq!(chain.best_chain_vec(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
 	assert_eq!(
 		chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
@@ -1238,8 +1258,6 @@ fn test_populate_and_check_potential() {
 
 	// Simulate the fact that candidates A, B and C have been included.
 
-	let new_storage = chain.advance_scope();
-
 	let base_constraints = make_constraints(0, vec![0], HeadData(vec![0x0d]));
 	let scope = Scope::with_ancestors(
 		relay_parent_z_info.clone(),
@@ -1250,7 +1268,9 @@ fn test_populate_and_check_potential() {
 	)
 	.unwrap();
 
-	let mut chain = FragmentChain::populate(scope, new_storage);
+	let prev_chain = chain;
+	let mut chain = FragmentChain::init(scope, CandidateStorage::default());
+	chain.populate_from_previous(&prev_chain);
 	assert_eq!(chain.best_chain_vec(), vec![candidate_d_hash]);
 	assert_eq!(
 		chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
@@ -1275,7 +1295,6 @@ fn test_find_ancestor_path_and_find_backable_chain_empty_best_chain() {
 	let max_depth = 10;
 
 	// Empty chain
-	let storage = CandidateStorage::default();
 	let base_constraints = make_constraints(0, vec![0], required_parent.clone());
 
 	let relay_parent_info =
@@ -1284,7 +1303,7 @@ fn test_find_ancestor_path_and_find_backable_chain_empty_best_chain() {
 	let scope =
 		Scope::with_ancestors(relay_parent_info, base_constraints, vec![], max_depth, vec![])
 			.unwrap();
-	let chain = FragmentChain::populate(scope, storage);
+	let chain = FragmentChain::init(scope, CandidateStorage::default());
 	assert_eq!(chain.best_chain_len(), 0);
 
 	assert_eq!(chain.find_ancestor_path(Ancestors::new()), 0);
@@ -1361,7 +1380,7 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 		vec![],
 	)
 	.unwrap();
-	let mut chain = FragmentChain::populate(scope, storage.clone());
+	let mut chain = populate_chain_from_previous_storage(&scope, &storage);
 
 	// For now, candidates are only seconded, not backed. So the best chain is empty and no
 	// candidate will be returned.
@@ -1489,7 +1508,7 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 			vec![],
 		)
 		.unwrap();
-		let chain = FragmentChain::populate(scope, storage);
+		let chain = populate_chain_from_previous_storage(&scope, &storage);
 		let ancestors: Ancestors = [candidates[0], candidates[1]].into_iter().collect();
 		assert_eq!(
 			// Stop at 4.

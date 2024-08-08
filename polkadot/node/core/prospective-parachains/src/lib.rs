@@ -278,11 +278,11 @@ async fn handle_active_leaves_update<Context>(
 			.await?;
 			let mut compact_pending = Vec::with_capacity(pending_availability.len());
 
-			let mut new_storage = CandidateStorage::default();
+			let mut pending_availability_storage = CandidateStorage::default();
 
 			for c in pending_availability {
 				let candidate_hash = c.compact.candidate_hash;
-				let res = new_storage.add_pending_availability_candidate(
+				let res = pending_availability_storage.add_pending_availability_candidate(
 					candidate_hash,
 					c.candidate,
 					c.persisted_validation_data,
@@ -331,18 +331,6 @@ async fn handle_active_leaves_update<Context>(
 				},
 			};
 
-			// Get the candidate storage of the parent leaf, if present.
-			let prev_fragment_chain = prev_fragment_chains.and_then(|chains| chains.get(&para));
-
-			if let Some(prev_fragment_chain) = prev_fragment_chain {
-				// Add old candidates to the new storage only after we added the pending
-				// availability candidates. The pending candidates have higher priority and can
-				// conflict with the old candidates.
-				for candidate in prev_fragment_chain.advance_scope().into_candidates() {
-					let _ = new_storage.add_candidate_entry(candidate);
-				}
-			}
-
 			gum::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
@@ -352,8 +340,16 @@ async fn handle_active_leaves_update<Context>(
 				"Creating fragment chain"
 			);
 
-			// Finally, populate the fragment chain.
-			let chain = FragmentChain::populate(scope, new_storage);
+			// Init the fragment chain with the pending availability candidates.
+			let mut chain = FragmentChain::init(scope, pending_availability_storage);
+
+			// If we know the previous fragment chain, use that for further populating the fragment
+			// chain.
+			if let Some(prev_fragment_chain) =
+				prev_fragment_chains.and_then(|chains| chains.get(&para))
+			{
+				chain.populate_from_previous(prev_fragment_chain);
+			}
 
 			gum::trace!(
 				target: LOG_TARGET,
