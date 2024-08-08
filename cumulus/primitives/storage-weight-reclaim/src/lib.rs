@@ -191,7 +191,7 @@ where
 				current.accrue(Weight::from_parts(0, missing), info.class);
 				log::warn!(
 					target: LOG_TARGET,
-					"Node-side proof size higher than runtime proof size weight. node-side: {post_dispatch_proof_size} extrinsic_len: {extrinsic_len} runtime: {block_weight_proof_size}, missing: {missing}. Setting to node-side proof size."
+					"Node-side PoV size higher than runtime proof size weight. node-side: {node_side_pov_size} extrinsic_len: {extrinsic_len} runtime: {block_weight_proof_size}, missing: {missing}. Setting to node-side proof size."
 				);
 			} else if consumed_weight > benchmarked_weight {
 				log::error!(
