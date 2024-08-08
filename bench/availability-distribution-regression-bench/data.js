@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723113304989,
+  "lastUpdate": 1723137951235,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21319,6 +21319,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01036521199333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "12539e7a931e82a040e74c84e413baa712ecd638",
+          "message": "[ci] Add test-linux-stable jobs GHA (#4897)\n\nPR adds github-action for jobs test-linux-stable-oldkernel.\nPR waits the latest release of forklift.\n\ncc https://github.com/paritytech/ci_cd/issues/939\ncc https://github.com/paritytech/ci_cd/issues/1006\n\n---------\n\nCo-authored-by: Maksym H <1177472+mordamax@users.noreply.github.com>",
+          "timestamp": "2024-08-08T15:20:20Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/12539e7a931e82a040e74c84e413baa712ecd638"
+        },
+        "date": 1723137920194,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1694791241933333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010148103740000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012234602586666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022126911106666668,
             "unit": "seconds"
           }
         ]
