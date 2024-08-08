@@ -39,7 +39,7 @@ extern crate alloc;
 extern crate self as frame_metadata_hash_extension;
 
 use codec::{Decode, Encode};
-use frame_support::DebugNoBound;
+use frame_support::{pallet_prelude::Weight, DebugNoBound};
 use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -69,11 +69,8 @@ enum MetadataHash {
 	Custom([u8; 32]),
 }
 
-const INVALID_ENV_MSG: &str = "Invalid environment variable `RUNTIME_METADATA_HASH`, it must be a 32 \
-						 bytes hexadecimal string, optionally prefixed with `0x`.";
-
 static RUNTIME_METADATA: Option<[u8; 32]> = match option_env!("RUNTIME_METADATA_HASH") {
-	Some(hex) => Some(utils::hex_str_to_32_bytes_panic(hex, INVALID_ENV_MSG)),
+	Some(hex) => utils::hex_str_to_32_bytes_panic(hex),
 	None => None,
 };
 
