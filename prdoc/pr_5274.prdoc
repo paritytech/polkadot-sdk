@@ -15,10 +15,10 @@ doc:
 
 crates:
   - name: frame-support-procedural
-    bump: minor
+    bump: patch
   - name: frame-support-procedural-tools
-    bump: minor
+    bump: patch
   - name: sp-metadata-ir
-    bump: minor
+    bump: patch
   - name: pallet-assets
-    bump: minor
+    bump: patch
