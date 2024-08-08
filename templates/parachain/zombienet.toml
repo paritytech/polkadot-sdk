@@ -1,6 +1,6 @@
 [relaychain]
 default_command = "polkadot"
-chain = "dev"
+chain = "rococo-local"
 
 [[relaychain.nodes]]
 name = "alice"
@@ -11,6 +11,6 @@ ws_port = 9944
 id = 1000
 
 [parachains.collator]
-name = "alice"
+name = "bob"
 ws_port = 9988
 command = "parachain-template-node"
