@@ -13,7 +13,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(projects.contains(&project), Error::<T>::NotWhitelistedProject);
 
 		// Create vote infos and store/adjust them 
-		let round_number = VotingRoundsNumber::<T>::get().saturating_sub(1);
+		let round_number = VotingRoundNumber::<T>::get().saturating_sub(1);
 		let round = VotingRounds::<T>::get(round_number).ok_or(Error::<T>::NoRoundFound)?;
 		let new_vote = VoteInfo { amount, round, is_fund };
 		if Votes::<T>::contains_key(project.clone(), voter_id.clone()) {
@@ -34,7 +34,7 @@ impl<T: Config> Pallet<T> {
 	// Voting Period checks
 	pub fn period_check() -> DispatchResult{
 		// Get current voting round & check if we are in voting period or not
-		let current_round_index = VotingRoundsNumber::<T>::get().saturating_sub(1);
+		let current_round_index = VotingRoundNumber::<T>::get().saturating_sub(1);
 		let round = VotingRounds::<T>::get(current_round_index).ok_or(Error::<T>::NoRoundFound)?;
 		let now = <frame_system::Pallet<T>>::block_number();
 		ensure!(now >= round.voting_locked_block, Error::<T>::VotePeriodClosed);
@@ -155,7 +155,7 @@ impl<T: Config> Pallet<T> {
 		let epoch = T::EpochDurationBlocks::get();
 		let voting_period = T::VotingPeriod::get();
 		// Check current round: If block is a multiple of round_locked_period,
-		let round_index = VotingRoundsNumber::<T>::get();
+		let round_index = VotingRoundNumber::<T>::get();
 
 		// No active round?
 		if round_index == 0 {

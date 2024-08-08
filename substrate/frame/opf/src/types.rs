@@ -45,9 +45,9 @@ impl<T: Config> VotingRoundInfo<T>{
 		let round_starting_block = <frame_system::Pallet<T>>::block_number();		
 		let round_ending_block = round_starting_block.clone().checked_add(&T::VotingPeriod::get()).expect("Invalid Result");
 		let voting_locked_block = round_ending_block.checked_sub(&T::VoteLockingPeriod::get()).expect("Invalid Result");
-		let round_number = VotingRoundsNumber::<T>::get();
+		let round_number = VotingRoundNumber::<T>::get();
 		let new_number = round_number.checked_add(1).expect("Invalid Result");
-		VotingRoundsNumber::<T>::put(new_number);
+		VotingRoundNumber::<T>::put(new_number);
 
 		VotingRoundInfo{round_number, round_starting_block, voting_locked_block, round_ending_block}
 	}

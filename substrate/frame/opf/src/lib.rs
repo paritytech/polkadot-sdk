@@ -37,7 +37,7 @@ pub mod pallet {
 
 	/// Number of Voting Rounds executed so far
 	#[pallet::storage]
-	pub type VotingRoundsNumber<T:Config> = StorageValue<_,u32, ValueQuery>;
+	pub type VotingRoundNumber<T:Config> = StorageValue<_,u32, ValueQuery>;
 
 	/// Returns Infos about a Voting Round agains the Voting Round index
 	#[pallet::storage]
