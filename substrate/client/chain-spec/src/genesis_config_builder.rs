@@ -30,6 +30,8 @@ use sp_genesis_builder::{PresetId, Result as BuildResult};
 use sp_state_machine::BasicExternalities;
 use std::borrow::Cow;
 
+use crate::OffchainExecutorParams;
+
 /// A utility that facilitates calling the GenesisBuilder API from the runtime wasm code blob.
 ///
 /// `EHF` type allows to specify the extended host function required for building runtime's genesis
@@ -59,13 +61,16 @@ where
 	/// Creates new instance using the provided code blob.
 	///
 	/// This code is later referred to as `runtime`.
-	pub fn new(code: &'a [u8]) -> Self {
+	pub fn new(code: &'a [u8], executor_params: OffchainExecutorParams) -> Self {
+		let mut executor = WasmExecutor::<(sp_io::SubstrateHostFunctions, EHF)>::builder()
+				.with_allow_missing_host_functions(true);
+		if let Some(heap_pages) = executor_params.extra_heap_pages {
+			executor = executor.with_offchain_heap_alloc_strategy(sc_executor::HeapAllocStrategy::Static { extra_pages: heap_pages as _ })
+		};
 		GenesisConfigBuilderRuntimeCaller {
 			code: code.into(),
 			code_hash: sp_crypto_hashing::blake2_256(code).to_vec(),
-			executor: WasmExecutor::<(sp_io::SubstrateHostFunctions, EHF)>::builder()
-				.with_allow_missing_host_functions(true)
-				.build(),
+			executor: executor.build(),
 		}
 	}
 

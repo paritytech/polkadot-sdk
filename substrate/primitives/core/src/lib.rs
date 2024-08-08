@@ -406,9 +406,9 @@ macro_rules! impl_maybe_marker_std_or_serde {
 }
 
 /// The maximum number of bytes that can be allocated at one time.
-// The maximum possible allocation size was chosen rather arbitrary, 32 MiB should be enough for
+// The maximum possible allocation size was chosen rather arbitrary, 64 MiB should be enough for
 // everybody.
-pub const MAX_POSSIBLE_ALLOCATION: u32 = 33554432; // 2^25 bytes, 32 MiB
+pub const MAX_POSSIBLE_ALLOCATION: u32 = 67108864; // 2^26 bytes, 64 MiB
 
 /// Generates a macro for checking if a certain feature is enabled.
 ///

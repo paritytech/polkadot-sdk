@@ -18,6 +18,7 @@
 
 //! Substrate chain configurations.
 #![warn(missing_docs)]
+use crate::OffchainExecutorParams;
 use crate::{
 	extension::GetExtension, genesis_config_builder::HostFunctions, ChainType,
 	GenesisConfigBuilderRuntimeCaller as RuntimeCaller, Properties,
@@ -121,7 +122,7 @@ impl<EHF: HostFunctions> GenesisSource<EHF> {
 					code: code.clone(),
 				})),
 			Self::GenesisBuilderApi(GenesisBuildAction::NamedPreset(name, _), code) => {
-				let patch = RuntimeCaller::<EHF>::new(&code[..]).get_named_preset(Some(name))?;
+				let patch = RuntimeCaller::<EHF>::new(&code[..], Default::default()).get_named_preset(Some(name))?;
 				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
 					json_blob: RuntimeGenesisConfigJson::Patch(patch),
 					code: code.clone(),
@@ -158,7 +159,7 @@ where
 				json_blob: RuntimeGenesisConfigJson::Config(config),
 				code,
 			}) => {
-				RuntimeCaller::<EHF>::new(&code[..])
+				RuntimeCaller::<EHF>::new(&code[..], self.executor_params.clone())
 					.get_storage_for_config(config)?
 					.assimilate_storage(storage)?;
 				storage
@@ -169,7 +170,7 @@ where
 				json_blob: RuntimeGenesisConfigJson::Patch(patch),
 				code,
 			}) => {
-				RuntimeCaller::<EHF>::new(&code[..])
+				RuntimeCaller::<EHF>::new(&code[..], self.executor_params.clone())
 					.get_storage_for_patch(patch)?
 					.assimilate_storage(storage)?;
 				storage
@@ -314,6 +315,7 @@ pub struct ChainSpecBuilder<E = NoExtension, EHF = ()> {
 	protocol_id: Option<String>,
 	fork_id: Option<String>,
 	properties: Option<Properties>,
+	heap_pages: Option<u64>,
 }
 
 impl<E, EHF> ChainSpecBuilder<E, EHF> {
@@ -331,6 +333,7 @@ impl<E, EHF> ChainSpecBuilder<E, EHF> {
 			protocol_id: None,
 			fork_id: None,
 			properties: None,
+			heap_pages: None,
 		}
 	}
 
@@ -413,6 +416,12 @@ impl<E, EHF> ChainSpecBuilder<E, EHF> {
 		self
 	}
 
+	/// Sets the number of heap pages available to the executor during chain spec building.
+	pub fn with_heap_pages(mut self, pages: u64) -> Self {
+		self.heap_pages = Some(pages);
+		self
+	}
+
 	/// Builds a [`ChainSpec`] instance using the provided settings.
 	pub fn build(self) -> ChainSpec<E, EHF> {
 		let client_spec = ClientSpec {
@@ -430,9 +439,14 @@ impl<E, EHF> ChainSpecBuilder<E, EHF> {
 			code_substitutes: BTreeMap::new(),
 		};
 
+		let executor_params = OffchainExecutorParams {
+			extra_heap_pages: self.heap_pages,
+		};
+
 		ChainSpec {
 			client_spec,
 			genesis: GenesisSource::GenesisBuilderApi(self.genesis_build_action, self.code.into()),
+			executor_params,
 			_host_functions: Default::default(),
 		}
 	}
@@ -446,6 +460,7 @@ impl<E, EHF> ChainSpecBuilder<E, EHF> {
 pub struct ChainSpec<E = NoExtension, EHF = ()> {
 	client_spec: ClientSpec<E>,
 	genesis: GenesisSource<EHF>,
+	executor_params: OffchainExecutorParams,
 	_host_functions: PhantomData<EHF>,
 }
 
@@ -454,6 +469,7 @@ impl<E: Clone, EHF> Clone for ChainSpec<E, EHF> {
 		ChainSpec {
 			client_spec: self.client_spec.clone(),
 			genesis: self.genesis.clone(),
+			executor_params: self.executor_params.clone(),
 			_host_functions: self._host_functions,
 		}
 	}
@@ -533,6 +549,7 @@ impl<E: serde::de::DeserializeOwned, EHF> ChainSpec<E, EHF> {
 		Ok(ChainSpec {
 			client_spec,
 			genesis: GenesisSource::Binary(json),
+			executor_params: Default::default(),
 			_host_functions: Default::default(),
 		})
 	}
@@ -556,6 +573,7 @@ impl<E: serde::de::DeserializeOwned, EHF> ChainSpec<E, EHF> {
 		Ok(ChainSpec {
 			client_spec,
 			genesis: GenesisSource::File(path),
+			executor_params: Default::default(),
 			_host_functions: Default::default(),
 		})
 	}
@@ -586,7 +604,7 @@ where
 				}),
 			) => {
 				let mut storage =
-					RuntimeCaller::<EHF>::new(&code[..]).get_storage_for_config(config)?;
+					RuntimeCaller::<EHF>::new(&code[..], self.executor_params.clone()).get_storage_for_config(config)?;
 				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 				RawGenesis::from(storage)
 			},
@@ -598,7 +616,7 @@ where
 				}),
 			) => {
 				let mut storage =
-					RuntimeCaller::<EHF>::new(&code[..]).get_storage_for_patch(patch)?;
+					RuntimeCaller::<EHF>::new(&code[..], self.executor_params.clone()).get_storage_for_patch(patch)?;
 				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 				RawGenesis::from(storage)
 			},
@@ -691,6 +709,10 @@ where
 			.iter()
 			.map(|(h, c)| (h.clone(), c.0.clone()))
 			.collect()
+	}
+
+	fn set_executor_params(&mut self, executor_params: OffchainExecutorParams) {
+		self.executor_params = executor_params;
 	}
 }
 

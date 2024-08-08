@@ -144,6 +144,7 @@ pub fn get_builtin_preset(id: &sp_genesis_builder::PresetId) -> Option<alloc::ve
 fn check_presets() {
 	let builder = sc_chain_spec::GenesisConfigBuilderRuntimeCaller::<()>::new(
 		crate::WASM_BINARY.expect("wasm binary shall exists"),
+		Default::default(),
 	);
 	assert!(builder.get_storage_for_named_preset(Some(&PRESET_1.to_string())).is_ok());
 	assert!(builder.get_storage_for_named_preset(Some(&PRESET_2.to_string())).is_ok());
@@ -156,6 +157,7 @@ fn check_presets() {
 fn invalid_preset_works() {
 	let builder = sc_chain_spec::GenesisConfigBuilderRuntimeCaller::<()>::new(
 		crate::WASM_BINARY.expect("wasm binary shall exists"),
+		Default::default(),
 	);
 	// Even though a preset contains invalid_key, conversion to raw storage does not fail. This is
 	// because the [`FooStruct`] structure is not annotated with `deny_unknown_fields` [`serde`]

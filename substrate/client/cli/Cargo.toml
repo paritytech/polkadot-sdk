@@ -35,6 +35,7 @@ thiserror = { workspace = true }
 # personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
 bip39 = { package = "parity-bip39", version = "2.0.1", features = ["rand"] }
 tokio = { features = ["parking_lot", "rt-multi-thread", "signal"], workspace = true, default-features = true }
+sc-chain-spec = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { workspace = true }
 sc-keystore = { workspace = true, default-features = true }

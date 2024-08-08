@@ -109,7 +109,7 @@ fn inner_main() -> Result<(), String> {
 			let code = fs::read(runtime_wasm_path.as_path())
 				.map_err(|e| format!("wasm blob shall be readable {e}"))?;
 			let caller: GenesisConfigBuilderRuntimeCaller =
-				GenesisConfigBuilderRuntimeCaller::new(&code[..]);
+				GenesisConfigBuilderRuntimeCaller::new(&code[..], Default::default());
 			let presets = caller
 				.preset_names()
 				.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
@@ -129,7 +129,7 @@ fn inner_main() -> Result<(), String> {
 			let code = fs::read(runtime_wasm_path.as_path())
 				.map_err(|e| format!("wasm blob shall be readable {e}"))?;
 			let caller: GenesisConfigBuilderRuntimeCaller =
-				GenesisConfigBuilderRuntimeCaller::new(&code[..]);
+				GenesisConfigBuilderRuntimeCaller::new(&code[..], Default::default());
 			let preset = caller
 				.get_named_preset(preset_name.as_ref())
 				.map_err(|e| format!("getting default config from runtime should work: {e}"))?;

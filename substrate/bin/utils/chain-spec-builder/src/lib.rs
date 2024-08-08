@@ -120,7 +120,7 @@
 use std::{fs, path::PathBuf};
 
 use clap::{Parser, Subcommand};
-use sc_chain_spec::{ChainType, GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
+use sc_chain_spec::{OffchainExecutorParams, ChainType, GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
 use serde_json::Value;
 
 /// A utility to easily create a chain spec definition.
@@ -168,6 +168,9 @@ pub struct CreateCmd {
 	/// errors will be reported.
 	#[arg(long, short = 'v')]
 	verify: bool,
+	/// Number of extra heap pages available to executor when calling into runtime to build chain spec.
+	#[arg(long)]
+	extra_heap_pages: Option<u64>,
 	#[command(subcommand)]
 	action: GenesisBuildAction,
 }
@@ -310,7 +313,7 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 		},
 		GenesisBuildAction::Default(DefaultCmd {}) => {
 			let caller: GenesisConfigBuilderRuntimeCaller =
-				GenesisConfigBuilderRuntimeCaller::new(&code[..]);
+				GenesisConfigBuilderRuntimeCaller::new(&code[..], OffchainExecutorParams { extra_heap_pages: cmd.extra_heap_pages });
 			let default_config = caller
 				.get_default_config()
 				.map_err(|e| format!("getting default config from runtime should work: {e}"))?;

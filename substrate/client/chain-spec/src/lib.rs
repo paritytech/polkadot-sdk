@@ -369,6 +369,14 @@ pub enum ChainType {
 	Custom(String),
 }
 
+/// Executor parameters used to call into the runtime when building a chain spec.
+#[derive(Default, Clone)]
+pub struct OffchainExecutorParams {
+	/// Number of extra heap pages available to the executor. If not specified, executor's
+	/// default is used.
+	pub extra_heap_pages: Option<u64>,
+}
+
 impl Default for ChainType {
 	fn default() -> Self {
 		Self::Live
@@ -416,6 +424,8 @@ pub trait ChainSpec: BuildStorage + Send + Sync {
 	fn set_storage(&mut self, storage: Storage);
 	/// Returns code substitutes that should be used for the on chain wasm.
 	fn code_substitutes(&self) -> std::collections::BTreeMap<String, Vec<u8>>;
+	/// Sets executor parameters that should be used when building this chain spec.
+	fn set_executor_params(&mut self, executor_params: OffchainExecutorParams);
 }
 
 impl std::fmt::Debug for dyn ChainSpec {
