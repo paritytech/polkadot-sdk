@@ -124,7 +124,7 @@ pub enum DummyHoldReason {
 
 impl VariantCount for DummyHoldReason {
 	// Intentionally set below the actual count of variants, to allow testing for `can_freeze`
-	const VARIANT_COUNT: u32 = 2;
+	const VARIANT_COUNT: u32 = 3;
 }
 
 impl Config for Test {
