@@ -295,6 +295,8 @@ pub mod pallet {
 			type MetadataDepositPerByte = ConstU64<1>;
 			type ApprovalDeposit = ConstU64<1>;
 			type StringLimit = ConstU32<50>;
+			type Freezer = ();
+			type Holder = ();
 			type Extra = ();
 			type CallbackHandle = ();
 			type WeightInfo = ();
@@ -390,12 +392,10 @@ pub mod pallet {
 
 		/// A hook to allow a per-asset, per-account minimum balance to be enforced. This must be
 		/// respected in all permissionless operations.
-		#[pallet::no_default]
 		type Freezer: FrozenBalance<Self::AssetId, Self::AccountId, Self::Balance>;
 
-		/// A hook to allow a per-asset, per-account minimum balance to be enforced. This must be
-		/// respected in all permissionless operations.
-		#[pallet::no_default]
+		/// A hook to inspect a per-asset, per-account balance that is held. This goes in
+		/// accordance with balance model.
 		type Holder: HeldBalance<Self::AssetId, Self::AccountId, Self::Balance>;
 
 		/// Additional data to be stored with an account's asset balance.
