@@ -50,6 +50,7 @@ use sp_runtime::{
 
 #[cfg(test)]
 mod tests;
+mod utils;
 
 /// The mode of [`CheckMetadataHash`].
 #[derive(Decode, Encode, PartialEq, Debug, TypeInfo, Clone, Copy, Eq)]
@@ -68,12 +69,19 @@ enum MetadataHash {
 	Custom([u8; 32]),
 }
 
+const INVALID_ENV_MSG: &str = "Invalid environment variable `RUNTIME_METADATA_HASH`, it must be a 32 \
+						 bytes hexadecimal string, optionally prefixed with `0x`.";
+
+static RUNTIME_METADATA: Option<[u8; 32]> = match option_env!("RUNTIME_METADATA_HASH") {
+	Some(hex) => Some(utils::hex_str_to_32_bytes_panic(hex, INVALID_ENV_MSG)),
+	None => None,
+};
+
 impl MetadataHash {
 	/// Returns the metadata hash.
 	fn hash(&self) -> Option<[u8; 32]> {
 		match self {
-			Self::FetchFromEnv =>
-				option_env!("RUNTIME_METADATA_HASH").map(array_bytes::hex2array_unchecked),
+			Self::FetchFromEnv => RUNTIME_METADATA,
 			Self::Custom(hash) => Some(*hash),
 		}
 	}
@@ -151,6 +159,9 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckMetadataHash<T> 
 		);
 
 		Ok(signed)
+	}
+	fn weight() -> Weight {
+		Weight::default()
 	}
 }
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMetadataHash<T> {
