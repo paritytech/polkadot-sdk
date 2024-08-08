@@ -55,6 +55,10 @@ pub struct BenchmarkParams {
 	/// Only useful for debugging.
 	#[arg(long)]
 	pub max_ext_per_block: Option<u32>,
+
+	/// Include the benchmarked proof size in the output.
+	#[arg(long)]
+	pub enable_proof_size: bool,
 }
 
 /// The results of multiple runs in nano seconds.
@@ -89,10 +93,13 @@ where
 	}
 
 	/// Benchmark a block with only inherents.
-	pub fn bench_block(&self) -> Result<Stats> {
-		let (block, _) = self.build_block(None)?;
+	///
+	/// Returns the Ref time stats and the proof size.
+	pub fn bench_block(&self) -> Result<(Stats, u64)> {
+		let (block, _, proof_size) = self.build_block(None)?;
 		let record = self.measure_block(&block)?;
-		Stats::new(&record)
+
+		Ok((Stats::new(&record)?, proof_size))
 	}
 
 	/// Benchmark the time of an extrinsic in a full block.
@@ -100,13 +107,14 @@ where
 	/// First benchmarks an empty block, analogous to `bench_block` and use it as baseline.
 	/// Then benchmarks a full block built with the given `ext_builder` and subtracts the baseline
 	/// from the result.
-	/// This is necessary to account for the time the inherents use.
-	pub fn bench_extrinsic(&self, ext_builder: &dyn ExtrinsicBuilder) -> Result<Stats> {
-		let (block, _) = self.build_block(None)?;
+	/// This is necessary to account for the time the inherents use. Returns ref time stats and the
+	/// proof size.
+	pub fn bench_extrinsic(&self, ext_builder: &dyn ExtrinsicBuilder) -> Result<(Stats, u64)> {
+		let (block, _, base_proof_size) = self.build_block(None)?;
 		let base = self.measure_block(&block)?;
 		let base_time = Stats::new(&base)?.select(StatSelect::Average);
 
-		let (block, num_ext) = self.build_block(Some(ext_builder))?;
+		let (block, num_ext, proof_size) = self.build_block(Some(ext_builder))?;
 		let num_ext = num_ext.ok_or_else(|| Error::Input("Block was empty".into()))?;
 		let mut records = self.measure_block(&block)?;
 
@@ -117,23 +125,24 @@ where
 			*r = ((*r as f64) / (num_ext as f64)).ceil() as u64;
 		}
 
-		Stats::new(&records)
+		Ok((Stats::new(&records)?, proof_size.saturating_sub(base_proof_size)))
 	}
 
 	/// Builds a block with some optional extrinsics.
 	///
 	/// Returns the block and the number of extrinsics in the block
-	/// that are not inherents.
+	/// that are not inherents together with the proof size.
 	/// Returns a block with only inherents if `ext_builder` is `None`.
 	fn build_block(
 		&self,
 		ext_builder: Option<&dyn ExtrinsicBuilder>,
-	) -> Result<(Block, Option<u64>)> {
+	) -> Result<(Block, Option<u64>, u64)> {
 		let chain = self.client.usage_info().chain;
 		let mut builder = BlockBuilderBuilder::new(&*self.client)
 			.on_parent_block(chain.best_hash)
 			.with_parent_block_number(chain.best_number)
 			.with_inherent_digests(Digest { logs: self.digest_items.clone() })
+			.enable_proof_recording()
 			.build()?;
 
 		// Create and insert the inherents.
@@ -146,7 +155,14 @@ where
 		let ext_builder = if let Some(ext_builder) = ext_builder {
 			ext_builder
 		} else {
-			return Ok((builder.build()?.block, None))
+			let proof_size = builder.estimate_block_size(true) - builder.estimate_block_size(false);
+			println!(
+				"HEYYYY: {}, with: {}, without: {}",
+				proof_size,
+				builder.estimate_block_size(true),
+				builder.estimate_block_size(false)
+			);
+			return Ok((builder.build()?.block, None, proof_size as u64))
 		};
 
 		// Put as many extrinsics into the block as possible and count them.
@@ -167,9 +183,10 @@ where
 			return Err("A Block must hold at least one extrinsic".into())
 		}
 		info!("Extrinsics per block: {}", num_ext);
+		let proof_size = builder.estimate_block_size(true) - builder.estimate_block_size(false);
 		let block = builder.build()?.block;
 
-		Ok((block, Some(num_ext)))
+		Ok((block, Some(num_ext), proof_size as u64))
 	}
 
 	/// Measures the time that it take to execute a block or an extrinsic.

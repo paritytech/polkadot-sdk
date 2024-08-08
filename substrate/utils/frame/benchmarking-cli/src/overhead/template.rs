@@ -18,6 +18,7 @@
 //! Converts a benchmark result into [`TemplateData`] and writes
 //! it into the `weights.hbs` template.
 
+use frame_support::pallet_prelude::Weight;
 use sc_cli::Result;
 use sc_service::Configuration;
 
@@ -59,8 +60,10 @@ pub(crate) struct TemplateData {
 	params: OverheadParams,
 	/// Stats about the benchmark result.
 	stats: Stats,
-	/// The resulting weight in ns.
-	weight: u64,
+	/// The resulting ref time weight.
+	ref_time: u64,
+	/// The size of the proof weight.
+	proof_size: u64,
 }
 
 impl TemplateData {
@@ -70,8 +73,9 @@ impl TemplateData {
 		cfg: &Configuration,
 		params: &OverheadParams,
 		stats: &Stats,
+		proof_size: u64,
 	) -> Result<Self> {
-		let weight = params.weight.calc_weight(stats)?;
+		let ref_time = params.weight.calc_weight(stats)?;
 		let header = params
 			.header
 			.as_ref()
@@ -91,7 +95,8 @@ impl TemplateData {
 			args: env::args().collect::<Vec<String>>(),
 			params: params.clone(),
 			stats: stats.clone(),
-			weight,
+			ref_time,
+			proof_size: params.bench.enable_proof_size.then(|| proof_size).unwrap_or(0),
 		})
 	}
 
