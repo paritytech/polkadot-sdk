@@ -8,6 +8,7 @@ use frame_support::{
 };
 use sp_core::Get;
 
+pub mod execution_header_cleanup;
 mod test;
 
 pub const PALLET_MIGRATIONS_ID: &[u8; 26] = b"ethereum-execution-headers";
@@ -102,8 +103,6 @@ impl<T: Config, W: WeightInfo, M: Get<u32>> SteppedMigration
 			};
 
 			if index >= M::get() {
-				v0::LatestExecutionState::<T>::kill();
-				v0::ExecutionHeaderIndex::<T>::kill();
 				// We are at the end of the migration, signal complete.
 				cursor = None;
 				log::info!(target: LOG_TARGET, "Ethereum execution header cleanup migration is complete. Index = {}.", index);

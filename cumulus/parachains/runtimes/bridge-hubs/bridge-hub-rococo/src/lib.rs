@@ -45,13 +45,17 @@ use bridge_runtime_common::extensions::{
 	refund_relayer_extension::RefundableParachain,
 };
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+use snowbridge_core::{
+	outbound::{Command, Fee},
+	AgentId, PricingParameters,
+};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult
 };
 
 #[cfg(feature = "std")]
@@ -154,6 +158,7 @@ pub type Migrations = (
 		ConstU32<BRIDGE_HUB_ID>,
 		ConstU32<ASSET_HUB_ID>,
 	>,
+	snowbridge_pallet_ethereum_client::migration::execution_header_cleanup::ExecutionHeaderCleanup<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
