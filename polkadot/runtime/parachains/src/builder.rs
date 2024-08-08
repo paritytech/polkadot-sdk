@@ -31,9 +31,9 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	node_features::FeatureIndex, AvailabilityBitfield, BackedCandidate, CandidateCommitments,
-	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CommittedCandidateReceipt,
+	vstaging::CandidateDescriptorV2 as CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
-	Id as ParaId, IndexedVec, InherentData as ParachainsInherentData, InvalidDisputeStatementKind,
+	Id as ParaId, IndexedVec, vstaging::InherentData as ParachainsInherentData, InvalidDisputeStatementKind,
 	PersistedValidationData, SessionIndex, SigningContext, UncheckedSigned,
 	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,
 };

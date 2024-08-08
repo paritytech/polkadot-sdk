@@ -20,8 +20,7 @@ pub mod v0 {
 	use frame_support::{storage_alias, Twox64Concat};
 	use frame_system::pallet_prelude::BlockNumberFor;
 	use polkadot_primitives::{
-		AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash, CoreIndex,
-		GroupIndex, Id as ParaId, ValidatorIndex,
+		vstaging::CandidateDescriptorV2 as CandidateDescriptor, AvailabilityBitfield, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, Id as ParaId, ValidatorIndex
 	};
 	use scale_info::TypeInfo;
 

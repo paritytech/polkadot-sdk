@@ -48,10 +48,10 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
 use polkadot_primitives::{
-	effective_minimum_backing_votes, node_features::FeatureIndex, BackedCandidate, CandidateHash,
-	CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
-	DisputeStatementSet, HeadData, InherentData as ParachainsInherentData,
-	MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex, SignedAvailabilityBitfields,
+	effective_minimum_backing_votes, node_features::FeatureIndex, vstaging::BackedCandidate, CandidateHash,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
+	DisputeStatementSet, HeadData, vstaging::InherentData as ParachainsInherentData,
+	MultiDisputeStatementSet, vstaging::ScrapedOnChainVotes, SessionIndex, SignedAvailabilityBitfields,
 	SigningContext, UncheckedSignedAvailabilityBitfield, UncheckedSignedAvailabilityBitfields,
 	ValidatorId, ValidatorIndex, ValidityAttestation, PARACHAINS_INHERENT_IDENTIFIER,
 };
@@ -763,7 +763,7 @@ pub(crate) fn apply_weight_limit<T: Config + inclusion::Config>(
 	let mut current_para_id = None;
 
 	for candidate in core::mem::take(candidates).into_iter() {
-		let candidate_para_id = candidate.descriptor().para_id;
+		let candidate_para_id = candidate.descriptor().para_id();
 		if Some(candidate_para_id) == current_para_id {
 			let chain = chained_candidates
 				.last_mut()
@@ -965,7 +965,7 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	let mut candidates_per_para: BTreeMap<ParaId, Vec<_>> = BTreeMap::new();
 	for candidate in backed_candidates {
 		candidates_per_para
-			.entry(candidate.descriptor().para_id)
+			.entry(candidate.descriptor().para_id())
 			.or_default()
 			.push(candidate);
 	}
@@ -984,7 +984,7 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 				target: LOG_TARGET,
 				"Found backed candidate {:?} which was concluded invalid or is a descendant of a concluded invalid candidate, for paraid {:?}.",
 				candidate.candidate().hash(),
-				candidate.descriptor().para_id
+				candidate.descriptor().para_id()
 			);
 		}
 		keep
@@ -1165,13 +1165,13 @@ fn filter_backed_statements_from_disabled_validators<
 		// Get relay parent block number of the candidate. We need this to get the group index
 		// assigned to this core at this block number
 		let relay_parent_block_number =
-			match allowed_relay_parents.acquire_info(bc.descriptor().relay_parent, None) {
+			match allowed_relay_parents.acquire_info(bc.descriptor().relay_parent(), None) {
 				Some((_, block_num)) => block_num,
 				None => {
 					log::debug!(
 						target: LOG_TARGET,
 						"Relay parent {:?} for candidate is not in the allowed relay parents. Dropping the candidate.",
-						bc.descriptor().relay_parent
+						bc.descriptor().relay_parent()
 					);
 					return false
 				},
@@ -1372,7 +1372,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 						log::debug!(
 							target: LOG_TARGET,
 							"Found enough candidates for paraid: {:?}.",
-							candidate.descriptor().para_id
+							candidate.descriptor().para_id()
 						);
 						break;
 					}
@@ -1391,7 +1391,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 								"Found a backed candidate {:?} with injected core index {}, which is not scheduled for paraid {:?}.",
 								candidate.candidate().hash(),
 								core_index.0,
-								candidate.descriptor().para_id
+								candidate.descriptor().para_id()
 							);
 
 							break;
@@ -1405,7 +1405,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 							target: LOG_TARGET,
 							"Found a backed candidate {:?} with no injected core index, for paraid {:?} which has multiple scheduled cores.",
 							candidate.candidate().hash(),
-							candidate.descriptor().para_id
+							candidate.descriptor().para_id()
 						);
 
 						break;
@@ -1451,13 +1451,13 @@ fn get_injected_core_index<T: configuration::Config + scheduler::Config + inclus
 	let Some(core_idx) = maybe_core_idx else { return None };
 
 	let relay_parent_block_number =
-		match allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent, None) {
+		match allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent(), None) {
 			Some((_, block_num)) => block_num,
 			None => {
 				log::debug!(
 					target: LOG_TARGET,
 					"Relay parent {:?} for candidate {:?} is not in the allowed relay parents.",
-					candidate.descriptor().relay_parent,
+					candidate.descriptor().relay_parent(),
 					candidate.candidate().hash(),
 				);
 				return None
