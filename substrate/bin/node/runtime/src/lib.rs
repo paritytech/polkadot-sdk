@@ -2699,6 +2699,7 @@ mod benches {
 		[pallet_safe_mode, SafeMode]
 		[pallet_example_mbm, PalletExampleMbms]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
+		[pallet_distribution, Distribution]
 	);
 }
 
