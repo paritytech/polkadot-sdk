@@ -12,6 +12,9 @@ workspace = true
 
 [dependencies]
 hex-literal = { workspace = true, default-features = true }
+codec = { workspace = true }
+log = { workspace = true }
+scale-info = { workspace = true }
 
 # Substrate
 frame-support = { workspace = true }
@@ -19,6 +22,7 @@ pallet-assets = { workspace = true }
 pallet-asset-conversion = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-message-queue = { workspace = true, default-features = true }
+sp-core = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Polkadot
@@ -34,3 +38,14 @@ cumulus-pallet-xcmp-queue = { workspace = true }
 emulated-integration-tests-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
 rococo-westend-system-emulated-network = { workspace = true }
+testnet-parachains-constants = { workspace = true, features = ["westend"] }
+asset-hub-westend-runtime = { workspace = true }
+bridge-hub-westend-runtime = { workspace = true }
+
+# Snowbridge
+snowbridge-core = { workspace = true }
+snowbridge-router-primitives = { workspace = true }
+snowbridge-pallet-system = { workspace = true }
+snowbridge-pallet-outbound-queue = { workspace = true }
+snowbridge-pallet-inbound-queue = { workspace = true }
+snowbridge-pallet-inbound-queue-fixtures = { workspace = true }
