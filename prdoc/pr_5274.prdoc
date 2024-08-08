@@ -20,5 +20,3 @@ crates:
     bump: patch
   - name: sp-metadata-ir
     bump: patch
-  - name: pallet-assets
-    bump: patch
