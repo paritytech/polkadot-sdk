@@ -1,0 +1,10 @@
+title: Try State Hook for Recovery.
+
+doc:
+  - audience: Runtime User
+    description: |
+      Invariant for storage items in the recovery pallet. Enforces the following Invariant:
+      1.`Friends` should not exceed the `MaxFriends` capacity.
+crates:
+- name: pallet-recovery
+  bump: minor
