@@ -81,9 +81,9 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-	"parachain-template-runtime/std",
 	"log/std",
-	"xcm/std"
+	"parachain-template-runtime/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
