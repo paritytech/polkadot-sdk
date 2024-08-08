@@ -255,31 +255,34 @@ pub enum RuntimeCosts {
 	UnlockDelegateDependency,
 }
 
-// For the function that modifies the storage, the benchmarks are done with one item in the
-// transient_storage (BTreeMap). To consider the worst-case scenario, the weight of the overhead of
-// writing to a full BTreeMap should be included. On top of that, the rollback weight is added,
-// which is the worst scenario.
-macro_rules! cost_write {
-	// cost_write!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::rollback_transient_storage())
-	// .saturating_add(T::WeightInfo::set_transient_storage_full().saturating_sub(T::WeightInfo::set_transient_storage_empty())
-	($name:ident $(, $arg:expr )*) => {
-		(T::WeightInfo::$name($( $arg ),*).saturating_add(T::WeightInfo::rollback_transient_storage()).saturating_add(cost_write!(@cost_storage)))
-	};
-
-	(@cost_storage) => {
-        T::WeightInfo::set_transient_storage_full().saturating_sub(T::WeightInfo::set_transient_storage_empty())
+/// For functions that modify storage, benchmarks are performed with one item in the
+/// storage. To account for the worst-case scenario, the weight of the overhead of
+/// writing to or reading from full storage is included. For transient storage writes,
+/// the rollback weight is added to reflect the worst-case scenario for this operation.
+macro_rules! cost_storage {
+    (write_transient, $name:ident $(, $arg:expr )*) => {
+        T::WeightInfo::$name($( $arg ),*)
+            .saturating_add(T::WeightInfo::rollback_transient_storage())
+            .saturating_add(T::WeightInfo::set_transient_storage_full()
+            .saturating_sub(T::WeightInfo::set_transient_storage_empty()))
     };
-}
 
-macro_rules! cost_read {
-	// cost_read!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::get_transient_storage_full()
-	// .saturating_sub(T::WeightInfo::get_transient_storage_empty())
-	($name:ident $(, $arg:expr )*) => {
-		(T::WeightInfo::$name($( $arg ),*).saturating_add(cost_read!(@cost_storage)))
-	};
+    (read_transient, $name:ident $(, $arg:expr )*) => {
+        T::WeightInfo::$name($( $arg ),*)
+            .saturating_add(T::WeightInfo::get_transient_storage_full()
+            .saturating_sub(T::WeightInfo::get_transient_storage_empty()))
+    };
 
-	(@cost_storage) => {
-        T::WeightInfo::get_transient_storage_full().saturating_sub(T::WeightInfo::get_transient_storage_empty())
+    (write, $name:ident $(, $arg:expr )*) => {
+        T::WeightInfo::$name($( $arg ),*)
+            .saturating_add(T::WeightInfo::set_storage_full()
+            .saturating_sub(T::WeightInfo::set_storage_empty()))
+    };
+
+    (read, $name:ident $(, $arg:expr )*) => {
+        T::WeightInfo::$name($( $arg ),*)
+            .saturating_add(T::WeightInfo::get_storage_full()
+            .saturating_sub(T::WeightInfo::get_storage_empty()))
     };
 }
 
@@ -326,20 +329,30 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
 			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
 			Random => T::WeightInfo::seal_random(),
-			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
+			// Given a 2-second block time and hardcoding a `ref_time` of 60,000 picoseconds per
+			// byte  (event_ref_time), the max allocation size is 32MB per block.
+			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len)
+				.saturating_add(Weight::from_parts(
+					T::Schedule::get().limits.event_ref_time.saturating_mul(len.into()),
+					0,
+				)),
 			DebugMessage(len) => T::WeightInfo::seal_debug_message(len),
 			SetStorage { new_bytes, old_bytes } =>
-				T::WeightInfo::seal_set_storage(new_bytes, old_bytes),
-			ClearStorage(len) => T::WeightInfo::seal_clear_storage(len),
-			ContainsStorage(len) => T::WeightInfo::seal_contains_storage(len),
-			GetStorage(len) => T::WeightInfo::seal_get_storage(len),
-			TakeStorage(len) => T::WeightInfo::seal_take_storage(len),
+				cost_storage!(write, seal_set_storage, new_bytes, old_bytes),
+			ClearStorage(len) => cost_storage!(write, seal_clear_storage, len),
+			ContainsStorage(len) => cost_storage!(read, seal_contains_storage, len),
+			GetStorage(len) => cost_storage!(read, seal_get_storage, len),
+			TakeStorage(len) => cost_storage!(write, seal_take_storage, len),
 			SetTransientStorage { new_bytes, old_bytes } =>
-				cost_write!(seal_set_transient_storage, new_bytes, old_bytes),
-			ClearTransientStorage(len) => cost_write!(seal_clear_transient_storage, len),
-			ContainsTransientStorage(len) => cost_read!(seal_contains_transient_storage, len),
-			GetTransientStorage(len) => cost_read!(seal_get_transient_storage, len),
-			TakeTransientStorage(len) => cost_write!(seal_take_transient_storage, len),
+				cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes),
+			ClearTransientStorage(len) =>
+				cost_storage!(write_transient, seal_clear_transient_storage, len),
+			ContainsTransientStorage(len) =>
+				cost_storage!(read_transient, seal_contains_transient_storage, len),
+			GetTransientStorage(len) =>
+				cost_storage!(read_transient, seal_get_transient_storage, len),
+			TakeTransientStorage(len) =>
+				cost_storage!(write_transient, seal_take_transient_storage, len),
 			Transfer => T::WeightInfo::seal_transfer(),
 			CallBase => T::WeightInfo::seal_call(0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),

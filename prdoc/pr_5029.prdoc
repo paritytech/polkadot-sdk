@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Backoff slow peers to avoid duplicate requests
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR introduces a backoff strategy mechanism. Whenever a peer disconnects with an inflight
+      block (or state) request, the peer is backed off for a period of time before receiving requests.
+      After several attempts, the peer is disconnected and banned. The strategy aims to offload
+      the pressure from peers that are slow to respond or overloaded.
+
+crates:
+- name: sc-network-sync
+  bump: minor
