@@ -1,0 +1,5 @@
+error: Invalid #[pallet::include_metadata] in `type RuntimeEvent`, expected type item. The associated type `RuntimeEvent` is already collected.
+  --> tests/pallet_ui/config_metadata_on_events.rs:26:4
+   |
+26 |         #[pallet::include_metadata]
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^
