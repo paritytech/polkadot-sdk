@@ -369,6 +369,7 @@ pub struct State {
 
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
+
 	/// Slot duration in millis
 	slot_duration_millis: u64,
 }
@@ -672,7 +673,7 @@ enum MessageSource {
 // Encountered error while validating an assignment.
 #[derive(Debug)]
 enum InvalidAssignmentError {
-	// The the vrf check for the assignment failed.
+	// The vrf check for the assignment failed.
 	#[allow(dead_code)]
 	CryptoCheckFailed(InvalidAssignment),
 	// The assignment did not claim any valid candidate.
@@ -685,7 +686,7 @@ enum InvalidAssignmentError {
 	},
 	// The assignment claimes more candidates than the maximum allowed.
 	OversizedClaimedBitfield,
-	// Session Info was not found for the block hash in the assignment.
+	// `SessionInfo`  was not found for the block hash in the assignment.
 	#[allow(dead_code)]
 	SessionInfoNotFound(polkadot_node_subsystem_util::runtime::Error),
 }
@@ -699,7 +700,7 @@ enum InvalidVoteError {
 	ValidatorIndexOutOfBounds,
 	// The signature of the vote was invalid.
 	InvalidSignature,
-	// Session Info was not found for the block hash in the approval.
+	// `SessionInfo` was not found for the block hash in the approval.
 	#[allow(dead_code)]
 	SessionInfoNotFound(polkadot_node_subsystem_util::runtime::Error),
 }
@@ -1708,9 +1709,9 @@ impl State {
 			})
 			.collect::<Result<Vec<_>, InvalidAssignmentError>>()?;
 
-		if claimed_cores.is_empty() {
+		let Ok(claimed_cores) = claimed_cores.try_into() else {
 			return Err(InvalidAssignmentError::NoClaimedCandidates)
-		}
+		};
 
 		let backing_groups = claimed_candidate_indices
 			.iter_ones()
@@ -1721,7 +1722,7 @@ impl State {
 
 		assignment_criteria
 			.check_assignment_cert(
-				claimed_cores.try_into().expect("Non-empty vec; qed"),
+				claimed_cores,
 				assignment.validator,
 				&polkadot_node_core_approval_voting::AssignmentConfig::from(session_info),
 				entry.vrf_story.clone(),
