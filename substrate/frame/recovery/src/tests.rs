@@ -20,14 +20,14 @@
 use super::*;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
 use mock::{
-	new_test_ext, run_to_block, Balances, BalancesCall, MaxFriends, Recovery, RecoveryCall,
+	ExtBuilder, run_to_block, Balances, BalancesCall, MaxFriends, Recovery, RecoveryCall,
 	RuntimeCall, RuntimeOrigin, Test,
 };
 use sp_runtime::{bounded_vec, traits::BadOrigin};
 
 #[test]
 fn basic_setup_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Nothing in storage to start
 		assert_eq!(Recovery::proxy(&2), None);
 		assert_eq!(Recovery::active_recovery(&1, &2), None);
@@ -39,7 +39,7 @@ fn basic_setup_works() {
 
 #[test]
 fn set_recovered_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Not accessible by a normal user
 		assert_noop!(Recovery::set_recovered(RuntimeOrigin::signed(1), 5, 1), BadOrigin);
 		// Root can set a recovered account though
@@ -58,7 +58,7 @@ fn set_recovered_works() {
 
 #[test]
 fn recovery_life_cycle_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let friends = vec![2, 3, 4];
 		let threshold = 3;
 		let delay_period = 10;
@@ -116,7 +116,7 @@ fn recovery_life_cycle_works() {
 
 #[test]
 fn malicious_recovery_fails() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let friends = vec![2, 3, 4];
 		let threshold = 3;
 		let delay_period = 10;
@@ -176,7 +176,7 @@ fn malicious_recovery_fails() {
 
 #[test]
 fn create_recovery_handles_basic_errors() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// No friends
 		assert_noop!(
 			Recovery::create_recovery(RuntimeOrigin::signed(5), vec![], 1, 0),
@@ -223,7 +223,7 @@ fn create_recovery_handles_basic_errors() {
 
 #[test]
 fn create_recovery_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let friends = vec![2, 3, 4];
 		let threshold = 3;
 		let delay_period = 10;
@@ -250,7 +250,7 @@ fn create_recovery_works() {
 
 #[test]
 fn initiate_recovery_handles_basic_errors() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// No recovery process set up for the account
 		assert_noop!(
 			Recovery::initiate_recovery(RuntimeOrigin::signed(1), 5),
@@ -279,7 +279,7 @@ fn initiate_recovery_handles_basic_errors() {
 
 #[test]
 fn initiate_recovery_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Create a recovery process for the test
 		let friends = vec![2, 3, 4];
 		let threshold = 3;
@@ -305,7 +305,7 @@ fn initiate_recovery_works() {
 
 #[test]
 fn vouch_recovery_handles_basic_errors() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Cannot vouch for non-recoverable account
 		assert_noop!(
 			Recovery::vouch_recovery(RuntimeOrigin::signed(2), 5, 1),
@@ -344,7 +344,7 @@ fn vouch_recovery_handles_basic_errors() {
 
 #[test]
 fn vouch_recovery_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Create and initiate a recovery process for the test
 		let friends = vec![2, 3, 4];
 		let threshold = 3;
@@ -370,7 +370,7 @@ fn vouch_recovery_works() {
 
 #[test]
 fn claim_recovery_handles_basic_errors() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Cannot claim a non-recoverable account
 		assert_noop!(
 			Recovery::claim_recovery(RuntimeOrigin::signed(1), 5),
@@ -411,7 +411,7 @@ fn claim_recovery_handles_basic_errors() {
 
 #[test]
 fn claim_recovery_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Create, initiate, and vouch recovery process for the test
 		let friends = vec![2, 3, 4];
 		let threshold = 3;
@@ -450,7 +450,7 @@ fn claim_recovery_works() {
 
 #[test]
 fn close_recovery_handles_basic_errors() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Cannot close a non-active recovery
 		assert_noop!(
 			Recovery::close_recovery(RuntimeOrigin::signed(5), 1),
@@ -461,7 +461,7 @@ fn close_recovery_handles_basic_errors() {
 
 #[test]
 fn remove_recovery_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Cannot remove an unrecoverable account
 		assert_noop!(
 			Recovery::remove_recovery(RuntimeOrigin::signed(5)),

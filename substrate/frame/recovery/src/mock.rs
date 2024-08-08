@@ -76,16 +76,33 @@ impl Config for Test {
 pub type BalancesCall = pallet_balances::Call<Test>;
 pub type RecoveryCall = super::Call<Test>;
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 100), (2, 100), (3, 100), (4, 100), (5, 100)],
+pub struct ExtBuilder {}
+
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		Self {}
 	}
-	.assimilate_storage(&mut t)
-	.unwrap();
-	t.into()
 }
 
+impl ExtBuilder {
+	pub fn build(self) -> sp_io::TestExternalities {
+		let ext: sp_io::TestExternalities = RuntimeGenesisConfig {
+			system: frame_system::GenesisConfig::default(),
+			balances: pallet_balances::GenesisConfig { balances: vec![(1, 100), (2, 100), (3, 100), (4, 100), (5, 100)], },
+		}
+			.build_storage()
+			.unwrap()
+			.into();
+		ext
+	}
+
+	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+		self.build().execute_with(|| {
+			test();
+			Recovery::do_try_state().expect("All invariants must hold after a test");
+		})
+	}
+}
 /// Run until a particular block.
 pub fn run_to_block(n: u64) {
 	while System::block_number() < n {

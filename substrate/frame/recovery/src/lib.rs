@@ -156,15 +156,12 @@ use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{CheckedAdd, CheckedMul, Dispatchable, SaturatedConversion, StaticLookup},
+	traits::{CheckedAdd, CheckedMul, Dispatchable, Get, SaturatedConversion, StaticLookup},
 	RuntimeDebug,
 };
 
-use frame_support::{
-	dispatch::{GetDispatchInfo, PostDispatchInfo},
-	traits::{BalanceStatus, Currency, ReservableCurrency},
-	BoundedVec,
-};
+use frame_support::{dispatch::{GetDispatchInfo, PostDispatchInfo}, traits::{BalanceStatus, Currency, ReservableCurrency}, BoundedVec, ensure};
+use frame_support::dispatch::DispatchResult;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -704,6 +701,43 @@ pub mod pallet {
 			frame_system::Pallet::<T>::dec_consumers(&who);
 			Ok(())
 		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+}
+
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_friends()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// `Friends` should not exceed the `MaxFriends` capacity.
+	fn try_state_friends() -> Result<(), sp_runtime::TryRuntimeError> {
+		Recoverable::<T>::iter().try_for_each(|(_, recovery_config)| -> DispatchResult {
+			ensure!(
+				recovery_config.friends.len() as u32 <= T::MaxFriends::get(),
+				"Friends number exceeds what the pallet config allows."
+			);
+
+			Ok(())
+		})?;
+
+		Ok(())
 	}
 }
 
