@@ -17,7 +17,5 @@ crates:
     bump: minor
   - name: polkadot-node-core-provisioner
     bump: none
-  - name: polkadot-collator-protocol
-    bump: none
   - name: polkadot-statement-distribution
     bump: none
