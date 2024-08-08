@@ -3,7 +3,7 @@
 //! This document enumerates a non-exhaustive list of templates that one can use to get started with
 //! polkadot-sdk.
 //!
-//! > Know more tools/templates that are not listed here? please contribute them by opening a PR.
+//! > Know more tools/templates that are not listed here? Please contribute them by opening a PR.
 //!
 //! ## Internal
 //!
