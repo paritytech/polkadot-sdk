@@ -3,8 +3,6 @@ name: Check semver
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - prdoc/*.prdoc
   workflow_dispatch:
 
 concurrency:
@@ -24,10 +22,12 @@ jobs:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: extra git setup
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           git config --global --add safe.directory '*'
-          git fetch --no-tags --no-recurse-submodules --depth=1 origin master
-          git branch old origin/master
+          git fetch --no-tags --no-recurse-submodules --depth=1 origin $BASE
+          git branch old $BASE
 
       - name: Comment If Backport
         if: ${{ startsWith(github.event.pull_request.base.ref, 'stable') }}
@@ -74,7 +74,7 @@ jobs:
 
       - name: install parity-publish
         # Set the target dir to cache the build.
-        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish -q
+        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.8.0 -q
 
       - name: check semver
         run: |
