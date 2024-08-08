@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Refactor conviction voting to have field names in events
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds structure field names to Rust event enums related to voting.
+  - audience: Runtime User
+    description: |
+      Adds structure field names to Rust event enums related to voting.
+      Any UIs using events `Delegated` or `Undelegated` need to adapt to the changes.
+
+crates:
+  - name: pallet-conviction-voting
+    bump: major
