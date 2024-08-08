@@ -154,7 +154,6 @@ struct ExecutePvfInputs {
 	exec_timeout: Duration,
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
-	// params: Vec<u8>,
 	priority: Priority,
 	result_tx: ResultSender,
 }
