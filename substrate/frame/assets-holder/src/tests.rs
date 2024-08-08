@@ -254,6 +254,9 @@ mod impl_hold_mutate {
 				10
 			);
 			assert_eq!(AssetsHolder::total_balance_on_hold(ASSET_ID, &WHO), 10);
+			// Holding preserves `total_balance`
+			assert_eq!(Assets::total_balance(ASSET_ID, &WHO), 100);
+			// Holding preserves `total_issuance`
 			assert_eq!(Assets::total_issuance(ASSET_ID), 100);
 
 			// Increasing the amount held for the same reason has the same effect as described above
@@ -342,7 +345,7 @@ mod impl_hold_mutate {
 
 	#[test]
 	fn burn_held_works() {
-		// Burning works, reducing total issuance.
+		// Burning works, reducing total issuance and `total_balance`.
 		new_test_ext().execute_with(|| {
 			assert_ok!(AssetsHolder::burn_held(
 				ASSET_ID,
@@ -352,6 +355,7 @@ mod impl_hold_mutate {
 				Precision::BestEffort,
 				Fortitude::Polite
 			));
+			assert_eq!(Assets::total_balance(ASSET_ID, &WHO), 99);
 			assert_eq!(Assets::total_issuance(ASSET_ID), 99);
 		});
 
