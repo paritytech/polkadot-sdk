@@ -216,7 +216,7 @@ impl CandidateStorage {
 	}
 
 	/// Introduce a new candidate entry.
-	pub fn add_candidate_entry(&mut self, candidate: CandidateEntry) -> Result<(), Error> {
+	fn add_candidate_entry(&mut self, candidate: CandidateEntry) -> Result<(), Error> {
 		let candidate_hash = candidate.candidate_hash;
 		if self.by_candidate_hash.contains_key(&candidate_hash) {
 			return Err(Error::CandidateAlreadyKnown)
@@ -233,11 +233,6 @@ impl CandidateStorage {
 		self.by_candidate_hash.insert(candidate_hash, candidate);
 
 		Ok(())
-	}
-
-	/// Consume self into an iterator over the stored candidates, in arbitrary order.
-	pub fn into_candidates(self) -> impl Iterator<Item = CandidateEntry> {
-		self.by_candidate_hash.into_values()
 	}
 
 	/// Remove a candidate from the store.
@@ -542,22 +537,24 @@ impl Scope {
 		self.ancestors_by_hash.get(hash).map(|info| info.clone())
 	}
 
+	/// Get the base constraints of the scope
+	pub fn base_constraints(&self) -> &Constraints {
+		&self.base_constraints
+	}
+
 	/// Whether the candidate in question is one pending availability in this scope.
-	pub fn get_pending_availability(
+	fn get_pending_availability(
 		&self,
 		candidate_hash: &CandidateHash,
 	) -> Option<&PendingAvailability> {
 		self.pending_availability.iter().find(|c| &c.candidate_hash == candidate_hash)
 	}
-
-	/// Get the base constraints of the scope
-	pub fn base_constraints(&self) -> &Constraints {
-		&self.base_constraints
-	}
 }
 
 #[cfg_attr(test, derive(Clone))]
-pub struct FragmentNode {
+/// A node that is part of a `BackedChain`. It holds constraints based on the ancestors in the
+/// chain.
+struct FragmentNode {
 	fragment: Fragment,
 	candidate_hash: CandidateHash,
 	cumulative_modifications: ConstraintModifications,
@@ -958,7 +955,7 @@ impl FragmentChain {
 
 	// Populate the unconnected potential candidate storage starting from a previous storage.
 	fn populate_unconnected_potential_candidates(&mut self, old_storage: CandidateStorage) {
-		for candidate in old_storage.into_candidates() {
+		for candidate in old_storage.by_candidate_hash.into_values() {
 			// Sanity check, all pending availability candidates should be already present in the
 			// chain.
 			if self.scope.get_pending_availability(&candidate.candidate_hash).is_some() {
