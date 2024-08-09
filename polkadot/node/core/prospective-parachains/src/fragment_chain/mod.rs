@@ -217,6 +217,11 @@ impl CandidateStorage {
 		self.add_candidate_entry(entry)
 	}
 
+	/// Return the number of stored candidates.
+	pub fn len(&self) -> usize {
+		self.by_candidate_hash.len()
+	}
+
 	/// Introduce a new candidate entry.
 	fn add_candidate_entry(&mut self, candidate: CandidateEntry) -> Result<(), Error> {
 		let candidate_hash = candidate.candidate_hash;
@@ -312,10 +317,6 @@ impl CandidateStorage {
 					(candidate.state == CandidateState::Backed).then_some(candidate)
 				})
 			})
-	}
-
-	fn len(&self) -> usize {
-		self.by_candidate_hash.len()
 	}
 }
 
@@ -686,8 +687,6 @@ impl FragmentChain {
 		// We only need to populate the best backable chain. Candidates pending availability must
 		// form a chain with the latest included head.
 		fragment_chain.populate_chain(&mut candidates_pending_availability);
-
-		// TODO: return error if not all candidates were introduced successfully.
 
 		fragment_chain
 	}

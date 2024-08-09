@@ -340,8 +340,21 @@ async fn handle_active_leaves_update<Context>(
 				"Creating fragment chain"
 			);
 
+			let number_of_pending_candidates = pending_availability_storage.len();
+
 			// Init the fragment chain with the pending availability candidates.
 			let mut chain = FragmentChain::init(scope, pending_availability_storage);
+
+			if chain.best_chain_len() < number_of_pending_candidates {
+				gum::warn!(
+					target: LOG_TARGET,
+					relay_parent = ?hash,
+					para_id = ?para,
+					"Not all pending availability candidates could be introduced. Actual vs expected count: {}, {}",
+					chain.best_chain_len(),
+					number_of_pending_candidates
+				)
+			}
 
 			// If we know the previous fragment chain, use that for further populating the fragment
 			// chain.
