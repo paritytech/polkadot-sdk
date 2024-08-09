@@ -15,8 +15,6 @@
 
 #[cfg(test)]
 mod imports {
-	pub use codec::Encode;
-
 	// Substrate
 	pub use frame_support::{
 		assert_ok,
@@ -36,20 +34,14 @@ mod imports {
 	pub use parachains_common::Balance;
 	pub use rococo_system_emulated_network::{
 		people_rococo_emulated_chain::{
-			genesis::ED as PEOPLE_ROCOCO_ED,
 			people_rococo_runtime::{
-				people, xcm_config::XcmConfig as PeopleRococoXcmConfig,
-				ExistentialDeposit as PeopleRococoExistentialDeposit, Runtime as PeopleRuntime,
+				xcm_config::XcmConfig as PeopleRococoXcmConfig,
+				ExistentialDeposit as PeopleRococoExistentialDeposit,
 			},
 			PeopleRococoParaPallet as PeopleRococoPallet,
 		},
 		rococo_emulated_chain::{
-			genesis::ED as ROCOCO_ED,
-			rococo_runtime::{
-				xcm_config::XcmConfig as RococoXcmConfig, BasicDeposit, ByteDeposit,
-				MaxAdditionalFields, MaxSubAccounts, Runtime as RococoRuntime,
-				RuntimeOrigin as RococoOrigin, SubAccountDeposit,
-			},
+			genesis::ED as ROCOCO_ED, rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig,
 			RococoRelayPallet as RococoPallet,
 		},
 		PeopleRococoPara as PeopleRococo, PeopleRococoParaReceiver as PeopleRococoReceiver,
@@ -57,7 +49,6 @@ mod imports {
 		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 	};
 
-	pub type RelayToSystemParaTest = Test<Rococo, PeopleRococo>;
 	pub type SystemParaToRelayTest = Test<PeopleRococo, Rococo>;
 }
 
