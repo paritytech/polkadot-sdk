@@ -179,7 +179,9 @@ fn transaction_fee_is_correct() {
 
 		let mut info = default_transfer_call().get_dispatch_info();
 		info.extension_weight = TxExtension::weight();
-		let weight = info.total_weight();
+		let mut weight = info.total_weight();
+		let weight_refund = pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::weight().saturating_sub(<<Runtime as pallet_asset_conversion_tx_payment::Config>::WeightInfo as pallet_asset_conversion_tx_payment::WeightInfo>::charge_asset_tx_payment_native());
+		weight.saturating_reduce(weight_refund);
 		let weight_fee = IdentityFee::<Balance>::weight_to_fee(&weight);
 
 		// we know that weight to fee multiplier is effect-less in block 1.
