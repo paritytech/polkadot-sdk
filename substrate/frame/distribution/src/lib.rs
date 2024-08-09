@@ -68,11 +68,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type SpendsCount<T: Config> = StorageValue<_, SpendIndex, ValueQuery>;
 
-	/// Executed Spends information.
-	#[pallet::storage]
-	pub(super) type CompletedSpends<T: Config> =
-		StorageMap<_, Twox64Concat, SpendIndex, SpendInfo<T>, OptionQuery>;
-
 	/// Spends that still have to be completed.
 	#[pallet::storage]
 	pub(super) type Spends<T: Config> =
@@ -183,10 +178,7 @@ pub mod pallet {
 				let mut infos = Spends::<T>::get(i).ok_or(Error::<T>::InexistentSpend)?;
 				Spends::<T>::remove(i);
 				infos.status = SpendState::Completed;
-				// Move completed Spend to corresponding storage
-				CompletedSpends::<T>::insert(i, info.clone());
 				
-
 				Self::deposit_event(Event::RewardClaimed {
 					when: now,
 					amount: info.amount,

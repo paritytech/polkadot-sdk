@@ -7,6 +7,12 @@ mod types;
 pub use pallet_distribution as Distribution;
 pub use types::*;
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;

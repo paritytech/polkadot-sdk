@@ -2178,16 +2178,15 @@ impl pallet_distribution::Config for Runtime {
 	type EpochDurationBlocks = EpochDurationBlocks;
 }
 
-parameter_types!{
-	
-	pub const MaxWhitelistedProjects: u32 = 1000;
+parameter_types!{	
+	pub const MaxWhitelistedProjects: u32 = 64;
 	pub const TemporaryRewards: Balance = 100000 * DOLLARS;
 }
 impl pallet_opf::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type VoteLockingPeriod = VoteLockingPeriod;
 	type VotingPeriod = VotingPeriod;
-	type MaxWhitelistedProjects = MaxCandidates;
+	type MaxWhitelistedProjects = MaxWhitelistedProjects;
 	type TemporaryRewards = TemporaryRewards;
 }
 
