@@ -1307,6 +1307,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			);
 			return deposit_result;
 		}
+		tracing::trace!(target: "xcm::execute", ?failed_deposits, "Deposits to retry");
 
 		// retry previously failed deposits, this time short-circuiting on any error.
 		for asset in failed_deposits {
