@@ -16,6 +16,7 @@ use crate::imports::*;
 use asset_hub_westend_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
 use bridge_hub_westend_runtime::EthereumInboundQueue;
 use codec::{Decode, Encode};
+use sp_core::H256;
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
 use snowbridge_core::outbound::OperatingMode;
@@ -57,11 +58,12 @@ fn register_weth_token_from_ethereum_to_asset_hub() {
 
 		type Converter = <bridge_hub_westend_runtime::Runtime as snowbridge_pallet_inbound_queue::Config>::MessageConverter;
 
+		let message_id: H256 = [0; 32].into();
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
 			command: Command::RegisterToken { token: WETH.into(), fee: XCM_FEE },
 		});
-		let (xcm, _) = Converter::convert(message).unwrap();
+		let (xcm, _) = Converter::convert(message_id, message).unwrap();
 		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubRococo::para_id().into()).unwrap();
 
 		assert_expected_events!(
@@ -122,6 +124,7 @@ fn send_token_from_ethereum_to_asset_hub() {
 
 		type Converter = <bridge_hub_westend_runtime::Runtime as snowbridge_pallet_inbound_queue::Config>::MessageConverter;
 
+		let message_id: H256 = [0; 32].into();
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
 			command: Command::SendToken {
@@ -131,7 +134,7 @@ fn send_token_from_ethereum_to_asset_hub() {
 				fee: XCM_FEE,
 			},
 		});
-		let (xcm, _) = Converter::convert(message).unwrap();
+		let (xcm, _) = Converter::convert(message_id, message).unwrap();
 		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
 
 		// Check that the message was sent
@@ -197,6 +200,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 		type Converter = <bridge_hub_westend_runtime::Runtime as
 	snowbridge_pallet_inbound_queue::Config>::MessageConverter;
 
+		let message_id: H256 = [0; 32].into();
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
 			command: Command::SendToken {
@@ -206,7 +210,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 				fee: XCM_FEE,
 			},
 		});
-		let (xcm, _) = Converter::convert(message).unwrap();
+		let (xcm, _) = Converter::convert(message_id, message).unwrap();
 		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
 
 		// Check that the send token message was sent using xcm
