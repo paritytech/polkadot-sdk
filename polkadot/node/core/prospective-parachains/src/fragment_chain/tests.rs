@@ -1037,7 +1037,7 @@ fn test_populate_and_check_potential() {
 	let candidate_a1_entry =
 		CandidateEntry::new(candidate_a1_hash, candidate_a1, pvd_a1, CandidateState::Backed)
 			.unwrap();
-	// Candidate A1 is created so that its hash is larger than the candidate A hash.
+	// Candidate A1 is created so that its hash is greater than the candidate A hash.
 	assert_eq!(fork_selection_rule(&candidate_a_hash, &candidate_a1_hash), Ordering::Less);
 
 	assert_matches!(
@@ -1117,7 +1117,7 @@ fn test_populate_and_check_potential() {
 	let candidate_a2_entry =
 		CandidateEntry::new(candidate_a2_hash, candidate_a2, pvd_a2, CandidateState::Seconded)
 			.unwrap();
-	// Candidate A2 is created so that its hash is larger than the candidate A hash.
+	// Candidate A2 is created so that its hash is greater than the candidate A hash.
 	assert_eq!(fork_selection_rule(&candidate_a2_hash, &candidate_a_hash), Ordering::Less);
 
 	assert!(populate_chain_from_previous_storage(&scope, &storage)

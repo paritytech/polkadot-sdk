@@ -47,11 +47,13 @@
 //! their parent (so we may parallelize the backing process across different groups for elastic
 //! scaling) and so that we accept parachain forks.
 //!
-//! We accept parachain forks only until reaching the backing quorum. After that, we assume all
-//! validators pick the same fork according to the fork selection rule. If we decided to not accept
-//! parachain forks, candidates could end up getting only half of the backing votes or even less
-//! (for forks of larger arity). This would affect the validator rewards. Still, we don't guarantee
-//! that a fork-producing parachains will be able to fully use elastic scaling.
+//! We accept parachain forks only if the fork selection rule allows for it. In other words, if we
+//! have a backed candidate, we begin seconding/validating a fork only if it has a lower candidate
+//! hash. Once both forks are backed, we discard the one with the higher candidate hash.
+//! We assume all validators pick the same fork according to the fork selection rule. If we decided
+//! to not accept parachain forks, candidates could end up getting only half of the backing votes or
+//! even less (for forks of larger arity). This would affect the validator rewards. Still, we don't
+//! guarantee that a fork-producing parachains will be able to fully use elastic scaling.
 //!
 //! Once a candidate is backed and becomes part of the best chain, we can trim from the
 //! unconnected storage candidates which constitute forks on the best chain and no longer have
@@ -1204,7 +1206,7 @@ impl FragmentChain {
 			let possible_children = storage
 				.possible_backed_para_children(&required_head_hash)
 				.filter_map(|candidate| {
-					// Only select a candidates if:
+					// Only select a candidate if:
 					// 1. it does not introduce a fork or a cycle.
 					// 2. parent hash is correct.
 					// 3. relay-parent does not move backwards.
