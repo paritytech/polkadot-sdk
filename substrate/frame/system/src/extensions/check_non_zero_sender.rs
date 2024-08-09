@@ -59,9 +59,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckNonZeroSender<T>
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_non_zero_sender()
 	}
 }
-impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall>
-	for CheckNonZeroSender<T>
-{
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZeroSender<T> {
 	type Val = ();
 	type Pre = ();
 	fn validate(

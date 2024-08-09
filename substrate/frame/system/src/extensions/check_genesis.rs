@@ -63,9 +63,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckGenesis<T> {
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_genesis()
 	}
 }
-impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall>
-	for CheckGenesis<T>
-{
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckGenesis<T> {
 	type Val = ();
 	type Pre = ();
 	impl_tx_ext_default!(T::RuntimeCall; validate prepare);

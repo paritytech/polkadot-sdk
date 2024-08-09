@@ -20,8 +20,8 @@
 use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, transaction_extension::TransactionExtensionBase, Checkable, Dispatchable, Extrinsic,
-		ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
+		self, transaction_extension::TransactionExtensionBase, Checkable, Dispatchable,
+		ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
 		TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -55,7 +55,7 @@ pub const EXTRINSIC_FORMAT_VERSION: ExtrinsicVersion = 5;
 pub const EXTENSION_VERSION: ExtensionVersion = 0;
 
 /// The `SignaturePayload` of `UncheckedExtrinsic`.
-type UncheckedSignaturePayload<Address, Signature, Extension> = (Address, Signature, Extension);
+pub type UncheckedSignaturePayload<Address, Signature, Extension> = (Address, Signature, Extension);
 
 impl<Address: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> SignaturePayload
 	for UncheckedSignaturePayload<Address, Signature, Extension>
@@ -372,33 +372,15 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 	}
 }
 
-// TODO: We can get rid of this trait and just use UncheckedExtrinsic directly.
-
-impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> Extrinsic
+impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> ExtrinsicLike
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
-	type Call = Call;
-
-	type SignaturePayload = UncheckedSignaturePayload<Address, Signature, Extension>;
-
 	fn is_bare(&self) -> bool {
 		matches!(self.preamble, Preamble::Bare(_))
 	}
 
 	fn is_signed(&self) -> Option<bool> {
 		Some(matches!(self.preamble, Preamble::Signed(..)))
-	}
-
-	fn new(function: Call, signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
-		Some(if let Some((address, signature, extra)) = signed_data {
-			Self::new_signed(function, address, signature, extra)
-		} else {
-			Self::new_bare(function)
-		})
-	}
-
-	fn new_inherent(function: Call) -> Self {
-		Self::new_bare(function)
 	}
 }
 
@@ -848,14 +830,14 @@ mod tests {
 	#[test]
 	fn unsigned_codec_should_work() {
 		let call: TestCall = vec![0u8; 0].into();
-		let ux = Ex::new_inherent(call);
+		let ux = Ex::new_bare(call);
 		let encoded = ux.encode();
 		assert_eq!(Ex::decode(&mut &encoded[..]), Ok(ux));
 	}
 
 	#[test]
 	fn invalid_length_prefix_is_detected() {
-		let ux = Ex::new_inherent(vec![0u8; 0].into());
+		let ux = Ex::new_bare(vec![0u8; 0].into());
 		let mut encoded = ux.encode();
 
 		let length = Compact::<u32>::decode(&mut &encoded[..]).unwrap();
@@ -900,7 +882,7 @@ mod tests {
 
 	#[test]
 	fn unsigned_check_should_work() {
-		let ux = Ex::new_inherent(vec![0u8; 0].into());
+		let ux = Ex::new_bare(vec![0u8; 0].into());
 		assert!(ux.is_inherent());
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
@@ -961,7 +943,7 @@ mod tests {
 
 	#[test]
 	fn encoding_matches_vec() {
-		let ex = Ex::new_inherent(vec![0u8; 0].into());
+		let ex = Ex::new_bare(vec![0u8; 0].into());
 		let encoded = ex.encode();
 		let decoded = Ex::decode(&mut encoded.as_slice()).unwrap();
 		assert_eq!(decoded, ex);
@@ -971,7 +953,7 @@ mod tests {
 
 	#[test]
 	fn conversion_to_opaque() {
-		let ux = Ex::new_inherent(vec![0u8; 0].into());
+		let ux = Ex::new_bare(vec![0u8; 0].into());
 		let encoded = ux.encode();
 		let opaque: OpaqueExtrinsic = ux.into();
 		let opaque_encoded = opaque.encode();

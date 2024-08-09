@@ -216,8 +216,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckWeight<T> {
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_weight()
 	}
 }
-impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall>
-	for CheckWeight<T>
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckWeight<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {

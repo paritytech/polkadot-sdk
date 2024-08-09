@@ -118,7 +118,7 @@ where
 ///
 /// This type implements `OffenceReportSystem` such that:
 /// - Equivocation reports are published on-chain as unsigned extrinsic via
-///   `offchain::SendTransactionTypes`.
+///   `offchain::CreateTransactionBase`.
 /// - On-chain validity checks and processing are mostly delegated to the user provided generic
 ///   types implementing `KeyOwnerProofSystem` and `ReportOffence` traits.
 /// - Offence reporter for unsigned transactions is fetched via the authorship pallet.
@@ -262,7 +262,7 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 impl<T, R, P, L> OffenceReportSystem<Option<T::AccountId>, EquivocationEvidenceFor<T>>
 	for EquivocationReportSystem<T, R, P, L>
 where
-	T: Config + pallet_authorship::Config + frame_system::offchain::SendTransactionTypes<Call<T>>,
+	T: Config + pallet_authorship::Config + frame_system::offchain::CreateInherent<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		P::IdentificationTuple,
@@ -278,7 +278,8 @@ where
 		use frame_system::offchain::SubmitTransaction;
 
 		let call: Call<T> = evidence.into();
-		let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+		let xt = T::create_inherent(call.into());
+		let res = SubmitTransaction::<T, Call<T>>::submit_transaction(xt);
 		match res {
 			Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report."),
 			Err(e) => error!(target: LOG_TARGET, "Error submitting equivocation report: {:?}", e),
