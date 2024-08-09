@@ -4,7 +4,6 @@ on:
   schedule:
     # Run every 3 hours
     - cron:  '0 */3 * * *'
-  push:
 
 permissions:
   contents: read
@@ -12,7 +11,7 @@ permissions:
 
 jobs:
   update-wishlist-leaderboard:
-    if: github.repository == 'paritytech/polkadot-sdkx'
+    if: github.repository == 'paritytech/polkadot-sdk'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
