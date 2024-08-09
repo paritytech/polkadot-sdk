@@ -8018,7 +8018,7 @@ mod ledger_recovery {
 			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before); // OK
 			assert_eq!(Bonded::<Test>::get(&333), Some(444)); // OK
 			assert!(Payee::<Test>::get(&333).is_some()); // OK
-											 // however, ledger associated with its controller was killed.
+												// however, ledger associated with its controller was killed.
 			assert!(Ledger::<Test>::get(&444).is_none()); // NOK
 
 			// side effects on 444 - ledger, bonded, payee, lock should be completely removed.
@@ -8455,7 +8455,7 @@ pub mod multi_page_staking {
 
 			// call set of update 2x exposure. It should pad all full vec of individual pages,
 			// including those already stored in storage.
-			EraInfo::<Test>::set_xposure(current_era, &10, exposure_one.clone());
+			EraInfo::<Test>::set_exposure(current_era, &10, exposure_one.clone());
 			EraInfo::<Test>::set_exposure(current_era, &10, exposure_two.clone());
 
 			// metadata OK.

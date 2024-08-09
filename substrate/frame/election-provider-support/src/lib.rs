@@ -401,14 +401,14 @@ pub trait ElectionProvider {
 	type BlockNumber;
 
 	/// The error type returned by the provider;
-	type Error: Debug;
+	type Error: Debug + PartialEq;
 
 	/// The maximum number of winners per page in results returned by this election provider.
-	type MaxWinnersPerPage: Get<u32> + std::fmt::Debug;
+	type MaxWinnersPerPage: Get<u32>;
 
 	/// The maximum number of backers that a single page may have in results returned by this
 	/// election provider.
-	type MaxBackersPerWinner: Get<u32> + std::fmt::Debug;
+	type MaxBackersPerWinner: Get<u32>;
 
 	/// The number of pages that this election provider supports.
 	type Pages: Get<PageIndex>;
@@ -470,8 +470,8 @@ impl<AccountId, BlockNumber, DataProvider, MaxWinnersPerPage, MaxBackersPerWinne
 	for NoElection<(AccountId, BlockNumber, DataProvider, MaxWinnersPerPage, MaxBackersPerWinner)>
 where
 	DataProvider: ElectionDataProvider<AccountId = AccountId, BlockNumber = BlockNumber>,
-	MaxWinnersPerPage: Get<u32> + std::fmt::Debug,
-	MaxBackersPerWinner: Get<u32> + std::fmt::Debug,
+	MaxWinnersPerPage: Get<u32>,
+	MaxBackersPerWinner: Get<u32>,
 {
 	type AccountId = AccountId;
 	type BlockNumber = BlockNumber;
@@ -491,8 +491,8 @@ impl<AccountId, BlockNumber, DataProvider, MaxWinnersPerPage, MaxBackersPerWinne
 	for NoElection<(AccountId, BlockNumber, DataProvider, MaxWinnersPerPage, MaxBackersPerWinner)>
 where
 	DataProvider: ElectionDataProvider<AccountId = AccountId, BlockNumber = BlockNumber>,
-	MaxWinnersPerPage: Get<u32> + std::fmt::Debug,
-	MaxBackersPerWinner: Get<u32> + std::fmt::Debug,
+	MaxWinnersPerPage: Get<u32>,
+	MaxBackersPerWinner: Get<u32>,
 {
 	fn instant_elect(
 		_: DataProviderBounds,

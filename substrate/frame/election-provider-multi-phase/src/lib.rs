@@ -501,7 +501,6 @@ pub enum ElectionError<T: Config> {
 
 // NOTE: we have to do this manually because of the additional where clause needed on
 // `FallbackErrorOf<T>`.
-#[cfg(test)]
 impl<T: Config> PartialEq for ElectionError<T>
 where
 	FallbackErrorOf<T>: PartialEq,
@@ -657,14 +656,14 @@ pub mod pallet {
 		/// Maximum number of winners that a page supports.
 		///
 		/// Note: This must always be greater or equal to `T::DataProvider::desired_targets()`.
-		type MaxWinnersPerPage: Get<u32> + std::fmt::Debug;
+		type MaxWinnersPerPage: Get<u32>;
 
 		/// Maximum number of voters that can support a single target, across ALL the solution
 		/// pages. Thus, this can only be verified when processing the last solution page.
 		///
 		/// This limit must be set so that the memory limits of the rest of the system are
 		/// respected.
-		type MaxBackersPerWinner: Get<u32> + std::fmt::Debug;
+		type MaxBackersPerWinner: Get<u32>;
 
 		/// Number of pages.
 		type Pages: Get<PageIndex>;

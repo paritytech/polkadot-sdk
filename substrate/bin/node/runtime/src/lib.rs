@@ -654,6 +654,7 @@ parameter_types! {
 	pub const MaxControllersInDeprecationBatch: u32 = 5900;
 	pub OffchainRepeat: BlockNumber = 5;
 	pub HistoryDepth: u32 = 84;
+	 pub MaxValidatorSet: u32 = 500;
 }
 
 /// Upper limit on the number of NPOS nominations.
@@ -692,6 +693,7 @@ impl pallet_staking::Config for Runtime {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
 	// This a placeholder, to be introduced in the next PR as an instance of bags-list
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type MaxValidatorSet = MaxValidatorSet;
 	type MaxUnlockingChunks = ConstU32<32>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type HistoryDepth = HistoryDepth;
@@ -759,6 +761,8 @@ parameter_types! {
 	// The maximum winners that can be elected by the Election pallet which is equivalent to the
 	// maximum active validators the staking pallet can have.
 	pub MaxActiveValidators: u32 = 1000;
+	pub MaxBackersPerWinner: u32 = 5000;
+	pub Pages: u32 = 1;
 }
 
 /// The numbers configured here could always be more than the the maximum limits of staking pallet
@@ -809,7 +813,9 @@ impl onchain::Config for OnChainSeqPhragmen {
 	>;
 	type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
 	type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
-	type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
+	type MaxWinnersPerPage =
+		<Runtime as pallet_election_provider_multi_phase::Config>::MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type Bounds = ElectionBoundsOnChain;
 }
 
@@ -820,7 +826,8 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 	type Solution = NposSolution16;
 	type MaxVotesPerVoter =
 	<<Self as pallet_election_provider_multi_phase::Config>::DataProvider as ElectionDataProvider>::MaxVotesPerVoter;
-	type MaxWinners = MaxActiveValidators;
+	type MaxWinnersPerPage = MaxActiveValidators;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
 
 	// The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
 	// weight estimate function is wired to this call's weight.
@@ -858,7 +865,9 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Self>, OffchainRandomBalancing>;
 	type ForceOrigin = EnsureRootOrHalfCouncil;
-	type MaxWinners = MaxActiveValidators;
+	type Pages = Pages;
+	type MaxWinnersPerPage = MaxActiveValidators;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type ElectionBounds = ElectionBoundsMultiPhase;
 	type BenchmarkingConfig = ElectionProviderBenchmarkConfig;
 	type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Self>;
