@@ -788,7 +788,6 @@ fn trivial_fisher_yates_shuffle<T>(vector: &mut Vec<T>, random_seed: u64) {
 #[test]
 fn submit_tickets_with_ring_proof_check_works() {
 	use sp_core::Pair as _;
-	// env_logger::init();
 
 	let (authorities, mut tickets): (Vec<AuthorityId>, Vec<TicketEnvelope>) =
 		data_read(TICKETS_FILE);

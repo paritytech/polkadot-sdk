@@ -10,25 +10,14 @@ std = [
 	"asset-test-utils?/std",
 	"assets-common?/std",
 	"binary-merkle-tree?/std",
-	"bp-asset-hub-rococo?/std",
-	"bp-asset-hub-westend?/std",
-	"bp-bridge-hub-cumulus?/std",
-	"bp-bridge-hub-kusama?/std",
-	"bp-bridge-hub-polkadot?/std",
-	"bp-bridge-hub-rococo?/std",
-	"bp-bridge-hub-westend?/std",
 	"bp-header-chain?/std",
-	"bp-kusama?/std",
 	"bp-messages?/std",
 	"bp-parachains?/std",
-	"bp-polkadot-bulletin?/std",
 	"bp-polkadot-core?/std",
 	"bp-polkadot?/std",
 	"bp-relayers?/std",
-	"bp-rococo?/std",
 	"bp-runtime?/std",
 	"bp-test-utils?/std",
-	"bp-westend?/std",
 	"bp-xcm-bridge-hub-router?/std",
 	"bp-xcm-bridge-hub?/std",
 	"bridge-hub-common?/std",
@@ -171,7 +160,6 @@ std = [
 	"polkadot-runtime-metrics?/std",
 	"polkadot-runtime-parachains?/std",
 	"polkadot-sdk-frame?/std",
-	"rococo-runtime-constants?/std",
 	"sc-executor?/std",
 	"slot-range-helper?/std",
 	"snowbridge-beacon-primitives?/std",
@@ -239,7 +227,6 @@ std = [
 	"staging-xcm?/std",
 	"substrate-bip39?/std",
 	"testnet-parachains-constants?/std",
-	"westend-runtime-constants?/std",
 	"xcm-runtime-apis?/std",
 ]
 runtime-benchmarks = [
@@ -543,25 +530,14 @@ with-tracing = [
 runtime = [
 	"assets-common",
 	"binary-merkle-tree",
-	"bp-asset-hub-rococo",
-	"bp-asset-hub-westend",
-	"bp-bridge-hub-cumulus",
-	"bp-bridge-hub-kusama",
-	"bp-bridge-hub-polkadot",
-	"bp-bridge-hub-rococo",
-	"bp-bridge-hub-westend",
 	"bp-header-chain",
-	"bp-kusama",
 	"bp-messages",
 	"bp-parachains",
 	"bp-polkadot",
-	"bp-polkadot-bulletin",
 	"bp-polkadot-core",
 	"bp-relayers",
-	"bp-rococo",
 	"bp-runtime",
 	"bp-test-utils",
-	"bp-westend",
 	"bp-xcm-bridge-hub",
 	"bp-xcm-bridge-hub-router",
 	"bridge-hub-common",
@@ -706,7 +682,6 @@ runtime = [
 	"polkadot-runtime-parachains",
 	"polkadot-sdk-frame",
 	"polkadot-sdk-frame?/runtime",
-	"rococo-runtime-constants",
 	"sc-chain-spec-derive",
 	"sc-tracing-proc-macro",
 	"slot-range-helper",
@@ -777,7 +752,6 @@ runtime = [
 	"substrate-bip39",
 	"testnet-parachains-constants",
 	"tracing-gum-proc-macro",
-	"westend-runtime-constants",
 	"xcm-procedural",
 	"xcm-runtime-apis",
 ]
@@ -803,48 +777,8 @@ path = "../substrate/utils/binary-merkle-tree"
 default-features = false
 optional = true
 
-[dependencies.bp-asset-hub-rococo]
-path = "../bridges/chains/chain-asset-hub-rococo"
-default-features = false
-optional = true
-
-[dependencies.bp-asset-hub-westend]
-path = "../bridges/chains/chain-asset-hub-westend"
-default-features = false
-optional = true
-
-[dependencies.bp-bridge-hub-cumulus]
-path = "../bridges/chains/chain-bridge-hub-cumulus"
-default-features = false
-optional = true
-
-[dependencies.bp-bridge-hub-kusama]
-path = "../bridges/chains/chain-bridge-hub-kusama"
-default-features = false
-optional = true
-
-[dependencies.bp-bridge-hub-polkadot]
-path = "../bridges/chains/chain-bridge-hub-polkadot"
-default-features = false
-optional = true
-
-[dependencies.bp-bridge-hub-rococo]
-path = "../bridges/chains/chain-bridge-hub-rococo"
-default-features = false
-optional = true
-
-[dependencies.bp-bridge-hub-westend]
-path = "../bridges/chains/chain-bridge-hub-westend"
-default-features = false
-optional = true
-
 [dependencies.bp-header-chain]
 path = "../bridges/primitives/header-chain"
-default-features = false
-optional = true
-
-[dependencies.bp-kusama]
-path = "../bridges/chains/chain-kusama"
 default-features = false
 optional = true
 
@@ -863,11 +797,6 @@ path = "../bridges/chains/chain-polkadot"
 default-features = false
 optional = true
 
-[dependencies.bp-polkadot-bulletin]
-path = "../bridges/chains/chain-polkadot-bulletin"
-default-features = false
-optional = true
-
 [dependencies.bp-polkadot-core]
 path = "../bridges/primitives/polkadot-core"
 default-features = false
@@ -878,11 +807,6 @@ path = "../bridges/primitives/relayers"
 default-features = false
 optional = true
 
-[dependencies.bp-rococo]
-path = "../bridges/chains/chain-rococo"
-default-features = false
-optional = true
-
 [dependencies.bp-runtime]
 path = "../bridges/primitives/runtime"
 default-features = false
@@ -890,11 +814,6 @@ optional = true
 
 [dependencies.bp-test-utils]
 path = "../bridges/primitives/test-utils"
-default-features = false
-optional = true
-
-[dependencies.bp-westend]
-path = "../bridges/chains/chain-westend"
 default-features = false
 optional = true
 
@@ -1613,11 +1532,6 @@ path = "../substrate/frame"
 default-features = false
 optional = true
 
-[dependencies.rococo-runtime-constants]
-path = "../polkadot/runtime/rococo/constants"
-default-features = false
-optional = true
-
 [dependencies.sc-chain-spec-derive]
 path = "../substrate/client/chain-spec/derive"
 default-features = false
@@ -1965,11 +1879,6 @@ optional = true
 
 [dependencies.tracing-gum-proc-macro]
 path = "../polkadot/node/gum/proc-macro"
-default-features = false
-optional = true
-
-[dependencies.westend-runtime-constants]
-path = "../polkadot/runtime/westend/constants"
 default-features = false
 optional = true
 

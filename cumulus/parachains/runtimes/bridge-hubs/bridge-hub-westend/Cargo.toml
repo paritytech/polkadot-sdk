@@ -22,6 +22,7 @@ serde = { optional = true, features = ["derive"], workspace = true, default-feat
 # Substrate
 frame-benchmarking = { optional = true, workspace = true }
 frame-executive = { workspace = true }
+frame-metadata-hash-extension = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
@@ -100,10 +101,24 @@ pallet-xcm-bridge-hub = { workspace = true }
 bridge-runtime-common = { workspace = true }
 bridge-hub-common = { workspace = true }
 
+# Ethereum Bridge (Snowbridge)
+snowbridge-beacon-primitives = { workspace = true }
+snowbridge-pallet-system = { workspace = true }
+snowbridge-system-runtime-api = { workspace = true }
+snowbridge-core = { workspace = true }
+snowbridge-pallet-ethereum-client = { workspace = true }
+snowbridge-pallet-inbound-queue = { workspace = true }
+snowbridge-pallet-outbound-queue = { workspace = true }
+snowbridge-outbound-queue-runtime-api = { workspace = true }
+snowbridge-router-primitives = { workspace = true }
+snowbridge-runtime-common = { workspace = true }
+
+
 [dev-dependencies]
 bridge-hub-test-utils = { workspace = true, default-features = true }
 bridge-runtime-common = { features = ["integrity-test"], workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
+snowbridge-runtime-test-common = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -134,6 +149,7 @@ std = [
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
@@ -164,6 +180,16 @@ std = [
 	"polkadot-runtime-common/std",
 	"scale-info/std",
 	"serde",
+	"snowbridge-beacon-primitives/std",
+	"snowbridge-core/std",
+	"snowbridge-outbound-queue-runtime-api/std",
+	"snowbridge-pallet-ethereum-client/std",
+	"snowbridge-pallet-inbound-queue/std",
+	"snowbridge-pallet-outbound-queue/std",
+	"snowbridge-pallet-system/std",
+	"snowbridge-router-primitives/std",
+	"snowbridge-runtime-common/std",
+	"snowbridge-system-runtime-api/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -215,6 +241,14 @@ runtime-benchmarks = [
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
+	"snowbridge-pallet-inbound-queue/runtime-benchmarks",
+	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
+	"snowbridge-pallet-system/runtime-benchmarks",
+	"snowbridge-router-primitives/runtime-benchmarks",
+	"snowbridge-runtime-common/runtime-benchmarks",
+	"snowbridge-runtime-test-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -248,6 +282,10 @@ try-runtime = [
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
+	"snowbridge-pallet-ethereum-client/try-runtime",
+	"snowbridge-pallet-inbound-queue/try-runtime",
+	"snowbridge-pallet-outbound-queue/try-runtime",
+	"snowbridge-pallet-system/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 
@@ -255,3 +293,5 @@ try-runtime = [
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
 on-chain-release-build = ["sp-api/disable-logging"]
+
+fast-runtime = []

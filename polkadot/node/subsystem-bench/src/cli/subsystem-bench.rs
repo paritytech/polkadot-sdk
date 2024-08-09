@@ -184,14 +184,7 @@ impl BenchCli {
 
 fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
-	env_logger::builder()
-		.filter(Some("hyper"), log::LevelFilter::Info)
-		// Avoid `Terminating due to subsystem exit subsystem` warnings
-		.filter(Some("polkadot_overseer"), log::LevelFilter::Error)
-		.filter(None, log::LevelFilter::Info)
-		.format_timestamp_millis()
-		.try_init()
-		.unwrap();
+	sp_tracing::try_init_simple();
 
 	let cli: BenchCli = BenchCli::parse();
 	cli.launch()?;
