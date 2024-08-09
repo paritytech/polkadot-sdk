@@ -8,7 +8,6 @@ doc:
     description:
       This PR allows the RPC server's socket address to be returned when initializing the server.
       This allows the library consumer to easily programmatically determine which port the RPC server is listening on.
-      and then test against whatever port the OS assigns dynamically. I will have many RPC servers running in parallel
 crates:
   - name: sc-rpc-server
     bump: major
