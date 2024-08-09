@@ -165,6 +165,15 @@ where
 	type RuntimeCall = RuntimeCall;
 }
 
+impl<T> frame_system::offchain::CreateInherent<T> for Test
+where
+	RuntimeCall: From<T>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		Extrinsic::new_bare(call)
+	}
+}
+
 impl crate::Config for Test {}
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
