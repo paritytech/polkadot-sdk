@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723207400109,
+  "lastUpdate": 1723214673062,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -14240,6 +14240,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 6.388987861850044,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b1a9ad4d387e8e75932e4bc8950c4535f4c82119",
+          "message": "[ci] Move checks to GHA (#5289)\n\nCloses https://github.com/paritytech/ci_cd/issues/1012",
+          "timestamp": "2024-08-09T13:05:18Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b1a9ad4d387e8e75932e4bc8950c4535f4c82119"
+        },
+        "date": 1723214642416,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63998.780000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.034211411790045,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.2896329767901187,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.418068984550044,
             "unit": "seconds"
           }
         ]
