@@ -77,7 +77,7 @@ pub mod pallet {
 				let call = frame_system::Call::<T>::do_task { task: runtime_task.into() };
 
 				// Submit the task as an unsigned transaction
-				let xt = T::create_inherent(call.into());
+				let xt = <T as CreateInherent<frame_system::Call<T>>>::create_inherent(call.into());
 				let res = SubmitTransaction::<T, frame_system::Call<T>>::submit_transaction(xt);
 				match res {
 					Ok(_) => log::info!(target: LOG_TARGET, "Submitted the task."),
@@ -85,6 +85,9 @@ pub mod pallet {
 				}
 			}
 		}
+
+		#[cfg(not(feature = "experimental"))]
+		fn offchain_worker(_block_number: BlockNumberFor<T>) {}
 	}
 
 	#[pallet::config]
