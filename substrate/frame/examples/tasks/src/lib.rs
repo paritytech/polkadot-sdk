@@ -77,10 +77,8 @@ pub mod pallet {
 				let call = frame_system::Call::<T>::do_task { task: runtime_task.into() };
 
 				// Submit the task as an unsigned transaction
-				let res =
-					SubmitTransaction::<T, frame_system::Call<T>>::submit_unsigned_transaction(
-						call.into(),
-					);
+				let xt = T::create_inherent(call.into());
+				let res = SubmitTransaction::<T, frame_system::Call<T>>::submit_transaction(xt);
 				match res {
 					Ok(_) => log::info!(target: LOG_TARGET, "Submitted the task."),
 					Err(e) => log::error!(target: LOG_TARGET, "Error submitting task: {:?}", e),
