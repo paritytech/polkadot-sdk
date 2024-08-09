@@ -270,6 +270,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -307,6 +311,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>job_response: JobResponse,
 	<span class="doccomment">/// The amount of CPU time taken by the job.
 	</span><span class="kw">pub </span>duration: Duration,
+	<span class="doccomment">/// The uncompressed PoV size.
+	</span><span class="kw">pub </span>pov_size: u32,
 }
 
 <span class="doccomment">/// An error occurred in the worker process.
@@ -349,6 +355,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>RuntimeConstruction(String),
 	<span class="doccomment">/// The candidate is invalid.
 	</span>InvalidCandidate(String),
+	<span class="doccomment">/// PoV decompression failed
+	</span>PoVDecompressionFailure,
 }
 
 <span class="kw">impl </span>JobResponse {

@@ -908,6 +908,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#757" id="757">757</a>
 <a href="#758" id="758">758</a>
 <a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -948,6 +976,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	executor_interface::{prepare, prevalidate},
 	worker::{pipe2_cloexec, PipeFd, WorkerInfo},
 };
+<span class="kw">use </span>polkadot_node_primitives::VALIDATION_CODE_BOMB_LIMIT;
 
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_core_pvf_common::{
@@ -1013,6 +1042,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
 		<span class="self">self</span>.<span class="number">0</span>.as_slice()
 	}
+}
+
+<span class="attr">#[derive(Encode, Decode)]
+</span><span class="kw">pub struct </span>PrepareOutcome {
+	<span class="kw">pub </span>compiled_artifact: CompiledArtifact,
+	<span class="kw">pub </span>observed_wasm_code_len: u32,
 }
 
 <span class="doccomment">/// Get a worker request.
@@ -1204,14 +1239,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 }
 
-<span class="kw">fn </span>prepare_artifact(pvf: PvfPrepData) -&gt; <span class="prelude-ty">Result</span>&lt;CompiledArtifact, PrepareError&gt; {
-	<span class="kw">let </span>blob = <span class="kw">match </span>prevalidate(<span class="kw-2">&amp;</span>pvf.code()) {
+<span class="kw">fn </span>prepare_artifact(pvf: PvfPrepData) -&gt; <span class="prelude-ty">Result</span>&lt;PrepareOutcome, PrepareError&gt; {
+	<span class="kw">let </span>maybe_compressed_code = pvf.maybe_compressed_code();
+	<span class="kw">let </span>raw_validation_code =
+		sp_maybe_compressed_blob::decompress(<span class="kw-2">&amp;</span>maybe_compressed_code, VALIDATION_CODE_BOMB_LIMIT)
+			.map_err(|e| PrepareError::CouldNotDecompressCodeBlob(e.to_string()))<span class="question-mark">?</span>;
+	<span class="kw">let </span>observed_wasm_code_len = raw_validation_code.len() <span class="kw">as </span>u32;
+
+	<span class="kw">let </span>blob = <span class="kw">match </span>prevalidate(<span class="kw-2">&amp;</span>raw_validation_code) {
 		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(PrepareError::Prevalidation(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, err))),
 		<span class="prelude-val">Ok</span>(b) =&gt; b,
 	};
 
 	<span class="kw">match </span>prepare(blob, <span class="kw-2">&amp;</span>pvf.executor_params()) {
-		<span class="prelude-val">Ok</span>(compiled_artifact) =&gt; <span class="prelude-val">Ok</span>(CompiledArtifact::new(compiled_artifact)),
+		<span class="prelude-val">Ok</span>(compiled_artifact) =&gt; <span class="prelude-val">Ok</span>(PrepareOutcome {
+			compiled_artifact: CompiledArtifact::new(compiled_artifact),
+			observed_wasm_code_len,
+		}),
 		<span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(PrepareError::Preparation(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, err))),
 	}
 }
@@ -1232,6 +1276,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">struct </span>JobResponse {
 	artifact: CompiledArtifact,
 	memory_stats: MemoryStats,
+	observed_wasm_code_len: u32,
 }
 
 <span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
@@ -1410,11 +1455,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="string">"prepare worker"</span>,
 		<span class="kw">move </span>|| {
 			<span class="attr">#[allow(unused_mut)]
-			</span><span class="kw">let </span><span class="kw-2">mut </span>result = prepare_artifact(pvf);
+			</span><span class="kw">let </span><span class="kw-2">mut </span>result = prepare_artifact(pvf).map(|o| (o,));
 
 			<span class="comment">// Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
 			</span><span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
-			</span><span class="kw">let </span><span class="kw-2">mut </span>result = result.map(|artifact| (artifact, get_max_rss_thread()));
+			</span><span class="kw">let </span><span class="kw-2">mut </span>result = result.map(|outcome| (outcome.<span class="number">0</span>, get_max_rss_thread()));
 
 			<span class="comment">// If we are pre-checking, check for runtime construction errors.
 			//
@@ -1423,7 +1468,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// anyway.
 			</span><span class="kw">if let </span>PrepareJobKind::Prechecking = prepare_job_kind {
 				result = result.and_then(|output| {
-					runtime_construction_check(output.<span class="number">0</span>.as_ref(), <span class="kw-2">&amp;</span>executor_params)<span class="question-mark">?</span>;
+					runtime_construction_check(
+						output.<span class="number">0</span>.compiled_artifact.as_ref(),
+						<span class="kw-2">&amp;</span>executor_params,
+					)<span class="question-mark">?</span>;
 					<span class="prelude-val">Ok</span>(output)
 				});
 			}
@@ -1463,9 +1511,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(ok) =&gt; {
 					<span class="macro">cfg_if::cfg_if! </span>{
 						<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)] </span>{
-							<span class="kw">let </span>(artifact, max_rss) = ok;
+							<span class="kw">let </span>(PrepareOutcome { compiled_artifact, observed_wasm_code_len }, max_rss) = ok;
 						} <span class="kw">else </span>{
-							<span class="kw">let </span>artifact = ok;
+							<span class="kw">let </span>(PrepareOutcome { compiled_artifact, observed_wasm_code_len },) = ok;
 						}
 					}
 
@@ -1484,7 +1532,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						</span>peak_tracked_alloc: <span class="kw">if </span>peak_alloc &gt; <span class="number">0 </span>{ peak_alloc <span class="kw">as </span>u64 } <span class="kw">else </span>{ <span class="number">0u64 </span>},
 					};
 
-					<span class="prelude-val">Ok</span>(JobResponse { artifact, memory_stats })
+					<span class="prelude-val">Ok</span>(JobResponse {
+						artifact: compiled_artifact,
+						observed_wasm_code_len,
+						memory_stats,
+					})
 				},
 			}
 		},
@@ -1575,7 +1627,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">match </span>result {
 				<span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
-				<span class="prelude-val">Ok</span>(JobResponse { artifact, memory_stats }) =&gt; {
+				<span class="prelude-val">Ok</span>(JobResponse { artifact, memory_stats, observed_wasm_code_len }) =&gt; {
 					<span class="comment">// The exit status should have been zero if no error occurred.
 					</span><span class="kw">if </span>exit_status != <span class="number">0 </span>{
 						<span class="kw">return </span><span class="prelude-val">Err</span>(PrepareError::JobError(<span class="macro">format!</span>(
@@ -1606,7 +1658,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>checksum = blake3::hash(<span class="kw-2">&amp;</span>artifact.as_ref()).to_hex().to_string();
 					<span class="prelude-val">Ok</span>(PrepareWorkerSuccess {
 						checksum,
-						stats: PrepareStats { memory_stats, cpu_time_elapsed: cpu_tv },
+						stats: PrepareStats {
+							memory_stats,
+							cpu_time_elapsed: cpu_tv,
+							observed_wasm_code_len,
+						},
 					})
 				},
 			}

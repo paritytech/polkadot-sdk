@@ -1936,6 +1936,66 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1785" id="1785">1785</a>
 <a href="#1786" id="1786">1786</a>
 <a href="#1787" id="1787">1787</a>
+<a href="#1788" id="1788">1788</a>
+<a href="#1789" id="1789">1789</a>
+<a href="#1790" id="1790">1790</a>
+<a href="#1791" id="1791">1791</a>
+<a href="#1792" id="1792">1792</a>
+<a href="#1793" id="1793">1793</a>
+<a href="#1794" id="1794">1794</a>
+<a href="#1795" id="1795">1795</a>
+<a href="#1796" id="1796">1796</a>
+<a href="#1797" id="1797">1797</a>
+<a href="#1798" id="1798">1798</a>
+<a href="#1799" id="1799">1799</a>
+<a href="#1800" id="1800">1800</a>
+<a href="#1801" id="1801">1801</a>
+<a href="#1802" id="1802">1802</a>
+<a href="#1803" id="1803">1803</a>
+<a href="#1804" id="1804">1804</a>
+<a href="#1805" id="1805">1805</a>
+<a href="#1806" id="1806">1806</a>
+<a href="#1807" id="1807">1807</a>
+<a href="#1808" id="1808">1808</a>
+<a href="#1809" id="1809">1809</a>
+<a href="#1810" id="1810">1810</a>
+<a href="#1811" id="1811">1811</a>
+<a href="#1812" id="1812">1812</a>
+<a href="#1813" id="1813">1813</a>
+<a href="#1814" id="1814">1814</a>
+<a href="#1815" id="1815">1815</a>
+<a href="#1816" id="1816">1816</a>
+<a href="#1817" id="1817">1817</a>
+<a href="#1818" id="1818">1818</a>
+<a href="#1819" id="1819">1819</a>
+<a href="#1820" id="1820">1820</a>
+<a href="#1821" id="1821">1821</a>
+<a href="#1822" id="1822">1822</a>
+<a href="#1823" id="1823">1823</a>
+<a href="#1824" id="1824">1824</a>
+<a href="#1825" id="1825">1825</a>
+<a href="#1826" id="1826">1826</a>
+<a href="#1827" id="1827">1827</a>
+<a href="#1828" id="1828">1828</a>
+<a href="#1829" id="1829">1829</a>
+<a href="#1830" id="1830">1830</a>
+<a href="#1831" id="1831">1831</a>
+<a href="#1832" id="1832">1832</a>
+<a href="#1833" id="1833">1833</a>
+<a href="#1834" id="1834">1834</a>
+<a href="#1835" id="1835">1835</a>
+<a href="#1836" id="1836">1836</a>
+<a href="#1837" id="1837">1837</a>
+<a href="#1838" id="1838">1838</a>
+<a href="#1839" id="1839">1839</a>
+<a href="#1840" id="1840">1840</a>
+<a href="#1841" id="1841">1841</a>
+<a href="#1842" id="1842">1842</a>
+<a href="#1843" id="1843">1843</a>
+<a href="#1844" id="1844">1844</a>
+<a href="#1845" id="1845">1845</a>
+<a href="#1846" id="1846">1846</a>
+<a href="#1847" id="1847">1847</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1974,11 +2034,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	prepare::PrepareSuccess,
 	pvf::PvfPrepData,
 };
+<span class="kw">use </span>polkadot_node_primitives::PoV;
 <span class="kw">use </span>polkadot_node_subsystem::{SubsystemError, SubsystemResult};
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::ValidationResult;
+<span class="kw">use </span>polkadot_primitives::PersistedValidationData;
 <span class="kw">use </span>std::{
 	collections::HashMap,
 	path::PathBuf,
+	sync::Arc,
 	time::{Duration, SystemTime},
 };
 
@@ -2046,7 +2109,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
-		params: Vec&lt;u8&gt;,
+		pvd: Arc&lt;PersistedValidationData&gt;,
+		pov: Arc&lt;PoV&gt;,
 		priority: Priority,
 		result_tx: ResultSender,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
@@ -2054,7 +2118,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.send(ToHost::ExecutePvf(ExecutePvfInputs {
 				pvf,
 				exec_timeout,
-				params,
+				pvd,
+				pov,
 				priority,
 				result_tx,
 			}))
@@ -2085,7 +2150,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">struct </span>ExecutePvfInputs {
 	pvf: PvfPrepData,
 	exec_timeout: Duration,
-	params: Vec&lt;u8&gt;,
+	pvd: Arc&lt;PersistedValidationData&gt;,
+	pov: Arc&lt;PoV&gt;,
 	priority: Priority,
 	result_tx: ResultSender,
 }
@@ -2477,7 +2543,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	awaiting_prepare: <span class="kw-2">&amp;mut </span>AwaitingPrepare,
 	inputs: ExecutePvfInputs,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Fatal&gt; {
-	<span class="kw">let </span>ExecutePvfInputs { pvf, exec_timeout, params, priority, result_tx } = inputs;
+	<span class="kw">let </span>ExecutePvfInputs { pvf, exec_timeout, pvd, pov, priority, result_tx } = inputs;
 	<span class="kw">let </span>artifact_id = ArtifactId::from_pvf_prep_data(<span class="kw-2">&amp;</span>pvf);
 	<span class="kw">let </span>executor_params = (<span class="kw-2">*</span>pvf.executor_params()).clone();
 
@@ -2496,7 +2562,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							artifact: ArtifactPathId::new(artifact_id, path),
 							pending_execution_request: PendingExecutionRequest {
 								exec_timeout,
-								params,
+								pvd,
+								pov,
 								executor_params,
 								result_tx,
 							},
@@ -2525,7 +2592,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						artifact_id,
 						PendingExecutionRequest {
 							exec_timeout,
-							params,
+							pvd,
+							pov,
 							executor_params,
 							result_tx,
 						},
@@ -2536,7 +2604,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ArtifactState::Preparing { .. } =&gt; {
 				awaiting_prepare.add(
 					artifact_id,
-					PendingExecutionRequest { exec_timeout, params, executor_params, result_tx },
+					PendingExecutionRequest { exec_timeout, pvd, pov, executor_params, result_tx },
 				);
 			},
 			ArtifactState::FailedToProcess { last_time_failed, num_failures, error } =&gt; {
@@ -2565,7 +2633,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						artifact_id,
 						PendingExecutionRequest {
 							exec_timeout,
-							params,
+							pvd,
+							pov,
 							executor_params,
 							result_tx,
 						},
@@ -2586,7 +2655,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			pvf,
 			priority,
 			artifact_id,
-			PendingExecutionRequest { exec_timeout, params, executor_params, result_tx },
+			PendingExecutionRequest { exec_timeout, pvd, pov, executor_params, result_tx },
 		)
 		.<span class="kw">await</span><span class="question-mark">?</span>;
 	}
@@ -2708,7 +2777,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// It's finally time to dispatch all the execution requests that were waiting for this artifact
 	// to be prepared.
 	</span><span class="kw">let </span>pending_requests = awaiting_prepare.take(<span class="kw-2">&amp;</span>artifact_id);
-	<span class="kw">for </span>PendingExecutionRequest { exec_timeout, params, executor_params, result_tx } <span class="kw">in
+	<span class="kw">for </span>PendingExecutionRequest { exec_timeout, pvd, pov, executor_params, result_tx } <span class="kw">in
 		</span>pending_requests
 	{
 		<span class="kw">if </span>result_tx.is_canceled() {
@@ -2731,7 +2800,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				artifact: ArtifactPathId::new(artifact_id.clone(), <span class="kw-2">&amp;</span>path),
 				pending_execution_request: PendingExecutionRequest {
 					exec_timeout,
-					params,
+					pvd,
+					pov,
 					executor_params,
 					result_tx,
 				},
@@ -2905,6 +2975,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>assert_matches::assert_matches;
 	<span class="kw">use </span>futures::future::BoxFuture;
 	<span class="kw">use </span>polkadot_node_core_pvf_common::prepare::PrepareStats;
+	<span class="kw">use </span>polkadot_node_primitives::BlockData;
+	<span class="kw">use </span>sp_core::H256;
 
 	<span class="kw">const </span>TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(<span class="number">3</span>);
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(<span class="number">30</span>);
@@ -3161,12 +3233,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>execute_pvf_requests() {
 		<span class="kw">let </span><span class="kw-2">mut </span>test = Builder::default().build();
 		<span class="kw">let </span><span class="kw-2">mut </span>host = test.host_handle();
+		<span class="kw">let </span>pvd = Arc::new(PersistedValidationData {
+			parent_head: Default::default(),
+			relay_parent_number: <span class="number">1u32</span>,
+			relay_parent_storage_root: H256::default(),
+			max_pov_size: <span class="number">4096 </span>* <span class="number">1024</span>,
+		});
+		<span class="kw">let </span>pov1 = Arc::new(PoV { block_data: BlockData(<span class="string">b"pov1"</span>.to_vec()) });
+		<span class="kw">let </span>pov2 = Arc::new(PoV { block_data: BlockData(<span class="string">b"pov2"</span>.to_vec()) });
 
 		<span class="kw">let </span>(result_tx, result_rx_pvf_1_1) = oneshot::channel();
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b"pvf1"</span>.to_vec(),
+			pvd.clone(),
+			pov1.clone(),
 			Priority::Normal,
 			result_tx,
 		)
@@ -3177,7 +3258,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b"pvf1"</span>.to_vec(),
+			pvd.clone(),
+			pov1,
 			Priority::Critical,
 			result_tx,
 		)
@@ -3188,7 +3270,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">2</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b"pvf2"</span>.to_vec(),
+			pvd,
+			pov2,
 			Priority::Normal,
 			result_tx,
 		)
@@ -3320,6 +3403,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>test_prepare_done() {
 		<span class="kw">let </span><span class="kw-2">mut </span>test = Builder::default().build();
 		<span class="kw">let </span><span class="kw-2">mut </span>host = test.host_handle();
+		<span class="kw">let </span>pvd = Arc::new(PersistedValidationData {
+			parent_head: Default::default(),
+			relay_parent_number: <span class="number">1u32</span>,
+			relay_parent_storage_root: H256::default(),
+			max_pov_size: <span class="number">4096 </span>* <span class="number">1024</span>,
+		});
+		<span class="kw">let </span>pov = Arc::new(PoV { block_data: BlockData(<span class="string">b"pov"</span>.to_vec()) });
 
 		<span class="comment">// Test mixed cases of receiving execute and precheck requests
 		// for the same PVF.
@@ -3329,7 +3419,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b"pvf2"</span>.to_vec(),
+			pvd.clone(),
+			pov.clone(),
 			Priority::Critical,
 			result_tx,
 		)
@@ -3376,7 +3467,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">2</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b"pvf2"</span>.to_vec(),
+			pvd,
+			pov,
 			Priority::Critical,
 			result_tx,
 		)
@@ -3472,13 +3564,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>test_execute_prepare_retry() {
 		<span class="kw">let </span><span class="kw-2">mut </span>test = Builder::default().build();
 		<span class="kw">let </span><span class="kw-2">mut </span>host = test.host_handle();
+		<span class="kw">let </span>pvd = Arc::new(PersistedValidationData {
+			parent_head: Default::default(),
+			relay_parent_number: <span class="number">1u32</span>,
+			relay_parent_storage_root: H256::default(),
+			max_pov_size: <span class="number">4096 </span>* <span class="number">1024</span>,
+		});
+		<span class="kw">let </span>pov = Arc::new(PoV { block_data: BlockData(<span class="string">b"pov"</span>.to_vec()) });
 
 		<span class="comment">// Submit a execute request that fails.
 		</span><span class="kw">let </span>(result_tx, result_rx) = oneshot::channel();
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b"pvf"</span>.to_vec(),
+			pvd.clone(),
+			pov.clone(),
 			Priority::Critical,
 			result_tx,
 		)
@@ -3508,7 +3608,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b"pvf"</span>.to_vec(),
+			pvd.clone(),
+			pov.clone(),
 			Priority::Critical,
 			result_tx_2,
 		)
@@ -3530,7 +3631,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b"pvf"</span>.to_vec(),
+			pvd.clone(),
+			pov.clone(),
 			Priority::Critical,
 			result_tx_3,
 		)
@@ -3574,13 +3676,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>test_execute_prepare_no_retry() {
 		<span class="kw">let </span><span class="kw-2">mut </span>test = Builder::default().build();
 		<span class="kw">let </span><span class="kw-2">mut </span>host = test.host_handle();
+		<span class="kw">let </span>pvd = Arc::new(PersistedValidationData {
+			parent_head: Default::default(),
+			relay_parent_number: <span class="number">1u32</span>,
+			relay_parent_storage_root: H256::default(),
+			max_pov_size: <span class="number">4096 </span>* <span class="number">1024</span>,
+		});
+		<span class="kw">let </span>pov = Arc::new(PoV { block_data: BlockData(<span class="string">b"pov"</span>.to_vec()) });
 
 		<span class="comment">// Submit an execute request that fails.
 		</span><span class="kw">let </span>(result_tx, result_rx) = oneshot::channel();
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b"pvf"</span>.to_vec(),
+			pvd.clone(),
+			pov.clone(),
 			Priority::Critical,
 			result_tx,
 		)
@@ -3610,7 +3720,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b"pvf"</span>.to_vec(),
+			pvd.clone(),
+			pov.clone(),
 			Priority::Critical,
 			result_tx_2,
 		)
@@ -3632,7 +3743,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b"pvf"</span>.to_vec(),
+			pvd.clone(),
+			pov.clone(),
 			Priority::Critical,
 			result_tx_3,
 		)
@@ -3693,12 +3805,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>cancellation() {
 		<span class="kw">let </span><span class="kw-2">mut </span>test = Builder::default().build();
 		<span class="kw">let </span><span class="kw-2">mut </span>host = test.host_handle();
+		<span class="kw">let </span>pvd = Arc::new(PersistedValidationData {
+			parent_head: Default::default(),
+			relay_parent_number: <span class="number">1u32</span>,
+			relay_parent_storage_root: H256::default(),
+			max_pov_size: <span class="number">4096 </span>* <span class="number">1024</span>,
+		});
+		<span class="kw">let </span>pov = Arc::new(PoV { block_data: BlockData(<span class="string">b"pov"</span>.to_vec()) });
 
 		<span class="kw">let </span>(result_tx, result_rx) = oneshot::channel();
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b"pvf1"</span>.to_vec(),
+			pvd,
+			pov,
 			Priority::Normal,
 			result_tx,
 		)

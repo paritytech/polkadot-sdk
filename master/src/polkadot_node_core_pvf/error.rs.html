@@ -254,6 +254,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -308,6 +311,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// PVF execution (compilation is not included) took more time than was allotted.
 	</span><span class="attr">#[error(<span class="string">"invalid: hard timeout"</span>)]
 	</span>HardTimeout,
+	<span class="doccomment">/// Proof-of-validity failed to decompress correctly
+	</span><span class="attr">#[error(<span class="string">"invalid: PoV failed to decompress"</span>)]
+	</span>PoVDecompressionFailure,
 }
 
 <span class="doccomment">/// Possibly transient issue that may resolve after retries.

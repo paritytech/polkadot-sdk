@@ -302,9 +302,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Should be cheap to clone.
 </span><span class="attr">#[derive(Clone, Encode, Decode)]
 </span><span class="kw">pub struct </span>PvfPrepData {
-	<span class="doccomment">/// Wasm code (uncompressed)
-	</span>code: Arc&lt;Vec&lt;u8&gt;&gt;,
-	<span class="doccomment">/// Wasm code hash
+	<span class="doccomment">/// Wasm code (maybe compressed)
+	</span>maybe_compressed_code: Arc&lt;Vec&lt;u8&gt;&gt;,
+	<span class="doccomment">/// Wasm code hash.
 	</span>code_hash: ValidationCodeHash,
 	<span class="doccomment">/// Executor environment parameters for the session for which artifact is prepared
 	</span>executor_params: Arc&lt;ExecutorParams&gt;,
@@ -322,20 +322,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		prep_timeout: Duration,
 		prep_kind: PrepareJobKind,
 	) -&gt; <span class="self">Self </span>{
-		<span class="kw">let </span>code = Arc::new(code);
-		<span class="kw">let </span>code_hash = sp_crypto_hashing::blake2_256(<span class="kw-2">&amp;</span>code).into();
+		<span class="kw">let </span>maybe_compressed_code = Arc::new(code);
+		<span class="kw">let </span>code_hash = sp_crypto_hashing::blake2_256(<span class="kw-2">&amp;</span>maybe_compressed_code).into();
 		<span class="kw">let </span>executor_params = Arc::new(executor_params);
-		<span class="self">Self </span>{ code, code_hash, executor_params, prep_timeout, prep_kind }
+		<span class="self">Self </span>{ maybe_compressed_code, code_hash, executor_params, prep_timeout, prep_kind }
 	}
 
-	<span class="doccomment">/// Returns validation code hash for the PVF
+	<span class="doccomment">/// Returns validation code hash
 	</span><span class="kw">pub fn </span>code_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ValidationCodeHash {
 		<span class="self">self</span>.code_hash
 	}
 
-	<span class="doccomment">/// Returns PVF code
-	</span><span class="kw">pub fn </span>code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;Vec&lt;u8&gt;&gt; {
-		<span class="self">self</span>.code.clone()
+	<span class="doccomment">/// Returns PVF code blob
+	</span><span class="kw">pub fn </span>maybe_compressed_code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;Vec&lt;u8&gt;&gt; {
+		<span class="self">self</span>.maybe_compressed_code.clone()
 	}
 
 	<span class="doccomment">/// Returns executor params

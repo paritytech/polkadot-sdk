@@ -229,6 +229,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -275,6 +277,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>cpu_time_elapsed: std::time::Duration,
 	<span class="doccomment">/// The observed memory statistics for the preparation job.
 	</span><span class="kw">pub </span>memory_stats: MemoryStats,
+	<span class="doccomment">/// The decompressed Wasm code length observed during the preparation.
+	</span><span class="kw">pub </span>observed_wasm_code_len: u32,
 }
 
 <span class="doccomment">/// Helper struct to contain all the memory stats, including `MemoryAllocationStats` and, if

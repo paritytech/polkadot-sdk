@@ -455,6 +455,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -489,8 +491,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	execute::{Handshake, WorkerError, WorkerResponse},
 	worker_dir, SecurityStatus,
 };
-<span class="kw">use </span>polkadot_primitives::ExecutorParams;
-<span class="kw">use </span>std::{path::Path, time::Duration};
+<span class="kw">use </span>polkadot_node_primitives::PoV;
+<span class="kw">use </span>polkadot_primitives::{ExecutorParams, PersistedValidationData};
+<span class="kw">use </span>std::{path::Path, sync::Arc, time::Duration};
 <span class="kw">use </span>tokio::{io, net::UnixStream};
 
 <span class="doccomment">/// Spawns a new worker with the given program path that acts as the worker and the spawn timeout.
@@ -580,7 +583,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	worker: IdleWorker,
 	artifact: ArtifactPathId,
 	execution_timeout: Duration,
-	validation_params: Vec&lt;u8&gt;,
+	pvd: Arc&lt;PersistedValidationData&gt;,
+	pov: Arc&lt;PoV&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Response, Error&gt; {
 	<span class="kw">let </span>IdleWorker { <span class="kw-2">mut </span>stream, pid, worker_dir } = worker;
 
@@ -594,18 +598,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 
 	with_worker_dir_setup(worker_dir, pid, <span class="kw-2">&amp;</span>artifact.path, |worker_dir| <span class="kw">async move </span>{
-		send_request(<span class="kw-2">&amp;mut </span>stream, <span class="kw-2">&amp;</span>validation_params, execution_timeout).<span class="kw">await</span>.map_err(
-			|error| {
-				<span class="macro">gum::warn!</span>(
-					target: LOG_TARGET,
-					worker_pid = %pid,
-					validation_code_hash = <span class="question-mark">?</span>artifact.id.code_hash,
-					<span class="string">"failed to send an execute request: {}"</span>,
-					error,
-				);
-				Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
-			},
-		)<span class="question-mark">?</span>;
+		send_request(<span class="kw-2">&amp;mut </span>stream, pvd, pov, execution_timeout).<span class="kw">await</span>.map_err(|error| {
+			<span class="macro">gum::warn!</span>(
+				target: LOG_TARGET,
+				worker_pid = %pid,
+				validation_code_hash = <span class="question-mark">?</span>artifact.id.code_hash,
+				<span class="string">"failed to send an execute request: {}"</span>,
+				error,
+			);
+			Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
+		})<span class="question-mark">?</span>;
 
 		<span class="comment">// We use a generous timeout here. This is in addition to the one in the child process, in
 		// case the child stalls. We have a wall clock timeout here in the host, but a CPU timeout
@@ -745,10 +747,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">async fn </span>send_request(
 	stream: <span class="kw-2">&amp;mut </span>UnixStream,
-	validation_params: <span class="kw-2">&amp;</span>[u8],
+	pvd: Arc&lt;PersistedValidationData&gt;,
+	pov: Arc&lt;PoV&gt;,
 	execution_timeout: Duration,
 ) -&gt; io::Result&lt;()&gt; {
-	framed_send(stream, validation_params).<span class="kw">await</span><span class="question-mark">?</span>;
+	framed_send(stream, <span class="kw-2">&amp;</span>pvd.encode()).<span class="kw">await</span><span class="question-mark">?</span>;
+	framed_send(stream, <span class="kw-2">&amp;</span>pov.encode()).<span class="kw">await</span><span class="question-mark">?</span>;
 	framed_send(stream, <span class="kw-2">&amp;</span>execution_timeout.encode()).<span class="kw">await
 </span>}
 

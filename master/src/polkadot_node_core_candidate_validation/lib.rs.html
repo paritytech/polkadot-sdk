@@ -1371,46 +1371,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1220" id="1220">1220</a>
 <a href="#1221" id="1221">1221</a>
 <a href="#1222" id="1222">1222</a>
-<a href="#1223" id="1223">1223</a>
-<a href="#1224" id="1224">1224</a>
-<a href="#1225" id="1225">1225</a>
-<a href="#1226" id="1226">1226</a>
-<a href="#1227" id="1227">1227</a>
-<a href="#1228" id="1228">1228</a>
-<a href="#1229" id="1229">1229</a>
-<a href="#1230" id="1230">1230</a>
-<a href="#1231" id="1231">1231</a>
-<a href="#1232" id="1232">1232</a>
-<a href="#1233" id="1233">1233</a>
-<a href="#1234" id="1234">1234</a>
-<a href="#1235" id="1235">1235</a>
-<a href="#1236" id="1236">1236</a>
-<a href="#1237" id="1237">1237</a>
-<a href="#1238" id="1238">1238</a>
-<a href="#1239" id="1239">1239</a>
-<a href="#1240" id="1240">1240</a>
-<a href="#1241" id="1241">1241</a>
-<a href="#1242" id="1242">1242</a>
-<a href="#1243" id="1243">1243</a>
-<a href="#1244" id="1244">1244</a>
-<a href="#1245" id="1245">1245</a>
-<a href="#1246" id="1246">1246</a>
-<a href="#1247" id="1247">1247</a>
-<a href="#1248" id="1248">1248</a>
-<a href="#1249" id="1249">1249</a>
-<a href="#1250" id="1250">1250</a>
-<a href="#1251" id="1251">1251</a>
-<a href="#1252" id="1252">1252</a>
-<a href="#1253" id="1253">1253</a>
-<a href="#1254" id="1254">1254</a>
-<a href="#1255" id="1255">1255</a>
-<a href="#1256" id="1256">1256</a>
-<a href="#1257" id="1257">1257</a>
-<a href="#1258" id="1258">1258</a>
-<a href="#1259" id="1259">1259</a>
-<a href="#1260" id="1260">1260</a>
-<a href="#1261" id="1261">1261</a>
-<a href="#1262" id="1262">1262</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1440,9 +1400,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	InternalValidationError, InvalidCandidate <span class="kw">as </span>WasmInvalidCandidate, PossiblyInvalidError,
 	PrepareError, PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
 };
-<span class="kw">use </span>polkadot_node_primitives::{
-	BlockData, InvalidCandidate, PoV, ValidationResult, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT,
-};
+<span class="kw">use </span>polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult};
 <span class="kw">use </span>polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{
@@ -1454,9 +1412,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>polkadot_node_subsystem_util <span class="kw">as </span>util;
 <span class="kw">use </span>polkadot_overseer::ActiveLeavesUpdate;
-<span class="kw">use </span>polkadot_parachain_primitives::primitives::{
-	ValidationParams, ValidationResult <span class="kw">as </span>WasmValidationResult,
-};
+<span class="kw">use </span>polkadot_parachain_primitives::primitives::ValidationResult <span class="kw">as </span>WasmValidationResult;
 <span class="kw">use </span>polkadot_primitives::{
 	executor_params::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
@@ -1917,21 +1873,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">continue</span>;
 		};
 
-		<span class="kw">let </span>pvf = <span class="kw">match </span>sp_maybe_compressed_blob::decompress(
-			<span class="kw-2">&amp;</span>validation_code.<span class="number">0</span>,
-			VALIDATION_CODE_BOMB_LIMIT,
-		) {
-			<span class="prelude-val">Ok</span>(code) =&gt; PvfPrepData::from_code(
-				code.into_owned(),
-				executor_params.clone(),
-				timeout,
-				PrepareJobKind::Prechecking,
-			),
-			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="macro">gum::debug!</span>(target: LOG_TARGET, err=<span class="question-mark">?</span>e, <span class="string">"cannot decompress validation code"</span>);
-				<span class="kw">continue
-			</span>},
-		};
+		<span class="kw">let </span>pvf = PvfPrepData::from_code(
+			validation_code.<span class="number">0</span>,
+			executor_params.clone(),
+			timeout,
+			PrepareJobKind::Prechecking,
+		);
 
 		active_pvfs.push(pvf);
 		processed_code_hashes.push(code_hash);
@@ -2064,21 +2011,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>timeout = pvf_prep_timeout(<span class="kw-2">&amp;</span>executor_params, PvfPrepKind::Precheck);
 
-	<span class="kw">let </span>pvf = <span class="kw">match </span>sp_maybe_compressed_blob::decompress(
-		<span class="kw-2">&amp;</span>validation_code.<span class="number">0</span>,
-		VALIDATION_CODE_BOMB_LIMIT,
-	) {
-		<span class="prelude-val">Ok</span>(code) =&gt; PvfPrepData::from_code(
-			code.into_owned(),
-			executor_params,
-			timeout,
-			PrepareJobKind::Prechecking,
-		),
-		<span class="prelude-val">Err</span>(e) =&gt; {
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, err=<span class="question-mark">?</span>e, <span class="string">"precheck: cannot decompress validation code"</span>);
-			<span class="kw">return </span>PreCheckOutcome::Invalid
-		},
-	};
+	<span class="kw">let </span>pvf = PvfPrepData::from_code(
+		validation_code.<span class="number">0</span>,
+		executor_params,
+		timeout,
+		PrepareJobKind::Prechecking,
+	);
 
 	<span class="kw">match </span>validation_backend.precheck_pvf(pvf).<span class="kw">await </span>{
 		<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; PreCheckOutcome::Valid,
@@ -2286,41 +2224,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(ValidationResult::Invalid(e))
 	}
 
-	<span class="kw">let </span>raw_validation_code = <span class="kw">match </span>sp_maybe_compressed_blob::decompress(
-		<span class="kw-2">&amp;</span>validation_code.<span class="number">0</span>,
-		VALIDATION_CODE_BOMB_LIMIT,
-	) {
-		<span class="prelude-val">Ok</span>(code) =&gt; code,
-		<span class="prelude-val">Err</span>(e) =&gt; {
-			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>para_id, err=<span class="question-mark">?</span>e, <span class="string">"Invalid candidate (validation code)"</span>);
-
-			<span class="comment">// Code already passed pre-checking, if decompression fails now this most likely means
-			// some local corruption happened.
-			</span><span class="kw">return </span><span class="prelude-val">Err</span>(ValidationFailed(<span class="string">"Code decompression failed"</span>.to_string()))
-		},
-	};
-	metrics.observe_code_size(raw_validation_code.len());
-
-	metrics.observe_pov_size(pov.block_data.<span class="number">0</span>.len(), <span class="bool-val">true</span>);
-	<span class="kw">let </span>raw_block_data =
-		<span class="kw">match </span>sp_maybe_compressed_blob::decompress(<span class="kw-2">&amp;</span>pov.block_data.<span class="number">0</span>, POV_BOMB_LIMIT) {
-			<span class="prelude-val">Ok</span>(block_data) =&gt; BlockData(block_data.to_vec()),
-			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>para_id, err=<span class="question-mark">?</span>e, <span class="string">"Invalid candidate (PoV code)"</span>);
-
-				<span class="comment">// If the PoV is invalid, the candidate certainly is.
-				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::PoVDecompressionFailure))
-			},
-		};
-	metrics.observe_pov_size(raw_block_data.<span class="number">0</span>.len(), <span class="bool-val">false</span>);
-
-	<span class="kw">let </span>params = ValidationParams {
-		parent_head: persisted_validation_data.parent_head.clone(),
-		block_data: raw_block_data,
-		relay_parent_number: persisted_validation_data.relay_parent_number,
-		relay_parent_storage_root: persisted_validation_data.relay_parent_storage_root,
-	};
-
+	<span class="kw">let </span>persisted_validation_data = Arc::new(persisted_validation_data);
 	<span class="kw">let </span>result = <span class="kw">match </span>exec_kind {
 		<span class="comment">// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
 		// honest backers getting slashed.
@@ -2328,7 +2232,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>prep_timeout = pvf_prep_timeout(<span class="kw-2">&amp;</span>executor_params, PvfPrepKind::Prepare);
 			<span class="kw">let </span>exec_timeout = pvf_exec_timeout(<span class="kw-2">&amp;</span>executor_params, exec_kind);
 			<span class="kw">let </span>pvf = PvfPrepData::from_code(
-				raw_validation_code.to_vec(),
+				validation_code.<span class="number">0</span>,
 				executor_params,
 				prep_timeout,
 				PrepareJobKind::Compilation,
@@ -2338,7 +2242,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.validate_candidate(
 					pvf,
 					exec_timeout,
-					params.encode(),
+					persisted_validation_data.clone(),
+					pov,
 					polkadot_node_core_pvf::Priority::Normal,
 				)
 				.<span class="kw">await
@@ -2346,9 +2251,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		PvfExecKind::Approval =&gt;
 			validation_backend
 				.validate_candidate_with_retry(
-					raw_validation_code.to_vec(),
+					validation_code.<span class="number">0</span>,
 					pvf_exec_timeout(<span class="kw-2">&amp;</span>executor_params, exec_kind),
-					params,
+					persisted_validation_data.clone(),
+					pov,
 					executor_params,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
 					polkadot_node_core_pvf::Priority::Critical,
@@ -2374,6 +2280,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::Timeout)),
 		<span class="prelude-val">Err</span>(ValidationError::Invalid(WasmInvalidCandidate::WorkerReportedInvalid(e))) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e))),
+		<span class="prelude-val">Err</span>(ValidationError::Invalid(WasmInvalidCandidate::PoVDecompressionFailure)) =&gt;
+			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::PoVDecompressionFailure)),
 		<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
 				<span class="string">"ambiguous worker death"</span>.to_string(),
@@ -2420,7 +2328,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					// invalid.
 					</span><span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))
 				} <span class="kw">else </span>{
-					<span class="prelude-val">Ok</span>(ValidationResult::Valid(outputs, persisted_validation_data))
+					<span class="prelude-val">Ok</span>(ValidationResult::Valid(outputs, (<span class="kw-2">*</span>persisted_validation_data).clone()))
 				}
 			},
 	}
@@ -2433,7 +2341,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
-		encoded_params: Vec&lt;u8&gt;,
+		pvd: Arc&lt;PersistedValidationData&gt;,
+		pov: Arc&lt;PoV&gt;,
 		<span class="comment">// The priority for the preparation job.
 		</span>prepare_priority: polkadot_node_core_pvf::Priority,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;WasmValidationResult, ValidationError&gt;;
@@ -2448,9 +2357,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// preparation.
 	</span><span class="kw">async fn </span>validate_candidate_with_retry(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		raw_validation_code: Vec&lt;u8&gt;,
+		code: Vec&lt;u8&gt;,
 		exec_timeout: Duration,
-		params: ValidationParams,
+		pvd: Arc&lt;PersistedValidationData&gt;,
+		pov: Arc&lt;PoV&gt;,
 		executor_params: ExecutorParams,
 		retry_delay: Duration,
 		<span class="comment">// The priority for the preparation job.
@@ -2459,7 +2369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>prep_timeout = pvf_prep_timeout(<span class="kw-2">&amp;</span>executor_params, PvfPrepKind::Prepare);
 		<span class="comment">// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
 		</span><span class="kw">let </span>pvf = PvfPrepData::from_code(
-			raw_validation_code,
+			code,
 			executor_params,
 			prep_timeout,
 			PrepareJobKind::Compilation,
@@ -2470,7 +2380,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Use `Priority::Critical` as finality trumps parachain liveliness.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>validation_result = <span class="self">self
-			</span>.validate_candidate(pvf.clone(), exec_timeout, params.encode(), prepare_priority)
+			</span>.validate_candidate(
+				pvf.clone(),
+				exec_timeout,
+				pvd.clone(),
+				pov.clone(),
+				prepare_priority,
+			)
 			.<span class="kw">await</span>;
 		<span class="kw">if </span>validation_result.is_ok() {
 			<span class="kw">return </span>validation_result
@@ -2543,10 +2459,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					validation_result
 				);
 
-				<span class="comment">// Encode the params again when re-trying. We expect the retry case to be relatively
-				// rare, and we want to avoid unconditionally cloning data.
-				</span>validation_result = <span class="self">self
-					</span>.validate_candidate(pvf.clone(), new_timeout, params.encode(), prepare_priority)
+				validation_result = <span class="self">self
+					</span>.validate_candidate(
+						pvf.clone(),
+						new_timeout,
+						pvd.clone(),
+						pov.clone(),
+						prepare_priority,
+					)
 					.<span class="kw">await</span>;
 			}
 		}
@@ -2566,13 +2486,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
-		encoded_params: Vec&lt;u8&gt;,
+		pvd: Arc&lt;PersistedValidationData&gt;,
+		pov: Arc&lt;PoV&gt;,
 		<span class="comment">// The priority for the preparation job.
 		</span>prepare_priority: polkadot_node_core_pvf::Priority,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;WasmValidationResult, ValidationError&gt; {
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
-		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
-			<span class="self">self</span>.execute_pvf(pvf, exec_timeout, encoded_params, prepare_priority, tx).<span class="kw">await
+		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.execute_pvf(pvf, exec_timeout, pvd, pov, prepare_priority, tx).<span class="kw">await
 		</span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(InternalValidationError::HostCommunication(<span class="macro">format!</span>(
 				<span class="string">"cannot send pvf to the validation host, it might have shut down: {:?}"</span>,
