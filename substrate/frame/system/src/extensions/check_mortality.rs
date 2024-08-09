@@ -76,9 +76,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckMortality<T> {
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality()
 	}
 }
-impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall>
-	for CheckMortality<T>
-{
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMortality<T> {
 	type Pre = ();
 	type Val = ();
 
