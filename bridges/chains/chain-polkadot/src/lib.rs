@@ -23,7 +23,7 @@ pub use bp_polkadot_core::*;
 
 use bp_header_chain::ChainWithGrandpa;
 use bp_runtime::{
-	decl_bridge_finality_runtime_apis, extensions::PrevalidateAttests, Chain, ChainId,
+    decl_bridge_finality_runtime_apis, extensions::PrevalidateAttests, Chain, ChainId,
 };
 use frame_support::{sp_runtime::StateVersion, weights::Weight};
 
@@ -31,36 +31,36 @@ use frame_support::{sp_runtime::StateVersion, weights::Weight};
 pub struct Polkadot;
 
 impl Chain for Polkadot {
-	const ID: ChainId = *b"pdot";
+    const ID: ChainId = *b"pdot";
 
-	type BlockNumber = BlockNumber;
-	type Hash = Hash;
-	type Hasher = Hasher;
-	type Header = Header;
+    type BlockNumber = BlockNumber;
+    type Hash = Hash;
+    type Hasher = Hasher;
+    type Header = Header;
 
-	type AccountId = AccountId;
-	type Balance = Balance;
-	type Nonce = Nonce;
-	type Signature = Signature;
+    type AccountId = AccountId;
+    type Balance = Balance;
+    type Nonce = Nonce;
+    type Signature = Signature;
 
-	const STATE_VERSION: StateVersion = StateVersion::V0;
+    const STATE_VERSION: StateVersion = StateVersion::V0;
 
-	fn max_extrinsic_size() -> u32 {
-		max_extrinsic_size()
-	}
+    fn max_extrinsic_size() -> u32 {
+        max_extrinsic_size()
+    }
 
-	fn max_extrinsic_weight() -> Weight {
-		max_extrinsic_weight()
-	}
+    fn max_extrinsic_weight() -> Weight {
+        max_extrinsic_weight()
+    }
 }
 
 impl ChainWithGrandpa for Polkadot {
-	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = WITH_POLKADOT_GRANDPA_PALLET_NAME;
-	const MAX_AUTHORITIES_COUNT: u32 = MAX_AUTHORITIES_COUNT;
-	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 =
-		REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY;
-	const MAX_MANDATORY_HEADER_SIZE: u32 = MAX_MANDATORY_HEADER_SIZE;
-	const AVERAGE_HEADER_SIZE: u32 = AVERAGE_HEADER_SIZE;
+    const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = WITH_POLKADOT_GRANDPA_PALLET_NAME;
+    const MAX_AUTHORITIES_COUNT: u32 = MAX_AUTHORITIES_COUNT;
+    const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 =
+        REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY;
+    const MAX_MANDATORY_HEADER_SIZE: u32 = MAX_MANDATORY_HEADER_SIZE;
+    const AVERAGE_HEADER_SIZE: u32 = AVERAGE_HEADER_SIZE;
 }
 
 /// The SignedExtension used by Polkadot.
