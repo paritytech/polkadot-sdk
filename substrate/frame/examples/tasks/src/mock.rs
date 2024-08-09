@@ -48,6 +48,15 @@ where
 	type Extrinsic = Extrinsic;
 }
 
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		Extrinsic::new_bare(call)
+	}
+}
+
 impl tasks_example::Config for Runtime {
 	type RuntimeTask = RuntimeTask;
 	type WeightInfo = ();

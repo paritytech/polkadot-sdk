@@ -19,7 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::dispatch::DispatchResult;
-use frame_system::offchain::CreateTransactionBase;
+use frame_system::offchain::CreateInherent;
 #[cfg(feature = "experimental")]
 use frame_system::offchain::SubmitTransaction;
 // Re-export pallet items so that they can be accessed from the crate namespace.
@@ -88,9 +88,7 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config:
-		CreateTransactionBase<frame_system::Call<Self>> + frame_system::Config
-	{
+	pub trait Config: CreateInherent<frame_system::Call<Self>> + frame_system::Config {
 		type RuntimeTask: frame_support::traits::Task
 			+ IsType<<Self as frame_system::Config>::RuntimeTask>
 			+ From<Task<Self>>;
