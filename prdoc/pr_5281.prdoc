@@ -13,3 +13,5 @@ doc:
 crates:
   - name: cumulus-primitives-storage-weight-reclaim
     bump: patch
+  - name: frame-system
+    bump: minor
