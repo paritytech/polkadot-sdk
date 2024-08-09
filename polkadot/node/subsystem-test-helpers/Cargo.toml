@@ -27,3 +27,40 @@ sp-keystore = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
+
+[features]
+runtime-benchmarks = [
+	"polkadot-erasure-coding/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem-util/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sc-keystore/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks"
+]
+std = [
+	"polkadot-erasure-coding/std",
+	"polkadot-node-primitives/std",
+	"polkadot-node-subsystem-util/std",
+	"sc-client-api/std",
+	"sc-keystore/std",
+	"sc-utils/std",
+	"polkadot-node-subsystem/std"
+]
+try-runtime = [
+	"polkadot-erasure-coding/try-runtime",
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-node-subsystem/try-runtime",
+	"polkadot-node-subsystem-util/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sc-client-api/try-runtime",
+	"sp-keyring/try-runtime",
+	"sp-application-crypto/try-runtime",
+	"sp-core/try-runtime",
+	"sc-keystore/try-runtime",
+	"sp-keystore/try-runtime"
+]

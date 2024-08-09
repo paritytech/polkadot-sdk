@@ -31,4 +31,15 @@ std = [
 	"log/std",
 	"polkadot-parachain-primitives/std",
 	"sp-io/std",
+	"substrate-wasm-builder/std"
+]
+runtime-benchmarks = [
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"substrate-wasm-builder/runtime-benchmarks"
+]
+try-runtime = [
+	"polkadot-parachain-primitives/try-runtime",
+	"sp-io/try-runtime",
+	"substrate-wasm-builder/try-runtime"
 ]

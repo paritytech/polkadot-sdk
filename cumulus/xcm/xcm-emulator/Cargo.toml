@@ -43,3 +43,48 @@ xcm-executor = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"cumulus-pallet-parachain-system/try-runtime",
+	"cumulus-pallet-xcmp-queue/try-runtime",
+	"parachains-common/try-runtime",
+	"cumulus-primitives-core/try-runtime",
+	"cumulus-primitives-parachain-inherent/try-runtime",
+	"cumulus-test-relay-sproof-builder/try-runtime",
+	"polkadot-parachain-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"polkadot-runtime-parachains/try-runtime",
+	"xcm/try-runtime",
+	"xcm-executor/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-primitives-parachain-inherent/runtime-benchmarks",
+	"cumulus-test-relay-sproof-builder/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"log/std"
+]

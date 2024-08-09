@@ -23,3 +23,17 @@ relay-utils = { workspace = true }
 
 [dev-dependencies]
 parking_lot = { workspace = true, default-features = true }
+
+[features]
+std = [
+	"relay-utils/std",
+	"log/std"
+]
+try-runtime = [
+	"bp-header-chain/try-runtime",
+	"relay-utils/try-runtime"
+]
+runtime-benchmarks = [
+	"bp-header-chain/runtime-benchmarks",
+	"relay-utils/runtime-benchmarks"
+]

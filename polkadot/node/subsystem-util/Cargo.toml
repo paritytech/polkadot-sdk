@@ -53,3 +53,57 @@ polkadot-primitives-test-helpers = { workspace = true }
 kvdb-shared-tests = { workspace = true }
 tempfile = { workspace = true }
 kvdb-memorydb = { workspace = true }
+
+[features]
+runtime-benchmarks = [
+	"polkadot-erasure-coding/runtime-benchmarks",
+	"gum/runtime-benchmarks",
+	"polkadot-node-jaeger/runtime-benchmarks",
+	"polkadot-node-metrics/runtime-benchmarks",
+	"polkadot-node-network-protocol/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem-types/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-primitives-test-helpers/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks"
+]
+std = [
+	"polkadot-erasure-coding/std",
+	"gum/std",
+	"polkadot-node-jaeger/std",
+	"polkadot-node-metrics/std",
+	"polkadot-node-network-protocol/std",
+	"polkadot-overseer/std",
+	"polkadot-node-primitives/std",
+	"polkadot-node-subsystem-test-helpers/std",
+	"polkadot-node-subsystem-types/std",
+	"polkadot-primitives-test-helpers/std",
+	"sc-client-api/std",
+	"log/std",
+	"codec/std",
+	"polkadot-node-subsystem/std"
+]
+try-runtime = [
+	"polkadot-erasure-coding/try-runtime",
+	"gum/try-runtime",
+	"polkadot-node-jaeger/try-runtime",
+	"polkadot-node-metrics/try-runtime",
+	"polkadot-node-network-protocol/try-runtime",
+	"polkadot-overseer/try-runtime",
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-node-subsystem/try-runtime",
+	"polkadot-node-subsystem-test-helpers/try-runtime",
+	"polkadot-node-subsystem-types/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"polkadot-primitives-test-helpers/try-runtime",
+	"sc-client-api/try-runtime",
+	"sp-application-crypto/try-runtime",
+	"sp-core/try-runtime",
+	"sp-keystore/try-runtime"
+]

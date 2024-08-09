@@ -43,4 +43,5 @@ std = [
 	"sha2/std",
 	"sha3/std",
 	"twox-hash/std",
+	"sp-crypto-hashing-proc-macro/std"
 ]

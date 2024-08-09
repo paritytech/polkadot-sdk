@@ -18,3 +18,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 log = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
+
+[features]
+std = [
+	"prometheus-endpoint/std",
+	"log/std"
+]

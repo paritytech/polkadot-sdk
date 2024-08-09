@@ -60,3 +60,49 @@ sp-tracing = { workspace = true, default-features = true }
 [features]
 default = ["rocksdb"]
 rocksdb = ["sc-client-db/rocksdb"]
+try-runtime = [
+	"sc-client-api/try-runtime",
+	"sc-client-db/try-runtime",
+	"sc-mixnet/try-runtime",
+	"sc-network/try-runtime",
+	"sc-service/try-runtime",
+	"sc-tracing/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-keyring/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-version/try-runtime",
+	"sc-telemetry/try-runtime",
+	"sp-core/try-runtime",
+	"sc-keystore/try-runtime",
+	"sp-keystore/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-client-db/runtime-benchmarks",
+	"sc-mixnet/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sc-tracing/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"sc-telemetry/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sc-keystore/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks"
+]
+std = [
+	"sc-client-api/std",
+	"sc-client-db/std",
+	"sc-keystore/std",
+	"sc-mixnet/std",
+	"sc-network/std",
+	"sc-service/std",
+	"sc-telemetry/std",
+	"sc-tracing/std",
+	"sc-utils/std",
+	"sp-blockchain/std",
+	"sp-panic-handler/std",
+	"log/std"
+]

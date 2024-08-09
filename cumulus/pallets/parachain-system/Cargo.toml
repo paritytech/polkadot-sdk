@@ -98,6 +98,8 @@ std = [
 	"trie-db/std",
 	"xcm-builder/std",
 	"xcm/std",
+	"cumulus-test-client/std",
+	"sc-client-api/std"
 ]
 
 runtime-benchmarks = [
@@ -112,6 +114,20 @@ runtime-benchmarks = [
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
+	"cumulus-primitives-parachain-inherent/runtime-benchmarks",
+	"cumulus-test-relay-sproof-builder/runtime-benchmarks",
+	"cumulus-test-runtime/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"cumulus-primitives-proof-size-hostfunction/runtime-benchmarks",
+	"sp-consensus-slots/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]
 
 try-runtime = [
@@ -121,4 +137,23 @@ try-runtime = [
 	"polkadot-runtime-common?/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
+	"cumulus-primitives-core/try-runtime",
+	"cumulus-primitives-parachain-inherent/try-runtime",
+	"cumulus-test-client/try-runtime",
+	"cumulus-test-relay-sproof-builder/try-runtime",
+	"cumulus-test-runtime/try-runtime",
+	"polkadot-parachain-primitives/try-runtime",
+	"xcm/try-runtime",
+	"xcm-builder/try-runtime",
+	"sc-client-api/try-runtime",
+	"frame-benchmarking?/try-runtime",
+	"sp-inherents/try-runtime",
+	"sp-keyring/try-runtime",
+	"sp-state-machine/try-runtime",
+	"sp-trie/try-runtime",
+	"sp-version/try-runtime",
+	"cumulus-primitives-proof-size-hostfunction/try-runtime",
+	"sp-consensus-slots/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
 ]

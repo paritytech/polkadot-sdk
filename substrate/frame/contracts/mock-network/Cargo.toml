@@ -68,6 +68,9 @@ std = [
 	"sp-runtime/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"xcm-simulator/std",
+	"pallet-contracts-fixtures/std",
+	"pallet-contracts-uapi/std"
 ]
 
 runtime-benchmarks = [
@@ -87,4 +90,38 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"xcm-simulator/runtime-benchmarks",
+	"pallet-contracts-fixtures/runtime-benchmarks",
+	"pallet-insecure-randomness-collective-flip/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks"
+]
+try-runtime = [
+	"polkadot-parachain-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"polkadot-runtime-parachains/try-runtime",
+	"xcm/try-runtime",
+	"pallet-xcm/try-runtime",
+	"xcm-builder/try-runtime",
+	"xcm-executor/try-runtime",
+	"xcm-simulator/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-contracts/try-runtime",
+	"pallet-contracts-fixtures/try-runtime",
+	"pallet-insecure-randomness-collective-flip/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"pallet-proxy/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-utility/try-runtime",
+	"sp-api/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime",
+	"sp-keystore/try-runtime"
 ]

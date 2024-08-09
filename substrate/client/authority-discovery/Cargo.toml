@@ -47,3 +47,38 @@ async-trait = { workspace = true }
 quickcheck = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
+
+[features]
+try-runtime = [
+	"sc-client-api/try-runtime",
+	"sc-network/try-runtime",
+	"sp-api/try-runtime",
+	"sp-authority-discovery/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-runtime/try-runtime",
+	"substrate-test-runtime-client/try-runtime",
+	"sp-core/try-runtime",
+	"sp-keystore/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-authority-discovery/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks"
+]
+std = [
+	"sc-client-api/std",
+	"sc-network/std",
+	"sc-network-types/std",
+	"sp-blockchain/std",
+	"substrate-test-runtime-client/std",
+	"prometheus-endpoint/std",
+	"log/std",
+	"multihash/std",
+	"codec/std"
+]

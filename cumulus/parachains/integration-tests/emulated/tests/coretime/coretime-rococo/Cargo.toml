@@ -25,3 +25,42 @@ xcm-executor = { workspace = true }
 # Cumulus
 emulated-integration-tests-common = { workspace = true }
 rococo-system-emulated-network = { workspace = true }
+
+[features]
+try-runtime = [
+	"emulated-integration-tests-common/try-runtime",
+	"polkadot-runtime-common/try-runtime",
+	"rococo-runtime-constants/try-runtime",
+	"xcm/try-runtime",
+	"xcm-executor/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-identity/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"frame-support/try-runtime",
+	"sp-runtime/try-runtime",
+	"rococo-system-emulated-network/try-runtime"
+]
+runtime-benchmarks = [
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
+	"rococo-runtime-constants/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-identity/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"rococo-system-emulated-network/runtime-benchmarks"
+]
+std = [
+	"emulated-integration-tests-common/std",
+	"xcm/std",
+	"xcm-executor/std",
+	"pallet-balances/std",
+	"pallet-identity/std",
+	"pallet-message-queue/std",
+	"frame-support/std",
+	"sp-runtime/std",
+	"rococo-system-emulated-network/std"
+]

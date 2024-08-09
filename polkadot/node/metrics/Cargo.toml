@@ -46,4 +46,29 @@ runtime-benchmarks = [
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-test-service/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
+	"gum/runtime-benchmarks",
+	"sc-cli/runtime-benchmarks",
+	"sc-tracing/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"substrate-test-utils/runtime-benchmarks"
+]
+std = [
+	"gum/std",
+	"polkadot-test-service/std",
+	"sc-cli/std",
+	"sc-service/std",
+	"sc-tracing/std",
+	"substrate-test-utils/std",
+	"prometheus-endpoint/std",
+	"log/std"
+]
+try-runtime = [
+	"gum/try-runtime",
+	"polkadot-test-service/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sc-cli/try-runtime",
+	"sc-service/try-runtime",
+	"sc-tracing/try-runtime",
+	"sp-keyring/try-runtime",
+	"substrate-test-utils/try-runtime"
 ]

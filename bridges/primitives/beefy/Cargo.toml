@@ -45,3 +45,21 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 ]
+try-runtime = [
+	"bp-runtime/try-runtime",
+	"pallet-beefy-mmr/try-runtime",
+	"pallet-mmr/try-runtime",
+	"frame-support/try-runtime",
+	"sp-consensus-beefy/try-runtime",
+	"sp-runtime/try-runtime",
+	"binary-merkle-tree/try-runtime"
+]
+runtime-benchmarks = [
+	"bp-runtime/runtime-benchmarks",
+	"pallet-beefy-mmr/runtime-benchmarks",
+	"pallet-mmr/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-consensus-beefy/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"binary-merkle-tree/runtime-benchmarks"
+]

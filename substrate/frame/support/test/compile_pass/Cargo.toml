@@ -34,3 +34,17 @@ std = [
 	"sp-runtime/std",
 	"sp-version/std",
 ]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-version/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]

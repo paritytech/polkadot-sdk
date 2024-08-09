@@ -59,4 +59,27 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"polkadot-core-primitives/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-authority-discovery/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-consensus-slots/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore?/runtime-benchmarks"
+]
+try-runtime = [
+	"polkadot-core-primitives/try-runtime",
+	"polkadot-parachain-primitives/try-runtime",
+	"sp-api/try-runtime",
+	"sp-authority-discovery/try-runtime",
+	"sp-inherents/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-staking/try-runtime",
+	"sp-consensus-slots/try-runtime",
+	"sp-io/try-runtime",
+	"sp-application-crypto/try-runtime",
+	"sp-core/try-runtime",
+	"sp-keystore?/try-runtime"
 ]

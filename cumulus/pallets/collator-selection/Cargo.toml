@@ -50,6 +50,12 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-aura/runtime-benchmarks",
+	"pallet-authorship/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
+	"sp-consensus-aura/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]
 std = [
 	"codec/std",
@@ -75,4 +81,9 @@ try-runtime = [
 	"pallet-session/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
+	"frame-benchmarking?/try-runtime",
+	"sp-consensus-aura/try-runtime",
+	"sp-staking/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
 ]

@@ -32,3 +32,31 @@ sc-keystore = { workspace = true, default-features = true }
 [dev-dependencies]
 tempfile = { workspace = true }
 sp-tracing = { workspace = true }
+
+[features]
+try-runtime = [
+	"sc-client-api/try-runtime",
+	"sp-api/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-statement-store/try-runtime",
+	"sp-core/try-runtime",
+	"sc-keystore/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-statement-store/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sc-keystore/runtime-benchmarks"
+]
+std = [
+	"sc-client-api/std",
+	"sc-keystore/std",
+	"sp-blockchain/std",
+	"sp-tracing/std",
+	"prometheus-endpoint/std",
+	"log/std"
+]

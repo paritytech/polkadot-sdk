@@ -27,3 +27,31 @@ sc-consensus-epochs = { workspace = true, default-features = true }
 sc-consensus-grandpa = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"sc-client-api/try-runtime",
+	"sc-chain-spec/try-runtime",
+	"sc-consensus-babe/try-runtime",
+	"sc-consensus-epochs/try-runtime",
+	"sc-consensus-grandpa/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-chain-spec/runtime-benchmarks",
+	"sc-consensus-babe/runtime-benchmarks",
+	"sc-consensus-epochs/runtime-benchmarks",
+	"sc-consensus-grandpa/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]
+std = [
+	"sc-client-api/std",
+	"sc-chain-spec/std",
+	"sc-consensus-babe/std",
+	"sc-consensus-epochs/std",
+	"sc-consensus-grandpa/std",
+	"sp-blockchain/std"
+]

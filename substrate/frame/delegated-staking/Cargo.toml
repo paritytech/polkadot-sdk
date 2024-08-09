@@ -47,6 +47,8 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
+	"pallet-staking-reward-curve/std",
+	"substrate-test-utils/std"
 ]
 runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
@@ -58,6 +60,10 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-staking-reward-curve/runtime-benchmarks",
+	"substrate-test-utils/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
@@ -68,4 +74,9 @@ try-runtime = [
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-staking-reward-curve/try-runtime",
+	"sp-staking/try-runtime",
+	"sp-io/try-runtime",
+	"substrate-test-utils/try-runtime",
+	"sp-core/try-runtime"
 ]

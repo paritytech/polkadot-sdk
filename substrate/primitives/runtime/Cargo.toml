@@ -48,8 +48,22 @@ sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 
 [features]
-runtime-benchmarks = []
-try-runtime = []
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+try-runtime = [
+	"sp-api/try-runtime",
+	"sp-state-machine/try-runtime",
+	"substrate-test-runtime-client/try-runtime",
+	"sp-io/try-runtime",
+	"sp-application-crypto/try-runtime",
+	"sp-core/try-runtime"
+]
 default = ["std"]
 std = [
 	"codec/std",
@@ -71,6 +85,7 @@ std = [
 	"sp-tracing/std",
 	"sp-weights/std",
 	"tracing/std",
+	"substrate-test-runtime-client/std"
 ]
 
 # Serde support without relying on std features.

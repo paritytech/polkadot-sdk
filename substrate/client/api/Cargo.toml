@@ -44,3 +44,44 @@ sp-trie = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 sp-test-primitives = { workspace = true }
 substrate-test-runtime = { workspace = true }
+
+[features]
+try-runtime = [
+	"sc-executor/try-runtime",
+	"sc-transaction-pool-api/try-runtime",
+	"sp-api/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-state-machine/try-runtime",
+	"sp-statement-store/try-runtime",
+	"sp-test-primitives/try-runtime",
+	"sp-trie/try-runtime",
+	"substrate-test-runtime/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-executor/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-statement-store/runtime-benchmarks",
+	"sp-test-primitives/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+	"substrate-test-runtime/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"sc-transaction-pool-api/std",
+	"sc-utils/std",
+	"sp-blockchain/std",
+	"sp-consensus/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"prometheus-endpoint/std",
+	"log/std",
+	"codec/std"
+]

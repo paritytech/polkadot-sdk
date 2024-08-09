@@ -51,4 +51,16 @@ runtime-benchmarks = [
 	"snowbridge-core/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+try-runtime = [
+	"snowbridge-core/try-runtime",
+	"xcm/try-runtime",
+	"xcm-executor/try-runtime",
+	"frame-support/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
 ]

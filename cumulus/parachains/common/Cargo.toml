@@ -74,6 +74,7 @@ std = [
 	"sp-runtime/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"substrate-wasm-builder/std"
 ]
 
 runtime-benchmarks = [
@@ -90,4 +91,33 @@ runtime-benchmarks = [
 	"polkadot-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"parachain-info/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"pallet-authorship/runtime-benchmarks",
+	"sp-consensus-aura/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"substrate-wasm-builder/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+try-runtime = [
+	"pallet-collator-selection/try-runtime",
+	"parachain-info/try-runtime",
+	"cumulus-primitives-core/try-runtime",
+	"cumulus-primitives-utility/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"xcm/try-runtime",
+	"pallet-xcm/try-runtime",
+	"xcm-executor/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-asset-tx-payment/try-runtime",
+	"sp-consensus-aura/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-io/try-runtime",
+	"substrate-wasm-builder/try-runtime",
+	"sp-core/try-runtime"
 ]

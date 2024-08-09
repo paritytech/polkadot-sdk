@@ -56,6 +56,9 @@ runtime-benchmarks = [
 	"pallet-collective/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-root-testing/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -65,4 +68,7 @@ try-runtime = [
 	"pallet-root-testing/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
+	"frame-benchmarking?/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
 ]

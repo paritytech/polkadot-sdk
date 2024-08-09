@@ -40,3 +40,21 @@ std = [
 
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
 fast-runtime = []
+try-runtime = [
+	"polkadot-primitives/try-runtime",
+	"polkadot-runtime-common/try-runtime",
+	"xcm/try-runtime",
+	"xcm-builder/try-runtime",
+	"frame-support/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]

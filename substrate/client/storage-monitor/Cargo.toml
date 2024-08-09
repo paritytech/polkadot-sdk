@@ -18,3 +18,14 @@ fs4 = { workspace = true }
 sp-core = { workspace = true, default-features = true }
 tokio = { features = ["time"], workspace = true, default-features = true }
 thiserror = { workspace = true }
+
+[features]
+std = [
+	"log/std"
+]
+try-runtime = [
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-core/runtime-benchmarks"
+]

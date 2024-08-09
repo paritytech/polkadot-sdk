@@ -51,4 +51,16 @@ try-runtime = [
 	"pallet-aura/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
+	"sp-consensus-aura/try-runtime",
+	"sp-application-crypto/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"pallet-aura/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"sp-consensus-aura/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks"
 ]

@@ -64,3 +64,9 @@ all-curves = [
 	"ed-on-bls12-377",
 	"ed-on-bls12-381-bandersnatch",
 ]
+try-runtime = [
+	"sp-runtime-interface?/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-runtime-interface?/runtime-benchmarks"
+]

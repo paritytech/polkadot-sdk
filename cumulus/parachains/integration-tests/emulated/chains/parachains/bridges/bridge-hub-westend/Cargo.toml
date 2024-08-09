@@ -22,3 +22,29 @@ emulated-integration-tests-common = { workspace = true }
 bridge-hub-westend-runtime = { workspace = true, default-features = true }
 bridge-hub-common = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"parachains-common/try-runtime",
+	"emulated-integration-tests-common/try-runtime",
+	"bridge-hub-westend-runtime/try-runtime",
+	"bridge-hub-common/try-runtime",
+	"testnet-parachains-constants/try-runtime",
+	"frame-support/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"parachains-common/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"bridge-hub-westend-runtime/runtime-benchmarks",
+	"bridge-hub-common/runtime-benchmarks",
+	"testnet-parachains-constants/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"emulated-integration-tests-common/std",
+	"bridge-hub-common/std",
+	"frame-support/std",
+	"sp-core/std"
+]

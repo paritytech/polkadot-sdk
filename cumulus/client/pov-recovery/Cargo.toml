@@ -53,3 +53,58 @@ cumulus-test-service = { workspace = true }
 sc-cli = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 substrate-test-utils = { workspace = true }
+
+[features]
+try-runtime = [
+	"cumulus-primitives-core/try-runtime",
+	"cumulus-test-client/try-runtime",
+	"cumulus-test-service/try-runtime",
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sc-client-api/try-runtime",
+	"sc-cli/try-runtime",
+	"sc-consensus/try-runtime",
+	"sp-api/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-version/try-runtime",
+	"cumulus-relay-chain-interface/try-runtime",
+	"polkadot-overseer/try-runtime",
+	"polkadot-node-subsystem/try-runtime",
+	"substrate-test-utils/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-relay-chain-interface/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks",
+	"cumulus-test-service/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-cli/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"substrate-test-utils/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks"
+]
+std = [
+	"cumulus-relay-chain-interface/std",
+	"cumulus-test-client/std",
+	"cumulus-test-service/std",
+	"polkadot-overseer/std",
+	"polkadot-node-primitives/std",
+	"sc-client-api/std",
+	"sc-cli/std",
+	"sc-consensus/std",
+	"sc-utils/std",
+	"sp-blockchain/std",
+	"sp-consensus/std",
+	"substrate-test-utils/std",
+	"polkadot-node-subsystem/std"
+]

@@ -39,7 +39,17 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"thiserror",
+	"sp-crypto-hashing-proc-macro/std",
+	"sp-version-proc-macro/std"
 ]
 
 # Serde support without relying on std features.
 serde = ["dep:serde", "impl-serde", "sp-runtime/serde"]
+try-runtime = [
+	"sp-runtime/try-runtime",
+	"sp-version-proc-macro/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-runtime/runtime-benchmarks",
+	"sp-version-proc-macro/runtime-benchmarks"
+]

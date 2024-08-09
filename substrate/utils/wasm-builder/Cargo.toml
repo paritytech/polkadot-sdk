@@ -59,3 +59,16 @@ metadata-hash = [
 	"sp-tracing",
 	"sp-version",
 ]
+std = []
+try-runtime = [
+	"sc-executor?/try-runtime",
+	"sp-io?/try-runtime",
+	"sp-version?/try-runtime",
+	"sp-core?/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-executor?/runtime-benchmarks",
+	"sp-io?/runtime-benchmarks",
+	"sp-version?/runtime-benchmarks",
+	"sp-core?/runtime-benchmarks"
+]

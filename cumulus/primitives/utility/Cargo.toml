@@ -55,4 +55,18 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"sp-io/runtime-benchmarks"
+]
+try-runtime = [
+	"cumulus-primitives-core/try-runtime",
+	"polkadot-runtime-common/try-runtime",
+	"polkadot-runtime-parachains/try-runtime",
+	"xcm/try-runtime",
+	"xcm-builder/try-runtime",
+	"xcm-executor/try-runtime",
+	"pallet-asset-conversion/try-runtime",
+	"frame-support/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-io/try-runtime"
 ]

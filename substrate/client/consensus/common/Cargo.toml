@@ -36,3 +36,34 @@ sp-state-machine = { workspace = true, default-features = true }
 
 [dev-dependencies]
 sp-test-primitives = { workspace = true }
+
+[features]
+try-runtime = [
+	"sc-client-api/try-runtime",
+	"sp-api/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-state-machine/try-runtime",
+	"sp-test-primitives/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-test-primitives/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"sc-client-api/std",
+	"sc-network-types/std",
+	"sc-utils/std",
+	"sp-blockchain/std",
+	"sp-consensus/std",
+	"prometheus-endpoint/std",
+	"log/std"
+]

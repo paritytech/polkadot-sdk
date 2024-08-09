@@ -29,3 +29,30 @@ sp-rpc = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = true }
+
+[features]
+try-runtime = [
+	"sc-chain-spec/try-runtime",
+	"sc-mixnet/try-runtime",
+	"sc-transaction-pool-api/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-version/try-runtime",
+	"sp-core/try-runtime",
+	"sp-rpc/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-chain-spec/runtime-benchmarks",
+	"sc-mixnet/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-rpc/runtime-benchmarks"
+]
+std = [
+	"sc-chain-spec/std",
+	"sc-mixnet/std",
+	"sc-transaction-pool-api/std",
+	"sp-rpc/std",
+	"scale-info/std"
+]

@@ -29,3 +29,11 @@ std = [
 	"sp-api/std",
 	"sp-application-crypto/std",
 ]
+try-runtime = [
+	"sp-api/try-runtime",
+	"sp-application-crypto/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks"
+]

@@ -63,6 +63,13 @@ try-runtime = [
 	"pallet-mmr/try-runtime",
 	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
+	"sp-api/try-runtime",
+	"sp-consensus-beefy/try-runtime",
+	"sp-staking/try-runtime",
+	"sp-state-machine/try-runtime",
+	"binary-merkle-tree/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
@@ -70,4 +77,12 @@ runtime-benchmarks = [
 	"pallet-mmr/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-beefy/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-consensus-beefy/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"binary-merkle-tree/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]

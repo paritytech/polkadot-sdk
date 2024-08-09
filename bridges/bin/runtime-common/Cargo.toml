@@ -96,9 +96,45 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"sp-trie",
 	"xcm-builder/runtime-benchmarks",
+	"bp-header-chain/runtime-benchmarks",
+	"bp-messages/runtime-benchmarks",
+	"bp-parachains/runtime-benchmarks",
+	"bp-polkadot-core/runtime-benchmarks",
+	"bp-relayers/runtime-benchmarks",
+	"bp-runtime/runtime-benchmarks",
+	"bp-test-utils/runtime-benchmarks",
+	"bp-xcm-bridge-hub-router/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"sp-trie?/runtime-benchmarks",
+	"sp-io/runtime-benchmarks"
 ]
 integrity-test = ["static_assertions"]
 test-helpers = [
 	"bp-runtime/test-helpers",
 	"sp-trie",
+]
+try-runtime = [
+	"pallet-bridge-grandpa/try-runtime",
+	"pallet-bridge-messages/try-runtime",
+	"pallet-bridge-parachains/try-runtime",
+	"pallet-bridge-relayers/try-runtime",
+	"bp-header-chain/try-runtime",
+	"bp-messages/try-runtime",
+	"bp-parachains/try-runtime",
+	"bp-polkadot-core/try-runtime",
+	"bp-relayers/try-runtime",
+	"bp-runtime/try-runtime",
+	"bp-test-utils/try-runtime",
+	"bp-xcm-bridge-hub-router/try-runtime",
+	"xcm/try-runtime",
+	"xcm-builder/try-runtime",
+	"pallet-balances/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"pallet-utility/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-trie?/try-runtime",
+	"sp-io/try-runtime"
 ]

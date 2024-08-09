@@ -23,3 +23,13 @@ sp-core = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = ["codec/std", "test-parachain-adder/std", "test-parachain-halt/std"]
+runtime-benchmarks = [
+	"test-parachain-adder/runtime-benchmarks",
+	"test-parachain-halt/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+try-runtime = [
+	"test-parachain-adder/try-runtime",
+	"test-parachain-halt/try-runtime",
+	"sp-core/try-runtime"
+]

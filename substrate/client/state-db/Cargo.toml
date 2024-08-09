@@ -20,3 +20,14 @@ codec = { features = ["derive"], workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+
+[features]
+std = [
+	"log/std"
+]
+try-runtime = [
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-core/runtime-benchmarks"
+]

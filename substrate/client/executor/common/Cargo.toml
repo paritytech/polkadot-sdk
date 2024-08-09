@@ -26,3 +26,12 @@ polkavm = { workspace = true }
 
 [features]
 default = []
+std = [
+	"sc-allocator/std"
+]
+try-runtime = [
+	"sc-allocator/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-allocator/runtime-benchmarks"
+]

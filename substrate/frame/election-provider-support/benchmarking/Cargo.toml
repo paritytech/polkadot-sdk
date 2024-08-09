@@ -39,4 +39,12 @@ runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"sp-npos-elections/runtime-benchmarks"
+]
+try-runtime = [
+	"frame-benchmarking?/try-runtime",
+	"frame-election-provider-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-npos-elections/try-runtime",
+	"sp-runtime/try-runtime"
 ]

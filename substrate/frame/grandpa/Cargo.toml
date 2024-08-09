@@ -66,6 +66,7 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
+	"pallet-staking-reward-curve/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -78,6 +79,15 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-authorship/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
+	"pallet-staking-reward-curve/runtime-benchmarks",
+	"sp-consensus-grandpa/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-session/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
@@ -90,4 +100,13 @@ try-runtime = [
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
+	"frame-benchmarking?/try-runtime",
+	"pallet-staking-reward-curve/try-runtime",
+	"sp-consensus-grandpa/try-runtime",
+	"sp-keyring/try-runtime",
+	"sp-session/try-runtime",
+	"sp-staking/try-runtime",
+	"sp-io/try-runtime",
+	"sp-application-crypto/try-runtime",
+	"sp-core/try-runtime"
 ]

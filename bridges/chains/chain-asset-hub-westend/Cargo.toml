@@ -31,3 +31,11 @@ std = [
 	"frame-support/std",
 	"scale-info/std",
 ]
+try-runtime = [
+	"bp-xcm-bridge-hub-router/try-runtime",
+	"frame-support/try-runtime"
+]
+runtime-benchmarks = [
+	"bp-xcm-bridge-hub-router/runtime-benchmarks",
+	"frame-support/runtime-benchmarks"
+]

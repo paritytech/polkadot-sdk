@@ -39,3 +39,49 @@ polkadot-node-subsystem-test-helpers = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 polkadot-primitives-test-helpers = { workspace = true }
+
+[features]
+runtime-benchmarks = [
+	"polkadot-erasure-coding/runtime-benchmarks",
+	"gum/runtime-benchmarks",
+	"polkadot-node-jaeger/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem-util/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-primitives-test-helpers/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"polkadot-erasure-coding/std",
+	"gum/std",
+	"polkadot-node-jaeger/std",
+	"polkadot-overseer/std",
+	"polkadot-node-primitives/std",
+	"polkadot-node-subsystem-test-helpers/std",
+	"polkadot-node-subsystem-util/std",
+	"polkadot-primitives-test-helpers/std",
+	"sp-consensus/std",
+	"sp-tracing/std",
+	"log/std",
+	"polkadot-node-subsystem/std"
+]
+try-runtime = [
+	"polkadot-erasure-coding/try-runtime",
+	"gum/try-runtime",
+	"polkadot-node-jaeger/try-runtime",
+	"polkadot-overseer/try-runtime",
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-node-subsystem/try-runtime",
+	"polkadot-node-subsystem-test-helpers/try-runtime",
+	"polkadot-node-subsystem-util/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"polkadot-primitives-test-helpers/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-keyring/try-runtime",
+	"sp-core/try-runtime"
+]

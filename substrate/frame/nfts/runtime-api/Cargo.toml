@@ -23,3 +23,11 @@ sp-api = { workspace = true }
 [features]
 default = ["std"]
 std = ["codec/std", "pallet-nfts/std", "sp-api/std"]
+try-runtime = [
+	"pallet-nfts/try-runtime",
+	"sp-api/try-runtime"
+]
+runtime-benchmarks = [
+	"pallet-nfts/runtime-benchmarks",
+	"sp-api/runtime-benchmarks"
+]

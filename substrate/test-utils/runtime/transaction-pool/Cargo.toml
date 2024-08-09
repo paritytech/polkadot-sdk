@@ -24,3 +24,25 @@ sc-transaction-pool-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
+
+[features]
+try-runtime = [
+	"sc-transaction-pool/try-runtime",
+	"sc-transaction-pool-api/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-runtime/try-runtime",
+	"substrate-test-runtime-client/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-transaction-pool/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks"
+]
+std = [
+	"sc-transaction-pool/std",
+	"sc-transaction-pool-api/std",
+	"sp-blockchain/std",
+	"substrate-test-runtime-client/std"
+]

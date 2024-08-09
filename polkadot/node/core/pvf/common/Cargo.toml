@@ -48,3 +48,29 @@ tempfile = { workspace = true }
 # This feature is used to export test code to other crates without putting it in the production build.
 test-utils = []
 jemalloc-allocator = []
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-executor/runtime-benchmarks",
+	"sc-executor-wasmtime/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sc-executor-common/runtime-benchmarks"
+]
+std = [
+	"gum/std",
+	"sc-executor-common/std",
+	"sc-executor-wasmtime/std",
+	"codec/std"
+]
+try-runtime = [
+	"gum/try-runtime",
+	"polkadot-parachain-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sc-executor/try-runtime",
+	"sc-executor-wasmtime/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime",
+	"sc-executor-common/try-runtime"
+]

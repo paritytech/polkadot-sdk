@@ -72,6 +72,12 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"bp-header-chain/runtime-benchmarks",
+	"bp-messages/runtime-benchmarks",
+	"bp-runtime/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -80,4 +86,13 @@ try-runtime = [
 	"pallet-bridge-messages/try-runtime",
 	"pallet-xcm-bridge-hub-router/try-runtime",
 	"sp-runtime/try-runtime",
+	"bridge-runtime-common/try-runtime",
+	"bp-header-chain/try-runtime",
+	"bp-messages/try-runtime",
+	"bp-runtime/try-runtime",
+	"xcm/try-runtime",
+	"xcm-builder/try-runtime",
+	"xcm-executor/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
 ]

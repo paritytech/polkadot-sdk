@@ -22,3 +22,23 @@ sc-client-api = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"sc-client-api/try-runtime",
+	"sc-consensus/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]
+std = [
+	"sc-client-api/std",
+	"sc-consensus/std",
+	"sp-blockchain/std",
+	"fork-tree/std"
+]

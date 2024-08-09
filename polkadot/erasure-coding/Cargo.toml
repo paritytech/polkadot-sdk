@@ -25,3 +25,21 @@ criterion = { features = ["cargo_bench_support"], workspace = true }
 [[bench]]
 name = "scaling_with_validators"
 harness = false
+
+[features]
+runtime-benchmarks = [
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"polkadot-node-primitives/std",
+	"codec/std"
+]
+try-runtime = [
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sp-trie/try-runtime",
+	"sp-core/try-runtime"
+]

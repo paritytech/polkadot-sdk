@@ -22,3 +22,20 @@ sp-staking = { workspace = true, default-features = true }
 # third party
 chrono = { workspace = true }
 num-format = { workspace = true }
+
+[features]
+try-runtime = [
+	"frame-election-provider-support/try-runtime",
+	"pallet-staking/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-staking/try-runtime"
+]
+runtime-benchmarks = [
+	"frame-election-provider-support/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks"
+]
+std = []

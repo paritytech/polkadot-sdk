@@ -83,6 +83,11 @@ runtime-benchmarks = [
 	"snowbridge-router-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"snowbridge-beacon-primitives/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -90,4 +95,14 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"snowbridge-pallet-ethereum-client/try-runtime",
 	"sp-runtime/try-runtime",
+	"snowbridge-beacon-primitives/try-runtime",
+	"snowbridge-core/try-runtime",
+	"snowbridge-router-primitives/try-runtime",
+	"xcm/try-runtime",
+	"xcm-executor/try-runtime",
+	"frame-benchmarking?/try-runtime",
+	"sp-keyring/try-runtime",
+	"snowbridge-pallet-inbound-queue-fixtures?/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
 ]

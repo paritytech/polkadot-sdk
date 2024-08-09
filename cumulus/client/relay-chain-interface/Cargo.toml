@@ -25,3 +25,29 @@ async-trait = { workspace = true }
 thiserror = { workspace = true }
 jsonrpsee-core = { workspace = true }
 codec = { workspace = true, default-features = true }
+
+[features]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-version/runtime-benchmarks"
+]
+std = [
+	"polkadot-overseer/std",
+	"sc-client-api/std",
+	"sp-blockchain/std",
+	"sp-version/std"
+]
+try-runtime = [
+	"cumulus-primitives-core/try-runtime",
+	"polkadot-overseer/try-runtime",
+	"sc-client-api/try-runtime",
+	"sp-api/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-state-machine/try-runtime",
+	"sp-version/try-runtime"
+]

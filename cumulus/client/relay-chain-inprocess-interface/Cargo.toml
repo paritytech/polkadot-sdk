@@ -46,3 +46,58 @@ metered = { features = ["futures_channel"], workspace = true }
 
 # Cumulus
 cumulus-test-service = { workspace = true }
+
+[features]
+try-runtime = [
+	"cumulus-primitives-core/try-runtime",
+	"cumulus-test-service/try-runtime",
+	"polkadot-cli/try-runtime",
+	"polkadot-service/try-runtime",
+	"polkadot-test-client/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sc-client-api/try-runtime",
+	"sc-cli/try-runtime",
+	"sc-sysinfo/try-runtime",
+	"sc-tracing/try-runtime",
+	"sp-api/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-keyring/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-state-machine/try-runtime",
+	"cumulus-relay-chain-interface/try-runtime",
+	"sc-telemetry/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-relay-chain-interface/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-service/runtime-benchmarks",
+	"polkadot-cli/runtime-benchmarks",
+	"polkadot-service/runtime-benchmarks",
+	"polkadot-test-client/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-cli/runtime-benchmarks",
+	"sc-sysinfo/runtime-benchmarks",
+	"sc-tracing/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sc-telemetry/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"cumulus-relay-chain-interface/std",
+	"cumulus-test-service/std",
+	"polkadot-cli/std",
+	"polkadot-service/std",
+	"polkadot-test-client/std",
+	"sc-client-api/std",
+	"sc-cli/std",
+	"sc-sysinfo/std",
+	"sc-telemetry/std",
+	"sc-tracing/std",
+	"sp-consensus/std"
+]

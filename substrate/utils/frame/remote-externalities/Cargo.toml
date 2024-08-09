@@ -36,3 +36,21 @@ sp-tracing = { workspace = true, default-features = true }
 
 [features]
 remote-test = []
+try-runtime = [
+	"sp-runtime/try-runtime",
+	"sp-state-machine/try-runtime",
+	"substrate-rpc-client/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"substrate-rpc-client/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"substrate-rpc-client/std",
+	"log/std"
+]

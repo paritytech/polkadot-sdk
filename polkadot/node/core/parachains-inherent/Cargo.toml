@@ -20,3 +20,27 @@ polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
+
+[features]
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks"
+]
+std = [
+	"gum/std",
+	"polkadot-overseer/std",
+	"sp-blockchain/std",
+	"polkadot-node-subsystem/std"
+]
+try-runtime = [
+	"gum/try-runtime",
+	"polkadot-overseer/try-runtime",
+	"polkadot-node-subsystem/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-inherents/try-runtime"
+]

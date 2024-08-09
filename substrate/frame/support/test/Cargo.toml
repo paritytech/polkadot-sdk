@@ -68,6 +68,13 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
+	"frame-benchmarking/try-runtime",
+	"test-pallet/try-runtime",
+	"sp-api/try-runtime",
+	"sp-state-machine?/try-runtime",
+	"sp-version/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
 ]
 # WARNING:
 # Only CI runs with this feature enabled. This feature is for testing stuff related to the FRAME macros
@@ -77,3 +84,16 @@ frame-feature-testing-2 = []
 # Disable ui tests
 disable-ui-tests = []
 no-metadata-docs = ["frame-support/no-metadata-docs"]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-executive/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"test-pallet/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine?/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]

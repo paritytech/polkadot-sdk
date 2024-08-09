@@ -33,3 +33,14 @@ sp-arithmetic = { workspace = true, default-features = true }
 frame-election-provider-support = { workspace = true, default-features = true, features = ["std"] }
 frame-support = { workspace = true, default-features = true }
 trybuild = { workspace = true }
+
+[features]
+try-runtime = [
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime"
+]
+runtime-benchmarks = [
+	"frame-election-provider-support/runtime-benchmarks",
+	"frame-support/runtime-benchmarks"
+]
+std = []

@@ -22,3 +22,29 @@ cumulus-primitives-core = { workspace = true }
 coretime-rococo-runtime = { workspace = true, default-features = true }
 emulated-integration-tests-common = { workspace = true }
 testnet-parachains-constants = { features = ["rococo"], workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"parachains-common/try-runtime",
+	"emulated-integration-tests-common/try-runtime",
+	"testnet-parachains-constants/try-runtime",
+	"coretime-rococo-runtime/try-runtime",
+	"cumulus-primitives-core/try-runtime",
+	"frame-support/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"parachains-common/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"testnet-parachains-constants/runtime-benchmarks",
+	"coretime-rococo-runtime/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"emulated-integration-tests-common/std",
+	"cumulus-primitives-core/std",
+	"frame-support/std",
+	"sp-core/std"
+]

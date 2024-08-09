@@ -20,3 +20,35 @@ asset-hub-westend-emulated-chain = { workspace = true }
 bridge-hub-rococo-emulated-chain = { workspace = true }
 bridge-hub-westend-emulated-chain = { workspace = true }
 penpal-emulated-chain = { workspace = true }
+
+[features]
+try-runtime = [
+	"asset-hub-rococo-emulated-chain/try-runtime",
+	"asset-hub-westend-emulated-chain/try-runtime",
+	"bridge-hub-rococo-emulated-chain/try-runtime",
+	"bridge-hub-westend-emulated-chain/try-runtime",
+	"penpal-emulated-chain/try-runtime",
+	"rococo-emulated-chain/try-runtime",
+	"westend-emulated-chain/try-runtime",
+	"emulated-integration-tests-common/try-runtime"
+]
+runtime-benchmarks = [
+	"asset-hub-rococo-emulated-chain/runtime-benchmarks",
+	"asset-hub-westend-emulated-chain/runtime-benchmarks",
+	"bridge-hub-rococo-emulated-chain/runtime-benchmarks",
+	"bridge-hub-westend-emulated-chain/runtime-benchmarks",
+	"penpal-emulated-chain/runtime-benchmarks",
+	"rococo-emulated-chain/runtime-benchmarks",
+	"westend-emulated-chain/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks"
+]
+std = [
+	"asset-hub-rococo-emulated-chain/std",
+	"asset-hub-westend-emulated-chain/std",
+	"bridge-hub-rococo-emulated-chain/std",
+	"bridge-hub-westend-emulated-chain/std",
+	"penpal-emulated-chain/std",
+	"rococo-emulated-chain/std",
+	"westend-emulated-chain/std",
+	"emulated-integration-tests-common/std"
+]

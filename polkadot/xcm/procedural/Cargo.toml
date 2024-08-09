@@ -24,3 +24,12 @@ trybuild = { features = ["diff"], workspace = true }
 # NOTE: we have to explicitly specify `std` because of trybuild
 # https://github.com/paritytech/polkadot-sdk/pull/5167
 xcm = { workspace = true, default-features = true, features = ["std"] }
+
+[features]
+std = []
+try-runtime = [
+	"xcm/try-runtime"
+]
+runtime-benchmarks = [
+	"xcm/runtime-benchmarks"
+]

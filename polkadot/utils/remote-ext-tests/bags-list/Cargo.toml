@@ -21,3 +21,23 @@ sp-core = { workspace = true, default-features = true }
 clap = { features = ["derive"], workspace = true }
 log = { workspace = true, default-features = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"westend-runtime/try-runtime",
+	"westend-runtime-constants/try-runtime",
+	"pallet-bags-list-remote-tests/try-runtime",
+	"frame-system/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"westend-runtime/runtime-benchmarks",
+	"westend-runtime-constants/runtime-benchmarks",
+	"pallet-bags-list-remote-tests/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"pallet-bags-list-remote-tests/std",
+	"log/std"
+]

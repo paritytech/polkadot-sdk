@@ -33,3 +33,25 @@ frame-support = { workspace = true, default-features = true }
 [[bin]]
 name = "compact"
 path = "src/compact.rs"
+
+[features]
+try-runtime = [
+	"frame-election-provider-support/try-runtime",
+	"frame-election-provider-solution-type/try-runtime",
+	"frame-support/try-runtime",
+	"sp-npos-elections/try-runtime",
+	"sp-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"frame-election-provider-support/runtime-benchmarks",
+	"frame-election-provider-solution-type/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-npos-elections/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]
+std = [
+	"frame-election-provider-solution-type/std",
+	"sp-npos-elections/std",
+	"codec/std",
+	"scale-info/std"
+]

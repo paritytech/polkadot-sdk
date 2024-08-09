@@ -23,3 +23,13 @@ std = [
 	"polkadot-primitives/std",
 	"sp-runtime/std",
 ]
+try-runtime = [
+	"polkadot-primitives/try-runtime",
+	"frame-support/try-runtime",
+	"sp-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"polkadot-primitives/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]

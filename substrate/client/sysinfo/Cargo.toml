@@ -34,3 +34,21 @@ sp-std = { workspace = true, default-features = true }
 
 [dev-dependencies]
 sp-runtime = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"sp-runtime/try-runtime",
+	"sc-telemetry/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-runtime/runtime-benchmarks",
+	"sc-telemetry/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"sc-telemetry/std",
+	"log/std"
+]

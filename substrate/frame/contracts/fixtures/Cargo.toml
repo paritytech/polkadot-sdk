@@ -25,3 +25,12 @@ anyhow = { workspace = true }
 
 [features]
 riscv = ["polkavm-linker"]
+try-runtime = [
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]
+std = []

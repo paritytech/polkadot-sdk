@@ -31,4 +31,11 @@ std = [
 ]
 runtime-benchmarks = [
 	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-beacon-primitives/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+try-runtime = [
+	"snowbridge-beacon-primitives/try-runtime",
+	"snowbridge-core/try-runtime",
+	"sp-core/try-runtime"
 ]

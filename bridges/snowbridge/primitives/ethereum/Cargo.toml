@@ -50,3 +50,11 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 ]
+try-runtime = [
+	"sp-runtime/try-runtime",
+	"sp-io/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-runtime/runtime-benchmarks",
+	"sp-io/runtime-benchmarks"
+]

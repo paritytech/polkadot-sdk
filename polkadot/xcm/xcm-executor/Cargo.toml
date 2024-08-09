@@ -30,6 +30,9 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]
 std = [
 	"codec/std",
@@ -44,4 +47,12 @@ std = [
 	"sp-weights/std",
 	"tracing/std",
 	"xcm/std",
+]
+try-runtime = [
+	"xcm/try-runtime",
+	"frame-benchmarking?/try-runtime",
+	"frame-support/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
 ]

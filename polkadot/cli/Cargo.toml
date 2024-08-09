@@ -65,11 +65,32 @@ runtime-benchmarks = [
 	"polkadot-service?/runtime-benchmarks",
 	"sc-service?/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"sc-cli?/runtime-benchmarks",
+	"sc-executor/runtime-benchmarks",
+	"sc-sysinfo/runtime-benchmarks",
+	"sc-tracing?/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sc-storage-monitor/runtime-benchmarks"
 ]
 full-node = ["polkadot-service/full-node"]
 try-runtime = [
 	"polkadot-service?/try-runtime",
 	"sp-runtime/try-runtime",
+	"polkadot-node-primitives/try-runtime",
+	"sc-cli?/try-runtime",
+	"sc-executor/try-runtime",
+	"sc-service?/try-runtime",
+	"sc-sysinfo/try-runtime",
+	"sc-tracing?/try-runtime",
+	"sp-keyring/try-runtime",
+	"frame-benchmarking-cli?/try-runtime",
+	"polkadot-node-metrics/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime",
+	"sc-storage-monitor/try-runtime"
 ]
 fast-runtime = ["polkadot-service/fast-runtime"]
 pyroscope = ["dep:pyroscope", "pyroscope_pprofrs"]
@@ -82,4 +103,16 @@ malus = ["full-node", "polkadot-service/malus"]
 runtime-metrics = [
 	"polkadot-node-metrics/runtime-metrics",
 	"polkadot-service/runtime-metrics",
+]
+std = [
+	"polkadot-node-metrics/std",
+	"polkadot-node-primitives/std",
+	"polkadot-service?/std",
+	"sc-cli?/std",
+	"sc-service?/std",
+	"sc-storage-monitor/std",
+	"sc-sysinfo/std",
+	"sc-tracing?/std",
+	"frame-benchmarking-cli?/std",
+	"log/std"
 ]

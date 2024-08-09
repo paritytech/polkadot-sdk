@@ -98,11 +98,29 @@ runtime-benchmarks = [
 	"kitchensink-runtime/runtime-benchmarks",
 	"node-inspect?/runtime-benchmarks",
 	"polkadot-sdk/runtime-benchmarks",
+	"node-primitives/runtime-benchmarks",
+	"node-rpc/runtime-benchmarks",
+	"node-testing/runtime-benchmarks",
+	"sc-service-test/runtime-benchmarks",
+	"substrate-cli-test-utils/runtime-benchmarks"
 ]
 try-runtime = [
 	"kitchensink-runtime/try-runtime",
 	"polkadot-sdk/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
+	"node-inspect?/try-runtime",
+	"node-primitives/try-runtime",
+	"node-rpc/try-runtime",
+	"node-testing/try-runtime",
+	"sc-service-test/try-runtime"
+]
+std = [
+	"node-inspect?/std",
+	"node-rpc/std",
+	"node-testing/std",
+	"sc-service-test/std",
+	"substrate-cli-test-utils/std",
+	"log/std"
 ]
 
 [[bench]]

@@ -31,4 +31,26 @@ sp-statement-store = { workspace = true, default-features = true }
 runtime-benchmarks = [
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-cli/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-statement-store/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+try-runtime = [
+	"sc-client-api/try-runtime",
+	"sc-cli/try-runtime",
+	"sc-service/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-statement-store/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
+]
+std = [
+	"sc-client-api/std",
+	"sc-cli/std",
+	"sc-service/std",
+	"sp-blockchain/std"
 ]

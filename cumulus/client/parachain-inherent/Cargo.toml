@@ -26,3 +26,33 @@ cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"cumulus-primitives-core/try-runtime",
+	"cumulus-primitives-parachain-inherent/try-runtime",
+	"cumulus-test-relay-sproof-builder/try-runtime",
+	"sc-client-api/try-runtime",
+	"sp-api/try-runtime",
+	"sp-inherents/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-state-machine/try-runtime",
+	"sp-trie/try-runtime",
+	"cumulus-relay-chain-interface/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-relay-chain-interface/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-primitives-parachain-inherent/runtime-benchmarks",
+	"cumulus-test-relay-sproof-builder/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks"
+]
+std = [
+	"cumulus-relay-chain-interface/std",
+	"sc-client-api/std"
+]

@@ -32,3 +32,13 @@ std = [
 	"sp-std/std",
 	"xcm/std",
 ]
+runtime-benchmarks = [
+	"snowbridge-core/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"sp-api/runtime-benchmarks"
+]
+try-runtime = [
+	"snowbridge-core/try-runtime",
+	"xcm/try-runtime",
+	"sp-api/try-runtime"
+]

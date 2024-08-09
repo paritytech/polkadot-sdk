@@ -37,4 +37,15 @@ runtime-benchmarks = [
 	"pallet-message-queue/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+try-runtime = [
+	"snowbridge-core/try-runtime",
+	"cumulus-primitives-core/try-runtime",
+	"xcm/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"frame-support/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-core/try-runtime"
 ]

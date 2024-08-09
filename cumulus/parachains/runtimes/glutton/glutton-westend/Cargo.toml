@@ -75,6 +75,28 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"cumulus-pallet-aura-ext/runtime-benchmarks",
+	"cumulus-pallet-xcm/runtime-benchmarks",
+	"parachain-info/runtime-benchmarks",
+	"testnet-parachains-constants/runtime-benchmarks",
+	"cumulus-primitives-aura/runtime-benchmarks",
+	"cumulus-primitives-timestamp/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"pallet-aura/runtime-benchmarks",
+	"frame-executive/runtime-benchmarks",
+	"frame-try-runtime?/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-block-builder/runtime-benchmarks",
+	"sp-consensus-aura/runtime-benchmarks",
+	"sp-genesis-builder/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-offchain/runtime-benchmarks",
+	"sp-session/runtime-benchmarks",
+	"sp-transaction-pool/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"frame-system-rpc-runtime-api/runtime-benchmarks",
+	"substrate-wasm-builder/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]
 std = [
 	"codec/std",
@@ -115,6 +137,7 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"substrate-wasm-builder/std"
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
@@ -131,6 +154,28 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"parachain-info/try-runtime",
 	"sp-runtime/try-runtime",
+	"parachains-common/try-runtime",
+	"testnet-parachains-constants/try-runtime",
+	"cumulus-primitives-aura/try-runtime",
+	"cumulus-primitives-core/try-runtime",
+	"xcm/try-runtime",
+	"xcm-builder/try-runtime",
+	"xcm-executor/try-runtime",
+	"frame-benchmarking?/try-runtime",
+	"frame-system-benchmarking?/try-runtime",
+	"sp-api/try-runtime",
+	"sp-block-builder/try-runtime",
+	"sp-consensus-aura/try-runtime",
+	"sp-genesis-builder/try-runtime",
+	"sp-inherents/try-runtime",
+	"sp-offchain/try-runtime",
+	"sp-session/try-runtime",
+	"sp-transaction-pool/try-runtime",
+	"sp-version/try-runtime",
+	"cumulus-primitives-timestamp/try-runtime",
+	"frame-system-rpc-runtime-api/try-runtime",
+	"substrate-wasm-builder/try-runtime",
+	"sp-core/try-runtime"
 ]
 
 # A feature that should be enabled when the runtime should be built for on-chain

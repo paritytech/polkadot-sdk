@@ -50,3 +50,68 @@ sp-timestamp = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 tokio = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"sc-client-api/try-runtime",
+	"sc-block-builder/try-runtime",
+	"sc-consensus/try-runtime",
+	"sc-consensus-slots/try-runtime",
+	"sc-network/try-runtime",
+	"sc-network-test/try-runtime",
+	"sp-api/try-runtime",
+	"sp-block-builder/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-consensus-aura/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-inherents/try-runtime",
+	"sp-keyring/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-timestamp/try-runtime",
+	"substrate-test-runtime-client/try-runtime",
+	"sc-telemetry/try-runtime",
+	"sp-consensus-slots/try-runtime",
+	"sp-application-crypto/try-runtime",
+	"sp-core/try-runtime",
+	"sc-keystore/try-runtime",
+	"sp-keystore/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-block-builder/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sc-consensus-slots/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sc-network-test/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-block-builder/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus-aura/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-timestamp/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+	"sc-telemetry/runtime-benchmarks",
+	"sp-consensus-slots/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sc-keystore/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks"
+]
+std = [
+	"sc-client-api/std",
+	"sc-block-builder/std",
+	"sc-consensus/std",
+	"sc-consensus-slots/std",
+	"sc-keystore/std",
+	"sc-network/std",
+	"sc-network-test/std",
+	"sc-telemetry/std",
+	"sp-blockchain/std",
+	"sp-consensus/std",
+	"substrate-test-runtime-client/std",
+	"prometheus-endpoint/std",
+	"log/std"
+]

@@ -36,3 +36,28 @@ async-trait = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 quickcheck = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
+
+[features]
+try-runtime = [
+	"sc-network/try-runtime",
+	"sc-network-common/try-runtime",
+	"sc-network-sync/try-runtime",
+	"sp-runtime/try-runtime",
+	"substrate-test-runtime-client/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-network/runtime-benchmarks",
+	"sc-network-common/runtime-benchmarks",
+	"sc-network-sync/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks"
+]
+std = [
+	"sc-network/std",
+	"sc-network-common/std",
+	"sc-network-sync/std",
+	"sc-network-types/std",
+	"substrate-test-runtime-client/std",
+	"prometheus-endpoint/std",
+	"log/std"
+]

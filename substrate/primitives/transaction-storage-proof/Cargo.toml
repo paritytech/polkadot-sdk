@@ -35,3 +35,15 @@ std = [
 	"sp-runtime/std",
 	"sp-trie/std",
 ]
+try-runtime = [
+	"sp-inherents/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-trie?/try-runtime",
+	"sp-core?/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-inherents/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-trie?/runtime-benchmarks",
+	"sp-core?/runtime-benchmarks"
+]

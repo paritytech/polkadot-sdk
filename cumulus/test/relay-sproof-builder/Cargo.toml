@@ -33,3 +33,17 @@ std = [
 	"sp-state-machine/std",
 	"sp-trie/std",
 ]
+try-runtime = [
+	"cumulus-primitives-core/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-state-machine/try-runtime",
+	"sp-trie/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks"
+]

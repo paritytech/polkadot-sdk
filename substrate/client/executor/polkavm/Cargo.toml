@@ -21,3 +21,15 @@ polkavm = { workspace = true }
 
 sc-executor-common = { workspace = true, default-features = true }
 sp-wasm-interface = { workspace = true, default-features = true }
+
+[features]
+std = [
+	"sc-executor-common/std",
+	"log/std"
+]
+try-runtime = [
+	"sc-executor-common/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-executor-common/runtime-benchmarks"
+]

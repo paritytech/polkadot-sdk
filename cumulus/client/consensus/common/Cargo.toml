@@ -49,3 +49,55 @@ sp-tracing = { workspace = true, default-features = true }
 # Cumulus
 cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"cumulus-client-pov-recovery/try-runtime",
+	"cumulus-primitives-core/try-runtime",
+	"cumulus-test-client/try-runtime",
+	"cumulus-test-relay-sproof-builder/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sc-client-api/try-runtime",
+	"sc-consensus-babe/try-runtime",
+	"sc-consensus/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-timestamp/try-runtime",
+	"sp-trie/try-runtime",
+	"sp-version/try-runtime",
+	"cumulus-relay-chain-interface/try-runtime",
+	"sp-consensus-slots/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-client-pov-recovery/runtime-benchmarks",
+	"cumulus-relay-chain-interface/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks",
+	"cumulus-test-relay-sproof-builder/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-consensus-babe/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-timestamp/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"sp-consensus-slots/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"cumulus-client-pov-recovery/std",
+	"cumulus-relay-chain-interface/std",
+	"cumulus-test-client/std",
+	"sc-client-api/std",
+	"sc-consensus-babe/std",
+	"sc-consensus/std",
+	"sp-blockchain/std",
+	"sp-consensus/std",
+	"prometheus-endpoint/std",
+	"log/std"
+]

@@ -56,3 +56,48 @@ sc-block-builder = { workspace = true, default-features = true }
 sp-test-primitives = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
+
+[features]
+try-runtime = [
+	"sc-client-api/try-runtime",
+	"sc-block-builder/try-runtime",
+	"sc-consensus/try-runtime",
+	"sc-network/try-runtime",
+	"sc-network-common/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-consensus-grandpa/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-test-primitives/try-runtime",
+	"substrate-test-runtime-client/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-block-builder/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sc-network-common/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-consensus-grandpa/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-test-primitives/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"sc-client-api/std",
+	"sc-block-builder/std",
+	"sc-consensus/std",
+	"sc-network/std",
+	"sc-network-common/std",
+	"sc-network-types/std",
+	"sc-utils/std",
+	"sp-blockchain/std",
+	"sp-consensus/std",
+	"substrate-test-runtime-client/std",
+	"fork-tree/std",
+	"prometheus-endpoint/std",
+	"log/std"
+]

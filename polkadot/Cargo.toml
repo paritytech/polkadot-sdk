@@ -56,8 +56,26 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 maintenance = { status = "actively-developed" }
 
 [features]
-runtime-benchmarks = ["polkadot-cli/runtime-benchmarks"]
-try-runtime = ["polkadot-cli/try-runtime"]
+runtime-benchmarks = [
+	"polkadot-cli/runtime-benchmarks",
+	"polkadot-core-primitives/runtime-benchmarks",
+	"polkadot-node-core-pvf/runtime-benchmarks",
+	"polkadot-node-core-pvf-common/runtime-benchmarks",
+	"polkadot-node-core-pvf-execute-worker/runtime-benchmarks",
+	"polkadot-node-core-pvf-prepare-worker/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"substrate-rpc-client/runtime-benchmarks"
+]
+try-runtime = [
+	"polkadot-cli/try-runtime",
+	"polkadot-core-primitives/try-runtime",
+	"polkadot-node-core-pvf/try-runtime",
+	"polkadot-node-core-pvf-prepare-worker/try-runtime",
+	"substrate-rpc-client/try-runtime",
+	"polkadot-node-core-pvf-common/try-runtime",
+	"polkadot-node-core-pvf-execute-worker/try-runtime",
+	"polkadot-overseer/try-runtime"
+]
 fast-runtime = ["polkadot-cli/fast-runtime"]
 runtime-metrics = ["polkadot-cli/runtime-metrics"]
 pyroscope = ["polkadot-cli/pyroscope"]
@@ -77,6 +95,15 @@ metadata-hash = [
 # Enables timeout-based tests supposed to be run only in CI environment as they may be flaky
 # when run locally depending on system load
 ci-only-tests = ["polkadot-node-core-pvf/ci-only-tests"]
+std = [
+	"polkadot-cli/std",
+	"polkadot-node-core-pvf/std",
+	"polkadot-node-core-pvf-common/std",
+	"polkadot-node-core-pvf-execute-worker/std",
+	"polkadot-node-core-pvf-prepare-worker/std",
+	"polkadot-overseer/std",
+	"substrate-rpc-client/std"
+]
 
 # Configuration for building a .deb package - for use with `cargo-deb`
 [package.metadata.deb]

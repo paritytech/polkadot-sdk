@@ -63,4 +63,23 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"frame-support-procedural/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-runtime-interface/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks"
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-support-procedural/try-runtime",
+	"frame-system/try-runtime",
+	"sp-api/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-io/try-runtime",
+	"sp-runtime-interface/try-runtime",
+	"sp-application-crypto/try-runtime",
+	"sp-core/try-runtime",
+	"sp-keystore/try-runtime"
 ]

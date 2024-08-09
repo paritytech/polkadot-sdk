@@ -25,6 +25,10 @@ sp-arithmetic = { workspace = true }
 [features]
 default = ["metered"]
 metered = []
+std = [
+	"sp-arithmetic/std",
+	"log/std"
+]
 
 [dev-dependencies]
 tokio-test = { workspace = true }

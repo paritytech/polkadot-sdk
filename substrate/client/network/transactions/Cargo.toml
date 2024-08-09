@@ -28,3 +28,29 @@ sc-network-types = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"sc-network/try-runtime",
+	"sc-network-common/try-runtime",
+	"sc-network-sync/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-network/runtime-benchmarks",
+	"sc-network-common/runtime-benchmarks",
+	"sc-network-sync/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]
+std = [
+	"sc-network/std",
+	"sc-network-common/std",
+	"sc-network-sync/std",
+	"sc-network-types/std",
+	"sc-utils/std",
+	"sp-consensus/std",
+	"prometheus-endpoint/std",
+	"log/std"
+]

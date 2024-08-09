@@ -37,3 +37,17 @@ bp-runtime = { workspace = true, default-features = true }
 
 sp-runtime = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"bp-runtime/try-runtime",
+	"sp-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"bp-runtime/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]
+std = [
+	"prometheus-endpoint/std",
+	"log/std"
+]

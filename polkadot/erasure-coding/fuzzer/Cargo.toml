@@ -22,3 +22,19 @@ path = "src/reconstruct.rs"
 [[bin]]
 name = "round_trip"
 path = "src/round_trip.rs"
+
+[features]
+runtime-benchmarks = [
+	"polkadot-erasure-coding/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks"
+]
+std = [
+	"polkadot-erasure-coding/std",
+	"polkadot-node-primitives/std"
+]
+try-runtime = [
+	"polkadot-erasure-coding/try-runtime",
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-primitives/try-runtime"
+]

@@ -32,3 +32,32 @@ bitvec = { workspace = true, default-features = true }
 
 [dev-dependencies]
 rand_chacha = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sc-authority-discovery/try-runtime",
+	"sc-network/try-runtime",
+	"sp-runtime/try-runtime",
+	"gum/try-runtime",
+	"polkadot-node-jaeger/try-runtime"
+]
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-node-jaeger/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-authority-discovery/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]
+std = [
+	"gum/std",
+	"polkadot-node-jaeger/std",
+	"polkadot-node-primitives/std",
+	"sc-authority-discovery/std",
+	"sc-network/std",
+	"sc-network-types/std",
+	"codec/std"
+]

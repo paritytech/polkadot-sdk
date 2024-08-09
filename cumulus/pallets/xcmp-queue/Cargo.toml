@@ -85,6 +85,10 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"bp-xcm-bridge-hub-router?/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]
 try-runtime = [
 	"cumulus-pallet-parachain-system/try-runtime",
@@ -95,5 +99,13 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
+	"bp-xcm-bridge-hub-router?/try-runtime",
+	"cumulus-primitives-core/try-runtime",
+	"xcm/try-runtime",
+	"xcm-builder/try-runtime",
+	"xcm-executor/try-runtime",
+	"frame-benchmarking?/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
 ]
 bridging = ["bp-xcm-bridge-hub-router"]

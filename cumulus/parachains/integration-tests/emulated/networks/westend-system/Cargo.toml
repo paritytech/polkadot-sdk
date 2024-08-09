@@ -20,3 +20,35 @@ collectives-westend-emulated-chain = { workspace = true }
 penpal-emulated-chain = { workspace = true }
 people-westend-emulated-chain = { workspace = true }
 coretime-westend-emulated-chain = { workspace = true }
+
+[features]
+try-runtime = [
+	"asset-hub-westend-emulated-chain/try-runtime",
+	"bridge-hub-westend-emulated-chain/try-runtime",
+	"collectives-westend-emulated-chain/try-runtime",
+	"coretime-westend-emulated-chain/try-runtime",
+	"people-westend-emulated-chain/try-runtime",
+	"penpal-emulated-chain/try-runtime",
+	"westend-emulated-chain/try-runtime",
+	"emulated-integration-tests-common/try-runtime"
+]
+runtime-benchmarks = [
+	"asset-hub-westend-emulated-chain/runtime-benchmarks",
+	"bridge-hub-westend-emulated-chain/runtime-benchmarks",
+	"collectives-westend-emulated-chain/runtime-benchmarks",
+	"coretime-westend-emulated-chain/runtime-benchmarks",
+	"people-westend-emulated-chain/runtime-benchmarks",
+	"penpal-emulated-chain/runtime-benchmarks",
+	"westend-emulated-chain/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks"
+]
+std = [
+	"asset-hub-westend-emulated-chain/std",
+	"bridge-hub-westend-emulated-chain/std",
+	"collectives-westend-emulated-chain/std",
+	"coretime-westend-emulated-chain/std",
+	"people-westend-emulated-chain/std",
+	"penpal-emulated-chain/std",
+	"westend-emulated-chain/std",
+	"emulated-integration-tests-common/std"
+]

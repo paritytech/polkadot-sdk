@@ -19,3 +19,32 @@ bridge-hub-rococo-emulated-chain = { workspace = true }
 people-rococo-emulated-chain = { workspace = true }
 penpal-emulated-chain = { workspace = true }
 coretime-rococo-emulated-chain = { workspace = true }
+
+[features]
+try-runtime = [
+	"asset-hub-rococo-emulated-chain/try-runtime",
+	"bridge-hub-rococo-emulated-chain/try-runtime",
+	"coretime-rococo-emulated-chain/try-runtime",
+	"people-rococo-emulated-chain/try-runtime",
+	"penpal-emulated-chain/try-runtime",
+	"rococo-emulated-chain/try-runtime",
+	"emulated-integration-tests-common/try-runtime"
+]
+runtime-benchmarks = [
+	"asset-hub-rococo-emulated-chain/runtime-benchmarks",
+	"bridge-hub-rococo-emulated-chain/runtime-benchmarks",
+	"coretime-rococo-emulated-chain/runtime-benchmarks",
+	"people-rococo-emulated-chain/runtime-benchmarks",
+	"penpal-emulated-chain/runtime-benchmarks",
+	"rococo-emulated-chain/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks"
+]
+std = [
+	"asset-hub-rococo-emulated-chain/std",
+	"bridge-hub-rococo-emulated-chain/std",
+	"coretime-rococo-emulated-chain/std",
+	"people-rococo-emulated-chain/std",
+	"penpal-emulated-chain/std",
+	"rococo-emulated-chain/std",
+	"emulated-integration-tests-common/std"
+]

@@ -38,3 +38,64 @@ cumulus-pallet-parachain-system = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
 emulated-integration-tests-common = { workspace = true }
 rococo-system-emulated-network = { workspace = true }
+
+[features]
+try-runtime = [
+	"cumulus-pallet-parachain-system/try-runtime",
+	"parachains-common/try-runtime",
+	"emulated-integration-tests-common/try-runtime",
+	"asset-test-utils/try-runtime",
+	"polkadot-runtime-common/try-runtime",
+	"rococo-runtime-constants/try-runtime",
+	"xcm/try-runtime",
+	"pallet-xcm/try-runtime",
+	"xcm-executor/try-runtime",
+	"xcm-runtime-apis/try-runtime",
+	"pallet-asset-conversion/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"frame-support/try-runtime",
+	"pallet-treasury/try-runtime",
+	"pallet-utility/try-runtime",
+	"sp-runtime/try-runtime",
+	"rococo-system-emulated-network/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"asset-test-utils/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
+	"rococo-runtime-constants/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm-runtime-apis/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"rococo-system-emulated-network/runtime-benchmarks"
+]
+std = [
+	"cumulus-pallet-parachain-system/std",
+	"emulated-integration-tests-common/std",
+	"xcm/std",
+	"pallet-xcm/std",
+	"xcm-executor/std",
+	"pallet-asset-conversion/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"pallet-message-queue/std",
+	"frame-support/std",
+	"pallet-treasury/std",
+	"pallet-utility/std",
+	"sp-runtime/std",
+	"codec/std",
+	"rococo-system-emulated-network/std"
+]

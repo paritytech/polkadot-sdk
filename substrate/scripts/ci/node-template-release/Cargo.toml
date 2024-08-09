@@ -22,3 +22,6 @@ tar = { workspace = true }
 tempfile = { workspace = true }
 toml_edit = { workspace = true }
 itertools = { workspace = true }
+
+[features]
+std = []

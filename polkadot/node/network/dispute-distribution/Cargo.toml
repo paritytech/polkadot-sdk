@@ -40,3 +40,49 @@ futures-timer = { workspace = true }
 assert_matches = { workspace = true }
 lazy_static = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
+
+[features]
+runtime-benchmarks = [
+	"polkadot-erasure-coding/runtime-benchmarks",
+	"gum/runtime-benchmarks",
+	"polkadot-node-network-protocol/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem-util/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-primitives-test-helpers/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sc-keystore/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks"
+]
+std = [
+	"polkadot-erasure-coding/std",
+	"gum/std",
+	"polkadot-node-network-protocol/std",
+	"polkadot-node-primitives/std",
+	"polkadot-node-subsystem-test-helpers/std",
+	"polkadot-node-subsystem-util/std",
+	"polkadot-primitives-test-helpers/std",
+	"sc-keystore/std",
+	"sc-network/std",
+	"polkadot-node-subsystem/std"
+]
+try-runtime = [
+	"polkadot-erasure-coding/try-runtime",
+	"gum/try-runtime",
+	"polkadot-node-network-protocol/try-runtime",
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-node-subsystem/try-runtime",
+	"polkadot-node-subsystem-test-helpers/try-runtime",
+	"polkadot-node-subsystem-util/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"polkadot-primitives-test-helpers/try-runtime",
+	"sc-network/try-runtime",
+	"sp-keyring/try-runtime",
+	"sp-application-crypto/try-runtime",
+	"sc-keystore/try-runtime",
+	"sp-keystore/try-runtime"
+]

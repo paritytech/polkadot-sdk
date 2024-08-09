@@ -58,3 +58,64 @@ polkadot-test-client = { workspace = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-inprocess-interface = { workspace = true, default-features = true }
 cumulus-test-service = { workspace = true }
+
+[features]
+try-runtime = [
+	"cumulus-relay-chain-inprocess-interface/try-runtime",
+	"cumulus-primitives-core/try-runtime",
+	"cumulus-test-service/try-runtime",
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-test-client/try-runtime",
+	"polkadot-parachain-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sc-client-api/try-runtime",
+	"sc-cli/try-runtime",
+	"sp-api/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-keyring/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-state-machine/try-runtime",
+	"sp-version/try-runtime",
+	"cumulus-relay-chain-interface/try-runtime",
+	"polkadot-node-subsystem/try-runtime",
+	"substrate-test-utils/try-runtime",
+	"sp-core/try-runtime",
+	"sp-keystore/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-relay-chain-inprocess-interface/runtime-benchmarks",
+	"cumulus-relay-chain-interface/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-service/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-test-client/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-cli/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"substrate-test-utils/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks"
+]
+std = [
+	"cumulus-relay-chain-inprocess-interface/std",
+	"cumulus-relay-chain-interface/std",
+	"cumulus-test-service/std",
+	"polkadot-node-primitives/std",
+	"polkadot-test-client/std",
+	"sc-client-api/std",
+	"sc-cli/std",
+	"sp-blockchain/std",
+	"sp-consensus/std",
+	"substrate-test-utils/std",
+	"polkadot-node-subsystem/std"
+]

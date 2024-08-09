@@ -62,4 +62,19 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
+	"snowbridge-beacon-primitives/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+try-runtime = [
+	"snowbridge-beacon-primitives/try-runtime",
+	"polkadot-parachain-primitives/try-runtime",
+	"xcm/try-runtime",
+	"xcm-builder/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
 ]

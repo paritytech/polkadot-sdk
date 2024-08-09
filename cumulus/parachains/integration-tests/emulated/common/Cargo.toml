@@ -44,3 +44,62 @@ asset-test-utils = { workspace = true, default-features = true }
 bp-messages = { workspace = true, default-features = true }
 pallet-bridge-messages = { workspace = true, default-features = true }
 bridge-runtime-common = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"bridge-runtime-common/try-runtime",
+	"pallet-bridge-messages/try-runtime",
+	"bp-messages/try-runtime",
+	"cumulus-pallet-parachain-system/try-runtime",
+	"cumulus-pallet-xcmp-queue/try-runtime",
+	"parachains-common/try-runtime",
+	"asset-test-utils/try-runtime",
+	"cumulus-primitives-core/try-runtime",
+	"xcm-emulator/try-runtime",
+	"polkadot-parachain-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"polkadot-runtime-parachains/try-runtime",
+	"xcm/try-runtime",
+	"pallet-xcm/try-runtime",
+	"sc-consensus-grandpa/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"frame-support/try-runtime",
+	"sp-authority-discovery/try-runtime",
+	"sp-consensus-babe/try-runtime",
+	"sp-consensus-beefy/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"bridge-runtime-common/runtime-benchmarks",
+	"pallet-bridge-messages/runtime-benchmarks",
+	"bp-messages/runtime-benchmarks",
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"asset-test-utils/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"xcm-emulator/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"sc-consensus-grandpa/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-authority-discovery/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+	"sp-consensus-beefy/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"xcm-emulator/std",
+	"sc-consensus-grandpa/std",
+	"codec/std"
+]

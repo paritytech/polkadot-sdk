@@ -58,3 +58,68 @@ sp-trie = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
 relay-substrate-client = { features = ["test-helpers"], workspace = true }
+
+[features]
+try-runtime = [
+	"pallet-bridge-grandpa/try-runtime",
+	"pallet-bridge-messages/try-runtime",
+	"pallet-bridge-parachains/try-runtime",
+	"bp-header-chain/try-runtime",
+	"bp-messages/try-runtime",
+	"bp-parachains/try-runtime",
+	"bp-polkadot-core/try-runtime",
+	"bp-relayers/try-runtime",
+	"bp-runtime/try-runtime",
+	"relay-substrate-client/try-runtime",
+	"equivocation-detector/try-runtime",
+	"relay-utils/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-grandpa/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"sp-consensus-grandpa/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-trie/try-runtime",
+	"finality-relay/try-runtime",
+	"messages-relay/try-runtime",
+	"parachains-relay/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"pallet-bridge-grandpa/runtime-benchmarks",
+	"pallet-bridge-messages/runtime-benchmarks",
+	"pallet-bridge-parachains/runtime-benchmarks",
+	"bp-header-chain/runtime-benchmarks",
+	"bp-messages/runtime-benchmarks",
+	"bp-parachains/runtime-benchmarks",
+	"bp-polkadot-core/runtime-benchmarks",
+	"bp-relayers/runtime-benchmarks",
+	"bp-runtime/runtime-benchmarks",
+	"relay-substrate-client/runtime-benchmarks",
+	"equivocation-detector/runtime-benchmarks",
+	"relay-utils/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-grandpa/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"sp-consensus-grandpa/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+	"finality-relay/runtime-benchmarks",
+	"messages-relay/runtime-benchmarks",
+	"parachains-relay/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"relay-substrate-client/std",
+	"equivocation-detector/std",
+	"finality-relay/std",
+	"messages-relay/std",
+	"parachains-relay/std",
+	"relay-utils/std",
+	"sp-trie/std",
+	"log/std",
+	"scale-info/std"
+]

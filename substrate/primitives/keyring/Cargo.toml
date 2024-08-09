@@ -29,3 +29,11 @@ std = ["sp-core/std", "sp-runtime/std", "strum/std"]
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
 bandersnatch-experimental = ["sp-core/bandersnatch-experimental"]
+try-runtime = [
+	"sp-runtime/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-runtime/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]

@@ -38,4 +38,15 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
+	"cumulus-primitives-core/try-runtime",
+	"xcm/try-runtime",
+	"sp-io/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-io/runtime-benchmarks"
 ]

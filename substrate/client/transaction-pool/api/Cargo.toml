@@ -24,3 +24,21 @@ sp-runtime = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"sp-blockchain/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-blockchain/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"sp-blockchain/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"log/std"
+]

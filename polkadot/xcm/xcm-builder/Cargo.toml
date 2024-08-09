@@ -56,6 +56,10 @@ runtime-benchmarks = [
 	"polkadot-test-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]
 std = [
 	"codec/std",
@@ -73,4 +77,23 @@ std = [
 	"sp-weights/std",
 	"xcm-executor/std",
 	"xcm/std",
+]
+try-runtime = [
+	"polkadot-parachain-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"polkadot-runtime-parachains/try-runtime",
+	"polkadot-test-runtime/try-runtime",
+	"xcm/try-runtime",
+	"pallet-xcm/try-runtime",
+	"xcm-executor/try-runtime",
+	"pallet-asset-conversion/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-salary/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
 ]

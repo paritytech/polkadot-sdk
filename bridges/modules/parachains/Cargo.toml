@@ -60,10 +60,25 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-bridge-grandpa/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"bp-header-chain/runtime-benchmarks",
+	"bp-parachains/runtime-benchmarks",
+	"bp-polkadot-core/runtime-benchmarks",
+	"bp-runtime/runtime-benchmarks",
+	"bp-test-utils/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-bridge-grandpa/try-runtime",
 	"sp-runtime/try-runtime",
+	"bp-header-chain/try-runtime",
+	"bp-parachains/try-runtime",
+	"bp-polkadot-core/try-runtime",
+	"bp-runtime/try-runtime",
+	"bp-test-utils/try-runtime",
+	"frame-benchmarking?/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
 ]

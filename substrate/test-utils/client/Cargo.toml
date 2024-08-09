@@ -40,3 +40,44 @@ sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 tokio = { features = ["sync"], workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"sc-client-api/try-runtime",
+	"sc-consensus/try-runtime",
+	"sc-client-db/try-runtime",
+	"sc-executor/try-runtime",
+	"sc-offchain/try-runtime",
+	"sc-service/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-keyring/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-state-machine/try-runtime",
+	"sp-core/try-runtime",
+	"sp-keystore/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sc-client-db/runtime-benchmarks",
+	"sc-executor/runtime-benchmarks",
+	"sc-offchain/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks"
+]
+std = [
+	"sc-client-api/std",
+	"sc-consensus/std",
+	"sc-client-db/std",
+	"sc-offchain/std",
+	"sc-service/std",
+	"sp-blockchain/std",
+	"sp-consensus/std"
+]

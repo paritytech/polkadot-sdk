@@ -27,3 +27,42 @@ polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 sp-core = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
+
+[features]
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-node-metrics/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem-types/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-consensus-babe/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"gum/std",
+	"polkadot-node-metrics/std",
+	"polkadot-node-primitives/std",
+	"polkadot-node-subsystem-test-helpers/std",
+	"polkadot-node-subsystem-types/std",
+	"sc-client-api/std",
+	"sc-consensus-babe/std",
+	"sp-blockchain/std",
+	"polkadot-node-subsystem/std"
+]
+try-runtime = [
+	"gum/try-runtime",
+	"polkadot-node-metrics/try-runtime",
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-node-subsystem/try-runtime",
+	"polkadot-node-subsystem-test-helpers/try-runtime",
+	"polkadot-node-subsystem-types/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sc-client-api/try-runtime",
+	"sc-consensus-babe/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-core/try-runtime"
+]

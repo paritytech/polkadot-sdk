@@ -23,3 +23,9 @@ docify = { workspace = true }
 [features]
 default = ["std"]
 std = ["codec/std", "sp-api/std"]
+try-runtime = [
+	"sp-api/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks"
+]

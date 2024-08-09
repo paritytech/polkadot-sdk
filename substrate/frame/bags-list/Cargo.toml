@@ -77,6 +77,8 @@ runtime-benchmarks = [
 	"sp-io",
 	"sp-runtime/runtime-benchmarks",
 	"sp-tracing",
+	"sp-io?/runtime-benchmarks",
+	"sp-core?/runtime-benchmarks"
 ]
 fuzz = [
 	"frame-election-provider-support/fuzz",
@@ -91,4 +93,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-balances?/try-runtime",
 	"sp-runtime/try-runtime",
+	"frame-benchmarking?/try-runtime",
+	"sp-io?/try-runtime",
+	"sp-core?/try-runtime"
 ]

@@ -36,3 +36,13 @@ serde = [
 	"sp-application-crypto/serde",
 	"sp-runtime/serde",
 ]
+try-runtime = [
+	"sp-api/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-application-crypto/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks"
+]

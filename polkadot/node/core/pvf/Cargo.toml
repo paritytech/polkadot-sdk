@@ -79,3 +79,51 @@ test-utils = [
 	"dep:polkadot-node-core-pvf-prepare-worker",
 	"dep:sp-maybe-compressed-blob",
 ]
+try-runtime = [
+	"polkadot-core-primitives/try-runtime",
+	"polkadot-node-core-pvf/try-runtime",
+	"polkadot-node-core-pvf-prepare-worker?/try-runtime",
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-parachain-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"rococo-runtime/try-runtime",
+	"sc-sysinfo/try-runtime",
+	"polkadot-node-core-pvf-common/try-runtime",
+	"polkadot-node-core-pvf-execute-worker?/try-runtime",
+	"gum/try-runtime",
+	"polkadot-node-metrics/try-runtime",
+	"polkadot-node-subsystem/try-runtime",
+	"test-parachain-adder/try-runtime",
+	"test-parachain-halt/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"polkadot-core-primitives/runtime-benchmarks",
+	"polkadot-node-core-pvf/runtime-benchmarks",
+	"polkadot-node-core-pvf-common/runtime-benchmarks",
+	"polkadot-node-core-pvf-execute-worker?/runtime-benchmarks",
+	"polkadot-node-core-pvf-prepare-worker?/runtime-benchmarks",
+	"gum/runtime-benchmarks",
+	"polkadot-node-metrics/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"test-parachain-adder/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"rococo-runtime/runtime-benchmarks",
+	"sc-sysinfo/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"test-parachain-halt/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"polkadot-node-core-pvf/std",
+	"polkadot-node-core-pvf-common/std",
+	"polkadot-node-core-pvf-execute-worker?/std",
+	"polkadot-node-core-pvf-prepare-worker?/std",
+	"gum/std",
+	"polkadot-node-metrics/std",
+	"polkadot-node-primitives/std",
+	"sc-sysinfo/std",
+	"codec/std",
+	"polkadot-node-subsystem/std"
+]

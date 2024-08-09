@@ -39,6 +39,29 @@ jemalloc-allocator = [
 	"dep:tikv-jemallocator",
 	"polkadot-node-core-pvf-common/jemalloc-allocator",
 ]
+try-runtime = [
+	"polkadot-primitives/try-runtime",
+	"rococo-runtime/try-runtime",
+	"polkadot-node-core-pvf-common/try-runtime",
+	"gum/try-runtime",
+	"sc-executor-wasmtime/try-runtime",
+	"sc-executor-common/try-runtime"
+]
+runtime-benchmarks = [
+	"polkadot-node-core-pvf-common/runtime-benchmarks",
+	"gum/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"rococo-runtime/runtime-benchmarks",
+	"sc-executor-wasmtime/runtime-benchmarks",
+	"sc-executor-common/runtime-benchmarks"
+]
+std = [
+	"polkadot-node-core-pvf-common/std",
+	"gum/std",
+	"sc-executor-common/std",
+	"sc-executor-wasmtime/std",
+	"codec/std"
+]
 
 [dev-dependencies]
 criterion = { features = ["cargo_bench_support"], workspace = true }

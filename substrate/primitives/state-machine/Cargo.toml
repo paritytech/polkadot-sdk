@@ -57,4 +57,15 @@ std = [
 	"thiserror",
 	"tracing",
 	"trie-db/std",
+	"sp-panic-handler?/std"
+]
+try-runtime = [
+	"sp-runtime/try-runtime",
+	"sp-trie/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-runtime/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]

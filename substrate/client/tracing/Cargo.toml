@@ -47,3 +47,27 @@ tracing-subscriber = { workspace = true, features = ["chrono", "parking_lot"] }
 [[bench]]
 name = "bench"
 harness = false
+
+[features]
+try-runtime = [
+	"sc-client-api/try-runtime",
+	"sp-api/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-core/try-runtime",
+	"sp-rpc/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-rpc/runtime-benchmarks"
+]
+std = [
+	"sc-client-api/std",
+	"sp-blockchain/std",
+	"sp-rpc/std",
+	"log/std"
+]

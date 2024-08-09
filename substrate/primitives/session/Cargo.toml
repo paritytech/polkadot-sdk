@@ -35,3 +35,17 @@ std = [
 	"sp-runtime/std",
 	"sp-staking/std",
 ]
+try-runtime = [
+	"sp-api/try-runtime",
+	"sp-runtime?/try-runtime",
+	"sp-staking/try-runtime",
+	"sp-core/try-runtime",
+	"sp-keystore?/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-runtime?/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore?/runtime-benchmarks"
+]

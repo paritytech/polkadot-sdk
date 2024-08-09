@@ -46,3 +46,44 @@ either = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 rand = { workspace = true, default-features = true }
 pin-project = { workspace = true }
+
+[features]
+try-runtime = [
+	"cumulus-primitives-core/try-runtime",
+	"sc-client-api/try-runtime",
+	"sc-rpc-api/try-runtime",
+	"sc-service/try-runtime",
+	"sp-api/try-runtime",
+	"sp-authority-discovery/try-runtime",
+	"sp-consensus-babe/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-state-machine/try-runtime",
+	"sp-version/try-runtime",
+	"cumulus-relay-chain-interface/try-runtime",
+	"polkadot-overseer/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-relay-chain-interface/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-rpc-api/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-authority-discovery/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"cumulus-relay-chain-interface/std",
+	"polkadot-overseer/std",
+	"sc-client-api/std",
+	"sc-rpc-api/std",
+	"sc-service/std",
+	"smoldot-light/std",
+	"smoldot/std"
+]

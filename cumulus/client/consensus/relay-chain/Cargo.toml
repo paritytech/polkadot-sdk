@@ -30,3 +30,39 @@ prometheus-endpoint = { workspace = true, default-features = true }
 cumulus-client-consensus-common = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"cumulus-client-consensus-common/try-runtime",
+	"cumulus-primitives-core/try-runtime",
+	"sc-consensus/try-runtime",
+	"sp-api/try-runtime",
+	"sp-block-builder/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-inherents/try-runtime",
+	"sp-runtime/try-runtime",
+	"cumulus-relay-chain-interface/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-client-consensus-common/runtime-benchmarks",
+	"cumulus-relay-chain-interface/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-block-builder/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"cumulus-client-consensus-common/std",
+	"cumulus-relay-chain-interface/std",
+	"sc-consensus/std",
+	"sp-blockchain/std",
+	"sp-consensus/std",
+	"prometheus-endpoint/std"
+]

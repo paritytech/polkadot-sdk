@@ -47,6 +47,14 @@ try-runtime = [
 	"pallet-xcm/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
+	"polkadot-core-primitives/try-runtime",
+	"polkadot-parachain-primitives/try-runtime",
+	"xcm/try-runtime",
+	"xcm-builder/try-runtime",
+	"xcm-executor/try-runtime",
+	"xcm-simulator/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
@@ -59,6 +67,16 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"polkadot-core-primitives/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"xcm-simulator/runtime-benchmarks",
+	"frame-executive/runtime-benchmarks",
+	"frame-try-runtime/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"xcm-simulator/std"
 ]
 
 [[bin]]

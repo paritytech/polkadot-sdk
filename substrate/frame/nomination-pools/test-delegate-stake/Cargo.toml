@@ -39,3 +39,41 @@ pallet-nomination-pools = { workspace = true, default-features = true }
 
 sp-tracing = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"pallet-bags-list/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-delegated-staking/try-runtime",
+	"frame-election-provider-support/try-runtime",
+	"pallet-nomination-pools/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-staking-reward-curve/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-staking/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"pallet-bags-list/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-delegated-staking/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"pallet-nomination-pools/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-staking-reward-curve/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"pallet-staking-reward-curve/std",
+	"log/std"
+]

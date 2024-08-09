@@ -83,10 +83,23 @@ runtime-benchmarks = [
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-pallet-ethereum-client-fixtures/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"snowbridge-beacon-primitives/runtime-benchmarks",
+	"snowbridge-ethereum/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-io?/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-timestamp?/try-runtime",
 	"sp-runtime/try-runtime",
+	"snowbridge-beacon-primitives/try-runtime",
+	"snowbridge-core/try-runtime",
+	"snowbridge-ethereum/try-runtime",
+	"frame-benchmarking?/try-runtime",
+	"sp-keyring/try-runtime",
+	"snowbridge-pallet-ethereum-client-fixtures?/try-runtime",
+	"sp-io?/try-runtime",
+	"sp-core/try-runtime"
 ]

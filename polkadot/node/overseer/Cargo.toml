@@ -43,3 +43,39 @@ default = ["futures_channel"]
 expand = ["orchestra/expand"]
 futures_channel = ["metered/futures_channel", "orchestra/futures_channel"]
 jemalloc-allocator = ["dep:tikv-jemalloc-ctl"]
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-node-metrics/runtime-benchmarks",
+	"polkadot-node-network-protocol/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem-types/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-primitives-test-helpers/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"gum/std",
+	"polkadot-node-metrics/std",
+	"polkadot-node-network-protocol/std",
+	"polkadot-node-primitives/std",
+	"polkadot-node-subsystem-test-helpers/std",
+	"polkadot-node-subsystem-types/std",
+	"polkadot-primitives-test-helpers/std",
+	"sc-client-api/std"
+]
+try-runtime = [
+	"gum/try-runtime",
+	"polkadot-node-metrics/try-runtime",
+	"polkadot-node-network-protocol/try-runtime",
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-node-subsystem-test-helpers/try-runtime",
+	"polkadot-node-subsystem-types/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"polkadot-primitives-test-helpers/try-runtime",
+	"sc-client-api/try-runtime",
+	"sp-api/try-runtime",
+	"sp-core/try-runtime"
+]

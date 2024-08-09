@@ -29,3 +29,13 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 ]
+try-runtime = [
+	"sp-api/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]

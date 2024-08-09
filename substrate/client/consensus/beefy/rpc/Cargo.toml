@@ -31,3 +31,29 @@ serde_json = { workspace = true, default-features = true }
 sc-rpc = { features = ["test-helpers"], workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"sc-consensus-beefy/try-runtime",
+	"sc-rpc/try-runtime",
+	"sp-consensus-beefy/try-runtime",
+	"sp-runtime/try-runtime",
+	"substrate-test-runtime-client/try-runtime",
+	"sp-application-crypto/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-consensus-beefy/runtime-benchmarks",
+	"sc-rpc/runtime-benchmarks",
+	"sp-consensus-beefy/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"sc-consensus-beefy/std",
+	"sc-rpc/std",
+	"substrate-test-runtime-client/std",
+	"log/std"
+]

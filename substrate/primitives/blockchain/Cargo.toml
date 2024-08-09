@@ -29,3 +29,23 @@ sp-database = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"sp-api/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-state-machine/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"sp-consensus/std",
+	"codec/std"
+]

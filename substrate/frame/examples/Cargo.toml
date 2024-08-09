@@ -48,4 +48,16 @@ try-runtime = [
 	"pallet-example-single-block-migrations/try-runtime",
 	"pallet-example-split/try-runtime",
 	"pallet-example-tasks/try-runtime",
+	"pallet-example-frame-crate/try-runtime"
+]
+runtime-benchmarks = [
+	"pallet-example-basic/runtime-benchmarks",
+	"pallet-default-config-example/runtime-benchmarks",
+	"pallet-dev-mode/runtime-benchmarks",
+	"pallet-example-frame-crate/runtime-benchmarks",
+	"pallet-example-kitchensink/runtime-benchmarks",
+	"pallet-example-offchain-worker/runtime-benchmarks",
+	"pallet-example-single-block-migrations/runtime-benchmarks",
+	"pallet-example-split/runtime-benchmarks",
+	"pallet-example-tasks/runtime-benchmarks"
 ]

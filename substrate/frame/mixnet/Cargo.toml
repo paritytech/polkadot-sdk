@@ -50,9 +50,16 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-mixnet/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
+	"frame-benchmarking?/try-runtime",
+	"sp-io/try-runtime",
+	"sp-mixnet/try-runtime",
+	"sp-application-crypto/try-runtime"
 ]

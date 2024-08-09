@@ -48,3 +48,54 @@ polkadot-node-subsystem-test-helpers = { workspace = true }
 cumulus-test-client = { workspace = true }
 cumulus-test-runtime = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"cumulus-client-consensus-common/try-runtime",
+	"cumulus-client-network/try-runtime",
+	"cumulus-primitives-core/try-runtime",
+	"cumulus-test-client/try-runtime",
+	"cumulus-test-relay-sproof-builder/try-runtime",
+	"cumulus-test-runtime/try-runtime",
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sc-client-api/try-runtime",
+	"sp-api/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-state-machine/try-runtime",
+	"polkadot-overseer/try-runtime",
+	"polkadot-node-subsystem/try-runtime",
+	"polkadot-node-subsystem-test-helpers/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-client-consensus-common/runtime-benchmarks",
+	"cumulus-client-network/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks",
+	"cumulus-test-relay-sproof-builder/runtime-benchmarks",
+	"cumulus-test-runtime/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"cumulus-client-consensus-common/std",
+	"cumulus-client-network/std",
+	"cumulus-test-client/std",
+	"polkadot-overseer/std",
+	"polkadot-node-primitives/std",
+	"polkadot-node-subsystem-test-helpers/std",
+	"sc-client-api/std",
+	"sp-consensus/std",
+	"polkadot-node-subsystem/std"
+]

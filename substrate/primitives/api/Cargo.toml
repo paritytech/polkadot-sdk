@@ -68,3 +68,21 @@ disable-logging = ["log/max_level_off"]
 # Do not report the documentation in the metadata.
 no-metadata-docs = ["sp-api-proc-macro/no-metadata-docs"]
 frame-metadata = ["sp-metadata-ir"]
+try-runtime = [
+	"sp-runtime/try-runtime",
+	"sp-state-machine?/try-runtime",
+	"sp-test-primitives/try-runtime",
+	"sp-trie?/try-runtime",
+	"sp-version/try-runtime",
+	"sp-runtime-interface/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine?/runtime-benchmarks",
+	"sp-test-primitives/runtime-benchmarks",
+	"sp-trie?/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"sp-runtime-interface/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]

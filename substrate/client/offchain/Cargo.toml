@@ -58,3 +58,49 @@ substrate-test-runtime-client = { workspace = true }
 
 [features]
 default = []
+try-runtime = [
+	"sc-client-api/try-runtime",
+	"sc-block-builder/try-runtime",
+	"sc-client-db/try-runtime",
+	"sc-network/try-runtime",
+	"sc-network-common/try-runtime",
+	"sc-transaction-pool/try-runtime",
+	"sc-transaction-pool-api/try-runtime",
+	"sp-api/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-offchain/try-runtime",
+	"sp-runtime/try-runtime",
+	"substrate-test-runtime-client/try-runtime",
+	"sp-core/try-runtime",
+	"sp-keystore/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-block-builder/runtime-benchmarks",
+	"sc-client-db/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sc-network-common/runtime-benchmarks",
+	"sc-transaction-pool/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-offchain/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks"
+]
+std = [
+	"sc-client-api/std",
+	"sc-block-builder/std",
+	"sc-client-db/std",
+	"sc-network/std",
+	"sc-network-common/std",
+	"sc-network-types/std",
+	"sc-transaction-pool/std",
+	"sc-transaction-pool-api/std",
+	"sc-utils/std",
+	"sp-consensus/std",
+	"substrate-test-runtime-client/std",
+	"log/std"
+]

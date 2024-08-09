@@ -42,3 +42,25 @@ std = [
 	"sp-std/std",
 	"sp-trie/std",
 ]
+try-runtime = [
+	"bp-header-chain/try-runtime",
+	"bp-parachains/try-runtime",
+	"bp-polkadot-core/try-runtime",
+	"bp-runtime/try-runtime",
+	"sp-consensus-grandpa/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-trie/try-runtime",
+	"sp-application-crypto/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"bp-header-chain/runtime-benchmarks",
+	"bp-parachains/runtime-benchmarks",
+	"bp-polkadot-core/runtime-benchmarks",
+	"bp-runtime/runtime-benchmarks",
+	"sp-consensus-grandpa/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]

@@ -26,3 +26,29 @@ sc-network-sync = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"sc-client-api/try-runtime",
+	"sc-network/try-runtime",
+	"sc-network-common/try-runtime",
+	"sc-network-sync/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sc-network-common/runtime-benchmarks",
+	"sc-network-sync/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]
+std = [
+	"sc-client-api/std",
+	"sc-network/std",
+	"sc-network-common/std",
+	"sc-network-sync/std",
+	"sp-blockchain/std",
+	"log/std"
+]

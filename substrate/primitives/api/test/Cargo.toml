@@ -41,3 +41,30 @@ harness = false
 
 [features]
 "enable-staging-api" = []
+try-runtime = [
+	"sc-block-builder/try-runtime",
+	"sp-api/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-state-machine/try-runtime",
+	"sp-version/try-runtime",
+	"substrate-test-runtime-client/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-block-builder/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"sc-block-builder/std",
+	"sp-consensus/std",
+	"substrate-test-runtime-client/std",
+	"log/std",
+	"scale-info/std"
+]

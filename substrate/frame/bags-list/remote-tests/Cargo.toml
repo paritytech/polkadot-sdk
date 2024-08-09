@@ -35,3 +35,29 @@ remote-externalities = { workspace = true, default-features = true }
 
 # others
 log = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"pallet-bags-list/try-runtime",
+	"frame-election-provider-support/try-runtime",
+	"pallet-staking/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+	"remote-externalities/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"pallet-bags-list/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"remote-externalities/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"remote-externalities/std",
+	"log/std"
+]

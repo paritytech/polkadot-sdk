@@ -32,3 +32,15 @@ std = [
 	"sp-api/std",
 	"sp-std/std",
 ]
+try-runtime = [
+	"snowbridge-outbound-queue-merkle-tree/try-runtime",
+	"snowbridge-core/try-runtime",
+	"frame-support/try-runtime",
+	"sp-api/try-runtime"
+]
+runtime-benchmarks = [
+	"snowbridge-outbound-queue-merkle-tree/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-api/runtime-benchmarks"
+]

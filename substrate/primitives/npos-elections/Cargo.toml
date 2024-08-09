@@ -37,6 +37,7 @@ std = [
 	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-runtime/std",
+	"substrate-test-utils/std"
 ]
 
 # Serde support without relying on std features.
@@ -46,4 +47,14 @@ serde = [
 	"sp-arithmetic/serde",
 	"sp-core/serde",
 	"sp-runtime/serde",
+]
+try-runtime = [
+	"sp-runtime/try-runtime",
+	"substrate-test-utils/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-utils/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]

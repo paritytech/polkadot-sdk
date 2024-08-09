@@ -42,3 +42,50 @@ sc-service = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 
 tokio = { features = ["macros"], workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"polkadot-cli/try-runtime",
+	"polkadot-node-core-pvf/try-runtime",
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-service/try-runtime",
+	"polkadot-test-service/try-runtime",
+	"polkadot-parachain-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sc-cli/try-runtime",
+	"sc-service/try-runtime",
+	"sp-keyring/try-runtime",
+	"polkadot-node-subsystem/try-runtime",
+	"test-parachain-undying/try-runtime",
+	"substrate-test-utils/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"polkadot-cli/runtime-benchmarks",
+	"polkadot-node-core-pvf/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-service/runtime-benchmarks",
+	"polkadot-test-service/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"test-parachain-undying/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-cli/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"substrate-test-utils/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"polkadot-cli/std",
+	"polkadot-node-core-pvf/std",
+	"polkadot-node-primitives/std",
+	"polkadot-service/std",
+	"polkadot-test-service/std",
+	"sc-cli/std",
+	"sc-service/std",
+	"substrate-test-utils/std",
+	"log/std",
+	"codec/std",
+	"polkadot-node-subsystem/std"
+]

@@ -40,3 +40,52 @@ sc-keystore = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
+
+[features]
+try-runtime = [
+	"sc-consensus-babe/try-runtime",
+	"sc-consensus/try-runtime",
+	"sc-consensus-epochs/try-runtime",
+	"sc-rpc-api/try-runtime",
+	"sc-transaction-pool-api/try-runtime",
+	"sp-api/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-consensus-babe/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-keyring/try-runtime",
+	"sp-runtime/try-runtime",
+	"substrate-test-runtime-client/try-runtime",
+	"sp-application-crypto/try-runtime",
+	"sp-core/try-runtime",
+	"sc-keystore/try-runtime",
+	"sp-keystore/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-consensus-babe/runtime-benchmarks",
+	"sc-consensus/runtime-benchmarks",
+	"sc-consensus-epochs/runtime-benchmarks",
+	"sc-rpc-api/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sc-keystore/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks"
+]
+std = [
+	"sc-consensus-babe/std",
+	"sc-consensus/std",
+	"sc-consensus-epochs/std",
+	"sc-keystore/std",
+	"sc-rpc-api/std",
+	"sc-transaction-pool-api/std",
+	"sp-blockchain/std",
+	"sp-consensus/std",
+	"substrate-test-runtime-client/std"
+]

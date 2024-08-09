@@ -33,3 +33,48 @@ prometheus-endpoint = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 async-trait = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
+
+[features]
+try-runtime = [
+	"polkadot-node-network-protocol/try-runtime",
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sc-client-api/try-runtime",
+	"sc-network/try-runtime",
+	"sc-transaction-pool-api/try-runtime",
+	"sp-api/try-runtime",
+	"sp-authority-discovery/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-consensus-babe/try-runtime",
+	"sp-runtime/try-runtime",
+	"polkadot-node-jaeger/try-runtime",
+	"polkadot-statement-table/try-runtime"
+]
+runtime-benchmarks = [
+	"polkadot-node-jaeger/runtime-benchmarks",
+	"polkadot-node-network-protocol/runtime-benchmarks",
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-statement-table/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-authority-discovery/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]
+std = [
+	"polkadot-node-jaeger/std",
+	"polkadot-node-network-protocol/std",
+	"polkadot-node-primitives/std",
+	"polkadot-statement-table/std",
+	"sc-client-api/std",
+	"sc-network/std",
+	"sc-network-types/std",
+	"sc-transaction-pool-api/std",
+	"sp-blockchain/std",
+	"prometheus-endpoint/std",
+	"bitvec/std"
+]

@@ -22,3 +22,8 @@ proc-macro = true
 quote = { workspace = true }
 syn = { features = ["full", "parsing"], workspace = true }
 sp-crypto-hashing = { workspace = true }
+
+[features]
+std = [
+	"sp-crypto-hashing/std"
+]

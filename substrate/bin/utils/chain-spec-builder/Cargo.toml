@@ -29,3 +29,15 @@ log = { workspace = true, default-features = true }
 sc-chain-spec = { features = ["clap"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+
+[features]
+std = [
+	"sc-chain-spec/std",
+	"log/std"
+]
+try-runtime = [
+	"sc-chain-spec/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-chain-spec/runtime-benchmarks"
+]

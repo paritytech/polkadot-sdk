@@ -31,3 +31,13 @@ std = [
 	"sp-runtime/std",
 	"sp-weights/std",
 ]
+try-runtime = [
+	"pallet-transaction-payment/try-runtime",
+	"sp-api/try-runtime",
+	"sp-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"pallet-transaction-payment/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]

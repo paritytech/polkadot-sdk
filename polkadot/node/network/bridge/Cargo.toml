@@ -35,3 +35,48 @@ sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
+
+[features]
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-node-metrics/runtime-benchmarks",
+	"polkadot-node-network-protocol/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"polkadot-node-subsystem-test-helpers/runtime-benchmarks",
+	"polkadot-node-subsystem-util/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-primitives-test-helpers/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"polkadot-node-subsystem/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"gum/std",
+	"polkadot-node-metrics/std",
+	"polkadot-node-network-protocol/std",
+	"polkadot-overseer/std",
+	"polkadot-node-subsystem-test-helpers/std",
+	"polkadot-node-subsystem-util/std",
+	"polkadot-primitives-test-helpers/std",
+	"sc-network/std",
+	"sp-consensus/std",
+	"codec/std",
+	"polkadot-node-subsystem/std"
+]
+try-runtime = [
+	"gum/try-runtime",
+	"polkadot-node-metrics/try-runtime",
+	"polkadot-node-network-protocol/try-runtime",
+	"polkadot-overseer/try-runtime",
+	"polkadot-node-subsystem/try-runtime",
+	"polkadot-node-subsystem-test-helpers/try-runtime",
+	"polkadot-node-subsystem-util/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"polkadot-primitives-test-helpers/try-runtime",
+	"sc-network/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-keyring/try-runtime",
+	"sp-core/try-runtime"
+]

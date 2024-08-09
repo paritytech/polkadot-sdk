@@ -32,4 +32,46 @@ sp-core = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-std = ["frame-support/std", "sp-runtime/std", "xcm/std"]
+std = [
+	"frame-support/std",
+	"sp-runtime/std",
+	"xcm/std",
+	"polkadot-service/std",
+	"polkadot-test-client/std",
+	"polkadot-test-service/std",
+	"sp-consensus/std"
+]
+try-runtime = [
+	"polkadot-service/try-runtime",
+	"polkadot-test-client/try-runtime",
+	"polkadot-test-service/try-runtime",
+	"polkadot-test-runtime/try-runtime",
+	"xcm/try-runtime",
+	"pallet-xcm/try-runtime",
+	"xcm-executor/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-keyring/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-state-machine/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"polkadot-service/runtime-benchmarks",
+	"polkadot-test-client/runtime-benchmarks",
+	"polkadot-test-service/runtime-benchmarks",
+	"polkadot-test-runtime/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]

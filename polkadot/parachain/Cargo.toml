@@ -38,4 +38,13 @@ std = [
 	"sp-runtime/std",
 	"sp-weights/std",
 ]
-runtime-benchmarks = ["sp-runtime/runtime-benchmarks"]
+runtime-benchmarks = [
+	"sp-runtime/runtime-benchmarks",
+	"polkadot-core-primitives/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+try-runtime = [
+	"polkadot-core-primitives/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-core/try-runtime"
+]

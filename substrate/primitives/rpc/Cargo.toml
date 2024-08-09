@@ -22,3 +22,12 @@ sp-core = { workspace = true, default-features = true }
 
 [dev-dependencies]
 serde_json = { workspace = true, default-features = true }
+
+[features]
+std = []
+try-runtime = [
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-core/runtime-benchmarks"
+]

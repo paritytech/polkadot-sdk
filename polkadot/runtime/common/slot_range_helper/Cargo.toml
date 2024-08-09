@@ -18,3 +18,9 @@ sp-runtime = { workspace = true }
 [features]
 default = ["std"]
 std = ["codec/std", "sp-runtime/std"]
+try-runtime = [
+	"sp-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-runtime/runtime-benchmarks"
+]

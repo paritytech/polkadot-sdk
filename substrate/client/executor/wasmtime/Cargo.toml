@@ -52,3 +52,25 @@ tempfile = { workspace = true }
 paste = { workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
 cargo_metadata = { workspace = true }
+
+[features]
+std = [
+	"sc-allocator/std",
+	"sc-executor-common/std",
+	"log/std",
+	"rustix/std"
+]
+try-runtime = [
+	"sc-runtime-test/try-runtime",
+	"sp-io/try-runtime",
+	"sp-runtime-interface/try-runtime",
+	"sc-allocator/try-runtime",
+	"sc-executor-common/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-runtime-test/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-runtime-interface/runtime-benchmarks",
+	"sc-allocator/runtime-benchmarks",
+	"sc-executor-common/runtime-benchmarks"
+]

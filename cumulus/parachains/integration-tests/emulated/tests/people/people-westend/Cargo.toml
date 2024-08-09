@@ -28,3 +28,47 @@ asset-test-utils = { workspace = true, default-features = true }
 emulated-integration-tests-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
 westend-system-emulated-network = { workspace = true }
+
+[features]
+try-runtime = [
+	"parachains-common/try-runtime",
+	"emulated-integration-tests-common/try-runtime",
+	"asset-test-utils/try-runtime",
+	"polkadot-runtime-common/try-runtime",
+	"westend-runtime-constants/try-runtime",
+	"xcm/try-runtime",
+	"xcm-executor/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-identity/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"frame-support/try-runtime",
+	"sp-runtime/try-runtime",
+	"westend-system-emulated-network/try-runtime"
+]
+runtime-benchmarks = [
+	"parachains-common/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"asset-test-utils/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
+	"westend-runtime-constants/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-identity/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"westend-system-emulated-network/runtime-benchmarks"
+]
+std = [
+	"emulated-integration-tests-common/std",
+	"xcm/std",
+	"xcm-executor/std",
+	"pallet-balances/std",
+	"pallet-identity/std",
+	"pallet-message-queue/std",
+	"frame-support/std",
+	"sp-runtime/std",
+	"codec/std",
+	"westend-system-emulated-network/std"
+]

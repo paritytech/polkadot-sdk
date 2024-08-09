@@ -17,3 +17,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 sp-crypto-hashing-proc-macro = { workspace = true, default-features = true }
+
+[features]
+std = [
+	"sp-crypto-hashing-proc-macro/std"
+]

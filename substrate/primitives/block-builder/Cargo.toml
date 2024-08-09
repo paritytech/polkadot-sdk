@@ -23,3 +23,13 @@ sp-runtime = { workspace = true }
 [features]
 default = ["std"]
 std = ["sp-api/std", "sp-inherents/std", "sp-runtime/std"]
+try-runtime = [
+	"sp-api/try-runtime",
+	"sp-inherents/try-runtime",
+	"sp-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]

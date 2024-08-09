@@ -75,5 +75,42 @@ std = [
 	"sp-version/std",
 	"sp-wasm-interface/std",
 	"substrate-test-runtime/std",
+	"sc-executor-common/std",
+	"sc-executor-polkavm/std",
+	"sc-executor-wasmtime/std",
+	"sc-tracing/std",
+	"sp-panic-handler/std"
 ]
 wasm-extern-trace = []
+try-runtime = [
+	"sc-runtime-test/try-runtime",
+	"sc-tracing/try-runtime",
+	"sp-api/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-state-machine/try-runtime",
+	"sp-trie/try-runtime",
+	"sp-version/try-runtime",
+	"substrate-test-runtime/try-runtime",
+	"sc-executor-wasmtime/try-runtime",
+	"sp-io/try-runtime",
+	"sp-runtime-interface/try-runtime",
+	"sp-core/try-runtime",
+	"sc-executor-common/try-runtime",
+	"sc-executor-polkavm/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-runtime-test/runtime-benchmarks",
+	"sc-tracing/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"substrate-test-runtime/runtime-benchmarks",
+	"sc-executor-wasmtime/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-runtime-interface/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sc-executor-common/runtime-benchmarks",
+	"sc-executor-polkavm/runtime-benchmarks"
+]

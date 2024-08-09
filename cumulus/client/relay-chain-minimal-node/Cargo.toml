@@ -45,3 +45,70 @@ array-bytes = { workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
+
+[features]
+try-runtime = [
+	"cumulus-relay-chain-rpc-interface/try-runtime",
+	"cumulus-primitives-core/try-runtime",
+	"polkadot-core-primitives/try-runtime",
+	"polkadot-node-network-protocol/try-runtime",
+	"polkadot-service/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sc-client-api/try-runtime",
+	"sc-authority-discovery/try-runtime",
+	"sc-network/try-runtime",
+	"sc-network-common/try-runtime",
+	"sc-service/try-runtime",
+	"sc-tracing/try-runtime",
+	"sp-api/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-consensus-babe/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-runtime/try-runtime",
+	"cumulus-relay-chain-interface/try-runtime",
+	"polkadot-network-bridge/try-runtime",
+	"polkadot-overseer/try-runtime",
+	"polkadot-node-subsystem-util/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-relay-chain-interface/runtime-benchmarks",
+	"cumulus-relay-chain-rpc-interface/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"polkadot-core-primitives/runtime-benchmarks",
+	"polkadot-network-bridge/runtime-benchmarks",
+	"polkadot-node-network-protocol/runtime-benchmarks",
+	"polkadot-overseer/runtime-benchmarks",
+	"polkadot-service/runtime-benchmarks",
+	"polkadot-node-subsystem-util/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-client-api/runtime-benchmarks",
+	"sc-authority-discovery/runtime-benchmarks",
+	"sc-network/runtime-benchmarks",
+	"sc-network-common/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sc-tracing/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]
+std = [
+	"cumulus-relay-chain-interface/std",
+	"cumulus-relay-chain-rpc-interface/std",
+	"polkadot-network-bridge/std",
+	"polkadot-node-network-protocol/std",
+	"polkadot-overseer/std",
+	"polkadot-service/std",
+	"polkadot-node-subsystem-util/std",
+	"sc-client-api/std",
+	"sc-authority-discovery/std",
+	"sc-network/std",
+	"sc-network-common/std",
+	"sc-service/std",
+	"sc-tracing/std",
+	"sc-utils/std",
+	"sp-blockchain/std",
+	"sp-consensus/std",
+	"prometheus-endpoint/std"
+]

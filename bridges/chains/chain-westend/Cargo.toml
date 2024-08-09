@@ -37,3 +37,17 @@ std = [
 	"sp-api/std",
 	"sp-std/std",
 ]
+try-runtime = [
+	"bp-header-chain/try-runtime",
+	"bp-polkadot-core/try-runtime",
+	"bp-runtime/try-runtime",
+	"frame-support/try-runtime",
+	"sp-api/try-runtime"
+]
+runtime-benchmarks = [
+	"bp-header-chain/runtime-benchmarks",
+	"bp-polkadot-core/runtime-benchmarks",
+	"bp-runtime/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-api/runtime-benchmarks"
+]

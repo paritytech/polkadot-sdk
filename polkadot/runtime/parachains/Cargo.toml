@@ -115,6 +115,8 @@ std = [
 	"sp-std?/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"polkadot-primitives-test-helpers/std",
+	"sc-keystore/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -136,6 +138,23 @@ runtime-benchmarks = [
 	"sp-std",
 	"static_assertions",
 	"xcm-executor/runtime-benchmarks",
+	"polkadot-core-primitives/runtime-benchmarks",
+	"polkadot-primitives-test-helpers/runtime-benchmarks",
+	"polkadot-runtime-metrics/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"pallet-authority-discovery/runtime-benchmarks",
+	"pallet-authorship/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
+	"frame-support-test/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-session/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-application-crypto?/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sc-keystore/runtime-benchmarks",
+	"sp-keystore?/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support-test/try-runtime",
@@ -153,6 +172,24 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-vesting/try-runtime",
 	"sp-runtime/try-runtime",
+	"polkadot-core-primitives/try-runtime",
+	"polkadot-parachain-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"polkadot-primitives-test-helpers/try-runtime",
+	"xcm/try-runtime",
+	"xcm-executor/try-runtime",
+	"frame-benchmarking?/try-runtime",
+	"sp-api/try-runtime",
+	"sp-inherents/try-runtime",
+	"sp-keyring/try-runtime",
+	"sp-session/try-runtime",
+	"sp-staking/try-runtime",
+	"polkadot-runtime-metrics/try-runtime",
+	"sp-io/try-runtime",
+	"sp-application-crypto?/try-runtime",
+	"sp-core/try-runtime",
+	"sc-keystore/try-runtime",
+	"sp-keystore?/try-runtime"
 ]
 runtime-metrics = [
 	"polkadot-runtime-metrics/runtime-metrics",

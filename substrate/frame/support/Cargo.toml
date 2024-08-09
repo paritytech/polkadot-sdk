@@ -98,16 +98,34 @@ std = [
 	"sp-timestamp/std",
 	"sp-tracing/std",
 	"sp-weights/std",
+	"sp-crypto-hashing-proc-macro/std"
 ]
 runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"frame-support-procedural/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-genesis-builder/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-state-machine?/runtime-benchmarks",
+	"sp-timestamp/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-system/try-runtime",
 	"sp-debug-derive/force-debug",
 	"sp-runtime/try-runtime",
+	"frame-support-procedural/try-runtime",
+	"sp-api/try-runtime",
+	"sp-genesis-builder/try-runtime",
+	"sp-inherents/try-runtime",
+	"sp-staking/try-runtime",
+	"sp-state-machine?/try-runtime",
+	"sp-timestamp/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
 ]
 experimental = [
 	"frame-support-procedural/experimental",

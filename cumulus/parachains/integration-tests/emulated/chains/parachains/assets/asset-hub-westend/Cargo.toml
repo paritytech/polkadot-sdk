@@ -26,3 +26,35 @@ testnet-parachains-constants = { features = ["westend"], workspace = true, defau
 
 # Polkadot
 xcm = { workspace = true }
+
+[features]
+try-runtime = [
+	"parachains-common/try-runtime",
+	"westend-emulated-chain/try-runtime",
+	"emulated-integration-tests-common/try-runtime",
+	"asset-hub-westend-runtime/try-runtime",
+	"testnet-parachains-constants/try-runtime",
+	"cumulus-primitives-core/try-runtime",
+	"xcm/try-runtime",
+	"frame-support/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"parachains-common/runtime-benchmarks",
+	"westend-emulated-chain/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"asset-hub-westend-runtime/runtime-benchmarks",
+	"testnet-parachains-constants/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"westend-emulated-chain/std",
+	"emulated-integration-tests-common/std",
+	"cumulus-primitives-core/std",
+	"xcm/std",
+	"frame-support/std",
+	"sp-core/std"
+]

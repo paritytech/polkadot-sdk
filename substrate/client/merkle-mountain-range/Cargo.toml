@@ -33,3 +33,40 @@ sc-block-builder = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 tokio = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"sc-client-api/try-runtime",
+	"sc-block-builder/try-runtime",
+	"sc-offchain/try-runtime",
+	"sp-api/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-consensus-beefy/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-mmr-primitives/try-runtime",
+	"sp-runtime/try-runtime",
+	"substrate-test-runtime-client/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-block-builder/runtime-benchmarks",
+	"sc-offchain/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus-beefy/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-mmr-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"sc-client-api/std",
+	"sc-block-builder/std",
+	"sc-offchain/std",
+	"sp-blockchain/std",
+	"sp-consensus/std",
+	"substrate-test-runtime-client/std",
+	"log/std"
+]

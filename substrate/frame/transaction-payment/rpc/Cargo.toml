@@ -25,3 +25,25 @@ sp-core = { workspace = true, default-features = true }
 sp-rpc = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"pallet-transaction-payment-rpc-runtime-api/try-runtime",
+	"sp-api/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-core/try-runtime",
+	"sp-rpc/try-runtime"
+]
+runtime-benchmarks = [
+	"pallet-transaction-payment-rpc-runtime-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-rpc/runtime-benchmarks"
+]
+std = [
+	"sp-blockchain/std",
+	"sp-rpc/std"
+]

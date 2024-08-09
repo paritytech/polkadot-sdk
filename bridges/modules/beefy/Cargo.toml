@@ -60,4 +60,23 @@ try-runtime = [
 	"pallet-beefy-mmr/try-runtime",
 	"pallet-mmr/try-runtime",
 	"sp-runtime/try-runtime",
+	"bp-beefy/try-runtime",
+	"bp-runtime/try-runtime",
+	"bp-test-utils/try-runtime",
+	"sp-consensus-beefy/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"bp-beefy/runtime-benchmarks",
+	"bp-runtime/runtime-benchmarks",
+	"bp-test-utils/runtime-benchmarks",
+	"pallet-beefy-mmr/runtime-benchmarks",
+	"pallet-mmr/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-consensus-beefy/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]

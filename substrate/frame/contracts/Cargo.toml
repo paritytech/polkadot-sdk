@@ -103,6 +103,8 @@ std = [
 	"wasmi/std",
 	"xcm-builder/std",
 	"xcm/std",
+	"pallet-contracts-fixtures/std",
+	"pallet-contracts-uapi/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -119,6 +121,13 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"wasm-instrument",
 	"xcm-builder/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"pallet-contracts-fixtures/runtime-benchmarks",
+	"pallet-insecure-randomness-collective-flip/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -131,4 +140,12 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
+	"xcm/try-runtime",
+	"xcm-builder/try-runtime",
+	"frame-benchmarking?/try-runtime",
+	"pallet-contracts-fixtures/try-runtime",
+	"sp-api/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime",
+	"sp-keystore/try-runtime"
 ]

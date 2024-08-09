@@ -50,3 +50,45 @@ substrate-test-runtime-transaction-pool = { workspace = true }
 [[bench]]
 name = "basics"
 harness = false
+
+[features]
+try-runtime = [
+	"sc-client-api/try-runtime",
+	"sc-block-builder/try-runtime",
+	"sc-transaction-pool-api/try-runtime",
+	"sp-api/try-runtime",
+	"sp-blockchain/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-transaction-pool/try-runtime",
+	"substrate-test-runtime/try-runtime",
+	"substrate-test-runtime-client/try-runtime",
+	"substrate-test-runtime-transaction-pool/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-client-api/runtime-benchmarks",
+	"sc-block-builder/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-blockchain/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-transaction-pool/runtime-benchmarks",
+	"substrate-test-runtime/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+	"substrate-test-runtime-transaction-pool/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"sc-client-api/std",
+	"sc-block-builder/std",
+	"sc-transaction-pool-api/std",
+	"sc-utils/std",
+	"sp-blockchain/std",
+	"sp-consensus/std",
+	"substrate-test-runtime-client/std",
+	"substrate-test-runtime-transaction-pool/std",
+	"prometheus-endpoint/std",
+	"log/std"
+]

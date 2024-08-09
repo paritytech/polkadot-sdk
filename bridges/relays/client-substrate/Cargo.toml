@@ -58,3 +58,57 @@ xcm = { workspace = true, default-features = true }
 [features]
 default = []
 test-helpers = []
+try-runtime = [
+	"bp-header-chain/try-runtime",
+	"bp-messages/try-runtime",
+	"bp-polkadot-core/try-runtime",
+	"bp-runtime/try-runtime",
+	"relay-utils/try-runtime",
+	"xcm/try-runtime",
+	"sc-chain-spec/try-runtime",
+	"sc-rpc-api/try-runtime",
+	"sc-transaction-pool-api/try-runtime",
+	"frame-support/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"pallet-transaction-payment-rpc-runtime-api/try-runtime",
+	"pallet-utility/try-runtime",
+	"sp-consensus-grandpa/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-trie/try-runtime",
+	"sp-version/try-runtime",
+	"finality-relay/try-runtime",
+	"sp-core/try-runtime",
+	"sp-rpc/try-runtime"
+]
+runtime-benchmarks = [
+	"bp-header-chain/runtime-benchmarks",
+	"bp-messages/runtime-benchmarks",
+	"bp-polkadot-core/runtime-benchmarks",
+	"bp-runtime/runtime-benchmarks",
+	"relay-utils/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"sc-chain-spec/runtime-benchmarks",
+	"sc-rpc-api/runtime-benchmarks",
+	"sc-transaction-pool-api/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-transaction-payment-rpc-runtime-api/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"sp-consensus-grandpa/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+	"sp-version/runtime-benchmarks",
+	"finality-relay/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-rpc/runtime-benchmarks"
+]
+std = [
+	"finality-relay/std",
+	"relay-utils/std",
+	"sc-chain-spec/std",
+	"sc-rpc-api/std",
+	"sc-transaction-pool-api/std",
+	"sp-rpc/std",
+	"log/std",
+	"serde_json/std"
+]

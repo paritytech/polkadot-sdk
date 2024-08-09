@@ -18,3 +18,16 @@ generate-bags = { workspace = true, default-features = true }
 
 # third-party
 clap = { features = ["derive"], workspace = true }
+
+[features]
+try-runtime = [
+	"kitchensink-runtime/try-runtime",
+	"generate-bags/try-runtime"
+]
+runtime-benchmarks = [
+	"kitchensink-runtime/runtime-benchmarks",
+	"generate-bags/runtime-benchmarks"
+]
+std = [
+	"generate-bags/std"
+]

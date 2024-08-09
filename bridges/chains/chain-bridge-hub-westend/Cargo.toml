@@ -39,3 +39,19 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 ]
+try-runtime = [
+	"bp-bridge-hub-cumulus/try-runtime",
+	"bp-messages/try-runtime",
+	"bp-runtime/try-runtime",
+	"frame-support/try-runtime",
+	"sp-api/try-runtime",
+	"sp-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"bp-bridge-hub-cumulus/runtime-benchmarks",
+	"bp-messages/runtime-benchmarks",
+	"bp-runtime/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]

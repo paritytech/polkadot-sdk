@@ -24,3 +24,31 @@ tracing-subscriber.workspace = true
 
 [lints]
 workspace = true
+
+[features]
+runtime-benchmarks = [
+	"polkadot-node-primitives/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sc-executor/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"polkadot-node-primitives/std",
+	"polkadot-parachain-primitives/std",
+	"polkadot-primitives/std",
+	"sc-executor/std",
+	"sp-core/std",
+	"sp-io/std",
+	"codec/std",
+	"tracing/std"
+]
+try-runtime = [
+	"polkadot-node-primitives/try-runtime",
+	"polkadot-parachain-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sc-executor/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
+]

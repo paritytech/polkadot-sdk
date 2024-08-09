@@ -21,3 +21,22 @@ futures = { workspace = true }
 log = { workspace = true }
 num-traits = { workspace = true, default-features = true }
 relay-utils = { workspace = true }
+
+[features]
+try-runtime = [
+	"bp-header-chain/try-runtime",
+	"relay-utils/try-runtime",
+	"frame-support/try-runtime",
+	"finality-relay/try-runtime"
+]
+runtime-benchmarks = [
+	"bp-header-chain/runtime-benchmarks",
+	"relay-utils/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"finality-relay/runtime-benchmarks"
+]
+std = [
+	"finality-relay/std",
+	"relay-utils/std",
+	"log/std"
+]

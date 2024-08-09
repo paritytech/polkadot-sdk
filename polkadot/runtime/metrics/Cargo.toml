@@ -27,3 +27,11 @@ std = [
 	"sp-tracing/std",
 ]
 runtime-metrics = ["frame-benchmarking", "sp-tracing/with-tracing"]
+runtime-benchmarks = [
+	"polkadot-primitives/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks"
+]
+try-runtime = [
+	"polkadot-primitives/try-runtime",
+	"frame-benchmarking?/try-runtime"
+]

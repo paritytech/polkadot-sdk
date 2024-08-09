@@ -34,3 +34,22 @@ sp-runtime = { workspace = true, default-features = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+
+[features]
+try-runtime = [
+	"sc-consensus/try-runtime",
+	"sp-consensus/try-runtime",
+	"sp-consensus-grandpa/try-runtime",
+	"sp-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"sc-consensus/runtime-benchmarks",
+	"sp-consensus/runtime-benchmarks",
+	"sp-consensus-grandpa/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]
+std = [
+	"sc-consensus/std",
+	"sc-network-types/std",
+	"sp-consensus/std"
+]

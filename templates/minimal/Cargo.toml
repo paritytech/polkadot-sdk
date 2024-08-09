@@ -20,3 +20,23 @@ frame = { workspace = true, default-features = true }
 # How we build docs in rust-docs
 simple-mermaid = "0.1.1"
 docify = { workspace = true }
+
+[features]
+try-runtime = [
+	"polkadot-sdk-docs/try-runtime",
+	"frame/try-runtime",
+	"minimal-template-node/try-runtime",
+	"pallet-minimal-template/try-runtime",
+	"minimal-template-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"polkadot-sdk-docs/runtime-benchmarks",
+	"frame/runtime-benchmarks",
+	"minimal-template-node/runtime-benchmarks",
+	"pallet-minimal-template/runtime-benchmarks",
+	"minimal-template-runtime/runtime-benchmarks"
+]
+std = [
+	"polkadot-sdk-docs/std",
+	"minimal-template-node/std"
+]

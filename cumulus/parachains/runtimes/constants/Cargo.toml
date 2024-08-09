@@ -43,3 +43,21 @@ std = [
 # Test runtimes specific features.
 rococo = ["rococo-runtime-constants"]
 westend = ["westend-runtime-constants"]
+try-runtime = [
+	"cumulus-primitives-core/try-runtime",
+	"polkadot-core-primitives/try-runtime",
+	"rococo-runtime-constants?/try-runtime",
+	"westend-runtime-constants?/try-runtime",
+	"xcm/try-runtime",
+	"frame-support/try-runtime",
+	"sp-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"polkadot-core-primitives/runtime-benchmarks",
+	"rococo-runtime-constants?/runtime-benchmarks",
+	"westend-runtime-constants?/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]

@@ -22,3 +22,17 @@ sp-io = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = ["sp-externalities/std", "sp-runtime-interface/std", "sp-trie/std"]
+try-runtime = [
+	"sp-io/try-runtime",
+	"sp-runtime-interface/try-runtime",
+	"sp-state-machine/try-runtime",
+	"sp-trie/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-io/runtime-benchmarks",
+	"sp-runtime-interface/runtime-benchmarks",
+	"sp-state-machine/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]

@@ -90,5 +90,37 @@ runtime-benchmarks = [
 	"snowbridge-pallet-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"parachain-info/runtime-benchmarks",
+	"parachains-runtimes-test-utils/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
+	"sp-keyring/runtime-benchmarks",
+	"sp-io/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
 ]
 fast-runtime = []
+try-runtime = [
+	"snowbridge-pallet-ethereum-client/try-runtime",
+	"snowbridge-pallet-outbound-queue/try-runtime",
+	"snowbridge-pallet-system/try-runtime",
+	"snowbridge-core/try-runtime",
+	"pallet-collator-selection/try-runtime",
+	"cumulus-pallet-parachain-system/try-runtime",
+	"parachain-info/try-runtime",
+	"parachains-runtimes-test-utils/try-runtime",
+	"xcm/try-runtime",
+	"pallet-xcm/try-runtime",
+	"xcm-executor/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"pallet-session/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-utility/try-runtime",
+	"sp-keyring/try-runtime",
+	"sp-runtime/try-runtime",
+	"snowbridge-pallet-ethereum-client-fixtures/try-runtime",
+	"sp-io/try-runtime",
+	"sp-core/try-runtime"
+]

@@ -31,3 +31,50 @@ xcm-runtime-apis = { workspace = true }
 # Cumulus
 parachains-common = { workspace = true, default-features = true }
 emulated-integration-tests-common = { workspace = true }
+
+[features]
+try-runtime = [
+	"parachains-common/try-runtime",
+	"emulated-integration-tests-common/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"westend-runtime/try-runtime",
+	"westend-runtime-constants/try-runtime",
+	"xcm/try-runtime",
+	"xcm-runtime-apis/try-runtime",
+	"sc-consensus-grandpa/try-runtime",
+	"pallet-staking/try-runtime",
+	"sp-authority-discovery/try-runtime",
+	"sp-consensus-babe/try-runtime",
+	"sp-consensus-beefy/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-core/try-runtime"
+]
+runtime-benchmarks = [
+	"parachains-common/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks",
+	"westend-runtime-constants/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+	"xcm-runtime-apis/runtime-benchmarks",
+	"sc-consensus-grandpa/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"sp-authority-discovery/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+	"sp-consensus-beefy/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"emulated-integration-tests-common/std",
+	"polkadot-primitives/std",
+	"westend-runtime-constants/std",
+	"xcm/std",
+	"xcm-runtime-apis/std",
+	"sc-consensus-grandpa/std",
+	"pallet-staking/std",
+	"sp-authority-discovery/std",
+	"sp-consensus-babe/std",
+	"sp-core/std",
+	"sp-runtime/std"
+]

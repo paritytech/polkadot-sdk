@@ -21,3 +21,24 @@ sp-application-crypto = { workspace = true, default-features = true }
 sp-core = { workspace = true }
 sp-keystore = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
+
+[features]
+std = [
+	"sp-core/std",
+	"sp-keystore/std",
+	"substrate-test-runtime-client/std"
+]
+try-runtime = [
+	"sp-api/try-runtime",
+	"substrate-test-runtime-client/try-runtime",
+	"sp-application-crypto/try-runtime",
+	"sp-core/try-runtime",
+	"sp-keystore/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"substrate-test-runtime-client/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks"
+]

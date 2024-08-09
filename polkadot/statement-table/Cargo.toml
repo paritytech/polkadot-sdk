@@ -14,3 +14,19 @@ codec = { features = ["derive"], workspace = true }
 sp-core = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 gum = { workspace = true, default-features = true }
+
+[features]
+runtime-benchmarks = [
+	"gum/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-core/runtime-benchmarks"
+]
+std = [
+	"gum/std",
+	"codec/std"
+]
+try-runtime = [
+	"gum/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sp-core/try-runtime"
+]

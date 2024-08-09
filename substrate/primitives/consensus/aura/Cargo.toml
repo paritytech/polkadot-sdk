@@ -47,3 +47,19 @@ serde = [
 	"sp-consensus-slots/serde",
 	"sp-runtime/serde",
 ]
+try-runtime = [
+	"sp-api/try-runtime",
+	"sp-inherents/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-timestamp/try-runtime",
+	"sp-consensus-slots/try-runtime",
+	"sp-application-crypto/try-runtime"
+]
+runtime-benchmarks = [
+	"sp-api/runtime-benchmarks",
+	"sp-inherents/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-timestamp/runtime-benchmarks",
+	"sp-consensus-slots/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks"
+]

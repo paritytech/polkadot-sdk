@@ -42,3 +42,23 @@ std = [
 	"sp-runtime/std",
 	"sp-trie/std",
 ]
+try-runtime = [
+	"cumulus-primitives-core/try-runtime",
+	"cumulus-test-runtime/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+	"sp-trie/try-runtime",
+	"cumulus-primitives-proof-size-hostfunction/try-runtime",
+	"sp-io/try-runtime"
+]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-runtime/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-trie/runtime-benchmarks",
+	"cumulus-primitives-proof-size-hostfunction/runtime-benchmarks",
+	"sp-io/runtime-benchmarks"
+]

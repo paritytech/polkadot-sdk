@@ -31,3 +31,31 @@ zstd = { version = "0.12.4", default-features = false }
 
 [dev-dependencies]
 polkadot-erasure-coding = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"polkadot-parachain-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sp-consensus-babe/try-runtime",
+	"sp-runtime/try-runtime",
+	"polkadot-erasure-coding/try-runtime",
+	"sp-application-crypto/try-runtime",
+	"sp-core/try-runtime",
+	"sp-keystore/try-runtime"
+]
+runtime-benchmarks = [
+	"polkadot-erasure-coding/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-consensus-babe/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-application-crypto/runtime-benchmarks",
+	"sp-core/runtime-benchmarks",
+	"sp-keystore/runtime-benchmarks"
+]
+std = [
+	"polkadot-erasure-coding/std",
+	"polkadot-parachain-primitives/std",
+	"bitvec/std",
+	"codec/std"
+]

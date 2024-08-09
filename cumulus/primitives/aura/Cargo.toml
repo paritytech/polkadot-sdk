@@ -31,3 +31,17 @@ std = [
 	"sp-consensus-aura/std",
 	"sp-runtime/std",
 ]
+try-runtime = [
+	"polkadot-core-primitives/try-runtime",
+	"polkadot-primitives/try-runtime",
+	"sp-api/try-runtime",
+	"sp-consensus-aura/try-runtime",
+	"sp-runtime/try-runtime"
+]
+runtime-benchmarks = [
+	"polkadot-core-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-api/runtime-benchmarks",
+	"sp-consensus-aura/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
+]
