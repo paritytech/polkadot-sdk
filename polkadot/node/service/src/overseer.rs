@@ -273,8 +273,9 @@ where
 			keystore.clone(),
 			Metrics::register(registry)?,
 		))
-		.candidate_validation(CandidateValidationSubsystem::with_config(
+		.candidate_validation(CandidateValidationSubsystem::with_config_and_keystore(
 			candidate_validation_config,
+			keystore.clone(),
 			Metrics::register(registry)?, // candidate-validation metrics
 			Metrics::register(registry)?, // validation host metrics
 		))

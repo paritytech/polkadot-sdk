@@ -13,6 +13,8 @@ workspace = true
 async-trait = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
+sp-keystore = { workspace = true }
+sp-application-crypto = { workspace = true }
 gum.workspace = true
 gum.default-features = true
 sp-maybe-compressed-blob.workspace = true
