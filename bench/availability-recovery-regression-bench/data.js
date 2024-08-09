@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723215273395,
+  "lastUpdate": 1723226888931,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -17135,6 +17135,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.826080255900001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "149c70938f2b29f8d92ba1cc952aeb63d4084e27",
+          "message": "Add missing features in templates' node packages (#5294)\n\nCorrects the issue we had\n[here](https://github.com/paritytech/polkadot-sdk-parachain-template/pull/10),\nin which `cargo build --release` worked but `cargo build --package\nparachain-template-node --release` failed with missing features.\n\nThe command has been added to CI to make sure it works, but at the same\nwe're changing it in the readme to just `cargo build --release` for\nsimplification.\n\nLabeling silent because those packages are un-published as part of the\nregular release process.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-08-09T16:11:50Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/149c70938f2b29f8d92ba1cc952aeb63d4084e27"
+        },
+        "date": 1723226857275,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1830682176666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.919970100266662,
             "unit": "seconds"
           }
         ]
