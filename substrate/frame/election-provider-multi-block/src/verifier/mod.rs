@@ -180,6 +180,8 @@ pub trait Verifier {
 	type Solution;
 
 	/// Maximum number of winners that a page supports.
+	///
+	/// Note: This must always be greater or equal to `T::DataProvider::desired_targets()`.
 	type MaxWinnersPerPage: Get<u32>;
 
 	/// Maximum number of backers that each winner can have.

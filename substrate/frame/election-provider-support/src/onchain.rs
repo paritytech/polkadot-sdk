@@ -78,13 +78,13 @@ pub trait Config {
 	///
 	/// If the bounds are exceeded due to the data returned by the data provider, the election will
 	/// fail.
-	type MaxBackersPerWinner: Get<u32>;
+	type MaxBackersPerWinner: Get<u32> + std::fmt::Debug;
 
 	/// Maximum number of winners in an election.
 	///
 	/// If the bounds are exceeded due to the data returned by the data provider, the election will
 	/// fail.
-	type MaxWinnersPerPage: Get<u32>;
+	type MaxWinnersPerPage: Get<u32> + std::fmt::Debug;
 
 	/// Something that provides the data for election.
 	type DataProvider: ElectionDataProvider<

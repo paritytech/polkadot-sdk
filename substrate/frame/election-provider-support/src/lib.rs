@@ -401,14 +401,14 @@ pub trait ElectionProvider {
 	type BlockNumber;
 
 	/// The error type returned by the provider;
-	type Error: Debug + PartialEq;
+	type Error: Debug;
+
+	/// The maximum number of winners per page in results returned by this election provider.
+	type MaxWinnersPerPage: Get<u32> + std::fmt::Debug;
 
 	/// The maximum number of backers that a single page may have in results returned by this
 	/// election provider.
-	type MaxBackersPerWinner: Get<u32>;
-
-	/// The maximum number of winners per page in results returned by this election provider.
-	type MaxWinnersPerPage: Get<u32>;
+	type MaxBackersPerWinner: Get<u32> + std::fmt::Debug;
 
 	/// The number of pages that this election provider supports.
 	type Pages: Get<PageIndex>;
@@ -470,8 +470,8 @@ impl<AccountId, BlockNumber, DataProvider, MaxWinnersPerPage, MaxBackersPerWinne
 	for NoElection<(AccountId, BlockNumber, DataProvider, MaxWinnersPerPage, MaxBackersPerWinner)>
 where
 	DataProvider: ElectionDataProvider<AccountId = AccountId, BlockNumber = BlockNumber>,
-	MaxWinnersPerPage: Get<u32>,
-	MaxBackersPerWinner: Get<u32>,
+	MaxWinnersPerPage: Get<u32> + std::fmt::Debug,
+	MaxBackersPerWinner: Get<u32> + std::fmt::Debug,
 {
 	type AccountId = AccountId;
 	type BlockNumber = BlockNumber;
@@ -491,8 +491,8 @@ impl<AccountId, BlockNumber, DataProvider, MaxWinnersPerPage, MaxBackersPerWinne
 	for NoElection<(AccountId, BlockNumber, DataProvider, MaxWinnersPerPage, MaxBackersPerWinner)>
 where
 	DataProvider: ElectionDataProvider<AccountId = AccountId, BlockNumber = BlockNumber>,
-	MaxWinnersPerPage: Get<u32>,
-	MaxBackersPerWinner: Get<u32>,
+	MaxWinnersPerPage: Get<u32> + std::fmt::Debug,
+	MaxBackersPerWinner: Get<u32> + std::fmt::Debug,
 {
 	fn instant_elect(
 		_: DataProviderBounds,
@@ -827,6 +827,19 @@ impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>>
 		let outer_bounded_supports: BoundedVec<_, BOuter> =
 			inner_bounded_supports.try_into().map_err(|_| ())?;
 		Ok(outer_bounded_supports.into())
+	}
+}
+
+pub trait TryIntoSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>> {
+	fn try_into_supports(self) -> Result<Supports<AccountId>, ()>;
+}
+
+impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> TryIntoSupports<AccountId, BOuter, BInner>
+	for BoundedSupports<AccountId, BOuter, BInner>
+{
+	fn try_into_supports(self) -> Result<Supports<AccountId>, ()> {
+		// TODO
+		Ok(Default::default())
 	}
 }
 
