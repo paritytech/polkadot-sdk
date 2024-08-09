@@ -524,44 +524,48 @@ async fn handle_introduce_seconded_candidate(
 
 	let mut added = false;
 	let mut para_scheduled = false;
-	for leaf in view.active_leaves.iter() {
-		let Some(leaf_data) = view.per_relay_parent.get_mut(leaf) else { continue };
+	// We don't iterate only through the active leaves. We also update the deactivated parents in
+	// the implicit view, so that their upcoming children may see these candidates.
+	for (relay_parent, rp_data) in view.per_relay_parent.iter_mut() {
+		let Some(chain) = rp_data.fragment_chains.get_mut(&para) else { continue };
+		let is_active_leaf = view.active_leaves.contains(relay_parent);
 
-		if let Some(chain) = leaf_data.fragment_chains.get_mut(&para) {
-			para_scheduled = true;
+		para_scheduled = true;
 
-			match chain.try_adding_seconded_candidate(&candidate_entry) {
-				Ok(()) => {
-					gum::debug!(
-						target: LOG_TARGET,
-						para = ?para,
-						relay_parent = ?leaf,
-						"Added seconded candidate {:?}",
-						candidate_hash
-					);
-					added = true;
-				},
-				Err(FragmentChainError::CandidateAlreadyKnown) => {
-					gum::debug!(
-						target: LOG_TARGET,
-						para = ?para,
-						relay_parent = ?leaf,
-						"Attempting to introduce an already known candidate: {:?}",
-						candidate_hash
-					);
-					added = true;
-				},
-				Err(err) => {
-					gum::debug!(
-						target: LOG_TARGET,
-						para = ?para,
-						relay_parent = ?leaf,
-						?candidate_hash,
-						"Cannot introduce seconded candidate: {}",
-						err
-					)
-				},
-			}
+		match chain.try_adding_seconded_candidate(&candidate_entry) {
+			Ok(()) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					?para,
+					?relay_parent,
+					?is_active_leaf,
+					"Added seconded candidate {:?}",
+					candidate_hash
+				);
+				added = true;
+			},
+			Err(FragmentChainError::CandidateAlreadyKnown) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					?para,
+					?relay_parent,
+					?is_active_leaf,
+					"Attempting to introduce an already known candidate: {:?}",
+					candidate_hash
+				);
+				added = true;
+			},
+			Err(err) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					?para,
+					?relay_parent,
+					?candidate_hash,
+					?is_active_leaf,
+					"Cannot introduce seconded candidate: {}",
+					err
+				)
+			},
 		}
 	}
 
@@ -579,7 +583,7 @@ async fn handle_introduce_seconded_candidate(
 			target: LOG_TARGET,
 			para = ?para,
 			candidate = ?candidate_hash,
-			"Newly-seconded candidate cannot be kept under any active leaf",
+			"Newly-seconded candidate cannot be kept under any relay parent",
 		);
 	}
 
@@ -596,47 +600,52 @@ async fn handle_candidate_backed(
 
 	let mut found_candidate = false;
 	let mut found_para = false;
-	for leaf in view.active_leaves.iter() {
-		let Some(leaf_data) = view.per_relay_parent.get_mut(leaf) else { continue };
 
-		if let Some(chain) = leaf_data.fragment_chains.get_mut(&para) {
-			found_para = true;
-			if chain.is_candidate_backed(&candidate_hash) {
-				gum::debug!(
-					target: LOG_TARGET,
-					para_id = ?para,
-					?candidate_hash,
-					"Received redundant instruction to mark as backed an already backed candidate",
-				);
-				found_candidate = true;
-			} else if chain.contains_unconnected_candidate(&candidate_hash) {
-				found_candidate = true;
-				// Mark the candidate as backed. This can recreate the fragment chain.
-				chain.candidate_backed(&candidate_hash);
+	// We don't iterate only through the active leaves. We also update the deactivated parents in
+	// the implicit view, so that their upcoming children may see these candidates.
+	for (relay_parent, rp_data) in view.per_relay_parent.iter_mut() {
+		let Some(chain) = rp_data.fragment_chains.get_mut(&para) else { continue };
+		let is_active_leaf = view.active_leaves.contains(relay_parent);
 
-				gum::trace!(
-					target: LOG_TARGET,
-					relay_parent = ?leaf,
-					para_id = ?para,
-					"Candidate backed. Candidate chain for para: {:?}",
-					chain.best_chain_vec()
-				);
+		found_para = true;
+		if chain.is_candidate_backed(&candidate_hash) {
+			gum::debug!(
+				target: LOG_TARGET,
+				?para,
+				?candidate_hash,
+				?is_active_leaf,
+				"Received redundant instruction to mark as backed an already backed candidate",
+			);
+			found_candidate = true;
+		} else if chain.contains_unconnected_candidate(&candidate_hash) {
+			found_candidate = true;
+			// Mark the candidate as backed. This can recreate the fragment chain.
+			chain.candidate_backed(&candidate_hash);
 
-				gum::trace!(
-					target: LOG_TARGET,
-					relay_parent = ?leaf,
-					para_id = ?para,
-					"Potential candidate storage for para: {:?}",
-					chain.unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
-				);
-			}
+			gum::trace!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?para,
+				?is_active_leaf,
+				"Candidate backed. Candidate chain for para: {:?}",
+				chain.best_chain_vec()
+			);
+
+			gum::trace!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?para,
+				?is_active_leaf,
+				"Potential candidate storage for para: {:?}",
+				chain.unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
+			);
 		}
 	}
 
 	if !found_para {
 		gum::warn!(
 			target: LOG_TARGET,
-			para_id = ?para,
+			?para,
 			?candidate_hash,
 			"Received instruction to back a candidate for unscheduled para",
 		);
@@ -649,7 +658,7 @@ async fn handle_candidate_backed(
 		// dropped this other candidate already.
 		gum::debug!(
 			target: LOG_TARGET,
-			para_id = ?para,
+			?para,
 			?candidate_hash,
 			"Received instruction to back unknown candidate",
 		);

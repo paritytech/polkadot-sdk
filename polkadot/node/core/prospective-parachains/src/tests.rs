@@ -2198,7 +2198,7 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 		let (candidate_d, candidate_hash_d) =
 			make_and_back_candidate!(test_state, virtual_overseer, leaf_a, &candidate_c, 4);
 
-		let all_candidates_resp = vec![
+		let mut all_candidates_resp = vec![
 			(candidate_hash_a, leaf_a.hash),
 			(candidate_hash_b, leaf_a.hash),
 			(candidate_hash_c, leaf_a.hash),
@@ -2347,6 +2347,58 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 			Ancestors::new(),
 			5,
 			all_candidates_resp.clone(),
+		)
+		.await;
+
+		// Deactivate C and add another candidate that will be present on the deactivated parent A.
+		// When activating C again it should also get the new candidate. Deactivated leaves are
+		// still updated with new candidates.
+		deactivate_leaf(&mut virtual_overseer, leaf_c.hash).await;
+
+		let (candidate_e, _) =
+			make_and_back_candidate!(test_state, virtual_overseer, leaf_a, &candidate_d, 5);
+		activate_leaf_with_parent_hash_fn(&mut virtual_overseer, &leaf_c, &test_state, |hash| {
+			if hash == leaf_c.hash {
+				leaf_a.hash
+			} else {
+				get_parent_hash(hash)
+			}
+		})
+		.await;
+
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_b,
+			para_id,
+			[candidate_a.hash(), candidate_b.hash()].into_iter().collect(),
+			5,
+			vec![
+				(candidate_c.hash(), leaf_a.hash),
+				(candidate_d.hash(), leaf_a.hash),
+				(candidate_e.hash(), leaf_a.hash),
+			],
+		)
+		.await;
+
+		all_candidates_resp.push((candidate_e.hash(), leaf_a.hash));
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_c,
+			para_id,
+			Ancestors::new(),
+			5,
+			all_candidates_resp,
+		)
+		.await;
+
+		// Querying the backable candidates for deactivated leaf won't work.
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			para_id,
+			Ancestors::new(),
+			5,
+			vec![],
 		)
 		.await;
 

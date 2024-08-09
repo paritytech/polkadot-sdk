@@ -149,7 +149,7 @@ impl metrics::Metrics for Metrics {
 				Gauge::new(
 					"polkadot_parachain_prospective_parachains_implicit_view_candidate_count", 
 					"Number of candidates present in the implicit view"
-				)?, 
+				)?,
 				registry
 			)?,
 		};
