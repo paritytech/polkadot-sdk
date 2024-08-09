@@ -2406,6 +2406,72 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 	});
 
 	assert_eq!(view.active_leaves.len(), 2);
+	assert_eq!(view.per_relay_parent.len(), 3);
+}
+
+#[test]
+fn handle_active_leaves_update_bounded_implicit_view() {
+	let para_id = ParaId::from(1);
+	let mut test_state = TestState::default();
+	test_state.claim_queue = test_state
+		.claim_queue
+		.into_iter()
+		.filter(|(_, paras)| matches!(paras.front(), Some(para) if para == &para_id))
+		.collect();
+	assert_eq!(test_state.claim_queue.len(), 1);
+
+	let mut leaves = vec![TestLeaf {
+		number: 100,
+		hash: Hash::from_low_u64_be(130),
+		para_data: vec![(
+			para_id,
+			PerParaData::new(100 - ALLOWED_ANCESTRY_LEN, HeadData(vec![1, 2, 3])),
+		)],
+	}];
+
+	for index in 1..10 {
+		let prev_leaf = &leaves[index - 1];
+		leaves.push(TestLeaf {
+			number: prev_leaf.number - 1,
+			hash: get_parent_hash(prev_leaf.hash),
+			para_data: vec![(
+				para_id,
+				PerParaData::new(
+					prev_leaf.number - 1 - ALLOWED_ANCESTRY_LEN,
+					HeadData(vec![1, 2, 3]),
+				),
+			)],
+		});
+	}
+	leaves.reverse();
+
+	let view = test_harness(|mut virtual_overseer| async {
+		// Activate first 10 leaves.
+		for leaf in &leaves[0..10] {
+			activate_leaf(&mut virtual_overseer, leaf, &test_state).await;
+		}
+
+		// Now deactivate first 9 leaves.
+		for leaf in &leaves[0..9] {
+			deactivate_leaf(&mut virtual_overseer, leaf.hash).await;
+		}
+
+		virtual_overseer
+	});
+
+	// Only latest leaf is active.
+	assert_eq!(view.active_leaves.len(), 1);
+	// We keep allowed_ancestry_len implicit leaves. The latest leaf is also present here.
+	assert_eq!(
+		view.per_relay_parent.len() as u32,
+		ASYNC_BACKING_PARAMETERS.allowed_ancestry_len + 1
+	);
+
+	assert_eq!(view.active_leaves, [leaves[9].hash].into_iter().collect());
+	assert_eq!(
+		view.per_relay_parent.into_keys().collect::<HashSet<_>>(),
+		leaves[6..].into_iter().map(|l| l.hash).collect::<HashSet<_>>()
+	);
 }
 
 #[test]
