@@ -182,11 +182,15 @@ mod impl_hold_unbalanced {
 				]
 			);
 			assert_eq!(HeldBalances::<Test>::get(ASSET_ID, WHO), Some(5));
-			// Adding more than max holds fails
-			assert_noop!(
-				AssetsHolder::set_balance_on_hold(ASSET_ID, &DummyHoldReason::Other, &WHO, 1),
-				Error::<Test>::TooManyHolds
-			);
+
+			// Note: Assertion skipped to meet @gavofyork's suggestion of matching the number of
+			// variant count with the number of enum's variants.
+			// // Adding more than max holds fails
+			// assert_noop!(
+			// 	AssetsHolder::set_balance_on_hold(ASSET_ID, &DummyHoldReason::Other, &WHO, 1),
+			// 	Error::<Test>::TooManyHolds
+			// );
+
 			// Decreasing held balance works
 			assert_ok!(AssetsHolder::set_balance_on_hold(
 				ASSET_ID,
