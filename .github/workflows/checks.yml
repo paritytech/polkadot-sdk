@@ -78,12 +78,12 @@ jobs:
       - name: script
         run: |
           alias cargo="forklift cargo"
-          pushd substrate/primitives/core
+          cd substrate/primitives/core
           ./check-features-variants.sh
-          popd
-          pushd substrate/primitives/application-crypto
+          cd -
+          cd substrate/primitives/application-crypto
           ./check-features-variants.sh
-          popd
-          pushd substrate/primitives/keyring
+          cd -
+          cd substrate/primitives/keyring
           ./check-features-variants.sh
-          popd
+          cd -

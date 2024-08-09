@@ -148,12 +148,12 @@ check-core-crypto-features:
     - .docker-env
     - .common-refs
   script:
-    - cd substrate/primitives/core
+    - pushd substrate/primitives/core
     - ./check-features-variants.sh
-    - cd -
-    - cd substrate/primitives/application-crypto
+    - popd
+    - pushd substrate/primitives/application-crypto
     - ./check-features-variants.sh
-    - cd -
-    - cd substrate/primitives/keyring
+    - popd
+    - pushd substrate/primitives/keyring
     - ./check-features-variants.sh
-    - cd -
+    - popd
