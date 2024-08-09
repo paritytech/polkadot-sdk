@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723215579390,
+  "lastUpdate": 1723227182285,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -7853,6 +7853,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.045533297612,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "149c70938f2b29f8d92ba1cc952aeb63d4084e27",
+          "message": "Add missing features in templates' node packages (#5294)\n\nCorrects the issue we had\n[here](https://github.com/paritytech/polkadot-sdk-parachain-template/pull/10),\nin which `cargo build --release` worked but `cargo build --package\nparachain-template-node --release` failed with missing features.\n\nThe command has been added to CI to make sure it works, but at the same\nwe're changing it in the readme to just `cargo build --release` for\nsimplification.\n\nLabeling silent because those packages are un-published as part of the\nregular release process.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-08-09T16:11:50Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/149c70938f2b29f8d92ba1cc952aeb63d4084e27"
+        },
+        "date": 1723227151697,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.942,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.037226186744000016,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04699253603599998,
             "unit": "seconds"
           }
         ]
