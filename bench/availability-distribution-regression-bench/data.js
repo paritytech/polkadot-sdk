@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723207701118,
+  "lastUpdate": 1723215008256,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21475,6 +21475,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.17317498865999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b1a9ad4d387e8e75932e4bc8950c4535f4c82119",
+          "message": "[ci] Move checks to GHA (#5289)\n\nCloses https://github.com/paritytech/ci_cd/issues/1012",
+          "timestamp": "2024-08-09T13:05:18Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b1a9ad4d387e8e75932e4bc8950c4535f4c82119"
+        },
+        "date": 1723214977373,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010226815180000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17116319774666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012421490053333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022136965453333338,
             "unit": "seconds"
           }
         ]
