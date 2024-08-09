@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723138493497,
+  "lastUpdate": 1723197504023,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -7727,6 +7727,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.046310132088000014,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2993b0008e2ec4040be91868bf5f48a892508c3a",
+          "message": "Add stable release tag as an input parameter (#5282)\n\nThis PR adds the possibility to set the docker stable release tag as an\ninput parameter to the produced docker images, so that it matches with\nthe release version",
+          "timestamp": "2024-08-09T08:01:55Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2993b0008e2ec4040be91868bf5f48a892508c3a"
+        },
+        "date": 1723197473193,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.91799999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038096964627999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04718024213000002,
             "unit": "seconds"
           }
         ]
