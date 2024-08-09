@@ -340,6 +340,8 @@ impl metrics::Metrics for Metrics {
 				)?,
 				registry,
 			)?,
+			// The following metrics was moved here from the candidate valiidation subsystem.
+			// Names are kept to avoid breaking dashboards and stuff.
 			pov_size: prometheus::register(
 				prometheus::HistogramVec::new(
 					prometheus::HistogramOpts::new(
