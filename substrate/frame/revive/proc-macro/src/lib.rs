@@ -21,9 +21,9 @@
 //! boilerplate of defining external environment for a wasm module.
 
 use proc_macro::TokenStream;
-use proc_macro2::{Span, TokenStream as TokenStream2, Literal};
+use proc_macro2::{Literal, Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
-use syn::{punctuated::Punctuated, spanned::Spanned, token::Comma, FnArg, Ident, parse_quote};
+use syn::{parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma, FnArg, Ident};
 
 /// Defines a host functions set that can be imported by contract wasm code.
 ///
@@ -349,19 +349,18 @@ where
 		let Some(ident) = path.path.get_ident() else {
 			panic!("Type needs to be ident");
 		};
-		let size = if ident == "i8" ||
-			ident == "i16" ||
-			ident == "i32" ||
-			ident == "u8" ||
-			ident == "u16" ||
-			ident == "u32"
-		{
-			1
-		} else if ident == "i64" || ident == "u64" {
-			2
-		} else {
-			panic!("Pass by value only supports primitives");
-		};
+		let size =
+			if ident == "i8" ||
+				ident == "i16" || ident == "i32" ||
+				ident == "u8" || ident == "u16" ||
+				ident == "u32"
+			{
+				1
+			} else if ident == "i64" || ident == "u64" {
+				2
+			} else {
+				panic!("Pass by value only supports primitives");
+			};
 		registers_used += size;
 		if registers_used > ALLOWED_REGISTERS {
 			return quote! {

@@ -371,7 +371,8 @@ impl HostFn for HostFnImpl {
 	}
 
 	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
-		let ret_code = unsafe { sys::contains_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
+		let ret_code =
+			unsafe { sys::contains_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
 		ret_code.into()
 	}
 
