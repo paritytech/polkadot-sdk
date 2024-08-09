@@ -23,41 +23,9 @@ pub use assets_common;
 #[cfg(feature = "binary-merkle-tree")]
 pub use binary_merkle_tree;
 
-/// Primitives of AssetHubRococo parachain runtime.
-#[cfg(feature = "bp-asset-hub-rococo")]
-pub use bp_asset_hub_rococo;
-
-/// Primitives of AssetHubWestend parachain runtime.
-#[cfg(feature = "bp-asset-hub-westend")]
-pub use bp_asset_hub_westend;
-
-/// Primitives for BridgeHub parachain runtimes.
-#[cfg(feature = "bp-bridge-hub-cumulus")]
-pub use bp_bridge_hub_cumulus;
-
-/// Primitives of BridgeHubKusama parachain runtime.
-#[cfg(feature = "bp-bridge-hub-kusama")]
-pub use bp_bridge_hub_kusama;
-
-/// Primitives of BridgeHubPolkadot parachain runtime.
-#[cfg(feature = "bp-bridge-hub-polkadot")]
-pub use bp_bridge_hub_polkadot;
-
-/// Primitives of BridgeHubRococo parachain runtime.
-#[cfg(feature = "bp-bridge-hub-rococo")]
-pub use bp_bridge_hub_rococo;
-
-/// Primitives of BridgeHubWestend parachain runtime.
-#[cfg(feature = "bp-bridge-hub-westend")]
-pub use bp_bridge_hub_westend;
-
 /// A common interface for describing what a bridge pallet should be able to do.
 #[cfg(feature = "bp-header-chain")]
 pub use bp_header_chain;
-
-/// Primitives of Kusama runtime.
-#[cfg(feature = "bp-kusama")]
-pub use bp_kusama;
 
 /// Primitives of messages module.
 #[cfg(feature = "bp-messages")]
@@ -71,10 +39,6 @@ pub use bp_parachains;
 #[cfg(feature = "bp-polkadot")]
 pub use bp_polkadot;
 
-/// Primitives of Polkadot Bulletin chain runtime.
-#[cfg(feature = "bp-polkadot-bulletin")]
-pub use bp_polkadot_bulletin;
-
 /// Primitives of Polkadot-like runtime.
 #[cfg(feature = "bp-polkadot-core")]
 pub use bp_polkadot_core;
@@ -83,10 +47,6 @@ pub use bp_polkadot_core;
 #[cfg(feature = "bp-relayers")]
 pub use bp_relayers;
 
-/// Primitives of Rococo runtime.
-#[cfg(feature = "bp-rococo")]
-pub use bp_rococo;
-
 /// Primitives that may be used at (bridges) runtime level.
 #[cfg(feature = "bp-runtime")]
 pub use bp_runtime;
@@ -94,10 +54,6 @@ pub use bp_runtime;
 /// Utilities for testing substrate-based runtime bridge code.
 #[cfg(feature = "bp-test-utils")]
 pub use bp_test_utils;
-
-/// Primitives of Westend runtime.
-#[cfg(feature = "bp-westend")]
-pub use bp_westend;
 
 /// Primitives of the xcm-bridge-hub pallet.
 #[cfg(feature = "bp-xcm-bridge-hub")]
@@ -967,10 +923,6 @@ pub use polkadot_statement_distribution;
 #[cfg(feature = "polkadot-statement-table")]
 pub use polkadot_statement_table;
 
-/// Constants used throughout the Rococo network.
-#[cfg(feature = "rococo-runtime-constants")]
-pub use rococo_runtime_constants;
-
 /// Collection of allocator implementations.
 #[cfg(feature = "sc-allocator")]
 pub use sc_allocator;
@@ -1551,10 +1503,6 @@ pub use tracing_gum;
 /// struct definition.
 #[cfg(feature = "tracing-gum-proc-macro")]
 pub use tracing_gum_proc_macro;
-
-/// Constants used throughout the Westend network.
-#[cfg(feature = "westend-runtime-constants")]
-pub use westend_runtime_constants;
 
 /// Test kit to emulate XCM program execution.
 #[cfg(feature = "xcm-emulator")]

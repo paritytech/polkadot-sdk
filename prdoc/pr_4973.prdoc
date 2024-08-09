@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet_contracts] Increase the weight of the deposit_event host function to limit the memory used by events."
+
+doc:
+  - audience: Runtime User
+    description: |
+      This PR updates the weight of the deposit_event host function by adding
+      a fixed ref_time of 60,000 picoseconds per byte. Given a block time of 2 seconds
+      and this specified ref_time, the total allocation size is 32MB.
+
+crates:
+  - name: pallet-contracts
+    bump: major

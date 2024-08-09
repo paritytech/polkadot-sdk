@@ -110,8 +110,6 @@ test-linux-stable-codecov:
         codecovcli -v do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --git-service github;
       fi
 
-  #
-
 test-linux-stable:
   stage: test
   extends:
