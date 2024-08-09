@@ -903,6 +903,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#752" id="752">752</a>
 <a href="#753" id="753">753</a>
 <a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1070,15 +1108,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		};
-		<span class="kw">let </span>benchmarked_weight = info.weight.proof_size();
-		<span class="kw">let </span>consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
-
 		<span class="comment">// Unspent weight according to the `actual_weight` from `PostDispatchInfo`
 		// This unspent weight will be refunded by the `CheckWeight` extension, so we need to
 		// account for that.
 		</span><span class="kw">let </span>unspent = post_info.calc_unspent(info).proof_size();
-		<span class="kw">let </span>storage_size_diff =
-			benchmarked_weight.saturating_sub(unspent).abs_diff(consumed_weight <span class="kw">as </span>u64);
+		<span class="kw">let </span>benchmarked_weight = info.weight.proof_size().saturating_sub(unspent);
+		<span class="kw">let </span>consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
+
+		<span class="kw">let </span>storage_size_diff = benchmarked_weight.abs_diff(consumed_weight <span class="kw">as </span>u64);
 
 		<span class="comment">// This value will be reclaimed by [`frame_system::CheckWeight`], so we need to calculate
 		// that in.
@@ -1187,6 +1224,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::post_dispatch(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>post_info, <span class="number">0</span>, <span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())));
 			<span class="comment">// We expect a refund of 400
+			</span><span class="macro">assert_ok!</span>(StorageWeightReclaim::&lt;Test&gt;::post_dispatch(
+				<span class="prelude-val">Some</span>(pre),
+				<span class="kw-2">&amp;</span>info,
+				<span class="kw-2">&amp;</span>post_info,
+				LEN,
+				<span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())
+			));
+
+			<span class="macro">assert_eq!</span>(get_storage_weight().total().proof_size(), <span class="number">1250</span>);
+		})
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>underestimating_refund() {
+		<span class="comment">// We fixed a bug where `pre dispatch info weight &gt; consumed weight &gt; post info weight`
+		// resulted in error.
+
+		// The real cost will be 100 bytes of storage size
+		</span><span class="kw">let </span><span class="kw-2">mut </span>test_ext = setup_test_externalities(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">100</span>]);
+
+		test_ext.execute_with(|| {
+			set_current_storage_weight(<span class="number">1000</span>);
+
+			<span class="comment">// Benchmarked storage weight: 500
+			</span><span class="kw">let </span>info = DispatchInfo { weight: Weight::from_parts(<span class="number">0</span>, <span class="number">101</span>), ..Default::default() };
+			<span class="kw">let </span>post_info = PostDispatchInfo {
+				actual_weight: <span class="prelude-val">Some</span>(Weight::from_parts(<span class="number">0</span>, <span class="number">99</span>)),
+				pays_fee: Default::default(),
+			};
+
+			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>info, LEN));
+
+			<span class="kw">let </span>pre = StorageWeightReclaim::&lt;Test&gt;(PhantomData)
+				.pre_dispatch(<span class="kw-2">&amp;</span>ALICE, CALL, <span class="kw-2">&amp;</span>info, LEN)
+				.unwrap();
+			<span class="macro">assert_eq!</span>(pre, <span class="prelude-val">Some</span>(<span class="number">0</span>));
+
+			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::post_dispatch(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>post_info, <span class="number">0</span>, <span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())));
+			<span class="comment">// We expect an accrue of 1
 			</span><span class="macro">assert_ok!</span>(StorageWeightReclaim::&lt;Test&gt;::post_dispatch(
 				<span class="prelude-val">Some</span>(pre),
 				<span class="kw-2">&amp;</span>info,
