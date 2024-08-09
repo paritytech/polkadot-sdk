@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723196608751,
+  "lastUpdate": 1723207400109,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -14193,6 +14193,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.280146446339968,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "87280eb52537a355c67c9b9cee8ff1f97d02d67a",
+          "message": "Synchronize templates through PRs, instead of pushes (#5291)\n\nDespite what we had in the [original\nrequest](https://github.com/paritytech/polkadot-sdk/issues/3155#issuecomment-1979037109),\nI'm proposing a change to open a PR to the destination template\nrepositories instead of pushing the code.\n\nThis will give it a chance to run through the destination CI before\nmaking changes, and to set stricter branch protection in the destination\nrepos.",
+          "timestamp": "2024-08-09T11:03:07Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/87280eb52537a355c67c9b9cee8ff1f97d02d67a"
+        },
+        "date": 1723207369728,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63983.159999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.107701564209908,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.286202056270129,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.388987861850044,
             "unit": "seconds"
           }
         ]
