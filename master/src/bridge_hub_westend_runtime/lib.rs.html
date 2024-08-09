@@ -1669,7 +1669,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">"bridge-hub-westend"</span>),
 	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">"bridge-hub-westend"</span>),
 	authoring_version: <span class="number">1</span>,
-	spec_version: <span class="number">1_015_000</span>,
+	spec_version: <span class="number">1_016_000</span>,
 	impl_version: <span class="number">0</span>,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: <span class="number">5</span>,
@@ -2752,41 +2752,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">use </span>bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 
 		sp_io::TestExternalities::default().execute_with(|| {
-			frame_system::BlockHash::&lt;Runtime&gt;::insert(BlockNumber::zero(), Hash::default());
-			<span class="kw">let </span>payload: SignedExtra = (
-				frame_system::CheckNonZeroSender::new(),
-				frame_system::CheckSpecVersion::new(),
-				frame_system::CheckTxVersion::new(),
-				frame_system::CheckGenesis::new(),
-				frame_system::CheckEra::from(Era::Immortal),
-				frame_system::CheckNonce::from(<span class="number">10</span>),
-				frame_system::CheckWeight::new(),
-				pallet_transaction_payment::ChargeTransactionPayment::from(<span class="number">10</span>),
-				BridgeRejectObsoleteHeadersAndMessages,
-				(
-					bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),
-				),
-				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
-				frame_metadata_hash_extension::CheckMetadataHash::new(<span class="bool-val">false</span>),
-			);
+            frame_system::BlockHash::&lt;Runtime&gt;::insert(BlockNumber::zero(), Hash::default());
+            <span class="kw">let </span>payload: SignedExtra = (
+                frame_system::CheckNonZeroSender::new(),
+                frame_system::CheckSpecVersion::new(),
+                frame_system::CheckTxVersion::new(),
+                frame_system::CheckGenesis::new(),
+                frame_system::CheckEra::from(Era::Immortal),
+                frame_system::CheckNonce::from(<span class="number">10</span>),
+                frame_system::CheckWeight::new(),
+                pallet_transaction_payment::ChargeTransactionPayment::from(<span class="number">10</span>),
+                BridgeRejectObsoleteHeadersAndMessages,
+                (
+                    bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),
+                ),
+                cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
+                frame_metadata_hash_extension::CheckMetadataHash::new(<span class="bool-val">false</span>),
+            );
 
-			{
-				<span class="kw">let </span>bh_indirect_payload = bp_bridge_hub_westend::SignedExtension::from_params(
-					VERSION.spec_version,
-					VERSION.transaction_version,
-					bp_runtime::TransactionEra::Immortal,
-					System::block_hash(BlockNumber::zero()),
-					<span class="number">10</span>,
-					<span class="number">10</span>,
-					(((), ()), ((), ())),
-				);
-				<span class="macro">assert_eq!</span>(payload.encode().split_last().unwrap().<span class="number">1</span>, bh_indirect_payload.encode());
-				<span class="macro">assert_eq!</span>(
-					payload.additional_signed().unwrap().encode().split_last().unwrap().<span class="number">1</span>,
-					bh_indirect_payload.additional_signed().unwrap().encode()
-				)
-			}
-		});
+            {
+                <span class="kw">let </span>bh_indirect_payload = bp_bridge_hub_westend::SignedExtension::from_params(
+                    VERSION.spec_version,
+                    VERSION.transaction_version,
+                    bp_runtime::TransactionEra::Immortal,
+                    System::block_hash(BlockNumber::zero()),
+                    <span class="number">10</span>,
+                    <span class="number">10</span>,
+                    (((), ()), ((), ())),
+                );
+                <span class="macro">assert_eq!</span>(payload.encode().split_last().unwrap().<span class="number">1</span>, bh_indirect_payload.encode());
+                <span class="macro">assert_eq!</span>(
+                    payload.additional_signed().unwrap().encode().split_last().unwrap().<span class="number">1</span>,
+                    bh_indirect_payload.additional_signed().unwrap().encode()
+                )
+            }
+        });
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

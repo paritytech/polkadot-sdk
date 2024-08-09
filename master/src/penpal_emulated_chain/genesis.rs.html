@@ -243,6 +243,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -267,7 +269,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	accounts, build_genesis_storage, collators, get_account_id_from_seed, SAFE_XCM_VERSION,
 };
 <span class="kw">use </span>parachains_common::{AccountId, Balance};
-<span class="kw">use </span>penpal_runtime::xcm_config::{LocalReservableFromAssetHub, RelayLocation};
+<span class="kw">use </span>penpal_runtime::xcm_config::{LocalReservableFromAssetHub, RelayLocation, UsdtFromAssetHub};
 <span class="comment">// Penpal
 </span><span class="kw">pub const </span>PARA_ID_A: u32 = <span class="number">2000</span>;
 <span class="kw">pub const </span>PARA_ID_B: u32 = <span class="number">2001</span>;
@@ -326,6 +328,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>(RelayLocation::get(), PenpalAssetOwner::get(), <span class="bool-val">true</span>, ED),
 				<span class="comment">// Sufficient AssetHub asset representation
 				</span>(LocalReservableFromAssetHub::get(), PenpalAssetOwner::get(), <span class="bool-val">true</span>, ED),
+				<span class="comment">// USDT from Asset Hub
+				</span>(UsdtFromAssetHub::get(), PenpalAssetOwner::get(), <span class="bool-val">true</span>, ED),
 			],
 			..Default::default()
 		},
