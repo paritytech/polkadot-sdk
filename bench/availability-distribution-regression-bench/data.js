@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723137951235,
+  "lastUpdate": 1723196902997,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21371,6 +21371,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022126911106666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2993b0008e2ec4040be91868bf5f48a892508c3a",
+          "message": "Add stable release tag as an input parameter (#5282)\n\nThis PR adds the possibility to set the docker stable release tag as an\ninput parameter to the produced docker images, so that it matches with\nthe release version",
+          "timestamp": "2024-08-09T08:01:55Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2993b0008e2ec4040be91868bf5f48a892508c3a"
+        },
+        "date": 1723196872458,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009103291373333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022002733553333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012050877920000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16676796419333326,
             "unit": "seconds"
           }
         ]
