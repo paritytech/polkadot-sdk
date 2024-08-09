@@ -166,9 +166,13 @@ jobs:
           title: "[Don't merge] Update the ${{ matrix.template }} template to ${{ github.event.inputs.stable_release_branch }}"
           body: "The template has NOT been successfully built and needs to be inspected."
           branch: "update-template/${{ github.event.inputs.stable_release_branch }}"
-      - name: Push changes
-        run: |
-          git add -A .
-          git commit --allow-empty -m "Update to ${{ github.event.inputs.stable_release_branch }} triggered by ${{ github.event_name }}"
-          git push
-        working-directory: "${{ env.template-path }}"
+      - name: Create PR on success
+        uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v5
+        with:
+          path: "${{ env.template-path }}"
+          token: ${{ steps.app_token.outputs.token }}
+          add-paths: |
+            ./*
+          title: "Update the ${{ matrix.template }} template to ${{ github.event.inputs.stable_release_branch }}"
+          body: "This synchronizes the template to the ${{ github.event.inputs.stable_release_branch }} branch."
+          branch: "update-template/${{ github.event.inputs.stable_release_branch }}"
