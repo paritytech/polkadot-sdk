@@ -145,6 +145,7 @@ pub type SignedExtra = (
 		bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages,
 	),
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -1612,6 +1613,7 @@ mod tests {
 					bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
 				),
 				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
+				frame_metadata_hash_extension::CheckMetadataHash::new(false),
 			);
 
 			// for BridgeHubRococo
@@ -1625,9 +1627,9 @@ mod tests {
 					10,
 					(((), ()), ((), ())),
 				);
-				assert_eq!(payload.encode(), bhr_indirect_payload.encode());
+				assert_eq!(payload.encode().split_last().unwrap().1, bhr_indirect_payload.encode());
 				assert_eq!(
-					payload.additional_signed().unwrap().encode(),
+					payload.additional_signed().unwrap().encode().split_last().unwrap().1,
 					bhr_indirect_payload.additional_signed().unwrap().encode()
 				)
 			}
