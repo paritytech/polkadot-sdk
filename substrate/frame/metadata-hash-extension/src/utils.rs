@@ -15,23 +15,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+const HASH_LEN: usize = 32;
+
 /// Function to convert hex string to Option<[u8; 32]> in a const context.
 /// Returns `None` if fails to decode.
-pub const fn hex_str_to_32_bytes(hex_str: &str) -> Option<[u8; 32]> {
+pub const fn hex_str_to_32_bytes(hex_str: &str) -> Option<[u8; HASH_LEN]> {
 	let len = hex_str.len();
 
-	let start = if len == 64 {
+	let start = if len == HASH_LEN * 2 {
 		0
-	} else if len == 66 && hex_str.as_bytes()[0] == b'0' && hex_str.as_bytes()[1] == b'x' {
+	} else if len == HASH_LEN * 2 + 2 &&
+		hex_str.as_bytes()[0] == b'0' &&
+		hex_str.as_bytes()[1] == b'x'
+	{
 		2
 	} else {
 		return None;
 	};
 
-	let mut bytes = [0u8; 32];
+	let mut bytes = [0u8; HASH_LEN];
 	let mut i = 0;
 
-	while i < 32 {
+	while i < HASH_LEN {
 		let high = from_hex_digit(hex_str.as_bytes()[start + i * 2]);
 		let low = from_hex_digit(hex_str.as_bytes()[start + i * 2 + 1]);
 
