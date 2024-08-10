@@ -48,8 +48,8 @@ pub mod benchmarks;
 mod tests;
 mod weights;
 
-pub use weights::WeightInfo;
 pub use pallet::*;
+pub use weights::WeightInfo;
 
 const LOG_TARGET: &'static str = "runtime::storage_reclaim_pallet";
 
