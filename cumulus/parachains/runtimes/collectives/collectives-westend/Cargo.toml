@@ -96,9 +96,9 @@ sp-io = { features = ["std"], workspace = true, default-features = true }
 [features]
 default = ["std"]
 runtime-benchmarks = [
-	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
+	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
 	"cumulus-primitives-utility/runtime-benchmarks",
@@ -136,9 +136,9 @@ runtime-benchmarks = [
 	"xcm-runtime-apis/runtime-benchmarks",
 ]
 try-runtime = [
-	"cumulus-pallet-weight-reclaim/try-runtime",
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
+	"cumulus-pallet-weight-reclaim/try-runtime",
 	"cumulus-pallet-xcm/try-runtime",
 	"cumulus-pallet-xcmp-queue/try-runtime",
 	"frame-executive/try-runtime",
@@ -174,11 +174,11 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 std = [
-	"cumulus-pallet-weight-reclaim/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-session-benchmarking/std",
+	"cumulus-pallet-weight-reclaim/std",
 	"cumulus-pallet-xcm/std",
 	"cumulus-pallet-xcmp-queue/std",
 	"cumulus-primitives-aura/std",

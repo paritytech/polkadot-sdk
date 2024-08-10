@@ -97,6 +97,9 @@ impl<T, S: core::fmt::Debug> core::fmt::Debug for StorageWeightReclaim<T, S> {
 		#[cfg(feature = "std")]
 		let _ = write!(f, "StorageWeightReclaim<{:?}>", self.0);
 
+		#[cfg(not(feature = "std"))]
+		let _ = f;
+
 		Ok(())
 	}
 }
