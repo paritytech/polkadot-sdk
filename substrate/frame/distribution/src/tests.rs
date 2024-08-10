@@ -3,21 +3,21 @@ use crate::mock::*;
 use frame_support::{assert_noop, assert_ok};
 
 pub fn next_block() {
-	System::set_block_number(System::block_number() + 1);
-	AllPalletsWithSystem::on_initialize(System::block_number());
+	System::set_block_number(<Test as Config>::BlockNumberProvider::current_block_number() + 1);
+	AllPalletsWithSystem::on_initialize(<Test as Config>::BlockNumberProvider::current_block_number());
 }
 
 pub fn run_to_block(n: BlockNumberFor<Test>) {
-	while System::block_number() < n {
-		if System::block_number() > 1 {
-			AllPalletsWithSystem::on_finalize(System::block_number());
+	while <Test as Config>::BlockNumberProvider::current_block_number() < n {
+		if <Test as Config>::BlockNumberProvider::current_block_number() > 1 {
+			AllPalletsWithSystem::on_finalize(<Test as Config>::BlockNumberProvider::current_block_number());
 		}
 		next_block();
 	}
 }
 
 pub fn create_project(project_account: AccountId, amount: u128) {
-	let submission_block = System::block_number();
+	let submission_block = <Test as Config>::BlockNumberProvider::current_block_number();
 	let project: types::ProjectInfo<Test> =
 		ProjectInfo { project_account, submission_block, amount };
 	Projects::<Test>::mutate(|value| {
@@ -43,7 +43,7 @@ fn spends_creation_works() {
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
-		let now = System::block_number()
+		let now = <Test as Config>::BlockNumberProvider::current_block_number()
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
@@ -119,7 +119,7 @@ fn funds_are_locked() {
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
-		let now = System::block_number()
+		let now = <Test as Config>::BlockNumberProvider::current_block_number()
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
@@ -150,7 +150,7 @@ fn funds_claim_works() {
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
-		let mut now = System::block_number()
+		let mut now = <Test as Config>::BlockNumberProvider::current_block_number()
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
@@ -188,7 +188,7 @@ fn funds_claim_fails_before_claim_period() {
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
-		let now = System::block_number()
+		let now = <Test as Config>::BlockNumberProvider::current_block_number()
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 

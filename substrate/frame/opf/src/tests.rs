@@ -4,15 +4,15 @@ use frame_support::{assert_noop, assert_ok};
 use frame_support::traits::OnIdle;
 
 pub fn next_block() {
-	System::set_block_number(System::block_number() + 1);
-	AllPalletsWithSystem::on_initialize(System::block_number());
-    AllPalletsWithSystem::on_idle(System::block_number(), Weight::MAX);
+	System::set_block_number(<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number() + 1);
+	AllPalletsWithSystem::on_initialize(<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number());
+    AllPalletsWithSystem::on_idle(<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number(), Weight::MAX);
 }
 
 pub fn run_to_block(n: BlockNumberFor<Test>) {
-	while System::block_number() < n {
-		if System::block_number() > 1 {
-			AllPalletsWithSystem::on_finalize(System::block_number());
+	while <Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number() < n {
+		if <Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number() > 1 {
+			AllPalletsWithSystem::on_finalize(<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number());
 		}
 		next_block();
 	}
