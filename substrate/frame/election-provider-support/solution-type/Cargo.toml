@@ -28,6 +28,8 @@ codec = { workspace = true, default-features = true }
 scale-info = { workspace = true, default-features = true }
 sp-arithmetic = { workspace = true, default-features = true }
 # used by generate_solution_type:
-frame-election-provider-support = { workspace = true, default-features = true }
+# NOTE: we have to explicitly specify `std` because of trybuild
+# https://github.com/paritytech/polkadot-sdk/pull/5167
+frame-election-provider-support = { workspace = true, default-features = true, features = ["std"] }
 frame-support = { workspace = true, default-features = true }
 trybuild = { workspace = true }

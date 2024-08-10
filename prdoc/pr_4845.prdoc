@@ -1,0 +1,13 @@
+title: Make approval-distribution logic runnable on a separate thread
+
+doc:
+  - audience: Node Dev
+    description: |
+      Pass SubsystemSender<M> trait inside approval-distribution instead of passing SubsystemContext everywhere.
+
+      This allows us in the future to be able to run multiple approval-distribution instances on different workers.
+
+
+crates:
+- name: polkadot-approval-distribution
+  bump: minor

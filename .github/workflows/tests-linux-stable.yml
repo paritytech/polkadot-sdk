@@ -6,7 +6,7 @@ on:
     branches:
       - master
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
   merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -14,9 +14,11 @@ concurrency:
 
 jobs:
   changes:
+    # TODO: remove once migration is complete or this workflow is fully stable
+    if: contains(github.event.label.name, 'GHA-migration')
     permissions:
       pull-requests: read
-    uses: ./.github/workflows/check-changed-files.yml
+    uses: ./.github/workflows/reusable-check-changed-files.yml
 
   set-image:
     # GitHub Actions allows using 'env' in a container context.
@@ -51,7 +53,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: WASM_BUILD_NO_COLOR=1 time forklift cargo test -p staging-node-cli --release --locked -- --ignored
+        run: WASM_BUILD_NO_COLOR=1 forklift cargo test -p staging-node-cli --release --locked -- --ignored
 
   # https://github.com/paritytech/ci_cd/issues/864
   test-linux-stable-runtime-benchmarks:
@@ -70,4 +72,55 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: time forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+        run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+
+  test-linux-stable:
+    needs: [set-image, changes]
+    if: ${{ needs.changes.outputs.rust }}
+    runs-on: ${{ matrix.runners }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1/3, 2/3, 3/3]
+        runners: [arc-runners-polkadot-sdk-beefy, oldlinux]
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+      # needed for tests that use unshare syscall
+      options: --security-opt seccomp=unconfined
+    env:
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: |
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
+          forklift cargo nextest run \
+            --workspace \
+            --locked \
+            --release \
+            --no-fail-fast \
+            --features try-runtime,experimental,riscv,ci-only-tests \
+            --partition count:${{ matrix.partition }}
+      # run runtime-api tests with `enable-staging-api` feature on the 1st node
+      - name: runtime-api tests
+        if: ${{ matrix.partition == '1/3' }}
+        run: forklift cargo nextest run -p sp-api-test --features enable-staging-api
+
+  confirm-required-jobs-passed:
+    runs-on: ubuntu-latest
+    name: All tests passed
+    # If any new job gets added, be sure to add it to this array
+    needs:
+      [
+        test-linux-stable-int,
+        test-linux-stable-runtime-benchmarks,
+        test-linux-stable,
+      ]
+    steps:
+      - run: echo '### Good job! All the tests passed 🚀' >> $GITHUB_STEP_SUMMARY
