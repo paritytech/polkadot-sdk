@@ -73,22 +73,28 @@ where
 	QueryKind: QueryKindTrait<Value, OnEmpty>,
 	OnEmpty: Get<QueryKind::Query> + 'static,
 {
+	/// Pallet prefix. Used for generating final key.
+	#[deprecated]
 	pub fn pallet_prefix() -> &'static [u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
-
+	/// Storage prefix. Used for generating final key.
+	#[deprecated]
 	pub fn storage_prefix() -> &'static [u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
 	}
-
+	/// Convert an optional value retrieved from storage to the type queried.
+	#[deprecated]
 	pub fn from_optional_value_to_query(v: Option<Value>) -> QueryKind::Query {
 		QueryKind::from_optional_value_to_query(v)
 	}
-
+	/// Convert a query to an optional value into storage.
+	#[deprecated]
 	pub fn from_query_to_optional_value(v: QueryKind::Query) -> Option<Value> {
 		QueryKind::from_query_to_optional_value(v)
 	}
-
+	/// Generate the full key used in top storage.
+	#[deprecated]
 	pub fn storage_value_final_key() -> [u8; 32] {
 		Prefix::prefix_hash()
 	}

@@ -43,8 +43,6 @@ pub mod bounded_btree_map;
 pub mod bounded_btree_set;
 pub mod bounded_vec;
 pub mod child;
-#[doc(hidden)]
-pub mod generator;
 pub mod hashed;
 pub mod migration;
 pub mod storage_noop_guard;

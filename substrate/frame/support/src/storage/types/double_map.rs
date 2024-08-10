@@ -162,28 +162,35 @@ where
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	// type Query = QueryKind::Query;
-	// type Hasher1 = Hasher1;
-	// type Hasher2 = Hasher2;
+	/// Pallet prefix. Used for generating final key.
+	#[deprecated]
 	fn pallet_prefix() -> &'static [u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
-
+	/// Storage prefix. Used for generating final key.
+	#[deprecated]
 	fn storage_prefix() -> &'static [u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
 	}
+	/// The full prefix; just the hash of `pallet_prefix` concatenated to the hash of
+	/// `storage_prefix`.
+	#[deprecated]
 	fn prefix_hash() -> [u8; 32] {
 		Prefix::prefix_hash()
 	}
-
+	/// Convert an optional value retrieved from storage to the type queried.
+	#[deprecated]
 	fn from_optional_value_to_query(v: Option<Value>) -> QueryKind::Query {
 		QueryKind::from_optional_value_to_query(v)
 	}
+	/// Convert a query to an optional value into storage.
+	#[deprecated]
 	fn from_query_to_optional_value(v: QueryKind::Query) -> Option<Value> {
 		QueryKind::from_query_to_optional_value(v)
 	}
 	/// Generate the first part of the key used in top storage.
-	fn storage_double_map_final_key1<KArg1>(k1: KArg1) -> Vec<u8>
+	#[deprecated]
+	pub fn storage_double_map_final_key1<KArg1>(k1: KArg1) -> Vec<u8>
 	where
 		KArg1: EncodeLike<Key1>,
 	{

@@ -102,24 +102,36 @@ where
 	QueryKind: QueryKindTrait<Value, OnEmpty>,
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
-{
-	fn pallet_prefix() -> &'static [u8] {
+{	
+	/// Pallet prefix. Used for generating final key.
+	#[deprecated]
+	pub fn pallet_prefix() -> &'static [u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
-	fn storage_prefix() -> &'static [u8] {
+	/// Storage prefix. Used for generating final key.
+	#[deprecated]
+	pub fn storage_prefix() -> &'static [u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
 	}
+	/// The full prefix; just the hash of `pallet_prefix` concatenated to the hash of
+	/// `storage_prefix`.
+	#[deprecated]
 	pub fn prefix_hash() -> [u8; 32] {
 		Prefix::prefix_hash()
 	}
-	fn from_optional_value_to_query(v: Option<Value>) -> QueryKind::Query {
+	/// Convert an optional value retrieved from storage to the type queried.
+	#[deprecated]
+	pub fn from_optional_value_to_query(v: Option<Value>) -> QueryKind::Query {
 		QueryKind::from_optional_value_to_query(v)
 	}
-	fn from_query_to_optional_value(v: QueryKind::Query) -> Option<Value> {
+	/// Convert a query to an optional value into storage.
+	#[deprecated]
+	pub fn from_query_to_optional_value(v: QueryKind::Query) -> Option<Value> {
 		QueryKind::from_query_to_optional_value(v)
 	}
 
 	/// Generate a partial key used in top storage.
+	#[deprecated]
 	fn storage_n_map_partial_key<KP>(key: KP) -> Vec<u8>
 	where
 		Key: HasKeyPrefix<KP>,
@@ -136,6 +148,7 @@ where
 	}
 
 	/// Generate the full key used in top storage.
+	#[deprecated]
 	fn storage_n_map_final_key<KG, KArg>(key: KArg) -> Vec<u8>
 	where
 		KG: KeyGenerator,
