@@ -1,0 +1,10 @@
+title: "FRAME: Support instantiable pallets in tasks."
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      In FRAME, tasks can now be used in instantiable pallet.
+
+crates:
+  - name: frame-support-procedural
+    bump: path
