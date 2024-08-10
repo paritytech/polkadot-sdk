@@ -41,7 +41,7 @@ thread_local! {
 pub struct MockExtensionWithRefund;
 
 impl TransactionExtensionBase for MockExtensionWithRefund {
-	const IDENTIFIER: &str = "mock_extension_with_refund";
+	const IDENTIFIER: &'static str = "mock_extension_with_refund";
 	type Implicit = ();
 	fn weight() -> Weight {
 		MOCK_EXT_WEIGHT.with_borrow(|v| v.clone())
