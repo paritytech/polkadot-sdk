@@ -23,7 +23,8 @@ use frame_support::{
 	parameter_types,
 	traits::{ConstU64, EitherOf, MapSuccess, PollStatus, Polling},
 };
-use pallet_ranked_collective::{EnsureRanked, Geometric, TallyOf, Votes};
+use frame_system::pallet_prelude::BlockNumberFor;
+use pallet_ranked_collective::{EnsureRanked, Geometric, MemberIndex, TallyOf, Votes};
 use sp_core::{ConstU16, Get};
 use sp_runtime::{
 	traits::{Convert, ReduceBy, ReplaceWithDefault},
@@ -57,40 +58,45 @@ impl frame_system::Config for Test {
 
 pub struct TestPolls;
 impl Polling<TallyOf<Test>> for TestPolls {
-	type Index = u8;
+	type Index = MemberIndex;
 	type Votes = Votes;
-	type Moment = u64;
+	type Moment = BlockNumberFor<Test>;
 	type Class = Rank;
 
 	fn classes() -> Vec<Self::Class> {
-		unimplemented!()
+		vec![]
 	}
-	fn as_ongoing(_index: u8) -> Option<(TallyOf<Test>, Self::Class)> {
-		unimplemented!()
+	fn as_ongoing(_index: Self::Index) -> Option<(TallyOf<Test>, Self::Class)> {
+		None
 	}
 	fn access_poll<R>(
 		_index: Self::Index,
-		_f: impl FnOnce(PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>) -> R,
+		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>) -> R,
 	) -> R {
-		unimplemented!()
+		f(PollStatus::None)
 	}
 	fn try_access_poll<R>(
 		_index: Self::Index,
-		_f: impl FnOnce(
+		f: impl FnOnce(
 			PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>,
 		) -> Result<R, DispatchError>,
 	) -> Result<R, DispatchError> {
-		unimplemented!()
+		f(PollStatus::None)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn create_ongoing(_class: Self::Class) -> Result<Self::Index, ()> {
-		unimplemented!()
+		Err(())
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn end_ongoing(_index: Self::Index, _approved: bool) -> Result<(), ()> {
-		unimplemented!()
+		Err(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn max_ongoing() -> (Self::Class, u32) {
+		(0, 0)
 	}
 }
 
