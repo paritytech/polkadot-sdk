@@ -90,7 +90,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 
 /// The transactionExtension to the basic transaction logic.
-pub type TxExtension = cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim<
+pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
 		frame_system::CheckNonZeroSender<Runtime>,
@@ -420,7 +420,7 @@ impl identity_migrator::Config for Runtime {
 	type WeightInfo = weights::polkadot_runtime_common_identity_migrator::WeightInfo<Runtime>;
 }
 
-impl cumulus_pallet_weight_reclaim_tx::Config for Runtime {
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
 	type WeightInfo = ();
 }
 
@@ -462,7 +462,7 @@ construct_runtime!(
 		IdentityMigrator: identity_migrator = 248,
 
 		// Utility.
-		WeightReclaimTx: cumulus_pallet_weight_reclaim_tx = 249,
+		WeightReclaim: cumulus_pallet_weight_reclaim = 249,
 	}
 );
 
@@ -488,7 +488,7 @@ mod benches {
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
-		[cumulus_pallet_weight_reclaim_tx, WeightReclaimTx]
+		[cumulus_pallet_weight_reclaim, WeightReclaim]
 	);
 }
 

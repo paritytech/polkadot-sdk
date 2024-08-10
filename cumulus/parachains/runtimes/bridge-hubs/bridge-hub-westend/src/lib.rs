@@ -117,7 +117,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 
 /// The TransactionExtension to the basic transaction logic.
-pub type TxExtension = cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim<
+pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
 		frame_system::CheckNonZeroSender<Runtime>,
@@ -492,7 +492,7 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
 }
 
-impl cumulus_pallet_weight_reclaim_tx::Config for Runtime {
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
 	type WeightInfo = ();
 }
 
@@ -534,7 +534,7 @@ construct_runtime!(
 		XcmOverBridgeHubRococo: pallet_xcm_bridge_hub::<Instance1> = 45,
 
 		// Utility.
-		WeightReclaimTx: cumulus_pallet_weight_reclaim_tx = 50,
+		WeightReclaim: cumulus_pallet_weight_reclaim = 50,
 
 		EthereumInboundQueue: snowbridge_pallet_inbound_queue = 80,
 		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 81,
@@ -595,7 +595,7 @@ mod benches {
 		[pallet_bridge_grandpa, RococoFinality]
 		[pallet_bridge_parachains, WithinRococo]
 		[pallet_bridge_messages, WestendToRococo]
-		[cumulus_pallet_weight_reclaim_tx, WeightReclaimTx]
+		[cumulus_pallet_weight_reclaim, WeightReclaim]
 		// Ethereum Bridge
 		[snowbridge_pallet_inbound_queue, EthereumInboundQueue]
 		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
@@ -1297,7 +1297,7 @@ mod tests {
 
 		sp_io::TestExternalities::default().execute_with(|| {
 			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
-			let payload: TxExtension = cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim::new((
+			let payload: TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim::new((
 				frame_system::CheckNonZeroSender::new(),
 				frame_system::CheckSpecVersion::new(),
 				frame_system::CheckTxVersion::new(),

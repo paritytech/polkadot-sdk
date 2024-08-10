@@ -90,7 +90,7 @@ mod runtime {
 	pub type System = frame_system::Pallet<Test>;
 
 	#[runtime::pallet_index(1)]
-	pub type WeightReclaimTx = crate::Pallet<Test>;
+	pub type WeightReclaim = crate::Pallet<Test>;
 }
 
 pub struct MockWeightInfo;
@@ -186,13 +186,13 @@ const CALL: &<Test as frame_system::Config>::RuntimeCall =
 const ALICE_ORIGIN: frame_system::Origin<Test> = frame_system::Origin::<Test>::Signed(99);
 const LEN: usize = 150;
 
-fn new_tx() -> Tx {
+fn new_tx_ext() -> Tx {
 	Tx::new((MockExtensionWithRefund, frame_system::CheckWeight::new()))
 }
 
 fn new_extrinsic() -> generic::CheckedExtrinsic<AccountId, RuntimeCall, Tx> {
 	generic::CheckedExtrinsic {
-		format: generic::ExtrinsicFormat::Signed(99, new_tx()),
+		format: generic::ExtrinsicFormat::Signed(99, new_tx_ext()),
 		function: RuntimeCall::System(frame_system::Call::remark { remark: vec![] }),
 	}
 }
@@ -225,11 +225,11 @@ fn basic_refund() {
 		let info = DispatchInfo { call_weight: Weight::from_parts(0, 500), ..Default::default() };
 		let mut post_info = PostDispatchInfo::default();
 
-		let tx = new_tx();
+		let tx_ext = new_tx_ext();
 
 		// Check weight should add 500 + 150 (len) to weight.
 		let (pre, _) =
-			tx.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
+			tx_ext.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
 
 		assert_eq!(pre.0, Some(0));
 
@@ -251,11 +251,11 @@ fn does_nothing_without_extension() {
 		let info = DispatchInfo { call_weight: Weight::from_parts(0, 500), ..Default::default() };
 		let mut post_info = PostDispatchInfo::default();
 
-		let tx = new_tx();
+		let tx_ext = new_tx_ext();
 
 		// Check weight should add 500 + 150 (len) to weight.
 		let (pre, _) =
-			tx.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
+			tx_ext.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
 
 		assert_eq!(pre.0, None);
 
@@ -275,11 +275,11 @@ fn negative_refund_is_added_to_weight() {
 		let info = DispatchInfo { call_weight: Weight::from_parts(0, 100), ..Default::default() };
 		let mut post_info = PostDispatchInfo::default();
 
-		let tx = new_tx();
+		let tx_ext = new_tx_ext();
 
 		// Weight added should be 100 + 150 (len)
 		let (pre, _) =
-			tx.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
+			tx_ext.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
 
 		assert_eq!(pre.0, Some(100));
 
@@ -301,10 +301,10 @@ fn test_zero_proof_size() {
 		let info = DispatchInfo { call_weight: Weight::from_parts(0, 500), ..Default::default() };
 		let mut post_info = PostDispatchInfo::default();
 
-		let tx = new_tx();
+		let tx_ext = new_tx_ext();
 
 		let (pre, _) =
-			tx.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
+			tx_ext.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
 
 		assert_eq!(pre.0, Some(0));
 
@@ -325,11 +325,11 @@ fn test_larger_pre_dispatch_proof_size() {
 		let info = DispatchInfo { call_weight: Weight::from_parts(0, 500), ..Default::default() };
 		let mut post_info = PostDispatchInfo::default();
 
-		let tx = new_tx();
+		let tx_ext = new_tx_ext();
 
 		// Adds 500 + 150 (len) weight, total weight is 1950
 		let (pre, _) =
-			tx.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
+			tx_ext.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
 
 		assert_eq!(pre.0, Some(300));
 
@@ -360,11 +360,11 @@ fn test_incorporates_check_weight_unspent_weight() {
 			pays_fee: Default::default(),
 		};
 
-		let tx = new_tx();
+		let tx_ext = new_tx_ext();
 
 		// Check weight should add 300 + 150 (len) of weight
 		let (pre, _) =
-			tx.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
+			tx_ext.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
 
 		assert_eq!(pre.0, Some(100));
 
@@ -392,11 +392,11 @@ fn test_incorporates_check_weight_unspent_weight_on_negative() {
 			pays_fee: Default::default(),
 		};
 
-		let tx = new_tx();
+		let tx_ext = new_tx_ext();
 
 		// Adds 50 + 150 (len) weight, total weight 1200
 		let (pre, _) =
-			tx.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
+			tx_ext.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
 		assert_eq!(pre.0, Some(100));
 
 		// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
@@ -426,11 +426,11 @@ fn test_nothing_reclaimed() {
 			pays_fee: Default::default(),
 		};
 
-		let tx = new_tx();
+		let tx_ext = new_tx_ext();
 
 		// Adds benchmarked weight 100 + 150 (len), total weight is now 250
 		let (pre, _) =
-			tx.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
+			tx_ext.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN).unwrap();
 
 		// Weight should go up by 150 len + 100 proof size weight, total weight 250
 		assert_eq!(get_storage_weight().proof_size(), 250);

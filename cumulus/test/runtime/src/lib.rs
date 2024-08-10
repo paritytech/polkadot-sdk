@@ -326,7 +326,7 @@ impl pallet_aura::Config for Runtime {
 
 impl test_pallet::Config for Runtime {}
 
-impl cumulus_pallet_weight_reclaim_tx::Config for Runtime {
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
 	type WeightInfo = ();
 }
 
@@ -344,7 +344,7 @@ construct_runtime! {
 		Glutton: pallet_glutton,
 		Aura: pallet_aura,
 		AuraExt: cumulus_pallet_aura_ext,
-		WeightReclaimTx: cumulus_pallet_weight_reclaim_tx,
+		WeightReclaim: cumulus_pallet_weight_reclaim,
 	}
 }
 
@@ -375,7 +375,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The extension to the basic transaction logic.
-pub type TxExtension = cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim<
+pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
 		frame_system::CheckNonZeroSender<Runtime>,

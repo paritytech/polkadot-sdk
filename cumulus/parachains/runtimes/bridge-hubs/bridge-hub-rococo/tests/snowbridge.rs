@@ -171,7 +171,7 @@ fn construct_extrinsic(
 	call: RuntimeCall,
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
-	let tx_ext: TxExtension = cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim::new((
+	let tx_ext: TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim::new((
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),

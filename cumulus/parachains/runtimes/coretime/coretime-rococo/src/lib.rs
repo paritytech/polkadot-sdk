@@ -96,7 +96,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 
 /// The TransactionExtension to the basic transaction logic.
-pub type TxExtension = cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim<
+pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
 		frame_system::CheckNonZeroSender<Runtime>,
@@ -456,7 +456,7 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
-impl cumulus_pallet_weight_reclaim_tx::Config for Runtime {
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
 	type WeightInfo = ();
 }
 
@@ -498,7 +498,7 @@ construct_runtime!(
 		Sudo: pallet_sudo = 100,
 
 		// Utility.
-		WeightReclaimTx: cumulus_pallet_weight_reclaim_tx = 101,
+		WeightReclaim: cumulus_pallet_weight_reclaim = 101,
 	}
 );
 
@@ -520,7 +520,7 @@ mod benches {
 		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
-		[cumulus_pallet_weight_reclaim_tx, WeightReclaimTx]
+		[cumulus_pallet_weight_reclaim, WeightReclaim]
 	);
 }
 

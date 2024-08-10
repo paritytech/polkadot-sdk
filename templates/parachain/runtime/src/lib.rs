@@ -73,7 +73,7 @@ pub type BlockId = generic::BlockId<Block>;
 
 /// The extension to the basic transaction logic.
 #[docify::export(template_signed_extra)]
-pub type TxExtension = cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim<
+pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
 		frame_system::CheckNonZeroSender<Runtime>,
@@ -308,7 +308,7 @@ mod runtime {
 
 	// Utility.
 	#[runtime::pallet_index(51)]
-	pub type WeightReclaimTx = cumulus_pallet_weight_reclaim_tx;
+	pub type WeightReclaim = cumulus_pallet_weight_reclaim;
 
 	// Template
 	#[runtime::pallet_index(50)]

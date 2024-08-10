@@ -652,7 +652,7 @@ impl pallet_asset_rate::Config for Runtime {
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::AssetRateArguments;
 }
 
-impl cumulus_pallet_weight_reclaim_tx::Config for Runtime {
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
 	type WeightInfo = ();
 }
 
@@ -719,7 +719,7 @@ construct_runtime!(
 		AmbassadorContent: pallet_collective_content::<Instance1> = 75,
 
 		StateTrieMigration: pallet_state_trie_migration = 80,
-		WeightReclaimTx: cumulus_pallet_weight_reclaim_tx = 81,
+		WeightReclaim: cumulus_pallet_weight_reclaim = 81,
 	}
 );
 
@@ -732,7 +732,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The extension to the basic transaction logic.
-pub type TxExtension = cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim<
+pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
 		frame_system::CheckNonZeroSender<Runtime>,
@@ -805,7 +805,7 @@ mod benches {
 		[pallet_salary, AmbassadorSalary]
 		[pallet_treasury, FellowshipTreasury]
 		[pallet_asset_rate, AssetRate]
-		[cumulus_pallet_weight_reclaim_tx, WeightReclaimTx]
+		[cumulus_pallet_weight_reclaim, WeightReclaim]
 	);
 }
 

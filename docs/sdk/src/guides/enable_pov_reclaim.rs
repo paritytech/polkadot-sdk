@@ -62,7 +62,7 @@
 //!
 //! In your runtime, you will find a list of TransactionExtensions.
 //! To enable the reclaiming,
-//! set [`StorageWeightReclaim`](cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim)
+//! set [`StorageWeightReclaim`](cumulus_pallet_weight_reclaim::StorageWeightReclaim)
 //! as a warpper of that list.
 //! It is necessary that this extension wraps all the other transaction extensions in order to catch
 //! the whole PoV size of the transactions.

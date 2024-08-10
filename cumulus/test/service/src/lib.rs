@@ -960,7 +960,7 @@ pub fn construct_extrinsic(
 		.unwrap_or(2) as u64;
 	let tip = 0;
 	let tx_ext: runtime::TxExtension =
-		cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim::new((
+		cumulus_pallet_weight_reclaim::StorageWeightReclaim::new((
 			frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 			frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 			frame_system::CheckGenesis::<runtime::Runtime>::new(),

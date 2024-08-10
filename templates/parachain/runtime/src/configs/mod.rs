@@ -311,6 +311,6 @@ impl pallet_parachain_template::Config for Runtime {
 }
 
 /// Configure the palelt weight reclaim tx.
-impl cumulus_pallet_weight_reclaim_tx::Config for Runtime {
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
 	type WeightInfo = ();
 }

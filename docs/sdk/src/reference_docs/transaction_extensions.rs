@@ -47,7 +47,7 @@
 //!   to include the so-called metadata hash. This is required by chains to support the generic
 //!   Ledger application and other similar offline wallets.
 //!
-//! - [`StorageWeightReclaim`](cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim): A
+//! - [`StorageWeightReclaim`](cumulus_pallet_weight_reclaim::StorageWeightReclaim): A
 //!   transaction extension for parachains that reclaims unused storage weight after executing a
 //!   transaction.
 //!

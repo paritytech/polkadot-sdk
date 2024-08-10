@@ -942,7 +942,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
 }
 
-impl cumulus_pallet_weight_reclaim_tx::Config for Runtime {
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
 	type WeightInfo = ();
 }
 
@@ -996,7 +996,7 @@ construct_runtime!(
 		PoolAssetsFreezer: pallet_assets_freezer::<Instance3> = 59,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
-		WeightReclaimTx: cumulus_pallet_weight_reclaim_tx = 71,
+		WeightReclaim: cumulus_pallet_weight_reclaim = 71,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
@@ -1014,7 +1014,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The extension to the basic transaction logic.
-pub type TxExtension = cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim<
+pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
 		frame_system::CheckNonZeroSender<Runtime>,
@@ -1256,7 +1256,7 @@ mod benches {
 		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
-		[cumulus_pallet_weight_reclaim_tx, WeightReclaimTx]
+		[cumulus_pallet_weight_reclaim, WeightReclaim]
 	);
 }
 

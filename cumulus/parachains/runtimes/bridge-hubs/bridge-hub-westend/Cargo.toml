@@ -74,7 +74,7 @@ cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
 cumulus-primitives-storage-weight-reclaim = { workspace = true }
-cumulus-pallet-weight-reclaim-tx = { workspace = true }
+cumulus-pallet-weight-reclaim = { workspace = true }
 
 pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
@@ -124,7 +124,7 @@ snowbridge-runtime-test-common = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-	"cumulus-pallet-weight-reclaim-tx/std",
+	"cumulus-pallet-weight-reclaim/std",
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",
 	"bp-bridge-hub-rococo/std",
@@ -216,7 +216,7 @@ std = [
 ]
 
 runtime-benchmarks = [
-	"cumulus-pallet-weight-reclaim-tx/runtime-benchmarks",
+	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
 	"bridge-hub-common/runtime-benchmarks",
 	"bridge-runtime-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
@@ -260,7 +260,7 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
-	"cumulus-pallet-weight-reclaim-tx/try-runtime",
+	"cumulus-pallet-weight-reclaim/try-runtime",
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
 	"cumulus-pallet-xcm/try-runtime",

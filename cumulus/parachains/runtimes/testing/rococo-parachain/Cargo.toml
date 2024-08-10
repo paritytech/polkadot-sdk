@@ -57,7 +57,7 @@ cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-storage-weight-reclaim = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
-cumulus-pallet-weight-reclaim-tx = { workspace = true }
+cumulus-pallet-weight-reclaim = { workspace = true }
 parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["rococo"], workspace = true }
 parachain-info = { workspace = true }
@@ -68,7 +68,7 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 [features]
 default = ["std"]
 std = [
-	"cumulus-pallet-weight-reclaim-tx/std",
+	"cumulus-pallet-weight-reclaim/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",
@@ -116,7 +116,7 @@ std = [
 	"xcm/std",
 ]
 runtime-benchmarks = [
-	"cumulus-pallet-weight-reclaim-tx/runtime-benchmarks",
+	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",

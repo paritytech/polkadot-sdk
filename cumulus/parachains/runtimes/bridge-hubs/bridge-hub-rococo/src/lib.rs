@@ -701,7 +701,7 @@ impl snowbridge_pallet_system::Config for Runtime {
 	type InboundDeliveryCost = EthereumInboundQueue;
 }
 
-impl cumulus_pallet_weight_reclaim_tx::Config for Runtime {
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
 	type WeightInfo = ();
 }
 
@@ -767,7 +767,7 @@ construct_runtime!(
 		EthereumBeaconClient: snowbridge_pallet_ethereum_client = 82,
 		EthereumSystem: snowbridge_pallet_system = 83,
 
-		WeightReclaimTx: cumulus_pallet_weight_reclaim_tx = 90,
+		WeightReclaim: cumulus_pallet_weight_reclaim = 90,
 
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
@@ -843,7 +843,7 @@ mod benches {
 		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
 		[snowbridge_pallet_system, EthereumSystem]
 		[snowbridge_pallet_ethereum_client, EthereumBeaconClient]
-		[cumulus_pallet_weight_reclaim_tx, WeightReclaimTx]
+		[cumulus_pallet_weight_reclaim, WeightReclaim]
 	);
 }
 
@@ -1623,7 +1623,7 @@ mod tests {
 
 		sp_io::TestExternalities::default().execute_with(|| {
 			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
-			let payload: TxExtension = cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim::new((
+			let payload: TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim::new((
 				frame_system::CheckNonZeroSender::new(),
 				frame_system::CheckSpecVersion::new(),
 				frame_system::CheckTxVersion::new(),
