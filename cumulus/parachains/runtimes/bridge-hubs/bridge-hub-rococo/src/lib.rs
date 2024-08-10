@@ -130,8 +130,17 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 
 /// The TransactionExtension to the basic transaction logic.
-pub type TxExtension = cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim<
-	Runtime,
+pub type TxExtension = (
+	frame_system::CheckNonZeroSender<Runtime>,
+	frame_system::CheckSpecVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
+	frame_system::CheckGenesis<Runtime>,
+	frame_system::CheckEra<Runtime>,
+	frame_system::CheckNonce<Runtime>,
+	frame_system::CheckWeight<Runtime>,
+	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	BridgeRejectObsoleteHeadersAndMessages,
+>>>>>>> origin/george/restore-gav-tx-ext
 	(
 		frame_system::CheckNonZeroSender<Runtime>,
 		frame_system::CheckSpecVersion<Runtime>,
@@ -140,13 +149,13 @@ pub type TxExtension = cumulus_pallet_weight_reclaim_tx::StorageWeightReclaim<
 		frame_system::CheckEra<Runtime>,
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
-		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 		BridgeRejectObsoleteHeadersAndMessages,
 		(
 			bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
 			bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages,
 		),
+		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	),
 >;
 
@@ -1622,13 +1631,13 @@ mod tests {
 				frame_system::CheckEra::from(Era::Immortal),
 				frame_system::CheckNonce::from(10),
 				frame_system::CheckWeight::new(),
-				frame_metadata_hash_extension::CheckMetadataHash::new(false),
 				pallet_transaction_payment::ChargeTransactionPayment::from(10),
 				BridgeRejectObsoleteHeadersAndMessages,
 				(
 					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
 					bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
 				),
+				frame_metadata_hash_extension::CheckMetadataHash::new(false),
 			));
 
 			// for BridgeHubRococo
