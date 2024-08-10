@@ -234,7 +234,7 @@ fn basic_refund() {
 
 		assert_eq!(pre.0, Some(0));
 
-		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(()), &()));
+		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
 		assert_eq!(get_storage_weight().proof_size(), 1250);
 	});
@@ -261,7 +261,7 @@ fn does_nothing_without_extension() {
 
 		assert_eq!(pre.0, None);
 
-		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(()), &()));
+		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
 		assert_eq!(get_storage_weight().proof_size(), 1650);
 	})
@@ -287,7 +287,7 @@ fn negative_refund_is_added_to_weight() {
 		assert_eq!(pre.0, Some(100));
 
 		// We expect no refund
-		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(()), &()));
+		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
 		assert_eq!(
 			get_storage_weight().proof_size(),
@@ -312,7 +312,7 @@ fn test_zero_proof_size() {
 
 		assert_eq!(pre.0, Some(0));
 
-		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(()), &()));
+		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
 		// Proof size should be exactly equal to extrinsic length
 		assert_eq!(get_storage_weight().proof_size(), LEN as u64);
@@ -343,7 +343,7 @@ fn test_larger_pre_dispatch_proof_size() {
 		//
 		// storage reclaim:
 		// Recorded proof size is negative -200, total weight is now 1450
-		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(()), &()));
+		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
 		assert_eq!(get_storage_weight().proof_size(), 1450);
 	});
@@ -376,7 +376,7 @@ fn test_incorporates_check_weight_unspent_weight() {
 
 		// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 		// we always need to call `post_dispatch` to verify that they interoperate correctly.
-		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(()), &()));
+		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
 		// Reclaimed 100
 		assert_eq!(get_storage_weight().proof_size(), 1350);
@@ -412,7 +412,7 @@ fn test_incorporates_check_weight_unspent_weight_on_negative() {
 		//
 		// storage reclaim:
 		// Adds 200 - 25 (unspent) == 175 weight, total weight 1350
-		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(()), &()));
+		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
 		assert_eq!(get_storage_weight().proof_size(), 1350);
 	})
@@ -454,7 +454,7 @@ fn test_nothing_reclaimed() {
 		// `setup_test_externalities` proof recorder value: 200, so this means the extrinsic
 		// actually used 100 proof size.
 		// Nothing to refund or add, weight matches proof recorder
-		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(()), &()));
+		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
 		// Check block len weight was not reclaimed:
 		// 100 weight + 150 extrinsic len == 250 proof size
