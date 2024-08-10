@@ -23,9 +23,9 @@ use sp_runtime::TryRuntimeError;
 
 pub mod unversioned {
 	use super::*;
-	use sp_runtime::traits::AccountIdConversion;
 	#[cfg(feature = "try-runtime")]
 	use alloc::vec::Vec;
+	use sp_runtime::traits::AccountIdConversion;
 
 	/// Migrates `ProxyDelegator` accounts with better entropy than the previous.
 	pub struct ProxyDelegatorMigration<T, MaxAgents>(PhantomData<(T, MaxAgents)>);

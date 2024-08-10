@@ -707,9 +707,6 @@ impl<T: Config> Pallet<T> {
 			.checked_sub(&amount)
 			.defensive_ok_or(Error::<T>::BadState)?;
 
-		// ensure amount is greater than ED otherwise transfer would fail.
-		ensure!(amount >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
-
 		// transfer the held amount in `source_delegator` to `destination_delegator`.
 		let _ = T::Currency::transfer_on_hold(
 			&HoldReason::StakingDelegation.into(),
