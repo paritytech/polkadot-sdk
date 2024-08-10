@@ -46,10 +46,12 @@ use sp_runtime::{
 pub mod benchmarks;
 #[cfg(test)]
 mod tests;
+mod weights;
+
+pub use weights::WeightInfo;
+pub use pallet::*;
 
 const LOG_TARGET: &'static str = "runtime::storage_reclaim_pallet";
-
-pub use pallet::*;
 
 /// Pallet to use alongside the transaction extension [`StorageWeightReclaim`], the pallet provides
 /// weight information and benchmarks.
@@ -63,17 +65,6 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type WeightInfo: WeightInfo;
-	}
-}
-
-// TODO: generate from cli
-pub trait WeightInfo {
-	fn storage_weight_reclaim() -> Weight;
-}
-
-impl WeightInfo for () {
-	fn storage_weight_reclaim() -> Weight {
-		Weight::zero()
 	}
 }
 
