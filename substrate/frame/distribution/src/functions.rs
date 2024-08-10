@@ -120,7 +120,7 @@ impl<T: Config> Pallet<T> {
 							projects.retain(|value| *value != project);
 
 							// Emmit an event
-							let now = <frame_system::Pallet<T>>::block_number();
+							let now = T::BlockNumberProvider::current_block_number();
 							Self::deposit_event(Event::SpendCreated {
 								when: now,
 								amount: new_spend.amount,

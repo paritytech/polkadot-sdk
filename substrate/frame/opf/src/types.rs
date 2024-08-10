@@ -10,7 +10,7 @@ pub use frame_system::{pallet_prelude::*, RawOrigin, WeightInfo};
 pub use pallet_distribution::{MutateHold, Inspect,AccountIdOf, BalanceOf, HoldReason, ProjectInfo, ProjectId};
 pub use scale_info::prelude::vec::Vec;
 pub use sp_runtime::traits::{Saturating, CheckedSub};
-pub use sp_runtime::traits::{AccountIdConversion, Convert, StaticLookup, Zero,CheckedAdd};
+pub use sp_runtime::traits::{BlockNumberProvider, AccountIdConversion, Convert, StaticLookup, Zero,CheckedAdd};
 pub use sp_runtime::Percent;
 pub use frame_support::weights::WeightMeter;
 
@@ -42,7 +42,7 @@ pub struct VotingRoundInfo<T: Config>{
 
 impl<T: Config> VotingRoundInfo<T>{
 	pub fn new() -> Self{
-		let round_starting_block = <frame_system::Pallet<T>>::block_number();		
+		let round_starting_block = T::BlockNumberProvider::current_block_number();		
 		let round_ending_block = round_starting_block.clone().checked_add(&T::VotingPeriod::get()).expect("Invalid Result");
 		let voting_locked_block = round_ending_block.checked_sub(&T::VoteLockingPeriod::get()).expect("Invalid Result");
 		let round_number = VotingRoundNumber::<T>::get();

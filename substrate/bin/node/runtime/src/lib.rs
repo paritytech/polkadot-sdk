@@ -2176,6 +2176,8 @@ impl pallet_distribution::Config for Runtime {
 
 	/// Epoch duration in blocks
 	type EpochDurationBlocks = EpochDurationBlocks;
+
+	type BlockNumberProvider = System;
 }
 
 parameter_types!{	

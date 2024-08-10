@@ -84,6 +84,7 @@ impl pallet_distribution::Config for Test {
 	type BufferPeriod = Period;
 	type MaxProjects = MaxProjects;
 	type EpochDurationBlocks = EpochDurationBlocks;
+	type BlockNumberProvider = System;
 }
 //Define some accounts and use them
 pub const ALICE: AccountId = 10;

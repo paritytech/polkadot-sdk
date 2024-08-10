@@ -36,6 +36,9 @@ pub mod pallet {
 			+ fungible::freeze::Inspect<Self::AccountId>
 			+ fungible::freeze::Mutate<Self::AccountId>;
 
+		/// Provider for the block number.
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
+		
 		/// Treasury account Id
 		#[pallet::constant]
 		type PotId: Get<PalletId>;
@@ -160,7 +163,7 @@ pub mod pallet {
 				let mut info = Spends::<T>::get(i).ok_or(Error::<T>::InexistentSpend)?;
 				let project_account =
 					info.whitelisted_project.clone().ok_or(Error::<T>::NoValidAccount)?;
-				let now = <frame_system::Pallet<T>>::block_number();
+				let now = T::BlockNumberProvider::current_block_number();
 
 				// Check that we're within the claiming period
 				ensure!(now > info.valid_from, Error::<T>::NotClaimingPeriod);

@@ -85,6 +85,7 @@ impl pallet_distribution::Config for Test {
 	type BufferPeriod = Period;
 	type MaxProjects = MaxProjects;
 	type EpochDurationBlocks = EpochDurationBlocks;
+	type BlockNumberProvider = System;
 }
 
 parameter_types!{
@@ -100,6 +101,7 @@ impl pallet_opf::Config for Test {
 	type MaxWhitelistedProjects = MaxWhitelistedProjects;
 	type TemporaryRewards = TemporaryRewards;
 }
+
 //Define some accounts and use them
 pub const ALICE: AccountId = 10;
 pub const BOB: AccountId = 11;

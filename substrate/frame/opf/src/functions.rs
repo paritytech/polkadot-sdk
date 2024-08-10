@@ -36,7 +36,7 @@ impl<T: Config> Pallet<T> {
 		// Get current voting round & check if we are in voting period or not
 		let current_round_index = VotingRoundNumber::<T>::get().saturating_sub(1);
 		let round = VotingRounds::<T>::get(current_round_index).ok_or(Error::<T>::NoRoundFound)?;
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 		ensure!(now >= round.voting_locked_block, Error::<T>::VotePeriodClosed);
 		ensure!(now < round.round_ending_block, Error::<T>::VotingRoundOver);
 		Ok(())

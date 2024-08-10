@@ -14,7 +14,7 @@ pub use frame_support::{
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
 pub use scale_info::prelude::vec::Vec;
-pub use sp_runtime::traits::{AccountIdConversion, Convert, Saturating, StaticLookup, Zero};
+pub use sp_runtime::traits::{BlockNumberProvider, AccountIdConversion, Convert, Saturating, StaticLookup, Zero};
 
 pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
 	<T as frame_system::Config>::AccountId,
