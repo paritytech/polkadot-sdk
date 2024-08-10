@@ -164,9 +164,7 @@ where
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let (proof_size, inner_val) = val;
-		self.0
-			.prepare(inner_val, origin, call, info, len)
-			.map(|pre| (proof_size, pre))
+		self.0.prepare(inner_val, origin, call, info, len).map(|pre| (proof_size, pre))
 	}
 
 	fn post_dispatch_details(
