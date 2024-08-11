@@ -170,11 +170,12 @@ pub use extensions::{
 	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
 	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
 	check_weight::CheckWeight, WeightInfo as ExtensionsWeightInfo,
+	authorize_call::AuthorizeCall, deny_none::DenyNone,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
 pub use frame_support::dispatch::RawOrigin;
-use frame_support::traits::{PostInherents, PostTransactions, PreInherents};
+use frame_support::traits::{Authorize, PostInherents, PostTransactions, PreInherents};
 pub use weights::WeightInfo;
 
 const LOG_TARGET: &str = "runtime::system";
@@ -490,7 +491,8 @@ pub mod pallet {
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ Debug
-			+ From<Call<Self>>;
+			+ From<Call<Self>>
+			+ Authorize<RuntimeOrigin = Self::RuntimeOrigin>;
 
 		/// The aggregated `RuntimeTask` type.
 		#[pallet::no_default_bounds]

@@ -23,5 +23,7 @@ pub mod check_spec_version;
 pub mod check_tx_version;
 pub mod check_weight;
 pub mod weights;
+pub mod authorize_call;
+pub mod deny_none;
 
 pub use weights::WeightInfo;

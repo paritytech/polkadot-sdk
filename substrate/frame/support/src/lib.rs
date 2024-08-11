@@ -917,7 +917,7 @@ pub mod pallet_prelude {
 	pub use scale_info::TypeInfo;
 	pub use sp_inherents::MakeFatalError;
 	pub use sp_runtime::{
-		traits::{MaybeSerializeDeserialize, Member, ValidateUnsigned},
+		traits::{MaybeSerializeDeserialize, Member, ValidateResult, ValidateUnsigned},
 		transaction_validity::{
 			InvalidTransaction, TransactionLongevity, TransactionPriority, TransactionSource,
 			TransactionTag, TransactionValidity, TransactionValidityError, UnknownTransaction,
@@ -2408,7 +2408,7 @@ pub mod pallet_macros {
 	pub use frame_support_procedural::storage;
 
 	pub use frame_support_procedural::{
-		task_condition, task_index, task_list, task_weight, tasks_experimental,
+		task_condition, task_index, task_list, task_weight, tasks_experimental, authorize, weight_of_authorize, authorized_call, ensure_authorized_origin,
 	};
 
 	/// Allows a pallet to declare a type as an origin.

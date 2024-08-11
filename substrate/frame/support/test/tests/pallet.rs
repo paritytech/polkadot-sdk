@@ -212,12 +212,22 @@ pub mod pallet {
 	{
 		/// call foo doc comment put in metadata
 		#[pallet::call_index(0)]
+		#[pallet::authorize(|foo, bar| {
+			if *foo == 1 {
+				Ok(Default::default())
+			} else {
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+			}
+		})]
+		#[pallet::weight_of_authorize(Weight::from_all(0))]
 		#[pallet::weight(Weight::from_parts(*foo as u64, 0))]
 		pub fn foo(
 			origin: OriginFor<T>,
 			#[pallet::compact] foo: u32,
 			_bar: u32,
 		) -> DispatchResultWithPostInfo {
+			ensure_authorized_origin!(origin);
+
 			let _ = foo;
 			let _ = T::AccountId::from(SomeType1); // Test for where clause
 			let _ = T::AccountId::from(SomeType3); // Test for where clause
@@ -468,14 +478,16 @@ pub mod pallet {
 		RuntimeDebugNoBound,
 		CloneNoBound,
 		PartialEqNoBound,
-		PartialOrdNoBound,
-		OrdNoBound,
 		Encode,
 		Decode,
 		TypeInfo,
 		MaxEncodedLen,
 	)]
-	pub struct Origin<T>(PhantomData<T>);
+	pub enum Origin<T> {
+		#[pallet::authorized_call]
+		AuthorizedCall(_),
+		__Phantom(PhantomData<(T, frame_support::Never)>),
+	}
 
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T>

@@ -164,8 +164,8 @@ impl Def {
 					let g = genesis_build::GenesisBuildDef::try_from(span, item)?;
 					genesis_build = Some(g);
 				},
-				Some(PalletAttr::RuntimeOrigin(_)) if origin.is_none() =>
-					origin = Some(origin::OriginDef::try_from(item)?),
+				Some(PalletAttr::RuntimeOrigin(span)) if origin.is_none() =>
+					origin = Some(origin::OriginDef::try_from(span, index, item)?),
 				Some(PalletAttr::Inherent(_)) if inherent.is_none() =>
 					inherent = Some(inherent::InherentDef::try_from(item)?),
 				Some(PalletAttr::Storage(span)) =>
@@ -254,6 +254,7 @@ impl Def {
 
 		def.check_instance_usage()?;
 		def.check_event_usage()?;
+		def.check_authorize_usage()?;
 
 		Ok(def)
 	}
@@ -369,6 +370,56 @@ impl Def {
 			},
 			_ => Ok(()),
 		}
+	}
+
+	/// Check that usage of `authorize` is consistent: if a call is declared with
+	/// `pallet::authorize` attribute then the origin must be not declared or declared as an enum
+	/// with a variant with attribute: `pallet::authorized_call`.
+	fn check_authorize_usage(&self) -> syn::Result<()> {
+		let authorize_call = self
+			.call
+			.as_ref()
+			.map_or(false, |call| call.methods.iter().any(|call| call.authorize.is_some()));
+
+		if authorize_call {
+			if let Some(origin) = &self.origin {
+				if origin.authorized_call.is_none() {
+					let msg = "Invalid usage of `authorize`, one call variant is declared with `#[pallet::authorize]` \
+						but `Origin` is explicitly declared and doesn't provide a placeholder for authorized call orgin variant. \
+						Origin must be declared as an enum with one variant with attribute `#[pallet::authorized_call]`:
+						```
+						#[pallet::origin]
+						pub enum Origin {
+							...
+							#[pallet::authorized_call]
+							AuthorizedCall(_),
+						}
+						```";
+					return Err(syn::Error::new(origin.span, msg))
+				}
+			}
+
+			if let Some(disable_check_attr) = &self.config.disable_system_supertrait_check {
+				let msg = "`pallet::disable_system_supertrait_check` and `pallet::authorize` are \
+					incompatible. `pallet::authorize` requires supertrait check.";
+
+				return Err(syn::Error::new(disable_check_attr.span, msg))
+			}
+		}
+
+		if let Some(origin_authorized_call) =
+			&self.origin.as_ref().and_then(|origin| origin.authorized_call)
+		{
+			if !authorize_call {
+				let msg = "Invalid usage of `authorized_call`, `Origin` is declared with \
+					`#[pallet::authorized_call]` but no call variant is declared with \
+					`#[pallet::authorize]`. This variant is thus dead code. Remove the this variant \
+					from `Origin` or use `#[pallet::authorize]` in some call variants.";
+				return Err(syn::Error::new(origin_authorized_call.1, msg))
+			}
+		}
+
+		Ok(())
 	}
 
 	/// Check that usage of trait `Config` is consistent with the definition, i.e. it is used with
@@ -531,6 +582,28 @@ impl GenericKind {
 		match self {
 			GenericKind::None => false,
 			GenericKind::Config | GenericKind::ConfigAndInstance => true,
+		}
+	}
+
+	/// Return the generic to be used when declaring a type like a struct or enum.
+	///
+	/// ``, `T: Config` or `T: Config<I>, I = ()`.
+	pub fn type_decl_bounded_gen(&self, span: proc_macro2::Span) -> proc_macro2::TokenStream {
+		match self {
+			GenericKind::None => quote::quote!(),
+			GenericKind::Config => quote::quote_spanned!(span => T: Config),
+			GenericKind::ConfigAndInstance => quote::quote_spanned!(span => T: Config<I>, I = ()),
+		}
+	}
+
+	/// Return the generic to be used when using the type but within config trait definition.
+	///
+	/// Depending on its definition it can be: ``, `Self` or `Self, I`
+	pub fn type_use_gen_within_config(&self, span: proc_macro2::Span) -> proc_macro2::TokenStream {
+		match self {
+			GenericKind::None => quote::quote!(),
+			GenericKind::Config => quote::quote_spanned!(span => Self),
+			GenericKind::ConfigAndInstance => quote::quote_spanned!(span => Self, I),
 		}
 	}
 }

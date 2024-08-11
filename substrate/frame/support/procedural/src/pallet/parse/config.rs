@@ -68,6 +68,9 @@ pub struct ConfigDef {
 	/// Vec will be empty if `#[pallet::config(with_default)]` is not specified or if there are
 	/// no trait items.
 	pub default_sub_trait: Option<DefaultTrait>,
+	/// Whether the check for frame_system supertrait is disabled.
+	/// E.g. there might be no `: frame_system::Config` supertrait bound on `Config`
+	pub disable_system_supertrait_check: Option<DisableFrameSystemSupertraitCheck>,
 }
 
 /// Input definition for a constant in pallet config.
@@ -120,7 +123,9 @@ impl TryFrom<&syn::TraitItemType> for ConstMetadataDef {
 }
 
 /// Parse for `#[pallet::disable_frame_system_supertrait_check]`
-pub struct DisableFrameSystemSupertraitCheck;
+pub struct DisableFrameSystemSupertraitCheck {
+	pub span: proc_macro2::Span,
+}
 
 impl syn::parse::Parse for DisableFrameSystemSupertraitCheck {
 	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
@@ -129,9 +134,8 @@ impl syn::parse::Parse for DisableFrameSystemSupertraitCheck {
 		syn::bracketed!(content in input);
 		content.parse::<syn::Ident>()?;
 		content.parse::<syn::Token![::]>()?;
-
-		content.parse::<keyword::disable_frame_system_supertrait_check>()?;
-		Ok(Self)
+		let keyword = content.parse::<keyword::disable_frame_system_supertrait_check>()?;
+		Ok(Self { span: keyword.span() })
 	}
 }
 
@@ -446,11 +450,10 @@ impl ConfigDef {
 			}
 		}
 
-		let attr: Option<DisableFrameSystemSupertraitCheck> =
+		let disable_system_supertrait_check: Option<DisableFrameSystemSupertraitCheck> =
 			helper::take_first_item_pallet_attr(&mut item.attrs)?;
-		let disable_system_supertrait_check = attr.is_some();
 
-		if !has_frame_system_supertrait && !disable_system_supertrait_check {
+		if !has_frame_system_supertrait && disable_system_supertrait_check.is_none() {
 			let found = if item.supertraits.is_empty() {
 				"none".to_string()
 			} else {
@@ -482,6 +485,7 @@ impl ConfigDef {
 			has_event_type,
 			where_clause,
 			default_sub_trait,
+			disable_system_supertrait_check,
 		})
 	}
 }
