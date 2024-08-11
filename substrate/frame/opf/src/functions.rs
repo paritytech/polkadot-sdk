@@ -26,7 +26,7 @@ impl<T: Config> Pallet<T> {
 			Votes::<T>::insert(project.clone(), voter_id.clone(), new_vote);
 			// Lock the necessary amount
 			T::NativeBalance::hold(&HoldReason::FundsReserved.into(), &voter_id, amount)?;
-		}
+		}		
 
 		Ok(())
 	}
@@ -57,6 +57,7 @@ impl<T: Config> Pallet<T> {
 				amount,
 				Precision::Exact,
 			)?;
+			
 		}
 		Ok(())
 	}
@@ -83,8 +84,12 @@ impl<T: Config> Pallet<T> {
 				Votes::<T>::iter().filter(|x| x.0 == project.clone()).collect();
 
 			let mut project_reward = BalanceOf::<T>::zero();
+			let mut round = 0;
 			
 			for vote in this_project_votes.clone() {
+				round = vote.2
+					.round
+					.round_number;
 				match vote.2.is_fund{
 					true => {
 						project_reward = project_reward.checked_add(&vote.2.amount).ok_or(Error::<T>::InvalidResult)?;
@@ -113,20 +118,33 @@ impl<T: Config> Pallet<T> {
 			let now =
 				<frame_system::Pallet<T>>::block_number().checked_add(&T::BufferPeriod::get()).ok_or(Error::<T>::InvalidResult)?;
 			let project_info = ProjectInfo {
-				project_account: project,
+				project_account: project.clone(),
 				submission_block: now,
 				amount: final_amount,
 			};
 
 			let mut rewarded = Distribution::Projects::<T>::get();
-			rewarded.try_push(project_info).map_err(|_| Error::<T>::MaximumProjectsNumber)?;
+			rewarded.try_push(project_info.clone()).map_err(|_| Error::<T>::MaximumProjectsNumber)?;
 
 			Distribution::Projects::<T>::mutate(|value| {
 				*value = rewarded;
 			});
+
+			let when = T::BlockNumberProvider::current_block_number();
+			Self::deposit_event(Event::<T>::ProjectFundingAccepted{
+				project_id: project,
+				when,
+				round_number: round,
+				amount: project_info.amount,
+			})
 			} else {
 				// remove unfunded project from whitelisted storage
-				Self::remove_unfunded_project(project)?;
+				Self::remove_unfunded_project(project.clone())?;
+				let when = T::BlockNumberProvider::current_block_number();
+				Self::deposit_event(Event::<T>::ProjectFundingRejected{
+					when,
+					project_id: project,
+				});
 			}
 			
 		}
@@ -141,6 +159,13 @@ impl<T: Config> Pallet<T> {
 			val.retain(|x| *x != project_id);
 			*value = val;
 		});
+		let when = T::BlockNumberProvider::current_block_number();
+
+		Self::deposit_event(Event::<T>::ProjectUnlisted{
+			when,
+			project_id,
+		});
+
 		Ok(())
 	}
 
@@ -152,15 +177,13 @@ impl<T: Config> Pallet<T> {
 			if meter.try_consume(max_block_weight).is_err() {
 				return meter.consumed()
 			}
-		let epoch = T::EpochDurationBlocks::get();
-		let voting_period = T::VotingPeriod::get();
-		// Check current round: If block is a multiple of round_locked_period,
+		let epoch = T::EpochDurationBlocks::get();		
 		let round_index = VotingRoundNumber::<T>::get();
 
 		// No active round?
 		if round_index == 0 {
 			// Start the first voting round
-			let round0 = VotingRoundInfo::<T>::new();
+			let _round0 = VotingRoundInfo::<T>::new();
 		}
 	
 		
@@ -174,14 +197,30 @@ impl<T: Config> Pallet<T> {
 		// - We are past the voting_round_lock block
 		// - We are at the beginning of an epoch
 		if (now >= voting_locked_block) && (now < round_ending_block) && (now % epoch).is_zero() {
+			// Emmit event
+			Self::deposit_event(Event::<T>::VoteActionLocked{
+				when: now,
+				round_number: round_infos.round_number,
+			});
 			// prepare reward distribution
 			// for now we are using the temporary-constant reward. 
 			let _= Self::calculate_rewards(T::TemporaryRewards::get()).map_err(|_| Error::<T>::FailedRewardCalculation);
 		}
+		
 
 		// Create a new round when we reach the end of the current round.  
 		if (now % round_ending_block).is_zero(){
-			let _= VotingRoundInfo::<T>::new();
+			let new_round = VotingRoundInfo::<T>::new();
+			// Emmit events
+			Self::deposit_event(Event::<T>::VotingRoundEnded{
+				when: now,
+				round_number: round_infos.round_number,
+			});
+
+			Self::deposit_event(Event::<T>::VotingRoundStarted{
+				when: now,
+				round_number: new_round.round_number,
+			});
 		}
 		
 		

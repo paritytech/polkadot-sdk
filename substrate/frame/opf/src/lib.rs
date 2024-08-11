@@ -72,6 +72,30 @@ pub mod pallet {
 
 		/// Reward successfully claimed
 		RewardsAssigned { when: BlockNumberFor<T> },
+
+		/// User's vote successfully submitted
+		VoteCasted {who: AccountIdOf<T>, when: BlockNumberFor<T>, project_id: AccountIdOf<T>},
+		
+		/// User's vote successfully removed
+		VoteRemoved {who: AccountIdOf<T>, when: BlockNumberFor<T>, project_id: AccountIdOf<T>},
+		
+		/// Project removed from whitelisted projects list
+		ProjectUnlisted {when: BlockNumberFor<T>, project_id: AccountIdOf<T>},
+
+		/// Project Funding Accepted by voters 
+		ProjectFundingAccepted { project_id: AccountIdOf<T>, when: BlockNumberFor<T>, round_number: u32, amount: BalanceOf<T>},
+		
+		/// Project Funding rejected by voters
+		ProjectFundingRejected { when: BlockNumberFor<T>, project_id: AccountIdOf<T> },
+		
+		/// A new voting round started
+		VotingRoundStarted {when: BlockNumberFor<T>, round_number: u32},
+				
+		/// The users voting period ended. Reward calculation will start. 
+		VoteActionLocked {when: BlockNumberFor<T>, round_number: u32},
+
+		/// The voting round ended
+		VotingRoundEnded {when: BlockNumberFor<T>, round_number: u32},
 	}
 
 	#[pallet::error]
@@ -169,7 +193,15 @@ pub mod pallet {
 
 			// Vote action executed
 
-			Self::try_vote(voter,project_account,amount,is_fund)?;
+			Self::try_vote(voter.clone(),project_account.clone(),amount,is_fund)?;
+
+			let when = T::BlockNumberProvider::current_block_number();
+			Self::deposit_event(Event::<T>::VoteCasted{
+			who: voter,
+			when,
+			project_id: project_account,
+		});
+
 			Ok(())
 		}
 
@@ -197,7 +229,14 @@ pub mod pallet {
 			// Get current voting round & check if we are in voting period or not
 			Self::period_check()?;
 			// Removal action executed
-			Self::try_remove_vote(voter,project_account)?;
+			Self::try_remove_vote(voter.clone(),project_account.clone())?;
+
+			let when = T::BlockNumberProvider::current_block_number();
+			Self::deposit_event(Event::<T>::VoteRemoved{
+				who: voter,
+				when,
+				project_id: project_account, 
+			});
 
 			Ok(())
 		}
