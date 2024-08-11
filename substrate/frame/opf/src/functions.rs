@@ -198,8 +198,7 @@ impl<T: Config> Pallet<T> {
 		// Conditions for distribution preparations are: 
 		// - We are within voting_round period
 		// - We are past the voting_round_lock block
-		// - We are at the beginning of an epoch
-		if (now >= voting_locked_block) && (now < round_ending_block) && (now % epoch).is_zero() {
+		if (now >= voting_locked_block) && (now < round_ending_block) {
 			// Emmit event
 			Self::deposit_event(Event::<T>::VoteActionLocked{
 				when: now,

@@ -115,5 +115,85 @@ fn voting_action_works() {
         let vote_info = Votes::<Test>::get(102,BOB).unwrap();
         assert_eq!(first_vote_info,vote_info);
 
+        // Voter's funds are locked
+        let locked_balance = 
+        <<Test as pallet_distribution::Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
+            &pallet_distribution::HoldReason::FundsReserved.into(),
+            &BOB,
+        );
+  assert!(locked_balance > Zero::zero());
+
     })
+}
+
+#[test]
+fn rewards_calculation_works() {
+    new_test_ext().execute_with(|| {
+
+        create_project_list();
+        next_block();        
+
+        // Bob nominate project_101 with an amount of 1000*BSX
+        assert_ok!(Opf::vote(
+            RawOrigin::Signed(BOB).into(),
+            101,
+            1000 * BSX,
+            true,
+        ));
+
+          // Alice nominate project_101 with an amount of 5000*BSX
+         assert_ok!(Opf::vote(
+            RawOrigin::Signed(ALICE).into(),
+            101,
+            5000 * BSX,
+            true,
+        ));
+
+         // DAVE vote against project_102 with an amount of 3000*BSX
+         assert_ok!(Opf::vote(
+            RawOrigin::Signed(DAVE).into(),
+            102,
+            3000 * BSX,
+            false,
+        ));
+         // Eve nominate project_102 with an amount of 50000*BSX
+         assert_ok!(Opf::vote(
+            RawOrigin::Signed(BOB).into(),
+            102,
+            50000 * BSX,
+            true,
+        ));
+
+    
+
+    let round_info = VotingRounds::<Test>::get(0).unwrap();
+    let mut now =  <Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
+
+    while now != round_info.voting_locked_block {
+        next_block();
+        now =  <Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
+
+    }
+    assert_eq!(now, round_info.voting_locked_block);
+
+    // The right events are emitted
+    expect_events(vec!{
+        RuntimeEvent::Opf(Event::VoteActionLocked{
+            when: now,
+            round_number:0,
+        })
+    });
+
+    // The total amount locked through votes is 53000 BSX
+    // Project 101: 6000 BSX -> ~11.3%; Project 102: 47000 BSX -> ~88.6%
+    // Distributed to project 101 -> ~11.3%*500_000 BSX; Distributed to project 102 -> ~88.6%*500_000 BSX
+
+    assert_eq!(pallet_distribution::Projects::<Test>::get().len()==2, true);
+    let rewards = pallet_distribution::Projects::<Test>::get();
+    assert_eq!(rewards[0].project_account,101);
+    assert_eq!(rewards[1].project_account,102);
+    assert_eq!(rewards[0].amount<rewards[1].amount, true);
+
+})
+    
 }
