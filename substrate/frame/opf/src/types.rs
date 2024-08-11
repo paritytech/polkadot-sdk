@@ -49,6 +49,14 @@ impl<T: Config> VotingRoundInfo<T>{
 		let new_number = round_number.checked_add(1).expect("Invalid Result");
 		VotingRoundNumber::<T>::put(new_number);
 
-		VotingRoundInfo{round_number, round_starting_block, voting_locked_block, round_ending_block}
+		Pallet::<T>::deposit_event(Event::<T>::VotingRoundStarted{
+			when: round_starting_block.clone(),
+			round_number,
+		});
+
+		let round_infos = VotingRoundInfo{round_number, round_starting_block, voting_locked_block, round_ending_block};
+		VotingRounds::<T>::insert(round_number,round_infos.clone());
+		round_infos
+
 	}
 }

@@ -196,6 +196,7 @@ pub mod pallet {
 			Self::try_vote(voter.clone(),project_account.clone(),amount,is_fund)?;
 
 			let when = T::BlockNumberProvider::current_block_number();
+			
 			Self::deposit_event(Event::<T>::VoteCasted{
 			who: voter,
 			when,

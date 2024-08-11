@@ -37,7 +37,7 @@ impl<T: Config> Pallet<T> {
 		let current_round_index = VotingRoundNumber::<T>::get().saturating_sub(1);
 		let round = VotingRounds::<T>::get(current_round_index).ok_or(Error::<T>::NoRoundFound)?;
 		let now = T::BlockNumberProvider::current_block_number();
-		ensure!(now >= round.voting_locked_block, Error::<T>::VotePeriodClosed);
+		ensure!(now <= round.voting_locked_block, Error::<T>::VotePeriodClosed);
 		ensure!(now < round.round_ending_block, Error::<T>::VotingRoundOver);
 		Ok(())
 	}
@@ -178,16 +178,19 @@ impl<T: Config> Pallet<T> {
 				return meter.consumed()
 			}
 		let epoch = T::EpochDurationBlocks::get();		
-		let round_index = VotingRoundNumber::<T>::get();
+		let mut round_index = VotingRoundNumber::<T>::get();
 
 		// No active round?
 		if round_index == 0 {
 			// Start the first voting round
 			let _round0 = VotingRoundInfo::<T>::new();
+			round_index = VotingRoundNumber::<T>::get();
 		}
 	
 		
+		
 		let current_round_index = round_index.saturating_sub(1);
+		
 		let round_infos = VotingRounds::<T>::get(current_round_index).expect("InvalidResult");
 		let voting_locked_block = round_infos.voting_locked_block;
 		let round_ending_block = round_infos.round_ending_block;
@@ -217,10 +220,7 @@ impl<T: Config> Pallet<T> {
 				round_number: round_infos.round_number,
 			});
 
-			Self::deposit_event(Event::<T>::VotingRoundStarted{
-				when: now,
-				round_number: new_round.round_number,
-			});
+			
 		}
 		
 		
