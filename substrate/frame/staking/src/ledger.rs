@@ -35,8 +35,7 @@ use frame_support::{
 	defensive, ensure,
 	traits::{Defensive, LockableCurrency},
 };
-use sp_staking::{StakingAccount, StakingInterface};
-use sp_std::prelude::*;
+use sp_staking::StakingAccount;
 
 use crate::{
 	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger,

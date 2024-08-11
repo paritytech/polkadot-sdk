@@ -1095,7 +1095,7 @@ pub mod pallet {
 
 			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
 
-			if value == ledger.total {
+			if value >= ledger.total {
 				Self::chill_stash(&ledger.stash);
 			}
 

@@ -282,8 +282,7 @@ benchmarks! {
 	verify {
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
 		let new_bonded: BalanceOf<T> = ledger.active;
-		assert!(new_bonded == BalanceOf::<T>::try_from(0u128).map_err(|_| "balance expected to be a u128")
-			.unwrap());
+		assert!(new_bonded == Zero::zero());
 	}
 
 	// Withdraw only updates the ledger
