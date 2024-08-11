@@ -39,7 +39,7 @@ use sp_runtime::{
 
 use sp_staking::{
 	EraIndex, Page, SessionIndex,
-	StakingAccount::{self, Controller, Stash}
+	StakingAccount::{self, Controller, Stash},
 };
 
 mod impls;
