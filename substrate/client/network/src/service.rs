@@ -68,7 +68,7 @@ use libp2p::{
 	core::{upgrade, ConnectedPoint, Endpoint},
 	identify::Info as IdentifyInfo,
 	identity::ed25519,
-	kad::record::Key as KademliaKey,
+	kad::{record::Key as KademliaKey, Record},
 	multiaddr::{self, Multiaddr},
 	swarm::{
 		Config as SwarmConfig, ConnectionError, ConnectionId, DialError, Executor, ListenError,
@@ -186,8 +186,11 @@ where
 	}
 
 	/// Create `PeerStore`.
-	fn peer_store(bootnodes: Vec<sc_network_types::PeerId>) -> Self::PeerStore {
-		PeerStore::new(bootnodes.into_iter().map(From::from).collect())
+	fn peer_store(
+		bootnodes: Vec<sc_network_types::PeerId>,
+		metrics_registry: Option<Registry>,
+	) -> Self::PeerStore {
+		PeerStore::new(bootnodes.into_iter().map(From::from).collect(), metrics_registry)
 	}
 
 	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics {
@@ -943,6 +946,19 @@ where
 		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::PutValue(key, value));
 	}
 
+	fn put_record_to(
+		&self,
+		record: Record,
+		peers: HashSet<sc_network_types::PeerId>,
+		update_local_storage: bool,
+	) {
+		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::PutRecordTo {
+			record,
+			peers,
+			update_local_storage,
+		});
+	}
+
 	fn store_record(
 		&self,
 		key: KademliaKey,
@@ -1020,7 +1036,7 @@ where
 	}
 
 	fn report_peer(&self, peer_id: sc_network_types::PeerId, cost_benefit: ReputationChange) {
-		self.peer_store_handle.clone().report_peer(peer_id, cost_benefit);
+		self.peer_store_handle.report_peer(peer_id, cost_benefit);
 	}
 
 	fn peer_reputation(&self, peer_id: &sc_network_types::PeerId) -> i32 {
@@ -1311,6 +1327,11 @@ impl<'a> NotificationSenderReadyT for NotificationSenderReady<'a> {
 enum ServiceToWorkerMsg {
 	GetValue(KademliaKey),
 	PutValue(KademliaKey, Vec<u8>),
+	PutRecordTo {
+		record: Record,
+		peers: HashSet<sc_network_types::PeerId>,
+		update_local_storage: bool,
+	},
 	StoreRecord(KademliaKey, Vec<u8>, Option<PeerId>, Option<Instant>),
 	AddKnownAddress(PeerId, Multiaddr),
 	EventStream(out_events::Sender),
@@ -1420,9 +1441,7 @@ where
 			{
 				metrics.kademlia_records_sizes_total.set(num_entries as u64);
 			}
-			metrics
-				.peerset_num_discovered
-				.set(self.peer_store_handle.num_known_peers() as u64);
+
 			metrics.pending_connections.set(
 				Swarm::network_info(&self.network_service).connection_counters().num_pending()
 					as u64,
@@ -1439,6 +1458,10 @@ where
 				self.network_service.behaviour_mut().get_value(key),
 			ServiceToWorkerMsg::PutValue(key, value) =>
 				self.network_service.behaviour_mut().put_value(key, value),
+			ServiceToWorkerMsg::PutRecordTo { record, peers, update_local_storage } => self
+				.network_service
+				.behaviour_mut()
+				.put_record_to(record, peers, update_local_storage),
 			ServiceToWorkerMsg::StoreRecord(key, value, publisher, expires) => self
 				.network_service
 				.behaviour_mut()

@@ -5,7 +5,7 @@ authors.workspace = true
 edition.workspace = true
 build = "build.rs"
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet for WASM contracts"
 readme = "README.md"
@@ -58,7 +58,6 @@ xcm-builder = { workspace = true }
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
-env_logger = { workspace = true }
 pretty_assertions = { workspace = true }
 wat = { workspace = true }
 pallet-contracts-fixtures = { workspace = true }
