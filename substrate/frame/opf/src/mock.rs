@@ -90,7 +90,7 @@ impl pallet_distribution::Config for Test {
 
 parameter_types!{
     pub const MaxWhitelistedProjects: u32 = 5;
-	pub const TemporaryRewards: Balance = 500_000 * BSX;
+	pub const TemporaryRewards: Balance = 100_000;
     pub const VoteLockingPeriod:u32 = 10;
     pub const VotingPeriod:u32 = 30;
 }

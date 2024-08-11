@@ -68,14 +68,20 @@ impl<T: Config> Pallet<T> {
 		let projects = WhiteListedProjectAccounts::<T>::get();
 		let votes = Votes::<T>::iter();
 		if projects.clone().len() > 0 as usize{
-			let mut total_votes_amount = BalanceOf::<T>::zero();
+			let mut total_positive_votes_amount = BalanceOf::<T>::zero();
+			let mut total_negative_votes_amount = BalanceOf::<T>::zero();
 
 		// Total amount from all votes
 		for vote in votes {
 			let info = vote.2.clone();
-			total_votes_amount = total_votes_amount.checked_add(&info.amount).ok_or(Error::<T>::InvalidResult)?;
-			
+			if info.is_fund == true{
+				total_positive_votes_amount = total_positive_votes_amount.checked_add(&info.amount).ok_or(Error::<T>::InvalidResult)?;
+		}else{
+			total_negative_votes_amount = total_negative_votes_amount.checked_add(&info.amount).ok_or(Error::<T>::InvalidResult)?;
 		}
+		}
+
+		let total_votes_amount = total_positive_votes_amount.saturating_sub(total_negative_votes_amount);
 
 		// for each project, calculate the percentage of votes, the amount to be distributed,
 		// and then populate the storage Projects in pallet_distribution
@@ -83,6 +89,8 @@ impl<T: Config> Pallet<T> {
 			let this_project_votes: Vec<_> =
 				Votes::<T>::iter().filter(|x| x.0 == project.clone()).collect();
 
+			let mut project_positive_reward = BalanceOf::<T>::zero();
+			let mut project_negative_reward = BalanceOf::<T>::zero();
 			let mut project_reward = BalanceOf::<T>::zero();
 			let mut round = 0;
 			
@@ -92,12 +100,14 @@ impl<T: Config> Pallet<T> {
 					.round_number;
 				match vote.2.is_fund{
 					true => {
-						project_reward = project_reward.checked_add(&vote.2.amount).ok_or(Error::<T>::InvalidResult)?;
+						project_positive_reward = project_positive_reward.checked_add(&vote.2.amount).ok_or(Error::<T>::InvalidResult)?;
 					},
 					false => {
-						project_reward = project_reward.saturating_sub(vote.2.amount);
+						project_negative_reward = project_negative_reward.checked_add(&vote.2.amount).ok_or(Error::<T>::InvalidResult)?;
 					}
 				}
+				project_reward = project_positive_reward.saturating_sub(project_negative_reward);
+
 				// release voter's funds
 				T::NativeBalance::release(
 					&HoldReason::FundsReserved.into(),
@@ -112,7 +122,7 @@ impl<T: Config> Pallet<T> {
 
 			if !project_reward.is_zero(){
 				let project_percentage = Percent::from_rational(project_reward, total_votes_amount);
-			let final_amount = project_percentage.mul_floor(total_reward);
+				let final_amount = project_percentage * total_reward;
 
 			// Send calculated reward for distribution
 			let now =

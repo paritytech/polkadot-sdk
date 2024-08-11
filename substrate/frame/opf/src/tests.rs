@@ -160,7 +160,7 @@ fn rewards_calculation_works() {
          assert_ok!(Opf::vote(
             RawOrigin::Signed(BOB).into(),
             102,
-            50000 * BSX,
+            5000 * BSX,
             true,
         ));
 
@@ -184,16 +184,20 @@ fn rewards_calculation_works() {
         })
     });
 
-    // The total amount locked through votes is 53000 BSX
-    // Project 101: 6000 BSX -> ~11.3%; Project 102: 47000 BSX -> ~88.6%
-    // Distributed to project 101 -> ~11.3%*500_000 BSX; Distributed to project 102 -> ~88.6%*500_000 BSX
+    // The total amount locked through votes is 8000
+    // Project 101: 6000 -> ~11.3%; Project 102: 2000 -> ~88.6%
+    // Distributed to project 101 -> 75%*100_000; Distributed to project 102 -> 25%*100_000
 
     assert_eq!(pallet_distribution::Projects::<Test>::get().len()==2, true);
     let rewards = pallet_distribution::Projects::<Test>::get();
     assert_eq!(rewards[0].project_account,101);
     assert_eq!(rewards[1].project_account,102);
-    assert_eq!(rewards[0].amount<rewards[1].amount, true);
+    assert_eq!(rewards[0].amount>rewards[1].amount, true);
+    assert_eq!(rewards[0].amount,75000);
+    assert_eq!(rewards[1].amount,25000);
 
 })
+
+
     
 }
