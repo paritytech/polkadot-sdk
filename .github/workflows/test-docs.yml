@@ -29,3 +29,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: time cargo test --doc --workspace
+  build-rustdoc:
+    runs-on: arc-runners-beefy-stg
+    needs: [set-image]
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: time cargo doc --all-features --workspace --no-deps
+        env:
+          SKIP_WASM_BUILD: 1
+          RUSTDOCFLAGS: "-Dwarnings --default-theme=ayu --html-in-header ./docs/sdk/assets/header.html --extend-css ./docs/sdk/assets/theme.css --html-after-content ./docs/sdk/assets/after-content.html"
+      - run: rm -f ./target/doc/.lock
+      - run: mv ./target/doc ./crate-docs
+      - name: Inject Simple Analytics script
+        run: |
+          script_content="<script async defer src=\"https://apisa.parity.io/latest.js\"></script><noscript><img src=\"https://apisa.parity.io/latest.js\" alt=\"\" referrerpolicy=\"no-referrer-when-downgrade\" /></noscript>"
+          path="./crate-docs"
+
+          inject_simple_analytics() {
+            local path="$1";
+            local script_content="$2";
+
+            process_file() {
+              local file="$1";
+              echo "Adding Simple Analytics script to $file";
+              sed -i "s|</head>|$script_content</head>|" "$file";
+            }
+            export -f process_file;
+            export script_content="$script_content";
+
+            find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'process_file "$@"' _ {};
+          }
+
+          inject_simple_analytics "$path" "$script_content"
+      - run: echo "<meta http-equiv=refresh content=0;url=polkadot_sdk_docs/index.html>" > ./crate-docs/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "${{ github.workflow }}_${{ github.head_ref }}-doc"
+          path: ./crate-docs/
+          retention-days: 1
+          if-no-files-found: error
