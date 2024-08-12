@@ -32,7 +32,7 @@ use alloc::{
 	vec,
 	vec::Vec,
 };
-use codec::{Decode, Encode, WrapperTypeDecode};
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
 use sp_core::RuntimeDebug;
@@ -447,8 +447,8 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 
 	fn rebuild_collator_field(&self) -> CollatorId {
 		let mut collator_id = vec![self.version.0];
-		let core_index: [u8; 2] = unsafe { core::mem::transmute(self.core_index) };
-		let session_index: [u8; 4] = unsafe { core::mem::transmute(self.session_index) };
+		let core_index: [u8; 2] = self.core_index.to_ne_bytes();
+		let session_index: [u8; 4] = self.session_index.to_ne_bytes();
 
 		collator_id.append(&mut core_index.as_slice().to_vec());
 		collator_id.append(&mut session_index.as_slice().to_vec());
