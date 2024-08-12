@@ -382,14 +382,7 @@ pub fn start_rpc_servers<R>(
 where
 	R: Fn() -> Result<RpcModule<()>, Error>,
 {
-	// TODO: fix this niklas
-	let listen_addrs = config.rpc_addr.clone().unwrap();
-
-	/*let listen_addrs = if let Some(addr) = config.rpc_addr {
-		addr
-	} else {
-		sc_rpc_server::ListenAddr::new(Ipv4Addr::LOCALHOST, Ipv6Addr::LOCALHOST, config.rpc_port)
-	};*/
+	let listen_addrs = config.rpc_addr.clone().expect("RPC server address is set by the CLI; qed");
 
 	let metrics = sc_rpc_server::RpcMetrics::new(config.prometheus_registry())?;
 	let rpc_api = gen_rpc_module()?;

@@ -235,8 +235,7 @@ where
 							RpcServiceBuilder::new().option_layer(middleware_layer.clone());
 						let mut svc = service_builder
 							.set_rpc_middleware(rpc_middleware)
-							// TODO: fix trait bounds.
-							//.set_http_middleware(http_middleware)
+							.set_http_middleware(http_middleware)
 							.build(methods, stop_handle);
 
 						async move {
