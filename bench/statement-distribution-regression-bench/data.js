@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723227182285,
+  "lastUpdate": 1723459144711,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -7895,6 +7895,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04699253603599998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "jserrat",
+            "username": "Jpserrat",
+            "email": "35823283+Jpserrat@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ebcbca3ff606b22b5eb81bcbfaa9309752d64dde",
+          "message": "xcm-executor: allow deposit of multiple assets if at least one of them satisfies ED (#4460)\n\nCloses #4242\n\nXCM programs that deposit assets to some new (empty) account will now\nsucceed if at least one of the deposited assets satisfies ED. Before\nthis change, the requirement was that the _first_ asset had to satisfy\nED, but assets order can be changed during reanchoring so it is not\nreliable.\n\nWith this PR, ordering doesn't matter, any one(s) of them can satisfy ED\nfor the whole deposit to work.\n\nKusama address: FkB6QEo8VnV3oifugNj5NeVG3Mvq1zFbrUu4P5YwRoe5mQN\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-08-12T08:40:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ebcbca3ff606b22b5eb81bcbfaa9309752d64dde"
+        },
+        "date": 1723459113286,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.92799999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03780464119200001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04602941030200001,
             "unit": "seconds"
           }
         ]
