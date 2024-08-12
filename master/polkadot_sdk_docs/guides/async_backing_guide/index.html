@@ -353,7 +353,7 @@ than the original</li>
 <li>In the <code>para_client</code> field, pass in a cloned para client rather than the original</li>
 <li>Add a <code>para_backend</code> parameter after <code>para_client</code>, passing in our para backend</li>
 <li>Provide a <code>code_hash_provider</code> closure like that shown below</li>
-<li>Increase <code>authoring_duration</code> from 500 milliseconds to 1500</li>
+<li>Increase <code>authoring_duration</code> from 500 milliseconds to 2000</li>
 </ul>
 </li>
 </ol>
@@ -367,7 +367,7 @@ than the original</li>
         client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
     },
     ..
-    authoring_duration: Duration::from_millis(<span class="number">1500</span>),
+    authoring_duration: Duration::from_millis(<span class="number">2000</span>),
     ..
 };</code></pre></div>
 <p><strong>Note:</strong> Set <code>authoring_duration</code> to whatever you want, taking your own hardware into account.

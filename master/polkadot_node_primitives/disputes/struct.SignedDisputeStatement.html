@@ -152,7 +152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div></details><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-SignedDisputeStatement" class="impl"><a class="src rightside" href="../../src/polkadot_node_primitives/disputes/mod.rs.html#178-315">source</a><a href="#impl-SignedDisputeStatement" class="anchor">§</a><h3 class="code-header">impl <a class="struct" href="struct.SignedDisputeStatement.html" title="struct polkadot_node_primitives::disputes::SignedDisputeStatement">SignedDisputeStatement</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.new_unchecked_from_trusted_source" class="method"><a class="src rightside" href="../../src/polkadot_node_primitives/disputes/mod.rs.html#183-197">source</a><h4 class="code-header">pub fn <a href="#method.new_unchecked_from_trusted_source" class="fn">new_unchecked_from_trusted_source</a>(
     dispute_statement: DisputeStatement,
     candidate_hash: CandidateHash,
-    session_index: SessionIndex,
+    session_index: <a class="type" href="../../sp_staking/type.SessionIndex.html" title="type sp_staking::SessionIndex">SessionIndex</a>,
     validator_public: ValidatorId,
     validator_signature: ValidatorSignature
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Create a new <code>SignedDisputeStatement</code> from information
@@ -161,7 +161,7 @@ that is available on-chain, and hence already can be trusted.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.new_checked" class="method"><a class="src rightside" href="../../src/polkadot_node_primitives/disputes/mod.rs.html#200-216">source</a><h4 class="code-header">pub fn <a href="#method.new_checked" class="fn">new_checked</a>(
     dispute_statement: DisputeStatement,
     candidate_hash: CandidateHash,
-    session_index: SessionIndex,
+    session_index: <a class="type" href="../../sp_staking/type.SessionIndex.html" title="type sp_staking::SessionIndex">SessionIndex</a>,
     validator_public: ValidatorId,
     validator_signature: ValidatorSignature
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Create a new <code>SignedDisputeStatement</code>, which is only possible by checking the signature.</p>
@@ -169,7 +169,7 @@ that is available on-chain, and hence already can be trusted.</p>
     keystore: &amp;KeystorePtr,
     valid: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>,
     candidate_hash: CandidateHash,
-    session_index: SessionIndex,
+    session_index: <a class="type" href="../../sp_staking/type.SessionIndex.html" title="type sp_staking::SessionIndex">SessionIndex</a>,
     validator_public: ValidatorId
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self&gt;, <a class="enum" href="enum.SignedDisputeStatementError.html" title="enum polkadot_node_primitives::disputes::SignedDisputeStatementError">SignedDisputeStatementError</a>&gt;</h4></section></summary><div class="docblock"><p>Sign this statement with the given keystore and key. Pass <code>valid = true</code> to
 indicate validity of the candidate, and <code>valid = false</code> to indicate invalidity.</p>
@@ -178,7 +178,7 @@ indicate validity of the candidate, and <code>valid = false</code> to indicate i
 </div></details><details class="toggle method-toggle" open><summary><section id="method.validator_public" class="method"><a class="src rightside" href="../../src/polkadot_node_primitives/disputes/mod.rs.html#260-262">source</a><h4 class="code-header">pub fn <a href="#method.validator_public" class="fn">validator_public</a>(&amp;self) -&gt; &amp;ValidatorId</h4></section></summary><div class="docblock"><p>Access the underlying validator public key.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.validator_signature" class="method"><a class="src rightside" href="../../src/polkadot_node_primitives/disputes/mod.rs.html#265-267">source</a><h4 class="code-header">pub fn <a href="#method.validator_signature" class="fn">validator_signature</a>(&amp;self) -&gt; &amp;ValidatorSignature</h4></section></summary><div class="docblock"><p>Access the underlying validator signature.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.into_validator_signature" class="method"><a class="src rightside" href="../../src/polkadot_node_primitives/disputes/mod.rs.html#270-272">source</a><h4 class="code-header">pub fn <a href="#method.into_validator_signature" class="fn">into_validator_signature</a>(self) -&gt; ValidatorSignature</h4></section></summary><div class="docblock"><p>Consume self to return the signature.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.session_index" class="method"><a class="src rightside" href="../../src/polkadot_node_primitives/disputes/mod.rs.html#275-277">source</a><h4 class="code-header">pub fn <a href="#method.session_index" class="fn">session_index</a>(&amp;self) -&gt; SessionIndex</h4></section></summary><div class="docblock"><p>Access the underlying session index.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.session_index" class="method"><a class="src rightside" href="../../src/polkadot_node_primitives/disputes/mod.rs.html#275-277">source</a><h4 class="code-header">pub fn <a href="#method.session_index" class="fn">session_index</a>(&amp;self) -&gt; <a class="type" href="../../sp_staking/type.SessionIndex.html" title="type sp_staking::SessionIndex">SessionIndex</a></h4></section></summary><div class="docblock"><p>Access the underlying session index.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.from_backing_statement" class="method"><a class="src rightside" href="../../src/polkadot_node_primitives/disputes/mod.rs.html#286-314">source</a><h4 class="code-header">pub fn <a href="#method.from_backing_statement" class="fn">from_backing_statement</a>&lt;T&gt;(
     backing_statement: &amp;UncheckedSigned&lt;T, CompactStatement&gt;,
     signing_context: SigningContext,
