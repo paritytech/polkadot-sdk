@@ -21,6 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: time cargo doc --workspace --all-features --no-deps
+        env:
+          SKIP_WASM_BUILD: 1
   test-doc:
     runs-on: arc-runners-beefy-stg
     needs: [set-image, test-rustdoc]
@@ -29,6 +31,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: time cargo test --doc --workspace
+        env:
+          RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+
   build-rustdoc:
     runs-on: arc-runners-beefy-stg
     needs: [set-image]
