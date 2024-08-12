@@ -39,6 +39,8 @@ use sp_core::RuntimeDebug;
 use sp_runtime::traits::Header as HeaderT;
 use sp_staking::SessionIndex;
 
+pub mod async_backing;
+
 /// Scheduler configuration parameters. All coretime/ondemand parameters are here.
 #[derive(
 	RuntimeDebug,
@@ -715,59 +717,6 @@ impl<H: Encode + Decode + Copy> From<ScrapedOnChainVotes<H>> for super::v7::Scra
 	}
 }
 
-/// A candidate pending availability.
-#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
-pub struct CandidatePendingAvailability<H = Hash, N = BlockNumber> {
-	/// The hash of the candidate.
-	pub candidate_hash: CandidateHash,
-	/// The candidate's descriptor.
-	pub descriptor: CandidateDescriptorV2<H>,
-	/// The commitments of the candidate.
-	pub commitments: CandidateCommitments,
-	/// The candidate's relay parent's number.
-	pub relay_parent_number: N,
-	/// The maximum Proof-of-Validity size allowed, in bytes.
-	pub max_pov_size: u32,
-}
-
-impl<H: Copy> From<CandidatePendingAvailability<H>>
-	for super::async_backing::CandidatePendingAvailability<H>
-{
-	fn from(value: CandidatePendingAvailability<H>) -> Self {
-		Self {
-			candidate_hash: value.candidate_hash,
-			descriptor: value.descriptor.into(),
-			commitments: value.commitments,
-			relay_parent_number: value.relay_parent_number,
-			max_pov_size: value.max_pov_size,
-		}
-	}
-}
-
-/// The per-parachain state of the backing system, including
-/// state-machine constraints and candidates pending availability.
-#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
-pub struct BackingState<H = Hash, N = BlockNumber> {
-	/// The state-machine constraints of the parachain.
-	pub constraints: Constraints<N>,
-	/// The candidates pending availability. These should be ordered, i.e. they should form
-	/// a sub-chain, where the first candidate builds on top of the required parent of the
-	/// constraints and each subsequent builds on top of the previous head-data.
-	pub pending_availability: Vec<CandidatePendingAvailability<H, N>>,
-}
-
-impl<H: Copy> From<BackingState<H>> for super::async_backing::BackingState<H> {
-	fn from(value: BackingState<H>) -> Self {
-		Self {
-			constraints: value.constraints,
-			pending_availability: value
-				.pending_availability
-				.into_iter()
-				.map(|candidate| candidate.into())
-				.collect::<Vec<_>>(),
-		}
-	}
-}
 /// Information about a core which is currently occupied.
 #[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]

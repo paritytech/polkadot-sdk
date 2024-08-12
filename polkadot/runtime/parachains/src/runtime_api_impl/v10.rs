@@ -31,7 +31,7 @@ use polkadot_primitives::{
 	},
 	slashing,
 	vstaging::{
-		BackingState, CandidateEvent, CandidatePendingAvailability,
+		async_backing::BackingState, CandidateEvent, async_backing::CandidatePendingAvailability,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, OccupiedCore,
 		ScrapedOnChainVotes,
 	},
