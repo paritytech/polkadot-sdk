@@ -67,7 +67,7 @@ pub fn genesis() -> Storage {
 		},
 		assets: asset_hub_westend_runtime::AssetsConfig {
 			assets: vec![
-				(RESERVABLE_ASSET_ID, AssetHubWestendAssetOwner::get(), true, ED),
+				(RESERVABLE_ASSET_ID, AssetHubWestendAssetOwner::get(), false, ED),
 				(USDT_ID, AssetHubWestendAssetOwner::get(), true, USDT_ED),
 			],
 			..Default::default()
@@ -78,7 +78,7 @@ pub fn genesis() -> Storage {
 				(
 					PenpalTeleportableAssetLocation::get(),
 					PenpalSiblingSovereignAccount::get(),
-					true,
+					false,
 					ED,
 				),
 			],
