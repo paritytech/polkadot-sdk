@@ -13,6 +13,6 @@ crates:
 - name: polkadot-runtime-parachains
   bump: major
 - name: westend-runtime
-  bump: minor
+  bump: patch
 - name: rococo-runtime
-  bump: minor
+  bump: patch
