@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723477654198,
+  "lastUpdate": 1723484590961,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21735,6 +21735,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.014173016986666674,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk",
+            "email": "1728078+michalkucharczyk@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b52cfc2605362b53a1a570c3c1b41d15481d0990",
+          "message": "chain-spec: minor clarification on the genesis config patch (#5324)\n\nAdded minor clarification on the genesis config patch\n([link](https://substrate.stackexchange.com/questions/11813/in-the-genesis-config-what-does-the-patch-key-do/11825#11825))\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-08-12T15:58:33Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b52cfc2605362b53a1a570c3c1b41d15481d0990"
+        },
+        "date": 1723484560247,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022420888666666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010449060340000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012482335913333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17370519680666663,
             "unit": "seconds"
           }
         ]
