@@ -219,8 +219,7 @@ mod tests {
 	use frame_support::traits::UncheckedOnRuntimeUpgrade;
 	use polkadot_primitives::{AvailabilityBitfield, Id as ParaId};
 	use polkadot_primitives_test_helpers::{
-		dummy_candidate_commitments, dummy_candidate_descriptor, dummy_candidate_descriptor_v2,
-		dummy_hash,
+		dummy_candidate_commitments, dummy_candidate_descriptor_v2, dummy_hash,
 	};
 
 	#[test]

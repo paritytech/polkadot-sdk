@@ -1223,7 +1223,7 @@ fn candidate_checks() {
 
 		// Check candidate ordering
 		{
-			let mut candidate_a = TestCandidateBuilder {
+			let candidate_a = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1232,7 +1232,7 @@ fn candidate_checks() {
 				..Default::default()
 			}
 			.build();
-			let mut candidate_b_1 = TestCandidateBuilder {
+			let candidate_b_1 = TestCandidateBuilder {
 				para_id: chain_b,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(2),
@@ -1244,7 +1244,7 @@ fn candidate_checks() {
 			.build();
 
 			// Make candidate b2 a child of b1.
-			let mut candidate_b_2 = TestCandidateBuilder {
+			let candidate_b_2 = TestCandidateBuilder {
 				para_id: chain_b,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(3),
@@ -1331,7 +1331,7 @@ fn candidate_checks() {
 
 			// candidate does not build on top of the latest unincluded head
 
-			let mut candidate_b_3 = TestCandidateBuilder {
+			let candidate_b_3 = TestCandidateBuilder {
 				para_id: chain_b,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(4),
@@ -1370,7 +1370,7 @@ fn candidate_checks() {
 
 		// candidate not backed.
 		{
-			let mut candidate = TestCandidateBuilder {
+			let candidate = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1432,7 +1432,7 @@ fn candidate_checks() {
 			let wrong_parent_hash = Hash::repeat_byte(222);
 			assert!(System::parent_hash() != wrong_parent_hash);
 
-			let mut candidate_a = TestCandidateBuilder {
+			let candidate_a = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: wrong_parent_hash,
 				pov_hash: Hash::repeat_byte(1),
@@ -1441,7 +1441,7 @@ fn candidate_checks() {
 			}
 			.build();
 
-			let mut candidate_b = TestCandidateBuilder {
+			let candidate_b = TestCandidateBuilder {
 				para_id: chain_b,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(2),
@@ -1565,7 +1565,7 @@ fn candidate_checks() {
 
 		// interfering code upgrade - reject
 		{
-			let mut candidate = TestCandidateBuilder {
+			let candidate = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1614,7 +1614,7 @@ fn candidate_checks() {
 
 		// Bad validation data hash - reject
 		{
-			let mut candidate = TestCandidateBuilder {
+			let candidate = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1649,7 +1649,7 @@ fn candidate_checks() {
 
 		// bad validation code hash
 		{
-			let mut candidate = TestCandidateBuilder {
+			let candidate = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1685,7 +1685,7 @@ fn candidate_checks() {
 
 		// Para head hash in descriptor doesn't match head data
 		{
-			let mut candidate = TestCandidateBuilder {
+			let candidate = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1786,7 +1786,7 @@ fn backing_works() {
 		let chain_b_assignment = (chain_b, CoreIndex::from(1));
 		let thread_a_assignment = (thread_a, CoreIndex::from(2));
 
-		let mut candidate_a = TestCandidateBuilder {
+		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(1),
@@ -1796,7 +1796,7 @@ fn backing_works() {
 		}
 		.build();
 
-		let mut candidate_b = TestCandidateBuilder {
+		let candidate_b = TestCandidateBuilder {
 			para_id: chain_b,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(2),
@@ -1806,7 +1806,7 @@ fn backing_works() {
 		}
 		.build();
 
-		let mut candidate_c = TestCandidateBuilder {
+		let candidate_c = TestCandidateBuilder {
 			para_id: thread_a,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(3),
@@ -2078,7 +2078,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 
-		let mut candidate_a = TestCandidateBuilder {
+		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(1),
@@ -2088,7 +2088,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 		}
 		.build();
 
-		let mut candidate_b_1 = TestCandidateBuilder {
+		let candidate_b_1 = TestCandidateBuilder {
 			para_id: chain_b,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(2),
@@ -2099,7 +2099,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 		.build();
 
 		// Make candidate b2 a child of b1.
-		let mut candidate_b_2 = TestCandidateBuilder {
+		let candidate_b_2 = TestCandidateBuilder {
 			para_id: chain_b,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(3),
@@ -2350,7 +2350,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 		let chain_a_assignment = (chain_a, CoreIndex::from(0));
-		let mut candidate_a = TestCandidateBuilder {
+		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(1),
@@ -2509,7 +2509,7 @@ fn check_allowed_relay_parents() {
 		let chain_b_assignment = (chain_b, CoreIndex::from(1));
 		let thread_a_assignment = (thread_a, CoreIndex::from(2));
 
-		let mut candidate_a = TestCandidateBuilder {
+		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: relay_parent_a.1,
 			pov_hash: Hash::repeat_byte(1),
@@ -2524,7 +2524,7 @@ fn check_allowed_relay_parents() {
 		.build();
 		let signing_context_a = SigningContext { parent_hash: relay_parent_a.1, session_index: 5 };
 
-		let mut candidate_b = TestCandidateBuilder {
+		let candidate_b = TestCandidateBuilder {
 			para_id: chain_b,
 			relay_parent: relay_parent_b.1,
 			pov_hash: Hash::repeat_byte(2),
@@ -2539,7 +2539,7 @@ fn check_allowed_relay_parents() {
 		.build();
 		let signing_context_b = SigningContext { parent_hash: relay_parent_b.1, session_index: 5 };
 
-		let mut candidate_c = TestCandidateBuilder {
+		let candidate_c = TestCandidateBuilder {
 			para_id: thread_a,
 			relay_parent: relay_parent_c.1,
 			pov_hash: Hash::repeat_byte(3),
@@ -2773,7 +2773,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 
 		let chain_a_assignment = (chain_a, CoreIndex::from(0));
-		let mut candidate_a = TestCandidateBuilder {
+		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(1),

@@ -1495,7 +1495,6 @@ mod sanitizers {
 	use crate::mock::Test;
 	use polkadot_primitives::PARACHAIN_KEY_TYPE_ID;
 	use sc_keystore::LocalKeystore;
-	use sp_keyring::Sr25519Keyring;
 	use sp_keystore::{Keystore, KeystorePtr};
 	use std::sync::Arc;
 
@@ -1879,7 +1878,7 @@ mod sanitizers {
 				.into_iter()
 				.map(|idx0| {
 					let idx1 = idx0 + 1;
-					let mut candidate = TestCandidateBuilder {
+					let candidate = TestCandidateBuilder {
 						para_id: ParaId::from(idx1),
 						relay_parent,
 						pov_hash: Hash::repeat_byte(idx1 as u8),
@@ -2114,7 +2113,7 @@ mod sanitizers {
 
 			// Para 1
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(1 as u8),
@@ -2150,7 +2149,7 @@ mod sanitizers {
 						.push((backed, CoreIndex(0)));
 				}
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(2 as u8),
@@ -2188,7 +2187,7 @@ mod sanitizers {
 
 			// Para 2
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(2),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(3 as u8),
@@ -2225,7 +2224,7 @@ mod sanitizers {
 
 			// Para 3
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(3),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(4 as u8),
@@ -2260,7 +2259,7 @@ mod sanitizers {
 
 			// Para 4
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(4),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(5 as u8),
@@ -2293,7 +2292,7 @@ mod sanitizers {
 					.or_insert(vec![])
 					.push((backed, CoreIndex(5)));
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(4),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(6 as u8),
@@ -2327,7 +2326,7 @@ mod sanitizers {
 
 			// Para 6.
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(6),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(3 as u8),
@@ -2358,7 +2357,7 @@ mod sanitizers {
 
 			// Para 7.
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(7),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(3 as u8),
@@ -2389,7 +2388,7 @@ mod sanitizers {
 
 			// Para 8.
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(8),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(3 as u8),
@@ -2626,7 +2625,7 @@ mod sanitizers {
 
 			// Para 1
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(1 as u8),
@@ -2655,7 +2654,7 @@ mod sanitizers {
 					core_index_enabled.then_some(CoreIndex(0 as u32)),
 				);
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(2 as u8),
@@ -2688,7 +2687,7 @@ mod sanitizers {
 
 			// Para 2.
 			{
-				let mut candidate_1 = TestCandidateBuilder {
+				let candidate_1 = TestCandidateBuilder {
 					para_id: ParaId::from(2),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(3 as u8),
@@ -2724,7 +2723,7 @@ mod sanitizers {
 						.push((backed_1, CoreIndex(2)));
 				}
 
-				let mut candidate_2 = TestCandidateBuilder {
+				let candidate_2 = TestCandidateBuilder {
 					para_id: ParaId::from(2),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(4 as u8),
@@ -2753,7 +2752,7 @@ mod sanitizers {
 				);
 				backed_candidates.push(backed_2.clone());
 
-				let mut candidate_3 = TestCandidateBuilder {
+				let candidate_3 = TestCandidateBuilder {
 					para_id: ParaId::from(2),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(5 as u8),
@@ -2785,7 +2784,7 @@ mod sanitizers {
 
 			// Para 3
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(3),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(6 as u8),
@@ -2821,7 +2820,7 @@ mod sanitizers {
 						.push((backed, CoreIndex(5)));
 				}
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(3),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(6 as u8),
@@ -2859,7 +2858,7 @@ mod sanitizers {
 
 			// Para 4
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(4),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(8 as u8),
@@ -3113,7 +3112,7 @@ mod sanitizers {
 
 			// Para 1
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(1 as u8),
@@ -3149,7 +3148,7 @@ mod sanitizers {
 						.push((backed, CoreIndex(0)));
 				}
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
 					relay_parent: prev_relay_parent,
 					pov_hash: Hash::repeat_byte(1 as u8),
@@ -3180,7 +3179,7 @@ mod sanitizers {
 				);
 				backed_candidates.push(backed.clone());
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(1 as u8),
@@ -3213,7 +3212,7 @@ mod sanitizers {
 
 			// Para 2
 			{
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(2),
 					relay_parent: prev_relay_parent,
 					pov_hash: Hash::repeat_byte(2 as u8),
@@ -3249,7 +3248,7 @@ mod sanitizers {
 						.push((backed, CoreIndex(3)));
 				}
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(2),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(2 as u8),
@@ -3286,7 +3285,7 @@ mod sanitizers {
 						.push((backed, CoreIndex(4)));
 				}
 
-				let mut candidate = TestCandidateBuilder {
+				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(2),
 					relay_parent,
 					pov_hash: Hash::repeat_byte(2 as u8),

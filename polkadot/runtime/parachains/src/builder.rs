@@ -36,28 +36,18 @@ use polkadot_primitives::{
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 		InherentData as ParachainsInherentData,
 	},
-	AvailabilityBitfield, CandidateCommitments, CandidateHash, CollatorId, CollatorSignature,
-	CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
-	Id as ParaId, IndexedVec, InvalidDisputeStatementKind, PersistedValidationData, SessionIndex,
-	SigningContext, UncheckedSigned, ValidDisputeStatementKind, ValidationCode, ValidatorId,
-	ValidatorIndex, ValidityAttestation,
+	AvailabilityBitfield, CandidateCommitments, CandidateHash, CompactStatement, CoreIndex,
+	DisputeStatement, DisputeStatementSet, GroupIndex, HeadData, Id as ParaId, IndexedVec,
+	InvalidDisputeStatementKind, PersistedValidationData, SessionIndex, SigningContext,
+	UncheckedSigned, ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex,
+	ValidityAttestation,
 };
-use sp_core::{sr25519, ByteArray, H256};
+use sp_core::H256;
 use sp_runtime::{
 	generic::Digest,
 	traits::{Header as HeaderT, One, TrailingZeroInput, Zero},
 	RuntimeAppPublic,
 };
-
-/// Create a null collator id.
-pub fn dummy_collator() -> CollatorId {
-	CollatorId::from_slice(&vec![0u8; 32]).expect("32 bytes; qed")
-}
-
-/// Create a null collator signature.
-pub fn dummy_collator_signature() -> CollatorSignature {
-	CollatorSignature::from_slice(&vec![0u8; 64]).expect("64 bytes; qed")
-}
 
 fn mock_validation_code() -> ValidationCode {
 	ValidationCode(vec![1, 2, 3])
