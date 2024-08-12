@@ -109,7 +109,7 @@ else
     exit 1
 fi
 
-# Check if rust is installed, if not, install the version defined in the .github/env file
+# Check if rust is installed
 if command -v rustc >/dev/null 2>&1; then
     echo "\n✅︎🦀 Rust already installed."
 else
