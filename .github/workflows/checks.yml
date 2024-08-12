@@ -1,0 +1,90 @@
+name: checks
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  changes:
+    # TODO: remove once migration is complete or this workflow is fully stable
+    if: contains(github.event.label.name, 'GHA-migration')
+    permissions:
+      pull-requests: read
+    uses: ./.github/workflows/reusable-check-changed-files.yml
+  set-image:
+    # GitHub Actions allows using 'env' in a container context.
+    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
+    # This workaround sets the container image for each job using 'set-image' job output.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
+  cargo-clippy:
+    runs-on: arc-runners-polkadot-sdk-beefy
+    needs: [set-image, changes] # , build-frame-omni-bencher ]
+    if: ${{ needs.changes.outputs.rust }}
+    timeout-minutes: 40
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    env:
+      RUSTFLAGS: "-D warnings"
+      SKIP_WASM_BUILD: 1
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: script
+        run: |
+          forklift cargo clippy --all-targets --locked --workspace
+          forklift cargo clippy --all-targets --all-features --locked --workspace
+  check-try-runtime:
+    runs-on: arc-runners-polkadot-sdk-beefy
+    needs: [set-image, changes] # , build-frame-omni-bencher ]
+    if: ${{ needs.changes.outputs.rust }}
+    timeout-minutes: 40
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: script
+        run: |
+          forklift cargo check --locked --all --features try-runtime
+          # this is taken from cumulus
+          # Check that parachain-template will compile with `try-runtime` feature flag.
+          forklift cargo check --locked -p parachain-template-node --features try-runtime
+          # add after https://github.com/paritytech/substrate/pull/14502 is merged
+          # experimental code may rely on try-runtime and vice-versa
+          forklift cargo check --locked --all --features try-runtime,experimental
+  # check-core-crypto-features works fast without forklift
+  check-core-crypto-features:
+    runs-on: arc-runners-polkadot-sdk-beefy
+    needs: [set-image, changes] # , build-frame-omni-bencher ]
+    if: ${{ needs.changes.outputs.rust }}
+    timeout-minutes: 30
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: script
+        run: |
+          cd substrate/primitives/core
+          ./check-features-variants.sh
+          cd -
+          cd substrate/primitives/application-crypto
+          ./check-features-variants.sh
+          cd -
+          cd substrate/primitives/keyring
+          ./check-features-variants.sh
+          cd -
