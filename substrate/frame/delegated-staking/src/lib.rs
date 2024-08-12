@@ -567,24 +567,25 @@ impl<T: Config> Pallet<T> {
 
 		let mut ledger = AgentLedger::<T>::get(&agent).ok_or(Error::<T>::NotAgent)?;
 
-		let new_delegation_amount =
-			if let Some(existing_delegation) = Delegation::<T>::get(&delegator) {
-				ensure!(existing_delegation.agent == agent, Error::<T>::InvalidDelegation);
-				existing_delegation
-					.amount
-					.checked_add(&amount)
-					.ok_or(ArithmeticError::Overflow)?
-			} else {
-				// if this is the first time delegation, increment provider count. This ensures that
-				// amount including existential deposit can be held.
-				frame_system::Pallet::<T>::inc_providers(&delegator);
-				amount
-			};
+		if let Some(mut existing_delegation) = Delegation::<T>::get(&delegator) {
+			ensure!(existing_delegation.agent == agent, Error::<T>::InvalidDelegation);
+			// update amount
+			existing_delegation.amount = existing_delegation
+				.amount
+				.checked_add(&amount)
+				.ok_or(ArithmeticError::Overflow)?;
+			existing_delegation
+		} else {
+			// if this is the first time delegation, increment provider count. This ensures that
+			// amount including existential deposit can be held.
+			frame_system::Pallet::<T>::inc_providers(&delegator);
+			Delegation::<T>::new(&agent, amount)
+		}
+		.update(&delegator);
 
 		// try to hold the funds.
 		T::Currency::hold(&HoldReason::StakingDelegation.into(), &delegator, amount)?;
 
-		let _ = Delegation::<T>::new(&agent, new_delegation_amount).update(&delegator);
 		ledger.total_delegated =
 			ledger.total_delegated.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
 		ledger.update(&agent);
