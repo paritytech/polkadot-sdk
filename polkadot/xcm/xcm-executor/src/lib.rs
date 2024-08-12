@@ -551,7 +551,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		if let Some(asset_wanted_for_fees) = &self.asset_used_for_fees {
 			if *asset_wanted_for_fees != asset_needed_for_fees.id {
 				match Config::AssetExchanger::quote_exchange_price(
-					&(asset_wanted_for_fees.clone(), 1u128).into(),
+					&(asset_wanted_for_fees.clone(), Fungible(0)).into(),
 					&asset_needed_for_fees.clone().into(),
 					false, // Minimal.
 				) {
@@ -564,7 +564,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					// It will error later in any case.
 					None => {
 						tracing::trace!(
-							target: "xcm::take_fee",
+							target: "xcm::calculate_asset_for_delivery_fees",
 							?asset_wanted_for_fees,
 							"Could not convert fees",
 						);
