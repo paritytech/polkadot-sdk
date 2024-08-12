@@ -32,7 +32,8 @@ mod imports {
 	pub use emulated_integration_tests_common::{
 		accounts::ALICE,
 		impls::Inspect,
-		test_parachain_is_trusted_teleporter,
+		test_parachain_is_trusted_teleporter, test_parachain_is_trusted_teleporter_for_relay,
+		test_relay_is_trusted_teleporter,
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, TestExt,
 		},
@@ -55,14 +56,19 @@ mod imports {
 			penpal_runtime::xcm_config::UniversalLocation as PenpalUniversalLocation,
 			PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet,
 		},
-		westend_emulated_chain::WestendRelayPallet as WestendPallet,
+		westend_emulated_chain::{
+			genesis::ED as WESTEND_ED, westend_runtime::xcm_config::XcmConfig as WestendXcmConfig,
+			WestendRelayPallet as WestendPallet,
+		},
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,
 		AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 		AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubRococoPara as BridgeHubRococo,
 		BridgeHubWestendPara as BridgeHubWestend,
+		BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
 		BridgeHubWestendParaSender as BridgeHubWestendSender, PenpalBPara as PenpalB,
 		PenpalBParaSender as PenpalBSender, WestendRelay as Westend,
+		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
 
 	pub const ASSET_MIN_BALANCE: u128 = 1000;

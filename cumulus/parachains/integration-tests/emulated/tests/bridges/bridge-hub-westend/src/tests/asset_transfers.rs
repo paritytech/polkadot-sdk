@@ -454,7 +454,7 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 
 	// fund the AHW's SA on AHR with the ROC tokens held in reserve
 	let sov_ahw_on_ahr = AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
-		NetworkId::Westend,
+		Westend,
 		AssetHubWestend::para_id(),
 	);
 	AssetHubRococo::fund_accounts(vec![(sov_ahw_on_ahr.clone(), amount * 2)]);
