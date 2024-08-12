@@ -156,6 +156,7 @@ fn funds_claim_works() {
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
+		println!("the first mystery block is:{:?}",now);
 		let project = Spends::<Test>::get(0).unwrap();
 		let project_account = project.whitelisted_project.unwrap();
 		let balance_0 =
@@ -163,6 +164,7 @@ fn funds_claim_works() {
 		now = now.saturating_add(project.valid_from);
 		run_to_block(now);
 
+		println!("the mystery block is:{:?}",now);
 		assert_ok!(Distribution::claim_reward_for(
 			RawOrigin::Signed(EVE).into(),
 			project_account.clone(),

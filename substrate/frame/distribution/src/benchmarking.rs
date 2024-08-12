@@ -50,7 +50,7 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 
 fn create_parameters<T: Config>(n: u32) -> (AccountIdOf<T>, BalanceOf<T>){
     let project_id = account("project", n, SEED);
-	let value: BalanceOf<T> = T::NativeBalance::minimum_balance() * 1000u32.into();
+	let value: BalanceOf<T> = T::NativeBalance::minimum_balance() * 100u32.into()*(n+1).into();
     let _ = T::NativeBalance::set_balance(&project_id, value);
     (project_id,value)
 }
@@ -68,7 +68,7 @@ fn add_projects<T: Config>(r:u32) -> Result<(), &'static str> {
         let (project_id, amount) = create_parameters::<T>(i);
         create_project::<T>(project_id,amount);
     }
-    ensure!(<Projects<T>>::get().len() == r as usize, "Nothing created!");
+   
     Ok(())
 }
 
@@ -76,34 +76,44 @@ fn add_projects<T: Config>(r:u32) -> Result<(), &'static str> {
 mod benchmarks {
     use super::*;
 
-    #[benchmark]
-    fn claim_reward_for(r: Linear<1,{T::MaxProjects::get()}>) -> Result<(), BenchmarkError> {
+    #[benchmark] 
+    fn claim_reward_for() -> Result<(), BenchmarkError> {
         /* setup initial state */
-        add_projects::<T>(r)?;
-		let mut projects_nbr = <Projects<T>>::get().len();
-        let pot = setup_pot_account::<T>();
-        let (project_id,amount) = create_parameters::<T>(r);
+        add_projects::<T>(T::MaxProjects::get())?;
+		
+		ensure!(<Projects<T>>::get().len() as u32 == T::MaxProjects::get(), "Project list setting failed !!");
+
+		let pot = setup_pot_account::<T>();
         let caller: T::AccountId = whitelisted_caller();
 		let epoch = T::EpochDurationBlocks::get();		
 		let mut when = T::BlockNumberProvider::current_block_number().saturating_add(epoch);
 		run_to_block::<T>(when);
+		/* execute extrinsic or function */
+		#[block]	
+		{
+			for i in 0..T::MaxProjects::get(){
+				let project = <Spends<T>>::get(i).unwrap();
+				when = when.saturating_add(project.valid_from);
+				let project_id = project.whitelisted_project.unwrap();
+				let amount = project.amount;
+				run_to_block::<T>(when);
+				let _=Distribution::<T>::claim_reward_for(
+					RawOrigin::Signed(caller.clone()).into(),
+					project_id.clone()
+				);
+				
+				assert_last_event::<T>(
+					Event::RewardClaimed { when, amount, project_account: project_id }.into(),
+				);
+		}
+	}		
 
-		projects_nbr = <Projects<T>>::get().len();			
-		assert!(projects_nbr==0,"No Spends created");
-		assert!(<SpendsCount<T>>::get()>0, "No Spends created");
-		run_to_block::<T>(when+T::BufferPeriod::get());
-
-        /* execute extrinsic or function */
-        #[extrinsic_call]			
-		_(RawOrigin::Signed(caller),project_id.clone());
-
-		assert_last_event::<T>(
-			Event::RewardClaimed { when, amount, project_account: project_id }.into(),
-		);
-
-       
 		Ok(())
-    }
+		
+			
+		}
+		
+    
 	impl_benchmark_test_suite!(
 		Distribution,
 		crate::mock::new_test_ext(),
