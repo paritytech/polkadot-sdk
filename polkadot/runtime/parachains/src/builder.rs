@@ -30,12 +30,17 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
-	node_features::FeatureIndex, AvailabilityBitfield, BackedCandidate, CandidateCommitments,
-	vstaging::CandidateDescriptorV2 as CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	node_features::FeatureIndex,
+	vstaging::{
+		BackedCandidate, CandidateDescriptorV2 as CandidateDescriptor,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+		InherentData as ParachainsInherentData,
+	},
+	AvailabilityBitfield, CandidateCommitments, CandidateHash, CollatorId, CollatorSignature,
 	CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
-	Id as ParaId, IndexedVec, vstaging::InherentData as ParachainsInherentData, InvalidDisputeStatementKind,
-	PersistedValidationData, SessionIndex, SigningContext, UncheckedSigned,
-	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,
+	Id as ParaId, IndexedVec, InvalidDisputeStatementKind, PersistedValidationData, SessionIndex,
+	SigningContext, UncheckedSigned, ValidDisputeStatementKind, ValidationCode, ValidatorId,
+	ValidatorIndex, ValidityAttestation,
 };
 use sp_core::{sr25519, ByteArray, H256};
 use sp_runtime::{
@@ -295,17 +300,17 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	}
 
 	fn candidate_descriptor_mock() -> CandidateDescriptor<T::Hash> {
-		CandidateDescriptor::<T::Hash> {
-			para_id: 0.into(),
-			relay_parent: Default::default(),
-			collator: CollatorId::from(sr25519::Public::from_raw([42u8; 32])),
-			persisted_validation_data_hash: Default::default(),
-			pov_hash: Default::default(),
-			erasure_root: Default::default(),
-			signature: CollatorSignature::from(sr25519::Signature::from_raw([42u8; 64])),
-			para_head: Default::default(),
-			validation_code_hash: mock_validation_code().hash(),
-		}
+		CandidateDescriptor::<T::Hash>::new(
+			0.into(),
+			Default::default(),
+			CoreIndex(0),
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			mock_validation_code().hash(),
+		)
 	}
 
 	/// Create a mock of `CandidatePendingAvailability`.
@@ -631,17 +636,17 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							scheduler::Pallet::<T>::group_validators(group_idx).unwrap();
 
 						let candidate = CommittedCandidateReceipt::<T::Hash> {
-							descriptor: CandidateDescriptor::<T::Hash> {
+							descriptor: CandidateDescriptor::<T::Hash>::new(
 								para_id,
 								relay_parent,
-								collator: dummy_collator(),
+								CoreIndex(0),
+								1,
 								persisted_validation_data_hash,
 								pov_hash,
-								erasure_root: Default::default(),
-								signature: dummy_collator_signature(),
-								para_head: head_data.hash(),
+								Default::default(),
+								head_data.hash(),
 								validation_code_hash,
-							},
+							),
 							commitments: CandidateCommitments::<u32> {
 								upward_messages: Default::default(),
 								horizontal_messages: Default::default(),

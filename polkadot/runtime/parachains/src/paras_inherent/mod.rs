@@ -48,12 +48,17 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
 use polkadot_primitives::{
-	effective_minimum_backing_votes, node_features::FeatureIndex, vstaging::BackedCandidate, CandidateHash,
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
-	DisputeStatementSet, HeadData, vstaging::InherentData as ParachainsInherentData,
-	MultiDisputeStatementSet, vstaging::ScrapedOnChainVotes, SessionIndex, SignedAvailabilityBitfields,
-	SigningContext, UncheckedSignedAvailabilityBitfield, UncheckedSignedAvailabilityBitfields,
-	ValidatorId, ValidatorIndex, ValidityAttestation, PARACHAINS_INHERENT_IDENTIFIER,
+	effective_minimum_backing_votes,
+	node_features::FeatureIndex,
+	vstaging::{
+		BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
+		InherentData as ParachainsInherentData, ScrapedOnChainVotes,
+	},
+	CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
+	DisputeStatementSet, HeadData, MultiDisputeStatementSet, SessionIndex,
+	SignedAvailabilityBitfields, SigningContext, UncheckedSignedAvailabilityBitfield,
+	UncheckedSignedAvailabilityBitfields, ValidatorId, ValidatorIndex, ValidityAttestation,
+	PARACHAINS_INHERENT_IDENTIFIER,
 };
 use rand::{seq::SliceRandom, SeedableRng};
 use scale_info::TypeInfo;

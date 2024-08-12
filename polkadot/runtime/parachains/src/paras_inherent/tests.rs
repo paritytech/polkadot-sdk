@@ -1381,7 +1381,7 @@ mod enter {
 
 			// The chained candidates are not picked, instead a single other candidate is picked
 			assert_eq!(backed_candidates.len(), 1);
-			assert_ne!(backed_candidates[0].descriptor().para_id, ParaId::from(1000));
+			assert_ne!(backed_candidates[0].descriptor().para_id(), ParaId::from(1000));
 
 			// All bitfields are kept.
 			assert_eq!(bitfields.len(), 150);
@@ -1402,9 +1402,9 @@ mod enter {
 			// Only the chained candidates should pass filter.
 			assert_eq!(backed_candidates.len(), 3);
 			// Check the actual candidates
-			assert_eq!(backed_candidates[0].descriptor().para_id, ParaId::from(1000));
-			assert_eq!(backed_candidates[1].descriptor().para_id, ParaId::from(1000));
-			assert_eq!(backed_candidates[2].descriptor().para_id, ParaId::from(1000));
+			assert_eq!(backed_candidates[0].descriptor().para_id(), ParaId::from(1000));
+			assert_eq!(backed_candidates[1].descriptor().para_id(), ParaId::from(1000));
+			assert_eq!(backed_candidates[2].descriptor().para_id(), ParaId::from(1000));
 
 			// All bitfields are kept.
 			assert_eq!(bitfields.len(), 150);
@@ -1481,9 +1481,7 @@ mod sanitizers {
 	use super::*;
 
 	use crate::{
-		inclusion::tests::{
-			back_candidate, collator_sign_candidate, BackingKind, TestCandidateBuilder,
-		},
+		inclusion::tests::{back_candidate, BackingKind, TestCandidateBuilder},
 		mock::new_test_ext,
 	};
 	use bitvec::order::Lsb0;
@@ -1898,8 +1896,6 @@ mod sanitizers {
 					}
 					.build();
 
-					collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 					let backed = back_candidate(
 						candidate,
 						&validators,
@@ -1932,7 +1928,7 @@ mod sanitizers {
 			let mut expected_backed_candidates_with_core = BTreeMap::new();
 
 			for candidate in backed_candidates.iter() {
-				let para_id = candidate.descriptor().para_id;
+				let para_id = candidate.descriptor().para_id();
 
 				expected_backed_candidates_with_core.entry(para_id).or_insert(vec![]).push((
 					candidate.clone(),
@@ -2136,8 +2132,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let prev_candidate = candidate.clone();
 				let backed: BackedCandidate = back_candidate(
 					candidate,
@@ -2173,8 +2167,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let backed = back_candidate(
 					candidate,
@@ -2213,8 +2205,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let backed = back_candidate(
 					candidate,
 					&validators,
@@ -2252,8 +2242,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let backed = back_candidate(
 					candidate,
 					&validators,
@@ -2289,8 +2277,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let prev_candidate = candidate.clone();
 				let backed = back_candidate(
 					candidate,
@@ -2325,8 +2311,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let backed = back_candidate(
 					candidate,
 					&validators,
@@ -2360,8 +2344,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let backed = back_candidate(
 					candidate,
 					&validators,
@@ -2393,8 +2375,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let backed = back_candidate(
 					candidate,
 					&validators,
@@ -2425,8 +2405,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let backed = back_candidate(
 					candidate,
@@ -2666,8 +2644,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let prev_candidate = candidate.clone();
 				let prev_backed: BackedCandidate = back_candidate(
 					candidate,
@@ -2696,8 +2672,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let backed = back_candidate(
 					candidate,
@@ -2731,8 +2705,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate_1);
 
 				let backed_1: BackedCandidate = back_candidate(
 					candidate_1,
@@ -2770,8 +2742,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate_2);
-
 				let backed_2 = back_candidate(
 					candidate_2.clone(),
 					&validators,
@@ -2800,8 +2770,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate_3);
 
 				let backed_3 = back_candidate(
 					candidate_3,
@@ -2834,8 +2802,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let prev_candidate = candidate.clone();
 				let backed: BackedCandidate = back_candidate(
@@ -2872,8 +2838,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let backed = back_candidate(
 					candidate,
@@ -2912,8 +2876,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let backed: BackedCandidate = back_candidate(
 					candidate.clone(),
@@ -3169,8 +3131,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let prev_candidate = candidate.clone();
 				let backed: BackedCandidate = back_candidate(
 					candidate,
@@ -3208,8 +3168,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let prev_candidate = candidate.clone();
 				let backed = back_candidate(
 					candidate,
@@ -3240,8 +3198,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let backed = back_candidate(
 					candidate,
@@ -3274,8 +3230,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let prev_candidate = candidate.clone();
 				let backed: BackedCandidate = back_candidate(
@@ -3314,8 +3268,6 @@ mod sanitizers {
 				}
 				.build();
 
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
 				let prev_candidate = candidate.clone();
 				let backed = back_candidate(
 					candidate,
@@ -3352,8 +3304,6 @@ mod sanitizers {
 					..Default::default()
 				}
 				.build();
-
-				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 				let backed = back_candidate(
 					candidate,
@@ -3714,9 +3664,9 @@ mod sanitizers {
 				let mut invalid_set = std::collections::BTreeSet::new();
 
 				for (idx, backed_candidate) in backed_candidates.iter().enumerate() {
-					if backed_candidate.descriptor().para_id == ParaId::from(1) && idx == 0 {
+					if backed_candidate.descriptor().para_id() == ParaId::from(1) && idx == 0 {
 						invalid_set.insert(backed_candidate.hash());
-					} else if backed_candidate.descriptor().para_id == ParaId::from(3) {
+					} else if backed_candidate.descriptor().para_id() == ParaId::from(3) {
 						invalid_set.insert(backed_candidate.hash());
 					}
 				}
@@ -3752,7 +3702,7 @@ mod sanitizers {
 				let mut invalid_set = std::collections::BTreeSet::new();
 
 				for (idx, backed_candidate) in backed_candidates.iter().enumerate() {
-					if backed_candidate.descriptor().para_id == ParaId::from(1) && idx == 1 {
+					if backed_candidate.descriptor().para_id() == ParaId::from(1) && idx == 1 {
 						invalid_set.insert(backed_candidate.hash());
 					}
 				}

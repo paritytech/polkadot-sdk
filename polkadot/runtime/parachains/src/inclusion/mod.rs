@@ -45,11 +45,15 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_message_queue::OnQueueChanged;
 use polkadot_primitives::{
-	effective_minimum_backing_votes, supermajority_threshold, well_known_keys, vstaging::BackedCandidate,
-	CandidateCommitments, vstaging::CandidateDescriptorV2 as CandidateDescriptor, CandidateHash, vstaging::CandidateReceiptV2 as CandidateReceipt,
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId,
-	SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId, ValidatorIndex,
-	ValidityAttestation,
+	effective_minimum_backing_votes, supermajority_threshold,
+	vstaging::{
+		BackedCandidate, CandidateDescriptorV2 as CandidateDescriptor,
+		CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	},
+	well_known_keys, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, Hash, HeadData,
+	Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId,
+	ValidatorIndex, ValidityAttestation,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
