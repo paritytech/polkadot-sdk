@@ -23,10 +23,12 @@ nix = { features = ["process", "resource", "sched"], workspace = true }
 codec = { features = ["derive"], workspace = true }
 
 polkadot-node-core-pvf-common = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
 sc-executor-common = { workspace = true, default-features = true }
 sc-executor-wasmtime = { workspace = true, default-features = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemallocator = "0.5.0"
