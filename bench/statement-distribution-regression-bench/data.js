@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723485179252,
+  "lastUpdate": 1723501623405,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -8063,6 +8063,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.036894423572,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "eskimor",
+            "username": "eskimor",
+            "email": "eskimor@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "819a5818284a96a5a5bd65ce67e69bab860d4534",
+          "message": "Bump authoring duration for async backing to 2s. (#5195)\n\nShould be safe on all production network. \n\nI noticed that Paseo needs to be updated, it is lacking behind in a\ncouple of things.\n\nExecution environment parameters should be updated to those of Polkadot:\n\n```\n[\n      {\n        MaxMemoryPages: 8,192\n      }\n      {\n        PvfExecTimeout: [\n          Backing\n          2,500\n        ]\n      }\n      {\n        PvfExecTimeout: [\n          Approval\n          15,000\n        ]\n      }\n    ]\n  ]\n  ```\n\n---------\n\nCo-authored-by: eskimor <eskimor@no-such-url.com>",
+          "timestamp": "2024-08-12T20:34:22Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/819a5818284a96a5a5bd65ce67e69bab860d4534"
+        },
+        "date": 1723501591975,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.94999999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03731461479,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04860362933000001,
             "unit": "seconds"
           }
         ]
