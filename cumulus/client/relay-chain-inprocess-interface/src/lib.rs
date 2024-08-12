@@ -137,7 +137,11 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		hash: PHash,
 		para_id: ParaId,
 	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
-		Ok(self.full_client.runtime_api().candidate_pending_availability(hash, para_id)?)
+		Ok(self
+			.full_client
+			.runtime_api()
+			.candidate_pending_availability(hash, para_id)?
+			.map(|receipt| receipt.into()))
 	}
 
 	async fn session_index_for_child(&self, hash: PHash) -> RelayChainResult<SessionIndex> {
@@ -260,7 +264,13 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		&self,
 		relay_parent: PHash,
 	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
-		Ok(self.full_client.runtime_api().availability_cores(relay_parent)?)
+		Ok(self
+			.full_client
+			.runtime_api()
+			.availability_cores(relay_parent)?
+			.into_iter()
+			.map(|core_state| core_state.into())
+			.collect::<Vec<_>>())
 	}
 
 	async fn candidates_pending_availability(
@@ -268,7 +278,13 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		hash: PHash,
 		para_id: ParaId,
 	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
-		Ok(self.full_client.runtime_api().candidates_pending_availability(hash, para_id)?)
+		Ok(self
+			.full_client
+			.runtime_api()
+			.candidates_pending_availability(hash, para_id)?
+			.into_iter()
+			.map(|receipt| receipt.into())
+			.collect::<Vec<_>>())
 	}
 }
 
