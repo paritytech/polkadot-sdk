@@ -17,7 +17,6 @@ gum = { workspace = true, default-features = true }
 
 sp-keystore = { workspace = true }
 sp-application-crypto = { workspace = true }
-sp-maybe-compressed-blob = { workspace = true, default-features = true }
 codec = { features = ["bit-vec", "derive"], workspace = true }
 
 polkadot-primitives = { workspace = true, default-features = true }
@@ -36,5 +35,6 @@ sp-keyring = { workspace = true, default-features = true }
 futures = { features = ["thread-pool"], workspace = true }
 assert_matches = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 polkadot-primitives-test-helpers = { workspace = true }
