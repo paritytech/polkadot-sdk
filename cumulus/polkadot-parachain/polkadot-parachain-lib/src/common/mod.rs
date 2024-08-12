@@ -20,7 +20,7 @@
 
 pub(crate) mod aura;
 pub mod chain_spec;
-pub(crate) mod runtime;
+pub mod runtime;
 
 use cumulus_primitives_core::CollectCollationInfo;
 use sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata};

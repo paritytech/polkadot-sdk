@@ -26,15 +26,15 @@
 //!
 //! The library exposes the possibility to provide a [`CommandConfig`]. Through this structure
 //! 2 optional configurations can be provided:
-//! - a chain spec loader (an implementation of ['chain_spec::LoadSpec']): this can be used for
+//! - a chain spec loader (an implementation of [`chain_spec::LoadSpec`]): this can be used for
 //!   providing the chain specs that are supported by default by the `--chain-spec` argument of the
 //!   node's `CLI` and the actual chain config associated with each one.
-//! - a runtime resolver (an implementation of [`chain_spec::RuntimeResolver`]): this can be used
-//!   for providing the parameters of the runtime that is associated with each of the chain specs
+//! - a runtime resolver (an implementation of [`runtime::RuntimeResolver`]): this can be used for
+//!   providing the parameters of the runtime that is associated with each of the chain specs
 //!
 //! ## Examples
 //!
-//! For examples, see the `polkadot-parachain` crate.
+//! For an example, see the `polkadot-parachain-bin` crate.
 
 mod cli;
 mod command;
@@ -44,7 +44,4 @@ mod rpc;
 mod service;
 
 pub use command::{run, CommandConfig};
-pub use common::{
-	chain_spec,
-	runtime::{AuraConsensusId, Consensus, Runtime, RuntimeResolver},
-};
+pub use common::{chain_spec, runtime};
