@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723458538662,
+  "lastUpdate": 1723465631593,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21631,6 +21631,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.012217375646666662,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dónal Murray",
+            "username": "seadanda",
+            "email": "donal.murray@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "1f49358db0033e57a790eac6daccc45beba81863",
+          "message": "Fix favicon link to fix CI (#5319)\n\nThe polkadot.network website was recently refreshed and the\n`favicon-32x32.png` was removed. It was linked in some docs and so the\ndocs have been updated to point to a working favicon on the new website.\n\nPreviously the lychee link checker was failing on all PRs.",
+          "timestamp": "2024-08-12T10:44:35Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1f49358db0033e57a790eac6daccc45beba81863"
+        },
+        "date": 1723465600500,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010523696473333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022301573513333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17515390276666662,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012662626413333336,
             "unit": "seconds"
           }
         ]
