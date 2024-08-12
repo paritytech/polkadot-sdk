@@ -530,6 +530,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -571,7 +573,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	availability_chunks::availability_chunk_index,
 	runtime::{get_occupied_cores, RuntimeInfo},
 };
-<span class="kw">use </span>polkadot_primitives::{CandidateHash, CoreIndex, Hash, OccupiedCore, SessionIndex};
+<span class="kw">use </span>polkadot_primitives::{
+	BlockNumber, CandidateHash, CoreIndex, Hash, OccupiedCore, SessionIndex,
+};
 
 <span class="kw">use super</span>::{FatalError, Metrics, <span class="prelude-ty">Result</span>, LOG_TARGET};
 
@@ -644,14 +648,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ctx: <span class="kw-2">&amp;mut </span>Context,
 		runtime: <span class="kw-2">&amp;mut </span>RuntimeInfo,
 		update: ActiveLeavesUpdate,
-		spans: <span class="kw-2">&amp;</span>HashMap&lt;Hash, jaeger::PerLeafSpan&gt;,
+		spans: <span class="kw-2">&amp;</span>HashMap&lt;Hash, (BlockNumber, jaeger::PerLeafSpan)&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>update, <span class="string">"Update fetching heads"</span>);
 		<span class="kw">let </span>ActiveLeavesUpdate { activated, deactivated } = update;
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(leaf) = activated {
 			<span class="kw">let </span>span = spans
 				.get(<span class="kw-2">&amp;</span>leaf.hash)
-				.map(|span| span.child(<span class="string">"update-fetching-heads"</span>))
+				.map(|(<span class="kw">_</span>, span)| span.child(<span class="string">"update-fetching-heads"</span>))
 				.unwrap_or_else(|| jaeger::Span::new(<span class="kw-2">&amp;</span>leaf.hash, <span class="string">"update-fetching-heads"</span>))
 				.with_string_tag(<span class="string">"leaf"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, leaf.hash))
 				.with_stage(jaeger::Stage::AvailabilityDistribution);

@@ -171,7 +171,7 @@ It is a specification that comes with the language.</p>
 <p>For these docs, we’ll use a Rust implementation of XCM and the XCVM, consisting of the following
 parts:</p>
 <ul>
-<li><a href="../../staging_xcm/index.html" title="mod staging_xcm"><code>XCM</code></a>: Holds the definition of an XCM program, the instructions and main concepts.</li>
+<li><a href="xcm"><code>XCM</code></a>: Holds the definition of an XCM program, the instructions and main concepts.</li>
 <li><a href="xcm_executor"><code>Executor</code></a>: Implements the XCVM, capable of executing XCMs. Highly
 configurable.</li>
 <li><a href="xcm_builder"><code>Builder</code></a>: A collection of types used to configure the executor.</li>
@@ -214,7 +214,7 @@ the hierarchy after going up the specified number of parents.</p>
 <p>Many junctions are available; parachains, pallets, 32 and 20 byte accounts, governance bodies,
 and arbitrary indices are the most common.
 A full list of available junctions can be found in the <a href="https://github.com/paritytech/xcm-format#interior-locations--junctions">format</a>
-and <a href="../../staging_xcm/v4/junction/enum.Junction.html" title="enum staging_xcm::v4::junction::Junction">Junction enum</a>.</p>
+and <a href="xcm::v4::prelude::Junction">Junction enum</a>.</p>
 <p>We’ll use a file system notation to represent locations, and start with relative locations.
 In the diagram, the location of parachain 1000 as seen from all other locations is as follows:</p>
 <ul>
@@ -266,14 +266,14 @@ Two such assets are a Parachain asset, like Moonbeam’s GLMR, and KSM, from the
 network. These are represented as <code>../Parachain(2004)/PalletInstance(10)</code> and
 <code>../../GlobalConsensus(Kusama)</code> respectively.</p>
 <p>The whole type can be seen in the <a href="https://github.com/paritytech/xcm-format#6-universal-asset-identifiers">format</a>
-and <a href="../../staging_xcm/v4/asset/struct.Asset.html" title="struct staging_xcm::v4::asset::Asset">rust docs</a>.</p>
+and <a href="xcm::v4::prelude::Asset">rust docs</a>.</p>
 <h3 id="instructions"><a class="doc-anchor" href="#instructions">§</a>Instructions</h3>
 <p>Given the vocabulary to talk about both locations – chains and accounts – and assets, we now
 need a way to express what we want the consensus system to do when executing our programs.
 We need a way of writing our programs.</p>
 <p>XCM programs are composed of a sequence of instructions.</p>
 <p>All available instructions can be seen in the <a href="https://github.com/paritytech/xcm-format#5-the-xcvm-instruction-set">format</a>
-and the <a href="../../staging_xcm/v4/enum.Instruction.html" title="enum staging_xcm::v4::Instruction">Instruction enum</a>.</p>
+and the <a href="xcm::v4::prelude::Instruction">Instruction enum</a>.</p>
 <p>A very simple example is the following:</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span>message = Xcm(<span class="macro">vec!</span>[
