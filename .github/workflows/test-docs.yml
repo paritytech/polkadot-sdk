@@ -52,22 +52,7 @@ jobs:
           script_content="<script async defer src=\"https://apisa.parity.io/latest.js\"></script><noscript><img src=\"https://apisa.parity.io/latest.js\" alt=\"\" referrerpolicy=\"no-referrer-when-downgrade\" /></noscript>"
           path="./crate-docs"
 
-          inject_simple_analytics() {
-            local path="$1";
-            local script_content="$2";
-
-            process_file() {
-              local file="$1";
-              echo "Adding Simple Analytics script to $file";
-              sed -i "s|</head>|$script_content</head>|" "$file";
-            }
-            export -f process_file;
-            export script_content="$script_content";
-
-            find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'process_file "$@"' _ {};
-          }
-
-          inject_simple_analytics "$path" "$script_content"
+          find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'file="{}"; echo "Adding Simple Analytics script to $file"; sed -i "s|</head>|$script_content</head>|" "$file";'
       - run: echo "<meta http-equiv=refresh content=0;url=polkadot_sdk_docs/index.html>" > ./crate-docs/index.html
       - uses: actions/upload-artifact@v4
         with:
