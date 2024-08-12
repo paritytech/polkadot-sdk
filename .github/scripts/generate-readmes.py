@@ -53,7 +53,7 @@ This crate is licensed with {license}.
 VERSION_TEMPLATE = """
 ## Version
 
-This crate version was first included in Polkadot SDK release {version}.
+This version of `{name}` is associated with Polkadot {sdk_version} release.
 """
 
 
@@ -78,15 +78,16 @@ def generate_readme(member, *, workspace_license, sdk_version):
             return
         license = workspace_license
 
+    name = manifest["package"]["name"]
     description = manifest["package"]["description"]
     description = description + "." if not description.endswith(".") else description
 
     filled_readme = README_TEMPLATE.format(
-        name=manifest["package"]["name"], description=description, license=license
+        name=name, description=description, license=license
     )
 
     if sdk_version:
-        filled_readme += VERSION_TEMPLATE.format(version=sdk_version)
+        filled_readme += VERSION_TEMPLATE.format(name=name, sdk_version=sdk_version)
 
     with open(f"./{member}/README.md", "w") as new_readme:
         new_readme.write(filled_readme)
