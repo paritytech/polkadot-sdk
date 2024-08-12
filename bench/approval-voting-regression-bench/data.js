@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723477341366,
+  "lastUpdate": 1723484296935,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -14475,6 +14475,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.426681922260258,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk",
+            "email": "1728078+michalkucharczyk@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b52cfc2605362b53a1a570c3c1b41d15481d0990",
+          "message": "chain-spec: minor clarification on the genesis config patch (#5324)\n\nAdded minor clarification on the genesis config patch\n([link](https://substrate.stackexchange.com/questions/11813/in-the-genesis-config-what-does-the-patch-key-do/11825#11825))\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-08-12T15:58:33Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b52cfc2605362b53a1a570c3c1b41d15481d0990"
+        },
+        "date": 1723484265681,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63987.52,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.71788505289003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.051911455860103,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.110596386890091,
             "unit": "seconds"
           }
         ]
