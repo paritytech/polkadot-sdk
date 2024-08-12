@@ -17,8 +17,8 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
+use crate::testing::{allow_unsafe, deny_unsafe};
 use sc_block_builder::BlockBuilderBuilder;
-use sc_rpc_api::DenyUnsafe;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use substrate_test_runtime_client::{prelude::*, runtime::Block};
@@ -27,10 +27,7 @@ use substrate_test_runtime_client::{prelude::*, runtime::Block};
 async fn block_stats_work() {
 	let mut client = Arc::new(substrate_test_runtime_client::new());
 	let mut api = <Dev<Block, _>>::new(client.clone()).into_rpc();
-
-	let mut ext = Extensions::new();
-	ext.insert(DenyUnsafe::No);
-	api.with_extensions(ext);
+	api.with_extensions(allow_unsafe());
 
 	let block = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -83,10 +80,7 @@ async fn block_stats_work() {
 async fn deny_unsafe_works() {
 	let mut client = Arc::new(substrate_test_runtime_client::new());
 	let mut api = <Dev<Block, _>>::new(client.clone()).into_rpc();
-
-	let mut ext = Extensions::new();
-	ext.insert(DenyUnsafe::Yes);
-	api.with_extensions(ext);
+	api.with_extensions(deny_unsafe());
 
 	let block = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(client.chain_info().genesis_hash)

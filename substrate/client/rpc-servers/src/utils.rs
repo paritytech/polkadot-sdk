@@ -106,7 +106,7 @@ impl FromStr for ListenAddr {
 			for val in query_params.split('&') {
 				let (key, value) = val.split_once('=').ok_or_else(|| "Invalid RPC query param")?;
 
-				match key.as_ref() {
+				match key {
 					"rpc-methods" => {
 						rpc_methods =
 							Some(value.parse().map_err(|e| format!("Invalid RPC methods: {}", e))?);
