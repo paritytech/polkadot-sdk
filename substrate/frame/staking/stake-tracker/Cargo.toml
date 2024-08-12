@@ -1,0 +1,80 @@
+[package]
+name = "pallet-stake-tracker"
+version = "0.1.0"
+description = "FRAME stake tracker pallet"
+authors = ["Parity Technologies <admin@parity.io>"]
+homepage = "https://substrate.io"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/paritytech/polkadot-sdk"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { features = [
+	"derive",
+], workspace = true }
+
+
+scale-info = { features = ["derive", "serde"], workspace = true }
+
+sp-runtime = { features = ["serde"], workspace = true }
+sp-staking = { features = ["serde"], workspace = true }
+
+sp-npos-elections = { workspace = true, default-features = false }
+frame-election-provider-support = { workspace = true, default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+
+# Optional imports for benchmarking
+frame-benchmarking = { optional = true, workspace = true }
+
+[dev-dependencies]
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
+pallet-bags-list = { workspace = true, default-features = false, features = ["try-runtime"] }
+pallet-balances = { workspace = true, default-features = true }
+frame-benchmarking = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+
+std = [
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-election-provider-support/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-bags-list/std",
+	"pallet-balances/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-npos-elections/std",
+	"sp-runtime/std",
+	"sp-runtime/std",
+	"sp-staking/std",
+	"sp-tracing/std",
+]
+
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-bags-list/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+]
+
+try-runtime = [
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-bags-list/try-runtime",
+	"pallet-balances/try-runtime",
+	"sp-runtime/try-runtime",
+]

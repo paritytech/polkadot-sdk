@@ -234,6 +234,18 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 	Ok(validator_chosen)
 }
 
+/// Returns all the nominations associated with an account.
+pub fn nominators_of<T: Config>(
+	validator: T::AccountId,
+) -> Result<Vec<T::AccountId>, &'static str> {
+	//let acc = T::Lookup::lookup(validator).map_err(|_| "error looking up validator account")?;
+
+	Ok(Nominators::<T>::iter()
+		.filter(|(_, noms)| noms.targets.contains(&validator))
+		.map(|(n, _)| n)
+		.collect::<Vec<_>>())
+}
+
 /// get the current era.
 pub fn current_era<T: Config>() -> EraIndex {
 	<Pallet<T>>::current_era().unwrap_or(0)

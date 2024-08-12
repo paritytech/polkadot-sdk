@@ -1,0 +1,39 @@
+title: Adds `stake-tracker` pallet and integrates it with the staking pallet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds the `stake-tracker` pallet which ensures that the staking system keeps an up-to date
+      list of targets, *strictly-sorted* by the target's approvals stakes. The `stake-tracker`
+      pallet implements the `OnStakingUpdate` trait to listen to staking events and handle those
+      events so that the target list remains strictly-sorted and up-to date.
+      Other notable changes in this PR are:
+        * Changes to assumptions of chilled and removed stakers: the target list keeps track
+        of validators that have been chilled/removed from the system, insofar as there are
+        nominators nominating them;
+        * Changes to staking `Call::nominate`: new nominations can only be performed on active
+        validators or idle stakers;
+        * Changes to `OnStakingUpdate` trait: new methods for signaling chilling of stakers 
+        (`on_idle`) and refactors trait API for safety of use.
+
+crates:
+  - name: pallet-staking
+    bump: minor
+  - name: pallet-stake-tracker
+    bump: major
+  - name: sp-staking
+    bump: major
+  - name: frame-election-provider-support
+    bump: none
+  - name: polkadot-sdk
+    bump: minor
+  - name: pallet-fast-unstake
+    bump: none
+  - name: pallet-bags-list
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: pallet-delegated-staking
+    bump: none
+  - name: pallet-nomination-pools-benchmarking
+    bump: minor

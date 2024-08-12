@@ -24,11 +24,13 @@ sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 substrate-test-utils = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
+pallet-stake-tracker = { workspace = true, default-features = true }
 pallet-staking = { workspace = true, default-features = true }
 pallet-nomination-pools = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 pallet-staking-reward-curve = { workspace = true, default-features = true }
+pallet-bags-list = { workspace = true, default-features = true }
 frame-election-provider-support = { workspace = true }
 
 [features]
@@ -38,8 +40,10 @@ std = [
 	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-bags-list/std",
 	"pallet-balances/std",
 	"pallet-nomination-pools/std",
+	"pallet-stake-tracker/std",
 	"pallet-staking/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
@@ -52,8 +56,10 @@ runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-nomination-pools/runtime-benchmarks",
+	"pallet-stake-tracker/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -63,8 +69,10 @@ try-runtime = [
 	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-nomination-pools/try-runtime",
+	"pallet-stake-tracker/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",

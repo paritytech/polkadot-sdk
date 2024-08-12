@@ -34,6 +34,7 @@ frame-support = { workspace = true, default-features = true }
 frame-election-provider-support = { workspace = true, default-features = true }
 
 pallet-election-provider-multi-phase = { workspace = true, default-features = true }
+pallet-stake-tracker = { workspace = true, default-features = true }
 pallet-staking = { workspace = true, default-features = true }
 pallet-nomination-pools = { workspace = true, default-features = true }
 pallet-bags-list = { workspace = true, default-features = true }
@@ -51,6 +52,7 @@ try-runtime = [
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-nomination-pools/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-stake-tracker/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",

@@ -31,6 +31,7 @@ frame-election-provider-support = { workspace = true, default-features = true }
 
 pallet-timestamp = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+pallet-stake-tracker = { workspace = true, default-features = true }
 pallet-staking = { workspace = true, default-features = true }
 pallet-bags-list = { workspace = true, default-features = true }
 pallet-staking-reward-curve = { workspace = true, default-features = true }

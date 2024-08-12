@@ -291,7 +291,7 @@ pub mod benchmarking;
 pub mod testing_utils;
 
 #[cfg(test)]
-pub(crate) mod mock;
+pub mod mock;
 #[cfg(test)]
 mod tests;
 
@@ -325,7 +325,7 @@ use sp_runtime::{
 use sp_staking::{
 	offence::{Offence, OffenceError, ReportOffence},
 	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
-	StakingAccount,
+	StakingAccount, StakingInterface,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
@@ -587,6 +587,9 @@ impl<T: Config> StakingLedger<T> {
 	///
 	/// `slash_era` is the era in which the slash (which is being enacted now) actually happened.
 	///
+	/// If a slashed staker is a nominator and drops its stake to zero after slash, the staker is
+	/// chilled to ensure that their nominations are dropped in the stake tracker.
+	///
 	/// This calls `Config::OnStakingUpdate::on_slash` with information as to how the slash was
 	/// applied.
 	pub fn slash(
@@ -598,7 +601,6 @@ impl<T: Config> StakingLedger<T> {
 		if slash_amount.is_zero() {
 			return Zero::zero()
 		}
-
 		use sp_runtime::PerThing as _;
 		let mut remaining_slash = slash_amount;
 		let pre_slash_total = self.total;
@@ -705,6 +707,18 @@ impl<T: Config> StakingLedger<T> {
 		self.unlocking.retain(|c| !c.value.is_zero());
 
 		let final_slashed_amount = pre_slash_total.saturating_sub(self.total);
+
+		// If the slashed stash is a nominator and it's active stake is zero after the slash is
+		// applied, chill the staker. this is important in order to ensure that nominations are
+		// dropped in the stake-tracker. This way, we ensure that in the event of a validator and
+		// all its nominators are 100% slashed, the target can be reaped/killed without leaving
+		// nominations behind.
+		if let (true, Ok(StakerStatus::Nominator(_))) =
+			(self.active.is_zero(), Pallet::<T>::status(&self.stash))
+		{
+			Pallet::<T>::chill_stash(&self.stash);
+		};
+
 		T::EventListeners::on_slash(
 			&self.stash,
 			self.active,
