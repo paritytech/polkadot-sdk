@@ -9,9 +9,9 @@ doc:
       This PR adds the `polkadot-parachain-lib` helper library that can be used to build a parachain node.
 
 crates: 
-  - name: polkadot-parachain
-    bump: minor
+  - name: polkadot-parachain-bin
+    bump: patch
   - name: polkadot-parachain-lib
-    bump: minor
+    bump: patch
   - name: polkadot-sdk
-    bump: major
+    bump: patch
