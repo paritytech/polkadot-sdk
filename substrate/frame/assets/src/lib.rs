@@ -1775,7 +1775,7 @@ pub mod pallet {
 		///   (false), or transfer everything except at least the minimum balance, which will
 		///   guarantee to keep the sender asset account alive (true).
 		#[pallet::call_index(32)]
-		#[pallet::weight(T::WeightInfo::refund_other())]
+		#[pallet::weight(T::WeightInfo::transfer_all())]
 		pub fn transfer_all(
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,
