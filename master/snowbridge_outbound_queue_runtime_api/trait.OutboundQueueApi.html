@@ -155,7 +155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         &amp;self,
         __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
         leaf_index: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../snowbridge_outbound_queue_merkle_tree/struct.MerkleProof.html" title="struct snowbridge_outbound_queue_merkle_tree::MerkleProof">MerkleProof</a>&gt;, <a class="enum" href="../sp_api/enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt; { ... }
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;MerkleProof&gt;, <a class="enum" href="../sp_api/enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt; { ... }
 <span class="item-spacer"></span>    fn <a href="#method.calculate_fee" class="fn">calculate_fee</a>(
         &amp;self,
         __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
@@ -166,7 +166,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     &amp;self,
     __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
     leaf_index: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../snowbridge_outbound_queue_merkle_tree/struct.MerkleProof.html" title="struct snowbridge_outbound_queue_merkle_tree::MerkleProof">MerkleProof</a>&gt;, <a class="enum" href="../sp_api/enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt;</h4></section></summary><div class="docblock"><p>Generate a merkle proof for a committed message identified by <code>leaf_index</code>.
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;MerkleProof&gt;, <a class="enum" href="../sp_api/enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt;</h4></section></summary><div class="docblock"><p>Generate a merkle proof for a committed message identified by <code>leaf_index</code>.
 The merkle root is stored in the block header as a
 <code>sp_runtime::generic::DigestItem::Other</code></p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.calculate_fee" class="method"><a class="src rightside" href="../src/snowbridge_outbound_queue_runtime_api/lib.rs.html#12-23">source</a><h4 class="code-header">fn <a href="#method.calculate_fee" class="fn">calculate_fee</a>(

@@ -574,6 +574,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#423" id="423">423</a>
 <a href="#424" id="424">424</a>
 <a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -747,6 +753,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!     &lt;/tr&gt;
 //!   &lt;/tbody&gt;
 //! &lt;/table&gt;
+//!
+//! The main purpose of the `RuntimeGenesisConfig` patch is to:
+//! - minimize the maintenance effort when RuntimeGenesisConfig is changed in the future (e.g. new
+//!   pallets added to the runtime or pallet's genesis config changed),
+//! - increase the readability - it only contains the relevant fields,
+//! - allow to apply numerous changes in distinct domains (e.g. for zombienet).
 //!
 //! For production or long-lasting blockchains, using the `raw` format in the chain specification is
 //! recommended. Only the `raw` format guarantees that storage root hash will remain unchanged when
