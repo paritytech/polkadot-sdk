@@ -152,13 +152,9 @@ where
 }
 
 /// Prepare storage proofs of messages, stored at the (bridged) source GRANDPA chain.
-pub fn make_complex_relayer_delivery_proofs<
-	BridgedChain,
-	ThisChainWithMessages,
-	InnerXcmRuntimeCall,
->(
+pub fn make_complex_relayer_delivery_proofs<BridgedChain, ThisChainWithMessages>(
 	lane_id: LaneId,
-	xcm_message: Xcm<InnerXcmRuntimeCall>,
+	xcm_message: Xcm<()>,
 	message_nonce: MessageNonce,
 	message_destination: Junctions,
 	header_number: BlockNumberOf<BridgedChain>,

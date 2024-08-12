@@ -64,6 +64,7 @@ pub use self::{
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
+	metrics::MetricsService,
 };
 #[allow(deprecated)]
 pub use builder::new_native_or_wasm_executor;
@@ -111,6 +112,11 @@ pub struct RpcHandlers {
 }
 
 impl RpcHandlers {
+	/// Create PRC handlers instance.
+	pub fn new(rpc_module: Arc<RpcModule<()>>, listen_addresses: Vec<Multiaddr>) -> Self {
+		Self { rpc_module, listen_addresses }
+	}
+
 	/// Starts an RPC query.
 	///
 	/// The query is passed as a string and must be valid JSON-RPC request object.

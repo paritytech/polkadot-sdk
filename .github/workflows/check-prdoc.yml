@@ -20,7 +20,7 @@ jobs:
     if: github.event.pull_request.number != ''
     steps:
       - name: Checkout repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 #v4.1.1
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 #v4.1.7
       # we cannot show the version in this step (ie before checking out the repo)
       # due to https://github.com/paritytech/prdoc/issues/15
       - name: Check if PRdoc is required

@@ -1852,6 +1852,19 @@ mod sanitizers {
 				ValidationCode(vec![2]),
 			)
 			.unwrap();
+			// Set the most recent relay parent.
+			paras::Pallet::<Test>::force_set_most_recent_context(
+				RuntimeOrigin::root(),
+				ParaId::from(1),
+				BlockNumberFor::<Test>::from(0u32),
+			)
+			.unwrap();
+			paras::Pallet::<Test>::force_set_most_recent_context(
+				RuntimeOrigin::root(),
+				ParaId::from(2),
+				BlockNumberFor::<Test>::from(0u32),
+			)
+			.unwrap();
 
 			// Callback used for backing candidates
 			let group_validators = |group_index: GroupIndex| {
@@ -2083,23 +2096,21 @@ mod sanitizers {
 					ValidationCode(vec![id as u8]),
 				)
 				.unwrap();
+				paras::Pallet::<Test>::force_set_most_recent_context(
+					RuntimeOrigin::root(),
+					ParaId::from(id),
+					BlockNumberFor::<Test>::from(0u32),
+				)
+				.unwrap();
 			}
 
 			// Callback used for backing candidates
 			let group_validators = |group_index: GroupIndex| {
-				match group_index {
-					group_index if group_index == GroupIndex::from(0) => Some(vec![0]),
-					group_index if group_index == GroupIndex::from(1) => Some(vec![1]),
-					group_index if group_index == GroupIndex::from(2) => Some(vec![2]),
-					group_index if group_index == GroupIndex::from(3) => Some(vec![3]),
-					group_index if group_index == GroupIndex::from(4) => Some(vec![4]),
-					group_index if group_index == GroupIndex::from(5) => Some(vec![5]),
-					group_index if group_index == GroupIndex::from(6) => Some(vec![6]),
-					group_index if group_index == GroupIndex::from(7) => Some(vec![7]),
-
-					_ => panic!("Group index out of bounds"),
+				if group_index.0 as usize >= validators.len() {
+					panic!("Group index out of bounds")
+				} else {
+					Some(vec![ValidatorIndex(group_index.0)])
 				}
-				.map(|m| m.into_iter().map(ValidatorIndex).collect::<Vec<_>>())
 			};
 
 			let mut backed_candidates = vec![];
@@ -2485,18 +2496,16 @@ mod sanitizers {
 		// Para 4 scheduled on core 7 and 8. Duplicated candidates.
 		fn get_test_data_for_order_checks(core_index_enabled: bool) -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
+			let header = default_header();
+			let relay_parent = header.hash();
 
-			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
-			// votes) won't behave correctly
 			shared::Pallet::<Test>::add_allowed_relay_parent(
-				default_header().hash(),
+				relay_parent,
 				Default::default(),
 				RELAY_PARENT_NUM,
 				1,
 			);
 
-			let header = default_header();
-			let relay_parent = header.hash();
 			let session_index = SessionIndex::from(0_u32);
 
 			let keystore = LocalKeystore::in_memory();
@@ -2617,24 +2626,21 @@ mod sanitizers {
 					ValidationCode(vec![id as u8]),
 				)
 				.unwrap();
+				paras::Pallet::<Test>::force_set_most_recent_context(
+					RuntimeOrigin::root(),
+					ParaId::from(id),
+					BlockNumberFor::<Test>::from(0u32),
+				)
+				.unwrap();
 			}
 
 			// Callback used for backing candidates
 			let group_validators = |group_index: GroupIndex| {
-				match group_index {
-					group_index if group_index == GroupIndex::from(0) => Some(vec![0]),
-					group_index if group_index == GroupIndex::from(1) => Some(vec![1]),
-					group_index if group_index == GroupIndex::from(2) => Some(vec![2]),
-					group_index if group_index == GroupIndex::from(3) => Some(vec![3]),
-					group_index if group_index == GroupIndex::from(4) => Some(vec![4]),
-					group_index if group_index == GroupIndex::from(5) => Some(vec![5]),
-					group_index if group_index == GroupIndex::from(6) => Some(vec![6]),
-					group_index if group_index == GroupIndex::from(7) => Some(vec![7]),
-					group_index if group_index == GroupIndex::from(8) => Some(vec![8]),
-
-					_ => panic!("Group index out of bounds"),
+				if group_index.0 as usize >= validators.len() {
+					panic!("Group index out of bounds")
+				} else {
+					Some(vec![ValidatorIndex(group_index.0)])
 				}
-				.map(|m| m.into_iter().map(ValidatorIndex).collect::<Vec<_>>())
 			};
 
 			let mut backed_candidates = vec![];
@@ -2980,6 +2986,430 @@ mod sanitizers {
 			}
 		}
 
+		// Para 1 scheduled on cores 0, 1 and 2. Three candidates are supplied but their relay
+		// parents look like this: 3, 2, 3.
+		// Para 2 scheduled on cores 3, 4 and 5. Three candidates are supplied and their relay
+		// parents look like this: 2, 3, 3.
+		fn get_test_data_for_relay_parent_ordering(core_index_enabled: bool) -> TestData {
+			const RELAY_PARENT_NUM: u32 = 3;
+			let header = default_header();
+			let relay_parent = header.hash();
+
+			let prev_relay_parent = polkadot_primitives::Header {
+				parent_hash: Default::default(),
+				number: RELAY_PARENT_NUM - 1,
+				state_root: Default::default(),
+				extrinsics_root: Default::default(),
+				digest: Default::default(),
+			}
+			.hash();
+
+			let next_relay_parent = polkadot_primitives::Header {
+				parent_hash: Default::default(),
+				number: RELAY_PARENT_NUM + 1,
+				state_root: Default::default(),
+				extrinsics_root: Default::default(),
+				digest: Default::default(),
+			}
+			.hash();
+
+			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
+			// votes) won't behave correctly
+			shared::Pallet::<Test>::add_allowed_relay_parent(
+				prev_relay_parent,
+				Default::default(),
+				RELAY_PARENT_NUM - 1,
+				2,
+			);
+
+			shared::Pallet::<Test>::add_allowed_relay_parent(
+				relay_parent,
+				Default::default(),
+				RELAY_PARENT_NUM,
+				2,
+			);
+
+			shared::Pallet::<Test>::add_allowed_relay_parent(
+				next_relay_parent,
+				Default::default(),
+				RELAY_PARENT_NUM + 1,
+				2,
+			);
+
+			let session_index = SessionIndex::from(0_u32);
+
+			let keystore = LocalKeystore::in_memory();
+			let keystore = Arc::new(keystore) as KeystorePtr;
+			let signing_context = SigningContext { parent_hash: relay_parent, session_index };
+
+			let validators = vec![
+				sp_keyring::Sr25519Keyring::Alice,
+				sp_keyring::Sr25519Keyring::Bob,
+				sp_keyring::Sr25519Keyring::Charlie,
+				sp_keyring::Sr25519Keyring::Dave,
+				sp_keyring::Sr25519Keyring::Eve,
+				sp_keyring::Sr25519Keyring::Ferdie,
+			];
+			for validator in validators.iter() {
+				Keystore::sr25519_generate_new(
+					&*keystore,
+					PARACHAIN_KEY_TYPE_ID,
+					Some(&validator.to_seed()),
+				)
+				.unwrap();
+			}
+
+			// Set active validators in `shared` pallet
+			let validator_ids =
+				validators.iter().map(|v| v.public().into()).collect::<Vec<ValidatorId>>();
+			shared::Pallet::<Test>::set_active_validators_ascending(validator_ids);
+
+			// Set the validator groups in `scheduler`
+			scheduler::Pallet::<Test>::set_validator_groups(vec![
+				vec![ValidatorIndex(0)],
+				vec![ValidatorIndex(1)],
+				vec![ValidatorIndex(2)],
+				vec![ValidatorIndex(3)],
+				vec![ValidatorIndex(4)],
+				vec![ValidatorIndex(5)],
+			]);
+
+			// Update scheduler's claimqueue with the parachains
+			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
+				(
+					CoreIndex::from(0),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(0) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(1),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(1) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(2),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(2) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(3),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(3) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(4),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(4) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+				(
+					CoreIndex::from(5),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(5) },
+						RELAY_PARENT_NUM,
+					)]),
+				),
+			]));
+
+			// Set the on-chain included head data and current code hash.
+			for id in 1..=2u32 {
+				paras::Pallet::<Test>::set_current_head(ParaId::from(id), HeadData(vec![id as u8]));
+				paras::Pallet::<Test>::force_set_current_code(
+					RuntimeOrigin::root(),
+					ParaId::from(id),
+					ValidationCode(vec![id as u8]),
+				)
+				.unwrap();
+				paras::Pallet::<Test>::force_set_most_recent_context(
+					RuntimeOrigin::root(),
+					ParaId::from(id),
+					BlockNumberFor::<Test>::from(0u32),
+				)
+				.unwrap();
+			}
+
+			// Callback used for backing candidates
+			let group_validators = |group_index: GroupIndex| {
+				if group_index.0 as usize >= validators.len() {
+					panic!("Group index out of bounds")
+				} else {
+					Some(vec![ValidatorIndex(group_index.0)])
+				}
+			};
+
+			let mut backed_candidates = vec![];
+			let mut expected_backed_candidates_with_core = BTreeMap::new();
+
+			// Para 1
+			{
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(1),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(1 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+						ParaId::from(1),
+						RELAY_PARENT_NUM,
+						Default::default(),
+					)
+					.unwrap()
+					.hash(),
+					head_data: HeadData(vec![1, 1]),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![1]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let prev_candidate = candidate.clone();
+				let backed: BackedCandidate = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(0 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(0 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+				if core_index_enabled {
+					expected_backed_candidates_with_core
+						.entry(ParaId::from(1))
+						.or_insert(vec![])
+						.push((backed, CoreIndex(0)));
+				}
+
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(1),
+					relay_parent: prev_relay_parent,
+					pov_hash: Hash::repeat_byte(1 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data_with_parent::<
+						Test,
+					>(
+						RELAY_PARENT_NUM - 1,
+						Default::default(),
+						prev_candidate.commitments.head_data,
+					)
+					.hash(),
+					hrmp_watermark: RELAY_PARENT_NUM - 1,
+					validation_code: ValidationCode(vec![1]),
+					head_data: HeadData(vec![1, 1, 1]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let prev_candidate = candidate.clone();
+				let backed = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(1 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(1 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(1),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(1 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data_with_parent::<
+						Test,
+					>(
+						RELAY_PARENT_NUM,
+						Default::default(),
+						prev_candidate.commitments.head_data,
+					)
+					.hash(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![1]),
+					head_data: HeadData(vec![1, 1, 1, 1]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let backed = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(2 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(2 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+			}
+
+			// Para 2
+			{
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(2),
+					relay_parent: prev_relay_parent,
+					pov_hash: Hash::repeat_byte(2 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+						ParaId::from(2),
+						RELAY_PARENT_NUM - 1,
+						Default::default(),
+					)
+					.unwrap()
+					.hash(),
+					head_data: HeadData(vec![2, 2]),
+					hrmp_watermark: RELAY_PARENT_NUM - 1,
+					validation_code: ValidationCode(vec![2]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let prev_candidate = candidate.clone();
+				let backed: BackedCandidate = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(3 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(3 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+				if core_index_enabled {
+					expected_backed_candidates_with_core
+						.entry(ParaId::from(2))
+						.or_insert(vec![])
+						.push((backed, CoreIndex(3)));
+				}
+
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(2),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(2 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data_with_parent::<
+						Test,
+					>(
+						RELAY_PARENT_NUM,
+						Default::default(),
+						prev_candidate.commitments.head_data,
+					)
+					.hash(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![2]),
+					head_data: HeadData(vec![2, 2, 2]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let prev_candidate = candidate.clone();
+				let backed = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(4 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(4 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+				if core_index_enabled {
+					expected_backed_candidates_with_core
+						.entry(ParaId::from(2))
+						.or_insert(vec![])
+						.push((backed, CoreIndex(4)));
+				}
+
+				let mut candidate = TestCandidateBuilder {
+					para_id: ParaId::from(2),
+					relay_parent,
+					pov_hash: Hash::repeat_byte(2 as u8),
+					persisted_validation_data_hash: make_persisted_validation_data_with_parent::<
+						Test,
+					>(
+						RELAY_PARENT_NUM,
+						Default::default(),
+						prev_candidate.commitments.head_data,
+					)
+					.hash(),
+					hrmp_watermark: RELAY_PARENT_NUM,
+					validation_code: ValidationCode(vec![2]),
+					head_data: HeadData(vec![2, 2, 2, 2]),
+					..Default::default()
+				}
+				.build();
+
+				collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+				let backed = back_candidate(
+					candidate,
+					&validators,
+					group_validators(GroupIndex::from(5 as u32)).unwrap().as_ref(),
+					&keystore,
+					&signing_context,
+					BackingKind::Threshold,
+					core_index_enabled.then_some(CoreIndex(5 as u32)),
+				);
+				backed_candidates.push(backed.clone());
+
+				if core_index_enabled {
+					expected_backed_candidates_with_core
+						.entry(ParaId::from(2))
+						.or_insert(vec![])
+						.push((backed, CoreIndex(5)));
+				}
+			}
+
+			// State sanity checks
+			assert_eq!(
+				scheduler::Pallet::<Test>::scheduled_paras().collect::<Vec<_>>(),
+				vec![
+					(CoreIndex(0), ParaId::from(1)),
+					(CoreIndex(1), ParaId::from(1)),
+					(CoreIndex(2), ParaId::from(1)),
+					(CoreIndex(3), ParaId::from(2)),
+					(CoreIndex(4), ParaId::from(2)),
+					(CoreIndex(5), ParaId::from(2)),
+				]
+			);
+			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
+			for (core_idx, para_id) in scheduler::Pallet::<Test>::scheduled_paras() {
+				scheduled.entry(para_id).or_default().insert(core_idx);
+			}
+
+			assert_eq!(
+				shared::ActiveValidatorIndices::<Test>::get(),
+				vec![
+					ValidatorIndex(0),
+					ValidatorIndex(1),
+					ValidatorIndex(2),
+					ValidatorIndex(3),
+					ValidatorIndex(4),
+					ValidatorIndex(5)
+				]
+			);
+
+			TestData {
+				backed_candidates,
+				scheduled_paras: scheduled,
+				expected_backed_candidates_with_core,
+			}
+		}
+
 		#[rstest]
 		#[case(false)]
 		#[case(true)]
@@ -3049,6 +3479,156 @@ mod sanitizers {
 					),
 					expected_backed_candidates_with_core
 				);
+			});
+		}
+
+		#[rstest]
+		#[case(false)]
+		#[case(true)]
+		fn test_candidate_relay_parent_ordering(#[case] core_index_enabled: bool) {
+			// Para 1 scheduled on cores 0, 1 and 2. Three candidates are supplied but their relay
+			// parents look like this: 3, 2, 3. There are no pending availability candidates and the
+			// latest on-chain relay parent for this para is 0.
+			// Therefore, only the first candidate will get picked.
+			//
+			// Para 2 scheduled on cores 3, 4 and 5. Three candidates are supplied and their relay
+			// parents look like this: 2, 3, 3. There are no pending availability candidates and the
+			// latest on-chain relay parent for this para is 0. Therefore, all 3 will get picked.
+			new_test_ext(default_config()).execute_with(|| {
+				let TestData {
+					backed_candidates,
+					scheduled_paras: scheduled,
+					expected_backed_candidates_with_core,
+				} = get_test_data_for_relay_parent_ordering(core_index_enabled);
+
+				assert_eq!(
+					sanitize_backed_candidates::<Test>(
+						backed_candidates.clone(),
+						&shared::AllowedRelayParents::<Test>::get(),
+						BTreeSet::new(),
+						scheduled,
+						core_index_enabled,
+					),
+					expected_backed_candidates_with_core
+				);
+			});
+
+			// Para 1 scheduled on cores 0, 1 and 2. Three candidates are supplied but their
+			// relay parents look like this: 3, 2, 3. There are no pending availability
+			// candidates but the latest on-chain relay parent for this para is 4.
+			// Therefore, no candidate will get picked.
+			//
+			// Para 2 scheduled on cores 3, 4 and 5. Three candidates are supplied and their relay
+			// parents look like this: 2, 3, 3. There are no pending availability candidates and the
+			// latest on-chain relay parent for this para is 2. Therefore, all 3 will get picked.
+			new_test_ext(default_config()).execute_with(|| {
+				let TestData {
+					backed_candidates,
+					scheduled_paras: scheduled,
+					expected_backed_candidates_with_core,
+				} = get_test_data_for_relay_parent_ordering(core_index_enabled);
+
+				paras::Pallet::<Test>::force_set_most_recent_context(
+					RuntimeOrigin::root(),
+					ParaId::from(1),
+					BlockNumberFor::<Test>::from(4u32),
+				)
+				.unwrap();
+
+				paras::Pallet::<Test>::force_set_most_recent_context(
+					RuntimeOrigin::root(),
+					ParaId::from(2),
+					BlockNumberFor::<Test>::from(2u32),
+				)
+				.unwrap();
+
+				let res = sanitize_backed_candidates::<Test>(
+					backed_candidates.clone(),
+					&shared::AllowedRelayParents::<Test>::get(),
+					BTreeSet::new(),
+					scheduled,
+					core_index_enabled,
+				);
+
+				if core_index_enabled {
+					assert_eq!(res.len(), 1);
+					assert_eq!(
+						expected_backed_candidates_with_core.get(&ParaId::from(2)),
+						res.get(&ParaId::from(2)),
+					);
+				} else {
+					assert!(res.is_empty());
+				}
+			});
+
+			// Para 1 scheduled on cores 0, 1 and 2. Three candidates are supplied but their relay
+			// parents look like this: 3, 2, 3.
+			// The latest on-chain relay parent for this para is 0 but there is a pending
+			// availability candidate with relay parent 4. Therefore, no candidate will get
+			// picked.
+			//
+			// Para 2 scheduled on cores 3, 4 and 5. Three candidates are supplied and their relay
+			// parents look like this: 2, 3, 3.
+			// The latest on-chain relay parent for this para is 0 but there is a pending
+			// availability candidate with relay parent 2. Therefore, all 3 will get picked.
+			new_test_ext(default_config()).execute_with(|| {
+				let TestData {
+					backed_candidates,
+					scheduled_paras: scheduled,
+					expected_backed_candidates_with_core,
+				} = get_test_data_for_relay_parent_ordering(core_index_enabled);
+
+				// For para 1, add a dummy pending candidate with relay parent 4.
+				let mut candidates = VecDeque::new();
+				let mut commitments = backed_candidates[0].candidate().commitments.clone();
+				commitments.head_data = paras::Heads::<Test>::get(&ParaId::from(1)).unwrap();
+				candidates.push_back(inclusion::CandidatePendingAvailability::new(
+					CoreIndex(0),
+					CandidateHash(Hash::repeat_byte(1)),
+					backed_candidates[0].descriptor().clone(),
+					commitments,
+					Default::default(),
+					Default::default(),
+					4,
+					4,
+					GroupIndex(0),
+				));
+				inclusion::PendingAvailability::<Test>::insert(ParaId::from(1), candidates);
+
+				// For para 2, add a dummy pending candidate with relay parent 2.
+				let mut candidates = VecDeque::new();
+				let mut commitments = backed_candidates[3].candidate().commitments.clone();
+				commitments.head_data = paras::Heads::<Test>::get(&ParaId::from(2)).unwrap();
+				candidates.push_back(inclusion::CandidatePendingAvailability::new(
+					CoreIndex(0),
+					CandidateHash(Hash::repeat_byte(2)),
+					backed_candidates[3].descriptor().clone(),
+					commitments,
+					Default::default(),
+					Default::default(),
+					2,
+					2,
+					GroupIndex(3),
+				));
+				inclusion::PendingAvailability::<Test>::insert(ParaId::from(2), candidates);
+
+				let res = sanitize_backed_candidates::<Test>(
+					backed_candidates.clone(),
+					&shared::AllowedRelayParents::<Test>::get(),
+					BTreeSet::new(),
+					scheduled,
+					core_index_enabled,
+				);
+
+				if core_index_enabled {
+					assert_eq!(res.len(), 1);
+					assert_eq!(
+						expected_backed_candidates_with_core.get(&ParaId::from(2)),
+						res.get(&ParaId::from(2)),
+					);
+				} else {
+					assert!(res.is_empty());
+				}
 			});
 		}
 

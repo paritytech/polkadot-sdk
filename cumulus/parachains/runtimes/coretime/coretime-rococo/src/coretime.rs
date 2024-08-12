@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::*;
+use crate::{xcm_config::LocationToAccountId, *};
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use cumulus_primitives_core::relay_chain;
@@ -27,12 +27,14 @@ use frame_support::{
 	},
 };
 use frame_system::Pallet as System;
-use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf};
+use pallet_broker::{
+	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, TaskId,
+};
 use parachains_common::{AccountId, Balance};
 use rococo_runtime_constants::system_parachain::coretime;
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::traits::{AccountIdConversion, MaybeConvert};
 use xcm::latest::prelude::*;
-use xcm_executor::traits::TransactAsset;
+use xcm_executor::traits::{ConvertLocation, TransactAsset};
 
 pub struct BurnCoretimeRevenue;
 impl OnUnbalanced<Credit<AccountId, Balances>> for BurnCoretimeRevenue {
@@ -263,6 +265,15 @@ impl CoretimeInterface for CoretimeAllocator {
 	}
 }
 
+pub struct SovereignAccountOf;
+impl MaybeConvert<TaskId, AccountId> for SovereignAccountOf {
+	fn maybe_convert(id: TaskId) -> Option<AccountId> {
+		// Currently all tasks are parachains.
+		let location = Location::new(1, [Parachain(id)]);
+		LocationToAccountId::convert_location(&location)
+	}
+}
+
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -275,5 +286,7 @@ impl pallet_broker::Config for Runtime {
 	type WeightInfo = weights::pallet_broker::WeightInfo<Runtime>;
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type SovereignAccountOf = SovereignAccountOf;
+	type MaxAutoRenewals = ConstU32<100>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 }

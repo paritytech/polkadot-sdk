@@ -35,14 +35,14 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Cargo fmt
         run: cargo +nightly fmt --all -- --check
   check-dependency-rules:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: check dependency rules
         run: |
           cd substrate/
@@ -54,7 +54,7 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: fetch deps
         run: |
           # Pull all dependencies eagerly:
@@ -70,7 +70,7 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: run rust features
         run: bash .gitlab/rust-features.sh .
   check-toml-format:
@@ -80,7 +80,7 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: check toml format
         run: |
           taplo format --check --config .config/taplo.toml
@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.0 (22. Sep 2023)
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.0 (22. Sep 2023)
       - name: install python deps
         run: |
           sudo apt-get update && sudo apt-get install -y python3-pip python3
@@ -107,9 +107,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout sources
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Setup Node.js
-        uses: actions/setup-node@v4.0.1
+        uses: actions/setup-node@v4.0.3
         with:
           node-version: "18.x"
           registry-url: "https://npm.pkg.github.com"
@@ -132,7 +132,7 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.0 (22. Sep 2023)
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.0 (22. Sep 2023)
       - name: install python deps
         run: pip3 install "cargo-workspace>=1.2.4" toml
       - name: check umbrella correctness

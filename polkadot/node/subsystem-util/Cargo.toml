@@ -45,7 +45,6 @@ parity-db = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-env_logger = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
 log = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }

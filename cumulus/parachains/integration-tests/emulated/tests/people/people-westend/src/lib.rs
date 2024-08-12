@@ -19,7 +19,6 @@ mod imports {
 	// Substrate
 	pub use frame_support::{
 		assert_ok,
-		pallet_prelude::Weight,
 		sp_runtime::{AccountId32, DispatchResult},
 		traits::fungibles::Inspect,
 	};
@@ -38,15 +37,18 @@ mod imports {
 		self,
 		people_westend_emulated_chain::{
 			genesis::ED as PEOPLE_WESTEND_ED,
-			people_westend_runtime::{people, xcm_config::XcmConfig as PeopleWestendXcmConfig},
+			people_westend_runtime::{
+				people, xcm_config::XcmConfig as PeopleWestendXcmConfig,
+				ExistentialDeposit as PeopleWestendExistentialDeposit, Runtime as PeopleRuntime,
+			},
 			PeopleWestendParaPallet as PeopleWestendPallet,
 		},
 		westend_emulated_chain::{
 			genesis::ED as WESTEND_ED,
 			westend_runtime::{
 				xcm_config::XcmConfig as WestendXcmConfig, BasicDeposit, ByteDeposit,
-				MaxAdditionalFields, MaxSubAccounts, RuntimeOrigin as WestendOrigin,
-				SubAccountDeposit,
+				MaxAdditionalFields, MaxSubAccounts, Runtime as WestendRuntime,
+				RuntimeOrigin as WestendOrigin, SubAccountDeposit,
 			},
 			WestendRelayPallet as WestendPallet,
 		},
