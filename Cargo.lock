@@ -1020,6 +1020,7 @@ dependencies = [
  "polkadot-runtime-common",
  "primitive-types",
  "scale-info",
+ "serde_json",
  "snowbridge-router-primitives",
  "sp-api",
  "sp-block-builder",
