@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use crate::testing::allow_unsafe;
+
 use super::{helpers::SyncState, *};
 use assert_matches::assert_matches;
 use futures::prelude::*;
@@ -127,7 +129,7 @@ fn api<T: Into<Option<Status>>>(sync: T) -> RpcModule<System<Block>> {
 			future::ready(())
 		}))
 	});
-	System::new(
+	let mut module = System::new(
 		SystemInfo {
 			impl_name: "testclient".into(),
 			impl_version: "0.2.0".into(),
@@ -136,9 +138,11 @@ fn api<T: Into<Option<Status>>>(sync: T) -> RpcModule<System<Block>> {
 			chain_type: Default::default(),
 		},
 		tx,
-		sc_rpc_api::DenyUnsafe::No,
 	)
-	.into_rpc()
+	.into_rpc();
+
+	module.with_extensions(allow_unsafe());
+	module
 }
 
 #[tokio::test]

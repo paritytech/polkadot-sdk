@@ -18,6 +18,7 @@
 
 use super::*;
 use sc_block_builder::BlockBuilderBuilder;
+use sc_rpc_api::DenyUnsafe;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use substrate_test_runtime_client::{prelude::*, runtime::Block};
@@ -25,7 +26,11 @@ use substrate_test_runtime_client::{prelude::*, runtime::Block};
 #[tokio::test]
 async fn block_stats_work() {
 	let mut client = Arc::new(substrate_test_runtime_client::new());
-	let api = <Dev<Block, _>>::new(client.clone(), DenyUnsafe::No).into_rpc();
+	let mut api = <Dev<Block, _>>::new(client.clone()).into_rpc();
+
+	let mut ext = Extensions::new();
+	ext.insert(DenyUnsafe::No);
+	api.with_extensions(ext);
 
 	let block = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -77,7 +82,11 @@ async fn block_stats_work() {
 #[tokio::test]
 async fn deny_unsafe_works() {
 	let mut client = Arc::new(substrate_test_runtime_client::new());
-	let api = <Dev<Block, _>>::new(client.clone(), DenyUnsafe::Yes).into_rpc();
+	let mut api = <Dev<Block, _>>::new(client.clone()).into_rpc();
+
+	let mut ext = Extensions::new();
+	ext.insert(DenyUnsafe::Yes);
+	api.with_extensions(ext);
 
 	let block = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -101,6 +110,6 @@ async fn deny_unsafe_works() {
 
 	assert_eq!(
 		resp,
-		r#"{"jsonrpc":"2.0","error":{"code":-32601,"message":"RPC call is unsafe to be called externally"},"id":1}"#
+		r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"RPC call is unsafe to be called externally"}}"#
 	);
 }

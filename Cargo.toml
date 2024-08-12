@@ -806,8 +806,8 @@ isahc = { version = "1.2" }
 itertools = { version = "0.11" }
 jobserver = { version = "0.1.26" }
 jsonpath_lib = { version = "0.3" }
-jsonrpsee = { version = "0.23.2" }
-jsonrpsee-core = { version = "0.23.2" }
+jsonrpsee = { version = "0.24.2" }
+jsonrpsee-core = { version = "0.24.2" }
 k256 = { version = "0.13.3", default-features = false }
 kitchensink-runtime = { path = "substrate/bin/node/runtime" }
 kvdb = { version = "0.13.0" }
@@ -1430,3 +1430,7 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[patch.crates-io]
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee", branch = "na-inject-ext" }
+jsonrpsee-core = { git = "https://github.com/paritytech/jsonrpsee", branch = "na-inject-ext" }
