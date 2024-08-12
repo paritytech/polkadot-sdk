@@ -2148,7 +2148,7 @@ parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"py/potid");
 
 	// Time needed after approval to unlock the reward claim
-	pub const Period:BlockNumber = DAYS;
+	pub const Period:BlockNumber = 5*MINUTES;
 
 	// Maximum number of whitelisted projects
 	pub const MaxProjects:u32 = 50;

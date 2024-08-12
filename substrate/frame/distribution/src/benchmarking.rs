@@ -85,11 +85,13 @@ mod benchmarks {
         let (project_id,amount) = create_parameters::<T>(r);
         let caller: T::AccountId = whitelisted_caller();
 		let epoch = T::EpochDurationBlocks::get();		
-		let when = T::BlockNumberProvider::current_block_number().saturating_add(epoch)+One::one();
+		let mut when = T::BlockNumberProvider::current_block_number().saturating_add(epoch);
 		run_to_block::<T>(when);
+
 		projects_nbr = <Projects<T>>::get().len();			
 		assert!(projects_nbr==0,"No Spends created");
 		assert!(<SpendsCount<T>>::get()>0, "No Spends created");
+		run_to_block::<T>(when+T::BufferPeriod::get());
 
         /* execute extrinsic or function */
         #[extrinsic_call]			
