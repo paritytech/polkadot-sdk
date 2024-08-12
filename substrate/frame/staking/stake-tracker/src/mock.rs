@@ -402,7 +402,12 @@ pub(crate) fn add_validator(who: AccountId, self_stake: Balance) {
 	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_add(&who, stake);
 }
 
-pub(crate) fn update_stake(who: AccountId, new: Balance, prev_stake: Option<Stake<Balance>>) {
+pub(crate) fn update_stake(
+	who: AccountId,
+	new: Balance,
+	prev_stake: Option<Stake<Balance>>,
+	reason: StakeUpdateReason,
+) {
 	match StakingMock::status(&who) {
 		Ok(StakerStatus::Nominator(nominations)) => {
 			TestNominators::mutate(|n| {
@@ -425,7 +430,7 @@ pub(crate) fn update_stake(who: AccountId, new: Balance, prev_stake: Option<Stak
 		&who,
 		prev_stake,
 		Stake { total: new, active: new },
-		StakeUpdateReason::Bond,
+		reason,
 	);
 }
 
@@ -486,6 +491,14 @@ pub(crate) fn voter_bags_events() -> Vec<pallet_bags_list::Event<Test, VoterBags
 		.into_iter()
 		.map(|r| r.event)
 		.filter_map(|e| if let RuntimeEvent::VoterBagsList(inner) = e { Some(inner) } else { None })
+		.collect::<Vec<_>>()
+}
+
+pub(crate) fn pallet_events() -> Vec<Event<Test>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::StakeTracker(inner) = e { Some(inner) } else { None })
 		.collect::<Vec<_>>()
 }
 

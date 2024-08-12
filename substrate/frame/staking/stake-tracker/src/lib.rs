@@ -352,6 +352,12 @@ pub mod pallet {
 				if let Some(last_seen) = maybe_last_seen {
 					let current_weight: ExtendedBalance = Self::vote_of(&who).into();
 
+					// if current active stake is the same as the last seen value, the approvals of
+					// `who` are already accounted in the target's approvals.
+					if *last_seen == current_weight {
+						return Err(Error::NoUnsettledApprovals)
+					}
+
 					let stake_imbalance = if current_weight > *last_seen {
 						StakeImbalance::Positive(current_weight.saturating_sub(*last_seen))
 					} else {
