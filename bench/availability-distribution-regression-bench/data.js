@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723465631593,
+  "lastUpdate": 1723477654198,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21683,6 +21683,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.012662626413333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alin Dima",
+            "username": "alindima",
+            "email": "alin@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "fc906d5d0fb7796ef54ba670101cf37b0aad6794",
+          "message": "fix av-distribution Jaeger spans mem leak (#5321)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/5258",
+          "timestamp": "2024-08-12T13:56:00Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fc906d5d0fb7796ef54ba670101cf37b0aad6794"
+        },
+        "date": 1723477623259,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1836972175333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.012089738093333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022743959659999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014173016986666674,
             "unit": "seconds"
           }
         ]
