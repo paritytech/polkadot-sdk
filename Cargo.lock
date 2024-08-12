@@ -8737,19 +8737,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
-name = "minimal-template"
-version = "0.0.0"
-dependencies = [
- "docify",
- "minimal-template-node",
- "minimal-template-runtime",
- "pallet-minimal-template",
- "polkadot-sdk-docs",
- "polkadot-sdk-frame",
- "simple-mermaid 0.1.1",
-]
-
-[[package]]
 name = "minimal-template-node"
 version = "0.0.0"
 dependencies = [
