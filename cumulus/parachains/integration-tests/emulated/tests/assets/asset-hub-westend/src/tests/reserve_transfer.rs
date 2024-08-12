@@ -942,6 +942,9 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 
 /// Reserve Transfers of a random asset and native asset from Parachain to System Para should
 /// work
+/// Receiver is empty account to show deposit works as long as transfer includes enough DOT for ED.
+/// Once we have https://github.com/paritytech/polkadot-sdk/issues/5298,
+/// we should do equivalent test with USDT instead of DOT.
 #[test]
 fn reserve_transfer_assets_from_para_to_system_para() {
 	// Init values for Parachain
@@ -966,25 +969,24 @@ fn reserve_transfer_assets_from_para_to_system_para() {
 	// Fund Parachain's sender account with some foreign assets
 	PenpalA::mint_foreign_asset(
 		penpal_asset_owner_signer.clone(),
-		asset_location_on_penpal,
+		asset_location_on_penpal.clone(),
 		sender.clone(),
 		asset_amount_to_send * 2,
 	);
 	// Fund Parachain's sender account with some system assets
 	PenpalA::mint_foreign_asset(
 		penpal_asset_owner_signer,
-		system_asset_location_on_penpal,
+		system_asset_location_on_penpal.clone(),
 		sender.clone(),
 		fee_amount_to_send * 2,
 	);
 
+	// Beneficiary is a new (empty) account
+	let receiver = get_account_id_from_seed::<sp_runtime::testing::sr25519::Public>(DUMMY_EMPTY);
 	// Init values for System Parachain
-	let receiver = AssetHubWestendReceiver::get();
 	let penpal_location_as_seen_by_ahr = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr =
 		AssetHubWestend::sovereign_account_id_of(penpal_location_as_seen_by_ahr);
-	let system_para_native_asset_location = RelayLocation::get();
-	let system_para_foreign_asset_location = PenpalLocalReservableFromAssetHub::get();
 	let ah_asset_owner = AssetHubWestendAssetOwner::get();
 	let ah_asset_owner_signer = <AssetHubWestend as Chain>::RuntimeOrigin::signed(ah_asset_owner);
 
@@ -1019,11 +1021,11 @@ fn reserve_transfer_assets_from_para_to_system_para() {
 	// Query initial balances
 	let sender_system_assets_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_native_asset_location.clone(), &sender)
+		<ForeignAssets as Inspect<_>>::balance(system_asset_location_on_penpal.clone(), &sender)
 	});
 	let sender_foreign_assets_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_foreign_asset_location.clone(), &sender)
+		<ForeignAssets as Inspect<_>>::balance(asset_location_on_penpal.clone(), &sender)
 	});
 	let receiver_balance_before = test.receiver.balance;
 	let receiver_assets_before = AssetHubWestend::execute_with(|| {
@@ -1040,11 +1042,11 @@ fn reserve_transfer_assets_from_para_to_system_para() {
 	// Query final balances
 	let sender_system_assets_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_native_asset_location, &sender)
+		<ForeignAssets as Inspect<_>>::balance(system_asset_location_on_penpal, &sender)
 	});
 	let sender_foreign_assets_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_foreign_asset_location, &sender)
+		<ForeignAssets as Inspect<_>>::balance(asset_location_on_penpal, &sender)
 	});
 	let receiver_balance_after = test.receiver.balance;
 	let receiver_assets_after = AssetHubWestend::execute_with(|| {
