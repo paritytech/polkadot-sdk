@@ -25,6 +25,11 @@ use syn::{
 	Expr, ExprLit, FieldValue, ItemConst, Lit,
 };
 
+/// Warn when RuntimeVersion has `state_version` field instead of `system_version`.
+const STATE_VERSION_DEPRECATION_WARN: &'static str = "The 'state_version' field in RuntimeVersion \
+ struct is deprecated and replaced by 'system_version'.\
+ Please consider updating your runtime to reflect this change.";
+
 /// This macro accepts a `const` item that has a struct initializer expression of
 /// `RuntimeVersion`-like type. The macro will pass through this declaration and append an item
 /// declaration that will lead to emitting a wasm custom section with the contents of
@@ -124,6 +129,9 @@ impl ParseRuntimeVersion {
 			parse_once(&mut self.impl_version, field_value, Self::parse_num_literal)?;
 		} else if field_name == "transaction_version" {
 			parse_once(&mut self.transaction_version, field_value, Self::parse_num_literal)?;
+		} else if field_name == "state_version" {
+			log::warn!("{STATE_VERSION_DEPRECATION_WARN}");
+			parse_once(&mut self.system_version, field_value, Self::parse_num_literal_u8)?;
 		} else if field_name == "system_version" {
 			parse_once(&mut self.system_version, field_value, Self::parse_num_literal_u8)?;
 		} else if field_name == "apis" {

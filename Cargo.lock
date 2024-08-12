@@ -20802,6 +20802,7 @@ dependencies = [
 name = "sp-version-proc-macro"
 version = "13.0.0"
 dependencies = [
+ "log",
  "parity-scale-codec",
  "proc-macro2 1.0.82",
  "quote 1.0.36",
