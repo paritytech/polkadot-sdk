@@ -17,7 +17,7 @@
 
 use super::*;
 use frame_support::{
-	pallet_prelude::{DispatchResult, *},
+	pallet_prelude::*,
 	traits::{
 		fungible::Balanced,
 		tokens::{Fortitude::Polite, Precision::Exact, Preservation::Expendable},
