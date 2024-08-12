@@ -15,7 +15,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -152,6 +152,7 @@ pub mod pallet {
 		/// ## Events
 		/// Emits [`Event::<T>::RewardClaimed`] if successful for a positive approval.
 		#[pallet::call_index(0)]
+		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1).ref_time())]
 		pub fn claim_reward_for(
 			origin: OriginFor<T>,
 			project_account: ProjectId<T>,
@@ -160,7 +161,7 @@ pub mod pallet {
 			let spend_indexes = Self::get_spend(project_account);
 			let pot = Self::pot_account();
 			for i in spend_indexes {
-				let mut info = Spends::<T>::get(i).ok_or(Error::<T>::InexistentSpend)?;
+				let info = Spends::<T>::get(i).ok_or(Error::<T>::InexistentSpend)?;
 				let project_account =
 					info.whitelisted_project.clone().ok_or(Error::<T>::NoValidAccount)?;
 				let now = T::BlockNumberProvider::current_block_number();
@@ -175,7 +176,7 @@ pub mod pallet {
 					Precision::Exact,
 				)?;
 				// transfer the funds
-				Self::Spend(info.amount, project_account.clone(), i)?;
+				Self::spend(info.amount, project_account.clone(), i)?;
 
 				// Update SpendInfo claimed field in the storage
 				let mut infos = Spends::<T>::get(i).ok_or(Error::<T>::InexistentSpend)?;

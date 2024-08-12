@@ -21,14 +21,14 @@ use sp_runtime::traits::One;
 const SEED: u32 = 0;
 
 fn run_to_block<T: Config>(n: frame_system::pallet_prelude::BlockNumberFor<T>) {
-	while frame_system::Pallet::<T>::block_number() < n {
-		crate::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
-		frame_system::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
+	while T::BlockNumberProvider::current_block_number() < n {
+		crate::Pallet::<T>::on_finalize(T::BlockNumberProvider::current_block_number());
+		frame_system::Pallet::<T>::on_finalize(T::BlockNumberProvider::current_block_number());
 		frame_system::Pallet::<T>::set_block_number(
-			frame_system::Pallet::<T>::block_number() + One::one(),
+			T::BlockNumberProvider::current_block_number() + One::one(),
 		);
-		frame_system::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
-		crate::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
+		frame_system::Pallet::<T>::on_initialize(T::BlockNumberProvider::current_block_number());
+		crate::Pallet::<T>::on_initialize(T::BlockNumberProvider::current_block_number());
 	}
 }
 
@@ -41,7 +41,7 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 }
 
 fn create_project<T: Config>(project_account: AccountIdOf<T>, amount: BalanceOf<T>){
-    let submission_block = frame_system::Pallet::<T>::block_number();
+    let submission_block = T::BlockNumberProvider::current_block_number();
 	let project: types::ProjectInfo<T> =
 		ProjectInfo { project_account, submission_block, amount };
 	Projects::<T>::mutate(|value| {

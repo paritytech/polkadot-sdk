@@ -8,17 +8,17 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn get_spend(project_account: ProjectId<T>) -> Vec<SpendIndex> {
-		let mut Spends: Vec<SpendIndex> = Vec::new();
+		let mut spends: Vec<SpendIndex> = Vec::new();
 		let value = Some(project_account);
 
-		for Spend in Spends::<T>::iter() {
-			let info = Spend.1;
+		for spend in Spends::<T>::iter() {
+			let info = spend.1;
 			if info.whitelisted_project == value {
-				Spends.push(Spend.0);
+				spends.push(spend.0);
 			}
 		}
 
-		Spends
+		spends
 	}
 
 	/// Series of checks on the Pot, to ensure that we have enough funds
@@ -38,7 +38,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Funds transfer from the Pot to a project account
-	pub fn Spend(
+	pub fn spend(
 		amount: BalanceOf<T>,
 		beneficiary: AccountIdOf<T>,
 		spend_index: u32,
