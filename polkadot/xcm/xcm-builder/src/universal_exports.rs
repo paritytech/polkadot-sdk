@@ -17,9 +17,10 @@
 //! Traits and utilities to help with origin mutation and bridging.
 
 use crate::InspectMessageQueues;
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::{convert::TryInto, marker::PhantomData};
 use frame_support::{ensure, traits::Get};
-use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::{validate_export, ExportXcm};
 use SendError::*;
@@ -149,7 +150,7 @@ impl NetworkExportTableItem {
 /// An adapter for the implementation of `ExporterFor`, which attempts to find the
 /// `(bridge_location, payment)` for the requested `network` and `remote_location` in the provided
 /// `T` table containing various exporters.
-pub struct NetworkExportTable<T>(sp_std::marker::PhantomData<T>);
+pub struct NetworkExportTable<T>(core::marker::PhantomData<T>);
 impl<T: Get<Vec<NetworkExportTableItem>>> ExporterFor for NetworkExportTable<T> {
 	fn exporter_for(
 		network: &NetworkId,
@@ -649,7 +650,7 @@ mod tests {
 
 			pub PaymentForNetworkAAndParachain2000: Asset = (Location::parent(), 150).into();
 
-			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+			pub BridgeTable: alloc::vec::Vec<NetworkExportTableItem> = alloc::vec![
 				// NetworkA allows `Parachain(1000)` as remote location WITHOUT payment.
 				NetworkExportTableItem::new(
 					NetworkA::get(),

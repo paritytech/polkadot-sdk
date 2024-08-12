@@ -268,7 +268,7 @@ where
 		});
 	}
 
-	log::info!("Running JSON-RPC server: addr={:?}", local_addrs,);
+	log::info!("Running JSON-RPC server: addr={:?}", local_addrs);
 
 	Ok(server_handle)
 }

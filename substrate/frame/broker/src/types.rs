@@ -255,6 +255,21 @@ pub struct LeaseRecordItem {
 pub type LeasesRecord<Max> = BoundedVec<LeaseRecordItem, Max>;
 pub type LeasesRecordOf<T> = LeasesRecord<<T as Config>::MaxLeasedCores>;
 
+/// Record for On demand core sales.
+///
+/// The blocknumber is the relay chain block height `until` which the original request
+/// for revenue was made.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct OnDemandRevenueRecord<RelayBlockNumber, RelayBalance> {
+	/// The height of the Relay-chain at the time the revenue request was made.
+	pub until: RelayBlockNumber,
+	/// The accumulated balance of on demand sales made on the relay chain.
+	pub amount: RelayBalance,
+}
+
+pub type OnDemandRevenueRecordOf<T> =
+	OnDemandRevenueRecord<RelayBlockNumberOf<T>, RelayBalanceOf<T>>;
+
 /// Configuration of this pallet.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ConfigRecord<BlockNumber, RelayBlockNumber> {
@@ -295,4 +310,17 @@ where
 
 		Ok(())
 	}
+}
+
+/// A record containing information regarding auto-renewal for a specific core.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct AutoRenewalRecord {
+	/// The core for which auto renewal is enabled.
+	pub core: CoreIndex,
+	/// The task assigned to the core. We keep track of it so we don't have to look it up when
+	/// performing auto-renewal.
+	pub task: TaskId,
+	/// Specifies when the upcoming renewal should be performed. This is used for lease holding
+	/// tasks to ensure that the renewal process does not begin until the lease expires.
+	pub next_renewal: Timeslice,
 }

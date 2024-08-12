@@ -85,7 +85,7 @@ pub enum CandidateBackingMessage {
 	/// candidates of the same para that follow it in the input vector. In other words, assuming
 	/// candidates are supplied in dependency order, we must ensure that this dependency order is
 	/// preserved.
-	GetBackedCandidates(
+	GetBackableCandidates(
 		HashMap<ParaId, Vec<(CandidateHash, Hash)>>,
 		oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,
 	),
@@ -439,6 +439,16 @@ pub enum NetworkBridgeTxMessage {
 	/// Alternative to `ConnectToValidators` in case you already know the `Multiaddrs` you want to
 	/// be connected to.
 	ConnectToResolvedValidators {
+		/// Each entry corresponds to the addresses of an already resolved validator.
+		validator_addrs: Vec<HashSet<Multiaddr>>,
+		/// The peer set we want the connection on.
+		peer_set: PeerSet,
+	},
+
+	/// Extends the known validators set with new peers we already know the `Multiaddrs`, this is
+	/// usually needed for validators that change their address mid-session. It is usually called
+	/// after a ConnectToResolvedValidators at the beginning of the session.
+	AddToResolvedValidators {
 		/// Each entry corresponds to the addresses of an already resolved validator.
 		validator_addrs: Vec<HashSet<Multiaddr>>,
 		/// The peer set we want the connection on.

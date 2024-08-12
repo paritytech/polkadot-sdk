@@ -28,7 +28,6 @@ use sp_runtime::{
 	traits::{AccountIdConversion, Verify},
 	RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 parameter_types! {
 	//   27 | Min encoded size of `Registration`
@@ -94,8 +93,8 @@ pub enum IdentityField {
 )]
 #[codec(mel_bound())]
 pub struct IdentityInfo {
-	/// A reasonable display name for the controller of the account. This should be whatever the  
-	/// account is typically known as and should not be confusable with other entities, given  
+	/// A reasonable display name for the controller of the account. This should be whatever the
+	/// account is typically known as and should not be confusable with other entities, given
 	/// reasonable context.
 	///
 	/// Stored as UTF-8.
@@ -151,7 +150,7 @@ impl IdentityInformationProvider for IdentityInfo {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn create_identity_info() -> Self {
-		let data = Data::Raw(vec![0; 32].try_into().unwrap());
+		let data = Data::Raw(alloc::vec![0; 32].try_into().unwrap());
 
 		IdentityInfo {
 			display: data.clone(),

@@ -37,14 +37,14 @@ use codec::Encode;
 use futures::{channel::oneshot, future::FutureExt};
 use jsonrpsee::{
 	core::async_trait, server::ResponsePayload, types::SubscriptionId, ConnectionId, Extensions,
-	MethodResponseFuture, PendingSubscriptionSink, SubscriptionSink,
+	MethodResponseFuture, PendingSubscriptionSink,
 };
 use log::debug;
 use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, StorageKey,
 	StorageProvider,
 };
-use sc_rpc::utils::to_sub_message;
+use sc_rpc::utils::Subscription;
 use sp_api::CallApiAt;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::{traits::CallContext, Bytes};
@@ -158,7 +158,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 }
 
 /// Helper to convert the `subscription ID` to a string.
-pub fn read_subscription_id_as_string(sink: &SubscriptionSink) -> String {
+pub fn read_subscription_id_as_string(sink: &Subscription) -> String {
 	match sink.subscription_id() {
 		SubscriptionId::Num(n) => n.to_string(),
 		SubscriptionId::Str(s) => s.into_owned().into(),
@@ -213,7 +213,7 @@ where
 				return
 			};
 
-			let Ok(sink) = pending.accept().await else { return };
+			let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
 
 			let sub_id = read_subscription_id_as_string(&sink);
 			// Keep track of the subscription.
@@ -223,8 +223,7 @@ where
 				// Inserting the subscription can only fail if the JsonRPSee generated a duplicate
 				// subscription ID.
 				debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription already accepted", sub_id);
-				let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-				let _ = sink.send(msg).await;
+				let _ = sink.send(&FollowEvent::<String>::Stop).await;
 				return
 			};
 			debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription accepted", sub_id);
@@ -258,7 +257,7 @@ where
 		let conn_id = ext
 			.get::<ConnectionId>()
 			.copied()
-			.expect("ConnectionId is always set by jsonrpsee");
+			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			// The spec says to return `LimitReached` if the follow subscription is invalid or
@@ -344,7 +343,7 @@ where
 		let conn_id = ext
 			.get::<ConnectionId>()
 			.copied()
-			.expect("ConnectionId is always set by jsonrpsee");
+			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			return Ok(None);
@@ -384,7 +383,7 @@ where
 		let conn_id = ext
 			.get::<ConnectionId>()
 			.copied()
-			.expect("ConnectionId is always set by jsonrpsee");
+			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			// The spec says to return `LimitReached` if the follow subscription is invalid or
@@ -472,7 +471,7 @@ where
 		let conn_id = ext
 			.get::<ConnectionId>()
 			.copied()
-			.expect("ConnectionId is always set by jsonrpsee");
+			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			// The spec says to return `LimitReached` if the follow subscription is invalid or
@@ -545,7 +544,7 @@ where
 		let conn_id = ext
 			.get::<ConnectionId>()
 			.copied()
-			.expect("ConnectionId is always set by jsonrpsee");
+			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			return Ok(());
@@ -583,7 +582,7 @@ where
 		let conn_id = ext
 			.get::<ConnectionId>()
 			.copied()
-			.expect("ConnectionId is always set by jsonrpsee");
+			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			return Ok(())
@@ -611,7 +610,7 @@ where
 		let conn_id = ext
 			.get::<ConnectionId>()
 			.copied()
-			.expect("ConnectionId is always set by jsonrpsee");
+			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			return Ok(())

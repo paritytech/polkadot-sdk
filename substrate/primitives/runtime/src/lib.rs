@@ -46,6 +46,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[doc(hidden)]
+extern crate alloc;
+
+#[doc(hidden)]
+pub use alloc::vec::Vec;
+#[doc(hidden)]
 pub use codec;
 #[doc(hidden)]
 pub use scale_info;
@@ -73,12 +78,12 @@ use sp_core::{
 	hash::{H256, H512},
 	sr25519,
 };
-use sp_std::prelude::*;
 
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::format;
+use alloc::vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::format;
 
 pub mod curve;
 pub mod generic;
@@ -191,7 +196,7 @@ impl Justifications {
 
 impl IntoIterator for Justifications {
 	type Item = Justification;
-	type IntoIter = sp_std::vec::IntoIter<Self::Item>;
+	type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.0.into_iter()
@@ -508,11 +513,11 @@ impl From<DispatchError> for DispatchOutcome {
 /// This is the legacy return type of `Dispatchable`. It is still exposed for compatibility reasons.
 /// The new return type is `DispatchResultWithInfo`. FRAME runtimes should use
 /// `frame_support::dispatch::DispatchResult`.
-pub type DispatchResult = sp_std::result::Result<(), DispatchError>;
+pub type DispatchResult = core::result::Result<(), DispatchError>;
 
 /// Return type of a `Dispatchable` which contains the `DispatchResult` and additional information
 /// about the `Dispatchable` that is only known post dispatch.
-pub type DispatchResultWithInfo<T> = sp_std::result::Result<T, DispatchErrorWithPostInfo<T>>;
+pub type DispatchResultWithInfo<T> = core::result::Result<T, DispatchErrorWithPostInfo<T>>;
 
 /// Reason why a pallet call failed.
 #[derive(Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
@@ -911,14 +916,14 @@ impl OpaqueExtrinsic {
 	}
 }
 
-impl sp_std::fmt::Debug for OpaqueExtrinsic {
+impl core::fmt::Debug for OpaqueExtrinsic {
 	#[cfg(feature = "std")]
-	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(fmt, "{}", sp_core::hexdisplay::HexDisplay::from(&self.0))
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }

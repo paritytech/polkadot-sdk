@@ -92,7 +92,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		example: pallet_example_basic::GenesisConfig {
 			dummy: 42,
 			// we configure the map with (key, value) pairs.
-			bar: vec![(1, 2), (2, 3)],
+			bar: alloc::vec![(1, 2), (2, 3)],
 			foo: 24,
 		},
 	}

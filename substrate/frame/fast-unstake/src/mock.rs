@@ -26,7 +26,6 @@ use frame_support::{
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 use pallet_staking::{Exposure, IndividualExposure, StakerStatus};
-use sp_std::prelude::*;
 
 pub type AccountId = u128;
 pub type BlockNumber = u64;

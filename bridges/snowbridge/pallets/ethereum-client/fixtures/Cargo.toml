@@ -15,11 +15,11 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-hex-literal = { version = "0.4.1" }
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
-snowbridge-core = { path = "../../../primitives/core", default-features = false }
-snowbridge-beacon-primitives = { path = "../../../primitives/beacon", default-features = false }
+hex-literal = { workspace = true, default-features = true }
+sp-core = { workspace = true }
+sp-std = { workspace = true }
+snowbridge-core = { workspace = true }
+snowbridge-beacon-primitives = { workspace = true }
 
 [features]
 default = ["std"]

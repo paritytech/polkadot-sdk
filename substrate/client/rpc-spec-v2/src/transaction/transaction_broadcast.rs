@@ -126,7 +126,7 @@ where
 		let conn_id = ext
 			.get::<ConnectionId>()
 			.copied()
-			.expect("ConnectionId is always set by jsonrpsee");
+			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		// The unique ID of this operation.
 		let id = self.generate_unique_id();
@@ -250,7 +250,7 @@ where
 		let conn_id = ext
 			.get::<ConnectionId>()
 			.copied()
-			.expect("ConnectionId is always set by jsonrpsee");
+			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		// The operation ID must correlate to the same connection ID.
 		if !self.rpc_connections.contains_identifier(conn_id, &operation_id) {

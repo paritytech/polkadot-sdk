@@ -139,7 +139,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn on_slash(
 		who: &T::AccountId,
 		_slashed_active: BalanceOf<T>,
-		_slashed_unlocking: &sp_std::collections::btree_map::BTreeMap<EraIndex, BalanceOf<T>>,
+		_slashed_unlocking: &alloc::collections::btree_map::BTreeMap<EraIndex, BalanceOf<T>>,
 		slashed_total: BalanceOf<T>,
 	) {
 		<Agents<T>>::mutate(who, |maybe_register| match maybe_register {
