@@ -380,15 +380,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#229" id="229">229</a>
 <a href="#230" id="230">230</a>
 <a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -396,7 +387,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -451,10 +442,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>withdraw_asset(assets: <span class="kw-2">&amp;</span>Assets) -&gt; Weight {
 		assets.weigh_assets(XcmFungibleWeight::&lt;Runtime&gt;::withdraw_asset())
 	}
-	<span class="comment">// Currently there is no trusted reserve
-	</span><span class="kw">fn </span>reserve_asset_deposited(_assets: <span class="kw-2">&amp;</span>Assets) -&gt; Weight {
-		<span class="comment">// TODO: hardcoded - fix https://github.com/paritytech/cumulus/issues/1974
-		</span>Weight::from_parts(<span class="number">1_000_000_000_u64</span>, <span class="number">0</span>)
+	<span class="kw">fn </span>reserve_asset_deposited(assets: <span class="kw-2">&amp;</span>Assets) -&gt; Weight {
+		assets.weigh_assets(XcmFungibleWeight::&lt;Runtime&gt;::reserve_asset_deposited())
 	}
 	<span class="kw">fn </span>receive_teleported_asset(assets: <span class="kw-2">&amp;</span>Assets) -&gt; Weight {
 		assets.weigh_assets(XcmFungibleWeight::&lt;Runtime&gt;::receive_teleported_asset())
@@ -505,12 +494,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>report_error(_query_response_info: <span class="kw-2">&amp;</span>QueryResponseInfo) -&gt; Weight {
 		XcmGeneric::&lt;Runtime&gt;::report_error()
 	}
-
 	<span class="kw">fn </span>deposit_asset(assets: <span class="kw-2">&amp;</span>AssetFilter, _dest: <span class="kw-2">&amp;</span>Location) -&gt; Weight {
-		<span class="comment">// Hardcoded till the XCM pallet is fixed
-		</span><span class="kw">let </span>hardcoded_weight = Weight::from_parts(<span class="number">1_000_000_000_u64</span>, <span class="number">0</span>);
-		<span class="kw">let </span>weight = assets.weigh_assets(XcmFungibleWeight::&lt;Runtime&gt;::deposit_asset());
-		hardcoded_weight.min(weight)
+		assets.weigh_assets(XcmFungibleWeight::&lt;Runtime&gt;::deposit_asset())
 	}
 	<span class="kw">fn </span>deposit_reserve_asset(assets: <span class="kw-2">&amp;</span>AssetFilter, _dest: <span class="kw-2">&amp;</span>Location, _xcm: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; Weight {
 		assets.weigh_assets(XcmFungibleWeight::&lt;Runtime&gt;::deposit_reserve_asset())
@@ -523,13 +508,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_reserve: <span class="kw-2">&amp;</span>Location,
 		_xcm: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;,
 	) -&gt; Weight {
-		assets.weigh_assets(XcmGeneric::&lt;Runtime&gt;::initiate_reserve_withdraw())
+		assets.weigh_assets(XcmFungibleWeight::&lt;Runtime&gt;::initiate_reserve_withdraw())
 	}
 	<span class="kw">fn </span>initiate_teleport(assets: <span class="kw-2">&amp;</span>AssetFilter, _dest: <span class="kw-2">&amp;</span>Location, _xcm: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; Weight {
-		<span class="comment">// Hardcoded till the XCM pallet is fixed
-		</span><span class="kw">let </span>hardcoded_weight = Weight::from_parts(<span class="number">200_000_000_u64</span>, <span class="number">0</span>);
-		<span class="kw">let </span>weight = assets.weigh_assets(XcmFungibleWeight::&lt;Runtime&gt;::initiate_teleport());
-		hardcoded_weight.min(weight)
+		assets.weigh_assets(XcmFungibleWeight::&lt;Runtime&gt;::initiate_teleport())
 	}
 	<span class="kw">fn </span>report_holding(_response_info: <span class="kw-2">&amp;</span>QueryResponseInfo, _assets: <span class="kw-2">&amp;</span>AssetFilter) -&gt; Weight {
 		XcmGeneric::&lt;Runtime&gt;::report_holding()

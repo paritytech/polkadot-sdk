@@ -1434,6 +1434,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1283" id="1283">1283</a>
 <a href="#1284" id="1284">1284</a>
 <a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2294,14 +2327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>old_holding = <span class="self">self</span>.holding.clone();
 				<span class="kw">let </span>result = Config::TransactionalProcessor::process(|| {
 					<span class="kw">let </span>deposited = <span class="self">self</span>.holding.saturating_take(assets);
-					<span class="kw">for </span>asset <span class="kw">in </span>deposited.into_assets_iter() {
-						Config::AssetTransactor::deposit_asset(
-							<span class="kw-2">&amp;</span>asset,
-							<span class="kw-2">&amp;</span>beneficiary,
-							<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.context),
-						)<span class="question-mark">?</span>;
-					}
-					<span class="prelude-val">Ok</span>(())
+					<span class="self">self</span>.deposit_assets_with_retry(<span class="kw-2">&amp;</span>deposited, <span class="kw-2">&amp;</span>beneficiary)
 				});
 				<span class="kw">if </span>Config::TransactionalProcessor::IS_TRANSACTIONAL &amp;&amp; result.is_err() {
 					<span class="self">self</span>.holding = old_holding;
@@ -2326,9 +2352,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="comment">// now take assets to deposit (excluding transport_fee)
 					</span><span class="kw">let </span>deposited = <span class="self">self</span>.holding.saturating_take(assets);
-					<span class="kw">for </span>asset <span class="kw">in </span>deposited.assets_iter() {
-						Config::AssetTransactor::deposit_asset(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>dest, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.context))<span class="question-mark">?</span>;
-					}
+					<span class="self">self</span>.deposit_assets_with_retry(<span class="kw-2">&amp;</span>deposited, <span class="kw-2">&amp;</span>dest)<span class="question-mark">?</span>;
 					<span class="comment">// Note that we pass `None` as `maybe_failed_bin` and drop any assets which
 					// cannot be reanchored  because we have already called `deposit_asset` on all
 					// assets.
@@ -2717,6 +2741,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					Config::HrmpChannelClosingHandler::handle(initiator, sender, recipient)
 				}),
 		}
+	}
+
+	<span class="doccomment">/// Deposit `to_deposit` assets to `beneficiary`, without giving up on the first (transient)
+	/// error, and retrying once just in case one of the subsequently deposited assets satisfy some
+	/// requirement.
+	///
+	/// Most common transient error is: `beneficiary` account does not yet exist and the first
+	/// asset(s) in the (sorted) list does not satisfy ED, but a subsequent one in the list does.
+	///
+	/// This function can write into storage and also return an error at the same time, it should
+	/// always be called within a transactional context.
+	</span><span class="kw">fn </span>deposit_assets_with_retry(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		to_deposit: <span class="kw-2">&amp;</span>AssetsInHolding,
+		beneficiary: <span class="kw-2">&amp;</span>Location,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), XcmError&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>failed_deposits = Vec::with_capacity(to_deposit.len());
+
+		<span class="kw">let </span><span class="kw-2">mut </span>deposit_result = <span class="prelude-val">Ok</span>(());
+		<span class="kw">for </span>asset <span class="kw">in </span>to_deposit.assets_iter() {
+			deposit_result =
+				Config::AssetTransactor::deposit_asset(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>beneficiary, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.context));
+			<span class="comment">// if deposit failed for asset, mark it for retry after depositing the others.
+			</span><span class="kw">if </span>deposit_result.is_err() {
+				failed_deposits.push(asset);
+			}
+		}
+		<span class="kw">if </span>failed_deposits.len() == to_deposit.len() {
+			<span class="macro">tracing::debug!</span>(
+				target: <span class="string">"xcm::execute"</span>,
+				<span class="question-mark">?</span>deposit_result,
+				<span class="string">"Deposit for each asset failed, returning the last error as there is no point in retrying any of them"</span>,
+			);
+			<span class="kw">return </span>deposit_result;
+		}
+		<span class="macro">tracing::trace!</span>(target: <span class="string">"xcm::execute"</span>, <span class="question-mark">?</span>failed_deposits, <span class="string">"Deposits to retry"</span>);
+
+		<span class="comment">// retry previously failed deposits, this time short-circuiting on any error.
+		</span><span class="kw">for </span>asset <span class="kw">in </span>failed_deposits {
+			Config::AssetTransactor::deposit_asset(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>beneficiary, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.context))<span class="question-mark">?</span>;
+		}
+		<span class="prelude-val">Ok</span>(())
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

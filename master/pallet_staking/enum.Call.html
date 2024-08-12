@@ -193,12 +193,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     },
     force_new_era_always {},
     cancel_deferred_slash {
-        era: <a class="type" href="../sp_staking/type.EraIndex.html" title="type sp_staking::EraIndex">EraIndex</a>,
+        era: EraIndex,
         slash_indices: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;,
     },
     payout_stakers {
         validator_stash: T::AccountId,
-        era: <a class="type" href="../sp_staking/type.EraIndex.html" title="type sp_staking::EraIndex">EraIndex</a>,
+        era: EraIndex,
     },
     rebond {
         value: <a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;T&gt;,
@@ -230,8 +230,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     },
     payout_stakers_by_page {
         validator_stash: T::AccountId,
-        era: <a class="type" href="../sp_staking/type.EraIndex.html" title="type sp_staking::EraIndex">EraIndex</a>,
-        page: <a class="type" href="../sp_staking/type.Page.html" title="type sp_staking::Page">Page</a>,
+        era: EraIndex,
+        page: Page,
     },
     update_payee {
         controller: T::AccountId,
@@ -401,10 +401,10 @@ details.</li>
 <p>The election process starts multiple blocks before the end of the era.
 If this is called just before a new era is triggered, the election process may not
 have enough blocks to get a result.</p>
-</div><section id="variant.cancel_deferred_slash" class="variant"><a href="#variant.cancel_deferred_slash" class="anchor">§</a><h3 class="code-header">cancel_deferred_slash</h3></section><div class="sub-variant" id="variant.cancel_deferred_slash.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.cancel_deferred_slash.field.era" class="section-header"><a href="#variant.cancel_deferred_slash.field.era" class="anchor field">§</a><code>era: <a class="type" href="../sp_staking/type.EraIndex.html" title="type sp_staking::EraIndex">EraIndex</a></code></span></div><div class="sub-variant-field"><span id="variant.cancel_deferred_slash.field.slash_indices" class="section-header"><a href="#variant.cancel_deferred_slash.field.slash_indices" class="anchor field">§</a><code>slash_indices: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><div class="docblock"><p>Cancel enactment of a deferred slash.</p>
+</div><section id="variant.cancel_deferred_slash" class="variant"><a href="#variant.cancel_deferred_slash" class="anchor">§</a><h3 class="code-header">cancel_deferred_slash</h3></section><div class="sub-variant" id="variant.cancel_deferred_slash.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.cancel_deferred_slash.field.era" class="section-header"><a href="#variant.cancel_deferred_slash.field.era" class="anchor field">§</a><code>era: EraIndex</code></span></div><div class="sub-variant-field"><span id="variant.cancel_deferred_slash.field.slash_indices" class="section-header"><a href="#variant.cancel_deferred_slash.field.slash_indices" class="anchor field">§</a><code>slash_indices: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><div class="docblock"><p>Cancel enactment of a deferred slash.</p>
 <p>Can be called by the <code>T::AdminOrigin</code>.</p>
 <p>Parameters: era and indices of the slashes for that era to kill.</p>
-</div><section id="variant.payout_stakers" class="variant"><a href="#variant.payout_stakers" class="anchor">§</a><h3 class="code-header">payout_stakers</h3></section><div class="sub-variant" id="variant.payout_stakers.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.payout_stakers.field.validator_stash" class="section-header"><a href="#variant.payout_stakers.field.validator_stash" class="anchor field">§</a><code>validator_stash: T::AccountId</code></span></div><div class="sub-variant-field"><span id="variant.payout_stakers.field.era" class="section-header"><a href="#variant.payout_stakers.field.era" class="anchor field">§</a><code>era: <a class="type" href="../sp_staking/type.EraIndex.html" title="type sp_staking::EraIndex">EraIndex</a></code></span></div></div><div class="docblock"><p>Pay out next page of the stakers behind a validator for the given era.</p>
+</div><section id="variant.payout_stakers" class="variant"><a href="#variant.payout_stakers" class="anchor">§</a><h3 class="code-header">payout_stakers</h3></section><div class="sub-variant" id="variant.payout_stakers.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.payout_stakers.field.validator_stash" class="section-header"><a href="#variant.payout_stakers.field.validator_stash" class="anchor field">§</a><code>validator_stash: T::AccountId</code></span></div><div class="sub-variant-field"><span id="variant.payout_stakers.field.era" class="section-header"><a href="#variant.payout_stakers.field.era" class="anchor field">§</a><code>era: EraIndex</code></span></div></div><div class="docblock"><p>Pay out next page of the stakers behind a validator for the given era.</p>
 <ul>
 <li><code>validator_stash</code> is the stash account of the validator.</li>
 <li><code>era</code> may be any era between <code>[current_era - history_depth; current_era]</code>.</li>
@@ -491,7 +491,7 @@ can call this.</p>
 </div><section id="variant.set_min_commission" class="variant"><a href="#variant.set_min_commission" class="anchor">§</a><h3 class="code-header">set_min_commission</h3></section><div class="sub-variant" id="variant.set_min_commission.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_min_commission.field.new" class="section-header"><a href="#variant.set_min_commission.field.new" class="anchor field">§</a><code>new: Perbill</code></span></div></div><div class="docblock"><p>Sets the minimum amount of commission that each validators must maintain.</p>
 <p>This call has lower privilege requirements than <code>set_staking_config</code> and can be called
 by the <code>T::AdminOrigin</code>. Root can always call this.</p>
-</div><section id="variant.payout_stakers_by_page" class="variant"><a href="#variant.payout_stakers_by_page" class="anchor">§</a><h3 class="code-header">payout_stakers_by_page</h3></section><div class="sub-variant" id="variant.payout_stakers_by_page.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.payout_stakers_by_page.field.validator_stash" class="section-header"><a href="#variant.payout_stakers_by_page.field.validator_stash" class="anchor field">§</a><code>validator_stash: T::AccountId</code></span></div><div class="sub-variant-field"><span id="variant.payout_stakers_by_page.field.era" class="section-header"><a href="#variant.payout_stakers_by_page.field.era" class="anchor field">§</a><code>era: <a class="type" href="../sp_staking/type.EraIndex.html" title="type sp_staking::EraIndex">EraIndex</a></code></span></div><div class="sub-variant-field"><span id="variant.payout_stakers_by_page.field.page" class="section-header"><a href="#variant.payout_stakers_by_page.field.page" class="anchor field">§</a><code>page: <a class="type" href="../sp_staking/type.Page.html" title="type sp_staking::Page">Page</a></code></span></div></div><div class="docblock"><p>Pay out a page of the stakers behind a validator for the given era and page.</p>
+</div><section id="variant.payout_stakers_by_page" class="variant"><a href="#variant.payout_stakers_by_page" class="anchor">§</a><h3 class="code-header">payout_stakers_by_page</h3></section><div class="sub-variant" id="variant.payout_stakers_by_page.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.payout_stakers_by_page.field.validator_stash" class="section-header"><a href="#variant.payout_stakers_by_page.field.validator_stash" class="anchor field">§</a><code>validator_stash: T::AccountId</code></span></div><div class="sub-variant-field"><span id="variant.payout_stakers_by_page.field.era" class="section-header"><a href="#variant.payout_stakers_by_page.field.era" class="anchor field">§</a><code>era: EraIndex</code></span></div><div class="sub-variant-field"><span id="variant.payout_stakers_by_page.field.page" class="section-header"><a href="#variant.payout_stakers_by_page.field.page" class="anchor field">§</a><code>page: Page</code></span></div></div><div class="docblock"><p>Pay out a page of the stakers behind a validator for the given era and page.</p>
 <ul>
 <li><code>validator_stash</code> is the stash account of the validator.</li>
 <li><code>era</code> may be any era between <code>[current_era - history_depth; current_era]</code>.</li>
@@ -557,12 +557,12 @@ be reset values from on-chain state.</p>
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Create a call with the variant <code>force_unstake</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.new_call_variant_force_new_era_always" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#989">source</a><h4 class="code-header">pub fn <a href="#method.new_call_variant_force_new_era_always" class="fn">new_call_variant_force_new_era_always</a>() -&gt; Self</h4></section></summary><div class="docblock"><p>Create a call with the variant <code>force_new_era_always</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.new_call_variant_cancel_deferred_slash" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#989">source</a><h4 class="code-header">pub fn <a href="#method.new_call_variant_cancel_deferred_slash" class="fn">new_call_variant_cancel_deferred_slash</a>(
-    era: <a class="type" href="../sp_staking/type.EraIndex.html" title="type sp_staking::EraIndex">EraIndex</a>,
+    era: EraIndex,
     slash_indices: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Create a call with the variant <code>cancel_deferred_slash</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.new_call_variant_payout_stakers" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#989">source</a><h4 class="code-header">pub fn <a href="#method.new_call_variant_payout_stakers" class="fn">new_call_variant_payout_stakers</a>(
     validator_stash: T::AccountId,
-    era: <a class="type" href="../sp_staking/type.EraIndex.html" title="type sp_staking::EraIndex">EraIndex</a>
+    era: EraIndex
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Create a call with the variant <code>payout_stakers</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.new_call_variant_rebond" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#989">source</a><h4 class="code-header">pub fn <a href="#method.new_call_variant_rebond" class="fn">new_call_variant_rebond</a>(value: <a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;T&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Create a call with the variant <code>rebond</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.new_call_variant_reap_stash" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#989">source</a><h4 class="code-header">pub fn <a href="#method.new_call_variant_reap_stash" class="fn">new_call_variant_reap_stash</a>(
@@ -588,8 +588,8 @@ be reset values from on-chain state.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.new_call_variant_set_min_commission" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#989">source</a><h4 class="code-header">pub fn <a href="#method.new_call_variant_set_min_commission" class="fn">new_call_variant_set_min_commission</a>(new: Perbill) -&gt; Self</h4></section></summary><div class="docblock"><p>Create a call with the variant <code>set_min_commission</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.new_call_variant_payout_stakers_by_page" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#989">source</a><h4 class="code-header">pub fn <a href="#method.new_call_variant_payout_stakers_by_page" class="fn">new_call_variant_payout_stakers_by_page</a>(
     validator_stash: T::AccountId,
-    era: <a class="type" href="../sp_staking/type.EraIndex.html" title="type sp_staking::EraIndex">EraIndex</a>,
-    page: <a class="type" href="../sp_staking/type.Page.html" title="type sp_staking::Page">Page</a>
+    era: EraIndex,
+    page: Page
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Create a call with the variant <code>payout_stakers_by_page</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.new_call_variant_update_payee" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#989">source</a><h4 class="code-header">pub fn <a href="#method.new_call_variant_update_payee" class="fn">new_call_variant_update_payee</a>(controller: T::AccountId) -&gt; Self</h4></section></summary><div class="docblock"><p>Create a call with the variant <code>update_payee</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.new_call_variant_deprecate_controller_batch" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#989">source</a><h4 class="code-header">pub fn <a href="#method.new_call_variant_deprecate_controller_batch" class="fn">new_call_variant_deprecate_controller_batch</a>(

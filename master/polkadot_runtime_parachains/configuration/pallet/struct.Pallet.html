@@ -194,7 +194,7 @@ this, if you really know what you are doing!</p>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Set the maximum number of validators to use in parachain consensus.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.set_dispute_period" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/configuration.rs.html#507">source</a><h4 class="code-header">pub fn <a href="#method.set_dispute_period" class="fn">set_dispute_period</a>(
     origin: OriginFor&lt;T&gt;,
-    new: <a class="type" href="../../../sp_staking/type.SessionIndex.html" title="type sp_staking::SessionIndex">SessionIndex</a>
+    new: SessionIndex
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Set the dispute period, in number of sessions to keep for disputes.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.set_dispute_post_conclusion_acceptance_period" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/configuration.rs.html#507">source</a><h4 class="code-header">pub fn <a href="#method.set_dispute_post_conclusion_acceptance_period" class="fn">set_dispute_post_conclusion_acceptance_period</a>(
     origin: OriginFor&lt;T&gt;,
@@ -272,7 +272,7 @@ channel.</p>
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Sets the maximum number of outbound HRMP messages can be sent by a candidate.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.set_pvf_voting_ttl" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/configuration.rs.html#507">source</a><h4 class="code-header">pub fn <a href="#method.set_pvf_voting_ttl" class="fn">set_pvf_voting_ttl</a>(
     origin: OriginFor&lt;T&gt;,
-    new: <a class="type" href="../../../sp_staking/type.SessionIndex.html" title="type sp_staking::SessionIndex">SessionIndex</a>
+    new: SessionIndex
 ) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Set the number of session changes after which a PVF pre-checking voting is rejected.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.set_minimum_validation_upgrade_delay" class="method"><a class="src rightside" href="../../../src/polkadot_runtime_parachains/configuration.rs.html#507">source</a><h4 class="code-header">pub fn <a href="#method.set_minimum_validation_upgrade_delay" class="fn">set_minimum_validation_upgrade_delay</a>(
     origin: OriginFor&lt;T&gt;,
