@@ -109,13 +109,14 @@ else
     exit 1
 fi
 
-# Check if rust is installed
+# Check if rust is installed, if not, install the version defined in the .github/env file
 if command -v rustc >/dev/null 2>&1; then
     echo "\n✅︎🦀 Rust already installed."
 else
     if prompt_default_yes "\n🦀 Rust is not installed. Install it?"; then
         echo "🦀 Installing via rustup."
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+        version=`cat ../.github/env | grep IMAGE | cut -d'-' -f3`
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs/?version=$version | sh
     else
         echo "Aborting."
         exit 1
