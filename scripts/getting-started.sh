@@ -118,7 +118,7 @@ else
 
         # If the version was empty, or did not contain dots, install the latest version
         if [ -z "${version}" ] || [ $(echo $version | grep -o "\." | wc -l) -lt 2 ]; then
-        echo "❌ Required version not found. Installing the latest version."
+        echo "❌ Required version of rustup not found. Installing the latest version."
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh 
         else
             echo "🦀 Installing via rustup: v$version"
