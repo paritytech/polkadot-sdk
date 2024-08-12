@@ -787,7 +787,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	import_handle: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>BlockImport&lt;B, Error = ConsensusError&gt;,
 	block_origin: BlockOrigin,
 	block: IncomingBlock&lt;B&gt;,
-	verifier: <span class="kw-2">&amp;mut </span>V,
+	verifier: <span class="kw-2">&amp;</span>V,
 ) -&gt; BlockImportResult&lt;B&gt; {
 	<span class="kw">match </span>verify_single_block_metered(import_handle, block_origin, block, verifier, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">? </span>{
 		SingleBlockVerificationOutcome::Imported(import_status) =&gt; <span class="prelude-val">Ok</span>(import_status),
@@ -857,7 +857,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	import_handle: <span class="kw-2">&amp;</span><span class="kw">impl </span>BlockImport&lt;B, Error = ConsensusError&gt;,
 	block_origin: BlockOrigin,
 	block: IncomingBlock&lt;B&gt;,
-	verifier: <span class="kw-2">&amp;mut </span>V,
+	verifier: <span class="kw-2">&amp;</span>V,
 	metrics: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Metrics&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;SingleBlockVerificationOutcome&lt;B&gt;, BlockImportError&gt; {
 	<span class="kw">let </span>peer = block.origin;

@@ -833,7 +833,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#682" id="682">682</a>
 <a href="#683" id="683">683</a>
 <a href="#684" id="684">684</a>
-<a href="#685" id="685">685</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1058,7 +1057,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Returns when `block_import` ended.
 </span><span class="kw">async fn </span>block_import_process&lt;B: BlockT&gt;(
 	<span class="kw-2">mut </span>block_import: BoxBlockImport&lt;B&gt;,
-	<span class="kw-2">mut </span>verifier: <span class="kw">impl </span>Verifier&lt;B&gt;,
+	verifier: <span class="kw">impl </span>Verifier&lt;B&gt;,
 	<span class="kw-2">mut </span>result_sender: BufferedLinkSender&lt;B&gt;,
 	<span class="kw-2">mut </span>block_import_receiver: TracingUnboundedReceiver&lt;worker_messages::ImportBlocks&lt;B&gt;&gt;,
 	metrics: <span class="prelude-ty">Option</span>&lt;Metrics&gt;,
@@ -1077,8 +1076,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">let </span>res =
-			import_many_blocks(<span class="kw-2">&amp;mut </span>block_import, origin, blocks, <span class="kw-2">&amp;mut </span>verifier, metrics.clone())
-				.<span class="kw">await</span>;
+			import_many_blocks(<span class="kw-2">&amp;mut </span>block_import, origin, blocks, <span class="kw-2">&amp;</span>verifier, metrics.clone()).<span class="kw">await</span>;
 
 		result_sender.blocks_processed(res.imported, res.block_count, res.results);
 	}
@@ -1224,7 +1222,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	import_handle: <span class="kw-2">&amp;mut </span>BoxBlockImport&lt;B&gt;,
 	blocks_origin: BlockOrigin,
 	blocks: Vec&lt;IncomingBlock&lt;B&gt;&gt;,
-	verifier: <span class="kw-2">&amp;mut </span>V,
+	verifier: <span class="kw-2">&amp;</span>V,
 	metrics: <span class="prelude-ty">Option</span>&lt;Metrics&gt;,
 ) -&gt; ImportManyBlocksResult&lt;B&gt; {
 	<span class="kw">let </span>count = blocks.len();

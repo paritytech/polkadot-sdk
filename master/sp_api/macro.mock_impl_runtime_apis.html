@@ -183,7 +183,7 @@ automatically.</p>
 <h2 id="advanced-attribute"><a class="doc-anchor" href="#advanced-attribute">§</a><code>advanced</code> attribute</h2>
 <p>This attribute can be placed above individual function in the mock implementation to
 request more control over the function declaration. From the client side each runtime api
-function is called with the <code>at</code> parameter that is a <a href="sp_runtime::traits::Hash"><code>Hash</code></a>.
+function is called with the <code>at</code> parameter that is a <a href="../sp_runtime/traits/trait.Hash.html" title="trait sp_runtime::traits::Hash"><code>Hash</code></a>.
 When using the <code>advanced</code> attribute, the macro expects that the first parameter of the
 function is this <code>at</code> parameter. Besides that the macro also doesn’t do the automatic
 return value rewrite, which means that full return value must be specified. The full return
