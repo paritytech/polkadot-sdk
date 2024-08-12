@@ -45,7 +45,7 @@ on:
         type: string
         default: docker.io
 
-      # The owner is often the same than the Docker Hub username but does ont have to be.
+      # The owner is often the same as the Docker Hub username but does ont have to be.
       # In our case, it is not.
       owner:
         description: Owner of the container image repo
@@ -56,6 +56,10 @@ on:
       version:
         description: version to build/release
         default: v0.9.18
+        required: true
+
+      stable_tag:
+        description: Tag matching the actual stable release version in the format stableYYMM or stableYYMM-X for patch releases
         required: true
 
 permissions:
@@ -74,6 +78,29 @@ env:
   VERSION: ${{ inputs.version }}
 
 jobs:
+  validate-inputs:
+    runs-on: ubuntu-latest
+    outputs:
+        stable_tag: ${{ steps.validate_inputs.outputs.stable_tag }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Validate inputs
+        id: validate_inputs
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          VERSION=$(filter_version_from_input "${{ inputs.version }}")
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+          RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
+          echo "RELEASE_ID=${RELEASE_ID}" >> $GITHUB_ENV
+
+          STABLE_TAG=$(validate_stable_tag ${{ inputs.stable_tag }})
+          echo "stable_tag=${STABLE_TAG}" >> $GITHUB_OUTPUT
+
   fetch-artifacts: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
@@ -102,9 +129,6 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          VERSION=$(filter_version_from_input "${{ inputs.version }}")
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
-
           fetch_release_artifacts_from_s3
 
       - name: Fetch chain-spec-builder rc artifacts or release artifacts based on release id
@@ -112,7 +136,7 @@ jobs:
         if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary == 'chain-spec-builder' }}
         run: |
           . ./.github/scripts/common/lib.sh
-          RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
+
           fetch_release_artifacts
 
       - name: Upload artifacts
@@ -124,7 +148,7 @@ jobs:
   build-container: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
-    needs: fetch-artifacts
+    needs: [fetch-artifacts, validate-inputs]
     environment: release
 
     steps:
@@ -179,7 +203,7 @@ jobs:
           release=$( echo $VERSION | cut -f1 -d- )
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
-          echo "stable=stable" >> $GITHUB_OUTPUT
+          echo "stable=${{ needs.validate-inputs.outputs.stable_tag }}" >> $GITHUB_OUTPUT
 
       - name: Build Injected Container image for polkadot rc or chain-spec-builder
         if: ${{ env.BINARY == 'polkadot' || env.BINARY == 'chain-spec-builder' }}
@@ -257,7 +281,7 @@ jobs:
   build-polkadot-release-container: # this job will be triggered for polkadot release build
     if: ${{ inputs.binary == 'polkadot' && inputs.image_type == 'release' }}
     runs-on: ubuntu-latest
-    needs: fetch-latest-debian-package-version
+    needs: [fetch-latest-debian-package-version, validate-inputs]
     environment: release
     steps:
       - name: Checkout sources
@@ -295,7 +319,7 @@ jobs:
           # TODO: The owner should be used below but buildx does not resolve the VARs
           # TODO: It would be good to get rid of this GHA that we don't really need.
           tags: |
-            parity/polkadot:stable
+            parity/polkadot:${{ needs.validate-inputs.outputs.stable_tag }}
             parity/polkadot:latest
             parity/polkadot:${{ needs.fetch-latest-debian-package-version.outputs.polkadot_container_tag }}
           build-args: |
