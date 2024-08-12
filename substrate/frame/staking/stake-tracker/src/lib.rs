@@ -409,6 +409,18 @@ pub mod pallet {
 	}
 }
 
+/// Returns a vec with the current state of the `LastSettledApprovals` state.
+///
+/// Note: To be used by external pallets (e.g. pallet-staking) for tests and try-state checks.
+pub struct LastSettledApprovalsGetter<T: Config>(PhantomData<T>);
+impl<T: Config> sp_runtime::traits::TypedGet for LastSettledApprovalsGetter<T> {
+	type Type = Vec<(AccountIdOf<T>, ExtendedBalance)>;
+
+	fn get() -> Self::Type {
+		LastSettledApprovals::<T>::iter().collect::<Vec<_>>()
+	}
+}
+
 impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// When a nominator's stake is updated, all the nominated targets must be updated
 	/// accordingly, unless the stake updates are due to a reward or slash. This is represented by
@@ -427,7 +439,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			Ok(StakerStatus::Nominator(nominations)) => {
 				// noop in case stake update is caused by a reward or slash.
 				if reason == StakeUpdateReason::NominatorReward ||
-					reason == StakeUpdateReason::Slash
+					reason == StakeUpdateReason::NominatorSlash
 				{
 					return
 				}

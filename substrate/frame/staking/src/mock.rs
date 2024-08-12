@@ -392,6 +392,8 @@ impl crate::pallet::pallet::Config for Test {
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
+	#[cfg(any(feature = "try-runtime", test))]
+	type TrackerUnsettledApprovals = pallet_stake_tracker::LastSettledApprovalsGetter<Self>;
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;

@@ -233,7 +233,7 @@ impl<T: Config, W: weights::WeightInfo> MigrationV13<T, W> {
 			<T as Config>::TargetList::get_score(&who).expect("node is in the list");
 
 		let total_stake = current_stake.defensive_saturating_add(nomination_stake.into());
-		let _ = <T as Config>::TargetList::on_update(&who, total_stake.into()).map_err(|e| {
+		let _ = <T as Config>::TargetList::on_update(&who, total_stake).map_err(|e| {
 			log!(error, "updating TL score of {:?}: {:?}", who, e);
 			SteppedMigrationError::Failed
 		})?;

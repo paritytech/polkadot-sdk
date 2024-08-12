@@ -113,8 +113,10 @@ pub enum StakeUpdateReason {
 	ValidatorReward,
 	/// Stake update due to a nominator staking reward.
 	NominatorReward,
-	/// Stake update due to a slash.
-	Slash,
+	/// Stake update due to a validator slash.
+	ValidatorSlash,
+	/// Stake update due to a nominator slash.
+	NominatorSlash,
 }
 
 /// A generic staking event listener.

@@ -57,7 +57,7 @@ use crate::{
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	ensure,
+	defensive, ensure,
 	traits::{Currency, Defensive, DefensiveSaturating, Imbalance, OnUnbalanced},
 };
 use scale_info::TypeInfo;
@@ -65,7 +65,7 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchResult, RuntimeDebug,
 };
-use sp_staking::{EraIndex, StakeUpdateReason, StakingInterface};
+use sp_staking::{EraIndex, StakeUpdateReason, StakerStatus, StakingInterface};
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
@@ -595,8 +595,18 @@ pub fn do_slash<T: Config>(
 		}
 	}
 
+	let reason = match Pallet::<T>::status(stash) {
+		Ok(StakerStatus::Validator) | Ok(StakerStatus::Idle) => StakeUpdateReason::ValidatorSlash,
+		Ok(StakerStatus::Nominator(_)) => StakeUpdateReason::NominatorSlash,
+		Err(_) => {
+			defensive!("slashed stash should be a staker");
+			// should not happen, but if so, slash as nominator.
+			StakeUpdateReason::NominatorSlash
+		},
+	};
+
 	let _ = ledger
-		.update(StakeUpdateReason::Slash)
+		.update(reason)
 		.defensive_proof("ledger fetched from storage so it exists in storage; qed.");
 
 	// trigger the event
