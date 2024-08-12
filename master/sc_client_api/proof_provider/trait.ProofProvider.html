@@ -178,7 +178,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
         start_key: &amp;[<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;],
         size_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.usize.html">usize</a>
-    ) -&gt; Result&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="../../sp_state_machine/execution/struct.KeyValueStorageLevel.html" title="struct sp_state_machine::execution::KeyValueStorageLevel">KeyValueStorageLevel</a>, <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>)&gt;&gt;;
+    ) -&gt; Result&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(KeyValueStorageLevel, <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>)&gt;&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.verify_range_proof" class="fn">verify_range_proof</a>(
         &amp;self,
         root: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
@@ -224,7 +224,7 @@ Returns combined proof and the numbers of collected keys.</p>
     hash: Block::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
     start_key: &amp;[<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;],
     size_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.usize.html">usize</a>
-) -&gt; Result&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="../../sp_state_machine/execution/struct.KeyValueStorageLevel.html" title="struct sp_state_machine::execution::KeyValueStorageLevel">KeyValueStorageLevel</a>, <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>)&gt;&gt;</h4></section></summary><div class="docblock"><p>Given a <code>Hash</code> iterate over all storage values starting at <code>start_key</code>.
+) -&gt; Result&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(KeyValueStorageLevel, <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>)&gt;&gt;</h4></section></summary><div class="docblock"><p>Given a <code>Hash</code> iterate over all storage values starting at <code>start_key</code>.
 Returns collected keys and values.
 Returns the collected keys values content of the top trie followed by the
 collected keys values of child tries.
