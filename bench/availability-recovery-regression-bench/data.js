@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723226888931,
+  "lastUpdate": 1723458842337,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -17177,6 +17177,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.919970100266662,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "jserrat",
+            "username": "Jpserrat",
+            "email": "35823283+Jpserrat@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ebcbca3ff606b22b5eb81bcbfaa9309752d64dde",
+          "message": "xcm-executor: allow deposit of multiple assets if at least one of them satisfies ED (#4460)\n\nCloses #4242\n\nXCM programs that deposit assets to some new (empty) account will now\nsucceed if at least one of the deposited assets satisfies ED. Before\nthis change, the requirement was that the _first_ asset had to satisfy\nED, but assets order can be changed during reanchoring so it is not\nreliable.\n\nWith this PR, ordering doesn't matter, any one(s) of them can satisfy ED\nfor the whole deposit to work.\n\nKusama address: FkB6QEo8VnV3oifugNj5NeVG3Mvq1zFbrUu4P5YwRoe5mQN\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-08-12T08:40:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ebcbca3ff606b22b5eb81bcbfaa9309752d64dde"
+        },
+        "date": 1723458811679,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.849591794633335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1703359133333333,
             "unit": "seconds"
           }
         ]
