@@ -18,7 +18,7 @@ use crate::imports::*;
 /// Relay Chain should be able to execute `Transact` instructions in System Parachain
 /// when `OriginKind::Superuser`.
 #[test]
-fn send_transact_as_superuser_from_relay_to_system_para_works() {
+fn send_transact_as_superuser_from_relay_to_asset_hub_works() {
 	AssetHubRococo::force_create_asset_from_relay_as_root(
 		ASSET_ID,
 		ASSET_MIN_BALANCE,
@@ -29,10 +29,10 @@ fn send_transact_as_superuser_from_relay_to_system_para_works() {
 }
 
 /// We tests two things here:
-/// - Parachain should be able to send XCM paying its fee with system asset in the System Parachain
-/// - Parachain should be able to create a new Foreign Asset in the System Parachain
+/// - Parachain should be able to send XCM paying its fee at Asset Hub using system asset
+/// - Parachain should be able to create a new Foreign Asset at Asset Hub
 #[test]
-fn send_xcm_from_para_to_system_para_paying_fee_with_system_assets_works() {
+fn send_xcm_from_para_to_asset_hub_paying_fee_with_system_asset() {
 	let para_sovereign_account = AssetHubRococo::sovereign_account_id_of(
 		AssetHubRococo::sibling_location_of(PenpalA::para_id()),
 	);
@@ -86,12 +86,7 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_system_assets_works() {
 
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-
-		AssetHubRococo::assert_xcmp_queue_success(Some(Weight::from_parts(
-			15_594_564_000,
-			562_893,
-		)));
-
+		AssetHubRococo::assert_xcmp_queue_success(None);
 		assert_expected_events!(
 			AssetHubRococo,
 			vec![
@@ -115,15 +110,15 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_system_assets_works() {
 }
 
 /// We tests two things here:
-/// - Parachain should be able to send XCM paying its fee with system assets in the System Parachain
-/// - Parachain should be able to create a new Asset in the System Parachain
+/// - Parachain should be able to send XCM paying its fee at Asset Hub using sufficient asset
+/// - Parachain should be able to create a new Asset at Asset Hub
 #[test]
-fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
+fn send_xcm_from_para_to_asset_hub_paying_fee_with_sufficient_asset() {
 	let para_sovereign_account = AssetHubRococo::sovereign_account_id_of(
 		AssetHubRococo::sibling_location_of(PenpalA::para_id()),
 	);
 
-	// Force create and mint assets for Parachain's sovereign account
+	// Force create and mint sufficient assets for Parachain's sovereign account
 	AssetHubRococo::force_create_and_mint_asset(
 		ASSET_ID,
 		ASSET_MIN_BALANCE,
@@ -170,12 +165,7 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-
-		AssetHubRococo::assert_xcmp_queue_success(Some(Weight::from_parts(
-			15_594_564_000,
-			562_893,
-		)));
-
+		AssetHubRococo::assert_xcmp_queue_success(None);
 		assert_expected_events!(
 			AssetHubRococo,
 			vec![
