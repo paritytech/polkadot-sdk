@@ -44,10 +44,13 @@ fn create_project<T: Config>(project_account: AccountIdOf<T>, amount: BalanceOf<
 	});
 }
 
+fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+}
 
 fn create_parameters<T: Config>(n: u32) -> (AccountIdOf<T>, BalanceOf<T>){
     let project_id = account("project", n, SEED);
-	let value: BalanceOf<T> = T::NativeBalance::minimum_balance() * 100u32.into();
+	let value: BalanceOf<T> = T::NativeBalance::minimum_balance() * 1000u32.into();
     let _ = T::NativeBalance::set_balance(&project_id, value);
     (project_id,value)
 }
@@ -89,12 +92,13 @@ mod benchmarks {
 		assert!(<SpendsCount<T>>::get()>0, "No Spends created");
 
         /* execute extrinsic or function */
-        #[block]
-        {				
-			let _=Distribution::<T>::claim_reward_for(RawOrigin::Signed(caller).
-			into(), project_id.clone());
-		 } 
-		
+        #[extrinsic_call]			
+		_(RawOrigin::Signed(caller),project_id.clone());
+
+		assert_last_event::<T>(
+			Event::RewardClaimed { when, amount, project_account: project_id }.into(),
+		);
+
        
 		Ok(())
     }
