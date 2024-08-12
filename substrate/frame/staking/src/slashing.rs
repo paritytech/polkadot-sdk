@@ -65,7 +65,7 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchResult, RuntimeDebug,
 };
-use sp_staking::{EraIndex, StakingInterface};
+use sp_staking::{EraIndex, StakeUpdateReason, StakingInterface};
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
@@ -596,7 +596,7 @@ pub fn do_slash<T: Config>(
 	}
 
 	let _ = ledger
-		.update()
+		.update(StakeUpdateReason::Slash)
 		.defensive_proof("ledger fetched from storage so it exists in storage; qed.");
 
 	// trigger the event

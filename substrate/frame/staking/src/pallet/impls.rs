@@ -44,7 +44,7 @@ use sp_runtime::{
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{OffenceDetails, OnOffenceHandler},
-	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
+	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake, StakeUpdateReason,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -177,7 +177,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
 
 		// NOTE: ledger must be updated prior to calling `Self::weight_of`.
-		ledger.update()?;
+		ledger.update(StakeUpdateReason::Bond)?;
 		// update this staker in the sorted list, if they exist in it.
 		if T::VoterList::contains(stash) {
 			let _ = T::VoterList::on_update(&stash, Self::weight_of(stash)).defensive();
@@ -211,7 +211,7 @@ impl<T: Config> Pallet<T> {
 			} else {
 				// This was the consequence of a partial unbond. just update the ledger and move
 				// on.
-				ledger.update()?;
+				ledger.update(StakeUpdateReason::Bond)?;
 
 				// This is only an update, so we use less overall weight.
 				T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
@@ -307,7 +307,8 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		// Input data seems good, no errors allowed after the ledger is successfully updated.
-		ledger.update()?;
+		// Note that even though this is a ledger update related to rewards, we set the
+		ledger.update(StakeUpdateReason::ValidatorReward)?;
 
 		// Get Era reward points. It has TOTAL and INDIVIDUAL
 		// Find the fraction of the era reward that belongs to the validator
@@ -482,7 +483,7 @@ impl<T: Config> Pallet<T> {
 					ledger.total += amount;
 					let r = T::Currency::deposit_into_existing(stash, amount).ok();
 					let _ = ledger
-						.update()
+						.update(StakeUpdateReason::NominatorReward)
 						.defensive_proof("ledger fetched from storage, so it exists; qed.");
 
 					Ok(r)
@@ -991,6 +992,7 @@ impl<T: Config> Pallet<T> {
 			&target.clone().into(),
 			Some(prev_stake),
 			stake_after_unbond,
+			StakeUpdateReason::Bond,
 		);
 
 		Bonded::<T>::remove(target.clone());
@@ -2235,13 +2237,15 @@ impl<T: Config> Pallet<T> {
 		ensure!(
 			<T as Config>::VoterList::iter()
 				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
-				.count() as u32 == Nominators::<T>::count() + Validators::<T>::count(),
+				.count() as u32 ==
+				Nominators::<T>::count() + Validators::<T>::count(),
 			"wrong external count (VoterList.count != Nominators.count + Validators.count)"
 		);
 		ensure!(
 			<T as Config>::TargetList::iter()
 				.filter(|t| Self::status(&t) == Ok(StakerStatus::Validator))
-				.count() as u32 == Validators::<T>::count(),
+				.count() as u32 ==
+				Validators::<T>::count(),
 			"wrong external count (TargetList.count != Validators.count)"
 		);
 		ensure!(

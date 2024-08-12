@@ -39,7 +39,7 @@ use sp_runtime::{
 
 use alloc::collections::btree_set::BTreeSet;
 use sp_staking::{
-	EraIndex, OnStakingUpdate, Page, SessionIndex,
+	EraIndex, OnStakingUpdate, Page, SessionIndex, StakeUpdateReason,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -1159,7 +1159,7 @@ pub mod pallet {
 						.try_push(UnlockChunk { value, era })
 						.map_err(|_| Error::<T>::NoMoreChunks)?;
 				};
-				ledger.update()?;
+				ledger.update(StakeUpdateReason::Bond)?;
 
 				Self::deposit_event(Event::<T>::Unbonded { stash, amount: value });
 			}
@@ -1683,7 +1683,7 @@ pub mod pallet {
 			let final_unlocking = ledger.unlocking.len();
 
 			// NOTE: ledger must be updated prior to calling `Self::weight_of`.
-			ledger.update()?;
+			ledger.update(StakeUpdateReason::Bond)?;
 			if T::VoterList::contains(&stash) {
 				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
 			}
@@ -2167,7 +2167,7 @@ pub mod pallet {
 			let mut ledger = StakingLedger::<T>::new(stash.clone(), new_total);
 			ledger.controller = Some(new_controller);
 			ledger.unlocking = maybe_unlocking.unwrap_or_default();
-			ledger.update()?;
+			ledger.update(StakeUpdateReason::Bond)?;
 
 			ensure!(
 				Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),

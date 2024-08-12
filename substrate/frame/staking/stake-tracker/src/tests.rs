@@ -21,7 +21,7 @@ use crate::{mock::*, StakeImbalance};
 
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
 use frame_support::assert_ok;
-use sp_staking::{OnStakingUpdate, Stake, StakerStatus, StakingInterface};
+use sp_staking::{OnStakingUpdate, Stake, StakeUpdateReason, StakerStatus, StakingInterface};
 
 // keeping tests clean.
 type A = AccountId;
@@ -103,7 +103,12 @@ fn on_stake_update_works() {
 			n.insert(1, (new_stake, nominations.clone()));
 		});
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, stake_before, new_stake);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+			&1,
+			stake_before,
+			new_stake,
+			StakeUpdateReason::Bond,
+		);
 
 		assert_eq!(VoterBagsList::get_score(&1).unwrap(), new_stake.active);
 
@@ -135,7 +140,12 @@ fn on_stake_update_works() {
 
 		let stake_imbalance = stake_before.unwrap().active - new_stake.total;
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&10, stake_before, new_stake);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+			&10,
+			stake_before,
+			new_stake,
+			StakeUpdateReason::Bond,
+		);
 
 		assert_eq!(VoterBagsList::get_score(&10).unwrap(), new_stake.active);
 		assert_eq!(StakingMock::stake(&10), Ok(new_stake));
@@ -172,7 +182,12 @@ fn on_stake_update_lazy_voters_works() {
 				n.insert(1, (new_stake, nominations.clone()));
 			});
 
-			<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, stake_before, new_stake);
+			<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+				&1,
+				stake_before,
+				new_stake,
+				StakeUpdateReason::Bond,
+			);
 
 			// score of voter did not update, since the voter list is lazily updated.
 			assert_eq!(VoterBagsList::get_score(&1).unwrap(), stake_before.unwrap().active);
@@ -235,6 +250,7 @@ fn on_stake_update_sorting_works() {
 			&11,
 			initial_stake,
 			initial_stake.unwrap(),
+			StakeUpdateReason::Bond,
 		);
 		assert_eq!(voter_scores_before, voter_scores());
 
@@ -245,7 +261,12 @@ fn on_stake_update_sorting_works() {
 			n.insert(11, (new_stake, nominations.clone()));
 		});
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&11, initial_stake, new_stake);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+			&11,
+			initial_stake,
+			new_stake,
+			StakeUpdateReason::Bond,
+		);
 
 		// although the voter score of 11 is 1, the voter list sorting has not been updated
 		// automatically.
@@ -275,7 +296,12 @@ fn on_stake_update_defensive_not_in_list_works() {
 		// removes 1 from nominator's list manually, while keeping it as staker.
 		assert_ok!(VoterBagsList::on_remove(&1));
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, None, Stake::default());
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+			&1,
+			None,
+			Stake::default(),
+			StakeUpdateReason::Bond,
+		);
 	})
 }
 
@@ -285,7 +311,12 @@ fn on_stake_update_defensive_not_staker_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert!(!VoterBagsList::contains(&1));
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, None, Stake::default());
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+			&1,
+			None,
+			Stake::default(),
+			StakeUpdateReason::Bond,
+		);
 	})
 }
 
@@ -403,6 +434,20 @@ fn on_nominator_remove_defensive_works() {
 
 		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_remove(&1, vec![]);
 	})
+}
+
+mod buffer_on_stake_update_approvals {
+	use super::*;
+
+	#[test]
+	fn settle_approvals_works() {
+		ExtBuilder::default().build_and_execute(|| {})
+	}
+
+	#[test]
+	fn on_stake_update_noop_works() {
+		ExtBuilder::default().build_and_execute(|| {})
+	}
 }
 
 mod staking_integration {

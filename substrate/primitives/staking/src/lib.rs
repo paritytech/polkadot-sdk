@@ -104,6 +104,19 @@ impl<Balance: Copy> From<Balance> for Stake<Balance> {
 	}
 }
 
+/// Represents the reason for a stake update.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum StakeUpdateReason {
+	/// Stake update due to a bond, bonding extra or unbonding.
+	Bond,
+	/// Stake update due to a validator staking reward.
+	ValidatorReward,
+	/// Stake update due to a nominator staking reward.
+	NominatorReward,
+	/// Stake update due to a slash.
+	Slash,
+}
+
 /// A generic staking event listener.
 ///
 /// Note that the interface is designed in a way that the events are fired post-action, so any
@@ -119,6 +132,7 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 		_who: &AccountId,
 		_prev_stake: Option<Stake<Balance>>,
 		_stake: Stake<Balance>,
+		_reason: StakeUpdateReason,
 	) {
 	}
 

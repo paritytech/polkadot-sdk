@@ -39,7 +39,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
-	SessionIndex, StakingInterface, StakingUnchecked,
+	SessionIndex, StakeUpdateReason, StakingInterface, StakingUnchecked,
 };
 use substrate_test_utils::assert_eq_uvec;
 
@@ -1979,7 +1979,7 @@ fn reap_stash_works() {
 			// no easy way to cause an account to go below ED, we tweak their staking ledger
 			// instead.
 			let ledger = StakingLedger::<Test>::new(11, 5);
-			assert_ok!(ledger.update());
+			assert_ok!(ledger.update(StakeUpdateReason::Bond));
 
 			// reap-able
 			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
@@ -8590,7 +8590,7 @@ mod stake_tracker {
 			let ledger = Staking::ledger(StakingAccount::Stash(101)).unwrap();
 
 			// calling update on a ledger with no stake changes will not affect the target's score.
-			assert_ok!(ledger.update());
+			assert_ok!(ledger.update(StakeUpdateReason::Bond));
 
 			assert_eq!(target_bags_events(), [],);
 
@@ -8604,7 +8604,7 @@ mod stake_tracker {
 			let mut ledger = Staking::ledger(StakingAccount::Stash(101)).unwrap();
 			ledger.active += extra;
 			ledger.total += extra;
-			assert_ok!(ledger.update());
+			assert_ok!(ledger.update(StakeUpdateReason::Bond));
 
 			assert_eq!(
 				target_bags_events(),
@@ -8873,7 +8873,7 @@ mod ledger {
 
 			// once bonded, update works as expected.
 			ledger.legacy_claimed_rewards = bounded_vec![1];
-			assert_ok!(ledger.update());
+			assert_ok!(ledger.update(StakeUpdateReason::Bond));
 		})
 	}
 
@@ -9326,7 +9326,7 @@ mod ledger_recovery {
 			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before); // OK
 			assert_eq!(Bonded::<Test>::get(&333), Some(444)); // OK
 			assert!(Payee::<Test>::get(&333).is_some()); // OK
-											 // however, ledger associated with its controller was killed.
+												// however, ledger associated with its controller was killed.
 			assert!(Ledger::<Test>::get(&444).is_none()); // NOK
 
 			// side effects on 444 - ledger, bonded, payee, lock should be completely removed.

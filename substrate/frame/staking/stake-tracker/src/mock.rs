@@ -122,6 +122,7 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Test {
 
 impl pallet_stake_tracker::Config for Test {
 	type Currency = Balances;
+	type RuntimeEvent = RuntimeEvent;
 	type Staking = StakingMock;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
@@ -424,6 +425,7 @@ pub(crate) fn update_stake(who: AccountId, new: Balance, prev_stake: Option<Stak
 		&who,
 		prev_stake,
 		Stake { total: new, active: new },
+		StakeUpdateReason::Bond,
 	);
 }
 
