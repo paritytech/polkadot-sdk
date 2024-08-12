@@ -18,7 +18,7 @@ use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed, S
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
-use polkadot_parachain_bin::chain_spec::{Extensions, GenericChainSpec};
+use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
 use sp_core::{crypto::UncheckedInto, sr25519};
 

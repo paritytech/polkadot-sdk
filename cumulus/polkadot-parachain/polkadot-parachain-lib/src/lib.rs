@@ -31,6 +31,10 @@
 //!   node's `CLI` and the actual chain config associated with each one.
 //! - a runtime resolver (an implementation of [`chain_spec::RuntimeResolver`]): this can be used
 //!   for providing the parameters of the runtime that is associated with each of the chain specs
+//!
+//! ## Examples
+//!
+//! For examples, see the `polkadot-parachain` crate.
 
 mod cli;
 mod command;
@@ -39,10 +43,8 @@ mod fake_runtime_api;
 mod rpc;
 mod service;
 
-use crate::chain_spec::GenericChainSpec;
 pub use command::{run, CommandConfig};
 pub use common::{
-    chain_spec,
-    runtime::{AuraConsensusId, Consensus, Runtime, RuntimeResolver},
+	chain_spec,
+	runtime::{AuraConsensusId, Consensus, Runtime, RuntimeResolver},
 };
-use sc_chain_spec::ChainSpec;

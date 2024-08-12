@@ -17,7 +17,7 @@
 use crate::chain_spec::{get_account_id_from_seed, get_collator_keys_from_seed};
 use cumulus_primitives_core::ParaId;
 use parachains_common::Balance as BridgeHubBalance;
-use polkadot_parachain_bin::chain_spec::GenericChainSpec;
+use polkadot_parachain_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::ChainSpec;
 use sp_core::sr25519;
 use std::str::FromStr;
@@ -132,7 +132,7 @@ pub mod rococo {
 	use super::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
 	use crate::chain_spec::SAFE_XCM_VERSION;
 	use parachains_common::{AccountId, AuraId};
-	use polkadot_parachain_bin::chain_spec::{Extensions, GenericChainSpec};
+	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 
 	use super::BridgeHubBalance;
@@ -258,7 +258,7 @@ pub mod westend {
 	use super::{get_account_id_from_seed, get_collator_keys_from_seed, sr25519, ParaId};
 	use crate::chain_spec::SAFE_XCM_VERSION;
 	use parachains_common::{AccountId, AuraId};
-	use polkadot_parachain_bin::chain_spec::{Extensions, GenericChainSpec};
+	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 
 	use super::BridgeHubBalance;

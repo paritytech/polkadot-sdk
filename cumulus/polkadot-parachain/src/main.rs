@@ -21,7 +21,7 @@
 
 mod chain_spec;
 
-use polkadot_parachain_bin::{run, CommandConfig};
+use polkadot_parachain_lib::{run, CommandConfig};
 
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;

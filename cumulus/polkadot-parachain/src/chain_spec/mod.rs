@@ -16,7 +16,7 @@
 
 use cumulus_primitives_core::ParaId;
 use parachains_common::{AccountId, Signature};
-use polkadot_parachain_bin::{
+use polkadot_parachain_lib::{
 	chain_spec::{GenericChainSpec, LoadSpec},
 	AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
 };

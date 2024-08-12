@@ -16,7 +16,7 @@
 
 use cumulus_primitives_core::ParaId;
 use parachains_common::AuraId;
-use polkadot_parachain_bin::chain_spec::{Extensions, GenericChainSpec};
+use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
 
 use super::get_collator_keys_from_seed;

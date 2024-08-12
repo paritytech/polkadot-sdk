@@ -882,9 +882,9 @@ pub use polkadot_node_subsystem_util;
 #[cfg(feature = "polkadot-overseer")]
 pub use polkadot_overseer;
 
-/// Helper library that can be used to run a parachain node.
-#[cfg(feature = "polkadot-parachain-bin")]
-pub use polkadot_parachain_bin;
+/// Helper library that can be used to build a parachain node.
+#[cfg(feature = "polkadot-parachain-lib")]
+pub use polkadot_parachain_lib;
 
 /// Types and utilities for creating and working with parachains.
 #[cfg(feature = "polkadot-parachain-primitives")]
