@@ -148,6 +148,8 @@ fn funds_claim_works() {
 		// The Spends Storage should be empty
 		assert_eq!(SpendsCount::<Test>::get(), 0);
 
+		assert_eq!(Projects::<Test>::get().len(),3);
+
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
 		let mut now = <Test as Config>::BlockNumberProvider::current_block_number()
@@ -169,6 +171,7 @@ fn funds_claim_works() {
 			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_account);
 
 		assert!(balance_1 > balance_0);
+		assert_eq!(Projects::<Test>::get().len(),0);
 	})
 }
 
