@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723465944884,
+  "lastUpdate": 1723477947377,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -17261,6 +17261,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.8368468425,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alin Dima",
+            "username": "alindima",
+            "email": "alin@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "fc906d5d0fb7796ef54ba670101cf37b0aad6794",
+          "message": "fix av-distribution Jaeger spans mem leak (#5321)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/5258",
+          "timestamp": "2024-08-12T13:56:00Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fc906d5d0fb7796ef54ba670101cf37b0aad6794"
+        },
+        "date": 1723477916233,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.9415565844,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19101451539999997,
             "unit": "seconds"
           }
         ]
