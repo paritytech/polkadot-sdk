@@ -3974,7 +3974,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Contribution of the member in the pool.
 	///
-	/// Includes balance that is unbonding currently.
+	/// Includes balance that is unbonded from staking but not claimed yet from the pool, therefore
+	/// this balance can be higher than the staked funds.
 	pub fn api_member_total_balance(who: T::AccountId) -> BalanceOf<T> {
 		PoolMembers::<T>::get(who.clone())
 			.map(|m| m.total_balance())
