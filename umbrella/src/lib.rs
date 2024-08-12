@@ -882,7 +882,7 @@ pub use polkadot_node_subsystem_util;
 #[cfg(feature = "polkadot-overseer")]
 pub use polkadot_overseer;
 
-/// Runs a polkadot parachain node which could be a collator.
+/// Helper library that can be used to run a parachain node.
 #[cfg(feature = "polkadot-parachain-bin")]
 pub use polkadot_parachain_bin;
 

@@ -14,6 +14,24 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Helper library that can be used to run a parachain node.
+//!
+//! ## Overview
+//!
+//! This library can be used to run a parachain node while also customizing the chain specs
+//! that are supported by default by the `--chain-spec` argument of the node's `CLI`
+//! and the parameters of the runtime that is associated with each of these chain specs.
+//!
+//! ## API
+//!
+//! The library exposes the possibility to provide a [`CommandConfig`]. Through this structure
+//! 2 optional configurations can be provided:
+//! - a chain spec loader (an implementation of ['chain_spec::LoadSpec']): this can be used for
+//!   providing the chain specs that are supported by default by the `--chain-spec` argument of the
+//!   node's `CLI` and the actual chain config associated with each one.
+//! - a runtime resolver (an implementation of [`chain_spec::RuntimeResolver`]): this can be used
+//!   for providing the parameters of the runtime that is associated with each of the chain specs
+
 mod cli;
 mod command;
 mod common;
@@ -21,8 +39,10 @@ mod fake_runtime_api;
 mod rpc;
 mod service;
 
+use crate::chain_spec::GenericChainSpec;
 pub use command::{run, CommandConfig};
 pub use common::{
-	chain_spec,
-	runtime::{AuraConsensusId, Consensus, Runtime, RuntimeResolver},
+    chain_spec,
+    runtime::{AuraConsensusId, Consensus, Runtime, RuntimeResolver},
 };
+use sc_chain_spec::ChainSpec;
