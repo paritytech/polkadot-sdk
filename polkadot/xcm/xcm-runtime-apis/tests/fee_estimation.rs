@@ -41,7 +41,7 @@ use mock::{
 // Parachain(2000) -------------------------------------------> Parachain(1000)
 #[test]
 fn fee_estimation_for_teleport() {
-	let _ = env_logger::builder().is_test(true).try_init();
+	sp_tracing::init_for_tests();
 	let who = 1; // AccountId = u64.
 	let balances = vec![(who, 100 + DeliveryFees::get() + ExistentialDeposit::get())];
 	let assets = vec![(1, who, 50)];
@@ -195,7 +195,7 @@ fn fee_estimation_for_teleport() {
 // Parachain(2000) -------------------------------------------> Parachain(1000)
 #[test]
 fn dry_run_reserve_asset_transfer() {
-	let _ = env_logger::builder().is_test(true).try_init();
+	sp_tracing::init_for_tests();
 	let who = 1; // AccountId = u64.
 			 // Native token used for fees.
 	let balances = vec![(who, DeliveryFees::get() + ExistentialDeposit::get())];
@@ -274,7 +274,7 @@ fn dry_run_reserve_asset_transfer() {
 
 #[test]
 fn dry_run_xcm() {
-	let _ = env_logger::builder().is_test(true).try_init();
+	sp_tracing::init_for_tests();
 	let who = 1; // AccountId = u64.
 	let transfer_amount = 100u128;
 	// We need to build the XCM to weigh it and then build the real XCM that can pay for fees.

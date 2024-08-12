@@ -165,15 +165,14 @@ where
 			);
 			return Ok(())
 		};
-		let benchmarked_weight = info.weight.proof_size();
-		let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
-
 		// Unspent weight according to the `actual_weight` from `PostDispatchInfo`
 		// This unspent weight will be refunded by the `CheckWeight` extension, so we need to
 		// account for that.
 		let unspent = post_info.calc_unspent(info).proof_size();
-		let storage_size_diff =
-			benchmarked_weight.saturating_sub(unspent).abs_diff(consumed_weight as u64);
+		let benchmarked_weight = info.weight.proof_size().saturating_sub(unspent);
+		let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
+
+		let storage_size_diff = benchmarked_weight.abs_diff(consumed_weight as u64);
 
 		// This value will be reclaimed by [`frame_system::CheckWeight`], so we need to calculate
 		// that in.
@@ -282,6 +281,45 @@ mod tests {
 
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 			// We expect a refund of 400
+			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
+				Some(pre),
+				&info,
+				&post_info,
+				LEN,
+				&Ok(())
+			));
+
+			assert_eq!(get_storage_weight().total().proof_size(), 1250);
+		})
+	}
+
+	#[test]
+	fn underestimating_refund() {
+		// We fixed a bug where `pre dispatch info weight > consumed weight > post info weight`
+		// resulted in error.
+
+		// The real cost will be 100 bytes of storage size
+		let mut test_ext = setup_test_externalities(&[0, 100]);
+
+		test_ext.execute_with(|| {
+			set_current_storage_weight(1000);
+
+			// Benchmarked storage weight: 500
+			let info = DispatchInfo { weight: Weight::from_parts(0, 101), ..Default::default() };
+			let post_info = PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(0, 99)),
+				pays_fee: Default::default(),
+			};
+
+			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&info, LEN));
+
+			let pre = StorageWeightReclaim::<Test>(PhantomData)
+				.pre_dispatch(&ALICE, CALL, &info, LEN)
+				.unwrap();
+			assert_eq!(pre, Some(0));
+
+			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
+			// We expect an accrue of 1
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
 				Some(pre),
 				&info,
