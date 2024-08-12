@@ -154,7 +154,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			WND * 1_000_000,
 			1000.into(),
 		),
-		Err(_) | Ok(_) => return None,
+		_ => return None,
 	};
 
 	Some(
