@@ -1,0 +1,31 @@
+on:
+  pull_request:
+
+name: Test Docs
+
+jobs:
+  set-image:
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
+  test-rustdoc:
+    runs-on: ubuntu-latest
+    needs: [set-image]
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: time cargo doc --workspace --all-features --no-deps
+  test-doc:
+    runs-on: ubuntu-latest
+    needs: [set-image, test-rustdoc]
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: time cargo test --doc --workspace
