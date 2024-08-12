@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723458842337,
+  "lastUpdate": 1723465944884,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -17219,6 +17219,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1703359133333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dónal Murray",
+            "username": "seadanda",
+            "email": "donal.murray@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "1f49358db0033e57a790eac6daccc45beba81863",
+          "message": "Fix favicon link to fix CI (#5319)\n\nThe polkadot.network website was recently refreshed and the\n`favicon-32x32.png` was removed. It was linked in some docs and so the\ndocs have been updated to point to a working favicon on the new website.\n\nPreviously the lychee link checker was failing on all PRs.",
+          "timestamp": "2024-08-12T10:44:35Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1f49358db0033e57a790eac6daccc45beba81863"
+        },
+        "date": 1723465912671,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1563081606,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.8368468425,
             "unit": "seconds"
           }
         ]
