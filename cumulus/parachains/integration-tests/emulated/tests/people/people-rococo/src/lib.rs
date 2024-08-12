@@ -20,7 +20,6 @@ mod imports {
 	// Substrate
 	pub use frame_support::{
 		assert_ok,
-		pallet_prelude::Weight,
 		sp_runtime::{AccountId32, DispatchResult},
 		traits::fungibles::Inspect,
 	};
