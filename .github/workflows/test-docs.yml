@@ -54,9 +54,17 @@ jobs:
 
           find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'file="{}"; echo "Adding Simple Analytics script to $file"; sed -i "s|</head>|$script_content</head>|" "$file";'
       - run: echo "<meta http-equiv=refresh content=0;url=polkadot_sdk_docs/index.html>" > ./crate-docs/index.html
+      - name: Sanitize branch name
+        shell: bash
+        run: |
+          sanitized_branch=$(echo "$BRANCH_NAME" | tr '/' '_')
+          echo "sanitized_ref=$sanitized_ref" >> $GITHUB_ENV
+        env:
+          BRANCH_NAME: "${{ github.head_ref }}"
+        id: extract_branch
       - uses: actions/upload-artifact@v4
         with:
-          name: "${{ github.workflow }}_${{ github.head_ref }}-doc"
+          name: "${{ env.sanitized_ref }}-doc"
           path: ./crate-docs/
           retention-days: 1
           if-no-files-found: error
