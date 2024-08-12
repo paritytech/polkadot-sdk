@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723458256975,
+  "lastUpdate": 1723465333543,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -14381,6 +14381,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 6.3504744957599675,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dónal Murray",
+            "username": "seadanda",
+            "email": "donal.murray@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "1f49358db0033e57a790eac6daccc45beba81863",
+          "message": "Fix favicon link to fix CI (#5319)\n\nThe polkadot.network website was recently refreshed and the\n`favicon-32x32.png` was removed. It was linked in some docs and so the\ndocs have been updated to point to a working favicon on the new website.\n\nPreviously the lychee link checker was failing on all PRs.",
+          "timestamp": "2024-08-12T10:44:35Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1f49358db0033e57a790eac6daccc45beba81863"
+        },
+        "date": 1723465302855,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63996.75,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.407186756359979,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.105310187820049,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.261590771090217,
             "unit": "seconds"
           }
         ]
