@@ -19,16 +19,20 @@ use crate::{ValidatorIndex, ValidityAttestation};
 
 // Put any primitives used by staging APIs functions here
 use super::{
-	Balance, BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash,
-	CollatorId, CollatorSignature, CoreIndex, Hash, HashT, Header, Id, Id as ParaId,
-	MultiDisputeStatementSet, UncheckedSignedAvailabilityBitfields, ValidationCodeHash,
-	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE, HeadData, GroupIndex, async_backing::Constraints, ScheduledCore
+	async_backing::Constraints, Balance, BlakeTwo256, BlockNumber, CandidateCommitments,
+	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CoreIndex, GroupIndex, Hash,
+	HashT, HeadData, Header, Id, Id as ParaId, MultiDisputeStatementSet, ScheduledCore,
+	UncheckedSignedAvailabilityBitfields, ValidationCodeHash, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use bitvec::prelude::*;
 use sp_application_crypto::ByteArray;
 
-use alloc::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
-use codec::{Decode, Encode};
+use alloc::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
+use codec::{Decode, Encode, WrapperTypeDecode};
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
 use sp_core::RuntimeDebug;
@@ -158,6 +162,21 @@ pub struct CandidateDescriptorV2<H = Hash> {
 	validation_code_hash: ValidationCodeHash,
 }
 
+impl<H: Copy> From<CandidateDescriptorV2<H>> for CandidateDescriptor<H> {
+	fn from(value: CandidateDescriptorV2<H>) -> Self {
+		Self {
+			para_id: value.para_id,
+			relay_parent: value.relay_parent,
+			collator: value.rebuild_collator_field(),
+			persisted_validation_data_hash: value.persisted_validation_data_hash,
+			pov_hash: value.pov_hash,
+			erasure_root: value.erasure_root,
+			signature: value.rebuild_signature_field(),
+			para_head: value.para_head,
+			validation_code_hash: value.validation_code_hash,
+		}
+	}
+}
 
 impl<H> CandidateDescriptorV2<H> {
 	/// Constructor
@@ -187,6 +206,11 @@ impl<H> CandidateDescriptorV2<H> {
 			validation_code_hash,
 		}
 	}
+
+	#[cfg(feature = "test")]
+	pub fn set_pov_hash(&mut self, pov_hash: Hash) {
+		self.pov_hash = pov_hash;
+	}
 }
 
 /// A candidate-receipt at version 2.
@@ -209,8 +233,6 @@ pub struct CommittedCandidateReceiptV2<H = Hash> {
 	pub commitments: CandidateCommitments,
 }
 
-
-
 /// An even concerning a candidate.
 #[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
@@ -228,6 +250,29 @@ pub enum CandidateEvent<H = Hash> {
 	/// This includes the core index the candidate was occupying.
 	#[codec(index = 2)]
 	CandidateTimedOut(CandidateReceiptV2<H>, HeadData, CoreIndex),
+}
+
+impl<H: Encode + Copy> From<CandidateEvent<H>> for super::v7::CandidateEvent<H> {
+	fn from(value: CandidateEvent<H>) -> Self {
+		match value {
+			CandidateEvent::CandidateBacked(receipt, head_data, core_index, group_index) =>
+				super::v7::CandidateEvent::CandidateBacked(
+					receipt.into(),
+					head_data,
+					core_index,
+					group_index,
+				),
+			CandidateEvent::CandidateIncluded(receipt, head_data, core_index, group_index) =>
+				super::v7::CandidateEvent::CandidateIncluded(
+					receipt.into(),
+					head_data,
+					core_index,
+					group_index,
+				),
+			CandidateEvent::CandidateTimedOut(receipt, head_data, core_index) =>
+				super::v7::CandidateEvent::CandidateTimedOut(receipt.into(), head_data, core_index),
+		}
+	}
 }
 
 impl<H> CandidateReceiptV2<H> {
@@ -286,6 +331,18 @@ impl Ord for CommittedCandidateReceiptV2 {
 			.para_id
 			.cmp(&other.descriptor.para_id)
 			.then_with(|| self.commitments.head_data.cmp(&other.commitments.head_data))
+	}
+}
+
+impl<H: Copy> From<CommittedCandidateReceiptV2<H>> for super::v7::CommittedCandidateReceipt<H> {
+	fn from(value: CommittedCandidateReceiptV2<H>) -> Self {
+		Self { descriptor: value.descriptor.into(), commitments: value.commitments }
+	}
+}
+
+impl<H: Copy> From<CandidateReceiptV2<H>> for super::v7::CandidateReceipt<H> {
+	fn from(value: CandidateReceiptV2<H>) -> Self {
+		Self { descriptor: value.descriptor.into(), commitments_hash: value.commitments_hash }
 	}
 }
 
@@ -388,27 +445,36 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 		}
 	}
 
+	fn rebuild_collator_field(&self) -> CollatorId {
+		let mut collator_id = vec![self.version.0];
+		let core_index: [u8; 2] = unsafe { core::mem::transmute(self.core_index) };
+		let session_index: [u8; 4] = unsafe { core::mem::transmute(self.session_index) };
+
+		collator_id.append(&mut core_index.as_slice().to_vec());
+		collator_id.append(&mut session_index.as_slice().to_vec());
+		collator_id.append(&mut self.reserved25b.as_slice().to_vec());
+
+		CollatorId::from_slice(&collator_id.as_slice()).expect("Slice size is exactly 32 bytes")
+	}
+
 	/// Returns the collator id if this is a v1 `CandidateDescriptor`
 	pub fn collator(&self) -> Option<CollatorId> {
 		if self.version() == CandidateDescriptorVersion::V1 {
-			let mut collator_id = vec![self.version.0];
-			let core_index: [u8; 2] = unsafe { std::mem::transmute(self.core_index) };
-			let session_index: [u8; 4] = unsafe { std::mem::transmute(self.session_index) };
-
-			collator_id.append(&mut core_index.as_slice().to_vec());
-			collator_id.append(&mut session_index.as_slice().to_vec());
-			collator_id.append(&mut self.reserved25b.as_slice().to_vec());
-
-			return Some(CollatorId::from_slice(&collator_id.as_slice()).ok()?)
+			Some(self.rebuild_collator_field())
+		} else {
+			None
 		}
+	}
 
-		None
+	fn rebuild_signature_field(&self) -> CollatorSignature {
+		CollatorSignature::from_slice(self.reserved64b.as_slice())
+			.expect("Slice size is exactly 64 bytes")
 	}
 
 	/// Returns the collator signature of `V1` candidate descriptors, `None` otherwise.
 	pub fn signature(&self) -> Option<CollatorSignature> {
 		if self.version() == CandidateDescriptorVersion::V1 {
-			return Some(CollatorSignature::from_slice(self.reserved64b.as_slice()).ok()?)
+			return Some(self.rebuild_signature_field())
 		}
 
 		None
@@ -635,6 +701,19 @@ pub struct ScrapedOnChainVotes<H: Encode + Decode = Hash> {
 	pub disputes: MultiDisputeStatementSet,
 }
 
+impl<H: Encode + Decode + Copy> From<ScrapedOnChainVotes<H>> for super::v7::ScrapedOnChainVotes<H> {
+	fn from(value: ScrapedOnChainVotes<H>) -> Self {
+		Self {
+			session: value.session,
+			backing_validators_per_candidate: value
+				.backing_validators_per_candidate
+				.into_iter()
+				.map(|(receipt, validators)| (receipt.into(), validators))
+				.collect::<Vec<_>>(),
+			disputes: value.disputes,
+		}
+	}
+}
 
 /// A candidate pending availability.
 #[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
@@ -651,6 +730,20 @@ pub struct CandidatePendingAvailability<H = Hash, N = BlockNumber> {
 	pub max_pov_size: u32,
 }
 
+impl<H: Copy> From<CandidatePendingAvailability<H>>
+	for super::async_backing::CandidatePendingAvailability<H>
+{
+	fn from(value: CandidatePendingAvailability<H>) -> Self {
+		Self {
+			candidate_hash: value.candidate_hash,
+			descriptor: value.descriptor.into(),
+			commitments: value.commitments,
+			relay_parent_number: value.relay_parent_number,
+			max_pov_size: value.max_pov_size,
+		}
+	}
+}
+
 /// The per-parachain state of the backing system, including
 /// state-machine constraints and candidates pending availability.
 #[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
@@ -663,7 +756,18 @@ pub struct BackingState<H = Hash, N = BlockNumber> {
 	pub pending_availability: Vec<CandidatePendingAvailability<H, N>>,
 }
 
-
+impl<H: Copy> From<BackingState<H>> for super::async_backing::BackingState<H> {
+	fn from(value: BackingState<H>) -> Self {
+		Self {
+			constraints: value.constraints,
+			pending_availability: value
+				.pending_availability
+				.into_iter()
+				.map(|candidate| candidate.into())
+				.collect::<Vec<_>>(),
+		}
+	}
+}
 /// Information about a core which is currently occupied.
 #[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
@@ -692,7 +796,6 @@ pub struct OccupiedCore<H = Hash, N = BlockNumber> {
 	pub candidate_descriptor: CandidateDescriptorV2<H>,
 }
 
-
 /// The state of a particular availability core.
 #[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
@@ -714,6 +817,31 @@ pub enum CoreState<H = Hash, N = BlockNumber> {
 	Free,
 }
 
+impl<H: Copy> From<OccupiedCore<H>> for super::v7::OccupiedCore<H> {
+	fn from(value: OccupiedCore<H>) -> Self {
+		Self {
+			next_up_on_available: value.next_up_on_available,
+			occupied_since: value.occupied_since,
+			time_out_at: value.time_out_at,
+			next_up_on_time_out: value.next_up_on_time_out,
+			availability: value.availability,
+			group_responsible: value.group_responsible,
+			candidate_hash: value.candidate_hash,
+			candidate_descriptor: value.candidate_descriptor.into(),
+		}
+	}
+}
+
+impl<H: Copy> From<CoreState<H>> for super::v7::CoreState<H> {
+	fn from(value: CoreState<H>) -> Self {
+		match value {
+			CoreState::Free => super::v7::CoreState::Free,
+			CoreState::Scheduled(core) => super::v7::CoreState::Scheduled(core),
+			CoreState::Occupied(occupied_core) =>
+				super::v7::CoreState::Occupied(occupied_core.into()),
+		}
+	}
+}
 
 #[cfg(test)]
 mod tests {
@@ -863,7 +991,8 @@ mod tests {
 		old_ccr.descriptor.para_id = ParaId::new(1000);
 		let encoded_ccr: Vec<u8> = old_ccr.encode();
 
-		let new_ccr = CommittedCandidateReceiptV2::decode(&mut encoded_ccr.as_slice()).unwrap();
+		let new_ccr: CommittedCandidateReceiptV2 =
+			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
 
 		// Since collator sig and id are zeroed, it means that the descriptor uses format
 		// version 2.
@@ -885,7 +1014,8 @@ mod tests {
 
 		let encoded_ccr: Vec<u8> = old_ccr.encode();
 
-		let new_ccr = CommittedCandidateReceiptV2::decode(&mut encoded_ccr.as_slice()).unwrap();
+		let new_ccr: CommittedCandidateReceiptV2 =
+			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
 
 		assert_eq!(new_ccr.descriptor.signature(), Some(old_ccr.descriptor.signature));
 		assert_eq!(new_ccr.descriptor.collator(), Some(old_ccr.descriptor.collator));
