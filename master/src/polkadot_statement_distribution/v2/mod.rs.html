@@ -3652,6 +3652,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3501" id="3501">3501</a>
 <a href="#3502" id="3502">3502</a>
 <a href="#3503" id="3503">3503</a>
+<a href="#3504" id="3504">3504</a>
+<a href="#3505" id="3505">3505</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -5891,8 +5893,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// 2. find out which are in the frontier
 	</span><span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
-		<span class="string">"Calling getHypotheticalMembership from statement distribution"
-	</span>);
+		active_leaf_hash = <span class="question-mark">?</span>active_leaf_hash,
+		<span class="string">"Calling getHypotheticalMembership from statement distribution for candidates: {:?}"</span>,
+		<span class="kw-2">&amp;</span>hypotheticals.iter().map(|hypo| hypo.candidate_hash()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+	);
 	<span class="kw">let </span>candidate_memberships = {
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalMembership(

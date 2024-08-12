@@ -171,14 +171,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     pub executor_params: ExecutorParams,
     pub code_retention_period: BlockNumber,
     pub max_validators: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;,
-    pub dispute_period: SessionIndex,
+    pub dispute_period: <a class="type" href="../../sp_staking/type.SessionIndex.html" title="type sp_staking::SessionIndex">SessionIndex</a>,
     pub dispute_post_conclusion_acceptance_period: BlockNumber,
     pub no_show_slots: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     pub n_delay_tranches: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     pub zeroth_delay_tranche_width: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     pub needed_approvals: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     pub relay_vrf_modulo_samples: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
-    pub pvf_voting_ttl: SessionIndex,
+    pub pvf_voting_ttl: <a class="type" href="../../sp_staking/type.SessionIndex.html" title="type sp_staking::SessionIndex">SessionIndex</a>,
     pub minimum_validation_upgrade_delay: BlockNumber,
     pub minimum_backing_votes: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     pub node_features: NodeFeatures,
@@ -247,7 +247,7 @@ How long to keep code on-chain, in blocks. This should be sufficiently long that
 have concluded.</p>
 </div><span id="structfield.max_validators" class="structfield section-header"><a href="#structfield.max_validators" class="anchor field">§</a><code>max_validators: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;</code></span><div class="docblock"><p>The maximum number of validators to use for parachain consensus, period.</p>
 <p><code>None</code> means no maximum.</p>
-</div><span id="structfield.dispute_period" class="structfield section-header"><a href="#structfield.dispute_period" class="anchor field">§</a><code>dispute_period: SessionIndex</code></span><div class="docblock"><p>The amount of sessions to keep for disputes.</p>
+</div><span id="structfield.dispute_period" class="structfield section-header"><a href="#structfield.dispute_period" class="anchor field">§</a><code>dispute_period: <a class="type" href="../../sp_staking/type.SessionIndex.html" title="type sp_staking::SessionIndex">SessionIndex</a></code></span><div class="docblock"><p>The amount of sessions to keep for disputes.</p>
 </div><span id="structfield.dispute_post_conclusion_acceptance_period" class="structfield section-header"><a href="#structfield.dispute_post_conclusion_acceptance_period" class="anchor field">§</a><code>dispute_post_conclusion_acceptance_period: BlockNumber</code></span><div class="docblock"><p>How long after dispute conclusion to accept statements.</p>
 </div><span id="structfield.no_show_slots" class="structfield section-header"><a href="#structfield.no_show_slots" class="anchor field">§</a><code>no_show_slots: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>The amount of consensus slots that must pass between submitting an assignment and
 submitting an approval vote before a validator is considered a no-show.</p>
@@ -257,7 +257,7 @@ submitting an approval vote before a validator is considered a no-show.</p>
 beyond 0 are all consolidated to form a wide 0 tranche.</p>
 </div><span id="structfield.needed_approvals" class="structfield section-header"><a href="#structfield.needed_approvals" class="anchor field">§</a><code>needed_approvals: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>The number of validators needed to approve a block.</p>
 </div><span id="structfield.relay_vrf_modulo_samples" class="structfield section-header"><a href="#structfield.relay_vrf_modulo_samples" class="anchor field">§</a><code>relay_vrf_modulo_samples: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>The number of samples to do of the <code>RelayVRFModulo</code> approval assignment criterion.</p>
-</div><span id="structfield.pvf_voting_ttl" class="structfield section-header"><a href="#structfield.pvf_voting_ttl" class="anchor field">§</a><code>pvf_voting_ttl: SessionIndex</code></span><div class="docblock"><p>If an active PVF pre-checking vote observes this many number of sessions it gets
+</div><span id="structfield.pvf_voting_ttl" class="structfield section-header"><a href="#structfield.pvf_voting_ttl" class="anchor field">§</a><code>pvf_voting_ttl: <a class="type" href="../../sp_staking/type.SessionIndex.html" title="type sp_staking::SessionIndex">SessionIndex</a></code></span><div class="docblock"><p>If an active PVF pre-checking vote observes this many number of sessions it gets
 automatically rejected.</p>
 <p>0 means PVF pre-checking will be rejected on the first observed session unless the voting
 gained supermajority before that the session change.</p>

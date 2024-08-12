@@ -1139,6 +1139,371 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#988" id="988">988</a>
 <a href="#989" id="989">989</a>
 <a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
+<a href="#1153" id="1153">1153</a>
+<a href="#1154" id="1154">1154</a>
+<a href="#1155" id="1155">1155</a>
+<a href="#1156" id="1156">1156</a>
+<a href="#1157" id="1157">1157</a>
+<a href="#1158" id="1158">1158</a>
+<a href="#1159" id="1159">1159</a>
+<a href="#1160" id="1160">1160</a>
+<a href="#1161" id="1161">1161</a>
+<a href="#1162" id="1162">1162</a>
+<a href="#1163" id="1163">1163</a>
+<a href="#1164" id="1164">1164</a>
+<a href="#1165" id="1165">1165</a>
+<a href="#1166" id="1166">1166</a>
+<a href="#1167" id="1167">1167</a>
+<a href="#1168" id="1168">1168</a>
+<a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
+<a href="#1200" id="1200">1200</a>
+<a href="#1201" id="1201">1201</a>
+<a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
+<a href="#1206" id="1206">1206</a>
+<a href="#1207" id="1207">1207</a>
+<a href="#1208" id="1208">1208</a>
+<a href="#1209" id="1209">1209</a>
+<a href="#1210" id="1210">1210</a>
+<a href="#1211" id="1211">1211</a>
+<a href="#1212" id="1212">1212</a>
+<a href="#1213" id="1213">1213</a>
+<a href="#1214" id="1214">1214</a>
+<a href="#1215" id="1215">1215</a>
+<a href="#1216" id="1216">1216</a>
+<a href="#1217" id="1217">1217</a>
+<a href="#1218" id="1218">1218</a>
+<a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
+<a href="#1228" id="1228">1228</a>
+<a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
+<a href="#1232" id="1232">1232</a>
+<a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
+<a href="#1236" id="1236">1236</a>
+<a href="#1237" id="1237">1237</a>
+<a href="#1238" id="1238">1238</a>
+<a href="#1239" id="1239">1239</a>
+<a href="#1240" id="1240">1240</a>
+<a href="#1241" id="1241">1241</a>
+<a href="#1242" id="1242">1242</a>
+<a href="#1243" id="1243">1243</a>
+<a href="#1244" id="1244">1244</a>
+<a href="#1245" id="1245">1245</a>
+<a href="#1246" id="1246">1246</a>
+<a href="#1247" id="1247">1247</a>
+<a href="#1248" id="1248">1248</a>
+<a href="#1249" id="1249">1249</a>
+<a href="#1250" id="1250">1250</a>
+<a href="#1251" id="1251">1251</a>
+<a href="#1252" id="1252">1252</a>
+<a href="#1253" id="1253">1253</a>
+<a href="#1254" id="1254">1254</a>
+<a href="#1255" id="1255">1255</a>
+<a href="#1256" id="1256">1256</a>
+<a href="#1257" id="1257">1257</a>
+<a href="#1258" id="1258">1258</a>
+<a href="#1259" id="1259">1259</a>
+<a href="#1260" id="1260">1260</a>
+<a href="#1261" id="1261">1261</a>
+<a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
+<a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
+<a href="#1328" id="1328">1328</a>
+<a href="#1329" id="1329">1329</a>
+<a href="#1330" id="1330">1330</a>
+<a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
+<a href="#1334" id="1334">1334</a>
+<a href="#1335" id="1335">1335</a>
+<a href="#1336" id="1336">1336</a>
+<a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
+<a href="#1340" id="1340">1340</a>
+<a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
+<a href="#1346" id="1346">1346</a>
+<a href="#1347" id="1347">1347</a>
+<a href="#1348" id="1348">1348</a>
+<a href="#1349" id="1349">1349</a>
+<a href="#1350" id="1350">1350</a>
+<a href="#1351" id="1351">1351</a>
+<a href="#1352" id="1352">1352</a>
+<a href="#1353" id="1353">1353</a>
+<a href="#1354" id="1354">1354</a>
+<a href="#1355" id="1355">1355</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1159,41 +1524,58 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! # Overview
 //!
-//! This module exposes two main types: [`FragmentChain`] and [`CandidateStorage`] which are meant
-//! to be used in close conjunction. Each fragment chain is associated with a particular
-//! relay-parent and each node in the chain represents a candidate. Each parachain has a single
-//! candidate storage, but can have one chain for each relay chain block in the view.
-//! Therefore, the same candidate can be present in multiple fragment chains of a parachain. One of
-//! the purposes of the candidate storage is to deduplicate the large candidate data that is being
-//! referenced from multiple fragment chains.
+//! The main type exposed by this module is the [`FragmentChain`].
 //!
-//! A chain has an associated [`Scope`] which defines limits on candidates within the chain.
-//! Candidates themselves have their own [`Constraints`] which are either the constraints from the
-//! scope, or, if there are previous nodes in the chain, a modified version of the previous
-//! candidate's constraints.
+//! Each fragment chain is associated with a particular relay-parent (an active leaf) and has a
+//! [`Scope`], which contains the allowed relay parents (up to `allowed_ancestry_len`), the pending
+//! availability candidates and base constraints derived from the latest included candidate. Each
+//! parachain has a single `FragmentChain` for each active leaf where it's scheduled.
 //!
-//! Another use of the `CandidateStorage` is to keep a record of candidates which may not be yet
-//! included in any chain, but which may become part of a chain in the future. This is needed for
-//! elastic scaling, so that we may parallelise the backing process across different groups. As long
-//! as some basic constraints are not violated by an unconnected candidate (like the relay parent
-//! being in scope), we proceed with the backing process, hoping that its predecessors will be
-//! backed soon enough. This is commonly called a potential candidate. Note that not all potential
-//! candidates will be maintained in the CandidateStorage. The total number of connected + potential
-//! candidates will be at most max_candidate_depth + 1.
+//! A fragment chain consists mainly of the current best backable chain (we'll call this the best
+//! chain) and a storage of unconnected potential candidates (we'll call this the unconnected
+//! storage).
+//!
+//! The best chain contains all the candidates pending availability and a subsequent chain
+//! of candidates that have reached the backing quorum and are better than any other backable forks
+//! according to the fork selection rule (more on this rule later). It has a length of size at most
+//! `max_candidate_depth + 1`.
+//!
+//! The unconnected storage keeps a record of seconded/backable candidates that may be
+//! added to the best chain in the future.
+//!	Once a candidate is seconded, it becomes part of this unconnected storage.
+//! Only after it is backed it may be added to the best chain (but not necessarily). It's only
+//! added if it builds on the latest candidate in the chain and if there isn't a better backable
+//! candidate according to the fork selection rule.
+//!
+//! An important thing to note is that the candidates present in the unconnected storage may have
+//! any/no relationship between them. In other words, they may form N trees and may even form
+//! cycles. This is needed so that we may begin validating candidates for which we don't yet know
+//! their parent (so we may parallelize the backing process across different groups for elastic
+//! scaling) and so that we accept parachain forks.
+//!
+//! We accept parachain forks only if the fork selection rule allows for it. In other words, if we
+//! have a backed candidate, we begin seconding/validating a fork only if it has a lower candidate
+//! hash. Once both forks are backed, we discard the one with the higher candidate hash.
+//! We assume all validators pick the same fork according to the fork selection rule. If we decided
+//! to not accept parachain forks, candidates could end up getting only half of the backing votes or
+//! even less (for forks of larger arity). This would affect the validator rewards. Still, we don't
+//! guarantee that a fork-producing parachains will be able to fully use elastic scaling.
+//!
+//! Once a candidate is backed and becomes part of the best chain, we can trim from the
+//! unconnected storage candidates which constitute forks on the best chain and no longer have
+//! potential.
 //!
 //! This module also makes use of types provided by the Inclusion Emulator module, such as
 //! [`Fragment`] and [`Constraints`]. These perform the actual job of checking for validity of
 //! prospective fragments.
 //!
-//! # Parachain forks
+//! # Fork choice rule
 //!
-//! Parachains are expected to not create forks, hence the use of fragment chains as opposed to
-//! fragment trees. If parachains do create forks, their performance in regards to async backing and
-//! elastic scaling will suffer, because different validators will have different views of the
-//! future.
+//! The motivation for the fork choice rule is described in the previous chapter.
 //!
-//! This is a compromise we can make - collators which want to use async backing and elastic scaling
-//! need to cooperate for the highest throughput.
+//! The current rule is: choose the candidate with the lower candidate hash.
+//! The candidate hash is quite random and finding a candidate with a lower hash in order to favour
+//! it would essentially mean solving a proof of work problem.
 //!
 //! # Parachain cycles
 //!
@@ -1206,70 +1588,117 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!      resolved by having candidates reference their parent by candidate hash.
 //!
 //! However, dealing with cycles increases complexity during the backing/inclusion process for no
-//! practical reason. Therefore, fragment chains will not accept such candidates.
+//! practical reason.
+//! These cycles may be accepted by fragment chains while candidates are part of the unconnected
+//! storage, but they will definitely not make it to the best chain.
 //!
 //! On the other hand, enforcing that a parachain will NEVER be acyclic would be very complicated
 //! (looping through the entire parachain's history on every new candidate or changing the candidate
 //! receipt to reference the parent's candidate hash).
 //!
+//! Therefore, we don't provide a guarantee that a cycle-producing parachain will work (although in
+//! practice they probably will if the cycle length is larger than the number of assigned cores
+//! multiplied by two).
+//!
 //! # Spam protection
 //!
-//! As long as the [`CandidateStorage`] has bounded input on the number of candidates supplied,
-//! [`FragmentChain`] complexity is bounded. This means that higher-level code needs to be selective
-//! about limiting the amount of candidates that are considered.
+//! As long as the supplied number of candidates is bounded, [`FragmentChain`] complexity is
+//! bounded. This means that higher-level code needs to be selective about limiting the amount of
+//! candidates that are considered.
+//!
+//! Practically speaking, the collator-protocol will not allow more than `max_candidate_depth + 1`
+//! collations to be fetched at a relay parent and statement-distribution will not allow more than
+//! `max_candidate_depth + 1` seconded candidates at a relay parent per each validator in the
+//! backing group. Considering the `allowed_ancestry_len` configuration value, the number of
+//! candidates in a `FragmentChain` (including its unconnected storage) should not exceed:
+//!
+//! `allowed_ancestry_len * (max_candidate_depth + 1) * backing_group_size`.
 //!
 //! The code in this module is not designed for speed or efficiency, but conceptual simplicity.
 //! Our assumption is that the amount of candidates and parachains we consider will be reasonably
 //! bounded and in practice will not exceed a few thousand at any time. This naive implementation
 //! will still perform fairly well under these conditions, despite being somewhat wasteful of
 //! memory.
+//!
+//! Still, the expensive candidate data (CandidateCommitments) are wrapped in an `Arc` and shared
+//! across fragment chains of the same para on different active leaves.
 
 </span><span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
 <span class="kw">use </span>std::{
+	cmp::{min, Ordering},
 	collections::{
 		hash_map::{Entry, HashMap},
-		BTreeMap, HashSet,
+		BTreeMap, HashSet, VecDeque,
 	},
 	sync::Arc,
 };
 
 <span class="kw">use </span><span class="kw">super</span>::LOG_TARGET;
-<span class="kw">use </span>polkadot_node_subsystem::messages::{Ancestors, HypotheticalCandidate};
+<span class="kw">use </span>polkadot_node_subsystem::messages::Ancestors;
 <span class="kw">use </span>polkadot_node_subsystem_util::inclusion_emulator::{
-	ConstraintModifications, Constraints, Fragment, ProspectiveCandidate, RelayChainBlockInfo,
+	<span class="self">self</span>, ConstraintModifications, Constraints, Fragment, HypotheticalOrConcreteCandidate,
+	ProspectiveCandidate, RelayChainBlockInfo,
 };
 <span class="kw">use </span>polkadot_primitives::{
-	BlockNumber, CandidateHash, CommittedCandidateReceipt, Hash, HeadData, Id <span class="kw">as </span>ParaId,
-	PersistedValidationData,
+	BlockNumber, CandidateCommitments, CandidateHash, CommittedCandidateReceipt, Hash, HeadData,
+	PersistedValidationData, ValidationCodeHash,
 };
+<span class="kw">use </span>thiserror::Error;
 
-<span class="doccomment">/// Kinds of failures to import a candidate into storage.
-</span><span class="attr">#[derive(Debug, Clone, PartialEq)]
-</span><span class="kw">pub enum </span>CandidateStorageInsertionError {
-	<span class="doccomment">/// An error indicating that a supplied candidate didn't match the persisted
-	/// validation data provided alongside it.
-	</span>PersistedValidationDataMismatch,
-	<span class="doccomment">/// The candidate was already known.
-	</span>CandidateAlreadyKnown(CandidateHash),
+<span class="doccomment">/// Fragment chain related errors.
+</span><span class="attr">#[derive(Debug, Clone, PartialEq, Error)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>Error {
+	<span class="attr">#[error(<span class="string">"Candidate already known"</span>)]
+	</span>CandidateAlreadyKnown,
+	<span class="attr">#[error(<span class="string">"Candidate's parent head is equal to its output head. Would introduce a cycle."</span>)]
+	</span>ZeroLengthCycle,
+	<span class="attr">#[error(<span class="string">"Candidate would introduce a cycle"</span>)]
+	</span>Cycle,
+	<span class="attr">#[error(<span class="string">"Candidate would introduce two paths to the same output state"</span>)]
+	</span>MultiplePaths,
+	<span class="attr">#[error(<span class="string">"Attempting to directly introduce a Backed candidate. It should first be introduced as Seconded"</span>)]
+	</span>IntroduceBackedCandidate,
+	<span class="attr">#[error(<span class="string">"Relay parent {0:?} of the candidate precedes the relay parent {1:?} of a pending availability candidate"</span>)]
+	</span>RelayParentPrecedesCandidatePendingAvailability(Hash, Hash),
+	<span class="attr">#[error(<span class="string">"Candidate would introduce a fork with a pending availability candidate: {0:?}"</span>)]
+	</span>ForkWithCandidatePendingAvailability(CandidateHash),
+	<span class="attr">#[error(<span class="string">"Fork selection rule favours another candidate: {0:?}"</span>)]
+	</span>ForkChoiceRule(CandidateHash),
+	<span class="attr">#[error(<span class="string">"Could not find parent of the candidate"</span>)]
+	</span>ParentCandidateNotFound,
+	<span class="attr">#[error(<span class="string">"Could not compute candidate constraints: {0:?}"</span>)]
+	</span>ComputeConstraints(inclusion_emulator::ModificationError),
+	<span class="attr">#[error(<span class="string">"Candidate violates constraints: {0:?}"</span>)]
+	</span>CheckAgainstConstraints(inclusion_emulator::FragmentValidityError),
+	<span class="attr">#[error(<span class="string">"Relay parent would move backwards from the latest candidate in the chain"</span>)]
+	</span>RelayParentMovedBackwards,
+	<span class="attr">#[error(transparent)]
+	</span>CandidateEntry(<span class="attr">#[from] </span>CandidateEntryError),
+	<span class="attr">#[error(<span class="string">"Relay parent {0:?} not in scope. Earliest relay parent allowed {1:?}"</span>)]
+	</span>RelayParentNotInScope(Hash, Hash),
 }
 
-<span class="doccomment">/// Stores candidates and information about them such as their relay-parents and their backing
-/// states.
+<span class="doccomment">/// The rule for selecting between two backed candidate forks, when adding to the chain.
+/// All validators should adhere to this rule, in order to not lose out on rewards in case of
+/// forking parachains.
+</span><span class="kw">fn </span>fork_selection_rule(hash1: <span class="kw-2">&amp;</span>CandidateHash, hash2: <span class="kw-2">&amp;</span>CandidateHash) -&gt; Ordering {
+	hash1.cmp(hash2)
+}
+
+<span class="doccomment">/// Utility for storing candidates and information about them such as their relay-parents and their
+/// backing states. This does not assume any restriction on whether or not the candidates form a
+/// chain. Useful for storing all kinds of candidates.
 </span><span class="attr">#[derive(Clone, Default)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CandidateStorage {
-	<span class="comment">// Index from head data hash to candidate hashes with that head data as a parent. Purely for
+	<span class="comment">// Index from head data hash to candidate hashes with that head data as a parent. Useful for
 	// efficiency when responding to `ProspectiveValidationDataRequest`s or when trying to find a
 	// new candidate to push to a chain.
-	// Even though having multiple candidates with same parent would be invalid for a parachain, it
-	// could happen across different relay chain forks, hence the HashSet.
 	</span>by_parent_head: HashMap&lt;Hash, HashSet&lt;CandidateHash&gt;&gt;,
 
-	<span class="comment">// Index from head data hash to candidate hashes outputting that head data. Purely for
+	<span class="comment">// Index from head data hash to candidate hashes outputting that head data. For
 	// efficiency when responding to `ProspectiveValidationDataRequest`s.
-	// Even though having multiple candidates with same output would be invalid for a parachain,
-	// it could happen across different relay chain forks.
 	</span>by_output_head: HashMap&lt;Hash, HashSet&lt;CandidateHash&gt;&gt;,
 
 	<span class="comment">// Index from candidate hash to fragment node.
@@ -1277,63 +1706,59 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>CandidateStorage {
-	<span class="doccomment">/// Introduce a new candidate.
-	</span><span class="kw">pub fn </span>add_candidate(
+	<span class="doccomment">/// Introduce a new pending availability candidate.
+	</span><span class="kw">pub fn </span>add_pending_availability_candidate(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		candidate_hash: CandidateHash,
 		candidate: CommittedCandidateReceipt,
 		persisted_validation_data: PersistedValidationData,
-		state: CandidateState,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;CandidateHash, CandidateStorageInsertionError&gt; {
-		<span class="kw">let </span>candidate_hash = candidate.hash();
-		<span class="kw">if </span><span class="self">self</span>.by_candidate_hash.contains_key(<span class="kw-2">&amp;</span>candidate_hash) {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(CandidateStorageInsertionError::CandidateAlreadyKnown(candidate_hash))
-		}
-
-		<span class="kw">if </span>persisted_validation_data.hash() != candidate.descriptor.persisted_validation_data_hash {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(CandidateStorageInsertionError::PersistedValidationDataMismatch)
-		}
-
-		<span class="kw">let </span>entry = CandidateEntry {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		<span class="kw">let </span>entry = CandidateEntry::new(
 			candidate_hash,
-			parent_head_data_hash: persisted_validation_data.parent_head.hash(),
-			output_head_data_hash: candidate.commitments.head_data.hash(),
-			relay_parent: candidate.descriptor.relay_parent,
-			state,
-			candidate: Arc::new(ProspectiveCandidate {
-				commitments: candidate.commitments,
-				persisted_validation_data,
-				pov_hash: candidate.descriptor.pov_hash,
-				validation_code_hash: candidate.descriptor.validation_code_hash,
-			}),
-		};
+			candidate,
+			persisted_validation_data,
+			CandidateState::Backed,
+		)<span class="question-mark">?</span>;
+
+		<span class="self">self</span>.add_candidate_entry(entry)
+	}
+
+	<span class="doccomment">/// Return the number of stored candidates.
+	</span><span class="kw">pub fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+		<span class="self">self</span>.by_candidate_hash.len()
+	}
+
+	<span class="doccomment">/// Introduce a new candidate entry.
+	</span><span class="kw">fn </span>add_candidate_entry(<span class="kw-2">&amp;mut </span><span class="self">self</span>, candidate: CandidateEntry) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		<span class="kw">let </span>candidate_hash = candidate.candidate_hash;
+		<span class="kw">if </span><span class="self">self</span>.by_candidate_hash.contains_key(<span class="kw-2">&amp;</span>candidate_hash) {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::CandidateAlreadyKnown)
+		}
 
 		<span class="self">self</span>.by_parent_head
-			.entry(entry.parent_head_data_hash())
+			.entry(candidate.parent_head_data_hash)
 			.or_default()
 			.insert(candidate_hash);
 		<span class="self">self</span>.by_output_head
-			.entry(entry.output_head_data_hash())
+			.entry(candidate.output_head_data_hash)
 			.or_default()
 			.insert(candidate_hash);
-		<span class="comment">// sanity-checked already.
-		</span><span class="self">self</span>.by_candidate_hash.insert(candidate_hash, entry);
+		<span class="self">self</span>.by_candidate_hash.insert(candidate_hash, candidate);
 
-		<span class="prelude-val">Ok</span>(candidate_hash)
+		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="doccomment">/// Remove a candidate from the store.
-	</span><span class="kw">pub fn </span>remove_candidate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, candidate_hash: <span class="kw-2">&amp;</span>CandidateHash) {
+	</span><span class="kw">fn </span>remove_candidate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, candidate_hash: <span class="kw-2">&amp;</span>CandidateHash) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = <span class="self">self</span>.by_candidate_hash.remove(candidate_hash) {
-			<span class="kw">if let </span>Entry::Occupied(<span class="kw-2">mut </span>e) = <span class="self">self</span>.by_parent_head.entry(entry.parent_head_data_hash())
-			{
+			<span class="kw">if let </span>Entry::Occupied(<span class="kw-2">mut </span>e) = <span class="self">self</span>.by_parent_head.entry(entry.parent_head_data_hash) {
 				e.get_mut().remove(<span class="kw-2">&amp;</span>candidate_hash);
 				<span class="kw">if </span>e.get().is_empty() {
 					e.remove();
 				}
 			}
 
-			<span class="kw">if let </span>Entry::Occupied(<span class="kw-2">mut </span>e) = <span class="self">self</span>.by_output_head.entry(entry.output_head_data_hash())
-			{
+			<span class="kw">if let </span>Entry::Occupied(<span class="kw-2">mut </span>e) = <span class="self">self</span>.by_output_head.entry(entry.output_head_data_hash) {
 				e.get_mut().remove(<span class="kw-2">&amp;</span>candidate_hash);
 				<span class="kw">if </span>e.get().is_empty() {
 					e.remove();
@@ -1343,7 +1768,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Note that an existing candidate has been backed.
-	</span><span class="kw">pub fn </span>mark_backed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, candidate_hash: <span class="kw-2">&amp;</span>CandidateHash) {
+	</span><span class="kw">fn </span>mark_backed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, candidate_hash: <span class="kw-2">&amp;</span>CandidateHash) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = <span class="self">self</span>.by_candidate_hash.get_mut(candidate_hash) {
 			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">"Candidate marked as backed"</span>);
 			entry.state = CandidateState::Backed;
@@ -1352,38 +1777,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Whether a candidate is recorded as being backed.
-	</span><span class="kw">pub fn </span>is_backed(<span class="kw-2">&amp;</span><span class="self">self</span>, candidate_hash: <span class="kw-2">&amp;</span>CandidateHash) -&gt; bool {
-		<span class="self">self</span>.by_candidate_hash
-			.get(candidate_hash)
-			.map_or(<span class="bool-val">false</span>, |e| e.state == CandidateState::Backed)
-	}
-
 	<span class="doccomment">/// Whether a candidate is contained within the storage already.
-	</span><span class="kw">pub fn </span>contains(<span class="kw-2">&amp;</span><span class="self">self</span>, candidate_hash: <span class="kw-2">&amp;</span>CandidateHash) -&gt; bool {
+	</span><span class="kw">fn </span>contains(<span class="kw-2">&amp;</span><span class="self">self</span>, candidate_hash: <span class="kw-2">&amp;</span>CandidateHash) -&gt; bool {
 		<span class="self">self</span>.by_candidate_hash.contains_key(candidate_hash)
 	}
 
-	<span class="doccomment">/// Return an iterator over the stored candidates.
-	</span><span class="kw">pub fn </span>candidates(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>CandidateEntry&gt; {
+	<span class="doccomment">/// Return an iterator over references to the stored candidates, in arbitrary order.
+	</span><span class="kw">fn </span>candidates(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>CandidateEntry&gt; {
 		<span class="self">self</span>.by_candidate_hash.values()
 	}
 
-	<span class="doccomment">/// Retain only candidates which pass the predicate.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>retain(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pred: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>CandidateHash) -&gt; bool) {
-		<span class="self">self</span>.by_candidate_hash.retain(|h, _v| pred(h));
-		<span class="self">self</span>.by_parent_head.retain(|_parent, children| {
-			children.retain(|h| pred(h));
-			!children.is_empty()
-		});
-		<span class="self">self</span>.by_output_head.retain(|_output, candidates| {
-			candidates.retain(|h| pred(h));
-			!candidates.is_empty()
-		});
-	}
-
-	<span class="doccomment">/// Get head-data by hash.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>head_data_by_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>Hash) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>HeadData&gt; {
+	<span class="doccomment">/// Try getting head-data by hash.
+	</span><span class="kw">fn </span>head_data_by_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>Hash) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>HeadData&gt; {
 		<span class="comment">// First, search for candidates outputting this head data and extract the head data
 		// from their commitments if they exist.
 		//
@@ -1403,16 +1808,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 	}
 
-	<span class="doccomment">/// Returns candidate's relay parent, if present.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>relay_parent_of_candidate(<span class="kw-2">&amp;</span><span class="self">self</span>, candidate_hash: <span class="kw-2">&amp;</span>CandidateHash) -&gt; <span class="prelude-ty">Option</span>&lt;Hash&gt; {
-		<span class="self">self</span>.by_candidate_hash.get(candidate_hash).map(|entry| entry.relay_parent)
-	}
-
-	<span class="doccomment">/// Returns the candidates which have the given head data hash as parent.
-	/// We don't allow forks in a parachain, but we may have multiple candidates with same parent
-	/// across different relay chain forks. That's why it returns an iterator (but only one will be
-	/// valid and used in the end).
-	</span><span class="kw">fn </span>possible_para_children&lt;<span class="lifetime">'a</span>&gt;(
+	<span class="doccomment">/// Returns the backed candidates which have the given head data hash as parent.
+	</span><span class="kw">fn </span>possible_backed_para_children&lt;<span class="lifetime">'a</span>&gt;(
 		<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
 		parent_head_hash: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Hash,
 	) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>CandidateEntry&gt; + <span class="lifetime">'a </span>{
@@ -1421,12 +1818,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.get(parent_head_hash)
 			.into_iter()
 			.flat_map(|hashes| hashes.iter())
-			.filter_map(<span class="kw">move </span>|h| by_candidate_hash.get(h))
-	}
-
-	<span class="attr">#[cfg(test)]
-	</span><span class="kw">pub fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (usize, usize) {
-		(<span class="self">self</span>.by_parent_head.len(), <span class="self">self</span>.by_candidate_hash.len())
+			.filter_map(<span class="kw">move </span>|h| {
+				by_candidate_hash.get(h).and_then(|candidate| {
+					(candidate.state == CandidateState::Backed).then_some(candidate)
+				})
+			})
 	}
 }
 
@@ -1434,14 +1830,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Candidates aren't even considered until they've at least been seconded.
 </span><span class="attr">#[derive(Debug, PartialEq, Clone)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>CandidateState {
+</span><span class="kw">enum </span>CandidateState {
 	<span class="doccomment">/// The candidate has been seconded.
 	</span>Seconded,
 	<span class="doccomment">/// The candidate has been completely backed by the group.
 	</span>Backed,
 }
 
+<span class="attr">#[derive(Debug, Clone, PartialEq, Error)]
+</span><span class="doccomment">/// Possible errors when construcing a candidate entry.
+</span><span class="kw">pub enum </span>CandidateEntryError {
+	<span class="attr">#[error(<span class="string">"Candidate does not match the persisted validation data provided alongside it"</span>)]
+	</span>PersistedValidationDataMismatch,
+	<span class="attr">#[error(<span class="string">"Candidate's parent head is equal to its output head. Would introduce a cycle"</span>)]
+	</span>ZeroLengthCycle,
+}
+
 <span class="attr">#[derive(Debug, Clone)]
+</span><span class="doccomment">/// Representation of a candidate into the [`CandidateStorage`].
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CandidateEntry {
 	candidate_hash: CandidateHash,
 	parent_head_data_hash: Hash,
@@ -1452,16 +1858,79 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>CandidateEntry {
+	<span class="doccomment">/// Create a new seconded candidate entry.
+	</span><span class="kw">pub fn </span>new_seconded(
+		candidate_hash: CandidateHash,
+		candidate: CommittedCandidateReceipt,
+		persisted_validation_data: PersistedValidationData,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CandidateEntryError&gt; {
+		<span class="self">Self</span>::new(candidate_hash, candidate, persisted_validation_data, CandidateState::Seconded)
+	}
+
 	<span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CandidateHash {
 		<span class="self">self</span>.candidate_hash
 	}
 
-	<span class="kw">pub fn </span>parent_head_data_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Hash {
+	<span class="kw">fn </span>new(
+		candidate_hash: CandidateHash,
+		candidate: CommittedCandidateReceipt,
+		persisted_validation_data: PersistedValidationData,
+		state: CandidateState,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CandidateEntryError&gt; {
+		<span class="kw">if </span>persisted_validation_data.hash() != candidate.descriptor.persisted_validation_data_hash {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(CandidateEntryError::PersistedValidationDataMismatch)
+		}
+
+		<span class="kw">let </span>parent_head_data_hash = persisted_validation_data.parent_head.hash();
+		<span class="kw">let </span>output_head_data_hash = candidate.commitments.head_data.hash();
+
+		<span class="kw">if </span>parent_head_data_hash == output_head_data_hash {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(CandidateEntryError::ZeroLengthCycle)
+		}
+
+		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+			candidate_hash,
+			parent_head_data_hash,
+			output_head_data_hash,
+			relay_parent: candidate.descriptor.relay_parent,
+			state,
+			candidate: Arc::new(ProspectiveCandidate {
+				commitments: candidate.commitments,
+				persisted_validation_data,
+				pov_hash: candidate.descriptor.pov_hash,
+				validation_code_hash: candidate.descriptor.validation_code_hash,
+			}),
+		})
+	}
+}
+
+<span class="kw">impl </span>HypotheticalOrConcreteCandidate <span class="kw">for </span>CandidateEntry {
+	<span class="kw">fn </span>commitments(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>CandidateCommitments&gt; {
+		<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.candidate.commitments)
+	}
+
+	<span class="kw">fn </span>persisted_validation_data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>PersistedValidationData&gt; {
+		<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.candidate.persisted_validation_data)
+	}
+
+	<span class="kw">fn </span>validation_code_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>ValidationCodeHash&gt; {
+		<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.candidate.validation_code_hash)
+	}
+
+	<span class="kw">fn </span>parent_head_data_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Hash {
 		<span class="self">self</span>.parent_head_data_hash
 	}
 
-	<span class="kw">pub fn </span>output_head_data_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Hash {
-		<span class="self">self</span>.output_head_data_hash
+	<span class="kw">fn </span>output_head_data_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Hash&gt; {
+		<span class="prelude-val">Some</span>(<span class="self">self</span>.output_head_data_hash)
+	}
+
+	<span class="kw">fn </span>relay_parent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Hash {
+		<span class="self">self</span>.relay_parent
+	}
+
+	<span class="kw">fn </span>candidate_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CandidateHash {
+		<span class="self">self</span>.candidate_hash
 	}
 }
 
@@ -1478,8 +1947,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The scope of a [`FragmentChain`].
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Scope {
-	<span class="doccomment">/// The assigned para id of this `FragmentChain`.
-	</span>para: ParaId,
 	<span class="doccomment">/// The relay parent we're currently building on top of.
 	</span>relay_parent: RelayChainBlockInfo,
 	<span class="doccomment">/// The other relay parents candidates are allowed to build upon, mapped by the block number.
@@ -1497,10 +1964,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// An error variant indicating that ancestors provided to a scope
 /// had unexpected order.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>UnexpectedAncestor {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>UnexpectedAncestor {
 	<span class="doccomment">/// The block number that this error occurred at.
+	/// Allow as dead code, but it's being read in logs.
+	</span><span class="attr">#[allow(dead_code)]
 	</span><span class="kw">pub </span>number: BlockNumber,
 	<span class="doccomment">/// The previous seen block number, which did not match `number`.
+	/// Allow as dead code, but it's being read in logs.
+	</span><span class="attr">#[allow(dead_code)]
 	</span><span class="kw">pub </span>prev: BlockNumber,
 }
 
@@ -1522,7 +1993,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// It is allowed to provide zero ancestors.
 	</span><span class="kw">pub fn </span>with_ancestors(
-		para: ParaId,
 		relay_parent: RelayChainBlockInfo,
 		base_constraints: Constraints,
 		pending_availability: Vec&lt;PendingAvailability&gt;,
@@ -1549,7 +2019,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="prelude-val">Ok</span>(Scope {
-			para,
 			relay_parent,
 			base_constraints,
 			pending_availability,
@@ -1577,24 +2046,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.ancestors_by_hash.get(hash).map(|info| info.clone())
 	}
 
+	<span class="doccomment">/// Get the base constraints of the scope
+	</span><span class="kw">pub fn </span>base_constraints(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Constraints {
+		<span class="kw-2">&amp;</span><span class="self">self</span>.base_constraints
+	}
+
 	<span class="doccomment">/// Whether the candidate in question is one pending availability in this scope.
-	</span><span class="kw">pub fn </span>get_pending_availability(
+	</span><span class="kw">fn </span>get_pending_availability(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		candidate_hash: <span class="kw-2">&amp;</span>CandidateHash,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>PendingAvailability&gt; {
 		<span class="self">self</span>.pending_availability.iter().find(|c| <span class="kw-2">&amp;</span>c.candidate_hash == candidate_hash)
 	}
-
-	<span class="doccomment">/// Get the base constraints of the scope
-	</span><span class="kw">pub fn </span>base_constraints(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Constraints {
-		<span class="kw-2">&amp;</span><span class="self">self</span>.base_constraints
-	}
 }
 
-<span class="kw">pub struct </span>FragmentNode {
+<span class="attr">#[cfg_attr(test, derive(Clone))]
+</span><span class="doccomment">/// A node that is part of a `BackedChain`. It holds constraints based on the ancestors in the
+/// chain.
+</span><span class="kw">struct </span>FragmentNode {
 	fragment: Fragment,
 	candidate_hash: CandidateHash,
 	cumulative_modifications: ConstraintModifications,
+	parent_head_data_hash: Hash,
+	output_head_data_hash: Hash,
 }
 
 <span class="kw">impl </span>FragmentNode {
@@ -1603,211 +2077,336 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Response given by `can_add_candidate_as_potential`
-</span><span class="attr">#[derive(PartialEq, Debug)]
-</span><span class="kw">pub enum </span>PotentialAddition {
-	<span class="doccomment">/// Can be added as either connected or unconnected candidate.
-	</span>Anyhow,
-	<span class="doccomment">/// Can only be added as a connected candidate to the chain.
-	</span>IfConnected,
-	<span class="doccomment">/// Cannot be added.
-	</span><span class="prelude-val">None</span>,
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>FragmentNode&gt; <span class="kw">for </span>CandidateEntry {
+	<span class="kw">fn </span>from(node: <span class="kw-2">&amp;</span>FragmentNode) -&gt; <span class="self">Self </span>{
+		<span class="comment">// We don't need to perform the checks done in `CandidateEntry::new()`, since a
+		// `FragmentNode` always comes from a `CandidateEntry`
+		</span><span class="self">Self </span>{
+			candidate_hash: node.candidate_hash,
+			parent_head_data_hash: node.parent_head_data_hash,
+			output_head_data_hash: node.output_head_data_hash,
+			candidate: node.fragment.candidate_clone(),
+			relay_parent: node.relay_parent(),
+			<span class="comment">// A fragment node is always backed.
+			</span>state: CandidateState::Backed,
+		}
+	}
 }
 
-<span class="doccomment">/// This is a chain of candidates based on some underlying storage of candidates and a scope.
-///
-/// All nodes in the chain must be either pending availability or within the scope. Within the scope
-/// means it's built off of the relay-parent or an ancestor.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>FragmentChain {
-	scope: Scope,
-
-	chain: Vec&lt;FragmentNode&gt;,
-
-	candidates: HashSet&lt;CandidateHash&gt;,
-
-	<span class="comment">// Index from head data hash to candidate hashes with that head data as a parent.
+<span class="doccomment">/// A candidate chain of backed/backable candidates.
+/// Includes the candidates pending availability and candidates which may be backed on-chain.
+</span><span class="attr">#[derive(Default)]
+#[cfg_attr(test, derive(Clone))]
+</span><span class="kw">struct </span>BackedChain {
+	<span class="comment">// Holds the candidate chain.
+	</span>chain: Vec&lt;FragmentNode&gt;,
+	<span class="comment">// Index from head data hash to the candidate hash with that head data as a parent.
+	// Only contains the candidates present in the `chain`.
 	</span>by_parent_head: HashMap&lt;Hash, CandidateHash&gt;,
-	<span class="comment">// Index from head data hash to candidate hashes outputting that head data.
+	<span class="comment">// Index from head data hash to the candidate hash outputting that head data.
+	// Only contains the candidates present in the `chain`.
 	</span>by_output_head: HashMap&lt;Hash, CandidateHash&gt;,
+	<span class="comment">// A set of the candidate hashes in the `chain`.
+	</span>candidates: HashSet&lt;CandidateHash&gt;,
+}
+
+<span class="kw">impl </span>BackedChain {
+	<span class="kw">fn </span>push(<span class="kw-2">&amp;mut </span><span class="self">self</span>, candidate: FragmentNode) {
+		<span class="self">self</span>.candidates.insert(candidate.candidate_hash);
+		<span class="self">self</span>.by_parent_head
+			.insert(candidate.parent_head_data_hash, candidate.candidate_hash);
+		<span class="self">self</span>.by_output_head
+			.insert(candidate.output_head_data_hash, candidate.candidate_hash);
+		<span class="self">self</span>.chain.push(candidate);
+	}
+
+	<span class="kw">fn </span>clear(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Vec&lt;FragmentNode&gt; {
+		<span class="self">self</span>.by_parent_head.clear();
+		<span class="self">self</span>.by_output_head.clear();
+		<span class="self">self</span>.candidates.clear();
+
+		std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.chain)
+	}
+
+	<span class="kw">fn </span>revert_to_parent_hash&lt;<span class="lifetime">'a</span>&gt;(
+		<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span><span class="self">self</span>,
+		parent_head_data_hash: <span class="kw-2">&amp;</span>Hash,
+	) -&gt; <span class="kw">impl </span>Iterator&lt;Item = FragmentNode&gt; + <span class="lifetime">'a </span>{
+		<span class="kw">let </span><span class="kw-2">mut </span>found_index = <span class="prelude-val">None</span>;
+		<span class="kw">for </span>index <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.chain.len() {
+			<span class="kw">let </span>node = <span class="kw-2">&amp;</span><span class="self">self</span>.chain[<span class="number">0</span>];
+
+			<span class="kw">if </span>found_index.is_some() {
+				<span class="self">self</span>.by_parent_head.remove(<span class="kw-2">&amp;</span>node.parent_head_data_hash);
+				<span class="self">self</span>.by_output_head.remove(<span class="kw-2">&amp;</span>node.output_head_data_hash);
+				<span class="self">self</span>.candidates.remove(<span class="kw-2">&amp;</span>node.candidate_hash);
+			} <span class="kw">else if </span><span class="kw-2">&amp;</span>node.output_head_data_hash == parent_head_data_hash {
+				found_index = <span class="prelude-val">Some</span>(index);
+			}
+		}
+
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(index) = found_index {
+			<span class="self">self</span>.chain.drain(min(index + <span class="number">1</span>, <span class="self">self</span>.chain.len())..)
+		} <span class="kw">else </span>{
+			<span class="comment">// Don't remove anything, but use drain to satisfy the compiler.
+			</span><span class="self">self</span>.chain.drain(<span class="number">0</span>..<span class="number">0</span>)
+		}
+	}
+
+	<span class="kw">fn </span>contains(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>CandidateHash) -&gt; bool {
+		<span class="self">self</span>.candidates.contains(hash)
+	}
+}
+
+<span class="doccomment">/// This is the fragment chain specific to an active leaf.
+///
+/// It holds the current best backable candidate chain, as well as potential candidates
+/// which could become connected to the chain in the future or which could even overwrite the
+/// existing chain.
+</span><span class="attr">#[cfg_attr(test, derive(Clone))]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>FragmentChain {
+	<span class="comment">// The current scope, which dictates the on-chain operating constraints that all future
+	// candidates must adhere to.
+	</span>scope: Scope,
+
+	<span class="comment">// The current best chain of backable candidates. It only contains candidates which build on
+	// top of each other and which have reached the backing quorum. In the presence of potential
+	// forks, this chain will pick a fork according to the `fork_selection_rule`.
+	</span>best_chain: BackedChain,
+
+	<span class="comment">// The potential candidate storage. Contains candidates which are not yet part of the `chain`
+	// but may become in the future. These can form any tree shape as well as contain any
+	// unconnected candidates for which we don't know the parent.
+	</span>unconnected: CandidateStorage,
 }
 
 <span class="kw">impl </span>FragmentChain {
-	<span class="doccomment">/// Create a new [`FragmentChain`] with given scope and populated from the storage.
-	</span><span class="kw">pub fn </span>populate(scope: Scope, storage: <span class="kw-2">&amp;</span>CandidateStorage) -&gt; <span class="self">Self </span>{
-		<span class="macro">gum::trace!</span>(
-			target: LOG_TARGET,
-			relay_parent = <span class="question-mark">?</span>scope.relay_parent.hash,
-			relay_parent_num = scope.relay_parent.number,
-			para_id = <span class="question-mark">?</span>scope.para,
-			ancestors = scope.ancestors.len(),
-			<span class="string">"Instantiating Fragment Chain"</span>,
-		);
-
+	<span class="doccomment">/// Create a new [`FragmentChain`] with the given scope and populate it with the candidates
+	/// pending availability.
+	</span><span class="kw">pub fn </span>init(scope: Scope, <span class="kw-2">mut </span>candidates_pending_availability: CandidateStorage) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span><span class="kw-2">mut </span>fragment_chain = <span class="self">Self </span>{
 			scope,
-			chain: Vec::new(),
-			candidates: HashSet::new(),
-			by_parent_head: HashMap::new(),
-			by_output_head: HashMap::new(),
+			best_chain: BackedChain::default(),
+			unconnected: CandidateStorage::default(),
 		};
 
-		fragment_chain.populate_chain(storage);
+		<span class="comment">// We only need to populate the best backable chain. Candidates pending availability must
+		// form a chain with the latest included head.
+		</span>fragment_chain.populate_chain(<span class="kw-2">&amp;mut </span>candidates_pending_availability);
 
 		fragment_chain
 	}
 
-	<span class="doccomment">/// Get the scope of the Fragment Chain.
+	<span class="doccomment">/// Populate the [`FragmentChain`] given the new candidates pending availability and the
+	/// optional previous fragment chain (of the previous relay parent).
+	</span><span class="kw">pub fn </span>populate_from_previous(<span class="kw-2">&amp;mut </span><span class="self">self</span>, prev_fragment_chain: <span class="kw-2">&amp;</span>FragmentChain) {
+		<span class="kw">let </span><span class="kw-2">mut </span>prev_storage = prev_fragment_chain.unconnected.clone();
+
+		<span class="kw">for </span>candidate <span class="kw">in </span>prev_fragment_chain.best_chain.chain.iter() {
+			<span class="comment">// If they used to be pending availability, don't add them. This is fine
+			// because:
+			// - if they still are pending availability, they have already been added to the new
+			//   storage.
+			// - if they were included, no point in keeping them.
+			//
+			// This cannot happen for the candidates in the unconnected storage. The pending
+			// availability candidates will always be part of the best chain.
+			</span><span class="kw">if </span>prev_fragment_chain
+				.scope
+				.get_pending_availability(<span class="kw-2">&amp;</span>candidate.candidate_hash)
+				.is_none()
+			{
+				<span class="kw">let _ </span>= prev_storage.add_candidate_entry(candidate.into());
+			}
+		}
+
+		<span class="comment">// First populate the best backable chain.
+		</span><span class="self">self</span>.populate_chain(<span class="kw-2">&amp;mut </span>prev_storage);
+
+		<span class="comment">// Now that we picked the best backable chain, trim the forks generated by candidates which
+		// are not present in the best chain.
+		</span><span class="self">self</span>.trim_uneligible_forks(<span class="kw-2">&amp;mut </span>prev_storage, <span class="prelude-val">None</span>);
+
+		<span class="comment">// Finally, keep any candidates which haven't been trimmed but still have potential.
+		</span><span class="self">self</span>.populate_unconnected_potential_candidates(prev_storage);
+	}
+
+	<span class="doccomment">/// Get the scope of the [`FragmentChain`].
 	</span><span class="kw">pub fn </span>scope(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Scope {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.scope
 	}
 
-	<span class="doccomment">/// Returns the number of candidates in the chain
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-		<span class="self">self</span>.candidates.len()
+	<span class="doccomment">/// Returns the number of candidates in the best backable chain.
+	</span><span class="kw">pub fn </span>best_chain_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+		<span class="self">self</span>.best_chain.chain.len()
 	}
 
-	<span class="doccomment">/// Whether the candidate exists.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>contains_candidate(<span class="kw-2">&amp;</span><span class="self">self</span>, candidate: <span class="kw-2">&amp;</span>CandidateHash) -&gt; bool {
-		<span class="self">self</span>.candidates.contains(candidate)
+	<span class="doccomment">/// Returns the number of candidates in unconnected potential storage.
+	</span><span class="kw">pub fn </span>unconnected_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+		<span class="self">self</span>.unconnected.len()
+	}
+
+	<span class="doccomment">/// Whether the candidate exists as part of the unconnected potential candidates.
+	</span><span class="kw">pub fn </span>contains_unconnected_candidate(<span class="kw-2">&amp;</span><span class="self">self</span>, candidate: <span class="kw-2">&amp;</span>CandidateHash) -&gt; bool {
+		<span class="self">self</span>.unconnected.contains(candidate)
 	}
 
 	<span class="doccomment">/// Return a vector of the chain's candidate hashes, in-order.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>to_vec(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;CandidateHash&gt; {
-		<span class="self">self</span>.chain.iter().map(|candidate| candidate.candidate_hash).collect()
+	</span><span class="kw">pub fn </span>best_chain_vec(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;CandidateHash&gt; {
+		<span class="self">self</span>.best_chain.chain.iter().map(|candidate| candidate.candidate_hash).collect()
 	}
 
-	<span class="doccomment">/// Try accumulating more candidates onto the chain.
-	///
-	/// Candidates can only be added if they build on the already existing chain.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>extend_from_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, storage: <span class="kw-2">&amp;</span>CandidateStorage) {
-		<span class="self">self</span>.populate_chain(storage);
+	<span class="doccomment">/// Return a vector of the unconnected potential candidate hashes, in arbitrary order.
+	</span><span class="kw">pub fn </span>unconnected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>CandidateEntry&gt; {
+		<span class="self">self</span>.unconnected.candidates()
 	}
 
-	<span class="doccomment">/// Returns the hypothetical state of a candidate with the given hash and parent head data
-	/// in regards to the existing chain.
-	///
-	/// Returns true if either:
-	/// - the candidate is already present
-	/// - the candidate can be added to the chain
-	/// - the candidate could potentially be added to the chain in the future (its ancestors are
-	///   still unknown but it doesn't violate other rules).
-	///
-	/// If this returns false, the candidate could never be added to the current chain (not now, not
-	/// ever)
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>hypothetical_membership(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		candidate: HypotheticalCandidate,
-		candidate_storage: <span class="kw-2">&amp;</span>CandidateStorage,
-	) -&gt; bool {
-		<span class="kw">let </span>candidate_hash = candidate.candidate_hash();
+	<span class="doccomment">/// Return whether this candidate is backed in this chain or the unconnected storage.
+	</span><span class="kw">pub fn </span>is_candidate_backed(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>CandidateHash) -&gt; bool {
+		<span class="self">self</span>.best_chain.candidates.contains(hash) ||
+			<span class="macro">matches!</span>(
+				<span class="self">self</span>.unconnected.by_candidate_hash.get(hash),
+				<span class="prelude-val">Some</span>(candidate) <span class="kw">if </span>candidate.state == CandidateState::Backed
+			)
+	}
 
-		<span class="comment">// If we've already used this candidate in the chain
-		</span><span class="kw">if </span><span class="self">self</span>.candidates.contains(<span class="kw-2">&amp;</span>candidate_hash) {
-			<span class="kw">return </span><span class="bool-val">true
+	<span class="doccomment">/// Mark a candidate as backed. This can trigger a recreation of the best backable chain.
+	</span><span class="kw">pub fn </span>candidate_backed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, newly_backed_candidate: <span class="kw-2">&amp;</span>CandidateHash) {
+		<span class="comment">// Already backed.
+		</span><span class="kw">if </span><span class="self">self</span>.best_chain.candidates.contains(newly_backed_candidate) {
+			<span class="kw">return
 		</span>}
-
-		<span class="kw">let </span>can_add_as_potential = <span class="self">self</span>.can_add_candidate_as_potential(
-			candidate_storage,
-			<span class="kw-2">&amp;</span>candidate.candidate_hash(),
-			<span class="kw-2">&amp;</span>candidate.relay_parent(),
-			candidate.parent_head_data_hash(),
-			candidate.output_head_data_hash(),
-		);
-
-		<span class="kw">if </span>can_add_as_potential == PotentialAddition::None {
-			<span class="kw">return </span><span class="bool-val">false
-		</span>}
-
-		<span class="kw">let </span><span class="prelude-val">Some</span>(candidate_relay_parent) = <span class="self">self</span>.scope.ancestor(<span class="kw-2">&amp;</span>candidate.relay_parent()) <span class="kw">else </span>{
-			<span class="comment">// can_add_candidate_as_potential already checked for this, but just to be safe.
-			</span><span class="kw">return </span><span class="bool-val">false
+		<span class="kw">let </span><span class="prelude-val">Some</span>(parent_head_hash) = <span class="self">self
+			</span>.unconnected
+			.by_candidate_hash
+			.get(newly_backed_candidate)
+			.map(|entry| entry.parent_head_data_hash)
+		<span class="kw">else </span>{
+			<span class="comment">// Candidate is not in unconnected storage.
+			</span><span class="kw">return
 		</span>};
 
-		<span class="kw">let </span>identity_modifications = ConstraintModifications::identity();
-		<span class="kw">let </span>cumulative_modifications = <span class="kw">if let </span><span class="prelude-val">Some</span>(last_candidate) = <span class="self">self</span>.chain.last() {
-			<span class="kw-2">&amp;</span>last_candidate.cumulative_modifications
-		} <span class="kw">else </span>{
-			<span class="kw-2">&amp;</span>identity_modifications
-		};
+		<span class="comment">// Mark the candidate hash.
+		</span><span class="self">self</span>.unconnected.mark_backed(newly_backed_candidate);
 
-		<span class="kw">let </span>child_constraints =
-			<span class="kw">match </span><span class="self">self</span>.scope.base_constraints.apply_modifications(<span class="kw-2">&amp;</span>cumulative_modifications) {
-				<span class="prelude-val">Err</span>(e) =&gt; {
-					<span class="macro">gum::debug!</span>(
-						target: LOG_TARGET,
-						new_parent_head = <span class="question-mark">?</span>cumulative_modifications.required_parent,
-						<span class="question-mark">?</span>candidate_hash,
-						err = <span class="question-mark">?</span>e,
-						<span class="string">"Failed to apply modifications"</span>,
-					);
-
-					<span class="kw">return </span><span class="bool-val">false
-				</span>},
-				<span class="prelude-val">Ok</span>(c) =&gt; c,
-			};
-
-		<span class="kw">let </span>parent_head_hash = candidate.parent_head_data_hash();
-		<span class="kw">if </span>parent_head_hash == child_constraints.required_parent.hash() {
-			<span class="comment">// We do additional checks for complete candidates.
-			</span><span class="kw">if let </span>HypotheticalCandidate::Complete {
-				<span class="kw-2">ref </span>receipt,
-				<span class="kw-2">ref </span>persisted_validation_data,
-				..
-			} = candidate
-			{
-				<span class="kw">if </span>Fragment::check_against_constraints(
-					<span class="kw-2">&amp;</span>candidate_relay_parent,
-					<span class="kw-2">&amp;</span>child_constraints,
-					<span class="kw-2">&amp;</span>receipt.commitments,
-					<span class="kw-2">&amp;</span>receipt.descriptor().validation_code_hash,
-					persisted_validation_data,
-				)
-				.is_err()
-				{
-					<span class="macro">gum::debug!</span>(
-						target: LOG_TARGET,
-						<span class="string">"Fragment::check_against_constraints() returned error"</span>,
-					);
-					<span class="kw">return </span><span class="bool-val">false
-				</span>}
-			}
-
-			<span class="comment">// If we got this far, it can be added to the chain right now.
-			</span><span class="bool-val">true
-		</span>} <span class="kw">else if </span>can_add_as_potential == PotentialAddition::Anyhow {
-			<span class="comment">// Otherwise it is or can be an unconnected candidate, but only if PotentialAddition
-			// does not force us to only add a connected candidate.
-			</span><span class="bool-val">true
-		</span>} <span class="kw">else </span>{
-			<span class="bool-val">false
+		<span class="comment">// Revert to parent_head_hash
+		</span><span class="kw">if </span>!<span class="self">self</span>.revert_to(<span class="kw-2">&amp;</span>parent_head_hash) {
+			<span class="comment">// If nothing was reverted, there is nothing we can do for now.
+			</span><span class="kw">return
 		</span>}
+
+		<span class="kw">let </span><span class="kw-2">mut </span>prev_storage = std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.unconnected);
+
+		<span class="comment">// Populate the chain.
+		</span><span class="self">self</span>.populate_chain(<span class="kw-2">&amp;mut </span>prev_storage);
+
+		<span class="comment">// Now that we picked the best backable chain, trim the forks generated by candidates
+		// which are not present in the best chain. We can start trimming from this candidate
+		// onwards.
+		</span><span class="self">self</span>.trim_uneligible_forks(<span class="kw-2">&amp;mut </span>prev_storage, <span class="prelude-val">Some</span>(parent_head_hash));
+
+		<span class="comment">// Finally, keep any candidates which haven't been trimmed but still have potential.
+		</span><span class="self">self</span>.populate_unconnected_potential_candidates(prev_storage);
 	}
 
-	<span class="doccomment">/// Select `count` candidates after the given `ancestors` which pass
-	/// the predicate and have not already been backed on chain.
+	<span class="doccomment">/// Checks if this candidate could be added in the future to this chain.
+	/// This will return `Error::CandidateAlreadyKnown` if the candidate is already in the chain or
+	/// the unconnected candidate storage.
+	</span><span class="kw">pub fn </span>can_add_candidate_as_potential(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		candidate: <span class="kw-2">&amp;</span><span class="kw">impl </span>HypotheticalOrConcreteCandidate,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		<span class="kw">let </span>candidate_hash = candidate.candidate_hash();
+
+		<span class="kw">if </span><span class="self">self</span>.best_chain.contains(<span class="kw-2">&amp;</span>candidate_hash) || <span class="self">self</span>.unconnected.contains(<span class="kw-2">&amp;</span>candidate_hash) {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::CandidateAlreadyKnown)
+		}
+
+		<span class="self">self</span>.check_potential(candidate)
+	}
+
+	<span class="doccomment">/// Try adding a seconded candidate, if the candidate has potential. It will never be added to
+	/// the chain directly in the seconded state, it will only be part of the unconnected storage.
+	</span><span class="kw">pub fn </span>try_adding_seconded_candidate(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		candidate: <span class="kw-2">&amp;</span>CandidateEntry,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		<span class="kw">if </span>candidate.state == CandidateState::Backed {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::IntroduceBackedCandidate);
+		}
+
+		<span class="self">self</span>.can_add_candidate_as_potential(candidate)<span class="question-mark">?</span>;
+
+		<span class="comment">// This clone is cheap, as it uses an Arc for the expensive stuff.
+		// We can't consume the candidate because other fragment chains may use it also.
+		</span><span class="self">self</span>.unconnected.add_candidate_entry(candidate.clone())<span class="question-mark">?</span>;
+
+		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="doccomment">/// Try getting the full head data associated with this hash.
+	</span><span class="kw">pub fn </span>get_head_data_by_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, head_data_hash: <span class="kw-2">&amp;</span>Hash) -&gt; <span class="prelude-ty">Option</span>&lt;HeadData&gt; {
+		<span class="comment">// First, see if this is the head data of the latest included candidate.
+		</span><span class="kw">let </span>required_parent = <span class="kw-2">&amp;</span><span class="self">self</span>.scope.base_constraints().required_parent;
+		<span class="kw">if </span><span class="kw-2">&amp;</span>required_parent.hash() == head_data_hash {
+			<span class="kw">return </span><span class="prelude-val">Some</span>(required_parent.clone())
+		}
+
+		<span class="comment">// Cheaply check if the head data is in the best backable chain.
+		</span><span class="kw">let </span>has_head_data_in_chain = <span class="self">self
+			</span>.best_chain
+			.by_parent_head
+			.get(head_data_hash)
+			.or_else(|| <span class="self">self</span>.best_chain.by_output_head.get(head_data_hash))
+			.is_some();
+
+		<span class="kw">if </span>has_head_data_in_chain {
+			<span class="kw">return </span><span class="self">self</span>.best_chain.chain.iter().find_map(|candidate| {
+				<span class="kw">if </span><span class="kw-2">&amp;</span>candidate.parent_head_data_hash == head_data_hash {
+					<span class="prelude-val">Some</span>(
+						candidate
+							.fragment
+							.candidate()
+							.persisted_validation_data
+							.parent_head
+							.clone(),
+					)
+				} <span class="kw">else if </span><span class="kw-2">&amp;</span>candidate.output_head_data_hash == head_data_hash {
+					<span class="prelude-val">Some</span>(candidate.fragment.candidate().commitments.head_data.clone())
+				} <span class="kw">else </span>{
+					<span class="prelude-val">None
+				</span>}
+			});
+		}
+
+		<span class="comment">// Lastly, try getting the head data from the unconnected candidates.
+		</span><span class="self">self</span>.unconnected.head_data_by_hash(head_data_hash).cloned()
+	}
+
+	<span class="doccomment">/// Select `count` candidates after the given `ancestors` which can be backed on chain next.
 	///
 	/// The intention of the `ancestors` is to allow queries on the basis of
 	/// one or more candidates which were previously pending availability becoming
 	/// available or candidates timing out.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>find_backable_chain(
+	</span><span class="kw">pub fn </span>find_backable_chain(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		ancestors: Ancestors,
 		count: u32,
-		pred: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>CandidateHash) -&gt; bool,
-	) -&gt; Vec&lt;CandidateHash&gt; {
+	) -&gt; Vec&lt;(CandidateHash, Hash)&gt; {
 		<span class="kw">if </span>count == <span class="number">0 </span>{
 			<span class="kw">return </span><span class="macro">vec!</span>[]
 		}
 		<span class="kw">let </span>base_pos = <span class="self">self</span>.find_ancestor_path(ancestors);
 
-		<span class="kw">let </span>actual_end_index = std::cmp::min(base_pos + (count <span class="kw">as </span>usize), <span class="self">self</span>.chain.len());
+		<span class="kw">let </span>actual_end_index =
+			std::cmp::min(base_pos + (count <span class="kw">as </span>usize), <span class="self">self</span>.best_chain.chain.len());
 		<span class="kw">let </span><span class="kw-2">mut </span>res = Vec::with_capacity(actual_end_index - base_pos);
 
-		<span class="kw">for </span>elem <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.chain[base_pos..actual_end_index] {
-			<span class="kw">if </span><span class="self">self</span>.scope.get_pending_availability(<span class="kw-2">&amp;</span>elem.candidate_hash).is_none() &amp;&amp;
-				pred(<span class="kw-2">&amp;</span>elem.candidate_hash)
-			{
-				res.push(elem.candidate_hash);
+		<span class="kw">for </span>elem <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.best_chain.chain[base_pos..actual_end_index] {
+			<span class="comment">// Only supply candidates which are not yet pending availability. `ancestors` should
+			// have already contained them, but check just in case.
+			</span><span class="kw">if </span><span class="self">self</span>.scope.get_pending_availability(<span class="kw-2">&amp;</span>elem.candidate_hash).is_none() {
+				res.push((elem.candidate_hash, elem.relay_parent()));
 			} <span class="kw">else </span>{
 				<span class="kw">break
 			</span>}
@@ -1820,11 +2419,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// Stops when the ancestors are all used or when a node in the chain is not present in the
 	// ancestor set. Returns the index in the chain were the search stopped.
 	</span><span class="kw">fn </span>find_ancestor_path(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>ancestors: Ancestors) -&gt; usize {
-		<span class="kw">if </span><span class="self">self</span>.chain.is_empty() {
+		<span class="kw">if </span><span class="self">self</span>.best_chain.chain.is_empty() {
 			<span class="kw">return </span><span class="number">0</span>;
 		}
 
-		<span class="kw">for </span>(index, candidate) <span class="kw">in </span><span class="self">self</span>.chain.iter().enumerate() {
+		<span class="kw">for </span>(index, candidate) <span class="kw">in </span><span class="self">self</span>.best_chain.chain.iter().enumerate() {
 			<span class="kw">if </span>!ancestors.remove(<span class="kw-2">&amp;</span>candidate.candidate_hash) {
 				<span class="kw">return </span>index
 			}
@@ -1832,16 +2431,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// This means that we found the entire chain in the ancestor set. There won't be anything
 		// left to back.
-		</span><span class="self">self</span>.chain.len()
+		</span><span class="self">self</span>.best_chain.chain.len()
 	}
 
-	<span class="comment">// Return the earliest relay parent a new candidate can have in order to be added to the chain.
-	// This is the relay parent of the last candidate in the chain.
+	<span class="comment">// Return the earliest relay parent a new candidate can have in order to be added to the chain
+	// right now. This is the relay parent of the last candidate in the chain.
 	// The value returned may not be valid if we want to add a candidate pending availability, which
 	// may have a relay parent which is out of scope. Special handling is needed in that case.
 	// `None` is returned if the candidate's relay parent info cannot be found.
 	</span><span class="kw">fn </span>earliest_relay_parent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;RelayChainBlockInfo&gt; {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(last_candidate) = <span class="self">self</span>.chain.last() {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(last_candidate) = <span class="self">self</span>.best_chain.chain.last() {
 			<span class="self">self</span>.scope.ancestor(<span class="kw-2">&amp;</span>last_candidate.relay_parent()).or_else(|| {
 				<span class="comment">// if the relay-parent is out of scope _and_ it is in the chain,
 				// it must be a candidate pending availability.
@@ -1854,152 +2453,239 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="comment">// Checks if this candidate could be added in the future to this chain.
-	// This assumes that the chain does not already contain this candidate. It may or may not be
-	// present in the `CandidateStorage`.
-	// Even if the candidate is a potential candidate, this function will indicate that it can be
-	// kept only if there's enough room for it.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>can_add_candidate_as_potential(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		storage: <span class="kw-2">&amp;</span>CandidateStorage,
-		candidate_hash: <span class="kw-2">&amp;</span>CandidateHash,
-		relay_parent: <span class="kw-2">&amp;</span>Hash,
-		parent_head_hash: Hash,
-		output_head_hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; PotentialAddition {
-		<span class="comment">// If we've got enough candidates for the configured depth, no point in adding more.
-		</span><span class="kw">if </span><span class="self">self</span>.chain.len() &gt; <span class="self">self</span>.scope.max_depth {
-			<span class="kw">return </span>PotentialAddition::None
-		}
+	<span class="comment">// Return the earliest relay parent a potential candidate may have for it to ever be added to
+	// the chain. This is the relay parent of the last candidate pending availability or the
+	// earliest relay parent in scope.
+	</span><span class="kw">fn </span>earliest_relay_parent_pending_availability(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RelayChainBlockInfo {
+		<span class="self">self</span>.best_chain
+			.chain
+			.iter()
+			.rev()
+			.find_map(|candidate| {
+				<span class="self">self</span>.scope
+					.get_pending_availability(<span class="kw-2">&amp;</span>candidate.candidate_hash)
+					.map(|c| c.relay_parent.clone())
+			})
+			.unwrap_or_else(|| <span class="self">self</span>.scope.earliest_relay_parent())
+	}
 
-		<span class="kw">if </span>!<span class="self">self</span>.check_potential(relay_parent, parent_head_hash, output_head_hash) {
-			<span class="kw">return </span>PotentialAddition::None
-		}
+	<span class="comment">// Populate the unconnected potential candidate storage starting from a previous storage.
+	</span><span class="kw">fn </span>populate_unconnected_potential_candidates(<span class="kw-2">&amp;mut </span><span class="self">self</span>, old_storage: CandidateStorage) {
+		<span class="kw">for </span>candidate <span class="kw">in </span>old_storage.by_candidate_hash.into_values() {
+			<span class="comment">// Sanity check, all pending availability candidates should be already present in the
+			// chain.
+			</span><span class="kw">if </span><span class="self">self</span>.scope.get_pending_availability(<span class="kw-2">&amp;</span>candidate.candidate_hash).is_some() {
+				<span class="kw">continue
+			</span>}
 
-		<span class="kw">let </span>present_in_storage = storage.contains(candidate_hash);
-
-		<span class="kw">let </span>unconnected = <span class="self">self
-			</span>.find_unconnected_potential_candidates(
-				storage,
-				present_in_storage.then_some(candidate_hash),
-			)
-			.len();
-
-		<span class="kw">if </span>(<span class="self">self</span>.chain.len() + unconnected) &lt; <span class="self">self</span>.scope.max_depth {
-			PotentialAddition::Anyhow
-		} <span class="kw">else if </span>(<span class="self">self</span>.chain.len() + unconnected) == <span class="self">self</span>.scope.max_depth {
-			<span class="comment">// If we've only one slot left to fill, it must be filled with a connected candidate.
-			</span>PotentialAddition::IfConnected
-		} <span class="kw">else </span>{
-			PotentialAddition::None
+			<span class="kw">match </span><span class="self">self</span>.can_add_candidate_as_potential(<span class="kw-2">&amp;</span>candidate) {
+				<span class="prelude-val">Ok</span>(()) =&gt; {
+					<span class="kw">let _ </span>= <span class="self">self</span>.unconnected.add_candidate_entry(candidate);
+				},
+				<span class="comment">// Swallow these errors as they can legitimately happen when pruning stale
+				// candidates.
+				</span><span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {},
+			};
 		}
 	}
 
-	<span class="comment">// The candidates which are present in `CandidateStorage`, are not part of this chain but could
-	// become part of this chain in the future. Capped at the max depth minus the existing chain
-	// length.
-	// If `ignore_candidate` is supplied and found in storage, it won't be counted.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>find_unconnected_potential_candidates(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		storage: <span class="kw-2">&amp;</span>CandidateStorage,
-		ignore_candidate: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>CandidateHash&gt;,
-	) -&gt; Vec&lt;CandidateHash&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>candidates = <span class="macro">vec!</span>[];
-		<span class="kw">for </span>candidate <span class="kw">in </span>storage.candidates() {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(ignore_candidate) = ignore_candidate {
-				<span class="kw">if </span>ignore_candidate == <span class="kw-2">&amp;</span>candidate.candidate_hash {
-					<span class="kw">continue
-				</span>}
-			}
-			<span class="comment">// We stop at max_depth + 1 with the search. There's no point in looping further.
-			</span><span class="kw">if </span>(<span class="self">self</span>.chain.len() + candidates.len()) &gt; <span class="self">self</span>.scope.max_depth {
-				<span class="kw">break
-			</span>}
-			<span class="kw">if </span>!<span class="self">self</span>.candidates.contains(<span class="kw-2">&amp;</span>candidate.candidate_hash) &amp;&amp;
-				<span class="self">self</span>.check_potential(
-					<span class="kw-2">&amp;</span>candidate.relay_parent,
-					candidate.candidate.persisted_validation_data.parent_head.hash(),
-					<span class="prelude-val">Some</span>(candidate.candidate.commitments.head_data.hash()),
-				) {
-				candidates.push(candidate.candidate_hash);
-			}
+	<span class="comment">// Check whether a candidate outputting this head data would introduce a cycle or multiple paths
+	// to the same state. Trivial 0-length cycles are checked in `CandidateEntry::new`.
+	</span><span class="kw">fn </span>check_cycles_or_invalid_tree(<span class="kw-2">&amp;</span><span class="self">self</span>, output_head_hash: <span class="kw-2">&amp;</span>Hash) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		<span class="comment">// this should catch a cycle where this candidate would point back to the parent of some
+		// candidate in the chain.
+		</span><span class="kw">if </span><span class="self">self</span>.best_chain.by_parent_head.contains_key(output_head_hash) {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Cycle)
 		}
 
-		candidates
+		<span class="comment">// multiple paths to the same state, which can't happen for a chain.
+		</span><span class="kw">if </span><span class="self">self</span>.best_chain.by_output_head.contains_key(output_head_hash) {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::MultiplePaths)
+		}
+
+		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="comment">// Check if adding a candidate which transitions `parent_head_hash` to `output_head_hash` would
-	// introduce a fork or a cycle in the parachain.
-	// `output_head_hash` is optional because we sometimes make this check before retrieving the
-	// collation.
-	</span><span class="kw">fn </span>is_fork_or_cycle(<span class="kw-2">&amp;</span><span class="self">self</span>, parent_head_hash: Hash, output_head_hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; bool {
-		<span class="kw">if </span><span class="self">self</span>.by_parent_head.contains_key(<span class="kw-2">&amp;</span>parent_head_hash) {
-			<span class="comment">// fork. our parent has another child already
-			</span><span class="kw">return </span><span class="bool-val">true
-		</span>}
-
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(output_head_hash) = output_head_hash {
-			<span class="kw">if </span><span class="self">self</span>.by_output_head.contains_key(<span class="kw-2">&amp;</span>output_head_hash) {
-				<span class="comment">// this is not a chain, there are multiple paths to the same state.
-				</span><span class="kw">return </span><span class="bool-val">true
-			</span>}
-
-			<span class="comment">// trivial 0-length cycle.
-			</span><span class="kw">if </span>parent_head_hash == output_head_hash {
-				<span class="kw">return </span><span class="bool-val">true
-			</span>}
-
-			<span class="comment">// this should catch any other cycles. our output state cannot already be the parent
-			// state of another candidate, unless this is a cycle, since the already added
-			// candidates form a chain.
-			</span><span class="kw">if </span><span class="self">self</span>.by_parent_head.contains_key(<span class="kw-2">&amp;</span>output_head_hash) {
-				<span class="kw">return </span><span class="bool-val">true
-			</span>}
-		}
-
-		<span class="bool-val">false
-	</span>}
-
-	<span class="comment">// Checks the potential of a candidate to be added to the chain in the future.
-	// Verifies that the relay parent is in scope and not moving backwards and that we're not
-	// introducing forks or cycles with other candidates in the chain.
-	// `output_head_hash` is optional because we sometimes make this check before retrieving the
-	// collation.
+	<span class="comment">// Checks the potential of a candidate to be added to the chain now or in the future.
+	// It works both with concrete candidates for which we have the full PVD and committed receipt,
+	// but also does some more basic checks for incomplete candidates (before even fetching them).
 	</span><span class="kw">fn </span>check_potential(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		relay_parent: <span class="kw-2">&amp;</span>Hash,
-		parent_head_hash: Hash,
-		output_head_hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; bool {
-		<span class="kw">if </span><span class="self">self</span>.is_fork_or_cycle(parent_head_hash, output_head_hash) {
-			<span class="kw">return </span><span class="bool-val">false
-		</span>}
+		candidate: <span class="kw-2">&amp;</span><span class="kw">impl </span>HypotheticalOrConcreteCandidate,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		<span class="kw">let </span>relay_parent = candidate.relay_parent();
+		<span class="kw">let </span>parent_head_hash = candidate.parent_head_data_hash();
 
-		<span class="kw">let </span><span class="prelude-val">Some</span>(earliest_rp) = <span class="self">self</span>.earliest_relay_parent() <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
+		<span class="comment">// trivial 0-length cycle.
+		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(output_head_hash) = candidate.output_head_data_hash() {
+			<span class="kw">if </span>parent_head_hash == output_head_hash {
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::ZeroLengthCycle)
+			}
+		}
 
-		<span class="kw">let </span><span class="prelude-val">Some</span>(relay_parent) = <span class="self">self</span>.scope.ancestor(relay_parent) <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
-
-		<span class="kw">if </span>relay_parent.number &lt; earliest_rp.number {
-			<span class="kw">return </span><span class="bool-val">false </span><span class="comment">// relay parent moved backwards.
-		</span>}
-
-		<span class="bool-val">true
-	</span>}
-
-	<span class="comment">// Populate the fragment chain with candidates from CandidateStorage.
-	// Can be called by the constructor or when introducing a new candidate.
-	// If we're introducing a new candidate onto an existing chain, we may introduce more than one,
-	// since we may connect already existing candidates to the chain.
-	</span><span class="kw">fn </span>populate_chain(<span class="kw-2">&amp;mut </span><span class="self">self</span>, storage: <span class="kw-2">&amp;</span>CandidateStorage) {
-		<span class="kw">let </span><span class="kw-2">mut </span>cumulative_modifications = <span class="kw">if let </span><span class="prelude-val">Some</span>(last_candidate) = <span class="self">self</span>.chain.last() {
-			last_candidate.cumulative_modifications.clone()
-		} <span class="kw">else </span>{
-			ConstraintModifications::identity()
+		<span class="comment">// Check if the relay parent is in scope.
+		</span><span class="kw">let </span><span class="prelude-val">Some</span>(relay_parent) = <span class="self">self</span>.scope.ancestor(<span class="kw-2">&amp;</span>relay_parent) <span class="kw">else </span>{
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::RelayParentNotInScope(
+				relay_parent,
+				<span class="self">self</span>.scope.earliest_relay_parent().hash,
+			))
 		};
+
+		<span class="comment">// Check if the relay parent moved backwards from the latest candidate pending availability.
+		</span><span class="kw">let </span>earliest_rp_of_pending_availability = <span class="self">self</span>.earliest_relay_parent_pending_availability();
+		<span class="kw">if </span>relay_parent.number &lt; earliest_rp_of_pending_availability.number {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::RelayParentPrecedesCandidatePendingAvailability(
+				relay_parent.hash,
+				earliest_rp_of_pending_availability.hash,
+			))
+		}
+
+		<span class="comment">// If it's a fork with a backed candidate in the current chain.
+		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(other_candidate) = <span class="self">self</span>.best_chain.by_parent_head.get(<span class="kw-2">&amp;</span>parent_head_hash) {
+			<span class="kw">if </span><span class="self">self</span>.scope().get_pending_availability(other_candidate).is_some() {
+				<span class="comment">// Cannot accept a fork with a candidate pending availability.
+				</span><span class="kw">return </span><span class="prelude-val">Err</span>(Error::ForkWithCandidatePendingAvailability(<span class="kw-2">*</span>other_candidate))
+			}
+
+			<span class="comment">// If the candidate is backed and in the current chain, accept only a candidate
+			// according to the fork selection rule.
+			</span><span class="kw">if </span>fork_selection_rule(other_candidate, <span class="kw-2">&amp;</span>candidate.candidate_hash()) == Ordering::Less {
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::ForkChoiceRule(<span class="kw-2">*</span>other_candidate))
+			}
+		}
+
+		<span class="comment">// Try seeing if the parent candidate is in the current chain or if it is the latest
+		// included candidate. If so, get the constraints the candidate must satisfy.
+		</span><span class="kw">let </span>(constraints, maybe_min_relay_parent_number) =
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(parent_candidate) = <span class="self">self</span>.best_chain.by_output_head.get(<span class="kw-2">&amp;</span>parent_head_hash) {
+				<span class="kw">let </span><span class="prelude-val">Some</span>(parent_candidate) =
+					<span class="self">self</span>.best_chain.chain.iter().find(|c| <span class="kw-2">&amp;</span>c.candidate_hash == parent_candidate)
+				<span class="kw">else </span>{
+					<span class="comment">// Should never really happen.
+					</span><span class="kw">return </span><span class="prelude-val">Err</span>(Error::ParentCandidateNotFound)
+				};
+
+				(
+					<span class="self">self</span>.scope
+						.base_constraints
+						.apply_modifications(<span class="kw-2">&amp;</span>parent_candidate.cumulative_modifications)
+						.map_err(Error::ComputeConstraints)<span class="question-mark">?</span>,
+					<span class="self">self</span>.scope.ancestor(<span class="kw-2">&amp;</span>parent_candidate.relay_parent()).map(|rp| rp.number),
+				)
+			} <span class="kw">else if </span><span class="self">self</span>.scope.base_constraints.required_parent.hash() == parent_head_hash {
+				<span class="comment">// It builds on the latest included candidate.
+				</span>(<span class="self">self</span>.scope.base_constraints.clone(), <span class="prelude-val">None</span>)
+			} <span class="kw">else </span>{
+				<span class="comment">// If the parent is not yet part of the chain, there's nothing else we can check for
+				// now.
+				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(())
+			};
+
+		<span class="comment">// Check for cycles or invalid tree transitions.
+		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>output_head_hash) = candidate.output_head_data_hash() {
+			<span class="self">self</span>.check_cycles_or_invalid_tree(output_head_hash)<span class="question-mark">?</span>;
+		}
+
+		<span class="comment">// Check against constraints if we have a full concrete candidate.
+		</span><span class="kw">if let </span>(<span class="prelude-val">Some</span>(commitments), <span class="prelude-val">Some</span>(pvd), <span class="prelude-val">Some</span>(validation_code_hash)) = (
+			candidate.commitments(),
+			candidate.persisted_validation_data(),
+			candidate.validation_code_hash(),
+		) {
+			Fragment::check_against_constraints(
+				<span class="kw-2">&amp;</span>relay_parent,
+				<span class="kw-2">&amp;</span>constraints,
+				commitments,
+				validation_code_hash,
+				pvd,
+			)
+			.map_err(Error::CheckAgainstConstraints)<span class="question-mark">?</span>;
+		}
+
+		<span class="kw">if </span>relay_parent.number &lt; constraints.min_relay_parent_number {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::RelayParentMovedBackwards)
+		}
+
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(earliest_rp) = maybe_min_relay_parent_number {
+			<span class="kw">if </span>relay_parent.number &lt; earliest_rp {
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::RelayParentMovedBackwards)
+			}
+		}
+
+		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="comment">// Once the backable chain was populated, trim the forks generated by candidates which
+	// are not present in the best chain. Fan this out into a full breadth-first search.
+	// If `starting_point` is `Some()`, start the search from the candidates having this parent head
+	// hash.
+	</span><span class="kw">fn </span>trim_uneligible_forks(<span class="kw-2">&amp;</span><span class="self">self</span>, storage: <span class="kw-2">&amp;mut </span>CandidateStorage, starting_point: <span class="prelude-ty">Option</span>&lt;Hash&gt;) {
+		<span class="comment">// Start out with the candidates in the chain. They are all valid candidates.
+		</span><span class="kw">let </span><span class="kw-2">mut </span>queue: VecDeque&lt;<span class="kw">_</span>&gt; = <span class="kw">if let </span><span class="prelude-val">Some</span>(starting_point) = starting_point {
+			[(starting_point, <span class="bool-val">true</span>)].into_iter().collect()
+		} <span class="kw">else </span>{
+			<span class="kw">if </span><span class="self">self</span>.best_chain.chain.is_empty() {
+				[(<span class="self">self</span>.scope.base_constraints.required_parent.hash(), <span class="bool-val">true</span>)]
+					.into_iter()
+					.collect()
+			} <span class="kw">else </span>{
+				<span class="self">self</span>.best_chain.chain.iter().map(|c| (c.parent_head_data_hash, <span class="bool-val">true</span>)).collect()
+			}
+		};
+		<span class="comment">// To make sure that cycles don't make us loop forever, keep track of the visited parent
+		// heads.
+		</span><span class="kw">let </span><span class="kw-2">mut </span>visited = HashSet::new();
+
+		<span class="kw">while let </span><span class="prelude-val">Some</span>((parent, parent_has_potential)) = queue.pop_front() {
+			visited.insert(parent);
+
+			<span class="kw">let </span><span class="prelude-val">Some</span>(children) = storage.by_parent_head.get(<span class="kw-2">&amp;</span>parent) <span class="kw">else </span>{ <span class="kw">continue </span>};
+			<span class="comment">// Cannot remove while iterating so store them here temporarily.
+			</span><span class="kw">let </span><span class="kw-2">mut </span>to_remove = <span class="macro">vec!</span>[];
+
+			<span class="kw">for </span>child_hash <span class="kw">in </span>children.iter() {
+				<span class="kw">let </span><span class="prelude-val">Some</span>(child) = storage.by_candidate_hash.get(child_hash) <span class="kw">else </span>{ <span class="kw">continue </span>};
+
+				<span class="comment">// Already visited this parent. Either is a cycle or multiple paths that lead to the
+				// same candidate. Either way, stop this branch to avoid looping forever.
+				</span><span class="kw">if </span>visited.contains(<span class="kw-2">&amp;</span>child.output_head_data_hash) {
+					<span class="kw">continue
+				</span>}
+
+				<span class="comment">// Only keep a candidate if its full ancestry was already kept as potential and this
+				// candidate itself has potential.
+				</span><span class="kw">if </span>parent_has_potential &amp;&amp; <span class="self">self</span>.check_potential(child).is_ok() {
+					queue.push_back((child.output_head_data_hash, <span class="bool-val">true</span>));
+				} <span class="kw">else </span>{
+					<span class="comment">// Otherwise, remove this candidate and continue looping for its children, but
+					// mark the parent's potential as `false`. We only want to remove its
+					// children.
+					</span>to_remove.push(<span class="kw-2">*</span>child_hash);
+					queue.push_back((child.output_head_data_hash, <span class="bool-val">false</span>));
+				}
+			}
+
+			<span class="kw">for </span>hash <span class="kw">in </span>to_remove {
+				storage.remove_candidate(<span class="kw-2">&amp;</span>hash);
+			}
+		}
+	}
+
+	<span class="comment">// Populate the fragment chain with candidates from the supplied `CandidateStorage`.
+	// Can be called by the constructor or when backing a new candidate.
+	// When this is called, it may cause the previous chain to be completely erased or it may add
+	// more than one candidate.
+	</span><span class="kw">fn </span>populate_chain(<span class="kw-2">&amp;mut </span><span class="self">self</span>, storage: <span class="kw-2">&amp;mut </span>CandidateStorage) {
+		<span class="kw">let </span><span class="kw-2">mut </span>cumulative_modifications =
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(last_candidate) = <span class="self">self</span>.best_chain.chain.last() {
+				last_candidate.cumulative_modifications.clone()
+			} <span class="kw">else </span>{
+				ConstraintModifications::identity()
+			};
 		<span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>earliest_rp) = <span class="self">self</span>.earliest_relay_parent() <span class="kw">else </span>{ <span class="kw">return </span>};
 
 		<span class="kw">loop </span>{
-			<span class="kw">if </span><span class="self">self</span>.chain.len() &gt; <span class="self">self</span>.scope.max_depth {
+			<span class="kw">if </span><span class="self">self</span>.best_chain.chain.len() &gt; <span class="self">self</span>.scope.max_depth {
 				<span class="kw">break</span>;
 			}
 
@@ -2019,115 +2705,159 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				};
 
 			<span class="kw">let </span>required_head_hash = child_constraints.required_parent.hash();
-			<span class="comment">// Even though we don't allow parachain forks under the same active leaf, they may still
-			// appear under different relay chain forks, hence the iterator below.
-			</span><span class="kw">let </span>possible_children = storage.possible_para_children(<span class="kw-2">&amp;</span>required_head_hash);
-			<span class="kw">let </span><span class="kw-2">mut </span>added_child = <span class="bool-val">false</span>;
-			<span class="kw">for </span>candidate <span class="kw">in </span>possible_children {
-				<span class="comment">// Add one node to chain if
-				// 1. it does not introduce a fork or a cycle.
-				// 2. parent hash is correct.
-				// 3. relay-parent does not move backwards.
-				// 4. all non-pending-availability candidates have relay-parent in scope.
-				// 5. candidate outputs fulfill constraints
 
-				</span><span class="kw">if </span><span class="self">self</span>.is_fork_or_cycle(
-					candidate.parent_head_data_hash(),
-					<span class="prelude-val">Some</span>(candidate.output_head_data_hash()),
-				) {
-					<span class="kw">continue
-				</span>}
+			<span class="comment">// Select the few possible backed/backable children which can be added to the chain
+			// right now.
+			</span><span class="kw">let </span>possible_children = storage
+				.possible_backed_para_children(<span class="kw-2">&amp;</span>required_head_hash)
+				.filter_map(|candidate| {
+					<span class="comment">// Only select a candidate if:
+					// 1. it does not introduce a fork or a cycle.
+					// 2. parent hash is correct.
+					// 3. relay-parent does not move backwards.
+					// 4. all non-pending-availability candidates have relay-parent in scope.
+					// 5. candidate outputs fulfill constraints
 
-				<span class="kw">let </span>pending = <span class="self">self</span>.scope.get_pending_availability(<span class="kw-2">&amp;</span>candidate.candidate_hash);
-				<span class="kw">let </span><span class="prelude-val">Some</span>(relay_parent) = pending
-					.map(|p| p.relay_parent.clone())
-					.or_else(|| <span class="self">self</span>.scope.ancestor(<span class="kw-2">&amp;</span>candidate.relay_parent))
-				<span class="kw">else </span>{
-					<span class="kw">continue
-				</span>};
+					</span><span class="kw">let </span>pending = <span class="self">self</span>.scope.get_pending_availability(<span class="kw-2">&amp;</span>candidate.candidate_hash);
+					<span class="kw">let </span><span class="prelude-val">Some</span>(relay_parent) = pending
+						.map(|p| p.relay_parent.clone())
+						.or_else(|| <span class="self">self</span>.scope.ancestor(<span class="kw-2">&amp;</span>candidate.relay_parent))
+					<span class="kw">else </span>{
+						<span class="kw">return </span><span class="prelude-val">None
+					</span>};
 
-				<span class="comment">// require: candidates don't move backwards
-				// and only pending availability candidates can be out-of-scope.
-				//
-				// earliest_rp can be before the earliest relay parent in the scope
-				// when the parent is a pending availability candidate as well, but
-				// only other pending candidates can have a relay parent out of scope.
-				</span><span class="kw">let </span>min_relay_parent_number = pending
-					.map(|p| <span class="kw">match </span><span class="self">self</span>.chain.len() {
-						<span class="number">0 </span>=&gt; p.relay_parent.number,
-						<span class="kw">_ </span>=&gt; earliest_rp.number,
-					})
-					.unwrap_or_else(|| earliest_rp.number);
+					<span class="kw">if </span><span class="self">self</span>.check_cycles_or_invalid_tree(<span class="kw-2">&amp;</span>candidate.output_head_data_hash).is_err()
+					{
+						<span class="kw">return </span><span class="prelude-val">None
+					</span>}
 
-				<span class="kw">if </span>relay_parent.number &lt; min_relay_parent_number {
-					<span class="kw">continue </span><span class="comment">// relay parent moved backwards.
-				</span>}
+					<span class="comment">// require: candidates don't move backwards
+					// and only pending availability candidates can be out-of-scope.
+					//
+					// earliest_rp can be before the earliest relay parent in the scope
+					// when the parent is a pending availability candidate as well, but
+					// only other pending candidates can have a relay parent out of scope.
+					</span><span class="kw">let </span>min_relay_parent_number = pending
+						.map(|p| <span class="kw">match </span><span class="self">self</span>.best_chain.chain.len() {
+							<span class="number">0 </span>=&gt; p.relay_parent.number,
+							<span class="kw">_ </span>=&gt; earliest_rp.number,
+						})
+						.unwrap_or_else(|| earliest_rp.number);
 
-				<span class="comment">// don't add candidates if they're already present in the chain.
-				// this can never happen, as candidates can only be duplicated if there's a cycle
-				// and we shouldn't have allowed for a cycle to be chained.
-				</span><span class="kw">if </span><span class="self">self</span>.contains_candidate(<span class="kw-2">&amp;</span>candidate.candidate_hash) {
-					<span class="kw">continue
-				</span>}
+					<span class="kw">if </span>relay_parent.number &lt; min_relay_parent_number {
+						<span class="kw">return </span><span class="prelude-val">None </span><span class="comment">// relay parent moved backwards.
+					</span>}
 
-				<span class="kw">let </span>fragment = {
-					<span class="kw">let </span><span class="kw-2">mut </span>constraints = child_constraints.clone();
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>p) = pending {
-						<span class="comment">// overwrite for candidates pending availability as a special-case.
-						</span>constraints.min_relay_parent_number = p.relay_parent.number;
+					<span class="comment">// don't add candidates if they're already present in the chain.
+					// this can never happen, as candidates can only be duplicated if there's a
+					// cycle and we shouldn't have allowed for a cycle to be chained.
+					</span><span class="kw">if </span><span class="self">self</span>.best_chain.contains(<span class="kw-2">&amp;</span>candidate.candidate_hash) {
+						<span class="kw">return </span><span class="prelude-val">None
+					</span>}
+
+					<span class="kw">let </span>fragment = {
+						<span class="kw">let </span><span class="kw-2">mut </span>constraints = child_constraints.clone();
+						<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>p) = pending {
+							<span class="comment">// overwrite for candidates pending availability as a special-case.
+							</span>constraints.min_relay_parent_number = p.relay_parent.number;
+						}
+
+						<span class="kw">let </span>f = Fragment::new(
+							relay_parent.clone(),
+							constraints,
+							<span class="comment">// It's cheap to clone because it's wrapped in an Arc
+							</span>candidate.candidate.clone(),
+						);
+
+						<span class="kw">match </span>f {
+							<span class="prelude-val">Ok</span>(f) =&gt; f,
+							<span class="prelude-val">Err</span>(e) =&gt; {
+								<span class="macro">gum::debug!</span>(
+									target: LOG_TARGET,
+									err = <span class="question-mark">?</span>e,
+									<span class="question-mark">?</span>relay_parent,
+									candidate_hash = <span class="question-mark">?</span>candidate.candidate_hash,
+									<span class="string">"Failed to instantiate fragment"</span>,
+								);
+
+								<span class="kw">return </span><span class="prelude-val">None
+							</span>},
+						}
+					};
+
+					<span class="prelude-val">Some</span>((
+						fragment,
+						candidate.candidate_hash,
+						candidate.output_head_data_hash,
+						candidate.parent_head_data_hash,
+					))
+				});
+
+			<span class="comment">// Choose the best candidate.
+			</span><span class="kw">let </span>best_candidate =
+				possible_children.min_by(|(<span class="kw">_</span>, <span class="kw-2">ref </span>child1, <span class="kw">_</span>, <span class="kw">_</span>), (<span class="kw">_</span>, <span class="kw-2">ref </span>child2, <span class="kw">_</span>, <span class="kw">_</span>)| {
+					<span class="comment">// Always pick a candidate pending availability as best.
+					</span><span class="kw">if </span><span class="self">self</span>.scope.get_pending_availability(child1).is_some() {
+						Ordering::Less
+					} <span class="kw">else if </span><span class="self">self</span>.scope.get_pending_availability(child2).is_some() {
+						Ordering::Greater
+					} <span class="kw">else </span>{
+						<span class="comment">// Otherwise, use the fork selection rule.
+						</span>fork_selection_rule(child1, child2)
 					}
+				});
 
-					<span class="kw">let </span>f = Fragment::new(
-						relay_parent.clone(),
-						constraints,
-						<span class="comment">// It's cheap to clone because it's wrapped in an Arc
-						</span>candidate.candidate.clone(),
-					);
-
-					<span class="kw">match </span>f {
-						<span class="prelude-val">Ok</span>(f) =&gt; f,
-						<span class="prelude-val">Err</span>(e) =&gt; {
-							<span class="macro">gum::debug!</span>(
-								target: LOG_TARGET,
-								err = <span class="question-mark">?</span>e,
-								<span class="question-mark">?</span>relay_parent,
-								candidate_hash = <span class="question-mark">?</span>candidate.candidate_hash,
-								<span class="string">"Failed to instantiate fragment"</span>,
-							);
-
-							<span class="kw">break
-						</span>},
-					}
-				};
+			<span class="kw">if let </span><span class="prelude-val">Some</span>((fragment, candidate_hash, output_head_data_hash, parent_head_data_hash)) =
+				best_candidate
+			{
+				<span class="comment">// Remove the candidate from storage.
+				</span>storage.remove_candidate(<span class="kw-2">&amp;</span>candidate_hash);
 
 				<span class="comment">// Update the cumulative constraint modifications.
 				</span>cumulative_modifications.stack(fragment.constraint_modifications());
 				<span class="comment">// Update the earliest rp
-				</span>earliest_rp = relay_parent;
+				</span>earliest_rp = fragment.relay_parent().clone();
 
 				<span class="kw">let </span>node = FragmentNode {
 					fragment,
-					candidate_hash: candidate.candidate_hash,
+					candidate_hash,
+					parent_head_data_hash,
+					output_head_data_hash,
 					cumulative_modifications: cumulative_modifications.clone(),
 				};
 
-				<span class="self">self</span>.chain.push(node);
-				<span class="self">self</span>.candidates.insert(candidate.candidate_hash);
-				<span class="comment">// We've already checked for forks and cycles.
-				</span><span class="self">self</span>.by_parent_head
-					.insert(candidate.parent_head_data_hash(), candidate.candidate_hash);
-				<span class="self">self</span>.by_output_head
-					.insert(candidate.output_head_data_hash(), candidate.candidate_hash);
-				added_child = <span class="bool-val">true</span>;
-				<span class="comment">// We can only add one child for a candidate. (it's a chain, not a tree)
-				</span><span class="kw">break</span>;
-			}
-
-			<span class="kw">if </span>!added_child {
+				<span class="comment">// Add the candidate to the chain now.
+				</span><span class="self">self</span>.best_chain.push(node);
+			} <span class="kw">else </span>{
 				<span class="kw">break
 			</span>}
 		}
 	}
+
+	<span class="comment">// Revert the best backable chain so that the last candidate will be one outputting the given
+	// `parent_head_hash`. If the `parent_head_hash` is exactly the required parent of the base
+	// constraints (builds on the latest included candidate), revert the entire chain.
+	// Return false if we couldn't find the parent head hash.
+	</span><span class="kw">fn </span>revert_to(<span class="kw-2">&amp;mut </span><span class="self">self</span>, parent_head_hash: <span class="kw-2">&amp;</span>Hash) -&gt; bool {
+		<span class="kw">let </span><span class="kw-2">mut </span>removed_items = <span class="prelude-val">None</span>;
+		<span class="kw">if </span><span class="kw-2">&amp;</span><span class="self">self</span>.scope.base_constraints.required_parent.hash() == parent_head_hash {
+			removed_items = <span class="prelude-val">Some</span>(<span class="self">self</span>.best_chain.clear());
+		}
+
+		<span class="kw">if </span>removed_items.is_none() &amp;&amp; <span class="self">self</span>.best_chain.by_output_head.contains_key(parent_head_hash)
+		{
+			removed_items = <span class="prelude-val">Some</span>(<span class="self">self</span>.best_chain.revert_to_parent_hash(parent_head_hash).collect());
+		}
+
+		<span class="kw">let </span><span class="prelude-val">Some</span>(removed_items) = removed_items <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
+
+		<span class="comment">// Even if it's empty, we need to return true, because we'll be able to add a new candidate
+		// to the chain.
+		</span><span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;</span>removed_items {
+			<span class="kw">let _ </span>= <span class="self">self</span>.unconnected.add_candidate_entry(node.into());
+		}
+		<span class="bool-val">true
+	</span>}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

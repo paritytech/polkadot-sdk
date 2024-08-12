@@ -1401,6 +1401,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1250" id="1250">1250</a>
 <a href="#1251" id="1251">1251</a>
 <a href="#1252" id="1252">1252</a>
+<a href="#1253" id="1253">1253</a>
+<a href="#1254" id="1254">1254</a>
+<a href="#1255" id="1255">1255</a>
+<a href="#1256" id="1256">1256</a>
+<a href="#1257" id="1257">1257</a>
+<a href="#1258" id="1258">1258</a>
+<a href="#1259" id="1259">1259</a>
+<a href="#1260" id="1260">1260</a>
+<a href="#1261" id="1261">1261</a>
+<a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
+<a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1446,13 +1472,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>polkadot_primitives::{
 	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate,
-	BlockNumber, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt, CollatorId,
-	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, HeadData, Header <span class="kw">as </span>BlockHeader, Id <span class="kw">as </span>ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, MultiDisputeStatementSet, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, PvfExecKind, SessionIndex, SessionInfo,
-	SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash, CandidateIndex,
+	CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header <span class="kw">as </span>BlockHeader,
+	Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
+	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, PvfExecKind,
+	SessionIndex, SessionInfo, SignedAvailabilityBitfield, SignedAvailabilityBitfields,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 <span class="kw">use </span>polkadot_statement_table::v2::Misbehavior;
 <span class="kw">use </span>std::{
@@ -2526,6 +2552,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 			HypotheticalCandidate::Complete { <span class="kw-2">ref </span>receipt, .. } =&gt;
 				<span class="prelude-val">Some</span>(receipt.descriptor.para_head),
+			HypotheticalCandidate::Incomplete { .. } =&gt; <span class="prelude-val">None</span>,
+		}
+	}
+
+	<span class="doccomment">/// Get the candidate commitments, if the candidate is complete.
+	</span><span class="kw">pub fn </span>commitments(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>CandidateCommitments&gt; {
+		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
+			HypotheticalCandidate::Complete { <span class="kw-2">ref </span>receipt, .. } =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>receipt.commitments),
+			HypotheticalCandidate::Incomplete { .. } =&gt; <span class="prelude-val">None</span>,
+		}
+	}
+
+	<span class="doccomment">/// Get the persisted validation data, if the candidate is complete.
+	</span><span class="kw">pub fn </span>persisted_validation_data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>PersistedValidationData&gt; {
+		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
+			HypotheticalCandidate::Complete { <span class="kw-2">ref </span>persisted_validation_data, .. } =&gt;
+				<span class="prelude-val">Some</span>(persisted_validation_data),
+			HypotheticalCandidate::Incomplete { .. } =&gt; <span class="prelude-val">None</span>,
+		}
+	}
+
+	<span class="doccomment">/// Get the validation code hash, if the candidate is complete.
+	</span><span class="kw">pub fn </span>validation_code_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>ValidationCodeHash&gt; {
+		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
+			HypotheticalCandidate::Complete { <span class="kw-2">ref </span>receipt, .. } =&gt;
+				<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>receipt.descriptor.validation_code_hash),
 			HypotheticalCandidate::Incomplete { .. } =&gt; <span class="prelude-val">None</span>,
 		}
 	}

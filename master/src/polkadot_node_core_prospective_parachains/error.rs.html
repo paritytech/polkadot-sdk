@@ -221,21 +221,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -269,18 +254,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #[fatality::fatality(splitable)]
 </span><span class="kw">pub enum </span>Error {
 	<span class="attr">#[fatal]
-	#[error(<span class="string">"SubsystemError::Context error: {0}"</span>)]
-	</span>SubsystemContext(String),
-
-	<span class="attr">#[fatal]
-	#[error(<span class="string">"Spawning a task failed: {0}"</span>)]
-	</span>SpawnFailed(SubsystemError),
-
-	<span class="attr">#[fatal]
-	#[error(<span class="string">"Participation worker receiver exhausted."</span>)]
-	</span>ParticipationWorkerReceiverExhausted,
-
-	<span class="attr">#[fatal]
 	#[error(<span class="string">"Receiving message from overseer failed: {0}"</span>)]
 	</span>SubsystemReceive(<span class="attr">#[source] </span>SubsystemError),
 
@@ -292,9 +265,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[error(transparent)]
 	</span>ChainApi(<span class="attr">#[from] </span>ChainApiError),
-
-	<span class="attr">#[error(transparent)]
-	</span>Subsystem(SubsystemError),
 
 	<span class="attr">#[error(<span class="string">"Request to chain API subsystem dropped"</span>)]
 	</span>ChainApiRequestCanceled(oneshot::Canceled),

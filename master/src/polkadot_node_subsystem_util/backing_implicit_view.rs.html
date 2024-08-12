@@ -1241,6 +1241,82 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1090" id="1090">1090</a>
 <a href="#1091" id="1091">1091</a>
 <a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
+<a href="#1153" id="1153">1153</a>
+<a href="#1154" id="1154">1154</a>
+<a href="#1155" id="1155">1155</a>
+<a href="#1156" id="1156">1156</a>
+<a href="#1157" id="1157">1157</a>
+<a href="#1158" id="1158">1158</a>
+<a href="#1159" id="1159">1159</a>
+<a href="#1160" id="1160">1160</a>
+<a href="#1161" id="1161">1161</a>
+<a href="#1162" id="1162">1162</a>
+<a href="#1163" id="1163">1163</a>
+<a href="#1164" id="1164">1164</a>
+<a href="#1165" id="1165">1165</a>
+<a href="#1166" id="1166">1166</a>
+<a href="#1167" id="1167">1167</a>
+<a href="#1168" id="1168">1168</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1268,6 +1344,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use crate</span>::{
+	inclusion_emulator::RelayChainBlockInfo,
 	request_session_index_for_child,
 	runtime::{<span class="self">self</span>, prospective_parachains_mode, recv_runtime, ProspectiveParachainsMode},
 };
@@ -1364,6 +1441,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	parent_hash: Hash,
 }
 
+<span class="doccomment">/// Information about a relay-chain block, to be used when calling this module from prospective
+/// parachains.
+</span><span class="attr">#[derive(Debug, Clone, PartialEq)]
+</span><span class="kw">pub struct </span>BlockInfoProspectiveParachains {
+	<span class="doccomment">/// The hash of the relay-chain block.
+	</span><span class="kw">pub </span>hash: Hash,
+	<span class="doccomment">/// The hash of the parent relay-chain block.
+	</span><span class="kw">pub </span>parent_hash: Hash,
+	<span class="doccomment">/// The number of the relay-chain block.
+	</span><span class="kw">pub </span>number: BlockNumber,
+	<span class="doccomment">/// The storage-root of the relay-chain block.
+	</span><span class="kw">pub </span>storage_root: Hash,
+}
+
+<span class="kw">impl </span>From&lt;BlockInfoProspectiveParachains&gt; <span class="kw">for </span>RelayChainBlockInfo {
+	<span class="kw">fn </span>from(value: BlockInfoProspectiveParachains) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ hash: value.hash, number: value.number, storage_root: value.storage_root }
+	}
+}
+
 <span class="kw">impl </span>View {
 	<span class="doccomment">/// Get an iterator over active leaves in the view.
 	</span><span class="kw">pub fn </span>leaves(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>Hash&gt; {
@@ -1419,6 +1516,61 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e),
 		}
+	}
+
+	<span class="doccomment">/// Activate a leaf in the view. To be used by the prospective parachains subsystem.
+	///
+	/// This will not request any additional data, as prospective parachains already provides all
+	/// the required info.
+	/// NOTE: using `activate_leaf` instead of this function will result in a
+	/// deadlock, as it calls prospective-parachains under the hood.
+	///
+	/// No-op for known leaves.
+	</span><span class="kw">pub fn </span>activate_leaf_from_prospective_parachains(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		leaf: BlockInfoProspectiveParachains,
+		ancestors: <span class="kw-2">&amp;</span>[BlockInfoProspectiveParachains],
+	) {
+		<span class="kw">if </span><span class="self">self</span>.leaves.contains_key(<span class="kw-2">&amp;</span>leaf.hash) {
+			<span class="kw">return
+		</span>}
+
+		<span class="comment">// Retain at least `MINIMUM_RETAIN_LENGTH` blocks in storage.
+		// This helps to avoid Chain API calls when activating leaves in the
+		// same chain.
+		</span><span class="kw">let </span>retain_minimum = std::cmp::min(
+			ancestors.last().map(|a| a.number).unwrap_or(<span class="number">0</span>),
+			leaf.number.saturating_sub(MINIMUM_RETAIN_LENGTH),
+		);
+
+		<span class="self">self</span>.leaves.insert(leaf.hash, ActiveLeafPruningInfo { retain_minimum });
+		<span class="kw">let </span><span class="kw-2">mut </span>allowed_relay_parents = AllowedRelayParents {
+			allowed_relay_parents_contiguous: Vec::with_capacity(ancestors.len()),
+			<span class="comment">// In this case, initialise this to an empty map, as prospective parachains already has
+			// this data and it won't query the implicit view for it.
+			</span>minimum_relay_parents: HashMap::new(),
+		};
+
+		<span class="kw">for </span>ancestor <span class="kw">in </span>ancestors {
+			<span class="self">self</span>.block_info_storage.insert(
+				ancestor.hash,
+				BlockInfo {
+					block_number: ancestor.number,
+					maybe_allowed_relay_parents: <span class="prelude-val">None</span>,
+					parent_hash: ancestor.parent_hash,
+				},
+			);
+			allowed_relay_parents.allowed_relay_parents_contiguous.push(ancestor.hash);
+		}
+
+		<span class="self">self</span>.block_info_storage.insert(
+			leaf.hash,
+			BlockInfo {
+				block_number: leaf.number,
+				maybe_allowed_relay_parents: <span class="prelude-val">Some</span>(allowed_relay_parents),
+				parent_hash: leaf.parent_hash,
+			},
+		);
 	}
 
 	<span class="doccomment">/// Deactivate a leaf in the view. This prunes any outdated implicit ancestors as well.
