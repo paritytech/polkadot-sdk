@@ -92,9 +92,9 @@ fn voting_action_works() {
         let voting_period = <Test as Config>::VotingPeriod::get();
         let voting_lock_period = <Test as Config>::VoteLockingPeriod::get(); 
         let now = <Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
-
         let round_ending_block = now.clone().saturating_add(voting_period.into());
         let voting_locked_block = round_ending_block.saturating_sub(voting_lock_period.into());
+
         let first_round_info:VotingRoundInfo<Test> =  VotingRoundInfo {
             round_number: 0,
             round_starting_block: now,
@@ -197,6 +197,119 @@ fn rewards_calculation_works() {
     assert_eq!(rewards[1].amount,25000);
 
 })
+}
+
+#[test]
+fn vote_removal_works(){
+    new_test_ext().execute_with(||{
+        create_project_list();
+        next_block();
+        let now = <Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
+
+        // Bob nominate project_102 with an amount of 1000
+        assert_ok!(
+            Opf::vote(
+                RawOrigin::Signed(BOB).into(),
+                101,
+                1000,
+                true
+            )
+        );
+
+        // Voter's funds are locked
+        let locked_balance0 = 
+        <<Test as pallet_distribution::Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
+            &pallet_distribution::HoldReason::FundsReserved.into(),
+            &BOB,
+        );
+        // Vote is in storage and balance is locked
+        assert!(locked_balance0 > Zero::zero());
+        assert_eq!(Votes::<Test>::get(101,BOB).is_some(),true);
+
+        // Bob removes his vote
+        assert_ok!(Opf::remove_vote(
+            RawOrigin::Signed(BOB).into(),
+            101,
+        ));
+        
+        let locked_balance1 = 
+        <<Test as pallet_distribution::Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
+            &pallet_distribution::HoldReason::FundsReserved.into(),
+            &BOB,
+        );
+     
+        // No more votes in storage and balance is unlocked
+        assert_eq!(Votes::<Test>::get(101,BOB).is_some(), false);
+        assert_eq!(locked_balance1, Zero::zero());
+
+
+
+    })
+}
+
+#[test]
+fn vote_move_works() {
+    new_test_ext().execute_with(||{
+        create_project_list();
+        next_block();
+
+        let now = <Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
+
+        // Bob nominate project_102 with an amount of 1000
+        assert_ok!(
+            Opf::vote(
+                RawOrigin::Signed(BOB).into(),
+                101,
+                1000,
+                true
+            )
+        );
+
+        expect_events(vec!{
+            RuntimeEvent::Opf(Event::VoteCasted{
+                who: BOB,
+                when: now,
+                project_id:101,
+            })
+        });
+
+        // Bob nominate project_103 with an amount of 5000
+        assert_ok!(
+            Opf::vote(
+                RawOrigin::Signed(BOB).into(),
+                103,
+                5000,
+                true
+            )
+        );
+
+         // Voter's funds are locked
+         let locked_balance0 = 
+         <<Test as pallet_distribution::Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
+             &pallet_distribution::HoldReason::FundsReserved.into(),
+             &BOB,
+         );
+   assert!(locked_balance0 > Zero::zero());
+
+         // Bob changes amount in project_103 to 4500
+         assert_ok!(
+            Opf::vote(
+                RawOrigin::Signed(BOB).into(),
+                103,
+                4500,
+                true
+            )
+        );
+
+        // Storage was correctly updated 
+        let vote_info = Votes::<Test>::get(103,BOB).unwrap();
+        assert_eq!(4500,vote_info.amount);
+
+        
+
+    })
+
+
 
 
     
