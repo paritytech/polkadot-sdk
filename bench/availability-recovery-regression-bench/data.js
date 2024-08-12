@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723484901871,
+  "lastUpdate": 1723501329884,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -17345,6 +17345,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1710010058,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "eskimor",
+            "username": "eskimor",
+            "email": "eskimor@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "819a5818284a96a5a5bd65ce67e69bab860d4534",
+          "message": "Bump authoring duration for async backing to 2s. (#5195)\n\nShould be safe on all production network. \n\nI noticed that Paseo needs to be updated, it is lacking behind in a\ncouple of things.\n\nExecution environment parameters should be updated to those of Polkadot:\n\n```\n[\n      {\n        MaxMemoryPages: 8,192\n      }\n      {\n        PvfExecTimeout: [\n          Backing\n          2,500\n        ]\n      }\n      {\n        PvfExecTimeout: [\n          Approval\n          15,000\n        ]\n      }\n    ]\n  ]\n  ```\n\n---------\n\nCo-authored-by: eskimor <eskimor@no-such-url.com>",
+          "timestamp": "2024-08-12T20:34:22Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/819a5818284a96a5a5bd65ce67e69bab860d4534"
+        },
+        "date": 1723501298269,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.73127522723333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1538617917,
             "unit": "seconds"
           }
         ]
