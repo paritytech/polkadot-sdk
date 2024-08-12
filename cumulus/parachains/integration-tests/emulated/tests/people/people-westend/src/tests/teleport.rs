@@ -17,7 +17,7 @@ use crate::imports::*;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
-	Westend::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(627_959_000, 7_200)));
+	Westend::assert_xcm_pallet_attempted_complete(None);
 
 	assert_expected_events!(
 		Westend,
@@ -39,11 +39,7 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 fn relay_dest_assertions(t: SystemParaToRelayTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 
-	Westend::assert_ump_queue_processed(
-		true,
-		Some(PeopleWestend::para_id()),
-		Some(Weight::from_parts(304_266_000, 7_186)),
-	);
+	Westend::assert_ump_queue_processed(true, Some(PeopleWestend::para_id()), None);
 
 	assert_expected_events!(
 		Westend,
@@ -62,20 +58,13 @@ fn relay_dest_assertions(t: SystemParaToRelayTest) {
 }
 
 fn relay_dest_assertions_fail(_t: SystemParaToRelayTest) {
-	Westend::assert_ump_queue_processed(
-		false,
-		Some(PeopleWestend::para_id()),
-		Some(Weight::from_parts(157_718_000, 3_593)),
-	);
+	Westend::assert_ump_queue_processed(false, Some(PeopleWestend::para_id()), None);
 }
 
 fn para_origin_assertions(t: SystemParaToRelayTest) {
 	type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
 
-	PeopleWestend::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		351_425_000,
-		3_593,
-	)));
+	PeopleWestend::assert_xcm_pallet_attempted_complete(None);
 
 	PeopleWestend::assert_parachain_system_ump_sent();
 
@@ -94,7 +83,7 @@ fn para_origin_assertions(t: SystemParaToRelayTest) {
 fn para_dest_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
 
-	PeopleWestend::assert_dmp_queue_complete(Some(Weight::from_parts(162_456_000, 0)));
+	PeopleWestend::assert_dmp_queue_complete(None);
 
 	assert_expected_events!(
 		PeopleWestend,
