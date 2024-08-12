@@ -31,9 +31,9 @@ use polkadot_primitives::{
 	},
 	slashing,
 	vstaging::{
-		async_backing::BackingState, CandidateEvent, async_backing::CandidatePendingAvailability,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, OccupiedCore,
-		ScrapedOnChainVotes,
+		async_backing::{BackingState, CandidatePendingAvailability},
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		OccupiedCore, ScrapedOnChainVotes,
 	},
 	ApprovalVotingParams, AuthorityDiscoveryId, CandidateHash, CoreIndex, DisputeState,
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,

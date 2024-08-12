@@ -39,6 +39,7 @@ use sp_core::RuntimeDebug;
 use sp_runtime::traits::Header as HeaderT;
 use sp_staking::SessionIndex;
 
+/// Async backing primitives
 pub mod async_backing;
 
 /// Scheduler configuration parameters. All coretime/ondemand parameters are here.
@@ -209,6 +210,7 @@ impl<H> CandidateDescriptorV2<H> {
 		}
 	}
 
+	/// Set the PoV size in the descriptor. Only for tests.
 	#[cfg(feature = "test")]
 	pub fn set_pov_hash(&mut self, pov_hash: Hash) {
 		self.pov_hash = pov_hash;
@@ -456,7 +458,8 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 		collator_id.append(&mut session_index.as_slice().to_vec());
 		collator_id.append(&mut self.reserved25b.as_slice().to_vec());
 
-		CollatorId::from_slice(&collator_id.as_slice()).expect("Slice size is exactly 32 bytes")
+		CollatorId::from_slice(&collator_id.as_slice())
+			.expect("Slice size is exactly 32 bytes; qed")
 	}
 
 	/// Returns the collator id if this is a v1 `CandidateDescriptor`
@@ -470,7 +473,7 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 
 	fn rebuild_signature_field(&self) -> CollatorSignature {
 		CollatorSignature::from_slice(self.reserved64b.as_slice())
-			.expect("Slice size is exactly 64 bytes")
+			.expect("Slice size is exactly 64 bytes; qed")
 	}
 
 	/// Returns the collator signature of `V1` candidate descriptors, `None` otherwise.
