@@ -351,8 +351,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use adapter::{Member, Pool, StakeStrategy};
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use codec::Codec;
+use core::{fmt::Debug, ops::Div};
 use frame_support::{
 	defensive, defensive_assert, ensure,
 	pallet_prelude::{MaxEncodedLen, *},
@@ -375,7 +379,6 @@ use sp_runtime::{
 	FixedPointNumber, Perbill,
 };
 use sp_staking::{EraIndex, StakingInterface};
-use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, ops::Div, vec::Vec};
 
 #[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 use sp_runtime::TryRuntimeError;
@@ -494,7 +497,6 @@ impl ClaimPermission {
 	frame_support::PartialEqNoBound,
 )]
 #[cfg_attr(feature = "std", derive(DefaultNoBound))]
-#[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct PoolMember<T: Config> {
 	/// The identifier of the pool to which `who` belongs.
@@ -950,14 +952,14 @@ pub struct BondedPool<T: Config> {
 	inner: BondedPoolInner<T>,
 }
 
-impl<T: Config> sp_std::ops::Deref for BondedPool<T> {
+impl<T: Config> core::ops::Deref for BondedPool<T> {
 	type Target = BondedPoolInner<T>;
 	fn deref(&self) -> &Self::Target {
 		&self.inner
 	}
 }
 
-impl<T: Config> sp_std::ops::DerefMut for BondedPool<T> {
+impl<T: Config> core::ops::DerefMut for BondedPool<T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.inner
 	}
@@ -1983,8 +1985,13 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Stake funds with a pool. The amount to bond is transferred from the member to the
-		/// pools account and immediately increases the pools bond.
+		/// Stake funds with a pool. The amount to bond is transferred from the member to the pool
+		/// account and immediately increases the pools bond.
+		///
+		/// The method of transferring the amount to the pool account is determined by
+		/// [`adapter::StakeStrategyType`]. If the pool is configured to use
+		/// [`adapter::StakeStrategyType::Delegate`], the funds remain in the account of
+		/// the `origin`, while the pool gains the right to use these funds for staking.
 		///
 		/// # Note
 		///
@@ -2601,7 +2608,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let mut bonded_pool = match ensure_root(origin.clone()) {
 				Ok(()) => BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?,
-				Err(frame_support::error::BadOrigin) => {
+				Err(sp_runtime::traits::BadOrigin) => {
 					let who = ensure_signed(origin)?;
 					let bonded_pool =
 						BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;

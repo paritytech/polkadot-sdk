@@ -110,8 +110,6 @@ test-linux-stable-codecov:
         codecovcli -v do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --git-service github;
       fi
 
-  #
-
 test-linux-stable:
   stage: test
   extends:
@@ -398,6 +396,11 @@ test-frame-ui:
   script:
     - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental
     - time cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,frame-feature-testing-2,no-metadata-docs,try-runtime,experimental
+    - time cargo test --locked -q --profile testnet -p xcm-procedural
+    - time cargo test --locked -q --profile testnet -p frame-election-provider-solution-type
+    - time cargo test --locked -q --profile testnet -p sp-api-test
+    # There is multiple version of sp-runtime-interface in the repo. So we point to the manifest.
+    - time cargo test --locked -q --profile testnet --manifest-path substrate/primitives/runtime-interface/Cargo.toml
     - cat /cargo_target_dir/debug/.fingerprint/memory_units-759eddf317490d2b/lib-memory_units.json || true
 
 # This job runs all benchmarks defined in the `/bin/node/runtime` once to check that there are no errors.

@@ -69,3 +69,11 @@ pub fn non_fee_asset(assets: &Assets, fee_idx: usize) -> Option<(Location, u128)
 	};
 	Some((asset.id.0, asset_amount))
 }
+
+pub fn get_amount_from_versioned_assets(assets: VersionedAssets) -> u128 {
+	let latest_assets: Assets = assets.try_into().unwrap();
+	let Fungible(amount) = latest_assets.inner()[0].fun else {
+		unreachable!("asset is non-fungible");
+	};
+	amount
+}

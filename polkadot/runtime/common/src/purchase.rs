@@ -16,6 +16,7 @@
 
 //! Pallet to process purchase of DOTs.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{
 	pallet_prelude::*,
@@ -29,7 +30,6 @@ use sp_runtime::{
 	traits::{CheckedAdd, Saturating, Verify, Zero},
 	AnySignature, DispatchError, DispatchResult, Permill, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;

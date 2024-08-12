@@ -49,6 +49,7 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 [features]
 default = ["cli", "db", "full-node"]
 db = ["polkadot-service/db"]
+metadata-hash = ["polkadot-service/metadata-hash"]
 service = ["dep:polkadot-service"]
 cli = [
 	"clap",

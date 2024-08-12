@@ -21,6 +21,7 @@
 //! See the [`crate::traits::fungible`] doc for more information about fungible traits.
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::cmp::Ordering;
 use frame_support::traits::{
 	fungible::imbalance,
 	tokens::{
@@ -36,7 +37,6 @@ use sp_runtime::{
 	Either::{Left, Right},
 	RuntimeDebug,
 };
-use sp_std::cmp::Ordering;
 
 /// The `NativeOrWithId` enum classifies an asset as either `Native` to the current chain or as an
 /// asset with a specific ID.
@@ -101,7 +101,7 @@ impl<AssetId: Ord> Convert<NativeOrWithId<AssetId>, Either<(), AssetId>> for Nat
 /// - `AssetKind` is a superset type encompassing asset kinds from `Left` and `Right` sets.
 /// - `AccountId` is an account identifier type.
 pub struct UnionOf<Left, Right, Criterion, AssetKind, AccountId>(
-	sp_std::marker::PhantomData<(Left, Right, Criterion, AssetKind, AccountId)>,
+	core::marker::PhantomData<(Left, Right, Criterion, AssetKind, AccountId)>,
 );
 
 impl<
@@ -664,7 +664,7 @@ pub struct ConvertImbalanceDropHandler<
 	Balance,
 	AssetId,
 	AccountId,
->(sp_std::marker::PhantomData<(Left, Right, Criterion, AssetKind, Balance, AssetId, AccountId)>);
+>(core::marker::PhantomData<(Left, Right, Criterion, AssetKind, Balance, AssetId, AccountId)>);
 
 impl<
 		Left: fungible::HandleImbalanceDrop<Balance>,

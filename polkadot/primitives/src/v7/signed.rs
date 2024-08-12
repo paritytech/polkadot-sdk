@@ -17,11 +17,11 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
+use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use sp_application_crypto::AppCrypto;
 #[cfg(feature = "std")]
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
-use sp_std::prelude::Vec;
 
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::AppVerify;
@@ -57,7 +57,7 @@ pub struct UncheckedSigned<Payload, RealPayload = Payload> {
 	/// The signature by the validator of the signed payload.
 	signature: ValidatorSignature,
 	/// This ensures the real payload is tracked at the typesystem level.
-	real_payload: sp_std::marker::PhantomData<RealPayload>,
+	real_payload: core::marker::PhantomData<RealPayload>,
 }
 
 impl<Payload: EncodeAs<RealPayload>, RealPayload: Encode> Signed<Payload, RealPayload> {
@@ -163,7 +163,7 @@ impl<Payload: EncodeAs<RealPayload>, RealPayload: Encode> Signed<Payload, RealPa
 				payload: claimed,
 				validator_index: self.0.validator_index,
 				signature: self.0.signature,
-				real_payload: sp_std::marker::PhantomData,
+				real_payload: core::marker::PhantomData,
 			}))
 		} else {
 			Err((self, claimed))
@@ -191,7 +191,7 @@ impl<Payload: EncodeAs<RealPayload>, RealPayload: Encode> Signed<Payload, RealPa
 				payload: converted,
 				validator_index: self.0.validator_index,
 				signature: self.0.signature,
-				real_payload: sp_std::marker::PhantomData,
+				real_payload: core::marker::PhantomData,
 			}))
 		} else {
 			Err(converted)
@@ -258,7 +258,7 @@ impl<Payload: EncodeAs<RealPayload>, RealPayload: Encode> UncheckedSigned<Payloa
 			signature: self.signature.clone(),
 			validator_index: self.validator_index,
 			payload: (&self.payload).into(),
-			real_payload: sp_std::marker::PhantomData,
+			real_payload: core::marker::PhantomData,
 		}
 	}
 
@@ -316,7 +316,7 @@ impl<Payload: EncodeAs<RealPayload>, RealPayload: Encode> UncheckedSigned<Payloa
 		let data = Self::payload_data(&payload, context);
 		let signature = public.sign(&data).unwrap();
 
-		Self { payload, validator_index, signature, real_payload: sp_std::marker::PhantomData }
+		Self { payload, validator_index, signature, real_payload: core::marker::PhantomData }
 	}
 
 	/// Immutably access the signature.

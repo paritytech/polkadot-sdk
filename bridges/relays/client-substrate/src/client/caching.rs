@@ -462,7 +462,11 @@ impl<C: Chain, B: Client<C>> Client<C> for CachingClient<C, B> {
 		.await
 	}
 
-	async fn prove_storage(&self, at: HashOf<C>, keys: Vec<StorageKey>) -> Result<StorageProof> {
+	async fn prove_storage(
+		&self,
+		at: HashOf<C>,
+		keys: Vec<StorageKey>,
+	) -> Result<(StorageProof, HashOf<C>)> {
 		self.backend.prove_storage(at, keys).await
 	}
 }

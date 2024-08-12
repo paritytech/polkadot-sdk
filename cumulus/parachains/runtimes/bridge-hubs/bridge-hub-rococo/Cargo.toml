@@ -26,6 +26,7 @@ serde = { optional = true, features = ["derive"], workspace = true, default-feat
 # Substrate
 frame-benchmarking = { optional = true, workspace = true }
 frame-executive = { workspace = true }
+frame-metadata-hash-extension = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
@@ -96,7 +97,7 @@ bp-parachains = { workspace = true }
 bp-polkadot-bulletin = { workspace = true }
 bp-polkadot-core = { workspace = true }
 bp-relayers = { workspace = true }
-bp-runtime = { workspace = true }
+bp-runtime = { features = ["test-helpers"], workspace = true }
 bp-rococo = { workspace = true }
 bp-westend = { workspace = true }
 pallet-bridge-grandpa = { workspace = true }
@@ -121,7 +122,6 @@ snowbridge-runtime-common = { workspace = true }
 bridge-hub-common = { workspace = true }
 
 [dev-dependencies]
-static_assertions = { workspace = true, default-features = true }
 bridge-hub-test-utils = { workspace = true, default-features = true }
 bridge-runtime-common = { features = [
 	"integrity-test",
@@ -160,6 +160,7 @@ std = [
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",

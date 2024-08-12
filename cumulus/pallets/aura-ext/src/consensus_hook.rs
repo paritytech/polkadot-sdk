@@ -20,6 +20,7 @@
 //! The velocity `V` refers to the rate of block processing by the relay chain.
 
 use super::{pallet, Aura};
+use core::{marker::PhantomData, num::NonZeroU32};
 use cumulus_pallet_parachain_system::{
 	self as parachain_system,
 	consensus_hook::{ConsensusHook, UnincludedSegmentCapacity},
@@ -27,7 +28,6 @@ use cumulus_pallet_parachain_system::{
 };
 use frame_support::pallet_prelude::*;
 use sp_consensus_aura::{Slot, SlotDuration};
-use sp_std::{marker::PhantomData, num::NonZeroU32};
 
 /// A consensus hook for a fixed block processing velocity and unincluded segment capacity.
 ///
@@ -84,7 +84,7 @@ where
 
 		(
 			weight,
-			NonZeroU32::new(sp_std::cmp::max(C, 1))
+			NonZeroU32::new(core::cmp::max(C, 1))
 				.expect("1 is the minimum value and non-zero; qed")
 				.into(),
 		)

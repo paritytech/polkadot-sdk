@@ -94,6 +94,9 @@ pub mod migration;
 mod types;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
@@ -101,7 +104,6 @@ use sp_runtime::{
 	traits::{Dispatchable, Saturating, StaticLookup, Zero},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},

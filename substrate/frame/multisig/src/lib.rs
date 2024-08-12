@@ -48,6 +48,9 @@ pub mod migrations;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::{
@@ -66,7 +69,6 @@ use sp_runtime::{
 	traits::{Dispatchable, TrailingZeroInput, Zero},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 pub use pallet::*;

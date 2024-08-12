@@ -24,7 +24,7 @@ use sp_runtime::{
 		AtLeast32Bit, AtLeast32BitUnsigned, Hash as HashT, Header as HeaderT, MaybeDisplay,
 		MaybeSerialize, MaybeSerializeDeserialize, Member, SimpleBitOps, Verify,
 	},
-	FixedPointOperand,
+	FixedPointOperand, StateVersion,
 };
 use sp_std::{fmt::Debug, hash::Hash, str::FromStr, vec, vec::Vec};
 
@@ -196,6 +196,10 @@ pub trait Chain: Send + Sync + 'static {
 	/// Signature type, used on this chain.
 	type Signature: Parameter + Verify;
 
+	/// Version of the state implementation used by this chain. This is directly related with the
+	/// `TrieLayout` configuration used by the storage.
+	const STATE_VERSION: StateVersion;
+
 	/// Get the maximum size (in bytes) of a Normal extrinsic at this chain.
 	fn max_extrinsic_size() -> u32;
 	/// Get the maximum weight (compute time) that a Normal extrinsic at this chain can use.
@@ -222,6 +226,8 @@ where
 	type Balance = <T::Chain as Chain>::Balance;
 	type Nonce = <T::Chain as Chain>::Nonce;
 	type Signature = <T::Chain as Chain>::Signature;
+
+	const STATE_VERSION: StateVersion = <T::Chain as Chain>::STATE_VERSION;
 
 	fn max_extrinsic_size() -> u32 {
 		<T::Chain as Chain>::max_extrinsic_size()

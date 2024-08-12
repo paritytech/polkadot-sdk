@@ -17,11 +17,11 @@
 //! Adapters to work with [`frame_support::traits::tokens::nonfungible`] through XCM.
 
 use crate::MintLocation;
+use core::{marker::PhantomData, result};
 use frame_support::{
 	ensure,
 	traits::{tokens::nonfungible, Get},
 };
-use sp_std::{marker::PhantomData, prelude::*, result};
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{
 	ConvertLocation, Error as MatchError, MatchesNonFungible, TransactAsset,
