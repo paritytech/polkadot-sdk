@@ -46,7 +46,7 @@ pub use junction::{BodyId, BodyPart, Junction, NetworkId};
 pub use junctions::Junctions;
 pub use multiasset::{
 	AssetId, AssetInstance, Fungibility, MultiAsset, MultiAssetFilter, MultiAssets,
-	WildFungibility, WildMultiAsset, MAX_ITEMS_IN_MULTIASSETS,
+	WildFungibility, WildMultiAsset, MAX_ITEMS_IN_MULTIASSETS, WILD_MULTI_ASSET_MAX_LIMIT
 };
 pub use multilocation::{
 	Ancestor, AncestorThen, InteriorMultiLocation, Location, MultiLocation, Parent, ParentThen,

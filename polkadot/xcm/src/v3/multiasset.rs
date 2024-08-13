@@ -550,7 +550,7 @@ impl<A: Into<AssetId>, B: Into<Fungibility>> From<(A, B)> for MultiAsset {
 	}
 }
 
-impl MultiAsset {
+impl MultiAsset { 
 	pub fn is_fungible(&self, maybe_id: Option<AssetId>) -> bool {
 		use Fungibility::*;
 		matches!(self.fun, Fungible(..)) && maybe_id.map_or(true, |i| i == self.id)
@@ -846,6 +846,9 @@ impl MultiAssets {
 		self.0.get(index)
 	}
 }
+
+/// Maximum limit for asset filter wildcard
+pub const WILD_MULTI_ASSET_MAX_LIMIT: usize = 20;
 
 /// A wildcard representing a set of assets.
 #[derive(

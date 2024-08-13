@@ -30,7 +30,7 @@ use super::{InteriorLocation, Location, Reanchorable};
 use crate::v3::{
 	AssetId as OldAssetId, AssetInstance as OldAssetInstance, Fungibility as OldFungibility,
 	MultiAsset as OldAsset, MultiAssetFilter as OldAssetFilter, MultiAssets as OldAssets,
-	WildFungibility as OldWildFungibility, WildMultiAsset as OldWildAsset,
+	WildFungibility as OldWildFungibility, WildMultiAsset as OldWildAsset
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
