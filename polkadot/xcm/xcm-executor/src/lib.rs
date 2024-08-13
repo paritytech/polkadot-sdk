@@ -809,7 +809,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					};
 				let actual_weight = maybe_actual_weight.unwrap_or(weight);
 				let surplus = weight.saturating_sub(actual_weight);
-				// We assume that the `Config::Weigher` will counts the `require_weight_at_most`
+				// We assume that the `Config::Weigher` will count the `require_weight_at_most`
 				// for the estimate of how much weight this instruction will take. Now that we know
 				// that it's less, we credit it.
 				//
@@ -858,14 +858,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
 					let deposited = self.holding.saturating_take(assets);
-					for asset in deposited.into_assets_iter() {
-						Config::AssetTransactor::deposit_asset(
-							&asset,
-							&beneficiary,
-							Some(&self.context),
-						)?;
-					}
-					Ok(())
+					self.deposit_assets_with_retry(&deposited, &beneficiary)
 				});
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
 					self.holding = old_holding;
@@ -890,9 +883,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 					// now take assets to deposit (excluding transport_fee)
 					let deposited = self.holding.saturating_take(assets);
-					for asset in deposited.assets_iter() {
-						Config::AssetTransactor::deposit_asset(&asset, &dest, Some(&self.context))?;
-					}
+					self.deposit_assets_with_retry(&deposited, &dest)?;
 					// Note that we pass `None` as `maybe_failed_bin` and drop any assets which
 					// cannot be reanchored  because we have already called `deposit_asset` on all
 					// assets.
@@ -1281,5 +1272,47 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					Config::HrmpChannelClosingHandler::handle(initiator, sender, recipient)
 				}),
 		}
+	}
+
+	/// Deposit `to_deposit` assets to `beneficiary`, without giving up on the first (transient)
+	/// error, and retrying once just in case one of the subsequently deposited assets satisfy some
+	/// requirement.
+	///
+	/// Most common transient error is: `beneficiary` account does not yet exist and the first
+	/// asset(s) in the (sorted) list does not satisfy ED, but a subsequent one in the list does.
+	///
+	/// This function can write into storage and also return an error at the same time, it should
+	/// always be called within a transactional context.
+	fn deposit_assets_with_retry(
+		&mut self,
+		to_deposit: &AssetsInHolding,
+		beneficiary: &Location,
+	) -> Result<(), XcmError> {
+		let mut failed_deposits = Vec::with_capacity(to_deposit.len());
+
+		let mut deposit_result = Ok(());
+		for asset in to_deposit.assets_iter() {
+			deposit_result =
+				Config::AssetTransactor::deposit_asset(&asset, &beneficiary, Some(&self.context));
+			// if deposit failed for asset, mark it for retry after depositing the others.
+			if deposit_result.is_err() {
+				failed_deposits.push(asset);
+			}
+		}
+		if failed_deposits.len() == to_deposit.len() {
+			tracing::debug!(
+				target: "xcm::execute",
+				?deposit_result,
+				"Deposit for each asset failed, returning the last error as there is no point in retrying any of them",
+			);
+			return deposit_result;
+		}
+		tracing::trace!(target: "xcm::execute", ?failed_deposits, "Deposits to retry");
+
+		// retry previously failed deposits, this time short-circuiting on any error.
+		for asset in failed_deposits {
+			Config::AssetTransactor::deposit_asset(&asset, &beneficiary, Some(&self.context))?;
+		}
+		Ok(())
 	}
 }

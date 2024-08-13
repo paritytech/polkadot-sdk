@@ -198,7 +198,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-westend"),
 	impl_name: create_runtime_str!("bridge-hub-westend"),
 	authoring_version: 1,
-	spec_version: 1_015_000,
+	spec_version: 1_016_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
@@ -1282,43 +1282,43 @@ mod tests {
 	};
 
 	#[test]
-	fn ensure_signed_extension_definition_is_compatible_with_relay() {
+	fn ensure_transaction_extension_definition_is_compatible_with_relay() {
 		use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
 
 		sp_io::TestExternalities::default().execute_with(|| {
 			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
 			let payload: TxExtension = (
 				frame_system::CheckNonZeroSender::new(),
-				frame_system::CheckSpecVersion::new(),
-				frame_system::CheckTxVersion::new(),
-				frame_system::CheckGenesis::new(),
-				frame_system::CheckEra::from(Era::Immortal),
-				frame_system::CheckNonce::from(10),
-				frame_system::CheckWeight::new(),
-				pallet_transaction_payment::ChargeTransactionPayment::from(10),
-				BridgeRejectObsoleteHeadersAndMessages,
-				(
-					bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),
-				),
-				frame_metadata_hash_extension::CheckMetadataHash::new(false),
-				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new()
-			).into();
+                frame_system::CheckSpecVersion::new(),
+                frame_system::CheckTxVersion::new(),
+                frame_system::CheckGenesis::new(),
+                frame_system::CheckEra::from(Era::Immortal),
+                frame_system::CheckNonce::from(10),
+                frame_system::CheckWeight::new(),
+                pallet_transaction_payment::ChargeTransactionPayment::from(10),
+                BridgeRejectObsoleteHeadersAndMessages,
+                (
+                    bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),
+                ),
+                frame_metadata_hash_extension::CheckMetadataHash::new(false),
+				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
+			);
 
 			{
 				let bh_indirect_payload = bp_bridge_hub_westend::TransactionExtension::from_params(
-					VERSION.spec_version,
-					VERSION.transaction_version,
-					bp_runtime::TransactionEra::Immortal,
-					System::block_hash(BlockNumber::zero()),
-					10,
-					10,
-					(((), ()), ((), ())),
-				);
+                    VERSION.spec_version,
+                    VERSION.transaction_version,
+                    bp_runtime::TransactionEra::Immortal,
+                    System::block_hash(BlockNumber::zero()),
+                    10,
+                    10,
+                    (((), ()), ((), ())),
+                );
 				assert_eq!(payload.encode().split_last().unwrap().1, bh_indirect_payload.encode());
-				assert_eq!(
-					payload.implicit().unwrap().encode().split_last().unwrap().1,
-					bh_indirect_payload.implicit().unwrap().encode()
-				)
+                assert_eq!(
+                    payload.implicit().unwrap().encode().split_last().unwrap().1,
+                    bh_indirect_payload.implicit().unwrap().encode()
+                )
 			}
 		});
 	}
