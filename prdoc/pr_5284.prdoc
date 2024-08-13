@@ -9,4 +9,4 @@ doc:
 
 crates:
   - name: sp-runtime
-    bump: patch
+    bump: none
