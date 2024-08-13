@@ -43,13 +43,13 @@ use polkadot_node_primitives::{
 };
 use polkadot_primitives::{
 	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate,
-	BlockNumber, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt, CollatorId,
-	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, HeadData, Header as BlockHeader, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, MultiDisputeStatementSet, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, PvfExecKind, SessionIndex, SessionInfo,
-	SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash, CandidateIndex,
+	CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
+	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, PvfExecKind,
+	SessionIndex, SessionInfo, SignedAvailabilityBitfield, SignedAvailabilityBitfields,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -1123,6 +1123,32 @@ impl HypotheticalCandidate {
 		match *self {
 			HypotheticalCandidate::Complete { ref receipt, .. } =>
 				Some(receipt.descriptor.para_head),
+			HypotheticalCandidate::Incomplete { .. } => None,
+		}
+	}
+
+	/// Get the candidate commitments, if the candidate is complete.
+	pub fn commitments(&self) -> Option<&CandidateCommitments> {
+		match *self {
+			HypotheticalCandidate::Complete { ref receipt, .. } => Some(&receipt.commitments),
+			HypotheticalCandidate::Incomplete { .. } => None,
+		}
+	}
+
+	/// Get the persisted validation data, if the candidate is complete.
+	pub fn persisted_validation_data(&self) -> Option<&PersistedValidationData> {
+		match *self {
+			HypotheticalCandidate::Complete { ref persisted_validation_data, .. } =>
+				Some(persisted_validation_data),
+			HypotheticalCandidate::Incomplete { .. } => None,
+		}
+	}
+
+	/// Get the validation code hash, if the candidate is complete.
+	pub fn validation_code_hash(&self) -> Option<&ValidationCodeHash> {
+		match *self {
+			HypotheticalCandidate::Complete { ref receipt, .. } =>
+				Some(&receipt.descriptor.validation_code_hash),
 			HypotheticalCandidate::Incomplete { .. } => None,
 		}
 	}
