@@ -58,7 +58,11 @@ impl OffchainStorage {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set(key: &[u8], value: &[u8]) {
-		sp_io::offchain::local_storage_set(StorageKind::PERSISTENT, key, value);
+		if sp_io::offchain::is_offchain_db_ext_available() {
+			sp_io::offchain::local_storage_set(StorageKind::PERSISTENT, key, value);
+		} else {
+			sp_io::offchain_index::set(key, value);
+		}
 	}
 }
 

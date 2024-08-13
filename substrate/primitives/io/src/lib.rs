@@ -1343,6 +1343,11 @@ sp_externalities::decl_extension! {
 /// These functions are being made available to the runtime and are called by the runtime.
 #[runtime_interface]
 pub trait Offchain {
+	/// Checks if the offchain database extension is available.
+	fn is_offchain_db_ext_available(&mut self) -> bool {
+		self.extension::<OffchainDbExt>().is_some()
+	}
+
 	/// Returns if the local node is a potential validator.
 	///
 	/// Even if this function returns `true`, it does not mean that any keys are configured
