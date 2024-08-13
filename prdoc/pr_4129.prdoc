@@ -4,10 +4,9 @@
 title: Update ForeignAssets from xcm::v3::Location to xcm::v4::Location
 
 doc:
-  - audience: Runtime Dev
-    description: |
-      As a stepping stone for XCMv5, the foreign asset ids have been updated from v3::Location to v4::Location.
-  - audience: Runtime User
+  - audience:
+    - Runtime Dev
+    - Runtime User
     description: |
       As a stepping stone for XCMv5, the foreign asset ids have been updated from v3::Location to v4::Location.
 
