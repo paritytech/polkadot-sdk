@@ -26,22 +26,12 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
+use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_sdk::{
-	polkadot_sdk_frame as frame,
 	polkadot_sdk_frame::{
-		deps::frame_support::{
-			genesis_builder_helper::{build_state, get_preset},
-			runtime,
-			weights::{FixedFee, NoFee},
-		},
+		self as frame,
 		prelude::*,
-		runtime::{
-			apis::{
-				self, impl_runtime_apis, ApplyExtrinsicResult, CheckInherentsResult,
-				ExtrinsicInclusionMode, OpaqueMetadata,
-			},
-			prelude::*,
-		},
+		runtime::{apis, prelude::*},
 	},
 	*,
 };
@@ -87,7 +77,7 @@ type SignedExtra = (
 );
 
 // Composes the runtime by adding all the used pallets and deriving necessary types.
-#[runtime]
+#[frame_construct_runtime]
 mod runtime {
 	/// The main runtime type.
 	#[runtime::runtime]
@@ -174,8 +164,6 @@ type Header = HeaderFor<Runtime>;
 
 type RuntimeExecutive =
 	Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
-
-use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 
 impl_runtime_apis! {
 	impl apis::Core<Block> for Runtime {
