@@ -1090,7 +1090,6 @@ fn inbound_storage_extra_proof_size_bytes_works() {
 				relayers: vec![relayer_entry(); relayer_entries].into(),
 				last_confirmed_nonce: 0,
 			},
-			_phantom: Default::default(),
 		}
 	}
 

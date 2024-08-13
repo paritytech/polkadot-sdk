@@ -137,7 +137,6 @@ impl<T: Config<I>, I: 'static> LanesManager<T, I> {
 pub struct RuntimeInboundLaneStorage<T: Config<I>, I: 'static = ()> {
 	pub(crate) lane_id: LaneId,
 	pub(crate) cached_data: InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>,
-	pub(crate) _phantom: PhantomData<I>,
 }
 
 impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
@@ -177,7 +176,6 @@ impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
 		Ok(RuntimeInboundLaneStorage {
 			lane_id,
 			cached_data: cached_data.into(),
-			_phantom: Default::default(),
 		})
 	}
 
