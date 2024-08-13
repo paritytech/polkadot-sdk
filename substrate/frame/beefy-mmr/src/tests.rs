@@ -24,10 +24,7 @@ use sp_consensus_beefy::{
 	AncestryHelper, Commitment, Payload, ValidatorSet,
 };
 
-use sp_core::{
-	offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt},
-	H256,
-};
+use sp_core::H256;
 use sp_io::TestExternalities;
 use sp_runtime::{traits::Keccak256, DigestItem};
 
@@ -209,11 +206,6 @@ fn should_update_authorities() {
 fn extract_validation_context_should_work_correctly() {
 	let mut ext = new_test_ext(vec![1, 2]);
 
-	// Register offchain ext.
-	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
-	ext.register_extension(OffchainDbExt::new(offchain.clone()));
-	ext.register_extension(OffchainWorkerExt::new(offchain));
-
 	ext.execute_with(|| {
 		init_block(1, None);
 		let h1 = System::finalize();
@@ -259,11 +251,6 @@ fn is_non_canonical_should_work_correctly() {
 		}
 	});
 	ext.persist_offchain_overlay();
-
-	// Register offchain ext.
-	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
-	ext.register_extension(OffchainDbExt::new(offchain.clone()));
-	ext.register_extension(OffchainWorkerExt::new(offchain));
 
 	ext.execute_with(|| {
 		let valid_proof = BeefyMmr::generate_proof(250, None).unwrap();

@@ -27,7 +27,7 @@ use frame_support::traits::Hooks;
 use frame_system::{Config as SystemConfig, Pallet as System};
 use pallet_mmr::{Nodes, Pallet as Mmr};
 use sp_consensus_beefy::Payload;
-use sp_runtime::traits::Zero;
+use sp_runtime::traits::One;
 
 pub trait Config:
 	pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing> + crate::Config
@@ -51,9 +51,9 @@ mod benchmarks {
 
 	#[benchmark]
 	fn extract_validation_context() {
-		init_block::<T>(0);
+		init_block::<T>(1);
 		let header = System::<T>::finalize();
-		frame_system::BlockHash::<T>::insert(BlockNumberFor::<T>::zero(), header.hash());
+		frame_system::BlockHash::<T>::insert(BlockNumberFor::<T>::one(), header.hash());
 
 		let validation_context;
 		#[block]
@@ -67,7 +67,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn read_peak() {
-		init_block::<T>(0);
+		init_block::<T>(1);
 
 		let peak;
 		#[block]
@@ -108,4 +108,10 @@ mod benchmarks {
 
 		assert_eq!(is_non_canonical, true);
 	}
+
+	impl_benchmark_test_suite!(
+		Pallet,
+		crate::mock::new_test_ext(Default::default()),
+		crate::mock::Test
+	);
 }
