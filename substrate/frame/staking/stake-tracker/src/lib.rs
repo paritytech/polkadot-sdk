@@ -299,7 +299,7 @@ pub mod pallet {
 		) -> (StakeImbalance<ExtendedBalance>, ExtendedBalance) {
 			let stake_balance = Self::to_vote(stake.active).into();
 
-			let imbalance = if let Some(last_seen) = LastSettledApprovals::<T>::get(&who) {
+			let imbalance = if let Some(last_seen) = LastSettledApprovals::<T>::get(who) {
 				StakeImbalance::from(last_seen, stake_balance)
 			} else {
 				let prev_stake = Self::to_vote(prev_stake.active).into();
@@ -381,9 +381,9 @@ pub mod pallet {
 			who: &AccountIdOf<T>,
 			nominations: Vec<T::AccountId>,
 		) -> Result<(), Error<T>> {
-			LastSettledApprovals::<T>::try_mutate_exists(&who, |maybe_last_seen| {
+			LastSettledApprovals::<T>::try_mutate_exists(who, |maybe_last_seen| {
 				if let Some(last_seen) = maybe_last_seen {
-					let current_weight: ExtendedBalance = Self::vote_of(&who).into();
+					let current_weight: ExtendedBalance = Self::vote_of(who).into();
 
 					// if current active stake is the same as the last seen value, the approvals of
 					// `who` are already accounted in the target's approvals.
@@ -625,7 +625,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		defensive_assert!(!Self::has_duplicate_nominations(nominations.clone()));
 		// decreases `last_seen` approvals from the targets nominated by `who`, or the current
 		// nominator stake.
-		let last_seen = LastSettledApprovals::<T>::get(&who).unwrap_or(Self::vote_of(who).into());
+		let last_seen = LastSettledApprovals::<T>::get(who).unwrap_or(Self::vote_of(who).into());
 
 		// updates the nominated target's score.
 		for t in nominations.iter() {
@@ -633,7 +633,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		}
 
 		// removes entry from "last seen".
-		LastSettledApprovals::<T>::remove(&who);
+		LastSettledApprovals::<T>::remove(who);
 
 		let _ = T::VoterList::on_remove(who).defensive_proof(
 			"the nominator must exist in the list as per the contract with staking.",
@@ -663,7 +663,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		defensive_assert!(!Self::has_duplicate_nominations(nominations.clone()));
 
 		let nominator_vote = Self::vote_of(who);
-		let last_seen = LastSettledApprovals::<T>::get(&who).unwrap_or_default();
+		let last_seen = LastSettledApprovals::<T>::get(who).unwrap_or_default();
 
 		// new nominations.
 		for target in nominations.iter() {
