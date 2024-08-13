@@ -23,6 +23,7 @@ use super::*;
 use crate::Pallet as Proxy;
 use alloc::{boxed::Box, vec};
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
+use frame_support::traits::Currency;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_runtime::traits::Bounded;
 
@@ -136,7 +137,7 @@ benchmarks! {
 		add_announcements::<T>(a, Some(caller.clone()), None)?;
 	}: _(RawOrigin::Signed(caller.clone()), real_lookup, T::CallHasher::hash_of(&call))
 	verify {
-		let (announcements, _) = Announcements::<T>::get(&caller);
+		let (announcements, _) = Announcements::<T>::get(&caller).unwrap();
 		assert_eq!(announcements.len() as u32, a);
 	}
 
@@ -159,7 +160,7 @@ benchmarks! {
 		add_announcements::<T>(a, Some(caller.clone()), None)?;
 	}: _(RawOrigin::Signed(real), caller_lookup, T::CallHasher::hash_of(&call))
 	verify {
-		let (announcements, _) = Announcements::<T>::get(&caller);
+		let (announcements, _) = Announcements::<T>::get(&caller).unwrap();
 		assert_eq!(announcements.len() as u32, a);
 	}
 
@@ -191,7 +192,7 @@ benchmarks! {
 		BlockNumberFor::<T>::zero()
 	)
 	verify {
-		let (proxies, _) = Proxies::<T>::get(caller);
+		let (proxies, _) = Proxies::<T>::get(caller).unwrap();
 		assert_eq!(proxies.len() as u32, p + 1);
 	}
 
@@ -206,8 +207,8 @@ benchmarks! {
 		BlockNumberFor::<T>::zero()
 	)
 	verify {
-		let (proxies, _) = Proxies::<T>::get(caller);
-		assert_eq!(proxies.len() as u32, p - 1);
+		let len = Proxies::<T>::get(caller).map(|x| x.0.len()).unwrap_or(0);
+		assert_eq!(len as u32, p - 1);
 	}
 
 	remove_proxies {
@@ -215,8 +216,8 @@ benchmarks! {
 		let caller: T::AccountId = whitelisted_caller();
 	}: _(RawOrigin::Signed(caller.clone()))
 	verify {
-		let (proxies, _) = Proxies::<T>::get(caller);
-		assert_eq!(proxies.len() as u32, 0);
+		let len = Proxies::<T>::get(caller).map(|x| x.0.len()).unwrap_or(0);
+		assert_eq!(len as u32, 0);
 	}
 
 	create_pure {

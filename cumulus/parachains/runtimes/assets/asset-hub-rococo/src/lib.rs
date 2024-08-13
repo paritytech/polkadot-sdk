@@ -62,7 +62,7 @@ use frame_support::{
 	traits::{
 		fungible, fungibles, tokens::imbalance::ResolveAssetTo, AsEnsureOriginWithArg, ConstBool,
 		ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Equals, InstanceFilter,
-		TransformOrigin,
+		TransformOrigin, AtLeastOneLinearStoragePrice,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
@@ -482,6 +482,8 @@ parameter_types! {
 	pub const AnnouncementDepositBase: Balance = deposit(1, 48);
 	pub const AnnouncementDepositFactor: Balance = deposit(0, 66);
 	pub const MaxPending: u16 = 32;
+	pub const ProxyHoldReason: RuntimeHoldReason = RuntimeHoldReason::Proxy(pallet_proxy::HoldReason::Proxy);
+	pub const AnnouncementHoldReason: RuntimeHoldReason = RuntimeHoldReason::Proxy(pallet_proxy::HoldReason::Announcement);
 }
 
 /// The type used to represent the kinds of proxying allowed.
@@ -639,14 +641,30 @@ impl pallet_proxy::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type ProxyType = ProxyType;
-	type ProxyDepositBase = ProxyDepositBase;
-	type ProxyDepositFactor = ProxyDepositFactor;
 	type MaxProxies = MaxProxies;
 	type WeightInfo = weights::pallet_proxy::WeightInfo<Runtime>;
 	type MaxPending = MaxPending;
 	type CallHasher = BlakeTwo256;
-	type AnnouncementDepositBase = AnnouncementDepositBase;
-	type AnnouncementDepositFactor = AnnouncementDepositFactor;
+	type ProxyConsideration = fungible::HoldConsideration<
+		AccountId,
+		Balances,
+		ProxyHoldReason,
+		AtLeastOneLinearStoragePrice<
+			ProxyDepositBase,
+			ProxyDepositFactor,
+			Balance,
+		>,
+	>;
+	type AnnouncementConsideration = fungible::HoldConsideration<
+		AccountId,
+		Balances,
+		ProxyHoldReason,
+		AtLeastOneLinearStoragePrice<
+			AnnouncementDepositBase,
+			AnnouncementDepositFactor,
+			Balance,
+		>,
+	>;
 }
 
 parameter_types! {

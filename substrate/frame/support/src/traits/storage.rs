@@ -200,6 +200,25 @@ where
 	}
 }
 
+/// A storage price that increases linearly with the number of elements and their size,
+/// but there must be at least one element in footprint or the price is zero
+pub struct AtLeastOneLinearStoragePrice<Base, Slope, Balance>(PhantomData<(Base, Slope, Balance)>);
+impl<Base, Slope, Balance> Convert<Footprint, Balance> for AtLeastOneLinearStoragePrice<Base, Slope, Balance>
+where
+	Base: Get<Balance>,
+	Slope: Get<Balance>,
+	Balance: From<u64> + sp_runtime::Saturating,
+{
+	fn convert(a: Footprint) -> Balance {
+		if a.count > 0 {
+			let s: Balance = (a.count.saturating_mul(a.size)).into();
+			s.saturating_mul(Slope::get()).saturating_add(Base::get())
+		} else {
+			0.into()
+		}
+	}
+}
+
 /// Some sort of cost taken from account temporarily in order to offset the cost to the chain of
 /// holding some data [`Footprint`] in state.
 ///
@@ -309,6 +328,22 @@ mod tests {
 
 		assert_eq!(p(0, 0), 7);
 		assert_eq!(p(0, 1), 7);
+		assert_eq!(p(1, 0), 7);
+
+		assert_eq!(p(1, 1), 10);
+		assert_eq!(p(8, 1), 31);
+		assert_eq!(p(1, 8), 31);
+
+		assert_eq!(p(u64::MAX, u64::MAX), u64::MAX);
+	}
+
+	#[test]
+	fn at_least_one_linear_storage_price_works() {
+		type Linear = AtLeastOneLinearStoragePrice<ConstU64<7>, ConstU64<3>, u64>;
+		let p = |count, size| Linear::convert(Footprint { count, size });
+
+		assert_eq!(p(0, 0), 0);
+		assert_eq!(p(0, 1), 0);
 		assert_eq!(p(1, 0), 7);
 
 		assert_eq!(p(1, 1), 10);

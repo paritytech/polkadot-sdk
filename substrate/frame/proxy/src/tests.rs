@@ -26,10 +26,14 @@ use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_noop, assert_ok, derive_impl,
-	traits::{ConstU32, ConstU64, Contains},
+	traits::{fungible::HoldConsideration, ConstU32, Contains, Currency},
 };
 use sp_core::H256;
-use sp_runtime::{traits::BlakeTwo256, BuildStorage, DispatchError, RuntimeDebug};
+use sp_runtime::{
+	traits::{BlakeTwo256, Convert},
+	BuildStorage, DispatchError, RuntimeDebug,
+	TokenError::FundsUnavailable,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -114,24 +118,62 @@ impl Contains<RuntimeCall> for BaseFilter {
 		}
 	}
 }
+
+#[derive(Default)]
+pub struct ConvertDeposit;
+impl Convert<Footprint, <Test as pallet_balances::Config>::Balance> for ConvertDeposit {
+	fn convert(a: Footprint) -> <Test as pallet_balances::Config>::Balance {
+		if a.count == 0 {
+			0
+		} else {
+			// base + count
+			1 + a.count
+		}
+	}
+}
+
+#[derive(Default)]
+pub struct AnnouncementHoldReason;
+impl Get<RuntimeHoldReason> for AnnouncementHoldReason {
+	fn get() -> RuntimeHoldReason {
+		RuntimeHoldReason::Proxy(crate::HoldReason::Announcement)
+	}
+}
+
+#[derive(Default)]
+pub struct ProxyHoldReason;
+impl Get<RuntimeHoldReason> for ProxyHoldReason {
+	fn get() -> RuntimeHoldReason {
+		RuntimeHoldReason::Proxy(crate::HoldReason::Proxy)
+	}
+}
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type ProxyType = ProxyType;
-	type ProxyDepositBase = ConstU64<1>;
-	type ProxyDepositFactor = ConstU64<1>;
 	type MaxProxies = ConstU32<4>;
 	type WeightInfo = ();
 	type CallHasher = BlakeTwo256;
 	type MaxPending = ConstU32<2>;
-	type AnnouncementDepositBase = ConstU64<1>;
-	type AnnouncementDepositFactor = ConstU64<1>;
+	type ProxyConsideration = HoldConsideration<
+		<Test as frame_system::Config>::AccountId,
+		Balances,
+		ProxyHoldReason,
+		ConvertDeposit,
+	>;
+	type AnnouncementConsideration = HoldConsideration<
+		<Test as frame_system::Config>::AccountId,
+		Balances,
+		AnnouncementHoldReason,
+		ConvertDeposit,
+	>;
 }
 
 use super::{Call as ProxyCall, Event as ProxyEvent};
 use frame_system::Call as SystemCall;
-use pallet_balances::{Call as BalancesCall, Event as BalancesEvent};
+use pallet_balances::Call as BalancesCall;
 use pallet_utility::{Call as UtilityCall, Event as UtilityEvent};
 
 type SystemError = frame_system::Error<Test>;
@@ -180,18 +222,20 @@ fn announcement_works() {
 			.into(),
 		);
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(2), 3, ProxyType::Any, 1));
+		assert_eq!(Balances::reserved_balance(1), 2);
+		assert_eq!(Balances::reserved_balance(2), 2);
 		assert_eq!(Balances::reserved_balance(3), 0);
 
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 1, [1; 32].into()));
-		let announcements = Announcements::<Test>::get(3);
+		let announcements = Announcements::<Test>::get(3).unwrap();
 		assert_eq!(
 			announcements.0,
 			vec![Announcement { real: 1, call_hash: [1; 32].into(), height: 1 }]
 		);
-		assert_eq!(Balances::reserved_balance(3), announcements.1);
+		assert_eq!(Balances::reserved_balance(3), 2);
 
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 2, [2; 32].into()));
-		let announcements = Announcements::<Test>::get(3);
+		let announcements = Announcements::<Test>::get(3).unwrap();
 		assert_eq!(
 			announcements.0,
 			vec![
@@ -199,7 +243,7 @@ fn announcement_works() {
 				Announcement { real: 2, call_hash: [2; 32].into(), height: 1 },
 			]
 		);
-		assert_eq!(Balances::reserved_balance(3), announcements.1);
+		assert_eq!(Balances::reserved_balance(3), 3);
 
 		assert_noop!(
 			Proxy::announce(RuntimeOrigin::signed(3), 2, [3; 32].into()),
@@ -218,12 +262,12 @@ fn remove_announcement_works() {
 		let e = Error::<Test>::NotFound;
 		assert_noop!(Proxy::remove_announcement(RuntimeOrigin::signed(3), 1, [0; 32].into()), e);
 		assert_ok!(Proxy::remove_announcement(RuntimeOrigin::signed(3), 1, [1; 32].into()));
-		let announcements = Announcements::<Test>::get(3);
+		let announcements = Announcements::<Test>::get(3).unwrap();
 		assert_eq!(
 			announcements.0,
 			vec![Announcement { real: 2, call_hash: [2; 32].into(), height: 1 }]
 		);
-		assert_eq!(Balances::reserved_balance(3), announcements.1);
+		assert_eq!(Balances::reserved_balance(3), 2);
 	});
 }
 
@@ -239,12 +283,12 @@ fn reject_announcement_works() {
 		let e = Error::<Test>::NotFound;
 		assert_noop!(Proxy::reject_announcement(RuntimeOrigin::signed(4), 3, [1; 32].into()), e);
 		assert_ok!(Proxy::reject_announcement(RuntimeOrigin::signed(1), 3, [1; 32].into()));
-		let announcements = Announcements::<Test>::get(3);
+		let announcements = Announcements::<Test>::get(3).unwrap();
 		assert_eq!(
 			announcements.0,
 			vec![Announcement { real: 2, call_hash: [2; 32].into(), height: 1 }]
 		);
-		assert_eq!(Balances::reserved_balance(3), announcements.1);
+		assert_eq!(Balances::reserved_balance(3), 2);
 	});
 }
 
@@ -270,7 +314,7 @@ fn calling_proxy_doesnt_remove_announcement() {
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, call));
 
 		// The announcement is not removed by calling proxy.
-		let announcements = Announcements::<Test>::get(2);
+		let announcements = Announcements::<Test>::get(2).unwrap();
 		assert_eq!(announcements.0, vec![Announcement { real: 1, call_hash, height: 1 }]);
 	});
 }
@@ -306,9 +350,9 @@ fn proxy_announced_removes_announcement_and_returns_deposit() {
 
 		system::Pallet::<Test>::set_block_number(2);
 		assert_ok!(Proxy::proxy_announced(RuntimeOrigin::signed(0), 3, 1, None, call.clone()));
-		let announcements = Announcements::<Test>::get(3);
+		let announcements = Announcements::<Test>::get(3).unwrap();
 		assert_eq!(announcements.0, vec![Announcement { real: 2, call_hash, height: 1 }]);
-		assert_eq!(Balances::reserved_balance(3), announcements.1);
+		assert_eq!(Balances::reserved_balance(3), 2);
 	});
 }
 
@@ -398,10 +442,7 @@ fn filtering_works() {
 			ProxyEvent::ProxyExecuted { result: Err(SystemError::CallFiltered.into()) }.into(),
 		);
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, call.clone()));
-		expect_events(vec![
-			BalancesEvent::<Test>::Unreserved { who: 1, amount: 5 }.into(),
-			ProxyEvent::ProxyExecuted { result: Ok(()) }.into(),
-		]);
+		expect_events(vec![ProxyEvent::ProxyExecuted { result: Ok(()) }.into()]);
 	});
 }
 
@@ -476,6 +517,7 @@ fn add_remove_proxies_works() {
 			Proxy::add_proxy(RuntimeOrigin::signed(1), 1, ProxyType::Any, 0),
 			Error::<Test>::NoSelfProxy
 		);
+		assert_eq!(Balances::reserved_balance(1), 0);
 	});
 }
 
@@ -486,7 +528,7 @@ fn cannot_add_proxy_without_balance() {
 		assert_eq!(Balances::reserved_balance(5), 2);
 		assert_noop!(
 			Proxy::add_proxy(RuntimeOrigin::signed(5), 4, ProxyType::Any, 0),
-			DispatchError::ConsumerRemaining,
+			DispatchError::Token(FundsUnavailable),
 		);
 	});
 }

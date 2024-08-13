@@ -35,10 +35,7 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
-		VariantCountOf, WithdrawReasons,
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AtLeastOneLinearStoragePrice, ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -1026,6 +1023,8 @@ parameter_types! {
 	pub const AnnouncementDepositBase: Balance = deposit(1, 8);
 	pub const AnnouncementDepositFactor: Balance = deposit(0, 66);
 	pub const MaxPending: u16 = 32;
+	pub const ProxyHoldReason: RuntimeHoldReason = RuntimeHoldReason::Proxy(pallet_proxy::HoldReason::Proxy);
+	pub const AnnouncementHoldReason: RuntimeHoldReason = RuntimeHoldReason::Proxy(pallet_proxy::HoldReason::Announcement);
 }
 
 /// The type used to represent the kinds of proxying allowed.
@@ -1165,14 +1164,30 @@ impl pallet_proxy::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type ProxyType = ProxyType;
-	type ProxyDepositBase = ProxyDepositBase;
-	type ProxyDepositFactor = ProxyDepositFactor;
+	type ProxyConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		ProxyHoldReason,
+		AtLeastOneLinearStoragePrice<
+			ProxyDepositBase,
+			ProxyDepositFactor,
+			Balance,
+		>,
+	>;
+	type AnnouncementConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		ProxyHoldReason,
+		AtLeastOneLinearStoragePrice<
+			AnnouncementDepositBase,
+			AnnouncementDepositFactor,
+			Balance,
+		>,
+	>;
 	type MaxProxies = MaxProxies;
 	type WeightInfo = weights::pallet_proxy::WeightInfo<Runtime>;
 	type MaxPending = MaxPending;
 	type CallHasher = BlakeTwo256;
-	type AnnouncementDepositBase = AnnouncementDepositBase;
-	type AnnouncementDepositFactor = AnnouncementDepositFactor;
 }
 
 impl parachains_origin::Config for Runtime {}

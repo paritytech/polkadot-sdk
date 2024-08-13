@@ -51,8 +51,8 @@ use frame_support::{
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency,
 		EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance, InsideBoth,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing,
-		OnUnbalanced, VariantCountOf, WithdrawReasons,
+		InstanceFilter, KeyOwnerProofSystem,  LinearStoragePrice, LockIdentifier, Nothing,
+		OnUnbalanced, VariantCountOf, WithdrawReasons, AtLeastOneLinearStoragePrice,
 	},
 	weights::{
 		constants::{
@@ -362,6 +362,8 @@ parameter_types! {
 	pub const ProxyDepositFactor: Balance = deposit(0, 33);
 	pub const AnnouncementDepositBase: Balance = deposit(1, 8);
 	pub const AnnouncementDepositFactor: Balance = deposit(0, 66);
+	pub const ProxyHoldReason: RuntimeHoldReason = RuntimeHoldReason::Proxy(pallet_proxy::HoldReason::Proxy);
+	pub const AnnouncementHoldReason: RuntimeHoldReason = RuntimeHoldReason::Proxy(pallet_proxy::HoldReason::Announcement);
 }
 
 /// The type used to represent the kinds of proxying allowed.
@@ -432,14 +434,30 @@ impl pallet_proxy::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type ProxyType = ProxyType;
-	type ProxyDepositBase = ProxyDepositBase;
-	type ProxyDepositFactor = ProxyDepositFactor;
 	type MaxProxies = ConstU32<32>;
 	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
 	type MaxPending = ConstU32<32>;
 	type CallHasher = BlakeTwo256;
-	type AnnouncementDepositBase = AnnouncementDepositBase;
-	type AnnouncementDepositFactor = AnnouncementDepositFactor;
+	type ProxyConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		ProxyHoldReason,
+		AtLeastOneLinearStoragePrice<
+			ProxyDepositBase,
+			ProxyDepositFactor,
+			Balance,
+		>,
+	>;
+	type AnnouncementConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		ProxyHoldReason,
+		AtLeastOneLinearStoragePrice<
+			AnnouncementDepositBase,
+			AnnouncementDepositFactor,
+			Balance,
+		>,
+	>;
 }
 
 parameter_types! {

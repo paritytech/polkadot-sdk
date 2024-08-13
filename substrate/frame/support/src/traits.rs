@@ -93,7 +93,7 @@ pub use hooks::{
 pub mod schedule;
 mod storage;
 pub use storage::{
-	Consideration, Footprint, Incrementable, Instance, LinearStoragePrice, PartialStorageInfoTrait,
+	Consideration, Footprint, Incrementable, Instance, LinearStoragePrice, AtLeastOneLinearStoragePrice, PartialStorageInfoTrait,
 	StorageInfo, StorageInfoTrait, StorageInstance, TrackedStorageKey, WhitelistedStorageKeys,
 };
 

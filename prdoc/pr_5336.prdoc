@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Refactor proxy pallet to use Consideration trait
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Before this pallet would reserve its storage value manually, `Consideration`
+      trait simplifies the implementation.
+
+crates:
+  - name: pallet-proxy
+    bump: major
