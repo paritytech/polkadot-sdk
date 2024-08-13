@@ -401,7 +401,7 @@ pub mod migration_for_bridges_v2 {
 	pub struct StaticToDynamicLanes;
 	impl frame_support::traits::OnRuntimeUpgrade for StaticToDynamicLanes {
 		fn on_runtime_upgrade() -> Weight {
-			todo!()
+			Weight::zero()
 		}
 	}
 }
