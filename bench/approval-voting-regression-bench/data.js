@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723544019765,
+  "lastUpdate": 1723556784140,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -14616,6 +14616,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 6.199612763030009,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0d7bd6badce2d53bb332fc48d4a32e828267cf7e",
+          "message": "Small nits found accidentally along the way (#5341)",
+          "timestamp": "2024-08-13T11:11:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0d7bd6badce2d53bb332fc48d4a32e828267cf7e"
+        },
+        "date": 1723556752981,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 64024.47000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52937.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.716700935340087,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.4837282963502174,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.749562231590096,
             "unit": "seconds"
           }
         ]
