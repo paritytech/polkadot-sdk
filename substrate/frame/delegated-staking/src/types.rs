@@ -74,12 +74,12 @@ impl<T: Config> Delegation<T> {
 			if self.amount == Zero::zero() {
 				<Delegators<T>>::remove(key);
 				// Remove provider if no delegation left.
-				let _ = frame_system::Pallet::<T>::dec_providers(&key).defensive();
+				let _ = frame_system::Pallet::<T>::dec_providers(key).defensive();
 				return
 			}
 		} else {
 			// this is a new delegation. Provide for this account.
-			frame_system::Pallet::<T>::inc_providers(&key);
+			frame_system::Pallet::<T>::inc_providers(key);
 		}
 
 		<Delegators<T>>::insert(key, self);
@@ -133,7 +133,7 @@ impl<T: Config> AgentLedger<T> {
 	pub(crate) fn update(self, key: &T::AccountId) {
 		if !<Agents<T>>::contains_key(key) {
 			// This is a new agent. Provide for this account.
-			frame_system::Pallet::<T>::inc_providers(&key);
+			frame_system::Pallet::<T>::inc_providers(key);
 		}
 		<Agents<T>>::insert(key, self)
 	}
