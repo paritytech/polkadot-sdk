@@ -55,7 +55,7 @@ use frame_support::{crypto::ecdsa::ECDSAExt, pallet_prelude::Weight, traits::Get
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 
 pub use pallet::*;
-use weights::WeightInfo;
+pub use weights::WeightInfo;
 
 mod benchmarking;
 #[cfg(test)]
