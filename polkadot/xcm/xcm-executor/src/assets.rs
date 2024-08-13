@@ -26,6 +26,7 @@ use xcm::latest::{
 	InteriorLocation, Location, Reanchorable,
 	WildAsset::{All, AllCounted, AllOf, AllOfCounted},
 	WildFungibility::{Fungible as WildFungible, NonFungible as WildNonFungible},
+	WILD_MULTI_ASSET_MAX_LIMIT
 };
 
 /// Map of non-wildcard fungible and non-fungible assets held in the holding register.
@@ -312,7 +313,11 @@ impl AssetsInHolding {
 		saturate: bool,
 	) -> Result<AssetsInHolding, TakeError> {
 		let mut taken = AssetsInHolding::new();
-		let maybe_limit = mask.limit().map(|x| x as usize);
+		let maybe_limit = Some(
+			mask.limit()
+				.map(|x| core::cmp::min(x as usize, WILD_MULTI_ASSET_MAX_LIMIT))
+				.unwrap_or(WILD_MULTI_ASSET_MAX_LIMIT)
+		);
 		match mask {
 			AssetFilter::Wild(All) | AssetFilter::Wild(AllCounted(_)) => match maybe_limit {
 				None => return Ok(self.swapped(AssetsInHolding::new())),

@@ -31,7 +31,7 @@ use crate::{
 	v3::{
 		AssetId as OldAssetId, AssetInstance as OldAssetInstance, Fungibility as OldFungibility,
 		MultiAsset as OldAsset, MultiAssetFilter as OldAssetFilter, MultiAssets as OldAssets,
-		WildFungibility as OldWildFungibility, WildMultiAsset as OldWildAsset,
+		WildFungibility as OldWildFungibility, WildMultiAsset as OldWildAsset
 	},
 	v5::{
 		Asset as NewAsset, AssetFilter as NewAssetFilter, AssetId as NewAssetId,

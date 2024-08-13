@@ -49,7 +49,7 @@ pub use traits::{
 	SendError, SendResult, SendXcm, Weight, XcmHash,
 };
 // These parts of XCM v4 are unchanged in XCM v5, and are re-imported here.
-pub use super::v4::{MaxDispatchErrorLen, MaybeErrorCode, OriginKind, WeightLimit};
+pub use super::v4::{MaxDispatchErrorLen, MaybeErrorCode, OriginKind, WeightLimit, WILD_MULTI_ASSET_MAX_LIMIT};
 
 pub const VERSION: super::Version = 5;
 
