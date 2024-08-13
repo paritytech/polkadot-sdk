@@ -145,9 +145,9 @@ fn pool_lifecycle_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 20, pool_id: 1, points: 10, balance: 10 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 20 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 20, released_balance: 0 },
 				PoolsEvent::Withdrawn { member: 21, pool_id: 1, points: 10, balance: 10 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 21 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 21, released_balance: 0 },
 			]
 		);
 
@@ -186,7 +186,7 @@ fn pool_lifecycle_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 10, pool_id: 1, points: 50, balance: 50 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 10 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
@@ -275,7 +275,7 @@ fn destroy_pool_with_erroneous_consumer() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 10, pool_id: 1, points: 50, balance: 50 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 10 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
@@ -558,10 +558,10 @@ fn pool_slash_e2e() {
 			vec![
 				// 20 had unbonded 10 safely, and 10 got slashed by half.
 				PoolsEvent::Withdrawn { member: 20, pool_id: 1, balance: 10 + 5, points: 20 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 20 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 20, released_balance: 0 },
 				// 21 unbonded all of it after the slash
 				PoolsEvent::Withdrawn { member: 21, pool_id: 1, balance: 5 + 5, points: 15 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 21 }
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 21, released_balance: 0 }
 			]
 		);
 		assert_eq!(
@@ -607,7 +607,7 @@ fn pool_slash_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 10, pool_id: 1, balance: 10 + 15, points: 30 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 10 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
