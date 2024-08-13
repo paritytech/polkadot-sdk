@@ -2976,19 +2976,12 @@ pub mod pallet {
 				Error::<T>::NotMigrated
 			);
 
-			let pool_contribution = member.total_balance();
-			// ensure the pool contribution is greater than the existential deposit otherwise we
-			// cannot transfer funds to member account.
-			ensure!(
-				pool_contribution >= T::Currency::minimum_balance(),
-				Error::<T>::MinimumBondNotMet
-			);
-
 			let delegation =
 				T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()));
 			// delegation should not exist.
 			ensure!(delegation.is_none(), Error::<T>::AlreadyMigrated);
 
+			let pool_contribution = member.total_balance();
 			T::StakeAdapter::migrate_delegation(
 				Pool::from(Pallet::<T>::generate_bonded_account(member.pool_id)),
 				Member::from(member_account),
