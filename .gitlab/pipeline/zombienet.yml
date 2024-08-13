@@ -15,4 +15,4 @@ include:
   # bridges tests
   - .gitlab/pipeline/zombienet/bridges.yml
   # parachain-template-node tests
-  - .gitlab/pipeline/parachain-template.yml
+  - .gitlab/pipeline/zombienet/parachain-template.yml
