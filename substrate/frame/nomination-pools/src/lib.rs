@@ -3949,10 +3949,10 @@ impl<T: Config> Pallet<T> {
 
 		PoolMembers::<T>::get(who.clone())
 			.map(|pool_member| {
-				// if Self::api_pool_needs_delegate_migration(pool_member.pool_id) {
-				// 	// the pool needs to be migrated before members can be migrated.
-				// 	return false
-				// }
+				if Self::api_pool_needs_delegate_migration(pool_member.pool_id) {
+					// the pool needs to be migrated before members can be migrated.
+					return false
+				}
 
 				let member_balance = pool_member.total_balance();
 				let delegated_balance =
