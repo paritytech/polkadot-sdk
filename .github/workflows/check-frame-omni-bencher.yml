@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - v1.*
   pull_request:
     types: [ opened, synchronize, reopened, ready_for_review, labeled ]
   merge_group:

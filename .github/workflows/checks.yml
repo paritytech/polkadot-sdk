@@ -4,14 +4,16 @@ on:
   push:
     branches:
       - master
+    tags:
+      - v1.*
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    types: [ opened, synchronize, reopened, ready_for_review, labeled ]
   merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-permissions: {}
+permissions: { }
 
 jobs:
   changes:
@@ -35,7 +37,7 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
   cargo-clippy:
     runs-on: arc-runners-polkadot-sdk-beefy
-    needs: [set-image, changes] # , build-frame-omni-bencher ]
+    needs: [ set-image, changes ]
     if: ${{ needs.changes.outputs.rust }}
     timeout-minutes: 40
     container:
@@ -51,7 +53,7 @@ jobs:
           forklift cargo clippy --all-targets --all-features --locked --workspace
   check-try-runtime:
     runs-on: arc-runners-polkadot-sdk-beefy
-    needs: [set-image, changes] # , build-frame-omni-bencher ]
+    needs: [ set-image, changes ] # , build-frame-omni-bencher ]
     if: ${{ needs.changes.outputs.rust }}
     timeout-minutes: 40
     container:
@@ -70,7 +72,7 @@ jobs:
   # check-core-crypto-features works fast without forklift
   check-core-crypto-features:
     runs-on: arc-runners-polkadot-sdk-beefy
-    needs: [set-image, changes] # , build-frame-omni-bencher ]
+    needs: [ set-image, changes ]
     if: ${{ needs.changes.outputs.rust }}
     timeout-minutes: 30
     container:

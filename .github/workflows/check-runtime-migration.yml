@@ -5,7 +5,7 @@ on:
     branches:
       - master
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [ opened, synchronize, reopened, ready_for_review ]
   merge_group:
   workflow_dispatch:
 
@@ -32,23 +32,23 @@ jobs:
     # We need to set this to rather long to allow the snapshot to be created, but the average time
     # should be much lower.
     timeout-minutes: 60
-    needs: [set-image]
+    needs: [ set-image ]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     strategy:
       fail-fast: false
       matrix:
         network: [
-            # westend,
-            # rococo,
-            asset-hub-westend,
-            asset-hub-rococo,
-            bridge-hub-westend,
-            bridge-hub-rococo,
-            contracts-rococo,
-            collectives-westend,
-            coretime-rococo,
-          ]
+          # westend,
+          # rococo,
+          asset-hub-westend,
+          asset-hub-rococo,
+          bridge-hub-westend,
+          bridge-hub-rococo,
+          contracts-rococo,
+          collectives-westend,
+          coretime-rococo,
+        ]
         include:
           # - network: westend
           #   package: westend-runtime
