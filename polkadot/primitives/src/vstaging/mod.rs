@@ -381,21 +381,11 @@ impl CandidateCommitments {
 			return None
 		}
 
-		let upward_commitments = self
-			.upward_messages
-			.iter()
-			.cloned()
-			.rev()
-			.take_while(|message| message != &UMP_SEPARATOR)
-			.collect::<Vec<_>>();
-
-		// Check for UMP separator
-		if upward_commitments.len() == self.upward_messages.len() || upward_commitments.is_empty() {
-			return None
-		}
+		let separator_pos =
+			self.upward_messages.iter().rposition(|message| message == &UMP_SEPARATOR)?;
 
 		// Use first commitment
-		let Some(message) = upward_commitments.into_iter().rev().next() else { return None };
+		let message = self.upward_messages.get(separator_pos + 1)?;
 
 		match UMPSignal::decode(&mut message.as_slice()).ok()? {
 			UMPSignal::SelectCore(core_selector, cq_offset) => Some((core_selector, cq_offset)),
