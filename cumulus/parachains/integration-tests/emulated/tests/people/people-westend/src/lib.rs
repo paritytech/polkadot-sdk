@@ -16,11 +16,7 @@
 #[cfg(test)]
 mod imports {
 	// Substrate
-	pub use frame_support::{
-		assert_ok,
-		sp_runtime::{AccountId32, DispatchResult},
-		traits::fungibles::Inspect,
-	};
+	pub use frame_support::{assert_ok, sp_runtime::DispatchResult, traits::fungibles::Inspect};
 
 	// Polkadot
 	pub use xcm::prelude::*;
