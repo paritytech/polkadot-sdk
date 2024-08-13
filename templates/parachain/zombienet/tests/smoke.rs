@@ -9,8 +9,8 @@
 //! The you can run the test with
 //! `cargo test -p parachain-template-zombienet`
 
-use zombienet_sdk::{NetworkConfigBuilder, NetworkConfigExt};
 use anyhow::anyhow;
+use zombienet_sdk::{NetworkConfigBuilder, NetworkConfigExt};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn block_production_test() -> Result<(), anyhow::Error> {
@@ -40,7 +40,10 @@ async fn block_production_test() -> Result<(), anyhow::Error> {
 
 	// wait 6 blocks of the para
 	let collator = network.get_node("collator")?;
-	assert!(collator.wait_metric("block_height{status=\"best\"}", |b| b > 5_f64).await.is_ok());
+	assert!(collator
+		.wait_metric("block_height{status=\"best\"}", |b| b > 5_f64)
+		.await
+		.is_ok());
 
-    Ok(())
+	Ok(())
 }
