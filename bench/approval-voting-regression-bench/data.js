@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723585055651,
+  "lastUpdate": 1723593233016,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -14710,6 +14710,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 6.570229123949976,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jeeyong Um",
+            "username": "conr2d",
+            "email": "conr2d@proton.me"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0cd577ba1c4995500eb3ed10330d93402177a53b",
+          "message": "Minor clean up (#5284)\n\nThis PR performs minor code cleanup to reduce verbosity. Since the\ncompiler has already optimized out indirect calls in the existing code,\nthese changes improve readability but do not affect performance.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-08-13T21:54:51Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0cd577ba1c4995500eb3ed10330d93402177a53b"
+        },
+        "date": 1723593201378,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63986.07000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.899454134649883,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.088566070580165,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.212976811689993,
             "unit": "seconds"
           }
         ]
