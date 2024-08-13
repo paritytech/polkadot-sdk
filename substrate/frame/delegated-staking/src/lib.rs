@@ -320,7 +320,7 @@ pub mod pallet {
 			);
 
 			// remove provider reference
-			let _ = frame_system::Pallet::<T>::dec_providers(&who).defensive();
+			let _ = frame_system::Pallet::<T>::dec_providers(&who)?;
 			<Agents<T>>::remove(who);
 			Ok(())
 		}
