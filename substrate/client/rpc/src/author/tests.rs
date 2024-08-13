@@ -21,10 +21,7 @@ use super::*;
 use crate::testing::{allow_unsafe, test_executor, timeout_secs};
 use assert_matches::assert_matches;
 use codec::Encode;
-use jsonrpsee::{
-	core::EmptyServerParams as EmptyParams, Extensions, MethodsError as RpcError, RpcModule,
-};
-use sc_rpc_api::DenyUnsafe;
+use jsonrpsee::{core::EmptyServerParams as EmptyParams, MethodsError as RpcError, RpcModule};
 use sc_transaction_pool::{BasicPool, FullChainApi};
 use sc_transaction_pool_api::TransactionStatus;
 use sp_core::{
