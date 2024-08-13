@@ -651,7 +651,8 @@ impl<T: Config> Pallet<T> {
 		defensive_assert!(released == amount, "hold should have been released fully");
 
 		// update delegation.
-		if delegation.update(&delegator) {
+		let removed = delegation.update(&delegator); 
+		if removed {
 			// remove provider for delegator if no delegation left.
 			let _ = frame_system::Pallet::<T>::dec_providers(&delegator).defensive();
 		}
