@@ -81,3 +81,42 @@ jobs:
           path: ./artifacts/
           retention-days: 1
           if-no-files-found: error
+
+  publish-rustdoc:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs: [build-rustdoc, build-implementers-guide]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+      - name: Ensure destination dir does not exist
+        run: |
+          rm -rf book/
+          rm -rf ${REF_NAME}
+        env:
+          REF_NAME: ${{ github.head_ref }}
+      - name: Download rustdocs
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ github.sha }}-doc
+          path: ${{ github.head_ref }}
+      - name: Download guide
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ github.sha }}-guide
+          path: /tmp
+      - run: mkdir -p book
+      - name: Move book files
+        run: mv /tmp/book/html/* book/
+      - name: push
+        uses: github-actions-x/commit@v2.9
+        with:
+          github-token: ${{ github.token }}
+          push-branch: "gh-pages"
+          commit-message: "___Updated docs for ${{ github.head_ref }}___"
+          force-add: "true"
+          files: ${{ github.head_ref }}/ book/
+          name: devops-parity
+          email: devops-team@parity.io
