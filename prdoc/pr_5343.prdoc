@@ -1,0 +1,17 @@
+title: Allow to disable gap creation during block import
+
+doc:
+  - audience: Node Dev
+    description: |
+      New API `Backend::no_gap()` allows to modify `Backend::BlockImportOperation` to not create block gap in case block
+      has no parent, which is helpful for sync protocols that do not need to sync the gap after this happens.
+
+crates:
+  - name: sc-client-api
+    bump: major
+  - name: sc-consensus
+    bump: minor
+  - name: sc-client-db
+    bump: minor
+  - name: sc-service
+    bump: minor
