@@ -12,7 +12,7 @@ publish = false
 [dependencies]
 codec = { workspace = true }
 scale-info = { workspace = true }
-polkadot-sdk = { workspace = true, features = ["runtime", "experimental"] }
+polkadot-sdk = { workspace = true, features = ["experimental", "runtime"] }
 
 # local pallet templates
 pallet-minimal-template = { workspace = true }
