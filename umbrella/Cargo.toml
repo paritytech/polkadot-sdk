@@ -678,7 +678,7 @@ runtime = [
 	"pallet-session-benchmarking",
 	"pallet-skip-feeless-payment",
 	"pallet-society",
-  "pallet-stake-tracker",
+	"pallet-stake-tracker",
 	"pallet-staking",
 	"pallet-staking-reward-curve",
 	"pallet-staking-reward-fn",

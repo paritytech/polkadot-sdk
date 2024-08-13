@@ -52,11 +52,11 @@ std = [
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
-	"sp-std/std",
 	"sp-npos-elections/std",
 	"sp-runtime/std",
 	"sp-runtime/std",
 	"sp-staking/std",
+	"sp-std/std",
 	"sp-tracing/std",
 ]
 

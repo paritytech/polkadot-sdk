@@ -2237,15 +2237,13 @@ impl<T: Config> Pallet<T> {
 		ensure!(
 			<T as Config>::VoterList::iter()
 				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
-				.count() as u32 ==
-				Nominators::<T>::count() + Validators::<T>::count(),
+				.count() as u32 == Nominators::<T>::count() + Validators::<T>::count(),
 			"wrong external count (VoterList.count != Nominators.count + Validators.count)"
 		);
 		ensure!(
 			<T as Config>::TargetList::iter()
 				.filter(|t| Self::status(&t) == Ok(StakerStatus::Validator))
-				.count() as u32 ==
-				Validators::<T>::count(),
+				.count() as u32 == Validators::<T>::count(),
 			"wrong external count (TargetList.count != Validators.count)"
 		);
 		ensure!(
