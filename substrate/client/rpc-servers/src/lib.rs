@@ -23,7 +23,7 @@
 pub mod middleware;
 pub mod utils;
 
-use std::{error::Error as StdError, str::FromStr, time::Duration};
+use std::{error::Error as StdError, time::Duration};
 
 use jsonrpsee::{
 	core::BoxError,
@@ -34,7 +34,7 @@ use jsonrpsee::{
 };
 use middleware::NodeHealthProxyLayer;
 use tower::Service;
-use utils::{build_rpc_api, deny_unsafe, get_proxy_ip, ListenAddr, RpcSettings};
+use utils::{build_rpc_api, deny_unsafe, get_proxy_ip, RpcSettings};
 
 pub use ip_network::IpNetwork;
 pub use jsonrpsee::{
@@ -45,6 +45,7 @@ pub use jsonrpsee::{
 	server::{middleware::rpc::RpcServiceBuilder, BatchRequestConfig},
 };
 pub use middleware::{Metrics, MiddlewareLayer, RpcMetrics};
+pub use utils::{ListenAddr, RpcMethods};
 
 const MEGABYTE: u32 = 1024 * 1024;
 
@@ -55,7 +56,7 @@ pub type Server = jsonrpsee::server::ServerHandle;
 #[derive(Debug)]
 pub struct Config<M: Send + Sync + 'static> {
 	/// Listen addresses.
-	pub listen_addrs: Vec<String>,
+	pub listen_addrs: Vec<ListenAddr>,
 	/// Maximum connections.
 	pub max_connections: u32,
 	/// Maximum subscriptions per connection.
@@ -140,7 +141,7 @@ where
 	let mut local_addrs = Vec::new();
 
 	for addr in listen_addrs {
-		let mut listener = ListenAddr::from_str(&addr)?.bind().await?;
+		let mut listener = addr.bind().await?;
 		let local_addr = listener.local_addr();
 		local_addrs.push(local_addr);
 		let cfg = cfg.clone();

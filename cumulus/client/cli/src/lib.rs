@@ -27,6 +27,7 @@ use std::{
 
 use codec::Encode;
 use sc_chain_spec::ChainSpec;
+use sc_cli::RpcListenAddr;
 use sc_client_api::HeaderBackend;
 use sc_service::{
 	config::{PrometheusConfig, RpcBatchRequestConfig, TelemetryEndpoints},
@@ -422,7 +423,7 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		self.base.rpc_cors(is_dev)
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> sc_cli::Result<Option<Vec<String>>> {
+	fn rpc_addr(&self, default_listen_port: u16) -> sc_cli::Result<Option<Vec<RpcListenAddr>>> {
 		self.base.rpc_addr(default_listen_port)
 	}
 

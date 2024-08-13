@@ -30,14 +30,15 @@ mod shared_params;
 mod telemetry_params;
 mod transaction_pool_params;
 
-use crate::arg_enums::{CryptoScheme, OutputType};
+use crate::arg_enums::{CryptoScheme, OutputType, RpcMethods};
 use clap::Args;
+use sc_service::config::IpNetwork;
 use sp_core::crypto::{Ss58AddressFormat, Ss58AddressFormatRegistry};
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, NumberFor},
 };
-use std::{fmt::Debug, str::FromStr};
+use std::{fmt::Debug, net::SocketAddr, num::NonZeroU32, str::FromStr};
 
 pub use crate::params::{
 	database_params::*, import_params::*, keystore_params::*, message_params::*, mixnet_params::*,
@@ -160,6 +161,121 @@ pub struct NetworkSchemeFlag {
 	pub network: Option<Ss58AddressFormat>,
 }
 
+/// RPC Listen address.
+///
+/// <ip:port>/?setting=value&setting=value...,
+#[derive(Debug, Clone)]
+pub struct RpcListenAddr {
+	/// Listen address.
+	pub listen_addr: SocketAddr,
+	/// RPC methods to expose.
+	pub rpc_methods: RpcMethods,
+	/// Rate limit for RPC requests.
+	pub rate_limit: Option<NonZeroU32>,
+	/// Whether to trust proxy headers for rate limiting.
+	pub rate_limit_trust_proxy_headers: bool,
+	/// Whitelisted IPs for rate limiting.
+	pub rate_limit_whitelisted_ips: Vec<IpNetwork>,
+	/// CORS.
+	pub cors: Option<Vec<String>>,
+	/// Whether to retry with a random port if the provided port is already in use.
+	pub retry_random_port: bool,
+}
+
+impl FromStr for RpcListenAddr {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, String> {
+		let mut iter = s.split("/?");
+
+		let maybe_listen_addr = iter.next();
+		let maybe_query_params = iter.next();
+
+		let listen_addr: SocketAddr = maybe_listen_addr
+			.ok_or_else(|| "Missing RPC listen address")?
+			.parse()
+			.map_err(|e| format!("Invalid RPC listen address `{:?}`: {}", maybe_listen_addr, e))?;
+
+		let mut rpc_methods = None;
+		let mut cors: Option<Vec<String>> = None;
+		let mut rate_limit = None;
+		let mut rate_limit_trust_proxy_headers = false;
+		let mut rate_limit_whitelisted_ips = Vec::new();
+
+		if let Some(query_params) = maybe_query_params {
+			for val in query_params.split('&') {
+				let (key, value) = val.split_once('=').ok_or_else(|| "Invalid RPC query param")?;
+
+				match key {
+					"rpc-methods" => {
+						rpc_methods =
+							Some(value.parse().map_err(|e| format!("Invalid RPC methods: {}", e))?);
+					},
+					"cors" => {
+						// It's possible to have multiple cors values.
+						for val in value.split(',') {
+							if val.is_empty() {
+								return Err("Empty cors value is not allowed".to_string());
+							}
+
+							if let Some(cors) = cors.as_mut() {
+								cors.push(val.to_string());
+							} else {
+								cors = Some(vec![val.to_string()]);
+							}
+						}
+					},
+					"rate-limit" => {
+						rate_limit =
+							Some(value.parse().map_err(|e| format!("Invalid rate limit: {}", e))?);
+					},
+					"rate-limit-trust-proxy-headers" =>
+						if value == "true" {
+							rate_limit_trust_proxy_headers = true;
+						} else if value == "false" {
+							rate_limit_trust_proxy_headers = false;
+						} else {
+							return Err(
+								"Invalid `rate-limit-trust-proxy-headers` must be true/false"
+									.to_string(),
+							);
+						},
+					"rate-limit-whitelisted-ips" => {
+						rate_limit_whitelisted_ips.push(
+							value.parse().map_err(|e| format!("Invalid rate limit IP: {}", e))?,
+						);
+					},
+					other => return Err(format!("Invalid query param: {}", other)),
+				}
+			}
+		}
+
+		Ok(Self {
+			listen_addr,
+			rpc_methods: rpc_methods.unwrap_or(RpcMethods::Auto),
+			rate_limit,
+			rate_limit_trust_proxy_headers,
+			rate_limit_whitelisted_ips,
+			cors,
+			retry_random_port: false,
+		})
+	}
+}
+
+impl Into<sc_service::config::RpcListenAddr> for RpcListenAddr {
+	fn into(self) -> sc_service::config::RpcListenAddr {
+		sc_service::config::RpcListenAddr {
+			listen_addr: self.listen_addr,
+			rpc_methods: self.rpc_methods.into(),
+			rate_limit: self.rate_limit,
+			rate_limit_trust_proxy_headers: self.rate_limit_trust_proxy_headers,
+			rate_limit_whitelisted_ips: self.rate_limit_whitelisted_ips,
+			cors: self.cors,
+			retry_random_port: self.retry_random_port,
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -196,6 +312,34 @@ mod tests {
 		assert_eq!(
 			"Expected block number, found illegal digit at position: 3",
 			BlockNumberOrHash::from_str("345Hello").unwrap_err(),
+		);
+	}
+
+	#[test]
+	fn parse_rpc_listen_addr_works() {
+		assert!(RpcListenAddr::from_str("127.0.0.1:9944").is_ok());
+		assert!(RpcListenAddr::from_str("[::1]:9944").is_ok());
+		assert!(RpcListenAddr::from_str("127.0.0.1:9944/?rpc-methods=auto").is_ok());
+		assert!(RpcListenAddr::from_str("[::1]:9944/?rpc-methods=auto").is_ok());
+		assert!(RpcListenAddr::from_str("127.0.0.1:9944/?rpc-methods=auto&cors=*").is_ok());
+		assert!(RpcListenAddr::from_str("127.0.0.1:9944/?foo=*").is_err());
+		assert!(RpcListenAddr::from_str("127.0.0.1:9944/?cors=").is_err());
+	}
+
+	#[test]
+	fn parse_rpc_listen_addr_multiple_cors() {
+		let addr = RpcListenAddr::from_str(
+			"127.0.0.1:9944/?rpc-methods=auto&cors=https://polkadot.js.org,*&cors=localhost:*",
+		)
+		.unwrap();
+
+		assert_eq!(
+			addr.cors,
+			Some(vec![
+				"https://polkadot.js.org".to_string(),
+				"*".to_string(),
+				"localhost:*".to_string()
+			])
 		);
 	}
 }

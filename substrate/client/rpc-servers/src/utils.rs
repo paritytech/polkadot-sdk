@@ -73,87 +73,37 @@ pub(crate) struct RpcSettings {
 /// Listen address.
 ///
 /// <ip:port>/?setting=value&setting=value...,
-pub(crate) struct ListenAddr {
-	listen_addr: SocketAddr,
-	rpc_methods: RpcMethods,
-	rate_limit: Option<NonZeroU32>,
-	rate_limit_trust_proxy_headers: bool,
-	rate_limit_whitelisted_ips: Vec<IpNetwork>,
-	cors: Option<String>,
-}
-
-impl FromStr for ListenAddr {
-	type Err = String;
-
-	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let mut iter = s.split("/?");
-
-		let maybe_listen_addr = iter.next();
-		let maybe_query_params = iter.next();
-
-		let listen_addr: SocketAddr = maybe_listen_addr
-			.ok_or_else(|| "Missing RPC listen address")?
-			.parse()
-			.map_err(|e| format!("Invalid RPC listen address `{:?}`: {}", maybe_listen_addr, e))?;
-
-		let mut rpc_methods = None;
-		let mut cors = None;
-		let mut rate_limit = None;
-		let mut rate_limit_trust_proxy_headers = false;
-		let mut rate_limit_whitelisted_ips = Vec::new();
-
-		if let Some(query_params) = maybe_query_params {
-			for val in query_params.split('&') {
-				let (key, value) = val.split_once('=').ok_or_else(|| "Invalid RPC query param")?;
-
-				match key {
-					"rpc-methods" => {
-						rpc_methods =
-							Some(value.parse().map_err(|e| format!("Invalid RPC methods: {}", e))?);
-					},
-					"cors" => {
-						cors = Some(value.to_string());
-					},
-					"rate-limit" => {
-						rate_limit =
-							Some(value.parse().map_err(|e| format!("Invalid rate limit: {}", e))?);
-					},
-					"rate-limit-trust-proxy-headers" =>
-						if value == "true" {
-							rate_limit_trust_proxy_headers = true;
-						} else if value == "false" {
-							rate_limit_trust_proxy_headers = false;
-						} else {
-							return Err(
-								"Invalid `rate-limit-trust-proxy-headers` must be true/false"
-									.to_string(),
-							);
-						},
-					"rate-limit-whitelisted-ips" => {
-						rate_limit_whitelisted_ips.push(
-							value.parse().map_err(|e| format!("Invalid rate limit IP: {}", e))?,
-						);
-					},
-					other => return Err(format!("Invalid query param: {}", other)),
-				}
-			}
-		}
-
-		Ok(ListenAddr {
-			listen_addr,
-			rpc_methods: rpc_methods.unwrap_or(RpcMethods::Auto),
-			rate_limit,
-			rate_limit_trust_proxy_headers,
-			rate_limit_whitelisted_ips,
-			cors,
-		})
-	}
+#[derive(Debug, Clone)]
+pub struct ListenAddr {
+	/// Listen address.
+	pub listen_addr: SocketAddr,
+	/// RPC methods policy.
+	pub rpc_methods: RpcMethods,
+	/// Enable rate limiting.
+	pub rate_limit: Option<NonZeroU32>,
+	/// Whether to trust proxy headers for rate limiting.
+	pub rate_limit_trust_proxy_headers: bool,
+	/// Whitelisted IPs for rate limiting.
+	pub rate_limit_whitelisted_ips: Vec<IpNetwork>,
+	/// CORS settings.
+	pub cors: Option<Vec<String>>,
+	/// Whether to retry with a random port if the provided port is already in use.
+	pub retry_random_port: bool,
 }
 
 impl ListenAddr {
 	/// Binds to the listen address.
 	pub(crate) async fn bind(self) -> Result<Listener, Box<dyn StdError + Send + Sync>> {
-		let listener = tokio::net::TcpListener::bind(self.listen_addr).await?;
+		let listener = match tokio::net::TcpListener::bind(self.listen_addr).await {
+			Ok(listener) => listener,
+			Err(_) if self.retry_random_port => {
+				let mut addr = self.listen_addr;
+				addr.set_port(0);
+
+				tokio::net::TcpListener::bind(addr).await?
+			},
+			Err(e) => return Err(e.into()),
+		};
 		let local_addr = listener.local_addr()?;
 		let host_filter = host_filtering(self.cors.is_some(), local_addr);
 		let cors = try_into_cors(self.cors)?;
@@ -232,13 +182,13 @@ pub(crate) fn build_rpc_api<M: Send + Sync + 'static>(mut rpc_api: RpcModule<M>)
 }
 
 pub(crate) fn try_into_cors(
-	maybe_cors: Option<String>,
+	maybe_cors: Option<Vec<String>>,
 ) -> Result<CorsLayer, Box<dyn StdError + Send + Sync>> {
 	if let Some(cors) = maybe_cors {
 		let mut list = Vec::new();
 
-		for origin in cors.split(',') {
-			list.push(HeaderValue::from_str(origin)?)
+		for origin in cors {
+			list.push(HeaderValue::from_str(&origin)?)
 		}
 
 		Ok(CorsLayer::new().allow_origin(AllowOrigin::list(list)))

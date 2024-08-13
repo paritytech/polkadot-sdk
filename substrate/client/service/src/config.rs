@@ -83,7 +83,7 @@ pub struct Configuration {
 	/// disable overrides (default).
 	pub wasm_runtime_overrides: Option<PathBuf>,
 	/// JSON-RPC server binding address.
-	pub rpc_addr: Option<Vec<String>>,
+	pub rpc_addr: Option<Vec<RpcListenAddr>>,
 	/// Maximum number of connections for JSON-RPC server.
 	pub rpc_max_connections: u32,
 	/// CORS settings for HTTP & WS servers. `None` if all origins are allowed.
@@ -337,5 +337,50 @@ impl BasePath {
 impl From<PathBuf> for BasePath {
 	fn from(path: PathBuf) -> Self {
 		BasePath::new(path)
+	}
+}
+
+/// RPC Listen address.
+///
+/// <ip:port>/?setting=value&setting=value...,
+#[derive(Debug, Clone)]
+pub struct RpcListenAddr {
+	/// Listen address.
+	pub listen_addr: SocketAddr,
+	/// RPC methods to expose.
+	pub rpc_methods: RpcMethods,
+	/// Rate limit for RPC requests.
+	pub rate_limit: Option<NonZeroU32>,
+	/// Whether to trust proxy headers for rate limiting.
+	pub rate_limit_trust_proxy_headers: bool,
+	/// Whitelisted IPs for rate limiting.
+	pub rate_limit_whitelisted_ips: Vec<IpNetwork>,
+	/// CORS.
+	pub cors: Option<Vec<String>>,
+	/// Whether to retry with a random port if the provided port is already in use.
+	pub retry_random_port: bool,
+}
+
+impl Into<sc_rpc_server::ListenAddr> for RpcListenAddr {
+	fn into(self) -> sc_rpc_server::ListenAddr {
+		sc_rpc_server::ListenAddr {
+			listen_addr: self.listen_addr,
+			rpc_methods: self.rpc_methods.into(),
+			rate_limit: self.rate_limit,
+			rate_limit_trust_proxy_headers: self.rate_limit_trust_proxy_headers,
+			rate_limit_whitelisted_ips: self.rate_limit_whitelisted_ips,
+			cors: self.cors,
+			retry_random_port: self.retry_random_port,
+		}
+	}
+}
+
+impl Into<sc_rpc_server::RpcMethods> for RpcMethods {
+	fn into(self) -> sc_rpc_server::RpcMethods {
+		match self {
+			RpcMethods::Auto => sc_rpc_server::RpcMethods::Auto,
+			RpcMethods::Safe => sc_rpc_server::RpcMethods::Safe,
+			RpcMethods::Unsafe => sc_rpc_server::RpcMethods::Unsafe,
+		}
 	}
 }

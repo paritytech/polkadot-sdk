@@ -20,7 +20,8 @@
 
 use crate::{
 	arg_enums::Database, error::Result, DatabaseParams, ImportParams, KeystoreParams,
-	NetworkParams, NodeKeyParams, OffchainWorkerParams, PruningParams, SharedParams, SubstrateCli,
+	NetworkParams, NodeKeyParams, OffchainWorkerParams, PruningParams, RpcListenAddr, SharedParams,
+	SubstrateCli,
 };
 use log::warn;
 use names::{Generator, Name};
@@ -301,7 +302,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	}
 
 	/// Get the RPC address.
-	fn rpc_addr(&self, _default_listen_port: u16) -> Result<Option<Vec<String>>> {
+	fn rpc_addr(&self, _default_listen_port: u16) -> Result<Option<Vec<RpcListenAddr>>> {
 		Ok(None)
 	}
 
@@ -504,6 +505,10 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		let telemetry_endpoints = self.telemetry_endpoints(&chain_spec)?;
 		let runtime_cache_size = self.runtime_cache_size()?;
 
+		let rpc_addrs: Option<Vec<sc_service::config::RpcListenAddr>> = self
+			.rpc_addr(DCV::rpc_listen_port())?
+			.map(|addrs| addrs.into_iter().map(Into::into).collect());
+
 		Ok(Configuration {
 			impl_name: C::impl_name(),
 			impl_version: C::impl_version(),
@@ -527,7 +532,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			blocks_pruning: self.blocks_pruning()?,
 			wasm_method: self.wasm_method()?,
 			wasm_runtime_overrides: self.wasm_runtime_overrides(),
-			rpc_addr: self.rpc_addr(DCV::rpc_listen_port())?,
+			rpc_addr: rpc_addrs,
 			rpc_methods: self.rpc_methods()?,
 			rpc_max_connections: self.rpc_max_connections()?,
 			rpc_cors: self.rpc_cors(is_dev)?,

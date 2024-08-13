@@ -34,7 +34,10 @@ mod client;
 mod metrics;
 mod task_manager;
 
-use std::collections::HashMap;
+use std::{
+	collections::HashMap,
+	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+};
 
 use codec::{Decode, Encode};
 use futures::{pin_mut, FutureExt, StreamExt};
@@ -382,7 +385,35 @@ pub fn start_rpc_servers<R>(
 where
 	R: Fn() -> Result<RpcModule<()>, Error>,
 {
-	let listen_addrs = config.rpc_addr.clone().expect("RPC server address is set by the CLI; qed");
+	let listen_addrs: Vec<sc_rpc_server::ListenAddr> = if let Some(listen_addrs) =
+		config.rpc_addr.as_ref()
+	{
+		listen_addrs.clone().into_iter().map(Into::into).collect()
+	} else {
+		let ipv6 = SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::LOCALHOST, config.rpc_port, 0, 0));
+		let ipv4 = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, config.rpc_port));
+
+		vec![
+			sc_rpc_server::ListenAddr {
+				cors: config.rpc_cors.clone(),
+				listen_addr: ipv4,
+				rpc_methods: config.rpc_methods.into(),
+				rate_limit: config.rpc_rate_limit,
+				rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
+				rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
+				retry_random_port: true,
+			},
+			sc_rpc_server::ListenAddr {
+				cors: config.rpc_cors.clone(),
+				listen_addr: ipv6,
+				rpc_methods: config.rpc_methods.into(),
+				rate_limit: config.rpc_rate_limit,
+				rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
+				rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
+				retry_random_port: true,
+			},
+		]
+	};
 
 	let metrics = sc_rpc_server::RpcMetrics::new(config.prometheus_registry())?;
 	let rpc_api = gen_rpc_module()?;
