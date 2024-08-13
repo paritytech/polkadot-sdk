@@ -18,7 +18,7 @@
 
 use frame_support::PalletError;
 use sp_core::RuntimeDebug;
-use sp_std::{default::Default, vec::Vec};
+use sp_std::vec::Vec;
 use sp_trie::{
 	accessed_nodes_tracker::AccessedNodesTracker, read_trie_value, LayoutV1, MemoryDB, StorageProof,
 };
@@ -281,7 +281,7 @@ where
 /// Return valid storage proof and state root.
 ///
 /// Note: This should only be used for **testing**.
-#[cfg(any(feature = "std", test))]
+#[cfg(any(feature = "test-helpers", test))]
 pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
 	use sp_state_machine::{backend::Backend, prove_read, InMemoryBackend};
 

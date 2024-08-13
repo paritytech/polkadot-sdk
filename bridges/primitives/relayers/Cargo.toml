@@ -18,7 +18,7 @@ scale-info = { features = ["bit-vec", "derive"], workspace = true }
 bp-header-chain = { workspace = true }
 bp-messages = { workspace = true }
 bp-parachains = { workspace = true }
-bp-runtime = { features = ["test-helpers"], workspace = true }
+bp-runtime = { workspace = true }
 
 # Substrate Dependencies
 frame-system = { workspace = true }

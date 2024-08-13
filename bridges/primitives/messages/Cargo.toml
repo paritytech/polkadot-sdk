@@ -28,7 +28,7 @@ sp-io = { workspace = true }
 [dev-dependencies]
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
-bp-runtime = { features = ["test-helpers"], workspace = true }
+bp-runtime = { workspace = true }
 
 [features]
 default = ["std"]

@@ -18,7 +18,7 @@ codec = { features = ["derive"], workspace = true }
 
 # Bridge Dependencies
 bp-bridge-hub-cumulus = { workspace = true }
-bp-runtime = { features = ["test-helpers"], workspace = true }
+bp-runtime = { workspace = true }
 bp-messages = { workspace = true }
 bp-xcm-bridge-hub = { workspace = true }
 

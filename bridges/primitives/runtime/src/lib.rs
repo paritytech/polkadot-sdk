@@ -40,12 +40,10 @@ pub use chain::{
 };
 pub use frame_support::storage::storage_prefix as storage_value_final_key;
 use num_traits::{CheckedAdd, CheckedSub, One, SaturatingAdd, Zero};
-#[cfg(any(feature = "std", test))]
-pub use storage_proof::craft_valid_storage_proof;
 #[cfg(feature = "test-helpers")]
 pub use storage_proof::{
-	grow_storage_proof, grow_storage_value, record_all_keys as record_all_trie_keys,
-	UnverifiedStorageProofParams,
+	craft_valid_storage_proof, grow_storage_proof, grow_storage_value,
+	record_all_keys as record_all_trie_keys, UnverifiedStorageProofParams,
 };
 pub use storage_proof::{
 	raw_storage_proof_size, RawStorageProof, StorageProofChecker, StorageProofError,

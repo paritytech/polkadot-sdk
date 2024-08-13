@@ -212,10 +212,8 @@ impl xcm_executor::Config for XcmConfig {
 			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 		),
 	>;
-	type MessageExporter = (
-		XcmOverBridgeHubRococo,
-		crate::bridge_to_ethereum_config::SnowbridgeExporter,
-	);
+	type MessageExporter =
+		(XcmOverBridgeHubRococo, crate::bridge_to_ethereum_config::SnowbridgeExporter);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
