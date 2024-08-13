@@ -247,7 +247,7 @@ will not be used when dispatching the schedule runtime call.</p>
 <p>See the <a href="pallet/index.html" title="mod pallet_scheduler::pallet"><code>pallet</code></a> module for more information about the interfaces this pallet exposes,
 including its configuration trait, dispatchables, storage items, events and errors.</p>
 <h3 id="warning"><a class="doc-anchor" href="#warning">§</a>Warning</h3>
-<p>This Pallet executes all scheduled runtime calls in the <a href="../frame_support/traits/hooks/trait.Hooks.html#method.on_initialize" title="associated function frame_support::traits::hooks::Hooks::on_initialize"><code>on_initialize</code></a> hook. Do not execute
+<p>This Pallet executes all scheduled runtime calls in the <a href="frame_support::traits::Hooks::on_initialize"><code>on_initialize</code></a> hook. Do not execute
 any runtime calls which should not be considered mandatory.</p>
 <p>Please be aware that any scheduled runtime calls executed in a future block may <strong>fail</strong> or may
 result in <strong>undefined behavior</strong> since the runtime could have upgraded between the time of
