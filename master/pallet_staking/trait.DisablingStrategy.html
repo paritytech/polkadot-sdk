@@ -152,13 +152,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     // Required method
     fn <a href="#tymethod.decision" class="fn">decision</a>(
         offender_stash: &amp;T::AccountId,
-        slash_era: <a class="type" href="../sp_staking/type.EraIndex.html" title="type sp_staking::EraIndex">EraIndex</a>,
+        slash_era: EraIndex,
         currently_disabled: &amp;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Controls validator disabling</p>
 </div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.decision" class="method"><a class="src rightside" href="../src/pallet_staking/lib.rs.html#1275-1279">source</a><h4 class="code-header">fn <a href="#tymethod.decision" class="fn">decision</a>(
     offender_stash: &amp;T::AccountId,
-    slash_era: <a class="type" href="../sp_staking/type.EraIndex.html" title="type sp_staking::EraIndex">EraIndex</a>,
+    slash_era: EraIndex,
     currently_disabled: &amp;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Make a disabling decision. Returns the index of the validator to disable or <code>None</code> if no new
 validator should be disabled.</p>
