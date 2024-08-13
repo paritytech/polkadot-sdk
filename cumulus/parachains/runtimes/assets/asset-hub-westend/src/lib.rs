@@ -85,17 +85,24 @@ pub use sp_runtime::BuildStorage;
 
 use assets_common::{foreign_creators::ForeignCreators, matching::FromSiblingParachain};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+use xcm::{
+	prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
+	IntoVersion,
+};
+
+// We exclude `Assets` since it's the name of a pallet
+use xcm::latest::prelude::AssetId;
 
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Fungible, Here, InteriorLocation, Junction, Junction::*, Location, NetworkId,
 	NonFungible, Parent, ParentThen, Response, XCM_VERSION,
 };
-use xcm::{
-	latest::prelude::AssetId, IntoVersion, VersionedAssetId, VersionedAssets, VersionedLocation,
-	VersionedXcm,
+
+use xcm_fee_payment_runtime_api::{
+	dry_run::{Error as XcmDryRunApiError, ExtrinsicDryRunEffects, XcmDryRunEffects},
+	fees::Error as XcmPaymentApiError,
 };
-use xcm_fee_payment_runtime_api::Error as XcmPaymentApiError;
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
@@ -1311,6 +1318,109 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl xcm_fee_payment_runtime_api::fees::XcmPaymentApi<Block> for Runtime {
+		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
+			let acceptable = vec![
+				// native token
+				VersionedAssetId::from(AssetId(xcm_config::WestendLocation::get()))
+			];
+
+			Ok(acceptable
+				.into_iter()
+				.filter_map(|asset| asset.into_version(xcm_version).ok())
+				.collect())
+		}
+
+		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
+			match asset.try_as::<AssetId>() {
+				Ok(asset_id) if asset_id.0 == xcm_config::WestendLocation::get() => {
+					// for native token
+					Ok(WeightToFee::weight_to_fee(&weight))
+				},
+				Ok(asset_id) => {
+					log::trace!(target: "xcm::xcm_fee_payment_runtime_api", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
+					Err(XcmPaymentApiError::AssetNotFound)
+				},
+				Err(_) => {
+					log::trace!(target: "xcm::xcm_fee_payment_runtime_api", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
+					Err(XcmPaymentApiError::VersionedConversionFailed)
+				}
+			}
+		}
+
+		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
+			PolkadotXcm::query_xcm_weight(message)
+		}
+
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
+			PolkadotXcm::query_delivery_fees(destination, message)
+		}
+	}
+
+	impl xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi<Block, RuntimeCall, RuntimeEvent> for Runtime {
+		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			use xcm_builder::InspectMessageQueues;
+			use xcm_executor::RecordXcm;
+			use xcm::prelude::*;
+
+			pallet_xcm::Pallet::<Runtime>::set_record_xcm(true);
+			let result = Executive::apply_extrinsic(extrinsic).map_err(|error| {
+				log::error!(
+					target: "xcm::XcmDryRunApi::dry_run_extrinsic",
+					"Applying extrinsic failed with error {:?}",
+					error,
+				);
+				XcmDryRunApiError::InvalidExtrinsic
+			})?;
+			let local_xcm = pallet_xcm::Pallet::<Runtime>::recorded_xcm();
+			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
+			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
+			Ok(ExtrinsicDryRunEffects {
+				local_xcm: local_xcm.map(VersionedXcm::<()>::V4),
+				forwarded_xcms,
+				emitted_events: events,
+				execution_result: result,
+			})
+		}
+
+		fn dry_run_xcm(origin_location: VersionedLocation, program: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			use xcm_builder::InspectMessageQueues;
+			use xcm::prelude::*;
+
+			let origin_location: Location = origin_location.try_into().map_err(|error| {
+				log::error!(
+					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					"Location version conversion failed with error: {:?}",
+					error,
+				);
+				XcmDryRunApiError::VersionedConversionFailed
+			})?;
+			let program: Xcm<RuntimeCall> = program.try_into().map_err(|error| {
+				log::error!(
+					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					"Xcm version conversion failed with error {:?}",
+					error,
+				);
+				XcmDryRunApiError::VersionedConversionFailed
+			})?;
+			let mut hash = program.using_encoded(sp_core::hashing::blake2_256);
+			let result = xcm_executor::XcmExecutor::<xcm_config::XcmConfig>::prepare_and_execute(
+				origin_location,
+				program,
+				&mut hash,
+				Weight::MAX, // Max limit available for execution.
+				Weight::zero(),
+			);
+			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
+			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
+			Ok(XcmDryRunEffects {
+				forwarded_xcms,
+				emitted_events: events,
+				execution_result: result,
+			})
+		}
+	}
+
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
 		for Runtime
 	{
@@ -1371,45 +1481,6 @@ impl_runtime_apis! {
 				)?,
 				// collect ... e.g. other tokens
 			].concat().into())
-		}
-	}
-
-	impl xcm_fee_payment_runtime_api::XcmPaymentApi<Block> for Runtime {
-		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			let acceptable = vec![
-				// native token
-				VersionedAssetId::from(AssetId(xcm_config::WestendLocation::get()))
-			];
-
-			Ok(acceptable
-				.into_iter()
-				.filter_map(|asset| asset.into_version(xcm_version).ok())
-				.collect())
-		}
-
-		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			match asset.try_as::<AssetId>() {
-				Ok(asset_id) if asset_id.0 == xcm_config::WestendLocation::get() => {
-					// for native token
-					Ok(WeightToFee::weight_to_fee(&weight))
-				},
-				Ok(asset_id) => {
-					log::trace!(target: "xcm::xcm_fee_payment_runtime_api", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
-					Err(XcmPaymentApiError::AssetNotFound)
-				},
-				Err(_) => {
-					log::trace!(target: "xcm::xcm_fee_payment_runtime_api", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
-					Err(XcmPaymentApiError::VersionedConversionFailed)
-				}
-			}
-		}
-
-		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
-			PolkadotXcm::query_xcm_weight(message)
-		}
-
-		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
-			PolkadotXcm::query_delivery_fees(destination, message)
 		}
 	}
 

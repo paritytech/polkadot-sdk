@@ -740,7 +740,7 @@ where
 	///
 	/// Subtracts from the count of the `CoreAffinityCount` if an entry is found and the core_index
 	/// matches. When the count reaches 0, the entry is removed.
-	/// A non-existant entry is a no-op.
+	/// A non-existent entry is a no-op.
 	///
 	/// Returns: The new affinity of the para on that core. `None` if there is no affinity on this
 	/// core.

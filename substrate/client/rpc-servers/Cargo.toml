@@ -16,14 +16,16 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.22", features = ["server"] }
-log = { workspace = true, default-features = true }
-serde_json = { workspace = true, default-features = true }
-tokio = { version = "1.22.0", features = ["parking_lot"] }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
-tower-http = { version = "0.4.0", features = ["cors"] }
-tower = { version = "0.4.13", features = ["util"] }
-http = "0.2.8"
-hyper = "0.14.27"
+forwarded-header-value = "0.1.1"
 futures = "0.3.30"
 governor = "0.6.0"
+http = "0.2.8"
+hyper = "0.14.27"
+ip_network = "0.4.1"
+jsonrpsee = { version = "0.22", features = ["server"] }
+log = { workspace = true, default-features = true }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
+serde_json = { workspace = true, default-features = true }
+tokio = { version = "1.22.0", features = ["parking_lot"] }
+tower = { version = "0.4.13", features = ["util"] }
+tower-http = { version = "0.4.0", features = ["cors"] }

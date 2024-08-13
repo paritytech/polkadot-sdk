@@ -75,7 +75,7 @@ pub mod pallet {
 				AssetId, Balance as AssetBalance,
 				Fortitude::Polite,
 				Precision::{BestEffort, Exact},
-				Preservation::Preserve,
+				Preservation::{Expendable, Preserve},
 			},
 		},
 		BoundedVec, PalletId,
@@ -374,7 +374,7 @@ pub mod pallet {
 			account: &T::AccountId,
 			amount: AssetBalanceOf<T>,
 		) -> DispatchResult {
-			T::Assets::burn_from(asset_id.clone(), account, amount, Exact, Polite)?;
+			T::Assets::burn_from(asset_id.clone(), account, amount, Expendable, Exact, Polite)?;
 			T::Assets::start_destroy(asset_id, None)
 		}
 

@@ -119,7 +119,7 @@ pub mod pallet {
 
 	/// The downward messages addressed for a certain para.
 	#[pallet::storage]
-	pub(crate) type DownwardMessageQueues<T: Config> = StorageMap<
+	pub type DownwardMessageQueues<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		ParaId,

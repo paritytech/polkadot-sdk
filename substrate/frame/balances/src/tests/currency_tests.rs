@@ -701,7 +701,7 @@ fn account_removal_on_free_too_low() {
 fn burn_must_work() {
 	ExtBuilder::default().monied(true).build_and_execute_with(|| {
 		let init_total_issuance = Balances::total_issuance();
-		let imbalance = Balances::burn(10);
+		let imbalance = <Balances as Currency<_>>::burn(10);
 		assert_eq!(Balances::total_issuance(), init_total_issuance - 10);
 		drop(imbalance);
 		assert_eq!(Balances::total_issuance(), init_total_issuance);

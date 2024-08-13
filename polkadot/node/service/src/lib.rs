@@ -956,7 +956,7 @@ pub fn new_full<
 				pvf_execute_workers_max_num: execute_workers_max_num.unwrap_or_else(
 					|| match config.chain_spec.identify_chain() {
 						// The intention is to use this logic for gradual increasing from 2 to 4
-						// of this configuration chain by chain untill it reaches production chain.
+						// of this configuration chain by chain until it reaches production chain.
 						Chain::Polkadot | Chain::Kusama => 2,
 						Chain::Rococo | Chain::Westend | Chain::Unknown => 4,
 					},

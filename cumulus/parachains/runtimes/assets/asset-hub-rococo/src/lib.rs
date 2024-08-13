@@ -100,7 +100,10 @@ use xcm::{
 	latest::prelude::{AssetId, BodyId},
 	IntoVersion, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
 };
-use xcm_fee_payment_runtime_api::Error as XcmPaymentApiError;
+use xcm_fee_payment_runtime_api::{
+	dry_run::{Error as XcmDryRunApiError, ExtrinsicDryRunEffects, XcmDryRunEffects},
+	fees::Error as XcmPaymentApiError,
+};
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
@@ -942,8 +945,6 @@ construct_runtime!(
 		PoolAssets: pallet_assets::<Instance3> = 55,
 		AssetConversion: pallet_asset_conversion = 56,
 
-		StateTrieMigration: pallet_state_trie_migration = 70,
-
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
 		AssetConversionMigration: pallet_asset_conversion_ops = 200,
@@ -1281,7 +1282,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_fee_payment_runtime_api::XcmPaymentApi<Block> for Runtime {
+	impl xcm_fee_payment_runtime_api::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
 			let acceptable = vec![
 				// native token
@@ -1317,6 +1318,70 @@ impl_runtime_apis! {
 
 		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
 			PolkadotXcm::query_delivery_fees(destination, message)
+		}
+	}
+
+	impl xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi<Block, RuntimeCall, RuntimeEvent> for Runtime {
+		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			use xcm_builder::InspectMessageQueues;
+			use xcm_executor::RecordXcm;
+			use xcm::prelude::*;
+
+			pallet_xcm::Pallet::<Runtime>::set_record_xcm(true);
+			let result = Executive::apply_extrinsic(extrinsic).map_err(|error| {
+				log::error!(
+					target: "xcm::XcmDryRunApi::dry_run_extrinsic",
+					"Applying extrinsic failed with error {:?}",
+					error,
+				);
+				XcmDryRunApiError::InvalidExtrinsic
+			})?;
+			let local_xcm = pallet_xcm::Pallet::<Runtime>::recorded_xcm();
+			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
+			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
+			Ok(ExtrinsicDryRunEffects {
+				local_xcm: local_xcm.map(VersionedXcm::<()>::V4),
+				forwarded_xcms,
+				emitted_events: events,
+				execution_result: result,
+			})
+		}
+
+		fn dry_run_xcm(origin_location: VersionedLocation, program: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			use xcm_builder::InspectMessageQueues;
+			use xcm::prelude::*;
+
+			let origin_location: Location = origin_location.try_into().map_err(|error| {
+				log::error!(
+					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					"Location version conversion failed with error: {:?}",
+					error,
+				);
+				XcmDryRunApiError::VersionedConversionFailed
+			})?;
+			let program: Xcm<RuntimeCall> = program.try_into().map_err(|error| {
+				log::error!(
+					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					"Xcm version conversion failed with error {:?}",
+					error,
+				);
+				XcmDryRunApiError::VersionedConversionFailed
+			})?;
+			let mut hash = program.using_encoded(sp_core::hashing::blake2_256);
+			let result = xcm_executor::XcmExecutor::<xcm_config::XcmConfig>::prepare_and_execute(
+				origin_location,
+				program,
+				&mut hash,
+				Weight::MAX, // Max limit available for execution.
+				Weight::zero(),
+			);
+			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
+			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
+			Ok(XcmDryRunEffects {
+				forwarded_xcms,
+				emitted_events: events,
+				execution_result: result,
+			})
 		}
 	}
 
@@ -1716,47 +1781,6 @@ impl_runtime_apis! {
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
-}
-
-parameter_types! {
-	// The deposit configuration for the singed migration. Specially if you want to allow any signed account to do the migration (see `SignedFilter`, these deposits should be high)
-	pub const MigrationSignedDepositPerItem: Balance = CENTS;
-	pub const MigrationSignedDepositBase: Balance = 2_000 * CENTS;
-	pub const MigrationMaxKeyLen: u32 = 512;
-}
-
-impl pallet_state_trie_migration::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type SignedDepositPerItem = MigrationSignedDepositPerItem;
-	type SignedDepositBase = MigrationSignedDepositBase;
-	// An origin that can control the whole pallet: should be Root, or a part of your council.
-	type ControlOrigin = frame_system::EnsureSignedBy<RootMigController, AccountId>;
-	// specific account for the migration, can trigger the signed migrations.
-	type SignedFilter = frame_system::EnsureSignedBy<MigController, AccountId>;
-
-	// Replace this with weight based on your runtime.
-	type WeightInfo = pallet_state_trie_migration::weights::SubstrateWeight<Runtime>;
-
-	type MaxKeyLen = MigrationMaxKeyLen;
-}
-
-frame_support::ord_parameter_types! {
-	pub const MigController: AccountId = AccountId::from(hex_literal::hex!("8458ed39dc4b6f6c7255f7bc42be50c2967db126357c999d44e12ca7ac80dc52"));
-	pub const RootMigController: AccountId = AccountId::from(hex_literal::hex!("8458ed39dc4b6f6c7255f7bc42be50c2967db126357c999d44e12ca7ac80dc52"));
-}
-
-#[test]
-fn ensure_key_ss58() {
-	use frame_support::traits::SortedMembers;
-	use sp_core::crypto::Ss58Codec;
-	let acc =
-		AccountId::from_ss58check("5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD").unwrap();
-	assert_eq!(acc, MigController::sorted_members()[0]);
-	let acc =
-		AccountId::from_ss58check("5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD").unwrap();
-	assert_eq!(acc, RootMigController::sorted_members()[0]);
 }
 
 #[cfg(test)]

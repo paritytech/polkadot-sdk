@@ -19,7 +19,7 @@ parking_lot = "0.12.1"
 pin-project = "1.0.9"
 rand = "0.8.5"
 thiserror = { workspace = true }
-fatality = "0.0.6"
+fatality = "0.1.0"
 gum = { package = "tracing-gum", path = "../gum" }
 derive_more = "0.99.17"
 schnellru = "0.2.1"

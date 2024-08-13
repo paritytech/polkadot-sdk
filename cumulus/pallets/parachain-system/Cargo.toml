@@ -38,6 +38,7 @@ polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-
 polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains", default-features = false }
 polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false, optional = true }
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
 
 # Cumulus
 cumulus-pallet-parachain-system-proc-macro = { path = "proc-macro", default-features = false }
@@ -94,6 +95,7 @@ std = [
 	"sp-tracing/std",
 	"sp-trie/std",
 	"trie-db/std",
+	"xcm-builder/std",
 	"xcm/std",
 ]
 
@@ -108,6 +110,7 @@ runtime-benchmarks = [
 	"polkadot-runtime-common/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
 ]
 
 try-runtime = [

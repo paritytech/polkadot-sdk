@@ -24,7 +24,7 @@ polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-overseer = { path = "../../overseer" }
 parking_lot = "0.12.1"
 bytes = "1"
-fatality = "0.0.6"
+fatality = "0.1.0"
 thiserror = { workspace = true }
 
 [dev-dependencies]

@@ -22,7 +22,7 @@ use sp_core::{
 	offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt},
 	H256,
 };
-use sp_mmr_primitives::{mmr_lib::helper, utils, Compact, Proof};
+use sp_mmr_primitives::{mmr_lib::helper, utils, Compact, LeafProof};
 use sp_runtime::BuildStorage;
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
@@ -283,7 +283,7 @@ fn should_generate_proofs_correctly() {
 			proofs[0],
 			(
 				vec![Compact::new(((0, H256::repeat_byte(1)).into(), LeafData::new(1).into(),))],
-				Proof {
+				LeafProof {
 					leaf_indices: vec![0],
 					leaf_count: 7,
 					items: vec![
@@ -298,7 +298,7 @@ fn should_generate_proofs_correctly() {
 			historical_proofs[0][0],
 			(
 				vec![Compact::new(((0, H256::repeat_byte(1)).into(), LeafData::new(1).into(),))],
-				Proof { leaf_indices: vec![0], leaf_count: 1, items: vec![] }
+				LeafProof { leaf_indices: vec![0], leaf_count: 1, items: vec![] }
 			)
 		);
 
@@ -314,7 +314,7 @@ fn should_generate_proofs_correctly() {
 			proofs[2],
 			(
 				vec![Compact::new(((2, H256::repeat_byte(3)).into(), LeafData::new(3).into(),))],
-				Proof {
+				LeafProof {
 					leaf_indices: vec![2],
 					leaf_count: 7,
 					items: vec![
@@ -334,7 +334,7 @@ fn should_generate_proofs_correctly() {
 			historical_proofs[2][0],
 			(
 				vec![Compact::new(((2, H256::repeat_byte(3)).into(), LeafData::new(3).into(),))],
-				Proof {
+				LeafProof {
 					leaf_indices: vec![2],
 					leaf_count: 3,
 					items: vec![hex(
@@ -354,7 +354,7 @@ fn should_generate_proofs_correctly() {
 			historical_proofs[2][2],
 			(
 				vec![Compact::new(((2, H256::repeat_byte(3)).into(), LeafData::new(3).into(),))],
-				Proof {
+				LeafProof {
 					leaf_indices: vec![2],
 					leaf_count: 5,
 					items: vec![
@@ -372,7 +372,7 @@ fn should_generate_proofs_correctly() {
 			(
 				// NOTE: the leaf index is equivalent to the block number(in this case 5) - 1
 				vec![Compact::new(((4, H256::repeat_byte(5)).into(), LeafData::new(5).into(),))],
-				Proof {
+				LeafProof {
 					leaf_indices: vec![4],
 					leaf_count: 7,
 					items: vec![
@@ -387,7 +387,7 @@ fn should_generate_proofs_correctly() {
 			historical_proofs[4][0],
 			(
 				vec![Compact::new(((4, H256::repeat_byte(5)).into(), LeafData::new(5).into(),))],
-				Proof {
+				LeafProof {
 					leaf_indices: vec![4],
 					leaf_count: 5,
 					items: vec![hex(
@@ -402,7 +402,7 @@ fn should_generate_proofs_correctly() {
 			proofs[6],
 			(
 				vec![Compact::new(((6, H256::repeat_byte(7)).into(), LeafData::new(7).into(),))],
-				Proof {
+				LeafProof {
 					leaf_indices: vec![6],
 					leaf_count: 7,
 					items: vec![
@@ -433,7 +433,7 @@ fn should_generate_batch_proof_correctly() {
 		// then
 		assert_eq!(
 			proof,
-			Proof {
+			LeafProof {
 				// the leaf indices are equivalent to the above specified block numbers - 1.
 				leaf_indices: vec![0, 4, 5],
 				leaf_count: 7,
@@ -451,7 +451,7 @@ fn should_generate_batch_proof_correctly() {
 		// then
 		assert_eq!(
 			historical_proof,
-			Proof {
+			LeafProof {
 				leaf_indices: vec![0, 4, 5],
 				leaf_count: 6,
 				items: vec![
@@ -516,43 +516,40 @@ fn should_verify() {
 	});
 }
 
+fn generate_and_verify_batch_proof(
+	ext: &mut sp_io::TestExternalities,
+	block_numbers: &Vec<u64>,
+	blocks_to_add: usize,
+) {
+	let (leaves, proof) = ext.execute_with(|| {
+		crate::Pallet::<Test>::generate_proof(block_numbers.to_vec(), None).unwrap()
+	});
+
+	let max_block_number = ext.execute_with(|| frame_system::Pallet::<Test>::block_number());
+	let min_block_number = block_numbers.iter().max().unwrap();
+
+	// generate all possible historical proofs for the given blocks
+	let historical_proofs = (*min_block_number..=max_block_number)
+		.map(|best_block| {
+			ext.execute_with(|| {
+				crate::Pallet::<Test>::generate_proof(block_numbers.to_vec(), Some(best_block))
+					.unwrap()
+			})
+		})
+		.collect::<Vec<_>>();
+
+	ext.execute_with(|| {
+		add_blocks(blocks_to_add);
+		// then
+		assert_eq!(crate::Pallet::<Test>::verify_leaves(leaves, proof), Ok(()));
+		historical_proofs.iter().for_each(|(leaves, proof)| {
+			assert_eq!(crate::Pallet::<Test>::verify_leaves(leaves.clone(), proof.clone()), Ok(()));
+		});
+	})
+}
+
 #[test]
 fn should_verify_batch_proofs() {
-	fn generate_and_verify_batch_proof(
-		ext: &mut sp_io::TestExternalities,
-		block_numbers: &Vec<u64>,
-		blocks_to_add: usize,
-	) {
-		let (leaves, proof) = ext.execute_with(|| {
-			crate::Pallet::<Test>::generate_proof(block_numbers.to_vec(), None).unwrap()
-		});
-
-		let max_block_number = ext.execute_with(|| frame_system::Pallet::<Test>::block_number());
-		let min_block_number = block_numbers.iter().max().unwrap();
-
-		// generate all possible historical proofs for the given blocks
-		let historical_proofs = (*min_block_number..=max_block_number)
-			.map(|best_block| {
-				ext.execute_with(|| {
-					crate::Pallet::<Test>::generate_proof(block_numbers.to_vec(), Some(best_block))
-						.unwrap()
-				})
-			})
-			.collect::<Vec<_>>();
-
-		ext.execute_with(|| {
-			add_blocks(blocks_to_add);
-			// then
-			assert_eq!(crate::Pallet::<Test>::verify_leaves(leaves, proof), Ok(()));
-			historical_proofs.iter().for_each(|(leaves, proof)| {
-				assert_eq!(
-					crate::Pallet::<Test>::verify_leaves(leaves.clone(), proof.clone()),
-					Ok(())
-				);
-			});
-		})
-	}
-
 	let _ = env_logger::try_init();
 
 	use itertools::Itertools;
@@ -788,5 +785,26 @@ fn does_not_panic_when_generating_historical_proofs() {
 			crate::Pallet::<Test>::generate_proof(vec![10], Some(100)),
 			Err(Error::LeafNotFound),
 		);
+	});
+}
+
+#[test]
+fn generating_and_verifying_ancestry_proofs_works_correctly() {
+	let _ = env_logger::try_init();
+	let mut ext = new_test_ext();
+	ext.execute_with(|| add_blocks(500));
+	ext.persist_offchain_overlay();
+	register_offchain_ext(&mut ext);
+
+	ext.execute_with(|| {
+		// Check that generating and verifying ancestry proofs works correctly
+		// for each previous block
+		for prev_block_number in 1..501 {
+			let proof = Pallet::<Test>::generate_ancestry_proof(prev_block_number, None).unwrap();
+			Pallet::<Test>::verify_ancestry_proof(proof).unwrap();
+		}
+
+		// Check that we can't generate ancestry proofs for a future block.
+		assert_eq!(Pallet::<Test>::generate_ancestry_proof(501, None), Err(Error::GenerateProof));
 	});
 }

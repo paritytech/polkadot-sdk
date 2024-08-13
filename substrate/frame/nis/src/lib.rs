@@ -808,7 +808,7 @@ pub mod pallet {
 			ensure!(summary.thawed <= throttle, Error::<T>::Throttled);
 
 			let cp_amount = T::CounterpartAmount::convert(receipt.proportion);
-			T::Counterpart::burn_from(&who, cp_amount, Exact, Polite)?;
+			T::Counterpart::burn_from(&who, cp_amount, Expendable, Exact, Polite)?;
 
 			// Multiply the proportion it is by the total issued.
 			let our_account = Self::account_id();
@@ -897,6 +897,7 @@ pub mod pallet {
 			T::Counterpart::burn_from(
 				&who,
 				T::CounterpartAmount::convert(receipt.proportion),
+				Expendable,
 				Exact,
 				Polite,
 			)?;

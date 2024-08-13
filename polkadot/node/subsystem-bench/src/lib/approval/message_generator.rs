@@ -91,7 +91,7 @@ pub struct PeerMessagesGenerator {
 
 impl PeerMessagesGenerator {
 	/// Generates messages by spawning a blocking task in the background which begins creating
-	/// the assignments/approvals and peer view changes at the begining of each block.
+	/// the assignments/approvals and peer view changes at the beginning of each block.
 	pub fn generate_messages(mut self, spawn_task_handle: &SpawnTaskHandle) {
 		spawn_task_handle.spawn("generate-messages", "generate-messages", async move {
 			for block_info in &self.blocks {

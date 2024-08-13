@@ -562,9 +562,10 @@ fn aux_storage_cleanup<C: HeaderMetadata<Block> + HeaderBackend<Block>, Block: B
 	// Cleans data for stale forks.
 	let stale_forks = match client.expand_forks(&notification.stale_heads) {
 		Ok(stale_forks) => stale_forks,
-		Err((stale_forks, e)) => {
+		Err(e) => {
 			warn!(target: LOG_TARGET, "{:?}", e);
-			stale_forks
+
+			Default::default()
 		},
 	};
 	hashes.extend(stale_forks.iter());

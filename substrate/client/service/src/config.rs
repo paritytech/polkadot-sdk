@@ -34,6 +34,7 @@ pub use sc_network::{
 	},
 	Multiaddr,
 };
+pub use sc_rpc_server::IpNetwork;
 pub use sc_telemetry::TelemetryEndpoints;
 pub use sc_transaction_pool::Options as TransactionPoolOptions;
 use sp_core::crypto::SecretString;
@@ -108,6 +109,10 @@ pub struct Configuration {
 	pub rpc_batch_config: RpcBatchRequestConfig,
 	/// RPC rate limit per minute.
 	pub rpc_rate_limit: Option<NonZeroU32>,
+	/// RPC rate limit whitelisted ip addresses.
+	pub rpc_rate_limit_whitelisted_ips: Vec<IpNetwork>,
+	/// RPC rate limit trust proxy headers.
+	pub rpc_rate_limit_trust_proxy_headers: bool,
 	/// Prometheus endpoint configuration. `None` if disabled.
 	pub prometheus_config: Option<PrometheusConfig>,
 	/// Telemetry service URL. `None` if disabled.

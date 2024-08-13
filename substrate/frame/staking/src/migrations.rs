@@ -370,7 +370,7 @@ pub mod v10 {
 				StorageVersion::<T>::put(ObsoleteReleases::V10_0_0);
 
 				log!(info, "MigrateToV10 executed successfully");
-				T::DbWeight::get().reads_writes(1, 1)
+				T::DbWeight::get().reads_writes(1, 2)
 			} else {
 				log!(warn, "MigrateToV10 should be removed.");
 				T::DbWeight::get().reads(1)

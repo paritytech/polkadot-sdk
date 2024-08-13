@@ -25,7 +25,7 @@ thiserror = { workspace = true }
 rand = "0.8.5"
 derive_more = "0.99.17"
 schnellru = "0.2.1"
-fatality = "0.0.6"
+fatality = "0.1.0"
 
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }

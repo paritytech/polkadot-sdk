@@ -407,6 +407,8 @@ where
 		cors: config.rpc_cors.as_ref(),
 		tokio_handle: config.tokio_handle.clone(),
 		rate_limit: config.rpc_rate_limit,
+		rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
+		rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773

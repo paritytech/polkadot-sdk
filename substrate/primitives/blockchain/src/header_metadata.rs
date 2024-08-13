@@ -97,7 +97,7 @@ pub fn lowest_common_ancestor<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 }
 
 /// Compute a tree-route between two blocks. See tree-route docs for more details.
-pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block>>(
+pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 	backend: &T,
 	from: Block::Hash,
 	to: Block::Hash,

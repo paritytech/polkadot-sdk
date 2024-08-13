@@ -596,7 +596,14 @@ pub mod pallet {
 			);
 
 			// burn the provided lp token amount that includes the fee
-			T::PoolAssets::burn_from(pool.lp_token.clone(), &sender, lp_token_burn, Exact, Polite)?;
+			T::PoolAssets::burn_from(
+				pool.lp_token.clone(),
+				&sender,
+				lp_token_burn,
+				Expendable,
+				Exact,
+				Polite,
+			)?;
 
 			T::Assets::transfer(*asset1, &pool_account, &withdraw_to, amount1, Expendable)?;
 			T::Assets::transfer(*asset2, &pool_account, &withdraw_to, amount2, Expendable)?;

@@ -86,6 +86,8 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		rpc_message_buffer_capacity: Default::default(),
 		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
 		rpc_rate_limit: None,
+		rpc_rate_limit_whitelisted_ips: Default::default(),
+		rpc_rate_limit_trust_proxy_headers: Default::default(),
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,

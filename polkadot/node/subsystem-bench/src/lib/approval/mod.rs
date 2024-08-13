@@ -98,7 +98,7 @@ pub(crate) const TEST_CONFIG: ApprovalVotingConfig = ApprovalVotingConfig {
 const DATA_COL: u32 = 0;
 
 /// Start generating messages for a slot into the future, so that the
-/// generation nevers falls behind the current slot.
+/// generation never falls behind the current slot.
 const BUFFER_FOR_GENERATION_MILLIS: u64 = 30_000;
 
 /// Parameters specific to the approvals benchmark

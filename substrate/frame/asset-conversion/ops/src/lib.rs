@@ -248,6 +248,7 @@ pub mod pallet {
 				T::DepositAsset::burn_from(
 					&depositor,
 					deposit + deposit_asset_ed,
+					Preservation::Expendable,
 					Precision::Exact,
 					Fortitude::Force,
 				)?;
@@ -260,6 +261,7 @@ pub mod pallet {
 				T::DepositAsset::burn_from(
 					&depositor,
 					deposit + deposit_asset_ed,
+					Preservation::Expendable,
 					Precision::Exact,
 					Fortitude::Force,
 				)?;
@@ -272,6 +274,7 @@ pub mod pallet {
 				T::DepositAsset::burn_from(
 					&depositor,
 					deposit + deposit_asset_ed,
+					Preservation::Expendable,
 					Precision::Exact,
 					Fortitude::Force,
 				)?;

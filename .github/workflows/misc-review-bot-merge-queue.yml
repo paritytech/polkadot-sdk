@@ -1,3 +1,4 @@
+# Actions that makes review-bot green in the merge queue
 name: Merge-Queue
 
 on:
@@ -18,7 +19,7 @@ jobs:
         uses: billyjbryant/create-status-check@3e6fa0ac599d10d9588cf9516ca4330ef669b858 # v2
         with:
           authToken: ${{ steps.app_token.outputs.token }}
-          context: 'review-bot'
-          description: 'PRs for merge queue gets approved'
-          state: 'success'
+          context: "review-bot"
+          description: "PRs for merge queue gets approved"
+          state: "success"
           sha: ${{ github.event.merge_group.head_commit.id }}

@@ -352,13 +352,27 @@ impl_leaf_data_for_tuple!(A:0, B:1, C:2, D:3, E:4);
 
 /// An MMR proof data for a group of leaves.
 #[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
-pub struct Proof<Hash> {
+pub struct LeafProof<Hash> {
 	/// The indices of the leaves the proof is for.
 	pub leaf_indices: Vec<LeafIndex>,
 	/// Number of leaves in MMR, when the proof was generated.
 	pub leaf_count: NodeIndex,
-	/// Proof elements (hashes of siblings of inner nodes on the path to the leaf).
+	/// Proof elements (hashes of siblings of inner nodes on the path to the leafs).
 	pub items: Vec<Hash>,
+}
+
+/// An MMR ancestry proof for a prior mmr root.
+#[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
+pub struct AncestryProof<Hash> {
+	/// Peaks of the ancestor's mmr
+	pub prev_peaks: Vec<Hash>,
+	/// Number of leaves in the ancestor's MMR.
+	pub prev_leaf_count: u64,
+	/// Number of leaves in MMR, when the proof was generated.
+	pub leaf_count: NodeIndex,
+	/// Proof elements
+	/// (positions and hashes of siblings of inner nodes on the path to the previous peaks).
+	pub items: Vec<(u64, Hash)>,
 }
 
 /// Merkle Mountain Range operation error.
@@ -437,14 +451,14 @@ sp_api::decl_runtime_apis! {
 		fn generate_proof(
 			block_numbers: Vec<BlockNumber>,
 			best_known_block_number: Option<BlockNumber>
-		) -> Result<(Vec<EncodableOpaqueLeaf>, Proof<Hash>), Error>;
+		) -> Result<(Vec<EncodableOpaqueLeaf>, LeafProof<Hash>), Error>;
 
 		/// Verify MMR proof against on-chain MMR for a batch of leaves.
 		///
 		/// Note this function will use on-chain MMR root hash and check if the proof matches the hash.
 		/// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
-		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [Proof]
-		fn verify_proof(leaves: Vec<EncodableOpaqueLeaf>, proof: Proof<Hash>) -> Result<(), Error>;
+		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [LeafProof]
+		fn verify_proof(leaves: Vec<EncodableOpaqueLeaf>, proof: LeafProof<Hash>) -> Result<(), Error>;
 
 		/// Verify MMR proof against given root hash for a batch of leaves.
 		///
@@ -452,8 +466,8 @@ sp_api::decl_runtime_apis! {
 		/// proof is verified against given MMR root hash.
 		///
 		/// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
-		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [Proof]
-		fn verify_proof_stateless(root: Hash, leaves: Vec<EncodableOpaqueLeaf>, proof: Proof<Hash>)
+		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [LeafProof]
+		fn verify_proof_stateless(root: Hash, leaves: Vec<EncodableOpaqueLeaf>, proof: LeafProof<Hash>)
 			-> Result<(), Error>;
 	}
 }
@@ -472,12 +486,12 @@ mod tests {
 
 	type Test = DataOrHash<Keccak256, String>;
 	type TestCompact = Compact<Keccak256, (Test, Test)>;
-	type TestProof = Proof<<Keccak256 as traits::Hash>::Output>;
+	type TestProof = LeafProof<<Keccak256 as traits::Hash>::Output>;
 
 	#[test]
 	fn should_encode_decode_proof() {
 		// given
-		let proof: TestProof = Proof {
+		let proof: TestProof = LeafProof {
 			leaf_indices: vec![5],
 			leaf_count: 10,
 			items: vec![

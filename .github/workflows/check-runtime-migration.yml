@@ -1,0 +1,122 @@
+name: check-runtime-migration
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORKLIFT_storage_s3_bucketName: ${{ secrets.FORKLIFT_storage_s3_bucketName }}
+  FORKLIFT_storage_s3_accessKeyId: ${{ secrets.FORKLIFT_storage_s3_accessKeyId }}
+  FORKLIFT_storage_s3_secretAccessKey: ${{ secrets.FORKLIFT_storage_s3_secretAccessKey }}
+  FORKLIFT_storage_s3_endpointUrl: ${{ secrets.FORKLIFT_storage_s3_endpointUrl }}
+  FORKLIFT_metrics_pushEndpoint: ${{ secrets.FORKLIFT_metrics_pushEndpoint }}
+
+jobs:
+  set-image:
+    # GitHub Actions allows using 'env' in a container context.
+    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
+    # This workaround sets the container image for each job using 'set-image' job output.
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
+  # rococo and westend are disabled for now (no access to parity-chains.parity.io)
+  check-runtime-migration:
+    runs-on: arc-runners-polkadot-sdk-beefy
+    timeout-minutes: 30
+    needs: [set-image]
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    strategy:
+      fail-fast: false
+      matrix:
+        network: [
+            # westend,
+            # rococo,
+            asset-hub-westend,
+            asset-hub-rococo,
+            bridge-hub-westend,
+            bridge-hub-rococo,
+            contracts-rococo,
+            collectives-westend,
+            coretime-rococo,
+          ]
+        include:
+          # - network: westend
+          #   package: westend-runtime
+          #   wasm: westend_runtime.compact.compressed.wasm
+          #   uri: "wss://westend-try-runtime-node.parity-chains.parity.io:443"
+          #   subcommand_extra_args: "--no-weight-warnings"
+          #   command_extra_args: ""
+          # - network: rococo
+          #   package: rococo-runtime
+          #   wasm: rococo_runtime.compact.compressed.wasm
+          #   uri: "wss://rococo-try-runtime-node.parity-chains.parity.io:443"
+          #   subcommand_extra_args: "--no-weight-warnings"
+          #   command_extra_args: ""
+          - network: asset-hub-westend
+            package: asset-hub-westend-runtime
+            wasm: asset_hub_westend_runtime.compact.compressed.wasm
+            uri: "wss://westend-asset-hub-rpc.polkadot.io:443"
+            subcommand_extra_args: ""
+            command_extra_args: ""
+          - network: "asset-hub-rococo"
+            package: "asset-hub-rococo-runtime"
+            wasm: "asset_hub_rococo_runtime.compact.compressed.wasm"
+            uri: "wss://rococo-asset-hub-rpc.polkadot.io:443"
+            subcommand_extra_args: ""
+            command_extra_args: ""
+          - network: "bridge-hub-westend"
+            package: "bridge-hub-westend-runtime"
+            wasm: "bridge_hub_westend_runtime.compact.compressed.wasm"
+            uri: "wss://westend-bridge-hub-rpc.polkadot.io:443"
+          - network: "bridge-hub-rococo"
+            package: "bridge-hub-rococo-runtime"
+            wasm: "bridge_hub_rococo_runtime.compact.compressed.wasm"
+            uri: "wss://rococo-bridge-hub-rpc.polkadot.io:443"
+          - network: "contracts-rococo"
+            package: "contracts-rococo-runtime"
+            wasm: "contracts_rococo_runtime.compact.compressed.wasm"
+            uri: "wss://rococo-contracts-rpc.polkadot.io:443"
+          - network: "collectives-westend"
+            package: "collectives-westend-runtime"
+            wasm: "collectives_westend_runtime.compact.compressed.wasm"
+            uri: "wss://westend-collectives-rpc.polkadot.io:443"
+            command_extra_args: "--disable-spec-name-check"
+          - network: "coretime-rococo"
+            package: "coretime-rococo-runtime"
+            wasm: "coretime_rococo_runtime.compact.compressed.wasm"
+            uri: "wss://rococo-coretime-rpc.polkadot.io:443"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: |
+          echo "Running ${{ matrix.network }} runtime migration check"
+          export RUST_LOG=remote-ext=debug,runtime=debug
+
+          echo "---------- Downloading try-runtime CLI ----------"
+          curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.5.4/try-runtime-x86_64-unknown-linux-musl -o try-runtime
+          chmod +x ./try-runtime
+          echo "Using try-runtime-cli version:"
+          ./try-runtime --version
+
+          echo "---------- Building ${{ matrix.package }} runtime ----------"
+          time forklift cargo build --release --locked -p ${{ matrix.package }} --features try-runtime
+
+          echo "---------- Executing on-runtime-upgrade for ${{ matrix.network }} ----------"
+          time ./try-runtime ${{ matrix.command_extra_args }} \
+              --runtime ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }} \
+              on-runtime-upgrade --disable-spec-version-check --checks=all ${{ matrix.subcommand_extra_args }} live --uri ${{ matrix.uri }}
+          sleep 5
