@@ -83,6 +83,11 @@ impl EnsureOrigin<RuntimeOrigin> for EnsureCoowner {
 			_ => Err(o),
 		}
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		unimplemented!()
+	}
 }
 
 impl pallet_assets::Config for Runtime {
