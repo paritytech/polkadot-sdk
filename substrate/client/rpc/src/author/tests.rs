@@ -18,7 +18,7 @@
 
 use super::*;
 
-use crate::testing::{test_executor, timeout_secs};
+use crate::testing::{allow_unsafe, test_executor, timeout_secs};
 use assert_matches::assert_matches;
 use codec::Encode;
 use jsonrpsee::{
@@ -84,9 +84,7 @@ impl TestSetup {
 		}
 		.into_rpc();
 
-		let mut ext = Extensions::new();
-		ext.insert(DenyUnsafe::No);
-		module.with_extensions(ext);
+		module.with_extensions(allow_unsafe());
 
 		module
 	}

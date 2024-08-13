@@ -34,13 +34,13 @@ use log::info;
 use parachains_common::{AssetHubPolkadotAuraId, AuraId};
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
-	NetworkParams, Result, SharedParams, SubstrateCli,
+	NetworkParams, Result, RpcListenAddr, SharedParams, SubstrateCli,
 };
 use sc_service::config::{BasePath, PrometheusConfig};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
-use std::{net::SocketAddr, path::PathBuf};
+use std::path::PathBuf;
 
 /// The choice of consensus for the parachain omni-node.
 #[derive(PartialEq, Eq, Debug, Default)]
@@ -652,7 +652,7 @@ impl CliConfiguration<Self> for RelayChainCli {
 			.or_else(|| self.base_path.clone().map(Into::into)))
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<String>> {
+	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<Vec<RpcListenAddr>>> {
 		self.base.base.rpc_addr(default_listen_port)
 	}
 

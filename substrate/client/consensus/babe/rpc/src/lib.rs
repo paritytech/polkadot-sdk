@@ -194,6 +194,7 @@ impl From<Error> for ErrorObjectOwned {
 mod tests {
 	use super::*;
 	use sc_consensus_babe::ImportQueueParams;
+	use sc_rpc_api::DenyUnsafe;
 	use sc_transaction_pool_api::{OffchainTransactionPoolFactory, RejectAllTxPool};
 	use sp_consensus_babe::inherents::InherentDataProvider;
 	use sp_core::{crypto::key_types::BABE, testing::TaskExecutor};
@@ -212,9 +213,8 @@ mod tests {
 		keystore.into()
 	}
 
-	fn test_babe_rpc_module(
-		deny_unsafe: DenyUnsafe,
-	) -> Babe<Block, TestClient, sc_consensus::LongestChain<Backend, Block>> {
+	fn test_babe_rpc_module() -> Babe<Block, TestClient, sc_consensus::LongestChain<Backend, Block>>
+	{
 		let builder = TestClientBuilder::new();
 		let (client, longest_chain) = builder.build_with_longest_chain();
 		let client = Arc::new(client);
@@ -252,26 +252,34 @@ mod tests {
 		Babe::new(client.clone(), babe_worker_handle, keystore, longest_chain)
 	}
 
+	fn ext_deny_unsafe(deny_unsafe: DenyUnsafe) -> Extensions {
+		let mut ext = Extensions::new();
+		ext.insert(deny_unsafe);
+		ext
+	}
+
 	#[tokio::test]
 	async fn epoch_authorship_works() {
-		let babe_rpc = test_babe_rpc_module(DenyUnsafe::No);
-		let api = babe_rpc.into_rpc();
+		let babe_rpc = test_babe_rpc_module();
+		let mut api = babe_rpc.into_rpc();
+		api.with_extensions(ext_deny_unsafe(DenyUnsafe::No));
 
-		let request = r#"{"jsonrpc":"2.0","method":"babe_epochAuthorship","params": [],"id":1}"#;
+		let request = r#"{"jsonrpc":"2.0","id":1,"method":"babe_epochAuthorship","params":[]}"#;
 		let (response, _) = api.raw_json_request(request, 1).await.unwrap();
-		let expected = r#"{"jsonrpc":"2.0","result":{"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY":{"primary":[0],"secondary":[],"secondary_vrf":[1,2,4]}},"id":1}"#;
+		let expected = r#"{"jsonrpc":"2.0","id":1,"result":{"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY":{"primary":[0],"secondary":[],"secondary_vrf":[1,2,4]}}}"#;
 
 		assert_eq!(response, expected);
 	}
 
 	#[tokio::test]
 	async fn epoch_authorship_is_unsafe() {
-		let babe_rpc = test_babe_rpc_module(DenyUnsafe::Yes);
-		let api = babe_rpc.into_rpc();
+		let babe_rpc = test_babe_rpc_module();
+		let mut api = babe_rpc.into_rpc();
+		api.with_extensions(ext_deny_unsafe(DenyUnsafe::Yes));
 
 		let request = r#"{"jsonrpc":"2.0","method":"babe_epochAuthorship","params":[],"id":1}"#;
 		let (response, _) = api.raw_json_request(request, 1).await.unwrap();
-		let expected = r#"{"jsonrpc":"2.0","error":{"code":-32601,"message":"RPC call is unsafe to be called externally"},"id":1}"#;
+		let expected = r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"RPC call is unsafe to be called externally"}}"#;
 
 		assert_eq!(response, expected);
 	}
