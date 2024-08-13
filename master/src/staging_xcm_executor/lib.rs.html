@@ -2278,7 +2278,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					};
 				<span class="kw">let </span>actual_weight = maybe_actual_weight.unwrap_or(weight);
 				<span class="kw">let </span>surplus = weight.saturating_sub(actual_weight);
-				<span class="comment">// We assume that the `Config::Weigher` will counts the `require_weight_at_most`
+				<span class="comment">// We assume that the `Config::Weigher` will count the `require_weight_at_most`
 				// for the estimate of how much weight this instruction will take. Now that we know
 				// that it's less, we credit it.
 				//

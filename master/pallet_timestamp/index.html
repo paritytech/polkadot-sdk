@@ -205,25 +205,25 @@ the previous block.</p>
 submit. Inherents are a special type of extrinsic in Substrate chains that will always be
 included in a block.</p>
 <p>To provide inherent data to the runtime, this pallet implements
-<a href="frame_support::inherent::ProvideInherent"><code>ProvideInherent</code></a>. It will only create an inherent
+<a href="../frame_support/inherent/trait.ProvideInherent.html" title="trait frame_support::inherent::ProvideInherent"><code>ProvideInherent</code></a>. It will only create an inherent
 if the <a href="pallet/enum.Call.html#variant.set" title="variant pallet_timestamp::pallet::Call::set"><code>Call::set</code></a> dispatchable is called, using the
 <a href="../frame_support_procedural/attr.inherent.html" title="attr frame_support_procedural::inherent"><code>inherent</code></a> macro which enables validator nodes to call
 into the runtime to check that the timestamp provided is valid.
-The implementation of <a href="frame_support::inherent::ProvideInherent"><code>ProvideInherent</code></a> specifies a
+The implementation of <a href="../frame_support/inherent/trait.ProvideInherent.html" title="trait frame_support::inherent::ProvideInherent"><code>ProvideInherent</code></a> specifies a
 constant called <code>MAX_TIMESTAMP_DRIFT_MILLIS</code> which is used to determine the acceptable range for
 a valid timestamp. If a block author sets a timestamp to anything that is more than this
 constant, a validator node will reject the block.</p>
 <p>The pallet also ensures that a timestamp is set at the start of each block by running an
-assertion in the <code>on_finalize</code> runtime hook. See [<code>frame_support::traits::Hooks</code>] for more
+assertion in the <code>on_finalize</code> runtime hook. See <a href="../frame_support/traits/hooks/trait.Hooks.html" title="trait frame_support::traits::hooks::Hooks"><code>frame_support::traits::Hooks</code></a> for more
 information about how hooks work.</p>
 <p>Because inherents are applied to a block in the order they appear in the runtime
 construction, the index of this pallet in
 <a href="../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime"><code>construct_runtime</code></a> must always be less than any other
 pallet that depends on it.</p>
 <p>The <a href="pallet/trait.Config.html#associatedtype.OnTimestampSet" title="associated type pallet_timestamp::pallet::Config::OnTimestampSet"><code>Config::OnTimestampSet</code></a> configuration trait can be set to another pallet we want to
-notify that the timestamp has been updated, as long as it implements [<code>OnTimestampSet</code>].
+notify that the timestamp has been updated, as long as it implements <a href="../frame_support/traits/hooks/trait.OnTimestampSet.html" title="trait frame_support::traits::hooks::OnTimestampSet"><code>OnTimestampSet</code></a>.
 Examples are the Babe and Aura pallets.
-This pallet also implements [<code>Time</code>] and [<code>UnixTime</code>] so it can be used to configure other
+This pallet also implements <a href="../frame_support/traits/misc/trait.Time.html" title="trait frame_support::traits::misc::Time"><code>Time</code></a> and <a href="../frame_support/traits/misc/trait.UnixTime.html" title="trait frame_support::traits::misc::UnixTime"><code>UnixTime</code></a> so it can be used to configure other
 pallets that require these types (e.g. in Staking pallet).</p>
 <h3 id="panics"><a class="doc-anchor" href="#panics">§</a>Panics</h3>
 <p>There are 3 cases where this pallet could cause the runtime to panic.</p>
