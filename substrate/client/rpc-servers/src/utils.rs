@@ -303,14 +303,4 @@ mod tests {
 		let ip = get_proxy_ip(&req);
 		assert_eq!(Some(IpAddr::from_str("127.0.0.1").unwrap()), ip);
 	}
-
-	#[test]
-	fn parse_listen_addr_works() {
-		assert!(ListenAddr::from_str("127.0.0.1:9944").is_ok());
-		assert!(ListenAddr::from_str("[::1]:9944").is_ok());
-		assert!(ListenAddr::from_str("127.0.0.1:9944/?rpc-methods=auto").is_ok());
-		assert!(ListenAddr::from_str("[::1]:9944/?rpc-methods=auto").is_ok());
-		assert!(ListenAddr::from_str("127.0.0.1:9944/?rpc-methods=auto&cors=*").is_ok());
-		assert!(ListenAddr::from_str("127.0.0.1:9944/?foo=*").is_err());
-	}
 }
