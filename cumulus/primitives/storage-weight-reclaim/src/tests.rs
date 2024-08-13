@@ -109,6 +109,46 @@ fn basic_refund() {
 }
 
 #[test]
+fn underestimating_refund() {
+	// We fixed a bug where `pre dispatch info weight > consumed weight > post info weight`
+	// resulted in error.
+
+	// The real cost will be 100 bytes of storage size
+	let mut test_ext = setup_test_externalities(&[0, 100]);
+
+	test_ext.execute_with(|| {
+		set_current_storage_weight(1000);
+
+		// Benchmarked storage weight: 500
+		let info = DispatchInfo { call_weight: Weight::from_parts(0, 101), ..Default::default() };
+		let post_info = PostDispatchInfo {
+			actual_weight: Some(Weight::from_parts(0, 99)),
+			pays_fee: Default::default(),
+		};
+
+		let (_, next_len) = CheckWeight::<Test>::do_validate(&info, LEN).unwrap();
+		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
+
+		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
+			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+			.unwrap();
+		assert_eq!(pre, Some(0));
+
+		assert_ok!(CheckWeight::<Test>::post_dispatch_details((), &info, &post_info, 0, &Ok(())));
+		// We expect an accrue of 1
+		assert_ok!(StorageWeightReclaim::<Test>::post_dispatch_details(
+			pre,
+			&info,
+			&post_info,
+			LEN,
+			&Ok(())
+		));
+
+		assert_eq!(get_storage_weight().total().proof_size(), 1250);
+	})
+}
+
+#[test]
 fn does_nothing_without_extension() {
 	let mut test_ext = new_test_ext();
 
