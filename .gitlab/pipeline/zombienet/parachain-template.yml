@@ -5,7 +5,9 @@
     - export PATH=./artifacts:$PATH
   stage: zombienet
   needs:
-    - job: build-linux-stable
+    - job: build-linux-stable # polkadot binaries
+      artifacts: true
+    - job: build-parachain-template-node # parachain-template-node
       artifacts: true
   extends:
     - .docker-env
