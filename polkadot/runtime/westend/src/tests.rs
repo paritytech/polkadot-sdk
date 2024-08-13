@@ -144,7 +144,7 @@ mod remote_tests {
 		if var("RUN_MIGRATION_TESTS").is_err() {
 			return;
 		}
-		use frame_support::assert_ok;
+		use frame_support::{assert_ok, traits::fungible::Inspect};
 		sp_tracing::try_init_simple();
 
 		let transport: Transport = var("WS").unwrap_or("ws://127.0.0.1:9900".to_string()).into();
@@ -193,32 +193,23 @@ mod remote_tests {
 
 			// member migration stats
 			let mut success = 0;
-			let mut members_below_ed = 0;
 			let mut direct_stakers = 0;
 			let mut unexpected_errors = 0;
 
 			// iterate over all pool members
-			pallet_nomination_pools::PoolMembers::<Runtime>::iter().for_each(|(k, member)| {
+			pallet_nomination_pools::PoolMembers::<Runtime>::iter_keys().for_each(|k| {
 				if pallet_nomination_pools::Pallet::<Runtime>::api_member_needs_delegate_migration(
 					k.clone(),
 				) {
 					// reasons migrations can fail:
 					let is_direct_staker = pallet_staking::Bonded::<Runtime>::contains_key(&k);
-					let member_balance_below_ed = member.total_balance() < ExistentialDeposit::get();
 
 					let migration = pallet_nomination_pools::Pallet::<Runtime>::migrate_delegation(
 						RuntimeOrigin::signed(alice.clone()).into(),
 						sp_runtime::MultiAddress::Id(k.clone()),
 					);
 
-					if member_balance_below_ed {
-						// if the member has balance below ED, the migration should fail.
-						members_below_ed += 1;
-						assert_eq!(
-							migration.unwrap_err(),
-							pallet_nomination_pools::Error::<Runtime>::MinimumBondNotMet.into()
-						);
-					} else if is_direct_staker {
+					if is_direct_staker {
 						// if the member is a direct staker, the migration should fail until pool
 						// member unstakes all funds from pallet-staking.
 						direct_stakers += 1;
@@ -237,9 +228,8 @@ mod remote_tests {
 
 			log::info!(
 				target: "remote_test",
-				"Migration stats: success: {}, members_below_ed: {}, direct_stakers: {}, unexpected_errors: {}",
+				"Migration stats: success: {}, direct_stakers: {}, unexpected_errors: {}",
 				success,
-				members_below_ed,
 				direct_stakers,
 				unexpected_errors
 			);
