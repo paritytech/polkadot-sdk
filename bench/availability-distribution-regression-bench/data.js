@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723544311566,
+  "lastUpdate": 1723557116294,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21891,6 +21891,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009872820973333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0d7bd6badce2d53bb332fc48d4a32e828267cf7e",
+          "message": "Small nits found accidentally along the way (#5341)",
+          "timestamp": "2024-08-13T11:11:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0d7bd6badce2d53bb332fc48d4a32e828267cf7e"
+        },
+        "date": 1723557084044,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02237686767333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012867902100000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17223715063333342,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01116202123333334,
             "unit": "seconds"
           }
         ]
