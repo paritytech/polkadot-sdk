@@ -1,0 +1,12 @@
+title: Minor clean up
+author: conr2d
+topic: runtime
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Refactor `MultiSignature` and `MultiSigner` code to reduce verbosity.
+
+crates:
+  - name: sp-runtime
+    bump: patch
