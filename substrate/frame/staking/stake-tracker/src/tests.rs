@@ -465,7 +465,7 @@ mod last_settled_approvals {
 			// update nominator stake due to `NominatorReward` reason (100 -> 150).
 			update_stake(1, 150, stake_of(1), StakeUpdateReason::NominatorReward);
 			// update nominator stake due to `Slash` reason (150 -> 125).
-			update_stake(1, 125, stake_of(1), StakeUpdateReason::Slash);
+			update_stake(1, 125, stake_of(1), StakeUpdateReason::NominatorSlash);
 
 			// updating nominator stake with `Slash` and `NominatorReward` reasons is a noop from
 			// the target score perspective.
@@ -486,7 +486,7 @@ mod last_settled_approvals {
 			assert_eq!(diff, 25);
 
 			// after settling the buffered approvals, the target scores will be in sync.
-			assert_ok!(Pallet::<Test>::settle_approvals(RuntimeOrigin::signed(1), 1));
+			assert_ok!(Pallet::<Test>::settle_approvals(RuntimeOrigin::signed(1), 1, 2));
 
 			assert_eq!(TargetBagsList::get_score(&10).unwrap(), target_score_10_before + diff);
 			assert_eq!(TargetBagsList::get_score(&20).unwrap(), target_score_20_before + diff);
@@ -562,7 +562,7 @@ mod last_settled_approvals {
 		ExtBuilder::default().build_and_execute(|| {
 			// 1 is not a nominator, fails as expected.
 			assert_noop!(
-				Pallet::<Test>::settle_approvals(RuntimeOrigin::signed(1), 1),
+				Pallet::<Test>::settle_approvals(RuntimeOrigin::signed(1), 1, 1),
 				Error::<Test>::NotVoter
 			);
 
@@ -581,9 +581,11 @@ mod last_settled_approvals {
 
 			// since there is no approvals to sync, calling `settle_approvals` returns an error.
 			assert_noop!(
-				Pallet::<Test>::settle_approvals(RuntimeOrigin::signed(1), 1),
+				Pallet::<Test>::settle_approvals(RuntimeOrigin::signed(1), 1, 1),
 				Error::<Test>::NoUnsettledApprovals,
 			);
+
+			// TODO: test Error::<T>::WrongNumberNominations.
 		})
 	}
 
@@ -596,7 +598,7 @@ mod last_settled_approvals {
 
 			// update stake of 1 with `Slash` reason to ensure that nominator keeps an unsettled
 			// balance.
-			update_stake(1, 90, stake_of(1), StakeUpdateReason::Slash);
+			update_stake(1, 90, stake_of(1), StakeUpdateReason::NominatorSlash);
 
 			// which means the "last seen" is the same as the initial nominator's stake, not the
 			// current after the stake update.
@@ -606,14 +608,14 @@ mod last_settled_approvals {
 			assert_eq!(LastSettledApprovals::<Test>::get(1).unwrap(), 100);
 
 			// now let's settled the approvals of 1, all expected to work.
-			assert_ok!(Pallet::<Test>::settle_approvals(RuntimeOrigin::signed(1), 1));
+			assert_ok!(Pallet::<Test>::settle_approvals(RuntimeOrigin::signed(1), 1, 1));
 
 			// after successful settlement, the "last seen" has been cleared.
 			assert!(LastSettledApprovals::<Test>::get(1).is_none());
 
 			// thus trying to settle approvals again will result in an error.
 			assert_noop!(
-				Pallet::<Test>::settle_approvals(RuntimeOrigin::signed(1), 1),
+				Pallet::<Test>::settle_approvals(RuntimeOrigin::signed(1), 1, 1),
 				Error::<Test>::NoUnsettledApprovals
 			);
 		})

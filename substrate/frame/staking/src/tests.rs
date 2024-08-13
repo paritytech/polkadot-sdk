@@ -8451,7 +8451,11 @@ mod stake_tracker {
 			// now we can settle the approvals on the stake tracker side to explicitly update the
 			// target score of 21 from the rewards. The target score of 11 will also increase
 			// further.
-			assert_ok!(StakeTracker::settle_approvals(RuntimeOrigin::signed(11), 101));
+			assert_ok!(StakeTracker::settle_approvals(
+				RuntimeOrigin::signed(11),
+				101,
+				nominations_of(&101).len() as u32
+			));
 
 			// score of 21 increased after the settlement.
 			assert!(score_21_before < <TargetBagsList as ScoreProvider<A>>::score(&21));
@@ -8557,8 +8561,16 @@ mod stake_tracker {
 
 			// now we settle the buffered approvals slashed nominators 41 and 101, so that the
 			// target scores of its nominations are propagated after the slash.
-			assert_ok!(StakeTracker::settle_approvals(RuntimeOrigin::signed(11), 41));
-			assert_ok!(StakeTracker::settle_approvals(RuntimeOrigin::signed(11), 101));
+			assert_ok!(StakeTracker::settle_approvals(
+				RuntimeOrigin::signed(11),
+				41,
+				nominations_of(&41).len() as u32
+			));
+			assert_ok!(StakeTracker::settle_approvals(
+				RuntimeOrigin::signed(11),
+				101,
+				nominations_of(&101).len() as u32
+			));
 
 			let score_11_after = <TargetBagsList as ScoreProvider<A>>::score(&11);
 			let score_21_after = <TargetBagsList as ScoreProvider<A>>::score(&21);

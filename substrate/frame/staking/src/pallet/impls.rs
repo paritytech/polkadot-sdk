@@ -2593,29 +2593,28 @@ impl<T: Config> Pallet<T> {
 		// add all the unsettled approvals.
 		for (nominator, unsettled) in T::TrackerUnsettledApprovals::get().into_iter() {
 			let vote = Self::weight_of(&nominator) as ExtendedBalance;
-			let diff = match unsettled.checked_sub(vote) {
-				Some(d) => d,
-				None => return Err(
-					"current active stake cannot be larger than unsettled approvals of nominator"
-						.into(),
-				),
-			};
 
 			let nominations = match Self::status(&nominator) {
 				Ok(StakerStatus::Nominator(n)) => n,
 				_ => return Err("entry in unsettled approvals must be a nominator".into()),
 			};
 
-			if !diff.is_zero() {
-				for t in nominations {
-					if let Some(approvals) = approvals_map.get_mut(&t) {
-						*approvals += diff.into();
-					} else {
+			for t in nominations {
+				match approvals_map.get_mut(&t) {
+					Some(approvals) => {
+						if vote > unsettled {
+							*approvals += (vote - unsettled).into();
+						} else if vote < unsettled {
+							*approvals += (unsettled - vote).into();
+						} else {
+							// no unsettled approvals for this nominator, do nothing.
+						}
+					},
+					None =>
 						return Err(
 							"target in unsettled approvals should exist in the approvals map"
 								.into(),
-						)
-					}
+						),
 				}
 			}
 		}

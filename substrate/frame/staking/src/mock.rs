@@ -1092,6 +1092,13 @@ pub(crate) fn nominators_of(t: &AccountId) -> Vec<AccountId> {
 		.collect::<Vec<_>>()
 }
 
+pub(crate) fn nominations_of(v: &AccountId) -> Vec<AccountId> {
+	match Staking::status(v) {
+		Ok(StakerStatus::Nominator(n)) => n,
+		_ => vec![],
+	}
+}
+
 pub(crate) fn staking_events() -> Vec<crate::Event<Test>> {
 	System::events()
 		.into_iter()

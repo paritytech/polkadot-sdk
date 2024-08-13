@@ -89,6 +89,9 @@
 
 pub use pallet::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
@@ -198,6 +201,8 @@ pub mod pallet {
 		NotVoter,
 		/// Voter does not currently have unsettled approvals.
 		NoUnsettledApprovals,
+		/// Wrong number of nominations provided.
+		WrongNumberNominations,
 	}
 
 	#[pallet::event]
@@ -212,10 +217,16 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(0)] // TODO
-		pub fn settle_approvals(origin: OriginFor<T>, voter: AccountIdOf<T>) -> DispatchResult {
+		pub fn settle_approvals(
+			origin: OriginFor<T>,
+			voter: AccountIdOf<T>,
+			n: u32,
+		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 
 			if let Ok(StakerStatus::Nominator(nominations)) = T::Staking::status(&voter) {
+				ensure!(nominations.len() as u32 == n, Error::<T>::WrongNumberNominations);
+
 				Self::do_settle_approvals(&voter, nominations)?;
 
 				Self::deposit_event(Event::<T>::ClearedUnsettledApprovals { voter });
