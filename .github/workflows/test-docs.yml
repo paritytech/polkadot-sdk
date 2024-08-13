@@ -62,14 +62,14 @@ jobs:
         id: extract_branch
         shell: bash
         run: |
-          sanitized_branch=$(echo "$BRANCH_NAME" | tr '/' '_')
-          echo "Sanitized branch name is $sanitized_branch"
-          echo "sanitized_ref=$sanitized_ref" >> $GITHUB_OUTPUT
+          export sanitized_ref=$(echo "$BRANCH_NAME" | tr '/' '_')
+          echo "Sanitized branch name is $sanitized_ref"
+          echo "REFERENCE=$sanitized_ref" >> $GITHUB_OUTPUT
         env:
           BRANCH_NAME: "${{ github.head_ref }}"
       - uses: actions/upload-artifact@v4
         with:
-          name: "${{ steps.extract_branch.outputs.sanitized_ref }}-doc"
+          name: ${{ steps.extract_branch.outputs.REFERENCE }}-doc
           path: ./crate-docs/
           retention-days: 1
           if-no-files-found: error
