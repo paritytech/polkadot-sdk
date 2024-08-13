@@ -30,7 +30,6 @@ jobs:
   build:
     needs: [ set-image ]
     runs-on: arc-runners-polkadot-sdk-benchmark
-    environment: subsystem-benchmarks
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
