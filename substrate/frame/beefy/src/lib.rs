@@ -767,7 +767,7 @@ pub(crate) trait WeightInfoExt: WeightInfo {
 				max_nominators_per_validator,
 			));
 
-		// TODO: return `_weight` here.
+		// TODO: https://github.com/paritytech/polkadot-sdk/issues/4523 - return `_weight` here.
 		// We return `Weight::MAX` currently in order to disallow this extrinsic for the moment.
 		// We need to check that the proof is optimal.
 		Weight::MAX
