@@ -3,7 +3,7 @@ on:
     branches:
       - master
   pull_request:
-    types: [ opened, synchronize, reopened, closed, labeled ]
+    types: [ opened, synchronize, reopened, closed ]
   merge_group:
 
 concurrency:
@@ -11,13 +11,11 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 jobs:
   set-image:
-    # TODO: remove once migration is complete or this workflow is fully stable
-    if: contains(github.event.label.name, 'GHA-migration')
     # GitHub Actions allows using 'env' in a container context.
     # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
     # This workaround sets the container image for each job using 'set-image' job output.
@@ -78,5 +76,5 @@ jobs:
           benchmark-data-dir-path: ${{ env.BENCH_DIR }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           comment-on-alert: ${{ github.event_name == 'pull_request' }} # will comment on PRs if regression is detected
-          auto-push: false # TODO: enable when gitlab part is removed  ${{ github.ref == 'refs/heads/master' }}
+          auto-push: ${{ github.ref == 'refs/heads/master' }}
 
