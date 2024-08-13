@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723557680347,
+  "lastUpdate": 1723585950714,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -8189,6 +8189,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.048507676321999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sebastian Kunert",
+            "username": "skunert",
+            "email": "skunert49@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "055eb5377da43eaced23647ed4348a816bfeb8f4",
+          "message": "StorageWeightReclaim: set to node pov size if higher (#5281)\n\nThis PR adds an additional defensive check to the reclaim SE. \n\nSince it can happen that we miss some storage accesses on other SEs\npre-dispatch, we should double check\nthat the bookkeeping of the runtime stays ahead of the node-side\npov-size.\n\nIf we discover a mismatch and the node-side pov-size is indeed higher,\nwe should set the runtime bookkeeping to the node-side value. In cases\nsuch as #5229, we would stop including extrinsics and not run `on_idle`\nat least.\n\ncc @gui1117\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-08-13T19:57:23Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/055eb5377da43eaced23647ed4348a816bfeb8f4"
+        },
+        "date": 1723585919578,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.94399999999992,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.048060402122,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039089991254,
             "unit": "seconds"
           }
         ]
