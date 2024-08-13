@@ -99,12 +99,12 @@ jobs:
           rm -rf book/
           rm -rf ${REF_NAME}
         env:
-          REF_NAME: ${{ github.head_ref }}
+          REF_NAME: ${{ github.head_ref || github.ref_name }}
       - name: Download rustdocs
         uses: actions/download-artifact@v4
         with:
           name: ${{ github.sha }}-doc
-          path: ${{ github.head_ref }}
+          path: ${{ github.head_ref || github.ref_name }}
       - name: Download guide
         uses: actions/download-artifact@v4
         with:
@@ -118,8 +118,8 @@ jobs:
         with:
           github-token: ${{ github.token }}
           push-branch: "gh-pages"
-          commit-message: "___Updated docs for ${{ github.head_ref }}___"
+          commit-message: "___Updated docs for ${{ github.head_ref || github.ref_name }}___"
           force-add: "true"
-          files: ${{ github.head_ref }}/ book/
+          files: ${{ github.head_ref || github.ref_name }}/ book/
           name: devops-parity
           email: devops-team@parity.io
