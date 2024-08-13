@@ -180,7 +180,7 @@ where
 		// This value will be reclaimed by [`frame_system::CheckWeight`], so we need to calculate
 		// that in.
 		frame_system::BlockWeight::<T>::mutate(|current| {
-			 if consumed_weight > benchmarked_weight {
+			if consumed_weight > benchmarked_weight {
 				log::error!(
 					target: LOG_TARGET,
 					"Benchmarked storage weight smaller than consumed storage weight. benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}"
@@ -374,12 +374,12 @@ mod tests {
 				assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 				// We expect a refund of 400
 				assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
-				Some(pre),
-				&info,
-				&post_info,
-				LEN,
-				&Ok(())
-			));
+					Some(pre),
+					&info,
+					&post_info,
+					LEN,
+					&Ok(())
+				));
 
 				assert_eq!(get_storage_weight().total().proof_size(), 1155);
 			})
@@ -388,7 +388,6 @@ mod tests {
 		// In this second scenario the proof size on the node side is only lower
 		// after reclaim happened.
 		{
-
 			let mut test_ext = setup_test_externalities(&[0, 10]);
 			test_ext.execute_with(|| {
 				// Stored in BlockWeight is 5
@@ -405,12 +404,12 @@ mod tests {
 
 				// We expect a refund of 400
 				assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
-				Some(pre),
-				&info,
-				&post_info,
-				LEN,
-				&Ok(())
-			));
+					Some(pre),
+					&info,
+					&post_info,
+					LEN,
+					&Ok(())
+				));
 
 				assert_eq!(get_storage_weight().total().proof_size(), 10);
 			})
