@@ -8370,7 +8370,8 @@ mod stake_tracker {
 				target_bags_events(),
 				[
 					BagsEvent::Rebagged { who: 21, from: 10000, to: 1000 },
-					BagsEvent::ScoreUpdated { who: 21, new_score: 1000 }
+					BagsEvent::ScoreUpdated { who: 21, new_score: 1000 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 2100 }
 				]
 			);
 		})
@@ -8494,6 +8495,9 @@ mod stake_tracker {
 			// checks the current targets' score and list sorting.
 			assert_eq!(voters_and_targets().1, [(11, 2050), (21, 2050), (31, 500)]);
 
+			// confirm that 41 and 101 are nominating 11.
+			assert_eq!(nominators_of(&11), vec![101, 41]);
+
 			// get the bonded stake of the nominators that will be affected by the slash.
 			let stake_101_before = Staking::ledger(Stash(101)).unwrap().active;
 			let stake_41_before = Staking::ledger(Stash(41)).unwrap().active;
@@ -8530,12 +8534,13 @@ mod stake_tracker {
 			assert!(<TargetBagsList as SortedListProvider<A>>::contains(&11));
 			assert_eq!(Staking::status(&11), Ok(StakerStatus::Validator));
 			// and its balance has been updated based on the slash applied + chilling.
-			let score_11_after = <TargetBagsList as ScoreProvider<A>>::score(&11);
+			let score_11_after_slash = <TargetBagsList as ScoreProvider<A>>::score(&11);
 
+			// the target score of the validator is updated automatically only by the slash portion
+			// associated with itself.
 			assert_eq!(
-				score_11_after,
-				score_11_before -
-					slash_percent * (self_stake_11_before + total_others_stake_to_slash),
+				score_11_after_slash,
+				score_11_before - slash_percent * self_stake_11_before
 			);
 
 			// self-stake of 11 has decreased by 50% due to slash.
@@ -8544,10 +8549,28 @@ mod stake_tracker {
 				slash_percent * self_stake_11_before
 			);
 
-			// although 21 was not directly slashed, their nominators were. This will be reflected
-			// in its current target score.
+			// although 21 was not directly slashed, their nominators were. Howeverm the
+			// nominator's slashes are only propagated to the validators upon *explicit*
+			// settlement, thus the target score of 21 remains the same for now.
+			let score_21_after_slash = <TargetBagsList as ScoreProvider<A>>::score(&21);
+			assert_eq!(score_21_after_slash, score_21_before);
+
+			// now we settle the buffered approvals slashed nominators 41 and 101, so that the
+			// target scores of its nominations are propagated after the slash.
+			assert_ok!(StakeTracker::settle_approvals(RuntimeOrigin::signed(11), 41));
+			assert_ok!(StakeTracker::settle_approvals(RuntimeOrigin::signed(11), 101));
+
+			let score_11_after = <TargetBagsList as ScoreProvider<A>>::score(&11);
 			let score_21_after = <TargetBagsList as ScoreProvider<A>>::score(&21);
-			assert!(score_21_after < score_21_before);
+
+			// and now the target score of 11 reflects both the self stake slashed portion and also
+			// the slash of its nominators.
+			assert!(score_11_after < score_11_after_slash);
+			assert_eq!(
+				score_11_after,
+				score_11_before -
+					slash_percent * (self_stake_11_before + total_others_stake_to_slash),
+			);
 
 			// slashed amounts from nominators are reflected in the score of 21.
 			let slashed_101 = stake_101_before - Staking::ledger(Stash(101)).unwrap().active;
@@ -8570,9 +8593,9 @@ mod stake_tracker {
 				[
 					BagsEvent::Rebagged { who: 11, from: 10000, to: 2000 },
 					BagsEvent::ScoreUpdated { who: 11, new_score: 1550 },
-					BagsEvent::ScoreUpdated { who: 11, new_score: 1385 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 1369 },
 					BagsEvent::Rebagged { who: 21, from: 10000, to: 2000 },
-					BagsEvent::ScoreUpdated { who: 21, new_score: 1885 },
+					BagsEvent::ScoreUpdated { who: 21, new_score: 1869 },
 					BagsEvent::ScoreUpdated { who: 11, new_score: 1204 },
 					BagsEvent::ScoreUpdated { who: 21, new_score: 1704 }
 				]

@@ -361,6 +361,7 @@ pub mod pallet {
 					let stake_imbalance = if current_weight > *last_seen {
 						StakeImbalance::Positive(current_weight.saturating_sub(*last_seen))
 					} else {
+						// current active stake may be lower than the last_seen in case of slash.
 						StakeImbalance::Negative((*last_seen).saturating_sub(current_weight))
 					};
 
