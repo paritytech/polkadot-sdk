@@ -7,7 +7,7 @@ use log::info;
 use parachain_template_runtime::Block;
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
-	NetworkParams, Result, SharedParams, SubstrateCli,
+	NetworkParams, Result, RpcListenAddr, SharedParams, SubstrateCli,
 };
 use sc_service::config::{BasePath, PrometheusConfig};
 
@@ -297,7 +297,7 @@ impl CliConfiguration<Self> for RelayChainCli {
 			.or_else(|| self.base_path.clone().map(Into::into)))
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<String>> {
+	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<Vec<RpcListenAddr>>> {
 		self.base.base.rpc_addr(default_listen_port)
 	}
 

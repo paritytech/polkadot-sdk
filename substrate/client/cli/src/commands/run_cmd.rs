@@ -425,6 +425,25 @@ impl CliConfiguration for RunCmd {
 
 	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<Vec<RpcListenAddr>>> {
 		if !self.rpc_listen_addrs.is_empty() {
+			for endpoint in &self.rpc_listen_addrs {
+				if self.rpc_external && self.validator && endpoint.rpc_methods != RpcMethods::Unsafe
+				{
+					return Err(Error::Input(
+						"--rpc-external option shouldn't be used if the node is running as \
+						 a validator. Use `--unsafe-rpc-external` or `--rpc-methods=unsafe` if you understand \
+						 the risks. See the options description for more information."
+							.to_owned(),
+					))
+				}
+
+				if endpoint.rpc_methods == RpcMethods::Unsafe {
+					log::warn!(
+						"It isn't safe to expose RPC publicly without a proxy server that filters \
+						 available set of RPC methods."
+					);
+				}
+			}
+
 			return Ok(Some(self.rpc_listen_addrs.clone()));
 		}
 
