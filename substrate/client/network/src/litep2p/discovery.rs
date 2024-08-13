@@ -66,11 +66,17 @@ const KADEMLIA_QUERY_INTERVAL: Duration = Duration::from_secs(5);
 /// mDNS query interval.
 const MDNS_QUERY_INTERVAL: Duration = Duration::from_secs(30);
 
-/// Minimum number of confirmations received before an address is verified.
-const MIN_ADDRESS_CONFIRMATIONS: usize = 5;
-
-// The minimum number of peers we expect an answer before we terminate the request.
+/// The minimum number of peers we expect an answer before we terminate the request.
 const GET_RECORD_REDUNDANCY_FACTOR: usize = 4;
+
+/// The maximum number of tracked external addresses we allow.
+const MAX_EXTERNAL_ADDRESSES: u32 = 32;
+
+/// Minimum number of confirmations received before an address is verified.
+///
+/// Note: all addresses are confirmed by libp2p on the first encounter. This aims to make
+/// addresses a bit more robust.
+const MIN_ADDRESS_CONFIRMATIONS: usize = 2;
 
 /// Discovery events.
 #[derive(Debug)]
@@ -195,7 +201,7 @@ pub struct Discovery {
 	listen_addresses: Arc<RwLock<HashSet<Multiaddr>>>,
 
 	/// External address confirmations.
-	address_confirmations: LruMap<Multiaddr, usize>,
+	address_confirmations: LruMap<Multiaddr, HashSet<PeerId>>,
 
 	/// Delay to next `FIND_NODE` query.
 	duration_to_next_find_query: Duration,
@@ -278,7 +284,7 @@ impl Discovery {
 				find_node_query_id: None,
 				pending_events: VecDeque::new(),
 				duration_to_next_find_query: Duration::from_secs(1),
-				address_confirmations: LruMap::new(ByLength::new(8)),
+				address_confirmations: LruMap::new(ByLength::new(MAX_EXTERNAL_ADDRESSES)),
 				allow_non_global_addresses: config.allow_non_globals_in_dht,
 				public_addresses: config.public_addresses.iter().cloned().map(Into::into).collect(),
 				next_kad_query: Some(Delay::new(KADEMLIA_QUERY_INTERVAL)),
@@ -428,7 +434,7 @@ impl Discovery {
 	}
 
 	/// Check if `address` can be considered a new external address.
-	fn is_new_external_address(&mut self, address: &Multiaddr) -> bool {
+	fn is_new_external_address(&mut self, address: &Multiaddr, peer: PeerId) -> bool {
 		log::trace!(target: LOG_TARGET, "verify new external address: {address}");
 
 		// is the address one of our known addresses
@@ -444,14 +450,14 @@ impl Discovery {
 
 		match self.address_confirmations.get(address) {
 			Some(confirmations) => {
-				*confirmations += 1usize;
+				confirmations.insert(peer);
 
-				if *confirmations >= MIN_ADDRESS_CONFIRMATIONS {
+				if confirmations.len() >= MIN_ADDRESS_CONFIRMATIONS {
 					return true
 				}
 			},
 			None => {
-				self.address_confirmations.insert(address.clone(), 1usize);
+				self.address_confirmations.insert(address.clone(), Default::default());
 			},
 		}
 
@@ -563,7 +569,7 @@ impl Stream for Discovery {
 				supported_protocols,
 				observed_address,
 			})) => {
-				if this.is_new_external_address(&observed_address) {
+				if this.is_new_external_address(&observed_address, peer) {
 					this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
 						address: observed_address.clone(),
 					});

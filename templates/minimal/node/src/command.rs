@@ -22,9 +22,6 @@ use crate::{
 };
 use polkadot_sdk::{sc_cli::SubstrateCli, sc_service::PartialComponents, *};
 
-#[cfg(feature = "try-runtime")]
-use try_runtime_cli::block_building_info::timestamp_with_aura_info;
-
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
 		"Substrate Node".into()

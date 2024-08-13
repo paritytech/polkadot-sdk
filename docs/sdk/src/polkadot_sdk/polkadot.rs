@@ -8,18 +8,18 @@
 //! - [Polkadot Parachains](https://parachains.info/)
 //! - [Polkadot (multi-chain) Explorer: Subscan](https://subscan.io/)
 //! - Polkadot Fellowship
-//!     - [Manifesto](https://github.com/polkadot-fellows/manifesto)
+//!     - [Manifesto](https://github.com/polkadot-fellows/manifesto/blob/main/manifesto.pdf)
 //!     - [Runtimes](https://github.com/polkadot-fellows/runtimes)
 //!     - [RFCs](https://github.com/polkadot-fellows/rfcs)
 //! 	- [Dashboard](https://polkadot-fellows.github.io/dashboard/)
-//! - [Polkadot Specs](spec.polkadot.network)
+//! - [Polkadot Specs](http://spec.polkadot.network)
 //! - [The Polkadot Parachain Host Implementers' Guide](https://paritytech.github.io/polkadot-sdk/book/)
 //! - [Whitepaper](https://www.polkadot.network/whitepaper/)
 //! - [JAM Graypaper](https://graypaper.com)
 //!
 //! ## Alternative Node Implementations 🌈
 //!
-//! - [Smoldot](https://crates.io/crates/smoldot-light). Polkadot light node/client.
+//! - [Smoldot](https://docs.rs/crate/smoldot-light/latest). Polkadot light node/client.
 //! - [KAGOME](https://github.com/qdrvm/kagome). C++ implementation of the Polkadot host.
 //! - [Gossamer](https://github.com/ChainSafe/gossamer). Golang implementation of the Polkadot host.
 //!
@@ -45,7 +45,7 @@
 //! > their execution and governance sovereignty. These chains are called "Parachains".
 //!
 //! * Shared Security: The idea of shared economic security sits at the core of Polkadot. Polkadot
-//!   enables different parachains* to pool their economic security from Polkadot (i.e. "*Relay
+//!   enables different parachains to pool their economic security from Polkadot (i.e. "*Relay
 //!   Chain*").
 //! * (heterogenous) Sharded Execution: Yet, each parachain is free to have its own execution logic
 //!   (runtime), which also encompasses governance and sovereignty. Moreover, Polkadot ensures the
@@ -80,7 +80,7 @@
 //! Within the scope of Polkadot 1.x, two main scheduling ways have been considered:
 //!
 //! * Long term Parachains, obtained through locking a sum of DOT in an auction system.
-//! * on-demand Parachains, purchased through paying DOT to the relay-chain whenever needed.
+//! * On-demand Parachains, purchased through paying DOT to the relay-chain whenever needed.
 //!
 //! ### The Future
 //!

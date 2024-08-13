@@ -30,7 +30,7 @@
 //! > **F**ramework for **R**untime **A**ggregation of **M**odularized **E**ntities: Substrate's
 //! > State Transition Function (Runtime) Framework.
 //!
-//! //! ## Usage
+//! ## Usage
 //!
 //! The main intended use of this crate is for it to be imported with its preludes:
 //!

@@ -35,6 +35,9 @@ pub use asset_conversion::{
 	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId,
 };
 
+mod asset_exchange;
+pub use asset_exchange::SingleAssetExchangeAdapter;
+
 mod barriers;
 pub use barriers::{
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
