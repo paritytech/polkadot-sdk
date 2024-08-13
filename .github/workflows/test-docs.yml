@@ -73,3 +73,13 @@ jobs:
           path: ./crate-docs/
           retention-days: 1
           if-no-files-found: error
+
+  build-implementers-guide:
+    runs-on: ubuntu-latest
+    container:
+      image: paritytech/mdbook-utils:e14aae4a-20221123
+    steps:
+      - uses: actions/checkout@v4
+      - run: mdbook build ./polkadot/roadmap/implementers-guide
+      - run: mkdir -p artifacts
+      - run: mv polkadot/roadmap/implementers-guide/book artifacts/
