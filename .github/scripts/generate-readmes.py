@@ -57,13 +57,13 @@ This version of `{name}` is associated with Polkadot {sdk_version} release.
 """
 
 
-def generate_readme(member, *, workspace_license, sdk_version):
+def generate_readme(member, *, workspace_dir, workspace_license, sdk_version):
     print(f"Loading manifest for: {member}")
-    manifest = toml.load(f"./{member}/Cargo.toml")
+    manifest = toml.load(os.path.join(workspace_dir, member, "Cargo.toml"))
     if manifest["package"].get("publish", True) == False:
         print(f"⏩ Skipping un-published crate: {member}")
         return
-    if os.path.exists(f"./{member}/README.md"):
+    if os.path.exists(os.path.join(workspace_dir, member, "README.md")):
         print(f"⏩ Skipping crate with an existing readme: {member}")
         return
     print(f"📝 Generating README for: {member}")
@@ -89,7 +89,7 @@ def generate_readme(member, *, workspace_license, sdk_version):
     if sdk_version:
         filled_readme += VERSION_TEMPLATE.format(name=name, sdk_version=sdk_version)
 
-    with open(f"./{member}/README.md", "w") as new_readme:
+    with open(os.path.join(workspace_dir, member, "README.md"), "w") as new_readme:
         new_readme.write(filled_readme)
 
 
@@ -125,7 +125,10 @@ def main():
     members = check_workspace.get_members(workspace_dir, [])
     for member in members:
         generate_readme(
-            member, workspace_license=workspace_license, sdk_version=sdk_version
+            member,
+            workspace_dir=workspace_dir,
+            workspace_license=workspace_license,
+            sdk_version=sdk_version,
         )
 
 
