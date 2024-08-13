@@ -363,7 +363,6 @@ mod tests {
 				let info = DispatchInfo { weight: Weight::from_parts(0, 10), ..Default::default() };
 				let post_info = PostDispatchInfo::default();
 
-				// Should add 10 + 150 (len) to weight.
 				assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&info, LEN));
 
 				let pre = StorageWeightReclaim::<Test>(PhantomData)
@@ -372,7 +371,6 @@ mod tests {
 				assert_eq!(pre, Some(1000));
 
 				assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
-				// We expect a refund of 400
 				assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
 					Some(pre),
 					&info,
@@ -381,6 +379,8 @@ mod tests {
 					&Ok(())
 				));
 
+				// We expect that the storage weight was set to the node-side proof size (1005) +
+				// extrinsics length (150)
 				assert_eq!(get_storage_weight().total().proof_size(), 1155);
 			})
 		}
@@ -388,21 +388,28 @@ mod tests {
 		// In this second scenario the proof size on the node side is only lower
 		// after reclaim happened.
 		{
-			let mut test_ext = setup_test_externalities(&[0, 10]);
+			let mut test_ext = setup_test_externalities(&[175, 180]);
 			test_ext.execute_with(|| {
-				// Stored in BlockWeight is 5
-				set_current_storage_weight(15);
+				set_current_storage_weight(85);
 
-				// Benchmarked storage weight: 10
-				let info = DispatchInfo { weight: Weight::from_parts(0, 20), ..Default::default() };
+				// Benchmarked storage weight: 100
+				let info =
+					DispatchInfo { weight: Weight::from_parts(0, 100), ..Default::default() };
 				let post_info = PostDispatchInfo::default();
+
+				// After this pre_dispatch, the BlockWeight proof size will be
+				// 85 (initial) + 100 (benched) + 150 (tx length) = 335
+				assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&info, LEN));
 
 				let pre = StorageWeightReclaim::<Test>(PhantomData)
 					.pre_dispatch(&ALICE, CALL, &info, LEN)
 					.unwrap();
-				assert_eq!(pre, Some(0));
+				assert_eq!(pre, Some(175));
 
-				// We expect a refund of 400
+				assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
+
+				// First we will reclaim 95, which leaves us with 240 BlockWeight. This is lower
+				// than 180 (proof size hf) + 150 (length), so we expect it to be set to 330.
 				assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
 					Some(pre),
 					&info,
@@ -411,7 +418,8 @@ mod tests {
 					&Ok(())
 				));
 
-				assert_eq!(get_storage_weight().total().proof_size(), 10);
+				// We expect that the storage weight was set to the node-side proof weight
+				assert_eq!(get_storage_weight().total().proof_size(), 330);
 			})
 		}
 	}
