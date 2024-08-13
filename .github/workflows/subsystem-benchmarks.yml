@@ -32,9 +32,6 @@ jobs:
     runs-on: arc-runners-polkadot-sdk-benchmark
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
-    env:
-      BENCH_DIR: ./charts/bench/${{ matrix.features.bench }}
-      BENCH_FILE_NAME: ${{ matrix.features.bench }}
     strategy:
       fail-fast: false
       matrix:
@@ -54,14 +51,42 @@ jobs:
           rustup +nightly show
 
       - name: Run Benchmarks
-        continue-on-error: true
         id: run-benchmarks
         run: |
           cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks || echo "Benchmarks failed"
           ls -lsa ./charts
-          mkdir -p $BENCH_DIR || echo "Directory exists"
-          cp charts/${BENCH_FILE_NAME}.json $BENCH_DIR
-          ls -lsa $BENCH_DIR
+          cp ./charts/${{ matrix.features.bench }}.json ./artifacts/${{ matrix.features.bench }}.json
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4.3.6
+        with:
+          name: subsystem-benchmarks-${{matrix.features.bench}}-${{ github.sha }}
+          path: ./artifacts
+
+  publish-benchmarks:
+    needs: [ build ]
+    if: github.ref == 'refs/heads/master'
+    environment: subsystem-benchmarks
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features: [
+          { name: "polkadot-availability-recovery" },
+          { name: "polkadot-availability-distribution" },
+          { name: "polkadot-node-core-approval-voting" },
+          { name: "polkadot-statement-distribution" }
+        ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: subsystem-benchmarks-${{matrix.features.bench}}-${{ github.sha }}
+
+      - name: Setup git
+        run: |
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
 
@@ -72,14 +97,10 @@ jobs:
           private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
 
       - name: Publish result to GH Pages
-        if: ${{ steps.run-benchmarks.outcome == 'success' }}
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: "customSmallerIsBetter"
-          name: ${{ env.BENCH_FILE_NAME }}
-          output-file-path: ${{ env.BENCH_DIR }}/${{ env.BENCH_FILE_NAME }}.json
-          benchmark-data-dir-path: ${{ env.BENCH_DIR }}
+          name: ${{ matrix.features.bench }}
+          output-file-path: ./artifacts/${{ matrix.features.bench }}.json
+          benchmark-data-dir-path: ./artifacts
           github-token: ${{ steps.app-token.outputs.token }}
-          comment-on-alert: ${{ github.event_name == 'pull_request' }} # will comment on PRs if regression is detected
-          auto-push: ${{ github.ref == 'refs/heads/master' }}
-
