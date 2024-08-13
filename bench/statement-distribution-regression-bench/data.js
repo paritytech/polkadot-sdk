@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723544917017,
+  "lastUpdate": 1723557680347,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -8147,6 +8147,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.046507679204,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0d7bd6badce2d53bb332fc48d4a32e828267cf7e",
+          "message": "Small nits found accidentally along the way (#5341)",
+          "timestamp": "2024-08-13T11:11:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0d7bd6badce2d53bb332fc48d4a32e828267cf7e"
+        },
+        "date": 1723557648927,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.94799999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039177281598,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.048507676321999996,
             "unit": "seconds"
           }
         ]
