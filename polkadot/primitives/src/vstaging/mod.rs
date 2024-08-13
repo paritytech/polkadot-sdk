@@ -451,13 +451,14 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	}
 
 	fn rebuild_collator_field(&self) -> CollatorId {
-		let mut collator_id = vec![self.version.0];
+		let mut collator_id = Vec::with_capacity(32);
 		let core_index: [u8; 2] = self.core_index.to_ne_bytes();
 		let session_index: [u8; 4] = self.session_index.to_ne_bytes();
 
-		collator_id.append(&mut core_index.as_slice().to_vec());
-		collator_id.append(&mut session_index.as_slice().to_vec());
-		collator_id.append(&mut self.reserved25b.as_slice().to_vec());
+		collator_id.push(self.version.0);
+		collator_id.extend_from_slice(core_index.as_slice());
+		collator_id.extend_from_slice(session_index.as_slice());
+		collator_id.extend_from_slice(self.reserved25b.as_slice());
 
 		CollatorId::from_slice(&collator_id.as_slice())
 			.expect("Slice size is exactly 32 bytes; qed")

@@ -49,7 +49,7 @@ frame-system = { workspace = true }
 
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
-polkadot-primitives = { workspace = true, features=["test"] }
+polkadot-primitives = { workspace = true }
 
 rand = { workspace = true }
 rand_chacha = { workspace = true }
@@ -59,7 +59,7 @@ polkadot-runtime-metrics = { workspace = true }
 polkadot-core-primitives = { workspace = true }
 
 [dev-dependencies]
-polkadot-primitives = { workspace = true }
+polkadot-primitives = { workspace = true, features=["test"] }
 
 futures = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
