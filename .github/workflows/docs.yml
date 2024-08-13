@@ -1,5 +1,7 @@
 on:
   pull_request:
+  push:
+    branches: [master]
 
 name: Test Docs
 
@@ -83,6 +85,7 @@ jobs:
           if-no-files-found: error
 
   publish-rustdoc:
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     permissions:
       contents: write
