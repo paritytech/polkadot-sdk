@@ -350,9 +350,10 @@ impl<H: Copy> From<CandidateReceiptV2<H>> for super::v7::CandidateReceipt<H> {
 	}
 }
 
-/// A strictly increasing sequence number, tipically this would be the parachain block number.
+/// A strictly increasing sequence number, tipically this would be the least significant byte of the
+/// block number.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-pub struct CoreSelector(pub BlockNumber);
+pub struct CoreSelector(pub u8);
 
 /// An offset in the relay chain claim queue.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
@@ -375,7 +376,7 @@ pub const UMP_SEPARATOR: Vec<u8> = vec![];
 impl CandidateCommitments {
 	/// Returns the core selector and claim queue offset the candidate has commited to, if any.
 	pub fn selected_core(&self) -> Option<(CoreSelector, ClaimQueueOffset)> {
-		// We need at least 2 messages for the separator and core index
+		// We need at least 2 messages for the separator and core selector
 		if self.upward_messages.len() < 2 {
 			return None
 		}
@@ -388,7 +389,7 @@ impl CandidateCommitments {
 			.take_while(|message| message != &UMP_SEPARATOR)
 			.collect::<Vec<_>>();
 
-		// We didn't find the separator, no core index commitment.
+		// Check for UMP separator
 		if upward_commitments.len() == self.upward_messages.len() || upward_commitments.is_empty() {
 			return None
 		}
@@ -510,31 +511,42 @@ impl CommittedCandidateReceiptV2 {
 	/// Returns error if:
 	/// - descriptor core index is different than the core selected
 	/// by the commitments
-	/// - the core index is out of bounds wrt `n_cores`.
+	/// - the core index is out of bounds
 	pub fn check(
 		&self,
 		n_cores: u32,
 		// TODO: consider promoting `ClaimQueueSnapshot` as primitive
 		claim_queue: &BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	) -> Result<(), CandidateReceiptError> {
+		// Don't check v1 descriptors.
+		if self.descriptor.version() == CandidateDescriptorVersion::V1 {
+			return Ok(())
+		}
+
 		if claim_queue.is_empty() {
 			return Err(CandidateReceiptError::NoAssignment)
 		}
 
+		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
+		if descriptor_core_index.0 > n_cores - 1 {
+			return Err(CandidateReceiptError::InvalidCoreIndex)
+		}
+
+		let (core_selector, cq_offset) =
+			self.commitments.selected_core().ok_or(CandidateReceiptError::NoCoreSelected)?;
+
+		// TODO: double check the invariant of claim queue len == scheduling lookahead.
+		// What happens when on-demand is used and there is only 1 claim on a core.
 		let claim_queue_depth = claim_queue
 			.first_key_value()
 			.ok_or(CandidateReceiptError::NoAssignment)?
 			.1
 			.len();
-
-		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
-		let (core_selector, cq_offset) =
-			self.commitments.selected_core().ok_or(CandidateReceiptError::NoCoreSelected)?;
-		let para_id = self.descriptor.para_id;
-
 		if cq_offset.0 as usize >= claim_queue_depth {
 			return Err(CandidateReceiptError::InvalidSelectedCore)
 		}
+
+		let para_id = self.descriptor.para_id;
 
 		// Get a vec of the core indices the parachain is assigned to at `cq_offset`.
 		let assigned_cores = claim_queue
@@ -560,10 +572,6 @@ impl CommittedCandidateReceiptV2 {
 
 		if **core_index != descriptor_core_index {
 			return Err(CandidateReceiptError::CoreIndexMismatch)
-		}
-
-		if descriptor_core_index.0 > n_cores - 1 {
-			return Err(CandidateReceiptError::InvalidCoreIndex)
 		}
 
 		Ok(())
