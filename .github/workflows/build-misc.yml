@@ -34,7 +34,7 @@ jobs:
 
   build-runtimes-polkavm:
     needs: [ set-image ]
-    runs-on: arc-runners-polkadot-sdk-default
+    runs-on: arc-runners-polkadot-sdk-beefy
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
@@ -57,7 +57,7 @@ jobs:
 
   build-subkey:
     needs: [ set-image ]
-    runs-on: arc-runners-polkadot-sdk-default
+    runs-on: arc-runners-polkadot-sdk-beefy
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     strategy:
@@ -73,6 +73,8 @@ jobs:
           rustup +nightly show
 
       - name: Build
+        env:
+          SKIP_WASM_BUILD: 1
         run: |
           cd ./substrate/bin/utils/subkey
-          time SKIP_WASM_BUILD=1 cargo build --locked --release
+          time cargo build --locked --release
