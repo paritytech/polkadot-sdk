@@ -773,7 +773,9 @@ mod staking_integration {
 				assert_eq!(System::providers(&delegator), 1);
 			}
 
-			// agent is cleaned up from storage
+			// Agent can be removed now.
+			assert_ok!(DelegatedStaking::remove_agent(RawOrigin::Signed(agent).into()));
+			// agent is correctly removed.
 			assert!(!Agents::<T>::contains_key(agent));
 			// and no provider left.
 			assert_eq!(System::providers(&agent), 0);
@@ -824,12 +826,22 @@ mod staking_integration {
 			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 1000));
 			start_era(4);
 			assert_ok!(Staking::withdraw_unbonded(RawOrigin::Signed(agent).into(), 0));
+
+			// Since delegations are still left, agents cannot be removed yet from storage.
+			assert_noop!(
+				DelegatedStaking::remove_agent(RawOrigin::Signed(agent).into()),
+				Error::<T>::NotAllowed
+			);
+
 			assert_ok!(DelegatedStaking::release_delegation(
 				RawOrigin::Signed(agent).into(),
 				delegator,
 				1000,
 				0
 			));
+
+			// now agents can be removed.
+			assert_ok!(DelegatedStaking::remove_agent(RawOrigin::Signed(agent).into()));
 
 			// agent and delegator provider is decremented.
 			assert_eq!(System::providers(&delegator), 1);

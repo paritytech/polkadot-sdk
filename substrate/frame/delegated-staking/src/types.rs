@@ -66,16 +66,23 @@ impl<T: Config> Delegation<T> {
 
 	/// Save self to storage.
 	///
-	/// If the delegation amount is zero, remove the delegation and returns true.
-	pub(crate) fn update(self, key: &T::AccountId) -> bool {
-		// Clean up if no delegation left.
-		if self.amount == Zero::zero() {
-			<Delegators<T>>::remove(key);
-			return true
+	/// If the delegation amount is zero, remove the delegation. Also adds and removes provider
+	/// reference as needed.
+	pub(crate) fn update(self, key: &T::AccountId) {
+		if <Delegators<T>>::contains_key(key) {
+			// Clean up if no delegation left.
+			if self.amount == Zero::zero() {
+				<Delegators<T>>::remove(key);
+				// Remove provider if no delegation left.
+				let _ = frame_system::Pallet::<T>::dec_providers(&key).defensive();
+				return
+			}
+		} else {
+			// this is a new delegation. Provide for this account.
+			frame_system::Pallet::<T>::inc_providers(&key);
 		}
 
 		<Delegators<T>>::insert(key, self);
-		false
 	}
 }
 
@@ -121,8 +128,22 @@ impl<T: Config> AgentLedger<T> {
 	}
 
 	/// Save self to storage with the given key.
+	///
+	/// Increments provider count if this is a new agent.
 	pub(crate) fn update(self, key: &T::AccountId) {
+		if !<Agents<T>>::contains_key(key) {
+			// This is a new agent. Provide for this account.
+			frame_system::Pallet::<T>::inc_providers(&key);
+		}
 		<Agents<T>>::insert(key, self)
+	}
+
+	/// Remove self from storage.
+	pub(crate) fn remove(key: &T::AccountId) {
+		debug_assert!(<Agents<T>>::contains_key(key), "Agent should exist in storage");
+		<Agents<T>>::remove(key);
+		// Remove provider reference.
+		let _ = frame_system::Pallet::<T>::dec_providers(key).defensive();
 	}
 
 	/// Effective total balance of the `Agent`.

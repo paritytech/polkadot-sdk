@@ -319,9 +319,7 @@ pub mod pallet {
 				Error::<T>::NotAllowed
 			);
 
-			// remove provider reference
-			let _ = frame_system::Pallet::<T>::dec_providers(&who)?;
-			<Agents<T>>::remove(who);
+			AgentLedger::<T>::remove(&who);
 			Ok(())
 		}
 
@@ -490,13 +488,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Registers a new agent in the system.
 	fn do_register_agent(who: &T::AccountId, reward_account: &T::AccountId) {
+		// TODO: Consider taking a deposit for being an agent.
 		AgentLedger::<T>::new(reward_account).update(who);
-
-		// Agent does not hold balance of its own but this pallet will provide for this to exist.
-		// This is expected to be a keyless account and not created by any user directly so safe.
-		// TODO: Someday if we allow anyone to be an agent, we should take a deposit for
-		// being a delegator.
-		frame_system::Pallet::<T>::inc_providers(who);
 	}
 
 	/// Migrate existing staker account `who` to an `Agent` account.
@@ -574,16 +567,13 @@ impl<T: Config> Pallet<T> {
 
 		if let Some(mut existing_delegation) = Delegation::<T>::get(&delegator) {
 			ensure!(existing_delegation.agent == agent, Error::<T>::InvalidDelegation);
-			// update amount
+			// update amount and return the updated delegation.
 			existing_delegation.amount = existing_delegation
 				.amount
 				.checked_add(&amount)
 				.ok_or(ArithmeticError::Overflow)?;
 			existing_delegation
 		} else {
-			// if this is the first time delegation, increment provider count. This ensures that
-			// amount including existential deposit can be held.
-			frame_system::Pallet::<T>::inc_providers(&delegator);
 			Delegation::<T>::new(&agent, amount)
 		}
 		.update(&delegator);
@@ -646,11 +636,7 @@ impl<T: Config> Pallet<T> {
 		defensive_assert!(released == amount, "hold should have been released fully");
 
 		// update delegation.
-		let removed = delegation.update(&delegator); 
-		if removed {
-			// remove provider for delegator if no delegation left.
-			let _ = frame_system::Pallet::<T>::dec_providers(&delegator).defensive();
-		}
+		delegation.update(&delegator);
 
 		Self::deposit_event(Event::<T>::Released { agent, delegator, amount });
 
@@ -678,10 +664,7 @@ impl<T: Config> Pallet<T> {
 
 		let agent = source_delegation.agent.clone();
 		// create a new delegation for destination delegator.
-		let _ = Delegation::<T>::new(&agent, amount).update(&destination_delegator);
-		// Provide for the delegator account. This ensures that amount including existential deposit
-		// can be held.
-		frame_system::Pallet::<T>::inc_providers(&destination_delegator);
+		Delegation::<T>::new(&agent, amount).update(&destination_delegator);
 
 		source_delegation.amount = source_delegation
 			.amount
@@ -700,10 +683,7 @@ impl<T: Config> Pallet<T> {
 		)?;
 
 		// update source delegation.
-		if source_delegation.update(&source_delegator) {
-			// remove provider for delegator if no delegation left.
-			let _ = frame_system::Pallet::<T>::dec_providers(&source_delegator).defensive();
-		}
+		source_delegation.update(&source_delegator);
 
 		Self::deposit_event(Event::<T>::MigratedDelegation {
 			agent,
@@ -745,11 +725,7 @@ impl<T: Config> Pallet<T> {
 		agent_ledger.remove_slash(actual_slash).save();
 		delegation.amount =
 			delegation.amount.checked_sub(&actual_slash).ok_or(ArithmeticError::Overflow)?;
-
-		if delegation.update(&delegator) {
-			// remove provider for delegator if no delegation left.
-			let _ = frame_system::Pallet::<T>::dec_providers(&delegator).defensive();
-		}
+		delegation.update(&delegator);
 
 		if let Some(reporter) = maybe_reporter {
 			let reward_payout: BalanceOf<T> = T::SlashRewardFraction::get() * actual_slash;
