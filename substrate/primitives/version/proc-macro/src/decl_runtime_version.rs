@@ -17,6 +17,7 @@
 
 use codec::Encode;
 use proc_macro2::{Span, TokenStream};
+use proc_macro_warning::Warning;
 use quote::quote;
 use syn::{
 	parse::{Error, Result},
@@ -24,11 +25,6 @@ use syn::{
 	spanned::Spanned as _,
 	Expr, ExprLit, FieldValue, ItemConst, Lit,
 };
-
-/// Warn when RuntimeVersion has `state_version` field instead of `system_version`.
-const STATE_VERSION_DEPRECATION_WARN: &'static str = "The 'state_version' field in RuntimeVersion \
- struct is deprecated and replaced by 'system_version'.\
- Please consider updating your runtime to reflect this change.";
 
 /// This macro accepts a `const` item that has a struct initializer expression of
 /// `RuntimeVersion`-like type. The macro will pass through this declaration and append an item
@@ -42,13 +38,19 @@ pub fn decl_runtime_version_impl(input: proc_macro::TokenStream) -> proc_macro::
 }
 
 fn decl_runtime_version_impl_inner(item: ItemConst) -> Result<TokenStream> {
-	let runtime_version = ParseRuntimeVersion::parse_expr(&item.expr)?.build(item.expr.span())?;
+	let (parsed_runtime_version, warnings) = ParseRuntimeVersion::parse_expr(&item.expr)?;
+	let runtime_version = parsed_runtime_version.build(item.expr.span())?;
 	let link_section =
 		generate_emit_link_section_decl(&runtime_version.encode(), "runtime_version");
 
 	Ok(quote! {
 		#item
 		#link_section
+		mod warnings {
+			#(
+				#warnings
+			)*
+		}
 	})
 }
 
@@ -83,7 +85,7 @@ struct ParseRuntimeVersion {
 }
 
 impl ParseRuntimeVersion {
-	fn parse_expr(init_expr: &Expr) -> Result<ParseRuntimeVersion> {
+	fn parse_expr(init_expr: &Expr) -> Result<(ParseRuntimeVersion, Vec<Warning>)> {
 		let init_expr = match init_expr {
 			Expr::Struct(ref e) => e,
 			_ =>
@@ -91,13 +93,14 @@ impl ParseRuntimeVersion {
 		};
 
 		let mut parsed = ParseRuntimeVersion::default();
+		let mut warnings = vec![];
 		for field_value in init_expr.fields.iter() {
-			parsed.parse_field_value(field_value)?;
+			warnings.append(&mut parsed.parse_field_value(field_value)?)
 		}
-		Ok(parsed)
+		Ok((parsed, warnings))
 	}
 
-	fn parse_field_value(&mut self, field_value: &FieldValue) -> Result<()> {
+	fn parse_field_value(&mut self, field_value: &FieldValue) -> Result<Vec<Warning>> {
 		let field_name = match field_value.member {
 			syn::Member::Named(ref ident) => ident,
 			syn::Member::Unnamed(_) =>
@@ -117,6 +120,7 @@ impl ParseRuntimeVersion {
 			}
 		}
 
+		let mut warnings = vec![];
 		if field_name == "spec_name" {
 			parse_once(&mut self.spec_name, field_value, Self::parse_str_literal)?;
 		} else if field_name == "impl_name" {
@@ -130,7 +134,13 @@ impl ParseRuntimeVersion {
 		} else if field_name == "transaction_version" {
 			parse_once(&mut self.transaction_version, field_value, Self::parse_num_literal)?;
 		} else if field_name == "state_version" {
-			log::warn!("{STATE_VERSION_DEPRECATION_WARN}");
+			let warning = Warning::new_deprecated("RuntimeVersion")
+				.old("state_version")
+				.new("system_version)")
+				.help_link("https://github.com/paritytech/polkadot-sdk/pull/4257")
+				.span(field_value.span())
+				.build_or_panic();
+			warnings.push(warning);
 			parse_once(&mut self.system_version, field_value, Self::parse_num_literal_u8)?;
 		} else if field_name == "system_version" {
 			parse_once(&mut self.system_version, field_value, Self::parse_num_literal_u8)?;
@@ -144,7 +154,7 @@ impl ParseRuntimeVersion {
 			return Err(Error::new(field_name.span(), "unknown field"))
 		}
 
-		Ok(())
+		Ok(warnings)
 	}
 
 	fn parse_num_literal(expr: &Expr) -> Result<u32> {
