@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723585353889,
+  "lastUpdate": 1723593536544,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21995,6 +21995,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010583119513333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jeeyong Um",
+            "username": "conr2d",
+            "email": "conr2d@proton.me"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0cd577ba1c4995500eb3ed10330d93402177a53b",
+          "message": "Minor clean up (#5284)\n\nThis PR performs minor code cleanup to reduce verbosity. Since the\ncompiler has already optimized out indirect calls in the existing code,\nthese changes improve readability but do not affect performance.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-08-13T21:54:51Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0cd577ba1c4995500eb3ed10330d93402177a53b"
+        },
+        "date": 1723593505069,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012847269553333327,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022563812806666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011036316506666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17315229953333325,
             "unit": "seconds"
           }
         ]
