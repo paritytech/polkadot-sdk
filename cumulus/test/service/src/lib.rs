@@ -38,7 +38,7 @@ use sp_consensus_aura::sr25519::AuthorityPair;
 use std::{
 	collections::HashSet,
 	future::Future,
-	net::{IpAddr, Ipv4Addr, SocketAddr},
+	net::{Ipv4Addr, SocketAddr, SocketAddrV4},
 	time::Duration,
 };
 use url::Url;
@@ -79,7 +79,8 @@ use sc_network::{
 use sc_service::{
 	config::{
 		BlocksPruning, DatabaseSource, KeystoreConfig, MultiaddrWithPeerId, NetworkConfiguration,
-		OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig, WasmExecutionMethod,
+		OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig, RpcListenAddr,
+		WasmExecutionMethod,
 	},
 	BasePath, ChainSpec as ChainSpecService, Configuration, Error as ServiceError,
 	PartialComponents, Role, RpcHandlers, TFullBackend, TFullClient, TaskManager,
@@ -379,7 +380,7 @@ where
 	let keystore = params.keystore_container.keystore();
 	let rpc_builder = {
 		let client = client.clone();
-		Box::new(move |_, _| rpc_ext_builder(client.clone()))
+		Box::new(move |_| rpc_ext_builder(client.clone()))
 	};
 
 	let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
@@ -1006,10 +1007,15 @@ pub fn run_relay_chain_validator_node(
 	);
 
 	if let Some(port) = port {
-		config.rpc_addr = Some(RpcListenAddr::only(SocketAddr::new(
-			IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-			port,
-		)));
+		config.rpc_addr = Some(vec![RpcListenAddr {
+			cors: config.rpc_cors.clone(),
+			listen_addr: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port)),
+			rpc_methods: config.rpc_methods.into(),
+			rate_limit: config.rpc_rate_limit,
+			rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
+			rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
+			retry_random_port: true,
+		}]);
 	}
 
 	let mut workers_path = std::env::current_exe().unwrap();
