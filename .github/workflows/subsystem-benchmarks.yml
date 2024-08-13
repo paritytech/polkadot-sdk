@@ -55,6 +55,7 @@ jobs:
         run: |
           cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks || echo "Benchmarks failed"
           ls -lsa ./charts
+          mkdir ./artifacts
           cp ./charts/${{ matrix.features.bench }}.json ./artifacts/${{ matrix.features.bench }}.json
       - name: Upload artifacts
         uses: actions/upload-artifact@v4.3.6
@@ -71,10 +72,10 @@ jobs:
       fail-fast: false
       matrix:
         features: [
-          { name: "polkadot-availability-recovery" },
-          { name: "polkadot-availability-distribution" },
-          { name: "polkadot-node-core-approval-voting" },
-          { name: "polkadot-statement-distribution" }
+          { bench: "availability-recovery-regression-bench" },
+          { bench: "availability-distribution-regression-bench" },
+          { bench: "approval-voting-regression-bench" },
+          { bench: "statement-distribution-regression-bench" }
         ]
     steps:
       - name: Checkout
