@@ -1323,15 +1323,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1172" id="1172">1172</a>
 <a href="#1173" id="1173">1173</a>
 <a href="#1174" id="1174">1174</a>
-<a href="#1175" id="1175">1175</a>
-<a href="#1176" id="1176">1176</a>
-<a href="#1177" id="1177">1177</a>
-<a href="#1178" id="1178">1178</a>
-<a href="#1179" id="1179">1179</a>
-<a href="#1180" id="1180">1180</a>
-<a href="#1181" id="1181">1181</a>
-<a href="#1182" id="1182">1182</a>
-<a href="#1183" id="1183">1183</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1772,10 +1763,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>MultiSigner {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-			<span class="self">Self</span>::Ed25519(<span class="kw-2">ref </span>who) =&gt; <span class="macro">write!</span>(fmt, <span class="string">"ed25519: {}"</span>, who),
-			<span class="self">Self</span>::Sr25519(<span class="kw-2">ref </span>who) =&gt; <span class="macro">write!</span>(fmt, <span class="string">"sr25519: {}"</span>, who),
-			<span class="self">Self</span>::Ecdsa(<span class="kw-2">ref </span>who) =&gt; <span class="macro">write!</span>(fmt, <span class="string">"ecdsa: {}"</span>, who),
+		<span class="kw">match </span><span class="self">self </span>{
+			<span class="self">Self</span>::Ed25519(who) =&gt; <span class="macro">write!</span>(fmt, <span class="string">"ed25519: {}"</span>, who),
+			<span class="self">Self</span>::Sr25519(who) =&gt; <span class="macro">write!</span>(fmt, <span class="string">"sr25519: {}"</span>, who),
+			<span class="self">Self</span>::Ecdsa(who) =&gt; <span class="macro">write!</span>(fmt, <span class="string">"ecdsa: {}"</span>, who),
 		}
 	}
 }
@@ -1783,23 +1774,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Verify <span class="kw">for </span>MultiSignature {
 	<span class="kw">type </span>Signer = MultiSigner;
 	<span class="kw">fn </span>verify&lt;L: Lazy&lt;[u8]&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>msg: L, signer: <span class="kw-2">&amp;</span>AccountId32) -&gt; bool {
-		<span class="kw">match </span>(<span class="self">self</span>, signer) {
-			(<span class="self">Self</span>::Ed25519(<span class="kw-2">ref </span>sig), who) =&gt; <span class="kw">match </span>ed25519::Public::from_slice(who.as_ref()) {
-				<span class="prelude-val">Ok</span>(signer) =&gt; sig.verify(msg, <span class="kw-2">&amp;</span>signer),
-				<span class="prelude-val">Err</span>(()) =&gt; <span class="bool-val">false</span>,
-			},
-			(<span class="self">Self</span>::Sr25519(<span class="kw-2">ref </span>sig), who) =&gt; <span class="kw">match </span>sr25519::Public::from_slice(who.as_ref()) {
-				<span class="prelude-val">Ok</span>(signer) =&gt; sig.verify(msg, <span class="kw-2">&amp;</span>signer),
-				<span class="prelude-val">Err</span>(()) =&gt; <span class="bool-val">false</span>,
-			},
-			(<span class="self">Self</span>::Ecdsa(<span class="kw-2">ref </span>sig), who) =&gt; {
+		<span class="kw">let </span>who: [u8; <span class="number">32</span>] = <span class="kw-2">*</span>signer.as_ref();
+		<span class="kw">match </span><span class="self">self </span>{
+			<span class="self">Self</span>::Ed25519(sig) =&gt; sig.verify(msg, <span class="kw-2">&amp;</span>who.into()),
+			<span class="self">Self</span>::Sr25519(sig) =&gt; sig.verify(msg, <span class="kw-2">&amp;</span>who.into()),
+			<span class="self">Self</span>::Ecdsa(sig) =&gt; {
 				<span class="kw">let </span>m = sp_io::hashing::blake2_256(msg.get());
-				<span class="kw">match </span>sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), <span class="kw-2">&amp;</span>m) {
-					<span class="prelude-val">Ok</span>(pubkey) =&gt;
-						<span class="kw-2">&amp;</span>sp_io::hashing::blake2_256(pubkey.as_ref()) ==
-							&lt;<span class="kw">dyn </span>AsRef&lt;[u8; <span class="number">32</span>]&gt;&gt;::as_ref(who),
-					<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
-				}
+				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), <span class="kw-2">&amp;</span>m)
+					.map_or(<span class="bool-val">false</span>, |pubkey| sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>pubkey) == who)
 			},
 		}
 	}

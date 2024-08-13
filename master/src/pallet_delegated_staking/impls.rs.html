@@ -310,6 +310,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
 <a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -344,28 +350,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.ok()
 	}
 
+	<span class="kw">fn </span>agent_transferable_balance(agent: Agent&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt; {
+		AgentLedgerOuter::&lt;T&gt;::get(<span class="kw-2">&amp;</span>agent.get())
+			.map(|a| a.ledger.unclaimed_withdrawals)
+			.ok()
+	}
+
 	<span class="kw">fn </span>delegator_balance(delegator: Delegator&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt; {
 		Delegation::&lt;T&gt;::get(<span class="kw-2">&amp;</span>delegator.get()).map(|d| d.amount)
 	}
 
 	<span class="doccomment">/// Delegate funds to an `Agent`.
-	</span><span class="kw">fn </span>delegate(
-		who: Delegator&lt;<span class="self">Self</span>::AccountId&gt;,
+	</span><span class="kw">fn </span>register_agent(
 		agent: Agent&lt;<span class="self">Self</span>::AccountId&gt;,
 		reward_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		amount: <span class="self">Self</span>::Balance,
 	) -&gt; DispatchResult {
 		Pallet::&lt;T&gt;::register_agent(
 			RawOrigin::Signed(agent.clone().get()).into(),
 			reward_account.clone(),
-		)<span class="question-mark">?</span>;
+		)
+	}
 
-		<span class="comment">// Delegate the funds from who to the `Agent` account.
-		</span>Pallet::&lt;T&gt;::delegate_to_agent(RawOrigin::Signed(who.get()).into(), agent.get(), amount)
+	<span class="doccomment">/// Remove `Agent` registration.
+	</span><span class="kw">fn </span>remove_agent(agent: Agent&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; DispatchResult {
+		Pallet::&lt;T&gt;::remove_agent(RawOrigin::Signed(agent.clone().get()).into())
 	}
 
 	<span class="doccomment">/// Add more delegation to the `Agent` account.
-	</span><span class="kw">fn </span>delegate_extra(
+	</span><span class="kw">fn </span>delegate(
 		who: Delegator&lt;<span class="self">Self</span>::AccountId&gt;,
 		agent: Agent&lt;<span class="self">Self</span>::AccountId&gt;,
 		amount: <span class="self">Self</span>::Balance,
@@ -430,7 +442,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Only used for testing.
 	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-	</span><span class="kw">fn </span>drop_agent(agent: Agent&lt;<span class="self">Self</span>::AccountId&gt;) {
+	</span><span class="kw">fn </span>migrate_to_direct_staker(agent: Agent&lt;<span class="self">Self</span>::AccountId&gt;) {
 		&lt;Agents&lt;T&gt;&gt;::remove(agent.clone().get());
 		&lt;Delegators&lt;T&gt;&gt;::iter()
 			.filter(|(<span class="kw">_</span>, delegation)| delegation.agent == agent.clone().get())

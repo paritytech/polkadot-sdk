@@ -998,10 +998,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#847" id="847">847</a>
 <a href="#848" id="848">848</a>
 <a href="#849" id="849">849</a>
-<a href="#850" id="850">850</a>
-<a href="#851" id="851">851</a>
-<a href="#852" id="852">852</a>
-<a href="#853" id="853">853</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1308,6 +1304,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(())
 		}
 
+		<span class="doccomment">/// Remove an account from being an `Agent`.
+		///
+		/// This can only be called if the agent has no delegated funds, no pending slashes and no
+		/// unclaimed withdrawals.
+		</span><span class="kw">pub fn </span>remove_agent(origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
+			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+			<span class="kw">let </span>ledger = AgentLedger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>who).ok_or(Error::&lt;T&gt;::NotAgent)<span class="question-mark">?</span>;
+
+			<span class="macro">ensure!</span>(
+				ledger.total_delegated == Zero::zero() &amp;&amp;
+					ledger.pending_slash == Zero::zero() &amp;&amp;
+					ledger.unclaimed_withdrawals == Zero::zero(),
+				Error::&lt;T&gt;::NotAllowed
+			);
+
+			<span class="comment">// remove provider reference
+			</span><span class="kw">let _ </span>= frame_system::Pallet::&lt;T&gt;::dec_providers(<span class="kw-2">&amp;</span>who)<span class="question-mark">?</span>;
+			&lt;Agents&lt;T&gt;&gt;::remove(who);
+			<span class="prelude-val">Ok</span>(())
+		}
+
 		<span class="doccomment">/// Migrate from a `Nominator` account to `Agent` account.
 		///
 		/// The origin needs to
@@ -1603,45 +1620,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">ensure!</span>(delegation.agent == agent, Error::&lt;T&gt;::NotAgent);
 		<span class="macro">ensure!</span>(delegation.amount &gt;= amount, Error::&lt;T&gt;::NotEnoughFunds);
 
-		<span class="comment">// if we do not already have enough funds to be claimed, try withdraw some more.
-		// keep track if we killed the staker in the process.
-		</span><span class="kw">let </span>stash_killed = <span class="kw">if </span>agent_ledger.ledger.unclaimed_withdrawals &lt; amount {
+		<span class="comment">// if we do not already have enough funds to be claimed, try to withdraw some more.
+		</span><span class="kw">if </span>agent_ledger.ledger.unclaimed_withdrawals &lt; amount {
 			<span class="comment">// withdraw account.
-			</span><span class="kw">let </span>killed = T::CoreStaking::withdraw_unbonded(agent.clone(), num_slashing_spans)
+			</span><span class="kw">let _ </span>= T::CoreStaking::withdraw_unbonded(agent.clone(), num_slashing_spans)
 				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::WithdrawFailed)<span class="question-mark">?</span>;
 			<span class="comment">// reload agent from storage since withdrawal might have changed the state.
 			</span>agent_ledger = agent_ledger.reload()<span class="question-mark">?</span>;
-			<span class="prelude-val">Some</span>(killed)
-		} <span class="kw">else </span>{
-			<span class="prelude-val">None
-		</span>};
+		}
 
 		<span class="comment">// if we still do not have enough funds to release, abort.
 		</span><span class="macro">ensure!</span>(agent_ledger.ledger.unclaimed_withdrawals &gt;= amount, Error::&lt;T&gt;::NotEnoughFunds);
+		agent_ledger.remove_unclaimed_withdraw(amount)<span class="question-mark">?</span>.update();
 
-		<span class="comment">// Claim withdraw from agent. Kill agent if no delegation left.
-		// TODO: Ideally if there is a register, there should be an unregister that should
-		// clean up the agent. Can be improved in future.
-		</span><span class="kw">if </span>agent_ledger.remove_unclaimed_withdraw(amount)<span class="question-mark">?</span>.update_or_kill()<span class="question-mark">? </span>{
-			<span class="kw">match </span>stash_killed {
-				<span class="prelude-val">Some</span>(killed) =&gt; {
-					<span class="comment">// this implies we did a `CoreStaking::withdraw` before release. Ensure
-					// we killed the staker as well.
-					</span><span class="macro">ensure!</span>(killed, Error::&lt;T&gt;::BadState);
-				},
-				<span class="prelude-val">None </span>=&gt; {
-					<span class="comment">// We did not do a `CoreStaking::withdraw` before release. Ensure staker is
-					// already killed in `CoreStaking`.
-					</span><span class="macro">ensure!</span>(T::CoreStaking::status(<span class="kw-2">&amp;</span>agent).is_err(), Error::&lt;T&gt;::BadState);
-				},
-			}
-
-			<span class="comment">// Remove provider reference for `who`.
-			</span><span class="kw">let _ </span>= frame_system::Pallet::&lt;T&gt;::dec_providers(<span class="kw-2">&amp;</span>agent).defensive();
-		}
-
-		<span class="comment">// book keep delegation
-		</span>delegation.amount = delegation
+		delegation.amount = delegation
 			.amount
 			.checked_sub(<span class="kw-2">&amp;</span>amount)
 			.defensive_ok_or(ArithmeticError::Overflow)<span class="question-mark">?</span>;

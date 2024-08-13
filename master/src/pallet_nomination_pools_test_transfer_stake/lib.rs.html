@@ -1208,9 +1208,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			pool_events_since_last_call(),
 			<span class="macro">vec!</span>[
 				PoolsEvent::Withdrawn { member: <span class="number">20</span>, pool_id: <span class="number">1</span>, points: <span class="number">10</span>, balance: <span class="number">10 </span>},
-				PoolsEvent::MemberRemoved { pool_id: <span class="number">1</span>, member: <span class="number">20 </span>},
+				PoolsEvent::MemberRemoved { pool_id: <span class="number">1</span>, member: <span class="number">20</span>, released_balance: <span class="number">0 </span>},
 				PoolsEvent::Withdrawn { member: <span class="number">21</span>, pool_id: <span class="number">1</span>, points: <span class="number">10</span>, balance: <span class="number">10 </span>},
-				PoolsEvent::MemberRemoved { pool_id: <span class="number">1</span>, member: <span class="number">21 </span>},
+				PoolsEvent::MemberRemoved { pool_id: <span class="number">1</span>, member: <span class="number">21</span>, released_balance: <span class="number">0 </span>},
 			]
 		);
 
@@ -1249,7 +1249,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			pool_events_since_last_call(),
 			<span class="macro">vec!</span>[
 				PoolsEvent::Withdrawn { member: <span class="number">10</span>, pool_id: <span class="number">1</span>, points: <span class="number">50</span>, balance: <span class="number">50 </span>},
-				PoolsEvent::MemberRemoved { pool_id: <span class="number">1</span>, member: <span class="number">10 </span>},
+				PoolsEvent::MemberRemoved { pool_id: <span class="number">1</span>, member: <span class="number">10</span>, released_balance: <span class="number">0 </span>},
 				PoolsEvent::Destroyed { pool_id: <span class="number">1 </span>}
 			]
 		);
@@ -1338,7 +1338,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			pool_events_since_last_call(),
 			<span class="macro">vec!</span>[
 				PoolsEvent::Withdrawn { member: <span class="number">10</span>, pool_id: <span class="number">1</span>, points: <span class="number">50</span>, balance: <span class="number">50 </span>},
-				PoolsEvent::MemberRemoved { pool_id: <span class="number">1</span>, member: <span class="number">10 </span>},
+				PoolsEvent::MemberRemoved { pool_id: <span class="number">1</span>, member: <span class="number">10</span>, released_balance: <span class="number">0 </span>},
 				PoolsEvent::Destroyed { pool_id: <span class="number">1 </span>}
 			]
 		);
@@ -1621,10 +1621,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">vec!</span>[
 				<span class="comment">// 20 had unbonded 10 safely, and 10 got slashed by half.
 				</span>PoolsEvent::Withdrawn { member: <span class="number">20</span>, pool_id: <span class="number">1</span>, balance: <span class="number">10 </span>+ <span class="number">5</span>, points: <span class="number">20 </span>},
-				PoolsEvent::MemberRemoved { pool_id: <span class="number">1</span>, member: <span class="number">20 </span>},
+				PoolsEvent::MemberRemoved { pool_id: <span class="number">1</span>, member: <span class="number">20</span>, released_balance: <span class="number">0 </span>},
 				<span class="comment">// 21 unbonded all of it after the slash
 				</span>PoolsEvent::Withdrawn { member: <span class="number">21</span>, pool_id: <span class="number">1</span>, balance: <span class="number">5 </span>+ <span class="number">5</span>, points: <span class="number">15 </span>},
-				PoolsEvent::MemberRemoved { pool_id: <span class="number">1</span>, member: <span class="number">21 </span>}
+				PoolsEvent::MemberRemoved { pool_id: <span class="number">1</span>, member: <span class="number">21</span>, released_balance: <span class="number">0 </span>}
 			]
 		);
 		<span class="macro">assert_eq!</span>(
@@ -1670,7 +1670,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			pool_events_since_last_call(),
 			<span class="macro">vec!</span>[
 				PoolsEvent::Withdrawn { member: <span class="number">10</span>, pool_id: <span class="number">1</span>, balance: <span class="number">10 </span>+ <span class="number">15</span>, points: <span class="number">30 </span>},
-				PoolsEvent::MemberRemoved { pool_id: <span class="number">1</span>, member: <span class="number">10 </span>},
+				PoolsEvent::MemberRemoved { pool_id: <span class="number">1</span>, member: <span class="number">10</span>, released_balance: <span class="number">0 </span>},
 				PoolsEvent::Destroyed { pool_id: <span class="number">1 </span>}
 			]
 		);

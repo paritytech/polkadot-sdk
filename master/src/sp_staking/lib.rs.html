@@ -771,6 +771,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#620" id="620">620</a>
 <a href="#621" id="621">621</a>
 <a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1298,23 +1301,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This takes into account any pending slashes to `Agent` against the delegated balance.
 	</span><span class="kw">fn </span>agent_balance(agent: Agent&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;;
 
+	<span class="doccomment">/// Returns the total amount of funds that is unbonded and can be withdrawn from the `Agent`
+	/// account. `None` if not an `Agent`.
+	</span><span class="kw">fn </span>agent_transferable_balance(agent: Agent&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;;
+
 	<span class="doccomment">/// Returns the total amount of funds delegated. `None` if not a `Delegator`.
 	</span><span class="kw">fn </span>delegator_balance(delegator: Delegator&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;;
 
-	<span class="doccomment">/// Delegate funds to `Agent`.
-	///
-	/// Only used for the initial delegation. Use [`Self::delegate_extra`] to add more delegation.
-	</span><span class="kw">fn </span>delegate(
-		delegator: Delegator&lt;<span class="self">Self</span>::AccountId&gt;,
+	<span class="doccomment">/// Register `Agent` such that it can accept delegation.
+	</span><span class="kw">fn </span>register_agent(
 		agent: Agent&lt;<span class="self">Self</span>::AccountId&gt;,
 		reward_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		amount: <span class="self">Self</span>::Balance,
 	) -&gt; DispatchResult;
 
-	<span class="doccomment">/// Add more delegation to the `Agent`.
+	<span class="doccomment">/// Removes `Agent` registration.
 	///
-	/// If this is the first delegation, use [`Self::delegate`] instead.
-	</span><span class="kw">fn </span>delegate_extra(
+	/// This should only be allowed if the agent has no staked funds.
+	</span><span class="kw">fn </span>remove_agent(agent: Agent&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; DispatchResult;
+
+	<span class="doccomment">/// Add delegation to the `Agent`.
+	</span><span class="kw">fn </span>delegate(
 		delegator: Delegator&lt;<span class="self">Self</span>::AccountId&gt;,
 		agent: Agent&lt;<span class="self">Self</span>::AccountId&gt;,
 		amount: <span class="self">Self</span>::Balance,
@@ -1389,7 +1395,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Also removed from [`StakingUnchecked`] as a Virtual Staker. Useful for testing.
 	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-	</span><span class="kw">fn </span>drop_agent(agent: Agent&lt;<span class="self">Self</span>::AccountId&gt;);
+	</span><span class="kw">fn </span>migrate_to_direct_staker(agent: Agent&lt;<span class="self">Self</span>::AccountId&gt;);
 }
 
 <span class="macro">sp_core::generate_feature_enabled_macro!</span>(runtime_benchmarks_enabled, feature = <span class="string">"runtime-benchmarks"</span>, $);
