@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723501033436,
+  "lastUpdate": 1723544311566,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21839,6 +21839,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16875232620000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]",
+            "email": "49699333+dependabot[bot]@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c5f6b700bd1f3fd6a7fa40405987782bdecec636",
+          "message": "Bump libp2p-identity from 0.2.8 to 0.2.9 (#5232)\n\nBumps [libp2p-identity](https://github.com/libp2p/rust-libp2p) from\n0.2.8 to 0.2.9.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/libp2p/rust-libp2p/releases\">libp2p-identity's\nreleases</a>.</em></p>\n<blockquote>\n<h2>libp2p-v0.53.2</h2>\n<p>See individual <a\nhref=\"https://github.com/libp2p/rust-libp2p/blob/HEAD/CHANGELOG.md\">changelogs</a>\nfor details.</p>\n<h2>libp2p-v0.53.1</h2>\n<p>See individual <a\nhref=\"https://github.com/libp2p/rust-libp2p/blob/HEAD/CHANGELOG.md\">changelogs</a>\nfor details.</p>\n<h2>libp2p-v0.53.0</h2>\n<p>The most ergonomic version of rust-libp2p yet!</p>\n<p>We've been busy again, with over <a\nhref=\"https://github.com/libp2p/rust-libp2p/compare/libp2p-v0.52.0...master\">250</a>\nPRs being merged into <code>master</code> since <code>v0.52.0</code>\n(excluding dependency updates).</p>\n<h2>Backwards-compatible features</h2>\n<p>Numerous improvements landed as patch releases since the\n<code>v0.52.0</code> release, for example a new, type-safe <a\nhref=\"https://redirect.github.com/libp2p/rust-libp2p/pull/4120\"><code>SwarmBuilder</code></a>\nthat also encompasses the most common transport protocols:</p>\n<pre lang=\"rust\"><code>let mut swarm =\nlibp2p::SwarmBuilder::with_new_identity()\n    .with_tokio()\n    .with_tcp(\n        tcp::Config::default().port_reuse(true).nodelay(true),\n        noise::Config::new,\n        yamux::Config::default,\n    )?\n    .with_quic()\n    .with_dns()?\n    .with_relay_client(noise::Config::new, yamux::Config::default)?\n    .with_behaviour(|keypair, relay_client| Behaviour {\n        relay_client,\n        ping: ping::Behaviour::default(),\n        dcutr: dcutr::Behaviour::new(keypair.public().to_peer_id()),\n    })?\n    .build();\n</code></pre>\n<p>The new builder makes heavy use of the type-system to guide you\ntowards a correct composition of all transports. For example, it is\nimportant to compose the DNS transport as a wrapper around all other\ntransports but before the relay transport. Luckily, you no longer need\nto worry about these details as the builder takes care of that for you!\nHave a look yourself if you dare <a\nhref=\"https://github.com/libp2p/rust-libp2p/tree/master/libp2p/src/builder\">here</a>\nbut be warned, the internals are a bit wild :)</p>\n<p>Some more features that we were able to ship in <code>v0.52.X</code>\npatch-releases include:</p>\n<ul>\n<li><a\nhref=\"https://redirect.github.com/libp2p/rust-libp2p/pull/4325\">stable\nQUIC implementation</a></li>\n<li>for rust-libp2p compiled to WASM running in the browser\n<ul>\n<li><a\nhref=\"https://redirect.github.com/libp2p/rust-libp2p/pull/4015\">WebTransport\nsupport</a></li>\n<li><a\nhref=\"https://redirect.github.com/libp2p/rust-libp2p/pull/4248\">WebRTC\nsupport</a></li>\n</ul>\n</li>\n<li><a\nhref=\"https://redirect.github.com/libp2p/rust-libp2p/pull/4156\">UPnP\nimplementation to automatically configure port-forwarding with ones\ngateway</a></li>\n<li><a\nhref=\"https://redirect.github.com/libp2p/rust-libp2p/pull/4281\">option\nto limit connections based on available memory</a></li>\n</ul>\n<p>We always try to ship as many features as possible in a\nbackwards-compatible way to get them to you faster. Often times, these\ncome with deprecations to give you a heads-up about what will change in\na future version. We advise updating to each intermediate version rather\nthan skipping directly to the most recent one, to avoid missing any\ncrucial deprecation warnings. We highly recommend you stay up-to-date\nwith the latest version to make upgrades as smooth as possible.</p>\n<p>Some improvments we unfortunately cannot ship in a way that Rust\nconsiders a non-breaking change but with every release, we attempt to\nsmoothen the way for future upgrades.</p>\n<h2><code>#[non_exhaustive]</code> on key enums</h2>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li>See full diff in <a\nhref=\"https://github.com/libp2p/rust-libp2p/commits\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility\nscore](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=libp2p-identity&package-manager=cargo&previous-version=0.2.8&new-version=0.2.9)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't\nalter it yourself. You can also trigger a rebase manually by commenting\n`@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits\nthat have been made to it\n- `@dependabot merge` will merge this PR after your CI passes on it\n- `@dependabot squash and merge` will squash and merge this PR after\nyour CI passes on it\n- `@dependabot cancel merge` will cancel a previously requested merge\nand block automerging\n- `@dependabot reopen` will reopen this PR if it is closed\n- `@dependabot close` will close this PR and stop Dependabot recreating\nit. You can achieve the same result by closing it manually\n- `@dependabot show <dependency name> ignore conditions` will show all\nof the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop\nDependabot creating any more for this major version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop\nDependabot creating any more for this minor version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop\nDependabot creating any more for this dependency (unless you reopen the\nPR or upgrade to it yourself)\n\n\n</details>\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+          "timestamp": "2024-08-13T08:28:31Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5f6b700bd1f3fd6a7fa40405987782bdecec636"
+        },
+        "date": 1723544280583,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012138724760000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16678833297333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022007494259999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009872820973333335,
             "unit": "seconds"
           }
         ]
