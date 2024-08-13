@@ -122,14 +122,13 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct InternalVersion(pub u8);
 
-/// A type representing the version of the candidate descriptor and internal version number.
-/// For `V1`` the internal version number stores the first byte of the `CollatorId`.
+/// A type representing the version of the candidate descriptor.
 #[derive(PartialEq, Eq, Clone, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub enum CandidateDescriptorVersion {
 	/// The old candidate descriptor version.
 	V1,
-	/// Introduced with `CandidateDescriptorV2`
+	/// The new `CandidateDescriptorV2`.
 	V2,
 }
 
@@ -141,7 +140,8 @@ pub struct CandidateDescriptorV2<H = Hash> {
 	para_id: ParaId,
 	/// The hash of the relay-chain block this is executed in the context of.
 	relay_parent: H,
-	/// Version field
+	/// Version field. The raw value here is not exposed, instead it is used
+	/// to determine the `CandidateDescriptorVersion`, see `fn version()`
 	version: InternalVersion,
 	/// The core index where the candidate is backed.
 	core_index: u16,
@@ -237,7 +237,7 @@ pub struct CommittedCandidateReceiptV2<H = Hash> {
 	pub commitments: CandidateCommitments,
 }
 
-/// An even concerning a candidate.
+/// An event concerning a candidate.
 #[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum CandidateEvent<H = Hash> {
@@ -350,7 +350,7 @@ impl<H: Copy> From<CandidateReceiptV2<H>> for super::v7::CandidateReceipt<H> {
 	}
 }
 
-/// A strictly increasing sequence number, tipically this would be the least significant byte of the
+/// A strictly increasing sequence number, typically this would be the least significant byte of the
 /// block number.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct CoreSelector(pub u8);
@@ -374,7 +374,7 @@ pub enum UMPSignal {
 pub const UMP_SEPARATOR: Vec<u8> = vec![];
 
 impl CandidateCommitments {
-	/// Returns the core selector and claim queue offset the candidate has commited to, if any.
+	/// Returns the core selector and claim queue offset the candidate has committed to, if any.
 	pub fn selected_core(&self) -> Option<(CoreSelector, ClaimQueueOffset)> {
 		// We need at least 2 messages for the separator and core selector
 		if self.upward_messages.len() < 2 {
