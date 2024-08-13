@@ -76,9 +76,11 @@ jobs:
 
   build-implementers-guide:
     runs-on: ubuntu-latest
+    container:
+      image: paritytech/mdbook-utils:e14aae4a-20221123
+      options: --user root
     steps:
       - uses: actions/checkout@v4
-      - run: cargo install mdbook mdbook-mermaid mdbook-linkcheck mdbook-graphviz mdbook-last-changed
       - run: mdbook build ./polkadot/roadmap/implementers-guide
       - run: mkdir -p artifacts
       - run: mv polkadot/roadmap/implementers-guide/book artifacts/
