@@ -119,7 +119,7 @@ pub type BalanceOf<T> = <<T as Config>::Staking as StakingInterface>::Balance;
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
 /// Represents a stake imbalance to be applied to a staker's score.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum StakeImbalance<Score> {
 	/// Represents the reduction of stake by `Score`.
 	Negative(Score),
@@ -244,6 +244,7 @@ pub mod pallet {
 		/// stakes of the duplicated target may become higher than expected silently.
 		pub(crate) fn do_stake_update_voter(
 			who: &T::AccountId,
+			prev_stake: Option<Stake<BalanceOf<T>>>,
 			stake: Stake<BalanceOf<T>>,
 			nominations: Vec<T::AccountId>,
 		) {
@@ -259,32 +260,42 @@ pub mod pallet {
 				);
 			}
 
-			// the stake imbalance is calculated based on the "last seen" buffered balance and the
-			// new active stake.
-			let stake_imbalance = LastSettledApprovals::<T>::mutate(&who, |s| {
-				let stake_balance = Self::to_vote(stake.active).into();
-
-				let imbalance = if let Some(last_seen) = s {
-					StakeImbalance::from(*last_seen, stake_balance)
-				} else {
-					defensive!(
-						"nominator updating the stake must have an entry in last settled map"
-					);
-					StakeImbalance::from(Default::default(), Self::to_vote(stake.active).into())
-				};
-
-				// reset to the newest stake, which will be used to update the target
-				// score.
-				*s = Some(stake_balance);
-
-				imbalance
-			});
+			// calculate the stake imbalance to update the nominations' approvals based on
+			// `prev_stake`, `stake` and the state of the `LastSettleLastSettledApprovals`.
+			let (stake_imbalance, last_seen) =
+				Self::calculate_approvals_imbalance(who, prev_stake.unwrap_or_default(), stake);
 
 			// updates vote weight of nominated targets accordingly. Note: this will
 			// update the score of up to `T::MaxNominations` validators.
 			for target in nominations.into_iter() {
 				Self::update_target_score(&target, stake_imbalance);
 			}
+
+			// updates last settled approvals to match the propagated to the nominator's approvals.
+			LastSettledApprovals::<T>::insert(who, last_seen);
+		}
+
+		/// Calculates the stake imbalance of a nominator used for `on_stake_update` considering
+		/// the previous stake, the new stake and the last settled approvals state for the
+		/// nominator. Returns a tuple with the imbalance to settle on the approvals and the new
+		/// "last seen" value to be stored in `LastSettledApprovals`.
+		///
+		/// Refactored to its own method for testing purposes.
+		pub(crate) fn calculate_approvals_imbalance(
+			who: &T::AccountId,
+			prev_stake: Stake<BalanceOf<T>>,
+			stake: Stake<BalanceOf<T>>,
+		) -> (StakeImbalance<ExtendedBalance>, ExtendedBalance) {
+			let stake_balance = Self::to_vote(stake.active).into();
+
+			let imbalance = if let Some(last_seen) = LastSettledApprovals::<T>::get(&who) {
+				StakeImbalance::from(last_seen, stake_balance)
+			} else {
+				let prev_stake = Self::to_vote(prev_stake.active).into();
+				StakeImbalance::from(prev_stake, stake_balance)
+			};
+
+			(imbalance, stake_balance)
 		}
 
 		/// Updates the stake of a target.
@@ -455,7 +466,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 				{
 					return
 				}
-				Self::do_stake_update_voter(who, stake, nominations);
+				Self::do_stake_update_voter(who, prev_stake, stake, nominations);
 			},
 			Ok(StakerStatus::Validator) => Self::do_stake_update_target(who, prev_stake, stake),
 			Ok(StakerStatus::Idle) => (), // nothing to see here.

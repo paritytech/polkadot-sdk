@@ -441,6 +441,67 @@ mod last_settled_approvals {
 	use crate::{LastSettledApprovals, Pallet};
 
 	#[test]
+	fn calculate_approvals_imbalance_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// empty.
+			assert_eq!(LastSettledApprovals::<Test>::iter().count(), 0);
+
+			// if there is no unsettled approvals, the imbalance is between `stake` and
+			// `prev_stake` and last seen is the latest `stake`.
+			let (imbalance, new_last_seen) = Pallet::<Test>::calculate_approvals_imbalance(
+				&1,
+				Stake::from(10),
+				Stake::from(100),
+			);
+			assert_eq!(imbalance, StakeImbalance::from(10, 100));
+			assert_eq!(imbalance, StakeImbalance::Positive(90));
+			assert_eq!(new_last_seen, 100);
+
+			// if there's an unsettled approval, the imbalance is between the new stake and the last
+			// unsettled, not the prev_stake.
+			let last_unsettled = 10;
+			LastSettledApprovals::<Test>::insert(1, last_unsettled);
+
+			let (imbalance, new_last_seen) = Pallet::<Test>::calculate_approvals_imbalance(
+				&1,
+				Stake::from(30), // prev. stake, noop.
+				Stake::from(200),
+			);
+			assert_eq!(imbalance, StakeImbalance::from(10, 200));
+			assert_eq!(imbalance, StakeImbalance::Positive(190));
+			assert_eq!(new_last_seen, 200);
+
+			// same as above, but with a negative imbalance.
+			let last_unsettled = 100;
+			LastSettledApprovals::<Test>::insert(1, last_unsettled);
+
+			let (imbalance, new_last_seen) = Pallet::<Test>::calculate_approvals_imbalance(
+				&1,
+				Stake::from(30), // prev. stake, noop.
+				Stake::from(50),
+			);
+			assert_eq!(imbalance, StakeImbalance::from(100, 50));
+			assert_eq!(imbalance, StakeImbalance::Negative(50));
+			assert_eq!(new_last_seen, 50);
+
+			// same settled approvals as the prev_stake means that prev_stake is used since there
+			// are no unsettled approvals (similar to test case 1.).
+			let last_unsettled = 100;
+			LastSettledApprovals::<Test>::insert(1, last_unsettled);
+
+			let (imbalance, new_last_seen) = Pallet::<Test>::calculate_approvals_imbalance(
+				&1,
+				Stake::from(100),
+				Stake::from(200),
+			);
+
+			assert_eq!(imbalance, StakeImbalance::from(100, 200));
+			assert_eq!(imbalance, StakeImbalance::Positive(100));
+			assert_eq!(new_last_seen, 200);
+		})
+	}
+
+	#[test]
 	fn on_stake_update_noop_and_settle_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			let nominator_stake_init = 100;
