@@ -19,7 +19,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 //! DATE: 2024-08-13, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `serban-ROG-Zephyrus`, CPU: `AMD Ryzen 9 7945HX with Radeon Graphics`
+//! HOSTNAME: `runner-696hpswk-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `Some("westend-dev")`, DB CACHE: 1024
 
 // Executed Command:
@@ -31,6 +31,7 @@
 // --extrinsic=*
 // --wasm-execution=compiled
 // --heap-pages=4096
+// --json-file=/builds/parity/mirrors/polkadot-sdk/.git/.artifacts/bench.json
 // --pallet=pallet_beefy_mmr
 // --chain=westend-dev
 // --header=./polkadot/file_header.txt
@@ -53,8 +54,8 @@ impl<T: frame_system::Config> pallet_beefy_mmr::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `92`
 		//  Estimated: `3509`
-		// Minimum execution time: 4_749_000 picoseconds.
-		Weight::from_parts(4_750_000, 0)
+		// Minimum execution time: 7_850_000 picoseconds.
+		Weight::from_parts(8_169_000, 0)
 			.saturating_add(Weight::from_parts(0, 3509))
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
@@ -64,8 +65,8 @@ impl<T: frame_system::Config> pallet_beefy_mmr::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `201`
 		//  Estimated: `3505`
-		// Minimum execution time: 3_562_000 picoseconds.
-		Weight::from_parts(4_749_000, 0)
+		// Minimum execution time: 6_852_000 picoseconds.
+		Weight::from_parts(7_448_000, 0)
 			.saturating_add(Weight::from_parts(0, 3505))
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
@@ -78,11 +79,11 @@ impl<T: frame_system::Config> pallet_beefy_mmr::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `193`
 		//  Estimated: `1517`
-		// Minimum execution time: 7_123_000 picoseconds.
-		Weight::from_parts(11_878_187, 0)
+		// Minimum execution time: 12_860_000 picoseconds.
+		Weight::from_parts(17_158_162, 0)
 			.saturating_add(Weight::from_parts(0, 1517))
-			// Standard Error: 1_296
-			.saturating_add(Weight::from_parts(855_192, 0).saturating_mul(n.into()))
+			// Standard Error: 1_732
+			.saturating_add(Weight::from_parts(1_489_410, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
 	}
 }
