@@ -1153,7 +1153,7 @@ pub enum OccupiedCoreAssumption {
 	Free,
 }
 
-/// An even concerning a candidate.
+/// An event concerning a candidate.
 #[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum CandidateEvent<H = Hash> {

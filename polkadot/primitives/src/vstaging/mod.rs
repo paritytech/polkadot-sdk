@@ -539,13 +539,11 @@ impl CommittedCandidateReceiptV2 {
 
 		let para_id = self.descriptor.para_id;
 
-		// Get a vec of the core indices the parachain is assigned to at `cq_offset`.
+		// Get a sorted vec of the core indices the parachain is assigned to at `cq_offset`.
 		let assigned_cores = claim_queue
 			.iter()
 			.filter_map(|(core_index, queue)| {
-				let queued_para = queue.get(cq_offset.0 as usize)?;
-
-				if queued_para == &para_id {
+				if queue.get(cq_offset.0 as usize)? == &para_id {
 					Some(core_index)
 				} else {
 					None
