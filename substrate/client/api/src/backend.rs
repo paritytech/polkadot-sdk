@@ -632,6 +632,9 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Tells whether the backend requires full-sync mode.
 	fn requires_full_sync(&self) -> bool;
+
+	/// Do not create gap if newly imported block is missing parent
+	fn no_gap(&self, operation: &mut Self::BlockImportOperation);
 }
 
 /// Mark for all Backend implementations, that are making use of state data, stored locally.

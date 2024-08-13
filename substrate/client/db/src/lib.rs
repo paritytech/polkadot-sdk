@@ -841,6 +841,7 @@ pub struct BlockImportOperation<Block: BlockT> {
 	finalized_blocks: Vec<(Block::Hash, Option<Justification>)>,
 	set_head: Option<Block::Hash>,
 	commit_state: bool,
+	create_gap: bool,
 	index_ops: Vec<IndexOperation>,
 }
 
@@ -1707,7 +1708,8 @@ impl<Block: BlockT> Backend<Block> {
 							&(start, end).encode(),
 						);
 					}
-				} else if number > best_num + One::one() &&
+				} else if operation.create_gap &&
+					number > best_num + One::one() &&
 					number > One::one() && self.blockchain.header(parent_hash)?.is_none()
 				{
 					let gap = (best_num + One::one(), number - One::one());
@@ -2060,6 +2062,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			finalized_blocks: Vec::new(),
 			set_head: None,
 			commit_state: false,
+			create_gap: true,
 			index_ops: Default::default(),
 		})
 	}
@@ -2537,6 +2540,10 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		if self.blocks_pruning != BlocksPruning::KeepAll {
 			self.blockchain.unpin(hash);
 		}
+	}
+
+	fn no_gap(&self, operation: &mut Self::BlockImportOperation) {
+		operation.create_gap = false;
 	}
 }
 
