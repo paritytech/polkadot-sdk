@@ -20,7 +20,7 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Balances: pallet_balances,
 		Distribution: pallet_distribution,
-        Opf: pallet_opf,
+		Opf: pallet_opf,
 	}
 );
 
@@ -88,14 +88,14 @@ impl pallet_distribution::Config for Test {
 	type BlockNumberProvider = System;
 }
 
-parameter_types!{
-    pub const MaxWhitelistedProjects: u32 = 5;
+parameter_types! {
+	pub const MaxWhitelistedProjects: u32 = 5;
 	pub const TemporaryRewards: Balance = 100_000;
-    pub const VoteLockingPeriod:u32 = 10;
-    pub const VotingPeriod:u32 = 30;
+	pub const VoteLockingPeriod:u32 = 10;
+	pub const VotingPeriod:u32 = 30;
 }
 impl pallet_opf::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
+	type RuntimeEvent = RuntimeEvent;
 	type VoteLockingPeriod = VoteLockingPeriod;
 	type VotingPeriod = VotingPeriod;
 	type MaxWhitelistedProjects = MaxWhitelistedProjects;

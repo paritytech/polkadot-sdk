@@ -4,13 +4,17 @@ use frame_support::{assert_noop, assert_ok};
 
 pub fn next_block() {
 	System::set_block_number(<Test as Config>::BlockNumberProvider::current_block_number() + 1);
-	AllPalletsWithSystem::on_initialize(<Test as Config>::BlockNumberProvider::current_block_number());
+	AllPalletsWithSystem::on_initialize(
+		<Test as Config>::BlockNumberProvider::current_block_number(),
+	);
 }
 
 pub fn run_to_block(n: BlockNumberFor<Test>) {
 	while <Test as Config>::BlockNumberProvider::current_block_number() < n {
 		if <Test as Config>::BlockNumberProvider::current_block_number() > 1 {
-			AllPalletsWithSystem::on_finalize(<Test as Config>::BlockNumberProvider::current_block_number());
+			AllPalletsWithSystem::on_finalize(
+				<Test as Config>::BlockNumberProvider::current_block_number(),
+			);
 		}
 		next_block();
 	}
@@ -148,7 +152,7 @@ fn funds_claim_works() {
 		// The Spends Storage should be empty
 		assert_eq!(SpendsCount::<Test>::get(), 0);
 
-		assert_eq!(Projects::<Test>::get().len(),3);
+		assert_eq!(Projects::<Test>::get().len(), 3);
 
 		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
 		// Epoch_Block + 1
@@ -156,7 +160,7 @@ fn funds_claim_works() {
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
-		println!("the first mystery block is:{:?}",now);
+		println!("the first mystery block is:{:?}", now);
 		let project = Spends::<Test>::get(0).unwrap();
 		let project_account = project.whitelisted_project.unwrap();
 		let balance_0 =
@@ -164,7 +168,7 @@ fn funds_claim_works() {
 		now = now.saturating_add(project.valid_from);
 		run_to_block(now);
 
-		println!("the mystery block is:{:?}",now);
+		println!("the mystery block is:{:?}", now);
 		assert_ok!(Distribution::claim_reward_for(
 			RawOrigin::Signed(EVE).into(),
 			project_account.clone(),
@@ -173,7 +177,7 @@ fn funds_claim_works() {
 			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_account);
 
 		assert!(balance_1 > balance_0);
-		assert_eq!(Projects::<Test>::get().len(),0);
+		assert_eq!(Projects::<Test>::get().len(), 0);
 	})
 }
 

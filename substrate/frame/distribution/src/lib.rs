@@ -38,7 +38,7 @@ pub mod pallet {
 
 		/// Provider for the block number.
 		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
-		
+
 		/// Treasury account Id
 		#[pallet::constant]
 		type PotId: Get<PalletId>;
@@ -182,7 +182,7 @@ pub mod pallet {
 				let mut infos = Spends::<T>::get(i).ok_or(Error::<T>::InexistentSpend)?;
 				Spends::<T>::remove(i);
 				infos.status = SpendState::Completed;
-				
+
 				Self::deposit_event(Event::RewardClaimed {
 					when: now,
 					amount: info.amount,
