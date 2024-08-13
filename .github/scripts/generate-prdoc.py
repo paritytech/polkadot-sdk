@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Generate the PrDoc for a Pull Request with a specific number, audience and bump level.
 
