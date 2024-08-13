@@ -2178,6 +2178,8 @@ impl pallet_distribution::Config for Runtime {
 	type EpochDurationBlocks = EpochDurationBlocks;
 
 	type BlockNumberProvider = System;
+
+	type WeightInfo = pallet_distribution::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types!{	

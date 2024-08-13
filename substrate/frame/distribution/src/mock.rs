@@ -85,6 +85,7 @@ impl pallet_distribution::Config for Test {
 	type MaxProjects = MaxProjects;
 	type EpochDurationBlocks = EpochDurationBlocks;
 	type BlockNumberProvider = System;
+	type WeightInfo = ();
 }
 //Define some accounts and use them
 pub const ALICE: AccountId = 10;

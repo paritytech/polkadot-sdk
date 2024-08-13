@@ -14,6 +14,7 @@ mod mock;
 
 #[cfg(test)]
 mod tests;
+pub mod weights;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -57,6 +58,9 @@ pub mod pallet {
 		/// Epoch duration in blocks
 		#[pallet::constant]
 		type EpochDurationBlocks: Get<BlockNumberFor<Self>>;
+
+		/// Weight information for extrinsics in this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	/// A reason for placing a hold on funds.
@@ -152,7 +156,7 @@ pub mod pallet {
 		/// ## Events
 		/// Emits [`Event::<T>::RewardClaimed`] if successful for a positive approval.
 		#[pallet::call_index(0)]
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1).ref_time())]
+		#[pallet::weight(T::WeightInfo::claim_reward_for())]
 		pub fn claim_reward_for(
 			origin: OriginFor<T>,
 			project_account: ProjectId<T>,
