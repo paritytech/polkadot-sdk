@@ -76,8 +76,6 @@ jobs:
 
   build-implementers-guide:
     runs-on: ubuntu-latest
-    container:
-      image: paritytech/mdbook-utils:e14aae4a-20221123
     steps:
       - uses: actions/checkout@v4
       - run: mdbook build ./polkadot/roadmap/implementers-guide
