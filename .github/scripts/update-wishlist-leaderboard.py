@@ -7,7 +7,7 @@ g = Github(os.getenv("GH_TOKEN"))
 
 # Regex pattern to match wish format:
 wish_pattern = re.compile(
-    r"I wish for:? (https://github\.com/([a-zA-Z0-9_.-]+)/([a-zA-Z0-9_.-]+)/issues/(\d+))"
+    r"I wish for:? (https://github\.com/([a-zA-Z0-9_.-]+)/([a-zA-Z0-9_.-]+)/(issues|pull)/(\d+))"
 )
 
 wishlist_issue = g.get_repo(os.getenv("WISHLIST_REPOSITORY")).get_issue(
@@ -28,7 +28,7 @@ for comment in wishlist_issue.get_comments():
 
     matches = wish_pattern.findall(updated_body)
     for match in matches:
-        url, org, repo_name, issue_id = match
+        url, org, repo_name, _, issue_id = match
         issue_key = (url, org, repo_name, issue_id)
         if issue_key not in wishes:
             wishes[issue_key] = []

@@ -37,7 +37,7 @@ use ip_network::IpNetwork;
 use libp2p::kad::{PeerRecord, Record};
 use linked_hash_set::LinkedHashSet;
 
-use log::{debug, error};
+use log::{debug, error, trace};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
 use prost::Message;
 use rand::{seq::SliceRandom, thread_rng};
@@ -416,10 +416,12 @@ where
 			})
 			.collect::<Vec<_>>();
 
-		debug!(
-			target: LOG_TARGET,
-			"Publishing authority DHT record peer_id='{local_peer_id}' addresses='{addresses:?}'",
-		);
+		if !addresses.is_empty() {
+			debug!(
+				target: LOG_TARGET,
+				"Publishing authority DHT record peer_id='{local_peer_id}' with addresses='{addresses:?}'",
+			);
+		}
 
 		// The address must include the local peer id.
 		addresses
@@ -436,6 +438,17 @@ where
 			Role::PublishAndDiscover(key_store) => key_store,
 			Role::Discover => return Ok(()),
 		};
+
+		let addresses = serialize_addresses(self.addresses_to_publish());
+		if addresses.is_empty() {
+			trace!(
+				target: LOG_TARGET,
+				"No addresses to publish. Skipping publication."
+			);
+
+			self.publish_interval.set_to_start();
+			return Ok(())
+		}
 
 		let keys =
 			Worker::<Client, Block, DhtEventStream>::get_own_public_keys_within_authority_set(
@@ -458,8 +471,6 @@ where
 			self.publish_interval.set_to_start();
 			self.query_interval.set_to_start();
 		}
-
-		let addresses = serialize_addresses(self.addresses_to_publish());
 
 		if let Some(metrics) = &self.metrics {
 			metrics.publish.inc();
