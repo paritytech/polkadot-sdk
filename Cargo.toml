@@ -914,6 +914,7 @@ pallet-example-offchain-worker = { path = "substrate/frame/examples/offchain-wor
 pallet-example-single-block-migrations = { path = "substrate/frame/examples/single-block-migrations", default-features = false }
 pallet-example-split = { path = "substrate/frame/examples/split", default-features = false }
 pallet-example-tasks = { path = "substrate/frame/examples/tasks", default-features = false }
+pallet-example-authorization-tx-extension = { path = "substrate/frame/examples/authorization-tx-extension", default-features = false }
 pallet-examples = { path = "substrate/frame/examples" }
 pallet-fast-unstake = { path = "substrate/frame/fast-unstake", default-features = false }
 pallet-glutton = { path = "substrate/frame/glutton", default-features = false }
