@@ -1,9 +1,9 @@
-title: add first_timestamp function to sp-consensus-slots
+title: add timestamp function to sp-consensus-slots
 
 doc:
   - audience: Node Dev
     description: |
-      Added first_timestamp function to sp-consensus-slots to get the first timestamp
+      Added timestamp function to sp-consensus-slots to get the first timestamp
       of the given slot.
 
 crates:

@@ -92,7 +92,7 @@ impl Slot {
 	}
 
 	/// The first timestamp of the slot. Returns None if would overflow for given SlotDuration.
-	pub fn first_timestamp(&self, slot_duration: SlotDuration) -> Option<Timestamp> {
+	pub fn timestamp(&self, slot_duration: SlotDuration) -> Option<Timestamp> {
 		slot_duration.as_millis().checked_mul(self.0).map(Timestamp::new)
 	}
 
