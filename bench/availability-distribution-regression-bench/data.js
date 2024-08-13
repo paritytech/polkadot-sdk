@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723557116294,
+  "lastUpdate": 1723585353889,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -21943,6 +21943,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01116202123333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sebastian Kunert",
+            "username": "skunert",
+            "email": "skunert49@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "055eb5377da43eaced23647ed4348a816bfeb8f4",
+          "message": "StorageWeightReclaim: set to node pov size if higher (#5281)\n\nThis PR adds an additional defensive check to the reclaim SE. \n\nSince it can happen that we miss some storage accesses on other SEs\npre-dispatch, we should double check\nthat the bookkeeping of the runtime stays ahead of the node-side\npov-size.\n\nIf we discover a mismatch and the node-side pov-size is indeed higher,\nwe should set the runtime bookkeeping to the node-side value. In cases\nsuch as #5229, we would stop including extrinsics and not run `on_idle`\nat least.\n\ncc @gui1117\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-08-13T19:57:23Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/055eb5377da43eaced23647ed4348a816bfeb8f4"
+        },
+        "date": 1723585323160,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022268042906666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012491377586666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1710605480200001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010583119513333336,
             "unit": "seconds"
           }
         ]
