@@ -683,10 +683,14 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Runtime {
 
 impl pallet_stake_tracker::Config for Runtime {
 	type Currency = Balances;
+	type RuntimeEvent = RuntimeEvent;
 	type Staking = Staking;
 	type VoterList = VoterList;
 	type TargetList = TargetList;
 	type VoterUpdateMode = VoterUpdateMode;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkingElectionDataProvider = Staking;
+	type WeightInfo = weights::pallet_stake_tracker::WeightInfo<Self>;
 }
 
 pub struct EraPayout;
@@ -1123,7 +1127,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) |
+						RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::TargetList(..) |
@@ -1891,6 +1896,7 @@ mod benches {
 		[pallet_scheduler, Scheduler]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking, Staking]
+		[pallet_stake_tracker, StakeTracker]
 		[pallet_sudo, Sudo]
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_timestamp, Timestamp]

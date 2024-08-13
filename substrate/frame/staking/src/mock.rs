@@ -370,6 +370,9 @@ impl pallet_stake_tracker::Config for Test {
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
 	type VoterUpdateMode = VoterUpdateMode;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkingElectionDataProvider = Staking;
+	type WeightInfo = ();
 }
 
 // Disabling threshold for `UpToLimitDisablingStrategy`

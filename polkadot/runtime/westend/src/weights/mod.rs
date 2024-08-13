@@ -36,6 +36,7 @@ pub mod pallet_referenda_fellowship_referenda;
 pub mod pallet_referenda_referenda;
 pub mod pallet_scheduler;
 pub mod pallet_session;
+pub mod pallet_stake_tracker;
 pub mod pallet_staking;
 pub mod pallet_sudo;
 pub mod pallet_timestamp;

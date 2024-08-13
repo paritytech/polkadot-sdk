@@ -19,7 +19,9 @@
 
 use crate::{self as pallet_stake_tracker, *};
 
-use frame_election_provider_support::{ScoreProvider, VoteWeight};
+use frame_election_provider_support::{
+	DataProviderBounds, ElectionDataProvider, ScoreProvider, VoteWeight, VoterOf,
+};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use sp_runtime::{BuildStorage, DispatchResult, Perbill};
 use sp_staking::{Stake, StakingInterface};
@@ -127,6 +129,9 @@ impl pallet_stake_tracker::Config for Test {
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
 	type VoterUpdateMode = VoterUpdateMode;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkingElectionDataProvider = StakingMock;
+	type WeightInfo = ();
 }
 
 pub struct StakingMock {}
@@ -293,6 +298,48 @@ impl StakingInterface for StakingMock {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_exposure_page_size() -> sp_staking::Page {
 		unimplemented!("method currently not used in testing")
+	}
+}
+
+parameter_types! {
+	pub static MaxVotesPerVoter: u32 = 16;
+}
+
+impl ElectionDataProvider for StakingMock {
+	type AccountId = AccountId;
+	type BlockNumber = Block;
+	type MaxVotesPerVoter = MaxVotesPerVoter;
+
+	fn electable_targets(
+		_bounds: DataProviderBounds,
+	) -> Result<Vec<Self::AccountId>, &'static str> {
+		unimplemented!()
+	}
+
+	fn electing_voters(_bounds: DataProviderBounds) -> Result<Vec<VoterOf<Self>>, &'static str> {
+		unimplemented!()
+	}
+
+	fn desired_targets() -> Result<u32, &'static str> {
+		unimplemented!()
+	}
+
+	fn next_election_prediction(_now: Self::BlockNumber) -> Self::BlockNumber {
+		unimplemented!();
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn add_voter(
+		voter: Self::AccountId,
+		weight: VoteWeight,
+		targets: BoundedVec<Self::AccountId, Self::MaxVotesPerVoter>,
+	) {
+		add_nominator_with_nominations(voter, weight, targets.to_vec());
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn add_target(target: Self::AccountId) {
+		add_validator(target, 100_000_000);
 	}
 }
 

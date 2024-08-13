@@ -21,6 +21,7 @@ scale-info = { features = ["derive", "serde"], workspace = true }
 
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
+sp-std = { workspace = true }
 
 sp-npos-elections = { workspace = true, default-features = false }
 frame-election-provider-support = { workspace = true, default-features = false }
@@ -36,7 +37,6 @@ sp-io = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 pallet-bags-list = { workspace = true, default-features = false, features = ["try-runtime"] }
 pallet-balances = { workspace = true, default-features = true }
-frame-benchmarking = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -52,6 +52,7 @@ std = [
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
+	"sp-std/std",
 	"sp-npos-elections/std",
 	"sp-runtime/std",
 	"sp-runtime/std",

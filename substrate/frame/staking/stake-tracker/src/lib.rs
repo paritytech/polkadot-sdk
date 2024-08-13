@@ -92,9 +92,18 @@ pub use pallet::*;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+#[cfg(test)]
+pub(crate) mod mock;
+#[cfg(test)]
+mod tests;
+
+pub mod weights;
+
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
+#[cfg(feature = "runtime-benchmarks")]
+use frame_election_provider_support::ElectionDataProvider;
 use frame_election_provider_support::{ExtendedBalance, SortedListProvider, VoteWeight};
 use frame_support::{
 	defensive,
@@ -107,11 +116,6 @@ use sp_staking::{
 	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakeUpdateReason, StakerStatus,
 	StakingInterface,
 };
-
-#[cfg(test)]
-pub(crate) mod mock;
-#[cfg(test)]
-mod tests;
 
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <<T as Config>::Staking as StakingInterface>::Balance;
@@ -156,7 +160,7 @@ impl VoterUpdateMode {
 
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::*;
+	use crate::{weights::WeightInfo, *};
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -192,6 +196,13 @@ pub mod pallet {
 
 		/// The voter list update mode.
 		type VoterUpdateMode: Get<VoterUpdateMode>;
+
+		/// Weight information for extrinsics in this pallet.
+		type WeightInfo: WeightInfo;
+
+		/// Election data provider to be used by the benchmarks.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkingElectionDataProvider: ElectionDataProvider<AccountId = Self::AccountId>;
 	}
 
 	#[pallet::error]
@@ -216,7 +227,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(0)] // TODO
+		#[pallet::weight(T::WeightInfo::settle_approvals(*n))]
 		pub fn settle_approvals(
 			origin: OriginFor<T>,
 			voter: AccountIdOf<T>,
@@ -428,6 +439,17 @@ pub mod pallet {
 			let dedup = v.drain(..).collect::<BTreeSet<_>>().into_iter().collect::<Vec<_>>();
 
 			size_before != dedup.len()
+		}
+
+		#[cfg(feature = "runtime-benchmarks")]
+		pub(crate) fn setup_unsettled_approvals(who: &T::AccountId) -> Result<(), &'static str> {
+			let current_stake =
+				Self::to_vote(T::Staking::stake(&who).map_err(|_| "error fetching stake")?.active);
+			LastSettledApprovals::<T>::insert(
+				who,
+				Into::<ExtendedBalance>::into(current_stake * 2),
+			);
+			Ok(())
 		}
 	}
 }
