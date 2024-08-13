@@ -46,6 +46,17 @@ where
 	account: <V::Signer as IdentifyAccount>::AccountId,
 }
 
+impl<V: Verify> VerifyMultiSignature<V>
+where
+	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
+	<V::Signer as IdentifyAccount>::AccountId:
+		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
+{
+	pub fn new(signature: V, account: <V::Signer as IdentifyAccount>::AccountId) -> Self {
+		Self { signature, account }
+	}
+}
+
 impl<V: Verify> TransactionExtensionBase for VerifyMultiSignature<V>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,

@@ -10632,6 +10632,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-example-authorization-tx-extension"
+version = "4.0.0-dev"
+dependencies = [
+ "docify",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-example-basic"
 version = "27.0.0"
 dependencies = [
@@ -10756,6 +10772,7 @@ version = "4.0.0-dev"
 dependencies = [
  "pallet-default-config-example",
  "pallet-dev-mode",
+ "pallet-example-authorization-tx-extension",
  "pallet-example-basic",
  "pallet-example-frame-crate",
  "pallet-example-kitchensink",

@@ -25,6 +25,7 @@ pallet-example-offchain-worker = { workspace = true }
 pallet-example-split = { workspace = true }
 pallet-example-single-block-migrations = { workspace = true }
 pallet-example-tasks = { workspace = true }
+pallet-example-authorization-tx-extension = { workspace = true }
 
 [features]
 default = ["std"]
@@ -38,6 +39,7 @@ std = [
 	"pallet-example-single-block-migrations/std",
 	"pallet-example-split/std",
 	"pallet-example-tasks/std",
+	"pallet-example-authorization-tx-extension/std",
 ]
 try-runtime = [
 	"pallet-default-config-example/try-runtime",
