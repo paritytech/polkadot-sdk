@@ -126,7 +126,7 @@ jobs:
         run: sleep 60; exit 1
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' }}
-        uses: ./.github/workflow-stopper/set-up-gh
+        uses: ./.github/actions/workflow-stopper/set-up-gh
 
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
