@@ -649,15 +649,6 @@ pub mod pallet {
 			Ok(())
 		}
 	}
-
-	/// Get-parameter that returns number of active outbound lanes that the pallet maintains.
-	pub struct MaybeOutboundLanesCount<T, I>(PhantomData<(T, I)>);
-
-	impl<T: Config<I>, I: 'static> Get<Option<u32>> for MaybeOutboundLanesCount<T, I> {
-		fn get() -> Option<u32> {
-			Some(OutboundLanes::<T, I>::iter().count() as u32)
-		}
-	}
 }
 
 /// Structure, containing a validated message payload and all the info required

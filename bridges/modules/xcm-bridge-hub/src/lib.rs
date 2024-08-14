@@ -158,6 +158,7 @@ pub use pallet::*;
 
 mod dispatcher;
 mod exporter;
+pub mod migration;
 mod mock;
 
 /// The target that will be used when publishing logs related to this pallet.
@@ -251,6 +252,7 @@ pub mod pallet {
 		pallet_bridge_messages::LanesManager<T, <T as Config<I>>::BridgeMessagesPalletInstance>;
 
 	#[pallet::pallet]
+	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::hooks]
@@ -300,7 +302,7 @@ pub mod pallet {
 				Error::<T, I>::BridgeLocations(e)
 			})?;
 
-			Self::do_open_bridge(locations, lane_id)
+			Self::do_open_bridge(locations, lane_id, true)
 		}
 
 		/// Try to close the bridge.
@@ -442,24 +444,39 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		fn do_open_bridge(
+		pub(crate) fn do_open_bridge(
 			locations: Box<BridgeLocations>,
 			lane_id: LaneId,
+			create_lanes: bool,
 		) -> Result<(), DispatchError> {
-			// reserve balance on the origin's sovereign account
+			// reserve balance on the origin's sovereign account (if needed)
+			let bridge_owner_account = T::BridgeOriginAccountIdConverter::convert_location(
+				locations.bridge_origin_relative_location(),
+			)
+			.ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
 			let deposit = if T::AllowWithoutBridgeDeposit::contains(
 				locations.bridge_origin_relative_location(),
 			) {
 				BalanceOf::<ThisChainOf<T, I>>::zero()
 			} else {
-				T::BridgeDeposit::get()
+				let deposit = T::BridgeDeposit::get();
+				T::Currency::hold(
+					&HoldReason::BridgeDeposit.into(),
+					&bridge_owner_account,
+					deposit,
+				)
+				.map_err(|e| {
+					log::error!(
+						target: LOG_TARGET,
+						"Failed to hold bridge deposit: {deposit:?} \
+						from bridge_owner_account: {bridge_owner_account:?} derived from \
+						bridge_origin_relative_location: {:?} with error: {e:?}",
+						locations.bridge_origin_relative_location(),
+					);
+					Error::<T, I>::FailedToReserveBridgeDeposit
+				})?;
+				deposit
 			};
-			let bridge_owner_account = T::BridgeOriginAccountIdConverter::convert_location(
-				locations.bridge_origin_relative_location(),
-			)
-			.ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
-			T::Currency::hold(&HoldReason::BridgeDeposit.into(), &bridge_owner_account, deposit)
-				.map_err(|_| Error::<T, I>::FailedToReserveBridgeDeposit)?;
 
 			// save bridge metadata
 			Bridges::<T, I>::try_mutate(locations.bridge_id(), |bridge| match bridge {
@@ -492,14 +509,16 @@ pub mod pallet {
 				},
 			})?;
 
-			// create new lanes. Under normal circumstances, following calls shall never fail
-			let lanes_manager = LanesManagerOf::<T, I>::new();
-			lanes_manager
-				.create_inbound_lane(lane_id)
-				.map_err(Error::<T, I>::LanesManager)?;
-			lanes_manager
-				.create_outbound_lane(lane_id)
-				.map_err(Error::<T, I>::LanesManager)?;
+			if create_lanes {
+				// create new lanes. Under normal circumstances, following calls shall never fail
+				let lanes_manager = LanesManagerOf::<T, I>::new();
+				lanes_manager
+					.create_inbound_lane(lane_id)
+					.map_err(Error::<T, I>::LanesManager)?;
+				lanes_manager
+					.create_outbound_lane(lane_id)
+					.map_err(Error::<T, I>::LanesManager)?;
+			}
 
 			// write something to log
 			log::trace!(
@@ -988,7 +1007,7 @@ mod tests {
 		run_test(|| {
 			assert_noop!(
 				XcmOverBridge::open_bridge(
-					OpenBridgeOrigin::parent_relay_chain_origin(),
+					OpenBridgeOrigin::sibling_parachain_origin(),
 					Box::new(bridged_asset_hub_universal_location().into()),
 				),
 				Error::<TestRuntime, ()>::FailedToReserveBridgeDeposit,
