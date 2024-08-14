@@ -32,13 +32,13 @@ use crate::{BaseDeliveryFee, FeeAssetId, TransactionByteFee};
 use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, Contains, ContainsPair, Equals, Everything, EverythingBut, Get, Nothing},
+	traits::{ConstU32, Contains, ContainsPair, Everything, EverythingBut, Get, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
-	xcm_config::{AssetFeeAsExistentialDepositMultiplier, RelayOrOtherSystemParachains},
+	xcm_config::{AssetFeeAsExistentialDepositMultiplier},
 	TREASURY_PALLET_ID,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
