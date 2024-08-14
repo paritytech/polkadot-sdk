@@ -17,15 +17,14 @@
 //! These are used to provide a type that implements these runtime APIs without requiring to import
 //! the native runtimes.
 
-use frame_support::weights::Weight;
-use parachains_common::{AccountId, AuraId, Balance, Nonce};
-use polkadot_primitives::Block;
+use parachains_common::{AccountId, AuraId, Balance, Block, Nonce};
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
+use sp_weights::Weight;
 
 pub struct Runtime;
 

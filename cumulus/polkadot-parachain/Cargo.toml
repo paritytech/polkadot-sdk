@@ -21,7 +21,7 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 
 # Local
-polkadot-parachain-lib = { workspace = true }
+polkadot-parachain-lib = { features = ["rococo-native", "westend-native"], workspace = true }
 rococo-parachain-runtime = { workspace = true }
 shell-runtime = { workspace = true }
 glutton-westend-runtime = { workspace = true }
@@ -51,7 +51,6 @@ sc-service = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }
 
 # Polkadot
-# Use rococo-native as this is currently the default "local" relay chain
 polkadot-service = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
 

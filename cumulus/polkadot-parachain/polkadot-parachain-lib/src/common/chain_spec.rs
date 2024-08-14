@@ -16,8 +16,9 @@
 
 //! Chain spec primitives.
 
-use frame_support::{Deserialize, Serialize};
-use sc_chain_spec::{ChainSpec, ChainSpecExtension};
+pub use sc_chain_spec::ChainSpec;
+use sc_chain_spec::ChainSpecExtension;
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 /// Helper trait used for loading/building a chain spec starting from the chain ID.
