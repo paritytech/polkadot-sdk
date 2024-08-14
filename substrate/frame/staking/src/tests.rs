@@ -8448,6 +8448,9 @@ mod stake_tracker {
 				]
 			);
 
+			// confirm that the try-state checks for approvals passes even with unsettled approvals.
+			assert_ok!(Pallet::<Test>::do_try_state_approvals());
+
 			// now we can settle the approvals on the stake tracker side to explicitly update the
 			// target score of 21 from the rewards. The target score of 11 will also increase
 			// further.
@@ -8558,6 +8561,9 @@ mod stake_tracker {
 			// settlement, thus the target score of 21 remains the same for now.
 			let score_21_after_slash = <TargetBagsList as ScoreProvider<A>>::score(&21);
 			assert_eq!(score_21_after_slash, score_21_before);
+
+			// confirm that the try-state checks for approvals passes even with unsettled approvals.
+			assert_ok!(Pallet::<Test>::do_try_state_approvals());
 
 			// now we settle the buffered approvals slashed nominators 41 and 101, so that the
 			// target scores of its nominations are propagated after the slash.
@@ -9405,7 +9411,8 @@ mod ledger_recovery {
 			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before); // OK
 			assert_eq!(Bonded::<Test>::get(&333), Some(444)); // OK
 			assert!(Payee::<Test>::get(&333).is_some()); // OK
-											 // however, ledger associated with its controller was killed.
+
+			// however, ledger associated with its controller was killed.
 			assert!(Ledger::<Test>::get(&444).is_none()); // NOK
 
 			// side effects on 444 - ledger, bonded, payee, lock should be completely removed.
