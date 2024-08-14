@@ -12,6 +12,7 @@ concurrency:
 env:
   TOOLCHAIN: nightly-2024-06-01
 
+# casus belli
 
 jobs:
   check-semver:
