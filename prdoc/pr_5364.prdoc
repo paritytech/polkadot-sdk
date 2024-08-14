@@ -1,0 +1,22 @@
+title: Improve `sc-service` API
+
+doc:
+  - audience: Node Dev
+    description: |
+      This improves `sc-service` API by not requiring the whole `&Configuration`, using specific configuration options
+      instead. `RpcConfiguration` was also extracted from `Configuration` to group all RPC options together.
+      If `sc-service` is used as a library with lower-level APIs, `Configuration` can now be avoided in most cases.
+
+crates:
+  - name: sc-service
+    bump: major
+  - name: sc-network-common
+    bump: patch
+  - name: sc-cli
+    bump: major
+  - name: polkadot-service
+    bump: patch
+  - name: cumulus-relay-chain-minimal-node
+    bump: none
+  - name: polkadot-parachain-bin
+    bump: major
