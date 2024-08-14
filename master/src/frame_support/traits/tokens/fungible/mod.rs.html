@@ -539,22 +539,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
 <a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-<a href="#394" id="394">394</a>
-<a href="#395" id="395">395</a>
-<a href="#396" id="396">396</a>
-<a href="#397" id="397">397</a>
-<a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -721,6 +705,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 <span class="kw">use </span>scale_info::TypeInfo;
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+</span><span class="kw">use </span>sp_runtime::Saturating;
 
 <span class="kw">use super</span>::{
 	Fortitude::{Force, Polite},
@@ -766,37 +752,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>F: MutateFreeze&lt;A&gt;;
 <span class="kw">impl</span>&lt;
-		A: <span class="lifetime">'static</span>,
-		F: <span class="lifetime">'static </span>+ MutateFreeze&lt;A&gt;,
+		A: <span class="lifetime">'static </span>+ Eq,
+		<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))] </span>F: <span class="lifetime">'static </span>+ MutateFreeze&lt;A&gt;,
+		<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)] </span>F: <span class="lifetime">'static </span>+ MutateFreeze&lt;A&gt; + Mutate&lt;A&gt;,
 		R: <span class="lifetime">'static </span>+ Get&lt;F::Id&gt;,
 		D: <span class="lifetime">'static </span>+ Convert&lt;Fp, F::Balance&gt;,
 		Fp: <span class="lifetime">'static</span>,
 	&gt; Consideration&lt;A, Fp&gt; <span class="kw">for </span>FreezeConsideration&lt;A, F, R, D, Fp&gt;
 {
-	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
+	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
 		<span class="kw">let </span>new = D::convert(footprint);
-		<span class="kw">if </span>new.is_zero() {
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-		} <span class="kw">else </span>{
-			F::increase_frozen(<span class="kw-2">&amp;</span>R::get(), who, new)<span class="question-mark">?</span>;
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self</span>(new, PhantomData)))
-		}
+		F::increase_frozen(<span class="kw-2">&amp;</span>R::get(), who, new)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(<span class="self">Self</span>(new, PhantomData))
 	}
-	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
+	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
 		<span class="kw">let </span>new = D::convert(footprint);
 		<span class="kw">if </span><span class="self">self</span>.<span class="number">0 </span>&gt; new {
 			F::decrease_frozen(<span class="kw-2">&amp;</span>R::get(), who, <span class="self">self</span>.<span class="number">0 </span>- new)<span class="question-mark">?</span>;
 		} <span class="kw">else if </span>new &gt; <span class="self">self</span>.<span class="number">0 </span>{
 			F::increase_frozen(<span class="kw-2">&amp;</span>R::get(), who, new - <span class="self">self</span>.<span class="number">0</span>)<span class="question-mark">?</span>;
 		}
-		<span class="kw">if </span>new.is_zero() {
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-		} <span class="kw">else </span>{
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self</span>(new, PhantomData)))
-		}
+		<span class="prelude-val">Ok</span>(<span class="self">Self</span>(new, PhantomData))
 	}
 	<span class="kw">fn </span>drop(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		F::decrease_frozen(<span class="kw-2">&amp;</span>R::get(), who, <span class="self">self</span>.<span class="number">0</span>).map(|<span class="kw">_</span>| ())
+	}
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+	</span><span class="kw">fn </span>ensure_successful(who: <span class="kw-2">&amp;</span>A, fp: Fp) {
+		<span class="kw">let _ </span>= F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
 	}
 }
 
@@ -820,40 +803,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>F: MutateHold&lt;A&gt;;
 <span class="kw">impl</span>&lt;
-		A: <span class="lifetime">'static</span>,
-		F: <span class="lifetime">'static </span>+ MutateHold&lt;A&gt;,
+		A: <span class="lifetime">'static </span>+ Eq,
+		<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))] </span>F: <span class="lifetime">'static </span>+ MutateHold&lt;A&gt;,
+		<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)] </span>F: <span class="lifetime">'static </span>+ MutateHold&lt;A&gt; + Mutate&lt;A&gt;,
 		R: <span class="lifetime">'static </span>+ Get&lt;F::Reason&gt;,
 		D: <span class="lifetime">'static </span>+ Convert&lt;Fp, F::Balance&gt;,
 		Fp: <span class="lifetime">'static</span>,
 	&gt; Consideration&lt;A, Fp&gt; <span class="kw">for </span>HoldConsideration&lt;A, F, R, D, Fp&gt;
 {
-	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
+	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
 		<span class="kw">let </span>new = D::convert(footprint);
-		<span class="kw">if </span>new.is_zero() {
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-		} <span class="kw">else </span>{
-			F::hold(<span class="kw-2">&amp;</span>R::get(), who, new)<span class="question-mark">?</span>;
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self</span>(new, PhantomData)))
-		}
+		F::hold(<span class="kw-2">&amp;</span>R::get(), who, new)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(<span class="self">Self</span>(new, PhantomData))
 	}
-	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
+	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
 		<span class="kw">let </span>new = D::convert(footprint);
 		<span class="kw">if </span><span class="self">self</span>.<span class="number">0 </span>&gt; new {
 			F::release(<span class="kw-2">&amp;</span>R::get(), who, <span class="self">self</span>.<span class="number">0 </span>- new, BestEffort)<span class="question-mark">?</span>;
 		} <span class="kw">else if </span>new &gt; <span class="self">self</span>.<span class="number">0 </span>{
 			F::hold(<span class="kw-2">&amp;</span>R::get(), who, new - <span class="self">self</span>.<span class="number">0</span>)<span class="question-mark">?</span>;
 		}
-		<span class="kw">if </span>new.is_zero() {
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-		} <span class="kw">else </span>{
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self</span>(new, PhantomData)))
-		}
+		<span class="prelude-val">Ok</span>(<span class="self">Self</span>(new, PhantomData))
 	}
 	<span class="kw">fn </span>drop(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		F::release(<span class="kw-2">&amp;</span>R::get(), who, <span class="self">self</span>.<span class="number">0</span>, BestEffort).map(|<span class="kw">_</span>| ())
 	}
 	<span class="kw">fn </span>burn(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A) {
 		<span class="kw">let _ </span>= F::burn_held(<span class="kw-2">&amp;</span>R::get(), who, <span class="self">self</span>.<span class="number">0</span>, BestEffort, Force);
+	}
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+	</span><span class="kw">fn </span>ensure_successful(who: <span class="kw-2">&amp;</span>A, fp: Fp) {
+		<span class="kw">let _ </span>= F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
 	}
 }
 
@@ -878,33 +858,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #[codec(mel_bound())]
 </span><span class="kw">pub struct </span>LoneFreezeConsideration&lt;A, Fx, Rx, D, Fp&gt;(PhantomData&lt;<span class="kw">fn</span>() -&gt; (A, Fx, Rx, D, Fp)&gt;);
 <span class="kw">impl</span>&lt;
-		A: <span class="lifetime">'static</span>,
-		Fx: <span class="lifetime">'static </span>+ MutateFreeze&lt;A&gt;,
+		A: <span class="lifetime">'static </span>+ Eq,
+		<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))] </span>Fx: <span class="lifetime">'static </span>+ MutateFreeze&lt;A&gt;,
+		<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)] </span>Fx: <span class="lifetime">'static </span>+ MutateFreeze&lt;A&gt; + Mutate&lt;A&gt;,
 		Rx: <span class="lifetime">'static </span>+ Get&lt;Fx::Id&gt;,
 		D: <span class="lifetime">'static </span>+ Convert&lt;Fp, Fx::Balance&gt;,
 		Fp: <span class="lifetime">'static</span>,
 	&gt; Consideration&lt;A, Fp&gt; <span class="kw">for </span>LoneFreezeConsideration&lt;A, Fx, Rx, D, Fp&gt;
 {
-	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
+	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
 		<span class="macro">ensure!</span>(Fx::balance_frozen(<span class="kw-2">&amp;</span>Rx::get(), who).is_zero(), DispatchError::Unavailable);
-		<span class="kw">let </span>new = D::convert(footprint);
-		<span class="kw">if </span>new.is_zero() {
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-		} <span class="kw">else </span>{
-			Fx::set_frozen(<span class="kw-2">&amp;</span>Rx::get(), who, new, Polite).map(|<span class="kw">_</span>| <span class="prelude-val">Some</span>(<span class="self">Self</span>(PhantomData)))
-		}
+		Fx::set_frozen(<span class="kw-2">&amp;</span>Rx::get(), who, D::convert(footprint), Polite).map(|<span class="kw">_</span>| <span class="self">Self</span>(PhantomData))
 	}
-	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
-		<span class="kw">let </span>new = D::convert(footprint);
-		<span class="kw">let _ </span>= Fx::set_frozen(<span class="kw-2">&amp;</span>Rx::get(), who, new, Polite)<span class="question-mark">?</span>;
-		<span class="kw">if </span>new.is_zero() {
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-		} <span class="kw">else </span>{
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self</span>(PhantomData)))
-		}
+	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
+		Fx::set_frozen(<span class="kw-2">&amp;</span>Rx::get(), who, D::convert(footprint), Polite).map(|<span class="kw">_</span>| <span class="self">Self</span>(PhantomData))
 	}
 	<span class="kw">fn </span>drop(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		Fx::thaw(<span class="kw-2">&amp;</span>Rx::get(), who).map(|<span class="kw">_</span>| ())
+	}
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+	</span><span class="kw">fn </span>ensure_successful(who: <span class="kw-2">&amp;</span>A, fp: Fp) {
+		<span class="kw">let _ </span>= Fx::mint_into(who, Fx::minimum_balance().saturating_add(D::convert(fp)));
 	}
 }
 
@@ -929,36 +903,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #[codec(mel_bound())]
 </span><span class="kw">pub struct </span>LoneHoldConsideration&lt;A, Fx, Rx, D, Fp&gt;(PhantomData&lt;<span class="kw">fn</span>() -&gt; (A, Fx, Rx, D, Fp)&gt;);
 <span class="kw">impl</span>&lt;
-		A: <span class="lifetime">'static</span>,
-		F: <span class="lifetime">'static </span>+ MutateHold&lt;A&gt;,
+		A: <span class="lifetime">'static </span>+ Eq,
+		<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))] </span>F: <span class="lifetime">'static </span>+ MutateHold&lt;A&gt;,
+		<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)] </span>F: <span class="lifetime">'static </span>+ MutateHold&lt;A&gt; + Mutate&lt;A&gt;,
 		R: <span class="lifetime">'static </span>+ Get&lt;F::Reason&gt;,
 		D: <span class="lifetime">'static </span>+ Convert&lt;Fp, F::Balance&gt;,
 		Fp: <span class="lifetime">'static</span>,
 	&gt; Consideration&lt;A, Fp&gt; <span class="kw">for </span>LoneHoldConsideration&lt;A, F, R, D, Fp&gt;
 {
-	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
+	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
 		<span class="macro">ensure!</span>(F::balance_on_hold(<span class="kw-2">&amp;</span>R::get(), who).is_zero(), DispatchError::Unavailable);
-		<span class="kw">let </span>new = D::convert(footprint);
-		<span class="kw">if </span>new.is_zero() {
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-		} <span class="kw">else </span>{
-			F::set_on_hold(<span class="kw-2">&amp;</span>R::get(), who, new).map(|<span class="kw">_</span>| <span class="prelude-val">Some</span>(<span class="self">Self</span>(PhantomData)))
-		}
+		F::set_on_hold(<span class="kw-2">&amp;</span>R::get(), who, D::convert(footprint)).map(|<span class="kw">_</span>| <span class="self">Self</span>(PhantomData))
 	}
-	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
-		<span class="kw">let </span>new = D::convert(footprint);
-		<span class="kw">let _ </span>= F::set_on_hold(<span class="kw-2">&amp;</span>R::get(), who, new)<span class="question-mark">?</span>;
-		<span class="kw">if </span>new.is_zero() {
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-		} <span class="kw">else </span>{
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self</span>(PhantomData)))
-		}
+	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
+		F::set_on_hold(<span class="kw-2">&amp;</span>R::get(), who, D::convert(footprint)).map(|<span class="kw">_</span>| <span class="self">Self</span>(PhantomData))
 	}
 	<span class="kw">fn </span>drop(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		F::release_all(<span class="kw-2">&amp;</span>R::get(), who, BestEffort).map(|<span class="kw">_</span>| ())
 	}
 	<span class="kw">fn </span>burn(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A) {
 		<span class="kw">let _ </span>= F::burn_all_held(<span class="kw-2">&amp;</span>R::get(), who, BestEffort, Force);
+	}
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+	</span><span class="kw">fn </span>ensure_successful(who: <span class="kw-2">&amp;</span>A, fp: Fp) {
+		<span class="kw">let _ </span>= F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

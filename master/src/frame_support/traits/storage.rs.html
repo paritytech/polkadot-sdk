@@ -478,6 +478,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -681,7 +685,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Some sort of cost taken from account temporarily in order to offset the cost to the chain of
-/// holding some data `Footprint` (e.g. [`Footprint`]) in state.
+/// holding some data [`Footprint`] in state.
 ///
 /// The cost may be increased, reduced or dropped entirely as the footprint changes.
 ///
@@ -697,16 +701,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Member + FullCodec + TypeInfo + MaxEncodedLen
 {
 	<span class="doccomment">/// Create a ticket for the `new` footprint attributable to `who`. This ticket *must* ultimately
-	/// be consumed through `update` or `drop` once the footprint changes or is removed. `None`
-	/// implies no cost for a given footprint.
-	</span><span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>AccountId, new: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt;;
+	/// be consumed through `update` or `drop` once the footprint changes or is removed.
+	</span><span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>AccountId, new: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt;;
 
 	<span class="doccomment">/// Optionally consume an old ticket and alter the footprint, enforcing the new cost to `who`
-	/// and returning the new ticket (or an error if there was an issue). `None` implies no cost for
-	/// a given footprint.
+	/// and returning the new ticket (or an error if there was an issue).
 	///
 	/// For creating tickets and dropping them, you can use the simpler `new` and `drop` instead.
-	</span><span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>AccountId, new: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt;;
+	</span><span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>AccountId, new: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt;;
 
 	<span class="doccomment">/// Consume a ticket for some `old` footprint attributable to `who` which should now been freed.
 	</span><span class="kw">fn </span>drop(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt;;
@@ -719,18 +721,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>burn(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>AccountId) {
 		<span class="kw">let _ </span>= <span class="self">self</span>;
 	}
+	<span class="doccomment">/// Ensure that creating a ticket for a given account and footprint will be successful if done
+	/// immediately after this call.
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+	</span><span class="kw">fn </span>ensure_successful(who: <span class="kw-2">&amp;</span>AccountId, new: Footprint);
 }
 
 <span class="kw">impl</span>&lt;A, F&gt; Consideration&lt;A, F&gt; <span class="kw">for </span>() {
-	<span class="kw">fn </span>new(<span class="kw">_</span>: <span class="kw-2">&amp;</span>A, <span class="kw">_</span>: F) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
-		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(()))
+	<span class="kw">fn </span>new(<span class="kw">_</span>: <span class="kw-2">&amp;</span>A, <span class="kw">_</span>: F) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
+		<span class="prelude-val">Ok</span>(())
 	}
-	<span class="kw">fn </span>update(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>A, <span class="kw">_</span>: F) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
-		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(()))
+	<span class="kw">fn </span>update(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>A, <span class="kw">_</span>: F) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+		<span class="prelude-val">Ok</span>(())
 	}
 	<span class="kw">fn </span>drop(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>A) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		<span class="prelude-val">Ok</span>(())
 	}
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+	</span><span class="kw">fn </span>ensure_successful(<span class="kw">_</span>: <span class="kw-2">&amp;</span>A, <span class="kw">_</span>: F) {}
 }
 
 <span class="macro">macro_rules! </span>impl_incrementable {

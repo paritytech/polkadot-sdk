@@ -515,7 +515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::ManagerOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>,
 		hash
 	) verify {
-		<span class="kw">let </span>ticket = TicketOf::&lt;T&gt;::new(<span class="kw-2">&amp;</span>noter, Footprint { count: <span class="number">1</span>, size: MAX_SIZE <span class="kw">as </span>u64 }).unwrap().unwrap();
+		<span class="kw">let </span>ticket = TicketOf::&lt;T&gt;::new(<span class="kw-2">&amp;</span>noter, Footprint { count: <span class="number">1</span>, size: MAX_SIZE <span class="kw">as </span>u64 }).unwrap();
 		<span class="kw">let </span>s = RequestStatus::Requested { maybe_ticket: <span class="prelude-val">Some</span>((noter, ticket)), count: <span class="number">1</span>, maybe_len: <span class="prelude-val">Some</span>(MAX_SIZE) };
 		<span class="macro">assert_eq!</span>(RequestStatusFor::&lt;T&gt;::get(<span class="kw-2">&amp;</span>hash), <span class="prelude-val">Some</span>(s));
 	}

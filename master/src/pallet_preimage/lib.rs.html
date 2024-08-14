@@ -731,9 +731,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#580" id="580">580</a>
 <a href="#581" id="581">581</a>
 <a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -860,8 +857,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>ManagerOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
 
 		<span class="doccomment">/// A means of providing some cost while data is stored on-chain.
-		///
-		/// Should never return a `None`, implying no cost for a non-empty preimage.
 		</span><span class="kw">type </span>Consideration: Consideration&lt;<span class="self">Self</span>::AccountId, Footprint&gt;;
 	}
 
@@ -898,8 +893,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>TooMany,
 		<span class="doccomment">/// Too few hashes were requested to be upgraded (i.e. zero).
 		</span>TooFew,
-		<span class="doccomment">/// No ticket with a cost was returned by [`Config::Consideration`] to store the preimage.
-		</span>NoCost,
 	}
 
 	<span class="doccomment">/// A reason for this pallet placing a hold on funds.
@@ -1010,10 +1003,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// unreserve deposit
 				</span>T::Currency::unreserve(<span class="kw-2">&amp;</span>who, amount);
 				<span class="comment">// take consideration
-				</span><span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ticket)) =
+				</span><span class="kw">let </span><span class="prelude-val">Ok</span>(ticket) =
 					T::Consideration::new(<span class="kw-2">&amp;</span>who, Footprint::from_parts(<span class="number">1</span>, len <span class="kw">as </span>usize))
+						.defensive_proof(<span class="string">"Unexpected inability to take deposit after unreserved"</span>)
 				<span class="kw">else </span>{
-					<span class="macro">defensive!</span>(<span class="string">"None ticket or inability to take deposit after unreserved"</span>);
 					<span class="kw">return </span><span class="bool-val">true
 				</span>};
 				RequestStatus::Unrequested { ticket: (who, ticket), len }
@@ -1024,10 +1017,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span>T::Currency::unreserve(<span class="kw-2">&amp;</span>who, deposit);
 					<span class="comment">// take consideration
 					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(len) = maybe_len {
-						<span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ticket)) =
+						<span class="kw">let </span><span class="prelude-val">Ok</span>(ticket) =
 							T::Consideration::new(<span class="kw-2">&amp;</span>who, Footprint::from_parts(<span class="number">1</span>, len <span class="kw">as </span>usize))
+								.defensive_proof(
+									<span class="string">"Unexpected inability to take deposit after unreserved"</span>,
+								)
 						<span class="kw">else </span>{
-							<span class="macro">defensive!</span>(<span class="string">"None ticket or inability to take deposit after unreserved"</span>);
 							<span class="kw">return </span><span class="bool-val">true
 						</span>};
 						<span class="prelude-val">Some</span>((who, ticket))
@@ -1087,8 +1082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				RequestStatus::Requested { maybe_ticket: <span class="prelude-val">None</span>, count: <span class="number">1</span>, maybe_len: <span class="prelude-val">Some</span>(len) },
 			(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(depositor)) =&gt; {
 				<span class="kw">let </span>ticket =
-					T::Consideration::new(depositor, Footprint::from_parts(<span class="number">1</span>, len <span class="kw">as </span>usize))<span class="question-mark">?
-						</span>.ok_or(Error::&lt;T&gt;::NoCost)<span class="question-mark">?</span>;
+					T::Consideration::new(depositor, Footprint::from_parts(<span class="number">1</span>, len <span class="kw">as </span>usize))<span class="question-mark">?</span>;
 				RequestStatus::Unrequested { ticket: (depositor.clone(), ticket), len }
 			},
 		};
