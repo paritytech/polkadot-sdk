@@ -124,24 +124,9 @@ jobs:
       - name: script
         id: required
         run: sleep 60; exit 1
-      - name: Worfklow stopper - Generate token
-        uses: actions/create-github-app-token@v1
+      - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' }}
-        id: app-token
-        with:
-          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
-          private-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
-          owner: "paritytech"
-          repositories: "workflow-stopper"
-      - name: Workflow stopper - Stop all workflows
-        uses: octokit/request-action@v2.x
-        if: ${{ failure() && steps.required.conclusion == 'failure' }}
-        with:
-          route: POST /repos/paritytech/workflow-stopper/actions/workflows/stopper.yml/dispatches
-          ref: main
-          inputs: '${{ format(''{{ "github_sha": "{0}", "github_repository": "{1}", "github_ref_name": "{2}", "github_workflow_id": "{3}", "github_job_name": "{4}" }}'', github.event.pull_request.head.sha, github.repository, github.ref_name, github.run_id, github.job) }}'
-        env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        uses: ./.github/workflow-stopper/set-up-gh
 
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
