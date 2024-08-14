@@ -837,11 +837,13 @@ where
 			},
 		};
 
-		let fut =
-			async move {
-				wait_for_aura(client).await;
-				aura::run_with_export::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params).await;
-			};
+		let fut = async move {
+			wait_for_aura(client).await;
+			aura::run_with_export::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(
+				params,
+			)
+			.await;
+		};
 		task_manager.spawn_essential_handle().spawn("aura", None, fut);
 
 		Ok(())

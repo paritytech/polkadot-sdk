@@ -121,8 +121,8 @@ use std::{fs, path::PathBuf};
 
 use clap::{Parser, Subcommand};
 use sc_chain_spec::{
-	ChainSpecExtension, ChainSpecGroup, ChainType, GenericChainSpec,
-	GenesisConfigBuilderRuntimeCaller,
+	ChainSpec, ChainSpecExtension, ChainSpecGroup, ChainType, GenericChainSpec,
+	GenesisConfigBuilderRuntimeCaller, GetExtension,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -149,7 +149,7 @@ pub enum ChainSpecBuilderCmd {
 	AddCodeSubstitute(AddCodeSubstituteCmd),
 }
 
-/// Create a new chain spec by interacting with the provided runtime wasm blob.
+/// Create a new solo chain spec by interacting with the provided runtime wasm blob.
 #[derive(Parser, Debug)]
 pub struct CreateCmd {
 	/// The name of chain.
@@ -161,15 +161,12 @@ pub struct CreateCmd {
 	/// The chain type.
 	#[arg(value_enum, short = 't', default_value = "live")]
 	chain_type: ChainType,
-	/// If you're generating a config for a parachain
-	#[arg(long, value_enum, default_value = "false")]
-	parachain: bool,
 	/// The para ID for your chain.
-	#[arg(value_enum, short = 'p', default_value = "100")]
-	para_id: u32,
+	#[arg(long, value_enum, short = 'p')]
+	pub para_id: Option<u32>,
 	/// The relay chain you wish to connect to.
-	#[arg(value_enum, short = 'c', default_value = "polkadot")]
-	relay_chain: String,
+	#[arg(long, value_enum, short = 'c')]
+	pub relay_chain: Option<String>,
 	/// The path to runtime wasm blob.
 	#[arg(long, short)]
 	runtime_wasm_path: PathBuf,
@@ -291,37 +288,55 @@ pub struct VerifyCmd {
 	pub input_chain_spec: PathBuf,
 }
 
-/// The extensions for the [`GenericChainSpec`].
-#[derive(
-	Default, Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension,
-)]
-#[serde(deny_unknown_fields)]
-pub struct Extensions {
+#[derive(Deserialize, Serialize, Clone)]
+pub struct ParachainExtension {
 	/// The relay chain of the Parachain.
-	pub relay_chain: Option<String>,
+	pub relay_chain: String,
 	/// The id of the Parachain.
-	pub para_id: Option<u32>,
+	pub para_id: u32,
 }
 
-/// Processes `CreateCmd` and returns JSON version of `ChainSpec`.
-pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String> {
-	let code = fs::read(cmd.runtime_wasm_path.as_path())
-		.map_err(|e| format!("wasm blob shall be readable {e}"))?;
+/// Creates a new spec for a parachain.
+fn create_para_chain_spec(
+	cmd: &CreateCmd,
+	code: &[u8],
+	chain_type: ChainType,
+) -> sc_chain_spec::ChainSpecBuilder<ParachainExtension> {
+	let relay_chain = &cmd.relay_chain.clone().expect("No relay chain provided");
+	let para_id = *&cmd.para_id.expect("No Para ID provided");
 
-	let chain_type = &cmd.chain_type;
-	let relay_chain = &cmd.relay_chain;
-	let builder = GenericChainSpec::<Extensions>::builder(
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("tokenSymbol".into(), "UNIT".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+	properties.insert("ss58Format".into(), 42.into());
+
+	GenericChainSpec::<ParachainExtension>::builder(
 		&code[..],
-		if cmd.parachain {
-			Extensions { relay_chain: Some(relay_chain.to_string()), para_id: Some(cmd.para_id) }
-		} else {
-			Extensions::default()
-		},
+		ParachainExtension { relay_chain: relay_chain.to_string(), para_id },
 	)
 	.with_name(&cmd.chain_name[..])
 	.with_id(&cmd.chain_id[..])
-	.with_chain_type(chain_type.clone());
+	.with_properties(properties)
+	.with_chain_type(chain_type)
+}
 
+/// Creates a new spec for a solo chain.
+fn create_solo_chain_spec(
+	cmd: &CreateCmd,
+	code: &[u8],
+	chain_type: ChainType,
+) -> sc_chain_spec::ChainSpecBuilder<()> {
+	GenericChainSpec::<()>::builder(&code[..], Default::default())
+		.with_name(&cmd.chain_name[..])
+		.with_id(&cmd.chain_id[..])
+		.with_chain_type(chain_type)
+}
+
+fn process_action<T: Serialize + Clone + Sync + 'static>(
+	cmd: &CreateCmd,
+	code: &[u8],
+	builder: sc_chain_spec::ChainSpecBuilder<T>,
+) -> Result<String, String> {
 	let builder = match cmd.action {
 		GenesisBuildAction::NamedPreset(NamedPresetCmd { ref preset_name }) =>
 			builder.with_genesis_config_preset_name(&preset_name),
@@ -360,4 +375,24 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 		},
 		(false, false) => chain_spec.as_json(false),
 	}
+}
+
+/// Processes `CreateCmd` for a parachain and returns JSON version of `ChainSpec`.
+pub fn generate_chain_spec_for_para_runtime(cmd: &CreateCmd) -> Result<String, String> {
+	let code = fs::read(cmd.runtime_wasm_path.as_path())
+		.map_err(|e| format!("wasm blob shall be readable {e}"))?;
+
+	let chain_type = &cmd.chain_type;
+	let builder = create_para_chain_spec(&cmd, &code[..], chain_type.clone());
+	Ok(process_action(&cmd, &code[..], builder)?)
+}
+
+/// Processes `CreateCmd` for a solo chain and returns JSON version of `ChainSpec`.
+pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String> {
+	let code = fs::read(cmd.runtime_wasm_path.as_path())
+		.map_err(|e| format!("wasm blob shall be readable {e}"))?;
+
+	let chain_type = &cmd.chain_type;
+	let builder = create_solo_chain_spec(&cmd, &code[..], chain_type.clone());
+	Ok(process_action(&cmd, &code[..], builder)?)
 }

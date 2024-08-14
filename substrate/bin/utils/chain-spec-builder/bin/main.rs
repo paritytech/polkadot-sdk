@@ -17,8 +17,9 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use chain_spec_builder::{
-	generate_chain_spec_for_runtime, AddCodeSubstituteCmd, ChainSpecBuilder, ChainSpecBuilderCmd,
-	ConvertToRawCmd, DisplayPresetCmd, ListPresetsCmd, UpdateCodeCmd, VerifyCmd,
+	generate_chain_spec_for_para_runtime, generate_chain_spec_for_runtime, AddCodeSubstituteCmd,
+	ChainSpecBuilder, ChainSpecBuilderCmd, ConvertToRawCmd, DisplayPresetCmd, ListPresetsCmd,
+	UpdateCodeCmd, VerifyCmd,
 };
 use clap::Parser;
 use sc_chain_spec::{
@@ -54,7 +55,11 @@ fn inner_main() -> Result<(), String> {
 
 	match builder.command {
 		ChainSpecBuilderCmd::Create(cmd) => {
-			let chain_spec_json = generate_chain_spec_for_runtime(&cmd)?;
+			let is_para = cmd.relay_chain.clone().zip(cmd.para_id.clone());
+			let chain_spec_json = match is_para {
+				Some(_) => generate_chain_spec_for_para_runtime(&cmd)?,
+				None => generate_chain_spec_for_runtime(&cmd)?,
+			};
 			fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
 		},
 		ChainSpecBuilderCmd::UpdateCode(UpdateCodeCmd {
