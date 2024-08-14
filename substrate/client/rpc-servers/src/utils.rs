@@ -55,7 +55,7 @@ impl FromStr for RpcMethods {
 			"safe" => Ok(RpcMethods::Safe),
 			"unsafe" => Ok(RpcMethods::Unsafe),
 			"auto" => Ok(RpcMethods::Auto),
-			_ => Err("Invalid rpc methods".to_string()),
+			invalid => Err(format!("Invalid rpc methods {invalid}")),
 		}
 	}
 }

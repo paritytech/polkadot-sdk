@@ -63,7 +63,7 @@ use sc_rpc::{
 	offchain::OffchainApiServer,
 	state::{ChildStateApiServer, StateApiServer},
 	system::SystemApiServer,
-	SubscriptionTaskExecutor,
+	DenyUnsafe, SubscriptionTaskExecutor,
 };
 use sc_rpc_spec_v2::{
 	archive::ArchiveApiServer,
@@ -506,8 +506,16 @@ where
 		)
 	};
 
-	let rpc = start_rpc_servers(&config, gen_rpc_module, rpc_id_provider)?;
-	let rpc_handlers = RpcHandlers::new(Arc::new(gen_rpc_module()?.into()));
+	let rpc_server_handle = start_rpc_servers(&config, gen_rpc_module, rpc_id_provider)?;
+	let in_memory_rpc = {
+		let mut module = gen_rpc_module()?;
+		let mut ext = jsonrpsee::Extensions::new();
+		ext.insert(DenyUnsafe::No);
+		module.with_extensions(ext);
+		module
+	};
+
+	let in_memory_rpc_handle = RpcHandlers::new(Arc::new(in_memory_rpc));
 
 	// Spawn informant task
 	spawn_handle.spawn(
@@ -516,9 +524,9 @@ where
 		sc_informant::build(client.clone(), network, sync_service.clone()),
 	);
 
-	task_manager.keep_alive((config.base_path, rpc));
+	task_manager.keep_alive((config.base_path, rpc_server_handle));
 
-	Ok(rpc_handlers)
+	Ok(in_memory_rpc_handle)
 }
 
 /// Returns a future that forwards imported transactions to the transaction networking protocol.
