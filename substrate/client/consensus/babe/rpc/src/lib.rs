@@ -256,7 +256,7 @@ mod tests {
 	async fn epoch_authorship_works() {
 		let babe_rpc = test_babe_rpc_module();
 		let mut api = babe_rpc.into_rpc();
-		api.extensions_as_mut().insert(DenyUnsafe::No);
+		api.extensions_mut().insert(DenyUnsafe::No);
 
 		let request = r#"{"jsonrpc":"2.0","id":1,"method":"babe_epochAuthorship","params":[]}"#;
 		let (response, _) = api.raw_json_request(request, 1).await.unwrap();
@@ -269,7 +269,7 @@ mod tests {
 	async fn epoch_authorship_is_unsafe() {
 		let babe_rpc = test_babe_rpc_module();
 		let mut api = babe_rpc.into_rpc();
-		api.extensions_as_mut().insert(DenyUnsafe::Yes);
+		api.extensions_mut().insert(DenyUnsafe::Yes);
 
 		let request = r#"{"jsonrpc":"2.0","method":"babe_epochAuthorship","params":[],"id":1}"#;
 		let (response, _) = api.raw_json_request(request, 1).await.unwrap();
