@@ -18,6 +18,7 @@ log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
 binary-merkle-tree = { workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-beefy = { workspace = true }
@@ -40,6 +41,7 @@ std = [
 	"array-bytes",
 	"binary-merkle-tree/std",
 	"codec/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -65,6 +67,7 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
