@@ -5,7 +5,6 @@ runs:
   steps:
     - name: Worfklow stopper - Generate token
       uses: actions/create-github-app-token@v1
-      if: ${{ failure() && steps.required.conclusion == 'failure' }}
       id: app-token
       with:
         app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
@@ -14,7 +13,6 @@ runs:
         repositories: "workflow-stopper"
     - name: Workflow stopper - Stop all workflows
       uses: octokit/request-action@v2.x
-      if: ${{ failure() && steps.required.conclusion == 'failure' }}
       with:
         route: POST /repos/paritytech/workflow-stopper/actions/workflows/stopper.yml/dispatches
         ref: main
