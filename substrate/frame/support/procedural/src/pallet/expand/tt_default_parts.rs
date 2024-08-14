@@ -139,37 +139,49 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 		def.call.is_some(),
 		"__substrate_call_check",
 		"#[pallet::call]",
+		"Call",
 		"is_call_part_defined",
+		false,
 	);
 	let is_part_defined_event = generate_is_part_defined(
 		def.event.is_some(),
 		"__substrate_event_check",
 		"#[pallet::event]",
+		"Event",
 		"is_event_part_defined",
+		false,
 	);
 	let is_part_defined_inherent = generate_is_part_defined(
 		def.inherent.is_some(),
 		"__substrate_inherent_check",
 		"#[pallet::inherent]",
+		"Inherent",
 		"is_inherent_part_defined",
+		false,
 	);
 	let is_part_defined_origin = generate_is_part_defined(
 		def.origin.is_some(),
 		"__substrate_origin_check",
 		"#[pallet::origin]",
+		"Origin",
 		"is_origin_part_defined",
+		false,
 	);
 	let is_part_defined_validate_unsigned = generate_is_part_defined(
 		def.validate_unsigned.is_some(),
 		"__substrate_validate_unsigned_check",
 		"#[pallet::validate_unsigned]",
+		"ValidateUnsigned",
 		"is_validate_unsigned_part_defined",
+		false,
 	);
 	let is_part_defined_genesis_config = generate_is_part_defined(
 		def.genesis_config.is_some(),
 		"__substrate_genesis_config_check",
 		"#[pallet::genesis_config]",
+		"Config",
 		"is_genesis_config_defined",
+		true,
 	);
 
 	quote::quote!(
@@ -265,7 +277,9 @@ fn generate_is_part_defined(
 	is_defined: bool,
 	mod_name: &str,
 	attr_name: &str,
+	part_name: &str,
 	macro_name: &str,
+	add_is_std_enabled_for_genesis: bool,
 ) -> proc_macro2::TokenStream {
 	let count = crate::COUNTER.with(|counter| counter.borrow_mut().inc());
 	let macro_ident =
@@ -280,7 +294,9 @@ fn generate_is_part_defined(
 				stringify!($pallet_name),
 				"` does not have ",
 				#attr_name,
-				" defined, perhaps you should remove `Origin` from construct_runtime?",
+				" defined, perhaps you should remove `",
+				#part_name,
+				"` from construct_runtime?",
 			));
 		}
 	} else {
@@ -288,7 +304,7 @@ fn generate_is_part_defined(
 	};
 
 	// Some specific special case for genesis config additional helper.
-	let optional_additional_helper = if macro_name == "is_genesis_config_defined" {
+	let optional_additional_helper = if add_is_std_enabled_for_genesis {
 		let std_macro_ident = syn::Ident::new(
 			&format!("__is_std_enabled_for_genesis_{}", count),
 			proc_macro2::Span::call_site(),
