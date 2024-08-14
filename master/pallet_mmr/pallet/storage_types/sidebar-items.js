@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Nodes","NumberOfLeaves","RootHash"]};
+window.SIDEBAR_ITEMS = {"struct":["Nodes","NumberOfLeaves","RootHash","UseLocalStorage"]};

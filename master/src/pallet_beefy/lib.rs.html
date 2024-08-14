@@ -903,6 +903,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#752" id="752">752</a>
 <a href="#753" id="753">753</a>
 <a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -924,21 +962,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">extern crate </span>alloc;
 
+<span class="kw">mod </span>default_weights;
+<span class="kw">mod </span>equivocation;
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>mock;
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests;
+
 <span class="kw">use </span>alloc::{boxed::Box, vec::Vec};
 <span class="kw">use </span>codec::{Encode, MaxEncodedLen};
+<span class="kw">use </span>log;
 
 <span class="kw">use </span>frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
 	pallet_prelude::<span class="kw-2">*</span>,
 	traits::{Get, OneSessionHandler},
-	weights::Weight,
+	weights::{constants::RocksDbWeight <span class="kw">as </span>DbWeight, Weight},
 	BoundedSlice, BoundedVec, Parameter,
 };
 <span class="kw">use </span>frame_system::{
 	ensure_none, ensure_signed,
 	pallet_prelude::{BlockNumberFor, HeaderFor, OriginFor},
 };
-<span class="kw">use </span>log;
+<span class="kw">use </span>sp_consensus_beefy::{
+	AncestryHelper, AncestryHelperWeightInfo, AuthorityIndex, BeefyAuthorityId, ConsensusLog,
+	DoubleVotingProof, ForkVotingProof, FutureBlockVotingProof, OnNewValidatorSet, ValidatorSet,
+	BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+};
 <span class="kw">use </span>sp_runtime::{
 	generic::DigestItem,
 	traits::{IsMember, Member, One},
@@ -947,23 +997,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_session::{GetSessionNumber, GetValidatorCount};
 <span class="kw">use </span>sp_staking::{offence::OffenceReportSystem, SessionIndex};
 
-<span class="kw">use </span>sp_consensus_beefy::{
-	AncestryHelper, AuthorityIndex, BeefyAuthorityId, ConsensusLog, DoubleVotingProof,
-	ForkVotingProof, FutureBlockVotingProof, OnNewValidatorSet, ValidatorSet, BEEFY_ENGINE_ID,
-	GENESIS_AUTHORITY_SET_ID,
-};
-
-<span class="kw">mod </span>default_weights;
-<span class="kw">mod </span>equivocation;
-<span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>mock;
-<span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>tests;
-
+<span class="kw">use </span><span class="kw">crate</span>::equivocation::EquivocationEvidenceFor;
 <span class="kw">pub use </span><span class="kw">crate</span>::equivocation::{EquivocationOffence, EquivocationReportSystem, TimeSlot};
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
-
-<span class="kw">use </span><span class="kw">crate</span>::equivocation::EquivocationEvidenceFor;
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::beefy"</span>;
 
@@ -1007,7 +1043,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>OnNewValidatorSet: OnNewValidatorSet&lt;&lt;<span class="self">Self </span><span class="kw">as </span>Config&gt;::BeefyId&gt;;
 
 		<span class="doccomment">/// Hook for checking commitment canonicity.
-		</span><span class="kw">type </span>AncestryHelper: AncestryHelper&lt;HeaderFor&lt;<span class="self">Self</span>&gt;&gt;;
+		</span><span class="kw">type </span>AncestryHelper: AncestryHelper&lt;HeaderFor&lt;<span class="self">Self</span>&gt;&gt;
+			+ AncestryHelperWeightInfo&lt;HeaderFor&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// Weights for this pallet.
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
@@ -1200,9 +1237,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// and validate the given key ownership proof against the extracted offender.
 		/// If both are valid, the offence will be reported.
 		</span><span class="attr">#[pallet::call_index(<span class="number">3</span>)]
-		#[pallet::weight(T::WeightInfo::report_fork_voting(
+		#[pallet::weight(T::WeightInfo::report_fork_voting::&lt;T&gt;(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
+			<span class="kw-2">&amp;</span>equivocation_proof.ancestry_proof
 		))]
 		</span><span class="kw">pub fn </span>report_fork_voting(
 			origin: OriginFor&lt;T&gt;,
@@ -1234,9 +1272,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// if the block author is defined it will be defined as the equivocation
 		/// reporter.
 		</span><span class="attr">#[pallet::call_index(<span class="number">4</span>)]
-		#[pallet::weight(T::WeightInfo::report_fork_voting(
+		#[pallet::weight(T::WeightInfo::report_fork_voting::&lt;T&gt;(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
+			<span class="kw-2">&amp;</span>equivocation_proof.ancestry_proof
 		))]
 		</span><span class="kw">pub fn </span>report_fork_voting_unsigned(
 			origin: OriginFor&lt;T&gt;,
@@ -1263,7 +1302,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// and validate the given key ownership proof against the extracted offender.
 		/// If both are valid, the offence will be reported.
 		</span><span class="attr">#[pallet::call_index(<span class="number">5</span>)]
-		#[pallet::weight(T::WeightInfo::report_fork_voting(
+		#[pallet::weight(T::WeightInfo::report_future_block_voting(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
 		))]
@@ -1294,7 +1333,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// if the block author is defined it will be defined as the equivocation
 		/// reporter.
 		</span><span class="attr">#[pallet::call_index(<span class="number">6</span>)]
-		#[pallet::weight(T::WeightInfo::report_fork_voting(
+		#[pallet::weight(T::WeightInfo::report_future_block_voting(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
 		))]
@@ -1645,18 +1684,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		validator_count: u32,
 		max_nominators_per_validator: u32,
 	) -&gt; Weight;
+
+	<span class="kw">fn </span>set_new_genesis() -&gt; Weight;
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>WeightInfoExt: WeightInfo {
 	<span class="kw">fn </span>report_double_voting(validator_count: u32, max_nominators_per_validator: u32) -&gt; Weight {
 		<span class="self">Self</span>::report_voting_equivocation(<span class="number">2</span>, validator_count, max_nominators_per_validator)
 	}
-	<span class="kw">fn </span>report_fork_voting(validator_count: u32, max_nominators_per_validator: u32) -&gt; Weight;
+
+	<span class="kw">fn </span>report_fork_voting&lt;T: Config&gt;(
+		validator_count: u32,
+		max_nominators_per_validator: u32,
+		ancestry_proof: <span class="kw-2">&amp;</span>&lt;T::AncestryHelper <span class="kw">as </span>AncestryHelper&lt;HeaderFor&lt;T&gt;&gt;&gt;::Proof,
+	) -&gt; Weight {
+		<span class="kw">let </span>_weight = &lt;T::AncestryHelper <span class="kw">as </span>AncestryHelperWeightInfo&lt;HeaderFor&lt;T&gt;&gt;&gt;::extract_validation_context()
+			.saturating_add(
+				&lt;T::AncestryHelper <span class="kw">as </span>AncestryHelperWeightInfo&lt;HeaderFor&lt;T&gt;&gt;&gt;::is_non_canonical(
+					ancestry_proof,
+				),
+			)
+			.saturating_add(<span class="self">Self</span>::report_voting_equivocation(
+				<span class="number">1</span>,
+				validator_count,
+				max_nominators_per_validator,
+			));
+
+		<span class="comment">// TODO: https://github.com/paritytech/polkadot-sdk/issues/4523 - return `_weight` here.
+		// We return `Weight::MAX` currently in order to disallow this extrinsic for the moment.
+		// We need to check that the proof is optimal.
+		</span>Weight::MAX
+	}
+
 	<span class="kw">fn </span>report_future_block_voting(
 		validator_count: u32,
 		max_nominators_per_validator: u32,
 	) -&gt; Weight {
-		<span class="self">Self</span>::report_voting_equivocation(<span class="number">1</span>, validator_count, max_nominators_per_validator)
+		<span class="comment">// checking if the report is for a future block
+		</span>DbWeight::get()
+			.reads(<span class="number">1</span>)
+			<span class="comment">// check and report the equivocated vote
+			</span>.saturating_add(<span class="self">Self</span>::report_voting_equivocation(
+				<span class="number">1</span>,
+				validator_count,
+				max_nominators_per_validator,
+			))
 	}
-	<span class="kw">fn </span>set_new_genesis() -&gt; Weight;
 }
+
+<span class="kw">impl</span>&lt;T&gt; WeightInfoExt <span class="kw">for </span>T <span class="kw">where </span>T: WeightInfo {}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

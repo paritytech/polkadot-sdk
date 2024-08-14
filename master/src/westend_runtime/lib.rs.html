@@ -3009,6 +3009,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2858" id="2858">2858</a>
 <a href="#2859" id="2859">2859</a>
 <a href="#2860" id="2860">2860</a>
+<a href="#2861" id="2861">2861</a>
+<a href="#2862" id="2862">2862</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3472,6 +3474,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>BeefyAuthorityToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaToEthereum;
 	<span class="kw">type </span>LeafExtra = H256;
 	<span class="kw">type </span>BeefyDataProvider = ParaHeadsRootProvider;
+	<span class="kw">type </span>WeightInfo = weights::pallet_beefy_mmr::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -3612,20 +3615,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MaxWeight = OffchainSolutionWeightLimit;
 	<span class="kw">type </span>Solution = NposCompactSolution16;
 	<span class="kw">type </span>MaxVotesPerVoter = &lt;
-		&lt;<span class="self">Self </span><span class="kw">as </span>pallet_election_provider_multi_phase::Config&gt;::DataProvider
-		<span class="kw">as
-		</span>frame_election_provider_support::ElectionDataProvider
-	&gt;::MaxVotesPerVoter;
+    &lt;<span class="self">Self </span><span class="kw">as </span>pallet_election_provider_multi_phase::Config&gt;::DataProvider
+    <span class="kw">as
+    </span>frame_election_provider_support::ElectionDataProvider
+    &gt;::MaxVotesPerVoter;
 	<span class="kw">type </span>MaxWinners = MaxActiveValidators;
 
 	<span class="comment">// The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
 	// weight estimate function is wired to this call's weight.
 	</span><span class="kw">fn </span>solution_weight(v: u32, t: u32, a: u32, d: u32) -&gt; Weight {
 		&lt;
-			&lt;<span class="self">Self </span><span class="kw">as </span>pallet_election_provider_multi_phase::Config&gt;::WeightInfo
-			<span class="kw">as
-			</span>pallet_election_provider_multi_phase::WeightInfo
-		&gt;::submit_unsigned(v, t, a, d)
+        &lt;<span class="self">Self </span><span class="kw">as </span>pallet_election_provider_multi_phase::Config&gt;::WeightInfo
+        <span class="kw">as
+        </span>pallet_election_provider_multi_phase::WeightInfo
+        &gt;::submit_unsigned(v, t, a, d)
 	}
 }
 
@@ -4858,6 +4861,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Substrate
 		</span>[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
+		[pallet_beefy_mmr, BeefyMmrLeaf]
 		[pallet_conviction_voting, ConvictionVoting]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[frame_election_provider_support, ElectionProviderBench::&lt;Runtime&gt;]

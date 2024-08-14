@@ -364,6 +364,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
 <a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -457,7 +462,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::leaf_node_index_to_leaf_index(rightmost_leaf_pos)
 	}
 
-	<span class="comment">// Translate a _leaf_ `NodeIndex` to its `LeafIndex`.
+	<span class="doccomment">/// Translate a _leaf_ `NodeIndex` to its `LeafIndex`.
 	</span><span class="kw">fn </span>leaf_node_index_to_leaf_index(pos: NodeIndex) -&gt; LeafIndex {
 		<span class="kw">if </span>pos == <span class="number">0 </span>{
 			<span class="kw">return </span><span class="number">0
@@ -466,8 +471,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(pos + peaks.len() <span class="kw">as </span>u64) &gt;&gt; <span class="number">1
 	</span>}
 
-	<span class="comment">// Starting from any node position get position of rightmost leaf; this is the leaf
-	// responsible for the addition of node `pos`.
+	<span class="doccomment">/// Translate a `LeafIndex` to its _leaf_ `NodeIndex`.
+	</span><span class="kw">pub fn </span>leaf_index_to_leaf_node_index(leaf_index: NodeIndex) -&gt; LeafIndex {
+		helper::leaf_index_to_pos(leaf_index)
+	}
+
+	<span class="doccomment">/// Starting from any node position get position of rightmost leaf; this is the leaf
+	/// responsible for the addition of node `pos`.
 	</span><span class="kw">fn </span>rightmost_leaf_node_index_from_pos(pos: NodeIndex) -&gt; NodeIndex {
 		pos - (helper::pos_height_in_tree(pos) <span class="kw">as </span>u64)
 	}

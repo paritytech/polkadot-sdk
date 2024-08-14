@@ -796,6 +796,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#645" id="645">645</a>
 <a href="#646" id="646">646</a>
 <a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -854,6 +864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Hash, Header <span class="kw">as </span>HeaderT, Keccak256, NumberFor},
 	OpaqueValue,
 };
+<span class="kw">use </span>sp_weights::Weight;
 
 <span class="doccomment">/// Key type for BEEFY module.
 </span><span class="kw">pub const </span>KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_types::BEEFY;
@@ -1256,6 +1267,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		proof: <span class="self">Self</span>::Proof,
 		context: <span class="self">Self</span>::ValidationContext,
 	) -&gt; bool;
+}
+
+<span class="doccomment">/// Weight information for the logic in `AncestryHelper`.
+</span><span class="kw">pub trait </span>AncestryHelperWeightInfo&lt;Header: HeaderT&gt;: AncestryHelper&lt;Header&gt; {
+	<span class="doccomment">/// Weight info for the `AncestryHelper::extract_validation_context()` method.
+	</span><span class="kw">fn </span>extract_validation_context() -&gt; Weight;
+
+	<span class="doccomment">/// Weight info for the `AncestryHelper::is_non_canonical()` method.
+	</span><span class="kw">fn </span>is_non_canonical(proof: <span class="kw-2">&amp;</span>&lt;<span class="self">Self </span><span class="kw">as </span>AncestryHelper&lt;Header&gt;&gt;::Proof) -&gt; Weight;
 }
 
 <span class="doccomment">/// An opaque type used to represent the key ownership proof at the runtime API

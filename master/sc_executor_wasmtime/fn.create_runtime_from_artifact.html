@@ -152,7 +152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     compiled_artifact_path: &amp;<a class="struct" href="https://doc.rust-lang.org/1.77.0/std/path/struct.Path.html" title="struct std::path::Path">Path</a>,
     config: <a class="struct" href="struct.Config.html" title="struct sc_executor_wasmtime::Config">Config</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.WasmtimeRuntime.html" title="struct sc_executor_wasmtime::WasmtimeRuntime">WasmtimeRuntime</a>, WasmError&gt;<div class="where">where
-    H: HostFunctions,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The same as <a href="fn.create_runtime.html" title="fn sc_executor_wasmtime::create_runtime"><code>create_runtime</code></a> but takes a path to a precompiled artifact,
+    H: <a class="trait" href="../sp_wasm_interface/trait.HostFunctions.html" title="trait sp_wasm_interface::HostFunctions">HostFunctions</a>,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The same as <a href="fn.create_runtime.html" title="fn sc_executor_wasmtime::create_runtime"><code>create_runtime</code></a> but takes a path to a precompiled artifact,
 which makes this function considerably faster than <a href="fn.create_runtime.html" title="fn sc_executor_wasmtime::create_runtime"><code>create_runtime</code></a>.</p>
 <h2 id="safety"><a class="doc-anchor" href="#safety">§</a>Safety</h2>
 <p>The caller must ensure that the compiled artifact passed here was:</p>

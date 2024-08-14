@@ -384,6 +384,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -408,7 +425,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>core::iter::Peekable;
 <span class="kw">use </span>log::{debug, trace};
 <span class="kw">use </span>sp_core::offchain::StorageKind;
-<span class="kw">use </span>sp_io::offchain_index;
 <span class="kw">use </span>sp_mmr_primitives::{mmr_lib, mmr_lib::helper, utils::NodesUtils};
 
 <span class="kw">use crate</span>::{
@@ -432,6 +448,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// MMR nodes are assumed to be stored in the Off-Chain DB. Note this storage type
 /// DOES NOT support adding new items to the MMR.
 </span><span class="kw">pub struct </span>OffchainStorage;
+
+<span class="kw">impl </span>OffchainStorage {
+	<span class="kw">fn </span>get(key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+		sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, <span class="kw-2">&amp;</span>key)
+	}
+
+	<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
+	</span><span class="kw">fn </span>set&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(key: <span class="kw-2">&amp;</span>[u8], value: <span class="kw-2">&amp;</span>[u8]) {
+		sp_io::offchain_index::set(key, value);
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+	</span><span class="kw">fn </span>set&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(key: <span class="kw-2">&amp;</span>[u8], value: <span class="kw-2">&amp;</span>[u8]) {
+		<span class="kw">if </span><span class="kw">crate</span>::pallet::UseLocalStorage::&lt;T, I&gt;::get() {
+			sp_io::offchain::local_storage_set(StorageKind::PERSISTENT, key, value);
+		} <span class="kw">else </span>{
+			sp_io::offchain_index::set(key, value);
+		}
+	}
+}
 
 <span class="doccomment">/// A storage layer for MMR.
 ///
@@ -464,7 +500,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			pos, ancestor_leaf_idx, key
 		);
 		<span class="comment">// Try to retrieve the element from Off-chain DB.
-		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(elem) = sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, <span class="kw-2">&amp;</span>key) {
+		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(elem) = OffchainStorage::get(<span class="kw-2">&amp;</span>key) {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(codec::Decode::decode(<span class="kw-2">&amp;mut &amp;*</span>elem).ok())
 		}
 
@@ -479,8 +515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			pos, ancestor_leaf_idx, ancestor_parent_hash, temp_key
 		);
 		<span class="comment">// Retrieve the element from Off-chain DB.
-		</span><span class="prelude-val">Ok</span>(sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, <span class="kw-2">&amp;</span>temp_key)
-			.and_then(|v| codec::Decode::decode(<span class="kw-2">&amp;mut &amp;*</span>v).ok()))
+		</span><span class="prelude-val">Ok</span>(OffchainStorage::get(<span class="kw-2">&amp;</span>temp_key).and_then(|v| codec::Decode::decode(<span class="kw-2">&amp;mut &amp;*</span>v).ok()))
 	}
 }
 
@@ -589,8 +624,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: <span class="string">"runtime::mmr::offchain"</span>, <span class="string">"offchain db set: pos {} parent_hash {:?} key {:?}"</span>,
 			pos, parent_hash, temp_key
 		);
-		<span class="comment">// Indexing API is used to store the full node content.
-		</span>offchain_index::set(<span class="kw-2">&amp;</span>temp_key, <span class="kw-2">&amp;</span>encoded_node);
+		OffchainStorage::set::&lt;T, I&gt;(<span class="kw-2">&amp;</span>temp_key, <span class="kw-2">&amp;</span>encoded_node);
 	}
 }
 

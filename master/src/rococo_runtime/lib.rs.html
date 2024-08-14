@@ -4108,6 +4108,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>BeefyAuthorityToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaToEthereum;
 	<span class="kw">type </span>LeafExtra = H256;
 	<span class="kw">type </span>BeefyDataProvider = ParaHeadsRootProvider;
+	<span class="kw">type </span>WeightInfo = weights::pallet_beefy_mmr::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="kw">impl </span>paras_sudo_wrapper::Config <span class="kw">for </span>Runtime {}
@@ -4402,47 +4403,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Unreleased migrations. Add new ones here:
 	</span><span class="kw">pub type </span>Unreleased = (
-		pallet_society::migrations::MigrateToV2&lt;Runtime, (), ()&gt;,
-		parachains_configuration::migration::v7::MigrateToV7&lt;Runtime&gt;,
-		assigned_slots::migration::v1::MigrateToV1&lt;Runtime&gt;,
-		parachains_scheduler::migration::MigrateV1ToV2&lt;Runtime&gt;,
-		parachains_configuration::migration::v8::MigrateToV8&lt;Runtime&gt;,
-		parachains_configuration::migration::v9::MigrateToV9&lt;Runtime&gt;,
-		paras_registrar::migration::MigrateToV1&lt;Runtime, ()&gt;,
-		pallet_referenda::migration::v1::MigrateV0ToV1&lt;Runtime, ()&gt;,
-		pallet_referenda::migration::v1::MigrateV0ToV1&lt;Runtime, pallet_referenda::Instance2&gt;,
+        pallet_society::migrations::MigrateToV2&lt;Runtime, (), ()&gt;,
+        parachains_configuration::migration::v7::MigrateToV7&lt;Runtime&gt;,
+        assigned_slots::migration::v1::MigrateToV1&lt;Runtime&gt;,
+        parachains_scheduler::migration::MigrateV1ToV2&lt;Runtime&gt;,
+        parachains_configuration::migration::v8::MigrateToV8&lt;Runtime&gt;,
+        parachains_configuration::migration::v9::MigrateToV9&lt;Runtime&gt;,
+        paras_registrar::migration::MigrateToV1&lt;Runtime, ()&gt;,
+        pallet_referenda::migration::v1::MigrateV0ToV1&lt;Runtime, ()&gt;,
+        pallet_referenda::migration::v1::MigrateV0ToV1&lt;Runtime, pallet_referenda::Instance2&gt;,
 
-		<span class="comment">// Unlock &amp; unreserve Gov1 funds
+        <span class="comment">// Unlock &amp; unreserve Gov1 funds
 
-		</span>pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds&lt;UnlockConfig&gt;,
-		pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds&lt;UnlockConfig&gt;,
-		pallet_tips::migrations::unreserve_deposits::UnreserveDeposits&lt;UnlockConfig, ()&gt;,
+        </span>pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds&lt;UnlockConfig&gt;,
+        pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds&lt;UnlockConfig&gt;,
+        pallet_tips::migrations::unreserve_deposits::UnreserveDeposits&lt;UnlockConfig, ()&gt;,
 
-		<span class="comment">// Delete all Gov v1 pallet storage key/values.
+        <span class="comment">// Delete all Gov v1 pallet storage key/values.
 
-		</span>frame_support::migrations::RemovePallet&lt;DemocracyPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
-		frame_support::migrations::RemovePallet&lt;CouncilPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
-		frame_support::migrations::RemovePallet&lt;TechnicalCommitteePalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
-		frame_support::migrations::RemovePallet&lt;PhragmenElectionPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
-		frame_support::migrations::RemovePallet&lt;TechnicalMembershipPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
-		frame_support::migrations::RemovePallet&lt;TipsPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
+        </span>frame_support::migrations::RemovePallet&lt;DemocracyPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
+        frame_support::migrations::RemovePallet&lt;CouncilPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
+        frame_support::migrations::RemovePallet&lt;TechnicalCommitteePalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
+        frame_support::migrations::RemovePallet&lt;PhragmenElectionPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
+        frame_support::migrations::RemovePallet&lt;TechnicalMembershipPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
+        frame_support::migrations::RemovePallet&lt;TipsPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
+        pallet_grandpa::migrations::MigrateV4ToV5&lt;Runtime&gt;,
+        parachains_configuration::migration::v10::MigrateToV10&lt;Runtime&gt;,
 
-		pallet_grandpa::migrations::MigrateV4ToV5&lt;Runtime&gt;,
-		parachains_configuration::migration::v10::MigrateToV10&lt;Runtime&gt;,
+        <span class="comment">// Migrate Identity pallet for Usernames
+        </span>pallet_identity::migration::versioned::V0ToV1&lt;Runtime, IDENTITY_MIGRATION_KEY_LIMIT&gt;,
+        parachains_configuration::migration::v11::MigrateToV11&lt;Runtime&gt;,
+        <span class="comment">// This needs to come after the `parachains_configuration` above as we are reading the configuration.
+        </span>coretime::migration::MigrateToCoretime&lt;Runtime, <span class="kw">crate</span>::xcm_config::XcmRouter, GetLegacyLeaseImpl&gt;,
+        parachains_configuration::migration::v12::MigrateToV12&lt;Runtime&gt;,
+        parachains_on_demand::migration::MigrateV0ToV1&lt;Runtime&gt;,
 
-		<span class="comment">// Migrate Identity pallet for Usernames
-		</span>pallet_identity::migration::versioned::V0ToV1&lt;Runtime, IDENTITY_MIGRATION_KEY_LIMIT&gt;,
-		parachains_configuration::migration::v11::MigrateToV11&lt;Runtime&gt;,
-		<span class="comment">// This needs to come after the `parachains_configuration` above as we are reading the configuration.
-		</span>coretime::migration::MigrateToCoretime&lt;Runtime, <span class="kw">crate</span>::xcm_config::XcmRouter, GetLegacyLeaseImpl&gt;,
-		parachains_configuration::migration::v12::MigrateToV12&lt;Runtime&gt;,
-		parachains_on_demand::migration::MigrateV0ToV1&lt;Runtime&gt;,
-
-		<span class="comment">// permanent
-		</span>pallet_xcm::migration::MigrateToLatestXcmVersion&lt;Runtime&gt;,
-
-		parachains_inclusion::migration::MigrateToV1&lt;Runtime&gt;,
-	);
+        <span class="comment">// permanent
+        </span>pallet_xcm::migration::MigrateToLatestXcmVersion&lt;Runtime&gt;,
+        parachains_inclusion::migration::MigrateToV1&lt;Runtime&gt;,
+    );
 }
 
 <span class="doccomment">/// Executive: handles dispatch to the various modules.
@@ -4508,6 +4507,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Substrate
 		</span>[pallet_balances, Balances]
 		[pallet_balances, NisCounterpartBalances]
+		[pallet_beefy_mmr, MmrLeaf]
 		[frame_benchmarking::baseline, Baseline::&lt;Runtime&gt;]
 		[pallet_bounties, Bounties]
 		[pallet_child_bounties, ChildBounties]
