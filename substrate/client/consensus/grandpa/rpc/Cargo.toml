@@ -17,7 +17,7 @@ finality-grandpa = { version = "0.16.2", features = ["derive-codec"] }
 futures = "0.3.30"
 jsonrpsee = { version = "0.22.5", features = ["client-core", "macros", "server-core"] }
 log = { workspace = true, default-features = true }
-parity-scale-codec = { version = "3.6.1", features = ["derive"] }
+parity-scale-codec = { version = "3.6.12", features = ["derive"] }
 serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
 sc-client-api = { path = "../../../api" }

@@ -16,7 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
 fork-tree = { path = "../../../utils/fork-tree" }
 sc-client-api = { path = "../../api" }
 sc-consensus = { path = "../common" }

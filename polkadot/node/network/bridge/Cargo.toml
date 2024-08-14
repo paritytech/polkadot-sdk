@@ -15,7 +15,7 @@ async-trait = "0.1.79"
 futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../gum" }
 polkadot-primitives = { path = "../../../primitives" }
-parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
 sc-network = { path = "../../../../substrate/client/network" }
 sp-consensus = { path = "../../../../substrate/primitives/consensus/common" }
 polkadot-node-metrics = { path = "../../metrics" }
@@ -24,7 +24,7 @@ polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-overseer = { path = "../../overseer" }
 parking_lot = "0.12.1"
 bytes = "1"
-fatality = "0.1.0"
+fatality = "0.1.1"
 thiserror = { workspace = true }
 
 [dev-dependencies]

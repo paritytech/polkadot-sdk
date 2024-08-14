@@ -14,7 +14,7 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1" }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 futures = "0.3.30"
 log = { workspace = true, default-features = true }
 sp-api = { path = "../../primitives/api" }

@@ -456,4 +456,123 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub page_count: Page,
 }
 
+/// Trait to provide delegation functionality for stakers.
+///
+/// Introduces two new terms to the staking system:
+/// - `Delegator`: An account that delegates funds to an `Agent`.
+/// - `Agent`: An account that receives delegated funds from `Delegators`. It can then use these
+/// funds to participate in the staking system. It can never use its own funds to stake. They
+/// (virtually bond)[`StakingUnchecked::virtual_bond`] into the staking system and can also be
+/// termed as `Virtual Nominators`.
+///
+/// The `Agent` is responsible for managing rewards and slashing for all the `Delegators` that
+/// have delegated funds to it.
+pub trait DelegationInterface {
+	/// Balance type used by the staking system.
+	type Balance: Sub<Output = Self::Balance>
+		+ Ord
+		+ PartialEq
+		+ Default
+		+ Copy
+		+ MaxEncodedLen
+		+ FullCodec
+		+ TypeInfo
+		+ Saturating;
+
+	/// AccountId type used by the staking system.
+	type AccountId: Clone + core::fmt::Debug;
+
+	/// Effective balance of the `Agent` account.
+	///
+	/// This takes into account any pending slashes to `Agent`.
+	fn agent_balance(agent: &Self::AccountId) -> Self::Balance;
+
+	/// Returns the total amount of funds delegated by a `delegator`.
+	fn delegator_balance(delegator: &Self::AccountId) -> Self::Balance;
+
+	/// Delegate funds to `Agent`.
+	///
+	/// Only used for the initial delegation. Use [`Self::delegate_extra`] to add more delegation.
+	fn delegate(
+		delegator: &Self::AccountId,
+		agent: &Self::AccountId,
+		reward_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Add more delegation to the `Agent`.
+	///
+	/// If this is the first delegation, use [`Self::delegate`] instead.
+	fn delegate_extra(
+		delegator: &Self::AccountId,
+		agent: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Withdraw or revoke delegation to `Agent`.
+	///
+	/// If there are `Agent` funds upto `amount` available to withdraw, then those funds would
+	/// be released to the `delegator`
+	fn withdraw_delegation(
+		delegator: &Self::AccountId,
+		agent: &Self::AccountId,
+		amount: Self::Balance,
+		num_slashing_spans: u32,
+	) -> DispatchResult;
+
+	/// Returns true if there are pending slashes posted to the `Agent` account.
+	///
+	/// Slashes to `Agent` account are not immediate and are applied lazily. Since `Agent`
+	/// has an unbounded number of delegators, immediate slashing is not possible.
+	fn has_pending_slash(agent: &Self::AccountId) -> bool;
+
+	/// Apply a pending slash to an `Agent` by slashing `value` from `delegator`.
+	///
+	/// A reporter may be provided (if one exists) in order for the implementor to reward them,
+	/// if applicable.
+	fn delegator_slash(
+		agent: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+		maybe_reporter: Option<Self::AccountId>,
+	) -> DispatchResult;
+}
+
+/// Trait to provide functionality for direct stakers to migrate to delegation agents.
+/// See [`DelegationInterface`] for more details on delegation.
+pub trait DelegationMigrator {
+	/// Balance type used by the staking system.
+	type Balance: Sub<Output = Self::Balance>
+		+ Ord
+		+ PartialEq
+		+ Default
+		+ Copy
+		+ MaxEncodedLen
+		+ FullCodec
+		+ TypeInfo
+		+ Saturating;
+
+	/// AccountId type used by the staking system.
+	type AccountId: Clone + core::fmt::Debug;
+
+	/// Migrate an existing `Nominator` to `Agent` account.
+	///
+	/// The implementation should ensure the `Nominator` account funds are moved to an escrow
+	/// from which `Agents` can later release funds to its `Delegators`.
+	fn migrate_nominator_to_agent(
+		agent: &Self::AccountId,
+		reward_account: &Self::AccountId,
+	) -> DispatchResult;
+
+	/// Migrate `value` of delegation to `delegator` from a migrating agent.
+	///
+	/// When a direct `Nominator` migrates to `Agent`, the funds are kept in escrow. This function
+	/// allows the `Agent` to release the funds to the `delegator`.
+	fn migrate_delegation(
+		agent: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+	) -> DispatchResult;
+}
+
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);

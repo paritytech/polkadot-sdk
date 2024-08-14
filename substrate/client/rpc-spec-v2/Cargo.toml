@@ -30,7 +30,7 @@ sp-version = { path = "../../primitives/version" }
 sc-client-api = { path = "../api" }
 sc-utils = { path = "../utils" }
 sc-rpc = { path = "../rpc" }
-codec = { package = "parity-scale-codec", version = "3.6.1" }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 thiserror = { workspace = true }
 serde = { workspace = true, default-features = true }
 hex = "0.4"

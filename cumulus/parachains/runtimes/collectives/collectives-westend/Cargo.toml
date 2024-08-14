@@ -10,7 +10,7 @@ description = "Westend Collectives Parachain Runtime"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
 hex-literal = { version = "0.4.1" }
 log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }

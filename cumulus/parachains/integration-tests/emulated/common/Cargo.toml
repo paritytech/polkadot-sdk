@@ -10,7 +10,7 @@ description = "Common resources for integration testing with xcm-emulator"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 paste = "1.0.14"
 
 # Substrate

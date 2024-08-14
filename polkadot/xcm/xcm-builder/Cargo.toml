@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 impl-trait-for-tuples = "0.2.1"
-parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 xcm = { package = "staging-xcm", path = "..", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }

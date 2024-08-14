@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 clap = { version = "4.5.3", features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "3.0.0" }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 url = "2.4.0"
 
 # Substrate

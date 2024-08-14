@@ -13,7 +13,7 @@ workspace = true
 
 [dependencies]
 log = { workspace = true }
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
 sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 sp-arithmetic = { path = "../../../../substrate/primitives/arithmetic", default-features = false }

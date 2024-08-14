@@ -61,7 +61,7 @@
 //! blocks) and will go with the longest one in case of a tie.
 //!
 //! An in-depth description and analysis of the protocol can be found here:
-//! <https://research.web3.foundation/en/latest/polkadot/block-production/Babe.html>
+//! <https://research.web3.foundation/Polkadot/protocols/block-production/Babe>
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
