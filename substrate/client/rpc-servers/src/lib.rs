@@ -34,7 +34,7 @@ use jsonrpsee::{
 };
 use middleware::NodeHealthProxyLayer;
 use tower::Service;
-use utils::{build_rpc_api, deny_unsafe, get_proxy_ip, RpcSettings};
+use utils::{build_rpc_api, deny_unsafe, format_listen_addrs, get_proxy_ip, RpcSettings};
 
 pub use ip_network::IpNetwork;
 pub use jsonrpsee::{
@@ -268,7 +268,7 @@ where
 		});
 	}
 
-	log::info!("Running JSON-RPC server: addr={:?}", local_addrs);
+	log::info!("Running JSON-RPC server: addr={}", format_listen_addrs(&local_addrs));
 
 	Ok(server_handle)
 }

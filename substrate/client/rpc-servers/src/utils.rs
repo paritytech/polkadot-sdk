@@ -20,6 +20,7 @@
 
 use std::{
 	error::Error as StdError,
+	iter,
 	net::{IpAddr, SocketAddr},
 	num::NonZeroU32,
 	str::FromStr,
@@ -243,6 +244,22 @@ pub fn deny_unsafe(addr: &SocketAddr, methods: &RpcMethods) -> DenyUnsafe {
 		| (_, RpcMethods::Unsafe) | (false, RpcMethods::Auto) => DenyUnsafe::No,
 		_ => DenyUnsafe::Yes,
 	}
+}
+
+pub(crate) fn format_listen_addrs(addr: &[SocketAddr]) -> String {
+	let mut s = String::new();
+
+	let mut it = addr.iter().peekable();
+
+	while let Some(addr) = it.next() {
+		s.push_str(&addr.to_string());
+
+		if it.peek().is_some() {
+			s.push(',');
+		}
+	}
+
+	s
 }
 
 #[cfg(test)]
