@@ -74,47 +74,6 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	}
 }
 
-/// Utility to iterate through items in a storage map.
-pub struct StorageMapIterator<K, V, Hasher> {
-	prefix: Vec<u8>,
-	previous_key: Vec<u8>,
-	drain: bool,
-	_phantom: ::core::marker::PhantomData<(K, V, Hasher)>,
-}
-
-impl<K: Decode + Sized, V: Decode + Sized, Hasher: ReversibleStorageHasher> Iterator
-	for StorageMapIterator<K, V, Hasher>
-{
-	type Item = (K, V);
-
-	fn next(&mut self) -> Option<(K, V)> {
-		loop {
-			let maybe_next = sp_io::storage::next_key(&self.previous_key)
-				.filter(|n| n.starts_with(&self.prefix));
-			break match maybe_next {
-				Some(next) => {
-					self.previous_key = next;
-					match unhashed::get::<V>(&self.previous_key) {
-						Some(value) => {
-							if self.drain {
-								unhashed::kill(&self.previous_key)
-							}
-							let mut key_material =
-								Hasher::reverse(&self.previous_key[self.prefix.len()..]);
-							match K::decode(&mut key_material) {
-								Ok(key) => Some((key, value)),
-								Err(_) => continue,
-							}
-						},
-						None => continue,
-					}
-				},
-				None => None,
-			}
-		}
-	}
-}
-
 impl<K: FullCodec, V: FullCodec, G: StorageMap<K, V>> storage::IterableStorageMap<K, V> for G
 where
 	G::Hasher: ReversibleStorageHasher,

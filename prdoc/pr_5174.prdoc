@@ -1,0 +1,10 @@
+title: "Wasm-builder: Set the `resolver` version to `2`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Set the `resolver` version to `2` in the generated `Cargo.toml`.
+
+crates:
+  - name: substrate-wasm-builder
+    bump: patch

@@ -225,7 +225,7 @@ impl crate::benchmarking::Config<()> for TestRuntime {
 		use bp_runtime::RangeInclusiveExt;
 
 		let dispatch_weight =
-			REGULAR_PAYLOAD.declared_weight * params.message_nonces.checked_len().unwrap_or(0);
+			REGULAR_PAYLOAD.declared_weight * params.message_nonces.saturating_len();
 		(
 			*prepare_messages_proof(
 				params.message_nonces.into_iter().map(|n| message(n, REGULAR_PAYLOAD)).collect(),

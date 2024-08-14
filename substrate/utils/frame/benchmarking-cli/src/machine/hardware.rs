@@ -53,17 +53,17 @@ mod tests {
 			Requirements(vec![
 				Requirement {
 					metric: Metric::Blake2256,
-					minimum: Throughput::from_mibs(783.27),
+					minimum: Throughput::from_mibs(1000.00),
 					check_on_rc_authority: false
 				},
 				Requirement {
 					metric: Metric::Blake2256Parallel { num_cores: 8 },
-					minimum: Throughput::from_mibs(966.43),
+					minimum: Throughput::from_mibs(1000.00),
 					check_on_rc_authority: true,
 				},
 				Requirement {
 					metric: Metric::Sr25519Verify,
-					minimum: Throughput::from_kibs(560.670000128),
+					minimum: Throughput::from_kibs(637.619999744),
 					check_on_rc_authority: false
 				},
 				Requirement {

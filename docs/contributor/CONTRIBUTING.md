@@ -42,13 +42,13 @@ The set of labels and their description can be found [here](https://paritytech.g
 3. If you’re still working on your PR, please submit as “Draft”. Once a PR is ready for review change the status to
    “Open”, so that the maintainers get to review your PR. Generally PRs should sit for 48 hours in order to garner
    feedback. It may be merged before if all relevant parties had a look at it.
-4. With respect to auditing, please see [AUDIT.md](../AUDIT.md). In general, merging to master can happen independent of
+4. With respect to auditing, please see [AUDIT.md](../AUDIT.md). In general, merging to master can happen independently of
    audit.
 5. PRs will be able to be merged once all reviewers' comments are addressed and CI is successful.
 
 **Noting breaking changes:** When breaking APIs, the PR description should mention what was changed alongside some
 examples on how to change the code to make it work/compile. It should also mention potential storage migrations and if
-they require some special setup aside adding it to the list of migrations in the runtime.
+they require some special setup aside from adding it to the list of migrations in the runtime.
 
 ## Reviewing pull requests
 
@@ -81,6 +81,45 @@ Some Pull Requests can be exempt of `prdoc` documentation, those must be labelle
 Non "silent" PRs must come with documentation in the form of a `.prdoc` file.
 
 See more about `prdoc` [here](./prdoc.md)
+
+## Crate Configuration `Cargo.toml`
+
+The Polkadot SDK uses many conventions when configuring a crate. Watch out for these things when you
+are creating a new crate.
+
+### Is the Crate chain-specific?
+
+Chain-specific crates, for example
+[`bp-bridge-hub-rococo`](https://github.com/paritytech/polkadot-sdk/blob/4014b9bf2bf8f74862f63e7114e5c78009529be5/bridges/chains/chain-bridge-hub-rococo/Cargo.toml#L10-L11)
+, should not be released as part of the Polkadot-SDK umbrella crate. We have a custom metadata
+attribute that is picked up by the [generate-umbrella.py](../../scripts/generate-umbrella.py)
+script, that should be applied to all chain-specific crates like such:
+
+```toml
+[package]
+# Other stuff...
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
+# Other stuff...
+```
+
+### Is the Crate a Test, Example or Fuzzer?
+
+Test or example crates, like
+[`pallet-example-task`](https://github.com/paritytech/polkadot-sdk/blob/9b4acf27b869d7cbb07b03f0857763b8c8cc7566/substrate/frame/examples/tasks/Cargo.toml#L9)
+, should not be released to crates.io. To ensure this, you must add `publish = false` to your
+crate's `package` section:
+
+```toml
+[package]
+# Other stuff...
+
+publish = false
+
+# Other stuff...
+```
 
 ## Helping out
 

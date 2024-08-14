@@ -27,17 +27,25 @@ use frame_support::{storage::generator::StorageValue, traits::Get, weights::Weig
 use frame_system::limits;
 use pallet_bridge_messages::WeightInfoExt as _;
 
+// Re-export to avoid include all dependencies everywhere.
+#[doc(hidden)]
+pub mod __private {
+	pub use bp_xcm_bridge_hub;
+	pub use static_assertions;
+}
+
 /// Macro that ensures that the runtime configuration and chain primitives crate are sharing
 /// the same types (nonce, block number, hash, hasher, account id and header).
 #[macro_export]
 macro_rules! assert_chain_types(
 	( runtime: $r:path, this_chain: $this:path ) => {
 		{
+			use frame_system::{Config as SystemConfig, pallet_prelude::{BlockNumberFor, HeaderFor}};
+			use $crate::integrity::__private::static_assertions::assert_type_eq_all;
+
 			// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
 			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
 			// and relays will stop functioning)
-			use frame_system::{Config as SystemConfig, pallet_prelude::{BlockNumberFor, HeaderFor}};
-			use static_assertions::assert_type_eq_all;
 
 			assert_type_eq_all!(<$r as SystemConfig>::Nonce, bp_runtime::NonceOf<$this>);
 			assert_type_eq_all!(BlockNumberFor<$r>, bp_runtime::BlockNumberOf<$this>);
@@ -60,14 +68,15 @@ macro_rules! assert_bridge_messages_pallet_types(
 		bridged_chain: $bridged:path,
 	) => {
 		{
-			// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
-			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
-			// and relays will stop functioning)
 			use $crate::messages_xcm_extension::XcmAsPlainPayload;
+			use $crate::integrity::__private::static_assertions::assert_type_eq_all;
 			use bp_messages::ChainWithMessages;
 			use bp_runtime::Chain;
 			use pallet_bridge_messages::Config as MessagesConfig;
-			use static_assertions::assert_type_eq_all;
+
+			// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
+			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
+			// and relays will stop functioning)
 
 			assert_type_eq_all!(<$r as MessagesConfig<$i>>::ThisChain, $this);
 			assert_type_eq_all!(<$r as MessagesConfig<$i>>::BridgedChain, $bridged);

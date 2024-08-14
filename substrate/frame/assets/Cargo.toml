@@ -4,7 +4,7 @@ version = "29.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME asset management pallet"
 readme = "README.md"
@@ -30,7 +30,6 @@ frame-benchmarking = { optional = true, workspace = true }
 sp-core = { workspace = true }
 
 [dev-dependencies]
-sp-std = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 

@@ -31,6 +31,7 @@ use std::{
 	ops::Deref,
 	path::{Path, PathBuf},
 	process,
+	sync::OnceLock,
 };
 use strum::{EnumIter, IntoEnumIterator};
 use toml::value::Table;
@@ -506,7 +507,10 @@ fn create_project_cargo_toml(
 
 	wasm_workspace_toml.insert("dependencies".into(), dependencies.into());
 
-	wasm_workspace_toml.insert("workspace".into(), Table::new().into());
+	let mut workspace = Table::new();
+	workspace.insert("resolver".into(), "2".into());
+
+	wasm_workspace_toml.insert("workspace".into(), workspace.into());
 
 	if target == RuntimeTarget::Riscv {
 		// This dependency currently doesn't compile under RISC-V, so patch it with our own fork.
@@ -899,6 +903,12 @@ fn build_bloaty_blob(
 		}
 	}
 
+	// Inherit jobserver in child cargo command to ensure we don't try to use more concurrency than
+	// available
+	if let Some(c) = get_jobserver() {
+		c.configure(&mut build_cmd);
+	}
+
 	println!("{}", colorize_info_message("Information that should be included in a bug report."));
 	println!("{} {:?}", colorize_info_message("Executing build command:"), build_cmd);
 	println!("{} {}", colorize_info_message("Using rustc version:"), cargo_cmd.rustc_version());
@@ -1177,4 +1187,14 @@ fn copy_blob_to_target_directory(cargo_manifest: &Path, blob_binary: &WasmBinary
 		target_dir.join(format!("{}.wasm", get_blob_name(RuntimeTarget::Wasm, cargo_manifest))),
 	)
 	.expect("Copies blob binary to `WASM_TARGET_DIRECTORY`.");
+}
+
+// Get jobserver from parent cargo command
+pub fn get_jobserver() -> &'static Option<jobserver::Client> {
+	static JOBSERVER: OnceLock<Option<jobserver::Client>> = OnceLock::new();
+
+	JOBSERVER.get_or_init(|| {
+		// Unsafe because it deals with raw fds
+		unsafe { jobserver::Client::from_env() }
+	})
 }

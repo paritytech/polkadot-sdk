@@ -257,7 +257,10 @@ pub(crate) trait NodeSpec {
 			let prometheus_registry = parachain_config.prometheus_registry().cloned();
 			let transaction_pool = params.transaction_pool.clone();
 			let import_queue_service = params.import_queue.service();
-			let net_config = FullNetworkConfiguration::<_, _, Net>::new(&parachain_config.network);
+			let net_config = FullNetworkConfiguration::<_, _, Net>::new(
+				&parachain_config.network,
+				prometheus_registry.clone(),
+			);
 
 			let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
 				build_network(BuildNetworkParams {
@@ -829,7 +832,7 @@ where
 				relay_chain_slot_duration,
 				proposer: Proposer::new(proposer_factory),
 				collator_service,
-				authoring_duration: Duration::from_millis(1500),
+				authoring_duration: Duration::from_millis(2000),
 				reinitialize: false,
 			},
 		};

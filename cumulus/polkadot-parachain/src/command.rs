@@ -295,6 +295,7 @@ fn extract_parachain_id(id: &str) -> (&str, &str, Option<ParaId>) {
 	let para_prefixes = [
 		// Penpal
 		"penpal-rococo-",
+		"penpal-westend-",
 		"penpal-kusama-",
 		"penpal-polkadot-",
 		// Glutton Kusama
