@@ -20,7 +20,6 @@
 
 use std::{
 	error::Error as StdError,
-	iter,
 	net::{IpAddr, SocketAddr},
 	num::NonZeroU32,
 	str::FromStr,
