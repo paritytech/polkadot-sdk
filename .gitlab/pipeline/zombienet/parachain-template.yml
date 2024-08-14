@@ -35,4 +35,6 @@ zombienet-parachain-template-smoke:
   extends:
     - .zombienet-parachain-template-common
   script:
+    - echo $PATH
+    - ls -ltr ./artifacts
     - cargo test -p parachain-template-zombienet --test smoke

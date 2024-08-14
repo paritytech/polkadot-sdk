@@ -529,10 +529,10 @@ members = [
 	"templates/parachain/node",
 	"templates/parachain/pallets/template",
 	"templates/parachain/runtime",
-	"templates/parachain/zombienet",
 	"templates/solochain/node",
 	"templates/solochain/pallets/template",
 	"templates/solochain/runtime",
+	"templates/zombienet",
 	"umbrella",
 ]
 
