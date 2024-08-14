@@ -163,8 +163,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     XcmConfig: Config,
     MessagesPalletInstance: 'static,
     HrmpChannelOpener: ProvideInherent&lt;Call = Call&lt;Runtime&gt;&gt;,
-    RuntimeNetwork: Get&lt;<a class="enum" href="../../staging_xcm/v4/junction/enum.NetworkId.html" title="enum staging_xcm::v4::junction::NetworkId">NetworkId</a>&gt;,
-    BridgedNetwork: Get&lt;<a class="enum" href="../../staging_xcm/v4/junction/enum.NetworkId.html" title="enum staging_xcm::v4::junction::NetworkId">NetworkId</a>&gt;,
+    RuntimeNetwork: Get&lt;NetworkId&gt;,
+    BridgedNetwork: Get&lt;NetworkId&gt;,
     NetworkDistanceAsParentCount: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Test-case makes sure that Runtime can route XCM messages received in inbound queue,
 We just test here <code>MessageDispatch</code> configuration.
 We expect that runtime can route messages:

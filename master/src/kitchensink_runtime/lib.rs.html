@@ -3492,6 +3492,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3341" id="3341">3341</a>
 <a href="#3342" id="3342">3342</a>
 <a href="#3343" id="3343">3343</a>
+<a href="#3344" id="3344">3344</a>
+<a href="#3345" id="3345">3345</a>
+<a href="#3346" id="3346">3346</a>
+<a href="#3347" id="3347">3347</a>
+<a href="#3348" id="3348">3348</a>
+<a href="#3349" id="3349">3349</a>
+<a href="#3350" id="3350">3350</a>
+<a href="#3351" id="3351">3351</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -6277,6 +6285,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>member_needs_delegate_migration(member: AccountId) -&gt; bool {
 			NominationPools::api_member_needs_delegate_migration(member)
+		}
+
+		<span class="kw">fn </span>member_total_balance(member: AccountId) -&gt; Balance {
+			NominationPools::api_member_total_balance(member)
+		}
+
+		<span class="kw">fn </span>pool_balance(pool_id: pallet_nomination_pools::PoolId) -&gt; Balance {
+			NominationPools::api_pool_balance(pool_id)
 		}
 	}
 

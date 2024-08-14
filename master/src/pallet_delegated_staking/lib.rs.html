@@ -974,30 +974,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#823" id="823">823</a>
 <a href="#824" id="824">824</a>
 <a href="#825" id="825">825</a>
-<a href="#826" id="826">826</a>
-<a href="#827" id="827">827</a>
-<a href="#828" id="828">828</a>
-<a href="#829" id="829">829</a>
-<a href="#830" id="830">830</a>
-<a href="#831" id="831">831</a>
-<a href="#832" id="832">832</a>
-<a href="#833" id="833">833</a>
-<a href="#834" id="834">834</a>
-<a href="#835" id="835">835</a>
-<a href="#836" id="836">836</a>
-<a href="#837" id="837">837</a>
-<a href="#838" id="838">838</a>
-<a href="#839" id="839">839</a>
-<a href="#840" id="840">840</a>
-<a href="#841" id="841">841</a>
-<a href="#842" id="842">842</a>
-<a href="#843" id="843">843</a>
-<a href="#844" id="844">844</a>
-<a href="#845" id="845">845</a>
-<a href="#846" id="846">846</a>
-<a href="#847" id="847">847</a>
-<a href="#848" id="848">848</a>
-<a href="#849" id="849">849</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1148,7 +1124,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			Balanced, Inspect <span class="kw">as </span>FunInspect, Mutate <span class="kw">as </span>FunMutate,
 		},
-		tokens::{fungible::Credit, Fortitude, Precision, Preservation},
+		tokens::{fungible::Credit, Fortitude, Precision, Preservation, Restriction},
 		Defensive, DefensiveOption, Imbalance, OnUnbalanced,
 	},
 };
@@ -1319,9 +1295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;T&gt;::NotAllowed
 			);
 
-			<span class="comment">// remove provider reference
-			</span><span class="kw">let _ </span>= frame_system::Pallet::&lt;T&gt;::dec_providers(<span class="kw-2">&amp;</span>who)<span class="question-mark">?</span>;
-			&lt;Agents&lt;T&gt;&gt;::remove(who);
+			AgentLedger::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>who);
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -1391,9 +1365,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			amount: BalanceOf&lt;T&gt;,
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>agent = ensure_signed(origin)<span class="question-mark">?</span>;
-
-			<span class="comment">// Ensure they have minimum delegation.
-			</span><span class="macro">ensure!</span>(amount &gt;= T::Currency::minimum_balance(), Error::&lt;T&gt;::NotEnoughFunds);
 
 			<span class="comment">// Ensure delegator is sane.
 			</span><span class="macro">ensure!</span>(!<span class="self">Self</span>::is_agent(<span class="kw-2">&amp;</span>delegator), Error::&lt;T&gt;::NotAllowed);
@@ -1493,13 +1464,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Registers a new agent in the system.
 	</span><span class="kw">fn </span>do_register_agent(who: <span class="kw-2">&amp;</span>T::AccountId, reward_account: <span class="kw-2">&amp;</span>T::AccountId) {
-		AgentLedger::&lt;T&gt;::new(reward_account).update(who);
-
-		<span class="comment">// Agent does not hold balance of its own but this pallet will provide for this to exist.
-		// This is expected to be a keyless account and not created by any user directly so safe.
-		// TODO: Someday if we allow anyone to be an agent, we should take a deposit for
-		// being a delegator.
-		</span>frame_system::Pallet::&lt;T&gt;::inc_providers(who);
+		<span class="comment">// TODO: Consider taking a deposit for being an agent.
+		</span>AgentLedger::&lt;T&gt;::new(reward_account).update(who);
 	}
 
 	<span class="doccomment">/// Migrate existing staker account `who` to an `Agent` account.
@@ -1509,9 +1475,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// We create a proxy delegator that will keep all the delegation funds until funds are
 		// transferred to actual delegator.
 		</span><span class="kw">let </span>proxy_delegator = <span class="self">Self</span>::generate_proxy_delegator(Agent::from(who.clone()));
-
-		<span class="comment">// Keep proxy delegator alive until all funds are migrated.
-		</span>frame_system::Pallet::&lt;T&gt;::inc_providers(<span class="kw-2">&amp;</span>proxy_delegator.clone().get());
 
 		<span class="comment">// Get current stake
 		</span><span class="kw">let </span>stake = T::CoreStaking::stake(who)<span class="question-mark">?</span>;
@@ -1534,7 +1497,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::CoreStaking::set_payee(who, reward_account)<span class="question-mark">?</span>;
 		<span class="comment">// delegate all transferred funds back to agent.
 		</span><span class="self">Self</span>::do_delegate(proxy_delegator, Agent::from(who.clone()), amount_to_transfer)<span class="question-mark">?</span>;
-
 		<span class="comment">// if the transferred/delegated amount was greater than the stake, mark the extra as
 		// unclaimed withdrawal.
 		</span><span class="kw">let </span>unclaimed_withdraws = amount_to_transfer
@@ -1578,21 +1540,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>delegator = delegator.get();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>ledger = AgentLedger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>agent).ok_or(Error::&lt;T&gt;::NotAgent)<span class="question-mark">?</span>;
+
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>existing_delegation) = Delegation::&lt;T&gt;::get(<span class="kw-2">&amp;</span>delegator) {
+			<span class="macro">ensure!</span>(existing_delegation.agent == agent, Error::&lt;T&gt;::InvalidDelegation);
+			<span class="comment">// update amount and return the updated delegation.
+			</span>existing_delegation.amount = existing_delegation
+				.amount
+				.checked_add(<span class="kw-2">&amp;</span>amount)
+				.ok_or(ArithmeticError::Overflow)<span class="question-mark">?</span>;
+			existing_delegation
+		} <span class="kw">else </span>{
+			Delegation::&lt;T&gt;::new(<span class="kw-2">&amp;</span>agent, amount)
+		}
+		.update(<span class="kw-2">&amp;</span>delegator);
+
 		<span class="comment">// try to hold the funds.
 		</span>T::Currency::hold(<span class="kw-2">&amp;</span>HoldReason::StakingDelegation.into(), <span class="kw-2">&amp;</span>delegator, amount)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>new_delegation_amount =
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(existing_delegation) = Delegation::&lt;T&gt;::get(<span class="kw-2">&amp;</span>delegator) {
-				<span class="macro">ensure!</span>(existing_delegation.agent == agent, Error::&lt;T&gt;::InvalidDelegation);
-				existing_delegation
-					.amount
-					.checked_add(<span class="kw-2">&amp;</span>amount)
-					.ok_or(ArithmeticError::Overflow)<span class="question-mark">?
-			</span>} <span class="kw">else </span>{
-				amount
-			};
-
-		Delegation::&lt;T&gt;::new(<span class="kw-2">&amp;</span>agent, new_delegation_amount).update_or_kill(<span class="kw-2">&amp;</span>delegator);
 		ledger.total_delegated =
 			ledger.total_delegated.checked_add(<span class="kw-2">&amp;</span>amount).ok_or(ArithmeticError::Overflow)<span class="question-mark">?</span>;
 		ledger.update(<span class="kw-2">&amp;</span>agent);
@@ -1638,9 +1602,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.checked_sub(<span class="kw-2">&amp;</span>amount)
 			.defensive_ok_or(ArithmeticError::Overflow)<span class="question-mark">?</span>;
 
-		<span class="comment">// remove delegator if nothing delegated anymore
-		</span>delegation.update_or_kill(<span class="kw-2">&amp;</span>delegator);
-
 		<span class="kw">let </span>released = T::Currency::release(
 			<span class="kw-2">&amp;</span>HoldReason::StakingDelegation.into(),
 			<span class="kw-2">&amp;</span>delegator,
@@ -1649,6 +1610,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)<span class="question-mark">?</span>;
 
 		<span class="macro">defensive_assert!</span>(released == amount, <span class="string">"hold should have been released fully"</span>);
+
+		<span class="comment">// update delegation.
+		</span>delegation.update(<span class="kw-2">&amp;</span>delegator);
 
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Released { agent, delegator, amount });
 
@@ -1668,49 +1632,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>source_delegation =
 			Delegators::&lt;T&gt;::get(<span class="kw-2">&amp;</span>source_delegator).defensive_ok_or(Error::&lt;T&gt;::BadState)<span class="question-mark">?</span>;
 
-		<span class="comment">// some checks that must have already been checked before.
+		<span class="comment">// ensure source has enough funds to migrate.
 		</span><span class="macro">ensure!</span>(source_delegation.amount &gt;= amount, Error::&lt;T&gt;::NotEnoughFunds);
 		<span class="macro">debug_assert!</span>(
 			!<span class="self">Self</span>::is_delegator(<span class="kw-2">&amp;</span>destination_delegator) &amp;&amp; !<span class="self">Self</span>::is_agent(<span class="kw-2">&amp;</span>destination_delegator)
 		);
 
 		<span class="kw">let </span>agent = source_delegation.agent.clone();
-		<span class="comment">// update delegations
-		</span>Delegation::&lt;T&gt;::new(<span class="kw-2">&amp;</span>agent, amount).update_or_kill(<span class="kw-2">&amp;</span>destination_delegator);
+		<span class="comment">// create a new delegation for destination delegator.
+		</span>Delegation::&lt;T&gt;::new(<span class="kw-2">&amp;</span>agent, amount).update(<span class="kw-2">&amp;</span>destination_delegator);
 
 		source_delegation.amount = source_delegation
 			.amount
 			.checked_sub(<span class="kw-2">&amp;</span>amount)
 			.defensive_ok_or(Error::&lt;T&gt;::BadState)<span class="question-mark">?</span>;
 
-		source_delegation.update_or_kill(<span class="kw-2">&amp;</span>source_delegator);
-
-		<span class="comment">// release funds from source
-		</span><span class="kw">let </span>released = T::Currency::release(
+		<span class="comment">// transfer the held amount in `source_delegator` to `destination_delegator`.
+		</span><span class="kw">let _ </span>= T::Currency::transfer_on_hold(
 			<span class="kw-2">&amp;</span>HoldReason::StakingDelegation.into(),
-			<span class="kw-2">&amp;</span>source_delegator,
-			amount,
-			Precision::BestEffort,
-		)<span class="question-mark">?</span>;
-
-		<span class="macro">defensive_assert!</span>(released == amount, <span class="string">"hold should have been released fully"</span>);
-
-		<span class="comment">// transfer the released amount to `destination_delegator`.
-		</span><span class="kw">let </span>post_balance = T::Currency::transfer(
 			<span class="kw-2">&amp;</span>source_delegator,
 			<span class="kw-2">&amp;</span>destination_delegator,
 			amount,
-			Preservation::Expendable,
-		)
-		.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::BadState)<span class="question-mark">?</span>;
+			Precision::Exact,
+			Restriction::OnHold,
+			Fortitude::Polite,
+		)<span class="question-mark">?</span>;
 
-		<span class="comment">// if balance is zero, clear provider for source (proxy) delegator.
-		</span><span class="kw">if </span>post_balance == Zero::zero() {
-			<span class="kw">let _ </span>= frame_system::Pallet::&lt;T&gt;::dec_providers(<span class="kw-2">&amp;</span>source_delegator).defensive();
-		}
-
-		<span class="comment">// hold the funds again in the new delegator account.
-		</span>T::Currency::hold(<span class="kw-2">&amp;</span>HoldReason::StakingDelegation.into(), <span class="kw-2">&amp;</span>destination_delegator, amount)<span class="question-mark">?</span>;
+		<span class="comment">// update source delegation.
+		</span>source_delegation.update(<span class="kw-2">&amp;</span>source_delegator);
 
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::MigratedDelegation {
 			agent,
@@ -1752,7 +1701,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>agent_ledger.remove_slash(actual_slash).save();
 		delegation.amount =
 			delegation.amount.checked_sub(<span class="kw-2">&amp;</span>actual_slash).ok_or(ArithmeticError::Overflow)<span class="question-mark">?</span>;
-		delegation.update_or_kill(<span class="kw-2">&amp;</span>delegator);
+		delegation.update(<span class="kw-2">&amp;</span>delegator);
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(reporter) = maybe_reporter {
 			<span class="kw">let </span>reward_payout: BalanceOf&lt;T&gt; = T::SlashRewardFraction::get() * actual_slash;
@@ -1801,18 +1750,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ledgers: BTreeMap&lt;T::AccountId, AgentLedger&lt;T&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">for </span>(agent, ledger) <span class="kw">in </span>ledgers {
-			<span class="macro">ensure!</span>(
-				<span class="macro">matches!</span>(
-					T::CoreStaking::status(<span class="kw-2">&amp;</span>agent).expect(<span class="string">"agent should be bonded"</span>),
-					sp_staking::StakerStatus::Nominator(<span class="kw">_</span>) | sp_staking::StakerStatus::Idle
-				),
-				<span class="string">"agent should be bonded and not validator"
-			</span>);
+			<span class="kw">let </span>staked_value = ledger.stakeable_balance();
+
+			<span class="kw">if </span>!staked_value.is_zero() {
+				<span class="macro">ensure!</span>(
+					<span class="macro">matches!</span>(
+						T::CoreStaking::status(<span class="kw-2">&amp;</span>agent).expect(<span class="string">"agent should be bonded"</span>),
+						sp_staking::StakerStatus::Nominator(<span class="kw">_</span>) | sp_staking::StakerStatus::Idle
+					),
+					<span class="string">"agent should be bonded and not validator"
+				</span>);
+			}
 
 			<span class="macro">ensure!</span>(
 				ledger.stakeable_balance() &gt;=
-					T::CoreStaking::total_stake(<span class="kw-2">&amp;</span>agent)
-						.expect(<span class="string">"agent should exist as a nominator"</span>),
+					T::CoreStaking::total_stake(<span class="kw-2">&amp;</span>agent).unwrap_or_default(),
 				<span class="string">"Cannot stake more than balance"
 			</span>);
 		}

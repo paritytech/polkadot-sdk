@@ -428,6 +428,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#277" id="277">277</a>
 <a href="#278" id="278">278</a>
 <a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -494,15 +518,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 	}
 
-	<span class="doccomment">/// Save self to storage. If the delegation amount is zero, remove the delegation.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>update_or_kill(<span class="self">self</span>, key: <span class="kw-2">&amp;</span>T::AccountId) {
-		<span class="comment">// Clean up if no delegation left.
-		</span><span class="kw">if </span><span class="self">self</span>.amount == Zero::zero() {
-			&lt;Delegators&lt;T&gt;&gt;::remove(key);
-			<span class="kw">return
-		</span>}
+	<span class="doccomment">/// Save self to storage.
+	///
+	/// If the delegation amount is zero, remove the delegation. Also adds and removes provider
+	/// reference as needed.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>update(<span class="self">self</span>, key: <span class="kw-2">&amp;</span>T::AccountId) {
+		<span class="kw">if </span>&lt;Delegators&lt;T&gt;&gt;::contains_key(key) {
+			<span class="comment">// Clean up if no delegation left.
+			</span><span class="kw">if </span><span class="self">self</span>.amount == Zero::zero() {
+				&lt;Delegators&lt;T&gt;&gt;::remove(key);
+				<span class="comment">// Remove provider if no delegation left.
+				</span><span class="kw">let _ </span>= frame_system::Pallet::&lt;T&gt;::dec_providers(key).defensive();
+				<span class="kw">return
+			</span>}
+		} <span class="kw">else </span>{
+			<span class="comment">// this is a new delegation. Provide for this account.
+			</span>frame_system::Pallet::&lt;T&gt;::inc_providers(key);
+		}
 
-		&lt;Delegators&lt;T&gt;&gt;::insert(key, <span class="self">self</span>)
+		&lt;Delegators&lt;T&gt;&gt;::insert(key, <span class="self">self</span>);
 	}
 }
 
@@ -548,8 +582,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Save self to storage with the given key.
+	///
+	/// Increments provider count if this is a new agent.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>update(<span class="self">self</span>, key: <span class="kw-2">&amp;</span>T::AccountId) {
+		<span class="kw">if </span>!&lt;Agents&lt;T&gt;&gt;::contains_key(key) {
+			<span class="comment">// This is a new agent. Provide for this account.
+			</span>frame_system::Pallet::&lt;T&gt;::inc_providers(key);
+		}
 		&lt;Agents&lt;T&gt;&gt;::insert(key, <span class="self">self</span>)
+	}
+
+	<span class="doccomment">/// Remove self from storage.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>remove(key: <span class="kw-2">&amp;</span>T::AccountId) {
+		<span class="macro">debug_assert!</span>(&lt;Agents&lt;T&gt;&gt;::contains_key(key), <span class="string">"Agent should exist in storage"</span>);
+		&lt;Agents&lt;T&gt;&gt;::remove(key);
+		<span class="comment">// Remove provider reference.
+		</span><span class="kw">let _ </span>= frame_system::Pallet::&lt;T&gt;::dec_providers(key).defensive();
 	}
 
 	<span class="doccomment">/// Effective total balance of the `Agent`.

@@ -163,18 +163,18 @@ For example, relay chains, parachains, smart contracts.
 Most messaging between consensus systems has to be done asynchronously, for this, XCM is used.
 Between two smart contracts on the same parachain, however, communication can be done
 synchronously.</p>
-<h3 id="location"><a class="doc-anchor" href="#location">§</a><a href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location"><code>Location</code></a></h3>
+<h3 id="location"><a class="doc-anchor" href="#location">§</a><a href="xcm::v4::prelude::Location"><code>Location</code></a></h3>
 <p>A way of addressing consensus systems.
 These could be relative or absolute.</p>
-<h3 id="junction"><a class="doc-anchor" href="#junction">§</a><a href="../../staging_xcm/v4/junction/enum.Junction.html" title="enum staging_xcm::v4::junction::Junction"><code>Junction</code></a></h3>
-<p>The different ways of descending down a <a href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location"><code>Location</code></a> hierarchy.
+<h3 id="junction"><a class="doc-anchor" href="#junction">§</a><a href="xcm::v4::prelude::Junction"><code>Junction</code></a></h3>
+<p>The different ways of descending down a <a href="xcm::v4::prelude::Location"><code>Location</code></a> hierarchy.
 A junction can be a Parachain, an Account, or more.</p>
-<h3 id="asset"><a class="doc-anchor" href="#asset">§</a><a href="../../staging_xcm/v4/asset/struct.Asset.html" title="struct staging_xcm::v4::asset::Asset"><code>Asset</code></a></h3>
+<h3 id="asset"><a class="doc-anchor" href="#asset">§</a><a href="xcm::v4::prelude::Asset"><code>Asset</code></a></h3>
 <p>A way of identifying assets in the same or another consensus system, by using a
-<a href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location"><code>Location</code></a>.</p>
+<a href="xcm::v4::prelude::Location"><code>Location</code></a>.</p>
 <h3 id="sovereign-account"><a class="doc-anchor" href="#sovereign-account">§</a>Sovereign account</h3>
 <p>An account in a consensus system that is controlled by an account in another consensus system.</p>
-<p>Runtimes use a converter between a <a href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location"><code>Location</code></a> and an account.
+<p>Runtimes use a converter between a <a href="xcm::v4::prelude::Location"><code>Location</code></a> and an account.
 These converters implement the <a href="xcm_executor::traits::ConvertLocation"><code>ConvertLocation</code></a> trait.</p>
 <h3 id="teleport"><a class="doc-anchor" href="#teleport">§</a>Teleport</h3>
 <p>A way of transferring assets between two consensus systems without the need of a third party.

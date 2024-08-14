@@ -337,7 +337,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Implementations of public traits, namely [`DelegationInterface`] and [`OnStakingUpdate`].
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use </span>sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator, OnStakingUpdate};
+<span class="kw">use </span>sp_staking::{DelegationInterface, DelegationMigrator, OnStakingUpdate};
 
 <span class="kw">impl</span>&lt;T: Config&gt; DelegationInterface <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">type </span>Balance = BalanceOf&lt;T&gt;;

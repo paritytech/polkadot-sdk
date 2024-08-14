@@ -216,6 +216,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -281,6 +287,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// [`migrate_delegation`](pallet_nomination_pools::Call::migrate_delegation)
 		/// to migrate the funds of the pool member.
 		</span><span class="kw">fn </span>member_needs_delegate_migration(member: AccountId) -&gt; bool;
+
+		<span class="doccomment">/// Returns the total contribution of a pool member including any balance that is unbonding.
+		</span><span class="kw">fn </span>member_total_balance(who: AccountId) -&gt; Balance;
+
+		<span class="doccomment">/// Total balance contributed to the pool.
+		</span><span class="kw">fn </span>pool_balance(pool_id: PoolId) -&gt; Balance;
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

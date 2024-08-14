@@ -2980,37 +2980,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2829" id="2829">2829</a>
 <a href="#2830" id="2830">2830</a>
 <a href="#2831" id="2831">2831</a>
-<a href="#2832" id="2832">2832</a>
-<a href="#2833" id="2833">2833</a>
-<a href="#2834" id="2834">2834</a>
-<a href="#2835" id="2835">2835</a>
-<a href="#2836" id="2836">2836</a>
-<a href="#2837" id="2837">2837</a>
-<a href="#2838" id="2838">2838</a>
-<a href="#2839" id="2839">2839</a>
-<a href="#2840" id="2840">2840</a>
-<a href="#2841" id="2841">2841</a>
-<a href="#2842" id="2842">2842</a>
-<a href="#2843" id="2843">2843</a>
-<a href="#2844" id="2844">2844</a>
-<a href="#2845" id="2845">2845</a>
-<a href="#2846" id="2846">2846</a>
-<a href="#2847" id="2847">2847</a>
-<a href="#2848" id="2848">2848</a>
-<a href="#2849" id="2849">2849</a>
-<a href="#2850" id="2850">2850</a>
-<a href="#2851" id="2851">2851</a>
-<a href="#2852" id="2852">2852</a>
-<a href="#2853" id="2853">2853</a>
-<a href="#2854" id="2854">2854</a>
-<a href="#2855" id="2855">2855</a>
-<a href="#2856" id="2856">2856</a>
-<a href="#2857" id="2857">2857</a>
-<a href="#2858" id="2858">2858</a>
-<a href="#2859" id="2859">2859</a>
-<a href="#2860" id="2860">2860</a>
-<a href="#2861" id="2861">2861</a>
-<a href="#2862" id="2862">2862</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3112,7 +3081,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill,
+	ApplyExtrinsicResult, FixedU128, KeyTypeId, Percent, Permill,
 };
 <span class="kw">use </span>sp_staking::SessionIndex;
 <span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
@@ -5489,6 +5458,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>member_needs_delegate_migration(member: AccountId) -&gt; bool {
 			NominationPools::api_member_needs_delegate_migration(member)
 		}
+
+		<span class="kw">fn </span>member_total_balance(member: AccountId) -&gt; Balance {
+			NominationPools::api_member_total_balance(member)
+		}
+
+		<span class="kw">fn </span>pool_balance(pool_id: pallet_nomination_pools::PoolId) -&gt; Balance {
+			NominationPools::api_pool_balance(pool_id)
+		}
 	}
 
 	<span class="kw">impl </span>pallet_staking_runtime_api::StakingApi&lt;Block, Balance, AccountId&gt; <span class="kw">for </span>Runtime {
@@ -5786,45 +5763,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>preset_names() -&gt; Vec&lt;sp_genesis_builder::PresetId&gt; {
 			<span class="macro">vec!</span>[]
 		}
-	}
-}
-
-<span class="attr">#[cfg(all(test, feature = <span class="string">"try-runtime"</span>))]
-</span><span class="kw">mod </span>remote_tests {
-	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>frame_try_runtime::{runtime_decl_for_try_runtime::TryRuntime, UpgradeCheckSelect};
-	<span class="kw">use </span>remote_externalities::{
-		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
-	};
-	<span class="kw">use </span>std::env::var;
-
-	<span class="attr">#[tokio::test]
-	</span><span class="kw">async fn </span>run_migrations() {
-		<span class="kw">if </span>var(<span class="string">"RUN_MIGRATION_TESTS"</span>).is_err() {
-			<span class="kw">return</span>;
-		}
-
-		sp_tracing::try_init_simple();
-		<span class="kw">let </span>transport: Transport =
-			var(<span class="string">"WS"</span>).unwrap_or(<span class="string">"wss://westend-rpc.polkadot.io:443"</span>.to_string()).into();
-		<span class="kw">let </span>maybe_state_snapshot: <span class="prelude-ty">Option</span>&lt;SnapshotConfig&gt; = var(<span class="string">"SNAP"</span>).map(|s| s.into()).ok();
-		<span class="kw">let </span><span class="kw-2">mut </span>ext = Builder::&lt;Block&gt;::default()
-			.mode(<span class="kw">if let </span><span class="prelude-val">Some</span>(state_snapshot) = maybe_state_snapshot {
-				Mode::OfflineOrElseOnline(
-					OfflineConfig { state_snapshot: state_snapshot.clone() },
-					OnlineConfig {
-						transport,
-						state_snapshot: <span class="prelude-val">Some</span>(state_snapshot),
-						..Default::default()
-					},
-				)
-			} <span class="kw">else </span>{
-				Mode::Online(OnlineConfig { transport, ..Default::default() })
-			})
-			.build()
-			.<span class="kw">await
-			</span>.unwrap();
-		ext.execute_with(|| Runtime::on_runtime_upgrade(UpgradeCheckSelect::PreAndPost));
 	}
 }
 
