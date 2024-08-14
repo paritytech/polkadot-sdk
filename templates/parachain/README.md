@@ -65,7 +65,13 @@ binaries from [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk
 
 Make sure to bring `zombienet` and the relaychain binaries
 (`polkadot`, `polkadot-prepare-worker`, `polkadot-execute-worker`, `parachain-template-node`)
-into `PATH`, so that they are available in the following steps.
+into `PATH`, for example:
+
+```sh
+export PATH="./target/release/:$PATH"
+```
+
+This way, we can conveniently use them in the following steps.
 
 👥 The following command starts a local development chain, with a single relay chain node and a single parachain collator:
 
