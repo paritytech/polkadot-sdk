@@ -313,6 +313,23 @@ impl SessionGridTopologyEntry {
 		self.topology.is_validator(peer)
 	}
 
+	/// Returns the list of peers to route based on the required routing.
+	pub fn peers_to_route(&self, required_routing: RequiredRouting) -> Vec<PeerId> {
+		match required_routing {
+			RequiredRouting::All => self.topology.peer_ids.iter().copied().collect(),
+			RequiredRouting::GridX => self.local_neighbors.peers_x.iter().copied().collect(),
+			RequiredRouting::GridY => self.local_neighbors.peers_y.iter().copied().collect(),
+			RequiredRouting::GridXY => self
+				.local_neighbors
+				.peers_x
+				.iter()
+				.chain(self.local_neighbors.peers_y.iter())
+				.copied()
+				.collect(),
+			RequiredRouting::None | RequiredRouting::PendingTopology => Vec::new(),
+		}
+	}
+
 	/// Updates the known peer ids for the passed authorities ids.
 	pub fn update_authority_ids(
 		&mut self,
@@ -523,6 +540,11 @@ impl RandomRouting {
 	/// Increase number of messages being sent
 	pub fn inc_sent(&mut self) {
 		self.sent += 1
+	}
+
+	/// Returns `true` if we already took all the necessary samples.
+	pub fn is_complete(&self) -> bool {
+		self.sent >= self.target
 	}
 }
 

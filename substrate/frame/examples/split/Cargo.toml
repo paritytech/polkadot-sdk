@@ -4,10 +4,11 @@ version = "10.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "MIT-0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME example split pallet"
 readme = "README.md"
+publish = false
 
 [lints]
 workspace = true
@@ -16,20 +17,19 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
+codec = { workspace = true }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+scale-info = { features = ["derive"], workspace = true }
 
-frame-support = { path = "../../support", default-features = false }
-frame-system = { path = "../../system", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 
-sp-io = { path = "../../../primitives/io", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
+sp-io = { workspace = true }
 
-frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true }
+frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-sp-core = { path = "../../../primitives/core", default-features = false }
+sp-core = { workspace = true }
 
 [features]
 default = ["std"]
@@ -42,7 +42,6 @@ std = [
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -1,7 +1,7 @@
 name: Command Bench All
 
-on: 
-  workflow_dispatch: 
+on:
+  workflow_dispatch:
     inputs:
       pr:
         description: Number of the Pull Request
@@ -51,9 +51,8 @@ on:
           - people-rococo
           - people-westend
 
-
 jobs:
-  set-image:     
+  set-image:
     runs-on: ubuntu-latest
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
@@ -64,9 +63,12 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
   cmd-bench-all:
     needs: [set-image]
-    runs-on: arc-runners-polkadot-sdk-benchmark
+    runs-on: arc-runners-polkadot-sdk-weights
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Download repo
         uses: actions/checkout@v4

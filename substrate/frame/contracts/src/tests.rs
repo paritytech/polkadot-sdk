@@ -411,6 +411,7 @@ parameter_types! {
 	pub static DepositPerByte: BalanceOf<Test> = 1;
 	pub const DepositPerItem: BalanceOf<Test> = 2;
 	pub static MaxDelegateDependencies: u32 = 32;
+	pub static MaxTransientStorageSize: u32 = 4 * 1024;
 
 	pub static CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
 	// We need this one set high enough for running benchmarks.
@@ -458,7 +459,7 @@ parameter_types! {
 	pub static InstantiateAccount: Option<<Test as frame_system::Config>::AccountId> = None;
 }
 
-pub struct EnsureAccount<T, A>(sp_std::marker::PhantomData<(T, A)>);
+pub struct EnsureAccount<T, A>(core::marker::PhantomData<(T, A)>);
 impl<T: Config, A: sp_core::Get<Option<crate::AccountIdOf<T>>>>
 	EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureAccount<T, A>
 where
@@ -504,6 +505,7 @@ impl Config for Test {
 	type Migrations = crate::migration::codegen::BenchMigrations;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type MaxDelegateDependencies = MaxDelegateDependencies;
+	type MaxTransientStorageSize = MaxTransientStorageSize;
 	type Debug = TestDebug;
 }
 
@@ -547,9 +549,7 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		use env_logger::{Builder, Env};
-		let env = Env::new().default_filter_or("runtime=debug");
-		let _ = Builder::from_env(env).is_test(true).try_init();
+		sp_tracing::try_init_simple();
 		self.set_associated_consts();
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		pallet_balances::GenesisConfig::<Test> { balances: vec![] }
@@ -958,6 +958,68 @@ fn storage_max_value_limit() {
 				.data((<Test as Config>::Schedule::get().limits.payload_len + 1).encode())
 				.build(),
 			Error::<Test>::ValueTooLarge,
+		);
+	});
+}
+
+#[test]
+fn transient_storage_work() {
+	let (code, _code_hash) = compile_module::<Test>("transient_storage").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+		let addr = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
+
+		builder::bare_call(addr).build_and_unwrap_result();
+	});
+}
+
+#[test]
+fn transient_storage_limit_in_call() {
+	let (wasm_caller, _code_hash_caller) =
+		compile_module::<Test>("create_transient_storage_and_call").unwrap();
+	let (wasm_callee, _code_hash_callee) = compile_module::<Test>("set_transient_storage").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+
+		// Create both contracts: Constructors do nothing.
+		let addr_caller = builder::bare_instantiate(Code::Upload(wasm_caller))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
+		let addr_callee = builder::bare_instantiate(Code::Upload(wasm_callee))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
+
+		let storage_value_size = 1000;
+		MaxTransientStorageSize::set(4 * 1024);
+		// Call contracts with storage values within the limit.
+		// Caller and Callee contracts each set a transient storage value of size 1000.
+		assert_ok!(builder::call(addr_caller.clone())
+			.data((storage_value_size, storage_value_size, &addr_callee).encode())
+			.build(),);
+
+		MaxTransientStorageSize::set(512);
+		// Call a contract with a storage value that is too large.
+		// Limit exceeded in the caller contract.
+		assert_err_ignore_postinfo!(
+			builder::call(addr_caller.clone())
+				.data((storage_value_size, storage_value_size, &addr_callee).encode())
+				.build(),
+			<Error<Test>>::OutOfTransientStorage,
+		);
+
+		MaxTransientStorageSize::set(1536);
+		// Call a contract with a storage value that is too large.
+		// Limit exceeded in the callee contract.
+		assert_err_ignore_postinfo!(
+			builder::call(addr_caller)
+				.data((storage_value_size, storage_value_size, &addr_callee).encode())
+				.build(),
+			<Error<Test>>::ContractTrapped
 		);
 	});
 }

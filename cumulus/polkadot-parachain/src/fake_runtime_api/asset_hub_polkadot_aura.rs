@@ -53,7 +53,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> Vec<u32> {
 			unimplemented!()
 		}
 	}

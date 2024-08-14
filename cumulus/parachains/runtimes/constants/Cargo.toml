@@ -13,20 +13,20 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-smallvec = "1.11.0"
+smallvec = { workspace = true, default-features = true }
 
 # Substrate
-frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+frame-support = { workspace = true }
+sp-runtime = { workspace = true }
 
 # Polkadot
-polkadot-core-primitives = { path = "../../../../polkadot/core-primitives", default-features = false }
-rococo-runtime-constants = { path = "../../../../polkadot/runtime/rococo/constants", default-features = false, optional = true }
-westend-runtime-constants = { path = "../../../../polkadot/runtime/westend/constants", default-features = false, optional = true }
-xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
+polkadot-core-primitives = { workspace = true }
+rococo-runtime-constants = { optional = true, workspace = true }
+westend-runtime-constants = { optional = true, workspace = true }
+xcm = { workspace = true }
 
 # Cumulus
-cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
+cumulus-primitives-core = { workspace = true }
 
 [features]
 default = ["std"]

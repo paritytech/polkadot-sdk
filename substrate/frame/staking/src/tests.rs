@@ -41,7 +41,6 @@ use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	SessionIndex,
 };
-use sp_std::prelude::*;
 use substrate_test_utils::assert_eq_uvec;
 
 #[test]
@@ -780,7 +779,7 @@ fn nominators_also_get_slashed_pro_rata() {
 #[test]
 fn double_staking_should_fail() {
 	// should test (in the same order):
-	// * an account already bonded as stash cannot be be stashed again.
+	// * an account already bonded as stash cannot be stashed again.
 	// * an account already bonded as stash cannot nominate.
 	// * an account already bonded as controller can nominate.
 	ExtBuilder::default().try_state(false).build_and_execute(|| {
@@ -2070,7 +2069,7 @@ fn bond_with_no_staked_value() {
 			);
 			// bonded with absolute minimum value possible.
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 5, RewardDestination::Account(1)));
-			assert_eq!(Balances::locks(&1)[0].amount, 5);
+			assert_eq!(pallet_balances::Locks::<Test>::get(&1)[0].amount, 5);
 
 			// unbonding even 1 will cause all to be unbonded.
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(1), 1));
@@ -2091,14 +2090,14 @@ fn bond_with_no_staked_value() {
 			// not yet removed.
 			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(1), 0));
 			assert!(Staking::ledger(1.into()).is_ok());
-			assert_eq!(Balances::locks(&1)[0].amount, 5);
+			assert_eq!(pallet_balances::Locks::<Test>::get(&1)[0].amount, 5);
 
 			mock::start_active_era(3);
 
 			// poof. Account 1 is removed from the staking system.
 			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(1), 0));
 			assert!(Staking::ledger(1.into()).is_err());
-			assert_eq!(Balances::locks(&1).len(), 0);
+			assert_eq!(pallet_balances::Locks::<Test>::get(&1).len(), 0);
 		});
 }
 
@@ -3955,7 +3954,7 @@ fn test_multi_page_payout_stakers_by_page() {
 		assert_eq!(actual_exposure_1.own(), 0);
 		assert_eq!(actual_exposure_1.others().len(), 100 - 64);
 
-		let pre_payout_total_issuance = Balances::total_issuance();
+		let pre_payout_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
 		RewardOnUnbalanceWasCalled::set(false);
 		System::reset_events();
 
@@ -3976,8 +3975,8 @@ fn test_multi_page_payout_stakers_by_page() {
 		let controller_balance_after_p0_payout = Balances::free_balance(&11);
 
 		// verify rewards have been paid out but still some left
-		assert!(Balances::total_issuance() > pre_payout_total_issuance);
-		assert!(Balances::total_issuance() < pre_payout_total_issuance + payout);
+		assert!(pallet_balances::TotalIssuance::<Test>::get() > pre_payout_total_issuance);
+		assert!(pallet_balances::TotalIssuance::<Test>::get() < pre_payout_total_issuance + payout);
 
 		// verify the validator has been rewarded
 		assert!(controller_balance_after_p0_payout > controller_balance_before_p0_payout);
@@ -4000,7 +3999,11 @@ fn test_multi_page_payout_stakers_by_page() {
 		assert_eq!(Balances::free_balance(&11), controller_balance_after_p0_payout);
 
 		// verify all rewards have been paid out
-		assert_eq_error_rate!(Balances::total_issuance(), pre_payout_total_issuance + payout, 2);
+		assert_eq_error_rate!(
+			pallet_balances::TotalIssuance::<Test>::get(),
+			pre_payout_total_issuance + payout,
+			2
+		);
 		assert!(RewardOnUnbalanceWasCalled::get());
 
 		// Top 64 nominators of validator 11 automatically paid out, including the validator
@@ -4040,13 +4043,13 @@ fn test_multi_page_payout_stakers_by_page() {
 
 			// compute and ensure the reward amount is greater than zero.
 			let payout = current_total_payout_for_duration(reward_time_per_era());
-			let pre_payout_total_issuance = Balances::total_issuance();
+			let pre_payout_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
 
 			mock::start_active_era(i);
 			RewardOnUnbalanceWasCalled::set(false);
 			mock::make_all_reward_payment(i - 1);
 			assert_eq_error_rate!(
-				Balances::total_issuance(),
+				pallet_balances::TotalIssuance::<Test>::get(),
 				pre_payout_total_issuance + payout,
 				2
 			);
@@ -4172,7 +4175,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		assert_eq!(actual_exposure_1.own(), 0);
 		assert_eq!(actual_exposure_1.others().len(), 100 - 64);
 
-		let pre_payout_total_issuance = Balances::total_issuance();
+		let pre_payout_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
 		RewardOnUnbalanceWasCalled::set(false);
 
 		let controller_balance_before_p0_payout = Balances::free_balance(&11);
@@ -4187,8 +4190,8 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		let controller_balance_after_p0_payout = Balances::free_balance(&11);
 
 		// verify rewards have been paid out but still some left
-		assert!(Balances::total_issuance() > pre_payout_total_issuance);
-		assert!(Balances::total_issuance() < pre_payout_total_issuance + payout);
+		assert!(pallet_balances::TotalIssuance::<Test>::get() > pre_payout_total_issuance);
+		assert!(pallet_balances::TotalIssuance::<Test>::get() < pre_payout_total_issuance + payout);
 
 		// verify the validator has been rewarded
 		assert!(controller_balance_after_p0_payout > controller_balance_before_p0_payout);
@@ -4206,7 +4209,11 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		assert_eq!(Balances::free_balance(&11), controller_balance_after_p0_payout);
 
 		// verify all rewards have been paid out
-		assert_eq_error_rate!(Balances::total_issuance(), pre_payout_total_issuance + payout, 2);
+		assert_eq_error_rate!(
+			pallet_balances::TotalIssuance::<Test>::get(),
+			pre_payout_total_issuance + payout,
+			2
+		);
 		assert!(RewardOnUnbalanceWasCalled::get());
 
 		// verify all nominators of validator 11 are paid out, including the validator
@@ -4247,13 +4254,13 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 
 			// compute and ensure the reward amount is greater than zero.
 			let payout = current_total_payout_for_duration(reward_time_per_era());
-			let pre_payout_total_issuance = Balances::total_issuance();
+			let pre_payout_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
 
 			mock::start_active_era(i);
 			RewardOnUnbalanceWasCalled::set(false);
 			mock::make_all_reward_payment(i - 1);
 			assert_eq_error_rate!(
-				Balances::total_issuance(),
+				pallet_balances::TotalIssuance::<Test>::get(),
 				pre_payout_total_issuance + payout,
 				2
 			);
@@ -7158,7 +7165,7 @@ mod staking_unchecked {
 
 			// cannot set via set_payee as well.
 			assert_noop!(
-				<Staking as StakingInterface>::update_payee(&10, &10),
+				<Staking as StakingInterface>::set_payee(&10, &10),
 				Error::<Test>::RewardDestinationRestricted
 			);
 		});
@@ -7220,7 +7227,7 @@ mod staking_unchecked {
 			// migrate them to virtual staker
 			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&200);
 			// payee needs to be updated to a non-stash account.
-			assert_ok!(<Staking as StakingInterface>::update_payee(&200, &201));
+			assert_ok!(<Staking as StakingInterface>::set_payee(&200, &201));
 
 			// ensure the balance is not locked anymore
 			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 0);
@@ -7247,7 +7254,7 @@ mod staking_unchecked {
 				// make 101 a virtual nominator
 				<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
 				// set payee different to self.
-				assert_ok!(<Staking as StakingInterface>::update_payee(&101, &102));
+				assert_ok!(<Staking as StakingInterface>::set_payee(&101, &102));
 
 				// cache values
 				let nominator_stake = Staking::ledger(101.into()).unwrap().active;
@@ -7322,7 +7329,7 @@ mod staking_unchecked {
 				// make 101 a virtual nominator
 				<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
 				// set payee different to self.
-				assert_ok!(<Staking as StakingInterface>::update_payee(&101, &102));
+				assert_ok!(<Staking as StakingInterface>::set_payee(&101, &102));
 
 				// cache values
 				let validator_balance = Balances::free_balance(&11);

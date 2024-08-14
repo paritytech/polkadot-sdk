@@ -16,8 +16,8 @@
 
 //! Various implementations for the `MatchesFungible` trait.
 
+use core::marker::PhantomData;
 use frame_support::traits::Get;
-use sp_std::marker::PhantomData;
 use xcm::latest::{
 	Asset, AssetId, AssetInstance,
 	Fungibility::{Fungible, NonFungible},

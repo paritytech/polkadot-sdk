@@ -14,12 +14,10 @@
 // limitations under the License.
 
 use crate::imports::*;
-use people_rococo_runtime::xcm_config::XcmConfig as PeopleRococoXcmConfig;
-use rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
-	Rococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(627_959_000, 7_200)));
+	Rococo::assert_xcm_pallet_attempted_complete(None);
 
 	assert_expected_events!(
 		Rococo,
@@ -41,11 +39,7 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 fn relay_dest_assertions(t: SystemParaToRelayTest) {
 	type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
 
-	Rococo::assert_ump_queue_processed(
-		true,
-		Some(PeopleRococo::para_id()),
-		Some(Weight::from_parts(304_266_000, 7_186)),
-	);
+	Rococo::assert_ump_queue_processed(true, Some(PeopleRococo::para_id()), None);
 
 	assert_expected_events!(
 		Rococo,
@@ -64,20 +58,13 @@ fn relay_dest_assertions(t: SystemParaToRelayTest) {
 }
 
 fn relay_dest_assertions_fail(_t: SystemParaToRelayTest) {
-	Rococo::assert_ump_queue_processed(
-		false,
-		Some(PeopleRococo::para_id()),
-		Some(Weight::from_parts(157_718_000, 3_593)),
-	);
+	Rococo::assert_ump_queue_processed(false, Some(PeopleRococo::para_id()), None);
 }
 
 fn para_origin_assertions(t: SystemParaToRelayTest) {
 	type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
 
-	PeopleRococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		600_000_000,
-		7_000,
-	)));
+	PeopleRococo::assert_xcm_pallet_attempted_complete(None);
 
 	PeopleRococo::assert_parachain_system_ump_sent();
 
@@ -96,7 +83,7 @@ fn para_origin_assertions(t: SystemParaToRelayTest) {
 fn para_dest_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
 
-	PeopleRococo::assert_dmp_queue_complete(Some(Weight::from_parts(162_456_000, 0)));
+	PeopleRococo::assert_dmp_queue_complete(None);
 
 	assert_expected_events!(
 		PeopleRococo,

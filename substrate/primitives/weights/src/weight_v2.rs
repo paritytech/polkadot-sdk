@@ -401,14 +401,14 @@ where
 	}
 }
 
-#[cfg(any(test, feature = "std", feature = "runtime-benchmarks"))]
+#[cfg(any(test, feature = "std"))]
 impl From<u64> for Weight {
 	fn from(value: u64) -> Self {
 		Self::from_parts(value, value)
 	}
 }
 
-#[cfg(any(test, feature = "std", feature = "runtime-benchmarks"))]
+#[cfg(any(test, feature = "std"))]
 impl From<(u64, u64)> for Weight {
 	fn from(value: (u64, u64)) -> Self {
 		Self::from_parts(value.0, value.1)

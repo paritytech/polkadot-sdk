@@ -187,7 +187,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		candidacy_bond: 10,
 		invulnerables,
 	};
-	let session = pallet_session::GenesisConfig::<Test> { keys };
+	let session = pallet_session::GenesisConfig::<Test> { keys, ..Default::default() };
 	pallet_balances::GenesisConfig::<Test> { balances }
 		.assimilate_storage(&mut t)
 		.unwrap();

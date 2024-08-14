@@ -32,20 +32,16 @@ use bp_messages::MessageNonce;
 use bp_runtime::BasicOperatingMode;
 use bp_test_utils::authority_list;
 use xcm::GetVersion;
-use xcm_builder::{HaulBlob, HaulBlobError, HaulBlobExporter};
+use xcm_builder::{BridgeMessage, HaulBlob, HaulBlobError, HaulBlobExporter};
 use xcm_executor::traits::{validate_export, ExportXcm};
 
-pub fn prepare_inbound_xcm<InnerXcmRuntimeCall>(
-	xcm_message: Xcm<InnerXcmRuntimeCall>,
-	destination: InteriorLocation,
-) -> Vec<u8> {
+pub fn prepare_inbound_xcm(xcm_message: Xcm<()>, destination: InteriorLocation) -> Vec<u8> {
 	let location = xcm::VersionedInteriorLocation::from(destination);
-	let xcm = xcm::VersionedXcm::<InnerXcmRuntimeCall>::from(xcm_message);
-	// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
-	// or public fields, so just tuple
-	// (double encoding, because `.encode()` is called on original Xcm BLOB when it is pushed
-	// to the storage)
-	(location, xcm).encode().encode()
+	let xcm = xcm::VersionedXcm::<()>::from(xcm_message);
+
+	// (double encoding, because `.encode()` is called on original Xcm BLOB when it is pushed to the
+	// storage)
+	BridgeMessage { universal_dest: location, message: xcm }.encode().encode()
 }
 
 /// Helper that creates InitializationData mock data, that can be used to initialize bridge

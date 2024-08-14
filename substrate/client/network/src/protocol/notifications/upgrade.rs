@@ -20,6 +20,7 @@
 pub(crate) use self::notifications::{
 	NotificationsInOpen, NotificationsInSubstreamHandshake, NotificationsOutOpen,
 };
+
 pub use self::{
 	collec::UpgradeCollec,
 	notifications::{

@@ -20,7 +20,7 @@
 #![allow(unused_imports)]
 
 use frame_support::{traits::Get, weights::Weight};
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// Weight functions for `pallet_message_queue`.
 pub struct WeightInfo<T>(PhantomData<T>);

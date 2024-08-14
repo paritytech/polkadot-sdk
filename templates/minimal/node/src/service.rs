@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use futures::FutureExt;
-use runtime::{self, interface::OpaqueBlock as Block, RuntimeApi};
+use minimal_template_runtime::{interface::OpaqueBlock as Block, RuntimeApi};
 use sc_client_api::backend::Backend;
 use sc_executor::WasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
@@ -27,11 +27,6 @@ use std::sync::Arc;
 
 use crate::cli::Consensus;
 
-#[cfg(feature = "runtime-benchmarks")]
-type HostFunctions =
-	(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions);
-
-#[cfg(not(feature = "runtime-benchmarks"))]
 type HostFunctions = sp_io::SubstrateHostFunctions;
 
 #[docify::export]
@@ -126,7 +121,10 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		Block,
 		<Block as BlockT>::Hash,
 		Network,
-	>::new(&config.network);
+	>::new(
+		&config.network,
+		config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
+	);
 	let metrics = Network::register_notification_metrics(
 		config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
 	);

@@ -10,13 +10,13 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-minimal-template-node = { path = "./node" }
-minimal-template-runtime = { path = "./runtime" }
-pallet-minimal-template = { path = "./pallets/template" }
-polkadot-sdk-docs = { path = "../../docs/sdk" }
+minimal-template-node = { workspace = true }
+minimal-template-runtime = { workspace = true }
+pallet-minimal-template = { workspace = true, default-features = true }
+polkadot-sdk-docs = { workspace = true }
 
-frame = { package = "polkadot-sdk-frame", path = "../../substrate/frame" }
+frame = { workspace = true, default-features = true }
 
 # How we build docs in rust-docs
 simple-mermaid = "0.1.1"
-docify = "0.2.7"
+docify = { workspace = true }

@@ -27,7 +27,11 @@
 //!
 //! Users must ensure that they register this pallet as an inherent provider.
 
+extern crate alloc;
+
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::cmp;
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
 	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
@@ -54,7 +58,6 @@ use sp_runtime::{
 	},
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
-use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
 use xcm_builder::InspectMessageQueues;
 
@@ -938,7 +941,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -1530,7 +1533,7 @@ impl<T: Config> Pallet<T> {
 }
 
 /// Type that implements `SetCode`.
-pub struct ParachainSetCode<T>(sp_std::marker::PhantomData<T>);
+pub struct ParachainSetCode<T>(core::marker::PhantomData<T>);
 impl<T: Config> frame_system::SetCode<T> for ParachainSetCode<T> {
 	fn set_code(code: Vec<u8>) -> DispatchResult {
 		Pallet::<T>::schedule_code_upgrade(code)
@@ -1645,7 +1648,7 @@ pub trait CheckInherents<Block: BlockT> {
 
 /// Struct that always returns `Ok` on inherents check, needed for backwards-compatibility.
 #[doc(hidden)]
-pub struct DummyCheckInherents<Block>(sp_std::marker::PhantomData<Block>);
+pub struct DummyCheckInherents<Block>(core::marker::PhantomData<Block>);
 
 #[allow(deprecated)]
 impl<Block: BlockT> CheckInherents<Block> for DummyCheckInherents<Block> {
@@ -1718,7 +1721,7 @@ pub type RelaychainBlockNumberProvider<T> = RelaychainDataProvider<T>;
 ///   of [`RelayChainState`].
 /// - [`current_block_number`](Self::current_block_number): Will return
 ///   [`Pallet::last_relay_block_number()`].
-pub struct RelaychainDataProvider<T>(sp_std::marker::PhantomData<T>);
+pub struct RelaychainDataProvider<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 	type BlockNumber = relay_chain::BlockNumber;

@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Do not make pallet-nfts benchmarks signature-dependent
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      - Adds extra functionality to pallet-nfts's BenchmarkHelper to provide signers and sign message.
+      - Abstracts away the explicit link with Sr25519 schema in the benchmarks, allowing parachains with a different one to be able to run them and calculate the weights.
+      - Adds a default implementation for the empty tuple that leaves the code equivalent.
+
+crates:
+    - name: pallet-nfts
+      bump: minor
