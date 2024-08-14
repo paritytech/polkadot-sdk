@@ -1091,8 +1091,9 @@ pub fn new_full<
 					.any(|failure| matches!(failure.metric, Metric::Blake2256Parallel { .. }))
 				{
 					log::info!(
-						"⚠️  The hardware will fail the minimal physical CPU cores requirements {} for role 'Authority', find out more when this will become mandatory at:\n\
-						https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+						"⚠️  Starting January 2025 the hardware will fail the minimal physical CPU cores requirements {} for role 'Authority',\n\
+						    find out more when this will become mandatory at:\n\
+						    https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
 						err
 					);
 				}
