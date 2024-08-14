@@ -354,54 +354,28 @@ mod tests {
 	}
 }
 
-// TODO:(bridges-v2) - migration from static to dynamic lanes - FAIL-CI
-pub mod migration_for_bridges_v2 {
+/// Contains the migration for the AssetHubWestend<>AssetHubRococo bridge.
+pub mod migration {
 	use super::*;
+	use bp_messages::LaneId;
+	use frame_support::traits::ConstBool;
+	use sp_runtime::Either;
 
-	// /// A pair of sending chain location and message lane, used by this chain to send messages
-	// /// over the bridge.
-	// #[cfg_attr(feature = "std", derive(Debug, Eq, PartialEq))]
-	// pub struct SenderAndLane {
-	// 	/// Sending chain relative location.
-	// 	pub location: Location,
-	// 	/// Message lane, used by the sending chain.
-	// 	pub lane: LaneId,
-	// }
-	//
-	// impl SenderAndLane {
-	// 	/// Create new object using provided location and lane.
-	// 	pub fn new(location: Location, lane: LaneId) -> Self {
-	// 		SenderAndLane { location, lane }
-	// 	}
-	// }
-	//
-	// pub const XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO: LaneId = LaneId([0, 0, 0, 2]);
-	// parameter_types! {
-	// 	pub AssetHubWestendParaId: cumulus_primitives_core::ParaId =
-	// bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID.into(); 	pub AssetHubRococoParaId:
-	// cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
-	//
-	// 	// Lanes
-	// 	pub ActiveOutboundLanesToBridgeHubRococo: &'static [bp_messages::LaneId] =
-	// &[XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO]; 	pub const
-	// AssetHubWestendToAssetHubRococoMessagesLane: bp_messages::LaneId =
-	// XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO;
-	// 	pub FromAssetHubWestendToAssetHubRococoRoute: SenderAndLane = SenderAndLane::new(
-	// 		ParentThen([Parachain(AssetHubWestendParaId::get().into())].into()).into(),
-	// 		XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
-	// 	);
-	// 	pub ActiveLanes: alloc::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> =
-	// alloc::vec![ 		(
-	// 			FromAssetHubWestendToAssetHubRococoRoute::get(),
-	// 			(RococoGlobalConsensusNetwork::get(), [Parachain(AssetHubRococoParaId::get().into())].into())
-	// 		)
-	// 	];
-	// }
-
-	pub struct StaticToDynamicLanes;
-	impl frame_support::traits::OnRuntimeUpgrade for StaticToDynamicLanes {
-		fn on_runtime_upgrade() -> Weight {
-			Weight::zero()
-		}
+	parameter_types! {
+		pub AssetHubWestendToAssetHubRococoMessagesLane: LaneId = LaneId::from_inner(Either::Right([0, 0, 0, 2]));
+		pub AssetHubWestendLocation: Location = Location::new(1, [Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)]);
+		pub AssetHubRococoUniversalLocation: InteriorLocation = [GlobalConsensus(RococoGlobalConsensusNetwork::get()), Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)].into();
 	}
+
+	/// Ensure that the existing lanes for the AHW<>AHR bridge are correctly configured.
+	pub type StaticToDynamicLanes = pallet_xcm_bridge_hub::migration::OpenBridgeForLane<
+		Runtime,
+		XcmOverBridgeHubRococoInstance,
+		AssetHubWestendToAssetHubRococoMessagesLane,
+		// the lanes are already created for AHR<>AHW, but we need to link them to the bridge
+		// structs
+		ConstBool<false>,
+		AssetHubWestendLocation,
+		AssetHubRococoUniversalLocation,
+	>;
 }

@@ -162,11 +162,35 @@ pub type Migrations = (
 		ConstU32<BRIDGE_HUB_ID>,
 		ConstU32<ASSET_HUB_ID>,
 	>,
-	bridge_to_westend_config::migration_for_bridges_v2::StaticToDynamicLanes,
-	bridge_to_bulletin_config::migration_for_bridges_v2::StaticToDynamicLanes,
+	pallet_bridge_messages::migration::v1::MigrationToV1<
+		Runtime,
+		bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
+	>,
+	pallet_bridge_messages::migration::v1::MigrationToV1<
+		Runtime,
+		bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
+	>,
+	bridge_to_westend_config::migration::StaticToDynamicLanes,
+	bridge_to_bulletin_config::migration::StaticToDynamicLanes,
+	frame_support::migrations::RemoveStorage<
+		BridgeWestendMessagesPalletName,
+		OutboundLanesCongestedSignalsKey,
+		RocksDbWeight,
+	>,
+	frame_support::migrations::RemoveStorage<
+		BridgePolkadotBulletinMessagesPalletName,
+		OutboundLanesCongestedSignalsKey,
+		RocksDbWeight,
+	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
+
+parameter_types! {
+	pub const BridgeWestendMessagesPalletName: &'static str = "BridgeWestendMessages";
+	pub const BridgePolkadotBulletinMessagesPalletName: &'static str = "BridgePolkadotBulletinMessages";
+	pub const OutboundLanesCongestedSignalsKey: &'static str = "OutboundLanesCongestedSignals";
+}
 
 /// Migration to initialize storage versions for pallets added after genesis.
 ///
