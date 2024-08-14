@@ -26,7 +26,7 @@ use alloc::{
 	vec,
 	vec::Vec,
 };
-
+use sp_core::ByteArray;
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
@@ -41,9 +41,8 @@ use polkadot_primitives::{
 	CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
 	Id as ParaId, IndexedVec, InvalidDisputeStatementKind, PersistedValidationData, SessionIndex,
 	SigningContext, UncheckedSigned, ValidDisputeStatementKind, ValidationCode, ValidatorId,
-	ValidatorIndex, ValidityAttestation,
+	ValidatorIndex, ValidityAttestation, CollatorId, CollatorSignature,
 };
-use polkadot_primitives_test_helpers::{junk_collator, junk_collator_signature};
 use sp_core::H256;
 use sp_runtime::{
 	generic::Digest,
@@ -52,6 +51,18 @@ use sp_runtime::{
 };
 fn mock_validation_code() -> ValidationCode {
 	ValidationCode(vec![1, 2, 3])
+}
+
+// Create a dummy collator id suitable to be used in a V1 candidate descriptor.
+fn junk_collator() -> CollatorId {
+	CollatorId::from_slice(&mut (0..32).into_iter().collect::<Vec<_>>().as_slice())
+		.expect("32 bytes; qed")
+}
+
+// Creates a dummy collator signature suitable to be used in a V1 candidate descriptor.
+fn junk_collator_signature() -> CollatorSignature {
+	CollatorSignature::from_slice(&mut (0..64).into_iter().collect::<Vec<_>>().as_slice())
+		.expect("64 bytes; qed")
 }
 
 /// Grab an account, seeded by a name and index.
