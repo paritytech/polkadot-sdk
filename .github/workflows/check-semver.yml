@@ -23,7 +23,7 @@ jobs:
           ref: ${{ github.head_ref }} # Check out the actual changes - not the merge commit.
 
       - name: extra git setup
-        run: >
+        run: |
           git config --global --add safe.directory '*'
           echo "hi"
           git fetch --no-tags --no-recurse-submodules --depth=1 origin ${{ github.event.pull_request.base.sha }}
