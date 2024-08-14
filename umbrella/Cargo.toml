@@ -784,7 +784,7 @@ version = "0.10.0"
 path = "../cumulus/primitives/storage-weight-reclaim"
 default-features = false
 optional = true
-version = "7.0.0"
+version = "7.0.1"
 
 [dependencies.cumulus-primitives-timestamp]
 path = "../cumulus/primitives/timestamp"
@@ -856,7 +856,7 @@ version = "12.0.0"
 path = "../substrate/frame/system"
 default-features = false
 optional = true
-version = "37.0.0"
+version = "37.1.0"
 
 [dependencies.frame-system-benchmarking]
 path = "../substrate/frame/system/benchmarking"
@@ -1528,7 +1528,7 @@ version = "16.0.0"
 path = "../polkadot/runtime/parachains"
 default-features = false
 optional = true
-version = "16.0.0"
+version = "16.0.1"
 
 [dependencies.polkadot-sdk-frame]
 path = "../substrate/frame"
@@ -2164,7 +2164,7 @@ version = "17.0.0"
 path = "../polkadot/node/network/availability-distribution"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.0.1"
 
 [dependencies.polkadot-availability-recovery]
 path = "../polkadot/node/network/availability-recovery"
@@ -2242,7 +2242,7 @@ version = "17.0.0"
 path = "../polkadot/node/core/candidate-validation"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.1.0"
 
 [dependencies.polkadot-node-core-chain-api]
 path = "../polkadot/node/core/chain-api"
@@ -2272,7 +2272,7 @@ version = "17.0.0"
 path = "../polkadot/node/core/prospective-parachains"
 default-features = false
 optional = true
-version = "16.0.0"
+version = "16.1.0"
 
 [dependencies.polkadot-node-core-provisioner]
 path = "../polkadot/node/core/provisioner"
@@ -2350,13 +2350,13 @@ version = "17.0.0"
 path = "../polkadot/node/subsystem-types"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.1.0"
 
 [dependencies.polkadot-node-subsystem-util]
 path = "../polkadot/node/subsystem-util"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.1.0"
 
 [dependencies.polkadot-overseer]
 path = "../polkadot/node/overseer"
@@ -2374,7 +2374,7 @@ version = "17.0.0"
 path = "../polkadot/node/service"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.0.1"
 
 [dependencies.polkadot-statement-distribution]
 path = "../polkadot/node/network/statement-distribution"
@@ -2482,7 +2482,7 @@ version = "0.43.0"
 path = "../substrate/client/consensus/grandpa"
 default-features = false
 optional = true
-version = "0.29.0"
+version = "0.29.1"
 
 [dependencies.sc-consensus-grandpa-rpc]
 path = "../substrate/client/consensus/grandpa/rpc"
@@ -2710,7 +2710,7 @@ version = "0.9.0"
 path = "../substrate/primitives/blockchain"
 default-features = false
 optional = true
-version = "37.0.0"
+version = "37.0.1"
 
 [dependencies.sp-consensus]
 path = "../substrate/primitives/consensus/common"

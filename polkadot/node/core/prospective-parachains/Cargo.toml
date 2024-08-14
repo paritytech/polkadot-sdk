@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-prospective-parachains"
-version = "16.0.0"
+version = "16.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -26,7 +26,7 @@ polkadot-node-subsystem-util.default-features = true
 assert_matches = { workspace = true }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
-sp-tracing = { workspace = true }
+sp-tracing = { path = "../../../../substrate/primitives/tracing", default-features = false }
 sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
 rand = { workspace = true }
 rstest = { workspace = true }
