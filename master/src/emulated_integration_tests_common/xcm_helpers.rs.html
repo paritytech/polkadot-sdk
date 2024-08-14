@@ -227,7 +227,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -253,16 +252,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>xcm_transact_paid_execution(
 	call: DoubleEncoded&lt;()&gt;,
 	origin_kind: OriginKind,
-	native_asset: Asset,
+	fees: Asset,
 	beneficiary: AccountId,
 ) -&gt; VersionedXcm&lt;()&gt; {
 	<span class="kw">let </span>weight_limit = WeightLimit::Unlimited;
 	<span class="kw">let </span>require_weight_at_most = Weight::from_parts(<span class="number">1000000000</span>, <span class="number">200000</span>);
-	<span class="kw">let </span>native_assets: Assets = native_asset.clone().into();
 
 	VersionedXcm::from(Xcm(<span class="macro">vec!</span>[
-		WithdrawAsset(native_assets),
-		BuyExecution { fees: native_asset, weight_limit },
+		WithdrawAsset(fees.clone().into()),
+		BuyExecution { fees, weight_limit },
 		Transact { require_weight_at_most, origin_kind, call },
 		RefundSurplus,
 		DepositAsset {

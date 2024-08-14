@@ -212,6 +212,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -232,7 +237,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Cumulus
 </span><span class="kw">use </span>cumulus_primitives_core::ParaId;
-<span class="kw">use </span>emulated_integration_tests_common::{build_genesis_storage, collators, SAFE_XCM_VERSION};
+<span class="kw">use </span>emulated_integration_tests_common::{
+	accounts, build_genesis_storage, collators, SAFE_XCM_VERSION,
+};
 <span class="kw">use </span>parachains_common::Balance;
 
 <span class="kw">pub const </span>PARA_ID: u32 = <span class="number">1004</span>;
@@ -241,6 +248,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub fn </span>genesis() -&gt; Storage {
 	<span class="kw">let </span>genesis_config = people_westend_runtime::RuntimeGenesisConfig {
 		system: people_westend_runtime::SystemConfig::default(),
+		balances: people_westend_runtime::BalancesConfig {
+			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * <span class="number">4096</span>)).collect(),
+		},
 		parachain_info: people_westend_runtime::ParachainInfoConfig {
 			parachain_id: ParaId::from(PARA_ID),
 			..Default::default()

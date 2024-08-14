@@ -1,5 +1,5 @@
 (function() {var implementors = {
-"frame_system":[["impl&lt;T: <a class=\"trait\" href=\"frame_system/pallet/trait.Config.html\" title=\"trait frame_system::pallet::Config\">Config</a>&gt; <a class=\"trait\" href=\"sp_runtime/traits/trait.Lookup.html\" title=\"trait sp_runtime::traits::Lookup\">Lookup</a> for <a class=\"struct\" href=\"frame_system/struct.ChainContext.html\" title=\"struct frame_system::ChainContext\">ChainContext</a>&lt;T&gt;"]],
+"frame_system":[["impl&lt;T: <a class=\"trait\" href=\"frame_system/pallet/trait.Config.html\" title=\"trait frame_system::pallet::Config\">Config</a>&gt; Lookup for <a class=\"struct\" href=\"frame_system/struct.ChainContext.html\" title=\"struct frame_system::ChainContext\">ChainContext</a>&lt;T&gt;"]],
 "polkadot_sdk_frame":[],
 "polkadot_service":[],
 "sp_runtime":[]

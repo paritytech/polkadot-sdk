@@ -201,19 +201,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
 <a href="#52" id="52">52</a>
-<a href="#53" id="53">53</a>
-<a href="#54" id="54">54</a>
-<a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
-<a href="#57" id="57">57</a>
-<a href="#58" id="58">58</a>
-<a href="#59" id="59">59</a>
-<a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -231,14 +218,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>imports {
-	<span class="kw">pub use </span>codec::Encode;
-
 	<span class="comment">// Substrate
-	</span><span class="kw">pub use </span>frame_support::{
-		assert_ok,
-		sp_runtime::{AccountId32, DispatchResult},
-		traits::fungibles::Inspect,
-	};
+	</span><span class="kw">pub use </span>frame_support::{assert_ok, sp_runtime::DispatchResult, traits::fungibles::Inspect};
 
 	<span class="comment">// Polkadot
 	</span><span class="kw">pub use </span>xcm::prelude::<span class="kw-2">*</span>;
@@ -252,20 +233,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub use </span>parachains_common::Balance;
 	<span class="kw">pub use </span>rococo_system_emulated_network::{
 		people_rococo_emulated_chain::{
-			genesis::ED <span class="kw">as </span>PEOPLE_ROCOCO_ED,
 			people_rococo_runtime::{
-				people, xcm_config::XcmConfig <span class="kw">as </span>PeopleRococoXcmConfig,
-				ExistentialDeposit <span class="kw">as </span>PeopleRococoExistentialDeposit, Runtime <span class="kw">as </span>PeopleRuntime,
+				xcm_config::XcmConfig <span class="kw">as </span>PeopleRococoXcmConfig,
+				ExistentialDeposit <span class="kw">as </span>PeopleRococoExistentialDeposit,
 			},
 			PeopleRococoParaPallet <span class="kw">as </span>PeopleRococoPallet,
 		},
 		rococo_emulated_chain::{
-			genesis::ED <span class="kw">as </span>ROCOCO_ED,
-			rococo_runtime::{
-				xcm_config::XcmConfig <span class="kw">as </span>RococoXcmConfig, BasicDeposit, ByteDeposit,
-				MaxAdditionalFields, MaxSubAccounts, Runtime <span class="kw">as </span>RococoRuntime,
-				RuntimeOrigin <span class="kw">as </span>RococoOrigin, SubAccountDeposit,
-			},
+			genesis::ED <span class="kw">as </span>ROCOCO_ED, rococo_runtime::xcm_config::XcmConfig <span class="kw">as </span>RococoXcmConfig,
 			RococoRelayPallet <span class="kw">as </span>RococoPallet,
 		},
 		PeopleRococoPara <span class="kw">as </span>PeopleRococo, PeopleRococoParaReceiver <span class="kw">as </span>PeopleRococoReceiver,
@@ -273,7 +248,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		RococoRelayReceiver <span class="kw">as </span>RococoReceiver, RococoRelaySender <span class="kw">as </span>RococoSender,
 	};
 
-	<span class="kw">pub type </span>RelayToSystemParaTest = Test&lt;Rococo, PeopleRococo&gt;;
 	<span class="kw">pub type </span>SystemParaToRelayTest = Test&lt;PeopleRococo, Rococo&gt;;
 }
 

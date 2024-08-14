@@ -202,18 +202,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#51" id="51">51</a>
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
-<a href="#54" id="54">54</a>
-<a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
-<a href="#57" id="57">57</a>
-<a href="#58" id="58">58</a>
-<a href="#59" id="59">59</a>
-<a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -231,13 +219,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>imports {
-	<span class="kw">pub use </span>codec::Encode;
 	<span class="comment">// Substrate
-	</span><span class="kw">pub use </span>frame_support::{
-		assert_ok,
-		sp_runtime::{AccountId32, DispatchResult},
-		traits::fungibles::Inspect,
-	};
+	</span><span class="kw">pub use </span>frame_support::{assert_ok, sp_runtime::DispatchResult, traits::fungibles::Inspect};
 
 	<span class="comment">// Polkadot
 	</span><span class="kw">pub use </span>xcm::prelude::<span class="kw-2">*</span>;
@@ -252,20 +235,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub use </span>westend_system_emulated_network::{
 		<span class="self">self</span>,
 		people_westend_emulated_chain::{
-			genesis::ED <span class="kw">as </span>PEOPLE_WESTEND_ED,
 			people_westend_runtime::{
-				people, xcm_config::XcmConfig <span class="kw">as </span>PeopleWestendXcmConfig,
-				ExistentialDeposit <span class="kw">as </span>PeopleWestendExistentialDeposit, Runtime <span class="kw">as </span>PeopleRuntime,
+				xcm_config::XcmConfig <span class="kw">as </span>PeopleWestendXcmConfig,
+				ExistentialDeposit <span class="kw">as </span>PeopleWestendExistentialDeposit,
 			},
 			PeopleWestendParaPallet <span class="kw">as </span>PeopleWestendPallet,
 		},
 		westend_emulated_chain::{
-			genesis::ED <span class="kw">as </span>WESTEND_ED,
-			westend_runtime::{
-				xcm_config::XcmConfig <span class="kw">as </span>WestendXcmConfig, BasicDeposit, ByteDeposit,
-				MaxAdditionalFields, MaxSubAccounts, Runtime <span class="kw">as </span>WestendRuntime,
-				RuntimeOrigin <span class="kw">as </span>WestendOrigin, SubAccountDeposit,
-			},
+			genesis::ED <span class="kw">as </span>WESTEND_ED, westend_runtime::xcm_config::XcmConfig <span class="kw">as </span>WestendXcmConfig,
 			WestendRelayPallet <span class="kw">as </span>WestendPallet,
 		},
 		PeopleWestendPara <span class="kw">as </span>PeopleWestend, PeopleWestendParaReceiver <span class="kw">as </span>PeopleWestendReceiver,
@@ -273,7 +250,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		WestendRelayReceiver <span class="kw">as </span>WestendReceiver, WestendRelaySender <span class="kw">as </span>WestendSender,
 	};
 
-	<span class="kw">pub type </span>RelayToSystemParaTest = Test&lt;Westend, PeopleWestend&gt;;
 	<span class="kw">pub type </span>SystemParaToRelayTest = Test&lt;PeopleWestend, Westend&gt;;
 }
 

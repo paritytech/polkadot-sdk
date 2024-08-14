@@ -288,6 +288,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub use </span>emulated_integration_tests_common::{
 		accounts::DUMMY_EMPTY,
 		get_account_id_from_seed, test_parachain_is_trusted_teleporter,
+		test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain <span class="kw">as </span>Para, RelayChain <span class="kw">as </span>Relay, Test,
 			TestArgs, TestContext, TestExt,
@@ -342,7 +343,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>ASSET_ID: u32 = <span class="number">3</span>;
 	<span class="kw">pub const </span>ASSET_MIN_BALANCE: u128 = <span class="number">1000</span>;
 
-	<span class="kw">pub type </span>RelayToSystemParaTest = Test&lt;Westend, AssetHubWestend&gt;;
 	<span class="kw">pub type </span>RelayToParaTest = Test&lt;Westend, PenpalA&gt;;
 	<span class="kw">pub type </span>ParaToRelayTest = Test&lt;PenpalA, Westend&gt;;
 	<span class="kw">pub type </span>SystemParaToRelayTest = Test&lt;AssetHubWestend, Westend&gt;;

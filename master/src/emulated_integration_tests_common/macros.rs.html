@@ -554,9 +554,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#403" id="403">403</a>
 <a href="#404" id="404">404</a>
 <a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -787,7 +784,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro-nonterminal">$</span><span class="macro">crate::macros::paste::paste! </span>{
 			<span class="comment">// init Origin variables
 			</span><span class="kw">let </span><span class="macro-nonterminal">sender </span>= [&lt;<span class="macro-nonterminal">$sender_para </span>Sender&gt;]::get();
-			<span class="kw">let </span><span class="kw-2">mut </span>para_sender_balance_before =
+			<span class="kw">let </span>para_sender_balance_before =
 				&lt;<span class="macro-nonterminal">$sender_para </span><span class="kw">as </span><span class="macro-nonterminal">$crate::macros::Chain</span>&gt;::account_data_of(sender.clone()).free;
 			<span class="kw">let </span>origin = &lt;<span class="macro-nonterminal">$sender_para </span><span class="kw">as </span><span class="macro-nonterminal">$crate::macros::Chain</span>&gt;::RuntimeOrigin::signed(sender.clone());
 			<span class="kw">let </span>assets: Assets = (Parent, <span class="macro-nonterminal">$amount</span>).into();
@@ -861,9 +858,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert_eq!</span>(para_sender_balance_before - <span class="macro-nonterminal">$amount </span>- delivery_fees, para_sender_balance_after);
 			<span class="macro">assert!</span>(relay_receiver_balance_after &gt; relay_receiver_balance_before);
-
-			<span class="comment">// Update sender balance
-			</span>para_sender_balance_before = &lt;<span class="macro-nonterminal">$sender_para </span><span class="kw">as </span><span class="macro-nonterminal">$crate::macros::Chain</span>&gt;::account_data_of(sender.clone()).free;
 		}
 	};
 }
