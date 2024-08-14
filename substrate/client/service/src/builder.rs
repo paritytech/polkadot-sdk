@@ -509,9 +509,7 @@ where
 	let rpc_server_handle = start_rpc_servers(&config, gen_rpc_module, rpc_id_provider)?;
 	let in_memory_rpc = {
 		let mut module = gen_rpc_module()?;
-		let mut ext = jsonrpsee::Extensions::new();
-		ext.insert(DenyUnsafe::No);
-		module.with_extensions(ext);
+		module.extensions_mut().insert(DenyUnsafe::No);
 		module
 	};
 

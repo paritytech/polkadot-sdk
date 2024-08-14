@@ -16,9 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::testing::allow_unsafe;
-
 use super::{helpers::SyncState, *};
+use crate::DenyUnsafe;
 use assert_matches::assert_matches;
 use futures::prelude::*;
 use jsonrpsee::{core::EmptyServerParams as EmptyParams, MethodsError as RpcError, RpcModule};
@@ -141,7 +140,7 @@ fn api<T: Into<Option<Status>>>(sync: T) -> RpcModule<System<Block>> {
 	)
 	.into_rpc();
 
-	module.with_extensions(allow_unsafe());
+	module.extensions_mut().insert(DenyUnsafe::Yes);
 	module
 }
 

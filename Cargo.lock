@@ -6912,7 +6912,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.7",
+ "socket2 0.4.9",
  "tokio",
  "tower-service",
  "tracing",
@@ -7407,7 +7407,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee"
 version = "0.24.2"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#90e654fc95f91c6158195e838f04814175f3c88c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#53cb4bfd5ad492373596f53d2edd74e350a12612"
 dependencies = [
  "jsonrpsee-core",
  "jsonrpsee-http-client",
@@ -7422,7 +7422,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-client-transport"
 version = "0.24.2"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#90e654fc95f91c6158195e838f04814175f3c88c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#53cb4bfd5ad492373596f53d2edd74e350a12612"
 dependencies = [
  "base64 0.22.1",
  "futures-util",
@@ -7444,7 +7444,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-core"
 version = "0.24.2"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#90e654fc95f91c6158195e838f04814175f3c88c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#53cb4bfd5ad492373596f53d2edd74e350a12612"
 dependencies = [
  "async-trait",
  "bytes",
@@ -7469,7 +7469,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-http-client"
 version = "0.24.2"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#90e654fc95f91c6158195e838f04814175f3c88c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#53cb4bfd5ad492373596f53d2edd74e350a12612"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -7493,7 +7493,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-proc-macros"
 version = "0.24.2"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#90e654fc95f91c6158195e838f04814175f3c88c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#53cb4bfd5ad492373596f53d2edd74e350a12612"
 dependencies = [
  "heck 0.5.0",
  "proc-macro-crate 3.1.0",
@@ -7505,7 +7505,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-server"
 version = "0.24.2"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#90e654fc95f91c6158195e838f04814175f3c88c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#53cb4bfd5ad492373596f53d2edd74e350a12612"
 dependencies = [
  "futures-util",
  "http 1.1.0",
@@ -7531,7 +7531,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-types"
 version = "0.24.2"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#90e654fc95f91c6158195e838f04814175f3c88c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#53cb4bfd5ad492373596f53d2edd74e350a12612"
 dependencies = [
  "http 1.1.0",
  "serde",
@@ -7542,7 +7542,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-ws-client"
 version = "0.24.2"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#90e654fc95f91c6158195e838f04814175f3c88c"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=na-inject-ext#53cb4bfd5ad492373596f53d2edd74e350a12612"
 dependencies = [
  "http 1.1.0",
  "jsonrpsee-client-transport",
@@ -15579,7 +15579,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80b776a1b2dc779f5ee0641f8ade0125bc1298dd41a9a0c16d8bd57b42d222b1"
 dependencies = [
  "bytes",
- "heck 0.5.0",
+ "heck 0.4.1",
  "itertools 0.11.0",
  "log",
  "multimap",

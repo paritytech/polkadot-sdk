@@ -18,7 +18,7 @@
 
 use self::error::Error;
 use super::*;
-use crate::testing::{allow_unsafe, deny_unsafe, test_executor, timeout_secs};
+use crate::testing::{allow_unsafe, test_executor, timeout_secs};
 use assert_matches::assert_matches;
 use futures::executor;
 use jsonrpsee::{core::EmptyServerParams as EmptyParams, MethodsError as RpcError};
@@ -275,7 +275,7 @@ async fn should_send_initial_storage_changes_and_notifications() {
 		.collect::<Vec<u8>>();
 
 		let mut api_rpc = api.into_rpc();
-		api_rpc.with_extensions(allow_unsafe());
+		api_rpc.extensions_mut().insert(DenyUnsafe::No);
 
 		let sub = api_rpc
 			.subscribe_unbounded(
@@ -503,7 +503,7 @@ async fn should_notify_on_runtime_version_initially() {
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let (api, _child) = new_full(client, test_executor());
 		let mut api_rpc = api.into_rpc();
-		api_rpc.with_extensions(allow_unsafe());
+		api_rpc.extensions_mut().insert(DenyUnsafe::No);
 
 		let sub = api_rpc
 			.subscribe_unbounded("state_subscribeRuntimeVersion", EmptyParams::new())
@@ -532,7 +532,7 @@ async fn wildcard_storage_subscriptions_are_rpc_unsafe() {
 	let client = Arc::new(substrate_test_runtime_client::new());
 	let (api, _child) = new_full(client, test_executor());
 	let mut api_rpc = api.into_rpc();
-	api_rpc.with_extensions(deny_unsafe());
+	api_rpc.extensions_mut().insert(DenyUnsafe::Yes);
 
 	let err = api_rpc.subscribe_unbounded("state_subscribeStorage", EmptyParams::new()).await;
 	assert_matches!(err, Err(RpcError::JsonRpc(e)) if e.message() == "RPC call is unsafe to be called externally");
@@ -543,7 +543,7 @@ async fn concrete_storage_subscriptions_are_rpc_safe() {
 	let client = Arc::new(substrate_test_runtime_client::new());
 	let (api, _child) = new_full(client, test_executor());
 	let mut api_rpc = api.into_rpc();
-	api_rpc.with_extensions(deny_unsafe());
+	api_rpc.extensions_mut().insert(DenyUnsafe::Yes);
 
 	let key = StorageKey(STORAGE_KEY.to_vec());
 	let sub = api_rpc.subscribe_unbounded("state_subscribeStorage", [[key]]).await;
