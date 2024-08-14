@@ -149,10 +149,6 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 	pub(crate) fn is_export(&self) -> bool {
 		matches!(self, Phase::Export(_))
 	}
-
-	pub(crate) fn is_off(&self) -> bool {
-		matches!(self, Phase::Off)
-	}
 }
 
 use frame_support::{

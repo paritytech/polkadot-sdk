@@ -237,6 +237,7 @@ pub(crate) mod pallet {
 			Self::valid().other()
 		}
 
+		#[allow(dead_code)]
 		pub(crate) fn sanity_check() -> Result<(), &'static str> {
 			// TODO(gpestana)
 			Ok(())

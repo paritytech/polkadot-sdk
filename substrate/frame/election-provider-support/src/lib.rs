@@ -381,7 +381,7 @@ pub trait ElectionDataProvider {
 	fn clear() {}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
-	fn set_desired_targets(count: u32) {}
+	fn set_desired_targets(_count: u32) {}
 }
 
 /// An [`ElectionDataProvider`] that exposes for an external entity to request a lock/unlock on
