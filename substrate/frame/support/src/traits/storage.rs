@@ -201,7 +201,7 @@ where
 }
 
 /// Some sort of cost taken from account temporarily in order to offset the cost to the chain of
-/// holding some data `Footprint` (e.g. [`Footprint`]) in state.
+/// holding some data [`Footprint`] in state.
 ///
 /// The cost may be increased, reduced or dropped entirely as the footprint changes.
 ///
@@ -213,20 +213,16 @@ where
 /// treated as one*. Don't type to duplicate it, and remember to drop it when you're done with
 /// it.
 #[must_use]
-pub trait Consideration<AccountId, Footprint>:
-	Member + FullCodec + TypeInfo + MaxEncodedLen
-{
+pub trait Consideration<AccountId>: Member + FullCodec + TypeInfo + MaxEncodedLen {
 	/// Create a ticket for the `new` footprint attributable to `who`. This ticket *must* ultimately
-	/// be consumed through `update` or `drop` once the footprint changes or is removed. `None`
-	/// implies no cost for a given footprint.
-	fn new(who: &AccountId, new: Footprint) -> Result<Option<Self>, DispatchError>;
+	/// be consumed through `update` or `drop` once the footprint changes or is removed.
+	fn new(who: &AccountId, new: Footprint) -> Result<Self, DispatchError>;
 
 	/// Optionally consume an old ticket and alter the footprint, enforcing the new cost to `who`
-	/// and returning the new ticket (or an error if there was an issue). `None` implies no cost for
-	/// a given footprint.
+	/// and returning the new ticket (or an error if there was an issue).
 	///
 	/// For creating tickets and dropping them, you can use the simpler `new` and `drop` instead.
-	fn update(self, who: &AccountId, new: Footprint) -> Result<Option<Self>, DispatchError>;
+	fn update(self, who: &AccountId, new: Footprint) -> Result<Self, DispatchError>;
 
 	/// Consume a ticket for some `old` footprint attributable to `who` which should now been freed.
 	fn drop(self, who: &AccountId) -> Result<(), DispatchError>;
@@ -241,12 +237,12 @@ pub trait Consideration<AccountId, Footprint>:
 	}
 }
 
-impl<A, F> Consideration<A, F> for () {
-	fn new(_: &A, _: F) -> Result<Option<Self>, DispatchError> {
-		Ok(Some(()))
+impl<A> Consideration<A> for () {
+	fn new(_: &A, _: Footprint) -> Result<Self, DispatchError> {
+		Ok(())
 	}
-	fn update(self, _: &A, _: F) -> Result<Option<Self>, DispatchError> {
-		Ok(Some(()))
+	fn update(self, _: &A, _: Footprint) -> Result<(), DispatchError> {
+		Ok(())
 	}
 	fn drop(self, _: &A) -> Result<(), DispatchError> {
 		Ok(())
