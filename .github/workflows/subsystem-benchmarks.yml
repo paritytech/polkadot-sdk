@@ -53,7 +53,7 @@ jobs:
       - name: Run Benchmarks
         id: run-benchmarks
         run: |
-          cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks || echo "Benchmarks failed"
+          forklift cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks || echo "Benchmarks failed"
           ls -lsa ./charts
           mkdir ./artifacts
           cp ./charts/${{ matrix.features.bench }}.json ./artifacts/${{ matrix.features.bench }}.json
