@@ -122,11 +122,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	store: Arc<dyn Database>,
 	test: impl FnOnce(VirtualOverseer) -> T,
 ) {
-	let _ = env_logger::builder()
-		.is_test(true)
-		.filter(Some("polkadot_node_core_av_store"), log::LevelFilter::Trace)
-		.filter(Some(LOG_TARGET), log::LevelFilter::Trace)
-		.try_init();
+	sp_tracing::init_for_tests();
 
 	let pool = sp_core::testing::TaskExecutor::new();
 	let (context, virtual_overseer) =
