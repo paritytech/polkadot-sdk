@@ -1831,7 +1831,9 @@ pub mod pallet {
 		/// A member has been removed from a pool.
 		///
 		/// The removal can be voluntary (withdrawn all unbonded funds) or involuntary (kicked).
-		MemberRemoved { pool_id: PoolId, member: T::AccountId },
+		/// Any funds that are still delegated (i.e. dangling delegation) are released and are
+		/// represented by `released_balance`.
+		MemberRemoved { pool_id: PoolId, member: T::AccountId, released_balance: BalanceOf<T> },
 		/// The roles of a pool have been updated to the given new roles. Note that the depositor
 		/// can never change.
 		RolesUpdated {
@@ -2072,6 +2074,13 @@ pub mod pallet {
 		)]
 		pub fn bond_extra(origin: OriginFor<T>, extra: BondExtra<BalanceOf<T>>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
+			// ensure who is not in an un-migrated state.
+			ensure!(
+				!Self::api_member_needs_delegate_migration(who.clone()),
+				Error::<T>::NotMigrated
+			);
+
 			Self::do_bond_extra(who.clone(), who, extra)
 		}
 
@@ -2087,6 +2096,12 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::claim_payout())]
 		pub fn claim_payout(origin: OriginFor<T>) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
+			// ensure signer is not in an un-migrated state.
+			ensure!(
+				!Self::api_member_needs_delegate_migration(signer.clone()),
+				Error::<T>::NotMigrated
+			);
+
 			Self::do_claim_payout(signer.clone(), signer)
 		}
 
@@ -2359,9 +2374,10 @@ pub mod pallet {
 				// don't exist. This check is also defensive in cases where the unbond pool does not
 				// update its balance (e.g. a bug in the slashing hook.) We gracefully proceed in
 				// order to ensure members can leave the pool and it can be destroyed.
-				.min(T::StakeAdapter::transferable_balance(Pool::from(
-					bonded_pool.bonded_account(),
-				)));
+				.min(T::StakeAdapter::transferable_balance(
+					Pool::from(bonded_pool.bonded_account()),
+					Member::from(member_account.clone()),
+				));
 
 			// this can fail if the pool uses `DelegateStake` strategy and the member delegation
 			// is not claimed yet. See `Call::migrate_delegation()`.
@@ -2385,9 +2401,27 @@ pub mod pallet {
 
 				// member being reaped.
 				PoolMembers::<T>::remove(&member_account);
+
+				// Ensure any dangling delegation is withdrawn.
+				let dangling_withdrawal = match T::StakeAdapter::member_delegation_balance(
+					Member::from(member_account.clone()),
+				) {
+					Some(dangling_delegation) => {
+						T::StakeAdapter::member_withdraw(
+							Member::from(member_account.clone()),
+							Pool::from(bonded_pool.bonded_account()),
+							dangling_delegation,
+							num_slashing_spans,
+						)?;
+						dangling_delegation
+					},
+					None => Zero::zero(),
+				};
+
 				Self::deposit_event(Event::<T>::MemberRemoved {
 					pool_id: member.pool_id,
 					member: member_account.clone(),
+					released_balance: dangling_withdrawal,
 				});
 
 				if member_account == bonded_pool.roles.depositor {
@@ -2726,7 +2760,14 @@ pub mod pallet {
 			extra: BondExtra<BalanceOf<T>>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_bond_extra(who, T::Lookup::lookup(member)?, extra)
+			let member_account = T::Lookup::lookup(member)?;
+			// ensure member is not in an un-migrated state.
+			ensure!(
+				!Self::api_member_needs_delegate_migration(member_account.clone()),
+				Error::<T>::NotMigrated
+			);
+
+			Self::do_bond_extra(who, member_account, extra)
 		}
 
 		/// Allows a pool member to set a claim permission to allow or disallow permissionless
@@ -2766,6 +2807,12 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::claim_payout())]
 		pub fn claim_payout_other(origin: OriginFor<T>, other: T::AccountId) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
+			// ensure member is not in an un-migrated state.
+			ensure!(
+				!Self::api_member_needs_delegate_migration(other.clone()),
+				Error::<T>::NotMigrated
+			);
+
 			Self::do_claim_payout(signer, other)
 		}
 
@@ -2871,6 +2918,9 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::claim_commission())]
 		pub fn claim_commission(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
+
 			Self::do_claim_commission(who, pool_id)
 		}
 
@@ -2885,6 +2935,9 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::adjust_pool_deposit())]
 		pub fn adjust_pool_deposit(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
+
 			Self::do_adjust_pool_deposit(who, pool_id)
 		}
 
@@ -3116,16 +3169,11 @@ impl<T: Config> Pallet<T> {
 			T::Currency::total_balance(&reward_account) == Zero::zero(),
 			"could not transfer all amount to depositor while dissolving pool"
 		);
-		defensive_assert!(
-			T::StakeAdapter::total_balance(Pool::from(bonded_pool.bonded_account()))
-				.unwrap_or_default() ==
-				Zero::zero(),
-			"dissolving pool should not have any balance"
-		);
 		// NOTE: Defensively force set balance to zero.
 		T::Currency::set_balance(&reward_account, Zero::zero());
-		// NOTE: With `DelegateStake` strategy, this won't do anything.
-		T::Currency::set_balance(&bonded_pool.bonded_account(), Zero::zero());
+
+		// dissolve pool account.
+		let _ = T::StakeAdapter::dissolve(Pool::from(bonded_account)).defensive();
 
 		Self::deposit_event(Event::<T>::Destroyed { pool_id: bonded_pool.id });
 		// Remove bonded pool metadata.
@@ -3364,12 +3412,6 @@ impl<T: Config> Pallet<T> {
 		member_account: T::AccountId,
 		extra: BondExtra<BalanceOf<T>>,
 	) -> DispatchResult {
-		// ensure member is not in an un-migrated state.
-		ensure!(
-			!Self::api_member_needs_delegate_migration(member_account.clone()),
-			Error::<T>::NotMigrated
-		);
-
 		if signer != member_account {
 			ensure!(
 				ClaimPermissions::<T>::get(&member_account).can_bond_extra(),
@@ -3419,8 +3461,6 @@ impl<T: Config> Pallet<T> {
 
 	fn do_claim_commission(who: T::AccountId, pool_id: PoolId) -> DispatchResult {
 		let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
-		// ensure pool is not in an un-migrated state.
-		ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
 		ensure!(bonded_pool.can_claim_commission(&who), Error::<T>::DoesNotHavePermission);
 
 		let mut reward_pool = RewardPools::<T>::get(pool_id)
@@ -3467,12 +3507,6 @@ impl<T: Config> Pallet<T> {
 		signer: T::AccountId,
 		member_account: T::AccountId,
 	) -> DispatchResult {
-		// ensure member is not in an un-migrated state.
-		ensure!(
-			!Self::api_member_needs_delegate_migration(member_account.clone()),
-			Error::<T>::NotMigrated
-		);
-
 		if signer != member_account {
 			ensure!(
 				ClaimPermissions::<T>::get(&member_account).can_claim_payout(),
@@ -3495,8 +3529,6 @@ impl<T: Config> Pallet<T> {
 
 	fn do_adjust_pool_deposit(who: T::AccountId, pool: PoolId) -> DispatchResult {
 		let bonded_pool = BondedPool::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
-		// ensure pool is not in an un-migrated state.
-		ensure!(!Self::api_pool_needs_delegate_migration(pool), Error::<T>::NotMigrated);
 
 		let reward_acc = &bonded_pool.reward_account();
 		let pre_frozen_balance =
@@ -3580,13 +3612,8 @@ impl<T: Config> Pallet<T> {
 		// this is their balance in the pool
 		let expected_balance = pool_member.total_balance();
 
-		defensive_assert!(
-			actual_balance >= expected_balance,
-			"actual balance should always be greater or equal to the expected"
-		);
-
 		// return the amount to be slashed.
-		Ok(actual_balance.defensive_saturating_sub(expected_balance))
+		Ok(actual_balance.saturating_sub(expected_balance))
 	}
 
 	/// Apply freeze on reward account to restrict it from going below ED.

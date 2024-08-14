@@ -773,7 +773,9 @@ mod staking_integration {
 				assert_eq!(System::providers(&delegator), 1);
 			}
 
-			// agent is cleaned up from storage
+			// Agent can be removed now.
+			assert_ok!(DelegatedStaking::remove_agent(RawOrigin::Signed(agent).into()));
+			// agent is correctly removed.
 			assert!(!Agents::<T>::contains_key(agent));
 			// and no provider left.
 			assert_eq!(System::providers(&agent), 0);
@@ -824,12 +826,22 @@ mod staking_integration {
 			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 1000));
 			start_era(4);
 			assert_ok!(Staking::withdraw_unbonded(RawOrigin::Signed(agent).into(), 0));
+
+			// Since delegations are still left, agents cannot be removed yet from storage.
+			assert_noop!(
+				DelegatedStaking::remove_agent(RawOrigin::Signed(agent).into()),
+				Error::<T>::NotAllowed
+			);
+
 			assert_ok!(DelegatedStaking::release_delegation(
 				RawOrigin::Signed(agent).into(),
 				delegator,
 				1000,
 				0
 			));
+
+			// now agents can be removed.
+			assert_ok!(DelegatedStaking::remove_agent(RawOrigin::Signed(agent).into()));
 
 			// agent and delegator provider is decremented.
 			assert_eq!(System::providers(&delegator), 1);
@@ -1075,7 +1087,7 @@ mod pool_integration {
 				vec![
 					PoolsEvent::Withdrawn { member: 302, pool_id, balance: 100, points: 100 },
 					PoolsEvent::Withdrawn { member: 303, pool_id, balance: 200, points: 200 },
-					PoolsEvent::MemberRemoved { pool_id: 1, member: 303 },
+					PoolsEvent::MemberRemoved { pool_id: 1, member: 303, released_balance: 0 },
 				]
 			);
 
@@ -1187,7 +1199,7 @@ mod pool_integration {
 						balance: creator_stake,
 						points: creator_stake,
 					},
-					PoolsEvent::MemberRemoved { pool_id, member: creator },
+					PoolsEvent::MemberRemoved { pool_id, member: creator, released_balance: 0 },
 					PoolsEvent::Destroyed { pool_id },
 				]
 			);
