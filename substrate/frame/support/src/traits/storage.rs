@@ -213,7 +213,9 @@ where
 /// treated as one*. Don't type to duplicate it, and remember to drop it when you're done with
 /// it.
 #[must_use]
-pub trait Consideration<AccountId>: Member + FullCodec + TypeInfo + MaxEncodedLen {
+pub trait Consideration<AccountId, Footprint>:
+	Member + FullCodec + TypeInfo + MaxEncodedLen
+{
 	/// Create a ticket for the `new` footprint attributable to `who`. This ticket *must* ultimately
 	/// be consumed through `update` or `drop` once the footprint changes or is removed.
 	fn new(who: &AccountId, new: Footprint) -> Result<Self, DispatchError>;
@@ -237,11 +239,11 @@ pub trait Consideration<AccountId>: Member + FullCodec + TypeInfo + MaxEncodedLe
 	}
 }
 
-impl<A> Consideration<A> for () {
-	fn new(_: &A, _: Footprint) -> Result<Self, DispatchError> {
+impl<A, F> Consideration<A, F> for () {
+	fn new(_: &A, _: F) -> Result<Self, DispatchError> {
 		Ok(())
 	}
-	fn update(self, _: &A, _: Footprint) -> Result<(), DispatchError> {
+	fn update(self, _: &A, _: F) -> Result<(), DispatchError> {
 		Ok(())
 	}
 	fn drop(self, _: &A) -> Result<(), DispatchError> {

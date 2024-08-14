@@ -124,7 +124,7 @@ pub mod pallet {
 		type ManagerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// A means of providing some cost while data is stored on-chain.
-		type Consideration: Consideration<Self::AccountId>;
+		type Consideration: Consideration<Self::AccountId, Footprint>;
 	}
 
 	#[pallet::pallet]
