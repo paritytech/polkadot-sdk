@@ -148,10 +148,9 @@ where
 impl<B, E, RA, Block: BlockT> ClientBlockImportExt<Block> for Client<B, E, Block, RA>
 where
 	Self: BlockImport<Block, Error = ConsensusError>,
-	RA: Send,
+	RA: Send + Sync,
 	B: Send + Sync,
 	E: Send + Sync,
-	RA: Send + Sync,
 {
 	async fn import(&self, origin: BlockOrigin, block: Block) -> Result<(), ConsensusError> {
 		let (header, extrinsics) = block.deconstruct();
