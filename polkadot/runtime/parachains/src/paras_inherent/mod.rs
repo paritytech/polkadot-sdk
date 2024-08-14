@@ -347,12 +347,12 @@ impl<T: Config> Pallet<T> {
 		let bitfields_weight = signed_bitfields_weight::<T>(&bitfields);
 		let disputes_weight = multi_dispute_statement_sets_weight::<T>(&disputes);
 
-		// Weight before filtering/sanitization
-		let all_weight_before = candidates_weight + bitfields_weight + disputes_weight;
+		// Weight before filtering/sanitization except for enacting the candidates
+		let weight_before_filtering = candidates_weight + bitfields_weight + disputes_weight;
 
-		METRICS.on_before_filter(all_weight_before.ref_time());
-		log::debug!(target: LOG_TARGET, "Size before filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_before.proof_size(), candidates_weight.proof_size() + bitfields_weight.proof_size(), disputes_weight.proof_size());
-		log::debug!(target: LOG_TARGET, "Time weight before filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_before.ref_time(), candidates_weight.ref_time() + bitfields_weight.ref_time(), disputes_weight.ref_time());
+		METRICS.on_before_filter(weight_before_filtering.ref_time());
+		log::debug!(target: LOG_TARGET, "Size before filter: {}, candidates + bitfields: {}, disputes: {}", weight_before_filtering.proof_size(), candidates_weight.proof_size() + bitfields_weight.proof_size(), disputes_weight.proof_size());
+		log::debug!(target: LOG_TARGET, "Time weight before filter: {}, candidates + bitfields: {}, disputes: {}", weight_before_filtering.ref_time(), candidates_weight.ref_time() + bitfields_weight.ref_time(), disputes_weight.ref_time());
 
 		let current_session = shared::CurrentSessionIndex::<T>::get();
 		let expected_bits = scheduler::AvailabilityCores::<T>::get().len();
@@ -440,17 +440,20 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// This check is performed in the context of block execution. Ensures inherent weight
 			// invariants guaranteed by `create_inherent_data` for block authorship.
-			if all_weight_before.any_gt(max_block_weight) {
+			if weight_before_filtering.any_gt(max_block_weight) {
 				log::error!(
 					"Overweight para inherent data reached the runtime {:?}: {} > {}",
 					parent_hash,
-					all_weight_before,
+					weight_before_filtering,
 					max_block_weight
 				);
 			}
 
-			ensure!(all_weight_before.all_lte(max_block_weight), Error::<T>::InherentOverweight);
-			all_weight_before
+			ensure!(
+				weight_before_filtering.all_lte(max_block_weight),
+				Error::<T>::InherentOverweight
+			);
+			weight_before_filtering
 		};
 
 		// Note that `process_checked_multi_dispute_data` will iterate and import each
