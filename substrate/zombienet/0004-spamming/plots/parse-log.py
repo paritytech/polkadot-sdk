@@ -3,6 +3,7 @@ import re
 import sys
 import os
 import subprocess
+import argparse
 
 def extract_time_point(command, file_path):
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
@@ -22,7 +23,6 @@ def convert_to_microseconds(value, unit):
         raise ValueError("Unit not recognized")
 
 def ensure_dir_exists(dir_name):
-    """Ensure that a directory exists in the current directory. If it doesn't, create it."""
     path = os.path.join(os.getcwd(), dir_name)
     if not os.path.exists(path):
         os.makedirs(path)
@@ -66,12 +66,38 @@ def save_parsed_data(data, columns, output_filepath):
         for entry in data:
             file.write("\t".join(map(str, entry)) + "\n")
 
-def main():
-    if len(sys.argv) < 3:
-        print("Usage: python script_name.py <path_to_log_file> <output_dir>")
-        sys.exit(1)
+def sanitize_string(string):
+    return re.sub(r'[^A-Za-z0-9_]+', '_', string)
 
-    patterns = [
+def longest_valid_substring(string):
+    words = re.split(r'[^A-Za-z0-9_ ]+', string)
+    return max(words, key=len)
+
+def create_pattern(string):
+    regex = r'^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})'
+    ptype = sanitize_string(string)
+    guard = longest_valid_substring(string)
+    return {
+            "type": f"{ptype}",
+            "regex": regex + f".*{string}",
+            "guard": f"{guard}",
+            "column_names": ["date", "time", "value"],
+            "extract_data": lambda match: (
+                match.group(1),
+                match.group(2),
+                1
+                )
+            }
+
+def parse_temporary_patterns(output_dir, log_file, tmp_patterns):
+    if tmp_patterns is None or len(tmp_patterns)==0:
+        return None
+
+    patterns = [create_pattern(string) for string in tmp_patterns]
+    return patterns
+
+def main():
+    base_patterns = [
         {
             "type": "validate_transaction",
             "regex": r'(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3}) DEBUG.*\[([0-9a-fx]+)\].*validate_transaction_blocking: at:.*took:(\d+\.\d+)(µs|ms)',
@@ -164,12 +190,35 @@ def main():
                     match.group(2),
                     1
                 )
+        },
+        {
+            "type": "propagate_transaction_failure",
+            "regex": r'^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3}) DEBUG.*Propagating transaction failure',
+            "guard": "Propagating transaction failure",
+            "column_names": ["date", "time", "value"],
+            "extract_data": lambda match: (
+                    match.group(1),
+                    match.group(2),
+                    1
+                )
         }
     ]
+
+    parser = argparse.ArgumentParser(description='Parse substrate log.')
+    parser.add_argument('log_file', help='Path to the log file')
+    parser.add_argument('-r', action='append', dest='tmp_patterns', help='tmp patterns that can be presented on graph')
+
+    args = parser.parse_args()
     
-    log_file_path = sys.argv[1]
-    output_dir = sys.argv[2]
+    log_file_path = args.log_file
+    output_dir = os.path.splitext(os.path.basename(log_file_path))[0]
+    print("Output dir is: ", output_dir)
     ensure_dir_exists(output_dir)
+
+    tmp_patterns = parse_temporary_patterns(output_dir, args.log_file, args.tmp_patterns)
+
+    patterns = base_patterns if tmp_patterns is None or len(tmp_patterns)==0 else tmp_patterns
+    # print(patterns)
 
     parsed_data = parse_log_file(patterns, log_file_path)
     for key, value in parsed_data.items():

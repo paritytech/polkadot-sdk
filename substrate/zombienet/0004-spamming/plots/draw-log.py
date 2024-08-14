@@ -4,12 +4,17 @@ import argparse
 import os
 import sys
 import subprocess
+import re
 from datetime import datetime
 
 def usage():
     print("usage: script.py data-file [options]")
     print(" -x do not run eog")
     exit(-1)
+
+
+def sanitize_string(string):
+    return re.sub(r'[^A-Za-z0-9_]+', '_', string)
 
 def file_line_count(file):
     with open(file, 'r') as f:
@@ -37,8 +42,19 @@ plot \\
 
 def propagate_transaction_graph():
     return f"""
+propagate_transaction_cumulative_sum = 0
+propagate_transaction_running_sum(column) = (propagate_transaction_cumulative_sum = propagate_transaction_cumulative_sum + column, propagate_transaction_cumulative_sum)
 plot \\
-  file1 using (combine_datetime("date","time")):"value" with points pt 2 lc rgb "dark-turquoise" axes x1y1 title "propagate transaction"
+  file1 using (combine_datetime("date","time")):(propagate_transaction_running_sum(column("value"))) with points pt 2 lc rgb "dark-turquoise" axes x1y1 title "propagate transaction"
+"""
+
+def propagate_transaction_failure_graph():
+    return f"""
+
+propagate_transaction_failure_cumulative_sum = 0
+propagate_transaction_failure_running_sum(column) = (propagate_transaction_failure_cumulative_sum = propagate_transaction_failure_cumulative_sum + column, propagate_transaction_failure_cumulative_sum)
+plot \\
+  file1 using (combine_datetime("date","time")):(propagate_transaction_failure_running_sum(column("value"))) with points pt 5 ps 1.0 lc rgb 'dark-green' axes x1y1 title "propagate transaction failure"
 """
 
 def txpool_maintain_graph():
@@ -111,6 +127,14 @@ plot \\
   file1 using (combine_datetime("date","time")):(submit_one_running_sum(column("value"))) with points pt 5 ps 1.0 lc rgb 'dark-green' axes x1y1 title "submit_one"
 """
 
+def tmp_graph():
+    return f"""
+tmp_graph_cumulative_sum = 0
+plot \\
+  file1 using (combine_datetime("date","time")):(tmp_graph_running_sum(column("value"))) with points pt 5 ps 1.0 lc rgb 'dark-green' axes x1y1 title sprintf("%s", file1)
+"""
+
+
 
 GRAPH_FUNCTIONS = {
     "import": {
@@ -124,6 +148,10 @@ GRAPH_FUNCTIONS = {
     "propagate_transaction": {
         "file_names": ["propagate_transaction.csv"],
         "function_name": propagate_transaction_graph
+        },
+    "propagate_transaction_failure": {
+        "file_names": ["propagate_transaction_failure.csv"],
+        "function_name": propagate_transaction_failure_graph
         },
     "txpool_maintain": {
         "file_names": ["txpool_maintain.csv"],
@@ -149,7 +177,6 @@ GRAPH_FUNCTIONS = {
         "file_names": ["block_proposing.csv", "block_proposing_start.csv"],
         "function_name": block_proposing
         },
-
     "submit_one": {
         "file_names": ["submit_one.csv"],
         "function_name": submit_one
@@ -157,11 +184,12 @@ GRAPH_FUNCTIONS = {
 }
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate graphs using gnuplot.')
+    parser = argparse.ArgumentParser(description='Generate graphs showing datapoints from some predefined csv files using gnuplot.')
     parser.add_argument('data_directory', help='Path to the data directory')
     parser.add_argument('-x', action='store_true', help='Do not run eog')
+    parser.add_argument('-r', action='append', dest='tmp_graphs', help='tmp graphs to be added')
     supported_graphs = ', '.join(GRAPH_FUNCTIONS.keys())
-    parser.add_argument('--graphs', required=True, help=f"Comma-separated list of graphs to include: {supported_graphs}")
+    parser.add_argument('--graphs', help=f"Comma-separated list of graphs to include: {supported_graphs}")
 
     args = parser.parse_args()
 
@@ -187,7 +215,18 @@ def main():
 
     runeog = not args.x
 
-    selected_graphs = args.graphs.split(',')
+
+    graphs = [];
+    for tmp_g in args.tmp_graphs:
+        t = sanitize_string(tmp_g)
+        print("t -> ",t);
+        GRAPH_FUNCTIONS[t] = { "file_names": [f"{t}.csv"], "function_name": tmp_graph }
+        graphs.append(t)
+
+    selected_graphs = graphs
+
+    if not args.graphs is None:
+        selected_graphs.extend(args.graphs.split(','))
 
     missing_graphs = [graph for graph in selected_graphs if graph not in GRAPH_FUNCTIONS]
     if missing_graphs:
@@ -229,6 +268,9 @@ set size 1.0,plot_height
 set tmargin 2
 file_line_count(f) = system(sprintf("wc -l < '%s'", f))
 combine_datetime(date_col,time_col) = strcol(date_col) . "T" . strcol(time_col)
+
+tmp_graph_cumulative_sum = 0
+tmp_graph_running_sum(column) = (tmp_graph_cumulative_sum = tmp_graph_cumulative_sum + column, tmp_graph_cumulative_sum)
 """
 
     for graph in selected_graphs:
