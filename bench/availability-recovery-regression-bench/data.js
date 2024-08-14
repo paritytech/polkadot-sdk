@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723643898819,
+  "lastUpdate": 1723652197294,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -17639,6 +17639,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.964426336799997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh",
+            "email": "49718502+alexggh@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "05a8ba662f0afdd4a4e6e2f4e61e4ca2458d666c",
+          "message": "Fix OurViewChange small race (#5356)\n\nAlways queue OurViewChange event before we send view changes to our\npeers, because otherwise we risk the peers sending us a message that can\nbe processed by our subsystems before OurViewChange.\n\nNormally, this is not really a problem because the latency of the\nViewChange we send to our peers is way higher that our subsystem\nprocessing OurViewChange, however on testnets like versi where CPU is\nsometimes overcommitted this race gets triggered occasionally, so let's\nfix it by sending the messages in the right order.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2024-08-14T13:55:29Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/05a8ba662f0afdd4a4e6e2f4e61e4ca2458d666c"
+        },
+        "date": 1723652165974,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.97698696706667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.18119327973333332,
             "unit": "seconds"
           }
         ]
