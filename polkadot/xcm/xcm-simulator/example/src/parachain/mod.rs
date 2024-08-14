@@ -166,6 +166,7 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type FeeManager = <XcmConfig as xcm_executor::Config>::FeeManager;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

@@ -330,6 +330,7 @@ impl pallet_xcm::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
+	type FeeManager = <XcmConfig as xcm_executor::Config>::FeeManager;
 }
 
 pub const INITIAL_BALANCE: Balance = 1_000_000_000;

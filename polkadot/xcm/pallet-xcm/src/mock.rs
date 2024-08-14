@@ -556,6 +556,7 @@ impl pallet_xcm::Config for Test {
 	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = TestWeightInfo;
+	type FeeManager = <XcmConfig as xcm_executor::Config>::FeeManager;
 }
 
 impl origin::Config for Test {}

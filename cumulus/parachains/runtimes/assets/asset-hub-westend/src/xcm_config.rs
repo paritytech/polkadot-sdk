@@ -58,7 +58,7 @@ use xcm_builder::{
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
-use xcm_executor::XcmExecutor;
+use xcm_executor::{traits::FeeManager, XcmExecutor};
 
 parameter_types! {
 	pub const WestendLocation: Location = Location::parent();
@@ -509,6 +509,7 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
+	type FeeManager = <XcmConfig as xcm_executor::Config>::FeeManager;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

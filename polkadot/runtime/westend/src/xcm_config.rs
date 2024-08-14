@@ -301,4 +301,5 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = crate::weights::pallet_xcm::WeightInfo<Runtime>;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type FeeManager = <XcmConfig as xcm_executor::Config>::FeeManager;
 }

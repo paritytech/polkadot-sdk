@@ -268,6 +268,7 @@ impl pallet_xcm::Config for Test {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type FeeManager = <XcmConfig as xcm_executor::Config>::FeeManager;
 }
 
 pub const UNITS: Balance = 1_000_000_000_000;

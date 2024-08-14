@@ -61,9 +61,9 @@ use xcm_builder::{
 use xcm_executor::{
 	traits::{
 		AssetTransferError, CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin,
-		DropAssets, MatchesFungible, OnResponse, Properties, QueryHandler, QueryResponseStatus,
-		RecordXcm, TransactAsset, TransferType, VersionChangeNotifier, WeightBounds,
-		XcmAssetTransfers,
+		DropAssets, FeeManager, FeeReason, MatchesFungible, OnResponse, Properties, QueryHandler,
+		QueryResponseStatus, RecordXcm, TransactAsset, TransferType, VersionChangeNotifier,
+		WeightBounds, XcmAssetTransfers,
 	},
 	AssetsInHolding,
 };
@@ -192,7 +192,7 @@ pub mod pallet {
 	use frame_system::Config as SysConfig;
 	use sp_core::H256;
 	use sp_runtime::traits::Dispatchable;
-	use xcm_executor::traits::{MatchesFungible, WeightBounds};
+	use xcm_executor::traits::{FeeManager, MatchesFungible, WeightBounds};
 
 	parameter_types! {
 		/// An implementation of `Get<u32>` which just returns the latest XCM version which we can
@@ -292,6 +292,9 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Configure the fees.
+		type FeeManager: FeeManager;
 	}
 
 	impl<T: Config> ExecuteControllerWeightInfo for Pallet<T> {
@@ -2421,17 +2424,16 @@ impl<T: Config> Pallet<T> {
 		mut message: Xcm<()>,
 	) -> Result<XcmHash, SendError> {
 		let interior = interior.into();
+		let origin_dest = interior.clone().into();
 		let dest = dest.into();
-		let maybe_fee_payer = if interior != Junctions::Here {
-			message.0.insert(0, DescendOrigin(interior.clone()));
-			Some(interior.into())
-		} else {
-			None
-		};
+		let is_waived = T::FeeManager::is_waived(Some(&origin_dest), FeeReason::ChargeFees);
+		if !is_waived {
+			message.0.insert(0, DescendOrigin(interior));
+		}
 		log::debug!(target: "xcm::send_xcm", "dest: {:?}, message: {:?}", &dest, &message);
 		let (ticket, price) = validate_send::<T::XcmRouter>(dest, message)?;
-		if let Some(fee_payer) = maybe_fee_payer {
-			Self::charge_fees(fee_payer, price).map_err(|_| SendError::Fees)?;
+		if !is_waived {
+			Self::charge_fees(origin_dest, price).map_err(|_| SendError::Fees)?;
 		}
 		T::XcmRouter::deliver(ticket)
 	}
