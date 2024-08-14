@@ -25,6 +25,7 @@
 #![warn(unused_imports)]
 
 use clap::{CommandFactory, FromArgMatches, Parser};
+use log::warn;
 use sc_service::Configuration;
 
 pub mod arg_enums;
@@ -242,7 +243,18 @@ pub trait SubstrateCli: Sized {
 
 		let config = command.create_configuration(self, tokio_runtime.handle().clone())?;
 
-		command.init(&Self::support_url(), &Self::impl_version(), logger_hook, &config)?;
+		command.init(&Self::support_url(), &Self::impl_version(), |logger_builder| {
+			logger_hook(logger_builder, &config)
+		})?;
+
+		if config.role.is_authority() && config.network.public_addresses.is_empty() {
+			warn!(
+				"WARNING: No public address specified, validator node may not be reachable.
+				Consider setting `--public-addr` to the public IP address of this node.
+				This will become a hard requirement in future versions."
+			);
+		}
+
 		Runner::new(config, tokio_runtime, signals)
 	}
 }

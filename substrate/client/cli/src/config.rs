@@ -615,15 +615,9 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	/// 	}
 	/// }
 	/// ```
-	fn init<F>(
-		&self,
-		support_url: &String,
-		impl_version: &String,
-		logger_hook: F,
-		config: &Configuration,
-	) -> Result<()>
+	fn init<F>(&self, support_url: &String, impl_version: &String, logger_hook: F) -> Result<()>
 	where
-		F: FnOnce(&mut LoggerBuilder, &Configuration),
+		F: FnOnce(&mut LoggerBuilder),
 	{
 		sp_panic_handler::set(support_url, impl_version);
 
@@ -642,17 +636,9 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		}
 
 		// Call hook for custom profiling setup.
-		logger_hook(&mut logger, config);
+		logger_hook(&mut logger);
 
 		logger.init()?;
-
-		if config.role.is_authority() && config.network.public_addresses.is_empty() {
-			warn!(
-				"WARNING: No public address specified, validator node may not be reachable.
-				Consider setting `--public-addr` to the public IP address of this node.
-				This will become a hard requirement in future versions."
-			);
-		}
 
 		match fdlimit::raise_fd_limit() {
 			Ok(fdlimit::Outcome::LimitRaised { to, .. }) =>
