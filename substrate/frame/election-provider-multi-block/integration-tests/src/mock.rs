@@ -19,7 +19,7 @@
 
 use frame_support::{
 	assert_ok, parameter_types, traits,
-	traits::{Hooks, UnfilteredDispatchable, VariantCountOf},
+	traits::{Hooks, VariantCountOf},
 	weights::constants,
 };
 use frame_system::EnsureRoot;
@@ -80,6 +80,7 @@ frame_support::construct_runtime!(
 		SignedPallet: epm_signed_pallet,
 		UnsignedPallet: epm_unsigned_pallet,
 
+		Pools: pallet_nomination_pools,
 		Staking: pallet_staking,
 		Balances: pallet_balances,
 		BagsList: pallet_bags_list,
@@ -192,6 +193,14 @@ parameter_types! {
 		.voters_count(1_000.into()).targets_count(1_000.into()).build();
 }
 
+pub struct EPMBenchmarkingConfigs;
+impl pallet_election_provider_multi_block::BenchmarkingConfig for EPMBenchmarkingConfigs {
+	const VOTERS: u32 = 100;
+	const TARGETS: u32 = 50;
+	const VOTERS_PER_PAGE: [u32; 2] = [1, 5];
+	const TARGETS_PER_PAGE: [u32; 2] = [1, 8];
+}
+
 impl epm_core_pallet::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SignedPhase = SignedPhase;
@@ -212,6 +221,8 @@ impl epm_core_pallet::Config for Runtime {
 	)>;
 	type Verifier = VerifierPallet;
 	type DataProvider = Staking;
+	type BenchmarkingConfig = EPMBenchmarkingConfigs;
+	type WeightInfo = ();
 }
 
 parameter_types! {

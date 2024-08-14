@@ -24,7 +24,7 @@ use mock::*;
 
 use frame_election_provider_support::{bounds::ElectionBoundsBuilder, ElectionDataProvider};
 
-use frame_support::assert_ok;
+use frame_support::{assert_ok, traits::UnixTime};
 
 // syntactic sugar for logging.
 #[macro_export]
