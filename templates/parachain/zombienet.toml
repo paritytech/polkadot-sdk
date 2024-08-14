@@ -18,4 +18,4 @@ id = 1000
 [parachains.collator]
 name = "charlie"
 ws_port = 9988
-command = "./target/release/parachain-template-node"
+command = "parachain-template-node"
