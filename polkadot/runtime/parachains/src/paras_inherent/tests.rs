@@ -1530,7 +1530,7 @@ mod enter {
 			.unwrap_err()
 			.error;
 
-			// We expect `enter` to fail because it contains backed candidates with v2 descriptors.
+			// We expect `enter` to fail because the inherent data contains backed candidates with v2 descriptors.
 			assert_eq!(dispatch_error, Error::<Test>::CandidatesFilteredDuringExecution.into());
 		});
 	}
