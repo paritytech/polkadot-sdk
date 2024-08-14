@@ -221,7 +221,7 @@ where
 			// With https://github.com/paritytech/polkadot-sdk/issues/3168 this implementation will be
 			// obsolete and also the underlying issue will be fixed.
 			if last_processed_slot >= *claim.slot() &&
-				last_relay_chain_block > *relay_parent_header.number()
+				last_relay_chain_block < *relay_parent_header.number()
 			{
 				continue
 			}
