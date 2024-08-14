@@ -84,6 +84,7 @@ pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+pub mod migration;
 
 pub use call_ext::*;
 pub use pallet::*;
@@ -143,6 +144,7 @@ pub mod pallet {
 	pub type BridgedHeaderChainOf<T, I> = <T as Config<I>>::BridgedHeaderChain;
 
 	#[pallet::pallet]
+	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	impl<T: Config<I>, I: 'static> OwnedBridgeModule<T> for Pallet<T, I> {

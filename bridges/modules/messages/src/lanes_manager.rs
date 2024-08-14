@@ -173,10 +173,7 @@ impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
 			);
 		}
 
-		Ok(RuntimeInboundLaneStorage {
-			lane_id,
-			cached_data: cached_data.into(),
-		})
+		Ok(RuntimeInboundLaneStorage { lane_id, cached_data: cached_data.into() })
 	}
 
 	/// Returns number of bytes that may be subtracted from the PoV component of
