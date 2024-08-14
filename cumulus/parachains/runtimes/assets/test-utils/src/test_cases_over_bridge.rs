@@ -331,7 +331,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 	block_author_account: AccountIdOf<Runtime>,
 	(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance): (
 		AccountIdOf<Runtime>,
-		xcm::v3::Location,
+		xcm::v4::Location,
 		u128,
 	),
 	foreign_asset_id_amount_to_transfer: u128,
@@ -357,9 +357,9 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 	BalanceOf<Runtime>: From<Balance> + Into<Balance>,
 	XcmConfig: xcm_executor::Config,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
-		From<xcm::v3::Location> + Into<xcm::v3::Location>,
+		From<xcm::v4::Location> + Into<xcm::v4::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
-		From<xcm::v3::Location> + Into<xcm::v3::Location>,
+		From<xcm::v4::Location> + Into<xcm::v4::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::Balance:
 		From<Balance> + Into<u128> + From<u128>,
 	<Runtime as frame_system::Config>::AccountId: Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>
@@ -390,7 +390,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			assert_ok!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::force_create(
 					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::root_origin(),
-					foreign_asset_id_location.into(),
+					foreign_asset_id_location.clone().into(),
 					foreign_asset_owner.into(),
 					true, // is_sufficient=true
 					foreign_asset_id_minimum_balance.into()
@@ -409,7 +409,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			// ForeignAssets balances before
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.into(),
+					foreign_asset_id_location.clone().into(),
 					&target_account
 				),
 				0.into()
@@ -418,11 +418,8 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			// additional check before
 			additional_checks_before();
 
-			let foreign_asset_id_location_latest: Location =
-				foreign_asset_id_location.try_into().unwrap();
-
 			let expected_assets = Assets::from(vec![Asset {
-				id: AssetId(foreign_asset_id_location_latest.clone()),
+				id: AssetId(foreign_asset_id_location.clone()),
 				fun: Fungible(foreign_asset_id_amount_to_transfer),
 			}]);
 			let expected_beneficiary = Location::new(
@@ -439,7 +436,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				ClearOrigin,
 				BuyExecution {
 					fees: Asset {
-						id: AssetId(foreign_asset_id_location_latest.clone()),
+						id: AssetId(foreign_asset_id_location.clone()),
 						fun: Fungible(foreign_asset_id_amount_to_transfer),
 					},
 					weight_limit: Unlimited,

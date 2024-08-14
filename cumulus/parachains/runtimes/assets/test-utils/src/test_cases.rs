@@ -367,9 +367,9 @@ pub fn teleports_for_foreign_assets_works<
 	<WeightToFee as frame_support::weights::WeightToFee>::Balance: From<u128> + Into<u128>,
 	SovereignAccountOf: ConvertLocation<AccountIdOf<Runtime>>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
-		From<xcm::v3::Location> + Into<xcm::v3::Location>,
+		From<xcm::v4::Location> + Into<xcm::v4::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
-		From<xcm::v3::Location> + Into<xcm::v3::Location>,
+		From<xcm::v4::Location> + Into<xcm::v4::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::Balance:
 		From<Balance> + Into<u128>,
 	<Runtime as frame_system::Config>::AccountId:
@@ -381,11 +381,11 @@ pub fn teleports_for_foreign_assets_works<
 {
 	// foreign parachain with the same consensus currency as asset
 	let foreign_para_id = 2222;
-	let foreign_asset_id_location = xcm::v3::Location {
+	let foreign_asset_id_location = xcm::v4::Location {
 		parents: 1,
 		interior: [
-			xcm::v3::Junction::Parachain(foreign_para_id),
-			xcm::v3::Junction::GeneralIndex(1234567),
+			xcm::v4::Junction::Parachain(foreign_para_id),
+			xcm::v4::Junction::GeneralIndex(1234567),
 		]
 		.into(),
 	};
@@ -438,14 +438,14 @@ pub fn teleports_for_foreign_assets_works<
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.into(),
+					foreign_asset_id_location.clone().into(),
 					&target_account
 				),
 				0.into()
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.into(),
+					foreign_asset_id_location.clone().into(),
 					&CheckingAccount::get()
 				),
 				0.into()
@@ -454,14 +454,14 @@ pub fn teleports_for_foreign_assets_works<
 			assert_total::<
 				pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>,
 				AccountIdOf<Runtime>,
-			>(foreign_asset_id_location, 0, 0);
+			>(foreign_asset_id_location.clone(), 0, 0);
 
 			// create foreign asset (0 total issuance)
 			let asset_minimum_asset_balance = 3333333_u128;
 			assert_ok!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::force_create(
 					RuntimeHelper::<Runtime>::root_origin(),
-					foreign_asset_id_location.into(),
+					foreign_asset_id_location.clone().into(),
 					asset_owner.into(),
 					false,
 					asset_minimum_asset_balance.into()
@@ -470,11 +470,8 @@ pub fn teleports_for_foreign_assets_works<
 			assert_total::<
 				pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>,
 				AccountIdOf<Runtime>,
-			>(foreign_asset_id_location, 0, 0);
+			>(foreign_asset_id_location.clone(), 0, 0);
 			assert!(teleported_foreign_asset_amount > asset_minimum_asset_balance);
-
-			let foreign_asset_id_location_latest: Location =
-				foreign_asset_id_location.try_into().unwrap();
 
 			// 1. process received teleported assets from sibling parachain (foreign_para_id)
 			let xcm = Xcm(vec![
@@ -489,12 +486,12 @@ pub fn teleports_for_foreign_assets_works<
 				},
 				// Process teleported asset
 				ReceiveTeleportedAsset(Assets::from(vec![Asset {
-					id: AssetId(foreign_asset_id_location_latest.clone()),
+					id: AssetId(foreign_asset_id_location.clone()),
 					fun: Fungible(teleported_foreign_asset_amount),
 				}])),
 				DepositAsset {
 					assets: Wild(AllOf {
-						id: AssetId(foreign_asset_id_location_latest.clone()),
+						id: AssetId(foreign_asset_id_location.clone()),
 						fun: WildFungibility::Fungible,
 					}),
 					beneficiary: Location {
@@ -526,7 +523,7 @@ pub fn teleports_for_foreign_assets_works<
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.into(),
+					foreign_asset_id_location.clone().into(),
 					&target_account
 				),
 				teleported_foreign_asset_amount.into()
@@ -538,7 +535,7 @@ pub fn teleports_for_foreign_assets_works<
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.into(),
+					foreign_asset_id_location.clone().into(),
 					&CheckingAccount::get()
 				),
 				0.into()
@@ -548,7 +545,7 @@ pub fn teleports_for_foreign_assets_works<
 				pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>,
 				AccountIdOf<Runtime>,
 			>(
-				foreign_asset_id_location,
+				foreign_asset_id_location.clone(),
 				teleported_foreign_asset_amount,
 				teleported_foreign_asset_amount,
 			);
@@ -566,7 +563,7 @@ pub fn teleports_for_foreign_assets_works<
 
 				let target_account_balance_before_teleport =
 					<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-						foreign_asset_id_location.into(),
+						foreign_asset_id_location.clone().into(),
 						&target_account,
 					);
 				let asset_to_teleport_away = asset_minimum_asset_balance * 3;
@@ -580,7 +577,7 @@ pub fn teleports_for_foreign_assets_works<
 				// Make sure the target account has enough native asset to pay for delivery fees
 				let delivery_fees =
 					xcm_helpers::teleport_assets_delivery_fees::<XcmConfig::XcmSender>(
-						(foreign_asset_id_location_latest.clone(), asset_to_teleport_away).into(),
+						(foreign_asset_id_location.clone(), asset_to_teleport_away).into(),
 						0,
 						Unlimited,
 						dest_beneficiary.clone(),
@@ -596,7 +593,7 @@ pub fn teleports_for_foreign_assets_works<
 					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
 					dest,
 					dest_beneficiary,
-					(foreign_asset_id_location_latest.clone(), asset_to_teleport_away),
+					(foreign_asset_id_location.clone(), asset_to_teleport_away),
 					Some((runtime_para_id, foreign_para_id)),
 					included_head,
 					&alice,
@@ -606,14 +603,14 @@ pub fn teleports_for_foreign_assets_works<
 				// check balances
 				assert_eq!(
 					<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-						foreign_asset_id_location.into(),
+						foreign_asset_id_location.clone().into(),
 						&target_account
 					),
 					(target_account_balance_before_teleport - asset_to_teleport_away.into())
 				);
 				assert_eq!(
 					<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-						foreign_asset_id_location.into(),
+						foreign_asset_id_location.clone().into(),
 						&CheckingAccount::get()
 					),
 					0.into()
@@ -623,7 +620,7 @@ pub fn teleports_for_foreign_assets_works<
 					pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>,
 					AccountIdOf<Runtime>,
 				>(
-					foreign_asset_id_location,
+					foreign_asset_id_location.clone(),
 					teleported_foreign_asset_amount - asset_to_teleport_away,
 					teleported_foreign_asset_amount - asset_to_teleport_away,
 				);
@@ -1558,9 +1555,6 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				other_para_id.into(),
 			)
 			.unwrap();
-
-			let v4_xcm: Xcm<()> = xcm_sent.clone().try_into().unwrap();
-			dbg!(&v4_xcm);
 
 			let delivery_fees = get_fungible_delivery_fees::<
 				<XcmConfig as xcm_executor::Config>::XcmSender,
