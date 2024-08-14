@@ -16,3 +16,5 @@ crates:
   bump: patch
 - name: rococo-runtime
   bump: patch
+- name: polkadot-node-core-pvf-common
+  bump: none
