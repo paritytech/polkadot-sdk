@@ -36,7 +36,7 @@ pub fn requirements_are_meet(cmds: &[&str]) -> Result<(), anyhow::Error> {
             msg.push(help_msg(cmd))
         }
 
-        msg.push(String::from("Then you need yo export your path including the compiled binaries."));
+        msg.push(String::from("Then you need to export your path in order to include the compiled binaries."));
         msg.push(String::from("E.g: export PATH=<path to polkadot-sdk repo>/target/release:$PATH"));
 
         return Err(anyhow::anyhow!(format!("{}\n", msg.join("\n"))))
@@ -65,13 +65,13 @@ pub fn cmds_are_presents<'a>(cmds: &'a[&'a str]) -> Vec<&str> {
 fn help_msg(cmd: &str) -> String {
     match cmd {
         "parachain-template-node" | "solochain-template-node" | "minimal-template-node" => {
-            format!("compile {cmd} by running: \n\tcargo build --package {cmd} --release")
+            format!("Compile {cmd} by running: \n\tcargo build --package {cmd} --release")
         },
         "polkadot" => {
-            format!("compile {cmd} by running: \n\t cargo build --locked --release --features fast-runtime --bin {cmd} --bin polkadot-prepare-worker --bin polkadot-execute-worker")
+            format!("Compile {cmd} by running: \n\t cargo build --locked --release --features fast-runtime --bin {cmd} --bin polkadot-prepare-worker --bin polkadot-execute-worker")
         },
         _ => {
-            format!("unknown command {cmd}, please verify config.")
+            format!("Unknown command {cmd}, please verify config.")
         }
     }
 }
