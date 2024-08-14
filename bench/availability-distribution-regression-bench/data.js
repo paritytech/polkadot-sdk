@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723632385621,
+  "lastUpdate": 1723643607290,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -22099,6 +22099,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.17136619870666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Adrian Catangiu",
+            "username": "acatangiu",
+            "email": "adrian@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e4f8a6de49b37af3c58d9414ba81f7002c911551",
+          "message": "[tests] dedup test code, add more tests, improve naming and docs (#5338)\n\nThis is mostly tests cleanup:\n- uses helper macro for generating teleport tests,\n- adds missing treasury tests,\n- improves naming and docs for transfer tests.\n\n- [x] does not need a PRDOC\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-08-14T10:58:07Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e4f8a6de49b37af3c58d9414ba81f7002c911551"
+        },
+        "date": 1723643575761,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012201507913333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009267372186666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16824406776666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022079893813333334,
             "unit": "seconds"
           }
         ]
