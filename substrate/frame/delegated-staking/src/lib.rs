@@ -304,6 +304,27 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Remove an account from being an `Agent`.
+		///
+		/// This can only be called if the agent has no delegated funds, no pending slashes and no
+		/// unclaimed withdrawals.
+		pub fn remove_agent(origin: OriginFor<T>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let ledger = AgentLedger::<T>::get(&who).ok_or(Error::<T>::NotAgent)?;
+
+			ensure!(
+				ledger.total_delegated == Zero::zero() &&
+					ledger.pending_slash == Zero::zero() &&
+					ledger.unclaimed_withdrawals == Zero::zero(),
+				Error::<T>::NotAllowed
+			);
+
+			// remove provider reference
+			let _ = frame_system::Pallet::<T>::dec_providers(&who)?;
+			<Agents<T>>::remove(who);
+			Ok(())
+		}
+
 		/// Migrate from a `Nominator` account to `Agent` account.
 		///
 		/// The origin needs to
@@ -599,44 +620,19 @@ impl<T: Config> Pallet<T> {
 		ensure!(delegation.agent == agent, Error::<T>::NotAgent);
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 
-		// if we do not already have enough funds to be claimed, try withdraw some more.
-		// keep track if we killed the staker in the process.
-		let stash_killed = if agent_ledger.ledger.unclaimed_withdrawals < amount {
+		// if we do not already have enough funds to be claimed, try to withdraw some more.
+		if agent_ledger.ledger.unclaimed_withdrawals < amount {
 			// withdraw account.
-			let killed = T::CoreStaking::withdraw_unbonded(agent.clone(), num_slashing_spans)
+			let _ = T::CoreStaking::withdraw_unbonded(agent.clone(), num_slashing_spans)
 				.map_err(|_| Error::<T>::WithdrawFailed)?;
 			// reload agent from storage since withdrawal might have changed the state.
 			agent_ledger = agent_ledger.reload()?;
-			Some(killed)
-		} else {
-			None
-		};
+		}
 
 		// if we still do not have enough funds to release, abort.
 		ensure!(agent_ledger.ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
+		agent_ledger.remove_unclaimed_withdraw(amount)?.update();
 
-		// Claim withdraw from agent. Kill agent if no delegation left.
-		// TODO: Ideally if there is a register, there should be an unregister that should
-		// clean up the agent. Can be improved in future.
-		if agent_ledger.remove_unclaimed_withdraw(amount)?.update_or_kill()? {
-			match stash_killed {
-				Some(killed) => {
-					// this implies we did a `CoreStaking::withdraw` before release. Ensure
-					// we killed the staker as well.
-					ensure!(killed, Error::<T>::BadState);
-				},
-				None => {
-					// We did not do a `CoreStaking::withdraw` before release. Ensure staker is
-					// already killed in `CoreStaking`.
-					ensure!(T::CoreStaking::status(&agent).is_err(), Error::<T>::BadState);
-				},
-			}
-
-			// Remove provider reference for `who`.
-			let _ = frame_system::Pallet::<T>::dec_providers(&agent).defensive();
-		}
-
-		// book keep delegation
 		delegation.amount = delegation
 			.amount
 			.checked_sub(&amount)
