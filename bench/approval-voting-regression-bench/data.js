@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723632072291,
+  "lastUpdate": 1723643305937,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -14804,6 +14804,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.063154033330084,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Adrian Catangiu",
+            "username": "acatangiu",
+            "email": "adrian@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e4f8a6de49b37af3c58d9414ba81f7002c911551",
+          "message": "[tests] dedup test code, add more tests, improve naming and docs (#5338)\n\nThis is mostly tests cleanup:\n- uses helper macro for generating teleport tests,\n- adds missing treasury tests,\n- improves naming and docs for transfer tests.\n\n- [x] does not need a PRDOC\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-08-14T10:58:07Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e4f8a6de49b37af3c58d9414ba81f7002c911551"
+        },
+        "date": 1723643274779,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63972.62000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52945.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.631672977990004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.005782832950218,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.054197897689991,
             "unit": "seconds"
           }
         ]
