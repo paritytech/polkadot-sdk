@@ -79,7 +79,8 @@ use sc_network::{
 use sc_service::{
 	config::{
 		BlocksPruning, DatabaseSource, KeystoreConfig, MultiaddrWithPeerId, NetworkConfiguration,
-		OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig, WasmExecutionMethod,
+		OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig, RpcConfiguration,
+		WasmExecutionMethod,
 	},
 	BasePath, ChainSpec as ChainSpecService, Configuration, Error as ServiceError,
 	PartialComponents, Role, RpcHandlers, TFullBackend, TFullClient, TaskManager,
@@ -866,20 +867,22 @@ pub fn node_config(
 		wasm_method: WasmExecutionMethod::Compiled {
 			instantiation_strategy: sc_executor_wasmtime::InstantiationStrategy::PoolingCopyOnWrite,
 		},
-		rpc_addr: None,
-		rpc_max_connections: Default::default(),
-		rpc_cors: None,
-		rpc_methods: Default::default(),
-		rpc_max_request_size: Default::default(),
-		rpc_max_response_size: Default::default(),
-		rpc_id_provider: None,
-		rpc_max_subs_per_conn: Default::default(),
-		rpc_port: 9945,
-		rpc_message_buffer_capacity: Default::default(),
-		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
-		rpc_rate_limit: None,
-		rpc_rate_limit_whitelisted_ips: Default::default(),
-		rpc_rate_limit_trust_proxy_headers: Default::default(),
+		rpc: RpcConfiguration {
+			addr: None,
+			max_connections: Default::default(),
+			cors: None,
+			methods: Default::default(),
+			max_request_size: Default::default(),
+			max_response_size: Default::default(),
+			id_provider: None,
+			max_subs_per_conn: Default::default(),
+			port: 9945,
+			message_buffer_capacity: Default::default(),
+			batch_config: RpcBatchRequestConfig::Unlimited,
+			rate_limit: None,
+			rate_limit_whitelisted_ips: Default::default(),
+			rate_limit_trust_proxy_headers: Default::default(),
+		},
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,
@@ -1006,7 +1009,7 @@ pub fn run_relay_chain_validator_node(
 	);
 
 	if let Some(port) = port {
-		config.rpc_addr = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port));
+		config.rpc.addr = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port));
 	}
 
 	let mut workers_path = std::env::current_exe().unwrap();

@@ -82,36 +82,8 @@ pub struct Configuration {
 	/// over on-chain runtimes when the spec version matches. Set to `None` to
 	/// disable overrides (default).
 	pub wasm_runtime_overrides: Option<PathBuf>,
-	/// JSON-RPC server binding address.
-	pub rpc_addr: Option<SocketAddr>,
-	/// Maximum number of connections for JSON-RPC server.
-	pub rpc_max_connections: u32,
-	/// CORS settings for HTTP & WS servers. `None` if all origins are allowed.
-	pub rpc_cors: Option<Vec<String>>,
-	/// RPC methods to expose (by default only a safe subset or all of them).
-	pub rpc_methods: RpcMethods,
-	/// Maximum payload of a rpc request
-	pub rpc_max_request_size: u32,
-	/// Maximum payload of a rpc response.
-	pub rpc_max_response_size: u32,
-	/// Custom JSON-RPC subscription ID provider.
-	///
-	/// Default: [`crate::RandomStringSubscriptionId`].
-	pub rpc_id_provider: Option<Box<dyn crate::RpcSubscriptionIdProvider>>,
-	/// Maximum allowed subscriptions per rpc connection
-	pub rpc_max_subs_per_conn: u32,
-	/// JSON-RPC server default port.
-	pub rpc_port: u16,
-	/// The number of messages the JSON-RPC server is allowed to keep in memory.
-	pub rpc_message_buffer_capacity: u32,
-	/// JSON-RPC server batch config.
-	pub rpc_batch_config: RpcBatchRequestConfig,
-	/// RPC rate limit per minute.
-	pub rpc_rate_limit: Option<NonZeroU32>,
-	/// RPC rate limit whitelisted ip addresses.
-	pub rpc_rate_limit_whitelisted_ips: Vec<IpNetwork>,
-	/// RPC rate limit trust proxy headers.
-	pub rpc_rate_limit_trust_proxy_headers: bool,
+	/// RPC configuration.
+	pub rpc: RpcConfiguration,
 	/// Prometheus endpoint configuration. `None` if disabled.
 	pub prometheus_config: Option<PrometheusConfig>,
 	/// Telemetry service URL. `None` if disabled.
@@ -338,4 +310,39 @@ impl From<PathBuf> for BasePath {
 	fn from(path: PathBuf) -> Self {
 		BasePath::new(path)
 	}
+}
+
+/// RPC configuration.
+#[derive(Debug)]
+pub struct RpcConfiguration {
+	/// JSON-RPC server binding address.
+	pub addr: Option<SocketAddr>,
+	/// Maximum number of connections for JSON-RPC server.
+	pub max_connections: u32,
+	/// CORS settings for HTTP & WS servers. `None` if all origins are allowed.
+	pub cors: Option<Vec<String>>,
+	/// RPC methods to expose (by default only a safe subset or all of them).
+	pub methods: RpcMethods,
+	/// Maximum payload of a rpc request
+	pub max_request_size: u32,
+	/// Maximum payload of a rpc response.
+	pub max_response_size: u32,
+	/// Custom JSON-RPC subscription ID provider.
+	///
+	/// Default: [`crate::RandomStringSubscriptionId`].
+	pub id_provider: Option<Box<dyn crate::RpcSubscriptionIdProvider>>,
+	/// Maximum allowed subscriptions per rpc connection
+	pub max_subs_per_conn: u32,
+	/// JSON-RPC server default port.
+	pub port: u16,
+	/// The number of messages the JSON-RPC server is allowed to keep in memory.
+	pub message_buffer_capacity: u32,
+	/// JSON-RPC server batch config.
+	pub batch_config: RpcBatchRequestConfig,
+	/// RPC rate limit per minute.
+	pub rate_limit: Option<NonZeroU32>,
+	/// RPC rate limit whitelisted ip addresses.
+	pub rate_limit_whitelisted_ips: Vec<IpNetwork>,
+	/// RPC rate limit trust proxy headers.
+	pub rate_limit_trust_proxy_headers: bool,
 }

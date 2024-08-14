@@ -22,6 +22,7 @@ use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughpu
 
 use kitchensink_runtime::{constants::currency::*, BalancesCall};
 use node_cli::service::{create_extrinsic, FullClient};
+use polkadot_sdk::sc_service::config::RpcConfiguration;
 use sc_block_builder::{BlockBuilderBuilder, BuiltBlock};
 use sc_consensus::{
 	block_import::{BlockImportParams, ForkChoiceStrategy},
@@ -76,20 +77,22 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		wasm_method: WasmExecutionMethod::Compiled {
 			instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
 		},
-		rpc_addr: None,
-		rpc_max_connections: Default::default(),
-		rpc_cors: None,
-		rpc_methods: Default::default(),
-		rpc_max_request_size: Default::default(),
-		rpc_max_response_size: Default::default(),
-		rpc_id_provider: Default::default(),
-		rpc_max_subs_per_conn: Default::default(),
-		rpc_port: 9944,
-		rpc_message_buffer_capacity: Default::default(),
-		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
-		rpc_rate_limit: None,
-		rpc_rate_limit_whitelisted_ips: Default::default(),
-		rpc_rate_limit_trust_proxy_headers: Default::default(),
+		rpc: RpcConfiguration {
+			addr: None,
+			max_connections: Default::default(),
+			cors: None,
+			methods: Default::default(),
+			max_request_size: Default::default(),
+			max_response_size: Default::default(),
+			id_provider: Default::default(),
+			max_subs_per_conn: Default::default(),
+			port: 9944,
+			message_buffer_capacity: Default::default(),
+			batch_config: RpcBatchRequestConfig::Unlimited,
+			rate_limit: None,
+			rate_limit_whitelisted_ips: Default::default(),
+			rate_limit_trust_proxy_headers: Default::default(),
+		},
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,

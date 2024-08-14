@@ -80,6 +80,8 @@ pub use sc_chain_spec::{
 	Properties,
 };
 
+use crate::config::RpcConfiguration;
+use prometheus_endpoint::Registry;
 pub use sc_consensus::ImportQueue;
 pub use sc_executor::NativeExecutionDispatch;
 pub use sc_network_sync::WarpSyncParams;
@@ -94,6 +96,7 @@ pub use sc_transaction_pool_api::{error::IntoPoolError, InPoolTransaction, Trans
 #[doc(hidden)]
 pub use std::{ops::Deref, result::Result, sync::Arc};
 pub use task_manager::{SpawnTaskHandle, Task, TaskManager, TaskRegistry, DEFAULT_GROUP_NAME};
+use tokio::runtime::Handle;
 
 const DEFAULT_PROTOCOL_ID: &str = "sup";
 
@@ -375,7 +378,9 @@ mod waiting {
 
 /// Starts RPC servers.
 pub fn start_rpc_servers<R>(
-	config: &Configuration,
+	rpc_configuration: &RpcConfiguration,
+	registry: Option<&Registry>,
+	tokio_handle: &Handle,
 	gen_rpc_module: R,
 	rpc_id_provider: Option<Box<dyn RpcSubscriptionIdProvider>>,
 ) -> Result<Box<dyn std::any::Any + Send + Sync>, error::Error>
@@ -396,26 +401,28 @@ where
 		addr
 	};
 
-	let addr = config.rpc_addr.unwrap_or_else(|| ([127, 0, 0, 1], config.rpc_port).into());
+	let addr = rpc_configuration
+		.addr
+		.unwrap_or_else(|| ([127, 0, 0, 1], rpc_configuration.port).into());
 	let backup_addr = backup_port(addr);
-	let metrics = sc_rpc_server::RpcMetrics::new(config.prometheus_registry())?;
+	let metrics = sc_rpc_server::RpcMetrics::new(registry)?;
 
 	let server_config = sc_rpc_server::Config {
 		addrs: [addr, backup_addr],
-		batch_config: config.rpc_batch_config,
-		max_connections: config.rpc_max_connections,
-		max_payload_in_mb: config.rpc_max_request_size,
-		max_payload_out_mb: config.rpc_max_response_size,
-		max_subs_per_conn: config.rpc_max_subs_per_conn,
-		message_buffer_capacity: config.rpc_message_buffer_capacity,
-		rpc_api: gen_rpc_module(deny_unsafe(addr, &config.rpc_methods))?,
+		batch_config: rpc_configuration.batch_config,
+		max_connections: rpc_configuration.max_connections,
+		max_payload_in_mb: rpc_configuration.max_request_size,
+		max_payload_out_mb: rpc_configuration.max_response_size,
+		max_subs_per_conn: rpc_configuration.max_subs_per_conn,
+		message_buffer_capacity: rpc_configuration.message_buffer_capacity,
+		rpc_api: gen_rpc_module(deny_unsafe(addr, &rpc_configuration.methods))?,
 		metrics,
 		id_provider: rpc_id_provider,
-		cors: config.rpc_cors.as_ref(),
-		tokio_handle: config.tokio_handle.clone(),
-		rate_limit: config.rpc_rate_limit,
-		rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
-		rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
+		cors: rpc_configuration.cors.as_ref(),
+		tokio_handle: tokio_handle.clone(),
+		rate_limit: rpc_configuration.rate_limit,
+		rate_limit_whitelisted_ips: rpc_configuration.rate_limit_whitelisted_ips.clone(),
+		rate_limit_trust_proxy_headers: rpc_configuration.rate_limit_trust_proxy_headers,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773
@@ -423,7 +430,7 @@ where
 	// `block_in_place` is a hack to allow callers to call `block_on` prior to
 	// calling `start_rpc_servers`.
 	match tokio::task::block_in_place(|| {
-		config.tokio_handle.block_on(sc_rpc_server::start_server(server_config))
+		tokio_handle.block_on(sc_rpc_server::start_server(server_config))
 	}) {
 		Ok(server) => Ok(Box::new(waiting::Server(Some(server)))),
 		Err(e) => Err(Error::Application(e)),

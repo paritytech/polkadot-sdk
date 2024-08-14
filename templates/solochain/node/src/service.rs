@@ -201,7 +201,7 @@ pub fn new_full<
 		);
 	}
 
-	let role = config.role.clone();
+	let role = config.role;
 	let force_authoring = config.force_authoring;
 	let backoff_authoring_blocks: Option<()> = None;
 	let name = config.network.node_name.clone();

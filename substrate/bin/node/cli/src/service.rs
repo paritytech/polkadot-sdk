@@ -406,7 +406,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	),
 ) -> Result<NewFullBase, ServiceError> {
 	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
-	let role = config.role.clone();
+	let role = config.role;
 	let force_authoring = config.force_authoring;
 	let backoff_authoring_blocks =
 		Some(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default());
@@ -719,7 +719,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		name: Some(name),
 		observer_enabled: false,
 		keystore,
-		local_role: role.clone(),
+		local_role: role,
 		telemetry: telemetry.as_ref().map(|x| x.handle()),
 		protocol_name: grandpa_protocol_name,
 	};

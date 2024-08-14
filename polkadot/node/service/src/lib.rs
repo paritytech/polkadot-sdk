@@ -767,7 +767,7 @@ pub fn new_full<
 	use sc_network_sync::WarpSyncParams;
 
 	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
-	let role = config.role.clone();
+	let role = config.role;
 	let force_authoring = config.force_authoring;
 	let backoff_authoring_blocks = if !force_authoring_backoff &&
 		(config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())
