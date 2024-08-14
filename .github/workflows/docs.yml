@@ -1,12 +1,20 @@
 on:
-  pull_request:
   push:
-    branches: [master]
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group:
 
 name: Docs
 
 jobs:
   set-image:
+    # GitHub Actions allows using 'env' in a container context.
+    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
+    # This workaround sets the container image for each job using 'set-image' job output.  
+    # TODO: remove once migration is complete or this workflow is fully stable
+    if: contains(github.event.label.name, 'GHA-migration')
     runs-on: ubuntu-latest
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
@@ -22,28 +30,28 @@ jobs:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - uses: actions/checkout@v4
-      - run: time cargo doc --workspace --all-features --no-deps
+      - run: forklift cargo doc --workspace --all-features --no-deps
         env:
           SKIP_WASM_BUILD: 1
   test-doc:
-    runs-on: arc-runners-polkadot-sdk-beefy
-    needs: [set-image, test-rustdoc]
-    container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
-    steps:
-      - uses: actions/checkout@v4
-      - run: time cargo test --doc --workspace
-        env:
-          RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-
-  build-rustdoc:
     runs-on: arc-runners-polkadot-sdk-beefy
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - uses: actions/checkout@v4
-      - run: time cargo doc --all-features --workspace --no-deps
+      - run: forklift cargo test --doc --workspace
+        env:
+          RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+
+  build-rustdoc:
+    runs-on: arc-runners-polkadot-sdk-beefy
+    needs: [set-image, test-rustdoc]
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: forklift cargo doc --all-features --workspace --no-deps
         env:
           SKIP_WASM_BUILD: 1
           RUSTDOCFLAGS: "-Dwarnings --default-theme=ayu --html-in-header ./docs/sdk/assets/header.html --extend-css ./docs/sdk/assets/theme.css --html-after-content ./docs/sdk/assets/after-content.html"
