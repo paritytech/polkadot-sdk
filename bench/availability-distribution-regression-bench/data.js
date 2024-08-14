@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723593536544,
+  "lastUpdate": 1723632385621,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -22047,6 +22047,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.17315229953333325,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d944ac2f25d267b443631f891aa68a834dc24af0",
+          "message": "Stop running the wishlist workflow on forks (#5297)\n\nAddresses\nhttps://github.com/paritytech/polkadot-sdk/pull/5085#issuecomment-2277231072",
+          "timestamp": "2024-08-14T08:46:03Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d944ac2f25d267b443631f891aa68a834dc24af0"
+        },
+        "date": 1723632354501,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01229831966,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02218415378,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00987965834,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17136619870666667,
             "unit": "seconds"
           }
         ]
