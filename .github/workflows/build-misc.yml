@@ -1,3 +1,5 @@
+name: Build Misc
+
 on:
   push:
     branches:
@@ -48,10 +50,10 @@ jobs:
         env:
           SUBSTRATE_RUNTIME_TARGET: riscv
         run: |
-          time cargo check -p minimal-template-runtime
-          time cargo check -p westend-runtime
-          time cargo check -p rococo-runtime
-          time cargo check -p polkadot-test-runtime
+          forklift cargo check -p minimal-template-runtime
+          forklift cargo check -p westend-runtime
+          forklift cargo check -p rococo-runtime
+          forklift cargo check -p polkadot-test-runtime
 
   build-subkey:
     needs: [ set-image ]
@@ -72,4 +74,4 @@ jobs:
           SKIP_WASM_BUILD: 1
         run: |
           cd ./substrate/bin/utils/subkey
-          time cargo build --locked --release
+          forklift cargo build --locked --release

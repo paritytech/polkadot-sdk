@@ -65,7 +65,7 @@ jobs:
 
   publish-benchmarks:
     needs: [ build ]
-    if: github.ref == 'refs/heads/master'
+    #    if: github.ref == 'refs/heads/master'
     environment: subsystem-benchmarks
     runs-on: ubuntu-latest
     strategy:
@@ -84,24 +84,28 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4.1.8
         with:
-          name: subsystem-benchmarks-${{matrix.features.bench}}-${{ github.sha }}
+          path: ./artifacts
 
       - name: Setup git
         run: |
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
+          ls -lsR ./artifacts 
 
-      - uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
-          private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
-
-      - name: Publish result to GH Pages
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          tool: "customSmallerIsBetter"
-          name: ${{ matrix.features.bench }}
-          output-file-path: ./artifacts/${{ matrix.features.bench }}.json
-          benchmark-data-dir-path: ./artifacts
-          github-token: ${{ steps.app-token.outputs.token }}
+#      - uses: actions/create-github-app-token@v1
+#        id: app-token
+#        with:
+#          app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
+#          private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
+#
+#      - name: Publish ${{ env.BENCH_NAME }}
+#        uses: benchmark-action/github-action-benchmark@v1
+#        env:
+#          BENCH_NAME: availability-recovery-regression-bench
+#        with:
+#          tool: "customSmallerIsBetter"
+#          name: ${{ env.BENCH_NAME }}
+#          output-file-path: ./artifacts/${{ env.BENCH_NAME }}/${{ env.BENCH_NAME }}.json
+#          benchmark-data-dir-path: ./artifacts/${{ env.BENCH_NAME }}
+#          github-token: ${{ steps.app-token.outputs.token }}
+#          auto-push: false
