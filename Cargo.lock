@@ -15193,7 +15193,7 @@ dependencies = [
  "cfg-if",
  "concurrent-queue",
  "pin-project-lite",
- "rustix 0.38.25",
+ "rustix 0.38.21",
  "tracing",
  "windows-sys 0.52.0",
 ]
