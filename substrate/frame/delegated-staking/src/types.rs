@@ -251,25 +251,10 @@ impl<T: Config> AgentLedgerOuter<T> {
 		self.ledger.update(&key)
 	}
 
-	/// Save self and remove if no delegation left.
-	///
-	/// Returns:
-	/// - true if agent killed.
-	/// - error if the delegate is in an unexpected state.
-	pub(crate) fn update_or_kill(self) -> Result<bool, DispatchError> {
+	/// Update agent ledger.
+	pub(crate) fn update(self) {
 		let key = self.key;
-		// see if delegate can be killed
-		if self.ledger.total_delegated == Zero::zero() {
-			ensure!(
-				self.ledger.unclaimed_withdrawals == Zero::zero() &&
-					self.ledger.pending_slash == Zero::zero(),
-				Error::<T>::BadState
-			);
-			<Agents<T>>::remove(key);
-			return Ok(true)
-		}
 		self.ledger.update(&key);
-		Ok(false)
 	}
 
 	/// Reloads self from storage.
