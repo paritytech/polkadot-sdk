@@ -29,7 +29,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 
 use alloc::vec::Vec;
-use sp_core::{crypto::KeyTypeId, RuntimeDebug};
+use sp_core::RuntimeDebug;
 use sp_staking::SessionIndex;
 
 pub mod runtime_api;
