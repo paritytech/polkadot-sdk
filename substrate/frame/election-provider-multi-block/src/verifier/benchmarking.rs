@@ -23,8 +23,8 @@ use crate::{
 	signed::pallet::Submissions,
 	unsigned::miner::OffchainWorkerMiner,
 	verifier::{AsyncVerifier, Status, Verifier},
-	BenchmarkingConfig, ConfigCore, ConfigSigned, ConfigUnsigned, ConfigVerifier, CurrentPhase,
-	PalletCore, PalletVerifier, Phase,
+	BenchmarkingConfig, ConfigCore, ConfigSigned, ConfigUnsigned, ConfigVerifier, PalletCore,
+	PalletVerifier,
 };
 use frame_support::assert_ok;
 use frame_system::RawOrigin;

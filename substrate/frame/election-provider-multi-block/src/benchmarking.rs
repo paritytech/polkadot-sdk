@@ -29,8 +29,6 @@ const SEED: u32 = 999;
 const PAGE: u32 = 0;
 /// Minimum number of voters in the data provider and per snapshot page.
 const MIN_VOTERS: u32 = 10;
-/// Minimum number of targets in the data provider and per snapshot page.
-const MIN_TARGETS: u32 = 10;
 
 #[benchmarks(
     where T: ConfigCore + ConfigSigned + ConfigVerifier,

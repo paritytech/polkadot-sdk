@@ -318,9 +318,11 @@ parameter_types! {
 	pub storage SlashDeferDuration: sp_staking::EraIndex = 27;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxExposurePageSize: u32 = 64;
+	pub const MaxValidatorSet: u32 = 500;
 	pub const MaxNominators: u32 = 256;
 	pub const MaxAuthorities: u32 = 100_000;
-	pub const OnChainMaxWinners: u32 = u32::MAX;
+	pub const OnChainMaxWinnersPerPage: u32 = u32::MAX;
+	pub const OnChainMaxBackersPerPage: u32 = u32::MAX;
 	// Unbounded number of election targets and voters.
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
@@ -333,7 +335,8 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type DataProvider = Staking;
 	type WeightInfo = ();
 	type Bounds = ElectionBoundsOnChain;
-	type MaxWinners = OnChainMaxWinners;
+	type MaxWinnersPerPage = OnChainMaxWinnersPerPage;
+	type MaxBackersPerWinner = OnChainMaxBackersPerPage;
 }
 
 /// Upper limit on the number of NPOS nominations.
@@ -355,6 +358,7 @@ impl pallet_staking::Config for Runtime {
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type MaxExposurePageSize = MaxExposurePageSize;
+	type MaxValidatorSet = MaxValidatorSet;
 	type NextNewSession = Session;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;

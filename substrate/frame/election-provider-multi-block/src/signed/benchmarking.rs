@@ -18,13 +18,7 @@
 //! # Benchmarking for the Elections Multiblock Unsigned sub-pallet.
 
 use super::*;
-use crate::{
-	benchmarking::helpers, unsigned::miner::OffchainWorkerMiner, BenchmarkingConfig, ConfigCore,
-	ConfigSigned, ConfigUnsigned, CurrentPhase, PalletSigned, Phase,
-};
-use frame_support::assert_ok;
-use frame_system::RawOrigin;
-
+use crate::{benchmarking::helpers, BenchmarkingConfig, ConfigCore, ConfigSigned, ConfigUnsigned};
 use frame_benchmarking::v2::*;
 
 #[benchmarks(

@@ -19,12 +19,9 @@
 
 use super::*;
 use crate::{
-	benchmarking::helpers,
-	signed::Config as ConfigSigned,
-	unsigned::{Config, Pallet as PalletUnsigned},
-	Config as ConfigCore, ConfigVerifier, CurrentPhase, Pallet as PalletCore, Phase,
+	benchmarking::helpers, signed::Config as ConfigSigned, unsigned::Config, BenchmarkingConfig,
+	Config as ConfigCore, ConfigVerifier, Pallet as PalletCore, Phase,
 };
-use frame_support::assert_ok;
 use frame_system::RawOrigin;
 
 use frame_benchmarking::v2::*;

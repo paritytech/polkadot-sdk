@@ -131,7 +131,7 @@ pub use crate::{verifier::Verifier, weights::WeightInfo};
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 use crate::{
 	signed::{Config as ConfigSigned, Pallet as PalletSigned},
-	unsigned::{Config as ConfigUnsigned, Pallet as PalletUnsigned},
+	unsigned::Config as ConfigUnsigned,
 	verifier::{Config as ConfigVerifier, Pallet as PalletVerifier},
 	Config as ConfigCore, Pallet as PalletCore,
 };
