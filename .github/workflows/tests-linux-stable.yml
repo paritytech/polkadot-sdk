@@ -115,9 +115,9 @@ jobs:
   test-linux-worfklow-stopper:
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
-    needs: [set-image]
-    container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+    # needs: [set-image]
+    # container:
+    #   image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -126,7 +126,7 @@ jobs:
         run: sleep 60; exit 1
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' }}
-        uses: ./.github/actions/workflow-stopper/set-up-gh
+        uses: ./.github/actions/workflow-stopper
 
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
