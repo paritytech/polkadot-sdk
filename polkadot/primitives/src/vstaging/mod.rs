@@ -181,6 +181,13 @@ impl<H: Copy> From<CandidateDescriptorV2<H>> for CandidateDescriptor<H> {
 	}
 }
 
+#[cfg(feature = "test")]
+impl<H: Encode + Decode + Copy> From<CandidateDescriptor<H>> for CandidateDescriptorV2<H> {
+	fn from(value: CandidateDescriptor<H>) -> Self {
+		Decode::decode(&mut value.encode().as_slice()).unwrap()
+	}
+}
+
 impl<H> CandidateDescriptorV2<H> {
 	/// Constructor
 	pub fn new(

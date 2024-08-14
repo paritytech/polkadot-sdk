@@ -29,7 +29,7 @@ use polkadot_primitives::{
 	SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
 };
 pub use rand;
-use sp_application_crypto::sr25519;
+use sp_application_crypto::{sr25519, ByteArray};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::generic::Digest;
 
@@ -172,7 +172,8 @@ pub fn dummy_head_data() -> HeadData {
 
 /// Create a meaningless collator id.
 pub fn dummy_collator() -> CollatorId {
-	CollatorId::from(sr25519::Public::default())
+	CollatorId::from_slice(&mut (0..32).into_iter().collect::<Vec<_>>().as_slice())
+		.expect("32 bytes; qed")
 }
 
 /// Create a meaningless validator id.
@@ -182,7 +183,8 @@ pub fn dummy_validator() -> ValidatorId {
 
 /// Create a meaningless collator signature.
 pub fn dummy_collator_signature() -> CollatorSignature {
-	CollatorSignature::from(sr25519::Signature::default())
+	CollatorSignature::from_slice(&mut (0..64).into_iter().collect::<Vec<_>>().as_slice())
+		.expect("64 bytes; qed")
 }
 
 /// Create a meaningless persisted validation data.

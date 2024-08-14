@@ -70,6 +70,7 @@ mod enter {
 		fill_claimqueue: bool,
 		elastic_paras: BTreeMap<u32, u8>,
 		unavailable_cores: Vec<u32>,
+		v2_descriptor: bool,
 	}
 
 	fn make_inherent_data(
@@ -82,6 +83,7 @@ mod enter {
 			fill_claimqueue,
 			elastic_paras,
 			unavailable_cores,
+			v2_descriptor,
 		}: TestConfig,
 	) -> Bench<Test> {
 		let extra_cores = elastic_paras
@@ -99,7 +101,8 @@ mod enter {
 			.set_backed_and_concluding_paras(backed_and_concluding.clone())
 			.set_dispute_sessions(&dispute_sessions[..])
 			.set_fill_claimqueue(fill_claimqueue)
-			.set_unavailable_cores(unavailable_cores);
+			.set_unavailable_cores(unavailable_cores)
+			.set_candidate_descriptor_v2(v2_descriptor);
 
 		// Setup some assignments as needed:
 		mock_assigner::Pallet::<Test>::set_core_count(builder.max_cores());
@@ -145,6 +148,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			// We expect the scenario to have cores 0 & 1 with pending availability. The backed
@@ -240,6 +244,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -344,6 +349,7 @@ mod enter {
 				fill_claimqueue: true,
 				elastic_paras: [(2, 4)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
+				v2_descriptor: false,
 			});
 
 			let mut expected_para_inherent_data = scenario.data.clone();
@@ -600,6 +606,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -673,6 +680,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -744,6 +752,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -831,6 +840,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -918,6 +928,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1004,6 +1015,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1111,6 +1123,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1179,6 +1192,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1245,6 +1259,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1348,6 +1363,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let mut para_inherent_data = scenario.data.clone();
@@ -1437,6 +1453,7 @@ mod enter {
 				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
+				v2_descriptor: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -1463,6 +1480,62 @@ mod enter {
 			.error;
 
 			assert_eq!(dispatch_error, Error::<Test>::InherentOverweight.into());
+		});
+	}
+
+	#[test]
+	fn v2_descriptors_are_filtered() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			let mut backed_and_concluding = BTreeMap::new();
+
+			for i in 0..10 {
+				backed_and_concluding.insert(i, i);
+			}
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 5,
+				code_upgrade: None,
+				fill_claimqueue: false,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				v2_descriptor: true,
+			});
+
+			let unfiltered_para_inherent_data = scenario.data.clone();
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (5 validators per core, 10 backed candidates)
+			assert_eq!(unfiltered_para_inherent_data.bitfields.len(), 50);
+			// * 10 v2 candidate descriptors.
+			assert_eq!(unfiltered_para_inherent_data.backed_candidates.len(), 10);
+
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &unfiltered_para_inherent_data)
+				.unwrap();
+
+			// We expect all candidates to be filtered out (including the backed candidates.)
+			let filtered_para_inherend_data =
+				Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
+
+			assert_eq!(filtered_para_inherend_data.backed_candidates.len(), 0);
+
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &unfiltered_para_inherent_data)
+				.unwrap();
+			let dispatch_error = Pallet::<Test>::enter(
+				frame_system::RawOrigin::None.into(),
+				expected_para_inherent_data,
+			)
+			.unwrap_err()
+			.error;
+
+			// We expect `enter` to fail because it contains backed candidates with v2 descriptors.
+			assert_eq!(dispatch_error, Error::<Test>::CandidatesFilteredDuringExecution.into());
 		});
 	}
 }
@@ -3376,7 +3449,8 @@ mod sanitizers {
 						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
-						core_index_enabled
+						core_index_enabled,
+						false,
 					),
 					expected_backed_candidates_with_core,
 				);
@@ -3400,7 +3474,8 @@ mod sanitizers {
 						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
-						core_index_enabled
+						core_index_enabled,
+						false,
 					),
 					expected_backed_candidates_with_core,
 				);
@@ -3425,6 +3500,7 @@ mod sanitizers {
 						BTreeSet::new(),
 						scheduled,
 						core_index_enabled,
+						false,
 					),
 					expected_backed_candidates_with_core
 				);
@@ -3457,6 +3533,7 @@ mod sanitizers {
 						BTreeSet::new(),
 						scheduled,
 						core_index_enabled,
+						false,
 					),
 					expected_backed_candidates_with_core
 				);
@@ -3497,6 +3574,7 @@ mod sanitizers {
 					BTreeSet::new(),
 					scheduled,
 					core_index_enabled,
+					false,
 				);
 
 				if core_index_enabled {
@@ -3567,6 +3645,7 @@ mod sanitizers {
 					BTreeSet::new(),
 					scheduled,
 					core_index_enabled,
+					false,
 				);
 
 				if core_index_enabled {
@@ -3605,6 +3684,7 @@ mod sanitizers {
 					BTreeSet::new(),
 					scheduled,
 					core_index_enabled,
+					false,
 				);
 
 				assert!(sanitized_backed_candidates.is_empty());
@@ -3641,6 +3721,7 @@ mod sanitizers {
 					set,
 					scheduled,
 					core_index_enabled,
+					false,
 				);
 
 				assert_eq!(sanitized_backed_candidates.len(), backed_candidates.len() / 2);
@@ -3678,6 +3759,7 @@ mod sanitizers {
 					invalid_set,
 					scheduled,
 					true,
+					false,
 				);
 
 				// We'll be left with candidates from paraid 2 and 4.
@@ -3714,6 +3796,7 @@ mod sanitizers {
 					invalid_set,
 					scheduled,
 					true,
+					false,
 				);
 
 				// Only the second candidate of paraid 1 should be removed.
