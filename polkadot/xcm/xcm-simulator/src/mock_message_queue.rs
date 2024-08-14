@@ -1,4 +1,4 @@
-// Copyright (C) Parity Technologies (UK) Ltd.
+// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -14,13 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-pub use pallet::*;
-use polkadot_core_primitives::BlockNumber as RelayBlockNumber;
+//! Simple mock message queue.
+
+use codec::{Decode, Encode};
+
 use polkadot_parachain_primitives::primitives::{
 	DmpMessageHandler, Id as ParaId, XcmpMessageFormat, XcmpMessageHandler,
 };
+use polkadot_primitives::BlockNumber as RelayBlockNumber;
 use sp_runtime::traits::{Get, Hash};
+
+use sp_std::prelude::*;
 use xcm::{latest::prelude::*, VersionedXcm};
+
+pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -41,15 +48,15 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	pub(super) type ParachainId<T: Config> = StorageValue<_, ParaId, ValueQuery>;
+	pub type ParachainId<T: Config> = StorageValue<_, ParaId, ValueQuery>;
 
 	#[pallet::storage]
 	/// A queue of received DMP messages
-	pub(super) type ReceivedDmp<T: Config> = StorageValue<_, Vec<Xcm<T::RuntimeCall>>, ValueQuery>;
+	pub type ReceivedDmp<T: Config> = StorageValue<_, Vec<Xcm<T::RuntimeCall>>, ValueQuery>;
 
 	impl<T: Config> Get<ParaId> for Pallet<T> {
 		fn get() -> ParaId {
-			Self::parachain_id()
+			ParachainId::<T>::get()
 		}
 	}
 
@@ -60,45 +67,34 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		// XCMP
 		/// Some XCM was executed OK.
-		Success(Option<T::Hash>),
+		Success { message_id: Option<T::Hash> },
 		/// Some XCM failed.
-		Fail(Option<T::Hash>, XcmError),
+		Fail { message_id: Option<T::Hash>, error: XcmError },
 		/// Bad XCM version used.
-		BadVersion(Option<T::Hash>),
+		BadVersion { message_id: Option<T::Hash> },
 		/// Bad XCM format used.
-		BadFormat(Option<T::Hash>),
+		BadFormat { message_id: Option<T::Hash> },
 
 		// DMP
 		/// Downward message is invalid XCM.
-		InvalidFormat(MessageId),
+		InvalidFormat { message_id: MessageId },
 		/// Downward message is unsupported version of XCM.
-		UnsupportedVersion(MessageId),
+		UnsupportedVersion { message_id: MessageId },
 		/// Downward message executed with the given outcome.
-		ExecutedDownward(MessageId, Outcome),
+		ExecutedDownward { message_id: MessageId, outcome: Outcome },
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Get the Parachain Id.
-		pub fn parachain_id() -> ParaId {
-			ParachainId::<T>::get()
-		}
-
-		/// Set the Parachain Id.
 		pub fn set_para_id(para_id: ParaId) {
 			ParachainId::<T>::put(para_id);
-		}
-
-		/// Get the queue of receieved DMP messages.
-		pub fn received_dmp() -> Vec<Xcm<T::RuntimeCall>> {
-			ReceivedDmp::<T>::get()
 		}
 
 		fn handle_xcmp_message(
 			sender: ParaId,
 			_sent_at: RelayBlockNumber,
 			xcm: VersionedXcm<T::RuntimeCall>,
-			max_weight: Weight,
-		) -> Result<Weight, XcmError> {
+			max_weight: xcm::latest::Weight,
+		) -> Result<xcm::latest::Weight, XcmError> {
 			let hash = Encode::using_encoded(&xcm, T::Hashing::hash);
 			let mut message_hash = Encode::using_encoded(&xcm, sp_io::hashing::blake2_256);
 			let (result, event) = match Xcm::<T::RuntimeCall>::try_from(xcm) {
@@ -111,15 +107,20 @@ pub mod pallet {
 						max_weight,
 						Weight::zero(),
 					) {
-						Outcome::Error { error } => (Err(error), Event::Fail(Some(hash), error)),
-						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
+						Outcome::Error { error } =>
+							(Err(error), Event::Fail { message_id: Some(hash), error }),
+						Outcome::Complete { used } =>
+							(Ok(used), Event::Success { message_id: Some(hash) }),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
 						Outcome::Incomplete { used, error } =>
-							(Ok(used), Event::Fail(Some(hash), error)),
+							(Ok(used), Event::Fail { message_id: Some(hash), error }),
 					}
 				},
-				Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion(Some(hash))),
+				Err(()) => (
+					Err(XcmError::UnhandledXcmVersion),
+					Event::BadVersion { message_id: Some(hash) },
+				),
 			};
 			Self::deposit_event(event);
 			result
@@ -129,8 +130,8 @@ pub mod pallet {
 	impl<T: Config> XcmpMessageHandler for Pallet<T> {
 		fn handle_xcmp_messages<'a, I: Iterator<Item = (ParaId, RelayBlockNumber, &'a [u8])>>(
 			iter: I,
-			max_weight: Weight,
-		) -> Weight {
+			max_weight: xcm::latest::Weight,
+		) -> xcm::latest::Weight {
 			for (sender, sent_at, data) in iter {
 				let mut data_ref = data;
 				let _ = XcmpMessageFormat::decode(&mut data_ref)
@@ -156,15 +157,16 @@ pub mod pallet {
 			iter: impl Iterator<Item = (RelayBlockNumber, Vec<u8>)>,
 			limit: Weight,
 		) -> Weight {
-			for (_i, (_sent_at, data)) in iter.enumerate() {
+			for (_sent_at, data) in iter {
 				let mut id = sp_io::hashing::blake2_256(&data[..]);
 				let maybe_versioned = VersionedXcm::<T::RuntimeCall>::decode(&mut &data[..]);
 				match maybe_versioned {
 					Err(_) => {
-						Self::deposit_event(Event::InvalidFormat(id));
+						Self::deposit_event(Event::InvalidFormat { message_id: id });
 					},
 					Ok(versioned) => match Xcm::try_from(versioned) {
-						Err(()) => Self::deposit_event(Event::UnsupportedVersion(id)),
+						Err(()) =>
+							Self::deposit_event(Event::UnsupportedVersion { message_id: id }),
 						Ok(x) => {
 							let outcome = T::XcmExecutor::prepare_and_execute(
 								Parent,
@@ -173,8 +175,11 @@ pub mod pallet {
 								limit,
 								Weight::zero(),
 							);
-							<ReceivedDmp<T>>::append(x);
-							Self::deposit_event(Event::ExecutedDownward(id, outcome));
+							ReceivedDmp::<T>::append(x);
+							Self::deposit_event(Event::ExecutedDownward {
+								message_id: id,
+								outcome,
+							});
 						},
 					},
 				}

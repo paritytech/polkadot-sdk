@@ -18,7 +18,7 @@
 
 use super::*;
 
-use polkadot_node_subsystem::messages::{ChainApiMessage, ProspectiveParachainsMessage};
+use polkadot_node_subsystem::messages::ChainApiMessage;
 use polkadot_primitives::{AsyncBackingParams, Header, OccupiedCore};
 
 const ASYNC_BACKING_PARAMETERS: AsyncBackingParams =
@@ -31,7 +31,6 @@ fn get_parent_hash(hash: Hash) -> Hash {
 /// Handle a view update.
 async fn update_view(
 	virtual_overseer: &mut VirtualOverseer,
-	test_state: &TestState,
 	new_view: Vec<(Hash, u32)>, // Hash and block number.
 	activated: u8,              // How many new heads does this update contain?
 ) {
@@ -61,20 +60,87 @@ async fn update_view(
 
 		let min_number = leaf_number.saturating_sub(ASYNC_BACKING_PARAMETERS.allowed_ancestry_len);
 
-		assert_matches!(
-			overseer_recv(virtual_overseer).await,
-			AllMessages::ProspectiveParachains(
-				ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx),
-			) if parent == leaf_hash => {
-				tx.send(vec![(test_state.para_id, min_number)]).unwrap();
-			}
-		);
-
 		let ancestry_len = leaf_number + 1 - min_number;
 		let ancestry_hashes = std::iter::successors(Some(leaf_hash), |h| Some(get_parent_hash(*h)))
 			.take(ancestry_len as usize);
 		let ancestry_numbers = (min_number..=leaf_number).rev();
 		let mut ancestry_iter = ancestry_hashes.clone().zip(ancestry_numbers).peekable();
+
+		if let Some((hash, number)) = ancestry_iter.next() {
+			assert_matches!(
+				overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50)).await.unwrap(),
+				AllMessages::ChainApi(ChainApiMessage::BlockHeader(.., tx)) => {
+					let header = Header {
+						parent_hash: get_parent_hash(hash),
+						number,
+						state_root: Hash::zero(),
+						extrinsics_root: Hash::zero(),
+						digest: Default::default(),
+					};
+
+					tx.send(Ok(Some(header))).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50)).await.unwrap(),
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(
+						..,
+						RuntimeApiRequest::AsyncBackingParams(
+							tx
+						)
+					)
+				) => {
+					tx.send(Ok(ASYNC_BACKING_PARAMETERS)).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50)).await.unwrap(),
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(
+						..,
+						RuntimeApiRequest::SessionIndexForChild(
+							tx
+						)
+					)
+				) => {
+					tx.send(Ok(1)).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50)).await.unwrap(),
+				AllMessages::ChainApi(
+					ChainApiMessage::Ancestors {
+						k,
+						response_channel: tx,
+						..
+					}
+				) => {
+					assert_eq!(k, ASYNC_BACKING_PARAMETERS.allowed_ancestry_len as usize);
+
+					tx.send(Ok(ancestry_hashes.clone().skip(1).into_iter().collect())).unwrap();
+				}
+			);
+		}
+
+		for _ in ancestry_iter.clone() {
+			assert_matches!(
+				overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50)).await.unwrap(),
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(
+						..,
+						RuntimeApiRequest::SessionIndexForChild(
+							tx
+						)
+					)
+				) => {
+					tx.send(Ok(1)).unwrap();
+				}
+			);
+		}
 
 		while let Some((hash, number)) = ancestry_iter.next() {
 			// May be `None` for the last element.
@@ -195,7 +261,7 @@ fn distribute_collation_from_implicit_view() {
 			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
 				.await;
 			// Activated leaf is `b`, but the collation will be based on `c`.
-			update_view(virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+			update_view(virtual_overseer, vec![(head_b, head_b_num)], 1).await;
 
 			let validator_peer_ids = test_state.current_group_validator_peer_ids();
 			for (val, peer) in test_state
@@ -258,7 +324,7 @@ fn distribute_collation_from_implicit_view() {
 
 			// Head `c` goes out of view.
 			// Build a different candidate for this relay parent and attempt to distribute it.
-			update_view(virtual_overseer, &test_state, vec![(head_a, head_a_num)], 1).await;
+			update_view(virtual_overseer, vec![(head_a, head_a_num)], 1).await;
 
 			let pov = PoV { block_data: BlockData(vec![4, 5, 6]) };
 			let parent_head_data_hash = Hash::repeat_byte(0xBB);
@@ -318,7 +384,7 @@ fn distribute_collation_up_to_limit() {
 			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
 				.await;
 			// Activated leaf is `a`, but the collation will be based on `b`.
-			update_view(virtual_overseer, &test_state, vec![(head_a, head_a_num)], 1).await;
+			update_view(virtual_overseer, vec![(head_a, head_a_num)], 1).await;
 
 			for i in 0..(ASYNC_BACKING_PARAMETERS.max_candidate_depth + 1) {
 				let pov = PoV { block_data: BlockData(vec![i as u8]) };
@@ -402,7 +468,7 @@ fn send_parent_head_data_for_elastic_scaling() {
 				CollatorProtocolMessage::CollateOn(test_state.para_id),
 			)
 			.await;
-			update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+			update_view(&mut virtual_overseer, vec![(head_b, head_b_num)], 1).await;
 
 			let pov_data = PoV { block_data: BlockData(vec![1 as u8]) };
 			let candidate = TestCandidateBuilder {
@@ -517,8 +583,8 @@ fn advertise_and_send_collation_by_hash() {
 				CollatorProtocolMessage::CollateOn(test_state.para_id),
 			)
 			.await;
-			update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
-			update_view(&mut virtual_overseer, &test_state, vec![(head_a, head_a_num)], 1).await;
+			update_view(&mut virtual_overseer, vec![(head_b, head_b_num)], 1).await;
+			update_view(&mut virtual_overseer, vec![(head_a, head_a_num)], 1).await;
 
 			let candidates: Vec<_> = (0..2)
 				.map(|i| {
@@ -638,7 +704,7 @@ fn advertise_core_occupied() {
 			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
 				.await;
 			// Activated leaf is `a`, but the collation will be based on `b`.
-			update_view(virtual_overseer, &test_state, vec![(head_a, head_a_num)], 1).await;
+			update_view(virtual_overseer, vec![(head_a, head_a_num)], 1).await;
 
 			let pov = PoV { block_data: BlockData(vec![1, 2, 3]) };
 			let candidate = TestCandidateBuilder {

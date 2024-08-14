@@ -32,7 +32,7 @@ xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-feat
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false }
 
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../../../../cumulus/pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
+cumulus-pallet-parachain-system = { path = "../../../../cumulus/pallets/parachain-system", default-features = false }
 pallet-collator-selection = { path = "../../../../cumulus/pallets/collator-selection", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../../../cumulus/parachains/pallets/parachain-info", default-features = false }
 parachains-runtimes-test-utils = { path = "../../../../cumulus/parachains/runtimes/test-utils", default-features = false }

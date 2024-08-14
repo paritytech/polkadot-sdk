@@ -306,12 +306,13 @@ mod tests {
 		TrackedTransactionStatus<HeaderIdOf<TestChain>>,
 		InvalidationStatus<HeaderIdOf<TestChain>>,
 	)> {
+		let (cancel_sender, _cancel_receiver) = futures::channel::oneshot::channel();
 		let (mut sender, receiver) = futures::channel::mpsc::channel(1);
 		let tx_tracker = TransactionTracker::<TestChain, TestEnvironment>::new(
 			TestEnvironment(Ok(HeaderId(0, Default::default()))),
 			Duration::from_secs(0),
 			Default::default(),
-			Subscription(async_std::sync::Mutex::new(receiver)),
+			Subscription(async_std::sync::Mutex::new(receiver), cancel_sender),
 		);
 
 		let wait_for_stall_timeout = futures::future::pending();
@@ -428,12 +429,13 @@ mod tests {
 
 	#[async_std::test]
 	async fn lost_on_timeout_when_waiting_for_invalidation_status() {
+		let (cancel_sender, _cancel_receiver) = futures::channel::oneshot::channel();
 		let (_sender, receiver) = futures::channel::mpsc::channel(1);
 		let tx_tracker = TransactionTracker::<TestChain, TestEnvironment>::new(
 			TestEnvironment(Ok(HeaderId(0, Default::default()))),
 			Duration::from_secs(0),
 			Default::default(),
-			Subscription(async_std::sync::Mutex::new(receiver)),
+			Subscription(async_std::sync::Mutex::new(receiver), cancel_sender),
 		);
 
 		let wait_for_stall_timeout = futures::future::ready(()).shared();

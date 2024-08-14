@@ -279,7 +279,6 @@ impl<T: Config> Agent<T> {
 	/// This is similar to [Self::available_to_bond] except it also includes `unclaimed_withdrawals`
 	/// of `Agent`.
 	#[cfg(test)]
-	#[allow(unused)]
 	pub(crate) fn total_unbonded(&self) -> BalanceOf<T> {
 		let bonded_stake = self.bonded_stake();
 

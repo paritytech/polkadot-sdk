@@ -303,12 +303,10 @@ pub mod pallet {
 
 	/// Number of bounty proposals that have been made.
 	#[pallet::storage]
-	#[pallet::getter(fn bounty_count)]
 	pub type BountyCount<T: Config<I>, I: 'static = ()> = StorageValue<_, BountyIndex, ValueQuery>;
 
 	/// Bounties that have been made.
 	#[pallet::storage]
-	#[pallet::getter(fn bounties)]
 	pub type Bounties<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Twox64Concat,
@@ -318,13 +316,11 @@ pub mod pallet {
 
 	/// The description of each bounty.
 	#[pallet::storage]
-	#[pallet::getter(fn bounty_descriptions)]
 	pub type BountyDescriptions<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, BountyIndex, BoundedVec<u8, T::MaximumReasonLength>>;
 
 	/// Bounty indices that have been approved but not yet funded.
 	#[pallet::storage]
-	#[pallet::getter(fn bounty_approvals)]
 	pub type BountyApprovals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<BountyIndex, T::MaxApprovals>, ValueQuery>;
 
@@ -849,7 +845,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			description.try_into().map_err(|_| Error::<T, I>::ReasonTooBig)?;
 		ensure!(value >= T::BountyValueMinimum::get(), Error::<T, I>::InvalidValue);
 
-		let index = Self::bounty_count();
+		let index = BountyCount::<T, I>::get();
 
 		// reserve deposit for new bounty
 		let bond = T::BountyDepositBase::get() +

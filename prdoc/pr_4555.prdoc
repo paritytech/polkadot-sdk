@@ -1,0 +1,11 @@
+title: Move `para_id` to `MockValidationDataInherentDataProvider`
+
+doc:
+  - audience: Node Dev
+    description: |
+      This moves the `para_id` from `MockXcmConfig` to `MockValidationDataInherentDataProvider` to make it more prominent. The `para_id` should
+      be set to the parachain id of the parachain that gets mocked to ensure that the relay chain storage proof is setup correctly etc.
+
+crates:
+  - name: cumulus-client-parachain-inherent
+    bump: major

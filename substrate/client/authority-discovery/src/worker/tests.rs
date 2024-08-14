@@ -29,11 +29,15 @@ use futures::{
 	sink::SinkExt,
 	task::LocalSpawn,
 };
-use libp2p::{core::multiaddr, identity::SigningError, kad::record::Key as KademliaKey, PeerId};
+use libp2p::{identity::SigningError, kad::record::Key as KademliaKey};
 use prometheus_endpoint::prometheus::default_registry;
 
 use sc_client_api::HeaderBackend;
 use sc_network::{service::signature::Keypair, Signature};
+use sc_network_types::{
+	multiaddr::{Multiaddr, Protocol},
+	PeerId,
+};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
@@ -168,7 +172,7 @@ impl NetworkSigner for TestNetwork {
 		let public_key = libp2p::identity::PublicKey::try_decode_protobuf(&public_key)
 			.map_err(|error| error.to_string())?;
 		let peer_id: PeerId = peer_id.into();
-		let remote: libp2p::PeerId = public_key.to_peer_id();
+		let remote: PeerId = public_key.to_peer_id().into();
 
 		Ok(peer_id == remote && public_key.verify(message, signature))
 	}
@@ -435,7 +439,7 @@ fn dont_stop_polling_dht_event_stream_after_bogus_event() {
 		let peer_id = PeerId::random();
 		let address: Multiaddr = "/ip6/2001:db8:0:0:0:0:0:1/tcp/30333".parse().unwrap();
 
-		address.with(multiaddr::Protocol::P2p(peer_id.into()))
+		address.with(Protocol::P2p(peer_id.into()))
 	};
 	let remote_key_store = MemoryKeystore::new();
 	let remote_public_key: AuthorityId = remote_key_store

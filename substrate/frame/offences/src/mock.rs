@@ -24,7 +24,7 @@ use crate::Config;
 use codec::Encode;
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
+	traits::ConstU32,
 	weights::{constants::RocksDbWeight, Weight},
 };
 use sp_core::H256;
@@ -88,7 +88,6 @@ impl frame_system::Config for Runtime {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = ();

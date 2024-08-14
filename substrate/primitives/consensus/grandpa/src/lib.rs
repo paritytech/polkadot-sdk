@@ -31,7 +31,7 @@ use scale_info::TypeInfo;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	traits::{Header as HeaderT, NumberFor},
-	ConsensusEngineId, RuntimeDebug,
+	ConsensusEngineId, OpaqueValue, RuntimeDebug,
 };
 
 /// The log target to be used by client code.
@@ -465,22 +465,7 @@ where
 /// the runtime API boundary this type is unknown and as such we keep this
 /// opaque representation, implementors of the runtime API will have to make
 /// sure that all usages of `OpaqueKeyOwnershipProof` refer to the same type.
-#[derive(Decode, Encode, PartialEq, TypeInfo)]
-pub struct OpaqueKeyOwnershipProof(Vec<u8>);
-
-impl OpaqueKeyOwnershipProof {
-	/// Create a new `OpaqueKeyOwnershipProof` using the given encoded
-	/// representation.
-	pub fn new(inner: Vec<u8>) -> OpaqueKeyOwnershipProof {
-		OpaqueKeyOwnershipProof(inner)
-	}
-
-	/// Try to decode this `OpaqueKeyOwnershipProof` into the given concrete key
-	/// ownership proof type.
-	pub fn decode<T: Decode>(self) -> Option<T> {
-		codec::Decode::decode(&mut &self.0[..]).ok()
-	}
-}
+pub type OpaqueKeyOwnershipProof = OpaqueValue;
 
 sp_api::decl_runtime_apis! {
 	/// APIs for integrating the GRANDPA finality gadget into runtimes.

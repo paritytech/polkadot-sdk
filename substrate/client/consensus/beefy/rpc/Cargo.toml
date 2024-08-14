@@ -24,6 +24,7 @@ sp-consensus-beefy = { path = "../../../../primitives/consensus/beefy" }
 sc-rpc = { path = "../../../rpc" }
 sp-core = { path = "../../../../primitives/core" }
 sp-runtime = { path = "../../../../primitives/runtime" }
+sp-application-crypto = { path = "../../../../primitives/application-crypto" }
 
 [dev-dependencies]
 serde_json = { workspace = true, default-features = true }

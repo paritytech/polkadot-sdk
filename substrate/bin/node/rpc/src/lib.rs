@@ -47,10 +47,12 @@ pub use sc_rpc::SubscriptionTaskExecutor;
 pub use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
+use sp_application_crypto::RuntimeAppPublic;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
+use sp_consensus_beefy::AuthorityIdBound;
 use sp_keystore::KeystorePtr;
 
 /// Extra dependencies for BABE.
@@ -76,9 +78,9 @@ pub struct GrandpaDeps<B> {
 }
 
 /// Dependencies for BEEFY
-pub struct BeefyDeps {
+pub struct BeefyDeps<AuthorityId: AuthorityIdBound> {
 	/// Receives notifications about finality proof events from BEEFY.
-	pub beefy_finality_proof_stream: BeefyVersionedFinalityProofStream<Block>,
+	pub beefy_finality_proof_stream: BeefyVersionedFinalityProofStream<Block, AuthorityId>,
 	/// Receives notifications about best block events from BEEFY.
 	pub beefy_best_block_stream: BeefyBestBlockStream<Block>,
 	/// Executor to drive the subscription manager in the BEEFY RPC handler.
@@ -86,7 +88,7 @@ pub struct BeefyDeps {
 }
 
 /// Full client dependencies.
-pub struct FullDeps<C, P, SC, B> {
+pub struct FullDeps<C, P, SC, B, AuthorityId: AuthorityIdBound> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
@@ -102,7 +104,7 @@ pub struct FullDeps<C, P, SC, B> {
 	/// GRANDPA specific dependencies.
 	pub grandpa: GrandpaDeps<B>,
 	/// BEEFY specific dependencies.
-	pub beefy: BeefyDeps,
+	pub beefy: BeefyDeps<AuthorityId>,
 	/// Shared statement store reference.
 	pub statement_store: Arc<dyn sp_statement_store::StatementStore>,
 	/// The backend used by the node.
@@ -112,7 +114,7 @@ pub struct FullDeps<C, P, SC, B> {
 }
 
 /// Instantiate all Full RPC extensions.
-pub fn create_full<C, P, SC, B>(
+pub fn create_full<C, P, SC, B, AuthorityId>(
 	FullDeps {
 		client,
 		pool,
@@ -125,7 +127,7 @@ pub fn create_full<C, P, SC, B>(
 		statement_store,
 		backend,
 		mixnet_api,
-	}: FullDeps<C, P, SC, B>,
+	}: FullDeps<C, P, SC, B, AuthorityId>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
 	C: ProvideRuntimeApi<Block>
@@ -145,6 +147,8 @@ where
 	SC: SelectChain<Block> + 'static,
 	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
 	B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashingFor<Block>>,
+	AuthorityId: AuthorityIdBound,
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	use mmr_rpc::{Mmr, MmrApiServer};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
@@ -223,7 +227,7 @@ where
 	}
 
 	io.merge(
-		Beefy::<Block>::new(
+		Beefy::<Block, AuthorityId>::new(
 			beefy.beefy_finality_proof_stream,
 			beefy.beefy_best_block_stream,
 			beefy.subscription_executor,

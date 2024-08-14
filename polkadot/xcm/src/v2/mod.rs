@@ -15,6 +15,9 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 //! # XCM Version 2
+//!
+//! WARNING: DEPRECATED, please use version 3 or 4.
+//!
 //! Version 2 of the Cross-Consensus Message format data structures. The comprehensive list of
 //! changes can be found in
 //! [this PR description](https://github.com/paritytech/polkadot/pull/3629#issue-968428279).
@@ -52,8 +55,8 @@
 use super::{
 	v3::{
 		BodyId as NewBodyId, BodyPart as NewBodyPart, Instruction as NewInstruction,
-		NetworkId as NewNetworkId, Response as NewResponse, WeightLimit as NewWeightLimit,
-		Xcm as NewXcm,
+		NetworkId as NewNetworkId, OriginKind as NewOriginKind, Response as NewResponse,
+		WeightLimit as NewWeightLimit, Xcm as NewXcm,
 	},
 	DoubleEncoded,
 };
@@ -102,6 +105,18 @@ pub enum OriginKind {
 	/// encoded directly in the dispatch origin unchanged. For Cumulus/Frame chains, this will be
 	/// the `pallet_xcm::Origin::Xcm` type.
 	Xcm,
+}
+
+impl From<NewOriginKind> for OriginKind {
+	fn from(new: NewOriginKind) -> Self {
+		use NewOriginKind::*;
+		match new {
+			Native => Self::Native,
+			SovereignAccount => Self::SovereignAccount,
+			Superuser => Self::Superuser,
+			Xcm => Self::Xcm,
+		}
+	}
 }
 
 /// A global identifier of an account-bearing consensus system.
@@ -262,6 +277,7 @@ pub const VERSION: super::Version = 2;
 /// An identifier for a query.
 pub type QueryId = u64;
 
+/// DEPRECATED. Please use XCMv3 or XCMv4 instead.
 #[derive(Derivative, Default, Encode, Decode, TypeInfo)]
 #[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
 #[codec(encode_bound())]
@@ -1065,7 +1081,7 @@ impl<RuntimeCall> TryFrom<NewInstruction<RuntimeCall>> for Instruction<RuntimeCa
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
 			Transact { origin_kind, require_weight_at_most, call } => Self::Transact {
-				origin_type: origin_kind,
+				origin_type: origin_kind.into(),
 				require_weight_at_most: require_weight_at_most.ref_time(),
 				call: call.into(),
 			},

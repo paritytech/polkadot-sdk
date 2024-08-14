@@ -19,9 +19,9 @@ use std::{
 	time::Duration,
 };
 
-use network::ProtocolName;
+use network::{request_responses::OutgoingResponse, ProtocolName, RequestFailure};
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
-use polkadot_node_subsystem_util::TimeoutExt;
+use polkadot_node_subsystem_util::{availability_chunks::availability_chunk_index, TimeoutExt};
 
 use futures::{
 	channel::{mpsc, oneshot},
@@ -35,7 +35,7 @@ use sp_core::{testing::TaskExecutor, traits::SpawnNamed};
 use sp_keystore::KeystorePtr;
 
 use polkadot_node_network_protocol::request_response::{
-	v1, IncomingRequest, OutgoingRequest, Requests,
+	v1, v2, IncomingRequest, OutgoingRequest, Protocol, ReqProtocolNames, Requests,
 };
 use polkadot_node_primitives::ErasureChunk;
 use polkadot_node_subsystem::{
@@ -47,8 +47,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	CandidateHash, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId, NodeFeatures,
-	ScheduledCore, SessionInfo, ValidatorIndex,
+	CandidateHash, ChunkIndex, CoreIndex, CoreState, ExecutorParams, GroupIndex, Hash,
+	Id as ParaId, NodeFeatures, ScheduledCore, SessionInfo, ValidatorIndex,
 };
 use test_helpers::mock::{make_ferdie_keystore, new_leaf};
 
@@ -59,7 +59,8 @@ type VirtualOverseer = test_helpers::TestSubsystemContextHandle<AvailabilityDist
 pub struct TestHarness {
 	pub virtual_overseer: VirtualOverseer,
 	pub pov_req_cfg: RequestResponseConfig,
-	pub chunk_req_cfg: RequestResponseConfig,
+	pub chunk_req_v1_cfg: RequestResponseConfig,
+	pub chunk_req_v2_cfg: RequestResponseConfig,
 	pub pool: TaskExecutor,
 }
 
@@ -83,10 +84,19 @@ pub struct TestState {
 	/// Cores per relay chain block.
 	pub cores: HashMap<Hash, Vec<CoreState>>,
 	pub keystore: KeystorePtr,
+	pub node_features: NodeFeatures,
+	pub chunk_response_protocol: Protocol,
+	pub req_protocol_names: ReqProtocolNames,
+	pub our_chunk_index: ChunkIndex,
 }
 
-impl Default for TestState {
-	fn default() -> Self {
+impl TestState {
+	/// Initialize a default test state.
+	pub fn new(
+		node_features: NodeFeatures,
+		req_protocol_names: ReqProtocolNames,
+		chunk_response_protocol: Protocol,
+	) -> Self {
 		let relay_chain: Vec<_> = (1u8..10).map(Hash::repeat_byte).collect();
 		let chain_a = ParaId::from(1);
 		let chain_b = ParaId::from(2);
@@ -96,6 +106,14 @@ impl Default for TestState {
 		let keystore = make_ferdie_keystore();
 
 		let session_info = make_session_info();
+
+		let our_chunk_index = availability_chunk_index(
+			Some(&node_features),
+			session_info.validators.len(),
+			CoreIndex(1),
+			ValidatorIndex(0),
+		)
+		.unwrap();
 
 		let (cores, chunks) = {
 			let mut cores = HashMap::new();
@@ -123,6 +141,8 @@ impl Default for TestState {
 							group_responsible: GroupIndex(i as _),
 							para_id: *para_id,
 							relay_parent: *relay_parent,
+							n_validators: session_info.validators.len(),
+							chunk_index: our_chunk_index,
 						}
 						.build();
 						(CoreState::Occupied(core), chunk)
@@ -132,8 +152,8 @@ impl Default for TestState {
 				// Skip chunks for our own group (won't get fetched):
 				let mut chunks_other_groups = p_chunks.into_iter();
 				chunks_other_groups.next();
-				for (validator_index, chunk) in chunks_other_groups {
-					chunks.insert((validator_index, chunk.index), vec![Some(chunk)]);
+				for (candidate, chunk) in chunks_other_groups {
+					chunks.insert((candidate, ValidatorIndex(0)), vec![Some(chunk)]);
 				}
 			}
 			(cores, chunks)
@@ -145,16 +165,25 @@ impl Default for TestState {
 			session_info,
 			cores,
 			keystore,
+			node_features,
+			chunk_response_protocol,
+			req_protocol_names,
+			our_chunk_index,
 		}
 	}
-}
 
-impl TestState {
 	/// Run, but fail after some timeout.
 	pub async fn run(self, harness: TestHarness) {
 		// Make sure test won't run forever.
-		let f = self.run_inner(harness).timeout(Duration::from_secs(10));
+		let f = self.run_inner(harness).timeout(Duration::from_secs(5));
 		assert!(f.await.is_some(), "Test ran into timeout");
+	}
+
+	/// Run, and assert an expected timeout.
+	pub async fn run_assert_timeout(self, harness: TestHarness) {
+		// Make sure test won't run forever.
+		let f = self.run_inner(harness).timeout(Duration::from_secs(5));
+		assert!(f.await.is_none(), "Test should have run into timeout");
 	}
 
 	/// Run tests with the given mock values in `TestState`.
@@ -214,15 +243,41 @@ impl TestState {
 				)) => {
 					for req in reqs {
 						// Forward requests:
-						let in_req = to_incoming_req(&harness.pool, req);
-						harness
-							.chunk_req_cfg
-							.inbound_queue
-							.as_mut()
-							.unwrap()
-							.send(in_req.into_raw())
-							.await
-							.unwrap();
+						match self.chunk_response_protocol {
+							Protocol::ChunkFetchingV1 => {
+								let in_req = to_incoming_req_v1(
+									&harness.pool,
+									req,
+									self.req_protocol_names.get_name(Protocol::ChunkFetchingV1),
+								);
+
+								harness
+									.chunk_req_v1_cfg
+									.inbound_queue
+									.as_mut()
+									.unwrap()
+									.send(in_req.into_raw())
+									.await
+									.unwrap();
+							},
+							Protocol::ChunkFetchingV2 => {
+								let in_req = to_incoming_req_v2(
+									&harness.pool,
+									req,
+									self.req_protocol_names.get_name(Protocol::ChunkFetchingV2),
+								);
+
+								harness
+									.chunk_req_v2_cfg
+									.inbound_queue
+									.as_mut()
+									.unwrap()
+									.send(in_req.into_raw())
+									.await
+									.unwrap();
+							},
+							_ => panic!("Unexpected protocol"),
+						}
 					}
 				},
 				AllMessages::AvailabilityStore(AvailabilityStoreMessage::QueryChunk(
@@ -240,13 +295,16 @@ impl TestState {
 				AllMessages::AvailabilityStore(AvailabilityStoreMessage::StoreChunk {
 					candidate_hash,
 					chunk,
+					validator_index,
 					tx,
 					..
 				}) => {
 					assert!(
-						self.valid_chunks.contains(&(candidate_hash, chunk.index)),
+						self.valid_chunks.contains(&(candidate_hash, validator_index)),
 						"Only valid chunks should ever get stored."
 					);
+					assert_eq!(self.our_chunk_index, chunk.index);
+
 					tx.send(Ok(())).expect("Receiver is expected to be alive");
 					gum::trace!(target: LOG_TARGET, "'Stored' fetched chunk.");
 					remaining_stores -= 1;
@@ -265,12 +323,13 @@ impl TestState {
 							tx.send(Ok(Some(ExecutorParams::default())))
 								.expect("Receiver should be alive.");
 						},
-						RuntimeApiRequest::NodeFeatures(_, si_tx) => {
-							si_tx.send(Ok(NodeFeatures::EMPTY)).expect("Receiver should be alive.");
-						},
 						RuntimeApiRequest::AvailabilityCores(tx) => {
 							gum::trace!(target: LOG_TARGET, cores= ?self.cores[&hash], hash = ?hash, "Sending out cores for hash");
 							tx.send(Ok(self.cores[&hash].clone()))
+								.expect("Receiver should still be alive");
+						},
+						RuntimeApiRequest::NodeFeatures(_, tx) => {
+							tx.send(Ok(self.node_features.clone()))
 								.expect("Receiver should still be alive");
 						},
 						_ => {
@@ -286,7 +345,10 @@ impl TestState {
 						.unwrap_or_default();
 					response_channel.send(Ok(ancestors)).expect("Receiver is expected to be alive");
 				},
-				_ => {},
+
+				_ => {
+					panic!("Received unexpected message")
+				},
 			}
 		}
 
@@ -310,30 +372,47 @@ async fn overseer_recv(rx: &mut mpsc::UnboundedReceiver<AllMessages>) -> AllMess
 	rx.next().await.expect("Test subsystem no longer live")
 }
 
-fn to_incoming_req(
+fn to_incoming_req_v1(
 	executor: &TaskExecutor,
 	outgoing: Requests,
+	protocol_name: ProtocolName,
 ) -> IncomingRequest<v1::ChunkFetchingRequest> {
 	match outgoing {
-		Requests::ChunkFetchingV1(OutgoingRequest { payload, pending_response, .. }) => {
-			let (tx, rx): (oneshot::Sender<netconfig::OutgoingResponse>, oneshot::Receiver<_>) =
-				oneshot::channel();
-			executor.spawn(
-				"message-forwarding",
-				None,
-				async {
-					let response = rx.await;
-					let payload = response.expect("Unexpected canceled request").result;
-					pending_response
-						.send(
-							payload
-								.map_err(|_| network::RequestFailure::Refused)
-								.map(|r| (r, ProtocolName::from(""))),
-						)
-						.expect("Sending response is expected to work");
-				}
-				.boxed(),
-			);
+		Requests::ChunkFetching(OutgoingRequest {
+			pending_response,
+			fallback_request: Some((fallback_request, fallback_protocol)),
+			..
+		}) => {
+			assert_eq!(fallback_protocol, Protocol::ChunkFetchingV1);
+
+			let tx = spawn_message_forwarding(executor, protocol_name, pending_response);
+
+			IncomingRequest::new(
+				// We don't really care:
+				network::PeerId::random().into(),
+				fallback_request,
+				tx,
+			)
+		},
+		_ => panic!("Unexpected request!"),
+	}
+}
+
+fn to_incoming_req_v2(
+	executor: &TaskExecutor,
+	outgoing: Requests,
+	protocol_name: ProtocolName,
+) -> IncomingRequest<v2::ChunkFetchingRequest> {
+	match outgoing {
+		Requests::ChunkFetching(OutgoingRequest {
+			payload,
+			pending_response,
+			fallback_request: Some((_, fallback_protocol)),
+			..
+		}) => {
+			assert_eq!(fallback_protocol, Protocol::ChunkFetchingV1);
+
+			let tx = spawn_message_forwarding(executor, protocol_name, pending_response);
 
 			IncomingRequest::new(
 				// We don't really care:
@@ -344,4 +423,27 @@ fn to_incoming_req(
 		},
 		_ => panic!("Unexpected request!"),
 	}
+}
+
+fn spawn_message_forwarding(
+	executor: &TaskExecutor,
+	protocol_name: ProtocolName,
+	pending_response: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
+) -> oneshot::Sender<OutgoingResponse> {
+	let (tx, rx): (oneshot::Sender<netconfig::OutgoingResponse>, oneshot::Receiver<_>) =
+		oneshot::channel();
+	executor.spawn(
+		"message-forwarding",
+		None,
+		async {
+			let response = rx.await;
+			let payload = response.expect("Unexpected canceled request").result;
+			pending_response
+				.send(payload.map_err(|_| RequestFailure::Refused).map(|r| (r, protocol_name)))
+				.expect("Sending response is expected to work");
+		}
+		.boxed(),
+	);
+
+	tx
 }

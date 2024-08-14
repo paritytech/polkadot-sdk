@@ -285,6 +285,13 @@ pub trait StakingInterface {
 		Self::status(who).map(|s| matches!(s, StakerStatus::Validator)).unwrap_or(false)
 	}
 
+	/// Checks whether the staker is a virtual account.
+	///
+	/// A virtual staker is an account whose locks are not managed by the [`StakingInterface`]
+	/// implementation but by an external pallet. See [`StakingUnchecked::virtual_bond`] for more
+	/// details.
+	fn is_virtual_staker(who: &Self::AccountId) -> bool;
+
 	/// Get the nominations of a stash, if they are a nominator, `None` otherwise.
 	fn nominations(who: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
 		match Self::status(who) {
@@ -573,6 +580,12 @@ pub trait DelegationMigrator {
 		delegator: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult;
+
+	/// Drop the `Agent` account and its associated delegators.
+	///
+	/// Also removed from [`StakingUnchecked`] as a Virtual Staker. Useful for testing.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn drop_agent(agent: &Self::AccountId);
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);

@@ -1,0 +1,39 @@
+[package]
+name = "xcm-docs"
+description = "Documentation and guides for XCM"
+version = "0.1.0"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+authors.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+# For XCM stuff
+xcm = { path = "../../xcm", package = "staging-xcm" }
+xcm-executor = { path = "../../xcm/xcm-executor", package = "staging-xcm-executor" }
+xcm-builder = { path = "../../xcm/xcm-builder", package = "staging-xcm-builder" }
+xcm-simulator = { path = "../../xcm/xcm-simulator" }
+pallet-xcm = { path = "../../xcm/pallet-xcm" }
+
+# For building FRAME runtimes
+frame = { package = "polkadot-sdk-frame", path = "../../../substrate/frame", features = ["experimental", "runtime"] }
+codec = { package = "parity-scale-codec", version = "3.6.9" }
+scale-info = { version = "2.6.0", default-features = false }
+polkadot-parachain-primitives = { path = "../../../polkadot/parachain" }
+polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains" }
+polkadot-primitives = { path = "../../../polkadot/primitives" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-std = { path = "../../../substrate/primitives/std" }
+sp-io = { path = "../../../substrate/primitives/io" }
+
+# Some pallets
+pallet-message-queue = { path = "../../../substrate/frame/message-queue" }
+pallet-balances = { path = "../../../substrate/frame/balances" }
+
+# For building docs
+simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }
+docify = "0.2.6"
+
+[dev-dependencies]
+test-log = "0.2.14"

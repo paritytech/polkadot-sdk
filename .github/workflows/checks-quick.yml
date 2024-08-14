@@ -19,7 +19,7 @@ jobs:
     # GitHub Actions allows using 'env' in a container context.
     # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
     # This workaround sets the container image for each job using 'set-image' job output.
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
@@ -29,7 +29,7 @@ jobs:
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
   fmt:
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [set-image]
     container:
@@ -39,11 +39,8 @@ jobs:
       - name: Cargo fmt
         run: cargo +nightly fmt --all -- --check
   check-dependency-rules:
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ubuntu-latest
     timeout-minutes: 10
-    # needs: [set-image]
-    # container:
-    #   image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: check dependency rules
@@ -51,7 +48,7 @@ jobs:
           cd substrate/
           ../.gitlab/ensure-deps.sh
   check-rust-feature-propagation:
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [set-image]
     container:
@@ -61,7 +58,7 @@ jobs:
       - name: run zepter
         run: zepter run check
   test-rust-features:
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [set-image]
     container:
@@ -71,7 +68,7 @@ jobs:
       - name: run rust features
         run: bash .gitlab/rust-features.sh .
   check-toml-format:
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [set-image]
     container:
@@ -83,22 +80,24 @@ jobs:
           taplo format --check --config .config/taplo.toml
           echo "Please run `taplo format --config .config/taplo.toml` to fix any toml formatting issues"
   check-workspace:
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.0 (22. Sep 2023)
       - name: install python deps
         run: |
           sudo apt-get update && sudo apt-get install -y python3-pip python3
-          pip3 install toml
+          pip3 install toml "cargo-workspace>=1.2.6"
       - name: check integrity
         run: >
           python3 .github/scripts/check-workspace.py .
           --exclude
           "substrate/frame/contracts/fixtures/build"
           "substrate/frame/contracts/fixtures/contracts/common"
+      - name: deny git deps
+        run: python3 .github/scripts/deny-git-deps.py .
   check-markdown:
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout sources
@@ -119,3 +118,33 @@ jobs:
         run: |
           echo "Checking markdown formatting. More info: docs/contributor/markdown_linting.md"
           markdownlint --config "$CONFIG" --ignore target .
+  check-umbrella:
+    runs-on: arc-runners-polkadot-sdk
+    timeout-minutes: 10
+    needs: [set-image]
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.0 (22. Sep 2023)
+      - name: install python deps
+        run: |
+          sudo apt-get update && sudo apt-get install -y python3-pip python3
+          pip3 install "cargo-workspace>=1.2.4" toml
+      - name: check umbrella correctness
+        run: |
+          python3 scripts/generate-umbrella.py --sdk . --version 0.1.0
+          cargo +nightly fmt --all
+          if [ -n "$(git status --porcelain)" ]; then
+            cat <<EOF
+          👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
+
+          Please check the output above and see the following links for more help:
+          - https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md#record-semver-changes
+          - https://forum.polkadot.network/t/psa-polkadot-sdk-to-use-semver
+
+          Otherwise feel free to ask in the Merge Request or in Matrix chat.
+          EOF
+
+            git diff
+            exit 1
+          fi

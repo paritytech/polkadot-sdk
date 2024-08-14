@@ -137,6 +137,16 @@ impl<P: SubstrateFinalitySyncPipeline> TargetClient<FinalitySyncPipelineAdapter<
 		let context =
 			P::FinalityEngine::verify_and_optimize_proof(&self.client, &header, &mut proof).await?;
 
+		// if free execution is expected, but the call size/weight exceeds hardcoded limits, the
+		// runtime may still accept the proof, but it may have some cost for relayer. Let's check
+		// it here to avoid losing relayer funds
+		if is_free_execution_expected {
+			let extras = P::FinalityEngine::check_max_expected_call_limits(&header, &proof);
+			if extras.is_weight_limit_exceeded || extras.extra_size != 0 {
+				return Err(Error::FinalityProofWeightLimitExceeded { extras })
+			}
+		}
+
 		// now we may submit optimized finality proof
 		let mortality = self.transaction_params.mortality;
 		let call = P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(

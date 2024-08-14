@@ -33,7 +33,7 @@ use test_runtime_constants::currency::DOTS;
 const DEFAULT_PROTOCOL_ID: &str = "dot";
 
 /// The `ChainSpec` parameterized for polkadot test runtime.
-pub type PolkadotChainSpec = sc_service::GenericChainSpec<(), Extensions>;
+pub type PolkadotChainSpec = sc_service::GenericChainSpec<Extensions>;
 
 /// Returns the properties for the [`PolkadotChainSpec`].
 pub fn polkadot_chain_spec_properties() -> serde_json::map::Map<String, serde_json::Value> {

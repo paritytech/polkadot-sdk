@@ -41,12 +41,10 @@
 //! Even though this does not guarantee that `ProtocolController` and `Notifications` have the same
 //! view of the peers' states at any given moment, the eventual consistency is maintained.
 
-use crate::{
-	peer_store::{PeerStoreProvider, ProtocolHandle as ProtocolHandleT},
-	PeerId,
-};
+use crate::peer_store::{PeerStoreProvider, ProtocolHandle as ProtocolHandleT};
 
 use futures::{channel::oneshot, future::Either, FutureExt, StreamExt};
+use libp2p::PeerId;
 use log::{debug, error, trace, warn};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_arithmetic::traits::SaturatedConversion;
@@ -860,8 +858,9 @@ mod tests {
 	use super::*;
 	use crate::{
 		peer_store::{PeerStoreProvider, ProtocolHandle as ProtocolHandleT},
-		PeerId, ReputationChange,
+		ReputationChange,
 	};
+	use libp2p::PeerId;
 	use sc_network_common::role::ObservedRole;
 	use sc_utils::mpsc::{tracing_unbounded, TryRecvError};
 	use std::collections::HashSet;

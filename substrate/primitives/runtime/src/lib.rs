@@ -1009,6 +1009,21 @@ pub enum ExtrinsicInclusionMode {
 	OnlyInherents,
 }
 
+/// Simple blob that hold a value in an encoded form without committing to its type.
+#[derive(Decode, Encode, PartialEq, TypeInfo)]
+pub struct OpaqueValue(Vec<u8>);
+impl OpaqueValue {
+	/// Create a new `OpaqueValue` using the given encoded representation.
+	pub fn new(inner: Vec<u8>) -> OpaqueValue {
+		OpaqueValue(inner)
+	}
+
+	/// Try to decode this `OpaqueValue` into the given concrete type.
+	pub fn decode<T: Decode>(&self) -> Option<T> {
+		Decode::decode(&mut &self.0[..]).ok()
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use crate::traits::BlakeTwo256;

@@ -124,7 +124,7 @@ mod tests {
 	};
 	use parity_scale_codec::Encode;
 	use polkadot_test_runtime::*;
-	use xcm::{v2, v3, VersionedXcm};
+	use xcm::{v3, v4, VersionedXcm};
 
 	const ORIGIN: Junction = Junction::OnlyChild;
 	/// The processor to use for tests.
@@ -134,8 +134,8 @@ mod tests {
 	#[test]
 	fn process_message_trivial_works() {
 		// ClearOrigin works.
-		assert!(process(v2_xcm(true)).unwrap());
 		assert!(process(v3_xcm(true)).unwrap());
+		assert!(process(v4_xcm(true)).unwrap());
 	}
 
 	#[test]
@@ -194,7 +194,7 @@ mod tests {
 
 	#[test]
 	fn process_message_overweight_fails() {
-		for msg in [v3_xcm(true), v3_xcm(false), v3_xcm(false), v2_xcm(false)] {
+		for msg in [v4_xcm(true), v4_xcm(false), v4_xcm(false), v3_xcm(false)] {
 			let msg = &msg.encode()[..];
 
 			// Errors if we stay below a weight limit of 1000.
@@ -216,7 +216,7 @@ mod tests {
 		}
 	}
 
-	fn v2_xcm(success: bool) -> VersionedXcm<RuntimeCall> {
+	fn v3_xcm(success: bool) -> VersionedXcm<RuntimeCall> {
 		let instr = if success {
 			v3::Instruction::<RuntimeCall>::ClearOrigin
 		} else {
@@ -225,13 +225,13 @@ mod tests {
 		VersionedXcm::V3(v3::Xcm::<RuntimeCall>(vec![instr]))
 	}
 
-	fn v3_xcm(success: bool) -> VersionedXcm<RuntimeCall> {
+	fn v4_xcm(success: bool) -> VersionedXcm<RuntimeCall> {
 		let instr = if success {
-			v2::Instruction::<RuntimeCall>::ClearOrigin
+			v4::Instruction::<RuntimeCall>::ClearOrigin
 		} else {
-			v2::Instruction::<RuntimeCall>::Trap(1)
+			v4::Instruction::<RuntimeCall>::Trap(1)
 		};
-		VersionedXcm::V2(v2::Xcm::<RuntimeCall>(vec![instr]))
+		VersionedXcm::V4(v4::Xcm::<RuntimeCall>(vec![instr]))
 	}
 
 	fn process(msg: VersionedXcm<RuntimeCall>) -> Result<bool, ProcessMessageError> {

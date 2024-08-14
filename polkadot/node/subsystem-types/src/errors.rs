@@ -18,6 +18,7 @@
 
 use crate::JaegerError;
 use ::orchestra::OrchestraError as OverseerError;
+use fatality::fatality;
 
 /// A description of an error causing the runtime API request to be unservable.
 #[derive(thiserror::Error, Debug, Clone)]
@@ -68,31 +69,20 @@ impl core::fmt::Display for ChainApiError {
 impl std::error::Error for ChainApiError {}
 
 /// An error that may happen during Availability Recovery process.
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Clone)]
+#[fatality(splitable)]
+#[allow(missing_docs)]
 pub enum RecoveryError {
-	/// A chunk is recovered but is invalid.
+	#[error("Invalid data")]
 	Invalid,
 
-	/// A requested chunk is unavailable.
+	#[error("Data is unavailable")]
 	Unavailable,
 
-	/// Erasure task channel closed, usually means node is shutting down.
+	#[fatal]
+	#[error("Erasure task channel closed")]
 	ChannelClosed,
 }
-
-impl std::fmt::Display for RecoveryError {
-	fn fmt(&self, f: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
-		let msg = match self {
-			RecoveryError::Invalid => "Invalid",
-			RecoveryError::Unavailable => "Unavailable",
-			RecoveryError::ChannelClosed => "ChannelClosed",
-		};
-
-		write!(f, "{}", msg)
-	}
-}
-
-impl std::error::Error for RecoveryError {}
 
 /// An error type that describes faults that may happen
 ///

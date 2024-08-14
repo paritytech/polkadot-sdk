@@ -21,7 +21,7 @@ use serde_json::{json, Value};
 use sp_keyring::AccountKeyring;
 
 /// This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<()>;
+pub type ChainSpec = sc_service::GenericChainSpec;
 
 fn props() -> Properties {
 	let mut properties = Properties::new();

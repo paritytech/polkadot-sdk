@@ -148,7 +148,6 @@ impl frame_system::Config for TestRuntime {
 	type AccountId = ThisChainAccountId;
 	type Block = ThisChainBlock;
 	type AccountData = pallet_balances::AccountData<ThisChainBalance>;
-	type BlockHashCount = ConstU32<250>;
 }
 
 impl pallet_utility::Config for TestRuntime {

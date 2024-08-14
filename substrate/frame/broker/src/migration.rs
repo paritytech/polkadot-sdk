@@ -77,11 +77,70 @@ mod v1 {
 	}
 }
 
+mod v2 {
+	use super::*;
+	use frame_support::{
+		pallet_prelude::{OptionQuery, Twox64Concat},
+		storage_alias,
+	};
+
+	#[storage_alias]
+	pub type AllowedRenewals<T: Config> = StorageMap<
+		Pallet<T>,
+		Twox64Concat,
+		PotentialRenewalId,
+		PotentialRenewalRecordOf<T>,
+		OptionQuery,
+	>;
+
+	pub struct MigrateToV2Impl<T>(PhantomData<T>);
+
+	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV2Impl<T> {
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			let mut count = 0;
+			for (renewal_id, renewal) in AllowedRenewals::<T>::drain() {
+				PotentialRenewals::<T>::insert(renewal_id, renewal);
+				count += 1;
+			}
+
+			log::info!(
+				target: LOG_TARGET,
+				"Storage migration v2 for pallet-broker finished.",
+			);
+
+			// calculate and return migration weights
+			T::DbWeight::get().reads_writes(count as u64 + 1, count as u64 + 1)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			Ok((AllowedRenewals::<T>::iter_keys().count() as u32).encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let old_count = u32::decode(&mut &state[..]).expect("Known good");
+			let new_count = PotentialRenewals::<T>::iter_values().count() as u32;
+
+			ensure!(old_count == new_count, "Renewal count should not change");
+			Ok(())
+		}
+	}
+}
+
 /// Migrate the pallet storage from `0` to `1`.
 pub type MigrateV0ToV1<T> = frame_support::migrations::VersionedMigration<
 	0,
 	1,
 	v1::MigrateToV1Impl<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+pub type MigrateV1ToV2<T> = frame_support::migrations::VersionedMigration<
+	1,
+	2,
+	v2::MigrateToV2Impl<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;

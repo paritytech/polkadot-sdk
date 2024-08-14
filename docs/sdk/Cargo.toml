@@ -30,6 +30,7 @@ simple-mermaid = "0.1.1"
 docify = "0.2.8"
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
+polkadot-sdk = { path = "../../umbrella", features = ["runtime"] }
 node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli" }
 kitchensink-runtime = { path = "../../substrate/bin/node/runtime" }
 chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../substrate/bin/utils/chain-spec-builder" }
@@ -38,6 +39,7 @@ frame-system = { path = "../../substrate/frame/system", default-features = false
 frame-support = { path = "../../substrate/frame/support", default-features = false }
 frame-executive = { path = "../../substrate/frame/executive", default-features = false }
 pallet-example-single-block-migrations = { path = "../../substrate/frame/examples/single-block-migrations" }
+frame-metadata-hash-extension = { path = "../../substrate/frame/metadata-hash-extension" }
 
 # Substrate Client
 sc-network = { path = "../../substrate/client/network" }
@@ -58,9 +60,7 @@ substrate-wasm-builder = { path = "../../substrate/utils/wasm-builder" }
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../cumulus/pallets/aura-ext" }
-cumulus-pallet-parachain-system = { path = "../../cumulus/pallets/parachain-system", features = [
-	"parameterized-consensus-hook",
-] }
+cumulus-pallet-parachain-system = { path = "../../cumulus/pallets/parachain-system" }
 parachain-info = { package = "staging-parachain-info", path = "../../cumulus/parachains/pallets/parachain-info" }
 cumulus-primitives-proof-size-hostfunction = { path = "../../cumulus/primitives/proof-size-hostfunction" }
 cumulus-client-service = { path = "../../cumulus/client/service" }
@@ -101,3 +101,4 @@ sp-version = { path = "../../substrate/primitives/version" }
 
 # XCM
 xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
+xcm-docs = { path = "../../polkadot/xcm/docs" }

@@ -26,6 +26,7 @@ sp-io = { path = "../../primitives/io" }
 substrate-test-utils = { path = "../../test-utils" }
 sp-tracing = { path = "../../primitives/tracing" }
 pallet-staking = { path = "../staking" }
+pallet-nomination-pools = { path = "../nomination-pools" }
 pallet-balances = { path = "../balances" }
 pallet-timestamp = { path = "../timestamp" }
 pallet-staking-reward-curve = { path = "../staking/reward-curve" }
@@ -39,6 +40,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
+	"pallet-nomination-pools/std",
 	"pallet-staking/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
@@ -53,6 +55,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -63,6 +66,7 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-nomination-pools/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",

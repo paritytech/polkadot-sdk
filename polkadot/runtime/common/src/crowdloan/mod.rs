@@ -890,10 +890,6 @@ mod tests {
 		}
 	);
 
-	parameter_types! {
-		pub const BlockHashCount: u32 = 250;
-	}
-
 	type BlockNumber = u64;
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -911,7 +907,6 @@ mod tests {
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = BlockHashCount;
 		type Version = ();
 		type PalletInfo = PalletInfo;
 		type AccountData = pallet_balances::AccountData<u64>;

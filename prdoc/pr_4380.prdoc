@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove `parametrized-consensus-hook` feature
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `parametrized-consensus-hook` feature is obsolete and is removed by this PR. The
+      long-deprecated `CheckInherents` trait is set to be removed by September 2024.
+
+crates:
+  - name: cumulus-pallet-parachain-system
+    bump: major
+

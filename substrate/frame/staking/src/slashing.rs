@@ -64,7 +64,7 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchResult, RuntimeDebug,
 };
-use sp_staking::EraIndex;
+use sp_staking::{EraIndex, StakingInterface};
 use sp_std::vec::Vec;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.

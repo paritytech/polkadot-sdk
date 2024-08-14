@@ -64,7 +64,7 @@ pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
+	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Dispatchable},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -86,7 +86,7 @@ use xcm::{
 	IntoVersion, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
 };
 use xcm_fee_payment_runtime_api::{
-	dry_run::{Error as XcmDryRunApiError, ExtrinsicDryRunEffects, XcmDryRunEffects},
+	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
 };
 
@@ -541,7 +541,7 @@ impl pallet_message_queue::Config for Runtime {
 	// The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
 	type QueueChangeHandler = NarrowOriginToSibling<XcmpQueue>;
 	type QueuePausedQuery = NarrowOriginToSibling<XcmpQueue>;
-	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
+	type HeapSize = sp_core::ConstU32<{ 103 * 1024 }>;
 	type MaxStale = sp_core::ConstU32<8>;
 	type ServiceWeight = MessageQueueServiceWeight;
 	type IdleMaxServiceWeight = MessageQueueServiceWeight;
@@ -569,7 +569,11 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type VersionWrapper = PolkadotXcm;
 	// Enqueue XCMP messages from siblings for later processing.
 	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
-	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
+	type MaxInboundSuspended = ConstU32<1_000>;
+	type MaxActiveOutboundChannels = ConstU32<128>;
+	// Most on-chain HRMP channels are configured to use 102400 bytes of max message size, so we
+	// need to set the page size larger than that until we reduce the channel size on-chain.
+	type MaxPageSize = ConstU32<{ 103 * 1024 }>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = ();
@@ -845,24 +849,32 @@ impl_runtime_apis! {
 
 	impl xcm_fee_payment_runtime_api::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			if !matches!(xcm_version, 3 | 4) {
-				return Err(XcmPaymentApiError::UnhandledXcmVersion);
-			}
-			Ok([VersionedAssetId::V4(xcm_config::RelayLocation::get().into())]
+			let acceptable = vec![
+				// native token
+				VersionedAssetId::from(AssetLocationId(xcm_config::RelayLocation::get()))
+			];
+
+			Ok(acceptable
 				.into_iter()
 				.filter_map(|asset| asset.into_version(xcm_version).ok())
 				.collect())
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			let local_asset = VersionedAssetId::V4(xcm_config::RelayLocation::get().into());
-			let asset = asset
-				.into_version(4)
-				.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
-
-			if  asset != local_asset { return Err(XcmPaymentApiError::AssetNotFound); }
-
-			Ok(WeightToFee::weight_to_fee(&weight))
+			match asset.try_as::<AssetLocationId>() {
+				Ok(asset_id) if asset_id.0 == xcm_config::RelayLocation::get() => {
+					// for native token
+					Ok(WeightToFee::weight_to_fee(&weight))
+				},
+				Ok(asset_id) => {
+					log::trace!(target: "xcm::xcm_fee_payment_runtime_api", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
+					Err(XcmPaymentApiError::AssetNotFound)
+				},
+				Err(_) => {
+					log::trace!(target: "xcm::xcm_fee_payment_runtime_api", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
+					Err(XcmPaymentApiError::VersionedConversionFailed)
+				}
+			}
 		}
 
 		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
@@ -874,26 +886,20 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi<Block, RuntimeCall, RuntimeEvent> for Runtime {
-		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+	impl xcm_fee_payment_runtime_api::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			use xcm_builder::InspectMessageQueues;
 			use xcm_executor::RecordXcm;
 			use xcm::prelude::*;
-
 			pallet_xcm::Pallet::<Runtime>::set_record_xcm(true);
-			let result = Executive::apply_extrinsic(extrinsic).map_err(|error| {
-				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_extrinsic",
-					"Applying extrinsic failed with error {:?}",
-					error,
-				);
-				XcmDryRunApiError::InvalidExtrinsic
-			})?;
+			frame_system::Pallet::<Runtime>::reset_events(); // To make sure we only record events from current call.
+			let result = call.dispatch(origin.into());
+			pallet_xcm::Pallet::<Runtime>::set_record_xcm(false);
 			let local_xcm = pallet_xcm::Pallet::<Runtime>::recorded_xcm();
 			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
 			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
-			Ok(ExtrinsicDryRunEffects {
-				local_xcm: local_xcm.map(VersionedXcm::<()>::V4),
+			Ok(CallDryRunEffects {
+				local_xcm: local_xcm.map(VersionedXcm::<()>::from),
 				forwarded_xcms,
 				emitted_events: events,
 				execution_result: result,
@@ -906,7 +912,7 @@ impl_runtime_apis! {
 
 			let origin_location: Location = origin_location.try_into().map_err(|error| {
 				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					target: "xcm::DryRunApi::dry_run_xcm",
 					"Location version conversion failed with error: {:?}",
 					error,
 				);
@@ -914,13 +920,14 @@ impl_runtime_apis! {
 			})?;
 			let program: Xcm<RuntimeCall> = program.try_into().map_err(|error| {
 				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					target: "xcm::DryRunApi::dry_run_xcm",
 					"Xcm version conversion failed with error {:?}",
 					error,
 				);
 				XcmDryRunApiError::VersionedConversionFailed
 			})?;
 			let mut hash = program.using_encoded(sp_core::hashing::blake2_256);
+			frame_system::Pallet::<Runtime>::reset_events(); // To make sure we only record events from current call.
 			let result = xcm_executor::XcmExecutor::<xcm_config::XcmConfig>::prepare_and_execute(
 				origin_location,
 				program,

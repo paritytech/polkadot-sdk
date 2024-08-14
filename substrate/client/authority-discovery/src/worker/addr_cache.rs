@@ -176,8 +176,8 @@ fn addresses_to_peer_ids(addresses: &HashSet<Multiaddr>) -> HashSet<PeerId> {
 mod tests {
 	use super::*;
 
-	use multihash::{self, Multihash};
 	use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
+	use sc_network_types::multihash::Multihash;
 
 	use sp_authority_discovery::{AuthorityId, AuthorityPair};
 	use sp_core::crypto::Pair;

@@ -264,7 +264,7 @@ fn add_child_bounty() {
 		// DB check.
 		// Check the child-bounty status.
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -275,10 +275,13 @@ fn add_child_bounty() {
 		);
 
 		// Check the child-bounty count.
-		assert_eq!(ChildBounties::parent_child_bounties(0), 1);
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 1);
 
 		// Check the child-bounty description status.
-		assert_eq!(ChildBounties::child_bounty_descriptions(0).unwrap(), b"12345-p1".to_vec(),);
+		assert_eq!(
+			pallet_child_bounties::ChildBountyDescriptions::<Test>::get(0).unwrap(),
+			b"12345-p1".to_vec(),
+		);
 	});
 }
 
@@ -340,7 +343,7 @@ fn child_bounty_assign_curator() {
 		assert_ok!(ChildBounties::propose_curator(RuntimeOrigin::signed(4), 0, 0, 8, fee));
 
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -364,7 +367,7 @@ fn child_bounty_assign_curator() {
 		let expected_child_deposit = CuratorDepositMultiplier::get() * fee;
 
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -441,7 +444,7 @@ fn award_claim_child_bounty() {
 
 		let expected_deposit = CuratorDepositMultiplier::get() * fee;
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -479,7 +482,7 @@ fn award_claim_child_bounty() {
 		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0)), 0);
 
 		// Check the child-bounty count.
-		assert_eq!(ChildBounties::parent_child_bounties(0), 0);
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
 	});
 }
 
@@ -528,7 +531,7 @@ fn close_child_bounty_added() {
 		assert_ok!(ChildBounties::close_child_bounty(RuntimeOrigin::signed(4), 0, 0));
 
 		// Check the child-bounty count.
-		assert_eq!(ChildBounties::parent_child_bounties(0), 0);
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
 
 		// Parent-bounty account status.
 		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(0)), 50);
@@ -582,7 +585,7 @@ fn close_child_bounty_active() {
 		assert_ok!(ChildBounties::close_child_bounty(RuntimeOrigin::signed(4), 0, 0));
 
 		// Check the child-bounty count.
-		assert_eq!(ChildBounties::parent_child_bounties(0), 0);
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
 
 		// Ensure child-bounty curator balance is unreserved.
 		assert_eq!(Balances::free_balance(8), 101);
@@ -647,7 +650,7 @@ fn close_child_bounty_pending() {
 		);
 
 		// Check the child-bounty count.
-		assert_eq!(ChildBounties::parent_child_bounties(0), 1);
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 1);
 
 		// Ensure no changes in child-bounty curator balance.
 		assert_eq!(Balances::reserved_balance(8), expected_child_deposit);
@@ -739,7 +742,7 @@ fn child_bounty_curator_proposed_unassign_curator() {
 		assert_ok!(ChildBounties::propose_curator(RuntimeOrigin::signed(4), 0, 0, 8, 2));
 
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -757,7 +760,7 @@ fn child_bounty_curator_proposed_unassign_curator() {
 
 		// Verify updated child-bounty status.
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -820,7 +823,7 @@ fn child_bounty_active_unassign_curator() {
 		let expected_child_deposit = CuratorDepositMultiplier::get() * fee;
 
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -838,7 +841,7 @@ fn child_bounty_active_unassign_curator() {
 
 		// Verify updated child-bounty status.
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -859,7 +862,7 @@ fn child_bounty_active_unassign_curator() {
 		let expected_child_deposit = CuratorDepositMin::get();
 
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -877,7 +880,7 @@ fn child_bounty_active_unassign_curator() {
 
 		// Verify updated child-bounty status.
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -896,7 +899,7 @@ fn child_bounty_active_unassign_curator() {
 		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(6), 0, 0));
 
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -914,7 +917,7 @@ fn child_bounty_active_unassign_curator() {
 
 		// Verify updated child-bounty status.
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -935,7 +938,7 @@ fn child_bounty_active_unassign_curator() {
 		let expected_child_deposit = CuratorDepositMin::get();
 
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -963,7 +966,7 @@ fn child_bounty_active_unassign_curator() {
 
 		// Verify updated child-bounty status.
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -1025,7 +1028,7 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 		let expected_child_deposit = CuratorDepositMultiplier::get() * fee;
 
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -1056,7 +1059,7 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 
 		// Verify updated child-bounty status.
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -1087,7 +1090,7 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 		let expected_deposit = CuratorDepositMin::get();
 
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -1116,7 +1119,7 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 
 		// Verify updated child-bounty status.
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -1186,7 +1189,7 @@ fn close_parent_with_child_bounty() {
 		assert_ok!(ChildBounties::close_child_bounty(RuntimeOrigin::root(), 0, 0));
 
 		// Check the child-bounty count.
-		assert_eq!(ChildBounties::parent_child_bounties(0), 0);
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
 
 		// Try close parent-bounty again.
 		// Should pass this time.
@@ -1235,7 +1238,7 @@ fn children_curator_fee_calculation_test() {
 		// Propose curator for child-bounty.
 		assert_ok!(ChildBounties::propose_curator(RuntimeOrigin::signed(4), 0, 0, 8, fee));
 		// Check curator fee added to the sum.
-		assert_eq!(ChildBounties::children_curator_fees(0), fee);
+		assert_eq!(pallet_child_bounties::ChildrenCuratorFees::<Test>::get(0), fee);
 		// Accept curator for child-bounty.
 		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(8), 0, 0));
 		// Award child-bounty.
@@ -1244,7 +1247,7 @@ fn children_curator_fee_calculation_test() {
 		let expected_child_deposit = CuratorDepositMultiplier::get() * fee;
 
 		assert_eq!(
-			ChildBounties::child_bounties(0, 0).unwrap(),
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
 			ChildBounty {
 				parent_bounty: 0,
 				value: 10,
@@ -1264,7 +1267,7 @@ fn children_curator_fee_calculation_test() {
 		assert_ok!(ChildBounties::claim_child_bounty(RuntimeOrigin::signed(7), 0, 0));
 
 		// Check the child-bounty count.
-		assert_eq!(ChildBounties::parent_child_bounties(0), 0);
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
 
 		// Award the parent bounty.
 		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(4), 0, 9));

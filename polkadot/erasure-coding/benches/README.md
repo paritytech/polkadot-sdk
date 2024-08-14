@@ -7,7 +7,8 @@ cargo bench
 ## `scaling_with_validators`
 
 This benchmark evaluates the performance of constructing the chunks and the erasure root from PoV and
-reconstructing the PoV from chunks. You can see the results of running this bench on 5950x below.
+reconstructing the PoV from chunks (either from systematic chunks or regular chunks).
+You can see the results of running this bench on 5950x below (only including recovery from regular chunks).
 Interestingly, with `10_000` chunks (validators) its slower than with `50_000` for both construction
 and reconstruction.
 ```
@@ -37,3 +38,6 @@ reconstruct/10000       time:   [496.35 ms 505.17 ms 515.42 ms]
 reconstruct/50000       time:   [276.56 ms 277.53 ms 278.58 ms]
                         thrpt:  [17.948 MiB/s 18.016 MiB/s 18.079 MiB/s]
 ```
+
+Results from running on an Apple M2 Pro, systematic recovery is generally 40 times faster than
+regular recovery, achieving 1 Gib/s.

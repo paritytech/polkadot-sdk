@@ -25,7 +25,7 @@ use polkadot_node_subsystem::{
 	SubsystemError, SubsystemResult, TrySendError,
 };
 use polkadot_node_subsystem_util::TimeoutExt;
-use polkadot_primitives::{Hash, ValidatorIndex};
+use polkadot_primitives::{ChunkIndex, Hash};
 
 use futures::{channel::mpsc, poll, prelude::*};
 use parking_lot::Mutex;
@@ -487,7 +487,7 @@ pub fn derive_erasure_chunks_with_proofs_and_root(
 		.enumerate()
 		.map(|(index, (proof, chunk))| ErasureChunk {
 			chunk: chunk.to_vec(),
-			index: ValidatorIndex(index as _),
+			index: ChunkIndex(index as _),
 			proof: Proof::try_from(proof).unwrap(),
 		})
 		.collect::<Vec<ErasureChunk>>();

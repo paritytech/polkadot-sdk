@@ -525,10 +525,6 @@ mod tests {
 		}
 	);
 
-	parameter_types! {
-		pub const BlockHashCount: u32 = 250;
-	}
-
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
@@ -543,7 +539,6 @@ mod tests {
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = BlockHashCount;
 		type DbWeight = ();
 		type Version = ();
 		type PalletInfo = PalletInfo;

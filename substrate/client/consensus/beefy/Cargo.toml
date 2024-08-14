@@ -42,7 +42,6 @@ sp-keystore = { path = "../../../primitives/keystore" }
 sp-runtime = { path = "../../../primitives/runtime" }
 tokio = "1.37"
 
-
 [dev-dependencies]
 serde = { workspace = true, default-features = true }
 tempfile = "3.1.0"

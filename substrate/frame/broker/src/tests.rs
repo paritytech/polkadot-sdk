@@ -25,7 +25,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin::Root;
 use pretty_assertions::assert_eq;
-use sp_runtime::{traits::Get, TokenError};
+use sp_runtime::{traits::Get, Perbill, TokenError};
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
 use Finality::*;
@@ -78,9 +78,9 @@ fn drop_renewal_works() {
 		let e = Error::<Test>::StillValid;
 		assert_noop!(Broker::do_drop_renewal(region.core, region.begin + 3), e);
 		advance_to(12);
-		assert_eq!(AllowedRenewals::<Test>::iter().count(), 1);
+		assert_eq!(PotentialRenewals::<Test>::iter().count(), 1);
 		assert_ok!(Broker::do_drop_renewal(region.core, region.begin + 3));
-		assert_eq!(AllowedRenewals::<Test>::iter().count(), 0);
+		assert_eq!(PotentialRenewals::<Test>::iter().count(), 0);
 		let e = Error::<Test>::UnknownRenewal;
 		assert_noop!(Broker::do_drop_renewal(region.core, region.begin + 3), e);
 	});
@@ -361,22 +361,91 @@ fn migration_works() {
 
 #[test]
 fn renewal_works() {
-	TestExt::new().endow(1, 1000).execute_with(|| {
+	let b = 100_000;
+	TestExt::new().endow(1, b).execute_with(move || {
 		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);
 		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
-		assert_eq!(balance(1), 900);
+		assert_eq!(balance(1), 99_900);
 		assert_ok!(Broker::do_assign(region, None, 1001, Final));
 		// Should now be renewable.
 		advance_to(6);
 		assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::TooEarly);
 		let core = Broker::do_renew(1, region.core).unwrap();
-		assert_eq!(balance(1), 800);
+		assert_eq!(balance(1), 99_800);
 		advance_to(8);
 		assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::SoldOut);
 		advance_to(12);
 		assert_ok!(Broker::do_renew(1, core));
-		assert_eq!(balance(1), 690);
+		assert_eq!(balance(1), 99_690);
+	});
+}
+
+#[test]
+/// Renewals have to affect price as well. Otherwise a market where everything is a renewal would
+/// not work. Renewals happening in the leadin or after are effectively competing with the open
+/// market and it makes sense to adjust the price to what was paid here. Assuming all renewals were
+/// done in the interlude and only normal sales happen in the leadin, renewals will have no effect
+/// on price. If there are no cores left for sale on the open markent, renewals will affect price
+/// even in the interlude, making sure renewal prices stay in the range of the open market.
+fn renewals_affect_price() {
+	sp_tracing::try_init_simple();
+	let b = 100_000;
+	let config = ConfigRecord {
+		advance_notice: 2,
+		interlude_length: 10,
+		leadin_length: 20,
+		ideal_bulk_proportion: Perbill::from_percent(100),
+		limit_cores_offered: None,
+		// Region length is in time slices (2 blocks):
+		region_length: 20,
+		renewal_bump: Perbill::from_percent(10),
+		contribution_timeout: 5,
+	};
+	TestExt::new_with_config(config).endow(1, b).execute_with(|| {
+		let price = 910;
+		assert_ok!(Broker::do_start_sales(10, 1));
+		advance_to(11);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		// Price is lower, because already one block in:
+		let b = b - price;
+		assert_eq!(balance(1), b);
+		assert_ok!(Broker::do_assign(region, None, 1001, Final));
+		advance_to(40);
+		assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::TooEarly);
+		let core = Broker::do_renew(1, region.core).unwrap();
+		// First renewal has same price as initial purchase.
+		let b = b - price;
+		assert_eq!(balance(1), b);
+		advance_to(51);
+		assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::SoldOut);
+		advance_to(81);
+		assert_ok!(Broker::do_renew(1, core));
+		// Renewal bump in effect
+		let price = price + Perbill::from_percent(10) * price;
+		let b = b - price;
+		assert_eq!(balance(1), b);
+
+		// Move after interlude and leadin - should reduce price.
+		advance_to(159);
+		Broker::do_renew(1, region.core).unwrap();
+		let price = price + Perbill::from_percent(10) * price;
+		let b = b - price;
+		assert_eq!(balance(1), b);
+
+		advance_to(161);
+		// Should have the reduced price now:
+		Broker::do_renew(1, region.core).unwrap();
+		let price = 100;
+		let b = b - price;
+		assert_eq!(balance(1), b);
+
+		// Price should be bumped normally again:
+		advance_to(201);
+		Broker::do_renew(1, region.core).unwrap();
+		let price = 110;
+		let b = b - price;
+		assert_eq!(balance(1), b);
 	});
 }
 
@@ -916,7 +985,8 @@ fn short_leases_are_cleaned() {
 
 #[test]
 fn leases_can_be_renewed() {
-	TestExt::new().endow(1, 1000).execute_with(|| {
+	let initial_balance = 100_000;
+	TestExt::new().endow(1, initial_balance).execute_with(|| {
 		// Timeslice period is 2.
 		//
 		// Sale 1 starts at block 7, Sale 2 starts at 13.
@@ -927,13 +997,13 @@ fn leases_can_be_renewed() {
 		// Start the sales with only one core for this lease.
 		assert_ok!(Broker::do_start_sales(100, 0));
 
-		// Advance to sale period 1, we should get an AllowedRenewal for task 2001 for the next
+		// Advance to sale period 1, we should get an PotentialRenewal for task 2001 for the next
 		// sale.
 		advance_sale_period();
 		assert_eq!(
-			AllowedRenewals::<Test>::get(AllowedRenewalId { core: 0, when: 10 }),
-			Some(AllowedRenewalRecord {
-				price: 100,
+			PotentialRenewals::<Test>::get(PotentialRenewalId { core: 0, when: 10 }),
+			Some(PotentialRenewalRecord {
+				price: 1000,
 				completion: CompletionStatus::Complete(
 					vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(2001) }]
 						.try_into()
@@ -947,8 +1017,8 @@ fn leases_can_be_renewed() {
 		// Advance to sale period 2, where we can renew.
 		advance_sale_period();
 		assert_ok!(Broker::do_renew(1, 0));
-		// We renew for the base price of the previous sale period.
-		assert_eq!(balance(1), 900);
+		// We renew for the price of the previous sale period.
+		assert_eq!(balance(1), initial_balance - 1000);
 
 		// We just renewed for this period.
 		advance_sale_period();
@@ -1023,14 +1093,14 @@ fn short_leases_cannot_be_renewed() {
 		// The lease is removed.
 		assert_eq!(Leases::<Test>::get().len(), 0);
 
-		// We should have got an entry in AllowedRenewals, but we don't because rotate_sale
+		// We should have got an entry in PotentialRenewals, but we don't because rotate_sale
 		// schedules leases a period in advance. This renewal should be in the period after next
 		// because while bootstrapping our way into the sale periods, we give everything a lease for
 		// period 1, so they can renew for period 2. So we have a core until the end of period 1,
 		// but we are not marked as able to renew because we expired before sale period 1 starts.
 		//
 		// This should be fixed.
-		assert_eq!(AllowedRenewals::<Test>::get(AllowedRenewalId { core: 0, when: 10 }), None);
+		assert_eq!(PotentialRenewals::<Test>::get(PotentialRenewalId { core: 0, when: 10 }), None);
 		// And the lease has been removed from storage.
 		assert_eq!(Leases::<Test>::get().len(), 0);
 
@@ -1102,7 +1172,7 @@ fn purchase_requires_valid_status_and_sale_info() {
 		let mut dummy_sale = SaleInfoRecord {
 			sale_start: 0,
 			leadin_length: 0,
-			price: 200,
+			end_price: 200,
 			sellout_price: None,
 			region_begin: 0,
 			region_end: 3,
@@ -1144,7 +1214,7 @@ fn renewal_requires_valid_status_and_sale_info() {
 		let mut dummy_sale = SaleInfoRecord {
 			sale_start: 0,
 			leadin_length: 0,
-			price: 200,
+			end_price: 200,
 			sellout_price: None,
 			region_begin: 0,
 			region_end: 3,
@@ -1163,11 +1233,11 @@ fn renewal_requires_valid_status_and_sale_info() {
 		assert_ok!(Broker::do_start_sales(200, 1));
 		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::NotAllowed);
 
-		let record = AllowedRenewalRecord {
+		let record = PotentialRenewalRecord {
 			price: 100,
 			completion: CompletionStatus::Partial(CoreMask::from_chunk(0, 20)),
 		};
-		AllowedRenewals::<Test>::insert(AllowedRenewalId { core: 1, when: 4 }, &record);
+		PotentialRenewals::<Test>::insert(PotentialRenewalId { core: 1, when: 4 }, &record);
 		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::IncompleteAssignment);
 	});
 }
@@ -1274,7 +1344,7 @@ fn config_works() {
 /// Ensure that a lease that ended before `start_sales` was called can be renewed.
 #[test]
 fn renewal_works_leases_ended_before_start_sales() {
-	TestExt::new().endow(1, 1000).execute_with(|| {
+	TestExt::new().endow(1, 100_000).execute_with(|| {
 		let config = Configuration::<Test>::get().unwrap();
 
 		// This lease is ended before `start_stales` was called.
@@ -1304,7 +1374,7 @@ fn renewal_works_leases_ended_before_start_sales() {
 		let new_core = Broker::do_renew(1, 0).unwrap();
 		// Renewing the active lease doesn't work.
 		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::SoldOut);
-		assert_eq!(balance(1), 900);
+		assert_eq!(balance(1), 99000);
 
 		// This intializes the third sale and the period 2.
 		advance_sale_period();
@@ -1312,7 +1382,7 @@ fn renewal_works_leases_ended_before_start_sales() {
 
 		// Renewing the active lease doesn't work.
 		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::SoldOut);
-		assert_eq!(balance(1), 800);
+		assert_eq!(balance(1), 98900);
 
 		// All leases should have ended
 		assert!(Leases::<Test>::get().is_empty());
@@ -1324,7 +1394,7 @@ fn renewal_works_leases_ended_before_start_sales() {
 		assert_eq!(0, Broker::do_renew(1, new_core).unwrap());
 		// Renew the task 2.
 		assert_eq!(1, Broker::do_renew(1, 0).unwrap());
-		assert_eq!(balance(1), 600);
+		assert_eq!(balance(1), 98790);
 
 		// This intializes the fifth sale and the period 4.
 		advance_sale_period();

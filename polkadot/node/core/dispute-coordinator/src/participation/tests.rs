@@ -132,7 +132,7 @@ pub async fn participation_missing_availability(ctx_handle: &mut VirtualOverseer
 	assert_matches!(
 		ctx_handle.recv().await,
 		AllMessages::AvailabilityRecovery(
-			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 		) => {
 			tx.send(Err(RecoveryError::Unavailable)).unwrap();
 		},
@@ -151,7 +151,7 @@ async fn recover_available_data(virtual_overseer: &mut VirtualOverseer) {
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::AvailabilityRecovery(
-			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 		) => {
 			tx.send(Ok(available_data)).unwrap();
 		},
@@ -195,7 +195,7 @@ fn same_req_wont_get_queued_if_participation_is_already_running() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::AvailabilityRecovery(
-				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 			) => {
 				tx.send(Err(RecoveryError::Unavailable)).unwrap();
 			},
@@ -260,7 +260,7 @@ fn reqs_get_queued_when_out_of_capacity() {
 		{
 			match ctx_handle.recv().await {
 				AllMessages::AvailabilityRecovery(
-					AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx),
+					AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx),
 				) => {
 					tx.send(Err(RecoveryError::Unavailable)).unwrap();
 					recover_available_data_msg_count += 1;
@@ -346,7 +346,7 @@ fn cannot_participate_if_cannot_recover_available_data() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::AvailabilityRecovery(
-				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 			) => {
 				tx.send(Err(RecoveryError::Unavailable)).unwrap();
 			},
@@ -412,7 +412,7 @@ fn cast_invalid_vote_if_available_data_is_invalid() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::AvailabilityRecovery(
-				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+				AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 			) => {
 				tx.send(Err(RecoveryError::Invalid)).unwrap();
 			},

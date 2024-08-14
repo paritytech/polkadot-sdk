@@ -23,7 +23,6 @@ use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BenchmarkUsage {
-	pub benchmark_name: String,
 	pub network_usage: Vec<ResourceUsage>,
 	pub cpu_usage: Vec<ResourceUsage>,
 }
@@ -32,8 +31,7 @@ impl std::fmt::Display for BenchmarkUsage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(
 			f,
-			"\n{}\n\n{}\n{}\n\n{}\n{}\n",
-			self.benchmark_name.purple(),
+			"\n{}\n{}\n\n{}\n{}\n",
 			format!("{:<32}{:>12}{:>12}", "Network usage, KiB", "total", "per block").blue(),
 			self.network_usage
 				.iter()
@@ -59,18 +57,17 @@ impl BenchmarkUsage {
 		let all_cpu_usage: Vec<&ResourceUsage> = usages.iter().flat_map(|v| &v.cpu_usage).collect();
 
 		Self {
-			benchmark_name: usages.first().map(|v| v.benchmark_name.clone()).unwrap_or_default(),
 			network_usage: ResourceUsage::average_by_resource_name(&all_network_usages),
 			cpu_usage: ResourceUsage::average_by_resource_name(&all_cpu_usage),
 		}
 	}
 
 	pub fn check_network_usage(&self, checks: &[ResourceUsageCheck]) -> Vec<String> {
-		check_usage(&self.benchmark_name, &self.network_usage, checks)
+		check_usage(&self.network_usage, checks)
 	}
 
 	pub fn check_cpu_usage(&self, checks: &[ResourceUsageCheck]) -> Vec<String> {
-		check_usage(&self.benchmark_name, &self.cpu_usage, checks)
+		check_usage(&self.cpu_usage, checks)
 	}
 
 	pub fn cpu_usage_diff(&self, other: &Self, resource_name: &str) -> Option<f64> {
@@ -105,18 +102,8 @@ impl BenchmarkUsage {
 	}
 }
 
-fn check_usage(
-	benchmark_name: &str,
-	usage: &[ResourceUsage],
-	checks: &[ResourceUsageCheck],
-) -> Vec<String> {
-	checks
-		.iter()
-		.filter_map(|check| {
-			check_resource_usage(usage, check)
-				.map(|message| format!("{}: {}", benchmark_name, message))
-		})
-		.collect()
+fn check_usage(usage: &[ResourceUsage], checks: &[ResourceUsageCheck]) -> Vec<String> {
+	checks.iter().filter_map(|check| check_resource_usage(usage, check)).collect()
 }
 
 fn check_resource_usage(

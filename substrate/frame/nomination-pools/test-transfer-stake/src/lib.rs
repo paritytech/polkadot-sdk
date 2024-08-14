@@ -194,6 +194,95 @@ fn pool_lifecycle_e2e() {
 }
 
 #[test]
+fn destroy_pool_with_erroneous_consumer() {
+	new_test_ext().execute_with(|| {
+		// create the pool, we know this has id 1.
+		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
+		assert_eq!(LastPoolId::<Runtime>::get(), 1);
+
+		// expect consumers on pool account to be 2 (staking lock and an explicit inc by staking).
+		assert_eq!(frame_system::Pallet::<T>::consumers(&POOL1_BONDED), 2);
+
+		// increment consumer by 1 reproducing the erroneous consumer bug.
+		// refer https://github.com/paritytech/polkadot-sdk/issues/4440.
+		assert_ok!(frame_system::Pallet::<T>::inc_consumers(&POOL1_BONDED));
+		assert_eq!(frame_system::Pallet::<T>::consumers(&POOL1_BONDED), 3);
+
+		// have the pool nominate.
+		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Bonded { stash: POOL1_BONDED, amount: 50 }]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Created { depositor: 10, pool_id: 1 },
+				PoolsEvent::Bonded { member: 10, pool_id: 1, bonded: 50, joined: true },
+			]
+		);
+
+		// pool goes into destroying
+		assert_ok!(Pools::set_state(RuntimeOrigin::signed(10), 1, PoolState::Destroying));
+
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![PoolsEvent::StateChanged { pool_id: 1, new_state: PoolState::Destroying },]
+		);
+
+		// move to era 1
+		CurrentEra::<Runtime>::set(Some(1));
+
+		// depositor need to chill before unbonding
+		assert_noop!(
+			Pools::unbond(RuntimeOrigin::signed(10), 10, 50),
+			pallet_staking::Error::<Runtime>::InsufficientBond
+		);
+
+		assert_ok!(Pools::chill(RuntimeOrigin::signed(10), 1));
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 50));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Chilled { stash: POOL1_BONDED },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 50 },
+			]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![PoolsEvent::Unbonded {
+				member: 10,
+				pool_id: 1,
+				points: 50,
+				balance: 50,
+				era: 1 + 3
+			}]
+		);
+
+		// waiting bonding duration:
+		CurrentEra::<Runtime>::set(Some(1 + 3));
+		// this should work even with an extra consumer count on pool account.
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 1));
+
+		// pools is fully destroyed now.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 50 },]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Withdrawn { member: 10, pool_id: 1, points: 50, balance: 50 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 10 },
+				PoolsEvent::Destroyed { pool_id: 1 }
+			]
+		);
+	})
+}
+
+#[test]
 fn pool_chill_e2e() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::minimum_balance(), 5);
