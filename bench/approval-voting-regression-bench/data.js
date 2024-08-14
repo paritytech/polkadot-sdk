@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723643305937,
+  "lastUpdate": 1723651094605,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -14851,6 +14851,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 6.054197897689991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh",
+            "email": "49718502+alexggh@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "05a8ba662f0afdd4a4e6e2f4e61e4ca2458d666c",
+          "message": "Fix OurViewChange small race (#5356)\n\nAlways queue OurViewChange event before we send view changes to our\npeers, because otherwise we risk the peers sending us a message that can\nbe processed by our subsystems before OurViewChange.\n\nNormally, this is not really a problem because the latency of the\nViewChange we send to our peers is way higher that our subsystem\nprocessing OurViewChange, however on testnets like versi where CPU is\nsometimes overcommitted this race gets triggered occasionally, so let's\nfix it by sending the messages in the right order.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2024-08-14T13:55:29Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/05a8ba662f0afdd4a4e6e2f4e61e4ca2458d666c"
+        },
+        "date": 1723651063394,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 64008.479999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52944.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.709395991810048,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.462092159610208,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.501317037709956,
             "unit": "seconds"
           }
         ]
