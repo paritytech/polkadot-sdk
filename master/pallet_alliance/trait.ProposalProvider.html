@@ -165,7 +165,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="item-spacer"></span>    fn <a href="#tymethod.close_proposal" class="fn">close_proposal</a>(
         proposal_hash: Hash,
         index: <a class="type" href="type.ProposalIndex.html" title="type pallet_alliance::ProposalIndex">ProposalIndex</a>,
-        proposal_weight_bound: <a class="struct" href="../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>,
+        proposal_weight_bound: Weight,
         length_bound: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
     ) -&gt; DispatchResultWithPostInfo;
 <span class="item-spacer"></span>    fn <a href="#tymethod.proposal_of" class="fn">proposal_of</a>(proposal_hash: Hash) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Proposal&gt;;
@@ -187,7 +187,7 @@ Returns true if the sender votes first time if successful.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.close_proposal" class="method"><a class="src rightside" href="../src/pallet_alliance/lib.rs.html#187-192">source</a><h4 class="code-header">fn <a href="#tymethod.close_proposal" class="fn">close_proposal</a>(
     proposal_hash: Hash,
     index: <a class="type" href="type.ProposalIndex.html" title="type pallet_alliance::ProposalIndex">ProposalIndex</a>,
-    proposal_weight_bound: <a class="struct" href="../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>,
+    proposal_weight_bound: Weight,
     length_bound: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
 ) -&gt; DispatchResultWithPostInfo</h4></section></summary><div class="docblock"><p>Close a proposal that is either approved, disapproved, or whose voting period has ended.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.proposal_of" class="method"><a class="src rightside" href="../src/pallet_alliance/lib.rs.html#195">source</a><h4 class="code-header">fn <a href="#tymethod.proposal_of" class="fn">proposal_of</a>(proposal_hash: Hash) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Proposal&gt;</h4></section></summary><div class="docblock"><p>Return a proposal of the given hash.</p>

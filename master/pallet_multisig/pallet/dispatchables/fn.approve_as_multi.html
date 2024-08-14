@@ -153,7 +153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     other_signatories: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;T::AccountId&gt;,
     maybe_timepoint: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../struct.Timepoint.html" title="struct pallet_multisig::Timepoint">Timepoint</a>&lt;BlockNumberFor&lt;T&gt;&gt;&gt;,
     call_hash: [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>],
-    max_weight: <a class="struct" href="../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>
+    max_weight: Weight
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Register approval for a dispatch to be made from a deterministic composite account if
 approved by a total of <code>threshold - 1</code> of <code>other_signatories</code>.</p>
 <p>Payment: <code>DepositBase</code> will be reserved if this is the first approval, plus

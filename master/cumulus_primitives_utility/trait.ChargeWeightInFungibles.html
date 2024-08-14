@@ -152,15 +152,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     // Required method
     fn <a href="#tymethod.charge_weight_in_fungibles" class="fn">charge_weight_in_fungibles</a>(
         asset_id: &lt;Assets as Inspect&lt;AccountId&gt;&gt;::AssetId,
-        weight: <a class="struct" href="../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;Assets as Inspect&lt;AccountId&gt;&gt;::Balance, XcmError&gt;;
+        weight: Weight
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;Assets as Inspect&lt;AccountId&gt;&gt;::Balance, <a class="enum" href="../staging_xcm/v3/traits/enum.Error.html" title="enum staging_xcm::v3::traits::Error">XcmError</a>&gt;;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>ChargeWeightInFungibles trait, which converts a given amount of weight
 and an assetId, and it returns the balance amount that should be charged
 in such assetId for that amount of weight</p>
 </div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.charge_weight_in_fungibles" class="method"><a class="src rightside" href="../src/cumulus_primitives_utility/lib.rs.html#310-313">source</a><h4 class="code-header">fn <a href="#tymethod.charge_weight_in_fungibles" class="fn">charge_weight_in_fungibles</a>(
     asset_id: &lt;Assets as Inspect&lt;AccountId&gt;&gt;::AssetId,
-    weight: <a class="struct" href="../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;Assets as Inspect&lt;AccountId&gt;&gt;::Balance, XcmError&gt;</h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.77.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/cumulus_primitives_utility/trait.ChargeWeightInFungibles.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+    weight: Weight
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;Assets as Inspect&lt;AccountId&gt;&gt;::Balance, <a class="enum" href="../staging_xcm/v3/traits/enum.Error.html" title="enum staging_xcm::v3::traits::Error">XcmError</a>&gt;</h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.77.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/cumulus_primitives_utility/trait.ChargeWeightInFungibles.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
 </body></html>

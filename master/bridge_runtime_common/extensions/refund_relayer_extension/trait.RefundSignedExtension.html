@@ -168,7 +168,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="item-spacer"></span>    fn <a href="#tymethod.additional_call_result_check" class="fn">additional_call_result_check</a>(
         relayer: &amp;&lt;Self::<a class="associatedtype" href="trait.RefundSignedExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::extensions::refund_relayer_extension::RefundSignedExtension::Runtime">Runtime</a> as Config&gt;::AccountId,
         call_info: &amp;<a class="enum" href="enum.CallInfo.html" title="enum bridge_runtime_common::extensions::refund_relayer_extension::CallInfo">CallInfo</a>,
-        extra_weight: &amp;mut <a class="struct" href="../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>,
+        extra_weight: &amp;mut Weight,
         extra_size: &amp;mut <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
     ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>;
 
@@ -202,7 +202,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.additional_call_result_check" class="method"><a class="src rightside" href="../../../src/bridge_runtime_common/extensions/refund_relayer_extension.rs.html#263-268">source</a><h4 class="code-header">fn <a href="#tymethod.additional_call_result_check" class="fn">additional_call_result_check</a>(
     relayer: &amp;&lt;Self::<a class="associatedtype" href="trait.RefundSignedExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::extensions::refund_relayer_extension::RefundSignedExtension::Runtime">Runtime</a> as Config&gt;::AccountId,
     call_info: &amp;<a class="enum" href="enum.CallInfo.html" title="enum bridge_runtime_common::extensions::refund_relayer_extension::CallInfo">CallInfo</a>,
-    extra_weight: &amp;mut <a class="struct" href="../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>,
+    extra_weight: &amp;mut Weight,
     extra_size: &amp;mut <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
 ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Called from post-dispatch and shall perform additional checks (apart from messages
 transaction success) of given call result.</p>

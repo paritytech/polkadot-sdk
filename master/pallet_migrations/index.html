@@ -239,7 +239,7 @@ emitted (Goal 1).
 The execution of each migration happens by calling [<code>SteppedMigration::transactional_step</code>].
 This function wraps the inner <code>step</code> function into a transactional layer to allow rollback in
 the error case (Goal 6).
-Weight limits must be checked by the migration itself. The pallet provides a <a href="../sp_weights/weight_meter/struct.WeightMeter.html" title="struct sp_weights::weight_meter::WeightMeter"><code>WeightMeter</code></a> for
+Weight limits must be checked by the migration itself. The pallet provides a [<code>WeightMeter</code>] for
 that purpose. The pallet may return [<code>SteppedMigrationError::InsufficientWeight</code>] at any point.
 In that scenario, one of two things will happen: if that migration was exclusively executed
 in this block, and therefore required more than the maximum amount of weight possible, the
