@@ -15,7 +15,7 @@ concurrency:
 jobs:
   changes:
     # TODO: remove once migration is complete or this workflow is fully stable
-    if: contains(github.event.label.name, 'GHA-migration')
+    # if: contains(github.event.label.name, 'GHA-migration')
     permissions:
       pull-requests: read
     uses: ./.github/workflows/reusable-check-changed-files.yml
