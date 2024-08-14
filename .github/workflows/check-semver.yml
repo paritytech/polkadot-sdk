@@ -19,13 +19,15 @@ jobs:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ github.head_ref }} # Check out the actual changes - not the merge commit.
 
       - name: extra git setup
         run: |
           git config --global --add safe.directory '*'
+          git fetch --no-tags --no-recurse-submodules --depth=1 origin ${{ github.event.pull_request.base.sha }}
           BASE=$(git merge-base ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
           echo "BASE=$BASE" >> $GITHUB_ENV
-          git fetch --no-tags --no-recurse-submodules --depth=1 origin $BASE
           git branch old $BASE
 
       - name: Comment If Backport
