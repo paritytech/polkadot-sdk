@@ -357,6 +357,7 @@ mod tests {
 	use bp_runtime::RangeInclusiveExt;
 	use bp_xcm_bridge_hub::{Bridge, BridgeLocations, BridgeState};
 	use frame_support::assert_ok;
+	use pallet_bridge_messages::InboundLaneStorage;
 	use xcm_builder::{NetworkExportTable, UnpaidRemoteExporter};
 	use xcm_executor::traits::{export_xcm, ConvertLocation};
 
@@ -380,14 +381,7 @@ mod tests {
 			XcmOverBridge::bridge_locations_from_origin(origin, Box::new(with.into())).unwrap();
 		let lane_id = locations.calculate_lane_id(xcm::latest::VERSION).unwrap();
 
-		let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
-		if lanes_manager.create_outbound_lane(lane_id).is_ok() {
-			assert!(lanes_manager
-				.active_outbound_lane(lane_id)
-				.unwrap()
-				.queued_messages()
-				.is_empty());
-
+		if !Bridges::<TestRuntime, ()>::contains_key(locations.bridge_id()) {
 			// insert bridge
 			Bridges::<TestRuntime, ()>::insert(
 				locations.bridge_id(),
@@ -409,8 +403,28 @@ mod tests {
 				},
 			);
 			LaneToBridge::<TestRuntime, ()>::insert(lane_id, locations.bridge_id());
-		}
 
+			// create lanes
+			let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
+			if lanes_manager.create_inbound_lane(lane_id).is_ok() {
+				assert_eq!(
+					0,
+					lanes_manager
+						.active_inbound_lane(lane_id)
+						.unwrap()
+						.storage()
+						.data()
+						.last_confirmed_nonce
+				);
+			}
+			if lanes_manager.create_outbound_lane(lane_id).is_ok() {
+				assert!(lanes_manager
+					.active_outbound_lane(lane_id)
+					.unwrap()
+					.queued_messages()
+					.is_empty());
+			}
+		}
 		assert_ok!(XcmOverBridge::do_try_state());
 
 		(*locations, lane_id)

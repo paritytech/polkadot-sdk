@@ -300,82 +300,7 @@ pub mod pallet {
 				Error::<T, I>::BridgeLocations(e)
 			})?;
 
-			// reserve balance on the origin's sovereign account
-			let deposit = if T::AllowWithoutBridgeDeposit::contains(
-				locations.bridge_origin_relative_location(),
-			) {
-				BalanceOf::<ThisChainOf<T, I>>::zero()
-			} else {
-				T::BridgeDeposit::get()
-			};
-			let bridge_owner_account = T::BridgeOriginAccountIdConverter::convert_location(
-				locations.bridge_origin_relative_location(),
-			)
-			.ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
-			T::Currency::hold(&HoldReason::BridgeDeposit.into(), &bridge_owner_account, deposit)
-				.map_err(|_| Error::<T, I>::FailedToReserveBridgeDeposit)?;
-
-			// save bridge metadata
-			Bridges::<T, I>::try_mutate(locations.bridge_id(), |bridge| match bridge {
-				Some(_) => Err(Error::<T, I>::BridgeAlreadyExists),
-				None => {
-					*bridge = Some(BridgeOf::<T, I> {
-						bridge_origin_relative_location: Box::new(
-							locations.bridge_origin_relative_location().clone().into(),
-						),
-						bridge_origin_universal_location: Box::new(
-							locations.bridge_origin_universal_location().clone().into(),
-						),
-						bridge_destination_universal_location: Box::new(
-							locations.bridge_destination_universal_location().clone().into(),
-						),
-						state: BridgeState::Opened,
-						bridge_owner_account,
-						deposit,
-						lane_id,
-					});
-					Ok(())
-				},
-			})?;
-			// save lane to bridge mapping
-			LaneToBridge::<T, I>::try_mutate(lane_id, |bridge| match bridge {
-				Some(_) => Err(Error::<T, I>::BridgeAlreadyExists),
-				None => {
-					*bridge = Some(*locations.bridge_id());
-					Ok(())
-				},
-			})?;
-
-			// create new lanes. Under normal circumstances, following calls shall never fail
-			let lanes_manager = LanesManagerOf::<T, I>::new();
-			lanes_manager
-				.create_inbound_lane(lane_id)
-				.map_err(Error::<T, I>::LanesManager)?;
-			lanes_manager
-				.create_outbound_lane(lane_id)
-				.map_err(Error::<T, I>::LanesManager)?;
-
-			// write something to log
-			log::trace!(
-				target: LOG_TARGET,
-				"Bridge {:?} between {:?} and {:?} has been opened using lane_id: {lane_id:?}",
-				locations.bridge_id(),
-				locations.bridge_origin_universal_location(),
-				locations.bridge_destination_universal_location(),
-			);
-
-			// deposit `BridgeOpened` event
-			Self::deposit_event(Event::<T, I>::BridgeOpened {
-				bridge_id: *locations.bridge_id(),
-				bridge_deposit: deposit,
-				local_endpoint: Box::new(locations.bridge_origin_universal_location().clone()),
-				remote_endpoint: Box::new(
-					locations.bridge_destination_universal_location().clone(),
-				),
-				lane_id,
-			});
-
-			Ok(())
+			Self::do_open_bridge(locations, lane_id)
 		}
 
 		/// Try to close the bridge.
@@ -517,6 +442,90 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		fn do_open_bridge(
+			locations: Box<BridgeLocations>,
+			lane_id: LaneId,
+		) -> Result<(), DispatchError> {
+			// reserve balance on the origin's sovereign account
+			let deposit = if T::AllowWithoutBridgeDeposit::contains(
+				locations.bridge_origin_relative_location(),
+			) {
+				BalanceOf::<ThisChainOf<T, I>>::zero()
+			} else {
+				T::BridgeDeposit::get()
+			};
+			let bridge_owner_account = T::BridgeOriginAccountIdConverter::convert_location(
+				locations.bridge_origin_relative_location(),
+			)
+			.ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
+			T::Currency::hold(&HoldReason::BridgeDeposit.into(), &bridge_owner_account, deposit)
+				.map_err(|_| Error::<T, I>::FailedToReserveBridgeDeposit)?;
+
+			// save bridge metadata
+			Bridges::<T, I>::try_mutate(locations.bridge_id(), |bridge| match bridge {
+				Some(_) => Err(Error::<T, I>::BridgeAlreadyExists),
+				None => {
+					*bridge = Some(BridgeOf::<T, I> {
+						bridge_origin_relative_location: Box::new(
+							locations.bridge_origin_relative_location().clone().into(),
+						),
+						bridge_origin_universal_location: Box::new(
+							locations.bridge_origin_universal_location().clone().into(),
+						),
+						bridge_destination_universal_location: Box::new(
+							locations.bridge_destination_universal_location().clone().into(),
+						),
+						state: BridgeState::Opened,
+						bridge_owner_account,
+						deposit,
+						lane_id,
+					});
+					Ok(())
+				},
+			})?;
+			// save lane to bridge mapping
+			LaneToBridge::<T, I>::try_mutate(lane_id, |bridge| match bridge {
+				Some(_) => Err(Error::<T, I>::BridgeAlreadyExists),
+				None => {
+					*bridge = Some(*locations.bridge_id());
+					Ok(())
+				},
+			})?;
+
+			// create new lanes. Under normal circumstances, following calls shall never fail
+			let lanes_manager = LanesManagerOf::<T, I>::new();
+			lanes_manager
+				.create_inbound_lane(lane_id)
+				.map_err(Error::<T, I>::LanesManager)?;
+			lanes_manager
+				.create_outbound_lane(lane_id)
+				.map_err(Error::<T, I>::LanesManager)?;
+
+			// write something to log
+			log::trace!(
+				target: LOG_TARGET,
+				"Bridge {:?} between {:?} and {:?} has been opened using lane_id: {lane_id:?}",
+				locations.bridge_id(),
+				locations.bridge_origin_universal_location(),
+				locations.bridge_destination_universal_location(),
+			);
+
+			// deposit `BridgeOpened` event
+			Self::deposit_event(Event::<T, I>::BridgeOpened {
+				bridge_id: *locations.bridge_id(),
+				bridge_deposit: deposit,
+				local_endpoint: Box::new(locations.bridge_origin_universal_location().clone()),
+				remote_endpoint: Box::new(
+					locations.bridge_destination_universal_location().clone(),
+				),
+				lane_id,
+			});
+
+			Ok(())
+		}
+	}
+
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Return bridge endpoint locations and dedicated lane identifier. This method converts
 		/// runtime `origin` argument to relative `Location` using the `T::OpenBridgeOrigin`
 		/// converter.
@@ -582,7 +591,6 @@ pub mod pallet {
 
 			// check all known bridge configurations
 			for (bridge_id, bridge) in Bridges::<T, I>::iter() {
-				log::info!(target: LOG_TARGET, "Checking `do_try_state` for bridge_id: {bridge_id:?} and bridge: {bridge:?}");
 				lanes.insert(Self::do_try_state_for_bridge(bridge_id, bridge)?);
 			}
 			ensure!(
@@ -594,7 +602,8 @@ pub mod pallet {
 				"Invalid `LaneToBridge` configuration, probably missing or not removed laneId!"
 			);
 
-			Ok(())
+			// check connected `pallet_bridge_messages` state.
+			Self::do_try_state_for_messages()
 		}
 
 		/// Ensure the correctness of the state of the bridge.
@@ -602,10 +611,23 @@ pub mod pallet {
 			bridge_id: BridgeId,
 			bridge: BridgeOf<T, I>,
 		) -> Result<LaneId, sp_runtime::TryRuntimeError> {
+			log::info!(target: LOG_TARGET, "Checking `do_try_state_for_bridge` for bridge_id: {bridge_id:?} and bridge: {bridge:?}");
+
 			// check `BridgeId` points to the same `LaneId` and vice versa.
 			ensure!(
 				Some(bridge_id) == Self::lane_to_bridge(bridge.lane_id),
 				"Found `LaneToBridge` inconsistency for bridge_id - missing mapping!"
+			);
+
+			// check `pallet_bridge_messages` state for that `LaneId`.
+			let lanes_manager = LanesManagerOf::<T, I>::new();
+			ensure!(
+				lanes_manager.any_state_inbound_lane(bridge.lane_id).is_ok(),
+				"Inbound lane not found!",
+			);
+			ensure!(
+				lanes_manager.any_state_outbound_lane(bridge.lane_id).is_ok(),
+				"Outbound lane not found!",
 			);
 
 			// check that `locations` are convertible to the `latest` XCM.
@@ -633,6 +655,29 @@ pub mod pallet {
 			);
 
 			Ok(bridge.lane_id)
+		}
+
+		/// Ensure the correctness of the state of the connected `pallet_bridge_messages` instance.
+		pub fn do_try_state_for_messages() -> Result<(), sp_runtime::TryRuntimeError> {
+			// check that all `InboundLanes` laneIds have mapping to some bridge.
+			for lane_id in pallet_bridge_messages::InboundLanes::<T, T::BridgeMessagesPalletInstance>::iter_keys() {
+				log::info!(target: LOG_TARGET, "Checking `do_try_state_for_messages` for `InboundLanes`'s lane_id: {lane_id:?}...");
+				ensure!(
+					Self::lane_to_bridge(lane_id).is_some(),
+					"Found `LaneToBridge` inconsistency for `InboundLanes`'s lane_id - missing mapping!"
+				);
+			}
+
+			// check that all `OutboundLanes` laneIds have mapping to some bridge.
+			for lane_id in pallet_bridge_messages::OutboundLanes::<T, T::BridgeMessagesPalletInstance>::iter_keys() {
+				log::info!(target: LOG_TARGET, "Checking `do_try_state_for_messages` for `OutboundLanes`'s lane_id: {lane_id:?}...");
+				ensure!(
+					Self::lane_to_bridge(lane_id).is_some(),
+					"Found `LaneToBridge` inconsistency for `OutboundLanes`'s lane_id - missing mapping!"
+				);
+			}
+
+			Ok(())
 		}
 	}
 
@@ -1403,22 +1448,39 @@ mod tests {
 		);
 		let bridge_id_mismatch = BridgeId::new(&InteriorLocation::Here, &InteriorLocation::Here);
 		let lane_id = LaneId::from_inner(Either::Left(H256::default()));
+		let lane_id_mismatch = LaneId::from_inner(Either::Left(H256::from([1u8; 32])));
 
-		let test_bridge_state =
-			|id, bridge, (lane_id, bridge_id), expected_error: Option<TryRuntimeError>| {
-				Bridges::<TestRuntime, ()>::insert(id, bridge);
-				LaneToBridge::<TestRuntime, ()>::insert(lane_id, bridge_id);
+		let test_bridge_state = |id,
+		                         bridge,
+		                         (lane_id, bridge_id),
+		                         (inbound_lane_id, outbound_lane_id),
+		                         expected_error: Option<TryRuntimeError>| {
+			Bridges::<TestRuntime, ()>::insert(id, bridge);
+			LaneToBridge::<TestRuntime, ()>::insert(lane_id, bridge_id);
 
-				let result = XcmOverBridge::do_try_state();
-				if let Some(e) = expected_error {
-					assert_err!(result, e);
-				} else {
-					assert_ok!(result);
-				}
-			};
-		let cleanup = |bridge_id, lane_id| {
+			let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
+			lanes_manager.create_inbound_lane(inbound_lane_id).unwrap();
+			lanes_manager.create_outbound_lane(outbound_lane_id).unwrap();
+
+			let result = XcmOverBridge::do_try_state();
+			if let Some(e) = expected_error {
+				assert_err!(result, e);
+			} else {
+				assert_ok!(result);
+			}
+		};
+		let cleanup = |bridge_id, lane_ids| {
 			Bridges::<TestRuntime, ()>::remove(bridge_id);
-			LaneToBridge::<TestRuntime, ()>::remove(lane_id);
+			for lane_id in lane_ids {
+				LaneToBridge::<TestRuntime, ()>::remove(lane_id);
+				let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
+				if let Ok(lane) = lanes_manager.any_state_inbound_lane(lane_id) {
+					lane.purge();
+				}
+				if let Ok(lane) = lanes_manager.any_state_outbound_lane(lane_id) {
+					lane.purge();
+				}
+			}
 			assert_ok!(XcmOverBridge::do_try_state());
 		};
 
@@ -1444,9 +1506,10 @@ mod tests {
 					lane_id,
 				},
 				(lane_id, bridge_id),
+				(lane_id, lane_id),
 				None,
 			);
-			cleanup(bridge_id, lane_id);
+			cleanup(bridge_id, vec![lane_id]);
 
 			// error - missing `LaneToBridge` mapping
 			test_bridge_state(
@@ -1469,11 +1532,12 @@ mod tests {
 					lane_id,
 				},
 				(lane_id, bridge_id_mismatch),
+				(lane_id, lane_id),
 				Some(TryRuntimeError::Other(
 					"Found `LaneToBridge` inconsistency for bridge_id - missing mapping!",
 				)),
 			);
-			cleanup(bridge_id, lane_id);
+			cleanup(bridge_id, vec![lane_id]);
 
 			// error bridge owner account cannot be calculated
 			test_bridge_state(
@@ -1494,9 +1558,10 @@ mod tests {
 					lane_id,
 				},
 				(lane_id, bridge_id),
+				(lane_id, lane_id),
 				Some(TryRuntimeError::Other("`bridge.bridge_owner_account` is different than calculated from `bridge.bridge_origin_relative_location`, needs migration!")),
 			);
-			cleanup(bridge_id, lane_id);
+			cleanup(bridge_id, vec![lane_id]);
 
 			// error when (bridge_origin_universal_location + bridge_destination_universal_location)
 			// produces different `BridgeId`
@@ -1518,9 +1583,74 @@ mod tests {
 					lane_id,
 				},
 				(lane_id, bridge_id_mismatch),
+				(lane_id, lane_id),
 				Some(TryRuntimeError::Other("`bridge_id` is different than calculated from `bridge_origin_universal_location_as_latest` and `bridge_destination_universal_location_as_latest`, needs migration!")),
 			);
-			cleanup(bridge_id_mismatch, lane_id);
+			cleanup(bridge_id_mismatch, vec![lane_id]);
+
+			// missing inbound lane for a bridge
+			test_bridge_state(
+				bridge_id,
+				Bridge {
+					bridge_origin_relative_location: Box::new(VersionedLocation::from(
+						bridge_origin_relative_location.clone(),
+					)),
+					bridge_origin_universal_location: Box::new(VersionedInteriorLocation::from(
+						bridge_origin_universal_location.clone(),
+					)),
+					bridge_destination_universal_location: Box::new(
+						VersionedInteriorLocation::from(
+							bridge_destination_universal_location.clone(),
+						),
+					),
+					state: BridgeState::Opened,
+					bridge_owner_account: bridge_owner_account.clone(),
+					deposit: Zero::zero(),
+					lane_id,
+				},
+				(lane_id, bridge_id),
+				(lane_id_mismatch, lane_id),
+				Some(TryRuntimeError::Other("Inbound lane not found!")),
+			);
+			cleanup(bridge_id, vec![lane_id, lane_id_mismatch]);
+
+			// missing outbound lane for a bridge
+			test_bridge_state(
+				bridge_id,
+				Bridge {
+					bridge_origin_relative_location: Box::new(VersionedLocation::from(
+						bridge_origin_relative_location.clone(),
+					)),
+					bridge_origin_universal_location: Box::new(VersionedInteriorLocation::from(
+						bridge_origin_universal_location.clone(),
+					)),
+					bridge_destination_universal_location: Box::new(
+						VersionedInteriorLocation::from(
+							bridge_destination_universal_location.clone(),
+						),
+					),
+					state: BridgeState::Opened,
+					bridge_owner_account: bridge_owner_account.clone(),
+					deposit: Zero::zero(),
+					lane_id,
+				},
+				(lane_id, bridge_id),
+				(lane_id, lane_id_mismatch),
+				Some(TryRuntimeError::Other("Outbound lane not found!")),
+			);
+			cleanup(bridge_id, vec![lane_id, lane_id_mismatch]);
+
+			// missing bridge for inbound lane
+			let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
+			assert!(lanes_manager.create_inbound_lane(lane_id).is_ok());
+			assert_err!(XcmOverBridge::do_try_state(), TryRuntimeError::Other("Found `LaneToBridge` inconsistency for `InboundLanes`'s lane_id - missing mapping!"));
+			cleanup(bridge_id, vec![lane_id]);
+
+			// missing bridge for outbound lane
+			let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
+			assert!(lanes_manager.create_outbound_lane(lane_id).is_ok());
+			assert_err!(XcmOverBridge::do_try_state(), TryRuntimeError::Other("Found `LaneToBridge` inconsistency for `OutboundLanes`'s lane_id - missing mapping!"));
+			cleanup(bridge_id, vec![lane_id]);
 		});
 	}
 

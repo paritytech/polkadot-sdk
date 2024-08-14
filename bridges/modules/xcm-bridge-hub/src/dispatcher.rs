@@ -121,11 +121,12 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{mock::*, Bridges, LaneToBridge};
+	use crate::{mock::*, Bridges, LaneToBridge, LanesManagerOf};
 
 	use bp_messages::{target_chain::DispatchMessageData, MessageKey};
 	use bp_xcm_bridge_hub::{Bridge, BridgeLocations, BridgeState};
 	use frame_support::assert_ok;
+	use pallet_bridge_messages::InboundLaneStorage;
 	use xcm_executor::traits::ConvertLocation;
 
 	fn bridge() -> (Box<BridgeLocations>, LaneId) {
@@ -141,28 +142,52 @@ mod tests {
 		run_test(|| {
 			let (bridge, lane_id) = bridge();
 
-			Bridges::<TestRuntime, ()>::insert(
-				bridge.bridge_id(),
-				Bridge {
-					bridge_origin_relative_location: Box::new(
-						bridge.bridge_origin_relative_location().clone().into(),
-					),
-					bridge_origin_universal_location: Box::new(
-						bridge.bridge_origin_universal_location().clone().into(),
-					),
-					bridge_destination_universal_location: Box::new(
-						bridge.bridge_destination_universal_location().clone().into(),
-					),
-					state: BridgeState::Opened,
-					bridge_owner_account: LocationToAccountId::convert_location(
-						bridge.bridge_origin_relative_location(),
-					)
-					.expect("valid accountId"),
-					deposit: 0,
-					lane_id,
-				},
-			);
-			LaneToBridge::<TestRuntime, ()>::insert(lane_id, bridge.bridge_id());
+			if !Bridges::<TestRuntime, ()>::contains_key(bridge.bridge_id()) {
+				// insert bridge
+				Bridges::<TestRuntime, ()>::insert(
+					bridge.bridge_id(),
+					Bridge {
+						bridge_origin_relative_location: Box::new(
+							bridge.bridge_origin_relative_location().clone().into(),
+						),
+						bridge_origin_universal_location: Box::new(
+							bridge.bridge_origin_universal_location().clone().into(),
+						),
+						bridge_destination_universal_location: Box::new(
+							bridge.bridge_destination_universal_location().clone().into(),
+						),
+						state: BridgeState::Opened,
+						bridge_owner_account: LocationToAccountId::convert_location(
+							bridge.bridge_origin_relative_location(),
+						)
+						.expect("valid accountId"),
+						deposit: 0,
+						lane_id,
+					},
+				);
+				LaneToBridge::<TestRuntime, ()>::insert(lane_id, bridge.bridge_id());
+
+				// create lanes
+				let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
+				if lanes_manager.create_inbound_lane(lane_id).is_ok() {
+					assert_eq!(
+						0,
+						lanes_manager
+							.active_inbound_lane(lane_id)
+							.unwrap()
+							.storage()
+							.data()
+							.last_confirmed_nonce
+					);
+				}
+				if lanes_manager.create_outbound_lane(lane_id).is_ok() {
+					assert!(lanes_manager
+						.active_outbound_lane(lane_id)
+						.unwrap()
+						.queued_messages()
+						.is_empty());
+				}
+			}
 			assert_ok!(XcmOverBridge::do_try_state());
 
 			test();
