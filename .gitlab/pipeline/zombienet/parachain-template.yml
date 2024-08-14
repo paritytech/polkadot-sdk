@@ -37,4 +37,5 @@ zombienet-parachain-template-smoke:
   script:
     - echo $PATH
     - ls -ltr ./artifacts
-    - cargo test -p parachain-template-zombienet --test smoke
+    - cargo test -p template-zombienet-tests  --features zombienet --tests  minimal_template_block_production_test
+    - cargo test -p template-zombienet-tests  --features zombienet --tests  parachain_template_block_production_test
