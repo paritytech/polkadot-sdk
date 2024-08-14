@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723594134222,
+  "lastUpdate": 1723632985617,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -8273,6 +8273,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.045106309534000015,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d944ac2f25d267b443631f891aa68a834dc24af0",
+          "message": "Stop running the wishlist workflow on forks (#5297)\n\nAddresses\nhttps://github.com/paritytech/polkadot-sdk/pull/5085#issuecomment-2277231072",
+          "timestamp": "2024-08-14T08:46:03Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d944ac2f25d267b443631f891aa68a834dc24af0"
+        },
+        "date": 1723632954357,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.91599999999993,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.036978560892,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04607091616000002,
             "unit": "seconds"
           }
         ]
