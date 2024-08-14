@@ -6,7 +6,9 @@
     "/dns/kusama-people-connect-0.polkadot.io/tcp/30334/p2p/12D3KooWQaqG5TNmDfRWrtH7tMsN7YeqwVkSfoZT4GkemSzezNi1",
     "/dns/kusama-people-connect-1.polkadot.io/tcp/30334/p2p/12D3KooWKhYoQH9LdSyvY3SVZY9gFf6ZV1bFh6317TRehUP3r5fm",
     "/dns/kusama-people-connect-0.polkadot.io/tcp/443/wss/p2p/12D3KooWQaqG5TNmDfRWrtH7tMsN7YeqwVkSfoZT4GkemSzezNi1",
-    "/dns/kusama-people-connect-1.polkadot.io/tcp/443/wss/p2p/12D3KooWKhYoQH9LdSyvY3SVZY9gFf6ZV1bFh6317TRehUP3r5fm"
+    "/dns/kusama-people-connect-1.polkadot.io/tcp/443/wss/p2p/12D3KooWKhYoQH9LdSyvY3SVZY9gFf6ZV1bFh6317TRehUP3r5fm",
+    "/dns/people-kusama.bootnode.amforc.com/tcp/29999/wss/p2p/12D3KooWPjzgKZe5jdG6TY4gwcFq8QxyyhqsYbQo6N29pwGePWLA",
+    "/dns/people-kusama.bootnode.amforc.com/tcp/30004/p2p/12D3KooWPjzgKZe5jdG6TY4gwcFq8QxyyhqsYbQo6N29pwGePWLA"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

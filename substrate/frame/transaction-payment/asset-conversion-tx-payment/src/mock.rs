@@ -38,9 +38,8 @@ use frame_system as system;
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_asset_conversion::{Ascending, Chain, WithFirstAsset};
 use pallet_transaction_payment::FungibleAdapter;
-use sp_core::H256;
 use sp_runtime::{
-	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, SaturatedConversion},
+	traits::{AccountIdConversion, IdentityLookup, SaturatedConversion},
 	Permill,
 };
 
@@ -87,28 +86,12 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {

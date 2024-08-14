@@ -20,7 +20,7 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	mock::MockGenesisConfig,
 };
-use primitives::vstaging::SchedulerParams;
+use polkadot_primitives::vstaging::SchedulerParams;
 
 fn default_config() -> MockGenesisConfig {
 	MockGenesisConfig {
@@ -57,7 +57,7 @@ mod enter {
 	use core::panic;
 	use frame_support::assert_ok;
 	use frame_system::limits;
-	use primitives::{vstaging::SchedulerParams, AvailabilityBitfield, UncheckedSigned};
+	use polkadot_primitives::{vstaging::SchedulerParams, AvailabilityBitfield, UncheckedSigned};
 	use sp_runtime::Perbill;
 	use sp_std::collections::btree_map::BTreeMap;
 
@@ -166,7 +166,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			assert_eq!(
@@ -257,7 +257,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			assert!(pallet::OnChainVotes::<Test>::get().is_none());
 
@@ -372,7 +372,7 @@ mod enter {
 			let mut inherent_data = InherentData::new();
 			inherent_data.put_data(PARACHAINS_INHERENT_IDENTIFIER, &scenario.data).unwrap();
 
-			assert!(!scheduler::Pallet::<Test>::claimqueue_is_empty());
+			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			// The right candidates have been filtered out (the ones for cores 0,4,5)
 			assert_eq!(
@@ -494,7 +494,7 @@ mod enter {
 	#[test]
 	fn test_session_is_tracked_in_on_chain_scraping() {
 		use crate::disputes::run_to_block;
-		use primitives::{
+		use polkadot_primitives::{
 			DisputeStatement, DisputeStatementSet, ExplicitDisputeStatement,
 			InvalidDisputeStatementKind, ValidDisputeStatementKind,
 		};
@@ -618,7 +618,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			let multi_dispute_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
@@ -690,7 +690,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			let limit_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
@@ -762,7 +762,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			let limit_inherent_data =
@@ -849,7 +849,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			let limit_inherent_data =
@@ -1467,8 +1467,8 @@ mod enter {
 	}
 }
 
-fn default_header() -> primitives::Header {
-	primitives::Header {
+fn default_header() -> polkadot_primitives::Header {
+	polkadot_primitives::Header {
 		parent_hash: Default::default(),
 		number: 0,
 		state_root: Default::default(),
@@ -1487,7 +1487,7 @@ mod sanitizers {
 		mock::new_test_ext,
 	};
 	use bitvec::order::Lsb0;
-	use primitives::{
+	use polkadot_primitives::{
 		AvailabilityBitfield, GroupIndex, Hash, Id as ParaId, SignedAvailabilityBitfield,
 		ValidatorIndex,
 	};
@@ -1495,13 +1495,13 @@ mod sanitizers {
 	use sp_core::crypto::UncheckedFrom;
 
 	use crate::mock::Test;
-	use keyring::Sr25519Keyring;
-	use primitives::PARACHAIN_KEY_TYPE_ID;
+	use polkadot_primitives::PARACHAIN_KEY_TYPE_ID;
 	use sc_keystore::LocalKeystore;
+	use sp_keyring::Sr25519Keyring;
 	use sp_keystore::{Keystore, KeystorePtr};
 	use std::sync::Arc;
 
-	fn validator_pubkeys(val_ids: &[keyring::Sr25519Keyring]) -> Vec<ValidatorId> {
+	fn validator_pubkeys(val_ids: &[sp_keyring::Sr25519Keyring]) -> Vec<ValidatorId> {
 		val_ids.iter().map(|v| v.public().into()).collect()
 	}
 
@@ -1518,10 +1518,10 @@ mod sanitizers {
 		let signing_context = SigningContext { parent_hash, session_index };
 
 		let validators = vec![
-			keyring::Sr25519Keyring::Alice,
-			keyring::Sr25519Keyring::Bob,
-			keyring::Sr25519Keyring::Charlie,
-			keyring::Sr25519Keyring::Dave,
+			sp_keyring::Sr25519Keyring::Alice,
+			sp_keyring::Sr25519Keyring::Bob,
+			sp_keyring::Sr25519Keyring::Charlie,
+			sp_keyring::Sr25519Keyring::Dave,
 		];
 		for validator in validators.iter() {
 			Keystore::sr25519_generate_new(
@@ -1744,7 +1744,7 @@ mod sanitizers {
 			scheduler::{common::Assignment, ParasEntry},
 			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
 		};
-		use primitives::ValidationCode;
+		use polkadot_primitives::ValidationCode;
 		use sp_std::collections::vec_deque::VecDeque;
 
 		use super::*;
@@ -1754,7 +1754,7 @@ mod sanitizers {
 			backed_candidates: Vec<BackedCandidate>,
 			expected_backed_candidates_with_core:
 				BTreeMap<ParaId, Vec<(BackedCandidate, CoreIndex)>>,
-			scheduled_paras: BTreeMap<primitives::Id, BTreeSet<CoreIndex>>,
+			scheduled_paras: BTreeMap<polkadot_primitives::Id, BTreeSet<CoreIndex>>,
 		}
 
 		// Generate test data for the candidates and assert that the environment is set as expected
@@ -1780,11 +1780,11 @@ mod sanitizers {
 			let signing_context = SigningContext { parent_hash: relay_parent, session_index };
 
 			let validators = vec![
-				keyring::Sr25519Keyring::Alice,
-				keyring::Sr25519Keyring::Bob,
-				keyring::Sr25519Keyring::Charlie,
-				keyring::Sr25519Keyring::Dave,
-				keyring::Sr25519Keyring::Eve,
+				sp_keyring::Sr25519Keyring::Alice,
+				sp_keyring::Sr25519Keyring::Bob,
+				sp_keyring::Sr25519Keyring::Charlie,
+				sp_keyring::Sr25519Keyring::Dave,
+				sp_keyring::Sr25519Keyring::Eve,
 			];
 			for validator in validators.iter() {
 				Keystore::sr25519_generate_new(
@@ -1818,7 +1818,7 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
+			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
 				(
 					CoreIndex::from(0),
 					VecDeque::from([ParasEntry::new(
@@ -1965,14 +1965,14 @@ mod sanitizers {
 			let signing_context = SigningContext { parent_hash: relay_parent, session_index };
 
 			let validators = vec![
-				keyring::Sr25519Keyring::Alice,
-				keyring::Sr25519Keyring::Bob,
-				keyring::Sr25519Keyring::Charlie,
-				keyring::Sr25519Keyring::Dave,
-				keyring::Sr25519Keyring::Eve,
-				keyring::Sr25519Keyring::Ferdie,
-				keyring::Sr25519Keyring::One,
-				keyring::Sr25519Keyring::Two,
+				sp_keyring::Sr25519Keyring::Alice,
+				sp_keyring::Sr25519Keyring::Bob,
+				sp_keyring::Sr25519Keyring::Charlie,
+				sp_keyring::Sr25519Keyring::Dave,
+				sp_keyring::Sr25519Keyring::Eve,
+				sp_keyring::Sr25519Keyring::Ferdie,
+				sp_keyring::Sr25519Keyring::One,
+				sp_keyring::Sr25519Keyring::Two,
 			];
 			for validator in validators.iter() {
 				Keystore::sr25519_generate_new(
@@ -2001,7 +2001,7 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
+			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
 				(
 					CoreIndex::from(0),
 					VecDeque::from([ParasEntry::new(
@@ -2504,15 +2504,15 @@ mod sanitizers {
 			let signing_context = SigningContext { parent_hash: relay_parent, session_index };
 
 			let validators = vec![
-				keyring::Sr25519Keyring::Alice,
-				keyring::Sr25519Keyring::Bob,
-				keyring::Sr25519Keyring::Charlie,
-				keyring::Sr25519Keyring::Dave,
-				keyring::Sr25519Keyring::Eve,
-				keyring::Sr25519Keyring::Ferdie,
-				keyring::Sr25519Keyring::One,
-				keyring::Sr25519Keyring::Two,
-				keyring::Sr25519Keyring::AliceStash,
+				sp_keyring::Sr25519Keyring::Alice,
+				sp_keyring::Sr25519Keyring::Bob,
+				sp_keyring::Sr25519Keyring::Charlie,
+				sp_keyring::Sr25519Keyring::Dave,
+				sp_keyring::Sr25519Keyring::Eve,
+				sp_keyring::Sr25519Keyring::Ferdie,
+				sp_keyring::Sr25519Keyring::One,
+				sp_keyring::Sr25519Keyring::Two,
+				sp_keyring::Sr25519Keyring::AliceStash,
 			];
 			for validator in validators.iter() {
 				Keystore::sr25519_generate_new(
@@ -2542,7 +2542,7 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
+			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
 				(
 					CoreIndex::from(0),
 					VecDeque::from([ParasEntry::new(

@@ -223,7 +223,7 @@ pub struct Environment<T: Config> {
 pub struct ApiVersion(u16);
 impl Default for ApiVersion {
 	fn default() -> Self {
-		Self(3)
+		Self(4)
 	}
 }
 
@@ -1199,6 +1199,8 @@ pub mod pallet {
 		/// into `pallet-contracts`. This would make the whole pallet reentrant with regard to
 		/// contract code execution which is not supported.
 		ReentranceDenied,
+		/// A contract attempted to invoke a state modifying API while being in read-only mode.
+		StateChangeDenied,
 		/// Origin doesn't have enough balance to pay the required storage deposits.
 		StorageDepositNotEnoughFunds,
 		/// More storage was created than allowed by the storage deposit limit.

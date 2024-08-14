@@ -33,6 +33,7 @@ use sc_client_api::StorageProof;
 use sp_core::sp_std::collections::btree_map::BTreeMap;
 use sp_state_machine::StorageValue;
 use sp_storage::StorageKey;
+use sp_version::RuntimeVersion;
 use std::pin::Pin;
 
 use cumulus_primitives_core::relay_chain::BlockId;
@@ -236,5 +237,19 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	) -> RelayChainResult<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>> {
 		let imported_headers_stream = self.rpc_client.get_best_heads_stream()?;
 		Ok(imported_headers_stream.boxed())
+	}
+
+	async fn candidates_pending_availability(
+		&self,
+		hash: RelayHash,
+		para_id: ParaId,
+	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
+		self.rpc_client
+			.parachain_host_candidates_pending_availability(hash, para_id)
+			.await
+	}
+
+	async fn version(&self, relay_parent: RelayHash) -> RelayChainResult<RuntimeVersion> {
+		self.rpc_client.runtime_version(relay_parent).await
 	}
 }

@@ -20,10 +20,10 @@
 use crate::v7::*;
 use sp_std::prelude::*;
 
-use parity_scale_codec::{Decode, Encode};
-use primitives::RuntimeDebug;
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
+use sp_core::RuntimeDebug;
 
 /// Scheduler configuration parameters. All coretime/ondemand parameters are here.
 #[derive(

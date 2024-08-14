@@ -27,6 +27,7 @@ on:
         options:
           - polkadot
           - polkadot-parachain
+          - chain-spec-builder
 
       release_id:
         description: |
@@ -74,7 +75,7 @@ env:
 
 jobs:
   fetch-artifacts: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
-    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.image_type == 'rc' }}
+    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -97,7 +98,7 @@ jobs:
 
       - name: Fetch rc artifacts or release artifacts from s3 based on version
         #this step runs only if the workflow is triggered manually
-        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' }}
+        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary != 'chain-spec-builder'}}
         run: |
           . ./.github/scripts/common/lib.sh
 
@@ -106,15 +107,22 @@ jobs:
 
           fetch_release_artifacts_from_s3
 
-      - name: Cache the artifacts
-        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
+      - name: Fetch chain-spec-builder rc artifacts or release artifacts based on release id
+        #this step runs only if the workflow is triggered manually and only for chain-spec-builder
+        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary == 'chain-spec-builder' }}
+        run: |
+          . ./.github/scripts/common/lib.sh
+          RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
+          fetch_release_artifacts
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
-          key: artifacts-${{ env.BINARY }}-${{ github.sha }}
-          path: |
-            ./release-artifacts/${{ env.BINARY }}/**/*
+          name: release-artifacts
+          path: release-artifacts/${{ env.BINARY }}/**/*
 
   build-container: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
-    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.image_type == 'rc' }}
+    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
     needs: fetch-artifacts
     environment: release
@@ -123,26 +131,23 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Get artifacts from cache
-        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
-        with:
-          key: artifacts-${{ env.BINARY }}-${{ github.sha }}
-          fail-on-cache-miss: true
-          path: |
-            ./release-artifacts/${{ env.BINARY }}/**/*
+      - name: Download artifacts
+        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
 
       - name: Check sha256 ${{ env.BINARY }}
-        working-directory: ./release-artifacts/${{ env.BINARY }}
+        if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
+        working-directory: release-artifacts
         run: |
-          . ../../.github/scripts/common/lib.sh
+          . ../.github/scripts/common/lib.sh
 
           echo "Checking binary $BINARY"
           check_sha256 $BINARY && echo "OK" || echo "ERR"
 
       - name: Check GPG ${{ env.BINARY }}
-        working-directory: ./release-artifacts/${{ env.BINARY }}
+        if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
+        working-directory: release-artifacts
         run: |
-          . ../../.github/scripts/common/lib.sh
+          . ../.github/scripts/common/lib.sh
           import_gpg_keys
           check_gpg $BINARY
 
@@ -164,20 +169,21 @@ jobs:
           echo "No tag, doing without"
 
       - name: Fetch release tags
-        working-directory: ./release-artifacts/${{ env.BINARY }}
+        working-directory: release-artifacts
         if: ${{ env.IMAGE_TYPE == 'release'}}
         id: fetch_release_refs
         run: |
           chmod a+rx $BINARY
-          VERSION=$(./$BINARY --version | awk '{ print $2 }' )
+          [[ $BINARY != 'chain-spec-builder' ]] && VERSION=$(./$BINARY --version | awk '{ print $2 }' )
+
           release=$( echo $VERSION | cut -f1 -d- )
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
 
-      - name: Build Injected Container image for polkadot rc
-        if: ${{ env.BINARY == 'polkadot' }}
+      - name: Build Injected Container image for polkadot rc or chain-spec-builder
+        if: ${{ env.BINARY == 'polkadot' || env.BINARY == 'chain-spec-builder' }}
         env:
-          ARTIFACTS_FOLDER: ./release-artifacts
+          ARTIFACTS_FOLDER: release-artifacts
           IMAGE_NAME: ${{ env.BINARY }}
           OWNER: ${{ env.DOCKER_OWNER }}
           TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
@@ -189,7 +195,7 @@ jobs:
       - name: Build Injected Container image for polkadot-parachain
         if: ${{ env.BINARY == 'polkadot-parachain' }}
         env:
-          ARTIFACTS_FOLDER: ./release-artifacts
+          ARTIFACTS_FOLDER: release-artifacts
           IMAGE_NAME: ${{ env.BINARY }}
           OWNER: ${{ env.DOCKER_OWNER }}
           DOCKERFILE: docker/dockerfiles/polkadot-parachain/polkadot-parachain_injected.Dockerfile
@@ -219,7 +225,11 @@ jobs:
           RELEASE_TAG: ${{ steps.fetch_rc_refs.outputs.release || steps.fetch_release_refs.outputs.release  }}
         run: |
           echo "Checking tag ${RELEASE_TAG} for image ${REGISTRY}/${DOCKER_OWNER}/${BINARY}"
-          $ENGINE run -i ${REGISTRY}/${DOCKER_OWNER}/${BINARY}:${RELEASE_TAG} --version
+          if [[ ${BINARY} == 'chain-spec-builder' ]]; then
+            $ENGINE run -i ${REGISTRY}/${DOCKER_OWNER}/${BINARY}:${RELEASE_TAG}
+          else
+            $ENGINE run -i ${REGISTRY}/${DOCKER_OWNER}/${BINARY}:${RELEASE_TAG} --version
+          fi
 
   fetch-latest-debian-package-version: # this job will be triggered for polkadot release build
     if: ${{ inputs.binary == 'polkadot' && inputs.image_type == 'release' }}

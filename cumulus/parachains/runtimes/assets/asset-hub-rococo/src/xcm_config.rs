@@ -699,8 +699,7 @@ pub mod bridging {
 							false => None,
 						}
 					});
-			assert!(alias.is_some(), "we expect here BridgeHubRococo to Westend mapping at least");
-			Some(alias.unwrap())
+			Some(alias.expect("we expect here BridgeHubRococo to Westend mapping at least"))
 		}
 	}
 }

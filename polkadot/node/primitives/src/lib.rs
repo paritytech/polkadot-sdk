@@ -25,8 +25,8 @@
 use std::pin::Pin;
 
 use bounded_vec::BoundedVec;
+use codec::{Decode, Encode, Error as CodecError, Input};
 use futures::Future;
-use parity_scale_codec::{Decode, Encode, Error as CodecError, Input};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use polkadot_primitives::{

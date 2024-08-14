@@ -24,7 +24,9 @@
     "/dns/boot-node.helikon.io/tcp/7420/p2p/12D3KooWK4eKFpYftyuLdBdXrkdJXHKt7KZcNLb92Ufkvo17B9T2",
     "/dns/boot-node.helikon.io/tcp/7422/wss/p2p/12D3KooWK4eKFpYftyuLdBdXrkdJXHKt7KZcNLb92Ufkvo17B9T2",
     "/dns/coretime-kusama-bootnode.radiumblock.com/tcp/30333/p2p/12D3KooWFzW9AgxNfkVNCepVByS7URDCRDAA5p3XzBLVptqZvWoL",
-    "/dns/coretime-kusama-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWFzW9AgxNfkVNCepVByS7URDCRDAA5p3XzBLVptqZvWoL"
+    "/dns/coretime-kusama-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWFzW9AgxNfkVNCepVByS7URDCRDAA5p3XzBLVptqZvWoL",
+    "/dns/coretime-kusama.bootnode.amforc.com/tcp/29999/wss/p2p/12D3KooWPrgxrrumrANp6Bp2SMEwMQHPHDbPzA1HbcrakZrbFi5P",
+    "/dns/coretime-kusama.bootnode.amforc.com/tcp/30013/p2p/12D3KooWPrgxrrumrANp6Bp2SMEwMQHPHDbPzA1HbcrakZrbFi5P"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

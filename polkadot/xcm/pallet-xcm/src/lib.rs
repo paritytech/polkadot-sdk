@@ -2517,6 +2517,21 @@ impl<T: Config> Pallet<T> {
 		Ok(XcmDryRunEffects { forwarded_xcms, emitted_events: events, execution_result: result })
 	}
 
+	/// Given a list of asset ids, returns the correct API response for
+	/// `XcmPaymentApi::query_acceptable_payment_assets`.
+	///
+	/// The assets passed in have to be supported for fee payment.
+	pub fn query_acceptable_payment_assets(
+		version: xcm::Version,
+		asset_ids: Vec<AssetId>,
+	) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
+		Ok(asset_ids
+			.into_iter()
+			.map(|asset_id| VersionedAssetId::from(asset_id))
+			.filter_map(|asset_id| asset_id.into_version(version).ok())
+			.collect())
+	}
+
 	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
 		let message = Xcm::<()>::try_from(message)
 			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;

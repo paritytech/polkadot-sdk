@@ -20,6 +20,7 @@ use std::{
 	collections::HashSet,
 	sync::{Arc, Mutex},
 	task::Poll,
+	time::Instant,
 };
 
 use futures::{
@@ -118,6 +119,7 @@ sp_api::mock_impl_runtime_apis! {
 pub enum TestNetworkEvent {
 	GetCalled(KademliaKey),
 	PutCalled(KademliaKey, Vec<u8>),
+	StoreRecordCalled(KademliaKey, Vec<u8>, Option<sc_network_types::PeerId>, Option<Instant>),
 }
 
 pub struct TestNetwork {
@@ -128,6 +130,9 @@ pub struct TestNetwork {
 	// vectors below.
 	pub put_value_call: Arc<Mutex<Vec<(KademliaKey, Vec<u8>)>>>,
 	pub get_value_call: Arc<Mutex<Vec<KademliaKey>>>,
+	pub store_value_call:
+		Arc<Mutex<Vec<(KademliaKey, Vec<u8>, Option<sc_network_types::PeerId>, Option<Instant>)>>>,
+
 	event_sender: mpsc::UnboundedSender<TestNetworkEvent>,
 	event_receiver: Option<mpsc::UnboundedReceiver<TestNetworkEvent>>,
 }
@@ -148,6 +153,7 @@ impl Default for TestNetwork {
 			external_addresses: vec!["/ip6/2001:db8::/tcp/30333".parse().unwrap()],
 			put_value_call: Default::default(),
 			get_value_call: Default::default(),
+			store_value_call: Default::default(),
 			event_sender: tx,
 			event_receiver: Some(rx),
 		}
@@ -191,6 +197,25 @@ impl NetworkDHTProvider for TestNetwork {
 		self.event_sender
 			.clone()
 			.unbounded_send(TestNetworkEvent::GetCalled(key.clone()))
+			.unwrap();
+	}
+
+	fn store_record(
+		&self,
+		key: KademliaKey,
+		value: Vec<u8>,
+		publisher: Option<PeerId>,
+		expires: Option<Instant>,
+	) {
+		self.store_value_call.lock().unwrap().push((
+			key.clone(),
+			value.clone(),
+			publisher,
+			expires,
+		));
+		self.event_sender
+			.clone()
+			.unbounded_send(TestNetworkEvent::StoreRecordCalled(key, value, publisher, expires))
 			.unwrap();
 	}
 }
@@ -867,6 +892,109 @@ fn lookup_throttling() {
 				(remote_public_keys.len() - MAX_IN_FLIGHT_LOOKUPS - 2) as u64
 			);
 			assert_eq!(network.get_value_call.lock().unwrap().len(), MAX_IN_FLIGHT_LOOKUPS);
+		}
+		.boxed_local(),
+	);
+}
+
+#[test]
+fn test_handle_put_record_request() {
+	let network = TestNetwork::default();
+	let peer_id = network.peer_id;
+
+	let remote_multiaddr = {
+		let address: Multiaddr = "/ip6/2001:db8:0:0:0:0:0:1/tcp/30333".parse().unwrap();
+
+		address.with(multiaddr::Protocol::P2p(peer_id.into()))
+	};
+	let remote_key_store = MemoryKeystore::new();
+	let remote_public_keys: Vec<AuthorityId> = (0..20)
+		.map(|_| {
+			remote_key_store
+				.sr25519_generate_new(key_types::AUTHORITY_DISCOVERY, None)
+				.unwrap()
+				.into()
+		})
+		.collect();
+
+	let remote_non_authorithy_keys: Vec<AuthorityId> = (0..20)
+		.map(|_| {
+			remote_key_store
+				.sr25519_generate_new(key_types::AUTHORITY_DISCOVERY, None)
+				.unwrap()
+				.into()
+		})
+		.collect();
+
+	let (_dht_event_tx, dht_event_rx) = channel(1);
+	let (_to_worker, from_service) = mpsc::channel(0);
+	let network = Arc::new(network);
+	let mut worker = Worker::new(
+		from_service,
+		Arc::new(TestApi { authorities: remote_public_keys.clone() }),
+		network.clone(),
+		dht_event_rx.boxed(),
+		Role::Discover,
+		Some(default_registry().clone()),
+		Default::default(),
+	);
+
+	let mut pool = LocalPool::new();
+
+	let valid_authorithy_key = remote_public_keys.first().unwrap().clone();
+
+	let kv_pairs = build_dht_event(
+		vec![remote_multiaddr],
+		valid_authorithy_key.into(),
+		&remote_key_store,
+		Some(&TestSigner { keypair: &network.identity }),
+	);
+
+	pool.run_until(
+		async {
+			// Invalid format should return an error.
+			for authority in remote_public_keys.iter() {
+				let key = hash_authority_id(authority.as_ref());
+				assert!(matches!(
+					worker.handle_put_record_requested(key, vec![0x0], Some(peer_id), None).await,
+					Err(Error::DecodingProto(_))
+				));
+			}
+			let prev_requested_authorithies = worker.authorities_queried_at;
+
+			// Unknown authority should return an error.
+			for authority in remote_non_authorithy_keys.iter() {
+				let key = hash_authority_id(authority.as_ref());
+				assert!(matches!(
+					worker.handle_put_record_requested(key, vec![0x0], Some(peer_id), None).await,
+					Err(Error::UnknownAuthority)
+				));
+				assert!(prev_requested_authorithies == worker.authorities_queried_at);
+			}
+			assert_eq!(network.store_value_call.lock().unwrap().len(), 0);
+
+			// Valid authority should return Ok.
+			for (key, value) in kv_pairs.clone() {
+				assert!(worker
+					.handle_put_record_requested(key, value, Some(peer_id), None)
+					.await
+					.is_ok());
+			}
+			assert_eq!(network.store_value_call.lock().unwrap().len(), 1);
+
+			let another_authorithy_id = remote_public_keys.get(3).unwrap().clone();
+			let key = hash_authority_id(another_authorithy_id.as_ref());
+
+			// Valid record signed with a different key should return error.
+			for (_, value) in kv_pairs {
+				assert!(matches!(
+					worker
+						.handle_put_record_requested(key.clone(), value, Some(peer_id), None)
+						.await,
+					Err(Error::VerifyingDhtPayload)
+				));
+			}
+			assert_eq!(network.store_value_call.lock().unwrap().len(), 1);
 		}
 		.boxed_local(),
 	);

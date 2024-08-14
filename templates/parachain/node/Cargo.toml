@@ -2,7 +2,7 @@
 name = "parachain-template-node"
 description = "A parachain node template built with Substrate and Cumulus, part of Polkadot Sdk."
 version = "0.0.0"
-license = "MIT-0"
+license = "Unlicense"
 authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
@@ -56,7 +56,7 @@ sp-io = { path = "../../../substrate/primitives/io" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
 substrate-frame-rpc-system = { path = "../../../substrate/utils/frame/rpc/system" }
-substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
 
 # Polkadot
 polkadot-cli = { path = "../../../polkadot/cli", features = ["rococo-native"] }

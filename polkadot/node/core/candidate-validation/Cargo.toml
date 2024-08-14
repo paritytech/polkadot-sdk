@@ -16,7 +16,7 @@ futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
 
 sp-maybe-compressed-blob = { package = "sp-maybe-compressed-blob", path = "../../../../substrate/primitives/maybe-compressed-blob" }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
 
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-parachain-primitives = { path = "../../../parachain" }
@@ -35,4 +35,4 @@ futures = { version = "0.3.30", features = ["thread-pool"] }
 assert_matches = "1.4.0"
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 sp-core = { path = "../../../../substrate/primitives/core" }
-test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }

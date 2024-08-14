@@ -135,7 +135,8 @@ pub mod unversioned {
 				let pool_acc = Pallet::<T>::generate_bonded_account(id);
 
 				// only migrate if the pool is in Transfer Strategy.
-				if T::StakeAdapter::pool_strategy(&pool_acc) == adapter::StakeStrategyType::Transfer
+				if T::StakeAdapter::pool_strategy(Pool::from(pool_acc)) ==
+					adapter::StakeStrategyType::Transfer
 				{
 					let _ = Pallet::<T>::migrate_to_delegate_stake(id).map_err(|err| {
 						log!(
@@ -178,14 +179,11 @@ pub mod unversioned {
 			let mut pool_balances: Vec<BalanceOf<T>> = Vec::new();
 			BondedPools::<T>::iter_keys().take(MaxPools::get() as usize).for_each(|id| {
 				let pool_account = Pallet::<T>::generate_bonded_account(id);
-				let current_strategy = T::StakeAdapter::pool_strategy(&pool_account);
 
 				// we ensure migration is idempotent.
-				let pool_balance = if current_strategy == adapter::StakeStrategyType::Transfer {
-					T::Currency::total_balance(&pool_account)
-				} else {
-					T::StakeAdapter::total_balance(&pool_account)
-				};
+				let pool_balance = T::StakeAdapter::total_balance(Pool::from(pool_account.clone()))
+					// we check actual account balance if pool has not migrated yet.
+					.unwrap_or(T::Currency::total_balance(&pool_account));
 
 				pool_balances.push(pool_balance);
 			});
@@ -201,14 +199,16 @@ pub mod unversioned {
 				BondedPools::<T>::iter_keys().take(MaxPools::get() as usize).enumerate()
 			{
 				let pool_account = Pallet::<T>::generate_bonded_account(id);
-				if T::StakeAdapter::pool_strategy(&pool_account) ==
+				if T::StakeAdapter::pool_strategy(Pool::from(pool_account.clone())) ==
 					adapter::StakeStrategyType::Transfer
 				{
 					log!(error, "Pool {} failed to migrate", id,);
 					return Err(TryRuntimeError::Other("Pool failed to migrate"));
 				}
 
-				let actual_balance = T::StakeAdapter::total_balance(&pool_account);
+				let actual_balance =
+					T::StakeAdapter::total_balance(Pool::from(pool_account.clone()))
+						.expect("after migration, this should return a value");
 				let expected_balance = expected_pool_balances.get(index).unwrap();
 
 				if actual_balance != *expected_balance {
@@ -1154,7 +1154,9 @@ mod helpers {
 
 	pub(crate) fn calculate_tvl_by_total_stake<T: Config>() -> BalanceOf<T> {
 		BondedPools::<T>::iter_keys()
-			.map(|id| T::StakeAdapter::total_stake(&Pallet::<T>::generate_bonded_account(id)))
+			.map(|id| {
+				T::StakeAdapter::total_stake(Pool::from(Pallet::<T>::generate_bonded_account(id)))
+			})
 			.reduce(|acc, total_balance| acc + total_balance)
 			.unwrap_or_default()
 	}

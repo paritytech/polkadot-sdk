@@ -280,7 +280,7 @@ type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 >;
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();
-	type SelfParaId = ParachainId;
+	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
 	type OutboundXcmpMessageSource = ();
@@ -294,17 +294,14 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ConsensusHook = ConsensusHook;
 }
 
+impl parachain_info::Config for Runtime {}
+
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<32>;
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
 	type SlotDuration = ConstU64<SLOT_DURATION>;
-}
-
-parameter_types! {
-	// will be set by test_pallet during genesis init
-	pub storage ParachainId: cumulus_primitives_core::ParaId = PARACHAIN_ID.into();
 }
 
 impl test_pallet::Config for Runtime {}
@@ -315,6 +312,7 @@ construct_runtime! {
 		System: frame_system,
 		ParachainSystem: cumulus_pallet_parachain_system,
 		Timestamp: pallet_timestamp,
+		ParachainInfo: parachain_info,
 		Balances: pallet_balances,
 		Sudo: pallet_sudo,
 		TransactionPayment: pallet_transaction_payment,

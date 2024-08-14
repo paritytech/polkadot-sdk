@@ -112,6 +112,12 @@ pub trait ChainExtension<C: Config> {
 	/// In case of `Err` the contract execution is immediately suspended and the passed error
 	/// is returned to the caller. Otherwise the value of [`RetVal`] determines the exit
 	/// behaviour.
+	///
+	/// # Note
+	///
+	/// The [`Self::call`] can be invoked within a read-only context, where any state-changing calls
+	/// are disallowed. This information can be obtained using `env.ext().is_read_only()`. It is
+	/// crucial for the implementer to handle this scenario appropriately.
 	fn call<E: Ext<T = C>>(&mut self, env: Environment<E, InitState>) -> Result<RetVal>;
 
 	/// Determines whether chain extensions are enabled for this chain.

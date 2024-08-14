@@ -24,7 +24,7 @@ use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
-use primitives::{CoreIndex, Id as ParaId};
+use polkadot_primitives::{CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
 use xcm::prelude::{
 	send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm,

@@ -29,4 +29,4 @@ async-trait = "0.1.79"
 futures = { version = "0.3.30", features = ["thread-pool"] }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-node-primitives = { path = "../../primitives" }
-test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }

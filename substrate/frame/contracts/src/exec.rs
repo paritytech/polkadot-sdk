@@ -149,6 +149,7 @@ pub trait Ext: sealing::Sealed {
 		value: BalanceOf<Self::T>,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
+		read_only: bool,
 	) -> Result<ExecReturnValue, ExecError>;
 
 	/// Execute code in the current frame.
@@ -182,7 +183,7 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// This function will fail if the same contract is present on the contract
 	/// call stack.
-	fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> Result<(), DispatchError>;
+	fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> DispatchResult;
 
 	/// Transfer some amount of funds into the specified account.
 	fn transfer(&mut self, to: &AccountIdOf<Self::T>, value: BalanceOf<Self::T>) -> DispatchResult;
@@ -307,7 +308,7 @@ pub trait Ext: sealing::Sealed {
 	fn contract_info(&mut self) -> &mut ContractInfo<Self::T>;
 
 	/// Sets new code hash for existing contract.
-	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> Result<(), DispatchError>;
+	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> DispatchResult;
 
 	/// Returns the number of times the currently executing contract exists on the call stack in
 	/// addition to the calling instance. A value of 0 means no reentrancy.
@@ -327,7 +328,7 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// [`Error::CodeNotFound`] is returned if no stored code found having the specified
 	/// `code_hash`.
-	fn increment_refcount(code_hash: CodeHash<Self::T>) -> Result<(), DispatchError>;
+	fn increment_refcount(code_hash: CodeHash<Self::T>) -> DispatchResult;
 
 	/// Decrement the reference count of a stored code by one.
 	///
@@ -345,13 +346,10 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// # Errors
 	///
-	/// - [`Error::<T>::MaxDelegateDependenciesReached`]
-	/// - [`Error::<T>::CannotAddSelfAsDelegateDependency`]
-	/// - [`Error::<T>::DelegateDependencyAlreadyExists`]
-	fn lock_delegate_dependency(
-		&mut self,
-		code_hash: CodeHash<Self::T>,
-	) -> Result<(), DispatchError>;
+	/// - [`Error::MaxDelegateDependenciesReached`]
+	/// - [`Error::CannotAddSelfAsDelegateDependency`]
+	/// - [`Error::DelegateDependencyAlreadyExists`]
+	fn lock_delegate_dependency(&mut self, code_hash: CodeHash<Self::T>) -> DispatchResult;
 
 	/// Removes a delegate dependency from [`ContractInfo`]'s `delegate_dependencies` field.
 	///
@@ -360,16 +358,16 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// # Errors
 	///
-	/// - [`Error::<T>::DelegateDependencyNotFound`]
-	fn unlock_delegate_dependency(
-		&mut self,
-		code_hash: &CodeHash<Self::T>,
-	) -> Result<(), DispatchError>;
+	/// - [`Error::DelegateDependencyNotFound`]
+	fn unlock_delegate_dependency(&mut self, code_hash: &CodeHash<Self::T>) -> DispatchResult;
 
 	/// Returns the number of locked delegate dependencies.
 	///
 	/// Note: Requires &mut self to access the contract info.
 	fn locked_delegate_dependencies_count(&mut self) -> usize;
+
+	/// Check if running in read-only context.
+	fn is_read_only(&self) -> bool;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -503,6 +501,8 @@ pub struct Frame<T: Config> {
 	nested_storage: storage::meter::NestedMeter<T>,
 	/// If `false` the contract enabled its defense against reentrance attacks.
 	allows_reentry: bool,
+	/// If `true` subsequent calls cannot modify storage.
+	read_only: bool,
 	/// The caller of the currently executing frame which was spawned by `delegate_call`.
 	delegate_caller: Option<Origin<T>>,
 }
@@ -781,6 +781,7 @@ where
 			storage_meter,
 			BalanceOf::<T>::zero(),
 			determinism,
+			false,
 		)?;
 
 		let stack = Self {
@@ -813,6 +814,7 @@ where
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 		deposit_limit: BalanceOf<T>,
 		determinism: Determinism,
+		read_only: bool,
 	) -> Result<(Frame<T>, E, Option<u64>), ExecError> {
 		let (account_id, contract_info, executable, delegate_caller, entry_point, nonce) =
 			match frame_args {
@@ -869,6 +871,7 @@ where
 			nested_gas: gas_meter.nested(gas_limit),
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
+			read_only,
 		};
 
 		Ok((frame, executable, nonce))
@@ -881,6 +884,7 @@ where
 		value_transferred: BalanceOf<T>,
 		gas_limit: Weight,
 		deposit_limit: BalanceOf<T>,
+		read_only: bool,
 	) -> Result<E, ExecError> {
 		if self.frames.len() == T::CallStack::size() {
 			return Err(Error::<T>::MaxCallDepthReached.into())
@@ -908,6 +912,7 @@ where
 			nested_storage,
 			deposit_limit,
 			self.determinism,
+			read_only,
 		)?;
 		self.frames.push(frame);
 		Ok(executable)
@@ -1222,6 +1227,7 @@ where
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
+		read_only: bool,
 	) -> Result<ExecReturnValue, ExecError> {
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
@@ -1232,6 +1238,7 @@ where
 			if !self.allows_reentry(&to) {
 				return Err(<Error<T>>::ReentranceDenied.into())
 			}
+
 			// We ignore instantiate frames in our search for a cached contract.
 			// Otherwise it would be possible to recursively call a contract from its own
 			// constructor: We disallow calling not fully constructed contracts.
@@ -1247,6 +1254,8 @@ where
 				value,
 				gas_limit,
 				deposit_limit,
+				// Enable read-only access if requested; cannot disable it if already set.
+				read_only || self.is_read_only(),
 			)?;
 			self.run(executable, input_data)
 		};
@@ -1279,6 +1288,7 @@ where
 			value,
 			Weight::zero(),
 			BalanceOf::<T>::zero(),
+			self.is_read_only(),
 		)?;
 		self.run(executable, input_data)
 	}
@@ -1305,12 +1315,13 @@ where
 			value,
 			gas_limit,
 			deposit_limit,
+			self.is_read_only(),
 		)?;
 		let account_id = self.top_frame().account_id.clone();
 		self.run(executable, input_data).map(|ret| (account_id, ret))
 	}
 
-	fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> Result<(), DispatchError> {
+	fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> DispatchResult {
 		if self.is_recursive() {
 			return Err(Error::<T>::TerminatedWhileReentrant.into())
 		}
@@ -1507,7 +1518,7 @@ where
 		self.top_frame_mut().contract_info()
 	}
 
-	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> Result<(), DispatchError> {
+	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> DispatchResult {
 		let frame = top_frame_mut!(self);
 		if !E::from_storage(hash, &mut frame.nested_gas)?.is_deterministic() {
 			return Err(<Error<T>>::Indeterministic.into())
@@ -1558,7 +1569,7 @@ where
 		}
 	}
 
-	fn increment_refcount(code_hash: CodeHash<Self::T>) -> Result<(), DispatchError> {
+	fn increment_refcount(code_hash: CodeHash<Self::T>) -> DispatchResult {
 		<CodeInfoOf<Self::T>>::mutate(code_hash, |existing| -> Result<(), DispatchError> {
 			if let Some(info) = existing {
 				*info.refcount_mut() = info.refcount().saturating_add(1);
@@ -1577,10 +1588,7 @@ where
 		});
 	}
 
-	fn lock_delegate_dependency(
-		&mut self,
-		code_hash: CodeHash<Self::T>,
-	) -> Result<(), DispatchError> {
+	fn lock_delegate_dependency(&mut self, code_hash: CodeHash<Self::T>) -> DispatchResult {
 		let frame = self.top_frame_mut();
 		let info = frame.contract_info.get(&frame.account_id);
 		ensure!(code_hash != info.code_hash, Error::<T>::CannotAddSelfAsDelegateDependency);
@@ -1596,10 +1604,7 @@ where
 		Ok(())
 	}
 
-	fn unlock_delegate_dependency(
-		&mut self,
-		code_hash: &CodeHash<Self::T>,
-	) -> Result<(), DispatchError> {
+	fn unlock_delegate_dependency(&mut self, code_hash: &CodeHash<Self::T>) -> DispatchResult {
 		let frame = self.top_frame_mut();
 		let info = frame.contract_info.get(&frame.account_id);
 
@@ -1613,6 +1618,10 @@ where
 
 	fn locked_delegate_dependencies_count(&mut self) -> usize {
 		self.top_frame_mut().contract_info().delegate_dependencies_count()
+	}
+
+	fn is_read_only(&self) -> bool {
+		self.top_frame().read_only
 	}
 }
 
@@ -2125,7 +2134,15 @@ mod tests {
 		let value = Default::default();
 		let recurse_ch = MockLoader::insert(Call, |ctx, _| {
 			// Try to call into yourself.
-			let r = ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![], true);
+			let r = ctx.ext.call(
+				Weight::zero(),
+				BalanceOf::<Test>::zero(),
+				BOB,
+				0,
+				vec![],
+				true,
+				false,
+			);
 
 			ReachedBottom::mutate(|reached_bottom| {
 				if !*reached_bottom {
@@ -2184,8 +2201,15 @@ mod tests {
 
 			// Call into CHARLIE contract.
 			assert_matches!(
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true),
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					CHARLIE,
+					0,
+					vec![],
+					true,
+					false
+				),
 				Ok(_)
 			);
 			exec_success()
@@ -2332,7 +2356,7 @@ mod tests {
 			assert!(ctx.ext.caller_is_origin());
 			// BOB calls CHARLIE
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, false)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2431,7 +2455,7 @@ mod tests {
 			assert!(ctx.ext.caller_is_root());
 			// BOB calls CHARLIE.
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, false)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2465,8 +2489,15 @@ mod tests {
 
 			// Call into charlie contract.
 			assert_matches!(
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true),
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					CHARLIE,
+					0,
+					vec![],
+					true,
+					false
+				),
 				Ok(_)
 			);
 			exec_success()
@@ -2834,7 +2865,8 @@ mod tests {
 						CHARLIE,
 						0,
 						vec![],
-						true
+						true,
+						false
 					),
 					exec_trapped()
 				);
@@ -2845,7 +2877,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true, false)
 				.is_ok());
 			exec_trapped()
 		});
@@ -2878,7 +2910,7 @@ mod tests {
 	fn recursive_call_during_constructor_fails() {
 		let code = MockLoader::insert(Constructor, |ctx, _| {
 			assert_matches!(
-				ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), ctx.ext.address().clone(), 0, vec![], true),
+				ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), ctx.ext.address().clone(), 0, vec![], true, false),
 				Err(ExecError{error, ..}) if error == <Error<Test>>::ContractNotFound.into()
 			);
 			exec_success()
@@ -3028,7 +3060,8 @@ mod tests {
 		// call the contract passed as input with disabled reentry
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			let dest = Decode::decode(&mut ctx.input_data.as_ref()).unwrap();
-			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), dest, 0, vec![], false)
+			ctx.ext
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), dest, 0, vec![], false, false)
 		});
 
 		let code_charlie = MockLoader::insert(Call, |_, _| exec_success());
@@ -3077,8 +3110,15 @@ mod tests {
 	fn call_deny_reentry() {
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			if ctx.input_data[0] == 0 {
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], false)
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					CHARLIE,
+					0,
+					vec![],
+					false,
+					false,
+				)
 			} else {
 				exec_success()
 			}
@@ -3086,7 +3126,8 @@ mod tests {
 
 		// call BOB with input set to '1'
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true)
+			ctx.ext
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true, false)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -3306,7 +3347,15 @@ mod tests {
 
 			// a plain call should not influence the account counter
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), account_id, 0, vec![], false)
+				.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					account_id,
+					0,
+					vec![],
+					false,
+					false,
+				)
 				.unwrap();
 
 			exec_success()

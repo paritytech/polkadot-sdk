@@ -150,7 +150,7 @@ impl HostFnReturn {
 			Self::U64 => quote! { ::core::primitive::u64 },
 		};
 		quote! {
-			::core::result::Result<#ok, ::wasmi::core::Trap>
+			::core::result::Result<#ok, ::wasmi::Error>
 		}
 	}
 }
@@ -170,7 +170,7 @@ impl HostFn {
 
 		// process attributes
 		let msg =
-			"Only #[version(<u8>)], #[unstable], #[prefixed_alias], #[cfg] and #[deprecated] attributes are allowed.";
+			"Only #[version(<u8>)], #[unstable], #[prefixed_alias], #[cfg], #[mutating] and #[deprecated] attributes are allowed.";
 		let span = item.span();
 		let mut attrs = item.attrs.clone();
 		attrs.retain(|a| !a.path().is_ident("doc"));
@@ -178,6 +178,7 @@ impl HostFn {
 		let mut is_stable = true;
 		let mut alias_to = None;
 		let mut not_deprecated = true;
+		let mut mutating = false;
 		let mut cfg = None;
 		while let Some(attr) = attrs.pop() {
 			let ident = attr.path().get_ident().ok_or(err(span, msg))?.to_string();
@@ -208,6 +209,12 @@ impl HostFn {
 					}
 					not_deprecated = false;
 				},
+				"mutating" => {
+					if mutating {
+						return Err(err(span, "#[mutating] can only be specified once"))
+					}
+					mutating = true;
+				},
 				"cfg" => {
 					if cfg.is_some() {
 						return Err(err(span, "#[cfg] can only be specified once"))
@@ -217,6 +224,16 @@ impl HostFn {
 				id => return Err(err(span, &format!("Unsupported attribute \"{id}\". {msg}"))),
 			}
 		}
+
+		if mutating {
+			let stmt = syn::parse_quote! {
+				if ctx.ext().is_read_only() {
+					return Err(Error::<E::T>::StateChangeDenied.into());
+				}
+			};
+			item.block.stmts.insert(0, stmt);
+		}
+
 		let name = item.sig.ident.to_string();
 
 		if !(is_stable || not_deprecated) {
@@ -677,7 +694,7 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 		let into_host = if expand_blocks {
 			quote! {
 				|reason| {
-					::wasmi::core::Trap::from(reason)
+					::wasmi::Error::host(reason)
 				}
 			}
 		} else {
@@ -694,13 +711,13 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 			quote! {
 				// Write gas from wasmi into pallet-contracts before entering the host function.
 				let __gas_left_before__ = {
-					let executor_total =
-						__caller__.fuel_consumed().expect("Fuel metering is enabled; qed");
+					let fuel =
+						__caller__.get_fuel().expect("Fuel metering is enabled; qed");
 					__caller__
 						.data_mut()
 						.ext()
 						.gas_meter_mut()
-						.sync_from_executor(executor_total)
+						.sync_from_executor(fuel)
 						.map_err(TrapReason::from)
 						.map_err(#into_host)?
 				};
@@ -716,15 +733,18 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 		// Write gas from pallet-contracts into wasmi after leaving the host function.
 		let sync_gas_after = if expand_blocks {
 			quote! {
-				let fuel_consumed = __caller__
+				let fuel = __caller__
 					.data_mut()
 					.ext()
 					.gas_meter_mut()
 					.sync_to_executor(__gas_left_before__)
-					.map_err(TrapReason::from)?;
+					.map_err(|err| {
+						let err = TrapReason::from(err);
+						wasmi::Error::host(err)
+					})?;
 				 __caller__
-					 .consume_fuel(fuel_consumed.into())
-					 .map_err(|_| TrapReason::from(Error::<E::T>::OutOfGas))?;
+					 .set_fuel(fuel.into())
+					 .expect("Fuel metering is enabled; qed");
 			}
 		} else {
 			quote! { }

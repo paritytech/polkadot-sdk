@@ -609,7 +609,6 @@ pub(crate) mod tests {
 		approval_db::common::{load_block_entry, DbBackend},
 		RuntimeInfo, RuntimeInfoConfig, MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 	};
-	use ::test_helpers::{dummy_candidate_receipt, dummy_hash};
 	use assert_matches::assert_matches;
 	use polkadot_node_primitives::{
 		approval::v1::{VrfSignature, VrfTranscript},
@@ -622,6 +621,7 @@ pub(crate) mod tests {
 		node_features::FeatureIndex, ExecutorParams, Id as ParaId, IndexedVec, NodeFeatures,
 		SessionInfo, ValidatorId, ValidatorIndex,
 	};
+	use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 	use schnellru::{ByLength, LruMap};
 	pub(crate) use sp_consensus_babe::{
 		digests::{CompatibleDigestItem, PreDigest, SecondaryVRFPreDigest},
@@ -662,6 +662,7 @@ pub(crate) mod tests {
 			per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 				MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 			)),
+			no_show_stats: Default::default(),
 		}
 	}
 

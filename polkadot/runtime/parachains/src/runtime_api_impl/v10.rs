@@ -24,7 +24,7 @@ use crate::{
 };
 use frame_support::traits::{GetStorageVersion, StorageVersion};
 use frame_system::pallet_prelude::*;
-use primitives::{
+use polkadot_primitives::{
 	async_backing::{
 		AsyncBackingParams, BackingState, CandidatePendingAvailability, Constraints,
 		InboundHrmpLimitations, OutboundHrmpChannelLimitations,
@@ -66,7 +66,7 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 	//
 	// At the end of a session we clear the claim queues: Without this update call, nothing would be
 	// scheduled to the client.
-	scheduler::Pallet::<T>::free_cores_and_fill_claimqueue(Vec::new(), now);
+	scheduler::Pallet::<T>::free_cores_and_fill_claim_queue(Vec::new(), now);
 
 	let time_out_for = scheduler::Pallet::<T>::availability_timeout_predicate();
 
@@ -149,7 +149,10 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 			},
 			CoreOccupied::Free => {
 				if let Some(para_id) = scheduled.get(&CoreIndex(i as _)).cloned() {
-					CoreState::Scheduled(primitives::ScheduledCore { para_id, collator: None })
+					CoreState::Scheduled(polkadot_primitives::ScheduledCore {
+						para_id,
+						collator: None,
+					})
 				} else {
 					CoreState::Free
 				}
@@ -161,7 +164,7 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 /// Returns current block number being processed and the corresponding root hash.
 fn current_relay_parent<T: frame_system::Config>(
 ) -> (BlockNumberFor<T>, <T as frame_system::Config>::Hash) {
-	use parity_scale_codec::Decode as _;
+	use codec::Decode as _;
 	let state_version = frame_system::Pallet::<T>::runtime_version().state_version();
 	let relay_parent_number = frame_system::Pallet::<T>::block_number();
 	let relay_parent_storage_root = T::Hash::decode(&mut &sp_io::storage::root(state_version)[..])
@@ -241,7 +244,7 @@ pub fn assumed_validation_data<T: initializer::Config>(
 /// Implementation for the `check_validation_outputs` function of the runtime API.
 pub fn check_validation_outputs<T: initializer::Config>(
 	para_id: ParaId,
-	outputs: primitives::CandidateCommitments,
+	outputs: polkadot_primitives::CandidateCommitments,
 ) -> bool {
 	let relay_parent_number = frame_system::Pallet::<T>::block_number();
 	inclusion::Pallet::<T>::check_validation_outputs_for_runtime_api(
@@ -302,7 +305,7 @@ pub fn validation_code<T: initializer::Config>(
 
 /// Implementation for the `candidate_pending_availability` function of the runtime API.
 #[deprecated(
-	note = "`candidate_pending_availability` will be removed. Use `candidates_pending_availability` to query 
+	note = "`candidate_pending_availability` will be removed. Use `candidates_pending_availability` to query
 	all candidates pending availability"
 )]
 pub fn candidate_pending_availability<T: initializer::Config>(

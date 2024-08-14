@@ -99,7 +99,7 @@ fn inner_main() -> Result<(), String> {
 					)
 				})
 				.collect();
-			println!("{presets:#?}");
+			println!("{}", serde_json::json!({"presets":presets}).to_string());
 		},
 		ChainSpecBuilderCmd::DisplayPreset(DisplayPresetCmd { runtime_wasm_path, preset_name }) => {
 			let code = fs::read(runtime_wasm_path.as_path())

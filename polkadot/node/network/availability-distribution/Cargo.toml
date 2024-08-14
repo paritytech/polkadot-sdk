@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../gum" }
-parity-scale-codec = { version = "3.6.12", features = ["std"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", features = ["std"] }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-erasure-coding = { path = "../../../erasure-coding" }
 polkadot-node-network-protocol = { path = "../protocol" }

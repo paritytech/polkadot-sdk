@@ -22,7 +22,7 @@ polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-node-network-protocol = { path = "../protocol" }
 arrayvec = "0.7.4"
 indexmap = "2.0.0"
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 thiserror = { workspace = true }
 fatality = "0.1.1"
 bitvec = "1"

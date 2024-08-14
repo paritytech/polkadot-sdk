@@ -47,7 +47,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_parachains::assigner_on_demand`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_parachains::assigner_on_demand::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> polkadot_runtime_parachains::assigner_on_demand::WeightInfo for WeightInfo<T> {
 	/// Storage: `OnDemandAssignmentProvider::QueueStatus` (r:1 w:1)
 	/// Proof: `OnDemandAssignmentProvider::QueueStatus` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `OnDemandAssignmentProvider::ParaIdAffinity` (r:1 w:0)

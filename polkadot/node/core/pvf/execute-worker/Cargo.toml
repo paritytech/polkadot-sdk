@@ -16,7 +16,7 @@ cfg-if = "1.0"
 nix = { version = "0.28.0", features = ["process", "resource", "sched"] }
 libc = "0.2.152"
 
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 
 polkadot-node-core-pvf-common = { path = "../common" }
 polkadot-parachain-primitives = { path = "../../../../parachain" }

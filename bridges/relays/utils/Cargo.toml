@@ -36,4 +36,4 @@ bp-runtime = { path = "../../primitives/runtime" }
 # Substrate dependencies
 
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
-substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }

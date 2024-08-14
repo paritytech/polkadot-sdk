@@ -80,7 +80,7 @@ use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	num::NonZeroUsize,
 	task::{Context, Poll},
-	time::Duration,
+	time::{Duration, Instant},
 };
 
 /// Maximum number of known external addresses that we will cache.
@@ -222,6 +222,9 @@ impl DiscoveryConfig {
 			// https://github.com/paritytech/polkadot-sdk/issues/504
 			let kademlia_protocols = [kademlia_protocol.clone(), kademlia_legacy_protocol];
 			config.set_protocol_names(kademlia_protocols.into_iter().map(Into::into).collect());
+
+			config.set_record_filtering(libp2p::kad::KademliaStoreInserts::FilterBoth);
+
 			// By default Kademlia attempts to insert all peers into its routing table once a
 			// dialing attempt succeeds. In order to control which peer is added, disable the
 			// auto-insertion and instead add peers manually.
@@ -427,6 +430,30 @@ impl DiscoveryBehaviour {
 		}
 	}
 
+	/// Store a record in the Kademlia record store.
+	pub fn store_record(
+		&mut self,
+		record_key: RecordKey,
+		record_value: Vec<u8>,
+		publisher: Option<PeerId>,
+		expires: Option<Instant>,
+	) {
+		if let Some(k) = self.kademlia.as_mut() {
+			if let Err(err) = k.store_mut().put(Record {
+				key: record_key,
+				value: record_value,
+				publisher: publisher.map(|publisher| publisher.into()),
+				expires,
+			}) {
+				debug!(
+					target: "sub-libp2p",
+					"Failed to store record with key: {:?}",
+					err
+				);
+			}
+		}
+	}
+
 	/// Returns the number of nodes in each Kademlia kbucket for each Kademlia instance.
 	///
 	/// Identifies Kademlia instances by their [`ProtocolId`] and kbuckets by the base 2 logarithm
@@ -494,6 +521,14 @@ pub enum DiscoveryOut {
 	///
 	/// Returning the result grouped in (key, value) pairs as well as the request duration.
 	ValueFound(Vec<(RecordKey, Vec<u8>)>, Duration),
+
+	/// The DHT received a put record request.
+	PutRecordRequest(
+		RecordKey,
+		Vec<u8>,
+		Option<sc_network_types::PeerId>,
+		Option<std::time::Instant>,
+	),
 
 	/// The record requested was not found in the DHT.
 	///
@@ -764,9 +799,20 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 						let ev = DiscoveryOut::Discovered(peer);
 						return Poll::Ready(ToSwarm::GenerateEvent(ev))
 					},
-					KademliaEvent::PendingRoutablePeer { .. } |
-					KademliaEvent::InboundRequest { .. } => {
+					KademliaEvent::PendingRoutablePeer { .. } => {
 						// We are not interested in this event at the moment.
+					},
+					KademliaEvent::InboundRequest { request } => match request {
+						libp2p::kad::InboundRequest::PutRecord { record: Some(record), .. } =>
+							return Poll::Ready(ToSwarm::GenerateEvent(
+								DiscoveryOut::PutRecordRequest(
+									record.key,
+									record.value,
+									record.publisher.map(Into::into),
+									record.expires,
+								),
+							)),
+						_ => {},
 					},
 					KademliaEvent::OutboundQueryProgressed {
 						result: QueryResult::GetClosestPeers(res),

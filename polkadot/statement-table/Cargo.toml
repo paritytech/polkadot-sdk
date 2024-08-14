@@ -10,7 +10,7 @@ description = "Stores messages other authorities issue about candidates in Polka
 workspace = true
 
 [dependencies]
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 sp-core = { path = "../../substrate/primitives/core" }
-primitives = { package = "polkadot-primitives", path = "../primitives" }
+polkadot-primitives = { path = "../primitives" }
 gum = { package = "tracing-gum", path = "../node/gum" }

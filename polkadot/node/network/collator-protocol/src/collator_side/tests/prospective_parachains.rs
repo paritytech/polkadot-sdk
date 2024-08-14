@@ -443,7 +443,6 @@ fn distribute_collation_up_to_limit() {
 /// Tests that collator send the parent head data in
 /// case the para is assigned to multiple cores (elastic scaling).
 #[test]
-#[cfg(feature = "elastic-scaling-experimental")]
 fn send_parent_head_data_for_elastic_scaling() {
 	let test_state = TestState::with_elastic_scaling();
 

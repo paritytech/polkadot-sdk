@@ -34,7 +34,7 @@ struct V0Assignment {
 /// Old scheduler with explicit parathreads and `Scheduled` storage instead of `ClaimQueue`.
 mod v0 {
 	use super::*;
-	use primitives::{CollatorId, Id};
+	use polkadot_primitives::{CollatorId, Id};
 
 	#[storage_alias]
 	pub(super) type Scheduled<T: Config> = StorageValue<Pallet<T>, Vec<CoreAssignment>, ValueQuery>;
@@ -248,7 +248,7 @@ mod v1 {
 				.count();
 
 			ensure!(
-				Pallet::<T>::claimqueue_len() as u32 + availability_cores_waiting as u32 ==
+				Pallet::<T>::claim_queue_len() as u32 + availability_cores_waiting as u32 ==
 					expected_len,
 				"ClaimQueue and AvailabilityCores should have the correct length",
 			);

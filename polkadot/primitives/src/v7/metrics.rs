@@ -16,7 +16,7 @@
 
 //! Runtime metric primitives.
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use sp_std::prelude::*;
 
 /// Runtime metric operations.

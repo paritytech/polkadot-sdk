@@ -27,7 +27,9 @@
     "/dns/wbr13.rotko.net/tcp/34563/ws/p2p/12D3KooWJyeRHpxZZbfBCNEgeUFzmRC5AMSAs2tJhjJS1k5hULkD",
     "/dns/wbr13.rotko.net/tcp/35563/wss/p2p/12D3KooWJyeRHpxZZbfBCNEgeUFzmRC5AMSAs2tJhjJS1k5hULkD",
     "/dns/bridge-hub-westend.bootnodes.polkadotters.com/tcp/30523/p2p/12D3KooWPkwgJofp4GeeRwNgXqkp2aFwdLkCWv3qodpBJLwK43Jj",
-    "/dns/bridge-hub-westend.bootnodes.polkadotters.com/tcp/30525/wss/p2p/12D3KooWPkwgJofp4GeeRwNgXqkp2aFwdLkCWv3qodpBJLwK43Jj"
+    "/dns/bridge-hub-westend.bootnodes.polkadotters.com/tcp/30525/wss/p2p/12D3KooWPkwgJofp4GeeRwNgXqkp2aFwdLkCWv3qodpBJLwK43Jj",
+    "/dns/bridge-hub-westend.bootnode.amforc.com/tcp/29999/wss/p2p/12D3KooWDSWod2gMtHxunXot538oEMw9p42pnPrpRELdsfYyT8R6",
+    "/dns/bridge-hub-westend.bootnode.amforc.com/tcp/30007/p2p/12D3KooWDSWod2gMtHxunXot538oEMw9p42pnPrpRELdsfYyT8R6"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

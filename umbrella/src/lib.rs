@@ -1469,6 +1469,11 @@ pub use sp_wasm_interface;
 #[cfg(feature = "sp-weights")]
 pub use sp_weights;
 
+/// Utility for building chain-specification files for Substrate-based runtimes based on
+/// `sp-genesis-builder`.
+#[cfg(feature = "staging-chain-spec-builder")]
+pub use staging_chain_spec_builder;
+
 /// Substrate node block inspection tool.
 #[cfg(feature = "staging-node-inspect")]
 pub use staging_node_inspect;

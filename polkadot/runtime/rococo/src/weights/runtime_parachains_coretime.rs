@@ -45,11 +45,11 @@
 use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;
 
-use runtime_parachains::configuration::{self, WeightInfo as ConfigWeightInfo};
+use polkadot_runtime_parachains::configuration::{self, WeightInfo as ConfigWeightInfo};
 
 /// Weight functions for `runtime_common::coretime`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config + configuration::Config> runtime_parachains::coretime::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config + configuration::Config> polkadot_runtime_parachains::coretime::WeightInfo for WeightInfo<T> {
 	fn request_core_count() -> Weight {
 		<T as configuration::Config>::WeightInfo::set_config_with_u32()
 	}

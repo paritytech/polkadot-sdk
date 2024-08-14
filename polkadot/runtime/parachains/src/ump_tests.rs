@@ -31,7 +31,7 @@ use frame_support::{
 	traits::{EnqueueMessage, ExecuteOverweightError, ServiceQueues},
 	weights::Weight,
 };
-use primitives::{well_known_keys, Id as ParaId, UpwardMessage};
+use polkadot_primitives::{well_known_keys, Id as ParaId, UpwardMessage};
 use sp_crypto_hashing::{blake2_256, twox_64};
 use sp_runtime::traits::Bounded;
 use sp_std::prelude::*;
@@ -426,7 +426,7 @@ fn relay_dispatch_queue_size_key_is_correct() {
 		// A "random" para id.
 		let para: ParaId = u32::from_ne_bytes(twox_64(&i.encode())[..4].try_into().unwrap()).into();
 
-		let well_known = primitives::well_known_keys::relay_dispatch_queue_size(para);
+		let well_known = polkadot_primitives::well_known_keys::relay_dispatch_queue_size(para);
 		let aliased = RelayDispatchQueueSize::hashed_key_for(para);
 
 		assert_eq!(well_known, aliased, "Old and new key must match");

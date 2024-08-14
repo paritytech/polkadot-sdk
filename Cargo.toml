@@ -144,6 +144,7 @@ members = [
 	"cumulus/test/service",
 	"cumulus/xcm/xcm-emulator",
 	"docs/sdk",
+	"docs/sdk/src/reference_docs/chain_spec_runtime",
 	"polkadot",
 	"polkadot/cli",
 	"polkadot/core-primitives",

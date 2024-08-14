@@ -1,6 +1,6 @@
 [package]
 name = "staging-chain-spec-builder"
-version = "1.6.0"
+version = "1.6.1"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -26,6 +26,6 @@ crate-type = ["rlib"]
 [dependencies]
 clap = { version = "4.5.3", features = ["derive"] }
 log = { workspace = true, default-features = true }
-sc-chain-spec = { path = "../../../client/chain-spec" }
+sc-chain-spec = { path = "../../../client/chain-spec", features = ["clap"] }
 serde_json = { workspace = true, default-features = true }
 sp-tracing = { path = "../../../primitives/tracing" }

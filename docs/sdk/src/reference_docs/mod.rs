@@ -76,7 +76,6 @@ pub mod frame_benchmarking_weight;
 pub mod frame_tokens;
 
 /// Learn about chain specification file and the genesis state of the blockchain.
-// TODO: @michalkucharczyk https://github.com/paritytech/polkadot-sdk-docs/issues/51
 pub mod chain_spec_genesis;
 
 /// Learn about all the memory limitations of the WASM runtime when it comes to memory usage.
@@ -109,3 +108,6 @@ pub mod frame_pallet_coupling;
 
 /// Learn about the Polkadot Umbrella crate that re-exports all other crates.
 pub mod umbrella_crate;
+
+/// Learn about how to create custom RPC endpoints and runtime APIs.
+pub mod custom_runtime_api_rpc;

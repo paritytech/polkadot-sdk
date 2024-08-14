@@ -13,8 +13,8 @@ workspace = true
 smallvec = "1.8.0"
 
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-primitives = { package = "polkadot-primitives", path = "../../../primitives", default-features = false }
-runtime-common = { package = "polkadot-runtime-common", path = "../../common", default-features = false }
+polkadot-primitives = { path = "../../../primitives", default-features = false }
+polkadot-runtime-common = { path = "../../common", default-features = false }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
 sp-weights = { path = "../../../../substrate/primitives/weights", default-features = false }
 sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
@@ -26,8 +26,8 @@ xcm-builder = { package = "staging-xcm-builder", path = "../../../xcm/xcm-builde
 default = ["std"]
 std = [
 	"frame-support/std",
-	"primitives/std",
-	"runtime-common/std",
+	"polkadot-primitives/std",
+	"polkadot-runtime-common/std",
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-weights/std",

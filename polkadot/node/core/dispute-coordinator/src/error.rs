@@ -21,7 +21,7 @@ use polkadot_node_subsystem::{errors::ChainApiError, SubsystemError};
 use polkadot_node_subsystem_util::runtime;
 
 use crate::{db, participation, LOG_TARGET};
-use parity_scale_codec::Error as CodecError;
+use codec::Error as CodecError;
 
 pub type Result<T> = std::result::Result<T, Error>;
 pub type FatalResult<T> = std::result::Result<T, FatalError>;

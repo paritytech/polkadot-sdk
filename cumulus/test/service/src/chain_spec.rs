@@ -142,7 +142,9 @@ pub fn testnet_genesis(
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
 		"sudo": cumulus_test_runtime::SudoConfig { key: Some(root_key) },
-		"testPallet": cumulus_test_runtime::TestPalletConfig { self_para_id: Some(self_para_id), ..Default::default() },
+		"parachainInfo": {
+			"parachainId": self_para_id,
+		},
 		"aura": cumulus_test_runtime::AuraConfig { authorities: invulnerables }
 	})
 }

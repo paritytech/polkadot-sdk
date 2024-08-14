@@ -28,7 +28,9 @@
     "/dns/boot.gatotech.network/tcp/33350/p2p/12D3KooWN6FJDaZvWbtX1pSc6UdHgyF2UZtYxPp3UkXQZa8ko7uS",
     "/dns/boot.gatotech.network/tcp/35350/wss/p2p/12D3KooWN6FJDaZvWbtX1pSc6UdHgyF2UZtYxPp3UkXQZa8ko7uS",
     "/dns/coretime-westend.bootnodes.polkadotters.com/tcp/30358/wss/p2p/12D3KooWDc9T2vQ8rHvX7hAt9eLWktD9Q89NDTcLm5STkuNbzUGf",
-    "/dns/coretime-westend.bootnodes.polkadotters.com/tcp/30356/p2p/12D3KooWDc9T2vQ8rHvX7hAt9eLWktD9Q89NDTcLm5STkuNbzUGf"
+    "/dns/coretime-westend.bootnodes.polkadotters.com/tcp/30356/p2p/12D3KooWDc9T2vQ8rHvX7hAt9eLWktD9Q89NDTcLm5STkuNbzUGf",
+    "/dns/coretime-westend.bootnode.amforc.com/tcp/29999/wss/p2p/12D3KooWG9a9H9An96E3kgXL1sirHta117iuacJXnJRaUywkMiSd",
+    "/dns/coretime-westend.bootnode.amforc.com/tcp/30013/p2p/12D3KooWG9a9H9An96E3kgXL1sirHta117iuacJXnJRaUywkMiSd"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

@@ -22,7 +22,7 @@ use assert_matches::assert_matches;
 use futures::{executor, future, Future};
 use futures_timer::Delay;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use sc_network::config::IncomingRequest as RawIncomingRequest;
 use sp_core::crypto::Pair;
@@ -144,7 +144,6 @@ impl Default for TestState {
 impl TestState {
 	/// Adds a few more scheduled cores to the state for the same para id
 	/// compared to the default.
-	#[cfg(feature = "elastic-scaling-experimental")]
 	pub fn with_elastic_scaling() -> Self {
 		let mut state = Self::default();
 		let para_id = state.para_id;
@@ -223,7 +222,8 @@ impl TestState {
 	}
 }
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<CollatorProtocolMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<CollatorProtocolMessage>;
 
 struct TestHarness {
 	virtual_overseer: VirtualOverseer,
@@ -245,7 +245,8 @@ fn test_harness<T: Future<Output = TestHarness>>(
 
 	let pool = sp_core::testing::TaskExecutor::new();
 
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let genesis_hash = Hash::repeat_byte(0xff);
 	let req_protocol_names = ReqProtocolNames::new(&genesis_hash, None);

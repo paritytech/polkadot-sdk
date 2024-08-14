@@ -21,11 +21,11 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_std::vec::Vec;
 
-use primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
+use polkadot_primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
 #[cfg(feature = "try-runtime")]
 use sp_std::prelude::*;
 
-#[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, Clone)]
+#[derive(codec::Encode, codec::Decode, Debug, Clone)]
 pub struct V6HostConfiguration<BlockNumber> {
 	pub max_code_size: u32,
 	pub max_head_data_size: u32,

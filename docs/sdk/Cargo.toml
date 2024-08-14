@@ -15,7 +15,7 @@ workspace = true
 
 [dependencies]
 # Needed for all FRAME-based code
-parity-scale-codec = { version = "3.6.12", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
 frame = { package = "polkadot-sdk-frame", path = "../../substrate/frame", features = [
 	"experimental",
@@ -55,6 +55,7 @@ sc-consensus-manual-seal = { path = "../../substrate/client/consensus/manual-sea
 sc-consensus-pow = { path = "../../substrate/client/consensus/pow" }
 sc-executor = { path = "../../substrate/client/executor" }
 sc-service = { path = "../../substrate/client/service" }
+sc-chain-spec = { path = "../../substrate/client/chain-spec" }
 
 substrate-wasm-builder = { path = "../../substrate/utils/wasm-builder" }
 
@@ -90,6 +91,7 @@ sp-core = { path = "../../substrate/primitives/core" }
 sp-keyring = { path = "../../substrate/primitives/keyring" }
 sp-runtime = { path = "../../substrate/primitives/runtime" }
 sp-arithmetic = { path = "../../substrate/primitives/arithmetic" }
+sp-genesis-builder = { path = "../../substrate/primitives/genesis-builder" }
 
 # Misc pallet dependencies
 pallet-referenda = { path = "../../substrate/frame/referenda" }
@@ -102,3 +104,6 @@ sp-version = { path = "../../substrate/primitives/version" }
 # XCM
 xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
 xcm-docs = { path = "../../polkadot/xcm/docs" }
+
+# runtime guides
+chain-spec-guide-runtime = { path = "./src/reference_docs/chain_spec_runtime" }

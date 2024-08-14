@@ -24,30 +24,6 @@ check-try-runtime:
     # experimental code may rely on try-runtime and vice-versa
     - time cargo check --locked --all --features try-runtime,experimental
 
-# FIXME
-.cargo-deny-licenses:
-  stage: check
-  extends:
-    - .docker-env
-    - .test-pr-refs
-  variables:
-    CARGO_DENY_CMD: "cargo deny --all-features check licenses -c ./substrate/scripts/ci/deny.toml"
-  script:
-    - $CARGO_DENY_CMD --hide-inclusion-graph
-  after_script:
-    - echo "___The complete log is in the artifacts___"
-    - $CARGO_DENY_CMD 2> deny.log
-    - if [ $CI_JOB_STATUS != 'success' ]; then
-      echo 'Please check license of your crate or add an exception to scripts/ci/deny.toml';
-      fi
-  allow_failure: true
-  artifacts:
-    name: $CI_COMMIT_SHORT_SHA
-    expire_in: 3 days
-    when: always
-    paths:
-      - deny.log
-
 # from substrate
 # not sure if it's needed in monorepo
 check-dependency-rules:

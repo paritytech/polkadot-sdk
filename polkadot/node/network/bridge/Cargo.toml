@@ -15,7 +15,7 @@ async-trait = "0.1.79"
 futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../gum" }
 polkadot-primitives = { path = "../../../primitives" }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 sc-network = { path = "../../../../substrate/client/network" }
 sp-consensus = { path = "../../../../substrate/primitives/consensus/common" }
 polkadot-node-metrics = { path = "../../metrics" }

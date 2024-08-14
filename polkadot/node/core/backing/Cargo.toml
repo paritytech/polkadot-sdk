@@ -16,8 +16,8 @@ polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-erasure-coding = { package = "polkadot-erasure-coding", path = "../../../erasure-coding" }
-statement-table = { package = "polkadot-statement-table", path = "../../../statement-table" }
+polkadot-erasure-coding = { path = "../../../erasure-coding" }
+polkadot-statement-table = { path = "../../../statement-table" }
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 gum = { package = "tracing-gum", path = "../../gum" }
 thiserror = { workspace = true }
@@ -34,4 +34,4 @@ futures = { version = "0.3.30", features = ["thread-pool"] }
 assert_matches = "1.4.0"
 rstest = "0.18.2"
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }

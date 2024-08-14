@@ -24,7 +24,7 @@ use futures::{executor, future};
 use futures_timer::Delay;
 use rstest::rstest;
 
-use parity_scale_codec::Encode;
+use codec::Encode;
 use polkadot_node_network_protocol::request_response::{
 	self as req_res,
 	v1::{AvailableDataFetchingRequest, ChunkResponse},

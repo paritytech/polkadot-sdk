@@ -2810,7 +2810,7 @@ pub(crate) mod tests {
 		backend::{Backend as BTrait, BlockImportOperation as Op},
 		blockchain::Backend as BLBTrait,
 	};
-	use sp_blockchain::{lowest_common_ancestor, tree_route};
+	use sp_blockchain::{lowest_common_ancestor, lowest_common_ancestor_multiblock, tree_route};
 	use sp_core::{blake2_256, H256};
 	use sp_runtime::{
 		testing::{Block as RawBlock, ExtrinsicWrapper, Header},
@@ -3431,6 +3431,125 @@ pub(crate) mod tests {
 
 			assert_eq!(lca.hash, a2);
 			assert_eq!(lca.number, 2);
+		}
+	}
+
+	#[test]
+	fn lowest_common_ancestors_multiblock_works() {
+		let backend = Backend::<Block>::new_test(1000, 100);
+		let blockchain = backend.blockchain();
+		let block0 = insert_header(&backend, 0, Default::default(), None, Default::default());
+
+		// fork from genesis: 3 prong.
+		// block 0 -> a1 -> a2 -> a3
+		//    |
+		//     -> b1 -> b2 -> c1 -> c2
+		//           |
+		//           -> d1 -> d2
+		let a1 = insert_header(&backend, 1, block0, None, Default::default());
+		let a2 = insert_header(&backend, 2, a1, None, Default::default());
+		let a3 = insert_header(&backend, 3, a2, None, Default::default());
+
+		// fork from genesis: 2 prong.
+		let b1 = insert_header(&backend, 1, block0, None, H256::from([1; 32]));
+		let b2 = insert_header(&backend, 2, b1, None, Default::default());
+
+		// fork from b2.
+		let c1 = insert_header(&backend, 3, b2, None, H256::from([2; 32]));
+		let c2 = insert_header(&backend, 4, c1, None, Default::default());
+
+		// fork from b1.
+		let d1 = insert_header(&backend, 2, b1, None, H256::from([3; 32]));
+		let d2 = insert_header(&backend, 3, d1, None, Default::default());
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a3, b2]).unwrap().unwrap();
+
+			assert_eq!(lca.hash, block0);
+			assert_eq!(lca.number, 0);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a1, a3]).unwrap().unwrap();
+
+			assert_eq!(lca.hash, a1);
+			assert_eq!(lca.number, 1);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a3, a1]).unwrap().unwrap();
+
+			assert_eq!(lca.hash, a1);
+			assert_eq!(lca.number, 1);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a2, a3]).unwrap().unwrap();
+
+			assert_eq!(lca.hash, a2);
+			assert_eq!(lca.number, 2);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a2, a1]).unwrap().unwrap();
+
+			assert_eq!(lca.hash, a1);
+			assert_eq!(lca.number, 1);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a2, a2]).unwrap().unwrap();
+
+			assert_eq!(lca.hash, a2);
+			assert_eq!(lca.number, 2);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a3, d2, c2])
+				.unwrap()
+				.unwrap();
+
+			assert_eq!(lca.hash, block0);
+			assert_eq!(lca.number, 0);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![c2, d2, b2])
+				.unwrap()
+				.unwrap();
+
+			assert_eq!(lca.hash, b1);
+			assert_eq!(lca.number, 1);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a1, a2, a3])
+				.unwrap()
+				.unwrap();
+
+			assert_eq!(lca.hash, a1);
+			assert_eq!(lca.number, 1);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![b1, b2, d1])
+				.unwrap()
+				.unwrap();
+
+			assert_eq!(lca.hash, b1);
+			assert_eq!(lca.number, 1);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![]);
+
+			assert_eq!(true, matches!(lca, Ok(None)));
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a1]).unwrap().unwrap();
+
+			assert_eq!(lca.hash, a1);
+			assert_eq!(lca.number, 1);
 		}
 	}
 

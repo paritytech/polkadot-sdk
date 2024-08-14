@@ -29,7 +29,7 @@ use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
 
-use primitives::{
+use polkadot_primitives::{
 	HeadData, Id as ParaId, SessionIndex, ValidationCode, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 

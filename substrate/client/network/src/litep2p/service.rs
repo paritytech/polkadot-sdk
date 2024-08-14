@@ -51,6 +51,7 @@ use sc_utils::mpsc::TracingUnboundedSender;
 use std::{
 	collections::{HashMap, HashSet},
 	sync::{atomic::Ordering, Arc},
+	time::Instant,
 };
 
 /// Logging target for the file.
@@ -235,6 +236,17 @@ impl NetworkDHTProvider for Litep2pNetworkService {
 
 	fn put_value(&self, key: KademliaKey, value: Vec<u8>) {
 		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::PutValue { key, value });
+	}
+
+	fn store_record(
+		&self,
+		_key: KademliaKey,
+		_value: Vec<u8>,
+		_publisher: Option<PeerId>,
+		_expires: Option<Instant>,
+	) {
+		// Will be added once litep2p is released with: https://github.com/paritytech/litep2p/pull/135
+		log::warn!(target: LOG_TARGET, "Store record is not implemented for litep2p");
 	}
 }
 

@@ -85,10 +85,7 @@ pub use sp_runtime::BuildStorage;
 
 use assets_common::{foreign_creators::ForeignCreators, matching::FromSiblingParachain};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-use xcm::{
-	prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
-	IntoVersion,
-};
+use xcm::prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
 
 // We exclude `Assets` since it's the name of a pallet
 use xcm::latest::prelude::AssetId;
@@ -1331,15 +1328,8 @@ impl_runtime_apis! {
 
 	impl xcm_fee_payment_runtime_api::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			let acceptable = vec![
-				// native token
-				VersionedAssetId::from(AssetId(xcm_config::WestendLocation::get()))
-			];
-
-			Ok(acceptable
-				.into_iter()
-				.filter_map(|asset| asset.into_version(xcm_version).ok())
-				.collect())
+			let acceptable_assets = vec![AssetId(xcm_config::WestendLocation::get())];
+			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
@@ -1745,10 +1735,8 @@ impl_runtime_apis! {
 				}
 
 				fn universal_alias() -> Result<(Location, Junction), BenchmarkError> {
-					match xcm_config::bridging::BridgingBenchmarksHelper::prepare_universal_alias() {
-						Some(alias) => Ok(alias),
-						None => Err(BenchmarkError::Skip)
-					}
+					xcm_config::bridging::BridgingBenchmarksHelper::prepare_universal_alias()
+					.ok_or(BenchmarkError::Skip)
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {

@@ -17,7 +17,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-scale-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
 frame-support = { path = "../support", default-features = false }
@@ -36,11 +36,11 @@ sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 [features]
 default = ["std"]
 std = [
+	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"scale-codec/std",
 	"scale-info/std",
 	"sp-consensus-sassafras/std",
 	"sp-io/std",

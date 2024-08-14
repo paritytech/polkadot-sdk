@@ -111,8 +111,7 @@ use polkadot_primitives::{
 	PvfExecKind, SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex,
 	ValidatorSignature, ValidityAttestation,
 };
-use sp_keystore::KeystorePtr;
-use statement_table::{
+use polkadot_statement_table::{
 	generic::AttestedCandidate as TableAttestedCandidate,
 	v2::{
 		SignedStatement as TableSignedStatement, Statement as TableStatement,
@@ -120,6 +119,7 @@ use statement_table::{
 	},
 	Config as TableConfig, Context as TableContextTrait, Table,
 };
+use sp_keystore::KeystorePtr;
 use util::{runtime::request_node_features, vstaging::get_disabled_validators_with_fallback};
 
 mod error;

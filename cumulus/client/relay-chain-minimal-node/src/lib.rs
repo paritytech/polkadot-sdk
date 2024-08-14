@@ -190,7 +190,7 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 		task_manager.spawn_handle().spawn(
 			"prometheus-endpoint",
 			None,
-			substrate_prometheus_endpoint::init_prometheus(port, registry).map(drop),
+			prometheus_endpoint::init_prometheus(port, registry).map(drop),
 		);
 	}
 
