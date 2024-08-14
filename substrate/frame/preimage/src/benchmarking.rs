@@ -116,7 +116,7 @@ benchmarks! {
 		T::ManagerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 		hash
 	) verify {
-		let ticket = TicketOf::<T>::new(&noter, Footprint { count: 1, size: MAX_SIZE as u64 }).unwrap().unwrap();
+		let ticket = TicketOf::<T>::new(&noter, Footprint { count: 1, size: MAX_SIZE as u64 }).unwrap();
 		let s = RequestStatus::Requested { maybe_ticket: Some((noter, ticket)), count: 1, maybe_len: Some(MAX_SIZE) };
 		assert_eq!(RequestStatusFor::<T>::get(&hash), Some(s));
 	}
