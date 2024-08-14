@@ -12,8 +12,6 @@ concurrency:
 env:
   TOOLCHAIN: nightly-2024-06-01
 
-# casus belli
-
 jobs:
   check-semver:
     runs-on: ubuntu-latest
@@ -22,9 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
+      - name: Set Base Branch
+        run: |
+          BASE=$(git merge-base ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+          echo "BASE=$BASE" >> $GITHUB_ENV
       - name: extra git setup
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           git config --global --add safe.directory '*'
           git fetch --no-tags --no-recurse-submodules --depth=1 origin $BASE
