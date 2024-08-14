@@ -7,6 +7,9 @@ mod types;
 pub use pallet_distribution as Distribution;
 pub use types::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 #[cfg(test)]
 mod mock;
 

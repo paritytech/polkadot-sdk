@@ -73,12 +73,12 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn claim_reward_for() -> Result<(), BenchmarkError> {
+	fn claim_reward_for(r: Linear<1, {T::MaxProjects::get()}>) -> Result<(), BenchmarkError> {
 		/* setup initial state */
-		add_projects::<T>(T::MaxProjects::get())?;
+		add_projects::<T>(r)?;
 
 		ensure!(
-			<Projects<T>>::get().len() as u32 == T::MaxProjects::get(),
+			<Projects<T>>::get().len() as u32 == r,
 			"Project list setting failed !!"
 		);
 
@@ -88,24 +88,17 @@ mod benchmarks {
 		let mut when = T::BlockNumberProvider::current_block_number().saturating_add(epoch);
 		run_to_block::<T>(when);
 		/* execute extrinsic or function */
-		#[block]
-		{
-			for i in 0..T::MaxProjects::get() {
-				let project = <Spends<T>>::get(i).unwrap();
-				when = when.saturating_add(project.valid_from);
-				let project_id = project.whitelisted_project.unwrap();
-				let amount = project.amount;
-				run_to_block::<T>(when);
-				let _ = Distribution::<T>::claim_reward_for(
-					RawOrigin::Signed(caller.clone()).into(),
+		let project = <Spends<T>>::get(r-1).unwrap();
+		when = when.saturating_add(project.valid_from);
+		let project_id = project.whitelisted_project.unwrap();
+		let amount = project.amount;
+		run_to_block::<T>(when);
+		
+		#[extrinsic_call]
+				_(
+					RawOrigin::Signed(caller.clone()),
 					project_id.clone(),
 				);
-
-				/*assert_last_event::<T>(
-					Event::RewardClaimed { when, amount, project_account: project_id }.into(),
-				);*/
-			}
-		}
 
 		Ok(())
 	}

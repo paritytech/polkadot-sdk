@@ -86,6 +86,7 @@ impl pallet_distribution::Config for Test {
 	type MaxProjects = MaxProjects;
 	type EpochDurationBlocks = EpochDurationBlocks;
 	type BlockNumberProvider = System;
+	type WeightInfo = ();
 }
 
 parameter_types! {

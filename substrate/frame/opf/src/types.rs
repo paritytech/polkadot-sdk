@@ -9,7 +9,7 @@ pub use frame_support::{
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin, WeightInfo};
 pub use pallet_distribution::{
-	AccountIdOf, BalanceOf, HoldReason, Inspect, MutateHold, ProjectId, ProjectInfo,
+	AccountIdOf, BalanceOf, HoldReason, Inspect, MutateHold, Mutate, ProjectId, ProjectInfo,
 };
 pub use scale_info::prelude::vec::Vec;
 pub use sp_runtime::traits::{

@@ -2185,11 +2185,13 @@ impl pallet_distribution::Config for Runtime {
 parameter_types!{	
 	pub const MaxWhitelistedProjects: u32 = 64;
 	pub const TemporaryRewards: Balance = 100000 * DOLLARS;
+	pub const TotalPeriod:BlockNumber = 30 * DAYS;
+	pub const LockPeriod:BlockNumber = 10 * DAYS;
 }
 impl pallet_opf::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type VoteLockingPeriod = VoteLockingPeriod;
-	type VotingPeriod = VotingPeriod;
+	type VoteLockingPeriod = LockPeriod;
+	type VotingPeriod = TotalPeriod;
 	type MaxWhitelistedProjects = MaxWhitelistedProjects;
 	type TemporaryRewards = TemporaryRewards;
 }
@@ -2703,6 +2705,7 @@ mod benches {
 		[pallet_example_mbm, PalletExampleMbms]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		[pallet_distribution, Distribution]
+		[pallet_opf, OptimisticProjectFunding]
 	);
 }
 
