@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723585648582,
+  "lastUpdate": 1723593829715,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -17513,6 +17513,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.868263673799998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jeeyong Um",
+            "username": "conr2d",
+            "email": "conr2d@proton.me"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0cd577ba1c4995500eb3ed10330d93402177a53b",
+          "message": "Minor clean up (#5284)\n\nThis PR performs minor code cleanup to reduce verbosity. Since the\ncompiler has already optimized out indirect calls in the existing code,\nthese changes improve readability but do not affect performance.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-08-13T21:54:51Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0cd577ba1c4995500eb3ed10330d93402177a53b"
+        },
+        "date": 1723593798692,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.18280831979999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.886639473333332,
             "unit": "seconds"
           }
         ]
