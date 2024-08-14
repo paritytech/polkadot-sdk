@@ -14,7 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{collections::BTreeMap, pin::Pin, sync::Arc};
+use std::{
+	collections::{BTreeMap, VecDeque},
+	pin::Pin,
+	sync::Arc,
+};
 
 use futures::Stream;
 use polkadot_overseer::prometheus::PrometheusError;
@@ -29,8 +33,9 @@ use sp_api::ApiError;
 use cumulus_primitives_core::relay_chain::BlockId;
 pub use cumulus_primitives_core::{
 	relay_chain::{
-		BlockNumber, CommittedCandidateReceipt, CoreState, Hash as PHash, Header as PHeader,
-		InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
+		BlockNumber, CommittedCandidateReceipt, CoreIndex, CoreState, Hash as PHash,
+		Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
+		ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -225,6 +230,12 @@ pub trait RelayChainInterface: Send + Sync {
 		&self,
 		relay_parent: PHash,
 	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>>;
+
+	/// Fetch the claim queue.
+	async fn claim_queue(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>>;
 }
 
 #[async_trait]
@@ -362,5 +373,12 @@ where
 
 	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion> {
 		(**self).version(relay_parent).await
+	}
+
+	async fn claim_queue(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+		(**self).claim_queue(relay_parent).await
 	}
 }
