@@ -36,21 +36,18 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_system_assets_works() {
 	let para_sovereign_account = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
 	);
-	let asset_location_on_penpal = v3::Location::new(
+	let asset_location_on_penpal = Location::new(
 		0,
-		[
-			v3::Junction::PalletInstance(ASSETS_PALLET_ID),
-			v3::Junction::GeneralIndex(ASSET_ID.into()),
-		],
+		[Junction::PalletInstance(ASSETS_PALLET_ID), Junction::GeneralIndex(ASSET_ID.into())],
 	);
 	let foreign_asset_at_asset_hub =
-		v3::Location::new(1, [v3::Junction::Parachain(PenpalA::para_id().into())])
+		Location::new(1, [Junction::Parachain(PenpalA::para_id().into())])
 			.appended_with(asset_location_on_penpal)
 			.unwrap();
 
 	// Encoded `create_asset` call to be executed in AssetHub
 	let call = AssetHubWestend::create_foreign_asset_call(
-		foreign_asset_at_asset_hub,
+		foreign_asset_at_asset_hub.clone(),
 		ASSET_MIN_BALANCE,
 		para_sovereign_account.clone(),
 	);
