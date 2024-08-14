@@ -24,6 +24,7 @@ jobs:
 
       - name: extra git setup
         run: |
+          set -euxo pipefail
           git config --global --add safe.directory '*'
           echo "hi"
           git fetch --no-tags --no-recurse-submodules --depth=1 origin ${{ github.event.pull_request.base.sha }}
