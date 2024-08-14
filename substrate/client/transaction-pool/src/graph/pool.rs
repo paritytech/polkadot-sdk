@@ -456,7 +456,7 @@ impl<B: ChainApi> Pool<B> {
 		&self.validated_pool
 	}
 
-	/// Clears the recently pruned transaction in validated pool.
+	/// Clears the recently pruned transactions in validated pool.
 	pub fn clear_recently_pruned(&mut self) {
 		self.validated_pool.pool.write().clear_recently_pruned();
 	}

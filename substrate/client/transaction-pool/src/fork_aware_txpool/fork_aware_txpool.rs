@@ -19,7 +19,7 @@
 //! Substrate fork-aware transaction pool implementation.
 
 use super::{
-	dropped_watcher::{MultiViewDroppedWatcher, StreamOfDropped},
+	dropped_watcher::{MultiViewDroppedWatcherController, StreamOfDropped},
 	import_notification_sink::MultiViewImportNotificationSink,
 	metrics::MetricsLink as PrometheusMetrics,
 	multi_view_listener::MultiViewListener,
@@ -115,20 +115,36 @@ where
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
+	/// The reference to the `ChainApi` provided by client/backend.
 	api: Arc<ChainApi>,
+
+	/// Intermediate buffer for the incoming transaction.
 	mempool: Arc<TxMemPool<ChainApi, Block>>,
 
+	/// The store for all the views.
 	view_store: Arc<ViewStore<ChainApi, Block>>,
+
+	/// Utility for managing pollers of `ready_at` future..
 	ready_poll: Arc<Mutex<ReadyPoll<ReadyIteratorFor<ChainApi>, Block>>>,
+
+	/// Prometheus metrics endpoint.
 	metrics: PrometheusMetrics,
+
+	/// Util tracking best and finalized block.
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
+
+	/// The channel allowing to send revalidtion jobs to the background thread.
 	revalidation_queue: Arc<view_revalidation::RevalidationQueue<ChainApi, Block>>,
 
+	/// Util providing an aggregated stream of transactions that were imported to ready queue in
+	/// any view.
 	import_notification_sink: MultiViewImportNotificationSink<Block::Hash, ExtrinsicHash<ChainApi>>,
+
+	/// Externally provided pool options.
 	options: Options,
+
+	/// Is node the validator.
 	is_validator: IsValidator,
-	// todo: this are coming from ValidatedPool, some of them maybe needed here
-	// rotator: PoolRotator<ExtrinsicHash<B>>,
 }
 
 impl<ChainApi, Block> ForkAwareTxPool<ChainApi, Block>
@@ -155,7 +171,7 @@ where
 		));
 
 		let (dropped_stream_controller, dropped_stream) =
-			MultiViewDroppedWatcher::<ChainApi>::new();
+			MultiViewDroppedWatcherController::<ChainApi>::new();
 		let dropped_monitor_task = Self::dropped_monitor_task(dropped_stream, mempool.clone());
 
 		let combined_tasks = async move {
@@ -229,7 +245,7 @@ where
 		));
 
 		let (dropped_stream_controller, dropped_stream) =
-			MultiViewDroppedWatcher::<ChainApi>::new();
+			MultiViewDroppedWatcherController::<ChainApi>::new();
 		let dropped_monitor_task = Self::dropped_monitor_task(dropped_stream, mempool.clone());
 
 		let combined_tasks = async move {
@@ -725,6 +741,13 @@ where
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
+	/// Handles a new block notification.
+	///
+	/// It is reponsible for handling a newly notified block. It executes some sanity checks, find
+	/// the best view to clone from and executes the new view build procedure for the notified
+	/// block.
+	///
+	/// If the view is correctly created, `ready_at` pollers for this block will be triggered.
 	async fn handle_new_block(&self, tree_route: &TreeRoute<Block>) {
 		let hash_and_number = match tree_route.last() {
 			Some(hash_and_number) => hash_and_number,
@@ -762,6 +785,15 @@ where
 		}
 	}
 
+	/// Builds a new view.
+	///
+	/// If `origin_view` is provided, the new view will be cloned from it. Otherwise an empty view
+	/// will be created.
+	///
+	/// The new view will be updated with transactions from the tree_route and the mempool, all
+	/// required events will be triggered, it will be inserted to the view store.
+	///
+	/// This method will also update multi-view listeners with newly created view.
 	async fn build_new_view(
 		&self,
 		origin_view: Option<Arc<View<ChainApi>>>,

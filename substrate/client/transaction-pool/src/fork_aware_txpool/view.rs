@@ -96,13 +96,15 @@ impl<ChainApi: graph::ChainApi> FinishRevalidationWorkerChannels<ChainApi> {
 	}
 }
 
-/// Represents the state of transaction for given block.
+/// Represents the state of transaction pool for given block.
 pub(super) struct View<ChainApi: graph::ChainApi> {
+	/// The internal pool keeping the set of ready and future transaction at the given block.
 	pub(super) pool: graph::Pool<ChainApi>,
+	/// The hash and number of the block with which this view is associated.
 	pub(super) at: HashAndNumber<ChainApi::Block>,
-
 	/// Endpoints of communication channel with background worker.
 	revalidation_worker_channels: Mutex<Option<FinishRevalidationLocalChannels<ChainApi>>>,
+	/// Prometheus metrics endpoint.
 	metrics: PrometheusMetrics,
 }
 

@@ -23,7 +23,7 @@ use super::{
 	view::View,
 };
 use crate::{
-	fork_aware_txpool::dropped_watcher::MultiViewDroppedWatcher,
+	fork_aware_txpool::dropped_watcher::MultiViewDroppedWatcherController,
 	graph,
 	graph::{base_pool::Transaction, ExtrinsicFor, ExtrinsicHash, TransactionFor},
 	ReadyIteratorFor, LOG_TARGET,
@@ -43,17 +43,23 @@ where
 {
 	/// The blockchain api.
 	pub(super) api: Arc<ChainApi>,
-	/// Views at tips of the forks.
+	/// Active views at tips of the forks.
+	///
+	/// Active views are updated with incoming transactions.
 	pub(super) views: RwLock<HashMap<Block::Hash, Arc<View<ChainApi>>>>,
-	/// Views at intermediary blocks that are no longer tip of the fork.
+	/// Inactive views at intermediary blocks that are no longer tips of the forks.
+	///
+	/// Inactive views are not updated with incoming transactions, while they can still be used to
+	/// build new blocks upon them.
 	pub(super) retracted_views: RwLock<HashMap<Block::Hash, Arc<View<ChainApi>>>>,
 	/// Listener for controlling external watchers of transactions.
 	pub(super) listener: Arc<MultiViewListener<ChainApi>>,
 
-	/// Most recent block processed by tx-pool. Used on in API functions that were not changed to
-	/// add at parameter.
+	/// Most recent block processed by tx-pool. Used in the API functions that were not changed to
+	/// add `at` parameter.
 	pub(super) most_recent_view: RwLock<Option<Block::Hash>>,
-	pub(super) dropped_stream_controller: MultiViewDroppedWatcher<ChainApi>,
+	/// The controller of multi view dropped stream.
+	pub(super) dropped_stream_controller: MultiViewDroppedWatcherController<ChainApi>,
 }
 
 impl<ChainApi, Block> ViewStore<ChainApi, Block>
@@ -62,10 +68,11 @@ where
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
+	/// Creates a new view store.
 	pub(super) fn new(
 		api: Arc<ChainApi>,
 		listener: Arc<MultiViewListener<ChainApi>>,
-		dropped_stream_controller: MultiViewDroppedWatcher<ChainApi>,
+		dropped_stream_controller: MultiViewDroppedWatcherController<ChainApi>,
 	) -> Self {
 		Self {
 			api,
@@ -77,7 +84,7 @@ where
 		}
 	}
 
-	/// Imports a bunch of unverified extrinsics to every view
+	/// Imports a bunch of unverified extrinsics to every view.
 	pub(super) async fn submit_at(
 		&self,
 		source: TransactionSource,

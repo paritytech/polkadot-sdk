@@ -64,13 +64,15 @@ where
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 {
 	//todo: add listener? for updating view with invalid transaction?
-	/// is transaction watched
+	/// Is the progress of transaction watched.
+	///
+	/// Was transaction sent with `submit_and_watch`.
 	watched: bool,
-	/// extrinsic actual body
+	/// Extrinsic actual body.
 	tx: ExtrinsicFor<ChainApi>,
-	/// transaction source
+	/// Transaction source.
 	pub(crate) source: TransactionSource,
-	/// when transaction was revalidated, used to periodically revalidate mem pool buffer.
+	/// When transaction was revalidated, used to periodically revalidate mem pool buffer.
 	validated_at: AtomicU64,
 }
 
@@ -79,6 +81,9 @@ where
 	Block: BlockT,
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 {
+	/// Shall the progress of transaction be watched.
+	///
+	/// Was transaction sent with `submit_and_watch`.
 	fn is_watched(&self) -> bool {
 		self.watched
 	}
@@ -101,10 +106,14 @@ type InternalMap<ChainApi, Block> =
 type InternalMapEntry<'a, ChainApi, Block> =
 	Entry<'a, ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>>;
 
-/// Intermediary transaction buffer.
+/// Intermediary transactions buffer.
 ///
 /// Keeps all the transaction which are potentially valid. Transactions that were finalized or
 /// transaction that are invalid at finalized blocks are removed.
+///
+/// All transcations from `TxMemPool` are submitted to newly created views.
+///
+/// All newly submitted transactions goes into `TxMemPool`.
 pub(super) struct TxMemPool<ChainApi, Block>
 where
 	Block: BlockT,

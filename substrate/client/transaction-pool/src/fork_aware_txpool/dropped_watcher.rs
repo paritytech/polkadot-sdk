@@ -37,6 +37,9 @@ use tokio_stream::StreamMap;
 pub type PoolSingleStreamEvent<C> =
 	(ExtrinsicHash<C>, TransactionStatus<BlockHash<C>, ExtrinsicHash<C>>);
 type StreamOf<C> = Pin<Box<dyn futures::Stream<Item = PoolSingleStreamEvent<C>> + Send>>;
+
+/// Stream of extrinsic hashes that were dropped by all views or have no references by existing
+/// views.
 pub(crate) type StreamOfDropped<C> = Pin<Box<dyn futures::Stream<Item = ExtrinsicHash<C>> + Send>>;
 
 type Controller<T> = mpsc::TracingUnboundedSender<T>;
@@ -120,7 +123,6 @@ where
 		None
 	}
 
-	//todo: OutStreamOf< new-type<C> >
 	fn event_stream() -> (StreamOfDropped<C>, Controller<Command<C>>) {
 		let (sender, receiver) =
 			sc_utils::mpsc::tracing_unbounded::<Command<C>>("import-notification-sink", 16);
@@ -173,26 +175,30 @@ where
 }
 
 #[derive(Clone)]
-pub struct MultiViewDroppedWatcher<C: ChainApi> {
+/// The controller allowing to manipulate the state of the [`StreamOfDropped`].
+pub struct MultiViewDroppedWatcherController<C: ChainApi> {
 	ctrl: Controller<Command<C>>,
 }
 
-impl<C> MultiViewDroppedWatcher<C>
+impl<C> MultiViewDroppedWatcherController<C>
 where
 	C: ChainApi + 'static,
 	<<C as ChainApi>::Block as BlockT>::Hash: Unpin,
 {
-	pub fn new() -> (MultiViewDroppedWatcher<C>, StreamOfDropped<C>) {
+	/// Creates new [`StreamOfDropped`] and its controller.
+	pub fn new() -> (MultiViewDroppedWatcherController<C>, StreamOfDropped<C>) {
 		let (stream_map, ctrl) = MulitViewDropWatcherContext::<C>::event_stream();
 		(Self { ctrl }, stream_map.boxed())
 	}
 
+	/// Notifies the [`StreamOfDropped`] that new view was created.
 	pub fn add_view(&self, key: BlockHash<C>, view: StreamOf<C>) {
 		let _ = self.ctrl.unbounded_send(Command::AddView(key, view)).map_err(|e| {
 			debug!(target: LOG_TARGET, "dropped_watcher: add_view {key:?} send message failed: {e}");
 		});
 	}
 
+	/// Notifies the [`StreamOfDropped`] that the view was destroyed.
 	pub fn remove_view(&self, key: BlockHash<C>) {
 		let _ = self.ctrl.unbounded_send(Command::RemoveView(key)).map_err(|e| {
 			debug!(target: LOG_TARGET, "dropped_watcher: remove_view {key:?} send message failed: {e}");
@@ -207,7 +213,7 @@ mod dropped_watcher_tests {
 	use futures::{stream::pending, FutureExt, StreamExt};
 	use sp_core::H256;
 
-	type MultiViewDroppedWatcher = super::MultiViewDroppedWatcher<TestApi>;
+	type MultiViewDroppedWatcher = super::MultiViewDroppedWatcherController<TestApi>;
 
 	#[tokio::test]
 	async fn test01() {
