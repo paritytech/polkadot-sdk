@@ -19,7 +19,9 @@
 
 use crate::{self as pallet_stake_tracker, *};
 
-use frame_election_provider_support::{ScoreProvider, VoteWeight};
+use frame_election_provider_support::{
+	DataProviderBounds, ElectionDataProvider, ScoreProvider, VoteWeight, VoterOf,
+};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use sp_runtime::{BuildStorage, DispatchResult, Perbill};
 use sp_staking::{Stake, StakingInterface};
@@ -122,10 +124,14 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Test {
 
 impl pallet_stake_tracker::Config for Test {
 	type Currency = Balances;
+	type RuntimeEvent = RuntimeEvent;
 	type Staking = StakingMock;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
 	type VoterUpdateMode = VoterUpdateMode;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkingElectionDataProvider = StakingMock;
+	type WeightInfo = ();
 }
 
 pub struct StakingMock {}
@@ -295,6 +301,48 @@ impl StakingInterface for StakingMock {
 	}
 }
 
+parameter_types! {
+	pub static MaxVotesPerVoter: u32 = 16;
+}
+
+impl ElectionDataProvider for StakingMock {
+	type AccountId = AccountId;
+	type BlockNumber = Block;
+	type MaxVotesPerVoter = MaxVotesPerVoter;
+
+	fn electable_targets(
+		_bounds: DataProviderBounds,
+	) -> Result<Vec<Self::AccountId>, &'static str> {
+		unimplemented!()
+	}
+
+	fn electing_voters(_bounds: DataProviderBounds) -> Result<Vec<VoterOf<Self>>, &'static str> {
+		unimplemented!()
+	}
+
+	fn desired_targets() -> Result<u32, &'static str> {
+		unimplemented!()
+	}
+
+	fn next_election_prediction(_now: Self::BlockNumber) -> Self::BlockNumber {
+		unimplemented!();
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn add_voter(
+		voter: Self::AccountId,
+		weight: VoteWeight,
+		targets: BoundedVec<Self::AccountId, Self::MaxVotesPerVoter>,
+	) {
+		add_nominator_with_nominations(voter, weight, targets.to_vec());
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn add_target(target: Self::AccountId) {
+		add_validator(target, 100_000_000);
+	}
+}
+
 type Nominations = Vec<AccountId>;
 
 parameter_types! {
@@ -401,7 +449,12 @@ pub(crate) fn add_validator(who: AccountId, self_stake: Balance) {
 	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_add(&who, stake);
 }
 
-pub(crate) fn update_stake(who: AccountId, new: Balance, prev_stake: Option<Stake<Balance>>) {
+pub(crate) fn update_stake(
+	who: AccountId,
+	new: Balance,
+	prev_stake: Option<Stake<Balance>>,
+	reason: StakeUpdateReason,
+) {
 	match StakingMock::status(&who) {
 		Ok(StakerStatus::Nominator(nominations)) => {
 			TestNominators::mutate(|n| {
@@ -424,6 +477,7 @@ pub(crate) fn update_stake(who: AccountId, new: Balance, prev_stake: Option<Stak
 		&who,
 		prev_stake,
 		Stake { total: new, active: new },
+		reason,
 	);
 }
 
@@ -484,6 +538,14 @@ pub(crate) fn voter_bags_events() -> Vec<pallet_bags_list::Event<Test, VoterBags
 		.into_iter()
 		.map(|r| r.event)
 		.filter_map(|e| if let RuntimeEvent::VoterBagsList(inner) = e { Some(inner) } else { None })
+		.collect::<Vec<_>>()
+}
+
+pub(crate) fn pallet_events() -> Vec<Event<Test>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::StakeTracker(inner) = e { Some(inner) } else { None })
 		.collect::<Vec<_>>()
 }
 

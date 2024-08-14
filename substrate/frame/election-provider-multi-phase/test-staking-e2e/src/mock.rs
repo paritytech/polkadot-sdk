@@ -260,10 +260,14 @@ parameter_types! {
 
 impl pallet_stake_tracker::Config for Runtime {
 	type Currency = Balances;
+	type RuntimeEvent = RuntimeEvent;
 	type Staking = Staking;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
 	type VoterUpdateMode = UpdateMode;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkingElectionDataProvider = Staking;
+	type WeightInfo = ();
 }
 
 pub struct BalanceToU256;

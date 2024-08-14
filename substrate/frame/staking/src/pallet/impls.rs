@@ -44,7 +44,7 @@ use sp_runtime::{
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{OffenceDetails, OnOffenceHandler},
-	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
+	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake, StakeUpdateReason,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -177,7 +177,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
 
 		// NOTE: ledger must be updated prior to calling `Self::weight_of`.
-		ledger.update()?;
+		ledger.update(StakeUpdateReason::Bond)?;
 		// update this staker in the sorted list, if they exist in it.
 		if T::VoterList::contains(stash) {
 			let _ = T::VoterList::on_update(&stash, Self::weight_of(stash)).defensive();
@@ -211,7 +211,7 @@ impl<T: Config> Pallet<T> {
 			} else {
 				// This was the consequence of a partial unbond. just update the ledger and move
 				// on.
-				ledger.update()?;
+				ledger.update(StakeUpdateReason::Bond)?;
 
 				// This is only an update, so we use less overall weight.
 				T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
@@ -307,7 +307,8 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		// Input data seems good, no errors allowed after the ledger is successfully updated.
-		ledger.update()?;
+		// Note that even though this is a ledger update related to rewards, we set the
+		ledger.update(StakeUpdateReason::ValidatorReward)?;
 
 		// Get Era reward points. It has TOTAL and INDIVIDUAL
 		// Find the fraction of the era reward that belongs to the validator
@@ -482,7 +483,7 @@ impl<T: Config> Pallet<T> {
 					ledger.total += amount;
 					let r = T::Currency::deposit_into_existing(stash, amount).ok();
 					let _ = ledger
-						.update()
+						.update(StakeUpdateReason::NominatorReward)
 						.defensive_proof("ledger fetched from storage, so it exists; qed.");
 
 					Ok(r)
@@ -991,6 +992,7 @@ impl<T: Config> Pallet<T> {
 			&target.clone().into(),
 			Some(prev_stake),
 			stake_after_unbond,
+			StakeUpdateReason::Bond,
 		);
 
 		Bonded::<T>::remove(target.clone());
@@ -2521,6 +2523,7 @@ impl<T: Config> Pallet<T> {
 	///   (active_validators + idle_validators + dangling_targets_score_with_score).
 	pub fn do_try_state_approvals() -> Result<(), sp_runtime::TryRuntimeError> {
 		use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+		use frame_election_provider_support::ExtendedBalance;
 		let mut approvals_map: BTreeMap<T::AccountId, T::CurrencyBalance> = BTreeMap::new();
 
 		// build map of approvals stakes from the `Nominators` storage map POV.
@@ -2581,6 +2584,35 @@ impl<T: Config> Pallet<T> {
 						let self_stake = Pallet::<T>::weight_of(&validator);
 						approvals_map.insert(validator, self_stake.into());
 					},
+				}
+			}
+		}
+
+		// add all the unsettled approvals.
+		for (nominator, unsettled) in T::TrackerUnsettledApprovals::get().into_iter() {
+			let vote = Self::weight_of(&nominator) as ExtendedBalance;
+
+			let nominations = match Self::status(&nominator) {
+				Ok(StakerStatus::Nominator(n)) => n,
+				_ => return Err("entry in unsettled approvals must be a nominator".into()),
+			};
+
+			for t in nominations {
+				match approvals_map.get_mut(&t) {
+					Some(approvals) => {
+						if vote > unsettled {
+							*approvals += (vote - unsettled).into();
+						} else if vote < unsettled {
+							*approvals += (unsettled - vote).into();
+						} else {
+							// no unsettled approvals for this nominator, do nothing.
+						}
+					},
+					None =>
+						return Err(
+							"target in unsettled approvals should exist in the approvals map"
+								.into(),
+						),
 				}
 			}
 		}

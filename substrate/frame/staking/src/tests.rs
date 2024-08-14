@@ -39,7 +39,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
-	SessionIndex, StakingInterface, StakingUnchecked,
+	SessionIndex, StakeUpdateReason, StakingInterface, StakingUnchecked,
 };
 use substrate_test_utils::assert_eq_uvec;
 
@@ -1979,7 +1979,7 @@ fn reap_stash_works() {
 			// no easy way to cause an account to go below ED, we tweak their staking ledger
 			// instead.
 			let ledger = StakingLedger::<Test>::new(11, 5);
-			assert_ok!(ledger.update());
+			assert_ok!(ledger.update(StakeUpdateReason::Bond));
 
 			// reap-able
 			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
@@ -8370,7 +8370,8 @@ mod stake_tracker {
 				target_bags_events(),
 				[
 					BagsEvent::Rebagged { who: 21, from: 10000, to: 1000 },
-					BagsEvent::ScoreUpdated { who: 21, new_score: 1000 }
+					BagsEvent::ScoreUpdated { who: 21, new_score: 1000 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 2100 }
 				]
 			);
 		})
@@ -8378,12 +8379,13 @@ mod stake_tracker {
 
 	#[test]
 	fn rewards_work() {
-		// Test case: validator and nominators' rewards are reflected in the target list scores,
-		// which also may cause rebaging of the target list.
-		// Call paths covered:
+		// Test case: validator and nominators' rewards are *NOT* reflected in the target list
+		// scores, unless there is an explicit approvals settlement in the stake-tracker. In which
+		// case, rebaging of the target list may happen. Call paths covered:
 		// * Call::validate()
 		// * Call::nominate()
 		// * Call::stakers_payout()
+		// * StakeTracker::settle_approvals()
 		ExtBuilder::default().build_and_execute(|| {
 			// all payee destinations are Staked.
 			let _ = Payee::<Test>::iter()
@@ -8395,27 +8397,77 @@ mod stake_tracker {
 			// initial state targets.
 			assert_eq!(voters_and_targets().1, [(11, 1500), (21, 1500), (31, 500)]);
 
+			let score_11_before = <TargetBagsList as ScoreProvider<A>>::score(&11);
+			let score_21_before = <TargetBagsList as ScoreProvider<A>>::score(&21);
+			let score_31_before = <TargetBagsList as ScoreProvider<A>>::score(&31);
+
 			// 101 nominates validator 11 and 21.
 			assert_eq!(Staking::status(&101), Ok(StakerStatus::Nominator(vec![11, 21])));
 			let stake_101_before = Staking::ledger(Stash(101)).unwrap().active;
 			assert_eq!(stake_101_before, 500);
+
+			// nominator 101 is exposed to validator 11, which will be rewarded.
+			assert_eq!(nominators_of(&11), vec![101]);
 
 			// add reward points to 11 in era 0.
 			Staking::reward_by_ids(vec![(11, 1)]);
 
 			mock::start_active_era(1);
 
-			// payout 11 and nominators.
+			// payout 11 and its nominators (101). This payout will:
+			// 1. reward validator 11 (implicitly updates its target score)
+			// 2. reward exposed nominator 101 (which will *NOT* implicitly update the associated
+			//  target scores).
 			assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(11), 11, current_era() - 1));
 
-			// stake of nominator 101 increased since it was exposed to payout.
+			// the active stake of nominator 101 increased since it was exposed to payout.
 			assert!(Staking::ledger(Stash(101)).unwrap().active > stake_101_before);
 
-			// overview of the target list is as expected: 11 and 21 have increased the score after
-			// the payout as they were directly and indirectly exposed to the payout.
+			// however, since nominators reward payouts do not affect automatically the target
+			// approvals, the target score of 21 remains unchanged.
+			assert_eq!(score_21_before, <TargetBagsList as ScoreProvider<A>>::score(&21));
+
+			// the validator rewards do implicitly and automatically update the target's approvals
+			// score, thus the score of 11 increased.
+			let score_11_with_implicit = <TargetBagsList as ScoreProvider<A>>::score(&11);
+			assert!(score_11_before < score_11_with_implicit);
+
+			// overview of the target list is as expected: only 11 target score has increased after
+			// the payout.
+			assert_eq!(
+				voters_and_targets().1,
+				[(11, score_11_with_implicit), (21, score_21_before), (31, score_31_before)]
+			);
+
+			// rebag happened for 11.
+			assert_eq!(
+				target_bags_events(),
+				[
+					BagsEvent::Rebagged { who: 11, from: 2000, to: 10000 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 9555 }
+				]
+			);
+
+			// confirm that the try-state checks for approvals passes even with unsettled approvals.
+			assert_ok!(Pallet::<Test>::do_try_state_approvals());
+
+			// now we can settle the approvals on the stake tracker side to explicitly update the
+			// target score of 21 from the rewards. The target score of 11 will also increase
+			// further.
+			assert_ok!(StakeTracker::settle_approvals(
+				RuntimeOrigin::signed(11),
+				101,
+				nominations_of(&101).len() as u32
+			));
+
+			// score of 21 increased after the settlement.
+			assert!(score_21_before < <TargetBagsList as ScoreProvider<A>>::score(&21));
+			// the score of 11 also increased due to the approvals settlement of 101.
+			assert!(score_11_before < <TargetBagsList as ScoreProvider<A>>::score(&11));
+
 			assert_eq!(voters_and_targets().1, [(11, 12575), (21, 4520), (31, 500)]);
 
-			// rebag happened for both 11 and 21, which indirectly had its score increased.
+			// final rebags happened for both 11 and 21.
 			assert_eq!(
 				target_bags_events(),
 				[
@@ -8433,13 +8485,13 @@ mod stake_tracker {
 	#[test]
 	fn slashing_works() {
 		// Test case: slashing a validator affects the target list score of the validator according
-		// to its slashed self-stake and the slashed stake of its nominators. A slash may cause
-		// target list rebagging of indirect slashing (targets which were not slashed by their
-		// nominators but were exposed to a slash from another validator).
-		// Call paths covered:
+		// to its slashed self-stake *ONLY AFTER* the nominator's approvals settlement. A slash may
+		// cause target list rebagging of indirect slashing (targets which were not slashed by their
+		// nominators but were exposed to a slash from another validator). Call paths covered:
 		// * Call::validate()
 		// * Call::nominate()
 		// * OnOffenceHandler::on_offence()
+		// * StakeTracker::settle_approvals()
 		ExtBuilder::default().build_and_execute(|| {
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(41), vec![21, 11]));
 			// unbond 450 from 41 so that the slash will cause the rebag of a validator which
@@ -8449,6 +8501,9 @@ mod stake_tracker {
 
 			// checks the current targets' score and list sorting.
 			assert_eq!(voters_and_targets().1, [(11, 2050), (21, 2050), (31, 500)]);
+
+			// confirm that 41 and 101 are nominating 11.
+			assert_eq!(nominators_of(&11), vec![101, 41]);
 
 			// get the bonded stake of the nominators that will be affected by the slash.
 			let stake_101_before = Staking::ledger(Stash(101)).unwrap().active;
@@ -8486,12 +8541,13 @@ mod stake_tracker {
 			assert!(<TargetBagsList as SortedListProvider<A>>::contains(&11));
 			assert_eq!(Staking::status(&11), Ok(StakerStatus::Validator));
 			// and its balance has been updated based on the slash applied + chilling.
-			let score_11_after = <TargetBagsList as ScoreProvider<A>>::score(&11);
+			let score_11_after_slash = <TargetBagsList as ScoreProvider<A>>::score(&11);
 
+			// the target score of the validator is updated automatically only by the slash portion
+			// associated with itself.
 			assert_eq!(
-				score_11_after,
-				score_11_before -
-					slash_percent * (self_stake_11_before + total_others_stake_to_slash),
+				score_11_after_slash,
+				score_11_before - slash_percent * self_stake_11_before
 			);
 
 			// self-stake of 11 has decreased by 50% due to slash.
@@ -8500,10 +8556,39 @@ mod stake_tracker {
 				slash_percent * self_stake_11_before
 			);
 
-			// although 21 was not directly slashed, their nominators were. This will be reflected
-			// in its current target score.
+			// although 21 was not directly slashed, their nominators were. Howeverm the
+			// nominator's slashes are only propagated to the validators upon *explicit*
+			// settlement, thus the target score of 21 remains the same for now.
+			let score_21_after_slash = <TargetBagsList as ScoreProvider<A>>::score(&21);
+			assert_eq!(score_21_after_slash, score_21_before);
+
+			// confirm that the try-state checks for approvals passes even with unsettled approvals.
+			assert_ok!(Pallet::<Test>::do_try_state_approvals());
+
+			// now we settle the buffered approvals slashed nominators 41 and 101, so that the
+			// target scores of its nominations are propagated after the slash.
+			assert_ok!(StakeTracker::settle_approvals(
+				RuntimeOrigin::signed(11),
+				41,
+				nominations_of(&41).len() as u32
+			));
+			assert_ok!(StakeTracker::settle_approvals(
+				RuntimeOrigin::signed(11),
+				101,
+				nominations_of(&101).len() as u32
+			));
+
+			let score_11_after = <TargetBagsList as ScoreProvider<A>>::score(&11);
 			let score_21_after = <TargetBagsList as ScoreProvider<A>>::score(&21);
-			assert!(score_21_after < score_21_before);
+
+			// and now the target score of 11 reflects both the self stake slashed portion and also
+			// the slash of its nominators.
+			assert!(score_11_after < score_11_after_slash);
+			assert_eq!(
+				score_11_after,
+				score_11_before -
+					slash_percent * (self_stake_11_before + total_others_stake_to_slash),
+			);
 
 			// slashed amounts from nominators are reflected in the score of 21.
 			let slashed_101 = stake_101_before - Staking::ledger(Stash(101)).unwrap().active;
@@ -8526,9 +8611,9 @@ mod stake_tracker {
 				[
 					BagsEvent::Rebagged { who: 11, from: 10000, to: 2000 },
 					BagsEvent::ScoreUpdated { who: 11, new_score: 1550 },
-					BagsEvent::ScoreUpdated { who: 11, new_score: 1385 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 1369 },
 					BagsEvent::Rebagged { who: 21, from: 10000, to: 2000 },
-					BagsEvent::ScoreUpdated { who: 21, new_score: 1885 },
+					BagsEvent::ScoreUpdated { who: 21, new_score: 1869 },
 					BagsEvent::ScoreUpdated { who: 11, new_score: 1204 },
 					BagsEvent::ScoreUpdated { who: 21, new_score: 1704 }
 				]
@@ -8590,7 +8675,7 @@ mod stake_tracker {
 			let ledger = Staking::ledger(StakingAccount::Stash(101)).unwrap();
 
 			// calling update on a ledger with no stake changes will not affect the target's score.
-			assert_ok!(ledger.update());
+			assert_ok!(ledger.update(StakeUpdateReason::Bond));
 
 			assert_eq!(target_bags_events(), [],);
 
@@ -8604,7 +8689,7 @@ mod stake_tracker {
 			let mut ledger = Staking::ledger(StakingAccount::Stash(101)).unwrap();
 			ledger.active += extra;
 			ledger.total += extra;
-			assert_ok!(ledger.update());
+			assert_ok!(ledger.update(StakeUpdateReason::Bond));
 
 			assert_eq!(
 				target_bags_events(),
@@ -8873,7 +8958,7 @@ mod ledger {
 
 			// once bonded, update works as expected.
 			ledger.legacy_claimed_rewards = bounded_vec![1];
-			assert_ok!(ledger.update());
+			assert_ok!(ledger.update(StakeUpdateReason::Bond));
 		})
 	}
 
@@ -9326,7 +9411,8 @@ mod ledger_recovery {
 			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before); // OK
 			assert_eq!(Bonded::<Test>::get(&333), Some(444)); // OK
 			assert!(Payee::<Test>::get(&333).is_some()); // OK
-											 // however, ledger associated with its controller was killed.
+
+			// however, ledger associated with its controller was killed.
 			assert!(Ledger::<Test>::get(&444).is_none()); // NOK
 
 			// side effects on 444 - ledger, bonded, payee, lock should be completely removed.

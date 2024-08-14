@@ -89,24 +89,33 @@
 
 pub use pallet::*;
 
-extern crate alloc;
-
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use frame_election_provider_support::SortedListProvider;
-use frame_support::{
-	defensive,
-	pallet_prelude::*,
-	traits::{fungible::Inspect as FnInspect, Defensive, DefensiveSaturating},
-};
-use sp_runtime::traits::Zero;
-use sp_staking::{
-	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakerStatus, StakingInterface,
-};
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 #[cfg(test)]
 pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
+
+pub mod weights;
+
+extern crate alloc;
+
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
+#[cfg(feature = "runtime-benchmarks")]
+use frame_election_provider_support::ElectionDataProvider;
+use frame_election_provider_support::{ExtendedBalance, SortedListProvider, VoteWeight};
+use frame_support::{
+	defensive,
+	pallet_prelude::*,
+	traits::{fungible::Inspect as FnInspect, Defensive, DefensiveSaturating},
+};
+use frame_system::pallet_prelude::*;
+use sp_runtime::traits::Zero;
+use sp_staking::{
+	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakeUpdateReason, StakerStatus,
+	StakingInterface,
+};
 
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <<T as Config>::Staking as StakingInterface>::Balance;
@@ -114,7 +123,7 @@ pub type BalanceOf<T> = <<T as Config>::Staking as StakingInterface>::Balance;
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
 /// Represents a stake imbalance to be applied to a staker's score.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum StakeImbalance<Score> {
 	/// Represents the reduction of stake by `Score`.
 	Negative(Score),
@@ -122,9 +131,9 @@ pub enum StakeImbalance<Score> {
 	Positive(Score),
 }
 
-impl<Score: PartialOrd + DefensiveSaturating> StakeImbalance<Score> {
+impl<V: PartialOrd + DefensiveSaturating + Copy> StakeImbalance<V> {
 	/// Constructor for a stake imbalance instance based on the previous and next score.
-	fn from(prev: Score, new: Score) -> Self {
+	fn from(prev: V, new: V) -> Self {
 		if prev > new {
 			StakeImbalance::Negative(prev.defensive_saturating_sub(new))
 		} else {
@@ -151,11 +160,15 @@ impl VoterUpdateMode {
 
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::*;
-	use frame_election_provider_support::{ExtendedBalance, VoteWeight};
+	use crate::{weights::WeightInfo, *};
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
+	/// Snapshot of the last stake from a nominator that affected its nominations approvals.
+	#[pallet::storage]
+	pub(crate) type LastSettledApprovals<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, ExtendedBalance, OptionQuery>;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -165,6 +178,9 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The stake balance.
 		type Currency: FnInspect<Self::AccountId, Balance = BalanceOf<Self>>;
+
+		/// The overarching event type.
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The staking interface.
 		type Staking: StakingInterface<AccountId = Self::AccountId>;
@@ -180,6 +196,56 @@ pub mod pallet {
 
 		/// The voter list update mode.
 		type VoterUpdateMode: Get<VoterUpdateMode>;
+
+		/// Weight information for extrinsics in this pallet.
+		type WeightInfo: WeightInfo;
+
+		/// Election data provider to be used by the benchmarks.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkingElectionDataProvider: ElectionDataProvider<AccountId = Self::AccountId>;
+	}
+
+	#[pallet::error]
+	#[derive(PartialEq)]
+	pub enum Error<T> {
+		/// Not a voter.
+		NotVoter,
+		/// Voter does not currently have unsettled approvals.
+		NoUnsettledApprovals,
+		/// Wrong number of nominations provided.
+		WrongNumberNominations,
+	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// Successfully settled voter approvals. The `voter`'s active stake is now full reflected
+		/// in it's nominations' approvals.
+		ClearedUnsettledApprovals { voter: AccountIdOf<T> },
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::settle_approvals(*n))]
+		pub fn settle_approvals(
+			origin: OriginFor<T>,
+			voter: AccountIdOf<T>,
+			n: u32,
+		) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+
+			if let Ok(StakerStatus::Nominator(nominations)) = T::Staking::status(&voter) {
+				ensure!(nominations.len() as u32 == n, Error::<T>::WrongNumberNominations);
+
+				Self::do_settle_approvals(&voter, nominations)?;
+
+				Self::deposit_event(Event::<T>::ClearedUnsettledApprovals { voter });
+				Ok(())
+			} else {
+				Err(Error::<T>::NotVoter.into())
+			}
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -205,16 +271,42 @@ pub mod pallet {
 				);
 			}
 
-			let stake_imbalance = StakeImbalance::from(
-				prev_stake.map_or(Default::default(), |s| Self::to_vote(s.active).into()),
-				voter_weight.into(),
-			);
+			// calculate the stake imbalance to update the nominations' approvals based on
+			// `prev_stake`, `stake` and the state of the `LastSettleLastSettledApprovals`.
+			let (stake_imbalance, last_seen) =
+				Self::calculate_approvals_imbalance(who, prev_stake.unwrap_or_default(), stake);
 
 			// updates vote weight of nominated targets accordingly. Note: this will
 			// update the score of up to `T::MaxNominations` validators.
 			for target in nominations.into_iter() {
 				Self::update_target_score(&target, stake_imbalance);
 			}
+
+			// updates last settled approvals to match the propagated to the nominator's approvals.
+			LastSettledApprovals::<T>::insert(who, last_seen);
+		}
+
+		/// Calculates the stake imbalance of a nominator used for `on_stake_update` considering
+		/// the previous stake, the new stake and the last settled approvals state for the
+		/// nominator. Returns a tuple with the imbalance to settle on the approvals and the new
+		/// "last seen" value to be stored in `LastSettledApprovals`.
+		///
+		/// Refactored to its own method for testing purposes.
+		pub(crate) fn calculate_approvals_imbalance(
+			who: &T::AccountId,
+			prev_stake: Stake<BalanceOf<T>>,
+			stake: Stake<BalanceOf<T>>,
+		) -> (StakeImbalance<ExtendedBalance>, ExtendedBalance) {
+			let stake_balance = Self::to_vote(stake.active).into();
+
+			let imbalance = if let Some(last_seen) = LastSettledApprovals::<T>::get(who) {
+				StakeImbalance::from(last_seen, stake_balance)
+			} else {
+				let prev_stake = Self::to_vote(prev_stake.active).into();
+				StakeImbalance::from(prev_stake, stake_balance)
+			};
+
+			(imbalance, stake_balance)
 		}
 
 		/// Updates the stake of a target.
@@ -283,6 +375,44 @@ pub mod pallet {
 			};
 		}
 
+		/// Updates the `LastSettledApprovals` storage map storage map of `who` and clears the
+		/// entry from the map if successful.
+		pub(crate) fn do_settle_approvals(
+			who: &AccountIdOf<T>,
+			nominations: Vec<T::AccountId>,
+		) -> Result<(), Error<T>> {
+			LastSettledApprovals::<T>::try_mutate_exists(who, |maybe_last_seen| {
+				if let Some(last_seen) = maybe_last_seen {
+					let current_weight: ExtendedBalance = Self::vote_of(who).into();
+
+					// if current active stake is the same as the last seen value, the approvals of
+					// `who` are already accounted in the target's approvals.
+					if *last_seen == current_weight {
+						return Err(Error::NoUnsettledApprovals)
+					}
+
+					let stake_imbalance = if current_weight > *last_seen {
+						StakeImbalance::Positive(current_weight.saturating_sub(*last_seen))
+					} else {
+						// current active stake may be lower than the last_seen in case of slash.
+						StakeImbalance::Negative((*last_seen).saturating_sub(current_weight))
+					};
+
+					// updates vote weight of nominated targets accordingly. Note: this will
+					// update the score of up to `T::MaxNominations` validators.
+					for target in nominations.into_iter() {
+						Self::update_target_score(&target, stake_imbalance);
+					}
+
+					// clears entry from last settled approvals map.
+					*maybe_last_seen = None;
+					Ok(())
+				} else {
+					Err(Error::NoUnsettledApprovals)
+				}
+			})
+		}
+
 		// ------ Helpers
 
 		/// Helper to convert the balance of a staker into its vote weight.
@@ -310,12 +440,36 @@ pub mod pallet {
 
 			size_before != dedup.len()
 		}
+
+		#[cfg(feature = "runtime-benchmarks")]
+		pub(crate) fn setup_unsettled_approvals(who: &T::AccountId) -> Result<(), &'static str> {
+			let current_stake =
+				Self::to_vote(T::Staking::stake(&who).map_err(|_| "error fetching stake")?.active);
+			LastSettledApprovals::<T>::insert(
+				who,
+				Into::<ExtendedBalance>::into(current_stake * 2),
+			);
+			Ok(())
+		}
+	}
+}
+
+/// Returns a vec with the current state of the `LastSettledApprovals` state.
+///
+/// Note: To be used by external pallets (e.g. pallet-staking) for tests and try-state checks.
+pub struct LastSettledApprovalsGetter<T: Config>(PhantomData<T>);
+impl<T: Config> sp_runtime::traits::TypedGet for LastSettledApprovalsGetter<T> {
+	type Type = Vec<(AccountIdOf<T>, ExtendedBalance)>;
+
+	fn get() -> Self::Type {
+		LastSettledApprovals::<T>::iter().collect::<Vec<_>>()
 	}
 }
 
 impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// When a nominator's stake is updated, all the nominated targets must be updated
-	/// accordingly.
+	/// accordingly, unless the stake updates are due to a reward or slash. This is represented by
+	/// `sp_staking::StakeUpdateReson`.
 	///
 	/// The score of the node associated with `who` in the *VoterList* will be updated if the
 	/// the mode is [`VoterUpdateMode::Strict`]. The approvals of the nominated targets (by `who`)
@@ -324,10 +478,18 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		who: &T::AccountId,
 		prev_stake: Option<Stake<BalanceOf<T>>>,
 		stake: Stake<BalanceOf<T>>,
+		reason: StakeUpdateReason,
 	) {
 		match T::Staking::status(who) {
-			Ok(StakerStatus::Nominator(nominations)) =>
-				Self::do_stake_update_voter(who, prev_stake, stake, nominations),
+			Ok(StakerStatus::Nominator(nominations)) => {
+				// noop in case stake update is caused by a reward or slash.
+				if reason == StakeUpdateReason::NominatorReward ||
+					reason == StakeUpdateReason::NominatorSlash
+				{
+					return
+				}
+				Self::do_stake_update_voter(who, prev_stake, stake, nominations);
+			},
 			Ok(StakerStatus::Validator) => Self::do_stake_update_target(who, prev_stake, stake),
 			Ok(StakerStatus::Idle) => (), // nothing to see here.
 			Err(_) => {
@@ -428,10 +590,18 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		// this will update the score of up to `T::MaxNominations` validators. Note that `who` may
 		// be a validator.
 		match T::Staking::status(who).defensive() {
-			Ok(StakerStatus::Nominator(_)) =>
+			Ok(StakerStatus::Nominator(_)) => {
 				for t in nominations {
 					Self::update_target_score(&t, StakeImbalance::Positive(nominator_vote.into()))
-				},
+				}
+
+				// snapshot the "last seen" nominator contribution for the targets' approvals in
+				// the target list.
+				LastSettledApprovals::<T>::insert(
+					who,
+					Into::<ExtendedBalance>::into(nominator_vote),
+				);
+			},
 			Ok(StakerStatus::Idle) | Ok(StakerStatus::Validator) | Err(_) => (), // nada.
 		};
 	}
@@ -453,13 +623,17 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// nominators, which is defined in the staking pallet.
 	fn on_nominator_remove(who: &T::AccountId, nominations: Vec<T::AccountId>) {
 		defensive_assert!(!Self::has_duplicate_nominations(nominations.clone()));
-
-		let nominator_vote = Self::vote_of(who);
+		// decreases `last_seen` approvals from the targets nominated by `who`, or the current
+		// nominator stake.
+		let last_seen = LastSettledApprovals::<T>::get(who).unwrap_or(Self::vote_of(who).into());
 
 		// updates the nominated target's score.
 		for t in nominations.iter() {
-			Self::update_target_score(t, StakeImbalance::Negative(nominator_vote.into()))
+			Self::update_target_score(t, StakeImbalance::Negative(last_seen))
 		}
+
+		// removes entry from "last seen".
+		LastSettledApprovals::<T>::remove(who);
 
 		let _ = T::VoterList::on_remove(who).defensive_proof(
 			"the nominator must exist in the list as per the contract with staking.",
@@ -471,6 +645,14 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// Overview: The approval scores of the the targets affected by the nomination updates must be
 	/// updated accordingly.
 	///
+	/// Venn diagram of the target score updates:
+	/// 1. Target in `prev_nominations` but not in `nominations`: update target score by
+	///    Negative(last_seen)
+	/// 2. Target in `nominations` but not in `prev_nominations`: update target score by
+	///    Positive(nominator_vote)
+	/// 3. Target in `nominations` and `prev_nominations`: update the target score by the imbalance
+	///    between `last_seen` and `nominator_vote`
+	///
 	/// Note that the nominator's stake remains the same (updates to the nominator's stake should
 	/// emit [`Self::on_stake_update`] instead).
 	fn on_nominator_update(
@@ -481,6 +663,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		defensive_assert!(!Self::has_duplicate_nominations(nominations.clone()));
 
 		let nominator_vote = Self::vote_of(who);
+		let last_seen = LastSettledApprovals::<T>::get(who).unwrap_or_default();
 
 		// new nominations.
 		for target in nominations.iter() {
@@ -488,12 +671,25 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 				Self::update_target_score(target, StakeImbalance::Positive(nominator_vote.into()));
 			}
 		}
-		// removed nominations.
+		// removed nominations. It should decrease the targets' approvals in the same quantity as
+		// the "last seen" for this nominator, which contributed to the current approvals.
 		for target in prev_nominations.iter() {
 			if !nominations.contains(target) {
-				Self::update_target_score(target, StakeImbalance::Negative(nominator_vote.into()));
+				Self::update_target_score(target, StakeImbalance::Negative(last_seen));
 			}
 		}
+
+		// previous nominations that remain in the new set should be updated with the imbalance
+		// between "last seen" and the nominator vote.
+		let retain_imbalance = StakeImbalance::from(last_seen, nominator_vote.into());
+
+		for target in prev_nominations.into_iter().filter(|t| nominations.contains(t)) {
+			Self::update_target_score(&target, retain_imbalance);
+		}
+
+		// updates the "last seen" nominator contribution for the targets' approvals in
+		// the targets' approvals.
+		LastSettledApprovals::<T>::insert(who, Into::<ExtendedBalance>::into(nominator_vote));
 	}
 
 	// no-op events.

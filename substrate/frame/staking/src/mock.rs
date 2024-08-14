@@ -37,7 +37,7 @@ use sp_io;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
-	OnStakingUpdate, OnStakingUpdateEvent, Stake, StakingInterface,
+	OnStakingUpdate, OnStakingUpdateEvent, Stake, StakeUpdateReason, StakingInterface,
 };
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
@@ -279,7 +279,12 @@ impl OnStakingUpdate<AccountId, Balance> for SlashListenerMock {
 
 pub struct EventTracker;
 impl OnStakingUpdate<AccountId, Balance> for EventTracker {
-	fn on_stake_update(who: &AccountId, prev_stake: Option<Stake<Balance>>, stake: Stake<Balance>) {
+	fn on_stake_update(
+		who: &AccountId,
+		prev_stake: Option<Stake<Balance>>,
+		stake: Stake<Balance>,
+		_: StakeUpdateReason,
+	) {
 		EventsEmitted::mutate(|v| {
 			v.push(OnStakingUpdateEvent::StakeUpdate { who: *who, prev_stake, stake });
 		})
@@ -360,10 +365,14 @@ parameter_types! {
 
 impl pallet_stake_tracker::Config for Test {
 	type Currency = Balances;
+	type RuntimeEvent = RuntimeEvent;
 	type Staking = Staking;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
 	type VoterUpdateMode = VoterUpdateMode;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkingElectionDataProvider = Staking;
+	type WeightInfo = ();
 }
 
 // Disabling threshold for `UpToLimitDisablingStrategy`
@@ -386,6 +395,8 @@ impl crate::pallet::pallet::Config for Test {
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
+	#[cfg(any(feature = "try-runtime", test))]
+	type TrackerUnsettledApprovals = pallet_stake_tracker::LastSettledApprovalsGetter<Self>;
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
@@ -1049,6 +1060,7 @@ pub(crate) fn setup_dangling_target_for_nominators(target: AccountId, nominators
 		&target,
 		Some(stake),
 		stake_after_unbond,
+		StakeUpdateReason::Bond,
 	);
 
 	Bonded::<Test>::remove(target);
@@ -1081,6 +1093,13 @@ pub(crate) fn nominators_of(t: &AccountId) -> Vec<AccountId> {
 		.filter(|(_, n)| n.targets.contains(&t))
 		.map(|(v, _)| v)
 		.collect::<Vec<_>>()
+}
+
+pub(crate) fn nominations_of(v: &AccountId) -> Vec<AccountId> {
+	match Staking::status(v) {
+		Ok(StakerStatus::Nominator(n)) => n,
+		_ => vec![],
+	}
 }
 
 pub(crate) fn staking_events() -> Vec<crate::Event<Test>> {

@@ -710,6 +710,9 @@ impl pallet_stake_tracker::Config for Runtime {
 	type VoterList = VoterList;
 	type TargetList = TargetList;
 	type VoterUpdateMode = VoterUpdateMode;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkingElectionDataProvider = Staking;
+	type WeightInfo = pallet_stake_tracker::SubstrateWeight<Self>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {

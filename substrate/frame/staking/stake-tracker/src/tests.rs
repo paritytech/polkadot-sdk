@@ -17,11 +17,11 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, StakeImbalance};
+use crate::{mock::*, Error, Event, StakeImbalance};
 
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
-use frame_support::assert_ok;
-use sp_staking::{OnStakingUpdate, Stake, StakerStatus, StakingInterface};
+use frame_support::{assert_noop, assert_ok};
+use sp_staking::{OnStakingUpdate, Stake, StakeUpdateReason, StakerStatus, StakingInterface};
 
 // keeping tests clean.
 type A = AccountId;
@@ -103,7 +103,12 @@ fn on_stake_update_works() {
 			n.insert(1, (new_stake, nominations.clone()));
 		});
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, stake_before, new_stake);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+			&1,
+			stake_before,
+			new_stake,
+			StakeUpdateReason::Bond,
+		);
 
 		assert_eq!(VoterBagsList::get_score(&1).unwrap(), new_stake.active);
 
@@ -135,7 +140,12 @@ fn on_stake_update_works() {
 
 		let stake_imbalance = stake_before.unwrap().active - new_stake.total;
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&10, stake_before, new_stake);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+			&10,
+			stake_before,
+			new_stake,
+			StakeUpdateReason::Bond,
+		);
 
 		assert_eq!(VoterBagsList::get_score(&10).unwrap(), new_stake.active);
 		assert_eq!(StakingMock::stake(&10), Ok(new_stake));
@@ -172,7 +182,12 @@ fn on_stake_update_lazy_voters_works() {
 				n.insert(1, (new_stake, nominations.clone()));
 			});
 
-			<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, stake_before, new_stake);
+			<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+				&1,
+				stake_before,
+				new_stake,
+				StakeUpdateReason::Bond,
+			);
 
 			// score of voter did not update, since the voter list is lazily updated.
 			assert_eq!(VoterBagsList::get_score(&1).unwrap(), stake_before.unwrap().active);
@@ -235,6 +250,7 @@ fn on_stake_update_sorting_works() {
 			&11,
 			initial_stake,
 			initial_stake.unwrap(),
+			StakeUpdateReason::Bond,
 		);
 		assert_eq!(voter_scores_before, voter_scores());
 
@@ -245,7 +261,12 @@ fn on_stake_update_sorting_works() {
 			n.insert(11, (new_stake, nominations.clone()));
 		});
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&11, initial_stake, new_stake);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+			&11,
+			initial_stake,
+			new_stake,
+			StakeUpdateReason::Bond,
+		);
 
 		// although the voter score of 11 is 1, the voter list sorting has not been updated
 		// automatically.
@@ -275,7 +296,12 @@ fn on_stake_update_defensive_not_in_list_works() {
 		// removes 1 from nominator's list manually, while keeping it as staker.
 		assert_ok!(VoterBagsList::on_remove(&1));
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, None, Stake::default());
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+			&1,
+			None,
+			Stake::default(),
+			StakeUpdateReason::Bond,
+		);
 	})
 }
 
@@ -285,7 +311,12 @@ fn on_stake_update_defensive_not_staker_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert!(!VoterBagsList::contains(&1));
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, None, Stake::default());
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+			&1,
+			None,
+			Stake::default(),
+			StakeUpdateReason::Bond,
+		);
 	})
 }
 
@@ -405,6 +436,253 @@ fn on_nominator_remove_defensive_works() {
 	})
 }
 
+mod last_settled_approvals {
+	use super::*;
+	use crate::{LastSettledApprovals, Pallet};
+
+	#[test]
+	fn calculate_approvals_imbalance_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// empty.
+			assert_eq!(LastSettledApprovals::<Test>::iter().count(), 0);
+
+			// if there is no unsettled approvals, the imbalance is between `stake` and
+			// `prev_stake` and last seen is the latest `stake`.
+			let (imbalance, new_last_seen) = Pallet::<Test>::calculate_approvals_imbalance(
+				&1,
+				Stake::from(10),
+				Stake::from(100),
+			);
+			assert_eq!(imbalance, StakeImbalance::from(10, 100));
+			assert_eq!(imbalance, StakeImbalance::Positive(90));
+			assert_eq!(new_last_seen, 100);
+
+			// if there's an unsettled approval, the imbalance is between the new stake and the last
+			// unsettled, not the prev_stake.
+			let last_unsettled = 10;
+			LastSettledApprovals::<Test>::insert(1, last_unsettled);
+
+			let (imbalance, new_last_seen) = Pallet::<Test>::calculate_approvals_imbalance(
+				&1,
+				Stake::from(30), // prev. stake, noop.
+				Stake::from(200),
+			);
+			assert_eq!(imbalance, StakeImbalance::from(10, 200));
+			assert_eq!(imbalance, StakeImbalance::Positive(190));
+			assert_eq!(new_last_seen, 200);
+
+			// same as above, but with a negative imbalance.
+			let last_unsettled = 100;
+			LastSettledApprovals::<Test>::insert(1, last_unsettled);
+
+			let (imbalance, new_last_seen) = Pallet::<Test>::calculate_approvals_imbalance(
+				&1,
+				Stake::from(30), // prev. stake, noop.
+				Stake::from(50),
+			);
+			assert_eq!(imbalance, StakeImbalance::from(100, 50));
+			assert_eq!(imbalance, StakeImbalance::Negative(50));
+			assert_eq!(new_last_seen, 50);
+
+			// same settled approvals as the prev_stake means that prev_stake is used since there
+			// are no unsettled approvals (similar to test case 1.).
+			let last_unsettled = 100;
+			LastSettledApprovals::<Test>::insert(1, last_unsettled);
+
+			let (imbalance, new_last_seen) = Pallet::<Test>::calculate_approvals_imbalance(
+				&1,
+				Stake::from(100),
+				Stake::from(200),
+			);
+
+			assert_eq!(imbalance, StakeImbalance::from(100, 200));
+			assert_eq!(imbalance, StakeImbalance::Positive(100));
+			assert_eq!(new_last_seen, 200);
+		})
+	}
+
+	#[test]
+	fn on_stake_update_noop_and_settle_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			let nominator_stake_init = 100;
+
+			add_nominator(1, nominator_stake_init);
+			add_validator(10, 100);
+			add_validator(20, 200);
+			update_nominations_of(1, vec![10, 20]);
+
+			// only nominators are part of the `LastSettledApprovals` map.
+			assert_eq!(LastSettledApprovals::<Test>::iter().count(), 1);
+
+			// after bonding, the buffered "last seen" is the same as the active stake of the
+			// nominator.
+
+			let last_seen_before = LastSettledApprovals::<Test>::get(1).unwrap();
+			assert_eq!(last_seen_before, stake_of(1).unwrap().active.into());
+
+			let target_score_10_before = TargetBagsList::get_score(&10).unwrap();
+			let target_score_20_before = TargetBagsList::get_score(&20).unwrap();
+
+			// update nominator stake due to `NominatorReward` reason (100 -> 150).
+			update_stake(1, 150, stake_of(1), StakeUpdateReason::NominatorReward);
+			// update nominator stake due to `Slash` reason (150 -> 125).
+			update_stake(1, 125, stake_of(1), StakeUpdateReason::NominatorSlash);
+
+			// updating nominator stake with `Slash` and `NominatorReward` reasons is a noop from
+			// the target score perspective.
+			assert_eq!(TargetBagsList::get_score(&10).unwrap(), target_score_10_before);
+			assert_eq!(TargetBagsList::get_score(&20).unwrap(), target_score_20_before);
+
+			// but the active stake of the nominator is updated nonetheless.
+			assert_eq!(stake_of(1).unwrap().active, 125);
+
+			// and the nominator's last seen also doesn't change due to the updates.
+			assert_eq!(LastSettledApprovals::<Test>::get(1).unwrap(), last_seen_before);
+
+			// the diff between "last seen" and the current nominator's stake is the amount that
+			// needs to be settled (i.e. 100 + 50 - 25 = 25)
+			let diff = Into::<u128>::into(stake_of(1).unwrap().active) -
+				LastSettledApprovals::<Test>::get(1).unwrap();
+
+			assert_eq!(diff, 25);
+
+			// after settling the buffered approvals, the target scores will be in sync.
+			assert_ok!(Pallet::<Test>::settle_approvals(RuntimeOrigin::signed(1), 1, 2));
+
+			assert_eq!(TargetBagsList::get_score(&10).unwrap(), target_score_10_before + diff);
+			assert_eq!(TargetBagsList::get_score(&20).unwrap(), target_score_20_before + diff);
+
+			// and the `LastSettledApprovals` entry for nominator 1 is cleared up.
+			assert!(LastSettledApprovals::<Test>::get(1).is_none());
+
+			// we can confirm that the target scores match what's expected (i.e. target's
+			// self-score and nominators' active score).
+			assert_eq!(
+				TargetBagsList::get_score(&10).unwrap(),
+				(stake_of(10).unwrap().active + stake_of(1).unwrap().active).into()
+			);
+			assert_eq!(
+				TargetBagsList::get_score(&20).unwrap(),
+				(stake_of(20).unwrap().active + stake_of(1).unwrap().active).into()
+			);
+
+			// finally, we confirm that the expected pallet event has been triggered.
+			assert_eq!(pallet_events(), [Event::ClearedUnsettledApprovals { voter: 1 },],);
+		})
+	}
+
+	#[test]
+	fn on_stake_update_op_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			let nominator_stake_init = 100;
+
+			add_nominator(1, nominator_stake_init);
+			add_validator(10, 100);
+			add_validator(20, 200);
+			update_nominations_of(1, vec![10, 20]);
+
+			// only nominators are part of the `LastSettledApprovals` map.
+			assert_eq!(LastSettledApprovals::<Test>::iter().count(), 1);
+
+			// after bonding, the buffered "last seen" is the same as the active stake of the
+			// nominator.
+			let last_seen_before = LastSettledApprovals::<Test>::get(1).unwrap();
+			assert_eq!(last_seen_before, stake_of(1).unwrap().active.into());
+
+			let target_score_10_before = TargetBagsList::get_score(&10).unwrap();
+			let target_score_20_before = TargetBagsList::get_score(&20).unwrap();
+
+			// update nominator stake due to `Bond` reason (100 -> 150).
+			update_stake(1, 150, stake_of(1), StakeUpdateReason::Bond);
+
+			// for `Bond` stake updates, the nominations' target scores are updated on the fly.
+			assert!(TargetBagsList::get_score(&10).unwrap() > target_score_10_before);
+			assert_eq!(
+				TargetBagsList::get_score(&10).unwrap(),
+				(stake_of(10).unwrap().active + stake_of(1).unwrap().active).into()
+			);
+
+			assert!(TargetBagsList::get_score(&20).unwrap() > target_score_20_before);
+			assert_eq!(
+				TargetBagsList::get_score(&20).unwrap(),
+				(stake_of(20).unwrap().active + stake_of(1).unwrap().active).into()
+			);
+
+			// and the "last seen" for the nominator was also updated to be the same as the
+			// nominator's stake, since it has already affected the target's approvals scores.
+			assert!(last_seen_before < stake_of(1).unwrap().active as u128);
+			assert_eq!(
+				Into::<u128>::into(stake_of(1).unwrap().active),
+				LastSettledApprovals::<Test>::get(1).unwrap()
+			);
+		})
+	}
+
+	#[test]
+	fn settle_approvals_failures_work() {
+		ExtBuilder::default().build_and_execute(|| {
+			// 1 is not a nominator, fails as expected.
+			assert_noop!(
+				Pallet::<Test>::settle_approvals(RuntimeOrigin::signed(1), 1, 1),
+				Error::<Test>::NotVoter
+			);
+
+			add_nominator(1, 100);
+			add_validator(10, 100);
+			update_nominations_of(1, vec![10]);
+
+			// update stake of 1 with `Bond` reason, no unsettled approvals are needed.
+			update_stake(1, 150, stake_of(1), StakeUpdateReason::Bond);
+
+			// which means the "last seen" is the same as the nominator's stake.
+			assert_eq!(
+				LastSettledApprovals::<Test>::get(1).unwrap(),
+				stake_of(1).unwrap().active.into()
+			);
+
+			// since there is no approvals to sync, calling `settle_approvals` returns an error.
+			assert_noop!(
+				Pallet::<Test>::settle_approvals(RuntimeOrigin::signed(1), 1, 1),
+				Error::<Test>::NoUnsettledApprovals,
+			);
+
+			// TODO: test Error::<T>::WrongNumberNominations.
+		})
+	}
+
+	#[test]
+	fn double_settle_approvals_failure_work() {
+		ExtBuilder::default().build_and_execute(|| {
+			add_nominator(1, 100);
+			add_validator(10, 100);
+			update_nominations_of(1, vec![10]);
+
+			// update stake of 1 with `Slash` reason to ensure that nominator keeps an unsettled
+			// balance.
+			update_stake(1, 90, stake_of(1), StakeUpdateReason::NominatorSlash);
+
+			// which means the "last seen" is the same as the initial nominator's stake, not the
+			// current after the stake update.
+			assert!(
+				LastSettledApprovals::<Test>::get(1).unwrap() != stake_of(1).unwrap().active.into()
+			);
+			assert_eq!(LastSettledApprovals::<Test>::get(1).unwrap(), 100);
+
+			// now let's settled the approvals of 1, all expected to work.
+			assert_ok!(Pallet::<Test>::settle_approvals(RuntimeOrigin::signed(1), 1, 1));
+
+			// after successful settlement, the "last seen" has been cleared.
+			assert!(LastSettledApprovals::<Test>::get(1).is_none());
+
+			// thus trying to settle approvals again will result in an error.
+			assert_noop!(
+				Pallet::<Test>::settle_approvals(RuntimeOrigin::signed(1), 1, 1),
+				Error::<Test>::NoUnsettledApprovals
+			);
+		})
+	}
+}
+
 mod staking_integration {
 	use super::*;
 
@@ -461,12 +739,12 @@ mod staking_integration {
 		ExtBuilder::default().build_and_execute(|| {
 			add_nominator(1, 100);
 			assert_eq!(VoterBagsList::get_score(&1).unwrap(), 100);
-			update_stake(1, 200, stake_of(1));
+			update_stake(1, 200, stake_of(1), StakeUpdateReason::Bond);
 			assert_eq!(VoterBagsList::get_score(&1).unwrap(), 200);
 
 			add_validator(10, 100);
 			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 100);
-			update_stake(10, 200, stake_of(10));
+			update_stake(10, 200, stake_of(10), StakeUpdateReason::Bond);
 			assert_eq!(TargetBagsList::get_score(&10).unwrap(), 200);
 		})
 	}

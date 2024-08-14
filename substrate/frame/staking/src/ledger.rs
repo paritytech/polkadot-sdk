@@ -35,7 +35,9 @@ use frame_support::{
 	defensive, ensure,
 	traits::{Defensive, LockableCurrency},
 };
-use sp_staking::{OnStakingUpdate, Stake, StakerStatus, StakingAccount, StakingInterface};
+use sp_staking::{
+	OnStakingUpdate, Stake, StakeUpdateReason, StakerStatus, StakingAccount, StakingInterface,
+};
 
 use crate::{
 	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger,
@@ -187,7 +189,7 @@ impl<T: Config> StakingLedger<T> {
 	///
 	/// Note: To ensure lock consistency, all the [`Ledger`] storage updates should be made through
 	/// this helper function.
-	pub(crate) fn update(self) -> Result<(), Error<T>> {
+	pub(crate) fn update(self, reason: StakeUpdateReason) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
 			return Err(Error::<T>::NotStash)
 		}
@@ -219,7 +221,7 @@ impl<T: Config> StakingLedger<T> {
 		// fire `on_stake_update` if there was a stake update.
 		let new_stake: Stake<_> = self.stake();
 		if new_stake != prev_stake.unwrap_or_default() {
-			T::EventListeners::on_stake_update(&self.stash, prev_stake, new_stake);
+			T::EventListeners::on_stake_update(&self.stash, prev_stake, new_stake, reason);
 		}
 
 		Ok(())
@@ -235,7 +237,7 @@ impl<T: Config> StakingLedger<T> {
 
 		<Payee<T>>::insert(&self.stash, payee);
 		<Bonded<T>>::insert(&self.stash, &self.stash);
-		self.update()
+		self.update(StakeUpdateReason::Bond)
 	}
 
 	/// Sets the ledger Payee.
