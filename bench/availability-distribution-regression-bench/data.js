@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723651383116,
+  "lastUpdate": 1723672432856,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -22203,6 +22203,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.17215527229999988,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "53f42749ca1a84a9b391388eadbc3a98004708ec",
+          "message": "Upgrade accidentally downgraded deps (#5365)",
+          "timestamp": "2024-08-14T20:09:08Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/53f42749ca1a84a9b391388eadbc3a98004708ec"
+        },
+        "date": 1723672402237,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012222890599999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02214850960666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010141332313333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17045611546666664,
             "unit": "seconds"
           }
         ]
