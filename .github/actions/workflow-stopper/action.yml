@@ -1,12 +1,12 @@
 name: "stop all workflows"
 description: "Action stops all workflows in a PR to save compute resources."
-inputs:
-  app_id:
-    description: "App id"
-    required: true
-  app_key:
-    description: "App token"
-    required: true
+# inputs:
+#   app_id:
+#     description: "App id"
+#     required: true
+#   app_key:
+#     description: "App token"
+#     required: true
 runs:
   using: "composite"
   steps:
@@ -14,8 +14,8 @@ runs:
       uses: actions/create-github-app-token@v1
       id: app-token
       with:
-        app-id: ${{ inputs.app_id }}
-        private-key: ${{ inputs.app_key }}
+        app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+        private-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
         owner: "paritytech"
         repositories: "workflow-stopper"
     - name: Workflow stopper - Stop all workflows
