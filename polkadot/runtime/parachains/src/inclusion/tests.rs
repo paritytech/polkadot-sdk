@@ -39,7 +39,7 @@ use polkadot_primitives::{
 	PARACHAIN_KEY_TYPE_ID,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_collator, dummy_collator_signature, dummy_validation_code,
+	dummy_validation_code, junk_collator, junk_collator_signature,
 };
 use sc_keystore::LocalKeystore;
 use sp_keyring::Sr25519Keyring;
@@ -293,8 +293,8 @@ impl TestCandidateBuilder {
 				validation_code_hash: self.validation_code.hash(),
 				para_head: self.para_head_hash.unwrap_or_else(|| self.head_data.hash()),
 				erasure_root: Default::default(),
-				signature: dummy_collator_signature(),
-				collator: dummy_collator(),
+				signature: junk_collator_signature(),
+				collator: junk_collator(),
 			}
 			.into(),
 			commitments: CandidateCommitments {

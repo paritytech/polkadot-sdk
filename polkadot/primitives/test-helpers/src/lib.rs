@@ -170,21 +170,31 @@ pub fn dummy_head_data() -> HeadData {
 	HeadData(vec![])
 }
 
-/// Create a meaningless collator id.
-pub fn dummy_collator() -> CollatorId {
-	CollatorId::from_slice(&mut (0..32).into_iter().collect::<Vec<_>>().as_slice())
-		.expect("32 bytes; qed")
-}
-
 /// Create a meaningless validator id.
 pub fn dummy_validator() -> ValidatorId {
 	ValidatorId::from(sr25519::Public::default())
 }
 
-/// Create a meaningless collator signature.
-pub fn dummy_collator_signature() -> CollatorSignature {
+/// Create junk non-zeroed collator id.
+pub fn junk_collator() -> CollatorId {
+	CollatorId::from_slice(&mut (0..32).into_iter().collect::<Vec<_>>().as_slice())
+		.expect("32 bytes; qed")
+}
+
+/// Create junk non-zeroed collator signature.
+pub fn junk_collator_signature() -> CollatorSignature {
 	CollatorSignature::from_slice(&mut (0..64).into_iter().collect::<Vec<_>>().as_slice())
 		.expect("64 bytes; qed")
+}
+
+/// Create a meaningless collator id.
+pub fn dummy_collator() -> CollatorId {
+	CollatorId::from(sr25519::Public::default())
+}
+
+/// Create a meaningless collator signature.
+pub fn dummy_collator_signature() -> CollatorSignature {
+	CollatorSignature::from(sr25519::Signature::default())
 }
 
 /// Create a meaningless persisted validation data.

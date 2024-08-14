@@ -43,7 +43,7 @@ use polkadot_primitives::{
 	SigningContext, UncheckedSigned, ValidDisputeStatementKind, ValidationCode, ValidatorId,
 	ValidatorIndex, ValidityAttestation,
 };
-use polkadot_primitives_test_helpers::{dummy_collator, dummy_collator_signature};
+use polkadot_primitives_test_helpers::{junk_collator, junk_collator_signature};
 use sp_core::H256;
 use sp_runtime::{
 	generic::Digest,
@@ -304,11 +304,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		CandidateDescriptor::<T::Hash> {
 			para_id: 0.into(),
 			relay_parent: Default::default(),
-			collator: dummy_collator(),
+			collator: junk_collator(),
 			persisted_validation_data_hash: Default::default(),
 			pov_hash: Default::default(),
 			erasure_root: Default::default(),
-			signature: dummy_collator_signature(),
+			signature: junk_collator_signature(),
 			para_head: Default::default(),
 			validation_code_hash: mock_validation_code().hash(),
 		}
@@ -653,11 +653,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							CandidateDescriptor::<T::Hash> {
 								para_id,
 								relay_parent,
-								collator: dummy_collator(),
+								collator: junk_collator(),
 								persisted_validation_data_hash,
 								pov_hash,
 								erasure_root: Default::default(),
-								signature: dummy_collator_signature(),
+								signature: junk_collator_signature(),
 								para_head: head_data.hash(),
 								validation_code_hash,
 							}
