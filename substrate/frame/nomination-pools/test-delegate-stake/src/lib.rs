@@ -1394,7 +1394,6 @@ fn pool_no_dangling_delegation() {
 			delegated_staking_events_since_last_call(),
 			vec![DelegatedStakingEvent::Delegated {
 				agent: POOL1_BONDED,
-
 				delegator: alice,
 				amount: 40
 			},]
