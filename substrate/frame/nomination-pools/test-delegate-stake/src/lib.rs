@@ -152,9 +152,9 @@ fn pool_lifecycle_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 20, pool_id: 1, points: 10, balance: 10 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 20 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 20, released_balance: 0 },
 				PoolsEvent::Withdrawn { member: 21, pool_id: 1, points: 10, balance: 10 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 21 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 21, released_balance: 0 },
 			]
 		);
 
@@ -193,7 +193,7 @@ fn pool_lifecycle_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 10, pool_id: 1, points: 50, balance: 50 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 10 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
@@ -476,10 +476,10 @@ fn pool_slash_e2e() {
 			vec![
 				// 20 had unbonded 10 safely, and 10 got slashed by half.
 				PoolsEvent::Withdrawn { member: 20, pool_id: 1, balance: 10 + 5, points: 20 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 20 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 20, released_balance: 0 },
 				// 21 unbonded all of it after the slash
 				PoolsEvent::Withdrawn { member: 21, pool_id: 1, balance: 5 + 5, points: 15 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 21 }
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 21, released_balance: 0 }
 			]
 		);
 		assert_eq!(
@@ -525,7 +525,7 @@ fn pool_slash_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 10, pool_id: 1, balance: 10 + 15, points: 30 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 10 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
@@ -1160,7 +1160,7 @@ fn pool_migration_e2e() {
 			vec![
 				PoolsEvent::Withdrawn { member: 21, pool_id: 1, balance: 10, points: 10 },
 				// 21 was fully unbonding and removed from pool.
-				PoolsEvent::MemberRemoved { member: 21, pool_id: 1 },
+				PoolsEvent::MemberRemoved { member: 21, pool_id: 1, released_balance: 0 },
 				PoolsEvent::Withdrawn { member: 22, pool_id: 1, balance: 5, points: 5 },
 			]
 		);
@@ -1182,4 +1182,314 @@ fn pool_migration_e2e() {
 			]
 		);
 	})
+}
+
+#[test]
+fn pool_no_dangling_delegation() {
+	new_test_ext().execute_with(|| {
+		ExistentialDeposit::set(1);
+		assert_eq!(Balances::minimum_balance(), 1);
+		assert_eq!(Staking::current_era(), None);
+		// pool creator
+		let alice = 10;
+		let bob = 20;
+		let charlie = 21;
+
+		// create the pool, we know this has id 1.
+		assert_ok!(Pools::create(RuntimeOrigin::signed(alice), 40, alice, alice, alice));
+		assert_eq!(LastPoolId::<Runtime>::get(), 1);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Bonded { stash: POOL1_BONDED, amount: 40 }]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Created { depositor: alice, pool_id: 1 },
+				PoolsEvent::Bonded { member: alice, pool_id: 1, bonded: 40, joined: true },
+			]
+		);
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![DelegatedStakingEvent::Delegated {
+				agent: POOL1_BONDED,
+				delegator: alice,
+				amount: 40
+			},]
+		);
+
+		assert_eq!(
+			Payee::<Runtime>::get(POOL1_BONDED),
+			Some(RewardDestination::Account(POOL1_REWARD))
+		);
+
+		// have two members join
+		assert_ok!(Pools::join(RuntimeOrigin::signed(bob), 20, 1));
+		assert_ok!(Pools::join(RuntimeOrigin::signed(charlie), 20, 1));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 20 },
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 20 }
+			]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Bonded { member: bob, pool_id: 1, bonded: 20, joined: true },
+				PoolsEvent::Bonded { member: charlie, pool_id: 1, bonded: 20, joined: true },
+			]
+		);
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![
+				DelegatedStakingEvent::Delegated {
+					agent: POOL1_BONDED,
+					delegator: bob,
+					amount: 20
+				},
+				DelegatedStakingEvent::Delegated {
+					agent: POOL1_BONDED,
+					delegator: charlie,
+					amount: 20
+				},
+			]
+		);
+
+		// now let's progress a bit.
+		CurrentEra::<Runtime>::set(Some(1));
+
+		// bob is completely unbonding
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(bob), 20, 20));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 20 },]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![PoolsEvent::Unbonded { member: bob, pool_id: 1, balance: 20, points: 20, era: 4 }]
+		);
+
+		// this era will get slashed
+		CurrentEra::<Runtime>::set(Some(2));
+
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(alice), 10, 10));
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(charlie), 21, 10));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
+			]
+		);
+
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Unbonded { member: alice, pool_id: 1, balance: 10, points: 10, era: 5 },
+				PoolsEvent::Unbonded {
+					member: charlie,
+					pool_id: 1,
+					balance: 10,
+					points: 10,
+					era: 5
+				},
+			]
+		);
+
+		// At this point, bob's 20 that is unlocking is safe from slash, 10 (alice) + 10 (charlie)
+		// are also unlocking but vulnerable to slash, and another 40 are active and vulnerable to
+		// slash. Let's slash half of them.
+		pallet_staking::slashing::do_slash::<Runtime>(
+			&POOL1_BONDED,
+			30,
+			&mut Default::default(),
+			&mut Default::default(),
+			2, // slash era 2, affects chunks at era 5 onwards.
+		);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Slashed { staker: POOL1_BONDED, amount: 30 }]
+		);
+
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				// unbonding pool of 20 for era 5 has been slashed to 10
+				PoolsEvent::UnbondingPoolSlashed { pool_id: 1, era: 5, balance: 10 },
+				// active stake of 40 has been slashed to half
+				PoolsEvent::PoolSlashed { pool_id: 1, balance: 20 } /* no slash to era 4
+				                                                     * unbonding pool */
+			]
+		);
+
+		// alice's initial stake of 40 is reduced to half
+		assert_eq!(PoolMembers::<Runtime>::get(alice).unwrap().total_balance(), 20);
+		// bob unbonded in era 1 and is safe from slash
+		assert_eq!(PoolMembers::<Runtime>::get(bob).unwrap().total_balance(), 20);
+		// charlie's initial stake of 20 is slashed to half
+		assert_eq!(PoolMembers::<Runtime>::get(charlie).unwrap().total_balance(), 10);
+
+		// apply pending slash to alice.
+		assert_eq!(Pools::api_member_pending_slash(alice), 20);
+		assert_ok!(Pools::apply_slash(RuntimeOrigin::signed(10), alice));
+		// apply pending slash to charlie.
+		assert_eq!(Pools::api_member_pending_slash(charlie), 10);
+		assert_ok!(Pools::apply_slash(RuntimeOrigin::signed(10), charlie));
+		// no pending slash for bob
+		assert_eq!(Pools::api_member_pending_slash(bob), 0);
+
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![
+				DelegatedStakingEvent::Slashed {
+					agent: POOL1_BONDED,
+					delegator: alice,
+					amount: 20
+				},
+				DelegatedStakingEvent::Slashed {
+					agent: POOL1_BONDED,
+					delegator: charlie,
+					amount: 10
+				},
+			]
+		);
+
+		// go forward to an era after PostUnbondingPoolsWindow = 10 ends for era 5.
+		CurrentEra::<Runtime>::set(Some(15));
+		// At this point subpools will all be merged in no-era causing Bob to lose some value while
+		// Alice and Charlie will gain some value.
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(charlie), charlie, 10));
+
+		// Now alice and charlie has less balance locked than their contribution.
+		assert_eq!(Balances::total_balance_on_hold(&alice), 20);
+		assert_eq!(PoolMembers::<Runtime>::get(alice).unwrap().total_balance(), 22);
+		assert_eq!(Balances::total_balance_on_hold(&charlie), 10);
+		assert_eq!(PoolMembers::<Runtime>::get(charlie).unwrap().total_balance(), 12);
+
+		// and bob has more balance locked than his contribution.
+		assert_eq!(Balances::total_balance_on_hold(&bob), 20);
+		assert_eq!(PoolMembers::<Runtime>::get(bob).unwrap().total_balance(), 15);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 5 }]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![PoolsEvent::Unbonded {
+				member: charlie,
+				pool_id: 1,
+				balance: 5,
+				points: 5,
+				era: 18
+			}]
+		);
+
+		// When bob withdraws all, he gets all his locked funds back.
+		let bob_pre_withdraw_balance = Balances::free_balance(&bob);
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(bob), bob, 0));
+		assert_eq!(Balances::free_balance(&bob), bob_pre_withdraw_balance + 20);
+		assert_eq!(Balances::total_balance_on_hold(&bob), 0);
+		assert!(!PoolMembers::<Runtime>::contains_key(bob));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 30 },]
+		);
+
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Withdrawn { pool_id: 1, member: bob, balance: 15, points: 20 },
+				// dangling delegation of 5 is released
+				PoolsEvent::MemberRemoved { pool_id: 1, member: bob, released_balance: 5 },
+			]
+		);
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![
+				DelegatedStakingEvent::Released { agent: POOL1_BONDED, delegator: bob, amount: 15 },
+				// the second release is the dangling delegation when member is removed.
+				DelegatedStakingEvent::Released { agent: POOL1_BONDED, delegator: bob, amount: 5 },
+			]
+		);
+
+		// Charlie can withdraw as much as he has locked.
+		CurrentEra::<Runtime>::set(Some(18));
+		let charlie_pre_withdraw_balance = Balances::free_balance(&charlie);
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(charlie), charlie, 0));
+		// Charlie's total balance was 12, but we don't have enough funds to unlock. We try the best
+		// effort and unlock 10.
+		assert_eq!(Balances::free_balance(&charlie), charlie_pre_withdraw_balance + 10);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 5 },]
+		);
+
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Withdrawn { pool_id: 1, member: charlie, balance: 10, points: 15 },
+				PoolsEvent::MemberRemoved { member: charlie, pool_id: 1, released_balance: 0 }
+			]
+		);
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![DelegatedStakingEvent::Released {
+				agent: POOL1_BONDED,
+				delegator: charlie,
+				amount: 10
+			},]
+		);
+
+		// Set pools to destroying so alice can withdraw
+		assert_ok!(Pools::set_state(RuntimeOrigin::signed(alice), 1, PoolState::Destroying));
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(alice), alice, 30));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 15 }]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::StateChanged { pool_id: 1, new_state: PoolState::Destroying },
+				PoolsEvent::Unbonded {
+					member: alice,
+					pool_id: 1,
+					points: 15,
+					balance: 15,
+					era: 21
+				}
+			]
+		);
+
+		CurrentEra::<Runtime>::set(Some(21));
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(alice), alice, 0));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 15 }]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Withdrawn { member: alice, pool_id: 1, balance: 20, points: 25 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: alice, released_balance: 0 },
+				PoolsEvent::Destroyed { pool_id: 1 }
+			]
+		);
+
+		// holds for all members are released.
+		assert_eq!(Balances::total_balance_on_hold(&alice), 0);
+		assert_eq!(Balances::total_balance_on_hold(&bob), 0);
+		assert_eq!(Balances::total_balance_on_hold(&charlie), 0);
+	});
 }

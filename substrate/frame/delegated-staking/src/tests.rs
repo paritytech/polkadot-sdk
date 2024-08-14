@@ -943,7 +943,7 @@ mod pool_integration {
 				vec![
 					PoolsEvent::Withdrawn { member: 302, pool_id, balance: 100, points: 100 },
 					PoolsEvent::Withdrawn { member: 303, pool_id, balance: 200, points: 200 },
-					PoolsEvent::MemberRemoved { pool_id: 1, member: 303 },
+					PoolsEvent::MemberRemoved { pool_id: 1, member: 303, released_balance: 0 },
 				]
 			);
 
@@ -1055,7 +1055,7 @@ mod pool_integration {
 						balance: creator_stake,
 						points: creator_stake,
 					},
-					PoolsEvent::MemberRemoved { pool_id, member: creator },
+					PoolsEvent::MemberRemoved { pool_id, member: creator, released_balance: 0 },
 					PoolsEvent::Destroyed { pool_id },
 				]
 			);
