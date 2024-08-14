@@ -201,7 +201,7 @@ where
 }
 
 /// Some sort of cost taken from account temporarily in order to offset the cost to the chain of
-/// holding some data `Footprint` (e.g. [`Footprint`]) in state.
+/// holding some data [`Footprint`] in state.
 ///
 /// The cost may be increased, reduced or dropped entirely as the footprint changes.
 ///
@@ -217,16 +217,14 @@ pub trait Consideration<AccountId, Footprint>:
 	Member + FullCodec + TypeInfo + MaxEncodedLen
 {
 	/// Create a ticket for the `new` footprint attributable to `who`. This ticket *must* ultimately
-	/// be consumed through `update` or `drop` once the footprint changes or is removed. `None`
-	/// implies no cost for a given footprint.
-	fn new(who: &AccountId, new: Footprint) -> Result<Option<Self>, DispatchError>;
+	/// be consumed through `update` or `drop` once the footprint changes or is removed.
+	fn new(who: &AccountId, new: Footprint) -> Result<Self, DispatchError>;
 
 	/// Optionally consume an old ticket and alter the footprint, enforcing the new cost to `who`
-	/// and returning the new ticket (or an error if there was an issue). `None` implies no cost for
-	/// a given footprint.
+	/// and returning the new ticket (or an error if there was an issue).
 	///
 	/// For creating tickets and dropping them, you can use the simpler `new` and `drop` instead.
-	fn update(self, who: &AccountId, new: Footprint) -> Result<Option<Self>, DispatchError>;
+	fn update(self, who: &AccountId, new: Footprint) -> Result<Self, DispatchError>;
 
 	/// Consume a ticket for some `old` footprint attributable to `who` which should now been freed.
 	fn drop(self, who: &AccountId) -> Result<(), DispatchError>;
@@ -239,18 +237,24 @@ pub trait Consideration<AccountId, Footprint>:
 	fn burn(self, _: &AccountId) {
 		let _ = self;
 	}
+	/// Ensure that creating a ticket for a given account and footprint will be successful if done
+	/// immediately after this call.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(who: &AccountId, new: Footprint);
 }
 
 impl<A, F> Consideration<A, F> for () {
-	fn new(_: &A, _: F) -> Result<Option<Self>, DispatchError> {
-		Ok(Some(()))
+	fn new(_: &A, _: F) -> Result<Self, DispatchError> {
+		Ok(())
 	}
-	fn update(self, _: &A, _: F) -> Result<Option<Self>, DispatchError> {
-		Ok(Some(()))
+	fn update(self, _: &A, _: F) -> Result<(), DispatchError> {
+		Ok(())
 	}
 	fn drop(self, _: &A) -> Result<(), DispatchError> {
 		Ok(())
 	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &A, _: F) {}
 }
 
 macro_rules! impl_incrementable {
