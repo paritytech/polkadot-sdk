@@ -240,6 +240,11 @@ pub mod pallet {
 	pub type Nodes<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, NodeIndex, HashOf<T, I>, OptionQuery>;
 
+	/// Helper flag used in the runtime benchmarks for the initial setup.
+	#[cfg(feature = "runtime-benchmarks")]
+	#[pallet::storage]
+	pub type UseLocalStorage<T, I = ()> = StorageValue<_, bool, ValueQuery>;
+
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {

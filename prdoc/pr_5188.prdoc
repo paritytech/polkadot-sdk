@@ -30,5 +30,3 @@ crates:
     bump: major
   - name: westend-runtime
     bump: minor
-  - name: sp-io
-    bump: minor

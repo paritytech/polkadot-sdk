@@ -52,13 +52,13 @@ impl OffchainStorage {
 	}
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	fn set(key: &[u8], value: &[u8]) {
+	fn set<T: Config<I>, I: 'static>(key: &[u8], value: &[u8]) {
 		sp_io::offchain_index::set(key, value);
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn set(key: &[u8], value: &[u8]) {
-		if sp_io::offchain::is_offchain_db_ext_available() {
+	fn set<T: Config<I>, I: 'static>(key: &[u8], value: &[u8]) {
+		if crate::pallet::UseLocalStorage::<T, I>::get() {
 			sp_io::offchain::local_storage_set(StorageKind::PERSISTENT, key, value);
 		} else {
 			sp_io::offchain_index::set(key, value);
@@ -221,7 +221,7 @@ where
 			target: "runtime::mmr::offchain", "offchain db set: pos {} parent_hash {:?} key {:?}",
 			pos, parent_hash, temp_key
 		);
-		OffchainStorage::set(&temp_key, &encoded_node);
+		OffchainStorage::set::<T, I>(&temp_key, &encoded_node);
 	}
 }
 
