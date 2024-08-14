@@ -1443,6 +1443,11 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Returns the claim queue offset.
+	pub fn fetch_claim_queue_offset() -> u8 {
+		1
+	}
+
 	/// Set a custom head data that should be returned as result of `validate_block`.
 	///
 	/// This will overwrite the head data that is returned as result of `validate_block` while

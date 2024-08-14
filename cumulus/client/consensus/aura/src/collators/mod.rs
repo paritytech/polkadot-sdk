@@ -126,8 +126,9 @@ async fn async_backing_params(
 	}
 }
 
-// Return all the cores assigned to the para at the provided relay parent.
-async fn cores_scheduled_for_para(
+// Return all the cores assigned to the para at the provided relay parent, using the legacy method,
+// availability-cores. Using the claim queue is the preferred alternative.
+async fn cores_scheduled_for_para_legacy(
 	relay_parent: RelayHash,
 	para_id: ParaId,
 	relay_client: &impl RelayChainInterface,
@@ -166,6 +167,44 @@ async fn cores_scheduled_for_para(
 
 			if core_para_id == Some(para_id) {
 				Some(CoreIndex(index as u32))
+			} else {
+				None
+			}
+		})
+		.collect()
+}
+
+// Return all the cores assigned to the para at the provided relay parent, using the claim queue
+// offset. This assumes the relay chain runtime supports the claimqueue runtime API.
+// Will return an empty vec if the provided offset is higher than the claim queue length (which
+// corresponds to the scheduling_lookahead on the relay chain).
+async fn cores_scheduled_for_para(
+	relay_parent: RelayHash,
+	para_id: ParaId,
+	relay_client: &impl RelayChainInterface,
+	claim_queue_offset: u8,
+) -> Vec<CoreIndex> {
+	// Get `ClaimQueue` from runtime
+	let claim_queue = match relay_client.claim_queue(relay_parent).await {
+		Ok(claim_queue) => claim_queue,
+		Err(error) => {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				?error,
+				?relay_parent,
+				"Failed to query claim queue runtime API",
+			);
+			return Vec::new()
+		},
+	};
+
+	claim_queue
+		.into_iter()
+		.filter_map(|(core_index, queue)| {
+			let core_para_id = queue.get(claim_queue_offset as usize);
+
+			if core_para_id == Some(&para_id) {
+				Some(core_index)
 			} else {
 				None
 			}

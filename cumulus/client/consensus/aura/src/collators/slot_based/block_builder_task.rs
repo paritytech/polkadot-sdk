@@ -20,7 +20,7 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
+use cumulus_primitives_core::{FetchClaimQueueOffset, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_primitives::{
@@ -31,7 +31,7 @@ use polkadot_primitives::{
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi, RuntimeApiInfo};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
@@ -45,7 +45,9 @@ use std::{sync::Arc, time::Duration};
 use super::CollatorMessage;
 use crate::{
 	collator::{self as collator_util},
-	collators::{check_validation_code_or_log, cores_scheduled_for_para},
+	collators::{
+		check_validation_code_or_log, cores_scheduled_for_para, cores_scheduled_for_para_legacy,
+	},
 	LOG_TARGET,
 };
 
@@ -177,7 +179,7 @@ where
 		+ Sync
 		+ 'static,
 	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
+		AuraApi<Block, P::Public> + FetchClaimQueueOffset<Block> + AuraUnincludedSegmentApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -239,12 +241,29 @@ where
 				return
 			};
 
-			let Ok(RelayChainData {
-				relay_parent_header,
-				max_pov_size,
-				relay_parent_hash: relay_parent,
-				scheduled_cores,
-			}) = relay_chain_fetcher.get_relay_chain_data().await
+			let Ok(relay_parent) = relay_client.best_block_hash().await else {
+				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
+				continue
+			};
+
+			let Some((included_block, parent)) =
+				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
+					.await
+			else {
+				continue
+			};
+
+			let parent_header = parent.header;
+			let parent_hash = parent.hash;
+
+			// Retrieve claim queue offset, if present.
+			let Ok(maybe_cq_offset) = fetch_claim_queue_offset(&*para_client, parent_hash).await
+			else {
+				continue
+			};
+
+			let Ok(RelayChainData { relay_parent_header, max_pov_size, scheduled_cores }) =
+				relay_chain_fetcher.get_relay_chain_data(relay_parent, maybe_cq_offset).await
 			else {
 				continue;
 			};
@@ -259,16 +278,6 @@ where
 				tracing::debug!(target: LOG_TARGET, core_index_in_scheduled, core_len = scheduled_cores.len(), "Para is scheduled, but not enough cores available.");
 				continue;
 			};
-
-			let Some((included_block, parent)) =
-				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
-					.await
-			else {
-				continue
-			};
-
-			let parent_header = parent.header;
-			let parent_hash = parent.hash;
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
@@ -414,8 +423,6 @@ struct RelayChainData {
 	pub scheduled_cores: Vec<CoreIndex>,
 	/// Maximum configured PoV size on the relay chain.
 	pub max_pov_size: u32,
-	/// Current relay chain parent header.
-	pub relay_parent_hash: RelayHash,
 }
 
 /// Simple helper to fetch relay chain data and cache it based on the current relay chain best block
@@ -437,12 +444,11 @@ where
 	/// Fetch required [`RelayChainData`] from the relay chain.
 	/// If this data has been fetched in the past for the incoming hash, it will reuse
 	/// cached data.
-	pub async fn get_relay_chain_data(&mut self) -> Result<RelayChainData, ()> {
-		let Ok(relay_parent) = self.relay_client.best_block_hash().await else {
-			tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
-			return Err(())
-		};
-
+	pub async fn get_relay_chain_data(
+		&mut self,
+		relay_parent: RelayHash,
+		maybe_claim_queue_offset: Option<u8>,
+	) -> Result<RelayChainData, ()> {
 		match &self.last_data {
 			Some((last_seen_hash, data)) if *last_seen_hash == relay_parent => {
 				tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Using cached data for relay parent.");
@@ -450,7 +456,8 @@ where
 			},
 			_ => {
 				tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Relay chain best block changed, fetching new data from relay chain.");
-				let data = self.update_for_relay_parent(relay_parent).await?;
+				let data =
+					self.update_for_relay_parent(relay_parent, maybe_claim_queue_offset).await?;
 				self.last_data = Some((relay_parent, data.clone()));
 				Ok(data)
 			},
@@ -458,9 +465,45 @@ where
 	}
 
 	/// Fetch fresh data from the relay chain for the given relay parent hash.
-	async fn update_for_relay_parent(&self, relay_parent: RelayHash) -> Result<RelayChainData, ()> {
-		let scheduled_cores =
-			cores_scheduled_for_para(relay_parent, self.para_id, &self.relay_client).await;
+	async fn update_for_relay_parent(
+		&self,
+		relay_parent: RelayHash,
+		maybe_claim_queue_offset: Option<u8>,
+	) -> Result<RelayChainData, ()> {
+		let runtime_api_version = self.relay_client.version(relay_parent).await.map_err(|e| {
+			tracing::error!(
+				target: LOG_TARGET,
+				error = ?e,
+				"Failed to fetch relay chain runtime version.",
+			)
+		})?;
+		let parachain_host_runtime_api_version =
+			runtime_api_version
+				.api_version(
+					&<dyn polkadot_primitives::runtime_api::ParachainHost<
+						polkadot_primitives::Block,
+					>>::ID,
+				)
+				.unwrap_or_default();
+
+		// If the relay chain runtime does not support the new claim queue runtime API, fallback to
+		// the using availability cores. In this case the claim queue offset will not be used.
+		let supports_claim_queue = parachain_host_runtime_api_version >=
+			polkadot_node_subsystem::messages::RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT;
+
+		let scheduled_cores = if supports_claim_queue {
+			cores_scheduled_for_para(
+				relay_parent,
+				self.para_id,
+				&self.relay_client,
+				// TODO: make this a default somewhere.
+				maybe_claim_queue_offset.unwrap_or(0),
+			)
+			.await
+		} else {
+			cores_scheduled_for_para_legacy(relay_parent, self.para_id, &self.relay_client).await
+		};
+
 		let Ok(Some(relay_parent_header)) =
 			self.relay_client.header(BlockId::Hash(relay_parent)).await
 		else {
@@ -481,11 +524,23 @@ where
 			},
 		};
 
-		Ok(RelayChainData {
-			relay_parent_hash: relay_parent,
-			relay_parent_header,
-			scheduled_cores,
-			max_pov_size,
-		})
+		Ok(RelayChainData { relay_parent_header, scheduled_cores, max_pov_size })
+	}
+}
+
+async fn fetch_claim_queue_offset<Block: BlockT, Client>(
+	para_client: &Client,
+	block_hash: Block::Hash,
+) -> Result<Option<u8>, sp_api::ApiError>
+where
+	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	Client::Api: FetchClaimQueueOffset<Block>,
+{
+	let runtime_api = para_client.runtime_api();
+
+	if runtime_api.has_api::<dyn FetchClaimQueueOffset<Block>>(block_hash)? {
+		Ok(Some(runtime_api.fetch_claim_queue_offset(block_hash)?))
+	} else {
+		Ok(None)
 	}
 }

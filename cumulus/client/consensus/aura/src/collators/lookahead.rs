@@ -256,7 +256,7 @@ where
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
 
-			let core_index = if let Some(core_index) = super::cores_scheduled_for_para(
+			let core_index = if let Some(core_index) = super::cores_scheduled_for_para_legacy(
 				relay_parent,
 				params.para_id,
 				&mut params.relay_client,

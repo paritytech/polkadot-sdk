@@ -20,7 +20,7 @@
 
 pub mod aura;
 
-use cumulus_primitives_core::CollectCollationInfo;
+use cumulus_primitives_core::{CollectCollationInfo, FetchClaimQueueOffset};
 use sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata};
 use sp_block_builder::BlockBuilder;
 use sp_runtime::traits::Block as BlockT;
@@ -36,6 +36,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ BlockBuilder<Block>
 	+ TaggedTransactionQueue<Block>
 	+ CollectCollationInfo<Block>
+	+ FetchClaimQueueOffset<Block>
 	+ Sized
 {
 }
@@ -46,6 +47,7 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ SessionKeys<Block>
 		+ BlockBuilder<Block>
 		+ TaggedTransactionQueue<Block>
+		+ FetchClaimQueueOffset<Block>
 		+ CollectCollationInfo<Block>
 {
 }
