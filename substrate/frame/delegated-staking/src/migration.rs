@@ -27,7 +27,8 @@ pub mod unversioned {
 	use alloc::vec::Vec;
 	use sp_runtime::traits::AccountIdConversion;
 
-	/// Migrates `ProxyDelegator` accounts with better entropy than the previous.
+	/// Migrates `ProxyDelegator` accounts with better entropy than the old logic which didn't take
+	/// into account all the bytes of the agent account ID.
 	pub struct ProxyDelegatorMigration<T, MaxAgents>(PhantomData<(T, MaxAgents)>);
 
 	impl<T: Config, MaxAgents: Get<u32>> OnRuntimeUpgrade for ProxyDelegatorMigration<T, MaxAgents> {
