@@ -32,6 +32,7 @@ use crate::{
 	RequestFailure, Signature,
 };
 
+use crate::litep2p::Record;
 use codec::DecodeAll;
 use futures::{channel::oneshot, stream::BoxStream};
 use libp2p::{identity::SigningError, kad::record::Key as KademliaKey};
@@ -74,6 +75,30 @@ pub enum NetworkServiceCommand {
 
 		/// Record value.
 		value: Vec<u8>,
+	},
+
+	/// Put value to DHT.
+	PutValueTo {
+		/// Record.
+		record: Record,
+		/// Peers we want to put the record.
+		peers: Vec<sc_network_types::PeerId>,
+		/// If we should update the local storage or not.
+		update_local_storage: bool,
+	},
+	/// Store record in the local DHT store.
+	StoreRecord {
+		/// Record key.
+		key: KademliaKey,
+
+		/// Record value.
+		value: Vec<u8>,
+
+		/// Original publisher of the record.
+		publisher: Option<PeerId>,
+
+		/// Record expiration time as measured by a local, monothonic clock.
+		expires: Option<Instant>,
 	},
 
 	/// Query network status.
@@ -238,15 +263,40 @@ impl NetworkDHTProvider for Litep2pNetworkService {
 		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::PutValue { key, value });
 	}
 
+	fn put_record_to(
+		&self,
+		record: libp2p::kad::Record,
+		peers: HashSet<PeerId>,
+		update_local_storage: bool,
+	) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::PutValueTo {
+			record: Record {
+				key: record.key.to_vec().into(),
+				value: record.value,
+				publisher: record.publisher.map(|peer_id| {
+					let peer_id: sc_network_types::PeerId = peer_id.into();
+					peer_id.into()
+				}),
+				expires: record.expires,
+			},
+			peers: peers.into_iter().collect(),
+			update_local_storage,
+		});
+	}
+
 	fn store_record(
 		&self,
-		_key: KademliaKey,
-		_value: Vec<u8>,
-		_publisher: Option<PeerId>,
-		_expires: Option<Instant>,
+		key: KademliaKey,
+		value: Vec<u8>,
+		publisher: Option<PeerId>,
+		expires: Option<Instant>,
 	) {
-		// Will be added once litep2p is released with: https://github.com/paritytech/litep2p/pull/135
-		log::warn!(target: LOG_TARGET, "Store record is not implemented for litep2p");
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::StoreRecord {
+			key,
+			value,
+			publisher,
+			expires,
+		});
 	}
 }
 

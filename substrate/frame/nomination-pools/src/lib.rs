@@ -351,8 +351,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use adapter::{Member, Pool, StakeStrategy};
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use codec::Codec;
+use core::{fmt::Debug, ops::Div};
 use frame_support::{
 	defensive, defensive_assert, ensure,
 	pallet_prelude::{MaxEncodedLen, *},
@@ -375,7 +379,6 @@ use sp_runtime::{
 	FixedPointNumber, Perbill,
 };
 use sp_staking::{EraIndex, StakingInterface};
-use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, ops::Div, vec::Vec};
 
 #[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 use sp_runtime::TryRuntimeError;
@@ -494,7 +497,6 @@ impl ClaimPermission {
 	frame_support::PartialEqNoBound,
 )]
 #[cfg_attr(feature = "std", derive(DefaultNoBound))]
-#[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct PoolMember<T: Config> {
 	/// The identifier of the pool to which `who` belongs.
@@ -950,14 +952,14 @@ pub struct BondedPool<T: Config> {
 	inner: BondedPoolInner<T>,
 }
 
-impl<T: Config> sp_std::ops::Deref for BondedPool<T> {
+impl<T: Config> core::ops::Deref for BondedPool<T> {
 	type Target = BondedPoolInner<T>;
 	fn deref(&self) -> &Self::Target {
 		&self.inner
 	}
 }
 
-impl<T: Config> sp_std::ops::DerefMut for BondedPool<T> {
+impl<T: Config> core::ops::DerefMut for BondedPool<T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.inner
 	}
@@ -1829,7 +1831,9 @@ pub mod pallet {
 		/// A member has been removed from a pool.
 		///
 		/// The removal can be voluntary (withdrawn all unbonded funds) or involuntary (kicked).
-		MemberRemoved { pool_id: PoolId, member: T::AccountId },
+		/// Any funds that are still delegated (i.e. dangling delegation) are released and are
+		/// represented by `released_balance`.
+		MemberRemoved { pool_id: PoolId, member: T::AccountId, released_balance: BalanceOf<T> },
 		/// The roles of a pool have been updated to the given new roles. Note that the depositor
 		/// can never change.
 		RolesUpdated {
@@ -1983,8 +1987,13 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Stake funds with a pool. The amount to bond is transferred from the member to the
-		/// pools account and immediately increases the pools bond.
+		/// Stake funds with a pool. The amount to bond is transferred from the member to the pool
+		/// account and immediately increases the pools bond.
+		///
+		/// The method of transferring the amount to the pool account is determined by
+		/// [`adapter::StakeStrategyType`]. If the pool is configured to use
+		/// [`adapter::StakeStrategyType::Delegate`], the funds remain in the account of
+		/// the `origin`, while the pool gains the right to use these funds for staking.
 		///
 		/// # Note
 		///
@@ -2335,9 +2344,10 @@ pub mod pallet {
 				// don't exist. This check is also defensive in cases where the unbond pool does not
 				// update its balance (e.g. a bug in the slashing hook.) We gracefully proceed in
 				// order to ensure members can leave the pool and it can be destroyed.
-				.min(T::StakeAdapter::transferable_balance(Pool::from(
-					bonded_pool.bonded_account(),
-				)));
+				.min(T::StakeAdapter::transferable_balance(
+					Pool::from(bonded_pool.bonded_account()),
+					Member::from(member_account.clone()),
+				));
 
 			// this can fail if the pool uses `DelegateStake` strategy and the member delegation
 			// is not claimed yet. See `Call::migrate_delegation()`.
@@ -2361,9 +2371,27 @@ pub mod pallet {
 
 				// member being reaped.
 				PoolMembers::<T>::remove(&member_account);
+
+				// Ensure any dangling delegation is withdrawn.
+				let dangling_withdrawal = match T::StakeAdapter::member_delegation_balance(
+					Member::from(member_account.clone()),
+				) {
+					Some(dangling_delegation) => {
+						T::StakeAdapter::member_withdraw(
+							Member::from(member_account.clone()),
+							Pool::from(bonded_pool.bonded_account()),
+							dangling_delegation,
+							num_slashing_spans,
+						)?;
+						dangling_delegation
+					},
+					None => Zero::zero(),
+				};
+
 				Self::deposit_event(Event::<T>::MemberRemoved {
 					pool_id: member.pool_id,
 					member: member_account.clone(),
+					released_balance: dangling_withdrawal,
 				});
 
 				if member_account == bonded_pool.roles.depositor {
@@ -2601,7 +2629,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let mut bonded_pool = match ensure_root(origin.clone()) {
 				Ok(()) => BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?,
-				Err(frame_support::error::BadOrigin) => {
+				Err(sp_runtime::traits::BadOrigin) => {
 					let who = ensure_signed(origin)?;
 					let bonded_pool =
 						BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
@@ -3071,16 +3099,11 @@ impl<T: Config> Pallet<T> {
 			T::Currency::total_balance(&reward_account) == Zero::zero(),
 			"could not transfer all amount to depositor while dissolving pool"
 		);
-		defensive_assert!(
-			T::StakeAdapter::total_balance(Pool::from(bonded_pool.bonded_account()))
-				.unwrap_or_default() ==
-				Zero::zero(),
-			"dissolving pool should not have any balance"
-		);
 		// NOTE: Defensively force set balance to zero.
 		T::Currency::set_balance(&reward_account, Zero::zero());
-		// NOTE: With `DelegateStake` strategy, this won't do anything.
-		T::Currency::set_balance(&bonded_pool.bonded_account(), Zero::zero());
+
+		// dissolve pool account.
+		let _ = T::StakeAdapter::dissolve(Pool::from(bonded_account)).defensive();
 
 		Self::deposit_event(Event::<T>::Destroyed { pool_id: bonded_pool.id });
 		// Remove bonded pool metadata.
@@ -3518,13 +3541,8 @@ impl<T: Config> Pallet<T> {
 		// this is their balance in the pool
 		let expected_balance = pool_member.total_balance();
 
-		defensive_assert!(
-			actual_balance >= expected_balance,
-			"actual balance should always be greater or equal to the expected"
-		);
-
 		// return the amount to be slashed.
-		Ok(actual_balance.defensive_saturating_sub(expected_balance))
+		Ok(actual_balance.saturating_sub(expected_balance))
 	}
 
 	/// Apply freeze on reward account to restrict it from going below ED.

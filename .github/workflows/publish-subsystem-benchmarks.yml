@@ -23,7 +23,7 @@ jobs:
           echo "${{ github.event.inputs.output-file-path }}" | grep -P '^[a-z\-]+\.json'
 
       - name: Checkout Sources
-        uses: actions/checkout@v4.1.2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: "gh-pages"

@@ -4,7 +4,7 @@ version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME AURA consensus pallet"
 readme = "README.md"
@@ -25,7 +25,6 @@ pallet-timestamp = { workspace = true }
 sp-application-crypto = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 [dev-dependencies]
 sp-core = { workspace = true }
@@ -45,7 +44,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

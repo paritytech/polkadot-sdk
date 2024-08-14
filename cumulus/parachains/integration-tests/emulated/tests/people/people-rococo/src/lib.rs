@@ -20,7 +20,6 @@ mod imports {
 	// Substrate
 	pub use frame_support::{
 		assert_ok,
-		pallet_prelude::Weight,
 		sp_runtime::{AccountId32, DispatchResult},
 		traits::fungibles::Inspect,
 	};
@@ -37,9 +36,22 @@ mod imports {
 	pub use parachains_common::Balance;
 	pub use rococo_system_emulated_network::{
 		people_rococo_emulated_chain::{
-			genesis::ED as PEOPLE_ROCOCO_ED, PeopleRococoParaPallet as PeopleRococoPallet,
+			genesis::ED as PEOPLE_ROCOCO_ED,
+			people_rococo_runtime::{
+				people, xcm_config::XcmConfig as PeopleRococoXcmConfig,
+				ExistentialDeposit as PeopleRococoExistentialDeposit, Runtime as PeopleRuntime,
+			},
+			PeopleRococoParaPallet as PeopleRococoPallet,
 		},
-		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
+		rococo_emulated_chain::{
+			genesis::ED as ROCOCO_ED,
+			rococo_runtime::{
+				xcm_config::XcmConfig as RococoXcmConfig, BasicDeposit, ByteDeposit,
+				MaxAdditionalFields, MaxSubAccounts, Runtime as RococoRuntime,
+				RuntimeOrigin as RococoOrigin, SubAccountDeposit,
+			},
+			RococoRelayPallet as RococoPallet,
+		},
 		PeopleRococoPara as PeopleRococo, PeopleRococoParaReceiver as PeopleRococoReceiver,
 		PeopleRococoParaSender as PeopleRococoSender, RococoRelay as Rococo,
 		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,

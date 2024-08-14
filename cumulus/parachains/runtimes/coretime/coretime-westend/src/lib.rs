@@ -33,6 +33,9 @@ mod coretime;
 mod weights;
 pub mod xcm_config;
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
@@ -66,7 +69,6 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, DispatchError, MultiAddress, Perbill,
 };
-use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -104,6 +106,7 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -116,6 +119,7 @@ pub type Migrations = (
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	pallet_broker::migration::MigrateV0ToV1<Runtime>,
 	pallet_broker::migration::MigrateV1ToV2<Runtime>,
+	pallet_broker::migration::MigrateV2ToV3<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
@@ -141,10 +145,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("coretime-westend"),
 	impl_name: create_runtime_str!("coretime-westend"),
 	authoring_version: 1,
-	spec_version: 1_013_000,
+	spec_version: 1_015_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 1,
+	transaction_version: 2,
 	state_version: 1,
 };
 
@@ -541,7 +545,7 @@ impl_runtime_apis! {
 			Runtime::metadata_at_version(version)
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
 	}
@@ -763,7 +767,7 @@ impl_runtime_apis! {
 
 			use frame_system_benchmarking::Pallet as SystemBench;
 			impl frame_system_benchmarking::Config for Runtime {
-				fn setup_set_code_requirements(code: &sp_std::vec::Vec<u8>) -> Result<(), BenchmarkError> {
+				fn setup_set_code_requirements(code: &alloc::vec::Vec<u8>) -> Result<(), BenchmarkError> {
 					ParachainSystem::initialize_for_set_code_benchmark(code.len() as u32);
 					Ok(())
 				}
@@ -819,7 +823,7 @@ impl_runtime_apis! {
 					let begin = 0;
 					let end = 42;
 
-					let region_id = pallet_broker::Pallet::<Runtime>::issue(core, begin, end, None, None);
+					let region_id = pallet_broker::Pallet::<Runtime>::issue(core, begin, pallet_broker::CoreMask::complete(), end, None, None);
 					Some((
 						Asset {
 							fun: NonFungible(Index(region_id.into())),

@@ -98,7 +98,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::cmp::Ordering;
 use frame_support::{
 	traits::{
 		defensive_prelude::*, ChangeMembers, Contains, ContainsLengthBound, Currency, Get,
@@ -115,7 +119,6 @@ use sp_runtime::{
 	DispatchError, Perbill, RuntimeDebug,
 };
 use sp_staking::currency_to_vote::CurrencyToVote;
-use sp_std::{cmp::Ordering, prelude::*};
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
@@ -2192,7 +2195,7 @@ mod tests {
 			assert_eq!(locked_stake_of(&2), 0);
 
 			assert_eq!(balances(&2), (20, 0));
-			assert_eq!(Balances::locks(&2).len(), 0);
+			assert_eq!(pallet_balances::Locks::<Test>::get(&2).len(), 0);
 		});
 	}
 

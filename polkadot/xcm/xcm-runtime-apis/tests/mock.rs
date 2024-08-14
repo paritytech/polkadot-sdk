@@ -18,6 +18,7 @@
 //! Implements both runtime APIs for fee estimation and getting the messages for transfers.
 
 use codec::Encode;
+use core::{cell::RefCell, marker::PhantomData};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types, sp_runtime,
 	sp_runtime::{
@@ -32,7 +33,6 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, RawOrigin as SystemRawOrigin};
 use pallet_xcm::TestWeightInfo;
-use sp_std::{cell::RefCell, marker::PhantomData};
 use xcm::{prelude::*, Version as XcmVersion};
 use xcm_builder::{
 	AllowTopLevelPaidExecutionFrom, ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible,
@@ -389,6 +389,7 @@ pub fn new_test_ext_with_balances_and_assets(
 			(1, "Relay Token".into(), "RLY".into(), 12),
 		],
 		accounts: assets,
+		next_asset_id: None,
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

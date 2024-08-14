@@ -18,12 +18,14 @@ path = "src/main.rs"
 async-trait = { workspace = true }
 clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
+color-eyre = { workspace = true }
 color-print = { workspace = true }
 futures = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+docify = { workspace = true }
 
 # Local
 rococo-parachain-runtime = { workspace = true }
@@ -120,7 +122,7 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 assert_cmd = { workspace = true }
 nix = { features = ["signal"], workspace = true }
 tempfile = { workspace = true }
-tokio = { features = ["macros", "parking_lot", "time"], workspace = true, default-features = true }
+tokio = { version = "1.32.0", features = ["macros", "parking_lot", "time"] }
 wait-timeout = { workspace = true }
 
 [features]
@@ -171,4 +173,9 @@ try-runtime = [
 	"shell-runtime/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-fast-runtime = ["bridge-hub-rococo-runtime/fast-runtime"]
+fast-runtime = [
+	"bridge-hub-rococo-runtime/fast-runtime",
+	"bridge-hub-westend-runtime/fast-runtime",
+	"coretime-rococo-runtime/fast-runtime",
+	"coretime-westend-runtime/fast-runtime",
+]

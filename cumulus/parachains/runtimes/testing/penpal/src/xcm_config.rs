@@ -47,11 +47,11 @@ use xcm_builder::{
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
 	ConvertedConcreteId, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
 	FungibleAdapter, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset, NoChecking,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, StartsWith, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents,
 };
 use xcm_executor::{traits::JustTry, XcmExecutor};
 
@@ -282,6 +282,10 @@ parameter_types! {
 		1,
 		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(RESERVABLE_ASSET_ID.into())]
 	);
+	pub UsdtFromAssetHub: Location = Location::new(
+		1,
+		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(1984)]
+	);
 
 	/// The Penpal runtime is utilized for testing with various environment setups.
 	/// This storage item provides the opportunity to customize testing scenarios
@@ -351,7 +355,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetExchanger = ();
 	type FeeManager = XcmFeeManagerFromComponents<
 		(),
-		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;

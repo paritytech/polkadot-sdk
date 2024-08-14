@@ -20,7 +20,15 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit.
 #![recursion_limit = "512"]
 
+extern crate alloc;
+
+use alloc::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::cmp::Ordering;
 use frame_support::{
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	traits::FromContains,
@@ -45,14 +53,14 @@ use polkadot_runtime_common::{
 	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
 use polkadot_runtime_parachains::{
-	assigner_coretime as parachains_assigner_coretime,
-	assigner_on_demand as parachains_assigner_on_demand, configuration as parachains_configuration,
+	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
-	initializer as parachains_initializer, origin as parachains_origin, paras as parachains_paras,
+	initializer as parachains_initializer, on_demand as parachains_on_demand,
+	origin as parachains_origin, paras as parachains_paras,
 	paras_inherent as parachains_paras_inherent,
 	runtime_api_impl::{
 		v10 as parachains_runtime_api_impl, vstaging as vstaging_parachains_runtime_api_impl,
@@ -60,7 +68,7 @@ use polkadot_runtime_parachains::{
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
-use rococo_runtime_constants::system_parachain::BROKER_ID;
+use rococo_runtime_constants::system_parachain::{coretime::TIMESLICE_PERIOD, BROKER_ID};
 use scale_info::TypeInfo;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::{
@@ -68,11 +76,6 @@ use sp_consensus_beefy::{
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
 use sp_genesis_builder::PresetId;
-use sp_std::{
-	cmp::Ordering,
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-	prelude::*,
-};
 
 use frame_support::{
 	construct_runtime, derive_impl,
@@ -92,12 +95,13 @@ use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
-use sp_core::{ConstU128, ConstU8, OpaqueMetadata, H256};
+use sp_core::{ConstU128, ConstU8, Get, OpaqueMetadata, H256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		BlakeTwo256, Block as BlockT, ConstU32, ConvertInto, Extrinsic as ExtrinsicT,
-		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
+		AccountIdConversion, BlakeTwo256, Block as BlockT, ConstU32, ConvertInto,
+		Extrinsic as ExtrinsicT, IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion,
+		Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill, RuntimeDebug,
@@ -162,7 +166,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("rococo"),
 	impl_name: create_runtime_str!("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 1_013_000,
+	spec_version: 1_015_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 26,
@@ -1057,7 +1061,16 @@ impl parachains_scheduler::Config for Runtime {
 
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
+	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
 	pub MaxXcmTransactWeight: Weight = Weight::from_parts(200_000_000, 20_000);
+}
+
+pub struct BrokerPot;
+impl Get<InteriorLocation> for BrokerPot {
+	fn get() -> InteriorLocation {
+		Junction::AccountId32 { network: None, id: BrokerPalletId::get().into_account_truncating() }
+			.into()
+	}
 }
 
 impl coretime::Config for Runtime {
@@ -1065,20 +1078,31 @@ impl coretime::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type BrokerId = BrokerId;
+	type BrokerPotLocation = BrokerPot;
 	type WeightInfo = weights::runtime_parachains_coretime::WeightInfo<Runtime>;
 	type SendXcm = crate::xcm_config::XcmRouter;
+	type AssetTransactor = crate::xcm_config::LocalAssetTransactor;
+	type AccountToLocation = xcm_builder::AliasesIntoAccountId32<
+		xcm_config::ThisNetwork,
+		<Runtime as frame_system::Config>::AccountId,
+	>;
 	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
 parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
+	// Keep 2 timeslices worth of revenue information.
+	pub const MaxHistoricalRevenue: BlockNumber = 2 * TIMESLICE_PERIOD;
+	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
 }
 
-impl parachains_assigner_on_demand::Config for Runtime {
+impl parachains_on_demand::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
-	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
+	type WeightInfo = weights::runtime_parachains_on_demand::WeightInfo<Runtime>;
+	type MaxHistoricalRevenue = MaxHistoricalRevenue;
+	type PalletId = OnDemandPalletId;
 }
 
 impl parachains_assigner_coretime::Config for Runtime {}
@@ -1262,6 +1286,7 @@ impl pallet_beefy::Config for Runtime {
 	type MaxNominators = ConstU32<0>;
 	type MaxSetIdSessionEntries = BeefySetIdSessionEntries;
 	type OnNewValidatorSet = MmrLeaf;
+	type AncestryHelper = MmrLeaf;
 	type WeightInfo = ();
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
 	type EquivocationReportSystem =
@@ -1282,9 +1307,11 @@ impl pallet_mmr::Config for Runtime {
 	const INDEXING_PREFIX: &'static [u8] = mmr::INDEXING_PREFIX;
 	type Hashing = Keccak256;
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;
-	type WeightInfo = ();
 	type LeafData = pallet_beefy_mmr::Pallet<Runtime>;
 	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Runtime>;
+	type WeightInfo = weights::pallet_mmr::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = parachains_paras::benchmarking::mmr_setup::MmrSetup<Runtime>;
 }
 
 parameter_types! {
@@ -1294,13 +1321,8 @@ parameter_types! {
 pub struct ParaHeadsRootProvider;
 impl BeefyDataProvider<H256> for ParaHeadsRootProvider {
 	fn extra_data() -> H256 {
-		let mut para_heads: Vec<(u32, Vec<u8>)> = parachains_paras::Parachains::<Runtime>::get()
-			.into_iter()
-			.filter_map(|id| {
-				parachains_paras::Heads::<Runtime>::get(&id).map(|head| (id.into(), head.0))
-			})
-			.collect();
-		para_heads.sort();
+		let para_heads: Vec<(u32, Vec<u8>)> =
+			parachains_paras::Pallet::<Runtime>::sorted_para_heads();
 		binary_merkle_tree::merkle_root::<mmr::Hashing, _>(
 			para_heads.into_iter().map(|pair| pair.encode()),
 		)
@@ -1460,7 +1482,7 @@ construct_runtime! {
 		ParasDisputes: parachains_disputes = 62,
 		ParasSlashing: parachains_slashing = 63,
 		MessageQueue: pallet_message_queue = 64,
-		OnDemandAssignmentProvider: parachains_assigner_on_demand = 66,
+		OnDemandAssignmentProvider: parachains_on_demand = 66,
 		CoretimeAssignmentProvider: parachains_assigner_coretime = 68,
 
 		// Parachain Onboarding Pallets. Start indices at 70 to leave room.
@@ -1641,7 +1663,7 @@ pub mod migrations {
 		// This needs to come after the `parachains_configuration` above as we are reading the configuration.
 		coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl>,
 		parachains_configuration::migration::v12::MigrateToV12<Runtime>,
-		parachains_assigner_on_demand::migration::MigrateV0ToV1<Runtime>,
+		parachains_on_demand::migration::MigrateV0ToV1<Runtime>,
 
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
@@ -1696,13 +1718,13 @@ mod benches {
 		// the that path resolves correctly in the generated file.
 		[polkadot_runtime_common::assigned_slots, AssignedSlots]
 		[polkadot_runtime_common::auctions, Auctions]
-		[polkadot_runtime_common::coretime, Coretime]
 		[polkadot_runtime_common::crowdloan, Crowdloan]
 		[polkadot_runtime_common::claims, Claims]
 		[polkadot_runtime_common::identity_migrator, IdentityMigrator]
 		[polkadot_runtime_common::slots, Slots]
 		[polkadot_runtime_common::paras_registrar, Registrar]
 		[polkadot_runtime_parachains::configuration, Configuration]
+		[polkadot_runtime_parachains::coretime, Coretime]
 		[polkadot_runtime_parachains::hrmp, Hrmp]
 		[polkadot_runtime_parachains::disputes, ParasDisputes]
 		[polkadot_runtime_parachains::inclusion, ParaInclusion]
@@ -1721,6 +1743,7 @@ mod benches {
 		[pallet_identity, Identity]
 		[pallet_indices, Indices]
 		[pallet_message_queue, MessageQueue]
+		[pallet_mmr, Mmr]
 		[pallet_multisig, Multisig]
 		[pallet_parameters, Parameters]
 		[pallet_preimage, Preimage]
@@ -1823,7 +1846,7 @@ sp_api::impl_runtime_apis! {
 			Runtime::metadata_at_version(version)
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
 	}
@@ -2031,7 +2054,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(3)]
+	#[api_version(5)]
 	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			pallet_beefy::GenesisBlock::<Runtime>::get()
@@ -2041,7 +2064,7 @@ sp_api::impl_runtime_apis! {
 			Beefy::validator_set()
 		}
 
-		fn submit_report_equivocation_unsigned_extrinsic(
+		fn submit_report_double_voting_unsigned_extrinsic(
 			equivocation_proof: sp_consensus_beefy::DoubleVotingProof<
 				BlockNumber,
 				BeefyId,
@@ -2051,9 +2074,34 @@ sp_api::impl_runtime_apis! {
 		) -> Option<()> {
 			let key_owner_proof = key_owner_proof.decode()?;
 
-			Beefy::submit_unsigned_equivocation_report(
+			Beefy::submit_unsigned_double_voting_report(
 				equivocation_proof,
 				key_owner_proof,
+			)
+		}
+
+		fn submit_report_fork_voting_unsigned_extrinsic(
+			equivocation_proof:
+				sp_consensus_beefy::ForkVotingProof<
+					<Block as BlockT>::Header,
+					BeefyId,
+					sp_runtime::OpaqueValue
+				>,
+			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			Beefy::submit_unsigned_fork_voting_report(
+				equivocation_proof.try_into()?,
+				key_owner_proof.decode()?,
+			)
+		}
+
+		fn submit_report_future_block_voting_unsigned_extrinsic(
+			equivocation_proof: sp_consensus_beefy::FutureBlockVotingProof<BlockNumber, BeefyId>,
+			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			Beefy::submit_unsigned_future_block_voting_report(
+				equivocation_proof,
+				key_owner_proof.decode()?,
 			)
 		}
 
@@ -2066,6 +2114,17 @@ sp_api::impl_runtime_apis! {
 			Historical::prove((sp_consensus_beefy::KEY_TYPE, authority_id))
 				.map(|p| p.encode())
 				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
+		}
+
+		fn generate_ancestry_proof(
+			prev_block_number: BlockNumber,
+			best_known_block_number: Option<BlockNumber>,
+		) -> Option<sp_runtime::OpaqueValue> {
+			use sp_consensus_beefy::AncestryHelper;
+
+			MmrLeaf::generate_proof(prev_block_number, best_known_block_number)
+				.map(|p| p.encode())
+				.map(sp_runtime::OpaqueValue::new)
 		}
 	}
 
@@ -2367,7 +2426,7 @@ sp_api::impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+				) -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					// Relay supports only native token, either reserve transfer it to non-system parachains,
 					// or teleport it to system parachain. Use the teleport case for benchmarking as it's
 					// slightly heavier.
