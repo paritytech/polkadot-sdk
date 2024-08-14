@@ -1517,7 +1517,7 @@ mod enter {
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &unfiltered_para_inherent_data)
 				.unwrap();
 
-			// We expect all candidates to be filtered out (including the backed candidates.)
+			// We expect all backed candidates to be filtered out.
 			let filtered_para_inherend_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
 
