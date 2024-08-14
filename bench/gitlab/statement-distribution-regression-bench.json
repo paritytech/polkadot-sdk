@@ -1,1 +1,1 @@
-[{"name":"Sent to peers","unit":"KiB","value":127.91599999999993},{"name":"Received from peers","unit":"KiB","value":106.39999999999996},{"name":"statement-distribution","unit":"seconds","value":0.036978560892},{"name":"test-environment","unit":"seconds","value":0.04607091616000002}]
+[{"name":"Received from peers","unit":"KiB","value":106.39999999999996},{"name":"Sent to peers","unit":"KiB","value":127.94799999999998},{"name":"statement-distribution","unit":"seconds","value":0.03611195109599999},{"name":"test-environment","unit":"seconds","value":0.045200273572}]
