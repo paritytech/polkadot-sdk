@@ -1,0 +1,11 @@
+crates:
+- bump: patch
+  name: pallet-balances
+doc:
+- audience: Runtime Dev
+  description: "Currently, when the pallet is compiled with the `insecure_zero_ed\
+    \ flag`, benchmarks fail because the minimum balance is set to zero. \r\n\r\n\
+    The PR aims to resolve this issue by implementing a placeholder value for the\
+    \ minimum balance when the `insecure_zero_ed` flag is active. it ensures that\
+    \ benchmarks run successfully regardless of whether this flag is used or not"
+title: Fix benchmark failures when using `insecure_zero_ed` flag
