@@ -46,7 +46,7 @@ pub trait CliConfig {
 
 	fn support_url() -> String;
 
-	fn copyright_start_year() -> i32;
+	fn copyright_start_year() -> u16;
 }
 
 /// Sub-commands supported by the collator.
@@ -168,7 +168,7 @@ impl<Config: CliConfig> SubstrateCli for Cli<Config> {
 	}
 
 	fn copyright_start_year() -> i32 {
-		Config::copyright_start_year()
+		Config::copyright_start_year() as i32
 	}
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {

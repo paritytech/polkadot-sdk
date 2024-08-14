@@ -24,7 +24,7 @@
 //!
 //! ## API
 //!
-//! The library exposes the possibility to provide a [`CommandConfig`]. Through this structure
+//! The library exposes the possibility to provide a [`RunConfig`]. Through this structure
 //! 2 optional configurations can be provided:
 //! - a chain spec loader (an implementation of [`chain_spec::LoadSpec`]): this can be used for
 //!   providing the chain specs that are supported by default by the `--chain-spec` argument of the
@@ -44,5 +44,5 @@ mod rpc;
 mod service;
 
 pub use cli::CliConfig;
-pub use command::{run, CommandConfig};
+pub use command::{run, RunConfig};
 pub use common::{chain_spec, runtime};

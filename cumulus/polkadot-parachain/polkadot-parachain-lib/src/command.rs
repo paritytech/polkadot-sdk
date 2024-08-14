@@ -44,7 +44,7 @@ use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::traits::HashingFor;
 
 #[derive(Debug, Default)]
-pub struct CommandConfig {
+pub struct RunConfig {
 	pub chain_spec_loader: Option<Box<dyn LoadSpec>>,
 	pub runtime_resolver: Option<Box<dyn RuntimeResolver>>,
 }
@@ -71,7 +71,7 @@ fn new_node_spec(
 }
 
 /// Parse command line arguments into service configuration.
-pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: CommandConfig) -> Result<()> {
+pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()> {
 	let mut cli = Cli::<CliConfig>::from_args();
 	cli.chain_spec_loader = cmd_config.chain_spec_loader;
 
