@@ -25,7 +25,29 @@ use sc_cli::{
 	SharedParams, SubstrateCli,
 };
 use sc_service::{config::PrometheusConfig, BasePath};
-use std::{fmt::Debug, net::SocketAddr, path::PathBuf};
+use std::{fmt::Debug, marker::PhantomData, net::SocketAddr, path::PathBuf};
+
+pub trait CliConfig {
+	fn impl_version() -> String;
+
+	fn description(executable_name: String) -> String {
+		format!(
+			"The command-line arguments provided first will be passed to the parachain node, \n\
+			and the arguments provided after -- will be passed to the relay chain node. \n\
+			\n\
+			Example: \n\
+			\n\
+			{} [parachain-args] -- [relay-chain-args]",
+			executable_name
+		)
+	}
+
+	fn author() -> String;
+
+	fn support_url() -> String;
+
+	fn copyright_start_year() -> i32;
+}
 
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
@@ -68,37 +90,13 @@ pub enum Subcommand {
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
-fn examples(executable_name: String) -> String {
-	color_print::cformat!(
-		r#"<bold><underline>Examples:</></>
-
-   <bold>{0} --chain para.json --sync warp -- --chain relay.json --sync warp</>
-        Launch a warp-syncing full node of a given para's chain-spec, and a given relay's chain-spec.
-
-	<green><italic>The above approach is the most flexible, and the most forward-compatible way to spawn an omni-node.</></>
-
-	You can find the chain-spec of some networks in:
-	https://paritytech.github.io/chainspecs
-
-   <bold>{0} --chain asset-hub-polkadot --sync warp -- --chain polkadot --sync warp</>
-        Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Polkadot</> Relay Chain.
-
-   <bold>{0} --chain asset-hub-kusama --sync warp --relay-chain-rpc-url ws://rpc.example.com -- --chain kusama</>
-        Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Kusama</> Relay Chain.
-        Uses <italic>ws://rpc.example.com</> as remote relay chain node.
- "#,
-		executable_name,
-	)
-}
-
 #[derive(Debug, clap::Parser)]
 #[command(
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
-	subcommand_negates_reqs = true,
-	after_help = examples(Self::executable_name())
+	subcommand_negates_reqs = true
 )]
-pub struct Cli {
+pub struct Cli<Config: CliConfig> {
 	#[arg(skip)]
 	pub(crate) chain_spec_loader: Option<Box<dyn LoadSpec>>,
 
@@ -134,9 +132,12 @@ pub struct Cli {
 	/// Relay chain arguments
 	#[arg(raw = true)]
 	pub relay_chain_args: Vec<String>,
+
+	#[arg(skip)]
+	pub(crate) _phantom: PhantomData<Config>,
 }
 
-impl Cli {
+impl<Config: CliConfig> Cli<Config> {
 	pub(crate) fn node_extra_args(&self) -> NodeExtraArgs {
 		NodeExtraArgs {
 			use_slot_based_consensus: self.experimental_use_slot_based,
@@ -145,37 +146,29 @@ impl Cli {
 	}
 }
 
-impl SubstrateCli for Cli {
+impl<Config: CliConfig> SubstrateCli for Cli<Config> {
 	fn impl_name() -> String {
 		Self::executable_name()
 	}
 
 	fn impl_version() -> String {
-		env!("SUBSTRATE_CLI_IMPL_VERSION").into()
+		Config::impl_version()
 	}
 
 	fn description() -> String {
-		format!(
-			"The command-line arguments provided first will be passed to the parachain node, \n\
-			and the arguments provided after -- will be passed to the relay chain node. \n\
-			\n\
-			Example: \n\
-			\n\
-			{} [parachain-args] -- [relay-chain-args]",
-			Self::executable_name()
-		)
+		Config::description(Self::executable_name())
 	}
 
 	fn author() -> String {
-		env!("CARGO_PKG_AUTHORS").into()
+		Config::author()
 	}
 
 	fn support_url() -> String {
-		"https://github.com/paritytech/polkadot-sdk/issues/new".into()
+		Config::support_url()
 	}
 
 	fn copyright_start_year() -> i32 {
-		2017
+		Config::copyright_start_year()
 	}
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
@@ -188,7 +181,7 @@ impl SubstrateCli for Cli {
 }
 
 #[derive(Debug)]
-pub struct RelayChainCli {
+pub struct RelayChainCli<Config: CliConfig> {
 	/// The actual relay chain cli object.
 	pub base: polkadot_cli::RunCmd,
 
@@ -197,9 +190,11 @@ pub struct RelayChainCli {
 
 	/// The base path that should be used by the relay chain.
 	pub base_path: Option<PathBuf>,
+
+	_phantom: PhantomData<Config>,
 }
 
-impl RelayChainCli {
+impl<Config: CliConfig> RelayChainCli<Config> {
 	fn polkadot_cmd() -> Command {
 		let help_template = color_print::cformat!(
 			"The arguments that are passed to the relay chain node. \n\
@@ -226,41 +221,41 @@ impl RelayChainCli {
 		let chain_id = extension.map(|e| e.relay_chain.clone());
 
 		let base_path = para_config.base_path.path().join("polkadot");
-		Self { base, chain_id, base_path: Some(base_path) }
+		Self { base, chain_id, base_path: Some(base_path), _phantom: Default::default() }
 	}
 }
 
-impl SubstrateCli for RelayChainCli {
+impl<Config: CliConfig> SubstrateCli for RelayChainCli<Config> {
 	fn impl_name() -> String {
-		Cli::impl_name()
+		Cli::<Config>::impl_name()
 	}
 
 	fn impl_version() -> String {
-		Cli::impl_version()
+		Cli::<Config>::impl_version()
 	}
 
 	fn description() -> String {
-		Cli::description()
+		Cli::<Config>::description()
 	}
 
 	fn author() -> String {
-		Cli::author()
+		Cli::<Config>::author()
 	}
 
 	fn support_url() -> String {
-		Cli::support_url()
+		Cli::<Config>::support_url()
 	}
 
 	fn copyright_start_year() -> i32 {
-		Cli::copyright_start_year()
+		Cli::<Config>::copyright_start_year()
 	}
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
-		polkadot_cli::Cli::from_iter([RelayChainCli::executable_name()].iter()).load_spec(id)
+		polkadot_cli::Cli::from_iter([Self::executable_name()].iter()).load_spec(id)
 	}
 }
 
-impl DefaultConfigurationValues for RelayChainCli {
+impl<Config: CliConfig> DefaultConfigurationValues for RelayChainCli<Config> {
 	fn p2p_listen_port() -> u16 {
 		30334
 	}
@@ -274,7 +269,7 @@ impl DefaultConfigurationValues for RelayChainCli {
 	}
 }
 
-impl CliConfiguration<Self> for RelayChainCli {
+impl<Config: CliConfig> CliConfiguration<Self> for RelayChainCli<Config> {
 	fn shared_params(&self) -> &SharedParams {
 		self.base.base.shared_params()
 	}

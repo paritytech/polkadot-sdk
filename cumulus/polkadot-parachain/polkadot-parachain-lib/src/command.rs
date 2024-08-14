@@ -71,8 +71,8 @@ fn new_node_spec(
 }
 
 /// Parse command line arguments into service configuration.
-pub fn run(cmd_config: CommandConfig) -> Result<()> {
-	let mut cli = Cli::from_args();
+pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: CommandConfig) -> Result<()> {
+	let mut cli = Cli::<CliConfig>::from_args();
 	cli.chain_spec_loader = cmd_config.chain_spec_loader;
 
 	match &cli.subcommand {
@@ -137,7 +137,8 @@ pub fn run(cmd_config: CommandConfig) -> Result<()> {
 		},
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			let polkadot_cli = RelayChainCli::new(runner.config(), cli.relay_chain_args.iter());
+			let polkadot_cli =
+				RelayChainCli::<CliConfig>::new(runner.config(), cli.relay_chain_args.iter());
 
 			runner.sync_run(|config| {
 				let polkadot_config = SubstrateCli::create_configuration(
@@ -208,7 +209,8 @@ pub fn run(cmd_config: CommandConfig) -> Result<()> {
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
-			let polkadot_cli = RelayChainCli::new(runner.config(), cli.relay_chain_args.iter());
+			let polkadot_cli =
+				RelayChainCli::<CliConfig>::new(runner.config(), cli.relay_chain_args.iter());
 			let collator_options = cli.run.collator_options();
 
 			runner.run_node_until_exit(|config| async move {

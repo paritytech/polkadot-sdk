@@ -43,5 +43,6 @@ mod fake_runtime_api;
 mod rpc;
 mod service;
 
+pub use cli::CliConfig;
 pub use command::{run, CommandConfig};
 pub use common::{chain_spec, runtime};

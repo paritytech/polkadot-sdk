@@ -21,7 +21,27 @@
 
 mod chain_spec;
 
-use polkadot_parachain_lib::{run, CommandConfig};
+use polkadot_parachain_lib::{run, CliConfig as CliConfigT, CommandConfig};
+
+struct CliConfig;
+
+impl CliConfigT for CliConfig {
+	fn impl_version() -> String {
+		env!("SUBSTRATE_CLI_IMPL_VERSION").into()
+	}
+
+	fn author() -> String {
+		env!("CARGO_PKG_AUTHORS").into()
+	}
+
+	fn support_url() -> String {
+		"https://github.com/paritytech/polkadot-sdk/issues/new".into()
+	}
+
+	fn copyright_start_year() -> i32 {
+		2017
+	}
+}
 
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
@@ -30,5 +50,5 @@ fn main() -> color_eyre::eyre::Result<()> {
 		chain_spec_loader: Some(Box::new(chain_spec::ChainSpecLoader)),
 		runtime_resolver: Some(Box::new(chain_spec::RuntimeResolver)),
 	};
-	Ok(run(config)?)
+	Ok(run::<CliConfig>(config)?)
 }
