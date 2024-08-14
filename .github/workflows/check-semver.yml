@@ -28,10 +28,10 @@ jobs:
           git config --global --add safe.directory '*'
           echo "hi"
           git fetch --no-tags --no-recurse-submodules --depth=1 origin ${{ github.event.pull_request.base.sha }}
-          echo "hi2 'git merge-base ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }}'"
-          git merge-base ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }}
+          echo "hi2 'git merge-base origin/master HEAD --fork-point'"
+          git merge-base origin/master HEAD --fork-point
           echo "hi3"
-          BASE=$(git merge-base ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+          BASE=$(git merge-base origin/master HEAD --fork-point)
           echo "Setting BASE to $BASE"
           git fetch --no-tags --no-recurse-submodules --depth=1 origin $BASE
           echo "Fetched base, branching off"
