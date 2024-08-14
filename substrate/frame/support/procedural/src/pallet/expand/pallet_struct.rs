@@ -41,7 +41,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 	let storages_where_clauses = merge_where_clauses(&storages_where_clauses);
 
 	let pallet_item = {
-		let pallet_module_items = &mut def.item.content.as_mut().expect("Checked by def").1;
+		let pallet_module_items = &mut def.item.content.as_mut().expect(msg!("Checked by def")).1;
 		let item = &mut pallet_module_items[def.pallet_struct.index];
 		if let syn::Item::Struct(item) = item {
 			item

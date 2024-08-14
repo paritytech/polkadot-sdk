@@ -753,25 +753,30 @@ pub(crate) fn decl_static_assertions(
 	pallet_decls: &[Pallet],
 	scrate: &TokenStream2,
 ) -> TokenStream2 {
-	let error_encoded_size_check = pallet_decls.iter().map(|decl| {
+	let error_encoded_size_check = pallet_decls.iter().flat_map(|decl| {
+		if !decl.pallet_parts.iter().any(|part| part.name() == "Error") {
+			return None;
+		}
+
 		let path = &decl.path;
+		let pallet = &decl.path;
+		let mut generics = vec![quote!(#runtime)];
+		generics.extend(decl.instance.iter().map(|name| quote!(#pallet::#name)));
+
 		let assert_message = format!(
 			"The maximum encoded size of the error type in the `{}` pallet exceeds \
 			`MAX_MODULE_ERROR_ENCODED_SIZE`",
 			decl.name,
 		);
 
-		quote! {
-			#scrate::__private::tt_call! {
-				macro = [{ #path::tt_error_token }]
-				your_tt_return = [{ #scrate::__private::tt_return }]
-				~~> #scrate::assert_error_encoded_size! {
-					path = [{ #path }]
-					runtime = [{ #runtime }]
-					assert_message = [{ #assert_message }]
-				}
-			}
-		}
+		Some(quote! {
+			const _: () = assert!(
+				<
+					#path :: Error <#(#generics),*> as #scrate::traits::PalletError
+				>::MAX_ENCODED_SIZE <= #scrate::MAX_MODULE_ERROR_ENCODED_SIZE,
+				#assert_message
+			);
+		})
 	});
 
 	quote! {

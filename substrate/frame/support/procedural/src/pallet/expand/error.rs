@@ -15,48 +15,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	pallet::{
-		parse::error::{VariantDef, VariantField},
-		Def,
-	},
-	COUNTER,
+use crate::pallet::{
+	parse::error::{VariantDef, VariantField},
+	Def,
 };
 use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
-use syn::spanned::Spanned;
 
 ///
 /// * impl various trait on Error
 pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
-	let count = COUNTER.with(|counter| counter.borrow_mut().inc());
-	let error_token_unique_id =
-		syn::Ident::new(&format!("__tt_error_token_{}", count), def.item.span());
-
 	let frame_support = &def.frame_support;
 	let frame_system = &def.frame_system;
 	let config_where_clause = &def.config.where_clause;
 
-	let error = if let Some(error) = &def.error {
-		error
-	} else {
-		return quote::quote! {
-			#[macro_export]
-			#[doc(hidden)]
-			macro_rules! #error_token_unique_id {
-				{
-					$caller:tt
-					your_tt_return = [{ $my_tt_return:path }]
-				} => {
-					$my_tt_return! {
-						$caller
-					}
-				};
-			}
-
-			pub use #error_token_unique_id as tt_error_token;
-		}
-	};
+	let Some(error) = &def.error else { return Default::default() };
 
 	let error_ident = &error.error;
 	let type_impl_gen = &def.type_impl_generics(error.attr_span);
@@ -92,11 +65,12 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 			});
 
 	let error_item = {
-		let item = &mut def.item.content.as_mut().expect("Checked by def parser").1[error.index];
+		let item =
+			&mut def.item.content.as_mut().expect(msg!("Checked by def parser")).1[error.index];
 		if let syn::Item::Enum(item) = item {
 			item
 		} else {
-			unreachable!("Checked by error parser")
+			unreachable!("{}", msg!("Checked by error parser"))
 		}
 	};
 
@@ -173,21 +147,5 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 				})
 			}
 		}
-
-		#[macro_export]
-		#[doc(hidden)]
-		macro_rules! #error_token_unique_id {
-			{
-				$caller:tt
-				your_tt_return = [{ $my_tt_return:path }]
-			} => {
-				$my_tt_return! {
-					$caller
-					error = [{ #error_ident }]
-				}
-			};
-		}
-
-		pub use #error_token_unique_id as tt_error_token;
 	)
 }

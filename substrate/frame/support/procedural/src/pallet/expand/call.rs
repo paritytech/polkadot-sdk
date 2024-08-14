@@ -15,13 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	pallet::{
-		expand::warnings::{weight_constant_warning, weight_witness_warning},
-		parse::call::CallWeightDef,
-		Def,
-	},
-	COUNTER,
+use crate::pallet::{
+	expand::warnings::{weight_constant_warning, weight_witness_warning},
+	parse::call::CallWeightDef,
+	Def,
 };
 use proc_macro2::TokenStream as TokenStream2;
 use proc_macro_warning::Warning;
@@ -98,10 +95,10 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				let pallet_weight = def
 					.call
 					.as_ref()
-					.expect("we have methods; we have calls; qed")
+					.expect(msg!("we have methods; we have calls; qed"))
 					.inherited_call_weight
 					.as_ref()
-					.expect("the parser prevents this");
+					.expect(msg!("the parser prevents this"));
 
 				// Expand `<<T as Config>::WeightInfo>::call_name()`.
 				let t = &pallet_weight.typename;
@@ -178,29 +175,13 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		[syn::parse_quote!(r"Contains a variant per dispatchable extrinsic that this pallet has.")];
 	let docs = if docs.is_empty() { &default_docs[..] } else { &docs[..] };
 
-	let maybe_compile_error = if def.call.is_none() {
-		quote::quote! {
-			compile_error!(concat!(
-				"`",
-				stringify!($pallet_name),
-				"` does not have #[pallet::call] defined, perhaps you should remove `Call` from \
-				construct_runtime?",
-			));
-		}
-	} else {
-		proc_macro2::TokenStream::new()
-	};
-
-	let count = COUNTER.with(|counter| counter.borrow_mut().inc());
-	let macro_ident = syn::Ident::new(&format!("__is_call_part_defined_{}", count), span);
-
 	let capture_docs = if cfg!(feature = "no-metadata-docs") { "never" } else { "always" };
 
 	// Wrap all calls inside of storage layers
 	if let Some(syn::Item::Impl(item_impl)) = def
 		.call
 		.as_ref()
-		.map(|c| &mut def.item.content.as_mut().expect("Checked by def parser").1[c.index])
+		.map(|c| &mut def.item.content.as_mut().expect(msg!("Checked by def parser")).1[c.index])
 	{
 		item_impl.items.iter_mut().for_each(|i| {
 			if let syn::ImplItem::Fn(method) = i {
@@ -254,21 +235,6 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			#(
 				#weight_warnings
 			)*
-		}
-
-		#[allow(unused_imports)]
-		#[doc(hidden)]
-		pub mod __substrate_call_check {
-			#[macro_export]
-			#[doc(hidden)]
-			macro_rules! #macro_ident {
-				($pallet_name:ident) => {
-					#maybe_compile_error
-				};
-			}
-
-			#[doc(hidden)]
-			pub use #macro_ident as is_call_part_defined;
 		}
 
 		#( #[doc = #docs] )*

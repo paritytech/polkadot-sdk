@@ -135,7 +135,51 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 		.any(|c| matches!(c.composite_keyword, CompositeKeyword::SlashReason(_)))
 		.then_some(quote::quote!(+ SlashReason));
 
+	let is_part_defined_call = generate_is_part_defined(
+		def.call.is_some(),
+		"__substrate_call_check",
+		"#[pallet::call]",
+		"is_call_part_defined",
+	);
+	let is_part_defined_event = generate_is_part_defined(
+		def.event.is_some(),
+		"__substrate_event_check",
+		"#[pallet::event]",
+		"is_event_part_defined",
+	);
+	let is_part_defined_inherent = generate_is_part_defined(
+		def.inherent.is_some(),
+		"__substrate_inherent_check",
+		"#[pallet::inherent]",
+		"is_inherent_part_defined",
+	);
+	let is_part_defined_origin = generate_is_part_defined(
+		def.origin.is_some(),
+		"__substrate_origin_check",
+		"#[pallet::origin]",
+		"is_origin_part_defined",
+	);
+	let is_part_defined_validate_unsigned = generate_is_part_defined(
+		def.validate_unsigned.is_some(),
+		"__substrate_validate_unsigned_check",
+		"#[pallet::validate_unsigned]",
+		"is_validate_unsigned_part_defined",
+	);
+	let is_part_defined_genesis_config = generate_is_part_defined(
+		def.genesis_config.is_some(),
+		"__substrate_genesis_config_check",
+		"#[pallet::genesis_config]",
+		"is_genesis_config_defined",
+	);
+
 	quote::quote!(
+		#is_part_defined_call
+		#is_part_defined_event
+		#is_part_defined_inherent
+		#is_part_defined_origin
+		#is_part_defined_validate_unsigned
+		#is_part_defined_genesis_config
+
 		// This macro follows the conventions as laid out by the `tt-call` crate. It does not
 		// accept any arguments and simply returns the pallet parts, separated by commas, then
 		// wrapped inside of braces and finally prepended with double colons, to the caller inside
@@ -213,4 +257,100 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 
 		pub use #default_parts_unique_id_v2 as tt_default_parts_v2;
 	)
+}
+
+/// Generate a macro for parts which compiles to error if not defined.
+/// Used by construct runtime to ensure some consistency.
+fn generate_is_part_defined(
+	is_defined: bool,
+	mod_name: &str,
+	attr_name: &str,
+	macro_name: &str,
+) -> proc_macro2::TokenStream {
+	let count = crate::COUNTER.with(|counter| counter.borrow_mut().inc());
+	let macro_ident =
+		syn::Ident::new(&format!("__is_part_defined_{}", count), proc_macro2::Span::call_site());
+	let outer_macro_ident = syn::Ident::new(macro_name, proc_macro2::Span::call_site());
+	let mod_ident = syn::Ident::new(mod_name, proc_macro2::Span::call_site());
+
+	let maybe_compile_error = if !is_defined {
+		quote::quote! {
+			compile_error!(concat!(
+				"`",
+				stringify!($pallet_name),
+				"` does not have ",
+				#attr_name,
+				" defined, perhaps you should remove `Origin` from construct_runtime?",
+			));
+		}
+	} else {
+		Default::default()
+	};
+
+	// Some specific special case for genesis config additional helper.
+	let optional_additional_helper = if macro_name == "is_genesis_config_defined" {
+		let std_macro_ident = syn::Ident::new(
+			&format!("__is_std_enabled_for_genesis_{}", count),
+			proc_macro2::Span::call_site(),
+		);
+		if !is_defined {
+			quote::quote! {
+				#[macro_export]
+				#[doc(hidden)]
+				macro_rules! #std_macro_ident {
+					($pallet_name:ident, $pallet_path:expr) => {};
+				}
+
+				#[doc(hidden)]
+				pub use #std_macro_ident as is_std_enabled_for_genesis;
+			}
+		} else {
+			quote::quote! {
+				#[cfg(not(feature = "std"))]
+				#[macro_export]
+				#[doc(hidden)]
+				macro_rules! #std_macro_ident {
+					($pallet_name:ident, $pallet_path:expr) => {
+						compile_error!(concat!(
+							"`",
+							stringify!($pallet_name),
+							"` does not have the std feature enabled, this will cause the `",
+							$pallet_path,
+							"::GenesisConfig` type to not implement serde traits."
+						));
+					};
+				}
+
+				#[cfg(feature = "std")]
+				#[macro_export]
+				#[doc(hidden)]
+				macro_rules! #std_macro_ident {
+					($pallet_name:ident, $pallet_path:expr) => {};
+				}
+
+				#[doc(hidden)]
+				pub use #std_macro_ident as is_std_enabled_for_genesis;
+			}
+		}
+	} else {
+		Default::default()
+	};
+
+	quote::quote! {
+		#[doc(hidden)]
+		pub mod #mod_ident {
+			#[macro_export]
+			#[doc(hidden)]
+			macro_rules! #macro_ident {
+				($pallet_name:ident) => {
+					#maybe_compile_error
+				}
+			}
+
+			#optional_additional_helper
+
+			#[doc(hidden)]
+			pub use #macro_ident as #outer_macro_ident;
+		}
+	}
 }

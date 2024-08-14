@@ -110,23 +110,24 @@ pub fn process_generics(def: &mut Def) -> syn::Result<Vec<ResultOnEmptyStructMet
 	let mut on_empty_struct_metadata = Vec::new();
 
 	for storage_def in def.storages.iter_mut() {
-		let item = &mut def.item.content.as_mut().expect("Checked by def").1[storage_def.index];
+		let item =
+			&mut def.item.content.as_mut().expect(msg!("Checked by def")).1[storage_def.index];
 
 		let typ_item = match item {
 			syn::Item::Type(t) => t,
-			_ => unreachable!("Checked by def"),
+			_ => unreachable!("{}", msg!("Checked by def")),
 		};
 
 		typ_item.attrs.push(syn::parse_quote!(#[allow(type_alias_bounds)]));
 
 		let typ_path = match &mut *typ_item.ty {
 			syn::Type::Path(p) => p,
-			_ => unreachable!("Checked by def"),
+			_ => unreachable!("{}", msg!("Checked by def")),
 		};
 
 		let args = match &mut typ_path.path.segments[0].arguments {
 			syn::PathArguments::AngleBracketed(args) => args,
-			_ => unreachable!("Checked by def"),
+			_ => unreachable!("{}", msg!("Checked by def")),
 		};
 
 		let prefix_ident = prefix_ident(storage_def);
@@ -313,10 +314,10 @@ fn augment_final_docs(def: &mut Def) {
 	// expand the docs with a new line showing the storage type (value, map, double map, etc), and
 	// the key/value type(s).
 	let mut push_string_literal = |doc_line: &str, storage: &mut StorageDef| {
-		let item = &mut def.item.content.as_mut().expect("Checked by def").1[storage.index];
+		let item = &mut def.item.content.as_mut().expect(msg!("Checked by def")).1[storage.index];
 		let typ_item = match item {
 			syn::Item::Type(t) => t,
-			_ => unreachable!("Checked by def"),
+			_ => unreachable!("{}", msg!("Checked by def")),
 		};
 		typ_item.attrs.push(syn::parse_quote!(#[doc = ""]));
 		typ_item.attrs.push(syn::parse_quote!(#[doc = #doc_line]));
@@ -457,7 +458,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 
 			match &storage.metadata {
 				Metadata::Value { value } => {
-					let query = match storage.query_kind.as_ref().expect("Checked by def") {
+					let query = match storage.query_kind.as_ref().expect(msg!("Checked by def")) {
 						QueryKind::OptionQuery => quote::quote_spanned!(storage.attr_span =>
 							Option<#value>
 						),
@@ -481,7 +482,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 					)
 				},
 				Metadata::Map { key, value } => {
-					let query = match storage.query_kind.as_ref().expect("Checked by def") {
+					let query = match storage.query_kind.as_ref().expect(msg!("Checked by def")) {
 						QueryKind::OptionQuery => quote::quote_spanned!(storage.attr_span =>
 							Option<#value>
 						),
@@ -507,7 +508,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 					)
 				},
 				Metadata::CountedMap { key, value } => {
-					let query = match storage.query_kind.as_ref().expect("Checked by def") {
+					let query = match storage.query_kind.as_ref().expect(msg!("Checked by def")) {
 						QueryKind::OptionQuery => quote::quote_spanned!(storage.attr_span =>
 							Option<#value>
 						),
@@ -533,7 +534,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 					)
 				},
 				Metadata::DoubleMap { key1, key2, value } => {
-					let query = match storage.query_kind.as_ref().expect("Checked by def") {
+					let query = match storage.query_kind.as_ref().expect(msg!("Checked by def")) {
 						QueryKind::OptionQuery => quote::quote_spanned!(storage.attr_span =>
 							Option<#value>
 						),
@@ -561,7 +562,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 					)
 				},
 				Metadata::NMap { keygen, value, .. } => {
-					let query = match storage.query_kind.as_ref().expect("Checked by def") {
+					let query = match storage.query_kind.as_ref().expect(msg!("Checked by def")) {
 						QueryKind::OptionQuery => quote::quote_spanned!(storage.attr_span =>
 							Option<#value>
 						),
@@ -592,7 +593,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 					)
 				},
 				Metadata::CountedNMap { keygen, value, .. } => {
-					let query = match storage.query_kind.as_ref().expect("Checked by def") {
+					let query = match storage.query_kind.as_ref().expect(msg!("Checked by def")) {
 						QueryKind::OptionQuery => quote::quote_spanned!(storage.attr_span =>
 							Option<#value>
 						),
