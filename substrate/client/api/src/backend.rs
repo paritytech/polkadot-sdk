@@ -232,6 +232,9 @@ pub trait BlockImportOperation<Block: BlockT> {
 	/// Add a transaction index operation.
 	fn update_transaction_index(&mut self, index: Vec<IndexOperation>)
 		-> sp_blockchain::Result<()>;
+
+	/// Configure whether to create a block gap if newly imported block is missing parent
+	fn create_gap(&mut self, create_gap: bool);
 }
 
 /// Interface for performing operations on the backend.
@@ -632,9 +635,6 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Tells whether the backend requires full-sync mode.
 	fn requires_full_sync(&self) -> bool;
-
-	/// Do not create gap if newly imported block is missing parent
-	fn no_gap(&self, operation: &mut Self::BlockImportOperation);
 }
 
 /// Mark for all Backend implementations, that are making use of state data, stored locally.

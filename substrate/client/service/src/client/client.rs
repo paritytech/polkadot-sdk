@@ -538,9 +538,7 @@ where
 
 		*self.importing_block.write() = Some(hash);
 
-		if !create_gap {
-			self.backend.no_gap(&mut operation.op);
-		}
+		operation.op.create_gap(create_gap);
 
 		let result = self.execute_and_import_block(
 			operation,

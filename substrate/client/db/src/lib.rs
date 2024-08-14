@@ -996,6 +996,10 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		self.index_ops = index_ops;
 		Ok(())
 	}
+
+	fn create_gap(&mut self, create_gap: bool) {
+		self.create_gap = create_gap;
+	}
 }
 
 struct StorageDb<Block: BlockT> {
@@ -2540,10 +2544,6 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		if self.blocks_pruning != BlocksPruning::KeepAll {
 			self.blockchain.unpin(hash);
 		}
-	}
-
-	fn no_gap(&self, operation: &mut Self::BlockImportOperation) {
-		operation.create_gap = false;
 	}
 }
 

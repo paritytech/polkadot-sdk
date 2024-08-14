@@ -584,6 +584,8 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 	) -> sp_blockchain::Result<()> {
 		Ok(())
 	}
+
+	fn create_gap(&mut self, _create_gap: bool) {}
 }
 
 /// In-memory backend. Keeps all states and blocks in memory.
@@ -774,8 +776,6 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		let mut blocks = self.pinned_blocks.write();
 		blocks.entry(hash).and_modify(|counter| *counter -= 1).or_insert(-1);
 	}
-
-	fn no_gap(&self, _operation: &mut Self::BlockImportOperation) {}
 }
 
 impl<Block: BlockT> backend::LocalBackend<Block> for Backend<Block> {}
