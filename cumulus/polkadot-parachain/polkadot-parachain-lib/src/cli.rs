@@ -20,8 +20,12 @@ use crate::common::{
 };
 use clap::{Command, CommandFactory, FromArgMatches};
 use sc_chain_spec::ChainSpec;
-use sc_cli::SubstrateCli;
-use std::{fmt::Debug, path::PathBuf};
+use sc_cli::{
+	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
+	SharedParams, SubstrateCli,
+};
+use sc_service::{config::PrometheusConfig, BasePath};
+use std::{fmt::Debug, net::SocketAddr, path::PathBuf};
 
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
@@ -195,6 +199,37 @@ pub struct RelayChainCli {
 	pub base_path: Option<PathBuf>,
 }
 
+impl RelayChainCli {
+	fn polkadot_cmd() -> Command {
+		let help_template = color_print::cformat!(
+			"The arguments that are passed to the relay chain node. \n\
+			\n\
+			<bold><underline>RELAY_CHAIN_ARGS:</></> \n\
+			{{options}}",
+		);
+
+		polkadot_cli::RunCmd::command()
+			.no_binary_name(true)
+			.help_template(help_template)
+	}
+
+	/// Parse the relay chain CLI parameters using the parachain `Configuration`.
+	pub fn new<'a>(
+		para_config: &sc_service::Configuration,
+		relay_chain_args: impl Iterator<Item = &'a String>,
+	) -> Self {
+		let polkadot_cmd = Self::polkadot_cmd();
+		let matches = polkadot_cmd.get_matches_from(relay_chain_args);
+		let base = FromArgMatches::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
+
+		let extension = Extensions::try_get(&*para_config.chain_spec);
+		let chain_id = extension.map(|e| e.relay_chain.clone());
+
+		let base_path = para_config.base_path.path().join("polkadot");
+		Self { base, chain_id, base_path: Some(base_path) }
+	}
+}
+
 impl SubstrateCli for RelayChainCli {
 	fn impl_name() -> String {
 		Cli::impl_name()
@@ -225,33 +260,130 @@ impl SubstrateCli for RelayChainCli {
 	}
 }
 
-impl RelayChainCli {
-	fn polkadot_cmd() -> Command {
-		let help_template = color_print::cformat!(
-			"The arguments that are passed to the relay chain node. \n\
-			\n\
-			<bold><underline>RELAY_CHAIN_ARGS:</></> \n\
-			{{options}}",
-		);
-
-		polkadot_cli::RunCmd::command()
-			.no_binary_name(true)
-			.help_template(help_template)
+impl DefaultConfigurationValues for RelayChainCli {
+	fn p2p_listen_port() -> u16 {
+		30334
 	}
 
-	/// Parse the relay chain CLI parameters using the parachain `Configuration`.
-	pub fn new<'a>(
-		para_config: &sc_service::Configuration,
-		relay_chain_args: impl Iterator<Item = &'a String>,
-	) -> Self {
-		let polkadot_cmd = Self::polkadot_cmd();
-		let matches = polkadot_cmd.get_matches_from(relay_chain_args);
-		let base = FromArgMatches::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
+	fn rpc_listen_port() -> u16 {
+		9945
+	}
 
-		let extension = Extensions::try_get(&*para_config.chain_spec);
-		let chain_id = extension.map(|e| e.relay_chain.clone());
+	fn prometheus_listen_port() -> u16 {
+		9616
+	}
+}
 
-		let base_path = para_config.base_path.path().join("polkadot");
-		Self { base, chain_id, base_path: Some(base_path) }
+impl CliConfiguration<Self> for RelayChainCli {
+	fn shared_params(&self) -> &SharedParams {
+		self.base.base.shared_params()
+	}
+
+	fn import_params(&self) -> Option<&ImportParams> {
+		self.base.base.import_params()
+	}
+
+	fn network_params(&self) -> Option<&NetworkParams> {
+		self.base.base.network_params()
+	}
+
+	fn keystore_params(&self) -> Option<&KeystoreParams> {
+		self.base.base.keystore_params()
+	}
+
+	fn base_path(&self) -> sc_cli::Result<Option<BasePath>> {
+		Ok(self
+			.shared_params()
+			.base_path()?
+			.or_else(|| self.base_path.clone().map(Into::into)))
+	}
+
+	fn rpc_addr(&self, default_listen_port: u16) -> sc_cli::Result<Option<SocketAddr>> {
+		self.base.base.rpc_addr(default_listen_port)
+	}
+
+	fn prometheus_config(
+		&self,
+		default_listen_port: u16,
+		chain_spec: &Box<dyn ChainSpec>,
+	) -> sc_cli::Result<Option<PrometheusConfig>> {
+		self.base.base.prometheus_config(default_listen_port, chain_spec)
+	}
+
+	fn init<F>(
+		&self,
+		_support_url: &String,
+		_impl_version: &String,
+		_logger_hook: F,
+		_config: &sc_service::Configuration,
+	) -> sc_cli::Result<()>
+	where
+		F: FnOnce(&mut sc_cli::LoggerBuilder, &sc_service::Configuration),
+	{
+		unreachable!("PolkadotCli is never initialized; qed");
+	}
+
+	fn chain_id(&self, is_dev: bool) -> sc_cli::Result<String> {
+		let chain_id = self.base.base.chain_id(is_dev)?;
+
+		Ok(if chain_id.is_empty() { self.chain_id.clone().unwrap_or_default() } else { chain_id })
+	}
+
+	fn role(&self, is_dev: bool) -> sc_cli::Result<sc_service::Role> {
+		self.base.base.role(is_dev)
+	}
+
+	fn transaction_pool(
+		&self,
+		is_dev: bool,
+	) -> sc_cli::Result<sc_service::config::TransactionPoolOptions> {
+		self.base.base.transaction_pool(is_dev)
+	}
+
+	fn trie_cache_maximum_size(&self) -> sc_cli::Result<Option<usize>> {
+		self.base.base.trie_cache_maximum_size()
+	}
+
+	fn rpc_methods(&self) -> sc_cli::Result<sc_service::config::RpcMethods> {
+		self.base.base.rpc_methods()
+	}
+
+	fn rpc_max_connections(&self) -> sc_cli::Result<u32> {
+		self.base.base.rpc_max_connections()
+	}
+
+	fn rpc_cors(&self, is_dev: bool) -> sc_cli::Result<Option<Vec<String>>> {
+		self.base.base.rpc_cors(is_dev)
+	}
+
+	fn default_heap_pages(&self) -> sc_cli::Result<Option<u64>> {
+		self.base.base.default_heap_pages()
+	}
+
+	fn force_authoring(&self) -> sc_cli::Result<bool> {
+		self.base.base.force_authoring()
+	}
+
+	fn disable_grandpa(&self) -> sc_cli::Result<bool> {
+		self.base.base.disable_grandpa()
+	}
+
+	fn max_runtime_instances(&self) -> sc_cli::Result<Option<usize>> {
+		self.base.base.max_runtime_instances()
+	}
+
+	fn announce_block(&self) -> sc_cli::Result<bool> {
+		self.base.base.announce_block()
+	}
+
+	fn telemetry_endpoints(
+		&self,
+		chain_spec: &Box<dyn ChainSpec>,
+	) -> sc_cli::Result<Option<sc_telemetry::TelemetryEndpoints>> {
+		self.base.base.telemetry_endpoints(chain_spec)
+	}
+
+	fn node_name(&self) -> sc_cli::Result<String> {
+		self.base.base.node_name()
 	}
 }
