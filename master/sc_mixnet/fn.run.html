@@ -153,11 +153,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     api_backend: <a class="struct" href="struct.ApiBackend.html" title="struct sc_mixnet::ApiBackend">ApiBackend</a>,
     client: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;C&gt;,
     sync: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;S&gt;,
-    network: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn <a class="trait" href="../sc_network/service/traits/trait.NetworkService.html" title="trait sc_network::service::traits::NetworkService">NetworkService</a>&gt;,
-    protocol_name: <a class="enum" href="../sc_network/types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+    network: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn NetworkService&gt;,
+    protocol_name: ProtocolName,
     transaction_pool: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;P&gt;,
     keystore: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="type" href="../sp_keystore/type.KeystorePtr.html" title="type sp_keystore::KeystorePtr">KeystorePtr</a>&gt;,
-    notification_service: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="../sc_network/service/traits/trait.NotificationService.html" title="trait sc_network::service::traits::NotificationService">NotificationService</a>&gt;
+    notification_service: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn NotificationService&gt;
 )<div class="where">where
     B: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>,
     C: <a class="trait" href="../sc_client_api/client/trait.BlockchainEvents.html" title="trait sc_client_api::client::BlockchainEvents">BlockchainEvents</a>&lt;B&gt; + <a class="trait" href="../sp_api/trait.ProvideRuntimeApi.html" title="trait sp_api::ProvideRuntimeApi">ProvideRuntimeApi</a>&lt;B&gt; + <a class="trait" href="../sp_blockchain/backend/trait.HeaderBackend.html" title="trait sp_blockchain::backend::HeaderBackend">HeaderBackend</a>&lt;B&gt;,

@@ -2071,7 +2071,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1920" id="1920">1920</a>
 <a href="#1921" id="1921">1921</a>
 <a href="#1922" id="1922">1922</a>
-<a href="#1923" id="1923">1923</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2154,8 +2153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf,
 	PoolAssetsConvertedConcreteId, TrustBackedAssetsConvertedConcreteId,
-	TrustBackedAssetsPalletLocationV3, WestendLocation, WestendLocationV3,
-	XcmOriginToTransactDispatchOrigin,
+	TrustBackedAssetsPalletLocation, WestendLocation, XcmOriginToTransactDispatchOrigin,
 };
 
 <span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
@@ -2400,11 +2398,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Assets,
 	ForeignAssets,
 	LocalFromLeft&lt;
-		AssetIdForTrustBackedAssetsConvert&lt;TrustBackedAssetsPalletLocationV3, xcm::v3::Location&gt;,
+		AssetIdForTrustBackedAssetsConvert&lt;TrustBackedAssetsPalletLocation, xcm::v4::Location&gt;,
 		AssetIdForTrustBackedAssets,
-		xcm::v3::Location,
+		xcm::v4::Location,
 	&gt;,
-	xcm::v3::Location,
+	xcm::v4::Location,
 	AccountId,
 &gt;;
 
@@ -2412,25 +2410,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>NativeAndAssets = fungible::UnionOf&lt;
 	Balances,
 	LocalAndForeignAssets,
-	TargetFromLeft&lt;WestendLocationV3, xcm::v3::Location&gt;,
-	xcm::v3::Location,
+	TargetFromLeft&lt;WestendLocation, xcm::v4::Location&gt;,
+	xcm::v4::Location,
 	AccountId,
 &gt;;
 
 <span class="kw">pub type </span>PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter&lt;
 	AssetConversionPalletId,
-	(xcm::v3::Location, xcm::v3::Location),
+	(xcm::v4::Location, xcm::v4::Location),
 &gt;;
 
 <span class="kw">impl </span>pallet_asset_conversion::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Balance = Balance;
 	<span class="kw">type </span>HigherPrecisionBalance = sp_core::U256;
-	<span class="kw">type </span>AssetKind = xcm::v3::Location;
+	<span class="kw">type </span>AssetKind = xcm::v4::Location;
 	<span class="kw">type </span>Assets = NativeAndAssets;
 	<span class="kw">type </span>PoolId = (<span class="self">Self</span>::AssetKind, <span class="self">Self</span>::AssetKind);
 	<span class="kw">type </span>PoolLocator = pallet_asset_conversion::WithFirstAsset&lt;
-		WestendLocationV3,
+		WestendLocation,
 		AccountId,
 		<span class="self">Self</span>::AssetKind,
 		PoolIdToAccountId,
@@ -2438,7 +2436,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>PoolAssetId = u32;
 	<span class="kw">type </span>PoolAssets = PoolAssets;
 	<span class="kw">type </span>PoolSetupFee = ConstU128&lt;<span class="number">0</span>&gt;; <span class="comment">// Asset class deposit fees are sufficient to prevent spam
-	</span><span class="kw">type </span>PoolSetupFeeAsset = WestendLocationV3;
+	</span><span class="kw">type </span>PoolSetupFeeAsset = WestendLocation;
 	<span class="kw">type </span>PoolSetupFeeTarget = ResolveAssetTo&lt;AssetConversionOrigin, <span class="self">Self</span>::Assets&gt;;
 	<span class="kw">type </span>LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	<span class="kw">type </span>LPFee = ConstU32&lt;<span class="number">3</span>&gt;;
@@ -2448,10 +2446,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightInfo = weights::pallet_asset_conversion::WeightInfo&lt;Runtime&gt;;
 	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = assets_common::benchmarks::AssetPairFactory&lt;
-		WestendLocationV3,
+		WestendLocation,
 		parachain_info::Pallet&lt;Runtime&gt;,
 		xcm_config::TrustBackedAssetsPalletIndex,
-		xcm::v3::Location,
+		xcm::v4::Location,
 	&gt;;
 }
 
@@ -2485,17 +2483,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>pallet_assets::Config&lt;ForeignAssetsInstance&gt; <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Balance = Balance;
-	<span class="kw">type </span>AssetId = xcm::v3::Location;
-	<span class="kw">type </span>AssetIdParameter = xcm::v3::Location;
+	<span class="kw">type </span>AssetId = xcm::v4::Location;
+	<span class="kw">type </span>AssetIdParameter = xcm::v4::Location;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>CreateOrigin = ForeignCreators&lt;
 		(
-			FromSiblingParachain&lt;parachain_info::Pallet&lt;Runtime&gt;, xcm::v3::Location&gt;,
-			FromNetwork&lt;xcm_config::UniversalLocation, EthereumNetwork, xcm::v3::Location&gt;,
+			FromSiblingParachain&lt;parachain_info::Pallet&lt;Runtime&gt;, xcm::v4::Location&gt;,
+			FromNetwork&lt;xcm_config::UniversalLocation, EthereumNetwork, xcm::v4::Location&gt;,
 		),
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,
-		xcm::v3::Location,
+		xcm::v4::Location,
 	&gt;;
 	<span class="kw">type </span>ForceOrigin = AssetsForceOrigin;
 	<span class="kw">type </span>AssetDeposit = ForeignAssetsAssetDeposit;
@@ -2875,9 +2873,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>pallet_asset_conversion_tx_payment::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>AssetId = xcm::v3::Location;
+	<span class="kw">type </span>AssetId = xcm::v4::Location;
 	<span class="kw">type </span>OnChargeAssetTransaction = SwapAssetAdapter&lt;
-		WestendLocationV3,
+		WestendLocation,
 		NativeAndAssets,
 		AssetConversion,
 		ResolveAssetTo&lt;StakingPot, NativeAndAssets&gt;,
@@ -3405,18 +3403,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">impl </span>pallet_asset_conversion::AssetConversionApi&lt;
 		Block,
 		Balance,
-		xcm::v3::Location,
+		xcm::v4::Location,
 	&gt; <span class="kw">for </span>Runtime
 	{
-		<span class="kw">fn </span>quote_price_exact_tokens_for_tokens(asset1: xcm::v3::Location, asset2: xcm::v3::Location, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
+		<span class="kw">fn </span>quote_price_exact_tokens_for_tokens(asset1: xcm::v4::Location, asset2: xcm::v4::Location, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		<span class="kw">fn </span>quote_price_tokens_for_exact_tokens(asset1: xcm::v3::Location, asset2: xcm::v3::Location, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
+		<span class="kw">fn </span>quote_price_tokens_for_exact_tokens(asset1: xcm::v4::Location, asset2: xcm::v4::Location, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		<span class="kw">fn </span>get_reserves(asset1: xcm::v3::Location, asset2: xcm::v3::Location) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt; {
+		<span class="kw">fn </span>get_reserves(asset1: xcm::v4::Location, asset2: xcm::v4::Location) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt; {
 			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}

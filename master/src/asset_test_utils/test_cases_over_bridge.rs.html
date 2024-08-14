@@ -707,9 +707,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#556" id="556">556</a>
 <a href="#557" id="557">557</a>
 <a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) 2023 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1043,7 +1040,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	block_author_account: AccountIdOf&lt;Runtime&gt;,
 	(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance): (
 		AccountIdOf&lt;Runtime&gt;,
-		xcm::v3::Location,
+		xcm::v4::Location,
 		u128,
 	),
 	foreign_asset_id_amount_to_transfer: u128,
@@ -1069,9 +1066,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BalanceOf&lt;Runtime&gt;: From&lt;Balance&gt; + Into&lt;Balance&gt;,
 	XcmConfig: xcm_executor::Config,
 	&lt;Runtime <span class="kw">as </span>pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;&gt;::AssetId:
-		From&lt;xcm::v3::Location&gt; + Into&lt;xcm::v3::Location&gt;,
+		From&lt;xcm::v4::Location&gt; + Into&lt;xcm::v4::Location&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;&gt;::AssetIdParameter:
-		From&lt;xcm::v3::Location&gt; + Into&lt;xcm::v3::Location&gt;,
+		From&lt;xcm::v4::Location&gt; + Into&lt;xcm::v4::Location&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;&gt;::Balance:
 		From&lt;Balance&gt; + Into&lt;u128&gt; + From&lt;u128&gt;,
 	&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId: Into&lt;&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin <span class="kw">as </span>OriginTrait&gt;::AccountId&gt;
@@ -1102,7 +1099,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">assert_ok!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::force_create(
 					RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::root_origin(),
-					foreign_asset_id_location.into(),
+					foreign_asset_id_location.clone().into(),
 					foreign_asset_owner.into(),
 					<span class="bool-val">true</span>, <span class="comment">// is_sufficient=true
 					</span>foreign_asset_id_minimum_balance.into()
@@ -1121,7 +1118,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// ForeignAssets balances before
 			</span><span class="macro">assert_eq!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-					foreign_asset_id_location.into(),
+					foreign_asset_id_location.clone().into(),
 					<span class="kw-2">&amp;</span>target_account
 				),
 				<span class="number">0</span>.into()
@@ -1130,11 +1127,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// additional check before
 			</span>additional_checks_before();
 
-			<span class="kw">let </span>foreign_asset_id_location_latest: Location =
-				foreign_asset_id_location.try_into().unwrap();
-
 			<span class="kw">let </span>expected_assets = Assets::from(<span class="macro">vec!</span>[Asset {
-				id: AssetId(foreign_asset_id_location_latest.clone()),
+				id: AssetId(foreign_asset_id_location.clone()),
 				fun: Fungible(foreign_asset_id_amount_to_transfer),
 			}]);
 			<span class="kw">let </span>expected_beneficiary = Location::new(
@@ -1151,7 +1145,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ClearOrigin,
 				BuyExecution {
 					fees: Asset {
-						id: AssetId(foreign_asset_id_location_latest.clone()),
+						id: AssetId(foreign_asset_id_location.clone()),
 						fun: Fungible(foreign_asset_id_amount_to_transfer),
 					},
 					weight_limit: Unlimited,

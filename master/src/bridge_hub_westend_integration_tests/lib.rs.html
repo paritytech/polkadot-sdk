@@ -220,7 +220,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -246,8 +245,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub use </span>xcm::{
 		latest::ParentThen,
 		prelude::{AccountId32 <span class="kw">as </span>AccountId32Junction, <span class="kw-2">*</span>},
-		v3,
-		v4::NetworkId::Rococo <span class="kw">as </span>RococoId,
+		v4::{<span class="self">self</span>, NetworkId::Rococo <span class="kw">as </span>RococoId},
 	};
 	<span class="kw">pub use </span>xcm_executor::traits::TransferType;
 

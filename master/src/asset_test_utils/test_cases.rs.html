@@ -1744,12 +1744,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1593" id="1593">1593</a>
 <a href="#1594" id="1594">1594</a>
 <a href="#1595" id="1595">1595</a>
-<a href="#1596" id="1596">1596</a>
-<a href="#1597" id="1597">1597</a>
-<a href="#1598" id="1598">1598</a>
-<a href="#1599" id="1599">1599</a>
-<a href="#1600" id="1600">1600</a>
-<a href="#1601" id="1601">1601</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2119,9 +2113,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&lt;WeightToFee <span class="kw">as </span>frame_support::weights::WeightToFee&gt;::Balance: From&lt;u128&gt; + Into&lt;u128&gt;,
 	SovereignAccountOf: ConvertLocation&lt;AccountIdOf&lt;Runtime&gt;&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;&gt;::AssetId:
-		From&lt;xcm::v3::Location&gt; + Into&lt;xcm::v3::Location&gt;,
+		From&lt;xcm::v4::Location&gt; + Into&lt;xcm::v4::Location&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;&gt;::AssetIdParameter:
-		From&lt;xcm::v3::Location&gt; + Into&lt;xcm::v3::Location&gt;,
+		From&lt;xcm::v4::Location&gt; + Into&lt;xcm::v4::Location&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;&gt;::Balance:
 		From&lt;Balance&gt; + Into&lt;u128&gt;,
 	&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId:
@@ -2133,11 +2127,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="comment">// foreign parachain with the same consensus currency as asset
 	</span><span class="kw">let </span>foreign_para_id = <span class="number">2222</span>;
-	<span class="kw">let </span>foreign_asset_id_location = xcm::v3::Location {
+	<span class="kw">let </span>foreign_asset_id_location = xcm::v4::Location {
 		parents: <span class="number">1</span>,
 		interior: [
-			xcm::v3::Junction::Parachain(foreign_para_id),
-			xcm::v3::Junction::GeneralIndex(<span class="number">1234567</span>),
+			xcm::v4::Junction::Parachain(foreign_para_id),
+			xcm::v4::Junction::GeneralIndex(<span class="number">1234567</span>),
 		]
 		.into(),
 	};
@@ -2190,14 +2184,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 			<span class="macro">assert_eq!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-					foreign_asset_id_location.into(),
+					foreign_asset_id_location.clone().into(),
 					<span class="kw-2">&amp;</span>target_account
 				),
 				<span class="number">0</span>.into()
 			);
 			<span class="macro">assert_eq!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-					foreign_asset_id_location.into(),
+					foreign_asset_id_location.clone().into(),
 					<span class="kw-2">&amp;</span>CheckingAccount::get()
 				),
 				<span class="number">0</span>.into()
@@ -2206,14 +2200,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>assert_total::&lt;
 				pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;,
 				AccountIdOf&lt;Runtime&gt;,
-			&gt;(foreign_asset_id_location, <span class="number">0</span>, <span class="number">0</span>);
+			&gt;(foreign_asset_id_location.clone(), <span class="number">0</span>, <span class="number">0</span>);
 
 			<span class="comment">// create foreign asset (0 total issuance)
 			</span><span class="kw">let </span>asset_minimum_asset_balance = <span class="number">3333333_u128</span>;
 			<span class="macro">assert_ok!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::force_create(
 					RuntimeHelper::&lt;Runtime&gt;::root_origin(),
-					foreign_asset_id_location.into(),
+					foreign_asset_id_location.clone().into(),
 					asset_owner.into(),
 					<span class="bool-val">false</span>,
 					asset_minimum_asset_balance.into()
@@ -2222,11 +2216,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			assert_total::&lt;
 				pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;,
 				AccountIdOf&lt;Runtime&gt;,
-			&gt;(foreign_asset_id_location, <span class="number">0</span>, <span class="number">0</span>);
+			&gt;(foreign_asset_id_location.clone(), <span class="number">0</span>, <span class="number">0</span>);
 			<span class="macro">assert!</span>(teleported_foreign_asset_amount &gt; asset_minimum_asset_balance);
-
-			<span class="kw">let </span>foreign_asset_id_location_latest: Location =
-				foreign_asset_id_location.try_into().unwrap();
 
 			<span class="comment">// 1. process received teleported assets from sibling parachain (foreign_para_id)
 			</span><span class="kw">let </span>xcm = Xcm(<span class="macro">vec!</span>[
@@ -2241,12 +2232,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 				<span class="comment">// Process teleported asset
 				</span>ReceiveTeleportedAsset(Assets::from(<span class="macro">vec!</span>[Asset {
-					id: AssetId(foreign_asset_id_location_latest.clone()),
+					id: AssetId(foreign_asset_id_location.clone()),
 					fun: Fungible(teleported_foreign_asset_amount),
 				}])),
 				DepositAsset {
 					assets: Wild(AllOf {
-						id: AssetId(foreign_asset_id_location_latest.clone()),
+						id: AssetId(foreign_asset_id_location.clone()),
 						fun: WildFungibility::Fungible,
 					}),
 					beneficiary: Location {
@@ -2278,7 +2269,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 			<span class="macro">assert_eq!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-					foreign_asset_id_location.into(),
+					foreign_asset_id_location.clone().into(),
 					<span class="kw-2">&amp;</span>target_account
 				),
 				teleported_foreign_asset_amount.into()
@@ -2290,7 +2281,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 			<span class="macro">assert_eq!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-					foreign_asset_id_location.into(),
+					foreign_asset_id_location.clone().into(),
 					<span class="kw-2">&amp;</span>CheckingAccount::get()
 				),
 				<span class="number">0</span>.into()
@@ -2300,7 +2291,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;,
 				AccountIdOf&lt;Runtime&gt;,
 			&gt;(
-				foreign_asset_id_location,
+				foreign_asset_id_location.clone(),
 				teleported_foreign_asset_amount,
 				teleported_foreign_asset_amount,
 			);
@@ -2318,7 +2309,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">let </span>target_account_balance_before_teleport =
 					&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-						foreign_asset_id_location.into(),
+						foreign_asset_id_location.clone().into(),
 						<span class="kw-2">&amp;</span>target_account,
 					);
 				<span class="kw">let </span>asset_to_teleport_away = asset_minimum_asset_balance * <span class="number">3</span>;
@@ -2332,7 +2323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Make sure the target account has enough native asset to pay for delivery fees
 				</span><span class="kw">let </span>delivery_fees =
 					xcm_helpers::teleport_assets_delivery_fees::&lt;XcmConfig::XcmSender&gt;(
-						(foreign_asset_id_location_latest.clone(), asset_to_teleport_away).into(),
+						(foreign_asset_id_location.clone(), asset_to_teleport_away).into(),
 						<span class="number">0</span>,
 						Unlimited,
 						dest_beneficiary.clone(),
@@ -2348,7 +2339,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					RuntimeHelper::&lt;Runtime&gt;::origin_of(target_account.clone()),
 					dest,
 					dest_beneficiary,
-					(foreign_asset_id_location_latest.clone(), asset_to_teleport_away),
+					(foreign_asset_id_location.clone(), asset_to_teleport_away),
 					<span class="prelude-val">Some</span>((runtime_para_id, foreign_para_id)),
 					included_head,
 					<span class="kw-2">&amp;</span>alice,
@@ -2358,14 +2349,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// check balances
 				</span><span class="macro">assert_eq!</span>(
 					&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-						foreign_asset_id_location.into(),
+						foreign_asset_id_location.clone().into(),
 						<span class="kw-2">&amp;</span>target_account
 					),
 					(target_account_balance_before_teleport - asset_to_teleport_away.into())
 				);
 				<span class="macro">assert_eq!</span>(
 					&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-						foreign_asset_id_location.into(),
+						foreign_asset_id_location.clone().into(),
 						<span class="kw-2">&amp;</span>CheckingAccount::get()
 					),
 					<span class="number">0</span>.into()
@@ -2375,7 +2366,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;,
 					AccountIdOf&lt;Runtime&gt;,
 				&gt;(
-					foreign_asset_id_location,
+					foreign_asset_id_location.clone(),
 					teleported_foreign_asset_amount - asset_to_teleport_away,
 					teleported_foreign_asset_amount - asset_to_teleport_away,
 				);
@@ -3310,9 +3301,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				other_para_id.into(),
 			)
 			.unwrap();
-
-			<span class="kw">let </span>v4_xcm: Xcm&lt;()&gt; = xcm_sent.clone().try_into().unwrap();
-			<span class="macro">dbg!</span>(<span class="kw-2">&amp;</span>v4_xcm);
 
 			<span class="kw">let </span>delivery_fees = get_fungible_delivery_fees::&lt;
 				&lt;XcmConfig <span class="kw">as </span>xcm_executor::Config&gt;::XcmSender,

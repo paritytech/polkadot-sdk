@@ -153,7 +153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <p>The Balances pallet provides functionality for handling accounts and balances for a single
 token.</p>
 <p>It makes heavy use of concepts such as Holds and Freezes from the
-<a href="../frame_support/traits/tokens/fungible/index.html" title="mod frame_support::traits::tokens::fungible"><code>frame_support::traits::fungible</code></a> traits, therefore you should read and understand those docs
+[<code>frame_support::traits::fungible</code>] traits, therefore you should read and understand those docs
 as a prerequisite to understanding this pallet.</p>
 <p>Also see the <a href="../polkadot_sdk_docs/reference_docs/frame_tokens/index.html"><code>frame_tokens</code></a> reference docs for higher level information regarding the
 place of this palet in FRAME.</p>
@@ -175,31 +175,31 @@ place of this palet in FRAME.</p>
 its total balance has become less than the Existential Deposit.</li>
 </ul>
 <h4 id="implementations-1"><a class="doc-anchor" href="#implementations-1">§</a>Implementations</h4>
-<p>The Balances pallet provides implementations for the following <a href="../frame_support/traits/tokens/fungible/index.html" title="mod frame_support::traits::tokens::fungible"><code>fungible</code></a> traits. If these
+<p>The Balances pallet provides implementations for the following [<code>fungible</code>] traits. If these
 traits provide the functionality that you need, then you should avoid tight coupling with the
 Balances pallet.</p>
 <ul>
-<li><a href="../frame_support/traits/tokens/fungible/regular/trait.Inspect.html" title="trait frame_support::traits::tokens::fungible::regular::Inspect"><code>fungible::Inspect</code></a></li>
-<li><a href="../frame_support/traits/tokens/fungible/regular/trait.Mutate.html" title="trait frame_support::traits::tokens::fungible::regular::Mutate"><code>fungible::Mutate</code></a></li>
-<li><a href="../frame_support/traits/tokens/fungible/regular/trait.Unbalanced.html" title="trait frame_support::traits::tokens::fungible::regular::Unbalanced"><code>fungible::Unbalanced</code></a></li>
-<li><a href="../frame_support/traits/tokens/fungible/regular/trait.Balanced.html" title="trait frame_support::traits::tokens::fungible::regular::Balanced"><code>fungible::Balanced</code></a></li>
-<li><a href="../frame_support/traits/tokens/fungible/hold/trait.Balanced.html" title="trait frame_support::traits::tokens::fungible::hold::Balanced"><code>fungible::BalancedHold</code></a></li>
-<li><a href="../frame_support/traits/tokens/fungible/hold/trait.Inspect.html" title="trait frame_support::traits::tokens::fungible::hold::Inspect"><code>fungible::InspectHold</code></a></li>
-<li><a href="../frame_support/traits/tokens/fungible/hold/trait.Mutate.html" title="trait frame_support::traits::tokens::fungible::hold::Mutate"><code>fungible::MutateHold</code></a></li>
-<li><a href="../frame_support/traits/tokens/fungible/freeze/trait.Inspect.html" title="trait frame_support::traits::tokens::fungible::freeze::Inspect"><code>fungible::InspectFreeze</code></a></li>
-<li><a href="../frame_support/traits/tokens/fungible/freeze/trait.Mutate.html" title="trait frame_support::traits::tokens::fungible::freeze::Mutate"><code>fungible::MutateFreeze</code></a></li>
-<li><a href="../frame_support/traits/tokens/fungible/imbalance/struct.Imbalance.html" title="struct frame_support::traits::tokens::fungible::imbalance::Imbalance"><code>fungible::Imbalance</code></a></li>
+<li>[<code>fungible::Inspect</code>]</li>
+<li>[<code>fungible::Mutate</code>]</li>
+<li>[<code>fungible::Unbalanced</code>]</li>
+<li>[<code>fungible::Balanced</code>]</li>
+<li>[<code>fungible::BalancedHold</code>]</li>
+<li>[<code>fungible::InspectHold</code>]</li>
+<li>[<code>fungible::MutateHold</code>]</li>
+<li>[<code>fungible::InspectFreeze</code>]</li>
+<li>[<code>fungible::MutateFreeze</code>]</li>
+<li>[<code>fungible::Imbalance</code>]</li>
 </ul>
-<p>It also implements the following <a href="../frame_support/traits/tokens/currency/trait.Currency.html" title="trait frame_support::traits::tokens::currency::Currency"><code>Currency</code></a> related traits, however they are deprecated and
+<p>It also implements the following [<code>Currency</code>] related traits, however they are deprecated and
 will eventually be removed.</p>
 <ul>
-<li><a href="../frame_support/traits/tokens/currency/trait.Currency.html" title="trait frame_support::traits::tokens::currency::Currency"><code>Currency</code></a>: Functions for dealing with a fungible assets system.</li>
-<li><a href="../frame_support/traits/tokens/currency/reservable/trait.ReservableCurrency.html" title="trait frame_support::traits::tokens::currency::reservable::ReservableCurrency"><code>ReservableCurrency</code></a></li>
-<li><a href="../frame_support/traits/tokens/currency/reservable/trait.NamedReservableCurrency.html" title="trait frame_support::traits::tokens::currency::reservable::NamedReservableCurrency"><code>NamedReservableCurrency</code></a>:
+<li>[<code>Currency</code>]: Functions for dealing with a fungible assets system.</li>
+<li>[<code>ReservableCurrency</code>]</li>
+<li><a href="frame_support::traits::NamedReservableCurrency"><code>NamedReservableCurrency</code></a>:
 Functions for dealing with assets that can be reserved from an account.</li>
-<li><a href="../frame_support/traits/tokens/currency/lockable/trait.LockableCurrency.html" title="trait frame_support::traits::tokens::currency::lockable::LockableCurrency"><code>LockableCurrency</code></a>: Functions for
+<li><a href="frame_support::traits::LockableCurrency"><code>LockableCurrency</code></a>: Functions for
 dealing with accounts that allow liquidity restrictions.</li>
-<li><a href="../frame_support/traits/tokens/imbalance/trait.Imbalance.html" title="trait frame_support::traits::tokens::imbalance::Imbalance"><code>Imbalance</code></a>: Functions for handling
+<li><a href="frame_support::traits::Imbalance"><code>Imbalance</code></a>: Functions for handling
 imbalances between total issuance in the system and account balances. Must be used when a
 function creates new funds (e.g. a reward) or destroys some funds (e.g. a system fee).</li>
 </ul>

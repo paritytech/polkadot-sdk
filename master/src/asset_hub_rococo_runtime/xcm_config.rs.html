@@ -843,9 +843,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#692" id="692">692</a>
 <a href="#693" id="693">693</a>
 <a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -913,7 +910,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>TokenLocation: Location = Location::parent();
-	<span class="kw">pub const </span>TokenLocationV3: xcm::v3::Location = xcm::v3::Location::parent();
 	<span class="kw">pub const </span>RelayNetwork: NetworkId = NetworkId::Rococo;
 	<span class="kw">pub </span>RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	<span class="kw">pub </span>UniversalLocation: InteriorLocation =
@@ -922,8 +918,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub </span>TrustBackedAssetsPalletLocation: Location =
 		PalletInstance(TrustBackedAssetsPalletIndex::get()).into();
 	<span class="kw">pub </span>TrustBackedAssetsPalletIndex: u8 = &lt;Assets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8;
-	<span class="kw">pub </span>TrustBackedAssetsPalletLocationV3: xcm::v3::Location =
-		xcm::v3::Junction::PalletInstance(&lt;Assets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
 	<span class="kw">pub </span>ForeignAssetsPalletLocation: Location =
 		PalletInstance(&lt;ForeignAssets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
 	<span class="kw">pub </span>PoolAssetsPalletLocation: Location =
@@ -1025,7 +1019,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>StartsWithExplicitGlobalConsensus&lt;UniversalLocationNetworkId&gt;,
 	),
 	Balance,
-	xcm::v3::Location,
+	xcm::v4::Location,
 &gt;;
 
 <span class="doccomment">/// Means for transacting foreign assets from different global consensus.
@@ -1209,7 +1203,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ResolveTo&lt;StakingPot, Balances&gt;,
 		&gt;,
 		cumulus_primitives_utility::SwapFirstAssetTrader&lt;
-			TokenLocationV3,
+			TokenLocation,
 			<span class="kw">crate</span>::AssetConversion,
 			WeightToFee,
 			<span class="kw">crate</span>::NativeAndAssets,
@@ -1217,7 +1211,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				TrustBackedAssetsAsLocation&lt;
 					TrustBackedAssetsPalletLocation,
 					Balance,
-					xcm::v3::Location,
+					xcm::v4::Location,
 				&gt;,
 				ForeignAssetsConvertedConcreteId,
 			),
@@ -1350,9 +1344,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 </span><span class="kw">pub struct </span>XcmBenchmarkHelper;
 <span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-</span><span class="kw">impl </span>pallet_assets::BenchmarkHelper&lt;xcm::v3::Location&gt; <span class="kw">for </span>XcmBenchmarkHelper {
-	<span class="kw">fn </span>create_asset_id_parameter(id: u32) -&gt; xcm::v3::Location {
-		xcm::v3::Location::new(<span class="number">1</span>, [xcm::v3::Junction::Parachain(id)])
+</span><span class="kw">impl </span>pallet_assets::BenchmarkHelper&lt;xcm::v4::Location&gt; <span class="kw">for </span>XcmBenchmarkHelper {
+	<span class="kw">fn </span>create_asset_id_parameter(id: u32) -&gt; xcm::v4::Location {
+		xcm::v4::Location::new(<span class="number">1</span>, [xcm::v4::Junction::Parachain(id)])
 	}
 }
 

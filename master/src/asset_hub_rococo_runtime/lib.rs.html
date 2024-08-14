@@ -1934,65 +1934,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1783" id="1783">1783</a>
 <a href="#1784" id="1784">1784</a>
 <a href="#1785" id="1785">1785</a>
-<a href="#1786" id="1786">1786</a>
-<a href="#1787" id="1787">1787</a>
-<a href="#1788" id="1788">1788</a>
-<a href="#1789" id="1789">1789</a>
-<a href="#1790" id="1790">1790</a>
-<a href="#1791" id="1791">1791</a>
-<a href="#1792" id="1792">1792</a>
-<a href="#1793" id="1793">1793</a>
-<a href="#1794" id="1794">1794</a>
-<a href="#1795" id="1795">1795</a>
-<a href="#1796" id="1796">1796</a>
-<a href="#1797" id="1797">1797</a>
-<a href="#1798" id="1798">1798</a>
-<a href="#1799" id="1799">1799</a>
-<a href="#1800" id="1800">1800</a>
-<a href="#1801" id="1801">1801</a>
-<a href="#1802" id="1802">1802</a>
-<a href="#1803" id="1803">1803</a>
-<a href="#1804" id="1804">1804</a>
-<a href="#1805" id="1805">1805</a>
-<a href="#1806" id="1806">1806</a>
-<a href="#1807" id="1807">1807</a>
-<a href="#1808" id="1808">1808</a>
-<a href="#1809" id="1809">1809</a>
-<a href="#1810" id="1810">1810</a>
-<a href="#1811" id="1811">1811</a>
-<a href="#1812" id="1812">1812</a>
-<a href="#1813" id="1813">1813</a>
-<a href="#1814" id="1814">1814</a>
-<a href="#1815" id="1815">1815</a>
-<a href="#1816" id="1816">1816</a>
-<a href="#1817" id="1817">1817</a>
-<a href="#1818" id="1818">1818</a>
-<a href="#1819" id="1819">1819</a>
-<a href="#1820" id="1820">1820</a>
-<a href="#1821" id="1821">1821</a>
-<a href="#1822" id="1822">1822</a>
-<a href="#1823" id="1823">1823</a>
-<a href="#1824" id="1824">1824</a>
-<a href="#1825" id="1825">1825</a>
-<a href="#1826" id="1826">1826</a>
-<a href="#1827" id="1827">1827</a>
-<a href="#1828" id="1828">1828</a>
-<a href="#1829" id="1829">1829</a>
-<a href="#1830" id="1830">1830</a>
-<a href="#1831" id="1831">1831</a>
-<a href="#1832" id="1832">1832</a>
-<a href="#1833" id="1833">1833</a>
-<a href="#1834" id="1834">1834</a>
-<a href="#1835" id="1835">1835</a>
-<a href="#1836" id="1836">1836</a>
-<a href="#1837" id="1837">1837</a>
-<a href="#1838" id="1838">1838</a>
-<a href="#1839" id="1839">1839</a>
-<a href="#1840" id="1840">1840</a>
-<a href="#1841" id="1841">1841</a>
-<a href="#1842" id="1842">1842</a>
-<a href="#1843" id="1843">1843</a>
-<a href="#1844" id="1844">1844</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2078,9 +2019,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>testnet_parachains_constants::rococo::{consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee, time::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
-	PoolAssetsConvertedConcreteId, TokenLocation, TokenLocationV3,
-	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocationV3,
+	PoolAssetsConvertedConcreteId, TokenLocation, TrustBackedAssetsConvertedConcreteId,
+	TrustBackedAssetsPalletLocation,
 };
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests;
 
 <span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">pub use </span>sp_runtime::BuildStorage;
@@ -2319,11 +2263,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Assets,
 	ForeignAssets,
 	LocalFromLeft&lt;
-		AssetIdForTrustBackedAssetsConvert&lt;TrustBackedAssetsPalletLocationV3, xcm::v3::Location&gt;,
+		AssetIdForTrustBackedAssetsConvert&lt;TrustBackedAssetsPalletLocation, xcm::v4::Location&gt;,
 		AssetIdForTrustBackedAssets,
-		xcm::v3::Location,
+		xcm::v4::Location,
 	&gt;,
-	xcm::v3::Location,
+	xcm::v4::Location,
 	AccountId,
 &gt;;
 
@@ -2331,25 +2275,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>NativeAndAssets = fungible::UnionOf&lt;
 	Balances,
 	LocalAndForeignAssets,
-	TargetFromLeft&lt;TokenLocationV3, xcm::v3::Location&gt;,
-	xcm::v3::Location,
+	TargetFromLeft&lt;TokenLocation, xcm::v4::Location&gt;,
+	xcm::v4::Location,
 	AccountId,
 &gt;;
 
 <span class="kw">pub type </span>PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter&lt;
 	AssetConversionPalletId,
-	(xcm::v3::Location, xcm::v3::Location),
+	(xcm::v4::Location, xcm::v4::Location),
 &gt;;
 
 <span class="kw">impl </span>pallet_asset_conversion::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Balance = Balance;
 	<span class="kw">type </span>HigherPrecisionBalance = sp_core::U256;
-	<span class="kw">type </span>AssetKind = xcm::v3::Location;
+	<span class="kw">type </span>AssetKind = xcm::v4::Location;
 	<span class="kw">type </span>Assets = NativeAndAssets;
 	<span class="kw">type </span>PoolId = (<span class="self">Self</span>::AssetKind, <span class="self">Self</span>::AssetKind);
 	<span class="kw">type </span>PoolLocator = pallet_asset_conversion::WithFirstAsset&lt;
-		TokenLocationV3,
+		TokenLocation,
 		AccountId,
 		<span class="self">Self</span>::AssetKind,
 		PoolIdToAccountId,
@@ -2357,7 +2301,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>PoolAssetId = u32;
 	<span class="kw">type </span>PoolAssets = PoolAssets;
 	<span class="kw">type </span>PoolSetupFee = ConstU128&lt;<span class="number">0</span>&gt;; <span class="comment">// Asset class deposit fees are sufficient to prevent spam
-	</span><span class="kw">type </span>PoolSetupFeeAsset = TokenLocationV3;
+	</span><span class="kw">type </span>PoolSetupFeeAsset = TokenLocation;
 	<span class="kw">type </span>PoolSetupFeeTarget = ResolveAssetTo&lt;AssetConversionOrigin, <span class="self">Self</span>::Assets&gt;;
 	<span class="kw">type </span>LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	<span class="kw">type </span>LPFee = ConstU32&lt;<span class="number">3</span>&gt;;
@@ -2367,10 +2311,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightInfo = weights::pallet_asset_conversion::WeightInfo&lt;Runtime&gt;;
 	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = assets_common::benchmarks::AssetPairFactory&lt;
-		TokenLocationV3,
+		TokenLocation,
 		parachain_info::Pallet&lt;Runtime&gt;,
 		xcm_config::TrustBackedAssetsPalletIndex,
-		xcm::v3::Location,
+		xcm::v4::Location,
 	&gt;;
 }
 
@@ -2404,17 +2348,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>pallet_assets::Config&lt;ForeignAssetsInstance&gt; <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Balance = Balance;
-	<span class="kw">type </span>AssetId = xcm::v3::Location;
-	<span class="kw">type </span>AssetIdParameter = xcm::v3::Location;
+	<span class="kw">type </span>AssetId = xcm::v4::Location;
+	<span class="kw">type </span>AssetIdParameter = xcm::v4::Location;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>CreateOrigin = ForeignCreators&lt;
 		(
-			FromSiblingParachain&lt;parachain_info::Pallet&lt;Runtime&gt;, xcm::v3::Location&gt;,
-			FromNetwork&lt;xcm_config::UniversalLocation, EthereumNetwork, xcm::v3::Location&gt;,
+			FromSiblingParachain&lt;parachain_info::Pallet&lt;Runtime&gt;, xcm::v4::Location&gt;,
+			FromNetwork&lt;xcm_config::UniversalLocation, EthereumNetwork, xcm::v4::Location&gt;,
 		),
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,
-		xcm::v3::Location,
+		xcm::v4::Location,
 	&gt;;
 	<span class="kw">type </span>ForceOrigin = AssetsForceOrigin;
 	<span class="kw">type </span>AssetDeposit = ForeignAssetsAssetDeposit;
@@ -2799,9 +2743,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>pallet_asset_conversion_tx_payment::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>AssetId = xcm::v3::Location;
+	<span class="kw">type </span>AssetId = xcm::v4::Location;
 	<span class="kw">type </span>OnChargeAssetTransaction = SwapAssetAdapter&lt;
-		TokenLocationV3,
+		TokenLocation,
 		NativeAndAssets,
 		AssetConversion,
 		ResolveAssetTo&lt;StakingPot, NativeAndAssets&gt;,
@@ -3014,7 +2958,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>UncheckedExtrinsic =
 	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, SignedExtra&gt;;
 <span class="doccomment">/// Migrations to apply on runtime upgrade.
-</span><span class="attr">#[allow(deprecated)]
 </span><span class="kw">pub type </span>Migrations = (
 	InitStorageVersions,
 	<span class="comment">// unreleased
@@ -3229,16 +3172,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">impl </span>pallet_asset_conversion::AssetConversionApi&lt;
 		Block,
 		Balance,
-		xcm::v3::Location,
+		xcm::v4::Location,
 	&gt; <span class="kw">for </span>Runtime
 	{
-		<span class="kw">fn </span>quote_price_exact_tokens_for_tokens(asset1: xcm::v3::Location, asset2: xcm::v3::Location, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
+		<span class="kw">fn </span>quote_price_exact_tokens_for_tokens(asset1: xcm::v4::Location, asset2: xcm::v4::Location, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
-		<span class="kw">fn </span>quote_price_tokens_for_exact_tokens(asset1: xcm::v3::Location, asset2: xcm::v3::Location, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
+		<span class="kw">fn </span>quote_price_tokens_for_exact_tokens(asset1: xcm::v4::Location, asset2: xcm::v4::Location, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
-		<span class="kw">fn </span>get_reserves(asset1: xcm::v3::Location, asset2: xcm::v3::Location) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt; {
+		<span class="kw">fn </span>get_reserves(asset1: xcm::v4::Location, asset2: xcm::v4::Location) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt; {
 			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}
@@ -3775,67 +3718,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">cumulus_pallet_parachain_system::register_validate_block! </span>{
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::&lt;Runtime, Executive&gt;,
-}
-
-<span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>tests {
-	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use crate</span>::{CENTS, MILLICENTS};
-	<span class="kw">use </span>sp_runtime::traits::Zero;
-	<span class="kw">use </span>sp_weights::WeightToFee;
-	<span class="kw">use </span>testnet_parachains_constants::rococo::fee;
-
-	<span class="doccomment">/// We can fit at least 1000 transfers in a block.
-	</span><span class="attr">#[test]
-	</span><span class="kw">fn </span>sane_block_weight() {
-		<span class="kw">use </span>pallet_balances::WeightInfo;
-		<span class="kw">let </span>block = RuntimeBlockWeights::get().max_block;
-		<span class="kw">let </span>base = RuntimeBlockWeights::get().get(DispatchClass::Normal).base_extrinsic;
-		<span class="kw">let </span>transfer =
-			base + weights::pallet_balances::WeightInfo::&lt;Runtime&gt;::transfer_allow_death();
-
-		<span class="kw">let </span>fit = block.checked_div_per_component(<span class="kw-2">&amp;</span>transfer).unwrap_or_default();
-		<span class="macro">assert!</span>(fit &gt;= <span class="number">1000</span>, <span class="string">"{} should be at least 1000"</span>, fit);
-	}
-
-	<span class="doccomment">/// The fee for one transfer is at most 1 CENT.
-	</span><span class="attr">#[test]
-	</span><span class="kw">fn </span>sane_transfer_fee() {
-		<span class="kw">use </span>pallet_balances::WeightInfo;
-		<span class="kw">let </span>base = RuntimeBlockWeights::get().get(DispatchClass::Normal).base_extrinsic;
-		<span class="kw">let </span>transfer =
-			base + weights::pallet_balances::WeightInfo::&lt;Runtime&gt;::transfer_allow_death();
-
-		<span class="kw">let </span>fee: Balance = fee::WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>transfer);
-		<span class="macro">assert!</span>(fee &lt;= CENTS, <span class="string">"{} MILLICENTS should be at most 1000"</span>, fee / MILLICENTS);
-	}
-
-	<span class="doccomment">/// Weight is being charged for both dimensions.
-	</span><span class="attr">#[test]
-	</span><span class="kw">fn </span>weight_charged_for_both_components() {
-		<span class="kw">let </span>fee: Balance = fee::WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>Weight::from_parts(<span class="number">10_000</span>, <span class="number">0</span>));
-		<span class="macro">assert!</span>(!fee.is_zero(), <span class="string">"Charges for ref time"</span>);
-
-		<span class="kw">let </span>fee: Balance = fee::WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>Weight::from_parts(<span class="number">0</span>, <span class="number">10_000</span>));
-		<span class="macro">assert_eq!</span>(fee, CENTS, <span class="string">"10kb maps to CENT"</span>);
-	}
-
-	<span class="doccomment">/// Filling up a block by proof size is at most 30 times more expensive than ref time.
-	///
-	/// This is just a sanity check.
-	</span><span class="attr">#[test]
-	</span><span class="kw">fn </span>full_block_fee_ratio() {
-		<span class="kw">let </span>block = RuntimeBlockWeights::get().max_block;
-		<span class="kw">let </span>time_fee: Balance =
-			fee::WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>Weight::from_parts(block.ref_time(), <span class="number">0</span>));
-		<span class="kw">let </span>proof_fee: Balance =
-			fee::WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>Weight::from_parts(<span class="number">0</span>, block.proof_size()));
-
-		<span class="kw">let </span>proof_o_time = proof_fee.checked_div(time_fee).unwrap_or_default();
-		<span class="macro">assert!</span>(proof_o_time &lt;= <span class="number">30</span>, <span class="string">"{} should be at most 30"</span>, proof_o_time);
-		<span class="kw">let </span>time_o_proof = time_fee.checked_div(proof_fee).unwrap_or_default();
-		<span class="macro">assert!</span>(time_o_proof &lt;= <span class="number">30</span>, <span class="string">"{} should be at most 30"</span>, time_o_proof);
-	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

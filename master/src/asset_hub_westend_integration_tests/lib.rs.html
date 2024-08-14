@@ -252,9 +252,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -283,10 +280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="comment">// Polkadot
-	</span><span class="kw">pub use </span>xcm::{
-		prelude::{AccountId32 <span class="kw">as </span>AccountId32Junction, <span class="kw-2">*</span>},
-		v3,
-	};
+	</span><span class="kw">pub use </span>xcm::prelude::{AccountId32 <span class="kw">as </span>AccountId32Junction, <span class="kw-2">*</span>};
 	<span class="kw">pub use </span>xcm_executor::traits::TransferType;
 
 	<span class="comment">// Cumulus
