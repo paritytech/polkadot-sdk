@@ -536,6 +536,10 @@ where
 			},
 			BlockAnnounceValidationResult::Failure { peer_id, disconnect } => {
 				if disconnect {
+					log::debug!(
+						target: LOG_TARGET,
+						"Disconnecting peer {peer_id} due to block announce validation failure",
+					);
 					self.network_service
 						.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 				}

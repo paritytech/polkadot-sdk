@@ -31,7 +31,7 @@ pallet-assets = { workspace = true }
 xcm-executor = { workspace = true }
 frame-executive = { workspace = true }
 log = { workspace = true }
-env_logger = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

@@ -423,7 +423,14 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
+		/// Initial list of validator at genesis representing by their `(AccountId, ValidatorId,
+		/// Keys)`. These keys will be considered authorities for the first two sessions and they
+		/// will be valid at least until session 2
 		pub keys: Vec<(T::AccountId, T::ValidatorId, T::Keys)>,
+		/// List of (AccountId, ValidatorId, Keys) that will be registered at genesis, but not as
+		/// active validators. These keys are set, together with `keys`, as authority candidates
+		/// for future sessions (enactable from session 2 onwards)
+		pub non_authority_keys: Vec<(T::AccountId, T::ValidatorId, T::Keys)>,
 	}
 
 	#[pallet::genesis_build]
@@ -446,7 +453,9 @@ pub mod pallet {
 					}
 				});
 
-			for (account, val, keys) in self.keys.iter().cloned() {
+			for (account, val, keys) in
+				self.keys.iter().chain(self.non_authority_keys.iter()).cloned()
+			{
 				Pallet::<T>::inner_set_keys(&val, keys)
 					.expect("genesis config must not contain duplicates; qed");
 				if frame_system::Pallet::<T>::inc_consumers_without_limit(&account).is_err() {
@@ -677,7 +686,7 @@ impl<T: Config> Pallet<T> {
 			let mut now_session_keys = session_keys.iter();
 			let mut check_next_changed = |keys: &T::Keys| {
 				if changed {
-					return
+					return;
 				}
 				// since a new validator set always leads to `changed` starting
 				// as true, we can ensure that `now_session_keys` and `next_validators`
