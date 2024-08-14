@@ -58,7 +58,7 @@ use xcm_builder::{
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
-use xcm_executor::{traits::FeeManager, XcmExecutor};
+use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub const WestendLocation: Location = Location::parent();
