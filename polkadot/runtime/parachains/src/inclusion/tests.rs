@@ -34,13 +34,13 @@ use assert_matches::assert_matches;
 use codec::DecodeAll;
 use frame_support::assert_noop;
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CollatorId, CompactStatement as Statement, Hash,
-	SignedAvailabilityBitfield, SignedStatement, ValidationCode, ValidatorId, ValidityAttestation,
-	PARACHAIN_KEY_TYPE_ID, CollatorSignature,
+	BlockNumber, CandidateCommitments, CollatorId, CollatorSignature,
+	CompactStatement as Statement, Hash, SignedAvailabilityBitfield, SignedStatement,
+	ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID,
 };
 use polkadot_primitives_test_helpers::dummy_validation_code;
-use sp_core::ByteArray;
 use sc_keystore::LocalKeystore;
+use sp_core::ByteArray;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
@@ -292,10 +292,14 @@ impl TestCandidateBuilder {
 				validation_code_hash: self.validation_code.hash(),
 				para_head: self.para_head_hash.unwrap_or_else(|| self.head_data.hash()),
 				erasure_root: Default::default(),
-				signature: CollatorSignature::from_slice(&mut (0..64).into_iter().collect::<Vec<_>>().as_slice())
-					.expect("64 bytes; qed"),
-				collator: CollatorId::from_slice(&mut (0..32).into_iter().collect::<Vec<_>>().as_slice())
-					.expect("32 bytes; qed"),
+				signature: CollatorSignature::from_slice(
+					&mut (0..64).into_iter().collect::<Vec<_>>().as_slice(),
+				)
+				.expect("64 bytes; qed"),
+				collator: CollatorId::from_slice(
+					&mut (0..32).into_iter().collect::<Vec<_>>().as_slice(),
+				)
+				.expect("32 bytes; qed"),
 			}
 			.into(),
 			commitments: CandidateCommitments {

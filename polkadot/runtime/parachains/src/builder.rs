@@ -26,7 +26,6 @@ use alloc::{
 	vec,
 	vec::Vec,
 };
-use sp_core::ByteArray;
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
@@ -37,13 +36,13 @@ use polkadot_primitives::{
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 		InherentData as ParachainsInherentData,
 	},
-	AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash,
-	CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
-	Id as ParaId, IndexedVec, InvalidDisputeStatementKind, PersistedValidationData, SessionIndex,
-	SigningContext, UncheckedSigned, ValidDisputeStatementKind, ValidationCode, ValidatorId,
-	ValidatorIndex, ValidityAttestation, CollatorId, CollatorSignature,
+	AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId,
+	CollatorSignature, CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet,
+	GroupIndex, HeadData, Id as ParaId, IndexedVec, InvalidDisputeStatementKind,
+	PersistedValidationData, SessionIndex, SigningContext, UncheckedSigned,
+	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,
 };
-use sp_core::H256;
+use sp_core::{ByteArray, H256};
 use sp_runtime::{
 	generic::Digest,
 	traits::{Header as HeaderT, One, TrailingZeroInput, Zero},
