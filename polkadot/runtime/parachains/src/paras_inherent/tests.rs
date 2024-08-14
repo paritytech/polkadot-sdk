@@ -1523,13 +1523,9 @@ mod enter {
 
 			assert_eq!(filtered_para_inherend_data.backed_candidates.len(), 0);
 
-			let mut inherent_data = InherentData::new();
-			inherent_data
-				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &unfiltered_para_inherent_data)
-				.unwrap();
 			let dispatch_error = Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
-				expected_para_inherent_data,
+				unfiltered_para_inherent_data,
 			)
 			.unwrap_err()
 			.error;
