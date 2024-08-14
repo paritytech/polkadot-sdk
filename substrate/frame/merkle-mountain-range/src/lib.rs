@@ -124,7 +124,18 @@ impl<T: frame_system::Config> BlockHashProvider<BlockNumberFor<T>, T::Hash>
 }
 
 pub trait WeightInfo {
-	fn on_initialize(peaks: NodeIndex) -> Weight;
+	fn on_initialize(peaks: u32) -> Weight;
+}
+
+/// This trait decoples dependencies on pallets needed for benchmarking.
+#[cfg(feature = "runtime-benchmarks")]
+pub trait BenchmarkHelper {
+	fn setup();
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelper for () {
+	fn setup() {}
 }
 
 /// An MMR specific to the pallet.
@@ -205,6 +216,10 @@ pub mod pallet {
 
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Benchmarking setup helper trait.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper;
 	}
 
 	/// Latest MMR Root hash.
@@ -225,6 +240,11 @@ pub mod pallet {
 	pub type Nodes<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, NodeIndex, HashOf<T, I>, OptionQuery>;
 
+	/// Helper flag used in the runtime benchmarks for the initial setup.
+	#[cfg(feature = "runtime-benchmarks")]
+	#[pallet::storage]
+	pub type UseLocalStorage<T, I = ()> = StorageValue<_, bool, ValueQuery>;
+
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
@@ -238,14 +258,14 @@ pub mod pallet {
 			// MMR push never fails, but better safe than sorry.
 			if mmr.push(data).is_none() {
 				log::error!(target: "runtime::mmr", "MMR push failed");
-				return T::WeightInfo::on_initialize(peaks_before)
+				return T::WeightInfo::on_initialize(peaks_before as u32)
 			}
 			// Update the size, `mmr.finalize()` should also never fail.
 			let (leaves, root) = match mmr.finalize() {
 				Ok((leaves, root)) => (leaves, root),
 				Err(e) => {
 					log::error!(target: "runtime::mmr", "MMR finalize failed: {:?}", e);
-					return T::WeightInfo::on_initialize(peaks_before)
+					return T::WeightInfo::on_initialize(peaks_before as u32)
 				},
 			};
 			<T::OnNewRoot as primitives::OnNewRoot<_>>::on_new_root(&root);
@@ -255,7 +275,7 @@ pub mod pallet {
 
 			let peaks_after = sp_mmr_primitives::utils::NodesUtils::new(leaves).number_of_peaks();
 
-			T::WeightInfo::on_initialize(peaks_before.max(peaks_after))
+			T::WeightInfo::on_initialize(peaks_before.max(peaks_after) as u32)
 		}
 	}
 }
@@ -422,6 +442,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(leaf_count);
 		mmr.generate_ancestry_proof(prev_leaf_count)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn generate_mock_ancestry_proof() -> Result<primitives::AncestryProof<HashOf<T, I>>, Error>
+	{
+		let leaf_count = Self::block_num_to_leaf_count(<frame_system::Pallet<T>>::block_number())?;
+		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(leaf_count);
+		mmr.generate_mock_ancestry_proof()
 	}
 
 	pub fn verify_ancestry_proof(

@@ -28,7 +28,7 @@ installation](#alternatives-installations) options.
 Use the following command to build the node without launching it:
 
 ```sh
-cargo build --package solochain-template-node --release
+cargo build --release
 ```
 
 ### Embedded Docs

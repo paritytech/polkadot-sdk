@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Do not crash on block gap in displaced_leaves_after_finalizing
+
+doc:
+  - audience:
+    - Node Operator
+    - Node Dev
+    description: |
+      After recent changes, crashes where occuring when calculating displaced branches after a block was finalized.
+      The reason are block gaps in the finalized chain. When encountering unknown blocks, the node was panicking.
+      This PR introduces changes to tolerate unknown blocks. Leafs that are separated by a gap from the to-be-finalized
+      block are not marked as displaced.
+
+crates:
+- name: sc-client-db
+  bump: none
+- name: sp-blockchain
+  bump: patch

@@ -26,7 +26,6 @@ use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::FromBridgedChainMessagesProof, LaneId,
 };
-use bp_runtime::Chain;
 use bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
@@ -47,7 +46,6 @@ use xcm::{
 use xcm_builder::BridgeBlobDispatcher;
 
 parameter_types! {
-	pub const BridgeHubWestendChainId: bp_runtime::ChainId = bp_bridge_hub_westend::BridgeHubWestend::ID;
 	pub BridgeRococoToWestendMessagesPalletInstance: InteriorLocation = [PalletInstance(<BridgeWestendMessages as PalletInfoAccess>::index() as u8)].into();
 	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::Westend;
 	pub WestendGlobalConsensusNetworkLocation: Location = Location::new(
