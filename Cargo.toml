@@ -819,7 +819,7 @@ lazy_static = { version = "1.4.0" }
 libc = { version = "0.2.155" }
 libfuzzer-sys = { version = "0.4" }
 libp2p = { version = "0.52.4" }
-libp2p-identity = { version = "0.2.3" }
+libp2p-identity = { version = "0.2.9" }
 libsecp256k1 = { version = "0.7.0", default-features = false }
 linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
