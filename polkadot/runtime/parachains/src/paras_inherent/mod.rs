@@ -490,16 +490,19 @@ impl<T: Config> Pallet<T> {
 		// Contains the disputes that are concluded in the current session only,
 		// since these are the only ones that are relevant for the occupied cores
 		// and lightens the load on `free_disputed` significantly.
-		let mut current_concluded_invalid_disputes =
-			<T>::DisputesHandler::disputes_concluded_invalid(current_session);
+		let current_concluded_invalid_disputes =
+			|hash: CandidateHash| <T>::DisputesHandler::concluded_invalid(current_session, hash);
 
 		// Get the cores freed as a result of concluded invalid candidates.
 		let (freed_disputed, concluded_invalid_hashes): (Vec<CoreIndex>, BTreeSet<CandidateHash>) =
-			inclusion::Pallet::<T>::free_disputed(&current_concluded_invalid_disputes)
+			inclusion::Pallet::<T>::free_disputed(current_concluded_invalid_disputes)
 				.into_iter()
 				.unzip();
 		// Also include descendants of the concluded invalid candidates.
-		current_concluded_invalid_disputes.extend(concluded_invalid_hashes);
+		let current_concluded_invalid_disputes = |hash: CandidateHash| {
+			concluded_invalid_hashes.contains(&hash) ||
+				<T>::DisputesHandler::concluded_invalid(current_session, hash)
+		};
 
 		// Create a bit index from the set of core indices where each index corresponds to
 		// a core index that was freed due to a dispute.
@@ -946,7 +949,7 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	backed_candidates: Vec<BackedCandidate<T::Hash>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-	concluded_invalid_with_descendants: BTreeSet<CandidateHash>,
+	concluded_invalid_with_descendants: impl Fn(CandidateHash) -> bool,
 	scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 	core_index_enabled: bool,
 ) -> BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>> {
@@ -967,7 +970,7 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	// Remove any candidates that were concluded invalid or who are descendants of concluded invalid
 	// candidates (along with their descendants).
 	retain_candidates::<T, _, _>(&mut candidates_per_para, |_, candidate| {
-		let keep = !concluded_invalid_with_descendants.contains(&candidate.candidate().hash());
+		let keep = !concluded_invalid_with_descendants(candidate.candidate().hash());
 
 		if !keep {
 			log::debug!(
@@ -1157,18 +1160,19 @@ fn filter_backed_statements_from_disabled_validators<
 
 		// Get relay parent block number of the candidate. We need this to get the group index
 		// assigned to this core at this block number
-		let relay_parent_block_number =
-			match allowed_relay_parents.acquire_info(bc.descriptor().relay_parent, None) {
-				Some((_, block_num)) => block_num,
-				None => {
-					log::debug!(
-						target: LOG_TARGET,
-						"Relay parent {:?} for candidate is not in the allowed relay parents. Dropping the candidate.",
-						bc.descriptor().relay_parent
-					);
-					return false
-				},
-			};
+		let relay_parent_block_number = match allowed_relay_parents
+			.acquire_info(bc.descriptor().relay_parent, None)
+		{
+			Some((_, block_num)) => block_num,
+			None => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Relay parent {:?} for candidate is not in the allowed relay parents. Dropping the candidate.",
+					bc.descriptor().relay_parent
+				);
+				return false
+			},
+		};
 
 		// Get the group index for the core
 		let group_idx = match scheduler::Pallet::<T>::group_assigned_to_core(

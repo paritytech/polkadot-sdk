@@ -230,9 +230,6 @@ pub trait DisputesHandler<BlockNumber: Ord> {
 		included_in: BlockNumber,
 	);
 
-	/// Get a list of disputes in a session that concluded invalid.
-	fn disputes_concluded_invalid(session: SessionIndex) -> BTreeSet<CandidateHash>;
-
 	/// Retrieve the included state of a given candidate in a particular session. If it
 	/// returns `Some`, then we have a local dispute for the given `candidate_hash`.
 	fn included_state(session: SessionIndex, candidate_hash: CandidateHash) -> Option<BlockNumber>;
@@ -273,10 +270,6 @@ impl<BlockNumber: Ord> DisputesHandler<BlockNumber> for () {
 		_statement_sets: &CheckedMultiDisputeStatementSet,
 	) -> Result<Vec<(SessionIndex, CandidateHash)>, DispatchError> {
 		Ok(Vec::new())
-	}
-
-	fn disputes_concluded_invalid(_session: SessionIndex) -> BTreeSet<CandidateHash> {
-		BTreeSet::new()
 	}
 
 	fn note_included(
@@ -326,10 +319,6 @@ where
 		statement_sets: &CheckedMultiDisputeStatementSet,
 	) -> Result<Vec<(SessionIndex, CandidateHash)>, DispatchError> {
 		pallet::Pallet::<T>::process_checked_multi_dispute_data(statement_sets)
-	}
-
-	fn disputes_concluded_invalid(session: SessionIndex) -> BTreeSet<CandidateHash> {
-		pallet::Pallet::<T>::disputes_concluded_invalid(session)
 	}
 
 	fn note_included(
@@ -1235,13 +1224,6 @@ impl<T: Config> Pallet<T> {
 		let revert_to = included_in - One::one();
 
 		Included::<T>::insert(&session, &candidate_hash, revert_to);
-	}
-
-	pub(crate) fn disputes_concluded_invalid(session: SessionIndex) -> BTreeSet<CandidateHash> {
-		Disputes::<T>::iter_prefix(session)
-			.filter(|(_hash, state)| has_supermajority_against(state))
-			.map(|(hash, _state)| hash)
-			.collect()
 	}
 
 	pub(crate) fn included_state(
