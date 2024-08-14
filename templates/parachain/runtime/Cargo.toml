@@ -152,16 +152,16 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-  # staking
-  "pallet-staking/std",
-	"pallet-staking-runtime-api/std",
-	"sp-staking/std",
+	# staking
 	"frame-election-provider-support/std",
-	"pallet-election-provider-multi-block/std",
 	"pallet-bags-list/std",
-	"sp-npos-elections/std",
-	"pallet-nomination-pools/std",
+	"pallet-election-provider-multi-block/std",
 	"pallet-fast-unstake/std",
+	"pallet-nomination-pools/std",
+	"pallet-staking-runtime-api/std",
+	"pallet-staking/std",
+	"sp-npos-elections/std",
+	"sp-staking/std",
 ]
 
 runtime-benchmarks = [
@@ -187,14 +187,14 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
-  # staking
-  "pallet-staking/runtime-benchmarks",
-	"sp-staking/runtime-benchmarks",
+	# staking
 	"frame-election-provider-support/runtime-benchmarks",
-  "pallet-election-provider-multi-block/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
-	"pallet-nomination-pools/runtime-benchmarks",
+	"pallet-election-provider-multi-block/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
+	"pallet-nomination-pools/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
 ]
 
 try-runtime = [
@@ -219,13 +219,13 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
-  # staking
-  "pallet-staking/try-runtime",
+	# staking
 	"frame-election-provider-support/try-runtime",
+	"pallet-staking/try-runtime",
 	#"pallet-election-provider-multi-block/try-runtime",
 	"pallet-bags-list/try-runtime",
-	"pallet-nomination-pools/try-runtime",
 	"pallet-fast-unstake/try-runtime",
+	"pallet-nomination-pools/try-runtime",
 ]
 
 # Enable the metadata hash generation.

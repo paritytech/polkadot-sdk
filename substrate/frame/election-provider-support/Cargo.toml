@@ -41,10 +41,10 @@ std = [
 	"scale-info/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
-	"sp-std/std",
 	"sp-io/std",
 	"sp-npos-elections/std",
 	"sp-runtime/std",
+	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",

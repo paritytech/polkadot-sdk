@@ -145,7 +145,6 @@ runtime-benchmarks = [
 	"glutton-westend-runtime/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
-	"staking-rococo-runtime/runtime-benchmarks",
 	"people-rococo-runtime/runtime-benchmarks",
 	"people-westend-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
@@ -154,6 +153,7 @@ runtime-benchmarks = [
 	"rococo-parachain-runtime/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"staking-rococo-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"asset-hub-rococo-runtime/try-runtime",
@@ -167,16 +167,16 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"glutton-westend-runtime/try-runtime",
-	"pallet-transaction-payment/try-runtime",
 	"pallet-staking/try-runtime",
+	"pallet-transaction-payment/try-runtime",
 	"penpal-runtime/try-runtime",
-	"staking-rococo-runtime/try-runtime",
 	"people-rococo-runtime/try-runtime",
 	"people-westend-runtime/try-runtime",
 	"polkadot-cli/try-runtime",
 	"polkadot-service/try-runtime",
 	"shell-runtime/try-runtime",
 	"sp-runtime/try-runtime",
+	"staking-rococo-runtime/try-runtime",
 ]
 fast-runtime = [
 	"bridge-hub-rococo-runtime/fast-runtime",

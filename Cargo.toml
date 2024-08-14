@@ -128,9 +128,9 @@ members = [
 	"cumulus/parachains/runtimes/coretime/coretime-rococo",
 	"cumulus/parachains/runtimes/coretime/coretime-westend",
 	"cumulus/parachains/runtimes/glutton/glutton-westend",
-	"cumulus/parachains/runtimes/staking/staking-rococo",
 	"cumulus/parachains/runtimes/people/people-rococo",
 	"cumulus/parachains/runtimes/people/people-westend",
+	"cumulus/parachains/runtimes/staking/staking-rococo",
 	"cumulus/parachains/runtimes/starters/seedling",
 	"cumulus/parachains/runtimes/starters/shell",
 	"cumulus/parachains/runtimes/test-utils",
@@ -999,8 +999,6 @@ pbkdf2 = { version = "0.12.2", default-features = false }
 penpal-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/testing/penpal" }
 penpal-runtime = { path = "cumulus/parachains/runtimes/testing/penpal" }
 people-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-rococo" }
-staking-rococo-runtime = { path = "cumulus/parachains/runtimes/staking/staking-rococo" }
-staking-runtime = { path = "templates/parachain/runtime" }
 people-rococo-runtime = { path = "cumulus/parachains/runtimes/people/people-rococo" }
 people-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-westend" }
 people-westend-runtime = { path = "cumulus/parachains/runtimes/people/people-westend" }
@@ -1268,6 +1266,8 @@ spinners = { version = "4.1.1" }
 ss58-registry = { version = "1.34.0", default-features = false }
 ssz_rs = { version = "0.9.0", default-features = false }
 ssz_rs_derive = { version = "0.9.0", default-features = false }
+staking-rococo-runtime = { path = "cumulus/parachains/runtimes/staking/staking-rococo" }
+staking-runtime = { path = "templates/parachain/runtime" }
 static_assertions = { version = "1.1.0", default-features = false }
 static_init = { version = "1.0.3" }
 structopt = { version = "0.3" }

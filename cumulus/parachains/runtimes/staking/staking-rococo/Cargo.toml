@@ -91,7 +91,7 @@ parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["rococo"], workspace = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
@@ -117,9 +117,9 @@ std = [
 	"pallet-session/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
-	"pallet-utility/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
+	"pallet-utility/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",
@@ -144,15 +144,15 @@ std = [
 	"xcm-executor/std",
 	"xcm/std",
 
-	"pallet-staking/std",
-	"pallet-staking-runtime-api/std",
-	"sp-staking/std",
 	"frame-election-provider-support/std",
-	"pallet-election-provider-multi-block/std",
 	"pallet-bags-list/std",
-	"sp-npos-elections/std",
-	"pallet-nomination-pools/std",
+	"pallet-election-provider-multi-block/std",
 	"pallet-fast-unstake/std",
+	"pallet-nomination-pools/std",
+	"pallet-staking-runtime-api/std",
+	"pallet-staking/std",
+	"sp-npos-elections/std",
+	"sp-staking/std",
 ]
 
 runtime-benchmarks = [
@@ -180,13 +180,13 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 
+	"frame-election-provider-support/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"frame-election-provider-support/runtime-benchmarks",
 	#"pallet-election-provider-multi-block/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
-	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
+	"pallet-nomination-pools/runtime-benchmarks",
 ]
 
 try-runtime = [
@@ -212,10 +212,10 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 
-	"pallet-staking/try-runtime",
 	"frame-election-provider-support/try-runtime",
+	"pallet-staking/try-runtime",
 	#"pallet-election-provider-multi-block/try-runtime",
 	"pallet-bags-list/try-runtime",
-	"pallet-nomination-pools/try-runtime",
 	"pallet-fast-unstake/try-runtime",
+	"pallet-nomination-pools/try-runtime",
 ]

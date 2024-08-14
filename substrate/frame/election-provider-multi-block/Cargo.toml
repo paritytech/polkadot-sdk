@@ -25,42 +25,42 @@ frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 frame-benchmarking = { path = "../benchmarking", default-features = false }
 
-sp-io = { path = "../../primitives/io", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
-sp-core = { path = "../../primitives/core", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
+sp-io = { path = "../../primitives/io", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
 
 frame-election-provider-support = { default-features = false, path = "../election-provider-support" }
 sp-npos-elections = { default-features = false, path = "../../primitives/npos-elections" }
 
 [dev-dependencies]
 sp-tracing = { path = "../../primitives/tracing" }
-pallet-balances = { path = "../balances", default-features = false}
+pallet-balances = { path = "../balances", default-features = false }
 parking_lot = "0.12.1"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
-	"scale-info/std",
-	"log/std",
-	"frame-support/std",
-	"frame-system/std",
-	"sp-std/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
 	"frame-benchmarking/std",
 	"frame-election-provider-support/std",
-	"sp-npos-elections/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
 	"pallet-balances/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-npos-elections/std",
+	"sp-runtime/std",
+	"sp-std/std",
 ]
 
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 
 try-runtime = [

@@ -1,15 +1,15 @@
 [relaychain]
 default_command = "~/cargo_target/debug/polkadot"
-default_args = [ "-lparachain=debug --offchain-worker=always" ]
+default_args = ["-lparachain=debug --offchain-worker=always"]
 chain = "rococo-local"
 
-  [[relaychain.nodes]]
-  name = "alice"
-  validator = true
+[[relaychain.nodes]]
+name = "alice"
+validator = true
 
-  [[relaychain.nodes]]
-  name = "bob"
-  validator = true
+[[relaychain.nodes]]
+name = "bob"
+validator = true
 
 [[parachains]]
 id = 2000
@@ -19,9 +19,9 @@ chain_spec_command = "~/cargo_target/debug/staking-node build-spec --disable-def
 # or set a fixed chainspec (needs to be raw).
 # chain_spec_path = "./chain-specs/staking-raw-2k5kstakers.spec"
 
-  # run charlie as parachain collator
-  [[parachains.collators]]
-  name = "charlie"
-  validator = true
-  command = "~/cargo_target/debug/staking-node"
-  args = ["--force-authoring --log=cumulus-collator=debug,runtime::aura,runtime::offchain=error,runtime::multiblock-election=trace,runtime::staking=trace,runtime::executive --offchain-worker=always"]
+# run charlie as parachain collator
+[[parachains.collators]]
+name = "charlie"
+validator = true
+command = "~/cargo_target/debug/staking-node"
+args = ["--force-authoring --log=cumulus-collator=debug,runtime::aura,runtime::offchain=error,runtime::multiblock-election=trace,runtime::staking=trace,runtime::executive --offchain-worker=always"]
