@@ -14,7 +14,3 @@ doc:
 crates:
 - name: polkadot-sdk
   bump: minor
-- name: pallet-distribution
-  bump: none
-- name: pallet-opf
-  bump: none
