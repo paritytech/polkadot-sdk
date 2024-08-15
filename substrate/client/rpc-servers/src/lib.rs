@@ -34,7 +34,9 @@ use jsonrpsee::{
 };
 use middleware::NodeHealthProxyLayer;
 use tower::Service;
-use utils::{build_rpc_api, deny_unsafe, format_listen_addrs, get_proxy_ip, RpcSettings};
+use utils::{
+	build_rpc_api, deny_unsafe, format_listen_addrs, get_proxy_ip, ListenAddrError, RpcSettings,
+};
 
 pub use ip_network::IpNetwork;
 pub use jsonrpsee::{
@@ -278,6 +280,18 @@ where
 		});
 	}
 
+	if local_addrs.is_empty() {
+		return Err(Box::new(ListenAddrError));
+	}
+
+	// The previous logging format was before
+	// `Running JSON-RPC server: addr=127.0.0.1:9944, allowed origins=["*"]`
+	//
+	// The new format is `Running JSON-RPC server: addr=<addr1, addr2, .. addr_n>`
+	// with the exception that for a single address it will be `Running JSON-RPC server: addr=addr,`
+	// with a trailing comma.
+	//
+	// This is to make it work with old scripts/utils that parse the logs.
 	log::info!("Running JSON-RPC server: addr={}", format_listen_addrs(&local_addrs));
 
 	Ok(server_handle)

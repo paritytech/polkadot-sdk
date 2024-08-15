@@ -36,6 +36,17 @@ const X_FORWARDED_FOR: HeaderName = HeaderName::from_static("x-forwarded-for");
 const X_REAL_IP: HeaderName = HeaderName::from_static("x-real-ip");
 const FORWARDED: HeaderName = HeaderName::from_static("forwarded");
 
+#[derive(Debug)]
+pub(crate) struct ListenAddrError;
+
+impl std::error::Error for ListenAddrError {}
+
+impl std::fmt::Display for ListenAddrError {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(f, "No listen address was successfully bound")
+	}
+}
+
 /// Available RPC methods.
 #[derive(Debug, Copy, Clone)]
 pub enum RpcMethods {
@@ -260,6 +271,10 @@ pub(crate) fn format_listen_addrs(addr: &[SocketAddr]) -> String {
 		if it.peek().is_some() {
 			s.push(',');
 		}
+	}
+
+	if addr.len() == 1 {
+		s.push(',');
 	}
 
 	s
