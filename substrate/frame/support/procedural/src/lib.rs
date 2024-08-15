@@ -1417,18 +1417,38 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///
 /// * `#[pallet::authorized_call]` - In case the pallet provides some specific origin with the
 ///   `pallet::origin` attribute, then the specific place to put the origin for authorized call is
-///   defined with this attribute: ``` # #[frame_support::pallet] # pub mod pallet { #    use
-///   frame_support::pallet_prelude::*; #    use frame_system::pallet_prelude::*; #
-///   #[pallet::pallet] #    pub struct Pallet<T>(_); #    #[pallet::config] #    pub trait Config:
-///   frame_system::Config {} #    #[pallet::call] #    impl<T: Config> Pallet<T> { #
-///   #[pallet::call_index(0)] #        #[pallet::weight(Weight::from_all(0))] #
-///   #[pallet::authorize(|foo| Ok(ValidTransaction::default()))] #
-///   #[pallet::weight_of_authorize(Weight::from_all(0))] #        pub fn _some_call(origin:
-///   OriginFor<T>, arg: u32) -> DispatchResult { #            ensure_authorized_origin!(origin); #
-///   Ok(()) #        } #    } #[pallet::origin] pub enum Origin<T: Config> { SomeOtherOrigin,
-///   #[pallet::authorized_call] AuthorizedCall(_), __Phantom(PhantomData<T>), } # } ``` The `_`
-///   placeholder will be replaced by the macro generated type which aggregate the origin of each
-///   authorized call for the pallet.
+///   defined with this attribute:
+///
+///   ```
+///   # #[frame_support::pallet]
+///   # pub mod pallet {
+///   #    use frame_support::pallet_prelude::*;
+///   #    use frame_system::pallet_prelude::*;
+///   #    #[pallet::pallet]
+///   #    pub struct Pallet<T>(_);
+///   #    #[pallet::config]
+///   #    pub trait Config: frame_system::Config {}
+///   #    #[pallet::call]
+///   #    impl<T: Config> Pallet<T> {}
+///   #    #[pallet::call_index(0)]
+///   #    #[pallet::weight(Weight::from_all(0))]
+///   #    #[pallet::authorize(|foo| Ok(ValidTransaction::default()))]
+///   #    #[pallet::weight_of_authorize(Weight::from_all(0))]
+///   #    pub fn _some_call(origin: OriginFor<T>, arg: u32) -> DispatchResult {
+///   #        ensure_authorized_origin!(origin);
+///   #        Ok(())
+///   #    }
+///   #[pallet::origin]
+///   pub enum Origin<T: Config> {
+///       SomeOtherOrigin,
+///       #[pallet::authorized_call]
+///       AuthorizedCall(_),
+///       __Phantom(PhantomData<T>),
+///   }
+///   # }
+///   ```
+///   The `_` placeholder will be replaced by the macro generated type which aggregate the origin
+///   of each authorized call for the pallet.
 ///
 ///   NOTE: If no `pallet::origin` is provided, an origin will be automatically expanded by the
 ///   macro.

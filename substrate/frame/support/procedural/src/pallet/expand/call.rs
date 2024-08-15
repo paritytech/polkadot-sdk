@@ -18,7 +18,10 @@
 use crate::{
 	pallet::{
 		expand::warnings::{weight_constant_warning, weight_witness_warning},
-		parse::{call::CallWeightDef, GenericKind},
+		parse::{
+			call::{CallVariantDef, CallWeightDef},
+			GenericKind,
+		},
 		Def,
 	},
 	COUNTER,
@@ -28,7 +31,6 @@ use proc_macro2::TokenStream as TokenStream2;
 use proc_macro_warning::Warning;
 use quote::{quote, ToTokens};
 use syn::spanned::Spanned;
-use crate::pallet::parse::call::CallVariantDef;
 
 /// Expand the weight to final token stream and accumulate warnings.
 fn expand_weight(
@@ -68,7 +70,9 @@ fn replace_first_statment_for_call_with_authorize(def: &mut Def) {
 		unreachable!("Checked by parser")
 	};
 
-	let variant_item_indices = call.methods.iter()
+	let variant_item_indices = call
+		.methods
+		.iter()
 		.filter_map(|variant| variant.authorize.as_ref().map(|_| variant.item_index));
 
 	for variant_item_index in variant_item_indices {
@@ -312,10 +316,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		});
 
-	let authorize_fn = methods.iter()
-		.zip(args_name.iter())
-		.zip(args_type.iter())
-		.map(|((method, arg_name), arg_type)| {
+	let authorize_fn = methods.iter().zip(args_name.iter()).zip(args_type.iter()).map(
+		|((method, arg_name), arg_type)| {
 			if let Some((authorize_fn, _)) = &method.authorize {
 				let authorize_origin =
 					syn::Ident::new(method.name.to_string().to_camel_case().as_str(), span);
@@ -349,12 +351,14 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			} else {
 				quote::quote!(None)
 			}
-		});
+		},
+	);
 
 	let mut authorize_fn_weight = Vec::<TokenStream2>::new();
 	for method in &methods {
 		let w = match &method.authorize {
-			Some((_, weight)) => expand_weight("authorize_", def.dev_mode, &mut weight_warnings, method, &weight),
+			Some((_, weight)) =>
+				expand_weight("authorize_", def.dev_mode, &mut weight_warnings, method, &weight),
 			// No authorize logic, weight is negligible
 			None => quote::quote!(#frame_support::pallet_prelude::Weight::from_all(0)),
 		};

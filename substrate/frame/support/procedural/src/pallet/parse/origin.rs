@@ -94,15 +94,15 @@ impl OriginDef {
 						}
 
 						let syn::Fields::Unnamed(fields) = &variant.fields else {
-							let msg = "Invalid pallet::authorized_call, expected variant fields to \
-								be `(_)`";
+							let msg = "Invalid pallet::authorized_call, expected variant fields \
+								to be `(_)`";
 							return Err(syn::Error::new(variant.fields.span(), msg))
 						};
 
 						if syn::parse2::<syn::Token![_]>(fields.unnamed.to_token_stream()).is_err()
 						{
-							let msg = "Invalid pallet::authorized_call, expected variant fields to \
-								be `_`";
+							let msg = "Invalid pallet::authorized_call, expected variant fields \
+								to be `_`";
 							return Err(syn::Error::new(fields.unnamed.span(), msg))
 						}
 

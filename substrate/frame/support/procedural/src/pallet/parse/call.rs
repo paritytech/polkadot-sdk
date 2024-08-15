@@ -266,11 +266,12 @@ fn check_authorize_call_first_item(origin_arg: &syn::Ident, block: &syn::Block) 
 		return Err(syn::Error::new(block.span(), msg))
 	};
 
-	let macro_call = syn::parse2::<AuthorizeMacroCall>(first_stmt.to_token_stream()).map_err(|e| {
-		let mut error = syn::Error::new(first_stmt.span(), &main_msg);
-		error.combine(e);
-		error
-	})?;
+	let macro_call =
+		syn::parse2::<AuthorizeMacroCall>(first_stmt.to_token_stream()).map_err(|e| {
+			let mut error = syn::Error::new(first_stmt.span(), &main_msg);
+			error.combine(e);
+			error
+		})?;
 
 	if macro_call.inner_ident != *origin_arg {
 		return Err(syn::Error::new(macro_call.inner_ident.span(), main_msg))

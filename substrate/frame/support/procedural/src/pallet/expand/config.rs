@@ -16,14 +16,14 @@
 // limitations under the License.
 
 use crate::pallet::{parse::GenericKind, Def};
-use proc_macro2::{TokenStream, Span};
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{parse_quote, Item};
 
 ///
 /// * Generate default rust doc
-/// * Add `Into<Result<Origin>>` and `From<Origin>` to `frame_system::Config::RuntimeOrigin`
-///   if needed for authorized call.
+/// * Add `Into<Result<Origin>>` and `From<Origin>` to `frame_system::Config::RuntimeOrigin` if
+///   needed for authorized call.
 pub fn expand_config(def: &mut Def) -> TokenStream {
 	add_authorize_constraint(def);
 
