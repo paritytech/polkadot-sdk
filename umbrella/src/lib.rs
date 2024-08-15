@@ -109,7 +109,7 @@ pub use cumulus_client_network;
 #[cfg(feature = "cumulus-client-parachain-inherent")]
 pub use cumulus_client_parachain_inherent;
 
-/// Cumulus-specific networking protocol.
+/// Parachain PoV recovery.
 #[cfg(feature = "cumulus-client-pov-recovery")]
 pub use cumulus_client_pov_recovery;
 
@@ -272,7 +272,7 @@ pub use frame_system_benchmarking;
 #[cfg(feature = "frame-system-rpc-runtime-api")]
 pub use frame_system_rpc_runtime_api;
 
-/// FRAME pallet for democracy.
+/// Supporting types for try-runtime, testing and dry-running commands.
 #[cfg(feature = "frame-try-runtime")]
 pub use frame_try_runtime;
 
@@ -697,7 +697,7 @@ pub use pallet_utility;
 #[cfg(feature = "pallet-vesting")]
 pub use pallet_vesting;
 
-/// FRAME pallet for whitelisting call, and dispatch from specific origin.
+/// FRAME pallet for whitelisting calls, and dispatching from a specific origin.
 #[cfg(feature = "pallet-whitelist")]
 pub use pallet_whitelist;
 
