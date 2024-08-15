@@ -148,7 +148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module chain_spec_genesis</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><div class="sidebar-resizer"></div>
-    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">chain_spec_genesis</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/chain_spec_genesis.rs.html#1-186">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about chain specification file and the genesis state of the blockchain.</p>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">chain_spec_genesis</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/chain_spec_genesis.rs.html#1-185">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about chain specification file and the genesis state of the blockchain.</p>
 <h2 id="what-is-chain-spec"><a class="doc-anchor" href="#what-is-chain-spec">§</a>What is chain-spec.</h2>
 <p>A chain specification file defines the set of properties that are required to run the node as
 part of the chain. The chain specification consists of two main parts:</p>
@@ -160,14 +160,14 @@ bootnodes.</li>
 <p>This document describes how the initial state is handled in pallets and runtime, and how to
 interact with the runtime in order to build the genesis state.</p>
 <p>For more information on chain specification and its properties, refer to
-[<code>sc_chain_spec#from-initial-state-to-raw-genesis</code>].</p>
+<a href="../../../sc_chain_spec/index.html#from-initial-state-to-raw-genesis" title="mod sc_chain_spec"><code>sc_chain_spec</code></a>.</p>
 <p>The initial genesis state can be provided in the following formats:</p>
 <ul>
 <li>full</li>
 <li>patch</li>
 <li>raw</li>
 </ul>
-<p>Each of the formats is explained in [<em>chain-spec-format</em>][<code>sc_chain_spec#chain-spec-formats</code>].</p>
+<p>Each of the formats is explained in <a href="../../../sc_chain_spec/index.html#chain-spec-formats" title="mod sc_chain_spec"><em>chain-spec-format</em></a>.</p>
 <h2 id="genesisconfig-for-pallet"><a class="doc-anchor" href="#genesisconfig-for-pallet">§</a><code>GenesisConfig</code> for <code>pallet</code></h2>
 <p>Every frame pallet may have its initial state which is defined by the <code>GenesisConfig</code> internal
 struct. It is a regular Rust struct, annotated with the <a href="../../../frame_support_procedural/attr.genesis_config.html" title="attr frame_support_procedural::genesis_config"><code>pallet::genesis_config</code></a> attribute.</p>
@@ -277,7 +277,7 @@ function provided by the runtime with <code>id:None</code>.</p>
 <p>A default value for <code>RuntimeGenesisConfig</code> usually is not operational. This is because for some
 pallets it is not possible to define good defaults (e.g. an initial set of authorities).</p>
 <p>A default value is a base upon which a patch for <code>GenesisConfig</code> is applied. A good description
-of how it exactly works is provided in <a href="sc_chain_spec::GenesisConfigBuilderRuntimeCaller::get_storage_for_patch"><code>get_storage_for_patch</code></a> (and also in
+of how it exactly works is provided in <a href="../../../sc_chain_spec/genesis_config_builder/struct.GenesisConfigBuilderRuntimeCaller.html#method.get_storage_for_patch" title="method sc_chain_spec::genesis_config_builder::GenesisConfigBuilderRuntimeCaller::get_storage_for_patch"><code>get_storage_for_patch</code></a> (and also in
 <a href="../../../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset" title="method sp_genesis_builder::GenesisBuilder::get_preset"><code>GenesisBuilder::get_preset</code></a>). A patch can be provided as an external file (manually created)
 or as a built-in runtime preset. More info on presets is in the material to follow.</p>
 <h3 id="implementing-genesisbuilder-for-runtime"><a class="doc-anchor" href="#implementing-genesisbuilder-for-runtime">§</a>Implementing <code>GenesisBuilder</code> for runtime</h3>
@@ -467,12 +467,12 @@ evolving over time. The JSON representation created at some point in time may no
 deserializable in the future, making a chain specification useless. The raw format is
 recommended for production chains.</p>
 <p>For a detailed description of how the raw format is built, please refer to
-[<em>chain-spec-raw-genesis</em>][<code>sc_chain_spec#from-initial-state-to-raw-genesis</code>]. Plain and
+<a href="../../../sc_chain_spec/index.html#from-initial-state-to-raw-genesis" title="mod sc_chain_spec"><em>chain-spec-raw-genesis</em></a>. Plain and
 corresponding raw examples of chain-spec are given in
-[<em>chain-spec-examples</em>][<code>sc_chain_spec#json-chain-specification-example</code>].
-The <a href="../../../staging_chain_spec_builder/index.html"><code>chain_spec_builder</code></a> util supports building the raw storage.</p>
+<a href="../../../sc_chain_spec/index.html#json-chain-specification-example" title="mod sc_chain_spec"><em>chain-spec-examples</em></a>.
+The <a href="../../../staging_chain_spec_builder/index.html" title="mod staging_chain_spec_builder"><code>chain_spec_builder</code></a> util supports building the raw storage.</p>
 <h2 id="interacting-with-the-tool"><a class="doc-anchor" href="#interacting-with-the-tool">§</a>Interacting with the tool</h2>
-<p>The <a href="../../../staging_chain_spec_builder/index.html"><code>chain_spec_builder</code></a> util allows interaction with the runtime in order to list or display
+<p>The <a href="../../../staging_chain_spec_builder/index.html" title="mod staging_chain_spec_builder"><code>chain_spec_builder</code></a> util allows interaction with the runtime in order to list or display
 presets and build the chain specification file. It is possible to use the tool with the
 <a href="../../../chain_spec_guide_runtime/index.html" title="mod chain_spec_guide_runtime"><em>demonstration runtime</em></a>. To build the required packages, just run
 the following command:</p>

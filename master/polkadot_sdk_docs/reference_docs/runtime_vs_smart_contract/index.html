@@ -167,8 +167,8 @@ the Polkadot ecosystem you can find two distinct approaches for on-chain code ex
 <h5 id="smart-contracts-in-substrate"><a class="doc-anchor" href="#smart-contracts-in-substrate">§</a>Smart Contracts in Substrate</h5>
 <p>Smart Contracts are autonomous, programmable constructs deployed on the blockchain.
 In <a href="../../../polkadot_sdk_frame/index.html" title="mod polkadot_sdk_frame">FRAME</a>, Smart Contracts infrastructure is implemented by the
-<a href="../../../pallet_contracts/index.html"><code>pallet_contracts</code></a> for WASM-based contracts or the
-<a href="../../../pallet_evm/index.html"><code>pallet_evm</code></a> for EVM-compatible contracts. These pallets
+<a href="../../../pallet_contracts/index.html" title="mod pallet_contracts"><code>pallet_contracts</code></a> for WASM-based contracts or the
+<a href="https://github.com/polkadot-evm/frontier/tree/master/frame/evm"><code>pallet_evm</code></a> for EVM-compatible contracts. These pallets
 enable Smart Contract developers to build applications and systems on top of a Substrate-based
 blockchain.</p>
 <h5 id="runtime-in-substrate"><a class="doc-anchor" href="#runtime-in-substrate">§</a>Runtime in Substrate</h5>
@@ -253,7 +253,7 @@ Considerations</a> section.</li>
 <li><strong>Deployment and Iteration</strong>: Smart Contracts, by nature, are designed for more
 straightforward deployment and iteration. Developers can quickly deploy contracts.</li>
 <li><strong>Contract Code Updates</strong>: Once deployed, although typically immutable, Smart Contracts can be
-upgraded, but lack of migration logic. The <a href="../../../pallet_contracts/index.html">pallet_contracts</a>
+upgraded, but lack of migration logic. The <a href="../../../pallet_contracts/index.html" title="mod pallet_contracts"><code>pallet_contracts</code></a>
 allows for contracts to be upgraded by exposing the <code>set_code</code> dispatchable. More details on this
 can be found in <a href="https://use.ink/basics/upgradeable-contracts">Ink! documentation on upgradeable contracts</a>.</li>
 <li><strong>Isolated Impact</strong>: Upgrades or changes to a smart contract generally impact only that

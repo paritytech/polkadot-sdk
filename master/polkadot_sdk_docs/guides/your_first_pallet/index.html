@@ -171,7 +171,7 @@ recommend using the <code>polkadot-sdk-minimal-template</code>. You might need t
 this guide, namely the crate/package names, based on which template you use.</p>
 <blockquote>
 <p>Be aware that you can read the entire source code backing this tutorial by clicking on the
-<a href="./mod.rs.html"><code>source</code></a> button at the top right of the page.</p>
+<code>source</code> button at the top right of the page.</p>
 </blockquote>
 <p>You should have studied the following modules as a prelude to this guide:</p>
 <ul>
@@ -182,17 +182,17 @@ this guide, namely the crate/package names, based on which template you use.</p>
 <h3 id="topics-covered"><a class="doc-anchor" href="#topics-covered">§</a>Topics Covered</h3>
 <p>The following FRAME topics are covered in this guide:</p>
 <ul>
-<li><a href="../../../frame_support/pallet_macros/attr.config.html"><code>pallet::storage</code></a></li>
-<li><a href="../../../frame_support/pallet_macros/attr.call.html"><code>pallet::call</code></a></li>
-<li><a href="../../../frame_support/pallet_macros/attr.event.html"><code>pallet::event</code></a></li>
-<li><a href="../../../frame_support/pallet_macros/attr.error.html"><code>pallet::error</code></a></li>
+<li><a href="../../../frame_support_procedural/attr.storage.html" title="attr frame_support_procedural::storage"><code>pallet::storage</code></a></li>
+<li><a href="../../../frame_support_procedural/attr.call.html" title="attr frame_support_procedural::call"><code>pallet::call</code></a></li>
+<li><a href="../../../frame_support_procedural/attr.event.html" title="attr frame_support_procedural::event"><code>pallet::event</code></a></li>
+<li><a href="../../../frame_support_procedural/attr.error.html" title="attr frame_support_procedural::error"><code>pallet::error</code></a></li>
 <li>Basics of testing a pallet</li>
 <li><a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime">Constructing a runtime</a></li>
 </ul>
 <h4 id="shell-pallet"><a class="doc-anchor" href="#shell-pallet">§</a>Shell Pallet</h4>
 <p>Consider the following as a “shell pallet”. We continue building the rest of this pallet based
 on this template.</p>
-<p><a href="../../../frame_support/pallet_macros/attr.config.html"><code>pallet::config</code></a> and <a href="../../../frame_support_procedural/attr.pallet.html" title="attr frame_support_procedural::pallet"><code>pallet::pallet</code></a> are both mandatory parts of any
+<p><a href="../../../frame_support_procedural/attr.config.html" title="attr frame_support_procedural::config"><code>pallet::config</code></a> and <a href="../../../frame_support_procedural/attr.pallet.html" title="attr frame_support_procedural::pallet"><code>pallet::pallet</code></a> are both mandatory parts of any
 pallet. Refer to the documentation of each to get an overview of what they do.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[frame::pallet(dev_mode)]
@@ -217,7 +217,7 @@ generic bounded type in the <code>Config</code> trait, and then specify it in th
 </blockquote>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub type </span>Balance = u128;</code></pre></div>
-<p>The definition of these two storage items, based on <a href="../../../frame_support/pallet_macros/attr.config.html"><code>pallet::storage</code></a> details, is as follows:</p>
+<p>The definition of these two storage items, based on <a href="../../../frame_support_procedural/attr.storage.html" title="attr frame_support_procedural::storage"><code>pallet::storage</code></a> details, is as follows:</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::storage]
 </span><span class="kw">pub type </span>TotalIssuance&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Balance&gt;;</code></pre></div>
@@ -225,7 +225,7 @@ generic bounded type in the <code>Config</code> trait, and then specify it in th
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::storage]
 </span><span class="kw">pub type </span>Balances&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, <span class="kw">_</span>, T::AccountId, Balance&gt;;</code></pre></div>
 <h4 id="dispatchables"><a class="doc-anchor" href="#dispatchables">§</a>Dispatchables</h4>
-<p>Next, we will define the dispatchable functions. As per <a href="../../../frame_support/pallet_macros/attr.call.html"><code>pallet::call</code></a>, these will be defined
+<p>Next, we will define the dispatchable functions. As per <a href="../../../frame_support_procedural/attr.call.html" title="attr frame_support_procedural::call"><code>pallet::call</code></a>, these will be defined
 as normal <code>fn</code>s attached to <code>struct Pallet</code>.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::call]
@@ -311,7 +311,7 @@ we can use basic string literals as our error type and <code>.into()</code> them
 <ul>
 <li>Why are all <code>get</code> and <code>mutate</code> functions returning an <code>Option</code>? This is the default behavior
 of FRAME storage APIs. You can learn more about how to override this by looking into
-<a href="../../../frame_support/pallet_macros/attr.config.html"><code>pallet::storage</code></a>, and <a href="../../../frame_support/storage/types/struct.ValueQuery.html" title="struct frame_support::storage::types::ValueQuery"><code>frame::prelude::ValueQuery</code></a>/<a href="../../../frame_support/storage/types/struct.OptionQuery.html" title="struct frame_support::storage::types::OptionQuery"><code>frame::prelude::OptionQuery</code></a></li>
+<a href="../../../frame_support_procedural/attr.storage.html" title="attr frame_support_procedural::storage"><code>pallet::storage</code></a>, and <a href="../../../frame_support/storage/types/struct.ValueQuery.html" title="struct frame_support::storage::types::ValueQuery"><code>frame::prelude::ValueQuery</code></a>/<a href="../../../frame_support/storage/types/struct.OptionQuery.html" title="struct frame_support::storage::types::OptionQuery"><code>frame::prelude::OptionQuery</code></a></li>
 </ul>
 <h4 id="improving-errors"><a class="doc-anchor" href="#improving-errors">§</a>Improving Errors</h4>
 <p>How we handle error in the above snippets is fairly rudimentary. Let’s look at how this can be
@@ -627,7 +627,7 @@ and are relatively heavy to transmit and encode/decode. Moreover, it is easy to 
 by one character. FRAME errors are exactly a solution to maintain readability, whilst fixing
 the drawbacks mentioned. In short, we use an enum to represent different variants of our
 error. These variants are then mapped in an efficient way (using only <code>u8</code> indices) to
-<a href="../../../sp_runtime/enum.DispatchError.html#variant.Module" title="variant sp_runtime::DispatchError::Module"><code>sp_runtime::DispatchError::Module</code></a>. Read more about this in <a href="../../../frame_support/pallet_macros/attr.error.html"><code>pallet::error</code></a>.</p>
+<a href="../../../sp_runtime/enum.DispatchError.html#variant.Module" title="variant sp_runtime::DispatchError::Module"><code>sp_runtime::DispatchError::Module</code></a>. Read more about this in <a href="../../../frame_support_procedural/attr.error.html" title="attr frame_support_procedural::error"><code>pallet::error</code></a>.</p>
 </li>
 <li>
 <p><strong>Event</strong>: Events are akin to the return type of dispatchables. They are mostly data blobs
@@ -640,7 +640,7 @@ needing to re-execute the whole state transition function.</p>
 </li>
 </ul>
 <p>With the explanation out of the way, let’s see how these components can be added. Both follow a
-fairly familiar syntax: normal Rust enums, with extra <a href="../../../frame_support/pallet_macros/attr.event.html"><code>pallet::event</code></a> and <a href="../../../frame_support/pallet_macros/attr.error.html"><code>pallet::error</code></a>
+fairly familiar syntax: normal Rust enums, with extra <a href="../../../frame_support_procedural/attr.event.html" title="attr frame_support_procedural::event"><code>pallet::event</code></a> and <a href="../../../frame_support_procedural/attr.error.html" title="attr frame_support_procedural::error"><code>pallet::error</code></a>
 attributes attached.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::event]
@@ -657,7 +657,7 @@ attributes attached.</p>
 	<span class="doccomment">/// Account does not have enough balance.
 	</span>InsufficientBalance,
 }</code></pre></div>
-<p>One slightly custom part of this is the <a href="../../../frame_support/pallet_macros/attr.generate_deposit.html"><code>pallet::generate_deposit</code></a> part. Without going into
+<p>One slightly custom part of this is the <a href="../../../frame_support_procedural/attr.generate_deposit.html" title="attr frame_support_procedural::generate_deposit"><code>pallet::generate_deposit</code></a> part. Without going into
 too much detail, in order for a pallet to emit events to the rest of the system, it needs to do
 two things:</p>
 <ol>
@@ -668,7 +668,7 @@ store it where needed.</p>
 </li>
 <li>
 <p>But, doing this conversion and storing is too much to expect each pallet to define. FRAME
-provides a default way of storing events, and this is what <a href="../../../frame_support/pallet_macros/attr.generate_deposit.html"><code>pallet::generate_deposit</code></a> is
+provides a default way of storing events, and this is what <a href="../../../frame_support_procedural/attr.generate_deposit.html" title="attr frame_support_procedural::generate_deposit"><code>pallet::generate_deposit</code></a> is
 doing.</p>
 </li>
 </ol>
@@ -741,7 +741,7 @@ study them subsequently:</p>
 <li><a href="../../reference_docs/defensive_programming/index.html" title="mod polkadot_sdk_docs::reference_docs::defensive_programming"><code>crate::reference_docs::defensive_programming</code></a>.</li>
 <li><a href="../../reference_docs/frame_origin/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_origin"><code>crate::reference_docs::frame_origin</code></a>.</li>
 <li><a href="../../reference_docs/frame_runtime_types/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types"><code>crate::reference_docs::frame_runtime_types</code></a>.</li>
-<li>The pallet we wrote in this guide was using <code>dev_mode</code>, learn more in <a href="../../../frame_support/pallet_macros/attr.config.html"><code>pallet::config</code></a>.</li>
+<li>The pallet we wrote in this guide was using <code>dev_mode</code>, learn more in <a href="../../../frame_support_procedural/attr.config.html" title="attr frame_support_procedural::config"><code>pallet::config</code></a>.</li>
 <li>Learn more about the individual pallet items/macros, such as event and errors and call, in
 <a href="../../../polkadot_sdk_frame/pallet_macros/index.html" title="mod polkadot_sdk_frame::pallet_macros"><code>frame::pallet_macros</code></a>.</li>
 </ul>
