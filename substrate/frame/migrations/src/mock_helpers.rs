@@ -19,6 +19,7 @@
 
 #![allow(missing_docs)]
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	migrations::*,
@@ -26,7 +27,6 @@ use frame_support::{
 };
 use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
-use sp_std::{vec, vec::Vec};
 
 /// Opaque identifier of a migration.
 pub type MockedIdentifier = BoundedVec<u8, ConstU32<256>>;
@@ -79,7 +79,7 @@ impl SteppedMigrations for MockedMigrations {
 
 		let mut count: u32 =
 			cursor.as_ref().and_then(|c| Decode::decode(&mut &c[..]).ok()).unwrap_or(0);
-		log::debug!("MockedMigration: Step {}", count);
+		log::debug!("MockedMigration: Step {count} vs max {steps}");
 		if count != steps || matches!(kind, TimeoutAfter) {
 			count += 1;
 			return Some(Ok(Some(count.encode())))

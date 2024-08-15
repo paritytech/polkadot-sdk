@@ -90,7 +90,8 @@ lazy_static! {
 	];
 }
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<GossipSupportMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<GossipSupportMessage>;
 
 #[derive(Debug, Clone)]
 struct MockAuthorityDiscovery {
@@ -116,6 +117,14 @@ impl MockAuthorityDiscovery {
 				authorities.into_iter().map(|(p, a)| (p, HashSet::from([a]))).collect(),
 			)),
 		}
+	}
+
+	fn change_address_for_authority(&self, authority_id: AuthorityDiscoveryId) -> PeerId {
+		let new_peer_id = PeerId::random();
+		let addr = Multiaddr::empty().with(Protocol::P2p(new_peer_id.into()));
+		self.addrs.lock().insert(authority_id.clone(), HashSet::from([addr]));
+		self.authorities.lock().insert(new_peer_id, HashSet::from([authority_id]));
+		new_peer_id
 	}
 
 	fn authorities(&self) -> HashMap<PeerId, HashSet<AuthorityDiscoveryId>> {
@@ -200,7 +209,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>, AD: AuthorityDiscovery>(
 	test_fn: impl FnOnce(VirtualOverseer) -> T,
 ) -> GossipSupport<AD> {
 	let pool = sp_core::testing::TaskExecutor::new();
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let subsystem = subsystem.run(context);
 
@@ -802,6 +812,313 @@ fn issues_update_authorities_after_session() {
 			}
 
 			assert!(overseer.recv().timeout(TIMEOUT).await.is_none());
+			virtual_overseer
+		},
+	);
+}
+
+// Test we connect to authorities that changed their address `TRY_RERESOLVE_AUTHORITIES` rate
+// and that is is no-op if no authority changed.
+#[test]
+fn test_quickly_connect_to_authorities_that_changed_address() {
+	let hash = Hash::repeat_byte(0xAA);
+
+	let authorities = PAST_PRESENT_FUTURE_AUTHORITIES.clone();
+	let authority_that_changes_address = authorities.get(5).unwrap().clone();
+
+	let mut authority_discovery_mock = MockAuthorityDiscovery::new(authorities);
+
+	test_harness(
+		make_subsystem_with_authority_discovery(authority_discovery_mock.clone()),
+		|mut virtual_overseer| async move {
+			let overseer = &mut virtual_overseer;
+			// 1. Initialize with the first leaf in the session.
+			overseer_signal_active_leaves(overseer, hash).await;
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					tx.send(Ok(1)).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::SessionInfo(s, tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					assert_eq!(s, 1);
+					let mut session_info = make_session_info();
+					session_info.discovery_keys = PAST_PRESENT_FUTURE_AUTHORITIES.clone();
+					tx.send(Ok(Some(session_info))).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::Authorities(tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					tx.send(Ok(PAST_PRESENT_FUTURE_AUTHORITIES.clone())).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ConnectToResolvedValidators {
+					validator_addrs,
+					peer_set,
+				}) => {
+					let all_without_ferdie: Vec<_> = PAST_PRESENT_FUTURE_AUTHORITIES
+						.iter()
+						.cloned()
+						.filter(|p| p != &Sr25519Keyring::Ferdie.public().into())
+						.collect();
+
+					let addrs = get_multiaddrs(all_without_ferdie, authority_discovery_mock.clone()).await;
+
+					assert_eq!(validator_addrs, addrs);
+					assert_eq!(peer_set, PeerSet::Validation);
+				}
+			);
+
+			// Ensure neighbors are unaffected
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::CurrentBabeEpoch(tx),
+				)) => {
+					let _ = tx.send(Ok(BabeEpoch {
+						epoch_index: 2 as _,
+						start_slot: 0.into(),
+						duration: 200,
+						authorities: vec![(Sr25519Keyring::Alice.public().into(), 1)],
+						randomness: [0u8; 32],
+						config: BabeEpochConfiguration {
+							c: (1, 4),
+							allowed_slots: AllowedSlots::PrimarySlots,
+						},
+					})).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::NetworkBridgeRx(NetworkBridgeRxMessage::NewGossipTopology {
+					session: _,
+					local_index: _,
+					canonical_shuffling: _,
+					shuffled_indices: _,
+				}) => {
+
+				}
+			);
+
+			// 2. Connect all authorities that are known so far.
+			let known_authorities = authority_discovery_mock.authorities();
+			for (peer_id, _id) in known_authorities.iter() {
+				let msg =
+					GossipSupportMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerConnected(
+						*peer_id,
+						ObservedRole::Authority,
+						ValidationVersion::V3.into(),
+						None,
+					));
+				overseer.send(FromOrchestra::Communication { msg }).await
+			}
+
+			// 3. Send a new leaf after TRY_RERESOLVE_AUTHORITIES, we should notice
+			//    UpdateAuthorithies is emitted for all ConnectedPeers.
+			Delay::new(TRY_RERESOLVE_AUTHORITIES).await;
+			let hash = Hash::repeat_byte(0xBB);
+			overseer_signal_active_leaves(overseer, hash).await;
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					tx.send(Ok(1)).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::SessionInfo(s, tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					assert_eq!(s, 1);
+					let mut session_info = make_session_info();
+					session_info.discovery_keys = PAST_PRESENT_FUTURE_AUTHORITIES.clone();
+					tx.send(Ok(Some(session_info))).unwrap();
+
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::Authorities(tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					tx.send(Ok(PAST_PRESENT_FUTURE_AUTHORITIES.clone())).unwrap();
+				}
+			);
+
+			for _ in 0..known_authorities.len() {
+				assert_matches!(
+					overseer_recv(overseer).await,
+					AllMessages::NetworkBridgeRx(NetworkBridgeRxMessage::UpdatedAuthorityIds {
+						peer_id,
+						authority_ids,
+					}) => {
+						assert_eq!(authority_discovery_mock.get_authority_ids_by_peer_id(peer_id).await.unwrap_or_default(), authority_ids);
+					}
+				);
+			}
+
+			// 4. At next re-resolve no-authorithy changes their address, so it should be no-op.
+			Delay::new(TRY_RERESOLVE_AUTHORITIES).await;
+			let hash = Hash::repeat_byte(0xCC);
+			overseer_signal_active_leaves(overseer, hash).await;
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					tx.send(Ok(1)).unwrap();
+				}
+			);
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::SessionInfo(s, tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					assert_eq!(s, 1);
+					let mut session_info = make_session_info();
+					session_info.discovery_keys = PAST_PRESENT_FUTURE_AUTHORITIES.clone();
+					tx.send(Ok(Some(session_info))).unwrap();
+
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::Authorities(tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					tx.send(Ok(PAST_PRESENT_FUTURE_AUTHORITIES.clone())).unwrap();
+				}
+			);
+			assert!(overseer.recv().timeout(TIMEOUT).await.is_none());
+
+			// Change address for one authorithy and check we try to connect to it and
+			// that we emit UpdateAuthorityID for the old PeerId and the new one.
+			Delay::new(TRY_RERESOLVE_AUTHORITIES).await;
+			let changed_peerid = authority_discovery_mock
+				.change_address_for_authority(authority_that_changes_address.clone());
+			let hash = Hash::repeat_byte(0xDD);
+			let msg = GossipSupportMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerConnected(
+				changed_peerid,
+				ObservedRole::Authority,
+				ValidationVersion::V3.into(),
+				None,
+			));
+			overseer.send(FromOrchestra::Communication { msg }).await;
+
+			overseer_signal_active_leaves(overseer, hash).await;
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					tx.send(Ok(1)).unwrap();
+				}
+			);
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::SessionInfo(s, tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					assert_eq!(s, 1);
+					let mut session_info = make_session_info();
+					session_info.discovery_keys = PAST_PRESENT_FUTURE_AUTHORITIES.clone();
+					tx.send(Ok(Some(session_info))).unwrap();
+
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::Authorities(tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					tx.send(Ok(PAST_PRESENT_FUTURE_AUTHORITIES.clone())).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::AddToResolvedValidators {
+					validator_addrs,
+					peer_set,
+				}) => {
+					let expected = get_address_map(vec![authority_that_changes_address.clone()], authority_discovery_mock.clone()).await;
+					let expected: HashSet<Multiaddr> = expected.into_values().flat_map(|v| v.into_iter()).collect();
+					assert_eq!(validator_addrs.into_iter().flat_map(|v| v.into_iter()).collect::<HashSet<_>>(), expected);
+					assert_eq!(peer_set, PeerSet::Validation);
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::NetworkBridgeRx(NetworkBridgeRxMessage::UpdatedAuthorityIds {
+					peer_id,
+					authority_ids,
+				}) => {
+					assert_eq!(authority_discovery_mock.get_authority_ids_by_peer_id(peer_id).await.unwrap(), HashSet::from([authority_that_changes_address.clone()]));
+					assert!(authority_ids.is_empty());
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::NetworkBridgeRx(NetworkBridgeRxMessage::UpdatedAuthorityIds {
+					peer_id,
+					authority_ids,
+				}) => {
+					assert_eq!(authority_ids, HashSet::from([authority_that_changes_address]));
+					assert_eq!(changed_peerid, peer_id);
+				}
+			);
+
+			assert!(overseer.recv().timeout(TIMEOUT).await.is_none());
+
 			virtual_overseer
 		},
 	);

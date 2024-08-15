@@ -197,13 +197,13 @@ where
 
 					let pov_hash = pov.hash();
 					let erasure_root = {
-						let chunks = erasure::obtain_chunks_v1(
+						let chunks = polkadot_erasure_coding::obtain_chunks_v1(
 							n_validators as usize,
 							&malicious_available_data,
 						)
 						.unwrap();
 
-						let branches = erasure::branches(chunks.as_ref());
+						let branches = polkadot_erasure_coding::branches(chunks.as_ref());
 						branches.root()
 					};
 

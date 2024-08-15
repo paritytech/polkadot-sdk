@@ -33,7 +33,7 @@ use sp_runtime::{
 	traits::{Block, Header, NumberFor, One},
 	Saturating,
 };
-use std::{collections::VecDeque, sync::Arc};
+use std::{collections::VecDeque, default::Default, sync::Arc};
 
 /// `OffchainMMR` exposes MMR offchain canonicalization and pruning logic.
 pub struct OffchainMmr<B: Block, BE: Backend<B>, C> {
@@ -273,12 +273,11 @@ where
 		self.write_gadget_state_or_log();
 
 		// Remove offchain MMR nodes for stale forks.
-		let stale_forks = self.client.expand_forks(&notification.stale_heads).unwrap_or_else(
-			|(stale_forks, e)| {
-				warn!(target: LOG_TARGET, "{:?}", e);
-				stale_forks
-			},
-		);
+		let stale_forks = self.client.expand_forks(&notification.stale_heads).unwrap_or_else(|e| {
+			warn!(target: LOG_TARGET, "{:?}", e);
+
+			Default::default()
+		});
 		for hash in stale_forks.iter() {
 			self.prune_branch(hash);
 		}

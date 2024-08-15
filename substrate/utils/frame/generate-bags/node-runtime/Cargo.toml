@@ -4,7 +4,7 @@ version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Bag threshold generation script for pallet-bag-list and kitchensink-runtime."
 publish = false
@@ -13,8 +13,8 @@ publish = false
 workspace = true
 
 [dependencies]
-kitchensink-runtime = { path = "../../../../bin/node/runtime" }
-generate-bags = { path = ".." }
+kitchensink-runtime = { workspace = true }
+generate-bags = { workspace = true, default-features = true }
 
 # third-party
-clap = { version = "4.5.3", features = ["derive"] }
+clap = { features = ["derive"], workspace = true }

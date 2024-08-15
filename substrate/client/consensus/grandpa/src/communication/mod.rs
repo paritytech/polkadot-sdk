@@ -40,12 +40,12 @@ use std::{
 	time::Duration,
 };
 
+use codec::{Decode, DecodeAll, Encode};
 use finality_grandpa::{
 	voter,
 	voter_set::VoterSet,
 	Message::{Precommit, Prevote, PrimaryPropose},
 };
-use parity_scale_codec::{Decode, DecodeAll, Encode};
 use sc_network::{NetworkBlock, NetworkSyncForkRequest, NotificationService, ReputationChange};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO};
@@ -488,7 +488,7 @@ impl<B: BlockT, N: Network<B>, S: Syncing<B>> NetworkBridge<B, N, S> {
 	/// connected to (NOTE: this assumption will change in the future #3629).
 	pub(crate) fn set_sync_fork_request(
 		&self,
-		peers: Vec<sc_network::PeerId>,
+		peers: Vec<sc_network_types::PeerId>,
 		hash: B::Hash,
 		number: NumberFor<B>,
 	) {

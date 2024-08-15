@@ -20,16 +20,16 @@ use crate::{
 	assigner_coretime::{mock_helpers::GenesisConfigBuilder, pallet::Error, Schedule},
 	initializer::SessionChangeNotification,
 	mock::{
-		new_test_ext, Balances, CoretimeAssigner, OnDemandAssigner, Paras, ParasShared,
-		RuntimeOrigin, Scheduler, System, Test,
+		new_test_ext, Balances, CoretimeAssigner, OnDemand, Paras, ParasShared, RuntimeOrigin,
+		Scheduler, System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 	scheduler::common::Assignment,
 };
+use alloc::collections::btree_map::BTreeMap;
 use frame_support::{assert_noop, assert_ok, pallet_prelude::*, traits::Currency};
 use pallet_broker::TaskId;
-use primitives::{BlockNumber, Id as ParaId, SessionIndex, ValidationCode};
-use sp_std::collections::btree_map::BTreeMap;
+use polkadot_primitives::{BlockNumber, Id as ParaId, SessionIndex, ValidationCode};
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
 	let validation_code: ValidationCode = vec![1, 2, 3].into();
@@ -74,8 +74,11 @@ fn run_to_block(
 		Paras::initializer_initialize(b + 1);
 		Scheduler::initializer_initialize(b + 1);
 
+		// Update the spot traffic and revenue on every block.
+		OnDemand::on_initialize(b + 1);
+
 		// In the real runtime this is expected to be called by the `InclusionInherent` pallet.
-		Scheduler::free_cores_and_fill_claimqueue(BTreeMap::new(), b + 1);
+		Scheduler::free_cores_and_fill_claim_queue(BTreeMap::new(), b + 1);
 	}
 }
 
@@ -524,11 +527,7 @@ fn pop_assignment_for_core_works() {
 		schedule_blank_para(para_id, ParaKind::Parathread);
 		Balances::make_free_balance_be(&alice, amt);
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
-		assert_ok!(OnDemandAssigner::place_order_allow_death(
-			RuntimeOrigin::signed(alice),
-			amt,
-			para_id
-		));
+		assert_ok!(OnDemand::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id));
 
 		// Case 1: Assignment idle
 		assert_ok!(CoretimeAssigner::assign_core(

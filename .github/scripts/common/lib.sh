@@ -315,6 +315,7 @@ function import_gpg_keys() {
     ) &
   done
   wait
+  gpg -k $SEC
 }
 
 # Check the GPG signature for a given binary
@@ -369,7 +370,7 @@ function relative_parent() {
 # used as Github Workflow Matrix. This call is exposed by the `scan` command and can be used as:
 # podman run --rm -it -v /.../fellowship-runtimes:/build docker.io/chevdor/srtool:1.70.0-0.11.1 scan
 function find_runtimes() {
-    libs=($(git grep -I -r --cached --max-depth 20 --files-with-matches 'construct_runtime!' -- '*lib.rs'))
+    libs=($(git grep -I -r --cached --max-depth 20 --files-with-matches '[frame_support::runtime]!' -- '*lib.rs'))
     re=".*-runtime$"
     JSON=$(jq --null-input '{ "include": [] }')
 
@@ -433,4 +434,39 @@ check_release_id() {
       exit 1
   fi
 
+}
+
+# Get latest release tag
+#
+# input: none
+# output: latest_release_tag
+get_latest_release_tag() {
+    TOKEN="Authorization: Bearer $GITHUB_TOKEN"
+    latest_release_tag=$(curl -s -H "$TOKEN" $api_base/paritytech/polkadot-sdk/releases/latest | jq -r '.tag_name')
+    printf $latest_release_tag
+}
+
+function get_polkadot_node_version_from_code() {
+   # list all the files with node version
+  git grep -e "\(NODE_VERSION[^=]*= \)\".*\"" |
+  # fetch only the one we need
+  grep  "primitives/src/lib.rs:" |
+  # Print only the version
+  awk '{ print $7 }' |
+  # Remove the quotes
+  sed 's/"//g' |
+  # Remove the semicolon
+  sed 's/;//g'
+}
+
+validate_stable_tag() {
+    tag="$1"
+    pattern='^stable[0-9]+(-[0-9]+)?$'
+
+    if [[ $tag =~ $pattern ]]; then
+        echo $tag
+    else
+        echo "The input '$tag' does not match the pattern."
+        exit 1
+    fi
 }

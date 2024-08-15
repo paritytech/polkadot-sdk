@@ -87,7 +87,9 @@ pub mod migrations;
 mod tests;
 pub mod weights;
 
-use sp_std::prelude::*;
+extern crate alloc;
+
+use alloc::vec::Vec;
 
 use frame_support::traits::{
 	Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced, ReservableCurrency,
@@ -245,6 +247,9 @@ pub mod pallet {
 
 		/// The child bounty manager.
 		type ChildBountyManager: ChildBountyManager<BalanceOf<Self, I>>;
+
+		/// Handler for the unbalanced decrease when slashing for a rejected bounty.
+		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
 	}
 
 	#[pallet::error]
@@ -303,12 +308,10 @@ pub mod pallet {
 
 	/// Number of bounty proposals that have been made.
 	#[pallet::storage]
-	#[pallet::getter(fn bounty_count)]
 	pub type BountyCount<T: Config<I>, I: 'static = ()> = StorageValue<_, BountyIndex, ValueQuery>;
 
 	/// Bounties that have been made.
 	#[pallet::storage]
-	#[pallet::getter(fn bounties)]
 	pub type Bounties<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Twox64Concat,
@@ -318,13 +321,11 @@ pub mod pallet {
 
 	/// The description of each bounty.
 	#[pallet::storage]
-	#[pallet::getter(fn bounty_descriptions)]
 	pub type BountyDescriptions<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, BountyIndex, BoundedVec<u8, T::MaximumReasonLength>>;
 
 	/// Bounty indices that have been approved but not yet funded.
 	#[pallet::storage]
-	#[pallet::getter(fn bounty_approvals)]
 	pub type BountyApprovals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<BountyIndex, T::MaxApprovals>, ValueQuery>;
 
@@ -808,6 +809,54 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_bounties_count()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * `BountyCount` should be greater or equals to the length of the number of items in
+	///   `Bounties`.
+	/// * `BountyCount` should be greater or equals to the length of the number of items in
+	///   `BountyDescriptions`.
+	/// * Number of items in `Bounties` should be the same as `BountyDescriptions` length.
+	fn try_state_bounties_count() -> Result<(), sp_runtime::TryRuntimeError> {
+		let bounties_length = Bounties::<T, I>::iter().count() as u32;
+
+		ensure!(
+			<BountyCount<T, I>>::get() >= bounties_length,
+			"`BountyCount` must be grater or equals the number of `Bounties` in storage"
+		);
+
+		let bounties_description_length = BountyDescriptions::<T, I>::iter().count() as u32;
+		ensure!(
+			<BountyCount<T, I>>::get() >= bounties_description_length,
+			"`BountyCount` must be grater or equals the number of `BountiesDescriptions` in storage."
+		);
+
+		ensure!(
+				bounties_length == bounties_description_length,
+				"Number of `Bounties` in storage must be the same as the Number of `BountiesDescription` in storage."
+		);
+		Ok(())
+	}
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -849,7 +898,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			description.try_into().map_err(|_| Error::<T, I>::ReasonTooBig)?;
 		ensure!(value >= T::BountyValueMinimum::get(), Error::<T, I>::InvalidValue);
 
-		let index = Self::bounty_count();
+		let index = BountyCount::<T, I>::get();
 
 		// reserve deposit for new bounty
 		let bond = T::BountyDepositBase::get() +

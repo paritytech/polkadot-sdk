@@ -22,11 +22,13 @@ use crate::{
 	weights::WeightInfo,
 	CodeHash, Config, Determinism, Pallet, Weight, LOG_TARGET,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use frame_support::{pallet_prelude::*, storage_alias, DefaultNoBound, Identity};
+use frame_support::{
+	pallet_prelude::*, storage_alias, weights::WeightMeter, DefaultNoBound, Identity,
+};
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
-use sp_std::prelude::*;
 
 mod v8 {
 	use super::*;
@@ -54,7 +56,7 @@ pub fn store_old_dummy_code<T: Config>(len: usize) {
 		instruction_weights_version: 0,
 		initial: 0,
 		maximum: 0,
-		code: vec![42u8; len],
+		code: alloc::vec![42u8; len],
 	};
 	let hash = T::Hashing::hash(&module.code);
 	v8::CodeStorage::<T>::insert(hash, module);
@@ -87,7 +89,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 		T::WeightInfo::v9_migration_step(T::MaxCodeLen::get())
 	}
 
-	fn step(&mut self) -> (IsFinished, Weight) {
+	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
 		let mut iter = if let Some(last_key) = self.last_code_hash.take() {
 			v8::CodeStorage::<T>::iter_from(v8::CodeStorage::<T>::hashed_key_for(last_key))
 		} else {
@@ -106,10 +108,12 @@ impl<T: Config> MigrationStep for Migration<T> {
 			};
 			CodeStorage::<T>::insert(key, module);
 			self.last_code_hash = Some(key);
-			(IsFinished::No, T::WeightInfo::v9_migration_step(len))
+			meter.consume(T::WeightInfo::v9_migration_step(len));
+			IsFinished::No
 		} else {
 			log::debug!(target: LOG_TARGET, "No more contracts code to migrate");
-			(IsFinished::Yes, T::WeightInfo::v9_migration_step(0))
+			meter.consume(T::WeightInfo::v9_migration_step(0));
+			IsFinished::Yes
 		}
 	}
 

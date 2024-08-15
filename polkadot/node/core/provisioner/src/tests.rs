@@ -15,9 +15,9 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use ::test_helpers::{dummy_candidate_descriptor, dummy_hash};
 use bitvec::bitvec;
 use polkadot_primitives::{OccupiedCore, ScheduledCore};
+use polkadot_primitives_test_helpers::{dummy_candidate_descriptor, dummy_hash};
 
 const MOCK_GROUP_SIZE: usize = 5;
 
@@ -244,7 +244,6 @@ mod select_candidates {
 		super::*, build_occupied_core, common::test_harness, default_bitvec, occupied_core,
 		scheduled_core, MOCK_GROUP_SIZE,
 	};
-	use ::test_helpers::{dummy_candidate_descriptor, dummy_hash};
 	use futures::channel::mpsc;
 	use polkadot_node_subsystem::messages::{
 		AllMessages, RuntimeApiMessage,
@@ -257,6 +256,7 @@ mod select_candidates {
 	use polkadot_primitives::{
 		BlockNumber, CandidateCommitments, CommittedCandidateReceipt, PersistedValidationData,
 	};
+	use polkadot_primitives_test_helpers::{dummy_candidate_descriptor, dummy_hash};
 	use rstest::rstest;
 	use std::ops::Not;
 	use CoreState::{Free, Scheduled};
@@ -578,7 +578,7 @@ mod select_candidates {
 				)) => tx.send(Ok(Some(Default::default()))).unwrap(),
 				AllMessages::RuntimeApi(Request(_parent_hash, AvailabilityCores(tx))) =>
 					tx.send(Ok(mock_availability_cores.clone())).unwrap(),
-				AllMessages::CandidateBacking(CandidateBackingMessage::GetBackedCandidates(
+				AllMessages::CandidateBacking(CandidateBackingMessage::GetBackableCandidates(
 					hashes,
 					sender,
 				)) => {
@@ -918,7 +918,11 @@ mod select_candidates {
 		let committed_receipts: Vec<_> = (0..mock_cores.len())
 			.map(|i| {
 				let mut descriptor = dummy_candidate_descriptor(dummy_hash());
-				descriptor.para_id = mock_cores[i].para_id().unwrap();
+				descriptor.para_id = if let Scheduled(scheduled_core) = &mock_cores[i] {
+					scheduled_core.para_id
+				} else {
+					panic!("`mock_cores` is not initialized with `Scheduled`?")
+				};
 				descriptor.persisted_validation_data_hash = empty_hash;
 				descriptor.pov_hash = Hash::from_low_u64_be(i as u64);
 				CommittedCandidateReceipt {

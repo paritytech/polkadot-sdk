@@ -30,13 +30,43 @@
 //! > **F**ramework for **R**untime **A**ggregation of **M**odularized **E**ntities: Substrate's
 //! > State Transition Function (Runtime) Framework.
 //!
+//! ## Usage
+//!
+//! The main intended use of this crate is for it to be imported with its preludes:
+//!
+//! ```
+//! # use polkadot_sdk_frame as frame;
+//! #[frame::pallet]
+//! pub mod pallet {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::prelude::*;
+//! 	// ^^ using the prelude!
+//!
+//! 	#[pallet::config]
+//! 	pub trait Config: frame_system::Config {}
+//!
+//! 	#[pallet::pallet]
+//! 	pub struct Pallet<T>(_);
+//! }
+//!
+//! pub mod tests {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::testing_prelude::*;
+//! }
+//!
+//! pub mod runtime {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::runtime::prelude::*;
+//! }
+//! ```
+//!
+//! See: [`prelude`], [`testing_prelude`] and [`runtime::prelude`].
+//!
+//! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`.
+//!
 //! ## Documentation
 //!
 //! See [`polkadot_sdk::frame`](../polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html).
-//!
-//! ## Warning: Experimental
-//!
-//! This crate and all of its content is experimental, and should not yet be used in production.
 //!
 //! ## Underlying dependencies
 //!
@@ -46,31 +76,31 @@
 //! In short, this crate only re-exports types and traits from multiple sources. All of these
 //! sources are listed (and re-exported again) in [`deps`].
 //!
-//! ## Usage
+//! ## WARNING: Experimental
 //!
-//! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`.
+//! **This crate and all of its content is experimental, and should not yet be used in production.**
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
 
-/// Exports the main pallet macro. This can wrap a `mod pallet` and will transform it into
-/// being a pallet, eg `#[polkadot_sdk_frame::pallet] mod pallet { .. }`.
-///
-/// Note that this is not part of the prelude, in order to make it such that the common way to
-/// define a macro is `#[polkadot_sdk_frame::pallet] mod pallet { .. }`, followed by
-/// `#[pallet::foo]`, `#[pallet::bar]` inside the mod.
+#[doc(no_inline)]
 pub use frame_support::pallet;
 
+#[doc(no_inline)]
 pub use frame_support::pallet_macros::{import_section, pallet_section};
 
 /// The logging library of the runtime. Can normally be the classic `log` crate.
 pub use log;
 
-/// A list of all macros used within the main [`pallet`] macro.
+/// Macros used within the main [`pallet`] macro.
 ///
 /// Note: All of these macros are "stubs" and not really usable outside `#[pallet] mod pallet { ..
 /// }`. They are mainly provided for documentation and IDE support.
+///
+/// To view a list of all the macros and their documentation, follow the links in the 'Re-exports'
+/// section below:
 pub mod pallet_macros {
+	#[doc(no_inline)]
 	pub use frame_support::{derive_impl, pallet, pallet_macros::*};
 }
 
@@ -102,10 +132,6 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_system::pallet_prelude::*;
 
-	/// All of the std alternative types.
-	#[doc(no_inline)]
-	pub use sp_std::prelude::*;
-
 	/// All FRAME-relevant derive macros.
 	#[doc(no_inline)]
 	pub use super::derive::*;
@@ -134,7 +160,6 @@ pub mod testing_prelude {
 
 	pub use frame_system::{self, mocking::*};
 	pub use sp_io::TestExternalities as TestState;
-	pub use sp_std::if_std;
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
@@ -316,14 +341,14 @@ pub mod primitives {
 ///
 /// This is already part of the [`prelude`].
 pub mod derive {
+	pub use codec::{Decode, Encode};
+	pub use core::fmt::Debug;
 	pub use frame_support::{
 		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,
 		PartialOrdNoBound, RuntimeDebugNoBound,
 	};
-	pub use parity_scale_codec::{Decode, Encode};
 	pub use scale_info::TypeInfo;
 	pub use sp_runtime::RuntimeDebug;
-	pub use sp_std::fmt::Debug;
 }
 
 /// Access to all of the dependencies of this crate. In case the re-exports are not enough, this
@@ -343,9 +368,8 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
-	pub use sp_std;
 
-	pub use parity_scale_codec as codec;
+	pub use codec;
 	pub use scale_info;
 
 	#[cfg(feature = "runtime")]
@@ -363,5 +387,15 @@ pub mod deps {
 	#[cfg(feature = "runtime")]
 	pub use sp_offchain;
 	#[cfg(feature = "runtime")]
+	pub use sp_storage;
+	#[cfg(feature = "runtime")]
 	pub use sp_version;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub use frame_benchmarking;
+	#[cfg(feature = "runtime-benchmarks")]
+	pub use frame_system_benchmarking;
+
+	#[cfg(feature = "frame-try-runtime")]
+	pub use frame_try_runtime;
 }

@@ -112,6 +112,37 @@ pub trait SwapCredit<AccountId> {
 	) -> Result<(Self::Credit, Self::Credit), (Self::Credit, DispatchError)>;
 }
 
+/// Trait providing methods to quote swap prices between asset classes.
+///
+/// The quoted price is only guaranteed if no other swaps are made after the price is quoted and
+/// before the target swap (e.g., the swap is made immediately within the same transaction).
+pub trait QuotePrice {
+	/// Measurement units of the asset classes for pricing.
+	type Balance: Balance;
+	/// Type representing the kind of assets for which the price is being quoted.
+	type AssetKind;
+	/// Quotes the amount of `asset1` required to obtain the exact `amount` of `asset2`.
+	///
+	/// If `include_fee` is set to `true`, the price will include the pool's fee.
+	/// If the pool does not exist or the swap cannot be made, `None` is returned.
+	fn quote_price_tokens_for_exact_tokens(
+		asset1: Self::AssetKind,
+		asset2: Self::AssetKind,
+		amount: Self::Balance,
+		include_fee: bool,
+	) -> Option<Self::Balance>;
+	/// Quotes the amount of `asset2` resulting from swapping the exact `amount` of `asset1`.
+	///
+	/// If `include_fee` is set to `true`, the price will include the pool's fee.
+	/// If the pool does not exist or the swap cannot be made, `None` is returned.
+	fn quote_price_exact_tokens_for_tokens(
+		asset1: Self::AssetKind,
+		asset2: Self::AssetKind,
+		amount: Self::Balance,
+		include_fee: bool,
+	) -> Option<Self::Balance>;
+}
+
 impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 	type Balance = T::Balance;
 	type AssetKind = T::AssetKind;
@@ -208,5 +239,26 @@ impl<T: Config> SwapCredit<T::AccountId> for Pallet<T> {
 		})
 		// should never map an error since `with_transaction` above never returns it.
 		.map_err(|_| (Self::Credit::zero(credit_asset), DispatchError::Corruption))?
+	}
+}
+
+impl<T: Config> QuotePrice for Pallet<T> {
+	type Balance = T::Balance;
+	type AssetKind = T::AssetKind;
+	fn quote_price_exact_tokens_for_tokens(
+		asset1: Self::AssetKind,
+		asset2: Self::AssetKind,
+		amount: Self::Balance,
+		include_fee: bool,
+	) -> Option<Self::Balance> {
+		Self::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
+	}
+	fn quote_price_tokens_for_exact_tokens(
+		asset1: Self::AssetKind,
+		asset2: Self::AssetKind,
+		amount: Self::Balance,
+		include_fee: bool,
+	) -> Option<Self::Balance> {
+		Self::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 	}
 }

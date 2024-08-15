@@ -19,13 +19,14 @@
 use derive_more::Display;
 use polkadot_primitives::Hash;
 use sc_network::{
-	config::{NonDefaultSetConfig, SetConfig},
-	types::ProtocolName,
-	NotificationService,
+	config::SetConfig, peer_store::PeerStoreProvider, service::NotificationMetrics,
+	types::ProtocolName, NetworkBackend, NotificationService,
 };
+use sp_runtime::traits::Block;
 use std::{
 	collections::{hash_map::Entry, HashMap},
 	ops::{Index, IndexMut},
+	sync::Arc,
 };
 use strum::{EnumIter, IntoEnumIterator};
 
@@ -65,11 +66,13 @@ impl PeerSet {
 	///
 	/// Those should be used in the network configuration to register the protocols with the
 	/// network service.
-	pub fn get_info(
+	pub fn get_info<B: Block, N: NetworkBackend<B, <B as Block>::Hash>>(
 		self,
 		is_authority: IsAuthority,
 		peerset_protocol_names: &PeerSetProtocolNames,
-	) -> (NonDefaultSetConfig, (PeerSet, Box<dyn NotificationService>)) {
+		metrics: NotificationMetrics,
+		peer_store_handle: Arc<dyn PeerStoreProvider>,
+	) -> (N::NotificationProtocolConfig, (PeerSet, Box<dyn NotificationService>)) {
 		// Networking layer relies on `get_main_name()` being the main name of the protocol
 		// for peersets and connection management.
 		let protocol = peerset_protocol_names.get_main_name(self);
@@ -82,7 +85,7 @@ impl PeerSet {
 
 		match self {
 			PeerSet::Validation => {
-				let (config, notification_service) = NonDefaultSetConfig::new(
+				let (config, notification_service) = N::notification_config(
 					protocol,
 					fallback_names,
 					max_notification_size,
@@ -97,12 +100,14 @@ impl PeerSet {
 						reserved_nodes: Vec::new(),
 						non_reserved_mode: sc_network::config::NonReservedPeerMode::Accept,
 					},
+					metrics,
+					peer_store_handle,
 				);
 
 				(config, (PeerSet::Validation, notification_service))
 			},
 			PeerSet::Collation => {
-				let (config, notification_service) = NonDefaultSetConfig::new(
+				let (config, notification_service) = N::notification_config(
 					protocol,
 					fallback_names,
 					max_notification_size,
@@ -119,6 +124,8 @@ impl PeerSet {
 							sc_network::config::NonReservedPeerMode::Deny
 						},
 					},
+					metrics,
+					peer_store_handle,
 				);
 
 				(config, (PeerSet::Collation, notification_service))
@@ -207,12 +214,21 @@ impl<T> IndexMut<PeerSet> for PerPeerSet<T> {
 ///
 /// Should be used during network configuration (added to `NetworkConfiguration::extra_sets`)
 /// or shortly after startup to register the protocols with the network service.
-pub fn peer_sets_info(
+pub fn peer_sets_info<B: Block, N: NetworkBackend<B, <B as Block>::Hash>>(
 	is_authority: IsAuthority,
 	peerset_protocol_names: &PeerSetProtocolNames,
-) -> Vec<(NonDefaultSetConfig, (PeerSet, Box<dyn NotificationService>))> {
+	metrics: NotificationMetrics,
+	peer_store_handle: Arc<dyn PeerStoreProvider>,
+) -> Vec<(N::NotificationProtocolConfig, (PeerSet, Box<dyn NotificationService>))> {
 	PeerSet::iter()
-		.map(|s| s.get_info(is_authority, &peerset_protocol_names))
+		.map(|s| {
+			s.get_info::<B, N>(
+				is_authority,
+				&peerset_protocol_names,
+				metrics.clone(),
+				Arc::clone(&peer_store_handle),
+			)
+		})
 		.collect()
 }
 

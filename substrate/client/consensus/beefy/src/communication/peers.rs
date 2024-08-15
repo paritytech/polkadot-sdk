@@ -18,7 +18,8 @@
 
 //! Logic for keeping track of BEEFY peers.
 
-use sc_network::{PeerId, ReputationChange};
+use sc_network::ReputationChange;
+use sc_network_types::PeerId;
 use sp_runtime::traits::{Block, NumberFor, Zero};
 use std::collections::{HashMap, VecDeque};
 
@@ -73,6 +74,11 @@ impl<B: Block> KnownPeers<B> {
 	/// Answer whether `peer` is part of `KnownPeers` set.
 	pub fn contains(&self, peer: &PeerId) -> bool {
 		self.live.contains_key(peer)
+	}
+
+	/// Number of peers in the set.
+	pub fn len(&self) -> usize {
+		self.live.len()
 	}
 }
 

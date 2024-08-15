@@ -27,7 +27,7 @@ use frame_support::{
 };
 use frame_system::limits::{BlockLength, BlockWeights};
 use scale_info::TypeInfo;
-use sp_core::{sr25519, ConstU64};
+use sp_core::sr25519;
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, ValidateUnsigned, Verify},
@@ -169,7 +169,7 @@ mod nested {
 		#[derive(frame_support::DefaultNoBound)]
 		pub struct GenesisConfig<T: Config> {
 			#[serde(skip)]
-			pub _config: sp_std::marker::PhantomData<T>,
+			pub _config: core::marker::PhantomData<T>,
 		}
 
 		#[pallet::genesis_build]
@@ -251,7 +251,7 @@ pub mod module3 {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -340,7 +340,7 @@ mod runtime {
 	pub type Module1_9 = module1<Instance9>;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type AccountId = AccountId;
 	type Lookup = sp_runtime::traits::IdentityLookup<AccountId>;
@@ -351,7 +351,6 @@ impl frame_system::Config for Runtime {
 	type PalletInfo = PalletInfo;
 	type OnSetCode = ();
 	type Block = Block;
-	type BlockHashCount = ConstU64<10>;
 }
 
 impl module1::Config<module1::Instance1> for Runtime {
@@ -809,7 +808,7 @@ fn test_metadata() {
 		PalletMetadata {
 			name: "Module3",
 			storage: Some(PalletStorageMetadata {
-				prefix: "Module3", 
+				prefix: "Module3",
 				entries: vec![
 					StorageEntryMetadata {
 						name: "Storage",

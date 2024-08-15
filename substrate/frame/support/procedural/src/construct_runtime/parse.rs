@@ -65,8 +65,6 @@ pub enum RuntimeDeclaration {
 /// Declaration of a runtime with some pallet with implicit declaration of parts.
 #[derive(Debug)]
 pub struct ImplicitRuntimeDeclaration {
-	pub name: Ident,
-	pub where_section: Option<WhereSection>,
 	pub pallets: Vec<PalletDeclaration>,
 }
 
@@ -98,11 +96,7 @@ impl Parse for RuntimeDeclaration {
 
 		match convert_pallets(pallets.content.inner.into_iter().collect())? {
 			PalletsConversion::Implicit(pallets) =>
-				Ok(RuntimeDeclaration::Implicit(ImplicitRuntimeDeclaration {
-					name,
-					where_section,
-					pallets,
-				})),
+				Ok(RuntimeDeclaration::Implicit(ImplicitRuntimeDeclaration { pallets })),
 			PalletsConversion::Explicit(pallets) =>
 				Ok(RuntimeDeclaration::Explicit(ExplicitRuntimeDeclaration {
 					name,
@@ -124,9 +118,6 @@ impl Parse for RuntimeDeclaration {
 #[derive(Debug)]
 pub struct WhereSection {
 	pub span: Span,
-	pub block: syn::TypePath,
-	pub node_block: syn::TypePath,
-	pub unchecked_extrinsic: syn::TypePath,
 }
 
 impl Parse for WhereSection {
@@ -145,10 +136,9 @@ impl Parse for WhereSection {
 			}
 			input.parse::<Token![,]>()?;
 		}
-		let block = remove_kind(input, WhereKind::Block, &mut definitions)?.value;
-		let node_block = remove_kind(input, WhereKind::NodeBlock, &mut definitions)?.value;
-		let unchecked_extrinsic =
-			remove_kind(input, WhereKind::UncheckedExtrinsic, &mut definitions)?.value;
+		remove_kind(input, WhereKind::Block, &mut definitions)?;
+		remove_kind(input, WhereKind::NodeBlock, &mut definitions)?;
+		remove_kind(input, WhereKind::UncheckedExtrinsic, &mut definitions)?;
 		if let Some(WhereDefinition { ref kind_span, ref kind, .. }) = definitions.first() {
 			let msg = format!(
 				"`{:?}` was declared above. Please use exactly one declaration for `{:?}`.",
@@ -156,7 +146,7 @@ impl Parse for WhereSection {
 			);
 			return Err(Error::new(*kind_span, msg))
 		}
-		Ok(Self { span: input.span(), block, node_block, unchecked_extrinsic })
+		Ok(Self { span: input.span() })
 	}
 }
 
@@ -171,7 +161,6 @@ pub enum WhereKind {
 pub struct WhereDefinition {
 	pub kind_span: Span,
 	pub kind: WhereKind,
-	pub value: syn::TypePath,
 }
 
 impl Parse for WhereDefinition {
@@ -187,14 +176,10 @@ impl Parse for WhereDefinition {
 			return Err(lookahead.error())
 		};
 
-		Ok(Self {
-			kind_span,
-			kind,
-			value: {
-				let _: Token![=] = input.parse()?;
-				input.parse()?
-			},
-		})
+		let _: Token![=] = input.parse()?;
+		let _: syn::TypePath = input.parse()?;
+
+		Ok(Self { kind_span, kind })
 	}
 }
 
@@ -605,6 +590,8 @@ pub struct Pallet {
 	pub pallet_parts: Vec<PalletPart>,
 	/// Expressions specified inside of a #[cfg] attribute.
 	pub cfg_pattern: Vec<cfg_expr::Expression>,
+	/// The doc literals
+	pub docs: Vec<syn::Expr>,
 }
 
 impl Pallet {
@@ -774,6 +761,7 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 				instance: pallet.instance,
 				cfg_pattern,
 				pallet_parts,
+				docs: vec![],
 			})
 		})
 		.collect::<Result<Vec<_>>>()?;

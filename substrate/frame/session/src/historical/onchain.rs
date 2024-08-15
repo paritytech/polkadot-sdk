@@ -17,9 +17,9 @@
 
 //! On-chain logic to store a validator-set for deferred validation using an off-chain worker.
 
+use alloc::vec::Vec;
 use codec::Encode;
 use sp_runtime::traits::Convert;
-use sp_std::prelude::*;
 
 use super::{shared, Config as HistoricalConfig};
 use crate::{Config as SessionConfig, Pallet as SessionModule, SessionIndex};

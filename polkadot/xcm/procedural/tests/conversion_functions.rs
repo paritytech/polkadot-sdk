@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use xcm::v2::prelude::*;
+use xcm::v3::prelude::*;
 
 #[test]
-fn slice_syntax_in_v2_works() {
+fn slice_syntax_in_v3_works() {
 	let old_junctions = Junctions::X2(Parachain(1), PalletInstance(1));
 	let new_junctions = Junctions::from([Parachain(1), PalletInstance(1)]);
 	assert_eq!(old_junctions, new_junctions);

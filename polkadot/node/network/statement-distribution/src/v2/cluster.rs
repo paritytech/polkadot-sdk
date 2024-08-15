@@ -60,13 +60,6 @@ use polkadot_primitives::{CandidateHash, CompactStatement, Hash, ValidatorIndex}
 use crate::LOG_TARGET;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Hash, PartialEq, Eq)]
-struct ValidStatementManifest {
-	remote: ValidatorIndex,
-	originator: ValidatorIndex,
-	candidate_hash: CandidateHash,
-}
-
 // A piece of knowledge about a candidate
 #[derive(Hash, Clone, PartialEq, Eq)]
 enum Knowledge {
@@ -436,13 +429,15 @@ impl ClusterTracker {
 
 	pub fn warn_if_too_many_pending_statements(&self, parent_hash: Hash) {
 		if self.pending.iter().filter(|pending| !pending.1.is_empty()).count() >=
-			self.validators.len()
+			self.validators.len() &&
+			// No reason to warn if we are the only node in the cluster.
+			self.validators.len() > 1
 		{
 			gum::warn!(
 				target: LOG_TARGET,
 				pending_statements  = ?self.pending,
 				?parent_hash,
-				"Cluster has too many pending statements, something wrong with our connection to our group peers \n
+				"Cluster has too many pending statements, something wrong with our connection to our group peers
 				Restart might be needed if validator gets 0 backing rewards for more than 3-4 consecutive sessions"
 			);
 		}

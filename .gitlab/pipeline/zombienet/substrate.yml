@@ -13,7 +13,6 @@
     - echo "${ZOMBIENET_IMAGE}"
     - echo "${GH_DIR}"
     - echo "${LOCAL_DIR}"
-    - export DEBUG=zombie,zombie::network-node
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${SUBSTRATE_IMAGE}":${SUBSTRATE_IMAGE_TAG}
     - echo "${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
   stage: zombienet

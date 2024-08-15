@@ -1,0 +1,11 @@
+title: "[pallet-contracts] stabilize xcm_send and xcm_execute"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+     `xcm_send` and `xcm_execute` are currently marked as unstable. This PR stabilizes them.
+crates:
+- name: pallet-contracts
+  bump: major
+
+

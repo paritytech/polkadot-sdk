@@ -116,6 +116,10 @@ impl ParaStoredHeaderData {
 
 /// Stored parachain head data builder.
 pub trait ParaStoredHeaderDataBuilder {
+	/// Maximal parachain head size that we may accept for free. All heads above
+	/// this limit are submitted for a regular fee.
+	fn max_free_head_size() -> u32;
+
 	/// Return number of parachains that are supported by this builder.
 	fn supported_parachains() -> u32;
 
@@ -127,6 +131,10 @@ pub trait ParaStoredHeaderDataBuilder {
 pub struct SingleParaStoredHeaderDataBuilder<C: Parachain>(PhantomData<C>);
 
 impl<C: Parachain> ParaStoredHeaderDataBuilder for SingleParaStoredHeaderDataBuilder<C> {
+	fn max_free_head_size() -> u32 {
+		C::MAX_HEADER_SIZE
+	}
+
 	fn supported_parachains() -> u32 {
 		1
 	}
@@ -147,6 +155,17 @@ impl<C: Parachain> ParaStoredHeaderDataBuilder for SingleParaStoredHeaderDataBui
 #[impl_trait_for_tuples::impl_for_tuples(1, 30)]
 #[tuple_types_custom_trait_bound(Parachain)]
 impl ParaStoredHeaderDataBuilder for C {
+	fn max_free_head_size() -> u32 {
+		let mut result = 0_u32;
+		for_tuples!( #(
+			result = sp_std::cmp::max(
+				result,
+				SingleParaStoredHeaderDataBuilder::<C>::max_free_head_size(),
+			);
+		)* );
+		result
+	}
+
 	fn supported_parachains() -> u32 {
 		let mut result = 0;
 		for_tuples!( #(

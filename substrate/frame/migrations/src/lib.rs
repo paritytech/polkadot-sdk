@@ -69,22 +69,22 @@
 //! either be [`MigrationCursor::Active`] or [`MigrationCursor::Stuck`]. In the active case it
 //! points to the currently active migration and stores its inner cursor. The inner cursor can then
 //! be used by the migration to store its inner state and advance. Each time when the migration
-//! returns `Some(cursor)`, it signals the pallet that it is not done yet.  
+//! returns `Some(cursor)`, it signals the pallet that it is not done yet.
 //! The cursor is reset on each runtime upgrade. This ensures that it starts to execute at the
 //! first migration in the vector. The pallets cursor is only ever incremented or set to `Stuck`
 //! once it encounters an error (Goal 4). Once in the stuck state, the pallet will stay stuck until
-//! it is fixed through manual governance intervention.  
+//! it is fixed through manual governance intervention.
 //! As soon as the cursor of the pallet becomes `Some(_)`; [`MultiStepMigrator::ongoing`] returns
 //! `true` (Goal 2). This can be used by upstream code to possibly pause transactions.
 //! In `on_initialize` the pallet will load the current migration and check whether it was already
 //! executed in the past by checking for membership of its ID in the [`Historic`] set. Historic
 //! migrations are skipped without causing an error. Each successfully executed migration is added
-//! to this set (Goal 5).  
+//! to this set (Goal 5).
 //! This proceeds until no more migrations remain. At that point, the event `UpgradeCompleted` is
-//! emitted (Goal 1).  
+//! emitted (Goal 1).
 //! The execution of each migration happens by calling [`SteppedMigration::transactional_step`].
 //! This function wraps the inner `step` function into a transactional layer to allow rollback in
-//! the error case (Goal 6).  
+//! the error case (Goal 6).
 //! Weight limits must be checked by the migration itself. The pallet provides a [`WeightMeter`] for
 //! that purpose. The pallet may return [`SteppedMigrationError::InsufficientWeight`] at any point.
 //! In that scenario, one of two things will happen: if that migration was exclusively executed
@@ -145,9 +145,12 @@ pub mod mock_helpers;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::ControlFlow;
 use frame_support::{
@@ -159,7 +162,6 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System};
 use sp_runtime::Saturating;
-use sp_std::vec::Vec;
 
 /// Points to the next migration to execute.
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
@@ -276,9 +278,10 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	#[pallet::config]
+	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type of the runtime.
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// All the multi-block migrations to run.
@@ -286,12 +289,14 @@ pub mod pallet {
 		/// Should only be updated in a runtime-upgrade once all the old migrations have completed.
 		/// (Check that [`Cursor`] is `None`).
 		#[cfg(not(feature = "runtime-benchmarks"))]
+		#[pallet::no_default]
 		type Migrations: SteppedMigrations;
 
 		/// Mocked migrations for benchmarking only.
 		///
 		/// Should be configured to [`crate::mock_helpers::MockedMigrations`] in benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
+		#[pallet::no_default]
 		type Migrations: MockedMigrations;
 
 		/// The maximal length of an encoded cursor.
@@ -321,6 +326,45 @@ pub mod pallet {
 
 		/// Weight information for the calls and functions of this pallet.
 		type WeightInfo: WeightInfo;
+	}
+
+	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+	pub mod config_preludes {
+		use super::{inject_runtime_type, DefaultConfig};
+		use frame_support::{
+			derive_impl,
+			migrations::FreezeChainOnFailedMigration,
+			pallet_prelude::{ConstU32, *},
+		};
+		use frame_system::limits::BlockWeights;
+
+		/// Provides a viable default config that can be used with
+		/// [`derive_impl`](`frame_support::derive_impl`) to derive a testing pallet config
+		/// based on this one.
+		///
+		/// See `Test` in the `default-config` example pallet's `test.rs` for an example of
+		/// a downstream user of this particular `TestDefaultConfig`
+		pub struct TestDefaultConfig;
+
+		frame_support::parameter_types! {
+			/// Maximal weight per block that can be spent on migrations in tests.
+			pub TestMaxServiceWeight: Weight = <<TestDefaultConfig as frame_system::DefaultConfig>::BlockWeights as Get<BlockWeights>>::get().max_block.div(2);
+		}
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+			type CursorMaxLen = ConstU32<{ 1 << 16 }>;
+			type IdentifierMaxLen = ConstU32<{ 256 }>;
+			type MigrationStatusHandler = ();
+			type FailedMigrationHandler = FreezeChainOnFailedMigration;
+			type MaxServiceWeight = TestMaxServiceWeight;
+			type WeightInfo = ();
+		}
 	}
 
 	/// The currently active migration to run and its cursor.
@@ -421,12 +465,11 @@ pub mod pallet {
 			}
 
 			// The per-block service weight is sane.
-			#[cfg(not(test))]
 			{
 				let want = T::MaxServiceWeight::get();
 				let max = <T as frame_system::Config>::BlockWeights::get().max_block;
 
-				assert!(want.all_lte(max), "Service weight is larger than a block: {want} > {max}",);
+				assert!(want.all_lte(max), "Service weight is larger than a block: {want} > {max}");
 			}
 
 			// Cursor MEL
@@ -726,7 +769,8 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	fn exec_migration_max_weight() -> Weight {
+	/// The maximal weight of calling the private `Self::exec_migration` function.
+	pub fn exec_migration_max_weight() -> Weight {
 		T::WeightInfo::exec_migration_complete()
 			.max(T::WeightInfo::exec_migration_completed())
 			.max(T::WeightInfo::exec_migration_skipped_historic())

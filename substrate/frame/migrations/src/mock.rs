@@ -28,7 +28,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::EventRecord;
-use sp_core::{ConstU32, H256};
+use sp_core::H256;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -51,15 +51,14 @@ frame_support::parameter_types! {
 	pub const MaxServiceWeight: Weight = Weight::MAX.div(10);
 }
 
+#[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl crate::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = crate::mock_helpers::MockedMigrations;
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations = MockedMigrations;
-	type CursorMaxLen = ConstU32<65_536>;
-	type IdentifierMaxLen = ConstU32<256>;
 	type MigrationStatusHandler = MockedMigrationStatusHandler;
 	type FailedMigrationHandler = MockedFailedMigrationHandler;
-	type MaxServiceWeight = MaxServiceWeight;
-	type WeightInfo = ();
 }
 
 frame_support::parameter_types! {

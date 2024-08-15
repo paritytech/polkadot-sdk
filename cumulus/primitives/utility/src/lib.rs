@@ -19,7 +19,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use codec::Encode;
+use core::marker::PhantomData;
 use cumulus_primitives_core::{MessageSendError, UpwardMessageSender};
 use frame_support::{
 	defensive,
@@ -33,9 +37,8 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	SaturatedConversion,
 };
-use sp_std::{marker::PhantomData, prelude::*};
-use xcm::{latest::prelude::*, WrapVersion};
-use xcm_builder::TakeRevenue;
+use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion};
+use xcm_builder::{InspectMessageQueues, TakeRevenue};
 use xcm_executor::{
 	traits::{MatchesFungibles, TransactAsset, WeightTrader},
 	AssetsInHolding,
@@ -69,6 +72,9 @@ where
 			let price = P::price_for_delivery((), &xcm);
 			let versioned_xcm =
 				W::wrap_version(&d, xcm).map_err(|()| SendError::DestinationUnsupported)?;
+			versioned_xcm
+				.validate_xcm_nesting()
+				.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 			let data = versioned_xcm.encode();
 
 			Ok((data, price))
@@ -87,6 +93,14 @@ where
 		})?;
 
 		Ok(hash)
+	}
+}
+
+impl<T: UpwardMessageSender + InspectMessageQueues, W, P> InspectMessageQueues
+	for ParentAsUmp<T, W, P>
+{
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		T::get_messages()
 	}
 }
 
@@ -393,10 +407,22 @@ impl<
 		let first_asset: Asset =
 			payment.fungible.pop_first().ok_or(XcmError::AssetNotFound)?.into();
 		let (fungibles_asset, balance) = FungiblesAssetMatcher::matches_fungibles(&first_asset)
-			.map_err(|_| XcmError::AssetNotFound)?;
+			.map_err(|error| {
+				log::trace!(
+					target: "xcm::weight",
+					"SwapFirstAssetTrader::buy_weight asset {:?} didn't match. Error: {:?}",
+					first_asset,
+					error,
+				);
+				XcmError::AssetNotFound
+			})?;
 
 		let swap_asset = fungibles_asset.clone().into();
 		if Target::get().eq(&swap_asset) {
+			log::trace!(
+				target: "xcm::weight",
+				"SwapFirstAssetTrader::buy_weight Asset was same as Target, swap not needed.",
+			);
 			// current trader is not applicable.
 			return Err(XcmError::FeesNotMet)
 		}
@@ -410,7 +436,12 @@ impl<
 			credit_in,
 			fee,
 		)
-		.map_err(|(credit_in, _)| {
+		.map_err(|(credit_in, error)| {
+			log::trace!(
+				target: "xcm::weight",
+				"SwapFirstAssetTrader::buy_weight swap couldn't be done. Error was: {:?}",
+				error,
+			);
 			drop(credit_in);
 			XcmError::FeesNotMet
 		})?;
@@ -526,6 +557,8 @@ impl<
 mod test_xcm_router {
 	use super::*;
 	use cumulus_primitives_core::UpwardMessage;
+	use frame_support::assert_ok;
+	use xcm::MAX_XCM_DECODE_DEPTH;
 
 	/// Validates [`validate`] for required Some(destination) and Some(message)
 	struct OkFixedXcmHashWithAssertingRequiredInputsSender;
@@ -619,6 +652,29 @@ mod test_xcm_router {
 				ParentAsUmp<OtherErrorUpwardMessageSender, (), ()>,
 				OkFixedXcmHashWithAssertingRequiredInputsSender
 			)>(dest.into(), message)
+		);
+	}
+
+	#[test]
+	fn parent_as_ump_validate_nested_xcm_works() {
+		let dest = Parent;
+
+		type Router = ParentAsUmp<(), (), ()>;
+
+		// Message that is not too deeply nested:
+		let mut good = Xcm(vec![ClearOrigin]);
+		for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
+			good = Xcm(vec![SetAppendix(good)]);
+		}
+
+		// Check that the good message is validated:
+		assert_ok!(<Router as SendXcm>::validate(&mut Some(dest.into()), &mut Some(good.clone())));
+
+		// Nesting the message one more time should reject it:
+		let bad = Xcm(vec![SetAppendix(good)]);
+		assert_eq!(
+			Err(SendError::ExceedsMaxMessageSize),
+			<Router as SendXcm>::validate(&mut Some(dest.into()), &mut Some(bad))
 		);
 	}
 }
@@ -767,7 +823,7 @@ mod test_trader {
 /// needed.
 #[cfg(feature = "runtime-benchmarks")]
 pub struct ToParentDeliveryHelper<XcmConfig, ExistentialDeposit, PriceForDelivery>(
-	sp_std::marker::PhantomData<(XcmConfig, ExistentialDeposit, PriceForDelivery)>,
+	core::marker::PhantomData<(XcmConfig, ExistentialDeposit, PriceForDelivery)>,
 );
 
 #[cfg(feature = "runtime-benchmarks")]

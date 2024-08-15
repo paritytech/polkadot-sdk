@@ -32,7 +32,7 @@ use polkadot_primitives::{
 use polkadot_primitives_test_helpers::dummy_candidate_receipt_bad_sig;
 use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
-use sc_network::PeerId;
+use sc_network_types::PeerId;
 use sp_consensus_babe::{
 	digests::{CompatibleDigestItem, PreDigest, SecondaryVRFPreDigest},
 	AllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch, VrfSignature, VrfTranscript,

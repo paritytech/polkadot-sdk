@@ -558,7 +558,7 @@ fn suspended_candidate_rejected_works() {
 		assert_eq!(Balances::reserved_balance(40), 0);
 		assert_eq!(Balances::free_balance(Society::account_id()), 9990);
 
-		// Founder manually bestows membership on 50 and and kicks 70.
+		// Founder manually bestows membership on 50 and kicks 70.
 		assert_ok!(Society::bestow_membership(Origin::signed(10), 50));
 		assert_eq!(members(), vec![10, 20, 30, 40, 50]);
 		assert_eq!(candidates(), vec![60, 70]);

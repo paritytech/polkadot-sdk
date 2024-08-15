@@ -39,6 +39,9 @@ use frame_support::{
 use frame_system::limits;
 use sp_std::time::Duration;
 
+/// Maximal bridge hub header size.
+pub const MAX_BRIDGE_HUB_HEADER_SIZE: u32 = 4_096;
+
 /// Average block interval in Cumulus-based parachains.
 ///
 /// Corresponds to the `MILLISECS_PER_BLOCK` from `parachains_common` crate.

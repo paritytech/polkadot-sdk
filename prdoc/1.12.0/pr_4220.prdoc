@@ -1,0 +1,11 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Refactor XCM Simulator Example
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR refactors the XCM Simulator Example to improve developer experience when trying to read and understand the example. 3 monolithic files have been broken down into their respective components across various modules. No major logical changes were made.
+
+crates: [ ]

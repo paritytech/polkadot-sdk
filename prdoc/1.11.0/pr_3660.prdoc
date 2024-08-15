@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Removed `pallet::getter` usage from Polkadot Runtime pallets
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes all the `pallet::getter` usages from the Polkadot Runtime pallets, and updates dependant runtimes accordingly.
+      The syntax `StorageItem::<T, I>::get()` should be used instead. 
+
+crates: 
+  - name: polkadot-runtime-common
+  - name: polkadot-runtime-parachains
+  - name: rococo-runtime
+  - name: westend-runtime

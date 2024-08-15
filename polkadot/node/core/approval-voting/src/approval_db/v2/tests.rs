@@ -34,7 +34,9 @@ use polkadot_primitives::Id as ParaId;
 use sp_consensus_slots::Slot;
 use std::{collections::HashMap, sync::Arc};
 
-use ::test_helpers::{dummy_candidate_receipt, dummy_candidate_receipt_bad_sig, dummy_hash};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_receipt, dummy_candidate_receipt_bad_sig, dummy_hash,
+};
 
 const DATA_COL: u32 = 0;
 

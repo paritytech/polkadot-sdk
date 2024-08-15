@@ -9,10 +9,12 @@ note: the struct `RuntimeVersion` is defined here
    |
    | use sp_version::RuntimeVersion;
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
-help: consider importing one of these items instead
+help: consider importing this struct instead
    |
-39 |         fn version() -> sp_api::__private::RuntimeVersion {
-   |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+39 |         fn version() -> sp_version::RuntimeVersion {
+   |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+help: import `RuntimeVersion` directly
+   |
 39 |         fn version() -> sp_version::RuntimeVersion {
    |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -30,8 +32,8 @@ note: type in trait
    |
 27 |         fn test(data: u64);
    |                       ^^^
-   = note: expected signature `fn(u64)`
-              found signature `fn(&u64)`
+   = note: expected signature `fn(_)`
+              found signature `fn(&_)`
 
 error[E0308]: mismatched types
   --> tests/ui/type_reference_in_impl_runtime_apis_call.rs:33:11

@@ -20,7 +20,8 @@
 use bp_header_chain::ChainWithGrandpa;
 use bp_runtime::{Chain, ChainId};
 use frame_support::{
-	construct_runtime, derive_impl, parameter_types, traits::Hooks, weights::Weight,
+	construct_runtime, derive_impl, parameter_types, sp_runtime::StateVersion, traits::Hooks,
+	weights::Weight,
 };
 use sp_core::sr25519::Signature;
 
@@ -48,14 +49,16 @@ impl frame_system::Config for TestRuntime {
 }
 
 parameter_types! {
-	pub const MaxFreeMandatoryHeadersPerBlock: u32 = 2;
+	pub const MaxFreeHeadersPerBlock: u32 = 2;
+	pub const FreeHeadersInterval: u32 = 32;
 	pub const HeadersToKeep: u32 = 5;
 }
 
 impl grandpa::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = TestBridgedChain;
-	type MaxFreeMandatoryHeadersPerBlock = MaxFreeMandatoryHeadersPerBlock;
+	type MaxFreeHeadersPerBlock = MaxFreeHeadersPerBlock;
+	type FreeHeadersInterval = FreeHeadersInterval;
 	type HeadersToKeep = HeadersToKeep;
 	type WeightInfo = ();
 }
@@ -75,6 +78,8 @@ impl Chain for TestBridgedChain {
 	type Balance = u64;
 	type Nonce = u64;
 	type Signature = Signature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		unreachable!()

@@ -23,7 +23,7 @@ mod mock_helpers;
 mod tests;
 
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::CoreIndex;
+use polkadot_primitives::CoreIndex;
 
 use crate::{
 	configuration, paras,
@@ -46,7 +46,7 @@ pub mod pallet {
 
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
-		<paras::Pallet<T>>::parachains()
+		paras::Parachains::<T>::get()
 			.get(core_idx.0 as usize)
 			.copied()
 			.map(Assignment::Bulk)
@@ -59,7 +59,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn push_back_assignment(_: Assignment) {}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
-	fn get_mock_assignment(_: CoreIndex, para_id: primitives::Id) -> Assignment {
+	fn get_mock_assignment(_: CoreIndex, para_id: polkadot_primitives::Id) -> Assignment {
 		Assignment::Bulk(para_id)
 	}
 

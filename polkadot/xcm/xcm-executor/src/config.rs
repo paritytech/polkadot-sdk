@@ -17,8 +17,8 @@
 use crate::traits::{
 	AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, ExportXcm,
 	FeeManager, HandleHrmpChannelAccepted, HandleHrmpChannelClosing,
-	HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset,
-	VersionChangeNotifier, WeightBounds, WeightTrader,
+	HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, RecordXcm, ShouldExecute,
+	TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 };
 use frame_support::{
 	dispatch::{GetDispatchInfo, Parameter, PostDispatchInfo},
@@ -122,4 +122,6 @@ pub trait Config {
 	type HrmpChannelAcceptedHandler: HandleHrmpChannelAccepted;
 	/// Allows optional logic execution for the `HrmpChannelClosing` XCM notification.
 	type HrmpChannelClosingHandler: HandleHrmpChannelClosing;
+	/// Allows recording the last executed XCM (used by dry-run runtime APIs).
+	type XcmRecorder: RecordXcm;
 }

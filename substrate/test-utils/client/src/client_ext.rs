@@ -153,7 +153,7 @@ where
 	Self: BlockImport<Block, Error = ConsensusError>,
 	RA: Send,
 	B: Send + Sync,
-	E: Send,
+	E: Send + Sync,
 {
 	async fn import(&mut self, origin: BlockOrigin, block: Block) -> Result<(), ConsensusError> {
 		let (header, extrinsics) = block.deconstruct();

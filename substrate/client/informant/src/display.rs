@@ -16,8 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::OutputFormat;
-use ansi_term::Colour;
+use console::style;
 use log::info;
 use sc_client_api::ClientInfo;
 use sc_network::NetworkStatus;
@@ -47,19 +46,16 @@ pub struct InformantDisplay<B: BlockT> {
 	last_total_bytes_inbound: u64,
 	/// The last seen total of bytes sent.
 	last_total_bytes_outbound: u64,
-	/// The format to print output in.
-	format: OutputFormat,
 }
 
 impl<B: BlockT> InformantDisplay<B> {
 	/// Builds a new informant display system.
-	pub fn new(format: OutputFormat) -> InformantDisplay<B> {
+	pub fn new() -> InformantDisplay<B> {
 		InformantDisplay {
 			last_number: None,
 			last_update: Instant::now(),
 			last_total_bytes_inbound: 0,
 			last_total_bytes_outbound: 0,
-			format,
 		}
 	}
 
@@ -144,17 +140,17 @@ impl<B: BlockT> InformantDisplay<B> {
 
 		info!(
 			target: "substrate",
-			"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}",
+			"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), ⬇ {} ⬆ {}",
 			level,
-			self.format.print_with_color(Colour::White.bold(), status),
+			style(&status).white().bold(),
 			target,
-			self.format.print_with_color(Colour::White.bold(), num_connected_peers),
-			self.format.print_with_color(Colour::White.bold(), best_number),
+			style(num_connected_peers).white().bold(),
+			style(best_number).white().bold(),
 			best_hash,
-			self.format.print_with_color(Colour::White.bold(), finalized_number),
+			style(finalized_number).white().bold(),
 			info.chain.finalized_hash,
-			self.format.print_with_color(Colour::Green, format!("⬇ {}", TransferRateFormat(avg_bytes_per_sec_inbound))),
-			self.format.print_with_color(Colour::Red, format!("⬆ {}", TransferRateFormat(avg_bytes_per_sec_outbound))),
+			style(TransferRateFormat(avg_bytes_per_sec_inbound)).green(),
+			style(TransferRateFormat(avg_bytes_per_sec_outbound)).red(),
 		)
 	}
 }
