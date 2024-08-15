@@ -204,7 +204,7 @@ style="white-space:normal;font:inherit;">
 <strong>Note:</strong> this pallet is not meant to be used inside other pallets. It is only
 meant to be used by constructing runtime calls from outside the runtime.
 </pre></div>
-<p>This pallet also defines a <a href="../sp_runtime/traits/trait.SignedExtension.html" title="trait sp_runtime::traits::SignedExtension"><code>SignedExtension</code></a> called
+<p>This pallet also defines a <a href="sp_runtime::traits::SignedExtension"><code>SignedExtension</code></a> called
 <a href="struct.CheckOnlySudoAccount.html" title="struct pallet_sudo::CheckOnlySudoAccount"><code>CheckOnlySudoAccount</code></a> to ensure that only signed transactions by the sudo account are
 accepted by the transaction pool. The intended use of this signed extension is to prevent other
 accounts from spamming the transaction pool for the initial phase of a chain, during which

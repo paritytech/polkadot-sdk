@@ -892,13 +892,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 </span><span class="kw">pub struct </span>ItemTip&lt;CollectionId, ItemId, AccountId, Amount&gt; {
 	<span class="doccomment">/// The collection of the item.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) collection: CollectionId,
+	</span><span class="kw">pub </span>collection: CollectionId,
 	<span class="doccomment">/// An item of which the tip is sent for.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) item: ItemId,
+	</span><span class="kw">pub </span>item: ItemId,
 	<span class="doccomment">/// A sender of the tip.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) receiver: AccountId,
+	</span><span class="kw">pub </span>receiver: AccountId,
 	<span class="doccomment">/// An amount the sender is willing to tip.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) amount: Amount,
+	</span><span class="kw">pub </span>amount: Amount,
 }
 
 <span class="doccomment">/// Information about the pending swap.
@@ -945,9 +945,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 </span><span class="kw">pub struct </span>PriceWithDirection&lt;Amount&gt; {
 	<span class="doccomment">/// An amount.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) amount: Amount,
+	</span><span class="kw">pub </span>amount: Amount,
 	<span class="doccomment">/// A direction (send or receive).
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) direction: PriceDirection,
+	</span><span class="kw">pub </span>direction: PriceDirection,
 }
 
 <span class="doccomment">/// Support for up to 64 user-enabled features on a collection.
@@ -1217,33 +1217,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 </span><span class="kw">pub struct </span>PreSignedMint&lt;CollectionId, ItemId, AccountId, Deadline, Balance&gt; {
 	<span class="doccomment">/// A collection of the item to be minted.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) collection: CollectionId,
+	</span><span class="kw">pub </span>collection: CollectionId,
 	<span class="doccomment">/// Item's ID.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) item: ItemId,
+	</span><span class="kw">pub </span>item: ItemId,
 	<span class="doccomment">/// Additional item's key-value attributes.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) attributes: Vec&lt;(Vec&lt;u8&gt;, Vec&lt;u8&gt;)&gt;,
+	</span><span class="kw">pub </span>attributes: Vec&lt;(Vec&lt;u8&gt;, Vec&lt;u8&gt;)&gt;,
 	<span class="doccomment">/// Additional item's metadata.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) metadata: Vec&lt;u8&gt;,
+	</span><span class="kw">pub </span>metadata: Vec&lt;u8&gt;,
 	<span class="doccomment">/// Restrict the claim to a particular account.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) only_account: <span class="prelude-ty">Option</span>&lt;AccountId&gt;,
+	</span><span class="kw">pub </span>only_account: <span class="prelude-ty">Option</span>&lt;AccountId&gt;,
 	<span class="doccomment">/// A deadline for the signature.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) deadline: Deadline,
+	</span><span class="kw">pub </span>deadline: Deadline,
 	<span class="doccomment">/// An optional price the claimer would need to pay for the mint.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) mint_price: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
+	</span><span class="kw">pub </span>mint_price: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
 }
 
 <span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 </span><span class="kw">pub struct </span>PreSignedAttributes&lt;CollectionId, ItemId, AccountId, Deadline&gt; {
 	<span class="doccomment">/// Collection's ID.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) collection: CollectionId,
+	</span><span class="kw">pub </span>collection: CollectionId,
 	<span class="doccomment">/// Item's ID.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) item: ItemId,
+	</span><span class="kw">pub </span>item: ItemId,
 	<span class="doccomment">/// Key-value attributes.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) attributes: Vec&lt;(Vec&lt;u8&gt;, Vec&lt;u8&gt;)&gt;,
+	</span><span class="kw">pub </span>attributes: Vec&lt;(Vec&lt;u8&gt;, Vec&lt;u8&gt;)&gt;,
 	<span class="doccomment">/// Attributes' namespace.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) namespace: AttributeNamespace&lt;AccountId&gt;,
+	</span><span class="kw">pub </span>namespace: AttributeNamespace&lt;AccountId&gt;,
 	<span class="doccomment">/// A deadline for the signature.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) deadline: Deadline,
+	</span><span class="kw">pub </span>deadline: Deadline,
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
