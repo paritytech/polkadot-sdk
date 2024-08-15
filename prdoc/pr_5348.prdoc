@@ -10,4 +10,4 @@ doc:
 
 crates:
   - name: frame-support
-  - bump: patch
+    bump: patch
