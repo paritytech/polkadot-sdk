@@ -19,16 +19,18 @@ jobs:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
 
       - name: extra git setup
         run: |
           set -eux
           git config --global --add safe.directory '*'
-          git remote add --fetch upstream "https://github.com/${{ github.repository }}.git"
-
-          BASE="$(git show-branch --merge-base upstream/${{ github.event.pull_request.base.ref }} ${{ github.event.pull_request.head.sha }})"
+          BASE="$(git show-branch --merge-base origin/${{ github.event.pull_request.base.ref }} ${{ github.event.pull_request.head.sha }})"
           echo "Base is $BASE"
 
+          git fetch --no-tags --no-recurse-submodules --depth=1 origin $BASE
           echo "Fetched base $BASE, branching off"
           git branch old $BASE
           git checkout "${{ github.event.pull_request.head.sha }}"
