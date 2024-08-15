@@ -634,7 +634,7 @@ pub mod pallet {
 
 			// check `BridgeId` points to the same `LaneId` and vice versa.
 			ensure!(
-				Some(bridge_id) == Self::lane_to_bridge(bridge.lane_id),
+				Some(bridge_id) == LaneToBridge::<T, I>::get(bridge.lane_id),
 				"Found `LaneToBridge` inconsistency for bridge_id - missing mapping!"
 			);
 
@@ -682,7 +682,7 @@ pub mod pallet {
 			for lane_id in pallet_bridge_messages::InboundLanes::<T, T::BridgeMessagesPalletInstance>::iter_keys() {
 				log::info!(target: LOG_TARGET, "Checking `do_try_state_for_messages` for `InboundLanes`'s lane_id: {lane_id:?}...");
 				ensure!(
-					Self::lane_to_bridge(lane_id).is_some(),
+					LaneToBridge::<T, I>::get(lane_id).is_some(),
 					"Found `LaneToBridge` inconsistency for `InboundLanes`'s lane_id - missing mapping!"
 				);
 			}
@@ -691,7 +691,7 @@ pub mod pallet {
 			for lane_id in pallet_bridge_messages::OutboundLanes::<T, T::BridgeMessagesPalletInstance>::iter_keys() {
 				log::info!(target: LOG_TARGET, "Checking `do_try_state_for_messages` for `OutboundLanes`'s lane_id: {lane_id:?}...");
 				ensure!(
-					Self::lane_to_bridge(lane_id).is_some(),
+					LaneToBridge::<T, I>::get(lane_id).is_some(),
 					"Found `LaneToBridge` inconsistency for `OutboundLanes`'s lane_id - missing mapping!"
 				);
 			}
@@ -707,7 +707,6 @@ pub mod pallet {
 		StorageMap<_, Identity, BridgeId, BridgeOf<T, I>>;
 	/// All registered `lane_id` and `bridge_id` mappings.
 	#[pallet::storage]
-	#[pallet::getter(fn lane_to_bridge)]
 	pub type LaneToBridge<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, LaneId, BridgeId>;
 
