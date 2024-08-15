@@ -43,7 +43,8 @@ where
 	Key: Encode,
 	Value: Encode + Decode,
 {
-	fn generate_for<I>(items: I) -> Result<Self, DispatchError>
+	/// Create a new instance of a `ProvingTrie` using an iterator of key/value pairs.
+	pub fn generate_for<I>(items: I) -> Result<Self, DispatchError>
 	where
 		I: IntoIterator<Item = (Key, Value)>,
 	{
@@ -61,18 +62,46 @@ where
 		Ok(Self { db, root, _phantom: Default::default() })
 	}
 
-	fn root(&self) -> &HashOf<Hashing> {
+	/// Access the underlying trie root.
+	pub fn root(&self) -> &HashOf<Hashing> {
 		&self.root
 	}
 
-	fn query(&self, key: Key) -> Option<Value> {
+	/// Check a proof contained within the current memory-db. Returns `None` if the
+	/// nodes within the current `MemoryDB` are insufficient to query the item.
+	pub fn query(&self, key: Key) -> Option<Value> {
 		let trie = TrieDBBuilder::new(&self.db, &self.root).build();
 		key.using_encoded(|s| trie.get(s))
 			.ok()?
 			.and_then(|raw| Value::decode(&mut &*raw).ok())
 	}
 
-	fn create_single_value_proof(&self, key: Key) -> Option<Vec<Vec<u8>>> {
+	/// Create the full verification data needed to prove all `keys` and their values in the trie.
+	/// Returns `None` if the nodes within the current `MemoryDB` are insufficient to create a
+	/// proof.
+	pub fn create_proof(&self, keys: Vec<Key>) -> Option<Vec<Vec<u8>>> {
+		let mut recorder = Recorder::<LayoutV1<Hashing>>::new();
+
+		{
+			let trie =
+				TrieDBBuilder::new(&self.db, &self.root).with_recorder(&mut recorder).build();
+
+			keys.iter()
+				.map(|key| {
+					key.using_encoded(|k| {
+						trie.get(k).ok()?.and_then(|raw| Value::decode(&mut &*raw).ok())
+					})
+				})
+				.collect::<Option<Vec<_>>>()?;
+		}
+
+		Some(recorder.drain().into_iter().map(|r| r.data).collect())
+	}
+
+	/// Create the full verification data needed to prove a single key and its value in the trie.
+	/// Returns `None` if the nodes within the current `MemoryDB` are insufficient to create a
+	/// proof.
+	pub fn create_single_value_proof(&self, key: Key) -> Option<Vec<Vec<u8>>> {
 		let mut recorder = Recorder::<LayoutV1<Hashing>>::new();
 
 		{
@@ -87,7 +116,9 @@ where
 		Some(recorder.drain().into_iter().map(|r| r.data).collect())
 	}
 
-	fn from_nodes(root: HashOf<Hashing>, nodes: &[Vec<u8>]) -> Self {
+	/// Create a new instance of `ProvingTrie` from raw nodes. Nodes can be generated using the
+	/// `create_proof` function.
+	pub fn from_nodes(root: HashOf<Hashing>, nodes: &[Vec<u8>]) -> Self {
 		use sp_trie::HashDBT;
 
 		let mut memory_db = MemoryDB::default();
