@@ -721,7 +721,7 @@ pub mod pallet {
 		pub opened_bridges: Vec<(Location, InteriorLocation)>,
 		/// Dummy marker.
 		#[serde(skip)]
-	_phantom: sp_std::marker::PhantomData<(T, I)>,
+		_phantom: sp_std::marker::PhantomData<(T, I)>,
 	}
 
 	#[pallet::genesis_build]
