@@ -219,27 +219,19 @@ impl<
 		Fp: 'static,
 	> Consideration<A, Fp> for FreezeConsideration<A, F, R, D, Fp>
 {
-	fn new(who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
+	fn new(who: &A, footprint: Fp) -> Result<Self, DispatchError> {
 		let new = D::convert(footprint);
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			F::increase_frozen(&R::get(), who, new)?;
-			Ok(Some(Self(new, PhantomData)))
-		}
+		F::increase_frozen(&R::get(), who, new)?;
+		Ok(Self(new, PhantomData))
 	}
-	fn update(self, who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
+	fn update(self, who: &A, footprint: Fp) -> Result<Self, DispatchError> {
 		let new = D::convert(footprint);
 		if self.0 > new {
 			F::decrease_frozen(&R::get(), who, self.0 - new)?;
 		} else if new > self.0 {
 			F::increase_frozen(&R::get(), who, new - self.0)?;
 		}
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			Ok(Some(Self(new, PhantomData)))
-		}
+		Ok(Self(new, PhantomData))
 	}
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		F::decrease_frozen(&R::get(), who, self.0).map(|_| ())
@@ -278,27 +270,19 @@ impl<
 		Fp: 'static,
 	> Consideration<A, Fp> for HoldConsideration<A, F, R, D, Fp>
 {
-	fn new(who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
+	fn new(who: &A, footprint: Fp) -> Result<Self, DispatchError> {
 		let new = D::convert(footprint);
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			F::hold(&R::get(), who, new)?;
-			Ok(Some(Self(new, PhantomData)))
-		}
+		F::hold(&R::get(), who, new)?;
+		Ok(Self(new, PhantomData))
 	}
-	fn update(self, who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
+	fn update(self, who: &A, footprint: Fp) -> Result<Self, DispatchError> {
 		let new = D::convert(footprint);
 		if self.0 > new {
 			F::release(&R::get(), who, self.0 - new, BestEffort)?;
 		} else if new > self.0 {
 			F::hold(&R::get(), who, new - self.0)?;
 		}
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			Ok(Some(Self(new, PhantomData)))
-		}
+		Ok(Self(new, PhantomData))
 	}
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		F::release(&R::get(), who, self.0, BestEffort).map(|_| ())
@@ -341,23 +325,12 @@ impl<
 		Fp: 'static,
 	> Consideration<A, Fp> for LoneFreezeConsideration<A, Fx, Rx, D, Fp>
 {
-	fn new(who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
+	fn new(who: &A, footprint: Fp) -> Result<Self, DispatchError> {
 		ensure!(Fx::balance_frozen(&Rx::get(), who).is_zero(), DispatchError::Unavailable);
-		let new = D::convert(footprint);
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			Fx::set_frozen(&Rx::get(), who, new, Polite).map(|_| Some(Self(PhantomData)))
-		}
+		Fx::set_frozen(&Rx::get(), who, D::convert(footprint), Polite).map(|_| Self(PhantomData))
 	}
-	fn update(self, who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
-		let new = D::convert(footprint);
-		let _ = Fx::set_frozen(&Rx::get(), who, new, Polite)?;
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			Ok(Some(Self(PhantomData)))
-		}
+	fn update(self, who: &A, footprint: Fp) -> Result<Self, DispatchError> {
+		Fx::set_frozen(&Rx::get(), who, D::convert(footprint), Polite).map(|_| Self(PhantomData))
 	}
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		Fx::thaw(&Rx::get(), who).map(|_| ())
@@ -397,23 +370,12 @@ impl<
 		Fp: 'static,
 	> Consideration<A, Fp> for LoneHoldConsideration<A, F, R, D, Fp>
 {
-	fn new(who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
+	fn new(who: &A, footprint: Fp) -> Result<Self, DispatchError> {
 		ensure!(F::balance_on_hold(&R::get(), who).is_zero(), DispatchError::Unavailable);
-		let new = D::convert(footprint);
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			F::set_on_hold(&R::get(), who, new).map(|_| Some(Self(PhantomData)))
-		}
+		F::set_on_hold(&R::get(), who, D::convert(footprint)).map(|_| Self(PhantomData))
 	}
-	fn update(self, who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
-		let new = D::convert(footprint);
-		let _ = F::set_on_hold(&R::get(), who, new)?;
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			Ok(Some(Self(PhantomData)))
-		}
+	fn update(self, who: &A, footprint: Fp) -> Result<Self, DispatchError> {
+		F::set_on_hold(&R::get(), who, D::convert(footprint)).map(|_| Self(PhantomData))
 	}
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		F::release_all(&R::get(), who, BestEffort).map(|_| ())

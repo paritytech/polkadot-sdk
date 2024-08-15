@@ -543,11 +543,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	config: HarnessConfig,
 	test: impl FnOnce(TestHarness) -> T,
 ) {
-	let _ = env_logger::builder()
-		.is_test(true)
-		.filter(Some("polkadot_node_core_approval_voting"), log::LevelFilter::Trace)
-		.filter(Some(LOG_TARGET), log::LevelFilter::Trace)
-		.try_init();
+	sp_tracing::init_for_tests();
 
 	let HarnessConfig { sync_oracle, sync_oracle_handle, clock, backend, assignment_criteria } =
 		config;

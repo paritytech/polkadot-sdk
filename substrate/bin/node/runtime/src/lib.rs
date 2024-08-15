@@ -79,6 +79,7 @@ use pallet_nis::WithMaximumOf;
 use pallet_session::historical as pallet_session_historical;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
+use pallet_broker::TaskId;
 #[allow(deprecated)]
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
@@ -97,8 +98,8 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		self, AccountIdConversion, BlakeTwo256, Block as BlockT, Bounded, ConvertInto, NumberFor,
-		OpaqueKeys, SaturatedConversion, StaticLookup,
+		self, AccountIdConversion, BlakeTwo256, Block as BlockT, Bounded, ConvertInto,
+		MaybeConvert, NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber, FixedU128, Perbill, Percent, Permill, Perquintill,
@@ -1618,6 +1619,7 @@ impl pallet_beefy_mmr::Config for Runtime {
 	type BeefyAuthorityToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaToEthereum;
 	type LeafExtra = Vec<u8>;
 	type BeefyDataProvider = ();
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -2167,6 +2169,15 @@ impl CoretimeInterface for CoretimeProvider {
 	}
 }
 
+pub struct SovereignAccountOf;
+// Dummy implementation which converts `TaskId` to `AccountId`.
+impl MaybeConvert<TaskId, AccountId> for SovereignAccountOf {
+	fn maybe_convert(task: TaskId) -> Option<AccountId> {
+		let mut account: [u8; 32] = [0; 32];
+		account[..4].copy_from_slice(&task.to_le_bytes());
+		Some(account.into())
+	}
+}
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -2179,6 +2190,8 @@ impl pallet_broker::Config for Runtime {
 	type WeightInfo = ();
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type SovereignAccountOf = SovereignAccountOf;
+	type MaxAutoRenewals = ConstU32<10>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 }
 
@@ -2631,6 +2644,7 @@ mod benches {
 		[pallet_babe, Babe]
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
+		[pallet_beefy_mmr, MmrLeaf]
 		[pallet_bounties, Bounties]
 		[pallet_broker, Broker]
 		[pallet_child_bounties, ChildBounties]
@@ -2828,6 +2842,14 @@ impl_runtime_apis! {
 
 		fn member_needs_delegate_migration(member: AccountId) -> bool {
 			NominationPools::api_member_needs_delegate_migration(member)
+		}
+
+		fn member_total_balance(member: AccountId) -> Balance {
+			NominationPools::api_member_total_balance(member)
+		}
+
+		fn pool_balance(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+			NominationPools::api_pool_balance(pool_id)
 		}
 	}
 

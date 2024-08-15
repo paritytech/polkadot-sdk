@@ -65,7 +65,6 @@ use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub const TokenLocation: Location = Location::parent();
-	pub const TokenLocationV3: xcm::v3::Location = xcm::v3::Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::Rococo;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
@@ -179,7 +178,7 @@ pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConverte
 		StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,
 	),
 	Balance,
-	xcm::v3::Location,
+	xcm::v4::Location,
 >;
 
 /// Means for transacting foreign assets from different global consensus.
@@ -363,7 +362,7 @@ impl xcm_executor::Config for XcmConfig {
 			ResolveTo<StakingPot, Balances>,
 		>,
 		cumulus_primitives_utility::SwapFirstAssetTrader<
-			TokenLocationV3,
+			TokenLocation,
 			crate::AssetConversion,
 			WeightToFee,
 			crate::NativeAndNonPoolAssets,
@@ -371,7 +370,7 @@ impl xcm_executor::Config for XcmConfig {
 				TrustBackedAssetsAsLocation<
 					TrustBackedAssetsPalletLocation,
 					Balance,
-					xcm::v3::Location,
+					xcm::v4::Location,
 				>,
 				ForeignAssetsConvertedConcreteId,
 			),
@@ -504,9 +503,9 @@ pub type ForeignCreatorsSovereignAccountOf = (
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<xcm::v3::Location> for XcmBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> xcm::v3::Location {
-		xcm::v3::Location::new(1, [xcm::v3::Junction::Parachain(id)])
+impl pallet_assets::BenchmarkHelper<xcm::v4::Location> for XcmBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> xcm::v4::Location {
+		xcm::v4::Location::new(1, [xcm::v4::Junction::Parachain(id)])
 	}
 }
 

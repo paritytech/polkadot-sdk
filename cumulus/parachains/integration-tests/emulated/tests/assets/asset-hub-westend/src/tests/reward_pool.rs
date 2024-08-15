@@ -51,8 +51,8 @@ fn treasury_creates_asset_reward_pool() {
 		type WestendRuntimeEvent = <Westend as Chain>::RuntimeEvent;
 		type WestendRuntimeOrigin = <Westend as Chain>::RuntimeOrigin;
 
-		let staked_asset_id = bx!(RelayLocationV3::get());
-		let reward_asset_id = bx!(RelayLocationV3::get());
+		let staked_asset_id = bx!(RelayLocation::get());
+		let reward_asset_id = bx!(RelayLocation::get());
 
 		let reward_rate_per_block = 1_000_000_000;
 		let lifetime = 1_000_000_000;
