@@ -70,6 +70,9 @@ pub struct Def {
 	pub frame_system: syn::Path,
 	pub frame_support: syn::Path,
 	pub dev_mode: bool,
+	/// This doesn't assume the existence of origin, but the one to be used or the one to be used
+	/// in case origin exsists or is generated.
+	pub origin_gen_kind: GenericKind,
 }
 
 impl Def {
@@ -226,12 +229,25 @@ impl Def {
 
 		Self::resolve_tasks(&item_span, &mut tasks, &mut task_enum, items)?;
 
+		let config =
+			config.ok_or_else(|| syn::Error::new(item_span, "Missing `#[pallet::config]`"))?;
+		let pallet_struct = pallet_struct
+			.ok_or_else(|| syn::Error::new(item_span, "Missing `#[pallet::pallet]`"))?;
+
+		let origin_gen_kind = if let Some(origin_def) = &origin {
+			GenericKind::from_gens(origin_def.is_generic, config.has_instance)
+				.expect("Consistency is checked by parser")
+		} else {
+			// Default origin is generic: more future proof and less potential difference between
+			// pallet with and without instancing.
+			GenericKind::from_gens(true, config.has_instance)
+				.expect("Default is generic so no conflict")
+		};
+
 		let def = Def {
 			item,
-			config: config
-				.ok_or_else(|| syn::Error::new(item_span, "Missing `#[pallet::config]`"))?,
-			pallet_struct: pallet_struct
-				.ok_or_else(|| syn::Error::new(item_span, "Missing `#[pallet::pallet]`"))?,
+			config,
+			pallet_struct,
 			hooks,
 			call,
 			tasks,
@@ -250,6 +266,7 @@ impl Def {
 			frame_system,
 			frame_support,
 			dev_mode,
+			origin_gen_kind,
 		};
 
 		def.check_instance_usage()?;
@@ -589,12 +606,13 @@ impl GenericKind {
 
 	/// Return the generic to be used when declaring a type like a struct or enum.
 	///
-	/// ``, `T: Config` or `T: Config<I>, I = ()`.
+	/// ``, `T: Config` or `T: Config<I>, I: 'static = ()`.
 	pub fn type_decl_bounded_gen(&self, span: proc_macro2::Span) -> proc_macro2::TokenStream {
 		match self {
 			GenericKind::None => quote::quote!(),
 			GenericKind::Config => quote::quote_spanned!(span => T: Config),
-			GenericKind::ConfigAndInstance => quote::quote_spanned!(span => T: Config<I>, I = ()),
+			GenericKind::ConfigAndInstance =>
+				quote::quote_spanned!(span => T: Config<I>, I: 'static = ()),
 		}
 	}
 

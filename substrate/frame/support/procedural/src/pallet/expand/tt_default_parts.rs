@@ -31,6 +31,11 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 	let default_parts_unique_id_v2 =
 		syn::Ident::new(&format!("__tt_default_parts_v2_{}", count), def.item.span());
 
+	let use_authorize = def.call.as_ref()
+		.map_or(false, |call| call.methods.iter().any(|m| m.authorize.is_some()));
+
+	let has_origin = def.origin.is_some() || use_authorize;
+
 	let call_part = def.call.as_ref().map(|_| quote::quote!(Call,));
 
 	let task_part = def.task_enum.as_ref().map(|_| quote::quote!(Task,));
@@ -44,8 +49,8 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let error_part = def.error.as_ref().map(|_| quote::quote!(Error<T>,));
 
-	let origin_part = def.origin.as_ref().map(|origin| {
-		let gen = origin.is_generic.then(|| quote::quote!( <T> ));
+	let origin_part = has_origin.then(|| {
+		let gen = def.origin_gen_kind.is_generic().then(|| quote::quote!( <T> ));
 		quote::quote!( Origin #gen , )
 	});
 
@@ -96,8 +101,8 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let error_part_v2 = def.error.as_ref().map(|_| quote::quote!(+ Error<T>));
 
-	let origin_part_v2 = def.origin.as_ref().map(|origin| {
-		let gen = origin.is_generic.then(|| quote::quote!(<T>));
+	let origin_part_v2 = has_origin.then(|| {
+		let gen = def.origin_gen_kind.is_generic().then(|| quote::quote!(<T>));
 		quote::quote!(+ Origin #gen)
 	});
 

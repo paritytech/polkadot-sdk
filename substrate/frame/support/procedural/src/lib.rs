@@ -1386,7 +1386,7 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///
 /// * `#[pallet::authorize($authorized_function)]` - defines the function that authorizes the call.
 ///   Arguments are the same as call arguments but by reference `&`. Return type is
-///   [`frame_support::pallet_prelude::TransactionValidity`].
+///   [`TransactionValidity`](frame_support::pallet_prelude::TransactionValidity).
 /// * `#[pallet::weight_of_authorize($weight)]` - defines the value of the weight of the authorize
 ///   function. This attribute is similar to `#[pallet::weight]`:
 ///   * it can be ignore in `dev_mode`
@@ -1456,7 +1456,7 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 /// # The macro expansion
 ///
 /// From the given "authorize" function and weight, the macro will implement the trait
-/// [`frame_support::pallet_prelude::Authorize`] on the call.
+/// [`Authorize`](frame_support::pallet_prelude::Authorize) on the call.
 #[proc_macro_attribute]
 pub fn authorize(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()

@@ -15,10 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	pallet::{parse::GenericKind, Def},
-	COUNTER,
-};
+use crate::{pallet::Def, COUNTER};
 use inflector::Inflector;
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -74,7 +71,7 @@ pub fn expand_origin(def: &mut Def) -> proc_macro2::TokenStream {
 				.filter_map(|call| {
 					call.authorize.is_some().then(|| {
 						syn::Ident::new(
-							call.name.to_string().to_camel_case().as_str(),
+							call.name.to_string().to_pascal_case().as_str(),
 							call.name.span(),
 						)
 					})
@@ -104,10 +101,10 @@ pub fn expand_origin(def: &mut Def) -> proc_macro2::TokenStream {
 			PartialEq,
 			Eq,
 			#frame_support::RuntimeDebugNoBound,
-			#frame_support::__private::codec::MaxEncodedLen,
 			#frame_support::__private::codec::Encode,
 			#frame_support::__private::codec::Decode,
 			#frame_support::__private::scale_info::TypeInfo,
+			#frame_support::__private::codec::MaxEncodedLen,
 		)]
 		pub enum AuthorizedCallOrigin {
 			#( #authorize_origin_variants, )*
@@ -133,11 +130,8 @@ pub fn expand_origin(def: &mut Def) -> proc_macro2::TokenStream {
 
 		None
 	} else {
-		// Default origin is generic
-		let gen_kind = GenericKind::from_gens(true, def.config.has_instance)
-			.expect("Default is generic so no conflict");
-		let type_decl_bounded_gen = gen_kind.type_decl_bounded_gen(span);
-		let type_use_gen = gen_kind.type_use_gen(span);
+		let type_decl_bounded_gen = def.origin_gen_kind.type_decl_bounded_gen(span);
+		let type_use_gen = def.origin_gen_kind.type_use_gen(span);
 
 		Some(quote::quote_spanned!(span =>
 			#[derive(
@@ -153,6 +147,11 @@ pub fn expand_origin(def: &mut Def) -> proc_macro2::TokenStream {
 			#[scale_info(skip_type_params(#type_use_gen))]
 			pub enum Origin<#type_decl_bounded_gen> {
 				AuthorizedCall(AuthorizedCallOrigin),
+				#[doc(hidden)]
+				// #[codec(skip)]
+				// needs: https://github.com/paritytech/parity-scale-codec/pull/622
+				// __Ignore(::core::marker::PhantomData<(#type_use_gen)>, #frame_support::Never),
+				__Ignore(::core::marker::PhantomData<(#type_use_gen)>),
 			}
 		))
 	};

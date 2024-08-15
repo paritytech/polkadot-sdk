@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pallet::{parse::GenericKind, Def};
+use crate::pallet::Def;
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{parse_quote, Item};
@@ -117,7 +117,6 @@ pub fn add_authorize_constraint(def: &mut Def) {
 		return
 	}
 
-	let has_instance = def.config.has_instance;
 	let frame_system = &def.frame_system;
 
 	let frame_system_supertrait_args = config_item
@@ -140,14 +139,7 @@ pub fn add_authorize_constraint(def: &mut Def) {
 		})
 		.expect("Checked by parser");
 
-	let origin_gen_kind = if let Some(origin_def) = def.origin.as_ref() {
-		GenericKind::from_gens(origin_def.is_generic, has_instance)
-			.expect("Consistency is checked by parser")
-	} else {
-		// Default origin is generic
-		GenericKind::from_gens(true, has_instance).expect("Default is generic so no conflict")
-	};
-	let origin_use_gen = origin_gen_kind.type_use_gen_within_config(Span::call_site());
+	let origin_use_gen = def.origin_gen_kind.type_use_gen_within_config(Span::call_site());
 
 	let bound_1 = parse_quote!(::core::convert::Into<::core::result::Result<
 		Origin<#origin_use_gen>,
