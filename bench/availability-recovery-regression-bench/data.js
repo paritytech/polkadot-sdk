@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723687142215,
+  "lastUpdate": 1723719260100,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -17765,6 +17765,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.777081941633332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dónal Murray",
+            "username": "seadanda",
+            "email": "donal.murray@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "78c3daabd97367f70c1ebc0d7fe55abef4d76952",
+          "message": "[Coretime] Always include UnpaidExecution, not just when revenue is > 0 (#5369)\n\nThe NotifyRevenue XCM from relay to coretime chain fails to pass the\nbarrier when revenue is 0.\n\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/polkadot/runtime/parachains/src/coretime/mod.rs#L401\npushes notifyrevenue onto an [empty\nvec](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/runtime/parachains/src/coretime/mod.rs#L361)\nwhen `revenue == 0`, so it never explicitly requests unpaid execution,\nbecause that happens only in [the block where revenue is `>\n0`](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/runtime/parachains/src/coretime/mod.rs#L387).\n\nThis will need to be backported to 1.14 when merged.",
+          "timestamp": "2024-08-15T09:02:56Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78c3daabd97367f70c1ebc0d7fe55abef4d76952"
+        },
+        "date": 1723719229186,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.20131565656666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.954002972500001,
             "unit": "seconds"
           }
         ]
