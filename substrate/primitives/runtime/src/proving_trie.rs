@@ -22,46 +22,24 @@ use crate::{Decode, DispatchError, Encode};
 use sp_std::vec::Vec;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
-	LayoutV0, MemoryDB, Recorder, Trie, TrieMut, EMPTY_PREFIX,
+	LayoutV1, MemoryDB, Recorder, Trie, TrieMut, EMPTY_PREFIX,
 };
 
-/// A trait for creating a merkle trie for checking and generating merkle proofs.
-pub trait ProvingTrie<Hashing, Hash, Key, Value>
-where
-	Self: Sized,
-{
-	/// Create a new instance of a `ProvingTrie` using an iterator of key/value pairs.
-	fn generate_for<I>(items: I) -> Result<Self, DispatchError>
-	where
-		I: IntoIterator<Item = (Key, Value)>;
-	/// Access the underlying trie root.
-	fn root(&self) -> &Hash;
-	/// Check a proof contained within the current memory-db. Returns `None` if the
-	/// nodes within the current `MemoryDB` are insufficient to query the item.
-	fn query(&self, key: Key) -> Option<Value>;
-	/// Create the full verification data needed to prove a key and its value in the trie. Returns
-	/// `None` if the nodes within the current `MemoryDB` are insufficient to create a proof.
-	fn create_proof(&self, key: Key) -> Option<Vec<Vec<u8>>>;
-	/// Create a new instance of `ProvingTrie` from raw nodes. Nodes can be generated using the
-	/// `create_proof` function.
-	fn from_nodes(root: Hash, nodes: &[Vec<u8>]) -> Self;
-}
+type HashOf<Hashing> = <Hashing as sp_core::Hasher>::Out;
 
 /// A basic trie implementation for checking and generating proofs for a key / value pair.
-pub struct BasicProvingTrie<Hashing, Hash, Key, Value>
+pub struct BasicProvingTrie<Hashing, Key, Value>
 where
-	Hashing: sp_core::Hasher<Out = Hash>,
+	Hashing: sp_core::Hasher,
 {
 	db: MemoryDB<Hashing>,
-	root: Hash,
+	root: HashOf<Hashing>,
 	_phantom: core::marker::PhantomData<(Key, Value)>,
 }
 
-impl<Hashing, Hash, Key, Value> ProvingTrie<Hashing, Hash, Key, Value>
-	for BasicProvingTrie<Hashing, Hash, Key, Value>
+impl<Hashing, Key, Value> BasicProvingTrie<Hashing, Key, Value>
 where
-	Hashing: sp_core::Hasher<Out = Hash>,
-	Hash: Default + Send + Sync,
+	Hashing: sp_core::Hasher,
 	Key: Encode,
 	Value: Encode + Decode,
 {
@@ -83,7 +61,7 @@ where
 		Ok(Self { db, root, _phantom: Default::default() })
 	}
 
-	fn root(&self) -> &Hash {
+	fn root(&self) -> &HashOf<Hashing> {
 		&self.root
 	}
 
@@ -95,7 +73,7 @@ where
 	}
 
 	fn create_proof(&self, key: Key) -> Option<Vec<Vec<u8>>> {
-		let mut recorder = Recorder::<LayoutV0<Hashing>>::new();
+		let mut recorder = Recorder::<LayoutV1<Hashing>>::new();
 
 		{
 			let trie =
@@ -109,7 +87,7 @@ where
 		Some(recorder.drain().into_iter().map(|r| r.data).collect())
 	}
 
-	fn from_nodes(root: Hash, nodes: &[Vec<u8>]) -> Self {
+	fn from_nodes(root: HashOf<Hashing>, nodes: &[Vec<u8>]) -> Self {
 		use sp_trie::HashDBT;
 
 		let mut memory_db = MemoryDB::default();
@@ -129,7 +107,7 @@ mod tests {
 	use sp_std::{collections::btree_map::BTreeMap, str::FromStr};
 
 	// A trie which simulates a trie of accounts (u32) and balances (u128).
-	type BalanceTrie = BasicProvingTrie<BlakeTwo256, H256, u32, u128>;
+	type BalanceTrie = BasicProvingTrie<BlakeTwo256, u32, u128>;
 
 	// The expected root hash for an empty trie.
 	fn empty_root() -> H256 {
