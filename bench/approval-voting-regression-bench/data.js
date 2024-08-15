@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723686537002,
+  "lastUpdate": 1723718656078,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -14992,6 +14992,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.0737267173301674,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dónal Murray",
+            "username": "seadanda",
+            "email": "donal.murray@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "78c3daabd97367f70c1ebc0d7fe55abef4d76952",
+          "message": "[Coretime] Always include UnpaidExecution, not just when revenue is > 0 (#5369)\n\nThe NotifyRevenue XCM from relay to coretime chain fails to pass the\nbarrier when revenue is 0.\n\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/polkadot/runtime/parachains/src/coretime/mod.rs#L401\npushes notifyrevenue onto an [empty\nvec](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/runtime/parachains/src/coretime/mod.rs#L361)\nwhen `revenue == 0`, so it never explicitly requests unpaid execution,\nbecause that happens only in [the block where revenue is `>\n0`](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/runtime/parachains/src/coretime/mod.rs#L387).\n\nThis will need to be backported to 1.14 when merged.",
+          "timestamp": "2024-08-15T09:02:56Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78c3daabd97367f70c1ebc0d7fe55abef4d76952"
+        },
+        "date": 1723718625627,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 64003.17,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.924062291989944,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.140978744599984,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.0578605483901398,
             "unit": "seconds"
           }
         ]
