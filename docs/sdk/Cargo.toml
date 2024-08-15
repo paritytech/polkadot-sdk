@@ -22,6 +22,7 @@ frame = { features = [
 	"runtime",
 ], workspace = true, default-features = true }
 pallet-examples = { workspace = true }
+pallet-contracts = { workspace = true }
 pallet-default-config-example = { workspace = true, default-features = true }
 pallet-example-offchain-worker = { workspace = true, default-features = true }
 

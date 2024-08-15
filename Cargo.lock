@@ -14610,6 +14610,7 @@ dependencies = [
  "pallet-balances",
  "pallet-broker",
  "pallet-collective",
+ "pallet-contracts",
  "pallet-default-config-example",
  "pallet-democracy",
  "pallet-distribution",
