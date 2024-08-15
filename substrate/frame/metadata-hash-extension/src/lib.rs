@@ -50,7 +50,6 @@ use sp_runtime::{
 
 #[cfg(test)]
 mod tests;
-mod utils;
 
 /// The mode of [`CheckMetadataHash`].
 #[derive(Decode, Encode, PartialEq, Debug, TypeInfo, Clone, Copy, Eq)]
@@ -69,9 +68,13 @@ enum MetadataHash {
 	Custom([u8; 32]),
 }
 
-const RUNTIME_METADATA: Option<[u8; 32]> = match option_env!("RUNTIME_METADATA_HASH") {
-	Some(hex) => utils::hex_str_to_32_bytes(hex),
-	None => None,
+const RUNTIME_METADATA: Option<[u8; 32]> = if let Some(hex) = option_env!("RUNTIME_METADATA_HASH") {
+	match const_hex::const_decode_to_array(hex.as_bytes()) {
+		Ok(hex) => Some(hex),
+		Err(_) => None,
+	}
+} else {
+	None
 };
 
 impl MetadataHash {
