@@ -674,7 +674,7 @@ mod tests {
 	use frame_support::{
 		assert_noop, assert_ok, assert_storage_noop, derive_impl, ord_parameter_types,
 		parameter_types,
-		traits::{ConstU32, EitherOfDiverse, OnFinalize, OnInitialize},
+		traits::{EitherOfDiverse, OnFinalize, OnInitialize},
 	};
 	use frame_system::{EnsureRoot, EnsureSignedBy};
 	use pallet_balances;
@@ -725,25 +725,9 @@ mod tests {
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
-	parameter_types! {
-		pub const ExistentialDeposit: u64 = 1;
-		pub const MaxReserves: u32 = 50;
-	}
-
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
-		type Balance = u64;
-		type DustRemoval = ();
-		type RuntimeEvent = RuntimeEvent;
-		type ExistentialDeposit = ExistentialDeposit;
 		type AccountStore = System;
-		type WeightInfo = ();
-		type MaxLocks = ();
-		type MaxReserves = MaxReserves;
-		type ReserveIdentifier = [u8; 8];
-		type RuntimeHoldReason = RuntimeHoldReason;
-		type RuntimeFreezeReason = RuntimeFreezeReason;
-		type FreezeIdentifier = ();
-		type MaxFreezes = ConstU32<1>;
 	}
 
 	#[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Copy, Debug)]
@@ -1426,7 +1410,8 @@ mod tests {
 	#[test]
 	fn initialize_winners_in_ending_period_works() {
 		new_test_ext().execute_with(|| {
-			assert_eq!(<Test as pallet_balances::Config>::ExistentialDeposit::get(), 1);
+			let ed: u64 = <Test as pallet_balances::Config>::ExistentialDeposit::get();
+			assert_eq!(ed, 1);
 			run_to_block(1);
 			assert_ok!(Auctions::new_auction(RuntimeOrigin::signed(6), 9, 1));
 			let para_1 = ParaId::from(1_u32);
@@ -1539,7 +1524,8 @@ mod tests {
 	#[test]
 	fn less_winning_samples_work() {
 		new_test_ext().execute_with(|| {
-			assert_eq!(<Test as pallet_balances::Config>::ExistentialDeposit::get(), 1);
+			let ed: u64 = <Test as pallet_balances::Config>::ExistentialDeposit::get();
+			assert_eq!(ed, 1);
 			EndingPeriod::set(30);
 			SampleLength::set(10);
 

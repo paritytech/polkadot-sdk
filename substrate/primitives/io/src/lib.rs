@@ -1805,6 +1805,7 @@ pub type TestExternalities = sp_state_machine::TestExternalities<sp_core::Blake2
 /// The host functions Substrate provides for the Wasm runtime environment.
 ///
 /// All these host functions will be callable from inside the Wasm environment.
+#[docify::export]
 #[cfg(feature = "std")]
 pub type SubstrateHostFunctions = (
 	storage::HostFunctions,

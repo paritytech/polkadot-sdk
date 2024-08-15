@@ -202,7 +202,7 @@ mod tests {
 	use frame_system::{limits, EnsureRoot};
 	use pallet_collator_selection::IdentityCollator;
 	use polkadot_primitives::AccountId;
-	use sp_core::{ConstU64, H256};
+	use sp_core::H256;
 	use sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup},
 		BuildStorage, Perbill,
@@ -224,7 +224,6 @@ mod tests {
 	parameter_types! {
 		pub BlockLength: limits::BlockLength = limits::BlockLength::max(2 * 1024);
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
-		pub const MaxReserves: u32 = 50;
 	}
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -253,20 +252,9 @@ mod tests {
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
-		type Balance = u64;
-		type RuntimeEvent = RuntimeEvent;
-		type DustRemoval = ();
-		type ExistentialDeposit = ConstU64<1>;
 		type AccountStore = System;
-		type MaxLocks = ();
-		type WeightInfo = ();
-		type MaxReserves = MaxReserves;
-		type ReserveIdentifier = [u8; 8];
-		type RuntimeHoldReason = RuntimeHoldReason;
-		type RuntimeFreezeReason = RuntimeFreezeReason;
-		type FreezeIdentifier = ();
-		type MaxFreezes = ConstU32<1>;
 	}
 
 	pub struct OneAuthor;

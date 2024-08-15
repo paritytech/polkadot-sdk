@@ -534,6 +534,7 @@ pub trait ConstructRuntimeApi<Block: BlockT, C: CallApiAt<Block>> {
 	fn construct_runtime_api(call: &C) -> ApiRef<Self::RuntimeApi>;
 }
 
+#[docify::export]
 /// Init the [`RuntimeLogger`](sp_runtime::runtime_logger::RuntimeLogger).
 pub fn init_runtime_logger() {
 	#[cfg(not(feature = "disable-logging"))]

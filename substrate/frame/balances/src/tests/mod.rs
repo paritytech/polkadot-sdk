@@ -27,7 +27,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible, ConstU32, ConstU8, Imbalance as ImbalanceT, OnUnbalanced, StorageMapShim,
-		StoredMap, VariantCount, WhitelistedStorageKeys,
+		StoredMap, VariantCount, VariantCountOf, WhitelistedStorageKeys,
 	},
 	weights::{IdentityFee, Weight},
 };
@@ -107,22 +107,17 @@ impl pallet_transaction_payment::Config for Test {
 	type FeeMultiplierUpdate = ();
 }
 
-pub(crate) type Balance = u64;
-
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl Config for Test {
-	type Balance = Balance;
 	type DustRemoval = DustTrap;
-	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = TestAccountStore;
-	type MaxLocks = ConstU32<50>;
 	type MaxReserves = ConstU32<2>;
 	type ReserveIdentifier = TestId;
-	type WeightInfo = ();
 	type RuntimeHoldReason = TestId;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeFreezeReason = TestId;
 	type FreezeIdentifier = TestId;
-	type MaxFreezes = ConstU32<2>;
+	type MaxFreezes = VariantCountOf<TestId>;
 }
 
 #[derive(Clone)]

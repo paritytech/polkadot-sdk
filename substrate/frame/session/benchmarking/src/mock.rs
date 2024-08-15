@@ -54,20 +54,10 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ConstU64<10>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -139,35 +129,19 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Bounds = ElectionsBounds;
 }
 
+#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Test {
 	type Currency = Balances;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
-	type CurrencyToVote = ();
-	type RewardRemainder = ();
-	type RuntimeEvent = RuntimeEvent;
-	type Slash = ();
-	type Reward = ();
-	type SessionsPerEra = ();
-	type SlashDeferDuration = ();
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type BondingDuration = ();
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
-	type MaxExposurePageSize = ConstU32<64>;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
-	type MaxUnlockingChunks = ConstU32<32>;
-	type MaxControllersInDeprecationBatch = ConstU32<100>;
-	type HistoryDepth = ConstU32<84>;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
-	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
-	type EventListeners = ();
-	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
-	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 impl crate::Config for Test {}

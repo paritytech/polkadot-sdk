@@ -222,13 +222,13 @@ pub mod pallet {
 			type ExistentialDeposit = ConstU64<1>;
 
 			type ReserveIdentifier = ();
-			type FreezeIdentifier = ();
+			type FreezeIdentifier = Self::RuntimeFreezeReason;
 
 			type DustRemoval = ();
 
 			type MaxLocks = ConstU32<100>;
 			type MaxReserves = ConstU32<100>;
-			type MaxFreezes = ConstU32<100>;
+			type MaxFreezes = VariantCountOf<Self::RuntimeFreezeReason>;
 
 			type WeightInfo = ();
 		}

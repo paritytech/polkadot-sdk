@@ -105,12 +105,6 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
-		fn offchain_worker(_: &<Block as BlockT>::Header) {
-			unimplemented!()
-		}
-	}
-
 	impl sp_session::SessionKeys<Block> for Runtime {
 		fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
 			unimplemented!()

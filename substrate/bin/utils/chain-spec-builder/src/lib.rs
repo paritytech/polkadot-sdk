@@ -125,7 +125,7 @@ use serde_json::Value;
 
 /// A utility to easily create a chain spec definition.
 #[derive(Debug, Parser)]
-#[command(rename_all = "kebab-case")]
+#[command(rename_all = "kebab-case", version, about)]
 pub struct ChainSpecBuilder {
 	#[command(subcommand)]
 	pub command: ChainSpecBuilderCmd,
