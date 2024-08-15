@@ -171,7 +171,7 @@ fn funds_claim_works() {
 		println!("the mystery block is:{:?}", now);
 		assert_ok!(Distribution::claim_reward_for(
 			RawOrigin::Signed(EVE).into(),
-			project_account.clone(),
+			project_account,
 		));
 		let balance_1 =
 			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_account);
@@ -205,7 +205,7 @@ fn funds_claim_fails_before_claim_period() {
 		let project_account = project.whitelisted_project.unwrap();
 
 		assert_noop!(
-			Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), project_account.clone(),),
+			Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), project_account),
 			Error::<Test>::NotClaimingPeriod
 		);
 	})

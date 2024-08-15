@@ -16,16 +16,6 @@ pub fn next_block() {
 	);
 }
 
-pub fn run_to_block(n: BlockNumberFor<Test>) {
-	while <Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number() < n {
-		if <Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number() > 1 {
-			AllPalletsWithSystem::on_finalize(
-				<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number(),
-			);
-		}
-		next_block();
-	}
-}
 
 pub fn create_project_list() {
 	const MAX_NUMBER: u64 = <Test as Config>::MaxWhitelistedProjects::get() as u64;
@@ -44,8 +34,8 @@ fn first_round_creation_works() {
 		// Creating whitelisted projects list succeeds
 		create_project_list();
 		let project_list = WhiteListedProjectAccounts::<Test>::get();
-		let MAX_NUMBER: u64 = <Test as Config>::MaxWhitelistedProjects::get() as u64;
-		assert_eq!(project_list.len(), MAX_NUMBER as usize);
+		let max_number: u64 = <Test as Config>::MaxWhitelistedProjects::get() as u64;
+		assert_eq!(project_list.len(), max_number as usize);
 
 		// First round is created
 		next_block();
@@ -54,7 +44,7 @@ fn first_round_creation_works() {
 		let now =
 			<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
 
-		let round_ending_block = now.clone().saturating_add(voting_period.into());
+		let round_ending_block = now.saturating_add(voting_period.into());
 		let voting_locked_block = round_ending_block.saturating_sub(voting_lock_period.into());
 
 		let first_round_info: VotingRoundInfo<Test> = VotingRoundInfo {
@@ -90,7 +80,7 @@ fn voting_action_works() {
 		let voting_lock_period = <Test as Config>::VoteLockingPeriod::get();
 		let now =
 			<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
-		let round_ending_block = now.clone().saturating_add(voting_period.into());
+		let round_ending_block = now.saturating_add(voting_period.into());
 		let voting_locked_block = round_ending_block.saturating_sub(voting_lock_period.into());
 
 		let first_round_info: VotingRoundInfo<Test> = VotingRoundInfo {
