@@ -38,7 +38,6 @@ use sp_arithmetic::Perbill;
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::Header as HeaderT;
 use sp_staking::SessionIndex;
-
 /// Async backing primitives
 pub mod async_backing;
 
@@ -181,6 +180,7 @@ impl<H: Copy> From<CandidateDescriptorV2<H>> for CandidateDescriptor<H> {
 	}
 }
 
+#[cfg(any(feature = "runtime-benchmarks", feature = "test"))]
 impl<H: Encode + Decode + Copy> From<CandidateDescriptor<H>> for CandidateDescriptorV2<H> {
 	fn from(value: CandidateDescriptor<H>) -> Self {
 		Decode::decode(&mut value.encode().as_slice()).unwrap()
