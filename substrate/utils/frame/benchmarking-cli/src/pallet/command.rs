@@ -750,7 +750,8 @@ impl PalletCmd {
 		state: &'a BenchmarkingState<H>,
 	) -> Result<FetchedCode<'a, BenchmarkingState<H>, H>> {
 		if let Some(runtime) = &self.runtime {
-			let runtime = std::path::absolute(runtime)
+			// let runtime = std::path::absolute(runtime) - FAIL-CI
+			let runtime = std::fs::canonicalize(runtime)
 				.map_err(|e| format!("Could not get absolute path for runtime file: {e}"))?;
 			log::info!("Loading WASM from {}", runtime.display());
 
