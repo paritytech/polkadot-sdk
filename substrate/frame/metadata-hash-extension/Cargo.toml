@@ -32,10 +32,10 @@ sp-tracing = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"const-hex/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
 	"scale-info/std",
 	"sp-runtime/std",
-	"const-hex/std",
 ]
