@@ -180,6 +180,10 @@ pub struct RpcListenAddr {
 	pub cors: Option<Vec<String>>,
 	/// Whether to retry with a random port if the provided port is already in use.
 	pub retry_random_port: bool,
+	/// Whether it's optional listening address i.e, it's ignored if it fails to bind.
+	/// For example substrate tries to bind both ipv4 and ipv6 addresses but some platforms
+	/// may not support ipv6.
+	pub is_optional: bool,
 }
 
 impl FromStr for RpcListenAddr {
@@ -200,6 +204,7 @@ impl FromStr for RpcListenAddr {
 		let mut cors: Option<Vec<String>> = None;
 		let mut rate_limit = None;
 		let mut rate_limit_trust_proxy_headers = false;
+		let mut is_optional = false;
 		let mut rate_limit_whitelisted_ips = Vec::new();
 
 		if let Some(query_params) = maybe_query_params {
@@ -245,6 +250,14 @@ impl FromStr for RpcListenAddr {
 							value.parse().map_err(|e| format!("Invalid rate limit IP: {}", e))?,
 						);
 					},
+					"optional" =>
+						if value == "true" {
+							is_optional = true;
+						} else if value == "false" {
+							is_optional = false;
+						} else {
+							return Err("Invalid `optional` must be true/false".to_string());
+						},
 					other => return Err(format!("Invalid query param: {}", other)),
 				}
 			}
@@ -258,6 +271,7 @@ impl FromStr for RpcListenAddr {
 			rate_limit_whitelisted_ips,
 			cors,
 			retry_random_port: false,
+			is_optional,
 		})
 	}
 }
@@ -272,6 +286,7 @@ impl Into<sc_service::config::RpcListenAddr> for RpcListenAddr {
 			rate_limit_whitelisted_ips: self.rate_limit_whitelisted_ips,
 			cors: self.cors,
 			retry_random_port: self.retry_random_port,
+			is_optional: self.is_optional,
 		}
 	}
 }

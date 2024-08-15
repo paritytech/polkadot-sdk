@@ -138,7 +138,7 @@ pub struct RunCmd {
 	//
 	// Dev Note: This is a `String` because `Url` does not work for socket addresses without scheme
 	// such as `127.0.0.1:9933/?rpc-methods=unsafe` is not a valid URL.
-	#[arg(long, conflicts_with_all = &["rpc_external", "unsafe_rpc_external", "rpc_port"])]
+	#[arg(long, conflicts_with_all = &["rpc_external", "unsafe_rpc_external", "rpc_port", "rpc_cors", "rpc_rate_limit_trust_proxy_headers", "rpc_rate_limit", "rpc_rate_limit_whitelisted_ips"])]
 	pub rpc_listen_addrs: Vec<RpcListenAddr>,
 
 	/// Maximum number of RPC server connections.
@@ -465,6 +465,7 @@ impl CliConfiguration for RunCmd {
 				rate_limit_whitelisted_ips: self.rpc_rate_limit_whitelisted_ips.clone(),
 				cors: cors.clone(),
 				retry_random_port: true,
+				is_optional: false,
 			},
 			RpcListenAddr {
 				listen_addr: SocketAddr::new(std::net::IpAddr::V6(ipv6), default_listen_port),
@@ -474,6 +475,7 @@ impl CliConfiguration for RunCmd {
 				rate_limit_whitelisted_ips: self.rpc_rate_limit_whitelisted_ips.clone(),
 				cors,
 				retry_random_port: true,
+				is_optional: true,
 			},
 		]))
 	}

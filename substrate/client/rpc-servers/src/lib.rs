@@ -141,7 +141,17 @@ where
 	let mut local_addrs = Vec::new();
 
 	for addr in listen_addrs {
-		let mut listener = addr.bind().await?;
+		let allowed_to_fail = addr.is_optional;
+		let local_addr = addr.listen_addr;
+
+		let mut listener = match addr.bind().await {
+			Ok(l) => l,
+			Err(e) if allowed_to_fail => {
+				log::debug!(target: "rpc", "JSON-RPC server failed to bind optional address: {:?}, error: {:?}", local_addr, e);
+				continue;
+			},
+			Err(e) => return Err(e),
+		};
 		let local_addr = listener.local_addr();
 		local_addrs.push(local_addr);
 		let cfg = cfg.clone();

@@ -89,6 +89,10 @@ pub struct ListenAddr {
 	pub cors: Option<Vec<String>>,
 	/// Whether to retry with a random port if the provided port is already in use.
 	pub retry_random_port: bool,
+	/// Whether it's optional listening address i.e, it's ignored if it fails to bind.
+	/// For example substrate tries to bind both ipv4 and ipv6 addresses but some platforms
+	/// may not support ipv6.
+	pub is_optional: bool,
 }
 
 impl ListenAddr {
