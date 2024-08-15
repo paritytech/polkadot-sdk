@@ -156,7 +156,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     metrics: NotificationMetrics,
     peer_store_handle: <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn PeerStoreProvider&gt;
 ) -&gt; (Self, Net::NotificationProtocolConfig)</h4></section></summary><div class="docblock"><p>Create a new instance.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.build" class="method"><a class="src rightside" href="../src/sc_network_transactions/lib.rs.html#175-214">source</a><h4 class="code-header">pub fn <a href="#method.build" class="fn">build</a>&lt;B: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a> + 'static, H: ExHashT, N: NetworkPeers + NetworkEventStream, S: SyncEventStream + <a class="trait" href="../sp_consensus/trait.SyncOracle.html" title="trait sp_consensus::SyncOracle">SyncOracle</a>&gt;(
+</div></details><details class="toggle method-toggle" open><summary><section id="method.build" class="method"><a class="src rightside" href="../src/sc_network_transactions/lib.rs.html#175-214">source</a><h4 class="code-header">pub fn <a href="#method.build" class="fn">build</a>&lt;B: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a> + 'static, H: <a class="trait" href="../sc_network_common/trait.ExHashT.html" title="trait sc_network_common::ExHashT">ExHashT</a>, N: NetworkPeers + NetworkEventStream, S: SyncEventStream + <a class="trait" href="../sp_consensus/trait.SyncOracle.html" title="trait sp_consensus::SyncOracle">SyncOracle</a>&gt;(
     self,
     network: N,
     sync: S,
