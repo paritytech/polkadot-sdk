@@ -6,6 +6,9 @@ on:
       - master
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  # Take a snapshot at 5am when most SDK devs are not working.
+  schedule:
+    - cron: '0 5 * * *'
   merge_group:
   workflow_dispatch:
 

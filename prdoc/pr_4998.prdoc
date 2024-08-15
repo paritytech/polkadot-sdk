@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Ensure members can always exit the pool gracefully
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Ensures when a member wants to withdraw all funds but the pool is not able to provide all their funds, the member
+      can receive as much as possible and exit pool. Also handles cases where some extra funds held in member's account
+      is released when they are removed.
+
+crates:
+  - name: pallet-delegated-staking
+    bump: patch
+  - name: pallet-nomination-pools
+    bump: major
+  - name: sp-staking
+    bump: major
+
