@@ -983,6 +983,12 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 		// any v1 descendants of v2 candidates are dropped.
 		if !allow_v2_receipts && candidate.descriptor().version() == CandidateDescriptorVersion::V2
 		{
+			log::debug!(
+				target: LOG_TARGET,
+				"V2 candidate descriptors not allowed. Dropping candidate {:?} for paraid {:?}.",
+				candidate.candidate().hash(),
+				candidate.descriptor().para_id()
+			);
 			continue
 		}
 
