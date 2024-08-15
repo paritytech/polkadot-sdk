@@ -954,9 +954,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Ok(proposals.len())
 			})?;
 
-		if let Some(cost) = T::Consideration::new(&who, active_proposals as u32 - 1)? {
-			<CostOf<T, I>>::insert(proposal_hash, (who.clone(), cost));
-		}
+		let cost = T::Consideration::new(&who, active_proposals as u32 - 1)?;
+		<CostOf<T, I>>::insert(proposal_hash, (who.clone(), cost));
 
 		let index = ProposalCount::<T, I>::get();
 

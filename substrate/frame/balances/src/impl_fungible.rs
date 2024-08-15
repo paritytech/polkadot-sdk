@@ -238,10 +238,12 @@ impl<T: Config<I>, I: 'static> fungible::InspectHold<T::AccountId> for Pallet<T,
 	}
 	fn hold_available(reason: &Self::Reason, who: &T::AccountId) -> bool {
 		if frame_system::Pallet::<T>::providers(who) == 0 {
+			println!("hold_available: providers(who) == 0");
 			return false
 		}
 		let holds = Holds::<T, I>::get(who);
 		if holds.is_full() && !holds.iter().any(|x| &x.id == reason) {
+			println!("hold_available: holds.is_full() && !holds.iter().any(|x| &x.id == reason)");
 			return false
 		}
 		true

@@ -203,7 +203,8 @@ impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
 			system: frame_system::GenesisConfig::default(),
-			balances: pallet_balances::GenesisConfig::default(),
+			// balances: pallet_balances::GenesisConfig::default(),
+			balances: pallet_balances::GenesisConfig { balances: vec![(1, 100), (2, 200)] },
 			collective: pallet_collective::GenesisConfig {
 				members: self.collective_members,
 				phantom: Default::default(),
@@ -605,16 +606,16 @@ fn close_with_no_prime_but_majority_works() {
 
 		let deposit = <CollectiveMajorityDeposit as Convert<u32, u64>>::convert(0);
 		let ed = Balances::minimum_balance();
-		let _ = Balances::mint_into(&1, ed + deposit);
+		let _ = Balances::mint_into(&5, ed + deposit);
 		System::reset_events();
 
 		assert_ok!(CollectiveMajority::propose(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed(5),
 			5,
 			Box::new(proposal.clone()),
 			proposal_len
 		));
-		assert_eq!(Balances::balance(&1), ed);
+		assert_eq!(Balances::balance(&5), ed);
 
 		assert_ok!(CollectiveMajority::vote(RuntimeOrigin::signed(1), hash, 0, true));
 		assert_ok!(CollectiveMajority::vote(RuntimeOrigin::signed(2), hash, 0, true));
@@ -634,14 +635,14 @@ fn close_with_no_prime_but_majority_works() {
 			proposal_len
 		));
 
-		assert_ok!(CollectiveMajority::release_proposal_cost(RuntimeOrigin::signed(1), hash));
-		assert_eq!(Balances::balance(&1), ed + deposit);
+		assert_ok!(CollectiveMajority::release_proposal_cost(RuntimeOrigin::signed(5), hash));
+		assert_eq!(Balances::balance(&5), ed + deposit);
 
 		assert_eq!(
 			System::events(),
 			vec![
 				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::Proposed {
-					account: 1,
+					account: 5,
 					proposal_index: 0,
 					proposal_hash: hash,
 					threshold: 5
@@ -681,7 +682,7 @@ fn close_with_no_prime_but_majority_works() {
 				})),
 				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::ProposalCostReleased {
 					proposal_hash: hash,
-					who: 1,
+					who: 5,
 				}))
 			]
 		);
