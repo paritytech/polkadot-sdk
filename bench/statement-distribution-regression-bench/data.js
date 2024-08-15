@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723719561885,
+  "lastUpdate": 1723732473748,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -8525,6 +8525,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04967757327399999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Loïs",
+            "username": "SailorSnoW",
+            "email": "49660929+SailorSnoW@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "069f8a6a374108affa4e240685c7504a1fbd1397",
+          "message": "fix visibility for `pallet_nfts` types used as call arguments (#3634)\n\nfix #3631 \n\nTypes which are impacted and fixed here are `ItemTip`,\n`PriceWithDirection`, `PreSignedMint`, `PreSignedAttributes`.\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-08-15T12:33:32Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/069f8a6a374108affa4e240685c7504a1fbd1397"
+        },
+        "date": 1723732442958,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.93999999999993,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40799999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03683079788399998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.046231039751999985,
             "unit": "seconds"
           }
         ]
