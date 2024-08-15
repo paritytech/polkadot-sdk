@@ -3413,6 +3413,10 @@ mod sanitizers {
 			}
 		}
 
+		fn no_disputes(_h: CandidateHash) -> bool {
+			false
+		}
+
 		#[rstest]
 		#[case(false)]
 		#[case(true)]
@@ -3429,7 +3433,7 @@ mod sanitizers {
 					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
 						&shared::AllowedRelayParents::<Test>::get(),
-						BTreeSet::new(),
+						no_disputes,
 						scheduled,
 						core_index_enabled
 					),
@@ -3454,7 +3458,7 @@ mod sanitizers {
 					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
 						&shared::AllowedRelayParents::<Test>::get(),
-						BTreeSet::new(),
+						no_disputes,
 						scheduled,
 						core_index_enabled
 					),
@@ -3479,7 +3483,7 @@ mod sanitizers {
 					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
 						&shared::AllowedRelayParents::<Test>::get(),
-						BTreeSet::new(),
+						no_disputes,
 						scheduled,
 						core_index_enabled,
 					),
@@ -3511,7 +3515,7 @@ mod sanitizers {
 					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
 						&shared::AllowedRelayParents::<Test>::get(),
-						BTreeSet::new(),
+						no_disputes,
 						scheduled,
 						core_index_enabled,
 					),
@@ -3551,7 +3555,7 @@ mod sanitizers {
 				let res = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&shared::AllowedRelayParents::<Test>::get(),
-					BTreeSet::new(),
+					no_disputes,
 					scheduled,
 					core_index_enabled,
 				);
@@ -3621,7 +3625,7 @@ mod sanitizers {
 				let res = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&shared::AllowedRelayParents::<Test>::get(),
-					BTreeSet::new(),
+					no_disputes,
 					scheduled,
 					core_index_enabled,
 				);
@@ -3659,7 +3663,7 @@ mod sanitizers {
 				let sanitized_backed_candidates = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&shared::AllowedRelayParents::<Test>::get(),
-					BTreeSet::new(),
+					no_disputes,
 					scheduled,
 					core_index_enabled,
 				);
@@ -3695,7 +3699,7 @@ mod sanitizers {
 				> = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&shared::AllowedRelayParents::<Test>::get(),
-					set,
+					|h| set.contains(&h),
 					scheduled,
 					core_index_enabled,
 				);
@@ -3732,7 +3736,7 @@ mod sanitizers {
 				> = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&shared::AllowedRelayParents::<Test>::get(),
-					invalid_set,
+					|h| invalid_set.contains(&h),
 					scheduled,
 					true,
 				);
@@ -3768,7 +3772,7 @@ mod sanitizers {
 				> = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
 					&shared::AllowedRelayParents::<Test>::get(),
-					invalid_set,
+					|h| invalid_set.contains(&h),
 					scheduled,
 					true,
 				);
