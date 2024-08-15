@@ -165,7 +165,7 @@ pub mod pallet {
 	/// to detect congestion:
 	///
 	/// ```nocompile
-	///  ThisChain --- Local XCM chanel --> Sibling Bridge Hub ------
+	///  ThisChain --- Local XCM channel --> Sibling Bridge Hub ------
 	///                                            |                   |
 	///                                            |                   |
 	///                                            |                   |
