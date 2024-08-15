@@ -692,7 +692,7 @@ cumulus-primitives-aura = { path = "cumulus/primitives/aura", default-features =
 cumulus-primitives-core = { path = "cumulus/primitives/core", default-features = false, version = "0.14.0" }
 cumulus-primitives-parachain-inherent = { path = "cumulus/primitives/parachain-inherent", default-features = false, version = "0.14.0" }
 cumulus-primitives-proof-size-hostfunction = { path = "cumulus/primitives/proof-size-hostfunction", default-features = false, version = "0.9.0" }
-cumulus-primitives-storage-weight-reclaim = { path = "cumulus/primitives/storage-weight-reclaim", default-features = false, version = "6.0.0" }
+cumulus-primitives-storage-weight-reclaim = { path = "cumulus/primitives/storage-weight-reclaim", default-features = false, version = "6.0.1" }
 cumulus-primitives-timestamp = { path = "cumulus/primitives/timestamp", default-features = false, version = "0.14.0" }
 cumulus-primitives-utility = { path = "cumulus/primitives/utility", default-features = false, version = "0.15.0" }
 cumulus-relay-chain-inprocess-interface = { path = "cumulus/client/relay-chain-inprocess-interface", default-features = false, version = "0.15.0" }
@@ -752,7 +752,7 @@ frame-support-procedural = { path = "substrate/frame/support/procedural", defaul
 frame-support-procedural-tools = { path = "substrate/frame/support/procedural/tools", default-features = false, version = "13.0.0" }
 frame-support-procedural-tools-derive = { path = "substrate/frame/support/procedural/tools/derive", default-features = false, version = "12.0.0" }
 frame-support-test = { path = "substrate/frame/support/test" }
-frame-system = { path = "substrate/frame/system", default-features = false, version = "36.0.0" }
+frame-system = { path = "substrate/frame/system", default-features = false, version = "36.0.1" }
 frame-system-benchmarking = { path = "substrate/frame/system/benchmarking", default-features = false, version = "36.0.0" }
 frame-system-rpc-runtime-api = { path = "substrate/frame/system/rpc/runtime-api", default-features = false, version = "33.0.0" }
 frame-try-runtime = { path = "substrate/frame/try-runtime", default-features = false, version = "0.42.0" }
@@ -1034,7 +1034,7 @@ polkadot-primitives-test-helpers = { path = "polkadot/primitives/test-helpers", 
 polkadot-rpc = { path = "polkadot/rpc", default-features = false, version = "15.0.0" }
 polkadot-runtime-common = { path = "polkadot/runtime/common", default-features = false, version = "15.0.0" }
 polkadot-runtime-metrics = { path = "polkadot/runtime/metrics", default-features = false, version = "15.0.0" }
-polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false, version = "15.0.1" }
+polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false, version = "15.0.2" }
 polkadot-sdk = { path = "umbrella", default-features = false, version = "0.3.0" }
 polkadot-sdk-docs = { path = "docs/sdk", version = "0.1.0" }
 polkadot-service = { path = "polkadot/node/service", default-features = false, version = "15.0.0" }
@@ -1330,7 +1330,7 @@ westend-runtime = { path = "polkadot/runtime/westend", version = "15.0.0" }
 westend-runtime-constants = { path = "polkadot/runtime/westend/constants", default-features = false, version = "15.0.0" }
 westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/westend-system", version = "0.1.0" }
 x25519-dalek = { version = "2.0" }
-xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm", version = "14.0.1" }
+xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm", version = "14.0.2" }
 xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder", version = "15.0.0" }
 xcm-docs = { path = "polkadot/xcm/docs", version = "0.1.0" }
 xcm-emulator = { path = "cumulus/xcm/xcm-emulator", default-features = false, version = "0.13.0" }
