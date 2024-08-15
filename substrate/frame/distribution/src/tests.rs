@@ -188,10 +188,7 @@ fn funds_claim_works() {
 		run_to_block(now);
 
 		println!("the mystery block is:{:?}", now);
-		assert_ok!(Distribution::claim_reward_for(
-			RawOrigin::Signed(EVE).into(),
-			project_account,
-		));
+		assert_ok!(Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), project_account,));
 		let balance_1 =
 			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_account);
 

@@ -19,8 +19,8 @@
 
 pub use super::*;
 use crate::mock::*;
-use frame_support::traits::OnIdle;
 use frame_support::assert_ok;
+use frame_support::traits::OnIdle;
 
 pub fn next_block() {
 	System::set_block_number(
@@ -34,7 +34,6 @@ pub fn next_block() {
 		Weight::MAX,
 	);
 }
-
 
 pub fn create_project_list() {
 	const MAX_NUMBER: u64 = <Test as Config>::MaxWhitelistedProjects::get() as u64;
@@ -183,7 +182,7 @@ fn vote_removal_works() {
 	new_test_ext().execute_with(|| {
 		create_project_list();
 		next_block();
-		
+
 		// Bob nominate project_102 with an amount of 1000
 		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000, true));
 

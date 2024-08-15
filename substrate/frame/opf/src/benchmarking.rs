@@ -47,7 +47,7 @@ fn run_to_block<T: Config>(n: frame_system::pallet_prelude::BlockNumberFor<T>) {
 fn on_idle_full_block<T: Config>() {
 	let remaining_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
 	let when = T::BlockNumberProvider::current_block_number();
-	frame_system::Pallet::<T>::on_idle(when.clone(), remaining_weight.clone());
+	frame_system::Pallet::<T>::on_idle(when, remaining_weight);
 	crate::Pallet::<T>::on_idle(when, remaining_weight);
 }
 
