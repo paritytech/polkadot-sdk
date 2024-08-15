@@ -19,9 +19,6 @@ jobs:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-        with:
-          ref: ${{ github.head_ref }} # Check out the actual changes - not the merge commit.
-          fetch-depth: 0
 
       - name: extra git setup
         env:
@@ -32,11 +29,26 @@ jobs:
           echo "hi"
           git fetch --no-tags --no-recurse-submodules --depth=1 origin ${{ github.event.pull_request.base.sha }}
           git fetch --no-tags --no-recurse-submodules --depth=1 origin master
-          echo "hi2 'git merge-base origin/master HEAD --fork-point'"
-          git merge-base --fork-point origin/$BASE_BRANCH
-          echo "hi3"
-          BASE=$(git merge-base --fork-point origin/$BASE_BRANCH)
-          echo "Setting BASE to $BASE"
+
+          # Copy & Paste from https://github.com/orgs/community/discussions/26470
+          if [ $GITHUB_BASE_REF ]; then
+              # Pull Request
+              # 'github.event.before/after' and 'github.event.pull_request.base.sha' are inconsistent for PRs 
+              # Find the commit where the PR branch was forked from the base branch
+              git fetch origin ${{ github.base_ref }} ${{ github.event.pull_request.head.ref }}
+              FORK_POINT=$( git show-branch --merge-base "origin/${{ github.base_ref }}" "origin/${{ github.event.pull_request.head.ref }}" )
+              LATEST_COMMIT_IN_PR=${{ github.event.pull_request.head.sha }}
+              CHANGED_FILES=$( git diff --name-only $FORK_POINT $LATEST_COMMIT_IN_PR )
+              echo "Changes for PR"
+              echo "Diff between $FORK_POINT and $LATEST_COMMIT_IN_PR"
+          else
+              # Push
+              # 'github.event.before' and 'after' are including all commits of the current push event
+              CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }})
+              echo "Changes for PUSH" 
+              echo "Diff between ${{ github.event.before }} and ${{ github.event.after }}"
+          fi
+
           git fetch --no-tags --no-recurse-submodules --depth=1 origin $BASE
           echo "Fetched base, branching off"
           git branch old $BASE
