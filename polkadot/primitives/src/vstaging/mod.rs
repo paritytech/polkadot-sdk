@@ -221,6 +221,12 @@ impl<H> CandidateDescriptorV2<H> {
 	pub fn set_pov_hash(&mut self, pov_hash: Hash) {
 		self.pov_hash = pov_hash;
 	}
+
+	/// Set the version in the descriptor. Only for tests.
+	#[cfg(feature = "test")]
+	pub fn set_version(&mut self, version: InternalVersion) {
+		self.version = version;
+	}
 }
 
 /// A candidate-receipt at version 2.
@@ -622,6 +628,12 @@ impl<H> BackedCandidate<H> {
 	/// Get a reference to the descriptor of the candidate.
 	pub fn descriptor(&self) -> &CandidateDescriptorV2<H> {
 		&self.candidate.descriptor
+	}
+
+	/// Get a mutable reference to the descriptor of the candidate. Only for testing.
+	#[cfg(feature = "test")]
+	pub fn descriptor_mut(&mut self) -> &mut CandidateDescriptorV2<H> {
+		&mut self.candidate.descriptor
 	}
 
 	/// Get a reference to the validity votes of the candidate.

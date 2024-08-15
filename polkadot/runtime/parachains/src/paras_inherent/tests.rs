@@ -58,7 +58,10 @@ mod enter {
 	use core::panic;
 	use frame_support::assert_ok;
 	use frame_system::limits;
-	use polkadot_primitives::{vstaging::SchedulerParams, AvailabilityBitfield, UncheckedSigned};
+	use polkadot_primitives::{
+		vstaging::{InternalVersion, SchedulerParams},
+		AvailabilityBitfield, UncheckedSigned,
+	};
 	use sp_runtime::Perbill;
 
 	struct TestConfig {
@@ -1485,32 +1488,49 @@ mod enter {
 
 	#[test]
 	fn v2_descriptors_are_filtered() {
-		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-			let mut backed_and_concluding = BTreeMap::new();
+		let config = default_config();
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
+		new_test_ext(config).execute_with(|| {
+			// Set the elastic scaling MVP feature.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::ElasticScalingMVP as u8,
+				true,
+			)
+			.unwrap();
 
-			for i in 0..10 {
-				backed_and_concluding.insert(i, i);
-			}
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+
+			let unavailable_cores = vec![];
 
 			let scenario = make_inherent_data(TestConfig {
 				dispute_statements: BTreeMap::new(),
-				dispute_sessions: vec![],
+				dispute_sessions: vec![], // No disputes
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
-				fill_claimqueue: false,
-				elastic_paras: BTreeMap::new(),
-				unavailable_cores: vec![],
+				fill_claimqueue: true,
+				// 8 cores !
+				elastic_paras: [(2, 8)].into_iter().collect(),
+				unavailable_cores: unavailable_cores.clone(),
 				v2_descriptor: true,
 			});
 
-			let unfiltered_para_inherent_data = scenario.data.clone();
+			let mut unfiltered_para_inherent_data = scenario.data.clone();
 
 			// Check the para inherent data is as expected:
 			// * 1 bitfield per validator (5 validators per core, 10 backed candidates)
 			assert_eq!(unfiltered_para_inherent_data.bitfields.len(), 50);
 			// * 10 v2 candidate descriptors.
 			assert_eq!(unfiltered_para_inherent_data.backed_candidates.len(), 10);
+
+			// Make the last candidate look like v1, by using an unknown version.
+			unfiltered_para_inherent_data.backed_candidates[9]
+				.descriptor_mut()
+				.set_version(InternalVersion(123));
 
 			let mut inherent_data = InherentData::new();
 			inherent_data

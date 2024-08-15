@@ -954,14 +954,15 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 /// subsequent candidates after the filtered one.
 ///
 /// Filter out:
-/// 1. any candidates which don't form a chain with the other candidates of the paraid (even if they
+/// 1. Candidates that have v2 descriptors if the node `CandidateReceiptV2` feature is not enabled.
+/// 2. any candidates which don't form a chain with the other candidates of the paraid (even if they
 ///    do form a chain but are not in the right order).
-/// 2. any candidates that have a concluded invalid dispute or who are descendants of a concluded
+/// 3. any candidates that have a concluded invalid dispute or who are descendants of a concluded
 ///    invalid candidate.
-/// 3. any unscheduled candidates, as well as candidates whose paraid has multiple cores assigned
+/// 4. any unscheduled candidates, as well as candidates whose paraid has multiple cores assigned
 ///    but have no injected core index.
-/// 4. all backing votes from disabled validators
-/// 5. any candidates that end up with less than `effective_minimum_backing_votes` backing votes
+/// 5. all backing votes from disabled validators
+/// 6. any candidates that end up with less than `effective_minimum_backing_votes` backing votes
 ///
 /// Returns the scheduled
 /// backed candidates which passed filtering, mapped by para id and in the right dependency order.
@@ -978,6 +979,8 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	let mut candidates_per_para: BTreeMap<ParaId, Vec<_>> = BTreeMap::new();
 	for candidate in backed_candidates {
 		// Drop any v2 candidate receipts if nodes are not allowed to use them.
+		// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
+		// any v1 descendants of v2 candidates are dropped.
 		if !allow_v2_receipts && candidate.descriptor().version() == CandidateDescriptorVersion::V2
 		{
 			continue
