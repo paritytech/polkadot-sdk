@@ -1015,6 +1015,7 @@ pub fn run_relay_chain_validator_node(
 			rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
 			rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
 			retry_random_port: true,
+			is_optional: false,
 		}]);
 	}
 
