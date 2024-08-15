@@ -1645,6 +1645,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1494" id="1494">1494</a>
 <a href="#1495" id="1495">1495</a>
 <a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1693,6 +1697,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>VariantCount <span class="kw">for </span>() {
 	<span class="kw">const </span>VARIANT_COUNT: u32 = <span class="number">0</span>;
+}
+
+<span class="kw">impl </span>VariantCount <span class="kw">for </span>u8 {
+	<span class="kw">const </span>VARIANT_COUNT: u32 = <span class="number">256</span>;
 }
 
 <span class="doccomment">/// Adapter for `Get&lt;u32&gt;` to access `VARIANT_COUNT` from `trait pub trait VariantCount {`.
