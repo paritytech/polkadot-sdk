@@ -790,7 +790,7 @@ version = "7.0.1"
 path = "../cumulus/primitives/timestamp"
 default-features = false
 optional = true
-version = "0.15.0"
+version = "0.15.1"
 
 [dependencies.cumulus-primitives-utility]
 path = "../cumulus/primitives/utility"
