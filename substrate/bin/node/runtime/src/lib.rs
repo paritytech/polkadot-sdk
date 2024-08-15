@@ -1630,6 +1630,7 @@ impl pallet_beefy_mmr::Config for Runtime {
 	type BeefyAuthorityToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaToEthereum;
 	type LeafExtra = Vec<u8>;
 	type BeefyDataProvider = ();
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -2606,6 +2607,7 @@ mod benches {
 		[pallet_babe, Babe]
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
+		[pallet_beefy_mmr, MmrLeaf]
 		[pallet_bounties, Bounties]
 		[pallet_broker, Broker]
 		[pallet_child_bounties, ChildBounties]
@@ -2802,6 +2804,14 @@ impl_runtime_apis! {
 
 		fn member_needs_delegate_migration(member: AccountId) -> bool {
 			NominationPools::api_member_needs_delegate_migration(member)
+		}
+
+		fn member_total_balance(member: AccountId) -> Balance {
+			NominationPools::api_member_total_balance(member)
+		}
+
+		fn pool_balance(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+			NominationPools::api_pool_balance(pool_id)
 		}
 	}
 
