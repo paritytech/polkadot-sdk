@@ -13,4 +13,4 @@ doc:
 
 crates:
 - name: polkadot-sdk
-  bump: minor
+  bump: patch
