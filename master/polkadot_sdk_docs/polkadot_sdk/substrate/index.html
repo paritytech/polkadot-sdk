@@ -213,7 +213,7 @@ categories:</p>
 <ul>
 <li><code>sc-*</code> (short for <em>Substrate-client</em>) crates, located under <code>./client</code> folder. These are all
 the crates that lead to the node software. Notable examples are <a href="../../../sc_network/index.html" title="mod sc_network"><code>sc_network</code></a>, various
-consensus crates, RPC (<a href="../../../sc_rpc_api/index.html" title="mod sc_rpc_api"><code>sc_rpc_api</code></a>) and database ([<code>sc_client_db</code>]), all of which are
+consensus crates, RPC (<a href="../../../sc_rpc_api/index.html" title="mod sc_rpc_api"><code>sc_rpc_api</code></a>) and database (<a href="../../../sc_client_db/index.html" title="mod sc_client_db"><code>sc_client_db</code></a>), all of which are
 expected to reside in the node side.</li>
 <li><code>sp-*</code> (short for <em>substrate-primitives</em>) crates, located under <code>./primitives</code> folder. These
 are crates that facilitate both the node and the runtime, but are not opinionated about what
@@ -250,7 +250,7 @@ node. Other projects typically contain a <code>build-spec</code> subcommand that
 <li><a href="https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin/node"><code>node_template</code></a>:
 a template node that contains a minimal set of features and can act as a starting point of a
 project.</li>
-<li><a href="../../../subkey/index.html" title="mod subkey"><code>subkey</code></a>: Substrate’s key management utility.</li>
+<li>[<code>subkey</code>]: Substrate’s key management utility.</li>
 </ul>
 <h4 id="anatomy-of-a-binary-crate"><a class="doc-anchor" href="#anatomy-of-a-binary-crate">§</a>Anatomy of a Binary Crate</h4>
 <p>From the above, <a href="../../../staging_node_cli/index.html" title="mod staging_node_cli"><code>node_cli</code></a>/[<code>kitchensink_runtime</code>] and <code>node-template</code> are essentially
