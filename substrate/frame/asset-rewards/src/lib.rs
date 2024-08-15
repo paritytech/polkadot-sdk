@@ -373,8 +373,6 @@ pub mod pallet {
 		Overflow,
 		/// Insufficient funds to create the freeze.
 		InsufficientFunds,
-		/// Pool creation cost defined by [`Config::Consideration`] is not applied.
-		PoolCostNotApplied,
 	}
 
 	#[pallet::hooks]
@@ -432,11 +430,8 @@ pub mod pallet {
 			let pool_id = NextPoolId::<T>::get();
 
 			let footprint = Self::pool_creation_footprint();
-			if let Some(cost) = T::Consideration::new(&creator, footprint)
-				.map_err(|_| Error::<T>::PoolCostNotApplied)?
-			{
-				PoolCost::<T>::insert(pool_id, (creator.clone(), cost));
-			}
+			let cost = T::Consideration::new(&creator, footprint)?;
+			PoolCost::<T>::insert(pool_id, (creator.clone(), cost));
 
 			// Get the admin, defaulting to the origin.
 			let admin = admin.unwrap_or(creator.clone());
