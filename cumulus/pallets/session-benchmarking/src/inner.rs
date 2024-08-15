@@ -15,7 +15,7 @@
 
 //! Benchmarking setup for pallet-session.
 
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 
 use codec::Decode;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
