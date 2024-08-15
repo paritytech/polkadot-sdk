@@ -13,7 +13,7 @@ doc:
 
 crates:
 - name: polkadot-sdk (umbrella)
-  bumb: minor
+  bump: minor
 - name: pallet-distribution
   bump: major
 - name: pallet-opf
