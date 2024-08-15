@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723673035726,
+  "lastUpdate": 1723687443336,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -8441,6 +8441,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.044672917006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Ankan",
+            "username": "Ank4n",
+            "email": "10196091+Ank4n@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ebf4f8d2d590f41817d5d38b2d9b5812a46f2342",
+          "message": "[Pools] fix derivation of pool account (#4999)\n\ncloses https://github.com/paritytech-secops/srlabs_findings/issues/408.\nThis fixes how ProxyDelegator accounts are derived but may cause issues\nin Westend since it would use the old derivative accounts. Does not\naffect Polkadot/Kusama as this pallet is not deployed to them yet.\n\n---------\n\nCo-authored-by: Gonçalo Pestana <g6pestana@gmail.com>",
+          "timestamp": "2024-08-15T00:10:31Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ebf4f8d2d590f41817d5d38b2d9b5812a46f2342"
+        },
+        "date": 1723687412250,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.94399999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.036502698539999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04518643322399999,
             "unit": "seconds"
           }
         ]
