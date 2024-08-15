@@ -415,6 +415,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -555,6 +559,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">let </span><span class="kw-2">mut </span>last_processed_slot = <span class="number">0</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>last_relay_chain_block = Default::default();
 
 		<span class="kw">while let </span><span class="prelude-val">Some</span>(request) = collation_requests.next().<span class="kw">await </span>{
 			<span class="macro">macro_rules! </span>reject_with_error {
@@ -632,11 +637,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			//
 			// Most parachains currently run with 12 seconds slots and thus, they would try to
 			// produce multiple blocks per slot which very likely would fail on chain. Thus, we have
-			// this "hack" to only produce on block per slot.
+			// this "hack" to only produce one block per slot per relay chain fork.
 			//
 			// With https://github.com/paritytech/polkadot-sdk/issues/3168 this implementation will be
 			// obsolete and also the underlying issue will be fixed.
-			</span><span class="kw">if </span>last_processed_slot &gt;= <span class="kw-2">*</span>claim.slot() {
+			</span><span class="kw">if </span>last_processed_slot &gt;= <span class="kw-2">*</span>claim.slot() &amp;&amp;
+				last_relay_chain_block &lt; <span class="kw-2">*</span>relay_parent_header.number()
+			{
 				<span class="kw">continue
 			</span>}
 
@@ -678,6 +685,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			last_processed_slot = <span class="kw-2">*</span>claim.slot();
+			last_relay_chain_block = <span class="kw-2">*</span>relay_parent_header.number();
 		}
 	}
 }

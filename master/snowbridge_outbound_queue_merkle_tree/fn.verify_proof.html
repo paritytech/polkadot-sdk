@@ -155,7 +155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     leaf_index: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
     leaf: L
 ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a><div class="where">where
-    H: Hash&lt;Output = H256&gt;,
+    H: <a class="trait" href="../sp_runtime/traits/trait.Hash.html" title="trait sp_runtime::traits::Hash">Hash</a>&lt;Output = H256&gt;,
     P: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/iter/traits/collect/trait.IntoIterator.html" title="trait core::iter::traits::collect::IntoIterator">IntoIterator</a>&lt;Item = H256&gt;,
     L: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="enum.Leaf.html" title="enum snowbridge_outbound_queue_merkle_tree::Leaf">Leaf</a>&lt;'a&gt;&gt;,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Verify Merkle Proof correctness versus given root hash.</p>
 <p>The proof is NOT expected to contain leaf hash as the first
