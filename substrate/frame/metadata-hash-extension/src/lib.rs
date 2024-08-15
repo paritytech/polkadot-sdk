@@ -69,7 +69,7 @@ enum MetadataHash {
 	Custom([u8; 32]),
 }
 
-static RUNTIME_METADATA: Option<[u8; 32]> = match option_env!("RUNTIME_METADATA_HASH") {
+const RUNTIME_METADATA: Option<[u8; 32]> = match option_env!("RUNTIME_METADATA_HASH") {
 	Some(hex) => utils::hex_str_to_32_bytes(hex),
 	None => None,
 };
