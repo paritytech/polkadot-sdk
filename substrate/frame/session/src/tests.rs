@@ -87,11 +87,11 @@ fn purge_keys_works_for_stash_id() {
 		let id = DUMMY;
 		assert_eq!(Session::key_owner(id, UintAuthorityId(1).get_raw(id)), Some(1));
 
-		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(10)));
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(1)));
 		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(2)));
 
-		assert_eq!(Session::load_keys(&10), None);
-		assert_eq!(Session::load_keys(&20), None);
+		assert_eq!(Session::load_keys(&1), None);
+		assert_eq!(Session::load_keys(&2), None);
 		assert_eq!(Session::key_owner(id, UintAuthorityId(10).get_raw(id)), None);
 		assert_eq!(Session::key_owner(id, UintAuthorityId(20).get_raw(id)), None);
 	})

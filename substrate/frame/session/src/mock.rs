@@ -23,17 +23,9 @@ use crate as pallet_session;
 use crate::historical as pallet_session_historical;
 
 use codec::Encode;
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
-use sp_core::{crypto::key_types::DUMMY, H256};
-use sp_runtime::{
-	impl_opaque_keys,
-	testing::UintAuthorityId,
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use frame_support::{derive_impl, parameter_types, traits::ConstU64};
+use sp_core::crypto::key_types::DUMMY;
+use sp_runtime::{impl_opaque_keys, testing::UintAuthorityId, BuildStorage};
 use sp_staking::SessionIndex;
 use sp_state_machine::BasicExternalities;
 use std::collections::BTreeMap;
