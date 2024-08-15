@@ -10,6 +10,7 @@ The current available command actions are:
 
 - [Command FMT](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-fmt.yml)
 - [Command Update UI](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-update-ui.yml)
+- [Command Prdoc](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-prdoc.yml)
 - [Command Sync](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-sync.yml)
 - [Command Bench](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-bench.yml)
 - [Command Bench All](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-bench-all.yml)
@@ -234,6 +235,16 @@ You can use the following [`gh cli`](https://cli.github.com/) inside the repo:
 ```bash
 gh workflow run command-bench-overheard.yml -f pr=1000 -f benchmark=substrate -f runtime=rococo -f target_dir=substrate
 ```
+
+### PrDoc
+
+Generate a PrDoc with the crates populated by all modified crates.
+
+Options:
+- `pr`: The PR number to generate the PrDoc for.
+- `audience`: The audience of whom the changes may concern.
+- `bump`: A default bump level for all crates. The PrDoc will likely need to be edited to reflect the actual changes after generation.
+- `overwrite`: Whether to overwrite any existing PrDoc.
 
 ### Sync
 
