@@ -1,0 +1,44 @@
+[package]
+name = "bp-bridge-hub-cumulus"
+description = "Primitives for BridgeHub parachain runtimes."
+version = "0.7.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Bridge Dependencies
+
+bp-polkadot-core = { workspace = true }
+bp-messages = { workspace = true }
+bp-runtime = { workspace = true }
+
+# Substrate Based Dependencies
+
+frame-system = { workspace = true }
+frame-support = { workspace = true }
+sp-api = { workspace = true }
+sp-std = { workspace = true }
+
+# Polkadot Dependencies
+polkadot-primitives = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"bp-messages/std",
+	"bp-polkadot-core/std",
+	"bp-runtime/std",
+	"frame-support/std",
+	"frame-system/std",
+	"polkadot-primitives/std",
+	"sp-api/std",
+	"sp-std/std",
+]

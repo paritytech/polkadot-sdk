@@ -17,21 +17,21 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use futures::{channel::oneshot, StreamExt};
-use libp2p::PeerId;
+use sc_network_types::PeerId;
 
 use sc_network::{
 	request_responses::{IfDisconnected, RequestFailure},
 	types::ProtocolName,
-	NetworkNotification, NetworkPeers, NetworkRequest, ReputationChange,
+	NetworkPeers, NetworkRequest, ReputationChange,
 };
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 
 use std::sync::Arc;
 
 /// Network-related services required by `sc-network-sync`
-pub trait Network: NetworkPeers + NetworkRequest + NetworkNotification {}
+pub trait Network: NetworkPeers + NetworkRequest {}
 
-impl<T> Network for T where T: NetworkPeers + NetworkRequest + NetworkNotification {}
+impl<T> Network for T where T: NetworkPeers + NetworkRequest {}
 
 /// Network service provider for `ChainSync`
 ///
@@ -57,12 +57,6 @@ pub enum ToServiceCommand {
 		oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 		IfDisconnected,
 	),
-
-	/// Call `NetworkNotification::write_notification()`
-	WriteNotification(PeerId, ProtocolName, Vec<u8>),
-
-	/// Call `NetworkNotification::set_notification_handshake()`
-	SetNotificationHandshake(ProtocolName, Vec<u8>),
 }
 
 /// Handle that is (temporarily) passed to `ChainSync` so it can
@@ -101,20 +95,6 @@ impl NetworkServiceHandle {
 			.tx
 			.unbounded_send(ToServiceCommand::StartRequest(who, protocol, request, tx, connect));
 	}
-
-	/// Send notification to peer
-	pub fn write_notification(&self, who: PeerId, protocol: ProtocolName, message: Vec<u8>) {
-		let _ = self
-			.tx
-			.unbounded_send(ToServiceCommand::WriteNotification(who, protocol, message));
-	}
-
-	/// Set handshake for the notification protocol.
-	pub fn set_notification_handshake(&self, protocol: ProtocolName, handshake: Vec<u8>) {
-		let _ = self
-			.tx
-			.unbounded_send(ToServiceCommand::SetNotificationHandshake(protocol, handshake));
-	}
 }
 
 impl NetworkServiceProvider {
@@ -135,10 +115,6 @@ impl NetworkServiceProvider {
 					service.report_peer(peer, reputation_change),
 				ToServiceCommand::StartRequest(peer, protocol, request, tx, connect) =>
 					service.start_request(peer, protocol, request, None, tx, connect),
-				ToServiceCommand::WriteNotification(peer, protocol, message) =>
-					service.write_notification(peer, protocol, message),
-				ToServiceCommand::SetNotificationHandshake(protocol, handshake) =>
-					service.set_notification_handshake(protocol, handshake),
 			}
 		}
 	}

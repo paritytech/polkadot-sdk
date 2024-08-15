@@ -38,7 +38,10 @@ use finality::{EncodedFinalityProof, RpcFinalityProofProvider};
 use notification::JustificationNotification;
 use report::{ReportAuthoritySet, ReportVoterState, ReportedRoundStates};
 use sc_consensus_grandpa::GrandpaJustificationStream;
-use sc_rpc::{utils::pipe_from_stream, SubscriptionTaskExecutor};
+use sc_rpc::{
+	utils::{BoundedVecDeque, PendingSubscription},
+	SubscriptionTaskExecutor,
+};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 /// Provides RPC methods for interacting with GRANDPA.
@@ -108,7 +111,10 @@ where
 			},
 		);
 
-		sc_rpc::utils::spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
+		sc_rpc::utils::spawn_subscription_task(
+			&self.executor,
+			PendingSubscription::from(pending).pipe_from_stream(stream, BoundedVecDeque::default()),
+		);
 	}
 
 	async fn prove_finality(
@@ -125,10 +131,10 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::{collections::HashSet, convert::TryInto, sync::Arc};
+	use std::{collections::HashSet, sync::Arc};
 
+	use codec::{Decode, Encode};
 	use jsonrpsee::{core::EmptyServerParams as EmptyParams, types::SubscriptionId, RpcModule};
-	use parity_scale_codec::{Decode, Encode};
 	use sc_block_builder::BlockBuilderBuilder;
 	use sc_consensus_grandpa::{
 		report, AuthorityId, FinalityProof, GrandpaJustification, GrandpaJustificationSender,

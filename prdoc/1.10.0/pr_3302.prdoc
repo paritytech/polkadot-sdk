@@ -1,0 +1,24 @@
+title: Collator protocol changes for elastic scaling
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR introduces changes to the collator protocol to support elastic scaling.
+      Namely, a new variant added to the collation response to include parent head-data
+      along with the collation. Currently, the new variant is not being used.
+  - audience: Node Operator
+    description: |
+      Validators are required to upgrade to this version before collators in order to
+      support the elastic scaling of parachains.
+
+crates:
+  - name: polkadot-collator-protocol
+    bump: major
+  - name: polkadot-node-network-protocol
+    bump: major
+  - name: polkadot-node-subsystem-types
+    bump: major
+  - name: polkadot-node-collation-generation
+    bump: minor
+  - name: polkadot-node-core-prospective-parachains
+    bump: minor

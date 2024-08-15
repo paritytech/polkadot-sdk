@@ -18,14 +18,11 @@ use crate as pallet_skip_feeless_payment;
 
 use frame_support::{derive_impl, parameter_types};
 use frame_system as system;
-use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{OriginOf, TransactionExtension},
-};
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
+type AccountId = u64;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 }
@@ -36,27 +33,39 @@ impl Config for Runtime {
 
 parameter_types! {
 	pub static PreDispatchCount: u32 = 0;
+	pub static ValidateCount: u32 = 0;
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct DummyExtension;
 
-impl TransactionExtensionBase for DummyExtension {
-	const IDENTIFIER: &'static str = "DummyExtension";
-	type Implicit = ();
-}
-impl<C> TransactionExtension<RuntimeCall, C> for DummyExtension {
-	type Val = ();
+impl SignedExtension for DummyExtension {
+	type AccountId = AccountId;
+	type Call = RuntimeCall;
+	type AdditionalSigned = ();
 	type Pre = ();
-	impl_tx_ext_default!(RuntimeCall; C; validate);
-	fn prepare(
-		self,
-		_val: Self::Val,
-		_origin: &OriginOf<RuntimeCall>,
-		_call: &RuntimeCall,
-		_info: &DispatchInfoOf<RuntimeCall>,
+	const IDENTIFIER: &'static str = "DummyExtension";
+	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
+		Ok(())
+	}
+
+	fn validate(
+		&self,
+		_who: &Self::AccountId,
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
-		_context: &C,
+	) -> TransactionValidity {
+		ValidateCount::mutate(|c| *c += 1);
+		Ok(Default::default())
+	}
+
+	fn pre_dispatch(
+		self,
+		_who: &Self::AccountId,
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		PreDispatchCount::mutate(|c| *c += 1);
 		Ok(())

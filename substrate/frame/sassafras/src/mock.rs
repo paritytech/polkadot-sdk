@@ -34,8 +34,7 @@ use sp_core::{
 	H256, U256,
 };
 use sp_runtime::{
-	generic::UncheckedExtrinsic,
-	testing::{Digest, DigestItem, Header},
+	testing::{Digest, DigestItem, Header, TestXt},
 	BuildStorage,
 };
 
@@ -44,7 +43,7 @@ const LOG_TARGET: &str = "sassafras::tests";
 const EPOCH_LENGTH: u32 = 10;
 const MAX_AUTHORITIES: u32 = 100;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = frame_system::mocking::MockBlock<Test>;
 }
@@ -54,7 +53,7 @@ where
 	RuntimeCall: From<C>,
 {
 	type OverarchingCall = RuntimeCall;
-	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
+	type Extrinsic = TestXt<RuntimeCall, ()>;
 }
 
 impl pallet_sassafras::Config for Test {

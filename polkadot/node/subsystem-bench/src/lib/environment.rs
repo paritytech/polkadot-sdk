@@ -118,6 +118,7 @@ fn new_runtime() -> tokio::runtime::Runtime {
 		.thread_name("subsystem-bench")
 		.enable_all()
 		.thread_stack_size(3 * 1024 * 1024)
+		.worker_threads(4)
 		.build()
 		.unwrap()
 }
@@ -350,13 +351,8 @@ impl TestEnvironment {
 		}
 	}
 
-	pub fn collect_resource_usage(
-		&self,
-		benchmark_name: &str,
-		subsystems_under_test: &[&str],
-	) -> BenchmarkUsage {
+	pub fn collect_resource_usage(&self, subsystems_under_test: &[&str]) -> BenchmarkUsage {
 		BenchmarkUsage {
-			benchmark_name: benchmark_name.to_string(),
 			network_usage: self.network_usage(),
 			cpu_usage: self.cpu_usage(subsystems_under_test),
 		}
@@ -403,7 +399,7 @@ impl TestEnvironment {
 		let total_cpu = test_env_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
 
 		usage.push(ResourceUsage {
-			resource_name: "Test environment".to_string(),
+			resource_name: "test-environment".to_string(),
 			total: total_cpu,
 			per_block: total_cpu / num_blocks,
 		});

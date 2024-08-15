@@ -18,7 +18,7 @@
 #![cfg(any(all(feature = "try-runtime", test), doc))]
 
 use crate::*;
-use frame_support::{derive_impl, traits::ConstU64, weights::constants::ParityDbWeight};
+use frame_support::{derive_impl, weights::constants::ParityDbWeight};
 
 // Re-export crate as its pallet name for construct_runtime.
 use crate as pallet_example_storage_migration;
@@ -34,27 +34,16 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for MockRuntime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
 	type DbWeight = ParityDbWeight;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for MockRuntime {
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = u64;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
 }
 
 impl Config for MockRuntime {}

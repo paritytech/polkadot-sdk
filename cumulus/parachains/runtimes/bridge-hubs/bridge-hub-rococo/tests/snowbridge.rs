@@ -22,7 +22,7 @@ use bridge_hub_rococo_runtime::{
 	bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
 	xcm_config::XcmConfig, AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages,
 	Executive, MessageQueueServiceWeight, Runtime, RuntimeCall, RuntimeEvent, SessionKeys,
-	TxExtension, UncheckedExtrinsic,
+	SignedExtra, UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
 use cumulus_primitives_core::XcmError::{FailedToTransactAsset, NotHoldingFees};
@@ -171,7 +171,7 @@ fn construct_extrinsic(
 	call: RuntimeCall,
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
-	let tx_ext: TxExtension = (
+	let extra: SignedExtra = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
@@ -187,15 +187,12 @@ fn construct_extrinsic(
 			OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
 			OnBridgeHubRococoRefundRococoBulletinMessages::default(),
 		),
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
+		frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 	);
-	let payload = SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
+	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));
-	UncheckedExtrinsic::new_signed(
-		call,
-		account_id.into(),
-		Signature::Sr25519(signature.clone()),
-		tx_ext,
-	)
+	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), extra)
 }
 
 fn construct_and_apply_extrinsic(

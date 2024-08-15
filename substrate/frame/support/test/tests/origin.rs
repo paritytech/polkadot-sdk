@@ -23,7 +23,6 @@ use frame_support::{
 	derive_impl,
 	traits::{Contains, OriginTrait},
 };
-use sp_core::ConstU32;
 use sp_runtime::{generic, traits::BlakeTwo256};
 
 mod nested {
@@ -66,7 +65,7 @@ mod nested {
 		#[derive(frame_support::DefaultNoBound)]
 		pub struct GenesisConfig<T: Config> {
 			#[serde(skip)]
-			pub _config: sp_std::marker::PhantomData<T>,
+			pub _config: core::marker::PhantomData<T>,
 		}
 
 		#[pallet::genesis_build]
@@ -136,7 +135,7 @@ pub mod module {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -170,11 +169,10 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for RuntimeOriginTest {
 	type BaseCallFilter = BaseCallFilter;
 	type Block = Block;
-	type BlockHashCount = ConstU32<10>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;

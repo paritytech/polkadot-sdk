@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use super::*;
-use frame_support_procedural::import_section;
 use sp_io::{MultiRemovalResults, TestExternalities};
 use sp_metadata_ir::{
 	PalletStorageMetadataIR, StorageEntryMetadataIR, StorageEntryModifierIR, StorageEntryTypeIR,
@@ -26,11 +25,8 @@ use sp_runtime::{generic, traits::BlakeTwo256, BuildStorage};
 
 pub use self::frame_system::{pallet_prelude::*, Config, Pallet};
 
-mod inject_runtime_type;
 mod storage_alias;
-mod tasks;
 
-#[import_section(tasks::tasks_example)]
 #[pallet]
 pub mod frame_system {
 	#[allow(unused)]
@@ -220,14 +216,27 @@ type Header = generic::Header<BlockNumber, BlakeTwo256>;
 type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;
 type Block = generic::Block<Header, UncheckedExtrinsic>;
 
-crate::construct_runtime!(
-	pub enum Runtime
-	{
-		System: self::frame_system,
-	}
-);
+#[crate::runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Runtime;
 
-#[crate::derive_impl(self::frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[runtime::pallet_index(0)]
+	pub type System = self::frame_system;
+}
+
+#[crate::derive_impl(self::frame_system::config_preludes::TestDefaultConfig as self::frame_system::DefaultConfig)]
 impl Config for Runtime {
 	type Block = Block;
 	type AccountId = AccountId;

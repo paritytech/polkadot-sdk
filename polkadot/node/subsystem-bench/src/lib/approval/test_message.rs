@@ -18,11 +18,11 @@ use crate::{
 	approval::{ApprovalsOptions, BlockTestData, CandidateTestData},
 	configuration::TestAuthorities,
 };
+use codec::{Decode, Encode};
 use itertools::Itertools;
-use parity_scale_codec::{Decode, Encode};
 use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_primitives::{CandidateIndex, Hash, ValidatorIndex};
-use sc_network::PeerId;
+use sc_network_types::PeerId;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
@@ -31,7 +31,7 @@ pub struct TestMessageInfo {
 	pub msg: protocol_v3::ApprovalDistributionMessage,
 	/// The list of peers that would sends this message in a real topology.
 	/// It includes both the peers that would send the message because of the topology
-	/// or because of randomly chosing so.
+	/// or because of randomly choosing so.
 	pub sent_by: Vec<ValidatorIndex>,
 	/// The tranche at which this message should be sent.
 	pub tranche: u32,
@@ -90,7 +90,7 @@ impl MessagesBundle {
 
 	/// Tells if the bundle is needed for sending.
 	/// We either send it because we need more assignments and approvals to approve the candidates
-	/// or because we configured the test to send messages untill a given tranche.
+	/// or because we configured the test to send messages until a given tranche.
 	pub fn should_send(
 		&self,
 		candidates_test_data: &HashMap<(Hash, CandidateIndex), CandidateTestData>,
@@ -174,24 +174,24 @@ impl TestMessageInfo {
 		}
 	}
 
-	/// Returns a list of candidates indicies in this message
+	/// Returns a list of candidates indices in this message
 	pub fn candidate_indices(&self) -> HashSet<usize> {
-		let mut unique_candidate_indicies = HashSet::new();
+		let mut unique_candidate_indices = HashSet::new();
 		match &self.msg {
 			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) =>
 				for (_assignment, candidate_indices) in assignments {
 					for candidate_index in candidate_indices.iter_ones() {
-						unique_candidate_indicies.insert(candidate_index);
+						unique_candidate_indices.insert(candidate_index);
 					}
 				},
 			protocol_v3::ApprovalDistributionMessage::Approvals(approvals) =>
 				for approval in approvals {
 					for candidate_index in approval.candidate_indices.iter_ones() {
-						unique_candidate_indicies.insert(candidate_index);
+						unique_candidate_indices.insert(candidate_index);
 					}
 				},
 		}
-		unique_candidate_indicies
+		unique_candidate_indices
 	}
 
 	/// Marks this message as no-shows if the number of configured no-shows is above the registered

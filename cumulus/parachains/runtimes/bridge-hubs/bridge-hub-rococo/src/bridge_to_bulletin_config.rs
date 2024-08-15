@@ -20,33 +20,26 @@
 //! are reusing Polkadot Bulletin chain primitives everywhere here.
 
 use crate::{
-	bridge_common_config::{BridgeGrandpaRococoBulletinInstance, BridgeHubRococo},
-	weights,
-	xcm_config::UniversalLocation,
-	AccountId, BridgeRococoBulletinGrandpa, BridgeRococoBulletinMessages, PolkadotXcm, Runtime,
-	RuntimeEvent, XcmOverRococoBulletin, XcmRouter,
+	weights, xcm_config::UniversalLocation, BridgeRococoBulletinGrandpa,
+	BridgeRococoBulletinMessages, PolkadotXcm, Runtime, RuntimeEvent, XcmOverRococoBulletin,
+	XcmRouter,
 };
-use bp_messages::LaneId;
-use bp_runtime::Chain;
+use bp_messages::{
+	source_chain::FromBridgedChainMessagesDeliveryProof,
+	target_chain::FromBridgedChainMessagesProof, LaneId,
+};
 use bridge_runtime_common::{
-	messages,
-	messages::{
-		source::{FromBridgedChainMessagesDeliveryProof, TargetHeaderChainAdapter},
-		target::{FromBridgedChainMessagesProof, SourceHeaderChainAdapter},
-		MessageBridge, UnderlyingChainProvider,
+	extensions::refund_relayer_extension::{
+		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
+		RefundableMessagesLane,
 	},
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
 		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
-	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedGrandpaMessages, RefundTransactionExtensionAdapter,
-		RefundableMessagesLane,
-	},
 };
 
 use frame_support::{parameter_types, traits::PalletInfoAccess};
-use sp_runtime::RuntimeDebug;
 use xcm::{
 	latest::prelude::*,
 	prelude::{InteriorLocation, NetworkId},
@@ -54,17 +47,6 @@ use xcm::{
 use xcm_builder::BridgeBlobDispatcher;
 
 parameter_types! {
-	/// Maximal number of entries in the unrewarded relayers vector at the Rococo Bridge Hub. It matches the
-	/// maximal number of unrewarded relayers that the single confirmation transaction at Rococo Bulletin Chain
-	/// may process.
-	pub const MaxUnrewardedRelayerEntriesAtInboundLane: bp_messages::MessageNonce =
-		bp_polkadot_bulletin::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
-	/// Maximal number of unconfirmed messages at the Rococo Bridge Hub. It matches the maximal number of
-	/// unconfirmed messages that the single confirmation transaction at Rococo Bulletin Chain may process.
-	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
-		bp_polkadot_bulletin::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
-	/// Bridge specific chain (network) identifier of the Rococo Bulletin Chain.
-	pub const RococoBulletinChainId: bp_runtime::ChainId = bp_polkadot_bulletin::PolkadotBulletin::ID;
 	/// Interior location (relative to this runtime) of the with-RococoBulletin messages pallet.
 	pub BridgeRococoToRococoBulletinMessagesPalletInstance: InteriorLocation = [
 		PalletInstance(<BridgeRococoBulletinMessages as PalletInfoAccess>::index() as u8)
@@ -83,6 +65,9 @@ parameter_types! {
 	pub const RococoPeopleToRococoBulletinMessagesLane: bp_messages::LaneId
 		= XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN;
 
+	// see the `FEE_BOOST_PER_RELAY_HEADER` constant get the meaning of this value
+	pub PriorityBoostPerRelayHeader: u64 = 58_014_163_614_163;
+
 	/// Priority boost that the registered relayer receives for every additional message in the message
 	/// delivery transaction.
 	///
@@ -99,7 +84,7 @@ parameter_types! {
 		XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
 	);
 	/// All active routes and their destinations.
-	pub ActiveLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = sp_std::vec![
+	pub ActiveLanes: alloc::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = alloc::vec![
 			(
 				FromRococoPeopleToRococoBulletinRoute::get(),
 				(RococoBulletinGlobalConsensusNetwork::get(), Here)
@@ -141,37 +126,11 @@ impl XcmBlobHauler for ToRococoBulletinXcmBlobHauler {
 type OnMessagesDeliveredFromRococoBulletin =
 	XcmBlobHaulerAdapter<ToRococoBulletinXcmBlobHauler, ActiveLanes>;
 
-/// Messaging Bridge configuration for BridgeHubRococo -> Rococo Bulletin.
-pub struct WithRococoBulletinMessageBridge;
-impl MessageBridge for WithRococoBulletinMessageBridge {
-	// Bulletin chain assumes it is bridged with Polkadot Bridge Hub
-	const BRIDGED_MESSAGES_PALLET_NAME: &'static str =
-		bp_bridge_hub_polkadot::WITH_BRIDGE_HUB_POLKADOT_MESSAGES_PALLET_NAME;
-	type ThisChain = BridgeHubRococo;
-	type BridgedChain = RococoBulletin;
-	type BridgedHeaderChain = BridgeRococoBulletinGrandpa;
-}
-
-/// Maximal outbound payload size of BridgeHubRococo -> RococoBulletin messages.
-pub type ToRococoBulletinMaximalOutboundPayloadSize =
-	messages::source::FromThisChainMaximalOutboundPayloadSize<WithRococoBulletinMessageBridge>;
-
-/// RococoBulletin chain from message lane point of view.
-#[derive(RuntimeDebug, Clone, Copy)]
-pub struct RococoBulletin;
-
-impl UnderlyingChainProvider for RococoBulletin {
-	type Chain = bp_polkadot_bulletin::PolkadotBulletin;
-}
-
-impl messages::BridgedChainWithMessages for RococoBulletin {}
-
 /// Signed extension that refunds relayers that are delivering messages from the Rococo Bulletin
 /// chain.
-pub type OnBridgeHubRococoRefundRococoBulletinMessages = RefundTransactionExtensionAdapter<
-	RefundBridgedGrandpaMessages<
+pub type OnBridgeHubRococoRefundRococoBulletinMessages = RefundSignedExtensionAdapter<
+	RefundBridgedMessages<
 		Runtime,
-		BridgeGrandpaRococoBulletinInstance,
 		RefundableMessagesLane<
 			WithRococoBulletinMessagesInstance,
 			RococoPeopleToRococoBulletinMessagesLane,
@@ -189,22 +148,20 @@ impl pallet_bridge_messages::Config<WithRococoBulletinMessagesInstance> for Runt
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo =
 		weights::pallet_bridge_messages_rococo_to_rococo_bulletin::WeightInfo<Runtime>;
-	type BridgedChainId = RococoBulletinChainId;
-	type ActiveOutboundLanes = ActiveOutboundLanesToRococoBulletin;
-	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
-	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
 
-	type MaximalOutboundPayloadSize = ToRococoBulletinMaximalOutboundPayloadSize;
+	type ThisChain = bp_bridge_hub_rococo::BridgeHubRococo;
+	type BridgedChain = bp_polkadot_bulletin::PolkadotBulletin;
+	type BridgedHeaderChain = BridgeRococoBulletinGrandpa;
+
+	type ActiveOutboundLanes = ActiveOutboundLanesToRococoBulletin;
+
 	type OutboundPayload = XcmAsPlainPayload;
 
 	type InboundPayload = XcmAsPlainPayload;
-	type InboundRelayer = AccountId;
 	type DeliveryPayments = ();
 
-	type TargetHeaderChain = TargetHeaderChainAdapter<WithRococoBulletinMessageBridge>;
 	type DeliveryConfirmationPayments = ();
 
-	type SourceHeaderChain = SourceHeaderChainAdapter<WithRococoBulletinMessageBridge>;
 	type MessageDispatch =
 		XcmBlobMessageDispatch<FromRococoBulletinMessageBlobDispatcher, Self::WeightInfo, ()>;
 	type OnMessagesDelivered = OnMessagesDeliveredFromRococoBulletin;
@@ -244,6 +201,9 @@ mod tests {
 	/// operational costs and a faster bridge), so this value should be significant.
 	const FEE_BOOST_PER_MESSAGE: Balance = 2 * rococo::currency::UNITS;
 
+	// see `FEE_BOOST_PER_MESSAGE` comment
+	const FEE_BOOST_PER_RELAY_HEADER: Balance = 2 * rococo::currency::UNITS;
+
 	#[test]
 	fn ensure_bridge_hub_rococo_message_lane_weights_are_correct() {
 		check_message_lane_weights::<
@@ -264,8 +224,7 @@ mod tests {
 			runtime: Runtime,
 			with_bridged_chain_grandpa_instance: BridgeGrandpaRococoBulletinInstance,
 			with_bridged_chain_messages_instance: WithRococoBulletinMessagesInstance,
-			bridge: WithRococoBulletinMessageBridge,
-			this_chain: bp_rococo::Rococo,
+			this_chain: bp_bridge_hub_rococo::BridgeHubRococo,
 			bridged_chain: bp_polkadot_bulletin::PolkadotBulletin,
 		);
 
@@ -273,7 +232,13 @@ mod tests {
 		// Bulletin chain - it has the same (almost) runtime for Polkadot Bulletin and Rococo
 		// Bulletin, so we have to adhere Polkadot names here
 
-		bridge_runtime_common::priority_calculator::ensure_priority_boost_is_sane::<
+		bridge_runtime_common::extensions::priority_calculator::per_relay_header::ensure_priority_boost_is_sane::<
+			Runtime,
+			BridgeGrandpaRococoBulletinInstance,
+			PriorityBoostPerRelayHeader,
+		>(FEE_BOOST_PER_RELAY_HEADER);
+
+		bridge_runtime_common::extensions::priority_calculator::per_message::ensure_priority_boost_is_sane::<
 			Runtime,
 			WithRococoBulletinMessagesInstance,
 			PriorityBoostPerMessage,

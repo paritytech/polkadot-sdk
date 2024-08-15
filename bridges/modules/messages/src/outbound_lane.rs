@@ -18,16 +18,18 @@
 
 use crate::{Config, LOG_TARGET};
 
-use bp_messages::{DeliveredMessages, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer};
+use bp_messages::{
+	ChainWithMessages, DeliveredMessages, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer,
+};
 use codec::{Decode, Encode};
 use frame_support::{
+	traits::Get,
 	weights::{RuntimeDbWeight, Weight},
 	BoundedVec, PalletError,
 };
-use num_traits::Zero;
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
-use sp_std::collections::vec_deque::VecDeque;
+use sp_runtime::{traits::Zero, RuntimeDebug};
+use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData};
 
 /// Outbound lane storage.
 pub trait OutboundLaneStorage {
@@ -48,12 +50,21 @@ pub trait OutboundLaneStorage {
 	fn remove_message(&mut self, nonce: &MessageNonce);
 }
 
+/// Limit for the `StoredMessagePayload` vector.
+pub struct StoredMessagePayloadLimit<T, I>(PhantomData<(T, I)>);
+
+impl<T: Config<I>, I: 'static> Get<u32> for StoredMessagePayloadLimit<T, I> {
+	fn get() -> u32 {
+		T::BridgedChain::maximal_incoming_message_size()
+	}
+}
+
 /// Outbound message data wrapper that implements `MaxEncodedLen`.
-pub type StoredMessagePayload<T, I> = BoundedVec<u8, <T as Config<I>>::MaximalOutboundPayloadSize>;
+pub type StoredMessagePayload<T, I> = BoundedVec<u8, StoredMessagePayloadLimit<T, I>>;
 
 /// Result of messages receival confirmation.
 #[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
-pub enum ReceivalConfirmationError {
+pub enum ReceptionConfirmationError {
 	/// Bridged chain is trying to confirm more messages than we have generated. May be a result
 	/// of invalid bridged chain storage.
 	FailedToConfirmFutureMessages,
@@ -103,7 +114,7 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 		max_allowed_messages: MessageNonce,
 		latest_delivered_nonce: MessageNonce,
 		relayers: &VecDeque<UnrewardedRelayer<RelayerId>>,
-	) -> Result<Option<DeliveredMessages>, ReceivalConfirmationError> {
+	) -> Result<Option<DeliveredMessages>, ReceptionConfirmationError> {
 		let mut data = self.storage.data();
 		let confirmed_messages = DeliveredMessages {
 			begin: data.latest_received_nonce.saturating_add(1),
@@ -113,7 +124,7 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 			return Ok(None)
 		}
 		if confirmed_messages.end > data.latest_generated_nonce {
-			return Err(ReceivalConfirmationError::FailedToConfirmFutureMessages)
+			return Err(ReceptionConfirmationError::FailedToConfirmFutureMessages)
 		}
 		if confirmed_messages.total_messages() > max_allowed_messages {
 			// that the relayer has declared correct number of messages that the proof contains (it
@@ -127,7 +138,7 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 				confirmed_messages.total_messages(),
 				max_allowed_messages,
 			);
-			return Err(ReceivalConfirmationError::TryingToConfirmMoreMessagesThanExpected)
+			return Err(ReceptionConfirmationError::TryingToConfirmMoreMessagesThanExpected)
 		}
 
 		ensure_unrewarded_relayers_are_correct(confirmed_messages.end, relayers)?;
@@ -176,24 +187,24 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 fn ensure_unrewarded_relayers_are_correct<RelayerId>(
 	latest_received_nonce: MessageNonce,
 	relayers: &VecDeque<UnrewardedRelayer<RelayerId>>,
-) -> Result<(), ReceivalConfirmationError> {
+) -> Result<(), ReceptionConfirmationError> {
 	let mut expected_entry_begin = relayers.front().map(|entry| entry.messages.begin);
 	for entry in relayers {
 		// unrewarded relayer entry must have at least 1 unconfirmed message
 		// (guaranteed by the `InboundLane::receive_message()`)
 		if entry.messages.end < entry.messages.begin {
-			return Err(ReceivalConfirmationError::EmptyUnrewardedRelayerEntry)
+			return Err(ReceptionConfirmationError::EmptyUnrewardedRelayerEntry)
 		}
 		// every entry must confirm range of messages that follows previous entry range
 		// (guaranteed by the `InboundLane::receive_message()`)
 		if expected_entry_begin != Some(entry.messages.begin) {
-			return Err(ReceivalConfirmationError::NonConsecutiveUnrewardedRelayerEntries)
+			return Err(ReceptionConfirmationError::NonConsecutiveUnrewardedRelayerEntries)
 		}
 		expected_entry_begin = entry.messages.end.checked_add(1);
 		// entry can't confirm messages larger than `inbound_lane_data.latest_received_nonce()`
 		// (guaranteed by the `InboundLane::receive_message()`)
 		if entry.messages.end > latest_received_nonce {
-			return Err(ReceivalConfirmationError::FailedToConfirmFutureMessages)
+			return Err(ReceptionConfirmationError::FailedToConfirmFutureMessages)
 		}
 	}
 
@@ -204,11 +215,11 @@ fn ensure_unrewarded_relayers_are_correct<RelayerId>(
 mod tests {
 	use super::*;
 	use crate::{
-		mock::{
+		outbound_lane,
+		tests::mock::{
 			outbound_message_data, run_test, unrewarded_relayer, TestRelayer, TestRuntime,
 			REGULAR_PAYLOAD, TEST_LANE_ID,
 		},
-		outbound_lane,
 	};
 	use frame_support::weights::constants::RocksDbWeight;
 	use sp_std::ops::RangeInclusive;
@@ -228,7 +239,7 @@ mod tests {
 	fn assert_3_messages_confirmation_fails(
 		latest_received_nonce: MessageNonce,
 		relayers: &VecDeque<UnrewardedRelayer<TestRelayer>>,
-	) -> Result<Option<DeliveredMessages>, ReceivalConfirmationError> {
+	) -> Result<Option<DeliveredMessages>, ReceptionConfirmationError> {
 		run_test(|| {
 			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
@@ -263,12 +274,43 @@ mod tests {
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 3);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
 			assert_eq!(
 				lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)),
 				Ok(Some(delivered_messages(1..=3))),
 			);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 3);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
+		});
+	}
+
+	#[test]
+	fn confirm_partial_delivery_works() {
+		run_test(|| {
+			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 1);
+			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 2);
+			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 3);
+			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
+			assert_eq!(lane.storage.data().latest_received_nonce, 0);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
+
+			assert_eq!(
+				lane.confirm_delivery(3, 2, &unrewarded_relayers(1..=2)),
+				Ok(Some(delivered_messages(1..=2))),
+			);
+			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
+			assert_eq!(lane.storage.data().latest_received_nonce, 2);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
+
+			assert_eq!(
+				lane.confirm_delivery(3, 3, &unrewarded_relayers(3..=3)),
+				Ok(Some(delivered_messages(3..=3))),
+			);
+			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
+			assert_eq!(lane.storage.data().latest_received_nonce, 3);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
 		});
 	}
 
@@ -281,6 +323,7 @@ mod tests {
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
 			assert_eq!(
 				lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)),
 				Ok(Some(delivered_messages(1..=3))),
@@ -288,10 +331,12 @@ mod tests {
 			assert_eq!(lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)), Ok(None),);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 3);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
 
 			assert_eq!(lane.confirm_delivery(1, 2, &unrewarded_relayers(1..=1)), Ok(None),);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 3);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
 		});
 	}
 
@@ -299,7 +344,7 @@ mod tests {
 	fn confirm_delivery_rejects_nonce_larger_than_last_generated() {
 		assert_eq!(
 			assert_3_messages_confirmation_fails(10, &unrewarded_relayers(1..=10),),
-			Err(ReceivalConfirmationError::FailedToConfirmFutureMessages),
+			Err(ReceptionConfirmationError::FailedToConfirmFutureMessages),
 		);
 	}
 
@@ -310,11 +355,11 @@ mod tests {
 				3,
 				&unrewarded_relayers(1..=1)
 					.into_iter()
-					.chain(unrewarded_relayers(2..=30).into_iter())
-					.chain(unrewarded_relayers(3..=3).into_iter())
+					.chain(unrewarded_relayers(2..=30))
+					.chain(unrewarded_relayers(3..=3))
 					.collect(),
 			),
-			Err(ReceivalConfirmationError::FailedToConfirmFutureMessages),
+			Err(ReceptionConfirmationError::FailedToConfirmFutureMessages),
 		);
 	}
 
@@ -326,11 +371,11 @@ mod tests {
 				3,
 				&unrewarded_relayers(1..=1)
 					.into_iter()
-					.chain(unrewarded_relayers(2..=1).into_iter())
-					.chain(unrewarded_relayers(2..=3).into_iter())
+					.chain(unrewarded_relayers(2..=1))
+					.chain(unrewarded_relayers(2..=3))
 					.collect(),
 			),
-			Err(ReceivalConfirmationError::EmptyUnrewardedRelayerEntry),
+			Err(ReceptionConfirmationError::EmptyUnrewardedRelayerEntry),
 		);
 	}
 
@@ -341,11 +386,11 @@ mod tests {
 				3,
 				&unrewarded_relayers(1..=1)
 					.into_iter()
-					.chain(unrewarded_relayers(3..=3).into_iter())
-					.chain(unrewarded_relayers(2..=2).into_iter())
+					.chain(unrewarded_relayers(3..=3))
+					.chain(unrewarded_relayers(2..=2))
 					.collect(),
 			),
-			Err(ReceivalConfirmationError::NonConsecutiveUnrewardedRelayerEntries),
+			Err(ReceptionConfirmationError::NonConsecutiveUnrewardedRelayerEntries),
 		);
 	}
 
@@ -409,11 +454,11 @@ mod tests {
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			assert_eq!(
 				lane.confirm_delivery(0, 3, &unrewarded_relayers(1..=3)),
-				Err(ReceivalConfirmationError::TryingToConfirmMoreMessagesThanExpected),
+				Err(ReceptionConfirmationError::TryingToConfirmMoreMessagesThanExpected),
 			);
 			assert_eq!(
 				lane.confirm_delivery(2, 3, &unrewarded_relayers(1..=3)),
-				Err(ReceivalConfirmationError::TryingToConfirmMoreMessagesThanExpected),
+				Err(ReceptionConfirmationError::TryingToConfirmMoreMessagesThanExpected),
 			);
 			assert_eq!(
 				lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)),

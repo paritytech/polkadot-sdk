@@ -49,7 +49,7 @@ use sp_storage::{StorageData, StorageKey};
 /// #
 /// # type Hash = sp_core::H256;
 /// #
-/// # #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+/// # #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 /// # impl frame_system::Config for TestRuntime {
 /// # 	type BaseCallFilter = ();
 /// # 	type BlockWeights = ();
@@ -161,7 +161,7 @@ impl<V: FullCodec> StorageQuery<V> {
 
 	/// Send this query over RPC, await the typed result.
 	///
-	/// Hash should be `<YourRuntime as frame::Config>::Hash`.
+	/// Hash should be `<YourRuntime as frame_system::Config>::Hash`.
 	///
 	/// # Arguments
 	///

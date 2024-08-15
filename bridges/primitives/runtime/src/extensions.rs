@@ -20,138 +20,135 @@ use codec::{Compact, Decode, Encode};
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{Dispatchable, TransactionExtension, TransactionExtensionBase},
+	traits::{DispatchInfoOf, SignedExtension},
 	transaction_validity::TransactionValidityError,
 };
 use sp_std::{fmt::Debug, marker::PhantomData};
 
-/// Trait that describes some properties of a `TransactionExtension` that are needed in order to
-/// send a transaction to the chain.
-pub trait TransactionExtensionSchema:
-	Encode + Decode + Debug + Eq + Clone + StaticTypeInfo
-{
+/// Trait that describes some properties of a `SignedExtension` that are needed in order to send a
+/// transaction to the chain.
+pub trait SignedExtensionSchema: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo {
 	/// A type of the data encoded as part of the transaction.
 	type Payload: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo;
 	/// Parameters which are part of the payload used to produce transaction signature,
 	/// but don't end up in the transaction itself (i.e. inherent part of the runtime).
-	type Implicit: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo;
+	type AdditionalSigned: Encode + Debug + Eq + Clone + StaticTypeInfo;
 }
 
-impl TransactionExtensionSchema for () {
+impl SignedExtensionSchema for () {
 	type Payload = ();
-	type Implicit = ();
+	type AdditionalSigned = ();
 }
 
-/// An implementation of `TransactionExtensionSchema` using generic params.
+/// An implementation of `SignedExtensionSchema` using generic params.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo)]
-pub struct GenericTransactionExtensionSchema<P, S>(PhantomData<(P, S)>);
+pub struct GenericSignedExtensionSchema<P, S>(PhantomData<(P, S)>);
 
-impl<P, S> TransactionExtensionSchema for GenericTransactionExtensionSchema<P, S>
+impl<P, S> SignedExtensionSchema for GenericSignedExtensionSchema<P, S>
 where
 	P: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo,
-	S: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo,
+	S: Encode + Debug + Eq + Clone + StaticTypeInfo,
 {
 	type Payload = P;
-	type Implicit = S;
+	type AdditionalSigned = S;
 }
 
-/// The `TransactionExtensionSchema` for `frame_system::CheckNonZeroSender`.
-pub type CheckNonZeroSender = GenericTransactionExtensionSchema<(), ()>;
+/// The `SignedExtensionSchema` for `frame_system::CheckNonZeroSender`.
+pub type CheckNonZeroSender = GenericSignedExtensionSchema<(), ()>;
 
-/// The `TransactionExtensionSchema` for `frame_system::CheckSpecVersion`.
-pub type CheckSpecVersion = GenericTransactionExtensionSchema<(), u32>;
+/// The `SignedExtensionSchema` for `frame_system::CheckSpecVersion`.
+pub type CheckSpecVersion = GenericSignedExtensionSchema<(), u32>;
 
-/// The `TransactionExtensionSchema` for `frame_system::CheckTxVersion`.
-pub type CheckTxVersion = GenericTransactionExtensionSchema<(), u32>;
+/// The `SignedExtensionSchema` for `frame_system::CheckTxVersion`.
+pub type CheckTxVersion = GenericSignedExtensionSchema<(), u32>;
 
-/// The `TransactionExtensionSchema` for `frame_system::CheckGenesis`.
-pub type CheckGenesis<Hash> = GenericTransactionExtensionSchema<(), Hash>;
+/// The `SignedExtensionSchema` for `frame_system::CheckGenesis`.
+pub type CheckGenesis<Hash> = GenericSignedExtensionSchema<(), Hash>;
 
-/// The `TransactionExtensionSchema` for `frame_system::CheckEra`.
-pub type CheckEra<Hash> = GenericTransactionExtensionSchema<sp_runtime::generic::Era, Hash>;
+/// The `SignedExtensionSchema` for `frame_system::CheckEra`.
+pub type CheckEra<Hash> = GenericSignedExtensionSchema<sp_runtime::generic::Era, Hash>;
 
-/// The `TransactionExtensionSchema` for `frame_system::CheckNonce`.
-pub type CheckNonce<TxNonce> = GenericTransactionExtensionSchema<Compact<TxNonce>, ()>;
+/// The `SignedExtensionSchema` for `frame_system::CheckNonce`.
+pub type CheckNonce<TxNonce> = GenericSignedExtensionSchema<Compact<TxNonce>, ()>;
 
-/// The `TransactionExtensionSchema` for `frame_system::CheckWeight`.
-pub type CheckWeight = GenericTransactionExtensionSchema<(), ()>;
+/// The `SignedExtensionSchema` for `frame_system::CheckWeight`.
+pub type CheckWeight = GenericSignedExtensionSchema<(), ()>;
 
-/// The `TransactionExtensionSchema` for `pallet_transaction_payment::ChargeTransactionPayment`.
-pub type ChargeTransactionPayment<Balance> =
-	GenericTransactionExtensionSchema<Compact<Balance>, ()>;
+/// The `SignedExtensionSchema` for `pallet_transaction_payment::ChargeTransactionPayment`.
+pub type ChargeTransactionPayment<Balance> = GenericSignedExtensionSchema<Compact<Balance>, ()>;
 
-/// The `TransactionExtensionSchema` for `polkadot-runtime-common::PrevalidateAttests`.
-pub type PrevalidateAttests = GenericTransactionExtensionSchema<(), ()>;
+/// The `SignedExtensionSchema` for `polkadot-runtime-common::PrevalidateAttests`.
+pub type PrevalidateAttests = GenericSignedExtensionSchema<(), ()>;
 
-/// The `TransactionExtensionSchema` for `BridgeRejectObsoleteHeadersAndMessages`.
-pub type BridgeRejectObsoleteHeadersAndMessages = GenericTransactionExtensionSchema<(), ()>;
+/// The `SignedExtensionSchema` for `BridgeRejectObsoleteHeadersAndMessages`.
+pub type BridgeRejectObsoleteHeadersAndMessages = GenericSignedExtensionSchema<(), ()>;
 
-/// The `TransactionExtensionSchema` for `RefundBridgedParachainMessages`.
+/// The `SignedExtensionSchema` for `RefundBridgedParachainMessages`.
 /// This schema is dedicated for `RefundBridgedParachainMessages` signed extension as
 /// wildcard/placeholder, which relies on the scale encoding for `()` or `((), ())`, or `((), (),
 /// ())` is the same. So runtime can contains any kind of tuple:
 /// `(BridgeRefundBridgeHubRococoMessages)`
 /// `(BridgeRefundBridgeHubRococoMessages, BridgeRefundBridgeHubWestendMessages)`
 /// `(BridgeRefundParachainMessages1, ..., BridgeRefundParachainMessagesN)`
-pub type RefundBridgedParachainMessagesSchema = GenericTransactionExtensionSchema<(), ()>;
+pub type RefundBridgedParachainMessagesSchema = GenericSignedExtensionSchema<(), ()>;
 
 #[impl_for_tuples(1, 12)]
-impl TransactionExtensionSchema for Tuple {
+impl SignedExtensionSchema for Tuple {
 	for_tuples!( type Payload = ( #( Tuple::Payload ),* ); );
-	for_tuples!( type Implicit = ( #( Tuple::Implicit ),* ); );
+	for_tuples!( type AdditionalSigned = ( #( Tuple::AdditionalSigned ),* ); );
 }
 
 /// A simplified version of signed extensions meant for producing signed transactions
 /// and signed payloads in the client code.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-pub struct GenericTransactionExtension<S: TransactionExtensionSchema> {
+pub struct GenericSignedExtension<S: SignedExtensionSchema> {
 	/// A payload that is included in the transaction.
 	pub payload: S::Payload,
 	#[codec(skip)]
 	// It may be set to `None` if extensions are decoded. We are never reconstructing transactions
-	// (and it makes no sense to do that) => decoded version of `TransactionExtensions` is only
-	// used to read fields of the `payload`. And when resigning transaction, we're reconstructing
-	// `TransactionExtensions` from scratch.
-	implicit: Option<S::Implicit>,
+	// (and it makes no sense to do that) => decoded version of `SignedExtensions` is only used to
+	// read fields of the `payload`. And when resigning transaction, we're reconstructing
+	// `SignedExtensions` from scratch.
+	additional_signed: Option<S::AdditionalSigned>,
 }
 
-impl<S: TransactionExtensionSchema> GenericTransactionExtension<S> {
-	/// Create new `GenericTransactionExtension` object.
-	pub fn new(payload: S::Payload, implicit: Option<S::Implicit>) -> Self {
-		Self { payload, implicit }
+impl<S: SignedExtensionSchema> GenericSignedExtension<S> {
+	/// Create new `GenericSignedExtension` object.
+	pub fn new(payload: S::Payload, additional_signed: Option<S::AdditionalSigned>) -> Self {
+		Self { payload, additional_signed }
 	}
 }
 
-impl<S> TransactionExtensionBase for GenericTransactionExtension<S>
+impl<S> SignedExtension for GenericSignedExtension<S>
 where
-	S: TransactionExtensionSchema,
+	S: SignedExtensionSchema,
 	S::Payload: Send + Sync,
-	S::Implicit: Send + Sync,
+	S::AdditionalSigned: Send + Sync,
 {
 	const IDENTIFIER: &'static str = "Not needed.";
-	type Implicit = S::Implicit;
+	type AccountId = ();
+	type Call = ();
+	type AdditionalSigned = S::AdditionalSigned;
+	type Pre = ();
 
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
 		// we shall not ever see this error in relay, because we are never signing decoded
 		// transactions. Instead we're constructing and signing new transactions. So the error code
 		// is kinda random here
-		self.implicit
-			.clone()
-			.ok_or(frame_support::unsigned::TransactionValidityError::Unknown(
+		self.additional_signed.clone().ok_or(
+			frame_support::unsigned::TransactionValidityError::Unknown(
 				frame_support::unsigned::UnknownTransaction::Custom(0xFF),
-			))
+			),
+		)
 	}
-}
-impl<S, C, Context> TransactionExtension<C, Context> for GenericTransactionExtension<S>
-where
-	C: Dispatchable,
-	S: TransactionExtensionSchema,
-	S::Payload: Send + Sync,
-	S::Implicit: Send + Sync,
-{
-	type Pre = ();
-	type Val = ();
 
-	impl_tx_ext_default!(C; Context; validate prepare);
+	fn pre_dispatch(
+		self,
+		_who: &Self::AccountId,
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		Ok(())
+	}
 }

@@ -24,9 +24,10 @@ use log::{debug, warn};
 use parking_lot::Mutex;
 use sc_network::{
 	request_responses::{IfDisconnected, RequestFailure},
-	NetworkRequest, PeerId, ProtocolName,
+	NetworkRequest, ProtocolName,
 };
-use sp_consensus_beefy::{ecdsa_crypto::AuthorityId, ValidatorSet};
+use sc_network_types::PeerId;
+use sp_consensus_beefy::{AuthorityIdBound, ValidatorSet};
 use sp_runtime::traits::{Block, NumberFor};
 use std::{collections::VecDeque, result::Result, sync::Arc};
 
@@ -48,43 +49,43 @@ type Response = Result<(Vec<u8>, ProtocolName), RequestFailure>;
 type ResponseReceiver = oneshot::Receiver<Response>;
 
 #[derive(Clone, Debug)]
-struct RequestInfo<B: Block> {
+struct RequestInfo<B: Block, AuthorityId: AuthorityIdBound> {
 	block: NumberFor<B>,
 	active_set: ValidatorSet<AuthorityId>,
 }
 
-enum State<B: Block> {
+enum State<B: Block, AuthorityId: AuthorityIdBound> {
 	Idle,
-	AwaitingResponse(PeerId, RequestInfo<B>, ResponseReceiver),
+	AwaitingResponse(PeerId, RequestInfo<B, AuthorityId>, ResponseReceiver),
 }
 
 /// Possible engine responses.
-pub(crate) enum ResponseInfo<B: Block> {
+pub(crate) enum ResponseInfo<B: Block, AuthorityId: AuthorityIdBound> {
 	/// No peer response available yet.
 	Pending,
 	/// Valid justification provided alongside peer reputation changes.
-	ValidProof(BeefyVersionedFinalityProof<B>, PeerReport),
+	ValidProof(BeefyVersionedFinalityProof<B, AuthorityId>, PeerReport),
 	/// No justification yet, only peer reputation changes.
 	PeerReport(PeerReport),
 }
 
-pub struct OnDemandJustificationsEngine<B: Block> {
+pub struct OnDemandJustificationsEngine<B: Block, AuthorityId: AuthorityIdBound> {
 	network: Arc<dyn NetworkRequest + Send + Sync>,
 	protocol_name: ProtocolName,
 
 	live_peers: Arc<Mutex<KnownPeers<B>>>,
 	peers_cache: VecDeque<PeerId>,
 
-	state: State<B>,
+	state: State<B, AuthorityId>,
 	metrics: Option<OnDemandOutgoingRequestsMetrics>,
 }
 
-impl<B: Block> OnDemandJustificationsEngine<B> {
+impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, AuthorityId> {
 	pub fn new(
 		network: Arc<dyn NetworkRequest + Send + Sync>,
 		protocol_name: ProtocolName,
 		live_peers: Arc<Mutex<KnownPeers<B>>>,
-		prometheus_registry: Option<prometheus::Registry>,
+		prometheus_registry: Option<prometheus_endpoint::Registry>,
 	) -> Self {
 		let metrics = register_metrics(prometheus_registry);
 		Self {
@@ -105,13 +106,13 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 		let live = self.live_peers.lock();
 		while let Some(peer) = self.peers_cache.pop_front() {
 			if live.contains(&peer) {
-				return Some(peer)
+				return Some(peer);
 			}
 		}
 		None
 	}
 
-	fn request_from_peer(&mut self, peer: PeerId, req_info: RequestInfo<B>) {
+	fn request_from_peer(&mut self, peer: PeerId, req_info: RequestInfo<B, AuthorityId>) {
 		debug!(
 			target: BEEFY_SYNC_LOG_TARGET,
 			"🥩 requesting justif #{:?} from peer {:?}", req_info.block, peer,
@@ -139,7 +140,7 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 	pub fn request(&mut self, block: NumberFor<B>, active_set: ValidatorSet<AuthorityId>) {
 		// ignore new requests while there's already one pending
 		if matches!(self.state, State::AwaitingResponse(_, _, _)) {
-			return
+			return;
 		}
 		self.reset_peers_cache_for_block(block);
 
@@ -173,9 +174,9 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 	fn process_response(
 		&mut self,
 		peer: &PeerId,
-		req_info: &RequestInfo<B>,
+		req_info: &RequestInfo<B, AuthorityId>,
 		response: Result<Response, Canceled>,
-	) -> Result<BeefyVersionedFinalityProof<B>, Error> {
+	) -> Result<BeefyVersionedFinalityProof<B, AuthorityId>, Error> {
 		response
 			.map_err(|e| {
 				debug!(
@@ -206,7 +207,7 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 				}
 			})
 			.and_then(|(encoded, _)| {
-				decode_and_verify_finality_proof::<B>(
+				decode_and_verify_finality_proof::<B, AuthorityId>(
 					&encoded[..],
 					req_info.block,
 					&req_info.active_set,
@@ -226,11 +227,11 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 			})
 	}
 
-	pub(crate) async fn next(&mut self) -> ResponseInfo<B> {
+	pub(crate) async fn next(&mut self) -> ResponseInfo<B, AuthorityId> {
 		let (peer, req_info, resp) = match &mut self.state {
 			State::Idle => {
 				futures::future::pending::<()>().await;
-				return ResponseInfo::Pending
+				return ResponseInfo::Pending;
 			},
 			State::AwaitingResponse(peer, req_info, receiver) => {
 				let resp = receiver.await;
@@ -248,9 +249,16 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 				if let Some(peer) = self.try_next_peer() {
 					self.request_from_peer(peer, req_info);
 				} else {
+					metric_inc!(
+						self.metrics,
+						beefy_on_demand_justification_no_peer_to_request_from
+					);
+
+					let num_cache = self.peers_cache.len();
+					let num_live = self.live_peers.lock().len();
 					warn!(
 						target: BEEFY_SYNC_LOG_TARGET,
-						"🥩 ran out of peers to request justif #{:?} from", block
+						"🥩 ran out of peers to request justif #{block:?} from num_cache={num_cache} num_live={num_live} err={err:?}",
 					);
 				}
 				// Report peer based on error type.
@@ -264,7 +272,7 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 				metric_inc!(self.metrics, beefy_on_demand_justification_good_proof);
 				debug!(
 					target: BEEFY_SYNC_LOG_TARGET,
-					"🥩 received valid on-demand justif #{:?} from {:?}", block, peer
+					"🥩 received valid on-demand justif #{block:?} from {peer:?}",
 				);
 				let peer_report = PeerReport { who: peer, cost_benefit: benefit::VALIDATED_PROOF };
 				ResponseInfo::ValidProof(proof, peer_report)

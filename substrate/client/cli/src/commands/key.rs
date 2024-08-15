@@ -47,7 +47,10 @@ impl KeySubcommand {
 	/// run the key subcommands
 	pub fn run<C: SubstrateCli>(&self, cli: &C) -> Result<(), Error> {
 		match self {
-			KeySubcommand::GenerateNodeKey(cmd) => cmd.run(),
+			KeySubcommand::GenerateNodeKey(cmd) => {
+				let chain_spec = cli.load_spec(cmd.chain.as_deref().unwrap_or(""))?;
+				cmd.run(chain_spec.id(), &C::executable_name())
+			},
 			KeySubcommand::Generate(cmd) => cmd.run(),
 			KeySubcommand::Inspect(cmd) => cmd.run(),
 			KeySubcommand::Insert(cmd) => cmd.run(cli),

@@ -36,7 +36,7 @@
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_bar)]
 //!
 //! Let's explore how each of these affect the [`RuntimeCall`], [`RuntimeOrigin`] and
-//! [`RuntimeGenesisConfig`] generated in [`runtime`] by respectively.
+//! [`RuntimeGenesisConfig`] generated in [`runtime`] respectively.
 //!
 //! As observed, [`RuntimeCall`] has 3 variants, one for each pallet and one for `frame_system`. If
 //! you explore further, you will soon realize that each variant is merely a pointer to the `Call`
@@ -102,6 +102,10 @@
 //! bounds, such as being [`frame::traits::IsSubType`]:
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call_usages)]
 //!
+//! > Once Rust's "_Associated Type Bounds RFC_" is usable, this syntax can be used to
+//! > simplify the above scenario. See [this](https://github.com/paritytech/polkadot-sdk/issues/3743)
+//! > issue for more information.
+//!
 //! ### Asserting Equality of Multiple Runtime Composite Enums
 //!
 //! Recall that in the above example, `<T as Config>::RuntimeCall` and `<T as
@@ -130,7 +134,7 @@
 //! * [`crate::reference_docs::frame_origin`] explores further details about the usage of
 //!   `RuntimeOrigin`.
 //! * [`RuntimeCall`] is a particularly interesting composite enum as it dictates the encoding of an
-//!   extrinsic. See [`crate::reference_docs::transaction_extensions`] for more information.
+//!   extrinsic. See [`crate::reference_docs::signed_extensions`] for more information.
 //! * See the documentation of [`construct_runtime`].
 //! * See the corresponding lecture in the [pba-book](https://polkadot-blockchain-academy.github.io/pba-book/frame/outer-enum/page.html).
 //!
@@ -228,7 +232,7 @@ pub mod runtime {
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
 		type Block = MockBlock<Self>;
 	}
@@ -293,7 +297,7 @@ pub mod runtime_with_specific_runtime_call {
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
 		type Block = MockBlock<Self>;
 	}

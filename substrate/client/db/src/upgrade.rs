@@ -79,7 +79,7 @@ impl fmt::Display for UpgradeError {
 				write!(f, "Database version comes from future version of the client: {}", version)
 			},
 			UpgradeError::DecodingJustificationBlock => {
-				write!(f, "Decodoning justification block failed")
+				write!(f, "Decoding justification block failed")
 			},
 			UpgradeError::Io(err) => write!(f, "Io error: {}", err),
 		}

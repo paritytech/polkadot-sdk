@@ -21,16 +21,24 @@ use crate::{
 	codec::{Codec, Decode, Encode, MaxEncodedLen},
 	generic,
 	scale_info::TypeInfo,
-	traits::{self, BlakeTwo256, Dispatchable, OpaqueKeys},
-	DispatchResultWithInfo, KeyTypeId,
+	traits::{
+		self, Applyable, BlakeTwo256, Checkable, DispatchInfoOf, Dispatchable, OpaqueKeys,
+		PostDispatchInfoOf, SignaturePayload, SignedExtension, ValidateUnsigned,
+	},
+	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
+	ApplyExtrinsicResultWithInfo, KeyTypeId,
 };
-use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize};
+use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
 use sp_core::{
 	crypto::{key_types, ByteArray, CryptoType, Dummy},
 	U256,
 };
 pub use sp_core::{sr25519, H256};
-use std::{cell::RefCell, fmt::Debug};
+use std::{
+	cell::RefCell,
+	fmt::{self, Debug},
+	ops::Deref,
+};
 
 /// A dummy type which can be used instead of regular cryptographic primitives.
 ///
@@ -190,6 +198,42 @@ impl Header {
 	}
 }
 
+/// An opaque extrinsic wrapper type.
+#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode)]
+pub struct ExtrinsicWrapper<Xt>(Xt);
+
+impl<Xt> traits::Extrinsic for ExtrinsicWrapper<Xt> {
+	type Call = ();
+	type SignaturePayload = ();
+
+	fn is_signed(&self) -> Option<bool> {
+		None
+	}
+}
+
+impl<Xt: Encode> serde::Serialize for ExtrinsicWrapper<Xt> {
+	fn serialize<S>(&self, seq: S) -> Result<S::Ok, S::Error>
+	where
+		S: ::serde::Serializer,
+	{
+		self.using_encoded(|bytes| seq.serialize_bytes(bytes))
+	}
+}
+
+impl<Xt> From<Xt> for ExtrinsicWrapper<Xt> {
+	fn from(xt: Xt) -> Self {
+		ExtrinsicWrapper(xt)
+	}
+}
+
+impl<Xt> Deref for ExtrinsicWrapper<Xt> {
+	type Target = Xt;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
 /// Testing block
 #[derive(PartialEq, Eq, Clone, Serialize, Debug, Encode, Decode, TypeInfo)]
 pub struct Block<Xt> {
@@ -239,22 +283,139 @@ where
 	}
 }
 
-/// Wrapper over a `u64` that can be used as a `RuntimeCall`.
-#[derive(PartialEq, Eq, Debug, Clone, Encode, Decode, TypeInfo)]
-pub struct MockCallU64(pub u64);
+/// The signature payload of a `TestXt`.
+type TxSignaturePayload<Extra> = (u64, Extra);
 
-impl Dispatchable for MockCallU64 {
-	type RuntimeOrigin = u64;
-	type Config = ();
-	type Info = ();
-	type PostInfo = ();
-	fn dispatch(self, _origin: Self::RuntimeOrigin) -> DispatchResultWithInfo<Self::PostInfo> {
-		Ok(())
+impl<Extra: TypeInfo> SignaturePayload for TxSignaturePayload<Extra> {
+	type SignatureAddress = u64;
+	type Signature = ();
+	type SignatureExtra = Extra;
+}
+
+/// Test transaction, tuple of (sender, call, signed_extra)
+/// with index only used if sender is some.
+///
+/// If sender is some then the transaction is signed otherwise it is unsigned.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]
+pub struct TestXt<Call, Extra> {
+	/// Signature of the extrinsic.
+	pub signature: Option<TxSignaturePayload<Extra>>,
+	/// Call of the extrinsic.
+	pub call: Call,
+}
+
+impl<Call, Extra> TestXt<Call, Extra> {
+	/// Create a new `TextXt`.
+	pub fn new(call: Call, signature: Option<(u64, Extra)>) -> Self {
+		Self { call, signature }
 	}
 }
 
-impl From<u64> for MockCallU64 {
-	fn from(value: u64) -> Self {
-		Self(value)
+impl<Call, Extra> Serialize for TestXt<Call, Extra>
+where
+	TestXt<Call, Extra>: Encode,
+{
+	fn serialize<S>(&self, seq: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		self.using_encoded(|bytes| seq.serialize_bytes(bytes))
+	}
+}
+
+impl<Call, Extra> Debug for TestXt<Call, Extra> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "TestXt({:?}, ...)", self.signature.as_ref().map(|x| &x.0))
+	}
+}
+
+impl<Call: Codec + Sync + Send, Context, Extra> Checkable<Context> for TestXt<Call, Extra> {
+	type Checked = Self;
+	fn check(self, _: &Context) -> Result<Self::Checked, TransactionValidityError> {
+		Ok(self)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn unchecked_into_checked_i_know_what_i_am_doing(
+		self,
+		_: &Context,
+	) -> Result<Self::Checked, TransactionValidityError> {
+		unreachable!()
+	}
+}
+
+impl<Call: Codec + Sync + Send + TypeInfo, Extra: TypeInfo> traits::Extrinsic
+	for TestXt<Call, Extra>
+{
+	type Call = Call;
+	type SignaturePayload = TxSignaturePayload<Extra>;
+
+	fn is_signed(&self) -> Option<bool> {
+		Some(self.signature.is_some())
+	}
+
+	fn new(c: Call, sig: Option<Self::SignaturePayload>) -> Option<Self> {
+		Some(TestXt { signature: sig, call: c })
+	}
+}
+
+impl<Call, Extra> traits::ExtrinsicMetadata for TestXt<Call, Extra>
+where
+	Call: Codec + Sync + Send,
+	Extra: SignedExtension<AccountId = u64, Call = Call>,
+{
+	type SignedExtensions = Extra;
+	const VERSION: u8 = 0u8;
+}
+
+impl<Origin, Call, Extra> Applyable for TestXt<Call, Extra>
+where
+	Call: 'static
+		+ Sized
+		+ Send
+		+ Sync
+		+ Clone
+		+ Eq
+		+ Codec
+		+ Debug
+		+ Dispatchable<RuntimeOrigin = Origin>,
+	Extra: SignedExtension<AccountId = u64, Call = Call>,
+	Origin: From<Option<u64>>,
+{
+	type Call = Call;
+
+	/// Checks to see if this is a valid *transaction*. It returns information on it if so.
+	fn validate<U: ValidateUnsigned<Call = Self::Call>>(
+		&self,
+		source: TransactionSource,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> TransactionValidity {
+		if let Some((ref id, ref extra)) = self.signature {
+			Extra::validate(extra, id, &self.call, info, len)
+		} else {
+			let valid = Extra::validate_unsigned(&self.call, info, len)?;
+			let unsigned_validation = U::validate_unsigned(source, &self.call)?;
+			Ok(valid.combine_with(unsigned_validation))
+		}
+	}
+
+	/// Executes all necessary logic needed prior to dispatch and deconstructs into function call,
+	/// index and sender.
+	fn apply<U: ValidateUnsigned<Call = Self::Call>>(
+		self,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Self::Call>> {
+		let maybe_who = if let Some((who, extra)) = self.signature {
+			Extra::pre_dispatch(extra, &who, &self.call, info, len)?;
+			Some(who)
+		} else {
+			Extra::pre_dispatch_unsigned(&self.call, info, len)?;
+			U::pre_dispatch(&self.call)?;
+			None
+		};
+
+		Ok(self.call.dispatch(maybe_who.into()))
 	}
 }

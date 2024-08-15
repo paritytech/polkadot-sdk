@@ -20,6 +20,7 @@
 //! and specific syncing algorithms.
 
 pub mod chain_sync;
+mod disconnected_peers;
 mod state;
 pub mod state_sync;
 pub mod warp;
@@ -29,7 +30,6 @@ use crate::{
 	LOG_TARGET,
 };
 use chain_sync::{ChainSync, ChainSyncAction, ChainSyncMode};
-use libp2p::PeerId;
 use log::{debug, error, info, warn};
 use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
@@ -38,6 +38,7 @@ use sc_network_common::sync::{
 	message::{BlockAnnounce, BlockData, BlockRequest},
 	SyncMode,
 };
+use sc_network_types::PeerId;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
@@ -185,7 +186,7 @@ where
 		+ Sync
 		+ 'static,
 {
-	/// Initialize a new syncing startegy.
+	/// Initialize a new syncing strategy.
 	pub fn new(
 		config: SyncingConfig,
 		client: Arc<Client>,
@@ -418,7 +419,7 @@ where
 			self.state.is_some() ||
 			match self.chain_sync {
 				Some(ref s) => s.status().state.is_major_syncing(),
-				None => unreachable!("At least one syncing startegy is active; qed"),
+				None => unreachable!("At least one syncing strategy is active; qed"),
 			}
 	}
 
@@ -429,7 +430,7 @@ where
 
 	/// Returns the current sync status.
 	pub fn status(&self) -> SyncStatus<B> {
-		// This function presumes that startegies are executed serially and must be refactored
+		// This function presumes that strategies are executed serially and must be refactored
 		// once we have parallel strategies.
 		if let Some(ref warp) = self.warp {
 			warp.status()
@@ -438,7 +439,7 @@ where
 		} else if let Some(ref chain_sync) = self.chain_sync {
 			chain_sync.status()
 		} else {
-			unreachable!("At least one syncing startegy is always active; qed")
+			unreachable!("At least one syncing strategy is always active; qed")
 		}
 	}
 
@@ -518,7 +519,7 @@ where
 
 	/// Proceed with the next strategy if the active one finished.
 	pub fn proceed_to_next(&mut self) -> Result<(), ClientError> {
-		// The strategies are switched as `WarpSync` -> `StateStartegy` -> `ChainSync`.
+		// The strategies are switched as `WarpSync` -> `StateStrategy` -> `ChainSync`.
 		if let Some(ref mut warp) = self.warp {
 			match warp.take_result() {
 				Some(res) => {
@@ -569,7 +570,7 @@ where
 				},
 			}
 		} else if let Some(state) = &self.state {
-			if state.is_succeded() {
+			if state.is_succeeded() {
 				info!(target: LOG_TARGET, "State sync is complete, continuing with block sync.");
 			} else {
 				error!(target: LOG_TARGET, "State sync failed. Falling back to full sync.");

@@ -33,7 +33,9 @@ use polkadot_primitives::Id as ParaId;
 use sp_consensus_slots::Slot;
 use std::{collections::HashMap, sync::Arc};
 
-use ::test_helpers::{dummy_candidate_receipt, dummy_candidate_receipt_bad_sig, dummy_hash};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_receipt, dummy_candidate_receipt_bad_sig, dummy_hash,
+};
 
 const DATA_COL: u32 = 0;
 
@@ -264,7 +266,7 @@ fn canonicalize_works() {
 	//   -> B1 -> C1 -> D1
 	// A -> B2 -> C2 -> D2
 	//
-	// We'll canonicalize C1. Everytning except D1 should disappear.
+	// We'll canonicalize C1. Everything except D1 should disappear.
 	//
 	// Candidates:
 	// Cand1 in B2

@@ -23,14 +23,12 @@ use xcm::prelude::*;
 /// Errors related to determining asset transfer support.
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
 pub enum Error {
-	/// Invalid non-concrete asset.
-	NotConcrete,
 	/// Reserve chain could not be determined for assets.
 	UnknownReserve,
 }
 
 /// Specify which type of asset transfer is required for a particular `(asset, dest)` combination.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Encode, Decode, PartialEq, Debug, TypeInfo)]
 pub enum TransferType {
 	/// should teleport `asset` to `dest`
 	Teleport,
@@ -39,7 +37,7 @@ pub enum TransferType {
 	/// should reserve-transfer `asset` to `dest`, using `dest` as reserve
 	DestinationReserve,
 	/// should reserve-transfer `asset` to `dest`, using remote chain `Location` as reserve
-	RemoteReserve(Location),
+	RemoteReserve(VersionedLocation),
 }
 
 /// A trait for identifying asset transfer type based on `IsTeleporter` and `IsReserve`
@@ -77,7 +75,7 @@ pub trait XcmAssetTransfers {
 			Ok(TransferType::LocalReserve)
 		} else if Self::IsReserve::contains(asset, &asset_location) {
 			// remote location that is recognized as reserve location for asset
-			Ok(TransferType::RemoteReserve(asset_location))
+			Ok(TransferType::RemoteReserve(asset_location.into()))
 		} else {
 			// remote location that is not configured either as teleporter or reserve => cannot
 			// determine asset reserve

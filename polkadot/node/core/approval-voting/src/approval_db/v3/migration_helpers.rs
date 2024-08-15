@@ -60,7 +60,7 @@ pub fn v2_to_latest(db: Arc<dyn Database>, config: Config) -> Result<()> {
 			block.candidates().iter().enumerate()
 		{
 			// Loading the candidate will also perform the conversion to the updated format and
-			// return that represantation.
+			// return that representation.
 			if let Some(candidate_entry) = backend
 				.load_candidate_entry_v2(&candidate_hash, candidate_index as CandidateIndex)
 				.map_err(|e| Error::InternalError(e))?
@@ -104,7 +104,7 @@ pub fn v1_to_latest_sanity_check(
 	for block in all_blocks {
 		for (_core_index, candidate_hash) in block.candidates() {
 			// Loading the candidate will also perform the conversion to the updated format and
-			// return that represantation.
+			// return that representation.
 			if let Some(candidate_entry) = backend.load_candidate_entry(&candidate_hash).unwrap() {
 				candidates.insert(candidate_entry.candidate.hash());
 			}

@@ -23,7 +23,7 @@ use sp_runtime::traits::Block as BlockT;
 /// It is possible for the caller to provide custom arguments to the callee by setting the
 /// `ExtraArgs` generic parameter.
 ///
-/// The crate already provides some convience implementations of this trait for
+/// The crate already provides some convince implementations of this trait for
 /// `Box<dyn CreateInherentDataProviders>` and closures. So, it should not be required to implement
 /// this trait manually.
 #[async_trait::async_trait]

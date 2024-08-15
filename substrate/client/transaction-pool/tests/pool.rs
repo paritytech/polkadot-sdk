@@ -999,7 +999,7 @@ fn import_notification_to_pool_maintain_works() {
 		.0,
 	);
 
-	// Prepare the extrisic, push it to the pool and check that it was added.
+	// Prepare the extrinsic, push it to the pool and check that it was added.
 	let xt = uxt(Alice, 0);
 	block_on(pool.submit_one(
 		pool.api().block_id_to_hash(&BlockId::Number(0)).unwrap().unwrap(),

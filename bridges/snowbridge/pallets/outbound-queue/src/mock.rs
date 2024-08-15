@@ -33,11 +33,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
 	type RuntimeOrigin = RuntimeOrigin;
@@ -48,7 +44,6 @@ impl frame_system::Config for Test {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
 	type PalletInfo = PalletInfo;
 	type Nonce = u64;
 	type Block = Block;
@@ -69,6 +64,7 @@ impl pallet_message_queue::Config for Test {
 	type HeapSize = HeapSize;
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
+	type IdleMaxServiceWeight = ();
 	type QueuePausedQuery = ();
 }
 
@@ -77,7 +73,8 @@ parameter_types! {
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
-		rewards: Rewards { local: DOT, remote: meth(1) }
+		rewards: Rewards { local: DOT, remote: meth(1) },
+		multiplier: FixedU128::from_rational(4, 3),
 	};
 }
 

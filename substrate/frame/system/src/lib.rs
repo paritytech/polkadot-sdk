@@ -97,6 +97,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec, vec::Vec};
+use core::{fmt::Debug, marker::PhantomData};
 use pallet_prelude::{BlockNumberFor, HeaderFor};
 #[cfg(feature = "std")]
 use serde::Serialize;
@@ -118,7 +122,6 @@ use sp_runtime::{
 };
 #[cfg(any(feature = "std", test))]
 use sp_std::map;
-use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 use sp_version::RuntimeVersion;
 
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
@@ -166,7 +169,7 @@ pub use extensions::{
 	check_genesis::CheckGenesis, check_mortality::CheckMortality,
 	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
 	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight, WeightInfo as ExtensionsWeightInfo,
+	check_weight::CheckWeight,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
@@ -262,7 +265,19 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::{inject_runtime_type, DefaultConfig};
-		use frame_support::derive_impl;
+		use frame_support::{derive_impl, traits::Get};
+
+		/// A predefined adapter that covers `BlockNumberFor<T>` for `Config::Block::BlockNumber` of
+		/// the types `u32`, `u64`, and `u128`.
+		///
+		/// NOTE: Avoids overriding `BlockHashCount` when using `mocking::{MockBlock, MockBlockU32,
+		/// MockBlockU128}`.
+		pub struct TestBlockHashCount<C: Get<u32>>(core::marker::PhantomData<C>);
+		impl<I: From<u32>, C: Get<u32>> Get<I> for TestBlockHashCount<C> {
+			fn get() -> I {
+				C::get().into()
+			}
+		}
 
 		/// Provides a viable default config that can be used with
 		/// [`derive_impl`](`frame_support::derive_impl`) to derive a testing pallet config
@@ -284,7 +299,6 @@ pub mod pallet {
 			type OnNewAccount = ();
 			type OnKilledAccount = ();
 			type SystemWeightInfo = ();
-			type ExtensionsWeightInfo = ();
 			type SS58Prefix = ();
 			type Version = ();
 			type BlockWeights = ();
@@ -301,7 +315,7 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type RuntimeTask = ();
 			type BaseCallFilter = frame_support::traits::Everything;
-			type BlockHashCount = frame_support::traits::ConstU64<10>;
+			type BlockHashCount = TestBlockHashCount<frame_support::traits::ConstU32<10>>;
 			type OnSetCode = ();
 			type SingleBlockMigrations = ();
 			type MultiBlockMigrator = ();
@@ -357,9 +371,6 @@ pub mod pallet {
 			/// Weight information for the extrinsics of this pallet.
 			type SystemWeightInfo = ();
 
-			/// Weight information for the extensions of this pallet.
-			type ExtensionsWeightInfo = ();
-
 			/// This is used as an identifier of the chain.
 			type SS58Prefix = ();
 
@@ -401,7 +412,7 @@ pub mod pallet {
 
 			/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 			/// Using 256 as default.
-			type BlockHashCount = frame_support::traits::ConstU32<256>;
+			type BlockHashCount = TestBlockHashCount<frame_support::traits::ConstU32<256>>;
 
 			/// The set code logic, just the default since we're not a parachain.
 			type OnSetCode = ();
@@ -503,7 +514,7 @@ pub mod pallet {
 			+ Default
 			+ Copy
 			+ CheckEqual
-			+ sp_std::hash::Hash
+			+ core::hash::Hash
 			+ AsRef<[u8]>
 			+ AsMut<[u8]>
 			+ MaxEncodedLen;
@@ -567,11 +578,7 @@ pub mod pallet {
 		/// All resources should be cleaned up associated with the given account.
 		type OnKilledAccount: OnKilledAccount<Self::AccountId>;
 
-		/// Weight information for the extrinsics of this pallet.
 		type SystemWeightInfo: WeightInfo;
-
-		/// Weight information for the transaction extensions of this pallet.
-		type ExtensionsWeightInfo: extensions::WeightInfo;
 
 		/// The designated SS58 prefix of this chain.
 		///
@@ -749,9 +756,7 @@ pub mod pallet {
 		#[cfg(feature = "experimental")]
 		#[pallet::call_index(8)]
 		#[pallet::weight(task.weight())]
-		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
-			ensure_signed(origin)?;
-
+		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			if !task.is_valid() {
 				return Err(Error::<T>::InvalidTask.into())
 			}
@@ -912,7 +917,7 @@ pub mod pallet {
 
 	/// Total length (in bytes) for all extrinsics put together, for the current block.
 	#[pallet::storage]
-	pub(super) type AllExtrinsicsLen<T: Config> = StorageValue<_, u32>;
+	pub type AllExtrinsicsLen<T: Config> = StorageValue<_, u32>;
 
 	/// Map of block numbers to block hashes.
 	#[pallet::storage]
@@ -1009,7 +1014,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -1035,6 +1040,18 @@ pub mod pallet {
 						priority: 100,
 						requires: Vec::new(),
 						provides: vec![hash.as_ref().to_vec()],
+						longevity: TransactionLongevity::max_value(),
+						propagate: true,
+					})
+				}
+			}
+			#[cfg(feature = "experimental")]
+			if let Call::do_task { ref task } = call {
+				if task.is_valid() {
+					return Ok(ValidTransaction {
+						priority: u64::max_value(),
+						requires: Vec::new(),
+						provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
 						longevity: TransactionLongevity::max_value(),
 						propagate: true,
 					})
@@ -1139,7 +1156,7 @@ impl From<sp_version::RuntimeVersion> for LastRuntimeUpgradeInfo {
 }
 
 /// Ensure the origin is Root.
-pub struct EnsureRoot<AccountId>(sp_std::marker::PhantomData<AccountId>);
+pub struct EnsureRoot<AccountId>(core::marker::PhantomData<AccountId>);
 impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId>
 	EnsureOrigin<O> for EnsureRoot<AccountId>
 {
@@ -1165,7 +1182,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 
 /// Ensure the origin is Root and return the provided `Success` value.
 pub struct EnsureRootWithSuccess<AccountId, Success>(
-	sp_std::marker::PhantomData<(AccountId, Success)>,
+	core::marker::PhantomData<(AccountId, Success)>,
 );
 impl<
 		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
@@ -1195,7 +1212,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 
 /// Ensure the origin is provided `Ensure` origin and return the provided `Success` value.
 pub struct EnsureWithSuccess<Ensure, AccountId, Success>(
-	sp_std::marker::PhantomData<(Ensure, AccountId, Success)>,
+	core::marker::PhantomData<(Ensure, AccountId, Success)>,
 );
 
 impl<
@@ -1218,7 +1235,7 @@ impl<
 }
 
 /// Ensure the origin is any `Signed` origin.
-pub struct EnsureSigned<AccountId>(sp_std::marker::PhantomData<AccountId>);
+pub struct EnsureSigned<AccountId>(core::marker::PhantomData<AccountId>);
 impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId: Decode>
 	EnsureOrigin<O> for EnsureSigned<AccountId>
 {
@@ -1245,7 +1262,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 }
 
 /// Ensure the origin is `Signed` origin from the given `AccountId`.
-pub struct EnsureSignedBy<Who, AccountId>(sp_std::marker::PhantomData<(Who, AccountId)>);
+pub struct EnsureSignedBy<Who, AccountId>(core::marker::PhantomData<(Who, AccountId)>);
 impl<
 		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
 		Who: SortedMembers<AccountId>,
@@ -1277,7 +1294,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 }
 
 /// Ensure the origin is `None`. i.e. unsigned transaction.
-pub struct EnsureNone<AccountId>(sp_std::marker::PhantomData<AccountId>);
+pub struct EnsureNone<AccountId>(core::marker::PhantomData<AccountId>);
 impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId>
 	EnsureOrigin<O> for EnsureNone<AccountId>
 {
@@ -1302,7 +1319,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 }
 
 /// Always fail.
-pub struct EnsureNever<Success>(sp_std::marker::PhantomData<Success>);
+pub struct EnsureNever<Success>(core::marker::PhantomData<Success>);
 impl<O, Success> EnsureOrigin<O> for EnsureNever<Success> {
 	type Success = Success;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
@@ -1778,7 +1795,7 @@ impl<T: Config> Pallet<T> {
 			"[{:?}] {} extrinsics, length: {} (normal {}%, op: {}%, mandatory {}%) / normal weight:\
 			 {} ({}%) op weight {} ({}%) / mandatory weight {} ({}%)",
 			Self::block_number(),
-			Self::extrinsic_index().unwrap_or_default(),
+			Self::extrinsic_count(),
 			Self::all_extrinsics_len(),
 			sp_runtime::Percent::from_rational(
 				Self::all_extrinsics_len(),
@@ -1892,7 +1909,7 @@ impl<T: Config> Pallet<T> {
 	/// Should only be called if you know what you are doing and outside of the runtime block
 	/// execution else it can have a large impact on the PoV size of a block.
 	pub fn read_events_no_consensus(
-	) -> impl sp_std::iter::Iterator<Item = Box<EventRecord<T::RuntimeEvent, T::Hash>>> {
+	) -> impl Iterator<Item = Box<EventRecord<T::RuntimeEvent, T::Hash>>> {
 		Events::<T>::stream_iter()
 	}
 

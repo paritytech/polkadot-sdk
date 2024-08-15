@@ -4,7 +4,7 @@ version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Bag threshold generation script for pallet-bag-list"
 
@@ -13,12 +13,12 @@ workspace = true
 
 [dependencies]
 # FRAME
-frame-support = { path = "../../../frame/support" }
-frame-election-provider-support = { path = "../../../frame/election-provider-support" }
-frame-system = { path = "../../../frame/system" }
-pallet-staking = { path = "../../../frame/staking" }
-sp-staking = { path = "../../../primitives/staking" }
+frame-support = { workspace = true, default-features = true }
+frame-election-provider-support = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
+pallet-staking = { workspace = true, default-features = true }
+sp-staking = { workspace = true, default-features = true }
 
 # third party
-chrono = { version = "0.4.31" }
-num-format = "0.4.3"
+chrono = { workspace = true }
+num-format = { workspace = true }

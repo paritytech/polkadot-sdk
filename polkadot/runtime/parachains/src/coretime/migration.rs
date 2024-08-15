@@ -26,6 +26,12 @@ mod v_coretime {
 		coretime::{mk_coretime_call, Config, PartsOf57600, WeightInfo},
 		paras,
 	};
+	use alloc::{vec, vec::Vec};
+	#[cfg(feature = "try-runtime")]
+	use codec::Decode;
+	#[cfg(feature = "try-runtime")]
+	use codec::Encode;
+	use core::{iter, result};
 	#[cfg(feature = "try-runtime")]
 	use frame_support::ensure;
 	use frame_support::{
@@ -34,19 +40,12 @@ mod v_coretime {
 	};
 	use frame_system::pallet_prelude::BlockNumberFor;
 	use pallet_broker::{CoreAssignment, CoreMask, ScheduleItem};
-	#[cfg(feature = "try-runtime")]
-	use parity_scale_codec::Decode;
-	#[cfg(feature = "try-runtime")]
-	use parity_scale_codec::Encode;
 	use polkadot_parachain_primitives::primitives::IsSystem;
-	use primitives::{CoreIndex, Id as ParaId};
+	use polkadot_primitives::{CoreIndex, Id as ParaId};
 	use sp_arithmetic::traits::SaturatedConversion;
 	use sp_core::Get;
 	use sp_runtime::BoundedVec;
-	#[cfg(feature = "try-runtime")]
-	use sp_std::vec::Vec;
-	use sp_std::{iter, prelude::*, result};
-	use xcm::v4::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
+	use xcm::prelude::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
 
 	/// Return information about a legacy lease of a parachain.
 	pub trait GetLegacyLease<N> {
@@ -59,7 +58,7 @@ mod v_coretime {
 	/// This assumes that the `Coretime` and the `AssignerCoretime` pallets are added at the same
 	/// time to a runtime.
 	pub struct MigrateToCoretime<T, SendXcm, LegacyLease>(
-		sp_std::marker::PhantomData<(T, SendXcm, LegacyLease)>,
+		core::marker::PhantomData<(T, SendXcm, LegacyLease)>,
 	);
 
 	impl<T: Config, SendXcm: xcm::v4::SendXcm, LegacyLease: GetLegacyLease<BlockNumberFor<T>>>
@@ -113,7 +112,7 @@ mod v_coretime {
 			}
 
 			let legacy_paras = paras::Parachains::<T>::get();
-			let config = <configuration::Pallet<T>>::config();
+			let config = configuration::ActiveConfig::<T>::get();
 			let total_core_count = config.scheduler_params.num_cores + legacy_paras.len() as u32;
 
 			let dmp_queue_size =
@@ -156,9 +155,9 @@ mod v_coretime {
 		SendXcm: xcm::v4::SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 	>() -> Weight {
-		let legacy_paras = paras::Pallet::<T>::parachains();
+		let legacy_paras = paras::Parachains::<T>::get();
 		let legacy_count = legacy_paras.len() as u32;
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = frame_system::Pallet::<T>::block_number();
 		for (core, para_id) in legacy_paras.into_iter().enumerate() {
 			let r = assigner_coretime::Pallet::<T>::assign_core(
 				CoreIndex(core as u32),
@@ -175,7 +174,7 @@ mod v_coretime {
 			}
 		}
 
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		// num_cores was on_demand_cores until now:
 		for on_demand in 0..config.scheduler_params.num_cores {
 			let core = CoreIndex(legacy_count.saturating_add(on_demand as _));
@@ -212,7 +211,7 @@ mod v_coretime {
 		SendXcm: xcm::v4::SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 	>() -> result::Result<(), SendError> {
-		let legacy_paras = paras::Pallet::<T>::parachains();
+		let legacy_paras = paras::Parachains::<T>::get();
 		let legacy_paras_count = legacy_paras.len();
 		let (system_chains, lease_holding): (Vec<_>, Vec<_>) =
 			legacy_paras.into_iter().partition(IsSystem::is_system);
@@ -222,7 +221,7 @@ mod v_coretime {
 				mask: CoreMask::complete(),
 				assignment: CoreAssignment::Task(p.into()),
 			}]);
-			mk_coretime_call(crate::coretime::CoretimeCalls::Reserve(schedule))
+			mk_coretime_call::<T>(crate::coretime::CoretimeCalls::Reserve(schedule))
 		});
 
 		let leases = lease_holding.into_iter().filter_map(|p| {
@@ -238,17 +237,19 @@ mod v_coretime {
 					return None
 				},
 			};
-			// We assume the coretime chain set this parameter to the recommened value in RFC-1:
+			// We assume the coretime chain set this parameter to the recommended value in RFC-1:
 			const TIME_SLICE_PERIOD: u32 = 80;
 			let round_up = if valid_until % TIME_SLICE_PERIOD > 0 { 1 } else { 0 };
 			let time_slice = valid_until / TIME_SLICE_PERIOD + TIME_SLICE_PERIOD * round_up;
 			log::trace!(target: "coretime-migration", "Sending of lease holding para {:?}, valid_until: {:?}, time_slice: {:?}", p, valid_until, time_slice);
-			Some(mk_coretime_call(crate::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
+			Some(mk_coretime_call::<T>(crate::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
 		});
 
-		let core_count: u16 =
-			configuration::Pallet::<T>::config().scheduler_params.num_cores.saturated_into();
-		let set_core_count = iter::once(mk_coretime_call(
+		let core_count: u16 = configuration::ActiveConfig::<T>::get()
+			.scheduler_params
+			.num_cores
+			.saturated_into();
+		let set_core_count = iter::once(mk_coretime_call::<T>(
 			crate::coretime::CoretimeCalls::NotifyCoreCount(core_count),
 		));
 
@@ -259,7 +260,7 @@ mod v_coretime {
 			}]);
 			// Reserved cores will come before lease cores, so cores will change their assignments
 			// when coretime chain sends us their assign_core calls -> Good test.
-			mk_coretime_call(crate::coretime::CoretimeCalls::Reserve(schedule))
+			mk_coretime_call::<T>(crate::coretime::CoretimeCalls::Reserve(schedule))
 		});
 
 		let message_content = iter::once(Instruction::UnpaidExecution {

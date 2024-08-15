@@ -17,9 +17,9 @@
 
 //! Little util for parsing an address URI. Replaces regular expressions.
 
-#[cfg(all(not(feature = "std"), any(feature = "serde", feature = "full_crypto")))]
-use sp_std::{
-	alloc::string::{String, ToString},
+#[cfg(not(feature = "std"))]
+use alloc::{
+	string::{String, ToString},
 	vec::Vec,
 };
 
@@ -85,7 +85,7 @@ impl Error {
 
 /// Complementary error information.
 ///
-/// Strucutre contains complementary information about parsing address URI string.
+/// Structure contains complementary information about parsing address URI string.
 /// String contains a copy of an original URI string, 0-based integer indicates position of invalid
 /// character.
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -97,10 +97,10 @@ impl InvalidCharacterInfo {
 	}
 }
 
-impl sp_std::fmt::Display for InvalidCharacterInfo {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl core::fmt::Display for InvalidCharacterInfo {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		let (s, pos) = escape_string(&self.0, self.1);
-		write!(f, "{s}\n{i}^", i = sp_std::iter::repeat(" ").take(pos).collect::<String>())
+		write!(f, "{s}\n{i}^", i = core::iter::repeat(" ").take(pos).collect::<String>())
 	}
 }
 

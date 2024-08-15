@@ -18,6 +18,7 @@
 //! Scheduler pallet benchmarking.
 
 use super::*;
+use alloc::vec;
 use frame_benchmarking::v1::{account, benchmarks, BenchmarkError};
 use frame_support::{
 	ensure,
@@ -25,7 +26,6 @@ use frame_support::{
 	weights::WeightMeter,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use sp_std::{prelude::*, vec};
 
 use crate::Pallet as Scheduler;
 use frame_system::{Call as SystemCall, EventRecord};
@@ -211,7 +211,7 @@ benchmarks! {
 	} verify {
 	}
 
-	// `execute_dispatch` when the origin is `Signed`, not counting the dispatable's weight.
+	// `execute_dispatch` when the origin is `Signed`, not counting the dispatchable's weight.
 	execute_dispatch_signed {
 		let mut counter = WeightMeter::new();
 		let origin = make_origin::<T>(true);
@@ -222,7 +222,7 @@ benchmarks! {
 	verify {
 	}
 
-	// `execute_dispatch` when the origin is not `Signed`, not counting the dispatable's weight.
+	// `execute_dispatch` when the origin is not `Signed`, not counting the dispatchable's weight.
 	execute_dispatch_unsigned {
 		let mut counter = WeightMeter::new();
 		let origin = make_origin::<T>(false);

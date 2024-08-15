@@ -17,19 +17,17 @@
 
 //! An MMR storage implementation.
 
+use alloc::{vec, vec::Vec};
 use codec::Encode;
+use core::iter::Peekable;
 use log::{debug, trace};
 use sp_core::offchain::StorageKind;
-use sp_io::offchain_index;
 use sp_mmr_primitives::{mmr_lib, mmr_lib::helper, utils::NodesUtils};
-use sp_std::iter::Peekable;
-#[cfg(not(feature = "std"))]
-use sp_std::prelude::*;
 
 use crate::{
 	mmr::{Node, NodeOf},
 	primitives::{self, NodeIndex},
-	Config, Nodes, NumberOfLeaves, Pallet,
+	BlockHashProvider, Config, Nodes, NumberOfLeaves, Pallet,
 };
 
 /// A marker type for runtime-specific storage implementation.
@@ -48,11 +46,31 @@ pub struct RuntimeStorage;
 /// DOES NOT support adding new items to the MMR.
 pub struct OffchainStorage;
 
+impl OffchainStorage {
+	fn get(key: &[u8]) -> Option<Vec<u8>> {
+		sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &key)
+	}
+
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	fn set<T: Config<I>, I: 'static>(key: &[u8], value: &[u8]) {
+		sp_io::offchain_index::set(key, value);
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set<T: Config<I>, I: 'static>(key: &[u8], value: &[u8]) {
+		if crate::pallet::UseLocalStorage::<T, I>::get() {
+			sp_io::offchain::local_storage_set(StorageKind::PERSISTENT, key, value);
+		} else {
+			sp_io::offchain_index::set(key, value);
+		}
+	}
+}
+
 /// A storage layer for MMR.
 ///
 /// There are two different implementations depending on the use case.
 /// See docs for [RuntimeStorage] and [OffchainStorage].
-pub struct Storage<StorageType, T, I, L>(sp_std::marker::PhantomData<(StorageType, T, I, L)>);
+pub struct Storage<StorageType, T, I, L>(core::marker::PhantomData<(StorageType, T, I, L)>);
 
 impl<StorageType, T, I, L> Default for Storage<StorageType, T, I, L> {
 	fn default() -> Self {
@@ -60,14 +78,13 @@ impl<StorageType, T, I, L> Default for Storage<StorageType, T, I, L> {
 	}
 }
 
-impl<T, I, L> mmr_lib::MMRStore<NodeOf<T, I, L>> for Storage<OffchainStorage, T, I, L>
+impl<T, I, L> mmr_lib::MMRStoreReadOps<NodeOf<T, I, L>> for Storage<OffchainStorage, T, I, L>
 where
 	T: Config<I>,
 	I: 'static,
 	L: primitives::FullLeaf + codec::Decode,
 {
 	fn get_elem(&self, pos: NodeIndex) -> mmr_lib::Result<Option<NodeOf<T, I, L>>> {
-		let leaves = NumberOfLeaves::<T, I>::get();
 		// Find out which leaf added node `pos` in the MMR.
 		let ancestor_leaf_idx = NodesUtils::leaf_index_that_added_node(pos);
 
@@ -80,14 +97,14 @@ where
 			pos, ancestor_leaf_idx, key
 		);
 		// Try to retrieve the element from Off-chain DB.
-		if let Some(elem) = sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &key) {
+		if let Some(elem) = OffchainStorage::get(&key) {
 			return Ok(codec::Decode::decode(&mut &*elem).ok())
 		}
 
 		// Fall through to searching node using fork-specific key.
 		let ancestor_parent_block_num =
-			Pallet::<T, I>::leaf_index_to_parent_block_num(ancestor_leaf_idx, leaves);
-		let ancestor_parent_hash = <frame_system::Pallet<T>>::block_hash(ancestor_parent_block_num);
+			Pallet::<T, I>::leaf_index_to_parent_block_num(ancestor_leaf_idx);
+		let ancestor_parent_hash = T::BlockHashProvider::block_hash(ancestor_parent_block_num);
 		let temp_key = Pallet::<T, I>::node_temp_offchain_key(pos, ancestor_parent_hash);
 		debug!(
 			target: "runtime::mmr::offchain",
@@ -95,25 +112,38 @@ where
 			pos, ancestor_leaf_idx, ancestor_parent_hash, temp_key
 		);
 		// Retrieve the element from Off-chain DB.
-		Ok(sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &temp_key)
-			.and_then(|v| codec::Decode::decode(&mut &*v).ok()))
+		Ok(OffchainStorage::get(&temp_key).and_then(|v| codec::Decode::decode(&mut &*v).ok()))
 	}
+}
 
+impl<T, I, L> mmr_lib::MMRStoreWriteOps<NodeOf<T, I, L>> for Storage<OffchainStorage, T, I, L>
+where
+	T: Config<I>,
+	I: 'static,
+	L: primitives::FullLeaf + codec::Decode,
+{
 	fn append(&mut self, _: NodeIndex, _: Vec<NodeOf<T, I, L>>) -> mmr_lib::Result<()> {
 		panic!("MMR must not be altered in the off-chain context.")
 	}
 }
 
-impl<T, I, L> mmr_lib::MMRStore<NodeOf<T, I, L>> for Storage<RuntimeStorage, T, I, L>
+impl<T, I, L> mmr_lib::MMRStoreReadOps<NodeOf<T, I, L>> for Storage<RuntimeStorage, T, I, L>
 where
 	T: Config<I>,
 	I: 'static,
 	L: primitives::FullLeaf,
 {
 	fn get_elem(&self, pos: NodeIndex) -> mmr_lib::Result<Option<NodeOf<T, I, L>>> {
-		Ok(<Nodes<T, I>>::get(pos).map(Node::Hash))
+		Ok(Nodes::<T, I>::get(pos).map(Node::Hash))
 	}
+}
 
+impl<T, I, L> mmr_lib::MMRStoreWriteOps<NodeOf<T, I, L>> for Storage<RuntimeStorage, T, I, L>
+where
+	T: Config<I>,
+	I: 'static,
+	L: primitives::FullLeaf,
+{
 	fn append(&mut self, pos: NodeIndex, elems: Vec<NodeOf<T, I, L>>) -> mmr_lib::Result<()> {
 		if elems.is_empty() {
 			return Ok(())
@@ -147,7 +177,7 @@ where
 		for elem in elems {
 			// On-chain we are going to only store new peaks.
 			if peaks_to_store.next_if_eq(&node_index).is_some() {
-				<Nodes<T, I>>::insert(node_index, elem.hash());
+				Nodes::<T, I>::insert(node_index, elem.hash());
 			}
 			// We are storing full node off-chain (using indexing API).
 			Self::store_to_offchain(node_index, parent_hash, &elem);
@@ -164,7 +194,7 @@ where
 
 		// And remove all remaining items from `peaks_before` collection.
 		for pos in peaks_to_prune {
-			<Nodes<T, I>>::remove(pos);
+			Nodes::<T, I>::remove(pos);
 		}
 
 		Ok(())
@@ -191,8 +221,7 @@ where
 			target: "runtime::mmr::offchain", "offchain db set: pos {} parent_hash {:?} key {:?}",
 			pos, parent_hash, temp_key
 		);
-		// Indexing API is used to store the full node content.
-		offchain_index::set(&temp_key, &encoded_node);
+		OffchainStorage::set::<T, I>(&temp_key, &encoded_node);
 	}
 }
 

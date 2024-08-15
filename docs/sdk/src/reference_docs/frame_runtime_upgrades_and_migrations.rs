@@ -2,8 +2,8 @@
 //!
 //! At their core, blockchain logic consists of
 //!
-//! 1. on-chain state and
-//! 2. a state transition function
+//! 1. on-chain state,
+//! 2. a state transition function.
 //!
 //! In Substrate-based blockchains, state transition functions are referred to as
 //! [runtimes](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/blockchain_state_machines/index.html).
@@ -16,7 +16,7 @@
 //! in a process called "Runtime Upgrades".
 //!
 //! Forkless runtime upgrades are a defining feature of the Substrate framework. Updating the
-//! runtime logic without forking the code base enables your blockchain to seemlessly evolve
+//! runtime logic without forking the code base enables your blockchain to seamlessly evolve
 //! over time in a deterministic, rules-based manner. It also removes ambiguity for node operators
 //! and other participants in the network about what is the canonical runtime.
 //!
@@ -24,7 +24,7 @@
 //!
 //! ## Performing a Runtime Upgrade
 //!
-//! To upgrade a runtime, an [`Origin`](frame_system::RawOrigin) with the necesarry permissions
+//! To upgrade a runtime, an [`Origin`](frame_system::RawOrigin) with the necessary permissions
 //! (usually via governance) changes the `:code` storage. Usually, this is performed via a call to
 //! [`set_code`] (or [`set_code_without_checks`]) with the desired new runtime blob, scheduled
 //! using [`pallet_scheduler`].
@@ -41,11 +41,11 @@
 //!
 //! The typical use case of a migration is to 'migrate' pallet storage from one layout to another,
 //! for example when the encoding of a storage item is changed. However, they can also execute
-//! arbitary logic such as:
+//! arbitrary logic such as:
 //!
-//! - Calling arbitrary pallet methods
-//! - Mutating arbitrary on-chain state
-//! - Cleaning up some old storage items that are no longer needed
+//! - Calling arbitrary pallet methods.
+//! - Mutating arbitrary on-chain state.
+//! - Cleaning up some old storage items that are no longer needed.
 //!
 //! ## Single Block Migrations
 //!
@@ -88,9 +88,9 @@
 //!
 //! Prior to deploying migrations, it is critical to perform additional checks to ensure that when
 //! run in our real runtime they will not brick the chain due to:
-//! - Panicing
-//! - Touching too many storage keys and resulting in an excessively large PoV
-//! - Taking too long to execute
+//! - Panicking.
+//! - Touching too many storage keys and resulting in an excessively large PoV.
+//! - Taking too long to execute.
 //!
 //! [`try-runtime-cli`](https://github.com/paritytech/try-runtime-cli) has a sub-command
 //! [`on-runtime-upgrade`](https://paritytech.github.io/try-runtime-cli/try_runtime_core/commands/enum.Action.html#variant.OnRuntimeUpgrade)
@@ -129,9 +129,10 @@
 //!
 //! Suitable for migrations which could use arbitrary amounts of block weight.
 //!
-//! TODO: Link to multi block migration example/s once PR is merged (<https://github.com/paritytech/polkadot-sdk/pull/2119>).
+//! See the
+//! [multi-block-migrations example](https://github.com/paritytech/polkadot-sdk/tree/0d7d2177807ec6b3094f4491a45b0bc0d74d3c8b/substrate/frame/examples/multi-block-migrations)
+//! for reference.
 //!
-//! [`GetStorageVersion`]: frame_support::traits::GetStorageVersion
 //! [`OnRuntimeUpgrade`]: frame_support::traits::OnRuntimeUpgrade
 //! [`StorageVersion`]: frame_support::traits::StorageVersion
 //! [`set_code`]: frame_system::Call::set_code

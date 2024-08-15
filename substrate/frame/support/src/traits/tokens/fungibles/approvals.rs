@@ -16,6 +16,8 @@
 // limitations under the License.
 
 //! Inspect and Mutate traits for Asset approvals
+//!
+//! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
 use crate::dispatch::DispatchResult;
 pub trait Inspect<AccountId>: super::Inspect<AccountId> {

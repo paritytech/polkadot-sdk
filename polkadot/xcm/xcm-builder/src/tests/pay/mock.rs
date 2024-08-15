@@ -25,22 +25,14 @@ use frame_support::{
 	traits::{ConstU32, Everything},
 };
 use frame_system::{EnsureRoot, EnsureSigned};
-use primitives::{AccountIndex, BlakeTwo256, Signature};
+use polkadot_primitives::{AccountIndex, BlakeTwo256, Signature};
+use polkadot_test_runtime::SignedExtra;
 use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
-pub type TxExtension = (
-	frame_system::CheckNonZeroSender<Test>,
-	frame_system::CheckSpecVersion<Test>,
-	frame_system::CheckTxVersion<Test>,
-	frame_system::CheckGenesis<Test>,
-	frame_system::CheckMortality<Test>,
-	frame_system::CheckNonce<Test>,
-	frame_system::CheckWeight<Test>,
-);
 pub type Address = sp_runtime::MultiAddress<AccountId, AccountIndex>;
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
@@ -57,12 +49,11 @@ construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type AccountId = AccountId;
-	type BlockHashCount = ConstU32<256>;
 	type Lookup = sp_runtime::traits::IdentityLookup<AccountId>;
 }
 
@@ -226,6 +217,10 @@ impl xcm_executor::Config for XcmConfig {
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = ();
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = XcmPallet;
 }
 
 parameter_types! {
@@ -304,6 +299,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(1, TreasuryAccountId::get(), INITIAL_BALANCE),
 			(100, TreasuryAccountId::get(), INITIAL_BALANCE),
 		],
+		next_asset_id: None,
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

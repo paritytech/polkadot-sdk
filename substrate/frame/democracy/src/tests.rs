@@ -62,7 +62,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-// Test that a fitlered call can be dispatched.
+// Test that a filtered call can be dispatched.
 pub struct BaseFilter;
 impl Contains<RuntimeCall> for BaseFilter {
 	fn contains(call: &RuntimeCall) -> bool {
@@ -77,7 +77,7 @@ parameter_types! {
 		);
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = BaseFilter;
 	type Block = Block;
@@ -108,20 +108,9 @@ impl pallet_scheduler::Config for Test {
 	type Preimages = ();
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type MaxLocks = ConstU32<10>;
-	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 parameter_types! {
 	pub static PreimageByteDeposit: u64 = 0;
@@ -194,9 +183,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 #[test]
 fn params_should_work() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(Democracy::referendum_count(), 0);
+		assert_eq!(ReferendumCount::<Test>::get(), 0);
 		assert_eq!(Balances::free_balance(42), 0);
-		assert_eq!(Balances::total_issuance(), 210);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 210);
 	});
 }
 

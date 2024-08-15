@@ -33,6 +33,7 @@ use crate::{
 	justification_requests::ExtraRequests,
 	schema::v1::StateResponse,
 	strategy::{
+		disconnected_peers::DisconnectedPeers,
 		state_sync::{ImportResult, StateSync, StateSyncProvider},
 		warp::{WarpSyncPhase, WarpSyncProgress},
 	},
@@ -41,7 +42,6 @@ use crate::{
 };
 
 use codec::Encode;
-use libp2p::PeerId;
 use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Gauge, GaugeVec, Opts, PrometheusError, Registry, U64};
 use sc_client_api::{BlockBackend, ProofProvider};
@@ -49,6 +49,7 @@ use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
 };
+use sc_network_types::PeerId;
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::{BlockOrigin, BlockStatus};
@@ -117,7 +118,7 @@ mod rep {
 	/// Reputation change for peers which send us a block with bad justifications.
 	pub const BAD_JUSTIFICATION: Rep = Rep::new(-(1 << 16), "Bad justification");
 
-	/// Reputation change when a peer sent us invlid ancestry result.
+	/// Reputation change when a peer sent us invalid ancestry result.
 	pub const UNKNOWN_ANCESTOR: Rep = Rep::new(-(1 << 16), "DB Error");
 
 	/// Peer response data does not have requested bits.
@@ -250,6 +251,7 @@ pub struct ChainSync<B: BlockT, Client> {
 	client: Arc<Client>,
 	/// The active peers that we are using to sync and their PeerSync status
 	peers: HashMap<PeerId, PeerSync<B>>,
+	disconnected_peers: DisconnectedPeers,
 	/// A `BlockCollection` of blocks that are being downloaded from peers
 	blocks: BlockCollection<B>,
 	/// The best block number in our queue of blocks to import
@@ -378,6 +380,7 @@ where
 		let mut sync = Self {
 			client,
 			peers: HashMap::new(),
+			disconnected_peers: DisconnectedPeers::new(),
 			blocks: BlockCollection::new(),
 			best_queued_hash: Default::default(),
 			best_queued_number: Zero::zero(),
@@ -1063,7 +1066,7 @@ where
 		let peer = if let Some(peer) = self.peers.get_mut(&peer_id) {
 			peer
 		} else {
-			error!(target: LOG_TARGET, "💔 Called `on_validated_block_announce` with a bad peer ID");
+			error!(target: LOG_TARGET, "💔 Called `on_validated_block_announce` with a bad peer ID {peer_id}");
 			return Some((hash, number))
 		};
 
@@ -1141,7 +1144,17 @@ where
 		if let Some(gap_sync) = &mut self.gap_sync {
 			gap_sync.blocks.clear_peer_download(peer_id)
 		}
-		self.peers.remove(peer_id);
+
+		if let Some(state) = self.peers.remove(peer_id) {
+			if !state.state.is_available() {
+				if let Some(bad_peer) =
+					self.disconnected_peers.on_disconnect_during_request(*peer_id)
+				{
+					self.actions.push(ChainSyncAction::DropPeer(bad_peer));
+				}
+			}
+		}
+
 		self.extra_justifications.peer_disconnected(peer_id);
 		self.allowed_requests.set_all();
 		self.fork_targets.retain(|_, target| {
@@ -1334,7 +1347,7 @@ where
 				PeerSyncState::DownloadingJustification(_) => {
 					// Peers that were downloading justifications
 					// should be kept in that state.
-					// We make sure our commmon number is at least something we have.
+					// We make sure our common number is at least something we have.
 					trace!(
 						target: LOG_TARGET,
 						"Keeping peer {} after restart, updating common number from={} => to={} (our best).",
@@ -1541,10 +1554,14 @@ where
 		let max_parallel = if is_major_syncing { 1 } else { self.max_parallel_downloads };
 		let max_blocks_per_request = self.max_blocks_per_request;
 		let gap_sync = &mut self.gap_sync;
+		let disconnected_peers = &mut self.disconnected_peers;
 		self.peers
 			.iter_mut()
 			.filter_map(move |(&id, peer)| {
-				if !peer.state.is_available() || !allowed_requests.contains(&id) {
+				if !peer.state.is_available() ||
+					!allowed_requests.contains(&id) ||
+					!disconnected_peers.is_peer_available(&id)
+				{
 					return None
 				}
 
@@ -1656,7 +1673,10 @@ where
 			}
 
 			for (id, peer) in self.peers.iter_mut() {
-				if peer.state.is_available() && peer.common_number >= sync.target_number() {
+				if peer.state.is_available() &&
+					peer.common_number >= sync.target_number() &&
+					self.disconnected_peers.is_peer_available(&id)
+				{
 					peer.state = PeerSyncState::DownloadingState;
 					let request = sync.next_request();
 					trace!(target: LOG_TARGET, "New StateRequest for {}: {:?}", id, request);

@@ -462,7 +462,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> Result<Option<Activa
 	}
 }
 
-/// Check wheter a dispute for the given candidate could be spam.
+/// Check whether a dispute for the given candidate could be spam.
 ///
 /// That is the candidate could be made up.
 pub fn is_potential_spam(

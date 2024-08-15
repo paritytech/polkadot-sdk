@@ -22,7 +22,7 @@
 //! This module provides transaction related helpers to:
 //! - Submit a raw unsigned transaction
 //! - Submit an unsigned transaction with a signed payload
-//! - Submit a signed transction.
+//! - Submit a signed transaction.
 //!
 //! ## Usage
 //!
@@ -56,13 +56,13 @@
 
 #![warn(missing_docs)]
 
+use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use codec::Encode;
 use sp_runtime::{
 	app_crypto::RuntimeAppPublic,
 	traits::{Extrinsic as ExtrinsicT, IdentifyAccount, One},
 	RuntimeDebug,
 };
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 /// Marker struct used to flag using all supported keys to sign a payload.
 pub struct ForAll {}
@@ -76,12 +76,9 @@ pub struct ForAny {}
 /// utility function can be used. However, this struct is used by `Signer`
 /// to submit a signed transactions providing the signature along with the call.
 pub struct SubmitTransaction<T: SendTransactionTypes<OverarchingCall>, OverarchingCall> {
-	_phantom: sp_std::marker::PhantomData<(T, OverarchingCall)>,
+	_phantom: core::marker::PhantomData<(T, OverarchingCall)>,
 }
 
-// TODO [#2415]: Avoid splitting call and the totally opaque `signature`; `CreateTransaction` trait
-// should provide something which impls `Encode`, which can be sent onwards to
-// `sp_io::offchain::submit_transaction`. There's no great need to split things up as in here.
 impl<T, LocalCall> SubmitTransaction<T, LocalCall>
 where
 	T: SendTransactionTypes<LocalCall>,
@@ -91,8 +88,6 @@ where
 		call: <T as SendTransactionTypes<LocalCall>>::OverarchingCall,
 		signature: Option<<T::Extrinsic as ExtrinsicT>::SignaturePayload>,
 	) -> Result<(), ()> {
-		// TODO: Use regular transaction API instead.
-		#[allow(deprecated)]
 		let xt = T::Extrinsic::new(call, signature).ok_or(())?;
 		sp_io::offchain::submit_transaction(xt.encode())
 	}
@@ -120,7 +115,7 @@ where
 #[derive(RuntimeDebug)]
 pub struct Signer<T: SigningTypes, C: AppCrypto<T::Public, T::Signature>, X = ForAny> {
 	accounts: Option<Vec<T::Public>>,
-	_phantom: sp_std::marker::PhantomData<(X, C)>,
+	_phantom: core::marker::PhantomData<(X, C)>,
 }
 
 impl<T: SigningTypes, C: AppCrypto<T::Public, T::Signature>, X> Default for Signer<T, C, X> {
@@ -389,7 +384,7 @@ where
 ///
 /// // runtime-specific public key
 /// type Public = MultiSigner: From<sr25519::Public>;
-/// type Signature = MulitSignature: From<sr25519::Signature>;
+/// type Signature = MultiSignature: From<sr25519::Signature>;
 /// ```
 // TODO [#5662] Potentially use `IsWrappedBy` types, or find some other way to make it easy to
 // obtain unwrapped crypto (and wrap it back).
@@ -449,7 +444,7 @@ pub trait SigningTypes: crate::Config {
 	/// A public key that is capable of identifying `AccountId`s.
 	///
 	/// Usually that's either a raw crypto public key (e.g. `sr25519::Public`) or
-	/// an aggregate type for multiple crypto public keys, like `MulitSigner`.
+	/// an aggregate type for multiple crypto public keys, like `MultiSigner`.
 	type Public: Clone
 		+ PartialEq
 		+ IdentifyAccount<AccountId = Self::AccountId>
@@ -476,7 +471,7 @@ pub trait SendTransactionTypes<LocalCall> {
 ///
 /// This trait is meant to be implemented by the runtime and is responsible for constructing
 /// a payload to be signed and contained within the extrinsic.
-/// This will most likely include creation of `TxExtension` (a tuple of `TransactionExtension`s).
+/// This will most likely include creation of `SignedExtra` (a set of `SignedExtensions`).
 /// Note that the result can be altered by inspecting the `Call` (for instance adjusting
 /// fees, or mortality depending on the `pallet` being called).
 pub trait CreateSignedTransaction<LocalCall>:
@@ -626,17 +621,14 @@ mod tests {
 	use crate::mock::{RuntimeCall, Test as TestRuntime, CALL};
 	use codec::Decode;
 	use sp_core::offchain::{testing, TransactionPoolExt};
-	use sp_runtime::{
-		generic::UncheckedExtrinsic,
-		testing::{TestSignature, UintAuthorityId},
-	};
+	use sp_runtime::testing::{TestSignature, TestXt, UintAuthorityId};
 
 	impl SigningTypes for TestRuntime {
 		type Public = UintAuthorityId;
 		type Signature = TestSignature;
 	}
 
-	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
+	type Extrinsic = TestXt<RuntimeCall, ()>;
 
 	impl SendTransactionTypes<RuntimeCall> for TestRuntime {
 		type Extrinsic = Extrinsic;
@@ -701,7 +693,7 @@ mod tests {
 			let _tx3 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert!(tx1.is_inherent());
+			assert_eq!(tx1.signature, None);
 		});
 	}
 
@@ -732,7 +724,7 @@ mod tests {
 			let tx1 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert!(tx1.is_inherent());
+			assert_eq!(tx1.signature, None);
 		});
 	}
 
@@ -766,7 +758,7 @@ mod tests {
 			let _tx2 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert!(tx1.is_inherent());
+			assert_eq!(tx1.signature, None);
 		});
 	}
 
@@ -798,7 +790,7 @@ mod tests {
 			let tx1 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert!(tx1.is_inherent());
+			assert_eq!(tx1.signature, None);
 		});
 	}
 }

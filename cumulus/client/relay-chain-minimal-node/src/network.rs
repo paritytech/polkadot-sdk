@@ -15,64 +15,56 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use polkadot_core_primitives::{Block, Hash, Header};
-use sp_runtime::traits::{Block as BlockT, NumberFor};
+use sp_runtime::traits::NumberFor;
 
 use sc_network::{
 	config::{
-		NetworkConfiguration, NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake,
-		ProtocolId, SetConfig,
+		NetworkConfiguration, NonReservedPeerMode, NotificationHandshake, PeerStore, ProtocolId,
+		SetConfig,
 	},
-	peer_store::PeerStore,
-	NetworkService,
+	peer_store::PeerStoreProvider,
+	service::traits::NetworkService,
+	NotificationMetrics,
 };
 
-use sc_network::{config::FullNetworkConfiguration, NotificationService};
+use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NotificationService};
 use sc_network_common::{role::Roles, sync::message::BlockAnnouncesHandshake};
 use sc_service::{error::Error, Configuration, NetworkStarter, SpawnTaskHandle};
 
 use std::{iter, sync::Arc};
 
 /// Build the network service, the network status sinks and an RPC sender.
-pub(crate) fn build_collator_network(
+pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 	config: &Configuration,
-	mut full_network_config: FullNetworkConfiguration,
+	mut network_config: FullNetworkConfiguration<Block, Hash, Network>,
 	spawn_handle: SpawnTaskHandle,
 	genesis_hash: Hash,
 	best_header: Header,
+	notification_metrics: NotificationMetrics,
 ) -> Result<
-	(
-		Arc<NetworkService<Block, Hash>>,
-		NetworkStarter,
-		Arc<dyn sp_consensus::SyncOracle + Send + Sync>,
-	),
+	(Arc<dyn NetworkService>, NetworkStarter, Arc<dyn sp_consensus::SyncOracle + Send + Sync>),
 	Error,
 > {
 	let protocol_id = config.protocol_id();
-	let (block_announce_config, _notification_service) = get_block_announce_proto_config::<Block>(
+	let (block_announce_config, _notification_service) = get_block_announce_proto_config::<Network>(
 		protocol_id.clone(),
 		&None,
 		Roles::from(&config.role),
 		best_header.number,
 		best_header.hash(),
 		genesis_hash,
+		notification_metrics.clone(),
+		network_config.peer_store_handle(),
 	);
 
 	// Since this node has no syncing, we do not want light-clients to connect to it.
 	// Here we set any potential light-client slots to 0.
-	adjust_network_config_light_in_peers(&mut full_network_config.network_config);
+	adjust_network_config_light_in_peers(&mut network_config.network_config);
 
-	let peer_store = PeerStore::new(
-		full_network_config
-			.network_config
-			.boot_nodes
-			.iter()
-			.map(|bootnode| bootnode.peer_id)
-			.collect(),
-	);
-	let peer_store_handle = peer_store.handle();
+	let peer_store = network_config.take_peer_store();
 	spawn_handle.spawn("peer-store", Some("networking"), peer_store.run());
 
-	let network_params = sc_network::config::Params::<Block> {
+	let network_params = sc_network::config::Params::<Block, Hash, Network> {
 		role: config.role.clone(),
 		executor: {
 			let spawn_handle = Clone::clone(&spawn_handle);
@@ -81,16 +73,17 @@ pub(crate) fn build_collator_network(
 			})
 		},
 		fork_id: None,
-		network_config: full_network_config,
-		peer_store: peer_store_handle,
+		network_config,
 		genesis_hash,
 		protocol_id,
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
+		bitswap_config: None,
+		notification_metrics,
 	};
 
-	let network_worker = sc_network::NetworkWorker::new(network_params)?;
-	let network_service = network_worker.service().clone();
+	let network_worker = Network::new(network_params)?;
+	let network_service = network_worker.network_service();
 
 	let (network_start_tx, network_start_rx) = futures::channel::oneshot::channel();
 
@@ -143,14 +136,16 @@ impl sp_consensus::SyncOracle for SyncOracle {
 	}
 }
 
-fn get_block_announce_proto_config<B: BlockT>(
+fn get_block_announce_proto_config<Network: NetworkBackend<Block, Hash>>(
 	protocol_id: ProtocolId,
 	fork_id: &Option<String>,
 	roles: Roles,
-	best_number: NumberFor<B>,
-	best_hash: B::Hash,
-	genesis_hash: B::Hash,
-) -> (NonDefaultSetConfig, Box<dyn NotificationService>) {
+	best_number: NumberFor<Block>,
+	best_hash: Hash,
+	genesis_hash: Hash,
+	metrics: NotificationMetrics,
+	peer_store_handle: Arc<dyn PeerStoreProvider>,
+) -> (Network::NotificationProtocolConfig, Box<dyn NotificationService>) {
 	let block_announces_protocol = {
 		let genesis_hash = genesis_hash.as_ref();
 		if let Some(ref fork_id) = fork_id {
@@ -160,11 +155,11 @@ fn get_block_announce_proto_config<B: BlockT>(
 		}
 	};
 
-	NonDefaultSetConfig::new(
+	Network::notification_config(
 		block_announces_protocol.into(),
 		iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into()).collect(),
 		1024 * 1024,
-		Some(NotificationHandshake::new(BlockAnnouncesHandshake::<B>::build(
+		Some(NotificationHandshake::new(BlockAnnouncesHandshake::<Block>::build(
 			roles,
 			best_number,
 			best_hash,
@@ -178,5 +173,7 @@ fn get_block_announce_proto_config<B: BlockT>(
 			reserved_nodes: Vec::new(),
 			non_reserved_mode: NonReservedPeerMode::Deny,
 		},
+		metrics,
+		peer_store_handle,
 	)
 }

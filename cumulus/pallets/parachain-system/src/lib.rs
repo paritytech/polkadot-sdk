@@ -27,10 +27,14 @@
 //!
 //! Users must ensure that they register this pallet as an inherent provider.
 
+extern crate alloc;
+
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::cmp;
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
-	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError,
+	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
@@ -54,8 +58,8 @@ use sp_runtime::{
 	},
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
-use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
-use xcm::latest::XcmHash;
+use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
+use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
 pub mod migration;
@@ -244,10 +248,6 @@ pub mod pallet {
 		/// [`consensus_hook::ExpectParentIncluded`] here. This is only necessary in the case
 		/// that collators aren't expected to have node versions that supply the included block
 		/// in the relay-chain state proof.
-		///
-		/// This config type is only available when the `parameterized-consensus-hook` crate feature
-		/// is activated.
-		#[cfg(feature = "parameterized-consensus-hook")]
 		type ConsensusHook: ConsensusHook;
 	}
 
@@ -267,7 +267,7 @@ pub mod pallet {
 
 			LastRelayChainBlockNumber::<T>::put(vfp.relay_parent_number);
 
-			let host_config = match Self::host_configuration() {
+			let host_config = match HostConfiguration::<T>::get() {
 				Some(ok) => ok,
 				None => {
 					debug_assert!(
@@ -281,7 +281,7 @@ pub mod pallet {
 			// Before updating the relevant messaging state, we need to extract
 			// the total bandwidth limits for the purpose of updating the unincluded
 			// segment.
-			let total_bandwidth_out = match Self::relevant_messaging_state() {
+			let total_bandwidth_out = match RelevantMessagingState::<T>::get() {
 				Some(s) => OutboundBandwidthLimits::from_relay_chain_state(&s),
 				None => {
 					debug_assert!(
@@ -298,7 +298,8 @@ pub mod pallet {
 			Self::adjust_egress_bandwidth_limits();
 
 			let (ump_msg_count, ump_total_bytes) = <PendingUpwardMessages<T>>::mutate(|up| {
-				let (available_capacity, available_size) = match Self::relevant_messaging_state() {
+				let (available_capacity, available_size) = match RelevantMessagingState::<T>::get()
+				{
 					Some(limits) => (
 						limits.relay_dispatch_queue_remaining_capacity.remaining_count,
 						limits.relay_dispatch_queue_remaining_capacity.remaining_size,
@@ -463,7 +464,7 @@ pub mod pallet {
 			// One complication here, is that the `host_configuration` is updated by an inherent
 			// and those are processed after the block initialization phase. Therefore, we have to
 			// be content only with the configuration as per the previous block. That means that
-			// the configuration can be either stale (or be abscent altogether in case of the
+			// the configuration can be either stale (or be absent altogether in case of the
 			// beginning of the chain).
 			//
 			// In order to mitigate this, we do the following. At the time, we are only concerned
@@ -476,7 +477,7 @@ pub mod pallet {
 			// than the announced, we would waste some of weight. In the case the actual value is
 			// greater than the announced, we will miss opportunity to send a couple of messages.
 			weight += T::DbWeight::get().reads_writes(1, 1);
-			let hrmp_max_message_num_per_candidate = Self::host_configuration()
+			let hrmp_max_message_num_per_candidate = HostConfiguration::<T>::get()
 				.map(|cfg| cfg.hrmp_max_message_num_per_candidate)
 				.unwrap_or(0);
 			<AnnouncedHrmpMessagesPerCandidate<T>>::put(hrmp_max_message_num_per_candidate);
@@ -554,10 +555,8 @@ pub mod pallet {
 			.expect("Invalid relay chain state proof");
 
 			// Update the desired maximum capacity according to the consensus hook.
-			#[cfg(feature = "parameterized-consensus-hook")]
-			let (consensus_hook_weight, capacity) = T::ConsensusHook::on_state_proof(&relay_state_proof);
-			#[cfg(not(feature = "parameterized-consensus-hook"))]
-			let (consensus_hook_weight, capacity) = ExpectParentIncluded::on_state_proof(&relay_state_proof);
+			let (consensus_hook_weight, capacity) =
+				T::ConsensusHook::on_state_proof(&relay_state_proof);
 			total_weight += consensus_hook_weight;
 			total_weight += Self::maybe_drop_included_ancestors(&relay_state_proof, capacity);
 			// Deposit a log indicating the relay-parent storage root.
@@ -747,14 +746,13 @@ pub mod pallet {
 	/// The segment length is limited by the capacity returned from the [`ConsensusHook`] configured
 	/// in the pallet.
 	#[pallet::storage]
-	pub(super) type UnincludedSegment<T: Config> =
-		StorageValue<_, Vec<Ancestor<T::Hash>>, ValueQuery>;
+	pub type UnincludedSegment<T: Config> = StorageValue<_, Vec<Ancestor<T::Hash>>, ValueQuery>;
 
 	/// Storage field that keeps track of bandwidth used by the unincluded segment along with the
 	/// latest HRMP watermark. Used for limiting the acceptance of new blocks with
 	/// respect to relay chain constraints.
 	#[pallet::storage]
-	pub(super) type AggregatedUnincludedSegment<T: Config> =
+	pub type AggregatedUnincludedSegment<T: Config> =
 		StorageValue<_, SegmentTracker<T::Hash>, OptionQuery>;
 
 	/// In case of a scheduled upgrade, this storage field contains the validation code to be
@@ -764,8 +762,7 @@ pub mod pallet {
 	/// [`:code`][sp_core::storage::well_known_keys::CODE] which will result the next block process
 	/// with the new validation code. This concludes the upgrade process.
 	#[pallet::storage]
-	#[pallet::getter(fn new_validation_function)]
-	pub(super) type PendingValidationCode<T: Config> = StorageValue<_, Vec<u8>, ValueQuery>;
+	pub type PendingValidationCode<T: Config> = StorageValue<_, Vec<u8>, ValueQuery>;
 
 	/// Validation code that is set by the parachain and is to be communicated to collator and
 	/// consequently the relay-chain.
@@ -773,24 +770,23 @@ pub mod pallet {
 	/// This will be cleared in `on_initialize` of each new block if no other pallet already set
 	/// the value.
 	#[pallet::storage]
-	pub(super) type NewValidationCode<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+	pub type NewValidationCode<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
 	/// The [`PersistedValidationData`] set for this block.
 	/// This value is expected to be set only once per block and it's never stored
 	/// in the trie.
 	#[pallet::storage]
-	#[pallet::getter(fn validation_data)]
-	pub(super) type ValidationData<T: Config> = StorageValue<_, PersistedValidationData>;
+	pub type ValidationData<T: Config> = StorageValue<_, PersistedValidationData>;
 
 	/// Were the validation data set to notify the relay chain?
 	#[pallet::storage]
-	pub(super) type DidSetValidationCode<T: Config> = StorageValue<_, bool, ValueQuery>;
+	pub type DidSetValidationCode<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// The relay chain block number associated with the last parachain block.
 	///
 	/// This is updated in `on_finalize`.
 	#[pallet::storage]
-	pub(super) type LastRelayChainBlockNumber<T: Config> =
+	pub type LastRelayChainBlockNumber<T: Config> =
 		StorageValue<_, RelayChainBlockNumber, ValueQuery>;
 
 	/// An option which indicates if the relay-chain restricts signalling a validation code upgrade.
@@ -801,7 +797,7 @@ pub mod pallet {
 	/// relay-chain. This value is ephemeral which means it doesn't hit the storage. This value is
 	/// set after the inherent.
 	#[pallet::storage]
-	pub(super) type UpgradeRestrictionSignal<T: Config> =
+	pub type UpgradeRestrictionSignal<T: Config> =
 		StorageValue<_, Option<relay_chain::UpgradeRestriction>, ValueQuery>;
 
 	/// Optional upgrade go-ahead signal from the relay-chain.
@@ -810,7 +806,7 @@ pub mod pallet {
 	/// relay-chain. This value is ephemeral which means it doesn't hit the storage. This value is
 	/// set after the inherent.
 	#[pallet::storage]
-	pub(super) type UpgradeGoAhead<T: Config> =
+	pub type UpgradeGoAhead<T: Config> =
 		StorageValue<_, Option<relay_chain::UpgradeGoAhead>, ValueQuery>;
 
 	/// The state proof for the last relay parent block.
@@ -820,8 +816,7 @@ pub mod pallet {
 	///
 	/// This data is also absent from the genesis.
 	#[pallet::storage]
-	#[pallet::getter(fn relay_state_proof)]
-	pub(super) type RelayStateProof<T: Config> = StorageValue<_, sp_trie::StorageProof>;
+	pub type RelayStateProof<T: Config> = StorageValue<_, sp_trie::StorageProof>;
 
 	/// The snapshot of some state related to messaging relevant to the current parachain as per
 	/// the relay parent.
@@ -831,8 +826,7 @@ pub mod pallet {
 	///
 	/// This data is also absent from the genesis.
 	#[pallet::storage]
-	#[pallet::getter(fn relevant_messaging_state)]
-	pub(super) type RelevantMessagingState<T: Config> = StorageValue<_, MessagingStateSnapshot>;
+	pub type RelevantMessagingState<T: Config> = StorageValue<_, MessagingStateSnapshot>;
 
 	/// The parachain host configuration that was obtained from the relay parent.
 	///
@@ -842,54 +836,51 @@ pub mod pallet {
 	/// This data is also absent from the genesis.
 	#[pallet::storage]
 	#[pallet::disable_try_decode_storage]
-	#[pallet::getter(fn host_configuration)]
-	pub(super) type HostConfiguration<T: Config> = StorageValue<_, AbridgedHostConfiguration>;
+	pub type HostConfiguration<T: Config> = StorageValue<_, AbridgedHostConfiguration>;
 
 	/// The last downward message queue chain head we have observed.
 	///
 	/// This value is loaded before and saved after processing inbound downward messages carried
 	/// by the system inherent.
 	#[pallet::storage]
-	pub(super) type LastDmqMqcHead<T: Config> = StorageValue<_, MessageQueueChain, ValueQuery>;
+	pub type LastDmqMqcHead<T: Config> = StorageValue<_, MessageQueueChain, ValueQuery>;
 
 	/// The message queue chain heads we have observed per each channel incoming channel.
 	///
 	/// This value is loaded before and saved after processing inbound downward messages carried
 	/// by the system inherent.
 	#[pallet::storage]
-	pub(super) type LastHrmpMqcHeads<T: Config> =
+	pub type LastHrmpMqcHeads<T: Config> =
 		StorageValue<_, BTreeMap<ParaId, MessageQueueChain>, ValueQuery>;
 
 	/// Number of downward messages processed in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub(super) type ProcessedDownwardMessages<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type ProcessedDownwardMessages<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// HRMP watermark that was set in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub(super) type HrmpWatermark<T: Config> =
-		StorageValue<_, relay_chain::BlockNumber, ValueQuery>;
+	pub type HrmpWatermark<T: Config> = StorageValue<_, relay_chain::BlockNumber, ValueQuery>;
 
 	/// HRMP messages that were sent in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub(super) type HrmpOutboundMessages<T: Config> =
+	pub type HrmpOutboundMessages<T: Config> =
 		StorageValue<_, Vec<OutboundHrmpMessage>, ValueQuery>;
 
 	/// Upward messages that were sent in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub(super) type UpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
+	pub type UpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
 	/// Upward messages that are still pending and not yet send to the relay chain.
 	#[pallet::storage]
-	pub(super) type PendingUpwardMessages<T: Config> =
-		StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
+	pub type PendingUpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
 	/// Initialization value for the delivery fee factor for UMP.
 	#[pallet::type_value]
@@ -899,29 +890,29 @@ pub mod pallet {
 
 	/// The factor to multiply the base delivery fee by for UMP.
 	#[pallet::storage]
-	pub(super) type UpwardDeliveryFeeFactor<T: Config> =
+	pub type UpwardDeliveryFeeFactor<T: Config> =
 		StorageValue<_, FixedU128, ValueQuery, UpwardInitialDeliveryFeeFactor>;
 
 	/// The number of HRMP messages we observed in `on_initialize` and thus used that number for
 	/// announcing the weight of `on_initialize` and `on_finalize`.
 	#[pallet::storage]
-	pub(super) type AnnouncedHrmpMessagesPerCandidate<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type AnnouncedHrmpMessagesPerCandidate<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// The weight we reserve at the beginning of the block for processing XCMP messages. This
 	/// overrides the amount set in the Config trait.
 	#[pallet::storage]
-	pub(super) type ReservedXcmpWeightOverride<T: Config> = StorageValue<_, Weight>;
+	pub type ReservedXcmpWeightOverride<T: Config> = StorageValue<_, Weight>;
 
 	/// The weight we reserve at the beginning of the block for processing DMP messages. This
 	/// overrides the amount set in the Config trait.
 	#[pallet::storage]
-	pub(super) type ReservedDmpWeightOverride<T: Config> = StorageValue<_, Weight>;
+	pub type ReservedDmpWeightOverride<T: Config> = StorageValue<_, Weight>;
 
 	/// A custom head data that should be returned as result of `validate_block`.
 	///
 	/// See `Pallet::set_custom_validation_head_data` for more information.
 	#[pallet::storage]
-	pub(super) type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+	pub type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {
@@ -950,7 +941,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -1025,6 +1016,13 @@ impl<T: Config> FeeTracker for Pallet<T> {
 	}
 }
 
+impl<T: Config> ListChannelInfos for Pallet<T> {
+	fn outgoing_channels() -> Vec<ParaId> {
+		let Some(state) = RelevantMessagingState::<T>::get() else { return Vec::new() };
+		state.egress_channels.into_iter().map(|(id, _)| id).collect()
+	}
+}
+
 impl<T: Config> GetChannelInfo for Pallet<T> {
 	fn get_channel_status(id: ParaId) -> ChannelStatus {
 		// Note, that we are using `relevant_messaging_state` which may be from the previous
@@ -1041,7 +1039,7 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		//
 		// Here it a similar case, with the difference that the realization that the channel is
 		// closed came the same block.
-		let channels = match Self::relevant_messaging_state() {
+		let channels = match RelevantMessagingState::<T>::get() {
 			None => {
 				log::warn!("calling `get_channel_status` with no RelevantMessagingState?!");
 				return ChannelStatus::Closed
@@ -1069,7 +1067,7 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 	}
 
 	fn get_channel_info(id: ParaId) -> Option<ChannelInfo> {
-		let channels = Self::relevant_messaging_state()?.egress_channels;
+		let channels = RelevantMessagingState::<T>::get()?.egress_channels;
 		let index = channels.binary_search_by_key(&id, |item| item.0).ok()?;
 		let info = ChannelInfo {
 			max_capacity: channels[index].1.max_capacity,
@@ -1406,7 +1404,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(<UpgradeRestrictionSignal<T>>::get().is_none(), Error::<T>::ProhibitedByPolkadot);
 
 		ensure!(!<PendingValidationCode<T>>::exists(), Error::<T>::OverlappingUpgrades);
-		let cfg = Self::host_configuration().ok_or(Error::<T>::HostConfigurationNotAvailable)?;
+		let cfg = HostConfiguration::<T>::get().ok_or(Error::<T>::HostConfigurationNotAvailable)?;
 		ensure!(validation_function.len() <= cfg.max_code_size as usize, Error::<T>::TooBig);
 
 		// When a code upgrade is scheduled, it has to be applied in two
@@ -1535,7 +1533,7 @@ impl<T: Config> Pallet<T> {
 }
 
 /// Type that implements `SetCode`.
-pub struct ParachainSetCode<T>(sp_std::marker::PhantomData<T>);
+pub struct ParachainSetCode<T>(core::marker::PhantomData<T>);
 impl<T: Config> frame_system::SetCode<T> for ParachainSetCode<T> {
 	fn set_code(code: Vec<u8>) -> DispatchResult {
 		Pallet::<T>::schedule_code_upgrade(code)
@@ -1562,7 +1560,7 @@ impl<T: Config> Pallet<T> {
 		// may change so that the message is no longer valid.
 		//
 		// However, changing this setting is expected to be rare.
-		if let Some(cfg) = Self::host_configuration() {
+		if let Some(cfg) = HostConfiguration::<T>::get() {
 			if message_len > cfg.max_upward_message_size as usize {
 				return Err(MessageSendError::TooBig)
 			}
@@ -1612,6 +1610,19 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 	}
 }
 
+impl<T: Config> InspectMessageQueues for Pallet<T> {
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		use xcm::prelude::*;
+
+		let messages: Vec<VersionedXcm<()>> = PendingUpwardMessages::<T>::get()
+			.iter()
+			.map(|encoded_message| VersionedXcm::<()>::decode(&mut &encoded_message[..]).unwrap())
+			.collect();
+
+		vec![(VersionedLocation::V4(Parent.into()), messages)]
+	}
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: Config> polkadot_runtime_common::xcm_sender::EnsureForParachain for Pallet<T> {
 	fn ensure(para_id: ParaId) {
@@ -1622,10 +1633,8 @@ impl<T: Config> polkadot_runtime_common::xcm_sender::EnsureForParachain for Pall
 }
 
 /// Something that can check the inherents of a block.
-#[cfg_attr(
-	feature = "parameterized-consensus-hook",
-	deprecated = "consider switching to `cumulus-pallet-parachain-system::ConsensusHook`"
-)]
+#[deprecated(note = "This trait is deprecated and will be removed by September 2024. \
+		Consider switching to `cumulus-pallet-parachain-system::ConsensusHook`")]
 pub trait CheckInherents<Block: BlockT> {
 	/// Check all inherents of the block.
 	///
@@ -1639,7 +1648,7 @@ pub trait CheckInherents<Block: BlockT> {
 
 /// Struct that always returns `Ok` on inherents check, needed for backwards-compatibility.
 #[doc(hidden)]
-pub struct DummyCheckInherents<Block>(sp_std::marker::PhantomData<Block>);
+pub struct DummyCheckInherents<Block>(core::marker::PhantomData<Block>);
 
 #[allow(deprecated)]
 impl<Block: BlockT> CheckInherents<Block> for DummyCheckInherents<Block> {
@@ -1712,20 +1721,20 @@ pub type RelaychainBlockNumberProvider<T> = RelaychainDataProvider<T>;
 ///   of [`RelayChainState`].
 /// - [`current_block_number`](Self::current_block_number): Will return
 ///   [`Pallet::last_relay_block_number()`].
-pub struct RelaychainDataProvider<T>(sp_std::marker::PhantomData<T>);
+pub struct RelaychainDataProvider<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 	type BlockNumber = relay_chain::BlockNumber;
 
 	fn current_block_number() -> relay_chain::BlockNumber {
-		Pallet::<T>::validation_data()
+		ValidationData::<T>::get()
 			.map(|d| d.relay_parent_number)
 			.unwrap_or_else(|| Pallet::<T>::last_relay_block_number())
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_block_number(block: Self::BlockNumber) {
-		let mut validation_data = Pallet::<T>::validation_data().unwrap_or_else(||
+		let mut validation_data = ValidationData::<T>::get().unwrap_or_else(||
 			// PersistedValidationData does not impl default in non-std
 			PersistedValidationData {
 				parent_head: vec![].into(),
@@ -1740,7 +1749,7 @@ impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 
 impl<T: Config> RelaychainStateProvider for RelaychainDataProvider<T> {
 	fn current_relay_chain_state() -> RelayChainState {
-		Pallet::<T>::validation_data()
+		ValidationData::<T>::get()
 			.map(|d| RelayChainState {
 				number: d.relay_parent_number,
 				state_root: d.relay_parent_storage_root,
@@ -1750,7 +1759,7 @@ impl<T: Config> RelaychainStateProvider for RelaychainDataProvider<T> {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_current_relay_chain_state(state: RelayChainState) {
-		let mut validation_data = Pallet::<T>::validation_data().unwrap_or_else(||
+		let mut validation_data = ValidationData::<T>::get().unwrap_or_else(||
 			// PersistedValidationData does not impl default in non-std
 			PersistedValidationData {
 				parent_head: vec![].into(),

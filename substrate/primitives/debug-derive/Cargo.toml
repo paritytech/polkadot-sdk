@@ -4,7 +4,7 @@ version = "14.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Macros to derive runtime debug implementation."
 documentation = "https://docs.rs/sp-debug-derive"
@@ -21,7 +21,7 @@ proc-macro = true
 [dependencies]
 quote = { workspace = true }
 syn = { workspace = true }
-proc-macro2 = "1.0.56"
+proc-macro2 = { workspace = true }
 
 [features]
 default = ["std"]

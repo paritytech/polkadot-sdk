@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix claim queue size
+
+doc:
+  - audience: Runtime User
+    description: |
+      Ensure claim queue size is always the number configured by ` scheduler_params.lookahead`. Previously the claim queue of a core was shortened by 1 if the core was occupied.
+
+
+crates:
+  - name: polkadot-runtime-parachains
+    bump: minor

@@ -196,7 +196,7 @@ where
 		target_header = backend
 			.header(target_hash)
 			.ok()?
-			.expect("Header known to exist due to the existence of one of its descendents; qed");
+			.expect("Header known to exist due to the existence of one of its descendants; qed");
 	}
 }
 

@@ -51,6 +51,7 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for pallet_bridge_grandpa.
 pub trait WeightInfo {
 	fn submit_finality_proof(p: u32, v: u32) -> Weight;
+	fn force_set_pallet_state() -> Weight;
 }
 
 /// Weights for `pallet_bridge_grandpa` that are generated using one of the Bridge testnets.
@@ -109,6 +110,30 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
+
+	/// Storage: `BridgeWestendGrandpa::CurrentAuthoritySet` (r:1 w:1)
+	/// Proof: `BridgeWestendGrandpa::CurrentAuthoritySet` (`max_values`: Some(1), `max_size`:
+	/// Some(50250), added: 50745, mode: `MaxEncodedLen`)
+	/// Storage: `BridgeWestendGrandpa::ImportedHashesPointer` (r:1 w:1)
+	/// Proof: `BridgeWestendGrandpa::ImportedHashesPointer` (`max_values`: Some(1), `max_size`:
+	/// Some(4), added: 499, mode: `MaxEncodedLen`) Storage: `BridgeWestendGrandpa::ImportedHashes`
+	/// (r:1 w:1) Proof: `BridgeWestendGrandpa::ImportedHashes` (`max_values`: Some(1024),
+	/// `max_size`: Some(36), added: 1521, mode: `MaxEncodedLen`)
+	/// Storage: `BridgeWestendGrandpa::BestFinalized` (r:0 w:1)
+	/// Proof: `BridgeWestendGrandpa::BestFinalized` (`max_values`: Some(1), `max_size`: Some(36),
+	/// added: 531, mode: `MaxEncodedLen`) Storage: `BridgeWestendGrandpa::ImportedHeaders` (r:0
+	/// w:2) Proof: `BridgeWestendGrandpa::ImportedHeaders` (`max_values`: Some(1024), `max_size`:
+	/// Some(68), added: 1553, mode: `MaxEncodedLen`)
+	fn force_set_pallet_state() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `452`
+		//  Estimated: `51735`
+		// Minimum execution time: 62_232_000 picoseconds.
+		Weight::from_parts(78_755_000, 0)
+			.saturating_add(Weight::from_parts(0, 51735))
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().writes(6))
+	}
 }
 
 // For backwards compatibility and tests
@@ -163,5 +188,29 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(1_469_032, 0).saturating_mul(v.into()))
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(6_u64))
+	}
+
+	/// Storage: `BridgeWestendGrandpa::CurrentAuthoritySet` (r:1 w:1)
+	/// Proof: `BridgeWestendGrandpa::CurrentAuthoritySet` (`max_values`: Some(1), `max_size`:
+	/// Some(50250), added: 50745, mode: `MaxEncodedLen`)
+	/// Storage: `BridgeWestendGrandpa::ImportedHashesPointer` (r:1 w:1)
+	/// Proof: `BridgeWestendGrandpa::ImportedHashesPointer` (`max_values`: Some(1), `max_size`:
+	/// Some(4), added: 499, mode: `MaxEncodedLen`) Storage: `BridgeWestendGrandpa::ImportedHashes`
+	/// (r:1 w:1) Proof: `BridgeWestendGrandpa::ImportedHashes` (`max_values`: Some(1024),
+	/// `max_size`: Some(36), added: 1521, mode: `MaxEncodedLen`)
+	/// Storage: `BridgeWestendGrandpa::BestFinalized` (r:0 w:1)
+	/// Proof: `BridgeWestendGrandpa::BestFinalized` (`max_values`: Some(1), `max_size`: Some(36),
+	/// added: 531, mode: `MaxEncodedLen`) Storage: `BridgeWestendGrandpa::ImportedHeaders` (r:0
+	/// w:2) Proof: `BridgeWestendGrandpa::ImportedHeaders` (`max_values`: Some(1024), `max_size`:
+	/// Some(68), added: 1553, mode: `MaxEncodedLen`)
+	fn force_set_pallet_state() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `452`
+		//  Estimated: `51735`
+		// Minimum execution time: 62_232_000 picoseconds.
+		Weight::from_parts(78_755_000, 0)
+			.saturating_add(Weight::from_parts(0, 51735))
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().writes(6))
 	}
 }

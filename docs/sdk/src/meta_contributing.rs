@@ -14,7 +14,7 @@
 //! documentation up-to-date, as the overhead is reduced by making sure everything is in one
 //! repository, and everything being in `.rs` files.
 //!
-//! > This is not say that a more visually appealing version of this crate (for example as an
+//! > This is not to say that a more visually appealing version of this crate (for example as an
 //! > `md-book`) cannot exist, but it would be outside the scope of this crate.
 //!
 //! Moreover, we acknowledge that a major pain point has been not only outdated *concepts*, but also
@@ -139,7 +139,7 @@
 //!
 //! ```sh
 //! SKIP_WASM_BUILD=1 \
-//! RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/headers/header.html --extend-css $(pwd)/docs/sdk/headers/theme.css --default-theme=ayu" \
+//! RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/assets/header.html --extend-css $(pwd)/docs/sdk/assets/theme.css --default-theme=ayu" \
 //! cargo doc -p polkadot-sdk-docs --no-deps --open
 //! ```
 //!

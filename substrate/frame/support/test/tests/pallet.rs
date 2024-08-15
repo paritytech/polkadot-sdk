@@ -114,8 +114,8 @@ impl SomeAssociation2 for u64 {
 #[frame_support::pallet]
 /// Pallet documentation
 // Comments should not be included in the pallet documentation
-#[pallet_doc("../../README.md")]
-#[doc = include_str!("../../README.md")]
+#[pallet_doc("../example-pallet-doc.md")]
+#[doc = include_str!("../example-readme.md")]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
@@ -446,7 +446,7 @@ pub mod pallet {
 		T::AccountId: From<SomeType1> + SomeAssociation1 + From<SomeType4>,
 	{
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<T>,
+		_config: core::marker::PhantomData<T>,
 		_myfield: u32,
 	}
 
@@ -693,7 +693,7 @@ frame_support::parameter_types!(
 	pub const MyGetParam3: u32 = 12;
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type RuntimeOrigin = RuntimeOrigin;
@@ -705,7 +705,6 @@ impl frame_system::Config for Runtime {
 	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU32<250>;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
@@ -743,40 +742,10 @@ impl pallet5::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 }
 
-#[derive(Clone, Debug, codec::Encode, codec::Decode, PartialEq, Eq, scale_info::TypeInfo)]
-pub struct AccountU64(u64);
-impl sp_runtime::traits::IdentifyAccount for AccountU64 {
-	type AccountId = u64;
-	fn into_account(self) -> u64 {
-		self.0
-	}
-}
-
-impl sp_runtime::traits::Verify for AccountU64 {
-	type Signer = AccountU64;
-	fn verify<L: sp_runtime::traits::Lazy<[u8]>>(
-		&self,
-		_msg: L,
-		_signer: &<Self::Signer as sp_runtime::traits::IdentifyAccount>::AccountId,
-	) -> bool {
-		true
-	}
-}
-
-impl From<u64> for AccountU64 {
-	fn from(value: u64) -> Self {
-		Self(value)
-	}
-}
-
 pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
-	u64,
-	RuntimeCall,
-	AccountU64,
-	frame_system::CheckNonZeroSender<Runtime>,
->;
+pub type UncheckedExtrinsic =
+	sp_runtime::testing::TestXt<RuntimeCall, frame_system::CheckNonZeroSender<Runtime>>;
 
 frame_support::construct_runtime!(
 	pub struct Runtime {
@@ -926,8 +895,10 @@ fn inherent_expand() {
 
 	let inherents = InherentData::new().create_extrinsics();
 
-	let expected =
-		vec![UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {}))];
+	let expected = vec![UncheckedExtrinsic {
+		call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
+		signature: None,
+	}];
 	assert_eq!(expected, inherents);
 
 	let block = Block::new(
@@ -939,11 +910,14 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
-				foo: 1,
-				bar: 0,
-			})),
+			UncheckedExtrinsic {
+				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
+				signature: None,
+			},
+			UncheckedExtrinsic {
+				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 0 }),
+				signature: None,
+			},
 		],
 	);
 
@@ -958,11 +932,14 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
-				foo: 0,
-				bar: 0,
-			})),
+			UncheckedExtrinsic {
+				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
+				signature: None,
+			},
+			UncheckedExtrinsic {
+				call: RuntimeCall::Example(pallet::Call::foo { foo: 0, bar: 0 }),
+				signature: None,
+			},
 		],
 	);
 
@@ -976,9 +953,10 @@ fn inherent_expand() {
 			BlakeTwo256::hash(b"test"),
 			Digest::default(),
 		),
-		vec![UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_storage_layer {
-			foo: 0,
-		}))],
+		vec![UncheckedExtrinsic {
+			call: RuntimeCall::Example(pallet::Call::foo_storage_layer { foo: 0 }),
+			signature: None,
+		}],
 	);
 
 	let mut inherent = InherentData::new();
@@ -993,12 +971,10 @@ fn inherent_expand() {
 			BlakeTwo256::hash(b"test"),
 			Digest::default(),
 		),
-		vec![UncheckedExtrinsic::new_signed(
-			RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-			1,
-			1.into(),
-			Default::default(),
-		)],
+		vec![UncheckedExtrinsic {
+			call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
+			signature: Some((1, Default::default())),
+		}],
 	);
 
 	let mut inherent = InherentData::new();
@@ -1014,13 +990,14 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
-				foo: 1,
-				bar: 1,
-			})),
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_storage_layer {
-				foo: 0,
-			})),
+			UncheckedExtrinsic {
+				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 1 }),
+				signature: None,
+			},
+			UncheckedExtrinsic {
+				call: RuntimeCall::Example(pallet::Call::foo_storage_layer { foo: 0 }),
+				signature: None,
+			},
 		],
 	);
 
@@ -1035,14 +1012,18 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
-				foo: 1,
-				bar: 1,
-			})),
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_storage_layer {
-				foo: 0,
-			})),
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
+			UncheckedExtrinsic {
+				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 1 }),
+				signature: None,
+			},
+			UncheckedExtrinsic {
+				call: RuntimeCall::Example(pallet::Call::foo_storage_layer { foo: 0 }),
+				signature: None,
+			},
+			UncheckedExtrinsic {
+				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
+				signature: None,
+			},
 		],
 	);
 
@@ -1057,17 +1038,18 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
-				foo: 1,
-				bar: 1,
-			})),
-			UncheckedExtrinsic::new_signed(
-				RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 0 }),
-				1,
-				1.into(),
-				Default::default(),
-			),
-			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
+			UncheckedExtrinsic {
+				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 1 }),
+				signature: None,
+			},
+			UncheckedExtrinsic {
+				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 0 }),
+				signature: Some((1, Default::default())),
+			},
+			UncheckedExtrinsic {
+				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
+				signature: None,
+			},
 		],
 	);
 
@@ -1426,8 +1408,9 @@ fn metadata() {
 	use codec::Decode;
 	use frame_metadata::{v15::*, *};
 
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
-	let expected_pallet_doc = vec![" Pallet documentation", readme, readme];
+	let readme = "Very important information :D\n";
+	let pallet_doc = "This is the best pallet\n";
+	let expected_pallet_doc = vec![" Pallet documentation", readme, pallet_doc];
 
 	let pallets = vec![
 		PalletMetadata {
@@ -1929,8 +1912,9 @@ fn metadata_ir_pallet_runtime_docs() {
 		.find(|pallet| pallet.name == "Example")
 		.expect("Pallet should be present");
 
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
-	let expected = vec![" Pallet documentation", readme, readme];
+	let readme = "Very important information :D\n";
+	let pallet_doc = "This is the best pallet\n";
+	let expected = vec![" Pallet documentation", readme, pallet_doc];
 	assert_eq!(pallet.docs, expected);
 }
 
@@ -1950,7 +1934,7 @@ fn extrinsic_metadata_ir_types() {
 		>(),
 		ir.signature_ty
 	);
-	assert_eq!(meta_type::<AccountU64>(), ir.signature_ty);
+	assert_eq!(meta_type::<()>(), ir.signature_ty);
 
 	assert_eq!(meta_type::<<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::SignatureExtra>(), ir.extra_ty);
 	assert_eq!(meta_type::<frame_system::CheckNonZeroSender<Runtime>>(), ir.extra_ty);
@@ -1959,8 +1943,9 @@ fn extrinsic_metadata_ir_types() {
 #[test]
 fn test_pallet_runtime_docs() {
 	let docs = crate::pallet::Pallet::<Runtime>::pallet_documentation_metadata();
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
-	let expected = vec![" Pallet documentation", readme, readme];
+	let readme = "Very important information :D\n";
+	let pallet_doc = "This is the best pallet\n";
+	let expected = vec![" Pallet documentation", readme, pallet_doc];
 	assert_eq!(docs, expected);
 }
 

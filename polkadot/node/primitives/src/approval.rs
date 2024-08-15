@@ -23,7 +23,7 @@ pub mod v1 {
 		Randomness, Slot, VrfPreOutput, VrfProof, VrfSignature, VrfTranscript,
 	};
 
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 	use polkadot_primitives::{
 		BlockNumber, CandidateHash, CandidateIndex, CoreIndex, Hash, Header, SessionIndex,
 		ValidatorIndex, ValidatorSignature,
@@ -212,7 +212,7 @@ pub mod v1 {
 
 /// A list of primitives introduced by v2.
 pub mod v2 {
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 	pub use sp_consensus_babe::{
 		Randomness, Slot, VrfPreOutput, VrfProof, VrfSignature, VrfTranscript,
 	};
@@ -382,7 +382,7 @@ pub mod v2 {
 			/// The core index chosen in this cert.
 			core_index: CoreIndex,
 		},
-		/// Deprectated assignment. Soon to be removed.
+		/// Deprecated assignment. Soon to be removed.
 		///  An assignment story based on the VRF that authorized the relay-chain block where the
 		/// candidate was included combined with a sample number.
 		///
