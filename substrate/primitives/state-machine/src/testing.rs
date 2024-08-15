@@ -210,12 +210,15 @@ where
 	///
 	/// In contrast to [`commit_all`](Self::commit_all) this will not panic if there are open
 	/// transactions.
-	pub fn as_backend(&self) -> Option<InMemoryBackend<H>> {
-		let top: Vec<_> =
-			self.overlay.changes().map(|(k, v)| (k.clone(), v.value().cloned())).collect();
+	pub fn as_backend(&mut self) -> Option<InMemoryBackend<H>> {
+		let top: Vec<_> = self
+			.overlay
+			.changes_mut()
+			.map(|(k, v)| (k.clone(), v.value().cloned()))
+			.collect();
 		let mut transaction = vec![(None, top)];
 
-		for (child_changes, child_info) in self.overlay.children() {
+		for (child_changes, child_info) in self.overlay.children_mut() {
 			transaction.push((
 				Some(child_info.clone()),
 				child_changes.map(|(k, v)| (k.clone(), v.value().cloned())).collect(),
@@ -291,13 +294,14 @@ where
 	}
 }
 
-impl<H: Hasher> PartialEq for TestExternalities<H>
+impl<H> TestExternalities<H>
 where
+	H: Hasher,
 	H::Out: Ord + 'static + codec::Codec,
 {
 	/// This doesn't test if they are in the same state, only if they contains the
 	/// same data at this state
-	fn eq(&self, other: &TestExternalities<H>) -> bool {
+	pub fn eq(&mut self, other: &mut TestExternalities<H>) -> bool {
 		let this_backend = self.as_backend();
 		let other_backend = other.as_backend();
 		match (this_backend, other_backend) {

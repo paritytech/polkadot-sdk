@@ -29,6 +29,7 @@ sp-externalities = { path = "../externalities", default-features = false }
 sp-panic-handler = { path = "../panic-handler", optional = true }
 sp-trie = { path = "../trie", default-features = false }
 trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
+arbitrary = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 array-bytes = "6.2.2"
@@ -36,9 +37,11 @@ pretty_assertions = "1.2.1"
 rand = "0.8.5"
 sp-runtime = { path = "../runtime" }
 assert_matches = "1.5"
+arbitrary = { version = "1", features = ["derive"] }
 
 [features]
 default = ["std"]
+fuzzing = ["arbitrary"]
 std = [
 	"codec/std",
 	"log/std",

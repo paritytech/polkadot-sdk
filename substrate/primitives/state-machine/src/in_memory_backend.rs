@@ -141,6 +141,7 @@ where
 	}
 }
 
+#[cfg(feature = "std")]
 impl<H: Hasher + 'static> From<(Storage, StateVersion)> for TrieBackend<H>
 where
 	H::Out: Codec + Ord,
