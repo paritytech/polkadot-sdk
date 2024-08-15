@@ -59,16 +59,22 @@ docker build . -t polkadot-sdk-parachain-template
 You can grab a [released binary](https://github.com/paritytech/zombienet/releases/latest) or use an [npm version](https://www.npmjs.com/package/@zombienet/cli).
 
 This template produces a parachain node.
+You can install it in your environment by running:
+
+```sh
+cargo install --path node
+```
+
 You still need a relaychain node - you can download the `polkadot`
 (and the accompanying `polkadot-prepare-worker` and `polkadot-execute-worker`)
 binaries from [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
 
-Make sure to bring `zombienet`, relaychain and parachain binaries
-(`polkadot`, `polkadot-prepare-worker`, `polkadot-execute-worker`, `parachain-template-node`)
+In addition to the installed parachain node, make sure to bring
+`zombienet`, `polkadot`, `polkadot-prepare-worker`, and `polkadot-execute-worker`
 into `PATH`, for example:
 
 ```sh
-export PATH="./target/release/:$PATH"
+export PATH="<path-to-binaries>:$PATH"
 ```
 
 This way, we can conveniently use them in the following steps.
