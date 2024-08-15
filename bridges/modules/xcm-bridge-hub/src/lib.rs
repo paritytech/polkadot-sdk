@@ -716,7 +716,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		/// Opened bridges.
 		///
-		/// Keep in mind that we are **NOT** reserving any amount for the bridges, opened at
+		/// Keep in mind that we are **NOT** reserving any amount for the bridges opened at
 		/// genesis. We are **NOT** opening lanes, used by this bridge. It all must be done using
 		/// other pallets genesis configuration or some other means.
 		pub opened_bridges: Vec<(Location, InteriorLocation)>,
