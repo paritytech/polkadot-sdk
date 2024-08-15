@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723740183425,
+  "lastUpdate": 1723752273166,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -15133,6 +15133,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.2579830732302044,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "843c4db78f0ca260376c5a3abf78c95782ebdc64",
+          "message": "Update Readme of the `polkadot` crate (#5326)\n\n- Typos.\n- Those telemetry links like https://telemetry.polkadot.io/#list/Kusama\ndidn't seem to properly point to a proper list (anymore?) - updated\nthem.\n- Also looks like it was trying to use rust-style linking instead of\nmarkdown linking, changed that.\n- Relative links do not work on crates.io - updated to absolute,\nsimilarly as some already existing links, such as contribution\nguidelines.",
+          "timestamp": "2024-08-15T17:40:08Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/843c4db78f0ca260376c5a3abf78c95782ebdc64"
+        },
+        "date": 1723752242114,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 64042.469999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.994587162860003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.840462027519923,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.6646518794202736,
             "unit": "seconds"
           }
         ]
