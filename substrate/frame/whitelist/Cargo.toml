@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "FRAME pallet for whitelisting call, and dispatch from specific origin"
+description = "FRAME pallet for whitelisting calls, and dispatching from a specific origin"
 
 [lints]
 workspace = true
