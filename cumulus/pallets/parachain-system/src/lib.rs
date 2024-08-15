@@ -36,7 +36,7 @@ use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
 	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
-	XcmpMessageHandler, XcmpMessageSource,
+	XcmpMessageHandler, XcmpMessageSource, DEFAULT_CLAIM_QUEUE_OFFSET,
 };
 use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
 use frame_support::{
@@ -699,6 +699,16 @@ pub mod pallet {
 			let post = frame_system::Pallet::<T>::do_apply_authorize_upgrade(code)?;
 			Ok(post)
 		}
+
+		/// Set the claim queue offset.
+		#[pallet::call_index(4)]
+		// TODO: set a proper weight here.
+		#[pallet::weight((1_000, DispatchClass::Operational))]
+		pub fn set_claim_queue_offset(origin: OriginFor<T>, value: u8) -> DispatchResult {
+			ensure_root(origin)?;
+			ClaimQueueOffset::<T>::set(Some(value));
+			Ok(())
+		}
 	}
 
 	#[pallet::event]
@@ -913,6 +923,12 @@ pub mod pallet {
 	/// See `Pallet::set_custom_validation_head_data` for more information.
 	#[pallet::storage]
 	pub type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+
+	/// The claim queue offset.
+	/// This value is expected to be mostly a constant. It's used by collators to determine when to
+	/// build a collation.
+	#[pallet::storage]
+	pub type ClaimQueueOffset<T: Config> = StorageValue<_, u8>;
 
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {
@@ -1445,7 +1461,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns the claim queue offset.
 	pub fn fetch_claim_queue_offset() -> u8 {
-		1
+		ClaimQueueOffset::<T>::get().unwrap_or(DEFAULT_CLAIM_QUEUE_OFFSET)
 	}
 
 	/// Set a custom head data that should be returned as result of `validate_block`.

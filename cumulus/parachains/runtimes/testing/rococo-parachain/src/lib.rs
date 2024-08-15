@@ -854,6 +854,12 @@ impl_runtime_apis! {
 			ConsensusHook::can_build_upon(included_hash, slot)
 		}
 	}
+
+	impl cumulus_primitives_core::FetchClaimQueueOffset<Block> for Runtime {
+		fn fetch_claim_queue_offset() -> u8 {
+			ParachainSystem::fetch_claim_queue_offset()
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {

@@ -20,7 +20,9 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{FetchClaimQueueOffset, PersistedValidationData};
+use cumulus_primitives_core::{
+	FetchClaimQueueOffset, PersistedValidationData, DEFAULT_CLAIM_QUEUE_OFFSET,
+};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_primitives::{
@@ -271,6 +273,12 @@ where
 			if scheduled_cores.is_empty() {
 				tracing::debug!(target: LOG_TARGET, "Parachain not scheduled, skipping slot.");
 				continue;
+			} else {
+				tracing::debug!(
+					target: LOG_TARGET,
+					"Scheduled cores: {:?}",
+					scheduled_cores
+				);
 			}
 
 			let core_index_in_scheduled: u64 = *para_slot.slot % expected_cores;
@@ -496,8 +504,7 @@ where
 				relay_parent,
 				self.para_id,
 				&self.relay_client,
-				// TODO: make this a default somewhere.
-				maybe_claim_queue_offset.unwrap_or(0),
+				maybe_claim_queue_offset.unwrap_or(DEFAULT_CLAIM_QUEUE_OFFSET),
 			)
 			.await
 		} else {
