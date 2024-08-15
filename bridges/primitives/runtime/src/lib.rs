@@ -40,7 +40,7 @@ pub use chain::{
 };
 pub use frame_support::storage::storage_prefix as storage_value_final_key;
 use num_traits::{CheckedAdd, CheckedSub, One, SaturatingAdd, Zero};
-#[cfg(any(feature = "test-helpers", feature = "std"))]
+#[cfg(feature = "std")]
 pub use storage_proof::craft_valid_storage_proof;
 #[cfg(feature = "test-helpers")]
 pub use storage_proof::{
