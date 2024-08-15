@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723731879680,
+  "lastUpdate": 1723740489112,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -22411,6 +22411,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.17426796947333326,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b5029eb4fd6c7ffd8164b2fe12b71bad0c59c9f2",
+          "message": "Update links in the documentation (#5175)\n\n- Where applicable, use a regular [`reference`] instead of\n`../../../reference/index.html`.\n- Typos.\n- Update a link to `polkadot-evm` which has moved out of the monorepo.\n- ~~The link specification for `chain_spec_builder` is invalid~~\n(actually it was valid) - it works fine without it.\n\nPart of https://github.com/paritytech/eng-automation/issues/10",
+          "timestamp": "2024-08-15T14:55:49Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b5029eb4fd6c7ffd8164b2fe12b71bad0c59c9f2"
+        },
+        "date": 1723740457861,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012001676406666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010097493473333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022019177933333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17034327126000004,
             "unit": "seconds"
           }
         ]
