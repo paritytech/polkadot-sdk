@@ -191,4 +191,45 @@ mod tests {
 		// An invalid key is not queryable.
 		assert_eq!(new_balance_trie.query(6969u32), None);
 	}
+
+	#[test]
+	fn basic_end_to_end_multi_value() {
+		// Create a map of users and their balances.
+		let mut map = BTreeMap::<u32, u128>::new();
+		for i in 0..100u32 {
+			map.insert(i, i.into());
+		}
+
+		// Put items into the trie.
+		let balance_trie = BalanceTrie::generate_for(map).unwrap();
+
+		// Root is changed.
+		let root = *balance_trie.root();
+		assert!(root != empty_root());
+
+		// Assert valid keys are queryable.
+		assert_eq!(balance_trie.query(6u32), Some(6u128));
+		assert_eq!(balance_trie.query(9u32), Some(9u128));
+		assert_eq!(balance_trie.query(69u32), Some(69u128));
+		// Invalid key returns none.
+		assert_eq!(balance_trie.query(6969u32), None);
+
+		// Create a proof for a valid key.
+		let proof = balance_trie.create_proof(vec![6u32, 69u32]).unwrap();
+		// Can't create proof for invalid key.
+		assert_eq!(balance_trie.create_proof(vec![6u32, 69u32, 6969u32]), None);
+
+		// Create a new proving trie from the proof.
+		let new_balance_trie = BalanceTrie::from_nodes(root, &proof);
+
+		// Assert valid keys are queryable.
+		assert_eq!(new_balance_trie.query(6u32), Some(6u128));
+		assert_eq!(new_balance_trie.query(69u32), Some(69u128));
+		// A "neighbor" key is queryable, by happenstance.
+		assert_eq!(new_balance_trie.query(9u32), Some(9u128));
+		// A "non-neighbor" key is not queryable.
+		assert_eq!(new_balance_trie.query(20u32), None);
+		// An invalid key is not queryable.
+		assert_eq!(new_balance_trie.query(6969u32), None);
+	}
 }
