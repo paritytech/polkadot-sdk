@@ -72,7 +72,7 @@ where
 			.and_then(|raw| Value::decode(&mut &*raw).ok())
 	}
 
-	fn create_proof(&self, key: Key) -> Option<Vec<Vec<u8>>> {
+	fn create_single_value_proof(&self, key: Key) -> Option<Vec<Vec<u8>>> {
 		let mut recorder = Recorder::<LayoutV1<Hashing>>::new();
 
 		{
@@ -143,9 +143,9 @@ mod tests {
 		assert_eq!(balance_trie.query(69u32), None);
 
 		// Create a proof for a valid key.
-		let proof = balance_trie.create_proof(6u32).unwrap();
+		let proof = balance_trie.create_single_value_proof(6u32).unwrap();
 		// Can't create proof for invalid key.
-		assert_eq!(balance_trie.create_proof(69u32), None);
+		assert_eq!(balance_trie.create_single_value_proof(69u32), None);
 
 		// Create a new proving trie from the proof.
 		let new_balance_trie = BalanceTrie::from_nodes(root, &proof);
