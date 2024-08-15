@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723687443336,
+  "lastUpdate": 1723719561885,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -8483,6 +8483,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04518643322399999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]",
+            "email": "49699333+dependabot[bot]@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e91f1463884946fa1c11b1994fc6bb121de57091",
+          "message": "Bump trie-db from 0.29.0 to 0.29.1 (#5231)\n\nBumps [trie-db](https://github.com/paritytech/trie) from 0.29.0 to\n0.29.1.\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/paritytech/trie/commit/48fcfa99c439949f55d29762e35f8793113edc91\"><code>48fcfa9</code></a>\nmemory-db: update parity-util-mem (<a\nhref=\"https://redirect.github.com/paritytech/trie/issues/166\">#166</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/trie/commit/02b030a24bc60d46ed7f156888bdbbed6498b216\"><code>02b030a</code></a>\nPrepare trie-db 0.24.0 release (<a\nhref=\"https://redirect.github.com/paritytech/trie/issues/163\">#163</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/trie/commit/aff1cbac8f03e8dc7533263b374dc0fcd17444ad\"><code>aff1cba</code></a>\nIntroduce trie level cache &amp; recorder (<a\nhref=\"https://redirect.github.com/paritytech/trie/issues/157\">#157</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/trie/commit/aa3168d6de01793e71ebd906d3a82ae4b363db59\"><code>aa3168d</code></a>\nBump actions/checkout from 2 to 3 (<a\nhref=\"https://redirect.github.com/paritytech/trie/issues/160\">#160</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/trie/commit/d597275768f4796417c7fc9f8ad64f9b26be14d8\"><code>d597275</code></a>\nAdd GHA to dependabot and CODEOWNERS (<a\nhref=\"https://redirect.github.com/paritytech/trie/issues/159\">#159</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/trie/commit/5c9267c1133000aa41a5983d8acd6d0968ab8032\"><code>5c9267c</code></a>\ntest prefix seek more precisely (<a\nhref=\"https://redirect.github.com/paritytech/trie/issues/158\">#158</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/trie/commit/f64e1b0a8ced1b4b574d2b705202bf790d4394e4\"><code>f64e1b0</code></a>\nDo not check for root in <code>TrieDB</code> and <code>TrieDBMut</code>\nconstructors (<a\nhref=\"https://redirect.github.com/paritytech/trie/issues/155\">#155</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/trie/commit/8d5b8675fcc8ecc8648206d08f2e4c06ab489593\"><code>8d5b867</code></a>\nUpdate dependencies. (<a\nhref=\"https://redirect.github.com/paritytech/trie/issues/154\">#154</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/trie/commit/fac100cbf49c197c49d102f12040bccbfa38827e\"><code>fac100c</code></a>\nAdding support for eip-1186 proofs (<a\nhref=\"https://redirect.github.com/paritytech/trie/issues/146\">#146</a>)</li>\n<li><a\nhref=\"https://github.com/paritytech/trie/commit/2e1541e44989f24cec5dbe3081c7cecf00d8b509\"><code>2e1541e</code></a>\nFix hex trace output (<a\nhref=\"https://redirect.github.com/paritytech/trie/issues/153\">#153</a>)</li>\n<li>Additional commits viewable in <a\nhref=\"https://github.com/paritytech/trie/compare/trie-db-v0.29.0...reference-trie-v0.29.1\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility\nscore](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=trie-db&package-manager=cargo&previous-version=0.29.0&new-version=0.29.1)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't\nalter it yourself. You can also trigger a rebase manually by commenting\n`@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits\nthat have been made to it\n- `@dependabot merge` will merge this PR after your CI passes on it\n- `@dependabot squash and merge` will squash and merge this PR after\nyour CI passes on it\n- `@dependabot cancel merge` will cancel a previously requested merge\nand block automerging\n- `@dependabot reopen` will reopen this PR if it is closed\n- `@dependabot close` will close this PR and stop Dependabot recreating\nit. You can achieve the same result by closing it manually\n- `@dependabot show <dependency name> ignore conditions` will show all\nof the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop\nDependabot creating any more for this major version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop\nDependabot creating any more for this minor version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop\nDependabot creating any more for this dependency (unless you reopen the\nPR or upgrade to it yourself)\n\n\n</details>\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+          "timestamp": "2024-08-15T09:21:18Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e91f1463884946fa1c11b1994fc6bb121de57091"
+        },
+        "date": 1723719531371,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.914,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039663730251999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04967757327399999,
             "unit": "seconds"
           }
         ]
