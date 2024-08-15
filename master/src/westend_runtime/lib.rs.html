@@ -2975,11 +2975,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2824" id="2824">2824</a>
 <a href="#2825" id="2825">2825</a>
 <a href="#2826" id="2826">2826</a>
-<a href="#2827" id="2827">2827</a>
-<a href="#2828" id="2828">2828</a>
-<a href="#2829" id="2829">2829</a>
-<a href="#2830" id="2830">2830</a>
-<a href="#2831" id="2831">2831</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4742,11 +4737,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 );
 
 <span class="macro">parameter_types! </span>{
-	<span class="comment">// This is the max pools that will be migrated in the runtime upgrade. Westend has more pools
-	// than this, but we want to emulate some non migrated pools. In prod runtimes, if weight is not
-	// a concern, it is recommended to set to (existing pools + 10) to also account for any new
-	// pools getting created before the migration is actually executed.
-	</span><span class="kw">pub const </span>MaxPoolsToMigrate: u32 = <span class="number">250</span>;
+	<span class="doccomment">/// Bounding number of agent pot accounts to be migrated in a single block.
+	</span><span class="kw">pub const </span>MaxAgentsToMigrate: u32 = <span class="number">300</span>;
 }
 
 <span class="doccomment">/// All migrations that will run on the next runtime upgrade.
@@ -4780,13 +4772,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Unreleased migrations. Add new ones here:
 	</span><span class="kw">pub type </span>Unreleased = (
-		<span class="comment">// Migrate NominationPools to `DelegateStake` adapter. This is unversioned upgrade and
-		// should not be applied yet in Kusama/Polkadot.
-		</span>pallet_nomination_pools::migration::unversioned::DelegationStakeMigration&lt;
+		<span class="comment">// This is only needed for Westend.
+		</span>pallet_delegated_staking::migration::unversioned::ProxyDelegatorMigration&lt;
 			Runtime,
-			MaxPoolsToMigrate,
+			MaxAgentsToMigrate,
 		&gt;,
-		pallet_staking::migrations::v15::MigrateV14ToV15&lt;Runtime&gt;,
 	);
 }
 

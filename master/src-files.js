@@ -172,7 +172,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["pallet_conviction_voting",["",[],["benchmarking.rs","conviction.rs","lib.rs","types.rs","vote.rs","weights.rs"]]],\
 ["pallet_core_fellowship",["",[],["benchmarking.rs","lib.rs","migration.rs","weights.rs"]]],\
 ["pallet_default_config_example",["",[],["lib.rs"]]],\
-["pallet_delegated_staking",["",[],["impls.rs","lib.rs","types.rs"]]],\
+["pallet_delegated_staking",["",[],["impls.rs","lib.rs","migration.rs","types.rs"]]],\
 ["pallet_democracy",["",[["migrations",[],["mod.rs","unlock_and_unreserve_all_funds.rs","v1.rs"]]],["benchmarking.rs","conviction.rs","lib.rs","types.rs","vote.rs","vote_threshold.rs","weights.rs"]]],\
 ["pallet_dev_mode",["",[],["lib.rs"]]],\
 ["pallet_election_provider_e2e_test",["",[],["lib.rs"]]],\

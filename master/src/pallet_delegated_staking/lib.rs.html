@@ -974,6 +974,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#823" id="823">823</a>
 <a href="#824" id="824">824</a>
 <a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1102,6 +1118,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #![deny(rustdoc::broken_intra_doc_links)]
 
 </span><span class="kw">mod </span>impls;
+<span class="kw">pub mod </span>migration;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>mock;
 <span class="attr">#[cfg(test)]
@@ -1128,12 +1145,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Defensive, DefensiveOption, Imbalance, OnUnbalanced,
 	},
 };
+<span class="kw">use </span>sp_io::hashing::blake2_256;
 <span class="kw">use </span>sp_runtime::{
-	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
+	traits::{CheckedAdd, CheckedSub, TrailingZeroInput, Zero},
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 <span class="kw">use </span>sp_staking::{Agent, Delegator, EraIndex, StakingInterface, StakingUnchecked};
 
+<span class="doccomment">/// The log target of this pallet.
+</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::delegated-staking"</span>;
+<span class="comment">// syntactic sugar for logging.
+</span><span class="attr">#[macro_export]
+</span><span class="macro">macro_rules! </span>log {
+	(<span class="macro-nonterminal">$level</span>:tt, <span class="macro-nonterminal">$patter</span>:expr $(, <span class="macro-nonterminal">$values</span>:expr)* $(,)<span class="question-mark">?</span>) =&gt; {
+		log::<span class="macro-nonterminal">$</span><span class="macro">level!</span>(
+			<span class="macro-nonterminal">target</span>: <span class="macro-nonterminal">$crate::LOG_TARGET</span>,
+			<span class="macro">concat!</span>(<span class="string">"[{:?}] 🏊‍♂️ "</span>, <span class="macro-nonterminal">$patter</span>), &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() $(, <span class="macro-nonterminal">$values</span>)*
+		)
+	};
+}
 <span class="kw">pub type </span>BalanceOf&lt;T&gt; =
 	&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>FunInspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
 
@@ -1439,7 +1469,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Derive a (keyless) pot account from the given agent account and account type.
 	</span><span class="kw">fn </span>sub_account(account_type: AccountType, acc: T::AccountId) -&gt; T::AccountId {
-		T::PalletId::get().into_sub_account_truncating((account_type, acc.clone()))
+		<span class="kw">let </span>entropy = (T::PalletId::get(), acc, account_type).using_encoded(blake2_256);
+		Decode::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::new(entropy.as_ref()))
+			.expect(<span class="string">"infinite length input; no invalid inputs for type; qed"</span>)
 	}
 
 	<span class="doccomment">/// Held balance of a delegator.
