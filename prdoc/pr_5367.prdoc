@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Bump serde_json from 1.0.120 to 1.0.121 in the known_good_semver group
+
+doc:
+  - audience: Node Dev
+    description: |
+      Updates serde_json from 1.0.120 to 1.0.121
+
+crates:
+  - name: cumulus-primitives-timestamp
+    bump: patch
