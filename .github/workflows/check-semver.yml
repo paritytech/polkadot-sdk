@@ -23,6 +23,8 @@ jobs:
           ref: ${{ github.head_ref }} # Check out the actual changes - not the merge commit.
 
       - name: extra git setup
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
         run: |
           set -eux
           git config --global --add safe.directory '*'
@@ -30,9 +32,9 @@ jobs:
           git fetch --no-tags --no-recurse-submodules --depth=1 origin ${{ github.event.pull_request.base.sha }}
           git fetch --no-tags --no-recurse-submodules --depth=1 origin master
           echo "hi2 'git merge-base origin/master HEAD --fork-point'"
-          git merge-base origin/master HEAD --fork-point
+          git merge-base --fork-point origin/$BASE_BRANCH
           echo "hi3"
-          BASE=$(git merge-base origin/master HEAD --fork-point)
+          BASE=$(git merge-base --fork-point origin/$BASE_BRANCH)
           echo "Setting BASE to $BASE"
           git fetch --no-tags --no-recurse-submodules --depth=1 origin $BASE
           echo "Fetched base, branching off"
