@@ -493,9 +493,9 @@ fn para_to_para_through_relay_limited_reserve_transfer_assets(
 	)
 }
 
-/// Reserve Transfers of native asset from Relay Chain to the System Parachain shouldn't work
+/// Reserve Transfers of native asset from Relay Chain to the Asset Hub shouldn't work
 #[test]
-fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
+fn reserve_transfer_native_asset_from_relay_to_asset_hub_fails() {
 	// Init values for Relay Chain
 	let signed_origin = <Rococo as Chain>::RuntimeOrigin::signed(RococoSender::get().into());
 	let destination = Rococo::child_location_of(AssetHubRococo::para_id());
@@ -526,10 +526,10 @@ fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	});
 }
 
-/// Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
+/// Reserve Transfers of native asset from Asset Hub to Relay Chain shouldn't work
 #[test]
-fn reserve_transfer_native_asset_from_system_para_to_relay_fails() {
-	// Init values for System Parachain
+fn reserve_transfer_native_asset_from_asset_hub_to_relay_fails() {
+	// Init values for Asset Hub
 	let signed_origin =
 		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get().into());
 	let destination = AssetHubRococo::parent_location();
@@ -691,10 +691,10 @@ fn reserve_transfer_native_asset_from_para_to_relay() {
 // =========================================================================
 // ======= Reserve Transfers - Native Asset - AssetHub<>Parachain ==========
 // =========================================================================
-/// Reserve Transfers of native asset from System Parachain to Parachain should work
+/// Reserve Transfers of native asset from Asset Hub to Parachain should work
 #[test]
-fn reserve_transfer_native_asset_from_system_para_to_para() {
-	// Init values for System Parachain
+fn reserve_transfer_native_asset_from_asset_hub_to_para() {
+	// Init values for Asset Hub
 	let destination = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let sender = AssetHubRococoSender::get();
 	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 10000;
@@ -749,9 +749,9 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	assert!(receiver_assets_after < receiver_assets_before + amount_to_send);
 }
 
-/// Reserve Transfers of native asset from Parachain to System Parachain should work
+/// Reserve Transfers of native asset from Parachain to Asset Hub should work
 #[test]
-fn reserve_transfer_native_asset_from_para_to_system_para() {
+fn reserve_transfer_native_asset_from_para_to_asset_hub() {
 	// Init values for Parachain
 	let destination = PenpalA::sibling_location_of(AssetHubRococo::para_id());
 	let sender = PenpalASender::get();
@@ -768,12 +768,12 @@ fn reserve_transfer_native_asset_from_para_to_system_para() {
 		amount_to_send * 2,
 	);
 
-	// Init values for System Parachain
+	// Init values for Asset Hub
 	let receiver = AssetHubRococoReceiver::get();
 	let penpal_location_as_seen_by_ahr = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(penpal_location_as_seen_by_ahr);
 
-	// fund Parachain's SA on System Parachain with the native tokens held in reserve
+	// fund Parachain's SA on Asset Hub with the native tokens held in reserve
 	AssetHubRococo::fund_accounts(vec![(sov_penpal_on_ahr.into(), amount_to_send * 2)]);
 
 	// Init Test
@@ -824,11 +824,11 @@ fn reserve_transfer_native_asset_from_para_to_system_para() {
 // ==================================================================================
 // ======= Reserve Transfers - Native + Non-system Asset - AssetHub<>Parachain ======
 // ==================================================================================
-/// Reserve Transfers of a local asset and native asset from System Parachain to Parachain should
+/// Reserve Transfers of a local asset and native asset from Asset Hub to Parachain should
 /// work
 #[test]
-fn reserve_transfer_assets_from_system_para_to_para() {
-	// Init values for System Parachain
+fn reserve_transfer_multiple_assets_from_asset_hub_to_para() {
+	// Init values for Asset Hub
 	let destination = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(destination.clone());
 	let sender = AssetHubRococoSender::get();
@@ -939,10 +939,12 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 	);
 }
 
-/// Reserve Transfers of a foreign asset and native asset from Parachain to System Para should
-/// work
+/// Reserve Transfers of a random asset and native asset from Parachain to Asset Hub should work
+/// Receiver is empty account to show deposit works as long as transfer includes enough DOT for ED.
+/// Once we have https://github.com/paritytech/polkadot-sdk/issues/5298,
+/// we should do equivalent test with USDT instead of DOT.
 #[test]
-fn reserve_transfer_assets_from_para_to_system_para() {
+fn reserve_transfer_multiple_assets_from_para_to_asset_hub() {
 	// Init values for Parachain
 	let destination = PenpalA::sibling_location_of(AssetHubRococo::para_id());
 	let sender = PenpalASender::get();
@@ -965,24 +967,23 @@ fn reserve_transfer_assets_from_para_to_system_para() {
 	// Fund Parachain's sender account with some foreign assets
 	PenpalA::mint_foreign_asset(
 		penpal_asset_owner_signer.clone(),
-		asset_location_on_penpal,
+		asset_location_on_penpal.clone(),
 		sender.clone(),
 		asset_amount_to_send * 2,
 	);
 	// Fund Parachain's sender account with some system assets
 	PenpalA::mint_foreign_asset(
 		penpal_asset_owner_signer,
-		system_asset_location_on_penpal,
+		system_asset_location_on_penpal.clone(),
 		sender.clone(),
 		fee_amount_to_send * 2,
 	);
 
-	// Init values for System Parachain
-	let receiver = AssetHubRococoReceiver::get();
+	// Beneficiary is a new (empty) account
+	let receiver = get_account_id_from_seed::<sp_runtime::testing::sr25519::Public>(DUMMY_EMPTY);
+	// Init values for Asset Hub
 	let penpal_location_as_seen_by_ahr = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(penpal_location_as_seen_by_ahr);
-	let system_para_native_asset_location = RelayLocation::get();
-	let system_para_foreign_asset_location = PenpalLocalReservableFromAssetHub::get();
 	let ah_asset_owner = AssetHubRococoAssetOwner::get();
 	let ah_asset_owner_signer = <AssetHubRococo as Chain>::RuntimeOrigin::signed(ah_asset_owner);
 
@@ -1017,11 +1018,11 @@ fn reserve_transfer_assets_from_para_to_system_para() {
 	// Query initial balances
 	let sender_system_assets_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_native_asset_location.clone(), &sender)
+		<ForeignAssets as Inspect<_>>::balance(system_asset_location_on_penpal.clone(), &sender)
 	});
 	let sender_foreign_assets_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_foreign_asset_location.clone(), &sender)
+		<ForeignAssets as Inspect<_>>::balance(asset_location_on_penpal.clone(), &sender)
 	});
 	let receiver_balance_before = test.receiver.balance;
 	let receiver_assets_before = AssetHubRococo::execute_with(|| {
@@ -1038,11 +1039,11 @@ fn reserve_transfer_assets_from_para_to_system_para() {
 	// Query final balances
 	let sender_system_assets_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_native_asset_location.clone(), &sender)
+		<ForeignAssets as Inspect<_>>::balance(system_asset_location_on_penpal, &sender)
 	});
 	let sender_foreign_assets_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_foreign_asset_location, &sender)
+		<ForeignAssets as Inspect<_>>::balance(asset_location_on_penpal, &sender)
 	});
 	let receiver_balance_after = test.receiver.balance;
 	let receiver_assets_after = AssetHubRococo::execute_with(|| {

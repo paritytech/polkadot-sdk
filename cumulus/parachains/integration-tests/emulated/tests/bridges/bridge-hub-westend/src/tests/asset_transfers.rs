@@ -35,10 +35,10 @@ fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
 fn set_up_wnds_for_penpal_westend_through_ahw_to_ahr(
 	sender: &AccountId,
 	amount: u128,
-) -> (Location, v3::Location) {
+) -> (Location, v4::Location) {
 	let wnd_at_westend_parachains = wnd_at_ah_westend();
-	let wnd_at_asset_hub_rococo = bridged_wnd_at_ah_rococo().try_into().unwrap();
-	create_foreign_on_ah_rococo(wnd_at_asset_hub_rococo, true);
+	let wnd_at_asset_hub_rococo = bridged_wnd_at_ah_rococo();
+	create_foreign_on_ah_rococo(wnd_at_asset_hub_rococo.clone(), true);
 
 	let penpal_location = AssetHubWestend::sibling_location_of(PenpalB::para_id());
 	let sov_penpal_on_ahw = AssetHubWestend::sovereign_account_id_of(penpal_location);
@@ -116,10 +116,10 @@ fn send_wnds_from_asset_hub_westend_to_asset_hub_rococo() {
 	let sender = AssetHubWestendSender::get();
 	let receiver = AssetHubRococoReceiver::get();
 	let wnd_at_asset_hub_westend = wnd_at_ah_westend();
-	let bridged_wnd_at_asset_hub_rococo = bridged_wnd_at_ah_rococo().try_into().unwrap();
-	create_foreign_on_ah_rococo(bridged_wnd_at_asset_hub_rococo, true);
+	let bridged_wnd_at_asset_hub_rococo = bridged_wnd_at_ah_rococo();
+	create_foreign_on_ah_rococo(bridged_wnd_at_asset_hub_rococo.clone(), true);
 
-	set_up_pool_with_roc_on_ah_rococo(bridged_wnd_at_asset_hub_rococo, true);
+	set_up_pool_with_roc_on_ah_rococo(bridged_wnd_at_asset_hub_rococo.clone(), true);
 
 	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
 		Rococo,
@@ -129,7 +129,7 @@ fn send_wnds_from_asset_hub_westend_to_asset_hub_rococo() {
 		<AssetHubWestend as Chain>::account_data_of(sov_ahr_on_ahw.clone()).free;
 	let sender_wnds_before = <AssetHubWestend as Chain>::account_data_of(sender.clone()).free;
 	let receiver_wnds_before =
-		foreign_balance_on_ah_rococo(bridged_wnd_at_asset_hub_rococo, &receiver);
+		foreign_balance_on_ah_rococo(bridged_wnd_at_asset_hub_rococo.clone(), &receiver);
 
 	// send WNDs, use them for fees
 	send_assets_over_bridge(|| {
@@ -187,10 +187,8 @@ fn send_back_rocs_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 	let sender = AssetHubWestendSender::get();
 	let receiver = AssetHubRococoReceiver::get();
 	let bridged_roc_at_asset_hub_westend = bridged_roc_at_ah_westend();
-	let bridged_roc_at_asset_hub_westend_v3 =
-		bridged_roc_at_asset_hub_westend.clone().try_into().unwrap();
 	let prefund_accounts = vec![(sender.clone(), prefund_amount)];
-	create_foreign_on_ah_westend(bridged_roc_at_asset_hub_westend_v3, true, prefund_accounts);
+	create_foreign_on_ah_westend(bridged_roc_at_asset_hub_westend.clone(), true, prefund_accounts);
 
 	////////////////////////////////////////////////////////////
 	// Let's first send back just some ROCs as a simple example
@@ -208,14 +206,14 @@ fn send_back_rocs_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 	assert_eq!(rocs_in_reserve_on_ahr_before, prefund_amount);
 
 	let sender_rocs_before =
-		foreign_balance_on_ah_westend(bridged_roc_at_asset_hub_westend_v3, &sender);
+		foreign_balance_on_ah_westend(bridged_roc_at_asset_hub_westend.clone(), &sender);
 	assert_eq!(sender_rocs_before, prefund_amount);
 	let receiver_rocs_before = <AssetHubRococo as Chain>::account_data_of(receiver.clone()).free;
 
 	// send back ROCs, use them for fees
 	send_assets_over_bridge(|| {
 		let destination = asset_hub_rococo_location();
-		let assets: Assets = (bridged_roc_at_asset_hub_westend, amount_to_send).into();
+		let assets: Assets = (bridged_roc_at_asset_hub_westend.clone(), amount_to_send).into();
 		let fee_idx = 0;
 		assert_ok!(send_assets_from_asset_hub_westend(destination, assets, fee_idx));
 	});
@@ -245,7 +243,7 @@ fn send_back_rocs_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 	});
 
 	let sender_rocs_after =
-		foreign_balance_on_ah_westend(bridged_roc_at_asset_hub_westend_v3, &sender);
+		foreign_balance_on_ah_westend(bridged_roc_at_asset_hub_westend, &sender);
 	let receiver_rocs_after = <AssetHubRococo as Chain>::account_data_of(receiver.clone()).free;
 	let rocs_in_reserve_on_ahr_after =
 		<AssetHubRococo as Chain>::account_data_of(sov_ahw_on_ahr.clone()).free;
@@ -262,14 +260,14 @@ fn send_back_rocs_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 	//////////////////////////////////////////////////////////////////
 
 	// wETH has same relative location on both Rococo and Westend AssetHubs
-	let bridged_weth_at_ah = weth_at_asset_hubs().try_into().unwrap();
-	let bridged_usdt_at_asset_hub_westend = bridged_usdt_at_ah_westend().try_into().unwrap();
+	let bridged_weth_at_ah = weth_at_asset_hubs();
+	let bridged_usdt_at_asset_hub_westend = bridged_usdt_at_ah_westend();
 
 	// set up destination chain AH Rococo:
 	// create a ROC/USDT pool to be able to pay fees with USDT (USDT created in genesis)
-	set_up_pool_with_roc_on_ah_rococo(usdt_at_ah_rococo().try_into().unwrap(), false);
+	set_up_pool_with_roc_on_ah_rococo(usdt_at_ah_rococo(), false);
 	// create wETH on Rococo (IRL it's already created by Snowbridge)
-	create_foreign_on_ah_rococo(bridged_weth_at_ah, true);
+	create_foreign_on_ah_rococo(bridged_weth_at_ah.clone(), true);
 	// prefund AHW's sovereign account on AHR to be able to withdraw USDT and wETH from reserves
 	let sov_ahw_on_ahr = AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
 		Westend,
@@ -283,7 +281,7 @@ fn send_back_rocs_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 	);
 	AssetHubRococo::mint_foreign_asset(
 		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococo::account_id_of(ALICE)),
-		bridged_weth_at_ah,
+		bridged_weth_at_ah.clone(),
 		sov_ahw_on_ahr,
 		amount_to_send * 2,
 	);
@@ -291,21 +289,21 @@ fn send_back_rocs_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 	// set up source chain AH Westend:
 	// create wETH and USDT foreign assets on Westend and prefund sender's account
 	let prefund_accounts = vec![(sender.clone(), amount_to_send * 2)];
-	create_foreign_on_ah_westend(bridged_weth_at_ah, true, prefund_accounts.clone());
-	create_foreign_on_ah_westend(bridged_usdt_at_asset_hub_westend, true, prefund_accounts);
+	create_foreign_on_ah_westend(bridged_weth_at_ah.clone(), true, prefund_accounts.clone());
+	create_foreign_on_ah_westend(bridged_usdt_at_asset_hub_westend.clone(), true, prefund_accounts);
 
 	// check balances before
 	let receiver_usdts_before = AssetHubRococo::execute_with(|| {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::Assets;
 		<Assets as Inspect<_>>::balance(USDT_ID, &receiver)
 	});
-	let receiver_weth_before = foreign_balance_on_ah_rococo(bridged_weth_at_ah, &receiver);
+	let receiver_weth_before = foreign_balance_on_ah_rococo(bridged_weth_at_ah.clone(), &receiver);
 
 	let usdt_id: AssetId = Location::try_from(bridged_usdt_at_asset_hub_westend).unwrap().into();
 	// send USDTs and wETHs
 	let assets: Assets = vec![
 		(usdt_id.clone(), amount_to_send).into(),
-		(Location::try_from(bridged_weth_at_ah).unwrap(), amount_to_send).into(),
+		(Location::try_from(bridged_weth_at_ah.clone()).unwrap(), amount_to_send).into(),
 	]
 	.into();
 	// use USDT for fees
@@ -367,7 +365,8 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo()
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(wnd_at_westend_parachains.clone(), &sender)
 	});
-	let receiver_wnds_before = foreign_balance_on_ah_rococo(wnd_at_asset_hub_rococo, &receiver);
+	let receiver_wnds_before =
+		foreign_balance_on_ah_rococo(wnd_at_asset_hub_rococo.clone(), &receiver);
 
 	// Send WNDs over bridge
 	{
@@ -398,7 +397,7 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo()
 			vec![
 				// issue WNDs on AHR
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
-					asset_id: *asset_id == wnd_at_westend_parachains.clone().try_into().unwrap(),
+					asset_id: *asset_id == wnd_at_westend_parachains.clone(),
 					owner: owner == &receiver,
 				},
 				// message processed successfully
@@ -429,7 +428,6 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo()
 #[test]
 fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo() {
 	let roc_at_westend_parachains = bridged_roc_at_ah_westend();
-	let roc_at_westend_parachains_v3 = roc_at_westend_parachains.clone().try_into().unwrap();
 	let amount = ASSET_HUB_WESTEND_ED * 10_000_000;
 	let sender = PenpalBSender::get();
 	let receiver = AssetHubRococoReceiver::get();
@@ -442,7 +440,7 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 	let penpal_location = AssetHubWestend::sibling_location_of(PenpalB::para_id());
 	let sov_penpal_on_ahr = AssetHubWestend::sovereign_account_id_of(penpal_location);
 	let prefund_accounts = vec![(sov_penpal_on_ahr, amount * 2)];
-	create_foreign_on_ah_westend(roc_at_westend_parachains_v3, true, prefund_accounts);
+	create_foreign_on_ah_westend(roc_at_westend_parachains.clone(), true, prefund_accounts);
 	let asset_owner: AccountId = AssetHubWestend::account_id_of(ALICE);
 	PenpalB::force_create_foreign_asset(
 		roc_at_westend_parachains.clone(),
@@ -454,7 +452,7 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 
 	// fund the AHW's SA on AHR with the ROC tokens held in reserve
 	let sov_ahw_on_ahr = AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
-		NetworkId::Westend,
+		Westend,
 		AssetHubWestend::para_id(),
 	);
 	AssetHubRococo::fund_accounts(vec![(sov_ahw_on_ahr.clone(), amount * 2)]);

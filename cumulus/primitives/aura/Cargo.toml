@@ -10,24 +10,14 @@ description = "Core primitives for Aura in Cumulus"
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"], workspace = true }
 
 # Substrate
 sp-api = { workspace = true }
 sp-consensus-aura = { workspace = true }
-sp-runtime = { workspace = true }
-
-# Polkadot
-polkadot-core-primitives = { workspace = true }
-polkadot-primitives = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
-	"codec/std",
-	"polkadot-core-primitives/std",
-	"polkadot-primitives/std",
 	"sp-api/std",
 	"sp-consensus-aura/std",
-	"sp-runtime/std",
 ]
