@@ -140,7 +140,7 @@ fn api<T: Into<Option<Status>>>(sync: T) -> RpcModule<System<Block>> {
 	)
 	.into_rpc();
 
-	module.extensions_mut().insert(DenyUnsafe::Yes);
+	module.extensions_mut().insert(DenyUnsafe::No);
 	module
 }
 

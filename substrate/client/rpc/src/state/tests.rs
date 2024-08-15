@@ -38,14 +38,6 @@ fn prefixed_storage_key() -> PrefixedStorageKey {
 	child_info.prefixed_storage_key()
 }
 
-fn init_logger() {
-	use tracing_subscriber::{EnvFilter, FmtSubscriber};
-
-	let _ = FmtSubscriber::builder()
-		.with_env_filter(EnvFilter::from_default_env())
-		.try_init();
-}
-
 #[tokio::test]
 async fn should_return_storage() {
 	const KEY: &[u8] = b":mock";
@@ -217,13 +209,12 @@ async fn should_call_contract() {
 
 #[tokio::test]
 async fn should_notify_about_storage_changes() {
-	init_logger();
-
 	let mut sub = {
 		let mut client = Arc::new(substrate_test_runtime_client::new());
 		let (api, _child) = new_full(client.clone(), test_executor());
+		let mut api_rpc = api.into_rpc();
+		api_rpc.extensions_mut().insert(DenyUnsafe::No);
 
-		let api_rpc = api.into_rpc();
 		let sub = api_rpc
 			.subscribe_unbounded("state_subscribeStorage", EmptyParams::new())
 			.await
@@ -257,8 +248,6 @@ async fn should_notify_about_storage_changes() {
 
 #[tokio::test]
 async fn should_send_initial_storage_changes_and_notifications() {
-	init_logger();
-
 	let mut sub = {
 		let mut client = Arc::new(substrate_test_runtime_client::new());
 		let (api, _child) = new_full(client.clone(), test_executor());
@@ -527,8 +516,6 @@ fn should_deserialize_storage_key() {
 
 #[tokio::test]
 async fn wildcard_storage_subscriptions_are_rpc_unsafe() {
-	init_logger();
-
 	let client = Arc::new(substrate_test_runtime_client::new());
 	let (api, _child) = new_full(client, test_executor());
 	let mut api_rpc = api.into_rpc();

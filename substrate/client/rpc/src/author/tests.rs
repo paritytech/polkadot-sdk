@@ -92,9 +92,8 @@ impl TestSetup {
 
 #[tokio::test]
 async fn author_submit_transaction_should_not_cause_error() {
-	sp_tracing::init_for_tests();
-
 	let api = TestSetup::into_rpc();
+
 	let xt: Bytes = uxt(AccountKeyring::Alice, 1).encode().into();
 	let extrinsic_hash: H256 = blake2_256(&xt).into();
 	let response: H256 = api.call("author_submitExtrinsic", [xt.clone()]).await.unwrap();
@@ -281,8 +280,6 @@ async fn author_has_session_keys() {
 
 #[tokio::test]
 async fn author_has_key() {
-	sp_tracing::init_for_tests();
-
 	let api = TestSetup::into_rpc();
 	let suri = "//Alice";
 	let alice_keypair = ed25519::Pair::from_string(suri, None).expect("Generates keypair");

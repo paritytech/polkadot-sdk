@@ -18167,11 +18167,9 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-statement-store",
- "sp-tracing 16.0.0",
  "sp-version",
  "substrate-test-runtime-client",
  "tokio",
- "tracing-subscriber 0.3.18",
 ]
 
 [[package]]
