@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723686842642,
+  "lastUpdate": 1723718956192,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -22307,6 +22307,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16924486985999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dónal Murray",
+            "username": "seadanda",
+            "email": "donal.murray@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "78c3daabd97367f70c1ebc0d7fe55abef4d76952",
+          "message": "[Coretime] Always include UnpaidExecution, not just when revenue is > 0 (#5369)\n\nThe NotifyRevenue XCM from relay to coretime chain fails to pass the\nbarrier when revenue is 0.\n\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/polkadot/runtime/parachains/src/coretime/mod.rs#L401\npushes notifyrevenue onto an [empty\nvec](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/runtime/parachains/src/coretime/mod.rs#L361)\nwhen `revenue == 0`, so it never explicitly requests unpaid execution,\nbecause that happens only in [the block where revenue is `>\n0`](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/runtime/parachains/src/coretime/mod.rs#L387).\n\nThis will need to be backported to 1.14 when merged.",
+          "timestamp": "2024-08-15T09:02:56Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78c3daabd97367f70c1ebc0d7fe55abef4d76952"
+        },
+        "date": 1723718925660,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17095318633999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022374598553333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012697740539999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01058531673333334,
             "unit": "seconds"
           }
         ]
