@@ -5,7 +5,7 @@ doc:
     description: |
       This change is only relevant for the relay chain runtime.
       This change is necessary to ensure that the backing votes are correctly
-      filtered in the runtime for an extra layer of protection again bugs in
+      filtered in the runtime for an extra layer of protection against bugs in
       the code.
 
 crates:
