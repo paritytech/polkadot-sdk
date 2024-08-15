@@ -276,14 +276,20 @@ where
 			} else {
 				tracing::debug!(
 					target: LOG_TARGET,
-					"Scheduled cores: {:?}",
+					?relay_parent,
+					"Parachain is scheduled on cores: {:?}",
 					scheduled_cores
 				);
 			}
 
 			let core_index_in_scheduled: u64 = *para_slot.slot % expected_cores;
 			let Some(core_index) = scheduled_cores.get(core_index_in_scheduled as usize) else {
-				tracing::debug!(target: LOG_TARGET, core_index_in_scheduled, core_len = scheduled_cores.len(), "Para is scheduled, but not enough cores available.");
+				tracing::debug!(
+					target: LOG_TARGET,
+					core_index_in_scheduled,
+					core_len = scheduled_cores.len(),
+					"Para is scheduled, but not enough cores available."
+				);
 				continue;
 			};
 
