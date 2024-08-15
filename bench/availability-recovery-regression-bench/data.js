@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723740781197,
+  "lastUpdate": 1723752864120,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -17891,6 +17891,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.17389524926666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "843c4db78f0ca260376c5a3abf78c95782ebdc64",
+          "message": "Update Readme of the `polkadot` crate (#5326)\n\n- Typos.\n- Those telemetry links like https://telemetry.polkadot.io/#list/Kusama\ndidn't seem to properly point to a proper list (anymore?) - updated\nthem.\n- Also looks like it was trying to use rust-style linking instead of\nmarkdown linking, changed that.\n- Relative links do not work on crates.io - updated to absolute,\nsimilarly as some already existing links, such as contribution\nguidelines.",
+          "timestamp": "2024-08-15T17:40:08Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/843c4db78f0ca260376c5a3abf78c95782ebdc64"
+        },
+        "date": 1723752834109,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17145815066666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.054222486566664,
             "unit": "seconds"
           }
         ]
