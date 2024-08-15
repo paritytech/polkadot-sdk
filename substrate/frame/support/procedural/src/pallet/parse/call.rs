@@ -52,8 +52,6 @@ pub struct CallDef {
 	pub attr_span: proc_macro2::Span,
 	/// Docs, specified on the impl Block.
 	pub docs: Vec<syn::Expr>,
-	/// The optional `weight` attribute on the `pallet::call`.
-	pub inherited_call_weight: Option<InheritedCallWeightAttr>,
 }
 
 /// The weight of a call or the weight of authorize.
@@ -69,7 +67,7 @@ pub enum CallWeightDef {
 	/// Inherits whatever value is configured on the pallet level.
 	///
 	/// The concrete value is not known at this point.
-	Inherited,
+	Inherited(syn::Type),
 }
 
 impl CallWeightDef {
@@ -78,11 +76,11 @@ impl CallWeightDef {
 		inherited_call_weight: &Option<InheritedCallWeightAttr>,
 		dev_mode: bool,
 	) -> Option<Self> {
-		match weight {
-			None if inherited_call_weight.is_some() => Some(CallWeightDef::Inherited),
-			None if dev_mode => Some(CallWeightDef::DevModeDefault),
-			None => None,
-			Some(weight) => Some(CallWeightDef::Immediate(weight)),
+		match (weight, inherited_call_weight) {
+			(Some(weight), _) => Some(CallWeightDef::Immediate(weight)),
+			(None, Some(inherited)) => Some(CallWeightDef::Inherited(inherited.typename.clone())),
+			(None, _) if dev_mode => Some(CallWeightDef::DevModeDefault),
+			(None, _) => None,
 		}
 	}
 }
@@ -172,13 +170,13 @@ impl syn::parse::Parse for FunctionAttr {
 			let closure_content;
 			syn::parenthesized!(closure_content in content);
 			Ok(FunctionAttr::Authorize(closure_content.parse::<syn::Expr>()?))
-		// TODO: check that additional tokens emit error
+		// TODO TODO: check that additional tokens emit error
 		} else if lookahead.peek(keyword::weight_of_authorize) {
 			content.parse::<keyword::weight_of_authorize>()?;
 			let closure_content;
 			syn::parenthesized!(closure_content in content);
 			Ok(FunctionAttr::WeightOfAuthorize(closure_content.parse::<syn::Expr>()?))
-		// TODO: check that additional tokens emit error
+		// TODO TODO: check that additional tokens emit error
 		} else {
 			Err(lookahead.error())
 		}
@@ -244,40 +242,38 @@ pub fn check_dispatchable_first_arg_type(ty: &syn::Type, is_ref: bool) -> syn::R
 	}
 }
 
+#[derive(derive_syn_parse::Parse)]
+pub struct AuthorizeMacroCall {
+	_ident: keyword::ensure_authorized_origin,
+	_bang: syn::Token![!],
+	#[paren]
+	_paren: syn::token::Paren,
+	#[inside(_paren)]
+	inner_ident: syn::Ident,
+	_semi: syn::Token![;],
+}
+
 /// Check the fixed syntax `ensure_authorized_origin!(origin)` is used at first statement in block.
 fn check_authorize_call_first_item(origin_arg: &syn::Ident, block: &syn::Block) -> syn::Result<()> {
-	let msg = format!("Invalid pallet::call, usage of pallet::authorize requires to use `ensure_authorized_origin!({});` as first statement in the call function block.", origin_arg);
+	let main_msg = format!(
+		"Invalid pallet::call, usage of pallet::authorize requires to use \
+		`ensure_authorized_origin!({});` as first statement in the call function block.",
+		origin_arg
+	);
 
 	let Some(first_stmt) = block.stmts.first() else {
+		let msg = format!("{} Instead found no statements in the block.", main_msg);
 		return Err(syn::Error::new(block.span(), msg))
 	};
 
-	let syn::Stmt::Macro(macro_) = first_stmt else {
-		return Err(syn::Error::new(first_stmt.span(), msg))
-	};
+	let macro_call = syn::parse2::<AuthorizeMacroCall>(first_stmt.to_token_stream()).map_err(|e| {
+		let mut error = syn::Error::new(first_stmt.span(), &main_msg);
+		error.combine(e);
+		error
+	})?;
 
-	if !macro_.attrs.is_empty() {
-		return Err(syn::Error::new(macro_.attrs[0].span(), msg))
-	}
-
-	if macro_
-		.mac
-		.path
-		.get_ident()
-		.map_or(true, |ident| ident != "ensure_authorized_origin")
-	{
-		return Err(syn::Error::new(macro_.mac.path.span(), msg))
-	}
-
-	let macro_inner =
-		syn::parse2::<syn::Ident>(macro_.mac.tokens.clone()).map_err(|inner_error| {
-			let mut error = syn::Error::new(macro_.mac.tokens.span(), &msg);
-			error.combine(inner_error);
-			error
-		})?;
-
-	if macro_inner != *origin_arg {
-		return Err(syn::Error::new(macro_inner.span(), msg))
+	if macro_call.inner_ident != *origin_arg {
+		return Err(syn::Error::new(macro_call.inner_ident.span(), main_msg))
 	}
 
 	Ok(())
@@ -566,7 +562,7 @@ impl CallDef {
 			} else {
 				let msg = "Invalid pallet::call, only method accepted";
 				return Err(syn::Error::new(item.span(), msg))
-			};
+			}
 		}
 
 		Ok(Self {
@@ -576,7 +572,6 @@ impl CallDef {
 			methods,
 			where_clause: item_impl.generics.where_clause.clone(),
 			docs: get_doc_literals(&item_impl.attrs),
-			inherited_call_weight,
 		})
 	}
 }

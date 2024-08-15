@@ -24,7 +24,8 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{spanned::Spanned, Ident};
 
-pub fn expand_origin_macro_helper(def: &mut Def, pallet_has_origin: bool) -> TokenStream {
+/// expand the `is_origin_part_defined` macro.
+fn expand_origin_macro_helper(def: &mut Def, pallet_has_origin: bool) -> TokenStream {
 	let count = COUNTER.with(|counter| counter.borrow_mut().inc());
 	let macro_ident = Ident::new(&format!("__is_origin_part_defined_{}", count), def.item.span());
 
@@ -58,7 +59,10 @@ pub fn expand_origin_macro_helper(def: &mut Def, pallet_has_origin: bool) -> Tok
 }
 
 ///
-/// * Add variants to the origin for the authorize call, create a new origin enum if needed.
+/// * if needed by authorize functions:
+///   * create an enum `AuthorizedCallOrigin` with one variant per authorized call.
+///   * create an origin if there is none
+///   * add `AuthorizedCallOrigin` enum to the origin
 /// * expand the `is_origin_part_defined` macro.
 pub fn expand_origin(def: &mut Def) -> proc_macro2::TokenStream {
 	let authorize_origin_variants = def
@@ -80,81 +84,77 @@ pub fn expand_origin(def: &mut Def) -> proc_macro2::TokenStream {
 		.unwrap_or_else(Vec::new);
 
 	let pallet_has_origin = def.origin.is_some() || !authorize_origin_variants.is_empty();
-
 	let origin_macro_helper = expand_origin_macro_helper(def, pallet_has_origin);
 
-	if authorize_origin_variants.is_empty() &&
-		def.origin.as_ref().map_or(true, |origin| origin.authorized_call.is_none())
-	{
+	// NOTE: It is checked in parser that if call doesn't use authorize then origin mustn't as well.
+	if authorize_origin_variants.is_empty() {
 		return origin_macro_helper;
 	}
 
-	let (authorize_origin_enum, maybe_origin) = if !authorize_origin_variants.is_empty() {
-		let frame_support = &def.frame_support;
-		let span = def
-			.origin
-			.as_ref()
-			.map(|origin| origin.authorized_call.expect("consistency is checked by parser").1)
-			.unwrap_or_else(|| proc_macro2::Span::call_site());
+	let frame_support = &def.frame_support;
+	let span = def
+		.origin
+		.as_ref()
+		.map(|origin| origin.authorized_call.expect("consistency is checked by parser").1)
+		.unwrap_or_else(|| proc_macro2::Span::call_site());
 
-		let authorize_origin_enum = quote::quote_spanned!(span =>
-			#[derive(Clone, PartialEq, Eq,
+	let authorize_origin_enum = quote::quote_spanned!(span =>
+		#[derive(
+			Clone,
+			PartialEq,
+			Eq,
+			#frame_support::RuntimeDebugNoBound,
+			#frame_support::__private::codec::MaxEncodedLen,
+			#frame_support::__private::codec::Encode,
+			#frame_support::__private::codec::Decode,
+			#frame_support::__private::scale_info::TypeInfo,
+		)]
+		pub enum AuthorizedCallOrigin {
+			#( #authorize_origin_variants, )*
+		}
+	);
+
+	let maybe_origin = if let Some(origin_def) = &def.origin {
+		let (index, _) = origin_def.authorized_call.expect("consistency is checked by parser");
+
+		let syn::Item::Enum(origin) =
+			&mut def.item.content.as_mut().expect("Checked by parser").1[origin_def.index]
+		else {
+			unreachable!("Checked by parser")
+		};
+
+		let variant = &mut origin.variants[index];
+
+		let syn::Fields::Unnamed(fields) = &mut variant.fields else {
+			unreachable!("Parse stage ensures variant has unnamed fields")
+		};
+
+		*fields = syn::parse_quote!((AuthorizedCallOrigin));
+
+		None
+	} else {
+		// Default origin is generic
+		let gen_kind = GenericKind::from_gens(true, def.config.has_instance)
+			.expect("Default is generic so no conflict");
+		let type_decl_bounded_gen = gen_kind.type_decl_bounded_gen(span);
+		let type_use_gen = gen_kind.type_use_gen(span);
+
+		Some(quote::quote_spanned!(span =>
+			#[derive(
+				#frame_support::EqNoBound,
+				#frame_support::PartialEqNoBound,
+				#frame_support::CloneNoBound,
 				#frame_support::RuntimeDebugNoBound,
-				#frame_support::__private::codec::MaxEncodedLen,
 				#frame_support::__private::codec::Encode,
 				#frame_support::__private::codec::Decode,
 				#frame_support::__private::scale_info::TypeInfo,
+				#frame_support::__private::codec::MaxEncodedLen,
 			)]
-			pub enum AuthorizedCallOrigin {
-				#( #authorize_origin_variants, )*
+			#[scale_info(skip_type_params(#type_use_gen))]
+			pub enum Origin<#type_decl_bounded_gen> {
+				AuthorizedCall(AuthorizedCallOrigin),
 			}
-		);
-
-		let maybe_origin = if let Some(origin_def) = &def.origin {
-			let (index, _) = origin_def.authorized_call.expect("consistency is checked by parser");
-
-			let syn::Item::Enum(origin) =
-				&mut def.item.content.as_mut().expect("Checked by parser").1[origin_def.index]
-			else {
-				unreachable!("Checked by parser")
-			};
-			let variant = &mut origin.variants[index];
-
-			let syn::Fields::Unnamed(fields) = &mut variant.fields else {
-				unreachable!("Parse stage ensures variant has unnamed fields")
-			};
-
-			*fields = syn::parse_quote!((AuthorizedCallOrigin));
-
-			None
-		} else {
-			// Default origin is generic
-			let gen_kind = GenericKind::from_gens(true, def.config.has_instance)
-				.expect("Default is generic so no conflict");
-			let type_decl_bounded_gen = gen_kind.type_decl_bounded_gen(span);
-			let type_use_gen = gen_kind.type_use_gen(span);
-
-			Some(quote::quote_spanned!(span =>
-				#[derive(
-					#frame_support::EqNoBound,
-					#frame_support::PartialEqNoBound,
-					#frame_support::CloneNoBound,
-					#frame_support::RuntimeDebugNoBound,
-					#frame_support::__private::codec::Encode,
-					#frame_support::__private::codec::Decode,
-					#frame_support::__private::scale_info::TypeInfo,
-					#frame_support::__private::codec::MaxEncodedLen,
-				)]
-				#[scale_info(skip_type_params(#type_use_gen))]
-				pub enum Origin<#type_decl_bounded_gen> {
-					AuthorizedCall(AuthorizedCallOrigin),
-				}
-			))
-		};
-
-		(Some(authorize_origin_enum), maybe_origin)
-	} else {
-		(None, None)
+		))
 	};
 
 	quote::quote!(

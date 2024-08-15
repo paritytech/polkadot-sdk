@@ -28,6 +28,7 @@ use syn::{spanned::Spanned, Ident};
 /// * if deposit_event is defined, implement deposit_event on module.
 pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 	let count = COUNTER.with(|counter| counter.borrow_mut().inc());
+
 	let (event, macro_ident) = if let Some(event) = &def.event {
 		let ident = Ident::new(&format!("__is_event_part_defined_{}", count), event.attr_span);
 		(event, ident)

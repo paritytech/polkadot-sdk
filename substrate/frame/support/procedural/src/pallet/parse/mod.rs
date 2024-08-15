@@ -384,9 +384,11 @@ impl Def {
 		if authorize_call {
 			if let Some(origin) = &self.origin {
 				if origin.authorized_call.is_none() {
-					let msg = "Invalid usage of `authorize`, one call variant is declared with `#[pallet::authorize]` \
-						but `Origin` is explicitly declared and doesn't provide a placeholder for authorized call orgin variant. \
-						Origin must be declared as an enum with one variant with attribute `#[pallet::authorized_call]`:
+					let msg = "Invalid usage of `authorize`, one call variant is declared with \
+						`#[pallet::authorize]` but `Origin` is explicitly declared and doesn't \
+						provide a placeholder for authorized call orgin variant. Origin must be \
+						declared as an enum with one variant with attribute \
+						`#[pallet::authorized_call]`:
 						```
 						#[pallet::origin]
 						pub enum Origin {

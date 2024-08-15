@@ -75,29 +75,34 @@ impl OriginDef {
 					let mut attrs: Vec<EnumVariantAttr> = helper::take_item_pallet_attrs(variant)?;
 
 					if attrs.len() > 1 {
-						let msg = "Invalid pallet::origin, expected at most one pallet::authorized_call attribute";
+						let msg = "Invalid pallet::origin, expected at most one \
+							pallet::authorized_call attribute";
 						return Err(syn::Error::new(attrs[1].span, msg))
 					}
 
 					if let Some(attr) = attrs.pop() {
 						if authorized_call.is_some() {
-							let msg = "Invalid pallet::origin, expected at most one variant with pallet::authorized_call attribute";
+							let msg = "Invalid pallet::origin, expected at most one variant with \
+								pallet::authorized_call attribute";
 							return Err(syn::Error::new(variant.span(), msg))
 						}
 
 						if variant.ident != "AuthorizedCall" {
-							let msg = "Invalid pallet::authorized_call, expected variant ident to be `AuthorizedCall`";
+							let msg = "Invalid pallet::authorized_call, expected variant ident to \
+								be `AuthorizedCall`";
 							return Err(syn::Error::new(variant.ident.span(), msg))
 						}
 
 						let syn::Fields::Unnamed(fields) = &variant.fields else {
-							let msg = "Invalid pallet::authorized_call, expected variant fields to be `(_)`";
+							let msg = "Invalid pallet::authorized_call, expected variant fields to \
+								be `(_)`";
 							return Err(syn::Error::new(variant.fields.span(), msg))
 						};
 
 						if syn::parse2::<syn::Token![_]>(fields.unnamed.to_token_stream()).is_err()
 						{
-							let msg = "Invalid pallet::authorized_call, expected variant fields to be `_`";
+							let msg = "Invalid pallet::authorized_call, expected variant fields to \
+								be `_`";
 							return Err(syn::Error::new(fields.unnamed.span(), msg))
 						}
 

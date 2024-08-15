@@ -16,13 +16,14 @@
 // limitations under the License.
 
 use crate::pallet::{parse::GenericKind, Def};
-use proc_macro2::TokenStream;
+use proc_macro2::{TokenStream, Span};
 use quote::quote;
 use syn::{parse_quote, Item};
 
 ///
 /// * Generate default rust doc
-/// * Add `TryInfo<Origin>` to `frame_system::Config::RuntimeOrigin` if needed for authorized call.
+/// * Add `Into<Result<Origin>>` and `From<Origin>` to `frame_system::Config::RuntimeOrigin`
+///   if needed for authorized call.
 pub fn expand_config(def: &mut Def) -> TokenStream {
 	add_authorize_constraint(def);
 
@@ -102,16 +103,17 @@ Consequently, a runtime that wants to include this pallet must implement this tr
 /// Add `TryInfo<Origin>` to `frame_system::Config::RuntimeOrigin` if needed for authorized call.
 pub fn add_authorize_constraint(def: &mut Def) {
 	let Item::Trait(config_item) =
-		&mut def.item.content.as_mut().expect("Checked by def parser").1[def.config.index]
+		&mut def.item.content.as_mut().expect("Checked by parser").1[def.config.index]
 	else {
-		unreachable!("Checked by config parser")
+		unreachable!("Checked by parser")
 	};
-	let authorized_call = def
+
+	if def
 		.call
 		.as_ref()
-		.map_or(false, |call| call.methods.iter().any(|call| call.authorize.is_some()));
-
-	if !authorized_call {
+		.map_or(true, |call| call.methods.iter().all(|call| call.authorize.is_none()))
+	{
+		// No call or no call with authorize.
 		return
 	}
 
@@ -136,7 +138,7 @@ pub fn add_authorize_constraint(def: &mut Def) {
 				None
 			}
 		})
-		.expect("Checked by config parser");
+		.expect("Checked by parser");
 
 	let origin_gen_kind = if let Some(origin_def) = def.origin.as_ref() {
 		GenericKind::from_gens(origin_def.is_generic, has_instance)
@@ -145,7 +147,7 @@ pub fn add_authorize_constraint(def: &mut Def) {
 		// Default origin is generic
 		GenericKind::from_gens(true, has_instance).expect("Default is generic so no conflict")
 	};
-	let origin_use_gen = origin_gen_kind.type_use_gen_within_config(proc_macro2::Span::call_site());
+	let origin_use_gen = origin_gen_kind.type_use_gen_within_config(Span::call_site());
 
 	let bound_1 = parse_quote!(::core::convert::Into<::core::result::Result<
 		Origin<#origin_use_gen>,

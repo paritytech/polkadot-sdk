@@ -28,45 +28,61 @@ use proc_macro2::TokenStream as TokenStream2;
 use proc_macro_warning::Warning;
 use quote::{quote, ToTokens};
 use syn::spanned::Spanned;
+use crate::pallet::parse::call::CallVariantDef;
+
+/// Expand the weight to final token stream and accumulate warnings.
+fn expand_weight(
+	prefix: &str,
+	dev_mode: bool,
+	weight_warnings: &mut Vec<Warning>,
+	method: &CallVariantDef,
+	weight: &CallWeightDef,
+) -> TokenStream2 {
+	match weight {
+		CallWeightDef::DevModeDefault => quote::quote!(0),
+		CallWeightDef::Immediate(e) => {
+			weight_constant_warning(e, dev_mode, weight_warnings);
+			weight_witness_warning(method, dev_mode, weight_warnings);
+
+			e.into_token_stream()
+		},
+		CallWeightDef::Inherited(t) => {
+			// Expand `<<T as Config>::WeightInfo>::$prefix$call_name()`.
+			let n = &syn::Ident::new(&format!("{}{}", prefix, method.name), method.name.span());
+			quote!({ < #t > :: #n () })
+		},
+	}
+}
 
 /// For calls using `pallet::authorize`, replace first statement `ensure_authorized_origin!(origin)`
 /// with actual check
 fn replace_first_statment_for_call_with_authorize(def: &mut Def) {
-	let Some(call_item_index) = def.call.as_ref().map(|call| call.index) else {
+	let Some(call) = &def.call else {
 		// No call, nothing to replace
 		return
 	};
 
-	let has_instance = def.config.has_instance;
-
-	let variant_item_indices = def
-		.call
-		.as_ref()
-		.map(|call| {
-			call.methods
-				.iter()
-				.filter_map(|variant| variant.authorize.as_ref().map(|_| variant.item_index))
-				.collect::<Vec<_>>()
-		})
-		.unwrap_or_else(Vec::new);
-
 	let syn::Item::Impl(call_impl) =
-		&mut def.item.content.as_mut().expect("Checked by parser").1[call_item_index]
+		&mut def.item.content.as_mut().expect("Checked by parser").1[call.index]
 	else {
 		unreachable!("Checked by parser")
 	};
+
+	let variant_item_indices = call.methods.iter()
+		.filter_map(|variant| variant.authorize.as_ref().map(|_| variant.item_index));
 
 	for variant_item_index in variant_item_indices {
 		let syn::ImplItem::Fn(variant_fn) = &mut call_impl.items[variant_item_index] else {
 			unreachable!("Checked by parser")
 		};
 
-		// TODO TODO: also do ensure_authorized_origin_or_none
 		// We want the span to point to the `ensure_authorized_origin!(origin)` statement.
 		let span = variant_fn.block.stmts[0].span();
 
 		let frame_system = &def.frame_system;
 		let frame_support = &def.frame_support;
+		let has_instance = def.config.has_instance;
+
 		let origin_gen_kind = if let Some(origin_def) = def.origin.as_ref() {
 			GenericKind::from_gens(origin_def.is_generic, has_instance)
 				.expect("Consistency is checked by parser")
@@ -74,6 +90,7 @@ fn replace_first_statment_for_call_with_authorize(def: &mut Def) {
 			// Default origin is generic
 			GenericKind::from_gens(true, has_instance).expect("Default is generic so no conflict")
 		};
+
 		let origin_use_gen = origin_gen_kind.type_use_gen(span);
 
 		let variant_name =
@@ -81,12 +98,12 @@ fn replace_first_statment_for_call_with_authorize(def: &mut Def) {
 
 		variant_fn.block.stmts[0] = syn::parse_quote_spanned!(span =>
 			match <
-			<T as #frame_system::Config>::RuntimeOrigin
-			as
-			::core::convert::Into<::core::result::Result<
+				<T as #frame_system::Config>::RuntimeOrigin
+				as
+				::core::convert::Into<::core::result::Result<
 					Origin<#origin_use_gen>,
 					<T as #frame_system::Config>::RuntimeOrigin
-			>>
+				>>
 			>::into(origin) {
 				Ok(Origin::AuthorizedCall(AuthorizedCallOrigin:: #variant_name )) => (),
 				_ => return Err(#frame_support::pallet_prelude::DispatchError::BadOrigin.into()),
@@ -99,7 +116,7 @@ fn replace_first_statment_for_call_with_authorize(def: &mut Def) {
 /// * Generate enum call and implement various trait on it.
 /// * Implement Callable and call_function on `Pallet`
 /// * For calls using `pallet::authorize`, replace first statement
-///   `ensure_authorized_origin!(origin)` with actual check
+///   `ensure_authorized_origin!(origin);` with actual check
 pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	replace_first_statment_for_call_with_authorize(def);
 
@@ -157,29 +174,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	let mut fn_weight = Vec::<TokenStream2>::new();
 	let mut weight_warnings = Vec::new();
 	for method in &methods {
-		match &method.weight {
-			CallWeightDef::DevModeDefault => fn_weight.push(syn::parse_quote!(0)),
-			CallWeightDef::Immediate(e) => {
-				weight_constant_warning(e, def.dev_mode, &mut weight_warnings);
-				weight_witness_warning(method, def.dev_mode, &mut weight_warnings);
-
-				fn_weight.push(e.into_token_stream());
-			},
-			CallWeightDef::Inherited => {
-				let pallet_weight = def
-					.call
-					.as_ref()
-					.expect("we have methods; we have calls; qed")
-					.inherited_call_weight
-					.as_ref()
-					.expect("the parser prevents this");
-
-				// Expand `<<T as Config>::WeightInfo>::call_name()`.
-				let t = &pallet_weight.typename;
-				let n = &method.name;
-				fn_weight.push(quote!({ < #t > :: #n ()	}));
-			},
-		}
+		let w = expand_weight("", def.dev_mode, &mut weight_warnings, method, &method.weight);
+		fn_weight.push(w);
 	}
 	debug_assert_eq!(fn_weight.len(), methods.len());
 
@@ -316,10 +312,15 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		});
 
-	let authorize = methods.iter().zip(args_name.iter()).zip(args_type.iter()).map(|((method, arg_name), arg_type)| {
-			if let Some((authorize, _)) = &method.authorize {
-				let authorize_origin = syn::Ident::new(method.name.to_string().to_camel_case().as_str(), span);
-				let attr_fn_getter = syn::Ident::new(&format!("pallet_authorize_call_for_{}", method.name), span);
+	let authorize_fn = methods.iter()
+		.zip(args_name.iter())
+		.zip(args_type.iter())
+		.map(|((method, arg_name), arg_type)| {
+			if let Some((authorize_fn, _)) = &method.authorize {
+				let authorize_origin =
+					syn::Ident::new(method.name.to_string().to_camel_case().as_str(), span);
+				let attr_fn_getter =
+					syn::Ident::new(&format!("pallet_authorize_call_for_{}", method.name), span);
 
 				quote::quote_spanned!(span =>
 
@@ -333,48 +334,33 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 						f
 					}
 
-					let authorize_fn = #attr_fn_getter(#authorize);
+					let authorize_fn = #attr_fn_getter(#authorize_fn);
 					let res = authorize_fn(#( #arg_name, )*);
 
-					Some(res.map(|valid| (valid, Origin::AuthorizedCall(AuthorizedCallOrigin:: #authorize_origin).into())))
+					let res = res.map(|valid| {
+						(
+							valid,
+							Origin::AuthorizedCall(AuthorizedCallOrigin:: #authorize_origin).into()
+						)
+					});
+
+					Some(res)
 				)
 			} else {
 				quote::quote!(None)
 			}
-	});
+		});
 
 	let mut authorize_fn_weight = Vec::<TokenStream2>::new();
 	for method in &methods {
-		match &method.authorize {
-			Some((_, CallWeightDef::DevModeDefault)) => authorize_fn_weight
-				.push(quote::quote!(#frame_support::pallet_prelude::Weight::from_all(0))),
-			Some((_, CallWeightDef::Immediate(e))) => {
-				weight_constant_warning(e, def.dev_mode, &mut weight_warnings);
-
-				authorize_fn_weight.push(e.into_token_stream())
-			},
-			Some((_, CallWeightDef::Inherited)) => {
-				let pallet_weight = def
-					.call
-					.as_ref()
-					.expect("we have methods; we have calls; qed")
-					.inherited_call_weight
-					.as_ref()
-					.expect("the parser prevents this");
-
-				// Expand `<<T as Config>::WeightInfo>::authorize_call_name()`.
-				let t = &pallet_weight.typename;
-				let n = &syn::Ident::new(&format!("authorize_{}", method.name), span);
-				authorize_fn_weight.push(quote!({ < #t > :: #n () }));
-			},
+		let w = match &method.authorize {
+			Some((_, weight)) => expand_weight("authorize_", def.dev_mode, &mut weight_warnings, method, &weight),
 			// No authorize logic, weight is negligible
-			None => authorize_fn_weight
-				.push(quote::quote!(#frame_support::pallet_prelude::Weight::from_all(0))),
-		}
+			None => quote::quote!(#frame_support::pallet_prelude::Weight::from_all(0)),
+		};
+		authorize_fn_weight.push(w);
 	}
 	assert_eq!(authorize_fn_weight.len(), methods.len());
-
-	let authorize_fn_weight = &authorize_fn_weight;
 
 	quote::quote_spanned!(span =>
 		#[doc(hidden)]
@@ -597,7 +583,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 					#(
 						#cfg_attrs
 						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
-							#authorize
+							#authorize_fn
 						},
 					)*
 					Self::__Ignore(_, _) => unreachable!("__Ignore cannot be used"),
