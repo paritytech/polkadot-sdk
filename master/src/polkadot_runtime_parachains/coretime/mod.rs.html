@@ -558,7 +558,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#407" id="407">407</a>
 <a href="#408" id="408">408</a>
 <a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -919,7 +918,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>do_notify_revenue&lt;T: Config&gt;(when: BlockNumber, raw_revenue: Balance) -&gt; <span class="prelude-ty">Result</span>&lt;(), XcmError&gt; {
 	<span class="kw">let </span>dest = Junction::Parachain(T::BrokerId::get()).into_location();
-	<span class="kw">let </span><span class="kw-2">mut </span>message = Vec::new();
+	<span class="kw">let </span><span class="kw-2">mut </span>message = <span class="macro">vec!</span>[Instruction::UnpaidExecution {
+		weight_limit: WeightLimit::Unlimited,
+		check_origin: <span class="prelude-val">None</span>,
+	}];
 	<span class="kw">let </span>asset = Asset { id: AssetId(Location::here()), fun: Fungible(raw_revenue) };
 	<span class="kw">let </span>dummy_xcm_context = XcmContext { origin: <span class="prelude-val">None</span>, message_id: [<span class="number">0</span>; <span class="number">32</span>], topic: <span class="prelude-val">None </span>};
 
@@ -945,10 +947,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		message.extend(
 			[
-				Instruction::UnpaidExecution {
-					weight_limit: WeightLimit::Unlimited,
-					check_origin: <span class="prelude-val">None</span>,
-				},
 				ReceiveTeleportedAsset(assets_reanchored),
 				DepositAsset {
 					assets: Wild(AllCounted(<span class="number">1</span>)),
