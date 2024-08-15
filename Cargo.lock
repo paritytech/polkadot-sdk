@@ -10489,6 +10489,7 @@ dependencies = [
  "frame-election-provider-support",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-balances",
  "pallet-nomination-pools",
  "pallet-staking",
