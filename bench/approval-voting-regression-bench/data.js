@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723731603618,
+  "lastUpdate": 1723740183425,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -15086,6 +15086,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.838291761240033,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b5029eb4fd6c7ffd8164b2fe12b71bad0c59c9f2",
+          "message": "Update links in the documentation (#5175)\n\n- Where applicable, use a regular [`reference`] instead of\n`../../../reference/index.html`.\n- Typos.\n- Update a link to `polkadot-evm` which has moved out of the monorepo.\n- ~~The link specification for `chain_spec_builder` is invalid~~\n(actually it was valid) - it works fine without it.\n\nPart of https://github.com/paritytech/eng-automation/issues/10",
+          "timestamp": "2024-08-15T14:55:49Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b5029eb4fd6c7ffd8164b2fe12b71bad0c59c9f2"
+        },
+        "date": 1723740152881,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 64012.11,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52944,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.400284473940005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.355313870309969,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.2579830732302044,
             "unit": "seconds"
           }
         ]
