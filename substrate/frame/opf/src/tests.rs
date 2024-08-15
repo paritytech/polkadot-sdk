@@ -1,7 +1,7 @@
 pub use super::*;
 use crate::mock::*;
 use frame_support::traits::OnIdle;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::assert_ok;
 
 pub fn next_block() {
 	System::set_block_number(
@@ -28,9 +28,9 @@ pub fn run_to_block(n: BlockNumberFor<Test>) {
 }
 
 pub fn create_project_list() {
-	const max_number: u64 = <Test as Config>::MaxWhitelistedProjects::get() as u64;
+	const MAX_NUMBER: u64 = <Test as Config>::MaxWhitelistedProjects::get() as u64;
 	let mut bounded_vec = BoundedVec::<u64, <Test as Config>::MaxWhitelistedProjects>::new();
-	for i in 0..max_number {
+	for i in 0..MAX_NUMBER {
 		let _ = bounded_vec.try_push(i + 100);
 	}
 	WhiteListedProjectAccounts::<Test>::mutate(|value| {
@@ -44,8 +44,8 @@ fn first_round_creation_works() {
 		// Creating whitelisted projects list succeeds
 		create_project_list();
 		let project_list = WhiteListedProjectAccounts::<Test>::get();
-		let max_number: u64 = <Test as Config>::MaxWhitelistedProjects::get() as u64;
-		assert_eq!(project_list.len(), max_number as usize);
+		let MAX_NUMBER: u64 = <Test as Config>::MaxWhitelistedProjects::get() as u64;
+		assert_eq!(project_list.len(), MAX_NUMBER as usize);
 
 		// First round is created
 		next_block();
@@ -174,9 +174,7 @@ fn vote_removal_works() {
 	new_test_ext().execute_with(|| {
 		create_project_list();
 		next_block();
-		let now =
-			<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
-
+		
 		// Bob nominate project_102 with an amount of 1000
 		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000, true));
 
