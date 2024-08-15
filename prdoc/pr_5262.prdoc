@@ -19,3 +19,5 @@ crates:
     bump: patch
   - name: pallet-whitelist
     bump: patch
+  - name: polkadot-sdk
+    bump: patch
