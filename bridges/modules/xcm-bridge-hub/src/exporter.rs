@@ -214,7 +214,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// hard limit for that like other XCM queues have
 
 		// check if the lane is already suspended. If it is, do nothing. We still accept new
-		// messages to the suspended bridge, hoping that it'll be actually suspended soon
+		// messages to the suspended bridge, hoping that it'll be actually resumed soon
 		if bridge.state == BridgeState::Suspended {
 			return
 		}
