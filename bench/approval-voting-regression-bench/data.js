@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723718656078,
+  "lastUpdate": 1723731603618,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -15039,6 +15039,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.0578605483901398,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Loïs",
+            "username": "SailorSnoW",
+            "email": "49660929+SailorSnoW@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "069f8a6a374108affa4e240685c7504a1fbd1397",
+          "message": "fix visibility for `pallet_nfts` types used as call arguments (#3634)\n\nfix #3631 \n\nTypes which are impacted and fixed here are `ItemTip`,\n`PriceWithDirection`, `PreSignedMint`, `PreSignedAttributes`.\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-08-15T12:33:32Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/069f8a6a374108affa4e240685c7504a1fbd1397"
+        },
+        "date": 1723731571862,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63986.81999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.216413634890177,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.33324049644999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.838291761240033,
             "unit": "seconds"
           }
         ]
