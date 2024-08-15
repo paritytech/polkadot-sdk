@@ -11,4 +11,10 @@ doc:
       The project rewards distribution is handled by the **Distribution Pallet**
       The user’s conviction has not been implemented in this first pallet iteration.
 
-crates: [ ]
+crates:
+- name: polkadot-sdk (umbrella)
+  bumb: minor
+- name: pallet-distribution
+  bump: major
+- name: pallet-opf
+  bump: major
