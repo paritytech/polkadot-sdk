@@ -16,3 +16,9 @@ crates:
     bump: patch
   - name: pallet-opf
     bump: patch
+  - name: frame-support
+    bumb: none
+  - name: polkadot-sdk
+    bump: patch
+  - name: polkadot
+    bump: none
