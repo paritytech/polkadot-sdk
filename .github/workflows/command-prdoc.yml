@@ -63,6 +63,7 @@ jobs:
           python3 -m pip install -q cargo-workspace PyGithub whatthepatch pyyaml toml
 
           python3 .github/scripts/generate-prdoc.py --pr "${{ inputs.pr }}" --bump "${{ inputs.bump }}" --audience "${{ inputs.audience }}" --force "${{ inputs.overwrite }}"
+          git diff prdoc/
 
       - name: Report failure
         if: ${{ failure() }}
