@@ -156,7 +156,7 @@ pub mod pallet {
 		/// ## Events
 		/// Emits [`Event::<T>::RewardClaimed`] if successful for a positive approval.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::claim_reward_for())]
+		#[pallet::weight(T::WeightInfo::claim_reward_for(T::MaxProjects::get()))]
 		pub fn claim_reward_for(
 			origin: OriginFor<T>,
 			project_account: ProjectId<T>,

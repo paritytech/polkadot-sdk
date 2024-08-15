@@ -2194,6 +2194,7 @@ impl pallet_opf::Config for Runtime {
 	type VotingPeriod = TotalPeriod;
 	type MaxWhitelistedProjects = MaxWhitelistedProjects;
 	type TemporaryRewards = TemporaryRewards;
+	type WeightInfo = pallet_opf::weights::SubstrateWeight<Runtime>;
 }
 
 

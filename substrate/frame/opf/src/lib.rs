@@ -15,6 +15,7 @@ mod mock;
 
 #[cfg(test)]
 mod tests;
+pub mod weights;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -40,8 +41,12 @@ pub mod pallet {
 		#[pallet::constant]
 		type VotingPeriod: Get<BlockNumberFor<Self>>;
 
+		/// Used for Pallet testing only. Represents the Total Reward distributed
 		#[pallet::constant]
 		type TemporaryRewards: Get<BalanceOf<Self>>;
+
+		/// Weight information for extrinsics in this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	/// Number of Voting Rounds executed so far
@@ -178,7 +183,7 @@ pub mod pallet {
 		///  
 		/// ## Events
 		#[pallet::call_index(0)]
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1).ref_time())]
+		#[pallet::weight(<T as Config>::WeightInfo::vote(T::MaxWhitelistedProjects::get()))]
 		pub fn vote(
 			origin: OriginFor<T>,
 			project_account: ProjectId<T>,
@@ -235,7 +240,7 @@ pub mod pallet {
 		///  
 		/// ## Events
 		#[pallet::call_index(1)]
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1).ref_time())]
+		#[pallet::weight(<T as Config>::WeightInfo::remove_vote(T::MaxWhitelistedProjects::get()))]
 		pub fn remove_vote(origin: OriginFor<T>, project_account: ProjectId<T>) -> DispatchResult {
 			let voter = ensure_signed(origin)?;
 			// Get current voting round & check if we are in voting period or not

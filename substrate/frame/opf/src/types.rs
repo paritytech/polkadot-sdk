@@ -7,9 +7,9 @@ pub use frame_support::{
 	traits::{fungible, fungibles, DefensiveOption, EnsureOrigin},
 	PalletId, Serialize,
 };
-pub use frame_system::{pallet_prelude::*, RawOrigin, WeightInfo};
+pub use frame_system::{pallet_prelude::*, RawOrigin};
 pub use pallet_distribution::{
-	AccountIdOf, BalanceOf, HoldReason, Inspect, MutateHold, Mutate, ProjectId, ProjectInfo,
+	AccountIdOf, BalanceOf, HoldReason, Inspect, Mutate, MutateHold, ProjectId, ProjectInfo,
 };
 pub use scale_info::prelude::vec::Vec;
 pub use sp_runtime::traits::{
@@ -17,6 +17,7 @@ pub use sp_runtime::traits::{
 };
 pub use sp_runtime::traits::{CheckedSub, Saturating};
 pub use sp_runtime::Percent;
+pub use weights::WeightInfo;
 
 pub type RoundIndex = u32;
 

@@ -101,6 +101,7 @@ impl pallet_opf::Config for Test {
 	type VotingPeriod = VotingPeriod;
 	type MaxWhitelistedProjects = MaxWhitelistedProjects;
 	type TemporaryRewards = TemporaryRewards;
+	type WeightInfo = ();
 }
 
 //Define some accounts and use them
