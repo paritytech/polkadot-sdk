@@ -721,6 +721,7 @@ pub mod pallet {
 		/// other pallets genesis configuration or some other means.
 		pub opened_bridges: Vec<(Location, InteriorLocation)>,
 		/// Dummy marker.
+		#[serde(skip)]
 		pub phantom: sp_std::marker::PhantomData<(T, I)>,
 	}
 

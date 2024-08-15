@@ -536,6 +536,7 @@ pub mod pallet {
 		/// Opened lanes.
 		pub opened_lanes: Vec<LaneId>,
 		/// Dummy marker.
+		#[serde(skip)]
 		pub phantom: sp_std::marker::PhantomData<I>,
 	}
 
