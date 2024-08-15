@@ -4,8 +4,7 @@
 title: Update Readme of the `polkadot` crate
 
 doc:
-  - audience:
-    - Node Operator
+  - audience: Node Operator
     description: |
       Updated Readme of the `polkadot` crate.
 
