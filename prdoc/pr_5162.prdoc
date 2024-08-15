@@ -12,5 +12,7 @@ doc:
       The user’s conviction has not been implemented in this first pallet iteration.
 
 crates:
-- name: polkadot-sdk
-  bump: patch
+  - name: pallet-distribution
+    bump: patch
+  - name: pallet-opf
+    bump: patch
