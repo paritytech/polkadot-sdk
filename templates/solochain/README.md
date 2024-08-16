@@ -23,7 +23,7 @@ packages required to compile this template. Check the
 the most common dependencies. Alternatively, you can use one of the [alternative
 installation](#alternatives-installations) options.
 
-Fetch solochain template code:
+Fetch solochain template code (you can ignore this step if you cloned the entire `polkadot-sdk` repo):
 
 ```sh
 git clone https://github.com/paritytech/polkadot-sdk-solochain-template.git solochain-template
