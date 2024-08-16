@@ -19,7 +19,7 @@ jobs:
     # This workaround sets the container image for each job using 'set-image' job output.
     # TODO: remove once migration is complete or this workflow is fully stable
     if: contains(github.event.label.name, 'GHA-migration') || contains(github.event.pull_request.labels.*.name, 'GHA-migration')
-    runs-on: macos-latest-large
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - run: brew install protobuf
