@@ -203,9 +203,14 @@ jobs:
         id: fetch_release_refs
         run: |
           chmod a+rx $BINARY
-          [[ $BINARY != 'chain-spec-builder' ]] && VERSION=$(./$BINARY --version | awk '{ print $2 }' )
 
-          release=$( echo $VERSION | cut -f1 -d- )
+          if [[ $BINARY != 'chain-spec-builder' ]] then;
+            VERSION=$(./$BINARY --version | awk '{ print $2 }' )
+            release=$( echo $VERSION | cut -f1 -d- )
+          else
+            release=$(echo ${{ needs.validate-inputs.outputs.VERSION }} | sed 's/^v//')
+          fi
+
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
           echo "stable=${{ needs.validate-inputs.outputs.stable_tag }}" >> $GITHUB_OUTPUT
