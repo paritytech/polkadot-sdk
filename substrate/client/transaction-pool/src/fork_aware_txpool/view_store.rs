@@ -107,25 +107,6 @@ where
 		HashMap::<_, _>::from_iter(results.into_iter())
 	}
 
-	/// Imports one unverified extrinsic to every view
-	pub(super) async fn submit_one(
-		&self,
-		source: TransactionSource,
-		xt: ExtrinsicFor<ChainApi>,
-	) -> HashMap<Block::Hash, Result<ExtrinsicHash<ChainApi>, ChainApi::Error>> {
-		let mut output = HashMap::new();
-		let mut result = self.submit_at(source, std::iter::once(xt)).await;
-		result.iter_mut().for_each(|(hash, result)| {
-			output.insert(
-				*hash,
-				result
-					.pop()
-					.expect("for one transaction there shall be exactly one result. qed"),
-			);
-		});
-		output
-	}
-
 	/// Import a single extrinsic and starts to watch its progress in the pool.
 	pub(super) async fn submit_and_watch(
 		&self,

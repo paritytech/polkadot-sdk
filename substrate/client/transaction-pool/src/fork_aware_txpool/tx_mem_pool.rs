@@ -186,22 +186,6 @@ where
 		}
 	}
 
-	pub(super) fn push_unwatched(
-		&self,
-		source: TransactionSource,
-		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<(), ChainApi::Error> {
-		let mut transactions = self.transactions.write();
-		let hash = self.api.hash_and_length(&xt).0;
-		self.try_insert(
-			transactions.len(),
-			transactions.entry(hash),
-			hash,
-			TxInMemPool::new_unwatched(source, xt),
-		)
-		.map(|_| ())
-	}
-
 	/// Adds new unwatched transactions to the internal buffer not exceeding the limit.
 	///
 	/// Returns the vector of results for each transaction, the order corresponds to the input
@@ -443,9 +427,9 @@ mod tx_mem_pool_tests {
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
 		));
 		let xt = Arc::from(uxt(99));
-		let result = mempool.push_unwatched(TransactionSource::External, xt);
+		let mut result = mempool.extend_unwatched(TransactionSource::External, vec![xt]);
 		assert!(matches!(
-			result.unwrap_err(),
+			result.pop().unwrap().unwrap_err(),
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
 		));
 	}
@@ -468,9 +452,9 @@ mod tx_mem_pool_tests {
 			result.unwrap_err(),
 			sc_transaction_pool_api::error::Error::AlreadyImported(_)
 		));
-		let result = mempool.push_unwatched(TransactionSource::External, xt1);
+		let mut result = mempool.extend_unwatched(TransactionSource::External, vec![xt1]);
 		assert!(matches!(
-			result.unwrap_err(),
+			result.pop().unwrap().unwrap_err(),
 			sc_transaction_pool_api::error::Error::AlreadyImported(_)
 		));
 	}
