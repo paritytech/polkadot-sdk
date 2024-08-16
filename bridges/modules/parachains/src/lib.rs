@@ -736,7 +736,7 @@ pub mod pallet {
 		pub owner: Option<T::AccountId>,
 		/// Dummy marker.
 		#[serde(skip)]
-		_phantom: sp_std::marker::PhantomData<I>,
+		pub _phantom: sp_std::marker::PhantomData<I>,
 	}
 
 	#[pallet::genesis_build]
