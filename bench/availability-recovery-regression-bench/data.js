@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723810782028,
+  "lastUpdate": 1723824190926,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -18017,6 +18017,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.978456816166664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "fd522b818693965b6ec9e4cfdb4182c114d6105c",
+          "message": "Fix doc: start_destroy doesn't need asset to be frozen (#5204)\n\nFix https://github.com/paritytech/polkadot-sdk/issues/5184\n\n`owner` can set himself as a `freezer` and freeze the asset so\nrequirement is not really needed. And requirement is not implemented.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-08-16T14:09:06Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fd522b818693965b6ec9e4cfdb4182c114d6105c"
+        },
+        "date": 1723824160702,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1934142602333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.036917701066667,
             "unit": "seconds"
           }
         ]
