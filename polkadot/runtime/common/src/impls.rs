@@ -239,13 +239,13 @@ pub mod benchmarks {
 	pub struct AssetRateArguments;
 	impl AssetKindFactory<VersionedLocatableAsset> for AssetRateArguments {
 		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
-			VersionedLocatableAsset::V4 {
-				location: xcm::v4::Location::new(0, [xcm::v4::Junction::Parachain(seed)]),
-				asset_id: xcm::v4::Location::new(
+			VersionedLocatableAsset::V5 {
+				location: xcm::v5::Location::new(0, [xcm::v5::Junction::Parachain(seed)]),
+				asset_id: xcm::v5::Location::new(
 					0,
 					[
-						xcm::v4::Junction::PalletInstance(seed.try_into().unwrap()),
-						xcm::v4::Junction::GeneralIndex(seed.into()),
+						xcm::v5::Junction::PalletInstance(seed.try_into().unwrap()),
+						xcm::v5::Junction::GeneralIndex(seed.into()),
 					],
 				)
 				.into(),
@@ -280,9 +280,9 @@ pub mod benchmarks {
 			}
 		}
 		fn create_beneficiary(seed: [u8; 32]) -> VersionedLocation {
-			VersionedLocation::V4(xcm::v4::Location::new(
+			VersionedLocation::V5(xcm::v5::Location::new(
 				0,
-				[xcm::v4::Junction::AccountId32 { network: None, id: seed }],
+				[xcm::v5::Junction::AccountId32 { network: None, id: seed }],
 			))
 		}
 	}

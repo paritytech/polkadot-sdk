@@ -138,8 +138,8 @@ impl InspectMessageQueues for TestToBridgeHubSender {
 				.iter()
 				.map(|(location, message)| {
 					(
-						VersionedLocation::V4(location.clone()),
-						vec![VersionedXcm::V4(message.clone())],
+						VersionedLocation::V5(location.clone()),
+						vec![VersionedXcm::V5(message.clone())],
 					)
 				})
 				.collect()
