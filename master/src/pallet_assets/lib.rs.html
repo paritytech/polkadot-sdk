@@ -1990,8 +1990,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1839" id="1839">1839</a>
 <a href="#1840" id="1840">1840</a>
 <a href="#1841" id="1841">1841</a>
-<a href="#1842" id="1842">1842</a>
-<a href="#1843" id="1843">1843</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2795,8 +2793,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// - `id`: The identifier of the asset to be destroyed. This must identify an existing
 		///   asset.
-		///
-		/// The asset class must be frozen before calling `start_destroy`.
 		</span><span class="attr">#[pallet::call_index(<span class="number">2</span>)]
 		</span><span class="kw">pub fn </span>start_destroy(origin: OriginFor&lt;T&gt;, id: T::AssetIdParameter) -&gt; DispatchResult {
 			<span class="kw">let </span>maybe_check_owner = <span class="kw">match </span>T::ForceOrigin::try_origin(origin) {
