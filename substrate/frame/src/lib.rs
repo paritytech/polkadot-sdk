@@ -178,7 +178,7 @@ pub mod runtime {
 
 		/// Macro to amalgamate the runtime into `struct Runtime`.
 		///
-		/// Consider using the new version of this [`frame_runtime`].
+		/// Consider using the new version of this [`frame_construct_runtime`].
 		pub use frame_support::construct_runtime;
 
 		/// Macro to amalgamate the runtime into `struct Runtime`.
