@@ -22,7 +22,8 @@ packages required to compile this template. Check the
 [Install](https://docs.substrate.io/install/) instructions for your platform for
 the most common dependencies. Alternatively, you can use one of the [alternative
 installation](#alternatives-installations) options.
-Fetch minimal template code:
+
+Fetch solochain template code:
 
 ```sh
 git clone https://github.com/paritytech/polkadot-sdk-solochain-template.git solochain-template
