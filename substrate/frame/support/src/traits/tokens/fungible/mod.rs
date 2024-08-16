@@ -186,9 +186,11 @@ use sp_core::Get;
 use sp_runtime::{traits::Convert, DispatchError};
 pub use union_of::{NativeFromLeft, NativeOrWithId, UnionOf};
 
+#[cfg(feature = "experimental")]
+use crate::traits::MaybeConsideration;
 use crate::{
 	ensure,
-	traits::{Consideration, Footprint, MaybeConsideration},
+	traits::{Consideration, Footprint},
 };
 
 /// Consideration method using a `fungible` balance frozen as the cost exacted for the footprint.
@@ -241,7 +243,7 @@ impl<
 		let _ = F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
 	}
 }
-
+#[cfg(feature = "experimental")]
 impl<
 		A: 'static + Eq,
 		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateFreeze<A>,
@@ -309,6 +311,7 @@ impl<
 		let _ = F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
 	}
 }
+#[cfg(feature = "experimental")]
 impl<
 		A: 'static + Eq,
 		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateHold<A>,
