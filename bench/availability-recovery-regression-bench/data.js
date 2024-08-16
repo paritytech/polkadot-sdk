@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723752864120,
+  "lastUpdate": 1723800524364,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -17933,6 +17933,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 13.054222486566664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh",
+            "email": "49718502+alexggh@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4780e3d07ff23a49e8f0a508138f83eb6e0d36c6",
+          "message": "approval-distribution: Fix handling of conclude (#5375)\n\nAfter\n\nhttps://github.com/paritytech/polkadot-sdk/commit/0636ffdc3dfea52e90102403527ff99d2f2d6e7c\napproval-distribution did not terminate anymore if Conclude signal was\nreceived.\n\nThis should have been caught by the subsystem tests, but it wasn't\nbecause the subsystem is also exiting on error when the channels are\ndropped so the test overseer was dropped which made the susbystem exit\nand masked the problem.\n\nThis pr fixes both the test and the subsystem.\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2024-08-16T07:38:25Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4780e3d07ff23a49e8f0a508138f83eb6e0d36c6"
+        },
+        "date": 1723800494038,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.964531391899996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.15504077320000004,
             "unit": "seconds"
           }
         ]
