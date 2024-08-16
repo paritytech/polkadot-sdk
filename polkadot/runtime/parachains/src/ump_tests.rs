@@ -141,12 +141,12 @@ mod check_upward_messages {
 				configuration::ActiveConfig::<Test>::get().max_upward_message_num_per_candidate;
 
 			for sent in 0..permitted + 1 {
-				check(P_0, vec![msg(""); sent as usize], None);
+				check(P_0, vec![msg("a"); sent as usize], None);
 			}
 			for sent in permitted + 1..permitted + 10 {
 				check(
 					P_0,
-					vec![msg(""); sent as usize],
+					vec![msg("a"); sent as usize],
 					Some(UmpAcceptanceCheckErr::MoreMessagesThanPermitted { sent, permitted }),
 				);
 			}
@@ -185,18 +185,18 @@ mod check_upward_messages {
 			let limit = configuration::ActiveConfig::<Test>::get().max_upward_queue_count as u64;
 
 			for _ in 0..limit {
-				check(P_0, vec![msg("")], None);
-				queue(P_0, vec![msg("")]);
+				check(P_0, vec![msg("a")], None);
+				queue(P_0, vec![msg("a")]);
 			}
 
 			check(
 				P_0,
-				vec![msg("")],
+				vec![msg("a")],
 				Some(UmpAcceptanceCheckErr::CapacityExceeded { count: limit + 1, limit }),
 			);
 			check(
 				P_0,
-				vec![msg(""); 2],
+				vec![msg("a"); 2],
 				Some(UmpAcceptanceCheckErr::CapacityExceeded { count: limit + 2, limit }),
 			);
 		});

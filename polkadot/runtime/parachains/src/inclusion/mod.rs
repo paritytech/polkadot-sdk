@@ -925,6 +925,15 @@ impl<T: Config> Pallet<T> {
 		para: ParaId,
 		upward_messages: &[UpwardMessage],
 	) -> Result<(), UmpAcceptanceCheckErr> {
+		// Filter any pending UMP signals and the separator.
+		let upward_messages = if let Some(separator_index) =
+			upward_messages.iter().rposition(|message| message.is_empty())
+		{
+			upward_messages.split_at(separator_index).0
+		} else {
+			upward_messages
+		};
+
 		// Cannot send UMP messages while off-boarding.
 		if paras::Pallet::<T>::is_offboarding(para) {
 			ensure!(upward_messages.is_empty(), UmpAcceptanceCheckErr::IsOffboarding);
@@ -979,6 +988,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn receive_upward_messages(para: ParaId, upward_messages: &[Vec<u8>]) -> Weight {
 		let bounded = upward_messages
 			.iter()
+			.take_while(|message| !message.is_empty())
 			.filter_map(|d| {
 				BoundedSlice::try_from(&d[..])
 					.map_err(|e| {
