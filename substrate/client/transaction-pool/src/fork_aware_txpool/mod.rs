@@ -19,6 +19,9 @@
 //! Substrate fork aware transaction pool implementation.
 //!
 //! # Top level overview.
+//! This documentation provides high level overview of the main structures and the main flows within
+//! the fork-aware transaction pool.
+//!
 //! ## Structures.
 //! ### View.
 //! #### Purpose.
@@ -262,25 +265,30 @@
 //! Refer to *mempool* revalidation [section](#mempool-pruningrevalidation).
 //!
 //! ## Pool limits
-//! Every ['View'] has the [limits][`Options`]for the number or size of transactions it can hold.
-//! The number of transactions in every view is not distributed equally, so some views maybe fully
-//! filled while other not.
+//! Every [`View`] has the [limits][`Options`] for the number or size of transactions it can hold.
+//! Obviously the number of transactions in every view is not distributed equally, so some views
+//! maybe fully filled while other not.
 //!
 //! On the other hand the size of internal *mempool* shall also be capped, but transactions that are
 //! still referenced by views should not be removed.
 //!
 //! When the [`View`] is at its limits, it can either reject the transaction during
 //! submission process, or it can accept the transaction and drop different transaction which is
-//! already in the pool. The [`StreamOfDropped`] stream aggregating
-//! [per-view][`create_dropped_by_limits_stream`] streams allows to monitor the transactions
-//! that were dropped by all the views (or dropped by some views while not referenced by the
-//! others), what means that transaction can also be [removed][`dropped_monitor_task`] from the
-//! *mempool*.
+//! already in the pool during the [`enforce_limits`][`vp::enforce_limits`] process.
+//!
+//! The [`StreamOfDropped`] stream aggregating [per-view][`create_dropped_by_limits_stream`] streams
+//! allows to monitor the transactions that were dropped by all the views (or dropped by some views
+//! while not referenced by the others), what means that transaction can also be
+//! [removed][`dropped_monitor_task`] from the *mempool*.
 //!
 //!
 //! ## API Considerations
-//! - at (aka internal most_recent_view)
-//! - PendingExtrinsics (dedicated call)
+//! todo:
+//! - at (aka internal `most_recent_view`) -- see `todo` comments at some [api][TransactionPool API]
+//! methods implementation.
+//! - PendingExtrinsics (dedicated call) - would be nice to have extra call giving the total number
+//! of extrinsics within the transaction pool (w/o receiving all of them). Super useful for stress
+//! tests, or for utils sending the massive amounts of transactions.
 //!
 //! [`View`]: crate::fork_aware_txpool::view::View
 //! [`revalidate_later`]: crate::fork_aware_txpool::view::View::revalidate_later
@@ -300,6 +308,7 @@
 //! [`Watcher`]: crate::graph::watcher::Watcher
 //! [`Options`]: crate::graph::Options
 //! [`vp::import_notification_stream`]: ../graph/validated_pool/struct.ValidatedPool.html#method.import_notification_stream
+//! [`vp::enforce_limits`]: ../graph/validated_pool/struct.ValidatedPool.html#method.enforce_limits
 //! [`create_dropped_by_limits_stream`]: ../graph/validated_pool/struct.ValidatedPool.html#method.create_dropped_by_limits_stream
 //! [`ChainEvent`]: sc_transaction_pool_api::ChainEvent
 //! [`TransactionStatusStreamFor`]: sc_transaction_pool_api::TransactionStatusStreamFor
