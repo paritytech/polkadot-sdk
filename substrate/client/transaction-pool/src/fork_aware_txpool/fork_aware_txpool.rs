@@ -566,37 +566,18 @@ where
 
 	fn submit_one(
 		&self,
-		_: <Self::Block as BlockT>::Hash,
+		_at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
-		//todo: could we just use submit_at ?
 		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.views_count());
-		let xt = Arc::from(xt);
-		if let Err(e) = self.mempool.push_unwatched(source, xt.clone()) {
-			return future::ready(Err(e)).boxed();
-		}
-		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
-
-		// assume that transaction may be valid, will be validated later.
-		let view_store = self.view_store.clone();
-		if view_store.is_empty() {
-			return future::ready(Ok(self.hash_of(&xt))).boxed()
-		}
-
+		let f = self.submit_at(_at, source, vec![xt]);
 		async move {
-			let results = view_store.submit_one(source, xt).await;
-			let results = results
-				.into_values()
-				.reduce(|mut r, v| {
-					if r.is_err() && v.is_ok() {
-						r = v;
-					}
-					r
-				})
-				//todo: unwrap_or
-				.expect("there is at least one entry in input");
-			results
+			let result = f.await;
+			match result {
+				Ok(mut v) => v.pop().expect("There is exactly one element. qed."),
+				Err(e) => Err(e),
+			}
 		}
 		.boxed()
 	}
