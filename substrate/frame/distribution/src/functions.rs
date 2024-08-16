@@ -30,10 +30,9 @@ impl<T: Config> Pallet<T> {
 		let mut spends: Vec<SpendIndex> = Vec::new();
 		let value = Some(project_account);
 
-		for spend in Spends::<T>::iter() {
-			let info = spend.1;
+		for (index,info) in Spends::<T>::iter() {
 			if info.whitelisted_project == value {
-				spends.push(spend.0);
+				spends.push(index);
 			}
 		}
 

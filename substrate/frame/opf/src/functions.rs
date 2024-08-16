@@ -116,17 +116,17 @@ impl<T: Config> Pallet<T> {
 				let mut project_reward = BalanceOf::<T>::zero();
 				let mut round = 0;
 
-				for vote in this_project_votes.clone() {
-					round = vote.2.round.round_number;
-					match vote.2.is_fund {
+				for (_p_id,voter,info) in this_project_votes.clone() {
+					round = info.round.round_number;
+					match info.is_fund {
 						true => {
 							project_positive_reward = project_positive_reward
-								.checked_add(&vote.2.amount)
+								.checked_add(&info.amount)
 								.ok_or(Error::<T>::InvalidResult)?;
 						},
 						false => {
 							project_negative_reward = project_negative_reward
-								.checked_add(&vote.2.amount)
+								.checked_add(&info.amount)
 								.ok_or(Error::<T>::InvalidResult)?;
 						},
 					}
@@ -136,8 +136,8 @@ impl<T: Config> Pallet<T> {
 					// release voter's funds
 					T::NativeBalance::release(
 						&HoldReason::FundsReserved.into(),
-						&vote.1,
-						vote.2.amount,
+						&voter,
+						info.amount,
 						Precision::Exact,
 					)?;
 				}
