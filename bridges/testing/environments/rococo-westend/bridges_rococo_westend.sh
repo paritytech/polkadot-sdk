@@ -270,7 +270,7 @@ case "$1" in
           "//Alice" \
           1000 \
           "ws://127.0.0.1:9910" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X1": { "GlobalConsensus": "Westend" } } }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": "Westend" }] } }')" \
           "$GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT" \
           10000000000 \
           true
@@ -329,7 +329,7 @@ case "$1" in
           "//Alice" \
           1000 \
           "ws://127.0.0.1:9010" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X1": { "GlobalConsensus": "Rococo" } } }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": "Rococo" }] } }')" \
           "$GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT" \
           10000000000 \
           true

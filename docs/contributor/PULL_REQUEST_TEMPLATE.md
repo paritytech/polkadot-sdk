@@ -20,7 +20,7 @@ reviewed by reviewers, if the PR does NOT have the `R0-Silent` label. In case of
 
 ## Review Notes
 
-*In depth notes about the **implenentation** details of your PR. This should be the main guide for reviewers to
+*In depth notes about the **implementation** details of your PR. This should be the main guide for reviewers to
 understand your approach and effectively review it. If too long, use
 [`<details>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/details)*.
 

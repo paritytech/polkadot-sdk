@@ -560,7 +560,6 @@ fn send_token_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u12
 		2,
 		[EthereumNetwork::get().into(), AccountKey20 { network: None, key: WETH }],
 	);
-	// (Parent, Parent, EthereumNetwork::get(), AccountKey20 { network: None, key: WETH })
 	// Fund asset hub sovereign on bridge hub
 	let asset_hub_sovereign = BridgeHubRococo::sovereign_account_id_of(Location::new(
 		1,
