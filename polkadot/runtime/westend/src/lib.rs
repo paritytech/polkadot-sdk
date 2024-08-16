@@ -1791,6 +1791,13 @@ pub mod migrations {
 				<slots::Pallet<Runtime> as Leaser<BlockNumber>>::lease_period_index(now)?;
 			Some(index.saturating_add(lease.len() as u32).saturating_mul(LeasePeriod::get()))
 		}
+
+		fn get_all_parachains_with_leases() -> Vec<ParaId> {
+			slots::Leases::<Runtime>::iter()
+				.filter(|(_, lease)| !lease.is_empty())
+				.map(|(para, _)| para)
+				.collect::<Vec<_>>()
+		}
 	}
 
 	/// Unreleased migrations. Add new ones here:
