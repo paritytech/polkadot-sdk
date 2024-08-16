@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - master
-    tags:
-      - v1.*
   pull_request:
     types: [ opened, synchronize, reopened, closed ]
   merge_group:
@@ -33,6 +31,7 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
 
   build-runtimes-polkavm:
+    timeout-minutes: 20
     needs: [ set-image ]
     runs-on: arc-runners-polkadot-sdk-beefy
     container:
@@ -56,6 +55,7 @@ jobs:
           forklift cargo check -p polkadot-test-runtime
 
   build-subkey:
+    timeout-minutes: 20
     needs: [ set-image ]
     runs-on: arc-runners-polkadot-sdk-beefy
     container:

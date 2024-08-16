@@ -28,6 +28,7 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
 
   build:
+    timeout-minutes: 80
     needs: [ set-image ]
     runs-on: arc-runners-polkadot-sdk-benchmark
     container:
@@ -64,6 +65,7 @@ jobs:
           path: ./artifacts
 
   publish-benchmarks:
+    timeout-minutes: 60
     needs: [ build ]
     if: github.ref == 'refs/heads/master'
     environment: subsystem-benchmarks
