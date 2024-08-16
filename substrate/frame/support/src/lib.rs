@@ -869,7 +869,6 @@ macro_rules! hypothetically_ok {
 pub use serde::{Deserialize, Serialize};
 
 #[doc(hidden)]
-#[cfg(not(no_std))]
 pub use macro_magic;
 
 /// Prelude to be used for pallet testing, for ease of use.
@@ -935,7 +934,7 @@ pub mod pallet_prelude {
 ///
 /// # 1 - Pallet module declaration
 ///
-/// The module to declare a pallet is organized as follow:
+/// The module to declare a pallet is organized as follows:
 /// ```
 /// #[frame_support::pallet]    // <- the macro
 /// mod pallet {
@@ -1048,7 +1047,7 @@ pub mod pallet_prelude {
 /// If the attribute `set_storage_max_encoded_len` is set then the macro calls
 /// [`StorageInfoTrait`](frame_support::traits::StorageInfoTrait) for each storage in the
 /// implementation of [`StorageInfoTrait`](frame_support::traits::StorageInfoTrait) for the
-/// pallet. Otherwise it implements
+/// pallet. Otherwise, it implements
 /// [`StorageInfoTrait`](frame_support::traits::StorageInfoTrait) for the pallet using the
 /// [`PartialStorageInfoTrait`](frame_support::traits::PartialStorageInfoTrait)
 /// implementation of storages.

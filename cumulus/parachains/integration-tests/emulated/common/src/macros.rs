@@ -228,7 +228,7 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 		$crate::macros::paste::paste! {
 			// init Origin variables
 			let sender = [<$sender_para Sender>]::get();
-			let mut para_sender_balance_before =
+			let para_sender_balance_before =
 				<$sender_para as $crate::macros::Chain>::account_data_of(sender.clone()).free;
 			let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
 			let assets: Assets = (Parent, $amount).into();
@@ -302,9 +302,6 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 
 			assert_eq!(para_sender_balance_before - $amount - delivery_fees, para_sender_balance_after);
 			assert!(relay_receiver_balance_after > relay_receiver_balance_before);
-
-			// Update sender balance
-			para_sender_balance_before = <$sender_para as $crate::macros::Chain>::account_data_of(sender.clone()).free;
 		}
 	};
 }

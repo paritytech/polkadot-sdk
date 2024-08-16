@@ -507,7 +507,10 @@ fn create_project_cargo_toml(
 
 	wasm_workspace_toml.insert("dependencies".into(), dependencies.into());
 
-	wasm_workspace_toml.insert("workspace".into(), Table::new().into());
+	let mut workspace = Table::new();
+	workspace.insert("resolver".into(), "2".into());
+
+	wasm_workspace_toml.insert("workspace".into(), workspace.into());
 
 	if target == RuntimeTarget::Riscv {
 		// This dependency currently doesn't compile under RISC-V, so patch it with our own fork.
