@@ -47,10 +47,10 @@ use std::{
 };
 
 /// The minimum interval between single transaction revalidations. Given in blocks.
-const TXMEMPOOL_REVALIDATION_PERIOD: u64 = 10;
+pub(crate) const TXMEMPOOL_REVALIDATION_PERIOD: u64 = 10;
 
 /// The number of transactions revalidated in single revalidation batch.
-const TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE: usize = 1000;
+pub(crate) const TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE: usize = 1000;
 
 /// The maximum number of transactions kept in the mem pool. Given as multiple of
 /// the view's total limit.
@@ -284,7 +284,7 @@ where
 	/// Revalidates a batch of transactions.
 	///
 	/// Returns vec of invalid hashes.
-	async fn revalidate(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {
+	async fn revalidate_inner(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {
 		log::debug!(target: LOG_TARGET, "mempool::revalidate at:{:?} {}", finalized_block, line!());
 		let start = Instant::now();
 
@@ -360,9 +360,9 @@ where
 		});
 	}
 
-	pub(super) async fn purge_transactions(&self, finalized_block: HashAndNumber<Block>) {
+	pub(super) async fn revalidate(&self, finalized_block: HashAndNumber<Block>) {
 		log::debug!(target: LOG_TARGET, "purge_transactions at:{:?}", finalized_block);
-		let invalid_hashes = self.revalidate(finalized_block.clone()).await;
+		let invalid_hashes = self.revalidate_inner(finalized_block.clone()).await;
 
 		self.metrics.report(|metrics| {
 			metrics.mempool_revalidation_invalid_txs.inc_by(invalid_hashes.len() as _)

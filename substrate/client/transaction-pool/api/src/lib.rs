@@ -269,7 +269,7 @@ pub trait TransactionPool: Send + Sync {
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error>;
 
-	/// Returns a future that import a single transaction and starts to watch their progress in the
+	/// Returns a future that imports a single transaction and starts to watch their progress in the
 	/// pool.
 	fn submit_and_watch(
 		&self,

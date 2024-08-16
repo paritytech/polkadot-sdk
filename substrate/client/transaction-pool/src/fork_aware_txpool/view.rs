@@ -313,7 +313,7 @@ where
 
 		*view.revalidation_worker_channels.lock() = Some(finish_revalidation_local_channels);
 		revalidation_queue
-			.revalidate_later(view.clone(), finish_revalidation_worker_channels)
+			.revalidate_view(view.clone(), finish_revalidation_worker_channels)
 			.await;
 	}
 

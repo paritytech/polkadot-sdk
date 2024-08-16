@@ -563,6 +563,7 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
+		//todo: could we just use submit_at ?
 		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.views_count());
 		let xt = Arc::from(xt);
 		if let Err(e) = self.mempool.push_unwatched(source, xt.clone()) {
@@ -599,6 +600,7 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
+		//todo: should send to view frist, and check if not Dropped.
 		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.views_count());
 		let xt = Arc::from(xt);
 		if let Err(e) = self.mempool.push_watched(source, xt.clone()) {
@@ -1126,7 +1128,7 @@ where
 
 		if let Ok(Some(finalized_number)) = finalized_number {
 			self.revalidation_queue
-				.purge_transactions_later(
+				.revalidate_mempool(
 					self.mempool.clone(),
 					HashAndNumber { hash: finalized_hash, number: finalized_number },
 				)

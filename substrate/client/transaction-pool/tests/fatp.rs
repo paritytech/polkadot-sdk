@@ -1562,6 +1562,7 @@ fn fatp_watcher_dropping_listener_should_work() {
 
 	let xt0 = uxt(Alice, 200);
 
+	// intentionally drop the listener - nothing should panic.
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
 	assert_pool_status!(header01.hash(), &pool, 1, 0);
 

@@ -76,7 +76,7 @@ where
 				WorkerPayload::RevalidateView(view, worker_channels) =>
 					(*view).revalidate_later(worker_channels).await,
 				WorkerPayload::RevalidateMempool(mempool, finalized_hash_and_number) =>
-					(*mempool).purge_transactions(finalized_hash_and_number).await,
+					(*mempool).revalidate(finalized_hash_and_number).await,
 			};
 		}
 	}
@@ -116,14 +116,14 @@ where
 	/// If queue configured with background worker, this will return immediately.
 	/// If queue configured without background worker, this will resolve after
 	/// revalidation is actually done.
-	pub async fn revalidate_later(
+	pub async fn revalidate_view(
 		&self,
 		view: Arc<View<Api>>,
 		finish_revalidation_worker_channels: FinishRevalidationWorkerChannels<Api>,
 	) {
 		log::debug!(
 			target: LOG_TARGET,
-			"revalidation_queue::revalidate_later: Sending view to revalidation queue at {}",
+			"revalidation_queue::revalidate_view: Sending view to revalidation queue at {}",
 			view.at.hash
 		);
 
@@ -132,7 +132,7 @@ where
 				view,
 				finish_revalidation_worker_channels,
 			)) {
-				log::warn!(target: LOG_TARGET, "revalidation_queue::revalidate_later: Failed to update background worker: {:?}", e);
+				log::warn!(target: LOG_TARGET, "revalidation_queue::revalidate_view: Failed to update background worker: {:?}", e);
 			}
 		} else {
 			view.revalidate_later(finish_revalidation_worker_channels).await
@@ -145,7 +145,7 @@ where
 	/// If queue configured with background worker, this will return immediately.
 	/// If queue configured without background worker, this will resolve after
 	/// revalidation is actually done.
-	pub async fn purge_transactions_later(
+	pub async fn revalidate_mempool(
 		&self,
 		mempool: Arc<TxMemPool<Api, Block>>,
 		finalized_hash: HashAndNumber<Block>,
@@ -163,7 +163,7 @@ where
 				log::warn!(target: LOG_TARGET, "Failed to update background worker: {:?}", e);
 			}
 		} else {
-			mempool.purge_transactions(finalized_hash).await
+			mempool.revalidate(finalized_hash).await
 		}
 	}
 }
