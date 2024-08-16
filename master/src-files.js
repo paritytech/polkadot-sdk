@@ -122,7 +122,6 @@ var srcIndex = new Map(JSON.parse('[\
 ["kitchensink_runtime",["",[],["assets_api.rs","constants.rs","impls.rs","lib.rs","voter_bags.rs"]]],\
 ["malus",["",[["variants",[],["back_garbage_candidate.rs","common.rs","dispute_finalized_candidates.rs","dispute_valid_candidates.rs","mod.rs","spam_statement_requests.rs","suggest_garbage_candidate.rs","support_disabled.rs"]]],["interceptor.rs","malus.rs","shared.rs"]]],\
 ["messages_relay",["",[],["lib.rs","message_lane.rs","message_lane_loop.rs","message_race_delivery.rs","message_race_limits.rs","message_race_loop.rs","message_race_receiving.rs","message_race_strategy.rs","metrics.rs"]]],\
-["minimal_template",["",[],["lib.rs"]]],\
 ["minimal_template_node",["",[],["chain_spec.rs","cli.rs","lib.rs","rpc.rs","service.rs"]]],\
 ["minimal_template_runtime",["",[],["lib.rs"]]],\
 ["mmr_gadget",["",[],["aux_schema.rs","lib.rs","offchain_mmr.rs"]]],\

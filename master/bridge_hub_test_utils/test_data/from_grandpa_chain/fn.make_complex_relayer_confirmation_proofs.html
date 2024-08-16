@@ -153,8 +153,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     header_number: BlockNumberOf&lt;BridgedChain&gt;,
     relayer_id_at_this_chain: AccountIdOf&lt;ThisChainWithMessages&gt;,
     relayers_state: UnrewardedRelayersState
-) -&gt; (HeaderOf&lt;BridgedChain&gt;, GrandpaJustification&lt;HeaderOf&lt;BridgedChain&gt;&gt;, FromBridgedChainMessagesDeliveryProof&lt;HashOf&lt;BridgedChain&gt;&gt;)<div class="where">where
-    BridgedChain: ChainWithGrandpa,
+) -&gt; (HeaderOf&lt;BridgedChain&gt;, <a class="struct" href="../../../bp_header_chain/justification/struct.GrandpaJustification.html" title="struct bp_header_chain::justification::GrandpaJustification">GrandpaJustification</a>&lt;HeaderOf&lt;BridgedChain&gt;&gt;, FromBridgedChainMessagesDeliveryProof&lt;HashOf&lt;BridgedChain&gt;&gt;)<div class="where">where
+    BridgedChain: <a class="trait" href="../../../bp_header_chain/trait.ChainWithGrandpa.html" title="trait bp_header_chain::ChainWithGrandpa">ChainWithGrandpa</a>,
     ThisChainWithMessages: ChainWithMessages,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Prepare storage proofs of message confirmations, stored at the (bridged) target GRANDPA chain.</p>
 </div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
