@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723800524364,
+  "lastUpdate": 1723810782028,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -17975,6 +17975,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.15504077320000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "74267881e765a01b1c7b3114c21b80dbe7686940",
+          "message": "Remove redundant minimal template workspace (#5330)\n\nThis removes the workspace of the minimal template, which (I think) is\nredundant. The other two templates do not have such a workspace.\n\nThe synchronized template created [it's own\nworkspace](https://github.com/paritytech/polkadot-sdk-minimal-template/blob/master/Cargo.toml)\nanyway, and the new readme replaced the old docs contained in `lib.rs`.\n\nCloses\nhttps://github.com/paritytech/polkadot-sdk-minimal-template/issues/11\n\nSilent because the crate was private.",
+          "timestamp": "2024-08-16T10:29:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/74267881e765a01b1c7b3114c21b80dbe7686940"
+        },
+        "date": 1723810751351,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1640024253,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.978456816166664,
             "unit": "seconds"
           }
         ]
