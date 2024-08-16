@@ -334,6 +334,36 @@ fn apply_pending_slash() {
 	});
 }
 
+#[test]
+fn allow_full_amount_to_be_delegated() {
+	ExtBuilder::default().build_and_execute(|| {
+		let agent: AccountId = 200;
+		let reward_acc: AccountId = 201;
+		let delegator: AccountId = 300;
+
+		// set intention to accept delegation.
+		fund(&agent, 1000);
+		assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(agent).into(), reward_acc));
+
+		// delegate to this account
+		fund(&delegator, 1000);
+		assert_ok!(DelegatedStaking::delegate_to_agent(
+			RawOrigin::Signed(delegator).into(),
+			agent,
+			1000
+		));
+
+		// verify
+		assert!(DelegatedStaking::is_agent(&agent));
+		assert_eq!(DelegatedStaking::stakeable_balance(Agent::from(agent)), 1000);
+		assert_eq!(
+			Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), &delegator),
+			1000
+		);
+		assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(delegator)), 1000);
+	});
+}
+
 /// Integration tests with pallet-staking.
 mod staking_integration {
 	use super::*;
@@ -625,32 +655,42 @@ mod staking_integration {
 	#[test]
 	fn migration_works() {
 		ExtBuilder::default().build_and_execute(|| {
+			// initial era
+			start_era(1);
+
 			// add a nominator
 			let staked_amount = 4000;
 			let agent_amount = 5000;
-			fund(&200, agent_amount);
+			let agent = 200;
+			fund(&agent, agent_amount);
 
 			assert_ok!(Staking::bond(
-				RuntimeOrigin::signed(200),
+				RuntimeOrigin::signed(agent),
 				staked_amount,
 				RewardDestination::Account(201)
 			));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(200), vec![GENESIS_VALIDATOR],));
-			let init_stake = Staking::stake(&200).unwrap();
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(agent), vec![GENESIS_VALIDATOR],));
+			let init_stake = Staking::stake(&agent).unwrap();
 
 			// scenario: 200 is a pool account, and the stake comes from its 4 delegators (300..304)
 			// in equal parts. lets try to migrate this nominator into delegate based stake.
 
 			// all balance currently is in 200
-			assert_eq!(Balances::free_balance(200), agent_amount);
+			assert_eq!(Balances::free_balance(agent), agent_amount);
 
 			// to migrate, nominator needs to set an account as a proxy delegator where staked funds
 			// will be moved and delegated back to this old nominator account. This should be funded
 			// with at least ED.
 			let proxy_delegator =
-				DelegatedStaking::generate_proxy_delegator(Agent::from(200)).get();
+				DelegatedStaking::generate_proxy_delegator(Agent::from(agent)).get();
 
-			assert_ok!(DelegatedStaking::migrate_to_agent(RawOrigin::Signed(200).into(), 201));
+			assert_ok!(DelegatedStaking::migrate_to_agent(RawOrigin::Signed(agent).into(), 201));
+			// after migration, funds are moved to proxy delegator, still a provider exists.
+			assert_eq!(System::providers(&agent), 1);
+			assert_eq!(Balances::free_balance(agent), 0);
+			// proxy delegator has one provider as well with no free balance.
+			assert_eq!(System::providers(&proxy_delegator), 1);
+			assert_eq!(Balances::free_balance(proxy_delegator), 0);
 
 			// verify all went well
 			let mut expected_proxy_delegated_amount = agent_amount;
@@ -659,12 +699,12 @@ mod staking_integration {
 				expected_proxy_delegated_amount
 			);
 			// stake amount is transferred from delegate to proxy delegator account.
-			assert_eq!(Balances::free_balance(200), 0);
-			assert_eq!(Staking::stake(&200).unwrap(), init_stake);
-			assert_eq!(get_agent_ledger(&200).ledger.effective_balance(), agent_amount);
-			assert_eq!(get_agent_ledger(&200).available_to_bond(), 0);
+			assert_eq!(Balances::free_balance(agent), 0);
+			assert_eq!(Staking::stake(&agent).unwrap(), init_stake);
+			assert_eq!(get_agent_ledger(&agent).ledger.effective_balance(), agent_amount);
+			assert_eq!(get_agent_ledger(&agent).available_to_bond(), 0);
 			assert_eq!(
-				get_agent_ledger(&200).ledger.unclaimed_withdrawals,
+				get_agent_ledger(&agent).ledger.unclaimed_withdrawals,
 				agent_amount - staked_amount
 			);
 
@@ -672,14 +712,15 @@ mod staking_integration {
 			let delegator_share = agent_amount / 4;
 			for delegator in 300..304 {
 				assert_eq!(Balances::free_balance(delegator), 0);
-				// fund them with ED
-				fund(&delegator, ExistentialDeposit::get());
-				// migrate 1/4th amount into each delegator
+				assert_eq!(System::providers(&delegator), 0);
+
+				// No pre-balance needed to migrate delegator.
 				assert_ok!(DelegatedStaking::migrate_delegation(
-					RawOrigin::Signed(200).into(),
+					RawOrigin::Signed(agent).into(),
 					delegator,
 					delegator_share
 				));
+				assert_eq!(System::providers(&delegator), 1);
 				assert_eq!(
 					Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), &delegator),
 					delegator_share
@@ -694,20 +735,123 @@ mod staking_integration {
 				);
 
 				// delegate stake is unchanged.
-				assert_eq!(Staking::stake(&200).unwrap(), init_stake);
-				assert_eq!(get_agent_ledger(&200).ledger.effective_balance(), agent_amount);
-				assert_eq!(get_agent_ledger(&200).available_to_bond(), 0);
+				assert_eq!(Staking::stake(&agent).unwrap(), init_stake);
+				assert_eq!(get_agent_ledger(&agent).ledger.effective_balance(), agent_amount);
+				assert_eq!(get_agent_ledger(&agent).available_to_bond(), 0);
 				assert_eq!(
-					get_agent_ledger(&200).ledger.unclaimed_withdrawals,
+					get_agent_ledger(&agent).ledger.unclaimed_withdrawals,
 					agent_amount - staked_amount
 				);
 			}
 
 			// cannot use migrate delegator anymore
 			assert_noop!(
-				DelegatedStaking::migrate_delegation(RawOrigin::Signed(200).into(), 305, 1),
+				DelegatedStaking::migrate_delegation(RawOrigin::Signed(agent).into(), 305, 1),
 				Error::<T>::NotEnoughFunds
 			);
+
+			// no provider left on proxy delegator since all funds are migrated
+			assert_eq!(System::providers(&proxy_delegator), 0);
+
+			// withdraw all delegations from delegators
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(agent)));
+			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), staked_amount));
+			start_era(4);
+			assert_ok!(Staking::withdraw_unbonded(RawOrigin::Signed(agent).into(), 0));
+			for delegator in 300..304 {
+				assert_ok!(DelegatedStaking::release_delegation(
+					RawOrigin::Signed(agent).into(),
+					delegator,
+					delegator_share,
+					0
+				));
+				// delegator is cleaned up from storage.
+				assert!(!Delegators::<T>::contains_key(delegator));
+				// has free balance now
+				assert_eq!(Balances::free_balance(delegator), delegator_share);
+				// and only one provider as delegator_share > ED
+				assert_eq!(System::providers(&delegator), 1);
+			}
+
+			// Agent can be removed now.
+			assert_ok!(DelegatedStaking::remove_agent(RawOrigin::Signed(agent).into()));
+			// agent is correctly removed.
+			assert!(!Agents::<T>::contains_key(agent));
+			// and no provider left.
+			assert_eq!(System::providers(&agent), 0);
+		});
+	}
+
+	#[test]
+	fn accounts_are_cleaned_up() {
+		ExtBuilder::default().build_and_execute(|| {
+			let agent: AccountId = 200;
+			let reward_acc: AccountId = 201;
+			let delegator: AccountId = 300;
+
+			// set intention to accept delegation.
+			fund(&agent, 1000);
+
+			// Agent is provided since it has balance > ED.
+			assert_eq!(System::providers(&agent), 1);
+			assert_ok!(DelegatedStaking::register_agent(
+				RawOrigin::Signed(agent).into(),
+				reward_acc
+			));
+			// becoming an agent adds another provider.
+			assert_eq!(System::providers(&agent), 2);
+
+			// delegate to this account
+			fund(&delegator, 1000);
+			// account has one provider since its funded.
+			assert_eq!(System::providers(&delegator), 1);
+			assert_ok!(DelegatedStaking::delegate_to_agent(
+				RawOrigin::Signed(delegator).into(),
+				agent,
+				500
+			));
+			// delegator has an extra provider now.
+			assert_eq!(System::providers(&delegator), 2);
+			// all 1000 tokens including ED can be held.
+			assert_ok!(DelegatedStaking::delegate_to_agent(
+				RawOrigin::Signed(delegator).into(),
+				agent,
+				500
+			));
+			// free balance dropping below ED will reduce a provider, but it still has one provider
+			// left.
+			assert_eq!(System::providers(&delegator), 1);
+
+			// withdraw all delegation
+			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 1000));
+			start_era(4);
+			assert_ok!(Staking::withdraw_unbonded(RawOrigin::Signed(agent).into(), 0));
+
+			// Since delegations are still left, agents cannot be removed yet from storage.
+			assert_noop!(
+				DelegatedStaking::remove_agent(RawOrigin::Signed(agent).into()),
+				Error::<T>::NotAllowed
+			);
+
+			assert_ok!(DelegatedStaking::release_delegation(
+				RawOrigin::Signed(agent).into(),
+				delegator,
+				1000,
+				0
+			));
+
+			// now agents can be removed.
+			assert_ok!(DelegatedStaking::remove_agent(RawOrigin::Signed(agent).into()));
+
+			// agent and delegator provider is decremented.
+			assert_eq!(System::providers(&delegator), 1);
+			assert_eq!(System::providers(&agent), 1);
+
+			// if we transfer all funds, providers are removed.
+			assert_ok!(Balances::transfer_all(RawOrigin::Signed(delegator).into(), 1337, false));
+			assert_ok!(Balances::transfer_all(RawOrigin::Signed(agent).into(), 1337, false));
+			assert_eq!(System::providers(&delegator), 0);
+			assert_eq!(System::providers(&agent), 0);
 		});
 	}
 }

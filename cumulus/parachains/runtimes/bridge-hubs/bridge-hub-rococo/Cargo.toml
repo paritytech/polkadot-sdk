@@ -3,7 +3,7 @@ name = "bridge-hub-rococo-runtime"
 version = "0.5.0"
 authors.workspace = true
 edition.workspace = true
-description = "Rococo's BridgeHub  parachain runtime"
+description = "Rococo's BridgeHub parachain runtime"
 license = "Apache-2.0"
 
 [lints]

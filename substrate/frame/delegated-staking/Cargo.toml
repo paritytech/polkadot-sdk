@@ -18,6 +18,8 @@ frame-system = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-runtime = { workspace = true }
 sp-staking = { workspace = true }
+sp-io = { workspace = true }
+log = { workspace = true }
 
 [dev-dependencies]
 sp-core = { workspace = true, default-features = true }
@@ -38,6 +40,7 @@ std = [
 	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-balances/std",
 	"pallet-nomination-pools/std",
 	"pallet-staking/std",
