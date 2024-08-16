@@ -756,6 +756,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#605" id="605">605</a>
 <a href="#606" id="606">606</a>
 <a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1235,6 +1247,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>is_confirmed = vote_state.is_confirmed();
 	<span class="kw">let </span>all_invalid_votes_disabled = vote_state.invalid_votes_all_disabled(is_disabled);
 	<span class="kw">let </span>ignore_disabled = !is_confirmed &amp;&amp; all_invalid_votes_disabled;
+
+	<span class="macro">gum::trace!</span>(
+		target: LOG_TARGET,
+		<span class="question-mark">?</span>candidate_hash,
+		<span class="question-mark">?</span>is_disputed,
+		<span class="question-mark">?</span>is_included,
+		<span class="question-mark">?</span>is_backed,
+		<span class="question-mark">?</span>is_confirmed,
+		<span class="question-mark">?</span>all_invalid_votes_disabled,
+		<span class="question-mark">?</span>ignore_disabled,
+		<span class="string">"Checking for potential spam"
+	</span>);
 
 	(is_disputed &amp;&amp; !is_included &amp;&amp; !is_backed &amp;&amp; !is_confirmed) || ignore_disabled
 }

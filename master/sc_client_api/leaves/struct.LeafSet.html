@@ -155,7 +155,7 @@ this allows very fast checking and modification of active leaves.</p>
     H: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + Decode + Encode,
     N: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + AtLeast32Bit + Decode + Encode,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.new" class="method"><a class="src rightside" href="../../src/sc_client_api/leaves.rs.html#79-81">source</a><h4 class="code-header">pub fn <a href="#method.new" class="fn">new</a>() -&gt; Self</h4></section></summary><div class="docblock"><p>Construct a new, blank leaf set.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.read_from_db" class="method"><a class="src rightside" href="../../src/sc_client_api/leaves.rs.html#84-100">source</a><h4 class="code-header">pub fn <a href="#method.read_from_db" class="fn">read_from_db</a>(
-    db: &amp;dyn <a class="trait" href="../../sp_database/trait.Database.html" title="trait sp_database::Database">Database</a>&lt;H256&gt;,
+    db: &amp;dyn Database&lt;H256&gt;,
     column: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     prefix: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]
 ) -&gt; Result&lt;Self&gt;</h4></section></summary><div class="docblock"><p>Read the leaf list from the DB, using given prefix for keys.</p>
@@ -193,7 +193,7 @@ ordered by their block number descending.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.count" class="method"><a class="src rightside" href="../../src/sc_client_api/leaves.rs.html#209-211">source</a><h4 class="code-header">pub fn <a href="#method.count" class="fn">count</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.usize.html">usize</a></h4></section></summary><div class="docblock"><p>Number of known leaves.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.prepare_transaction" class="method"><a class="src rightside" href="../../src/sc_client_api/leaves.rs.html#214-222">source</a><h4 class="code-header">pub fn <a href="#method.prepare_transaction" class="fn">prepare_transaction</a>(
     &amp;mut self,
-    tx: &amp;mut <a class="struct" href="../../sp_database/struct.Transaction.html" title="struct sp_database::Transaction">Transaction</a>&lt;H256&gt;,
+    tx: &amp;mut Transaction&lt;H256&gt;,
     column: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
     prefix: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]
 )</h4></section></summary><div class="docblock"><p>Write the leaf list to the database transaction.</p>
