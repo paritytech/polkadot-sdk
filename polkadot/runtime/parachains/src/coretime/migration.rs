@@ -117,7 +117,7 @@ mod v_coretime {
 				return Ok(Vec::new())
 			}
 
-			let legacy_paras = paras::Parachains::<T>::get();
+			let legacy_paras = LegacyLease::get_all_parachains_with_leases();
 			let config = configuration::ActiveConfig::<T>::get();
 			let total_core_count = config.scheduler_params.num_cores + legacy_paras.len() as u32;
 
