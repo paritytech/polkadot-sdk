@@ -4,6 +4,11 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
 
+# This stops the previous job if a new one starts because of a push to the branch
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 # Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
 
 jobs:
