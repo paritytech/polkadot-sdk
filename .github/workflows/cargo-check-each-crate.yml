@@ -20,9 +20,6 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
   cargo-check-each-crate-macos:
     runs-on: macos-latest
-    needs: [set-image]
-    container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - uses: actions/checkout@v4
       - run: forklift cargo check --workspace --locked
