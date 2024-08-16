@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723810171993,
+  "lastUpdate": 1723823602713,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -15274,6 +15274,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.9403138501201864,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "fd522b818693965b6ec9e4cfdb4182c114d6105c",
+          "message": "Fix doc: start_destroy doesn't need asset to be frozen (#5204)\n\nFix https://github.com/paritytech/polkadot-sdk/issues/5184\n\n`owner` can set himself as a `freezer` and freeze the asset so\nrequirement is not really needed. And requirement is not implemented.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-08-16T14:09:06Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fd522b818693965b6ec9e4cfdb4182c114d6105c"
+        },
+        "date": 1723823572229,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52937.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63983.68000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.428346748449968,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.184212557509973,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.295491811880143,
             "unit": "seconds"
           }
         ]
