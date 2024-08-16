@@ -102,7 +102,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	// ToDo in begin_block
+	// Done in begin_block
 	// At the beginning of every Epoch, populate the `Spends` storage from the `Projects` storage
 	// (populated by an external process/pallet) make sure that there is enough funds before
 	// creating a new `SpendInfo`, and `ProjectInfo` corresponding to a created `SpendInfo`

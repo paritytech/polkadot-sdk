@@ -201,8 +201,7 @@ pub mod pallet {
 				Self::spend(info.amount, project_account.clone(), i)?;
 
 				// Update SpendInfo claimed field in the storage
-				let mut infos = Spends::<T>::get(i).ok_or(Error::<T>::InexistentSpend)?;
-				Spends::<T>::remove(i);
+				let mut infos = Spends::<T>::take(i).ok_or(Error::<T>::InexistentSpend)?;
 				infos.status = SpendState::Completed;
 
 				Self::deposit_event(Event::RewardClaimed {
