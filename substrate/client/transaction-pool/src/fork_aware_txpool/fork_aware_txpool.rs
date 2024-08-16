@@ -442,6 +442,8 @@ where
 			}
 		};
 
+		//todo: if ready_at is immediately available we could skip waiting for fallback.
+
 		Box::pin(async {
 			let (maybe_ready, fall_back_ready) =
 				futures::future::join(maybe_ready.boxed(), fall_back_ready.boxed()).await;
@@ -542,8 +544,13 @@ where
 			let mut results_map = view_store.submit_at(source, to_be_submitted.into_iter()).await;
 			let mut submission_result = reduce_multiview_result(&mut results_map).into_iter();
 
-			//todo: ImmediatelyDropped txs shall be removed from the mempoool (or maybe order of sending
-			//shall be swapped).
+			//todo:
+			//ImmediatelyDropped errors from view submission shall be ignored. If transaction got into the mempool,
+			//(and not into the view) it means that it was successfully submitted. It will be sent
+			//to view in some near fufure.
+			//alternatively, we could reverse the order, and at first submit transaction to all
+			//views, and if it is dropped by all of them, do not add it to mempool and return error.
+			//Not sure which approach is better (leaning towards 2nd one).
 			Ok(mempool_result
 				.into_iter()
 				.map(|result| {
