@@ -83,7 +83,7 @@
 //! There is a number of event streams that are provided by individual views:
 //! - [transaction status][`Watcher`],
 //! - [ready notification][`vp::import_notification_stream`] (see [networking section]()),
-//! - [dropped notification][`create_dropped_by_litmis_stream`].
+//! - [dropped notification][`create_dropped_by_limits_stream`].
 //!
 //! These streams needs to be merged into a single stream exposed by transaction pool (or used
 //! internally). Those aggregators are often referred as multi-view listeners and they implement
@@ -119,15 +119,14 @@
 //! The transaction pool internally is executing numerous tasks. This includes handling submitted
 //! transactions and tracking their progress, listening to [`ChainEvent`]s and executing the
 //! maintain process, which aims to provide the set of ready transactions. On the other side
-//! transaction pool provides a `ready_at` future that resolves to the iterator of ready
+//! transaction pool provides a [`ready_at`] future that resolves to the iterator of ready
 //! transactions. On top of that pool performs background revalidation jobs.
 //!
 //! This section provides a top level overview of all flows within the fork aware transaction pool.
 //!
 //! ### Transaction route: [`api_submit`]
-//! This flow is simple. Transaction is [submitted][`submit`] to every view in [`active_views`], and
-//! if it is not rejected by all views (e.g. due to pool limits) it is also included into
-//! [`TxMemPool`].
+//! This flow is simple. Transaction is added to the mempool and if it is not rejected by it (due to
+//! size limits), it is also [submitted][`submit`] into every view in [`active_views`].
 //!
 //! When the newly created view does not contain this transaction yet, it is
 //! [re-submitted][ForkAwareTxPool::update_view] from [`TxMemPool`] into this view.
@@ -150,11 +149,15 @@
 //! [`submit_and_watch`][`View::submit_and_watch`]) and the resulting
 //! views' stream is connected to the [`MultiViewListener`].
 //!
-//! ### Handling the new (best) block
-//!
+//! ### Maintain
 //! The transaction pool exposes the [task][`notification_future`] that listens to the
-//! finalized and best block streams and executes the
-//! `maintain` procedure. If the new block actually needs to be handled, the following steps are
+//! finalized and best block streams and executes the [`maintain`] procedure.
+//!
+//! The [`maintain`] is the main procedure of the transaction pool. It handles incoming
+//! [`ChainEvent`]s, as described in the following two sub-sections.
+//!
+//! #### Handling the new (best) block
+//! If the new block actually needs to be handled, the following steps are
 //! executed:
 //! - [find][find_best_view] the best view and clone it to [create a new
 //! view][crate::ForkAwareTxPool::build_new_view],
@@ -171,31 +174,49 @@
 //! - insert the newly created and updated view into the view store.
 //!
 //!
-//! ### Handling the finalized block
+//! #### Handling the finalized block
 //! The following actions are taken on every finalized block:
-//! - send [`Finalized`] events for every transactions on the finalized tree route,
+//! - send [`Finalized`] events for every transactions on the finalized [tree route][`TreeRoute`],
 //! - remove all the views (both active and inactive) that are lower then finalized block from the
 //! view store,
 //! - removal of finalized transaction from the *mempool*,
 //! - trigger [*mempool* background revalidation](#mempool-pruningrevalidation).
+//! - clean up of multi-view listeners which is required to avoid ever-growing structures,
 //!
 //! ### Light maintain
-//! The maintain process can sometimes be quite heavy, and it may not be accomplished within the
-//! time window expected by the block builder. On top of that block builder may want to build few
-//! blocks in the new not giving the pool enough time to accomplish maintain. To circumvent that
-//! there is a light version of the maintain procedure which finds the best view, clones it and
-//! prunes all the transactions that were included in enacted part of requested tree route. No new
-//! validations are required to accomplish it.
+//! The [maintain](#maintain) procedure can sometimes be quite heavy, and it may not be accomplished
+//! within the time window expected by the block builder. On top of that block builder may want to
+//! build few blocks in the raw, not giving the pool enough time to accomplish possible ongoing
+//! maintain process.
 //!
-//! ### `ready_at`
-//! The [`ready_at`] function returns a future that resolves to the ready transactions iterator.
-//! Internally it waits either for maintain process to be accomplished or for the timeout. If
-//! timeout hits then the result of light maintain is returned. Light maintain is always executed at
-//! the beginning of ready-at to make sure that it is available w/ o additional delay. possible on
-//! going
+//! To address this, there is a [light version][`ready_light`] of the maintain procedure. It [finds
+//! the best view][find_best_view], clones it and prunes all the transactions that were included in
+//! enacted part of [tree route][`TreeRoute`] from the base view to the block at which a ready
+//! iterator was requested. No new [transaction validations][runtime_api::validate] are required to
+//! accomplish it.
+//!
+//! ### Providing ready transactions: `ready_at`
+//! The [`ready_at`] function returns a [future][`crate::PolledIterator`] that resolves to the
+//! [ready transactions iterator][`ReadyTransactions`]. The block builder shall wait either for the
+//! future to be resolved or for timeout to be hit. To avoid building empty blocks in case of
+//! timeout, the waiting for timeout functionality was moved into the transaction pool, and new API
+//! function was added: [`ready_at_with_timeout`]. This function also provides a fall back ready
+//! iterator which is result of [light maintain](#light-maintain).
+//!
+//! New function internally waits either for [maintain](#maintain) process triggered for requested
+//! block to be accomplished or for the timeout. If timeout hits then the result of [light
+//! maintain](#light-maintain) is returned. Light maintain is always executed at the beginning of
+//! [`ready_at_with_timeout`] to make sure that it is available w/ o additional delay.
+//!
+//! If the maintain process for the requested block was accomplished before the `ready_at` functions
+//! are called both of them immediately provide the ready transactions iterator (which is simply
+//! requested on the appropriate instance of the [`View`]).
+//!
+//! The little [`ReadyPoll`] helper contained within [`ForkAwareTxPool`] as ([`ready_poll`])
+//! implements the futures management.
 //!
 //! ### Background tasks
-//! The maintain process shall be as quick as possible, so heavy revalidation job is
+//! The [maintain](#maintain) procedure shall be as quick as possible, so heavy revalidation job is
 //! delegated to the background worker. These includes view and *mempool* revalidation which are
 //! both handled by the [`RevalidationQueue`] which simply sends revalidation requests to the
 //! background thread.
@@ -241,7 +262,20 @@
 //! Refer to *mempool* revalidation [section](#mempool-pruningrevalidation).
 //!
 //! ## Pool limits
-//! - dropping
+//! Every ['View'] has the [limits][`Options`]for the number or size of transactions it can hold.
+//! The number of transactions in every view is not distributed equally, so some views maybe fully
+//! filled while other not.
+//!
+//! On the other hand the size of internal *mempool* shall also be capped, but transactions that are
+//! still referenced by views should not be removed.
+//!
+//! When the [`View`] is at its limits, it can either reject the transaction during
+//! submission process, or it can accept the transaction and drop different transaction which is
+//! already in the pool. The [`StreamOfDropped`] stream aggregating
+//! [per-view][`create_dropped_by_limits_stream`] streams allows to monitor the transactions
+//! that were dropped by all the views (or dropped by some views while not referenced by the
+//! others), what means that transaction can also be [removed][`dropped_monitor_task`] from the
+//! *mempool*.
 //!
 //!
 //! ## API Considerations
@@ -264,12 +298,14 @@
 //! [`MultiViewListener`]: crate::fork_aware_txpool::multi_view_listener::MultiViewListener
 //! [`Pool`]: crate::graph::Pool
 //! [`Watcher`]: crate::graph::watcher::Watcher
+//! [`Options`]: crate::graph::Options
 //! [`vp::import_notification_stream`]: ../graph/validated_pool/struct.ValidatedPool.html#method.import_notification_stream
-//! [`create_dropped_by_litmis_stream`]: ../graph/validated_pool/struct.ValidatedPool.html#method.create_dropped_by_litmis_stream
+//! [`create_dropped_by_limits_stream`]: ../graph/validated_pool/struct.ValidatedPool.html#method.create_dropped_by_limits_stream
 //! [`ChainEvent`]: sc_transaction_pool_api::ChainEvent
 //! [`TransactionStatusStreamFor`]: sc_transaction_pool_api::TransactionStatusStreamFor
 //! [`api_submit`]: sc_transaction_pool_api::TransactionPool::submit_at
 //! [`api_submit_and_watch`]: sc_transaction_pool_api::TransactionPool::submit_and_watch
+//! [`ready_at_with_timeout`]: sc_transaction_pool_api::TransactionPool::ready_at_with_timeout
 //! [`TransactionSource`]: sc_transaction_pool_api::TransactionSource
 //! [TransactionPool API]: sc_transaction_pool_api::TransactionPool
 //! [`TransactionStatus`]:sc_transaction_pool_api::TransactionStatus
@@ -279,18 +315,23 @@
 //! [`Invalid`]:sc_transaction_pool_api::TransactionStatus::Invalid
 //! [`InBlock`]:sc_transaction_pool_api::TransactionStatus::InBlock
 //! [`Finalized`]:sc_transaction_pool_api::TransactionStatus::Finalized
-//! [``]: ../struct.ForkAwareTxPool.html#method.ready_at
+//! [`ReadyTransactions`]:sc_transaction_pool_api::ReadyTransactions
+//! [`dropped_monitor_task`]: ForkAwareTxPool::dropped_monitor_task
+//! [`ready_poll`]: ForkAwareTxPool::ready_poll
+//! [`ready_light`]: ForkAwareTxPool::ready_light
 //! [`ready_at`]: ../struct.ForkAwareTxPool.html#method.ready_at
 //! [`import_notification_stream`]: ../struct.ForkAwareTxPool.html#method.import_notification_stream
 //! [`maintain`]: ../struct.ForkAwareTxPool.html#method.maintain
 //! [`submit`]: ../struct.ForkAwareTxPool.html#method.submit_at
 //! [`submit_and_watch`]: ../struct.ForkAwareTxPool.html#method.submit_and_watch
+//! [`ReadyPoll`]: ../fork_aware_txpool/fork_aware_txpool/struct.ReadyPoll.html
 //! [`TreeRoute`]: sp_blockchain::TreeRoute
 //! [runtime_api::validate]: sp_transaction_pool::runtime_api::TaggedTransactionQueue::validate_transaction
 //! [`notification_future`]: crate::common::notification_future
 //! [`EnactmentState`]: crate::common::enactment_state::EnactmentState
 //! [`MultiViewImportNotificationSink`]: crate::fork_aware_txpool::import_notification_sink::MultiViewImportNotificationSink
 //! [`RevalidationQueue`]: crate::fork_aware_txpool::view_revalidation::RevalidationQueue
+//! [`StreamOfDropped`]: crate::fork_aware_txpool::dropped_watcher::StreamOfDropped
 //! [`Arc`]: std::sync::Arc
 
 mod dropped_watcher;
