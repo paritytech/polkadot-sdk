@@ -113,24 +113,29 @@
 //!
 //! Example of opening a bridge between some random parachains from Polkadot and Kusama:
 //!
-//! 1. The local sibling parachain `Location::new(1, Parachain(1234))` must send some DOTs to its
-//!    sovereign account on BridgeHubPolkadot to cover `BridgeDeposit`, fees for `Transact`, and the
-//!    existential deposit.
+//! 0. Let's have:
+//! 	- BridgeHubPolkadot with `UniversalLocation` = `[GlobalConsensus(Polkadot), Parachain(1002)]`
+//! 	- BridgeHubKusama with `UniversalLocation` = `[GlobalConsensus(Kusama), Parachain(1002)]`
+//! 1. The Polkadot local sibling parachain `Location::new(1, Parachain(1234))` must send some DOTs
+//!    to its sovereign account on BridgeHubPolkadot to cover `BridgeDeposit`, fees for `Transact`,
+//!    and the existential deposit.
 //! 2. Send a call to the BridgeHubPolkadot from the local sibling parachain: `Location::new(1,
 //!    Parachain(1234))` ``` xcm::Transact( origin_kind: OriginKind::Xcm,
 //!    XcmOverBridgeHubKusama::open_bridge( VersionedInteriorLocation::V4([GlobalConsensus(Kusama),
 //!    Parachain(4567)].into()), ); ) ```
 //! 3. Check the stored bridge metadata and generated `LaneId`.
-//! 4. The local sibling parachain `Location::new(1, Parachain(4567))` must send some KSMs to its
-//!    sovereign account
+//! 4. The Kusama local sibling parachain `Location::new(1, Parachain(4567))` must send some KSMs to
+//!    its sovereign account
 //! on BridgeHubKusama to cover `BridgeDeposit`, fees for `Transact`, and the existential deposit.
 //! 5. Send a call to the BridgeHubKusama from the local sibling parachain: `Location::new(1,
 //!    Parachain(4567))` ``` xcm::Transact( origin_kind: OriginKind::Xcm,
 //!    XcmOverBridgeHubKusama::open_bridge(
 //!    VersionedInteriorLocation::V4([GlobalConsensus(Polkadot), Parachain(1234)].into()), ); ) ```
 //! 6. Check the stored bridge metadata and generated `LaneId`.
-//! 7. Run the bridge messages relayer for `LaneId`.
-//! 8. Send messages from both sides.
+//! 7. Both `LaneId`s from steps 3 and 6 must be the same (see above _Concept of `lane` and
+//!    `LaneId`_).
+//! 8. Run the bridge messages relayer for `LaneId`.
+//! 9. Send messages from both sides.
 //!
 //! The opening bridge holds the configured `BridgeDeposit` from the origin's sovereign account, but
 //! this deposit is returned when the bridge is closed with `fn close_bridge`.
