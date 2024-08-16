@@ -25,6 +25,7 @@ use crate::{
 };
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
 use codec::{self, Decode, Encode, MaxEncodedLen};
+use hex_literal::hex;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 
@@ -128,6 +129,12 @@ impl From<NewNetworkId> for NetworkId {
 	}
 }
 
+pub const WESTEND_GENESIS_HASH: [u8; 32] =
+	hex!["e143f23803ac50e8f6f8e62695d1ce9e4e1d68aa36c1cd2cfd15340213f3423e"];
+
+pub const ROCOCO_GENESIS_HASH: [u8; 32] =
+	hex!["6408de7737c59c238890533af25896a2c20608d8b380bb01029acb392781063e"];
+
 /// A global identifier of a data structure existing within consensus.
 ///
 /// Maintenance note: Networks with global consensus and which are practically bridgeable within the
@@ -156,10 +163,6 @@ pub enum NetworkId {
 	Polkadot,
 	/// The Kusama canary-net Relay-chain.
 	Kusama,
-	/// The Westend testnet Relay-chain.
-	Westend,
-	/// The Rococo testnet Relay-chain.
-	Rococo,
 	/// The Wococo testnet Relay-chain.
 	Wococo,
 	/// An Ethereum network specified by its chain ID.
@@ -190,8 +193,6 @@ impl From<OldNetworkId> for NetworkId {
 			ByFork { block_number, block_hash } => Self::ByFork { block_number, block_hash },
 			Polkadot => Self::Polkadot,
 			Kusama => Self::Kusama,
-			Westend => Self::Westend,
-			Rococo => Self::Rococo,
 			Wococo => Self::Wococo,
 			Ethereum { chain_id } => Self::Ethereum { chain_id },
 			BitcoinCore => Self::BitcoinCore,

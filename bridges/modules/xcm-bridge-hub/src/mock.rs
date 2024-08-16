@@ -37,12 +37,15 @@ use sp_runtime::{
 	AccountId32, BuildStorage, StateVersion,
 };
 use sp_std::cell::RefCell;
-use xcm::prelude::*;
+use xcm::{latest::ROCOCO_GENESIS_HASH, prelude::*};
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, FixedWeightBounds, InspectMessageQueues, NetworkExportTable,
 	NetworkExportTableItem,
 };
 use xcm_executor::XcmExecutor;
+
+// const ROCOCO_GENESIS_HASH: [u8; 32] =
+// 	hex!["6408de7737c59c238890533af25896a2c20608d8b380bb01029acb392781063e"];
 
 pub type AccountId = AccountId32;
 pub type Balance = u64;
@@ -158,7 +161,7 @@ parameter_types! {
 	pub BridgedRelayNetworkLocation: Location = (Parent, GlobalConsensus(BridgedRelayNetwork::get())).into();
 	pub BridgedRelativeDestination: InteriorLocation = [Parachain(BRIDGED_ASSET_HUB_ID)].into();
 	pub BridgedUniversalDestination: InteriorLocation = [GlobalConsensus(BridgedRelayNetwork::get()), Parachain(BRIDGED_ASSET_HUB_ID)].into();
-	pub const NonBridgedRelayNetwork: NetworkId = NetworkId::Rococo;
+	pub const NonBridgedRelayNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 
 	pub const BridgeDeposit: Balance = 100_000;
 	pub const Penalty: Balance = 1_000;

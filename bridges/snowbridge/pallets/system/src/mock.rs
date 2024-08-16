@@ -18,7 +18,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, Keccak256},
 	AccountId32, BuildStorage, FixedU128,
 };
-use xcm::prelude::*;
+use xcm::{latest::ROCOCO_GENESIS_HASH, prelude::*};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::BenchmarkHelper;
@@ -177,7 +177,7 @@ pub const DOT: u128 = 10_000_000_000;
 parameter_types! {
 	pub TreasuryAccount: AccountId = PalletId(*b"py/trsry").into_account_truncating();
 	pub Fee: u64 = 1000;
-	pub const RococoNetwork: NetworkId = NetworkId::Rococo;
+	pub const RococoNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 	pub const InitialFunding: u128 = 1_000_000_000_000;
 	pub AssetHubParaId: ParaId = ParaId::new(1000);
 	pub TestParaId: u32 = 2000;
