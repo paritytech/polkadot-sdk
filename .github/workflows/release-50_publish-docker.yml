@@ -204,7 +204,7 @@ jobs:
         run: |
           chmod a+rx $BINARY
 
-          if [[ $BINARY != 'chain-spec-builder' ]] then;
+          if [[ $BINARY != 'chain-spec-builder' ]]; then
             VERSION=$(./$BINARY --version | awk '{ print $2 }' )
             release=$( echo $VERSION | cut -f1 -d- )
           else
