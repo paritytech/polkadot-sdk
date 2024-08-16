@@ -92,7 +92,7 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          VERSION=$(filter_version_from_input "${{ inputs.version }}")
+          VERSION=$(filter_version_from_input "${{ env.VERSION}}}")
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
           RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
@@ -135,7 +135,7 @@ jobs:
         #this step runs only if the workflow is triggered manually and only for chain-spec-builder
         if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary == 'chain-spec-builder' }}
         env:
-          RELEASE_ID: ${{ env.RELEASE_ID }}
+          RELEASE_ID: ${{ github.env.RELEASE_ID }}
         run: |
           . ./.github/scripts/common/lib.sh
 
@@ -181,7 +181,7 @@ jobs:
         if: ${{ env.IMAGE_TYPE == 'rc' }}
         id: fetch_rc_refs
         env:
-          RELEASE_ID: ${{ env.RELEASE_ID }}
+          RELEASE_ID: ${{ github.env.RELEASE_ID }}
         run: |
           . ./.github/scripts/common/lib.sh
 
