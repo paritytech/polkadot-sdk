@@ -490,14 +490,28 @@ impl<T: Config> Pallet<T> {
 		// Contains the disputes that are concluded in the current session only,
 		// since these are the only ones that are relevant for the occupied cores
 		// and lightens the load on `free_disputed` significantly.
-		let current_concluded_invalid_disputes =
-			|hash: CandidateHash| <T>::DisputesHandler::concluded_invalid(current_session, hash);
+		// Cores can't be occupied with candidates of the previous sessions, and only
+		// things with new votes can have just concluded. We only need to collect
+		// cores with disputes that conclude just now, because disputes that
+		// concluded longer ago have already had any corresponding cores cleaned up.
+		let current_concluded_invalid_disputes = checked_disputes_sets
+			.iter()
+			.map(AsRef::as_ref)
+			.filter(|dss| dss.session == current_session)
+			.map(|dss| (dss.session, dss.candidate_hash))
+			.filter(|(session, candidate)| {
+				<T>::DisputesHandler::concluded_invalid(*session, *candidate)
+			})
+			.map(|(_session, candidate)| candidate)
+			.collect::<BTreeSet<CandidateHash>>();
 
 		// Get the cores freed as a result of concluded invalid candidates.
 		let (freed_disputed, concluded_invalid_hashes): (Vec<CoreIndex>, BTreeSet<CandidateHash>) =
-			inclusion::Pallet::<T>::free_disputed(current_concluded_invalid_disputes)
-				.into_iter()
-				.unzip();
+			inclusion::Pallet::<T>::free_disputed(|h| {
+				current_concluded_invalid_disputes.contains(&h)
+			})
+			.into_iter()
+			.unzip();
 		// Also include descendants of the concluded invalid candidates.
 		let current_concluded_invalid_disputes = |hash: CandidateHash| {
 			concluded_invalid_hashes.contains(&hash) ||

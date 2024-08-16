@@ -3876,6 +3876,19 @@ mod sanitizers {
 					ValidationCode(vec![2]),
 				)
 				.unwrap();
+				// Set the most recent relay parent.
+				paras::Pallet::<Test>::force_set_most_recent_context(
+					RuntimeOrigin::root(),
+					ParaId::from(1),
+					BlockNumberFor::<Test>::from(0u32),
+				)
+				.unwrap();
+				paras::Pallet::<Test>::force_set_most_recent_context(
+					RuntimeOrigin::root(),
+					ParaId::from(2),
+					BlockNumberFor::<Test>::from(0u32),
+				)
+				.unwrap();
 
 				let backed_candidates = (0_usize..2)
 					.into_iter()
