@@ -160,7 +160,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="item-spacer"></span>    fn <a href="#tymethod.append_block_import" class="fn">append_block_import</a>(
         &amp;self,
         parent: &amp;B::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Header" title="type sp_runtime::traits::Block::Header">Header</a>,
-        params: &amp;mut BlockImportParams&lt;B&gt;,
+        params: &amp;mut <a class="struct" href="../../sc_consensus/block_import/struct.BlockImportParams.html" title="struct sc_consensus::block_import::BlockImportParams">BlockImportParams</a>&lt;B&gt;,
         inherents: &amp;<a class="struct" href="../../sp_inherents/struct.InherentData.html" title="struct sp_inherents::InherentData">InherentData</a>,
         proof: Self::<a class="associatedtype" href="trait.ConsensusDataProvider.html#associatedtype.Proof" title="type sc_consensus_manual_seal::consensus::ConsensusDataProvider::Proof">Proof</a>
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="../enum.Error.html" title="enum sc_consensus_manual_seal::Error">Error</a>&gt;;
@@ -175,7 +175,7 @@ for any runtime.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.append_block_import" class="method"><a class="src rightside" href="../../src/sc_consensus_manual_seal/consensus.rs.html#40-46">source</a><h4 class="code-header">fn <a href="#tymethod.append_block_import" class="fn">append_block_import</a>(
     &amp;self,
     parent: &amp;B::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Header" title="type sp_runtime::traits::Block::Header">Header</a>,
-    params: &amp;mut BlockImportParams&lt;B&gt;,
+    params: &amp;mut <a class="struct" href="../../sc_consensus/block_import/struct.BlockImportParams.html" title="struct sc_consensus::block_import::BlockImportParams">BlockImportParams</a>&lt;B&gt;,
     inherents: &amp;<a class="struct" href="../../sp_inherents/struct.InherentData.html" title="struct sp_inherents::InherentData">InherentData</a>,
     proof: Self::<a class="associatedtype" href="trait.ConsensusDataProvider.html#associatedtype.Proof" title="type sc_consensus_manual_seal::consensus::ConsensusDataProvider::Proof">Proof</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="../enum.Error.html" title="enum sc_consensus_manual_seal::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Set up the necessary import params.</p>

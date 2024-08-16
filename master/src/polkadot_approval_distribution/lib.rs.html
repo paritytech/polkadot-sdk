@@ -3008,6 +3008,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2857" id="2857">2857</a>
 <a href="#2858" id="2858">2858</a>
 <a href="#2859" id="2859">2859</a>
+<a href="#2860" id="2860">2860</a>
+<a href="#2861" id="2861">2861</a>
+<a href="#2862" id="2862">2862</a>
+<a href="#2863" id="2863">2863</a>
+<a href="#2864" id="2864">2864</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -5518,7 +5523,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					};
 
 
-					<span class="self">self</span>.handle_from_orchestra(message, <span class="kw-2">&amp;mut </span>approval_voting_sender, <span class="kw-2">&amp;mut </span>network_sender, state, rng).<span class="kw">await</span>;
+					<span class="kw">if </span><span class="self">self</span>.handle_from_orchestra(message, <span class="kw-2">&amp;mut </span>approval_voting_sender, <span class="kw-2">&amp;mut </span>network_sender, state, rng).<span class="kw">await </span>{
+						<span class="kw">return</span>;
+					}
 
 				},
 			}
@@ -5526,6 +5533,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Handles a from orchestra message received by approval distribution subystem.
+	///
+	/// Returns `true` if the subsystem should be stopped.
 	</span><span class="kw">pub async fn </span>handle_from_orchestra&lt;
 		N: overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
 		A: overseer::SubsystemSender&lt;ApprovalVotingMessage&gt;,
@@ -5536,7 +5545,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		network_sender: <span class="kw-2">&amp;mut </span>N,
 		state: <span class="kw-2">&amp;mut </span>State,
 		rng: <span class="kw-2">&amp;mut </span>(<span class="kw">impl </span>CryptoRng + Rng),
-	) {
+	) -&gt; bool {
 		<span class="kw">match </span>message {
 			FromOrchestra::Communication { msg } =&gt;
 				<span class="self">Self</span>::handle_incoming(
@@ -5565,9 +5574,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::trace!</span>(target: LOG_TARGET, number = %number, <span class="string">"finalized signal"</span>);
 				state.handle_block_finalized(network_sender, <span class="kw-2">&amp;</span><span class="self">self</span>.metrics, number).<span class="kw">await</span>;
 			},
-			FromOrchestra::Signal(OverseerSignal::Conclude) =&gt; <span class="kw">return</span>,
+			FromOrchestra::Signal(OverseerSignal::Conclude) =&gt; <span class="kw">return </span><span class="bool-val">true</span>,
 		}
-	}
+		<span class="bool-val">false
+	</span>}
 
 	<span class="kw">async fn </span>handle_incoming&lt;
 		N: overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
