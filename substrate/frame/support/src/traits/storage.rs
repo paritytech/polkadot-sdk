@@ -257,12 +257,12 @@ impl<A, F> Consideration<A, F> for () {
 	fn ensure_successful(_: &A, _: F) {}
 }
 
-/// An extension of the [Consideration] trait that allows for the management of tickets that may
-/// represent no cost. While a `MaybeConsideration` still requires proper handling, it introduces
-/// the ability to determine if a ticket has no associated cost and can be forgotten without any
-/// side effects.
+/// An extension of the [`Consideration`] trait that allows for the management of tickets that may
+/// represent no cost. While the [`MaybeConsideration`] still requires proper handling, it
+/// introduces the ability to determine if a ticket represents no cost and can be safely forgotten
+/// without any side effects.
 pub trait MaybeConsideration<AccountId, Footprint>: Consideration<AccountId, Footprint> {
-	/// Returns `true` if this `Consideration` represents a "no-cost" ticket and can be forgotten
+	/// Returns `true` if this [`Consideration`] represents a no-cost ticket and can be forgotten
 	/// without any side effects.
 	fn is_none(&self) -> bool;
 }
