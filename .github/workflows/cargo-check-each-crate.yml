@@ -22,4 +22,4 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - run: forklift cargo check --workspace --locked
+      - run: time cargo check --workspace --locked
