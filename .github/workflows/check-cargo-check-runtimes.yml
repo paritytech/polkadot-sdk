@@ -2,8 +2,7 @@ name: Check Cargo Check Runtimes
 
 on:
   pull_request:
-    types: [ opened, synchronize, reopened, ready_for_review, labeled ]
-
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
 
 # Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
 
@@ -120,6 +119,22 @@ jobs:
         with:
           root: cumulus/parachains/runtimes/testing
 
+  cargo-check-each-crate-macos:
+    # GitHub Actions allows using 'env' in a container context.
+    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
+    # This workaround sets the container image for each job using 'set-image' job output.
+    # TODO: remove once migration is complete or this workflow is fully stable
+    if: contains(github.event.label.name, 'GHA-migration') || contains(github.event.pull_request.labels.*.name, 'GHA-migration')
+    runs-on: macos-latest-xlarge
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install rust
+        run: rustup toolchain install nightly
+      - run: brew install protobuf
+      - run: rustup target add wasm32-unknown-unknown --toolchain stable-aarch64-apple-darwin
+      - run: rustup component add rust-src --toolchain stable-aarch64-apple-darwin
+      - run: time cargo check --workspace --locked
+
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
     name: All check-runtime-* tests passed
@@ -132,5 +147,6 @@ jobs:
       - check-runtime-contracts
       - check-runtime-starters
       - check-runtime-testing
+      - cargo-check-each-crate-macos
     steps:
       - run: echo '### Good job! All the tests passed 🚀' >> $GITHUB_STEP_SUMMARY
