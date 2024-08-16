@@ -261,15 +261,15 @@ mod tests {
 			pub UniversalLocationNetworkId: NetworkId = NetworkId::ByGenesis([9; 32]);
 		}
 
-		// set up a converter which uses `xcm::v3::Location` under the hood
+		// set up a converter which uses `xcm::v4::Location` under the hood
 		type Convert = ForeignAssetsConvertedConcreteId<
 			(
 				StartsWith<Parachain100Pattern>,
 				StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,
 			),
 			u128,
-			xcm::v3::Location,
-			WithLatestLocationConverter<xcm::v3::Location>,
+			xcm::v4::Location,
+			WithLatestLocationConverter<xcm::v4::Location>,
 		>;
 
 		let test_data = vec![
@@ -316,18 +316,18 @@ mod tests {
 			// ok
 			(
 				ma_1000(1, [Parachain(200)].into()),
-				Ok((xcm::v3::Location::new(1, [xcm::v3::Junction::Parachain(200)]), 1000)),
+				Ok((xcm::v4::Location::new(1, [xcm::v4::Junction::Parachain(200)]), 1000)),
 			),
 			(
 				ma_1000(2, [Parachain(200)].into()),
-				Ok((xcm::v3::Location::new(2, [xcm::v3::Junction::Parachain(200)]), 1000)),
+				Ok((xcm::v4::Location::new(2, [xcm::v4::Junction::Parachain(200)]), 1000)),
 			),
 			(
 				ma_1000(1, [Parachain(200), GeneralIndex(1234)].into()),
 				Ok((
-					xcm::v3::Location::new(
+					xcm::v4::Location::new(
 						1,
-						[xcm::v3::Junction::Parachain(200), xcm::v3::Junction::GeneralIndex(1234)],
+						[xcm::v4::Junction::Parachain(200), xcm::v4::Junction::GeneralIndex(1234)],
 					),
 					1000,
 				)),
@@ -335,9 +335,9 @@ mod tests {
 			(
 				ma_1000(2, [Parachain(200), GeneralIndex(1234)].into()),
 				Ok((
-					xcm::v3::Location::new(
+					xcm::v4::Location::new(
 						2,
-						[xcm::v3::Junction::Parachain(200), xcm::v3::Junction::GeneralIndex(1234)],
+						[xcm::v4::Junction::Parachain(200), xcm::v4::Junction::GeneralIndex(1234)],
 					),
 					1000,
 				)),
@@ -345,9 +345,9 @@ mod tests {
 			(
 				ma_1000(2, [GlobalConsensus(NetworkId::ByGenesis([7; 32]))].into()),
 				Ok((
-					xcm::v3::Location::new(
+					xcm::v4::Location::new(
 						2,
-						[xcm::v3::Junction::GlobalConsensus(xcm::v3::NetworkId::ByGenesis(
+						[xcm::v4::Junction::GlobalConsensus(xcm::v4::NetworkId::ByGenesis(
 							[7; 32],
 						))],
 					),
@@ -365,14 +365,14 @@ mod tests {
 					.into(),
 				),
 				Ok((
-					xcm::v3::Location::new(
+					xcm::v4::Location::new(
 						2,
 						[
-							xcm::v3::Junction::GlobalConsensus(xcm::v3::NetworkId::ByGenesis(
+							xcm::v4::Junction::GlobalConsensus(xcm::v4::NetworkId::ByGenesis(
 								[7; 32],
 							)),
-							xcm::v3::Junction::Parachain(200),
-							xcm::v3::Junction::GeneralIndex(1234),
+							xcm::v4::Junction::Parachain(200),
+							xcm::v4::Junction::GeneralIndex(1234),
 						],
 					),
 					1000,
@@ -382,7 +382,7 @@ mod tests {
 
 		for (asset, expected_result) in test_data {
 			assert_eq!(
-				<Convert as MatchesFungibles<xcm::v3::Location, u128>>::matches_fungibles(
+				<Convert as MatchesFungibles<xcm::v4::Location, u128>>::matches_fungibles(
 					&asset.clone().try_into().unwrap()
 				),
 				expected_result,
