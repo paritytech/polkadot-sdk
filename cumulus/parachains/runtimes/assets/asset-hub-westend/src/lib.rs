@@ -1490,6 +1490,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::FetchClaimQueueOffset<Block> for Runtime {
+		fn fetch_claim_queue_offset() -> u8 {
+			ParachainSystem::fetch_claim_queue_offset()
+		}
+	}
+
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {

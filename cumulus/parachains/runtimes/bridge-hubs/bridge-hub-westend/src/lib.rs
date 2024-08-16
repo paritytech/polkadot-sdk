@@ -798,6 +798,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::FetchClaimQueueOffset<Block> for Runtime {
+		fn fetch_claim_queue_offset() -> u8 {
+			ParachainSystem::fetch_claim_queue_offset()
+		}
+	}
+
 	impl bp_rococo::RococoFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<bp_rococo::Hash, bp_rococo::BlockNumber>> {
 			BridgeRococoGrandpa::best_finalized()

@@ -425,7 +425,13 @@ impl_runtime_apis! {
 		}
 	}
 
-  impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+	impl cumulus_primitives_core::FetchClaimQueueOffset<Block> for Runtime {
+		fn fetch_claim_queue_offset() -> u8 {
+			ParachainSystem::fetch_claim_queue_offset()
+		}
+	}
+
+	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
 		fn account_nonce(account: AccountId) -> Nonce {
 			System::account_nonce(account)
 		}

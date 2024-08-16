@@ -653,6 +653,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::FetchClaimQueueOffset<Block> for Runtime {
+		fn fetch_claim_queue_offset() -> u8 {
+			ParachainSystem::fetch_claim_queue_offset()
+		}
+	}
+
 	impl pallet_contracts::ContractsApi<Block, AccountId, Balance, BlockNumber, Hash, EventRecord> for Runtime {
 		fn call(
 			origin: AccountId,

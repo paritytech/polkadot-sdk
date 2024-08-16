@@ -528,6 +528,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::FetchClaimQueueOffset<Block> for Runtime {
+		fn fetch_claim_queue_offset() -> u8 {
+			ParachainSystem::fetch_claim_queue_offset()
+		}
+	}
+
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			build_state::<RuntimeGenesisConfig>(config)
