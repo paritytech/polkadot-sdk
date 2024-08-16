@@ -13,10 +13,10 @@ runs:
         mkdir -p ~/.forklift
         cp .forklift/config.toml ~/.forklift/config.toml
         cd ${{ inputs.root }}
-        for directory in $(echo */); do
-          echo "_____Running cargo check for ${directory} ______";
-          cd ${directory};
-          pwd;
-          SKIP_WASM_BUILD=1 forklift cargo check --locked;
-          cd ..;
-        done
+
+        # Run cargo check in parallel
+        find . -mindepth 1 -maxdepth 1 -type d | xargs -P 4 -I {} bash -c '
+          echo "_____Running cargo check for {} ______";
+          SKIP_WASM_BUILD=1 forklift cargo check --locked -p "{}";
+        '
+
