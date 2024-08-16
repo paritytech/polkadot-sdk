@@ -38,15 +38,18 @@ codec = { features = [
 	"max-encoded-len",
 ], workspace = true }
 regex = { workspace = true }
-sp-metadata-ir = { workspace = true }
+sp-metadata-ir = { workspace = true, features = ["std"] }
 scale-info = { features = ["derive"], workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
+sp-core = { workspace = true, features = ["std"] }
+sp-io = { workspace = true, features = ["std"] }
 sp-runtime = { features = [
 	"serde",
+	"runtime-benchmarks",
+	"std",
 ], workspace = true }
-frame-system = { workspace = true }
-frame-support = { workspace = true }
+frame-system = { workspace = true, features = ["runtime-benchmarks", "std"] }
+frame-support = { workspace = true, features = ["runtime-benchmarks", "std"] }
+frame-benchmarking = { workspace = true, features = ["std"] }
 pretty_assertions = { workspace = true }
 static_assertions = { workspace = true }
 

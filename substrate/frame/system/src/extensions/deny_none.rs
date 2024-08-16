@@ -35,6 +35,12 @@ use sp_runtime::{
 #[scale_info(skip_type_params(T))]
 pub struct DenyNone<T>(core::marker::PhantomData<T>);
 
+impl<T> DenyNone<T> {
+	pub fn new() -> Self {
+		Self(Default::default())
+	}
+}
+
 impl<T: Config + Send + Sync> TransactionExtensionBase for DenyNone<T> {
 	const IDENTIFIER: &'static str = "DenyNone";
 	type Implicit = ();
@@ -89,3 +95,5 @@ where
 		Ok(None)
 	}
 }
+
+// TODO TODO: test

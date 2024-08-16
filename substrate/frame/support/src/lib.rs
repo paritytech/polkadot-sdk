@@ -904,6 +904,7 @@ pub mod pallet_prelude {
 			StorageList,
 		},
 		traits::{
+			Authorize,
 			BuildGenesisConfig, ConstU32, EnsureOrigin, Get, GetDefault, GetStorageVersion, Hooks,
 			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, Task, TypedGet,
 		},

@@ -1341,40 +1341,61 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 /// # #[allow(unused)]
 /// #[frame_support::pallet]
 /// pub mod pallet {
-///    use frame_support::pallet_prelude::*;
-///    use frame_system::pallet_prelude::*;
+///     use frame_support::pallet_prelude::*;
+///     use frame_system::pallet_prelude::*;
 ///
-///    #[pallet::pallet]
-///    pub struct Pallet<T>(_);
+///     #[pallet::pallet]
+///     pub struct Pallet<T>(_);
 ///
-///    #[pallet::config]
-///    pub trait Config: frame_system::Config {}
+///     #[pallet::config]
+///     pub trait Config: frame_system::Config {}
 ///
-///    #[pallet::call]
-///    impl<T: Config> Pallet<T> {
-///        #[pallet::call_index(0)]
-///        #[pallet::weight(Weight::from_all(0))]
-///        #[pallet::authorize(|foo| if *foo == 42 {
-///            Ok(ValidTransaction::default())
-///        } else {
-///            Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
-///        })]
-///        #[pallet::weight_of_authorize(Weight::from_all(0))]
-///        pub fn some_call(origin: OriginFor<T>, arg: u32) -> DispatchResult {
-///            ensure_authorized_origin!(origin);
+///     #[pallet::call]
+///     impl<T: Config> Pallet<T> {
+///         #[pallet::weight(Weight::from_all(0))]
+///         #[pallet::authorize(|foo| if *foo == 42 {
+///             Ok(ValidTransaction::default())
+///         } else {
+///             Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+///         })]
+///         #[pallet::weight_of_authorize(Weight::from_all(0))]
+///         #[pallet::call_index(0)]
+///         pub fn some_call(origin: OriginFor<T>, arg: u32) -> DispatchResult {
+///             ensure_authorized_origin!(origin);
 ///
-///            Ok(())
-///        }
-///    }
+///             Ok(())
+///         }
+///     }
 ///
-///    // This is optional, only if the pallet already declares an origin.
-///    #[pallet::origin]
-///    pub enum Origin<T: Config> {
-///        SomeOtherOrigin,
-///        #[pallet::authorized_call]
-///        AuthorizedCall(_),
-///       __Phantom(PhantomData<T>),
-///    }
+///     // This is optional, only if the pallet already declares an origin.
+///     #[pallet::origin]
+///     pub enum Origin<T: Config> {
+///         SomeOtherOrigin,
+///         #[pallet::authorized_call]
+///         AuthorizedCall(_),
+///        __Phantom(PhantomData<T>),
+///     }
+///
+///     #[frame_benchmarking::v2::benchmarks]
+///     mod benchmarks {
+///         use super::*;
+///
+///         #[benchmark]
+///         fn authorize_some_call() {
+///             let call = Call::<T>::some_call { arg: 42 };
+///             let res;
+///
+///             #[block]
+///             {
+///                 use frame_support::pallet_prelude::Authorize;
+///                 res = call.authorize();
+///             }
+///
+///             res
+///                 .expect("Call give some authorization")
+///                 .expect("Authorization is valid");
+///         }
+///     }
 /// }
 /// ```
 ///
@@ -1429,14 +1450,15 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///   #    #[pallet::config]
 ///   #    pub trait Config: frame_system::Config {}
 ///   #    #[pallet::call]
-///   #    impl<T: Config> Pallet<T> {}
-///   #    #[pallet::call_index(0)]
-///   #    #[pallet::weight(Weight::from_all(0))]
-///   #    #[pallet::authorize(|foo| Ok(ValidTransaction::default()))]
-///   #    #[pallet::weight_of_authorize(Weight::from_all(0))]
-///   #    pub fn _some_call(origin: OriginFor<T>, arg: u32) -> DispatchResult {
-///   #        ensure_authorized_origin!(origin);
-///   #        Ok(())
+///   #    impl<T: Config> Pallet<T> {
+///   #        #[pallet::call_index(0)]
+///   #        #[pallet::weight(Weight::from_all(0))]
+///   #        #[pallet::authorize(|foo| Ok(ValidTransaction::default()))]
+///   #        #[pallet::weight_of_authorize(Weight::from_all(0))]
+///   #        pub fn _some_call(origin: OriginFor<T>, arg: u32) -> DispatchResult {
+///   #            ensure_authorized_origin!(origin);
+///   #            Ok(())
+///   #        }
 ///   #    }
 ///   #[pallet::origin]
 ///   pub enum Origin<T: Config> {
@@ -1457,6 +1479,14 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///
 /// From the given "authorize" function and weight, the macro will implement the trait
 /// [`Authorize`](frame_support::pallet_prelude::Authorize) on the call.
+///
+/// # How to benchmark
+///
+/// The "authorize" closure is used as the implementation of the trait
+/// [`Authorize`](frame_support::pallet_prelude::Authorize) for the call.
+/// To benchmark a call variant, use the function `Authorize::authorize` on a call value.
+/// ```
+/// ```
 #[proc_macro_attribute]
 pub fn authorize(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()

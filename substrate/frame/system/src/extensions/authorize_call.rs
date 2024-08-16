@@ -36,6 +36,12 @@ use sp_runtime::{
 #[scale_info(skip_type_params(T))]
 pub struct AuthorizeCall<T>(core::marker::PhantomData<T>);
 
+impl<T> AuthorizeCall<T> {
+	pub fn new() -> Self {
+		Self(Default::default())
+	}
+}
+
 impl<T: Config + Send + Sync> TransactionExtensionBase for AuthorizeCall<T> {
 	const IDENTIFIER: &'static str = "AuthorizeCall";
 	type Implicit = ();
@@ -60,10 +66,14 @@ where
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
-		if let Some(authorize) = call.authorize() {
-			authorize.map(|(validity, result_origin)| (validity, (), result_origin))
-		} else {
-			Ok((Default::default(), (), origin))
+		match origin.into() {
+			Ok(origin @ crate::Origin::<T>::None) => if let Some(authorize) = call.authorize() {
+				authorize.map(|(validity, result_origin)| (validity, (), result_origin))
+			} else {
+				Ok((Default::default(), (), origin.into()))
+			},
+			Ok(origin) => Ok((Default::default(), (), origin.into())),
+			Err(origin) => Ok((Default::default(), (), origin)),
 		}
 	}
 
@@ -89,3 +99,4 @@ where
 	}
 }
 
+// TODO TODO: test
