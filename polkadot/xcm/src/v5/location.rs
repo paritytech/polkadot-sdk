@@ -18,8 +18,8 @@
 
 use super::{traits::Reanchorable, Junction, Junctions};
 use crate::{v4::Location as OldLocation, VersionedLocation};
-use core::result;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::result;
 use scale_info::TypeInfo;
 
 /// A relative path between state-bearing consensus systems.
@@ -531,6 +531,12 @@ impl From<[u8; 32]> for Location {
 	fn from(bytes: [u8; 32]) -> Self {
 		let junction: Junction = bytes.into();
 		junction.into()
+	}
+}
+
+impl From<sp_runtime::AccountId32> for Location {
+	fn from(id: sp_runtime::AccountId32) -> Self {
+		Junction::AccountId32 { network: None, id: id.into() }.into()
 	}
 }
 

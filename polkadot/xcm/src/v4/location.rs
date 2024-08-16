@@ -18,8 +18,8 @@
 
 use super::{traits::Reanchorable, Junction, Junctions};
 use crate::{v3::MultiLocation as OldLocation, v5::Location as NewLocation, VersionedLocation};
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::result;
-use codec::{Encode, Decode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 /// A relative path between state-bearing consensus systems.
@@ -499,13 +499,9 @@ impl TryFrom<NewLocation> for Option<Location> {
 impl TryFrom<NewLocation> for Location {
 	type Error = ();
 	fn try_from(new: NewLocation) -> result::Result<Self, ()> {
-		Ok(Location {
-			parents: new.parent_count(),
-			interior: new.interior().clone().try_into()?,
-		})
+		Ok(Location { parents: new.parent_count(), interior: new.interior().clone().try_into()? })
 	}
 }
-
 
 /// A unit struct which can be converted into a `Location` of `parents` value 1.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]

@@ -152,13 +152,15 @@ impl TryConvert<VersionedLocatableAsset, xcm_builder::LocatableAssetId>
 	) -> Result<xcm_builder::LocatableAssetId, VersionedLocatableAsset> {
 		match asset {
 			VersionedLocatableAsset::V3 { location, asset_id } => {
-				let v4_location: xcm::v4::Location = location.try_into().map_err(|_| asset.clone())?;
-				let v4_asset_id: xcm::v4::AssetId = asset_id.try_into().map_err(|_| asset.clone())?;
+				let v4_location: xcm::v4::Location =
+					location.try_into().map_err(|_| asset.clone())?;
+				let v4_asset_id: xcm::v4::AssetId =
+					asset_id.try_into().map_err(|_| asset.clone())?;
 				Ok(xcm_builder::LocatableAssetId {
 					location: v4_location.try_into().map_err(|_| asset.clone())?,
 					asset_id: v4_asset_id.try_into().map_err(|_| asset.clone())?,
 				})
-			}
+			},
 			VersionedLocatableAsset::V4 { ref location, ref asset_id } =>
 				Ok(xcm_builder::LocatableAssetId {
 					location: location.clone().try_into().map_err(|_| asset.clone())?,

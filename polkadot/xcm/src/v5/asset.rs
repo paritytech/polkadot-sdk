@@ -28,14 +28,14 @@
 
 use super::{InteriorLocation, Location, Reanchorable};
 use crate::v4::{
-	AssetId as OldAssetId, AssetInstance as OldAssetInstance, Fungibility as OldFungibility,
-	Asset as OldAsset, AssetFilter as OldAssetFilter, Assets as OldAssets,
-	WildFungibility as OldWildFungibility, WildAsset as OldWildAsset,
+	Asset as OldAsset, AssetFilter as OldAssetFilter, AssetId as OldAssetId,
+	AssetInstance as OldAssetInstance, Assets as OldAssets, Fungibility as OldFungibility,
+	WildAsset as OldWildAsset, WildFungibility as OldWildFungibility,
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
-use core::cmp::Ordering;
 use codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use core::cmp::Ordering;
 use scale_info::TypeInfo;
 
 /// A general identifier for an instance of a non-fungible asset class.

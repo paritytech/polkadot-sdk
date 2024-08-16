@@ -27,12 +27,10 @@
 //!   filtering an XCM holding account.
 
 use super::{InteriorMultiLocation, MultiLocation};
-use crate::{
-	v4::{
-		Asset as NewMultiAsset, AssetFilter as NewMultiAssetFilter, AssetId as NewAssetId,
-		AssetInstance as NewAssetInstance, Assets as NewMultiAssets, Fungibility as NewFungibility,
-		WildAsset as NewWildMultiAsset, WildFungibility as NewWildFungibility,
-	},
+use crate::v4::{
+	Asset as NewMultiAsset, AssetFilter as NewMultiAssetFilter, AssetId as NewAssetId,
+	AssetInstance as NewAssetInstance, Assets as NewMultiAssets, Fungibility as NewFungibility,
+	WildAsset as NewWildMultiAsset, WildFungibility as NewWildFungibility,
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};

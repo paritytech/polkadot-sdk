@@ -98,8 +98,10 @@ fn send_token_from_ethereum_to_asset_hub() {
 	// Fund ethereum sovereign on AssetHub
 	AssetHubWestend::fund_accounts(vec![(AssetHubWestendReceiver::get(), INITIAL_FUND)]);
 
+	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
+
 	let weth_asset_location: Location =
-		(Parent, Parent, EthereumNetwork::get(), AccountKey20 { network: None, key: WETH }).into();
+		(Parent, Parent, ethereum_network_v5, AccountKey20 { network: None, key: WETH }).into();
 
 	AssetHubWestend::execute_with(|| {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
@@ -164,8 +166,9 @@ fn send_token_from_ethereum_to_asset_hub() {
 fn send_weth_asset_from_asset_hub_to_ethereum() {
 	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
 	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
+	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
 	let weth_asset_location: Location =
-		(Parent, Parent, EthereumNetwork::get(), AccountKey20 { network: None, key: WETH }).into();
+		(Parent, Parent, ethereum_network_v5, AccountKey20 { network: None, key: WETH }).into();
 
 	AssetHubWestend::force_default_xcm_version(Some(XCM_VERSION));
 	BridgeHubWestend::force_default_xcm_version(Some(XCM_VERSION));
@@ -238,14 +241,14 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 			)),
 			fun: Fungible(WETH_AMOUNT),
 		}];
-		let multi_assets = VersionedAssets::V4(Assets::from(assets));
+		let multi_assets = VersionedAssets::V5(Assets::from(assets));
 
-		let destination = VersionedLocation::V4(Location::new(
+		let destination = VersionedLocation::V5(Location::new(
 			2,
 			[GlobalConsensus(Ethereum { chain_id: CHAIN_ID })],
 		));
 
-		let beneficiary = VersionedLocation::V4(Location::new(
+		let beneficiary = VersionedLocation::V5(Location::new(
 			0,
 			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
 		));

@@ -23,7 +23,7 @@ mod imports {
 	pub use xcm::{
 		latest::ParentThen,
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v4::{self, NetworkId::Rococo as RococoId},
+		v5::{self, NetworkId::Rococo as RococoId},
 	};
 	pub use xcm_executor::traits::TransferType;
 

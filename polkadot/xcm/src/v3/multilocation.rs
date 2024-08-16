@@ -17,9 +17,7 @@
 //! XCM `MultiLocation` datatype.
 
 use super::{Junction, Junctions};
-use crate::{
-	v4::Location as NewMultiLocation, VersionedLocation,
-};
+use crate::{v4::Location as NewMultiLocation, VersionedLocation};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::result;
 use scale_info::TypeInfo;

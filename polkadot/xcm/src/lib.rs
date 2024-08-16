@@ -391,7 +391,7 @@ impl<Call> TryFrom<VersionedXcm<Call>> for v3::Xcm<Call> {
 			V5(x) => {
 				let v4: v4::Xcm<Call> = x.try_into()?;
 				v4.try_into()
-			}
+			},
 		}
 	}
 }

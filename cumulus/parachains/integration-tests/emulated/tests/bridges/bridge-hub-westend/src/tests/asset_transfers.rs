@@ -35,7 +35,7 @@ fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
 fn set_up_wnds_for_penpal_westend_through_ahw_to_ahr(
 	sender: &AccountId,
 	amount: u128,
-) -> (Location, v4::Location) {
+) -> (Location, v5::Location) {
 	let wnd_at_westend_parachains = wnd_at_ah_westend();
 	let wnd_at_asset_hub_rococo = bridged_wnd_at_ah_rococo();
 	create_foreign_on_ah_rococo(wnd_at_asset_hub_rococo.clone(), true);

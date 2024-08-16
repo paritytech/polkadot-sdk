@@ -16,11 +16,9 @@
 
 //! Version 3 of the Cross-Consensus Message format data structures.
 
-use super::{
-	v4::{
-		Instruction as NewInstruction, PalletInfo as NewPalletInfo,
-		QueryResponseInfo as NewQueryResponseInfo, Response as NewResponse, Xcm as NewXcm,
-	},
+use super::v4::{
+	Instruction as NewInstruction, PalletInfo as NewPalletInfo,
+	QueryResponseInfo as NewQueryResponseInfo, Response as NewResponse, Xcm as NewXcm,
 };
 use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};

@@ -171,8 +171,8 @@ where
 		// send
 		let _ = <pallet_xcm::Pallet<Runtime>>::send(
 			RawOrigin::Root.into(),
-			Box::new(VersionedLocation::V4(destination)),
-			Box::new(VersionedXcm::V4(program)),
+			Box::new(VersionedLocation::V5(destination)),
+			Box::new(VersionedXcm::V5(program)),
 		)?;
 		Ok(())
 	}

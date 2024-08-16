@@ -174,7 +174,7 @@ pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConverte
 		StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,
 	),
 	Balance,
-	xcm::v4::Location,
+	xcm::v5::Location,
 >;
 
 /// Means for transacting foreign assets from different global consensus.
@@ -366,7 +366,7 @@ impl xcm_executor::Config for XcmConfig {
 				TrustBackedAssetsAsLocation<
 					TrustBackedAssetsPalletLocation,
 					Balance,
-					xcm::v4::Location,
+					xcm::v5::Location,
 				>,
 				ForeignAssetsConvertedConcreteId,
 			),
@@ -499,9 +499,9 @@ pub type ForeignCreatorsSovereignAccountOf = (
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<xcm::v4::Location> for XcmBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> xcm::v4::Location {
-		xcm::v4::Location::new(1, [xcm::v4::Junction::Parachain(id)])
+impl pallet_assets::BenchmarkHelper<xcm::v5::Location> for XcmBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> xcm::v5::Location {
+		xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(id)])
 	}
 }
 
@@ -642,7 +642,7 @@ pub mod bridging {
 			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
 			pub BridgeTable: alloc::vec::Vec<NetworkExportTableItem> = alloc::vec![
 				NetworkExportTableItem::new(
-					EthereumNetwork::get(),
+					EthereumNetwork::get().into(),
 					Some(alloc::vec![Junctions::Here]),
 					SiblingBridgeHub::get(),
 					Some((
@@ -655,7 +655,7 @@ pub mod bridging {
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
 				alloc::vec![
-					(SiblingBridgeHubWithEthereumInboundQueueInstance::get(), GlobalConsensus(EthereumNetwork::get())),
+					(SiblingBridgeHubWithEthereumInboundQueueInstance::get(), GlobalConsensus(EthereumNetwork::get().into())),
 				]
 			);
 		}

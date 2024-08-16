@@ -24,12 +24,12 @@ use super::v4::{
 use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
-use core::{fmt::Debug, result};
-use derivative::Derivative;
 use codec::{
 	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
 	MaxEncodedLen,
 };
+use core::{fmt::Debug, result};
+use derivative::Derivative;
 use scale_info::TypeInfo;
 
 mod asset;
@@ -1365,8 +1365,7 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 mod tests {
 	use super::{prelude::*, *};
 	use crate::v4::{
-		Junctions::Here as OldHere, AssetFilter as OldAssetFilter,
-		WildAsset as OldWildAsset,
+		AssetFilter as OldAssetFilter, Junctions::Here as OldHere, WildAsset as OldWildAsset,
 	};
 
 	#[test]

@@ -56,7 +56,7 @@ use std::{
 };
 use xcm::{
 	prelude::XcmVersion,
-	v4::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, Xcm, XcmHash},
+	v5::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, Xcm, XcmHash},
 	IntoVersion, VersionedXcm, WrapVersion,
 };
 

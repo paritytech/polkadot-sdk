@@ -61,7 +61,7 @@ mod v_coretime {
 		core::marker::PhantomData<(T, SendXcm, LegacyLease)>,
 	);
 
-	impl<T: Config, SendXcm: xcm::v4::SendXcm, LegacyLease: GetLegacyLease<BlockNumberFor<T>>>
+	impl<T: Config, SendXcm: xcm::v5::SendXcm, LegacyLease: GetLegacyLease<BlockNumberFor<T>>>
 		MigrateToCoretime<T, SendXcm, LegacyLease>
 	{
 		fn already_migrated() -> bool {
@@ -92,7 +92,7 @@ mod v_coretime {
 
 	impl<
 			T: Config + crate::dmp::Config,
-			SendXcm: xcm::v4::SendXcm,
+			SendXcm: xcm::v5::SendXcm,
 			LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 		> OnRuntimeUpgrade for MigrateToCoretime<T, SendXcm, LegacyLease>
 	{
@@ -152,7 +152,7 @@ mod v_coretime {
 	// NOTE: Also migrates `num_cores` config value in configuration::ActiveConfig.
 	fn migrate_to_coretime<
 		T: Config,
-		SendXcm: xcm::v4::SendXcm,
+		SendXcm: xcm::v5::SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 	>() -> Weight {
 		let legacy_paras = paras::Parachains::<T>::get();
@@ -208,7 +208,7 @@ mod v_coretime {
 
 	fn migrate_send_assignments_to_coretime_chain<
 		T: Config,
-		SendXcm: xcm::v4::SendXcm,
+		SendXcm: xcm::v5::SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 	>() -> result::Result<(), SendError> {
 		let legacy_paras = paras::Parachains::<T>::get();
