@@ -188,7 +188,7 @@ pub use union_of::{NativeFromLeft, NativeOrWithId, UnionOf};
 
 use crate::{
 	ensure,
-	traits::{Consideration, Footprint},
+	traits::{Consideration, Footprint, MaybeConsideration},
 };
 
 /// Consideration method using a `fungible` balance frozen as the cost exacted for the footprint.
@@ -239,6 +239,20 @@ impl<
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(who: &A, fp: Fp) {
 		let _ = F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
+	}
+}
+
+impl<
+		A: 'static + Eq,
+		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateFreeze<A>,
+		#[cfg(feature = "runtime-benchmarks")] F: 'static + MutateFreeze<A> + Mutate<A>,
+		R: 'static + Get<F::Id>,
+		D: 'static + Convert<Fp, F::Balance>,
+		Fp: 'static,
+	> MaybeConsideration<A, Fp> for FreezeConsideration<A, F, R, D, Fp>
+{
+	fn is_none(&self) -> bool {
+		self.0.is_zero()
 	}
 }
 
@@ -293,6 +307,19 @@ impl<
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(who: &A, fp: Fp) {
 		let _ = F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
+	}
+}
+impl<
+		A: 'static + Eq,
+		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateHold<A>,
+		#[cfg(feature = "runtime-benchmarks")] F: 'static + MutateHold<A> + Mutate<A>,
+		R: 'static + Get<F::Reason>,
+		D: 'static + Convert<Fp, F::Balance>,
+		Fp: 'static,
+	> MaybeConsideration<A, Fp> for HoldConsideration<A, F, R, D, Fp>
+{
+	fn is_none(&self) -> bool {
+		self.0.is_zero()
 	}
 }
 
