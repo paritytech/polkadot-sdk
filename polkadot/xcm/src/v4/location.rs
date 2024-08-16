@@ -20,7 +20,6 @@ use super::{traits::Reanchorable, Junction, Junctions};
 use crate::{v3::MultiLocation as OldLocation, v5::Location as NewLocation, VersionedLocation};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::result;
-use codec::{Encode, Decode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 /// A relative path between state-bearing consensus systems.
