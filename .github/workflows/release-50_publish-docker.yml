@@ -75,7 +75,7 @@ env:
   # EVENT_ACTION: ${{ github.event.action }}
   EVENT_NAME: ${{ github.event_name }}
   IMAGE_TYPE: ${{ inputs.image_type }}
-  VERSION: ${{ inputs.version }}
+  #VERSION: ${{ inputs.version }}
 
 jobs:
   validate-inputs:
@@ -92,7 +92,7 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          VERSION=$(filter_version_from_input "${{ env.VERSION}}}")
+          VERSION=$(filter_version_from_input "${{ inputs.version }}")
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
           RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
