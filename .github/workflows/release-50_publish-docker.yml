@@ -131,6 +131,7 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
+          VERSION="${VERSION}"
           fetch_release_artifacts_from_s3
 
       - name: Fetch chain-spec-builder rc artifacts or release artifacts based on release id
@@ -139,6 +140,7 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
+          RELEASE_ID="${RELEASE_ID}"
           fetch_release_artifacts
 
       - name: Upload artifacts
