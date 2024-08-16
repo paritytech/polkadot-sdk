@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install rust
-        run: curl https://sh.rustup.rs -sSf -y | sh
+        run: rustup toolchain install nightly
       - run: brew install protobuf
       - run: rustup target add wasm32-unknown-unknown --toolchain stable-aarch64-apple-darwin
       - run: rustup component add rust-src --toolchain stable-aarch64-apple-darwin
