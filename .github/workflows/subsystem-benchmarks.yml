@@ -70,15 +70,6 @@ jobs:
     if: github.ref == 'refs/heads/master'
     environment: subsystem-benchmarks
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        features: [
-          { bench: "availability-recovery-regression-bench" },
-          { bench: "availability-distribution-regression-bench" },
-          { bench: "approval-voting-regression-bench" },
-          { bench: "statement-distribution-regression-bench" }
-        ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
