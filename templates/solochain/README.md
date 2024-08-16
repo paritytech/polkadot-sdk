@@ -22,14 +22,23 @@ packages required to compile this template. Check the
 [Install](https://docs.substrate.io/install/) instructions for your platform for
 the most common dependencies. Alternatively, you can use one of the [alternative
 installation](#alternatives-installations) options.
+Fetch minimal template code:
+
+```sh
+git clone https://github.com/paritytech/polkadot-sdk-solochain-template.git solochain-template
+
+cd solochain-template
+```
 
 ### Build
 
-Use the following command to build the node without launching it:
+🔨 Use the following command to build the node without launching it:
 
 ```sh
 cargo build --release
 ```
+
+If you are in `polkadot-sdk` repo, please specify the package name before building. `cargo build --package solochain-template-node --release`
 
 ### Embedded Docs
 
