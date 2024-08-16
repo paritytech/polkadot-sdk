@@ -21,7 +21,7 @@
 //! this guide, namely the crate/package names, based on which template you use.
 //!
 //! > Be aware that you can read the entire source code backing this tutorial by clicking on the
-//! > [`source`](./mod.rs.html) button at the top right of the page.
+//! > `source` button at the top right of the page.
 //!
 //! You should have studied the following modules as a prelude to this guide:
 //!
@@ -45,7 +45,7 @@
 //! Consider the following as a "shell pallet". We continue building the rest of this pallet based
 //! on this template.
 //!
-//! [`pallet::config`] and [`pallet::pallet`](frame_support::pallet) are both mandatory parts of any
+//! [`pallet::config`] and [`pallet::pallet`] are both mandatory parts of any
 //! pallet. Refer to the documentation of each to get an overview of what they do.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", shell_pallet)]
 //!
@@ -319,13 +319,13 @@
 //! - Learn more about the individual pallet items/macros, such as event and errors and call, in
 //!   [`frame::pallet_macros`].
 //!
-//! [`pallet::storage`]: ../../../frame_support/pallet_macros/attr.config.html
-//! [`pallet::call`]: ../../../frame_support/pallet_macros/attr.call.html
-//! [`pallet::event`]: ../../../frame_support/pallet_macros/attr.event.html
-//! [`pallet::error`]: ../../../frame_support/pallet_macros/attr.error.html
-//! [`pallet::pallet`]: ../../../frame_support/pallet_macros/attr.pallet.html
-//! [`pallet::config`]: ../../../frame_support/pallet_macros/attr.config.html
-//! [`pallet::generate_deposit`]: ../../../frame_support/pallet_macros/attr.generate_deposit.html
+//! [`pallet::storage`]: frame_support::pallet_macros::storage
+//! [`pallet::call`]: frame_support::pallet_macros::call
+//! [`pallet::event`]: frame_support::pallet_macros::event
+//! [`pallet::error`]: frame_support::pallet_macros::error
+//! [`pallet::pallet`]: frame_support::pallet
+//! [`pallet::config`]: frame_support::pallet_macros::config
+//! [`pallet::generate_deposit`]: frame_support::pallet_macros::generate_deposit
 
 #[docify::export]
 #[frame::pallet(dev_mode)]
