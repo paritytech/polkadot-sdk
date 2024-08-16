@@ -29,7 +29,7 @@ crates:
     bump: minor
   - name: bridge-hub-westend-runtime
     bump: minor
-  - name: collectives-rococo-runtime
+  - name: collectives-westend-runtime
     bump: minor
   - name: contracts-rococo-runtime
     bump: minor
