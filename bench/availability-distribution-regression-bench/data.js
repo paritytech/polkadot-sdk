@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723800229484,
+  "lastUpdate": 1723810486355,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -22567,6 +22567,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.17918839563999991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "74267881e765a01b1c7b3114c21b80dbe7686940",
+          "message": "Remove redundant minimal template workspace (#5330)\n\nThis removes the workspace of the minimal template, which (I think) is\nredundant. The other two templates do not have such a workspace.\n\nThe synchronized template created [it's own\nworkspace](https://github.com/paritytech/polkadot-sdk-minimal-template/blob/master/Cargo.toml)\nanyway, and the new readme replaced the old docs contained in `lib.rs`.\n\nCloses\nhttps://github.com/paritytech/polkadot-sdk-minimal-template/issues/11\n\nSilent because the crate was private.",
+          "timestamp": "2024-08-16T10:29:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/74267881e765a01b1c7b3114c21b80dbe7686940"
+        },
+        "date": 1723810454082,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012009751059999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16615518164000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009202767673333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.021991484393333344,
             "unit": "seconds"
           }
         ]
