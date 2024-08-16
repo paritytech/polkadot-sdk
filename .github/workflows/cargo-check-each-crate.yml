@@ -27,4 +27,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: brew install protobuf
+      - run: rustup target add wasm32-unknown-unknown --toolchain stable-aarch64-apple-darwin
+      - run: rustup component add rust-src --toolchain stable-aarch64-apple-darwin
       - run: time cargo check --workspace --locked
