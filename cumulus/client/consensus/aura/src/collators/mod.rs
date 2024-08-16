@@ -28,6 +28,7 @@ use cumulus_client_consensus_common::{
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{relay_chain::Hash as ParaHash, BlockT};
 use cumulus_relay_chain_interface::RelayChainInterface;
+use polkadot_node_subsystem_util::vstaging::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	AsyncBackingParams, CoreIndex, CoreState, Hash as RelayHash, Id as ParaId,
 	OccupiedCoreAssumption, ValidationCodeHash,
@@ -185,8 +186,8 @@ async fn cores_scheduled_for_para(
 	claim_queue_offset: u8,
 ) -> Vec<CoreIndex> {
 	// Get `ClaimQueue` from runtime
-	let claim_queue = match relay_client.claim_queue(relay_parent).await {
-		Ok(claim_queue) => claim_queue,
+	let claim_queue: ClaimQueueSnapshot = match relay_client.claim_queue(relay_parent).await {
+		Ok(claim_queue) => claim_queue.into(),
 		Err(error) => {
 			tracing::error!(
 				target: crate::LOG_TARGET,
@@ -199,16 +200,8 @@ async fn cores_scheduled_for_para(
 	};
 
 	claim_queue
-		.into_iter()
-		.filter_map(|(core_index, queue)| {
-			let core_para_id = queue.get(claim_queue_offset as usize);
-
-			if core_para_id == Some(&para_id) {
-				Some(core_index)
-			} else {
-				None
-			}
-		})
+		.iter_claims_at_depth(claim_queue_offset as usize)
+		.filter_map(|(core_index, core_para_id)| (core_para_id == para_id).then_some(core_index))
 		.collect()
 }
 
