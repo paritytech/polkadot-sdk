@@ -28,7 +28,7 @@ pub fn check_if_safe(ext: &jsonrpsee::Extensions) -> Result<(), UnsafeRpcError> 
 	match ext.get::<DenyUnsafe>().map(|deny_unsafe| deny_unsafe.check_if_safe()) {
 		Some(Ok(())) => Ok(()),
 		Some(Err(e)) => Err(e),
-		None => Err(UnsafeRpcError),
+		None => unreachable!("DenyUnsafe extension is always set by the substrate rpc server; qed"),
 	}
 }
 

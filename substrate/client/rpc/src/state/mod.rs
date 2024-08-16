@@ -264,7 +264,10 @@ where
 		key: StorageKey,
 		block: Option<Block::Hash>,
 	) -> Result<Option<u64>, Error> {
-		let deny_unsafe = ext.get::<DenyUnsafe>().cloned().unwrap_or(DenyUnsafe::Yes);
+		let deny_unsafe = ext
+			.get::<DenyUnsafe>()
+			.cloned()
+			.expect("DenyUnsafe extension is always set by the substrate rpc server; qed");
 		self.backend.storage_size(block, key, deny_unsafe).await.map_err(Into::into)
 	}
 
@@ -332,7 +335,10 @@ where
 		ext: &Extensions,
 		keys: Option<Vec<StorageKey>>,
 	) {
-		let deny_unsafe = ext.get::<DenyUnsafe>().cloned().unwrap_or(DenyUnsafe::Yes);
+		let deny_unsafe = ext
+			.get::<DenyUnsafe>()
+			.cloned()
+			.expect("DenyUnsafe extension is always set by the substrate rpc server; qed");
 		self.backend.subscribe_storage(pending, keys, deny_unsafe)
 	}
 }

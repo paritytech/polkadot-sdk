@@ -180,7 +180,7 @@ pub struct RpcListenAddr {
 	pub cors: Option<Vec<String>>,
 	/// Whether to retry with a random port if the provided port is already in use.
 	pub retry_random_port: bool,
-	/// Whether it's optional listening address i.e, it's ignored if it fails to bind.
+	/// Whether it's an optional listening address i.e, it's ignored if it fails to bind.
 	/// For example substrate tries to bind both ipv4 and ipv6 addresses but some platforms
 	/// may not support ipv6.
 	pub is_optional: bool,
@@ -192,7 +192,7 @@ impl FromStr for RpcListenAddr {
 	fn from_str(s: &str) -> Result<Self, String> {
 		let mut iter = s.split("/?");
 
-		let maybe_listen_addr = iter.next();
+		let maybe_listen_addr = iter.next().map(|v| v.trim());
 		let maybe_query_params = iter.next();
 
 		let listen_addr: SocketAddr = maybe_listen_addr
@@ -209,7 +209,11 @@ impl FromStr for RpcListenAddr {
 
 		if let Some(query_params) = maybe_query_params {
 			for val in query_params.split('&') {
-				let (key, value) = val.split_once('=').ok_or_else(|| "Invalid RPC query param")?;
+				let (key, value) = val
+					.split_once('=')
+					.ok_or_else(|| format!("Invalid RPC query param `{val}`"))?;
+				let key = key.trim();
+				let value = value.trim();
 
 				match key {
 					"rpc-methods" => {
@@ -336,7 +340,8 @@ mod tests {
 		assert!(RpcListenAddr::from_str("[::1]:9944").is_ok());
 		assert!(RpcListenAddr::from_str("127.0.0.1:9944/?rpc-methods=auto").is_ok());
 		assert!(RpcListenAddr::from_str("[::1]:9944/?rpc-methods=auto").is_ok());
-		assert!(RpcListenAddr::from_str("127.0.0.1:9944/?rpc-methods=auto&cors=*").is_ok());
+		assert!(RpcListenAddr::from_str("127.0.0.1:9944/?rpc-methods=auto&cors=*&optional=true")
+			.is_ok());
 		assert!(RpcListenAddr::from_str("127.0.0.1:9944/?foo=*").is_err());
 		assert!(RpcListenAddr::from_str("127.0.0.1:9944/?cors=").is_err());
 	}
@@ -356,5 +361,21 @@ mod tests {
 				"localhost:*".to_string()
 			])
 		);
+	}
+
+	#[test]
+	fn parse_rpc_listen_addr_whitespaces() {
+		let addr = RpcListenAddr::from_str(
+			"   127.0.0.1:9944/?       rpc-methods    =   auto  & optional    =     true   ",
+		)
+		.unwrap();
+		assert_eq!(addr.rpc_methods, RpcMethods::Auto);
+		assert_eq!(addr.is_optional, true);
+	}
+
+	#[test]
+	fn parse_rpc_listen_addr_one_params() {
+		let addr = RpcListenAddr::from_str("127.0.0.1:9944/?rpc-methods    =   auto").unwrap();
+		assert_eq!(addr.rpc_methods, RpcMethods::Auto);
 	}
 }
