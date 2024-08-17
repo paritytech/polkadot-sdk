@@ -39,7 +39,9 @@ use polkadot_node_subsystem_util::{
 	availability_chunks::availability_chunk_index,
 	runtime::{get_occupied_cores, RuntimeInfo},
 };
-use polkadot_primitives::{CandidateHash, CoreIndex, Hash, OccupiedCore, SessionIndex};
+use polkadot_primitives::{
+	BlockNumber, CandidateHash, CoreIndex, Hash, OccupiedCore, SessionIndex,
+};
 
 use super::{FatalError, Metrics, Result, LOG_TARGET};
 
@@ -112,14 +114,14 @@ impl Requester {
 		ctx: &mut Context,
 		runtime: &mut RuntimeInfo,
 		update: ActiveLeavesUpdate,
-		spans: &HashMap<Hash, jaeger::PerLeafSpan>,
+		spans: &HashMap<Hash, (BlockNumber, jaeger::PerLeafSpan)>,
 	) -> Result<()> {
 		gum::trace!(target: LOG_TARGET, ?update, "Update fetching heads");
 		let ActiveLeavesUpdate { activated, deactivated } = update;
 		if let Some(leaf) = activated {
 			let span = spans
 				.get(&leaf.hash)
-				.map(|span| span.child("update-fetching-heads"))
+				.map(|(_, span)| span.child("update-fetching-heads"))
 				.unwrap_or_else(|| jaeger::Span::new(&leaf.hash, "update-fetching-heads"))
 				.with_string_tag("leaf", format!("{:?}", leaf.hash))
 				.with_stage(jaeger::Stage::AvailabilityDistribution);

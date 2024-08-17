@@ -48,6 +48,10 @@ impl VariantCount for () {
 	const VARIANT_COUNT: u32 = 0;
 }
 
+impl VariantCount for u8 {
+	const VARIANT_COUNT: u32 = 256;
+}
+
 /// Adapter for `Get<u32>` to access `VARIANT_COUNT` from `trait pub trait VariantCount {`.
 pub struct VariantCountOf<T: VariantCount>(core::marker::PhantomData<T>);
 impl<T: VariantCount> Get<u32> for VariantCountOf<T> {

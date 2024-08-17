@@ -35,27 +35,34 @@
 
 extern crate alloc;
 
-use sp_runtime::traits::{Convert, Header, Member};
+use sp_runtime::{
+	generic::OpaqueDigestItemId,
+	traits::{Convert, Header, Member},
+	SaturatedConversion,
+};
 
 use alloc::vec::Vec;
 use codec::Decode;
-use pallet_mmr::{primitives::AncestryProof, LeafDataProvider, ParentNumberAndHash};
+use pallet_mmr::{primitives::AncestryProof, LeafDataProvider, NodesUtils, ParentNumberAndHash};
 use sp_consensus_beefy::{
 	known_payloads,
 	mmr::{BeefyAuthoritySet, BeefyDataProvider, BeefyNextAuthoritySet, MmrLeaf, MmrLeafVersion},
-	AncestryHelper, Commitment, ConsensusLog, ValidatorSet as BeefyValidatorSet,
+	AncestryHelper, AncestryHelperWeightInfo, Commitment, ConsensusLog,
+	ValidatorSet as BeefyValidatorSet,
 };
 
-use frame_support::{crypto::ecdsa::ECDSAExt, traits::Get};
+use frame_support::{crypto::ecdsa::ECDSAExt, pallet_prelude::Weight, traits::Get};
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 
 pub use pallet::*;
-use sp_runtime::generic::OpaqueDigestItemId;
+pub use weights::WeightInfo;
 
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+mod weights;
 
 /// A BEEFY consensus digest item with MMR root hash.
 pub struct DepositBeefyDigest<T>(core::marker::PhantomData<T>);
@@ -126,6 +133,8 @@ pub mod pallet {
 
 		/// Retrieve arbitrary data that should be added to the mmr leaf
 		type BeefyDataProvider: BeefyDataProvider<Self::LeafExtra>;
+
+		type WeightInfo: WeightInfo;
 	}
 
 	/// Details of current BEEFY authority set.
@@ -260,6 +269,30 @@ where
 			};
 
 		canonical_prev_root != commitment_root
+	}
+}
+
+impl<T: Config> AncestryHelperWeightInfo<HeaderFor<T>> for Pallet<T>
+where
+	T: pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing>,
+{
+	fn extract_validation_context() -> Weight {
+		<T as Config>::WeightInfo::extract_validation_context()
+	}
+
+	fn is_non_canonical(proof: &<Self as AncestryHelper<HeaderFor<T>>>::Proof) -> Weight {
+		let mmr_utils = NodesUtils::new(proof.leaf_count);
+		let num_peaks = mmr_utils.number_of_peaks();
+
+		// The approximated cost of verifying an ancestry proof with `n` nodes.
+		// We add the previous peaks to the total number of nodes,
+		// since they have to be processed as well.
+		<T as Config>::WeightInfo::n_items_proof_is_non_canonical(
+			proof.items.len().saturating_add(proof.prev_peaks.len()).saturated_into(),
+		)
+		// `n_items_proof_is_non_canonical()` uses inflated proofs that contain all the leafs,
+		// where no peak needs to be read. So we need to also add the cost of reading the peaks.
+		.saturating_add(<T as Config>::WeightInfo::read_peak().saturating_mul(num_peaks))
 	}
 }
 

@@ -43,7 +43,7 @@ sp-statement-store = { workspace = true, default-features = true }
 tokio = { workspace = true, default-features = true }
 
 [dev-dependencies]
-env_logger = { workspace = true }
+sp-tracing = { workspace = true }
 assert_matches = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }

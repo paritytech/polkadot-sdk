@@ -222,7 +222,7 @@ mod worker_messages {
 /// Returns when `block_import` ended.
 async fn block_import_process<B: BlockT>(
 	mut block_import: BoxBlockImport<B>,
-	mut verifier: impl Verifier<B>,
+	verifier: impl Verifier<B>,
 	mut result_sender: BufferedLinkSender<B>,
 	mut block_import_receiver: TracingUnboundedReceiver<worker_messages::ImportBlocks<B>>,
 	metrics: Option<Metrics>,
@@ -241,8 +241,7 @@ async fn block_import_process<B: BlockT>(
 		};
 
 		let res =
-			import_many_blocks(&mut block_import, origin, blocks, &mut verifier, metrics.clone())
-				.await;
+			import_many_blocks(&mut block_import, origin, blocks, &verifier, metrics.clone()).await;
 
 		result_sender.blocks_processed(res.imported, res.block_count, res.results);
 	}
@@ -388,7 +387,7 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 	import_handle: &mut BoxBlockImport<B>,
 	blocks_origin: BlockOrigin,
 	blocks: Vec<IncomingBlock<B>>,
-	verifier: &mut V,
+	verifier: &V,
 	metrics: Option<Metrics>,
 ) -> ImportManyBlocksResult<B> {
 	let count = blocks.len();

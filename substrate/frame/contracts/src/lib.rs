@@ -114,7 +114,7 @@ use crate::{
 	},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
-	wasm::{CodeInfo, WasmBlob},
+	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
 };
 use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
 use core::fmt::Debug;
@@ -670,7 +670,66 @@ pub mod pallet {
 				"Debug buffer should have minimum size of {} (current setting is {})",
 				MIN_DEBUG_BUF_SIZE,
 				T::MaxDebugBufferLen::get(),
-			)
+			);
+
+			// Validators are configured to be able to use more memory than block builders. This is
+			// because in addition to `max_runtime_mem` they need to hold additional data in
+			// memory: PoV in multiple copies (1x encoded + 2x decoded) and all storage which
+			// includes emitted events. The assumption is that storage/events size
+			// can be a maximum of half of the validator runtime memory - max_runtime_mem.
+			let max_block_ref_time = T::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.max_total
+				.unwrap_or_else(|| T::BlockWeights::get().max_block)
+				.ref_time();
+			let max_payload_size = T::Schedule::get().limits.payload_len;
+			let max_key_size =
+				Key::<T>::try_from_var(alloc::vec![0u8; T::MaxStorageKeyLen::get() as usize])
+					.expect("Key of maximal size shall be created")
+					.hash()
+					.len() as u32;
+
+			// We can use storage to store items using the available block ref_time with the
+			// `set_storage` host function.
+			let max_storage_size: u32 = ((max_block_ref_time /
+				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
+					new_bytes: max_payload_size,
+					old_bytes: 0,
+				})
+				.ref_time()))
+			.saturating_mul(max_payload_size.saturating_add(max_key_size) as u64))
+			.try_into()
+			.expect("Storage size too big");
+
+			let max_validator_runtime_mem: u32 = T::Schedule::get().limits.validator_runtime_memory;
+			let storage_size_limit = max_validator_runtime_mem.saturating_sub(max_runtime_mem) / 2;
+
+			assert!(
+				max_storage_size < storage_size_limit,
+				"Maximal storage size {} exceeds the storage limit {}",
+				max_storage_size,
+				storage_size_limit
+			);
+
+			// We can use storage to store events using the available block ref_time with the
+			// `deposit_event` host function. The overhead of stored events, which is around 100B,
+			// is not taken into account to simplify calculations, as it does not change much.
+			let max_events_size: u32 = ((max_block_ref_time /
+				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
+					num_topic: 0,
+					len: max_payload_size,
+				})
+				.ref_time()))
+			.saturating_mul(max_payload_size as u64))
+			.try_into()
+			.expect("Events size too big");
+
+			assert!(
+				max_events_size < storage_size_limit,
+				"Maximal events size {} exceeds the events limit {}",
+				max_events_size,
+				storage_size_limit
+			);
 		}
 	}
 
