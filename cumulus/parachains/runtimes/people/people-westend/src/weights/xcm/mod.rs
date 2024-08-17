@@ -5,7 +5,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -60,10 +60,8 @@ impl<Call> XcmWeightInfo<Call> for PeopleWestendXcmWeight<Call> {
 	fn withdraw_asset(assets: &Assets) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::withdraw_asset())
 	}
-	// Currently there is no trusted reserve
-	fn reserve_asset_deposited(_assets: &Assets) -> Weight {
-		// TODO: hardcoded - fix https://github.com/paritytech/cumulus/issues/1974
-		Weight::from_parts(1_000_000_000_u64, 0)
+	fn reserve_asset_deposited(assets: &Assets) -> Weight {
+		assets.weigh_assets(XcmFungibleWeight::<Runtime>::reserve_asset_deposited())
 	}
 	fn receive_teleported_asset(assets: &Assets) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::receive_teleported_asset())
@@ -114,12 +112,8 @@ impl<Call> XcmWeightInfo<Call> for PeopleWestendXcmWeight<Call> {
 	fn report_error(_query_response_info: &QueryResponseInfo) -> Weight {
 		XcmGeneric::<Runtime>::report_error()
 	}
-
 	fn deposit_asset(assets: &AssetFilter, _dest: &Location) -> Weight {
-		// Hardcoded till the XCM pallet is fixed
-		let hardcoded_weight = Weight::from_parts(1_000_000_000_u64, 0);
-		let weight = assets.weigh_assets(XcmFungibleWeight::<Runtime>::deposit_asset());
-		hardcoded_weight.min(weight)
+		assets.weigh_assets(XcmFungibleWeight::<Runtime>::deposit_asset())
 	}
 	fn deposit_reserve_asset(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::deposit_reserve_asset())
@@ -132,13 +126,10 @@ impl<Call> XcmWeightInfo<Call> for PeopleWestendXcmWeight<Call> {
 		_reserve: &Location,
 		_xcm: &Xcm<()>,
 	) -> Weight {
-		assets.weigh_assets(XcmGeneric::<Runtime>::initiate_reserve_withdraw())
+		assets.weigh_assets(XcmFungibleWeight::<Runtime>::initiate_reserve_withdraw())
 	}
 	fn initiate_teleport(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		// Hardcoded till the XCM pallet is fixed
-		let hardcoded_weight = Weight::from_parts(200_000_000_u64, 0);
-		let weight = assets.weigh_assets(XcmFungibleWeight::<Runtime>::initiate_teleport());
-		hardcoded_weight.min(weight)
+		assets.weigh_assets(XcmFungibleWeight::<Runtime>::initiate_teleport())
 	}
 	fn report_holding(_response_info: &QueryResponseInfo, _assets: &AssetFilter) -> Weight {
 		XcmGeneric::<Runtime>::report_holding()

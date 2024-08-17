@@ -21,12 +21,13 @@ use std::vec;
 
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen,
+	onchain, SequentialPhragmen, Weight,
 };
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, KeyOwnerProofSystem, OnFinalize, OnInitialize},
 };
+use frame_system::pallet_prelude::HeaderFor;
 use pallet_session::historical as pallet_session_historical;
 use sp_core::{crypto::KeyTypeId, ConstU128};
 use sp_runtime::{
@@ -43,7 +44,7 @@ use sp_state_machine::BasicExternalities;
 use crate as pallet_beefy;
 
 pub use sp_consensus_beefy::{ecdsa_crypto::AuthorityId as BeefyId, ConsensusLog, BEEFY_ENGINE_ID};
-use sp_consensus_beefy::{AncestryHelper, Commitment};
+use sp_consensus_beefy::{AncestryHelper, AncestryHelperWeightInfo, Commitment};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -128,6 +129,16 @@ impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
 		context: Self::ValidationContext,
 	) -> bool {
 		context.is_valid && proof.is_non_canonical
+	}
+}
+
+impl<Header: HeaderT> AncestryHelperWeightInfo<Header> for MockAncestryHelper {
+	fn extract_validation_context() -> Weight {
+		unimplemented!()
+	}
+
+	fn is_non_canonical(_proof: &<Self as AncestryHelper<HeaderFor<Test>>>::Proof) -> Weight {
+		unimplemented!()
 	}
 }
 

@@ -225,7 +225,7 @@ pub async fn import_single_block<B: BlockT, V: Verifier<B>>(
 	import_handle: &mut impl BlockImport<B, Error = ConsensusError>,
 	block_origin: BlockOrigin,
 	block: IncomingBlock<B>,
-	verifier: &mut V,
+	verifier: &V,
 ) -> BlockImportResult<B> {
 	match verify_single_block_metered(import_handle, block_origin, block, verifier, None).await? {
 		SingleBlockVerificationOutcome::Imported(import_status) => Ok(import_status),
@@ -295,7 +295,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	import_handle: &impl BlockImport<B, Error = ConsensusError>,
 	block_origin: BlockOrigin,
 	block: IncomingBlock<B>,
-	verifier: &mut V,
+	verifier: &V,
 	metrics: Option<&Metrics>,
 ) -> Result<SingleBlockVerificationOutcome<B>, BlockImportError> {
 	let peer = block.origin;

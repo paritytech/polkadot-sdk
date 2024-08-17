@@ -79,7 +79,12 @@ color-print = { workspace = true }
 substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
-default = []
+default = ["std"]
+std = [
+	"log/std",
+	"parachain-template-runtime/std",
+	"xcm/std",
+]
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
