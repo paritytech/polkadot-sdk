@@ -4,6 +4,7 @@
 //! `cargo build --release -features fast-runtime --bin polkadot --bin polkadot-execute-worker --bin
 //! polkadot-prepare-worker`
 //! `cargo build --package parachain-template-node --release`
+//! `cargo build --package minimal-template-node --release`
 //! `export PATH=<path-to-polkadot-sdk-repo>/target/release:$PATH
 //!
 //! The you can run the test with
@@ -45,8 +46,6 @@ mod smoke {
 			env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 		);
 
-		// requirements_are_meet(&vec!["polkadot", "parachain-template-node"])?;
-
 		let config = get_config("polkadot", Some("parachain-template-node"))?;
 
 		let network = config.spawn_native().await?;
@@ -67,8 +66,6 @@ mod smoke {
 			env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 		);
 
-		// requirements_are_meet(&vec!["solochain-template-node"])?;
-
 		let config = get_config("solochain-template-node", None)?;
 
 		let network = config.spawn_native().await?;
@@ -85,8 +82,6 @@ mod smoke {
 		let _ = env_logger::try_init_from_env(
 			env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 		);
-
-		// requirements_are_meet(&vec!["minimal-template-node"])?;
 
 		let config = get_config("minimal-template-node", None)?;
 

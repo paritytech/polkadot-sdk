@@ -92,9 +92,13 @@ build-parachain-template-node:
     - .collect-artifacts
   script:
     - time cargo build --locked --package parachain-template-node --release
+    - time cargo build --locked --package minimal-template-node --release
+    - time cargo build --locked --package solochain-template-node --release
     # pack artifacts
     - mkdir -p ./artifacts
     - mv ./target/release/parachain-template-node ./artifacts/.
+    - mv ./target/release/minimal-template-node ./artifacts/.
+    - mv ./target/release/solochain-template-node ./artifacts/.
 
 build-rustdoc:
   stage: build
