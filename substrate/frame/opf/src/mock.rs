@@ -19,7 +19,7 @@
 use crate as pallet_opf;
 pub use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU16, ConstU32, ConstU64, OnInitialize},
+	traits::{ConstU128, ConstU16, ConstU32, ConstU64, OnFinalize, OnInitialize},
 	PalletId,
 };
 pub use sp_core::H256;

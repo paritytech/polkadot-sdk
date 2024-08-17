@@ -19,7 +19,7 @@
 
 pub use super::*;
 use crate::mock::*;
-use frame_support::assert_ok;
+use frame_support::{assert_ok, assert_noop};
 use frame_support::traits::OnIdle;
 
 pub fn next_block() {
@@ -33,6 +33,17 @@ pub fn next_block() {
 		<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number(),
 		Weight::MAX,
 	);
+}
+
+pub fn run_to_block(n: BlockNumberFor<Test>) {
+	while <Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number() < n {
+		if <Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number() > 1 {
+			AllPalletsWithSystem::on_finalize(
+				<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number(),
+			);
+		}
+		next_block();
+	}
 }
 
 pub fn create_project_list() {
@@ -174,6 +185,19 @@ fn rewards_calculation_works() {
 		assert_eq!(rewards[0].amount > rewards[1].amount, true);
 		assert_eq!(rewards[0].amount, 75000);
 		assert_eq!(rewards[1].amount, 25000);
+
+		// New round is properly started
+		run_to_block(round_info.round_ending_block);
+		now = round_info.round_ending_block;
+		expect_events(vec![RuntimeEvent::Opf(Event::VotingRoundEnded {
+			when: now,
+			round_number: 0,
+		})]);
+		let new_round_number = VotingRoundNumber::<Test>::get()-1;
+		assert_eq!(new_round_number,1); 
+		let next_round = VotingRounds::<Test>::get(1);
+		assert_eq!(next_round.is_some(),true);
+
 	})
 }
 
@@ -210,6 +234,56 @@ fn vote_removal_works() {
 }
 
 #[test]
+fn not_enough_funds_to_vote(){
+	new_test_ext().execute_with(|| {
+		create_project_list();
+		next_block();
+		let bob_balance_plus = <<Test as pallet_distribution::Config>::NativeBalance as fungible::Inspect<u64>>::balance(&BOB)+100;
+		
+		// Bob vote with wrong amount
+		assert_noop!(Opf::vote( RawOrigin::Signed(BOB).into(), 101, bob_balance_plus, true), Error::<Test>::NotEnoughFunds);
+
+	})
+}
+
+#[test]
+fn voting_action_locked(){
+	new_test_ext().execute_with(|| {
+		create_project_list();
+		next_block();
+
+		let now =
+			<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
+
+		// Bob nominate project_101 with an amount of 1000
+		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000, true));
+
+		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted {
+			who: BOB,
+			when: now,
+			project_id: 101,
+		})]);
+
+		// Bob nominate project_103 with an amount of 5000
+		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 103, 5000, true));
+
+		// Voter's funds are locked
+		let locked_balance0 =
+			<<Test as pallet_distribution::Config>::NativeBalance as fungible::hold::Inspect<
+				u64,
+			>>::balance_on_hold(&pallet_distribution::HoldReason::FundsReserved.into(), &BOB);
+		assert!(locked_balance0 > Zero::zero());
+
+		let round_info = VotingRounds::<Test>::get(0).unwrap();
+		run_to_block(round_info.voting_locked_block);
+		
+		// Bob cannot edit his vote for project 101 
+		assert_noop!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 2000, true), Error::<Test>::VotePeriodClosed);
+	
+	})
+}
+
+#[test]
 fn vote_move_works() {
 	new_test_ext().execute_with(|| {
 		create_project_list();
@@ -218,7 +292,7 @@ fn vote_move_works() {
 		let now =
 			<Test as pallet_distribution::Config>::BlockNumberProvider::current_block_number();
 
-		// Bob nominate project_102 with an amount of 1000
+		// Bob nominate project_101 with an amount of 1000
 		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000, true));
 
 		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted {

@@ -56,7 +56,7 @@ impl<T: Config> Pallet<T> {
 		let current_round_index = VotingRoundNumber::<T>::get().saturating_sub(1);
 		let round = VotingRounds::<T>::get(current_round_index).ok_or(Error::<T>::NoRoundFound)?;
 		let now = T::BlockNumberProvider::current_block_number();
-		ensure!(now <= round.voting_locked_block, Error::<T>::VotePeriodClosed);
+		ensure!(now < round.voting_locked_block, Error::<T>::VotePeriodClosed);
 		ensure!(now < round.round_ending_block, Error::<T>::VotingRoundOver);
 		Ok(())
 	}
@@ -227,7 +227,7 @@ impl<T: Config> Pallet<T> {
 		// Conditions for distribution preparations are:
 		// - We are within voting_round period
 		// - We are past the voting_round_lock block
-		if (now >= voting_locked_block) && (now < round_ending_block) {
+		if now == voting_locked_block{
 			// Emmit event
 			Self::deposit_event(Event::<T>::VoteActionLocked {
 				when: now,
@@ -240,7 +240,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Create a new round when we reach the end of the current round.
-		if (now % round_ending_block).is_zero() {
+		if now == round_ending_block {
 			let _new_round = VotingRoundInfo::<T>::new();
 			// Emmit events
 			Self::deposit_event(Event::<T>::VotingRoundEnded {
