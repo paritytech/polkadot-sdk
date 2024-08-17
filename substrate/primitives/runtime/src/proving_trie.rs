@@ -21,7 +21,7 @@ use crate::{Decode, DispatchError, Encode};
 
 use sp_std::vec::Vec;
 use sp_trie::{
-	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
+	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1},
 	LayoutV1, MemoryDB, Recorder, Trie, TrieMut, EMPTY_PREFIX,
 };
 
@@ -52,7 +52,7 @@ where
 		let mut root = Default::default();
 
 		{
-			let mut trie = TrieDBMutBuilderV0::new(&mut db, &mut root).build();
+			let mut trie = TrieDBMutBuilderV1::new(&mut db, &mut root).build();
 			for (key, value) in items.into_iter() {
 				key.using_encoded(|k| value.using_encoded(|v| trie.insert(k, v)))
 					.map_err(|_| "failed to insert into trie")?;
