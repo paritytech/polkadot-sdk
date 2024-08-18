@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723824563948,
+  "lastUpdate": 1723965831456,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -8777,6 +8777,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04530761559600002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Nazar Mokrynskyi",
+            "username": "nazar-pc",
+            "email": "nazar@mokrynskyi.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "feac7a521092c599d47df3e49084e6bff732c7db",
+          "message": "Replace unnecessary `&mut self` with `&self` in `BlockImport::import_block()` (#5339)\n\nThere was no need for it to be `&mut self` since block import can happen\nconcurrently for different blocks and in many cases it was `&mut Arc<dyn\nBlockImport>` anyway :man_shrugging:\n\nSimilar in nature to\nhttps://github.com/paritytech/polkadot-sdk/pull/4844",
+          "timestamp": "2024-08-18T05:23:46Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/feac7a521092c599d47df3e49084e6bff732c7db"
+        },
+        "date": 1723965800804,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.90799999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.04117345799200001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.049563087898000006,
             "unit": "seconds"
           }
         ]
