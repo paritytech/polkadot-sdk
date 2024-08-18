@@ -326,8 +326,7 @@ where
 			if net_config.network_config.max_blocks_per_request > MAX_BLOCKS_IN_RESPONSE as u32 {
 				log::info!(
 					target: LOG_TARGET,
-					"clamping maximum blocks per request to {}",
-					MAX_BLOCKS_IN_RESPONSE,
+					"clamping maximum blocks per request to {MAX_BLOCKS_IN_RESPONSE}",
 				);
 				MAX_BLOCKS_IN_RESPONSE as u32
 			} else {
@@ -348,12 +347,7 @@ where
 				imp_p.insert(reserved.peer_id);
 			}
 			for config in net_config.notification_protocols() {
-				let peer_ids = config
-					.set_config()
-					.reserved_nodes
-					.iter()
-					.map(|info| info.peer_id)
-					.collect::<Vec<PeerId>>();
+				let peer_ids = config.set_config().reserved_nodes.iter().map(|info| info.peer_id);
 				imp_p.extend(peer_ids);
 			}
 
@@ -387,6 +381,8 @@ where
 			total.saturating_sub(net_config.network_config.default_peers_set_num_full) as usize
 		};
 
+		let genesis_hash = client.info().genesis_hash;
+
 		let (block_announce_config, notification_service) =
 			Self::get_block_announce_proto_config::<N>(
 				protocol_id,
@@ -394,11 +390,7 @@ where
 				roles,
 				client.info().best_number,
 				client.info().best_hash,
-				client
-					.block_hash(Zero::zero())
-					.ok()
-					.flatten()
-					.expect("Genesis block exists; qed"),
+				genesis_hash,
 				&net_config.network_config.default_peers_set,
 				network_metrics,
 				Arc::clone(&peer_store_handle),
@@ -424,11 +416,6 @@ where
 		let (tx, service_rx) = tracing_unbounded("mpsc_chain_sync", 100_000);
 		let num_connected = Arc::new(AtomicUsize::new(0));
 		let is_major_syncing = Arc::new(AtomicBool::new(false));
-		let genesis_hash = client
-			.block_hash(0u32.into())
-			.ok()
-			.flatten()
-			.expect("Genesis block exists; qed");
 
 		// `default_peers_set.in_peers` contains an unspecified amount of light peers so the number
 		// of full inbound peers must be calculated from the total full peer count
@@ -565,7 +552,7 @@ where
 					"Received block announce from disconnected peer {peer_id}",
 				);
 				debug_assert!(false);
-				return
+				return;
 			},
 		};
 		peer.known_blocks.insert(hash);
@@ -590,17 +577,17 @@ where
 			Ok(Some(header)) => header,
 			Ok(None) => {
 				log::warn!(target: LOG_TARGET, "Trying to announce unknown block: {hash}");
-				return
+				return;
 			},
 			Err(e) => {
 				log::warn!(target: LOG_TARGET, "Error reading block header {hash}: {e}");
-				return
+				return;
 			},
 		};
 
 		// don't announce genesis block since it will be ignored
 		if header.number().is_zero() {
-			return
+			return;
 		}
 
 		let is_best = self.client.info().best_hash == hash;
@@ -662,7 +649,7 @@ where
 					target: LOG_TARGET,
 					"Terminating `SyncingEngine` due to fatal error: {e:?}.",
 				);
-				return
+				return;
 			}
 		}
 	}
@@ -885,12 +872,12 @@ where
 						target: LOG_TARGET,
 						"received notification from {peer} who had been earlier refused by `SyncingEngine`",
 					);
-					return
+					return;
 				}
 
 				let Ok(announce) = BlockAnnounce::decode(&mut notification.as_ref()) else {
 					log::warn!(target: LOG_TARGET, "failed to decode block announce");
-					return
+					return;
 				};
 
 				self.push_block_announce_validation(peer, announce);
@@ -920,7 +907,7 @@ where
 	fn on_sync_peer_disconnected(&mut self, peer_id: PeerId) {
 		let Some(info) = self.peers.remove(&peer_id) else {
 			log::debug!(target: LOG_TARGET, "{peer_id} does not exist in `SyncingEngine`");
-			return
+			return;
 		};
 
 		if self.important_peers.contains(&peer_id) {
@@ -990,7 +977,7 @@ where
 				);
 			}
 
-			return Err(true)
+			return Err(true);
 		}
 
 		Ok(handshake)
@@ -1025,7 +1012,7 @@ where
 				"Called `validate_connection()` with already connected peer {peer_id}",
 			);
 			debug_assert!(false);
-			return Err(false)
+			return Err(false);
 		}
 
 		let no_slot_peer = self.default_peers_set_no_slot_peers.contains(&peer_id);
@@ -1038,7 +1025,7 @@ where
 					this_peer_reserved_slot
 		{
 			log::debug!(target: LOG_TARGET, "Too many full nodes, rejecting {peer_id}");
-			return Err(false)
+			return Err(false);
 		}
 
 		// make sure to accept no more than `--in-peers` many full nodes
@@ -1048,7 +1035,7 @@ where
 			self.num_in_peers == self.max_in_peers
 		{
 			log::debug!(target: LOG_TARGET, "All inbound slots have been consumed, rejecting {peer_id}");
-			return Err(false)
+			return Err(false);
 		}
 
 		// make sure that all slots are not occupied by light peers
@@ -1059,7 +1046,7 @@ where
 			(self.peers.len() - self.strategy.num_peers()) >= self.default_peers_set_num_light
 		{
 			log::debug!(target: LOG_TARGET, "Too many light nodes, rejecting {peer_id}");
-			return Err(false)
+			return Err(false);
 		}
 
 		Ok(handshake)
@@ -1116,7 +1103,7 @@ where
 		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send block request to unknown peer {peer_id}");
 			debug_assert!(false);
-			return
+			return;
 		}
 
 		let downloader = self.block_downloader.clone();
@@ -1138,7 +1125,7 @@ where
 		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send state request to unknown peer {peer_id}");
 			debug_assert!(false);
-			return
+			return;
 		}
 
 		let (tx, rx) = oneshot::channel();
@@ -1173,7 +1160,7 @@ where
 		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send warp proof request to unknown peer {peer_id}");
 			debug_assert!(false);
-			return
+			return;
 		}
 
 		let (tx, rx) = oneshot::channel();
@@ -1236,7 +1223,7 @@ where
 								peer_id,
 								self.block_announce_protocol_name.clone(),
 							);
-							return
+							return;
 						},
 						Err(BlockResponseError::ExtractionFailed(e)) => {
 							debug!(
@@ -1246,7 +1233,7 @@ where
 								e
 							);
 							self.network_service.report_peer(peer_id, rep::BAD_MESSAGE);
-							return
+							return;
 						},
 					}
 				},
@@ -1263,7 +1250,7 @@ where
 								peer_id,
 								self.block_announce_protocol_name.clone(),
 							);
-							return
+							return;
 						},
 					};
 
