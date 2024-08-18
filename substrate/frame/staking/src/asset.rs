@@ -1,15 +1,9 @@
 //! Facade of currency implementation. Useful while migrating from old to new currency system.
 
-use frame_support::{
-	defensive, ensure,
-	traits::{Currency, Defensive, InspectLockableCurrency, LockableCurrency},
-};
-use sp_staking::{StakingAccount, StakingInterface};
+use frame_support::traits::{Currency, InspectLockableCurrency, LockableCurrency};
+use sp_staking::StakingInterface;
 
-use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, NegativeImbalanceOf, Pallet, Payee,
-	PositiveImbalanceOf, RewardDestination, StakingLedger, VirtualStakers, STAKING_ID,
-};
+use crate::{BalanceOf, Config, NegativeImbalanceOf, PositiveImbalanceOf};
 
 /// Existential deposit for the chain.
 pub fn existential_deposit<T: Config>() -> BalanceOf<T> {
@@ -24,8 +18,8 @@ pub fn set_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
 	T::Currency::make_free_balance_be(who, value);
 }
 
-pub fn burn<T: Config>(amount: BalanceOf<T>) {
-	T::Currency::burn(amount);
+pub fn burn<T: Config>(amount: BalanceOf<T>) -> PositiveImbalanceOf<T> {
+	T::Currency::burn(amount)
 }
 
 pub fn free_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {

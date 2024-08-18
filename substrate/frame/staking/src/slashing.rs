@@ -58,7 +58,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
-	traits::{Currency, Defensive, DefensiveSaturating, Imbalance, OnUnbalanced},
+	traits::{Defensive, DefensiveSaturating, Imbalance, OnUnbalanced},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{

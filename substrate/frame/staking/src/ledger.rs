@@ -31,15 +31,12 @@
 //! performed through the methods exposed by the [`StakingLedger`] implementation in order to ensure
 //! state consistency.
 
-use frame_support::{
-	defensive, ensure,
-	traits::{Defensive, LockableCurrency},
-};
+use frame_support::{defensive, ensure, traits::Defensive};
 use sp_staking::{StakingAccount, StakingInterface};
 
 use crate::{
 	asset, BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination,
-	StakingLedger, VirtualStakers, STAKING_ID,
+	StakingLedger, VirtualStakers,
 };
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
