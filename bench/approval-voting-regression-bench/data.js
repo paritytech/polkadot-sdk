@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723964922847,
+  "lastUpdate": 1724016265044,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -15368,6 +15368,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.211134508210249,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "3fe22d17c4904c5ae016034b6ec2c335464b4165",
+          "message": "binary-merkle-tree: Do not spam test output (#5376)\n\nThe CI isn't happy with the amount of output:\nhttps://gitlab.parity.io/parity/mirrors/polkadot-sdk/-/jobs/7035621/raw\n\n---------\n\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>",
+          "timestamp": "2024-08-18T19:41:47Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3fe22d17c4904c5ae016034b6ec2c335464b4165"
+        },
+        "date": 1724016236337,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63953.72000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.778162384310123,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.2152903659700485,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.1248958665701343,
             "unit": "seconds"
           }
         ]
