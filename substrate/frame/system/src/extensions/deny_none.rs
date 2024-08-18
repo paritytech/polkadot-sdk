@@ -19,6 +19,7 @@ use crate::Config;
 use frame_support::{
 	dispatch::DispatchInfo,
 	pallet_prelude::{Decode, DispatchResult, Encode, TypeInfo, Weight},
+	traits::OriginTrait,
 	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use sp_runtime::{
@@ -65,13 +66,12 @@ where
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
-		match origin.into() {
+		if origin.as_system_ref().map_or(false, |system_origin| system_origin.is_none()) {
 			// TODO TODO: find a better error variant
-			Ok(crate::RawOrigin::None) => Err(TransactionValidityError::Invalid(crate::InvalidTransaction::Call)),
-			Ok(origin) => Ok((Default::default(), (), origin.into())),
-			Err(origin) => Ok((Default::default(), (), origin)),
+			Err(TransactionValidityError::Invalid(crate::InvalidTransaction::Call))
+		} else {
+			Ok((Default::default(), (), origin))
 		}
-
 	}
 
 	fn prepare(
