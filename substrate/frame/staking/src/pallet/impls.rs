@@ -164,7 +164,7 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// additional amount or actual balance of stash whichever is lower.
 			additional.min(
-				T::Currency::free_balance(stash)
+				asset::free_balance::<T>(stash)
 					.checked_sub(&ledger.total)
 					.ok_or(ArithmeticError::Overflow)?,
 			)
@@ -414,12 +414,12 @@ impl<T: Config> Pallet<T> {
 		let dest = Self::payee(StakingAccount::Stash(stash.clone()))?;
 
 		let maybe_imbalance = match dest {
-			RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
+			RewardDestination::Stash => asset::mint::<T>(stash, amount),
 			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {
 					ledger.active += amount;
 					ledger.total += amount;
-					let r = T::Currency::deposit_into_existing(stash, amount).ok();
+					let r = asset::mint::<T>(stash, amount);
 
 					let _ = ledger
 						.update()
@@ -1919,7 +1919,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 	fn migrate_to_virtual_staker(who: &Self::AccountId) {
-		T::Currency::remove_lock(crate::STAKING_ID, who);
+		asset::kill_stake::<T>(who);
 		VirtualStakers::<T>::insert(who, ());
 	}
 
@@ -1956,12 +1956,7 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 	fn migrate_to_direct_staker(who: &Self::AccountId) {
 		assert!(VirtualStakers::<T>::contains_key(who));
 		let ledger = StakingLedger::<T>::get(Stash(who.clone())).unwrap();
-		T::Currency::set_lock(
-			crate::STAKING_ID,
-			who,
-			ledger.total,
-			frame_support::traits::WithdrawReasons::all(),
-		);
+		asset::update_stake::<T>(who, ledger.total);
 		VirtualStakers::<T>::remove(who);
 	}
 }

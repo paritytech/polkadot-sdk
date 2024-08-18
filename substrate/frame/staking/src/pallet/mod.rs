@@ -779,7 +779,7 @@ pub mod pallet {
 					status
 				);
 				assert!(
-					T::Currency::free_balance(stash) >= balance,
+					asset::free_balance::<T>(stash) >= balance,
 					"Stash does not have enough balance to bond."
 				);
 				frame_support::assert_ok!(<Pallet<T>>::bond(
@@ -1029,7 +1029,7 @@ pub mod pallet {
 
 			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
 
-			let stash_balance = T::Currency::free_balance(&stash);
+			let stash_balance = asset::free_balance::<T>(&stash);
 			let value = value.min(stash_balance);
 			Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
 			let ledger = StakingLedger::<T>::new(stash.clone(), value);
@@ -1709,7 +1709,7 @@ pub mod pallet {
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
 			let ed = asset::existential_deposit::<T>();
-			let origin_balance = T::Currency::total_balance(&stash);
+			let origin_balance = asset::total_balance::<T>(&stash);
 			let ledger_total =
 				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
 			let reapable = origin_balance < ed ||
@@ -2077,7 +2077,7 @@ pub mod pallet {
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
 			let current_lock = asset::staked::<T>(&stash);
-			let stash_balance = T::Currency::free_balance(&stash);
+			let stash_balance = asset::free_balance::<T>(&stash);
 
 			let (new_controller, new_total) = match Self::inspect_bond_state(&stash) {
 				Ok(LedgerIntegrityState::Corrupted) => {
@@ -2086,12 +2086,7 @@ pub mod pallet {
 					let new_total = if let Some(total) = maybe_total {
 						let new_total = total.min(stash_balance);
 						// enforce lock == ledger.amount.
-						T::Currency::set_lock(
-							crate::STAKING_ID,
-							&stash,
-							new_total,
-							WithdrawReasons::all(),
-						);
+						asset::update_stake::<T>(&stash, new_total);
 						new_total
 					} else {
 						current_lock
@@ -2118,18 +2113,13 @@ pub mod pallet {
 					// to enforce a new ledger.total and staking lock for this stash.
 					let new_total =
 						maybe_total.ok_or(Error::<T>::CannotRestoreLedger)?.min(stash_balance);
-					T::Currency::set_lock(
-						crate::STAKING_ID,
-						&stash,
-						new_total,
-						WithdrawReasons::all(),
-					);
+					asset::update_stake::<T>(&stash, new_total);
 
 					Ok((stash.clone(), new_total))
 				},
 				Err(Error::<T>::BadState) => {
 					// the stash and ledger do not exist but lock is lingering.
-					T::Currency::remove_lock(crate::STAKING_ID, &stash);
+					asset::kill_stake::<T>(&stash);
 					ensure!(
 						Self::inspect_bond_state(&stash) == Err(Error::<T>::NotStash),
 						Error::<T>::BadState

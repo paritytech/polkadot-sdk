@@ -7,8 +7,8 @@ use frame_support::{
 use sp_staking::{StakingAccount, StakingInterface};
 
 use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger,
-	VirtualStakers, STAKING_ID,
+	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, PositiveImbalanceOf,
+	RewardDestination, StakingLedger, VirtualStakers, STAKING_ID,
 };
 
 /// Balance that is staked and at stake.
@@ -41,15 +41,20 @@ pub fn total_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 	T::Currency::total_balance(who)
 }
 
-pub fn deposit<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
-	// FIXME(ank4n) return val?
-	let _ = T::Currency::deposit_into_existing(who, value);
+/// Mint reward.
+pub fn mint<T: Config>(who: &T::AccountId, value: BalanceOf<T>) -> Option<PositiveImbalanceOf<T>> {
+	T::Currency::deposit_into_existing(who, value).ok()
 }
 
 pub fn update_stake<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) {
-	T::Currency::set_lock(id, who, amount, frame_support::traits::WithdrawReasons::all());
+	T::Currency::set_lock(
+		crate::STAKING_ID,
+		who,
+		amount,
+		frame_support::traits::WithdrawReasons::all(),
+	);
 }
 
 pub fn kill_stake<T: Config>(who: &T::AccountId) {
-	T::Currency::remove_lock(id, who);
+	T::Currency::remove_lock(crate::STAKING_ID, who);
 }

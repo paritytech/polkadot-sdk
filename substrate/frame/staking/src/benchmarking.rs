@@ -249,7 +249,7 @@ benchmarks! {
 		let original_bonded: BalanceOf<T>
 			= Ledger::<T>::get(&controller).map(|l| l.active).ok_or("ledger not created after")?;
 
-		let _ = T::Currency::deposit_into_existing(&stash, max_additional).unwrap();
+		let _ = asset::mint::<T>(&stash, max_additional).unwrap();
 
 		whitelist_account!(stash);
 	}: _(RawOrigin::Signed(stash), max_additional)
@@ -611,21 +611,21 @@ benchmarks! {
 		<ErasValidatorPrefs<T>>::insert(current_era, validator.clone(), <Staking<T>>::validators(&validator));
 
 		let caller = whitelisted_caller();
-		let balance_before = T::Currency::free_balance(&validator);
+		let balance_before = asset::free_balance::<T>(&validator);
 		let mut nominator_balances_before = Vec::new();
 		for (stash, _) in &nominators {
-			let balance = T::Currency::free_balance(stash);
+			let balance = asset::free_balance::<T>(stash);
 			nominator_balances_before.push(balance);
 		}
 	}: payout_stakers(RawOrigin::Signed(caller), validator.clone(), current_era)
 	verify {
-		let balance_after = T::Currency::free_balance(&validator);
+		let balance_after = asset::free_balance::<T>(&validator);
 		ensure!(
 			balance_before < balance_after,
 			"Balance of validator stash should have increased after payout.",
 		);
 		for ((stash, _), balance_before) in nominators.iter().zip(nominator_balances_before.iter()) {
-			let balance_after = T::Currency::free_balance(stash);
+			let balance_after = asset::free_balance::<T>(stash);
 			ensure!(
 				balance_before < &balance_after,
 				"Balance of nominator stash should have increased after payout.",
@@ -794,7 +794,7 @@ benchmarks! {
 		}
 		Ledger::<T>::insert(controller, staking_ledger);
 		let slash_amount = asset::existential_deposit::<T>() * 10u32.into();
-		let balance_before = T::Currency::free_balance(&stash);
+		let balance_before = asset::free_balance::<T>(&stash);
 	}: {
 		crate::slashing::do_slash::<T>(
 			&stash,
@@ -804,7 +804,7 @@ benchmarks! {
 			EraIndex::zero()
 		);
 	} verify {
-		let balance_after = T::Currency::free_balance(&stash);
+		let balance_after = asset::free_balance::<T>(&stash);
 		assert!(balance_before > balance_after);
 	}
 
