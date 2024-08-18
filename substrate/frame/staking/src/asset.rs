@@ -2,7 +2,7 @@
 
 use frame_support::{
 	defensive, ensure,
-	traits::{Defensive, InspectLockableCurrency, LockableCurrency},
+	traits::{Defensive, InspectLockableCurrency, LockableCurrency, Currency},
 };
 use sp_staking::{StakingAccount, StakingInterface};
 
@@ -14,4 +14,9 @@ use crate::{
 /// Balance that is staked and at stake.
 pub fn staked<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 	T::Currency::balance_locked(crate::STAKING_ID, who)
+}
+
+/// Existential deposit for the chain.
+pub fn existential_deposit<T: Config>() -> BalanceOf<T> {
+    T::Currency::minimum_balance()
 }

@@ -173,7 +173,7 @@ impl<T: Config> Pallet<T> {
 		ledger.total = ledger.total.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
 		ledger.active = ledger.active.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
 		// last check: the new active amount of ledger must be more than ED.
-		ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
+		ensure!(ledger.active >= asset::existential_deposit::<T>(), Error::<T>::InsufficientBond);
 
 		// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 		ledger.update()?;
@@ -198,7 +198,7 @@ impl<T: Config> Pallet<T> {
 		}
 		let new_total = ledger.total;
 
-		let ed = T::Currency::minimum_balance();
+		let ed = asset::existential_deposit::<T>();
 		let used_weight =
 			if ledger.unlocking.is_empty() && (ledger.active < ed || ledger.active.is_zero()) {
 				// This account must have called `unbond()` with some value that caused the active

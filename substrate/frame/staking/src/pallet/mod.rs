@@ -1023,7 +1023,7 @@ pub mod pallet {
 			}
 
 			// Reject a bond which is considered to be _dust_.
-			if value < T::Currency::minimum_balance() {
+			if value < asset::existential_deposit::<T>() {
 				return Err(Error::<T>::InsufficientBond.into())
 			}
 
@@ -1067,7 +1067,7 @@ pub mod pallet {
 
 		/// Schedule a portion of the stash to be unlocked ready for transfer out after the bond
 		/// period ends. If this leaves an amount actively bonded less than
-		/// T::Currency::minimum_balance(), then it is increased to the full amount.
+		/// asset::existential_deposit::<T>(), then it is increased to the full amount.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
 		///
@@ -1123,7 +1123,7 @@ pub mod pallet {
 				ledger.active -= value;
 
 				// Avoid there being a dust balance left in the staking system.
-				if ledger.active < T::Currency::minimum_balance() {
+				if ledger.active < asset::existential_deposit::<T>() {
 					value += ledger.active;
 					ledger.active = Zero::zero();
 				}
@@ -1653,7 +1653,7 @@ pub mod pallet {
 			let initial_unlocking = ledger.unlocking.len() as u32;
 			let (ledger, rebonded_value) = ledger.rebond(value);
 			// Last check: the new active amount of ledger must be more than ED.
-			ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
+			ensure!(ledger.active >= asset::existential_deposit::<T>(), Error::<T>::InsufficientBond);
 
 			Self::deposit_event(Event::<T>::Bonded {
 				stash: ledger.stash.clone(),
@@ -1705,7 +1705,7 @@ pub mod pallet {
 			// virtual stakers should not be allowed to be reaped.
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
-			let ed = T::Currency::minimum_balance();
+			let ed = asset::existential_deposit::<T>();
 			let origin_balance = T::Currency::total_balance(&stash);
 			let ledger_total =
 				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
