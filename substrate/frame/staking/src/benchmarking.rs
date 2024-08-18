@@ -18,7 +18,7 @@
 //! Staking pallet benchmarking.
 
 use super::*;
-use crate::{ConfigOp, Pallet as Staking};
+use crate::{asset, ConfigOp, Pallet as Staking};
 use testing_utils::*;
 
 use codec::Decode;
@@ -167,7 +167,7 @@ impl<T: Config> ListScenario<T> {
 		ensure!(!origin_weight.is_zero(), "origin weight must be greater than 0");
 
 		// burn the entire issuance.
-		let i = T::Currency::burn(T::Currency::total_issuance());
+		let i = asset::burn::<T>(asset::total_issuance::<T>());
 		core::mem::forget(i);
 
 		// create accounts with the origin weight
@@ -197,7 +197,7 @@ impl<T: Config> ListScenario<T> {
 		let dest_weight_as_vote =
 			T::VoterList::score_update_worst_case(&origin_stash1, is_increase);
 
-		let total_issuance = T::Currency::total_issuance();
+		let total_issuance = asset::total_issuance::<T>();
 
 		let dest_weight =
 			T::CurrencyToVote::to_currency(dest_weight_as_vote as u128, total_issuance);
@@ -264,7 +264,7 @@ benchmarks! {
 		clear_validators_and_nominators::<T>();
 
 		// setup the worst case list scenario.
-		let total_issuance = T::Currency::total_issuance();
+		let total_issuance = asset::total_issuance::<T>();
 		// the weight the nominator will start at. The value used here is expected to be
 		// significantly higher than the first position in a list (e.g. the first bag threshold).
 		let origin_weight = BalanceOf::<T>::try_from(952_994_955_240_703u128)

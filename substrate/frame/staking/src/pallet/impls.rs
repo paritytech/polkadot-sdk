@@ -142,7 +142,7 @@ impl<T: Config> Pallet<T> {
 	pub fn weight_of_fn() -> Box<dyn Fn(&T::AccountId) -> VoteWeight> {
 		// NOTE: changing this to unboxed `impl Fn(..)` return type and the pallet will still
 		// compile, while some types in mock fail to resolve.
-		let issuance = T::Currency::total_issuance();
+		let issuance = asset::total_issuance::<T>();
 		Box::new(move |who: &T::AccountId| -> VoteWeight {
 			Self::slashable_balance_of_vote_weight(who, issuance)
 		})
@@ -150,7 +150,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Same as `weight_of_fn`, but made for one time use.
 	pub fn weight_of(who: &T::AccountId) -> VoteWeight {
-		let issuance = T::Currency::total_issuance();
+		let issuance = asset::total_issuance::<T>();
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
@@ -576,7 +576,7 @@ impl<T: Config> Pallet<T> {
 			let era_duration = (now_as_millis_u64.defensive_saturating_sub(active_era_start))
 				.saturated_into::<u64>();
 			let staked = Self::eras_total_stake(&active_era.index);
-			let issuance = T::Currency::total_issuance();
+			let issuance = asset::total_issuance::<T>();
 
 			let (validator_payout, remainder) =
 				T::EraPayout::era_payout(staked, issuance, era_duration);
@@ -748,7 +748,7 @@ impl<T: Config> Pallet<T> {
 	fn collect_exposures(
 		supports: BoundedSupportsOf<T::ElectionProvider>,
 	) -> BoundedVec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>), MaxWinnersOf<T>> {
-		let total_issuance = T::Currency::total_issuance();
+		let total_issuance = asset::total_issuance::<T>();
 		let to_currency = |e: frame_election_provider_support::ExtendedBalance| {
 			T::CurrencyToVote::to_currency(e, total_issuance)
 		};
@@ -1581,7 +1581,7 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 		// also, we play a trick to make sure that a issuance based-`CurrencyToVote` behaves well:
 		// This will make sure that total issuance is zero, thus the currency to vote will be a 1-1
 		// conversion.
-		let imbalance = T::Currency::burn(T::Currency::total_issuance());
+		let imbalance = asset::burn::<T>(asset::total_issuance::<T>());
 		// kinda ugly, but gets the job done. The fact that this works here is a HUGE exception.
 		// Don't try this pattern in other places.
 		core::mem::forget(imbalance);

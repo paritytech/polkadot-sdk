@@ -20,3 +20,15 @@ pub fn staked<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 pub fn existential_deposit<T: Config>() -> BalanceOf<T> {
     T::Currency::minimum_balance()
 }
+
+pub fn burn<T: Config>(amount: BalanceOf<T>) {
+	T::Currency::burn(amount);
+}
+
+pub fn total_issuance<T: Config>() -> BalanceOf<T> {
+	T::Currency::total_issuance()
+}
+
+pub fn set_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
+	T::Currency::make_free_balance_be(who, value);
+}
