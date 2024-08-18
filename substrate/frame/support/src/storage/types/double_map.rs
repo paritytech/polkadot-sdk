@@ -32,7 +32,6 @@ use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 
 use frame_support::storage::StorageDecodeNonDedupLength;
 use sp_arithmetic::traits::SaturatedConversion;
-// use sp_core::storage::StorageMap;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_std::prelude::*;
 
@@ -1303,7 +1302,6 @@ where
 #[cfg(test)]
 mod test {
 	use super::*;
-	//use crate::storage::StorageDoubleMap;
 	use crate::{hash::*, storage::types::ValueQuery};
 	use sp_io::{hashing::twox_128, TestExternalities};
 	use sp_metadata_ir::{StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR};

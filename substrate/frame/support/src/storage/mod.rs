@@ -1589,29 +1589,7 @@ pub trait TryAppendValue<T: StorageTryAppend<I>, I: Encode> {
 	/// This might fail if bounds are not respected.
 	fn try_append<LikeI: EncodeLike<I>>(item: LikeI) -> Result<(), ()>;
 }
-/*
-impl<T, I> TryAppendValue<T, I> for ValueT
-where
-	I: Encode,
-	T: FullCodec + StorageTryAppend<I>,
 
-{
-	fn try_append<LikeI: EncodeLike<I>>(item: LikeI) -> Result<(), ()> {
-		let bound = T::bound();
-		let current = Self::decode_len().unwrap_or_default();
-		if current < bound {
-			// NOTE: we cannot reuse the implementation for `Vec<T>` here because we never want to
-			// mark `BoundedVec<T, S>` as `StorageAppend`.
-			let key = Self::storage_value_final_key();
-			sp_io::storage::append(&key, item.encode());
-			Ok(())
-		} else {
-			Err(())
-		}
-	}
-}
-
-*/
 /// Storage map that is capable of [`StorageTryAppend`].
 pub trait TryAppendMap<K: Encode, T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage map at the given `key`.

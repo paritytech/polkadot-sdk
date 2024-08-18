@@ -19,7 +19,6 @@
 //! methods directly.
 
 use crate::{
-	// hash::{ReversibleStorageHasher, StorageHasher},
 	storage::{
 		self, storage_prefix,
 		types::{OptionQuery, QueryKindTrait, StorageEntryMetadataBuilder},

@@ -19,7 +19,6 @@
 
 use crate::{
 	storage::{
-		//generator::StorageMap as _,
 		types::{
 			OptionQuery, QueryKindTrait, StorageEntryMetadataBuilder, StorageMap, StorageValue,
 			ValueQuery,
