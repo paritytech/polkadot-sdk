@@ -50,7 +50,7 @@ use sp_staking::{
 };
 
 use crate::{
-	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
+	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
@@ -96,7 +96,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn inspect_bond_state(
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
-		let lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
+		let lock = asset::staked::<T>(&stash);
 
 		let controller = <Bonded<T>>::get(stash).ok_or_else(|| {
 			if lock == Zero::zero() {
@@ -2097,7 +2097,7 @@ impl<T: Config> Pallet<T> {
 				// ensure locks consistency.
 				if VirtualStakers::<T>::contains_key(stash.clone()) {
 					ensure!(
-						T::Currency::balance_locked(crate::STAKING_ID, &stash) == Zero::zero(),
+						asset::staked::<T>(&stash) == Zero::zero(),
 						"virtual stakers should not have any locked balance"
 					);
 					ensure!(

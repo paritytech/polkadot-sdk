@@ -18,7 +18,7 @@
 //! Tests for the module.
 
 use super::{ConfigOp, Event, *};
-use crate::ledger::StakingLedgerInspect;
+use crate::{asset, ledger::StakingLedgerInspect};
 use frame_election_provider_support::{
 	bounds::{DataProviderBounds, ElectionBoundsBuilder},
 	ElectionProvider, SortedListProvider, Support,
@@ -7222,7 +7222,7 @@ mod staking_unchecked {
 
 			// stake
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(200), 1000, RewardDestination::Staked));
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 1000);
+			assert_eq!(asset::staked::<Test>(&200), 1000);
 
 			// migrate them to virtual staker
 			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&200);
@@ -7230,7 +7230,7 @@ mod staking_unchecked {
 			assert_ok!(<Staking as StakingInterface>::set_payee(&200, &201));
 
 			// ensure the balance is not locked anymore
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 0);
+			assert_eq!(asset::staked::<Test>(&200), 0);
 
 			// and they are marked as virtual stakers
 			assert_eq!(Pallet::<Test>::is_virtual_staker(&200), true);
@@ -7900,7 +7900,7 @@ mod ledger_recovery {
 		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
-			let lock_333_before = Balances::balance_locked(crate::STAKING_ID, &333);
+			let lock_333_before = asset::staked::<Test>(&333);
 
 			// get into corrupted and killed ledger state by killing a corrupted ledger:
 			// init state:
@@ -7936,14 +7936,14 @@ mod ledger_recovery {
 
 			// side effects on 333 - ledger, bonded, payee, lock should be completely empty.
 			// however, 333 lock remains.
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before); // NOK
+			assert_eq!(asset::staked::<Test>(&333), lock_333_before); // NOK
 			assert!(Bonded::<Test>::get(&333).is_none()); // OK
 			assert!(Payee::<Test>::get(&333).is_none()); // OK
 			assert!(Ledger::<Test>::get(&444).is_none()); // OK
 
 			// side effects on 444 - ledger, bonded, payee, lock should remain be intact.
 			// however, 444 lock was removed.
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), 0); // NOK
+			assert_eq!(asset::staked::<Test>(&444), 0); // NOK
 			assert!(Bonded::<Test>::get(&444).is_some()); // OK
 			assert!(Payee::<Test>::get(&444).is_some()); // OK
 			assert!(Ledger::<Test>::get(&555).is_none()); // NOK
@@ -7957,7 +7957,7 @@ mod ledger_recovery {
 		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
-			let lock_333_before = Balances::balance_locked(crate::STAKING_ID, &333);
+			let lock_333_before = asset::staked::<Test>(&333);
 
 			// get into corrupted and killed ledger state by killing a corrupted ledger:
 			// init state:
@@ -7992,14 +7992,14 @@ mod ledger_recovery {
 			assert_eq!(Staking::inspect_bond_state(&444), Err(Error::<Test>::NotStash));
 
 			// side effects on 333 - ledger, bonded, payee, lock should be intact.
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before); // OK
+			assert_eq!(asset::staked::<Test>(&333), lock_333_before); // OK
 			assert_eq!(Bonded::<Test>::get(&333), Some(444)); // OK
 			assert!(Payee::<Test>::get(&333).is_some()); // OK
 											 // however, ledger associated with its controller was killed.
 			assert!(Ledger::<Test>::get(&444).is_none()); // NOK
 
 			// side effects on 444 - ledger, bonded, payee, lock should be completely removed.
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), 0); // OK
+			assert_eq!(asset::staked::<Test>(&444), 0); // OK
 			assert!(Bonded::<Test>::get(&444).is_none()); // OK
 			assert!(Payee::<Test>::get(&444).is_none()); // OK
 			assert!(Ledger::<Test>::get(&555).is_none()); // OK
@@ -8080,7 +8080,7 @@ mod ledger_recovery {
 			setup_double_bonded_ledgers();
 
 			// ledger.total == lock
-			let total_444_before_corruption = Balances::balance_locked(crate::STAKING_ID, &444);
+			let total_444_before_corruption = asset::staked::<Test>(&444);
 
 			// get into corrupted and killed ledger state by killing a corrupted ledger:
 			// init state:
@@ -8182,8 +8182,8 @@ mod ledger_recovery {
 		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
-			let lock_333_before = Balances::balance_locked(crate::STAKING_ID, &333);
-			let lock_444_before = Balances::balance_locked(crate::STAKING_ID, &444);
+			let lock_333_before = asset::staked::<Test>(&333);
+			let lock_444_before = asset::staked::<Test>(&444);
 
 			// get into corrupted and killed ledger state by killing a corrupted ledger:
 			// init state:
@@ -8203,16 +8203,13 @@ mod ledger_recovery {
 
 			// if 444 bonds extra, the locks remain in sync.
 			bond_extra_no_checks(&444, 40);
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before);
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), lock_444_before + 40);
+			assert_eq!(asset::staked::<Test>(&333), lock_333_before);
+			assert_eq!(asset::staked::<Test>(&444), lock_444_before + 40);
 
 			// however if 333 bonds extra, the wrong lock is updated.
 			bond_extra_no_checks(&333, 30);
-			assert_eq!(
-				Balances::balance_locked(crate::STAKING_ID, &333),
-				lock_444_before + 40 + 30
-			); //not OK
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), lock_444_before + 40); // OK
+			assert_eq!(asset::staked::<Test>(&333), lock_444_before + 40 + 30); //not OK
+			assert_eq!(asset::staked::<Test>(&444), lock_444_before + 40); // OK
 
 			// recover the ledger bonded by 333 stash. Note that the total/lock needs to be
 			// re-written since on-chain data lock has become out of sync.
@@ -8247,9 +8244,9 @@ mod ledger_recovery {
 			let ledger_444 = Bonded::<Test>::get(&444).and_then(Ledger::<Test>::get).unwrap();
 
 			assert_eq!(ledger_333.total, lock_333_before + 30);
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), ledger_333.total);
+			assert_eq!(asset::staked::<Test>(&333), ledger_333.total);
 			assert_eq!(ledger_444.total, lock_444_before + 40);
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), ledger_444.total);
+			assert_eq!(asset::staked::<Test>(&444), ledger_444.total);
 
 			// try-state checks are ok now.
 			assert_ok!(Staking::do_try_state(System::block_number()));
