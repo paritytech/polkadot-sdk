@@ -656,9 +656,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#505" id="505">505</a>
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
-<a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1094,11 +1091,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">async fn </span>import_block_as_new_best&lt;Block, P&gt;(
-	hash: Block::Hash,
-	header: Block::Header,
-	<span class="kw-2">mut </span>parachain: <span class="kw-2">&amp;</span>P,
-) <span class="kw">where
+<span class="kw">async fn </span>import_block_as_new_best&lt;Block, P&gt;(hash: Block::Hash, header: Block::Header, parachain: <span class="kw-2">&amp;</span>P)
+<span class="kw">where
 	</span>Block: BlockT,
 	P: UsageProvider&lt;Block&gt; + Send + Sync + BlockBackend&lt;Block&gt;,
 	<span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>P: BlockImport&lt;Block&gt;,

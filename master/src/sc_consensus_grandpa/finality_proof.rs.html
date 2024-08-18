@@ -1068,7 +1068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; (Arc&lt;TestClient&gt;, Arc&lt;TestBackend&gt;, Vec&lt;Block&gt;) {
 		<span class="kw">let </span>builder = TestClientBuilder::new();
 		<span class="kw">let </span>backend = builder.backend();
-		<span class="kw">let </span><span class="kw-2">mut </span>client = Arc::new(builder.build());
+		<span class="kw">let </span>client = Arc::new(builder.build());
 
 		<span class="kw">let </span><span class="kw-2">mut </span>blocks = Vec::new();
 		<span class="kw">for _ in </span><span class="number">0</span>..number_of_blocks {

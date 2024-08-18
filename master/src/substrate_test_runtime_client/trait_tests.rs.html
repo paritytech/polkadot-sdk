@@ -743,7 +743,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// 			  B2 -&gt; C3
 	// 		A1 -&gt; D2
 
-	</span><span class="kw">let </span><span class="kw-2">mut </span>client = TestClientBuilder::with_backend(backend.clone()).build();
+	</span><span class="kw">let </span>client = TestClientBuilder::with_backend(backend.clone()).build();
 	<span class="kw">let </span>blockchain = backend.blockchain();
 
 	<span class="kw">let </span>genesis_hash = client.chain_info().genesis_hash;
@@ -918,7 +918,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// 			  B2 -&gt; C3
 	// 		A1 -&gt; D2
 
-	</span><span class="kw">let </span><span class="kw-2">mut </span>client = TestClientBuilder::with_backend(backend.clone()).build();
+	</span><span class="kw">let </span>client = TestClientBuilder::with_backend(backend.clone()).build();
 	<span class="kw">let </span>blockchain = backend.blockchain();
 	<span class="kw">let </span>genesis_hash = client.chain_info().genesis_hash;
 
@@ -1087,7 +1087,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// 		A1 -&gt; B2 -&gt; B3 -&gt; B4
 	// 			  B2 -&gt; C3
 	// 		A1 -&gt; D2
-	</span><span class="kw">let </span><span class="kw-2">mut </span>client = TestClientBuilder::with_backend(backend.clone()).build();
+	</span><span class="kw">let </span>client = TestClientBuilder::with_backend(backend.clone()).build();
 	<span class="kw">let </span>blockchain = backend.blockchain();
 	<span class="kw">let </span>genesis_hash = client.chain_info().genesis_hash;
 

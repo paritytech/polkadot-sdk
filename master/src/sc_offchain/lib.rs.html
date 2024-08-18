@@ -1147,7 +1147,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(client, backend) = substrate_test_runtime_client::TestClientBuilder::new()
 			.enable_offchain_indexing_api()
 			.build_with_backend();
-		<span class="kw">let </span><span class="kw-2">mut </span>client = Arc::new(client);
+		<span class="kw">let </span>client = Arc::new(client);
 		<span class="kw">let </span>offchain_db = backend.offchain_storage().unwrap();
 
 		<span class="kw">let </span>key = <span class="kw-2">&amp;</span><span class="string">b"hello"</span>[..];

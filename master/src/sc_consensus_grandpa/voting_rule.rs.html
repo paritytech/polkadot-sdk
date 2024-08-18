@@ -972,7 +972,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// where each subtracts 50 blocks from the current target
 		</span><span class="kw">let </span>rule = VotingRulesBuilder::new().add(Subtract(<span class="number">50</span>)).add(Subtract(<span class="number">50</span>)).build();
 
-		<span class="kw">let </span><span class="kw-2">mut </span>client = Arc::new(TestClientBuilder::new().build());
+		<span class="kw">let </span>client = Arc::new(TestClientBuilder::new().build());
 		<span class="kw">let </span><span class="kw-2">mut </span>hashes = Vec::with_capacity(<span class="number">200</span>);
 
 		<span class="kw">for _ in </span><span class="number">0</span>..<span class="number">200 </span>{
@@ -1021,7 +1021,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>before_best_by_has_cutoff_at_base() {
 		<span class="kw">let </span>rule = BeforeBestBlockBy(<span class="number">2</span>);
 
-		<span class="kw">let </span><span class="kw-2">mut </span>client = Arc::new(TestClientBuilder::new().build());
+		<span class="kw">let </span>client = Arc::new(TestClientBuilder::new().build());
 
 		<span class="kw">let </span>n = <span class="number">5</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>hashes = Vec::with_capacity(n);

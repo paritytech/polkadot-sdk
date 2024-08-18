@@ -2160,7 +2160,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			block
 		};
 
-		<span class="kw">let </span>import_and_maintain = |<span class="kw-2">mut </span>client: Arc&lt;TestClient&gt;, block: TestBlock| {
+		<span class="kw">let </span>import_and_maintain = |client: Arc&lt;TestClient&gt;, block: TestBlock| {
 			<span class="kw">let </span>hash = block.hash();
 			block_on(client.import(BlockOrigin::Own, block)).unwrap();
 			block_on(txpool.maintain(chain_event(

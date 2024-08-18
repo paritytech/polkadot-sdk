@@ -626,7 +626,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		import_block.insert_intermediate(INTERMEDIATE_KEY, intermediate);
 
 		<span class="kw">let </span>header = import_block.post_header();
-		<span class="kw">let </span><span class="kw-2">mut </span>block_import = <span class="self">self</span>.block_import.lock();
+		<span class="kw">let </span>block_import = <span class="self">self</span>.block_import.lock();
 
 		<span class="kw">match </span>block_import.import_block(import_block).<span class="kw">await </span>{
 			<span class="prelude-val">Ok</span>(res) =&gt; {

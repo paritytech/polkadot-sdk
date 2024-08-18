@@ -995,6 +995,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#844" id="844">844</a>
 <a href="#845" id="845">845</a>
 <a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1017,6 +1019,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>codec::Decode;
 <span class="kw">use </span>log::debug;
+<span class="kw">use </span>parking_lot::Mutex;
 
 <span class="kw">use </span>sc_client_api::{backend::Backend, utils::is_descendent_of};
 <span class="kw">use </span>sc_consensus::{
@@ -1059,7 +1062,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	select_chain: SC,
 	authority_set: SharedAuthoritySet&lt;Block::Hash, NumberFor&lt;Block&gt;&gt;,
 	send_voter_commands: TracingUnboundedSender&lt;VoterCommand&lt;Block::Hash, NumberFor&lt;Block&gt;&gt;&gt;,
-	authority_set_hard_forks: HashMap&lt;Block::Hash, PendingChange&lt;Block::Hash, NumberFor&lt;Block&gt;&gt;&gt;,
+	authority_set_hard_forks:
+		Mutex&lt;HashMap&lt;Block::Hash, PendingChange&lt;Block::Hash, NumberFor&lt;Block&gt;&gt;&gt;&gt;,
 	justification_sender: GrandpaJustificationSender&lt;Block&gt;,
 	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
 	_phantom: PhantomData&lt;Backend&gt;,
@@ -1075,7 +1079,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			select_chain: <span class="self">self</span>.select_chain.clone(),
 			authority_set: <span class="self">self</span>.authority_set.clone(),
 			send_voter_commands: <span class="self">self</span>.send_voter_commands.clone(),
-			authority_set_hard_forks: <span class="self">self</span>.authority_set_hard_forks.clone(),
+			authority_set_hard_forks: Mutex::new(<span class="self">self</span>.authority_set_hard_forks.lock().clone()),
 			justification_sender: <span class="self">self</span>.justification_sender.clone(),
 			telemetry: <span class="self">self</span>.telemetry.clone(),
 			_phantom: PhantomData,
@@ -1239,7 +1243,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		hash: Block::Hash,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;PendingChange&lt;Block::Hash, NumberFor&lt;Block&gt;&gt;&gt; {
 		<span class="comment">// check for forced authority set hard forks
-		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(change) = <span class="self">self</span>.authority_set_hard_forks.get(<span class="kw-2">&amp;</span>hash) {
+		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(change) = <span class="self">self</span>.authority_set_hard_forks.lock().get(<span class="kw-2">&amp;</span>hash) {
 			<span class="kw">return </span><span class="prelude-val">Some</span>(change.clone())
 		}
 
@@ -1458,7 +1462,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Import whole new state and reset authority set.
 	</span><span class="kw">async fn </span>import_state(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		<span class="kw-2">mut </span>block: BlockImportParams&lt;Block&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ImportResult, ConsensusError&gt; {
 		<span class="kw">let </span>hash = block.post_hash();
@@ -1471,7 +1475,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// We've just imported a new state. We trust the sync module has verified
 				// finality proofs and that the state is correct and final.
 				// So we can read the authority list and set id from the state.
-				</span><span class="self">self</span>.authority_set_hard_forks.clear();
+				</span><span class="self">self</span>.authority_set_hard_forks.lock().clear();
 				<span class="kw">let </span>authorities = <span class="self">self
 					</span>.inner
 					.runtime_api()
@@ -1520,7 +1524,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Error = ConsensusError;
 
 	<span class="kw">async fn </span>import_block(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		<span class="kw-2">mut </span>block: BlockImportParams&lt;Block&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ImportResult, <span class="self">Self</span>::Error&gt; {
 		<span class="kw">let </span>hash = block.post_hash();
@@ -1747,7 +1751,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			select_chain,
 			authority_set,
 			send_voter_commands,
-			authority_set_hard_forks,
+			authority_set_hard_forks: Mutex::new(authority_set_hard_forks),
 			justification_sender,
 			telemetry,
 			_phantom: PhantomData,
@@ -1766,7 +1770,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// If `enacts_change` is set to true, then finalizing this block *must*
 	/// enact an authority set change, the function will panic otherwise.
 	</span><span class="kw">fn </span>import_justification(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		hash: Block::Hash,
 		number: NumberFor&lt;Block&gt;,
 		justification: Justification,

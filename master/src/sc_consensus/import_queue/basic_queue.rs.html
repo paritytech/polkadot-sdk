@@ -1360,7 +1360,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">async fn </span>import_block(
-			<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
 			_block: BlockImportParams&lt;Block&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;ImportResult, <span class="self">Self</span>::Error&gt; {
 			<span class="prelude-val">Ok</span>(ImportResult::imported(<span class="bool-val">true</span>))

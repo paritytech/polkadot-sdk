@@ -1151,7 +1151,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>transaction_found() {
-		<span class="kw">let </span><span class="kw-2">mut </span>client = TestClientBuilder::with_tx_storage(u32::MAX).build();
+		<span class="kw">let </span>client = TestClientBuilder::with_tx_storage(u32::MAX).build();
 		<span class="kw">let </span><span class="kw-2">mut </span>block_builder = BlockBuilderBuilder::new(<span class="kw-2">&amp;</span>client)
 			.on_parent_block(client.chain_info().genesis_hash)
 			.with_parent_block_number(<span class="number">0</span>)

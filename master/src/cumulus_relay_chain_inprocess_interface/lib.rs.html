@@ -1081,7 +1081,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>returns_directly_for_available_block() {
-		<span class="kw">let </span>(<span class="kw-2">mut </span>client, block, relay_chain_interface) = build_client_backend_and_block();
+		<span class="kw">let </span>(client, block, relay_chain_interface) = build_client_backend_and_block();
 		<span class="kw">let </span>hash = block.hash();
 
 		block_on(client.import(BlockOrigin::Own, block)).expect(<span class="string">"Imports the block"</span>);
@@ -1097,7 +1097,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>resolve_after_block_import_notification_was_received() {
-		<span class="kw">let </span>(<span class="kw-2">mut </span>client, block, relay_chain_interface) = build_client_backend_and_block();
+		<span class="kw">let </span>(client, block, relay_chain_interface) = build_client_backend_and_block();
 		<span class="kw">let </span>hash = block.hash();
 
 		block_on(<span class="kw">async move </span>{
@@ -1126,7 +1126,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>do_not_resolve_after_different_block_import_notification_was_received() {
-		<span class="kw">let </span>(<span class="kw-2">mut </span>client, block, relay_chain_interface) = build_client_backend_and_block();
+		<span class="kw">let </span>(client, block, relay_chain_interface) = build_client_backend_and_block();
 		<span class="kw">let </span>hash = block.hash();
 
 		<span class="kw">let </span>ext = construct_transfer_extrinsic(

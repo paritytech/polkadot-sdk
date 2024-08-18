@@ -2501,7 +2501,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>produce_blocks(
-		<span class="kw-2">mut </span>client: Arc&lt;Client&lt;sc_client_api::in_mem::Backend&lt;Block&gt;&gt;&gt;,
+		client: Arc&lt;Client&lt;sc_client_api::in_mem::Backend&lt;Block&gt;&gt;&gt;,
 		num_blocks: usize,
 	) -&gt; Vec&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>blocks = Vec::with_capacity(num_blocks);

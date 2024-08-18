@@ -355,9 +355,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -402,25 +399,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[async_trait::async_trait]
 </span><span class="kw">pub trait </span>ClientBlockImportExt&lt;Block: BlockT&gt;: Sized {
 	<span class="doccomment">/// Import block to the chain. No finality.
-	</span><span class="kw">async fn </span>import(<span class="kw-2">&amp;mut </span><span class="self">self</span>, origin: BlockOrigin, block: Block) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusError&gt;;
+	</span><span class="kw">async fn </span>import(<span class="kw-2">&amp;</span><span class="self">self</span>, origin: BlockOrigin, block: Block) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusError&gt;;
 
 	<span class="doccomment">/// Import a block and make it our best block if possible.
-	</span><span class="kw">async fn </span>import_as_best(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		origin: BlockOrigin,
-		block: Block,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusError&gt;;
+	</span><span class="kw">async fn </span>import_as_best(<span class="kw-2">&amp;</span><span class="self">self</span>, origin: BlockOrigin, block: Block)
+		-&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusError&gt;;
 
 	<span class="doccomment">/// Import a block and finalize it.
 	</span><span class="kw">async fn </span>import_as_final(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		origin: BlockOrigin,
 		block: Block,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusError&gt;;
 
 	<span class="doccomment">/// Import block with justification(s), finalizes block.
 	</span><span class="kw">async fn </span>import_justified(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		origin: BlockOrigin,
 		block: Block,
 		justifications: Justifications,
@@ -454,7 +448,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	for</span>&lt;<span class="lifetime">'r</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">'r </span>T: BlockImport&lt;Block, Error = ConsensusError&gt;,
 	T: Send + Sync,
 {
-	<span class="kw">async fn </span>import(<span class="kw-2">&amp;mut </span><span class="self">self</span>, origin: BlockOrigin, block: Block) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusError&gt; {
+	<span class="kw">async fn </span>import(<span class="kw-2">&amp;</span><span class="self">self</span>, origin: BlockOrigin, block: Block) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusError&gt; {
 		<span class="kw">let </span>(header, extrinsics) = block.deconstruct();
 		<span class="kw">let </span><span class="kw-2">mut </span>import = BlockImportParams::new(origin, header);
 		import.body = <span class="prelude-val">Some</span>(extrinsics);
@@ -464,7 +458,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">async fn </span>import_as_best(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		origin: BlockOrigin,
 		block: Block,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusError&gt; {
@@ -477,7 +471,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">async fn </span>import_as_final(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		origin: BlockOrigin,
 		block: Block,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusError&gt; {
@@ -491,7 +485,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">async fn </span>import_justified(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		origin: BlockOrigin,
 		block: Block,
 		justifications: Justifications,
@@ -511,11 +505,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">impl</span>&lt;B, E, RA, Block: BlockT&gt; ClientBlockImportExt&lt;Block&gt; <span class="kw">for </span>Client&lt;B, E, Block, RA&gt;
 <span class="kw">where
 	</span><span class="self">Self</span>: BlockImport&lt;Block, Error = ConsensusError&gt;,
-	RA: Send,
+	RA: Send + Sync,
 	B: Send + Sync,
 	E: Send + Sync,
 {
-	<span class="kw">async fn </span>import(<span class="kw-2">&amp;mut </span><span class="self">self</span>, origin: BlockOrigin, block: Block) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusError&gt; {
+	<span class="kw">async fn </span>import(<span class="kw-2">&amp;</span><span class="self">self</span>, origin: BlockOrigin, block: Block) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusError&gt; {
 		<span class="kw">let </span>(header, extrinsics) = block.deconstruct();
 		<span class="kw">let </span><span class="kw-2">mut </span>import = BlockImportParams::new(origin, header);
 		import.body = <span class="prelude-val">Some</span>(extrinsics);
@@ -525,7 +519,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">async fn </span>import_as_best(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		origin: BlockOrigin,
 		block: Block,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusError&gt; {
@@ -538,7 +532,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">async fn </span>import_as_final(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		origin: BlockOrigin,
 		block: Block,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusError&gt; {
@@ -552,7 +546,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">async fn </span>import_justified(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		origin: BlockOrigin,
 		block: Block,
 		justifications: Justifications,

@@ -592,7 +592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[test]
 </span><span class="kw">fn </span>basic_buy_fees_message_executes() {
 	sp_tracing::try_init_simple();
-	<span class="kw">let </span><span class="kw-2">mut </span>client = TestClientBuilder::new().build();
+	<span class="kw">let </span>client = TestClientBuilder::new().build();
 
 	<span class="kw">let </span>msg = Xcm(<span class="macro">vec!</span>[
 		WithdrawAsset((Parent, <span class="number">100</span>).into()),
@@ -633,7 +633,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[test]
 </span><span class="kw">fn </span>transact_recursion_limit_works() {
 	sp_tracing::try_init_simple();
-	<span class="kw">let </span><span class="kw-2">mut </span>client = TestClientBuilder::new().build();
+	<span class="kw">let </span>client = TestClientBuilder::new().build();
 
 	<span class="kw">let </span>base_xcm = |call: polkadot_test_runtime::RuntimeCall| {
 		Xcm(<span class="macro">vec!</span>[
@@ -732,7 +732,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>polkadot_test_runtime::RuntimeEvent::TestNotifier;
 
 	sp_tracing::try_init_simple();
-	<span class="kw">let </span><span class="kw-2">mut </span>client = TestClientBuilder::new().build();
+	<span class="kw">let </span>client = TestClientBuilder::new().build();
 
 	<span class="kw">let </span><span class="kw-2">mut </span>block_builder = client.init_polkadot_block_builder();
 
@@ -814,7 +814,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>polkadot_test_runtime::RuntimeEvent::TestNotifier;
 
 	sp_tracing::try_init_simple();
-	<span class="kw">let </span><span class="kw-2">mut </span>client = TestClientBuilder::new().build();
+	<span class="kw">let </span>client = TestClientBuilder::new().build();
 
 	<span class="kw">let </span><span class="kw-2">mut </span>block_builder = client.init_polkadot_block_builder();
 
@@ -890,7 +890,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[test]
 </span><span class="kw">fn </span>deposit_reserve_asset_works_for_any_xcm_sender() {
 	sp_tracing::try_init_simple();
-	<span class="kw">let </span><span class="kw-2">mut </span>client = TestClientBuilder::new().build();
+	<span class="kw">let </span>client = TestClientBuilder::new().build();
 
 	<span class="comment">// Init values for the simulated origin Parachain
 	</span><span class="kw">let </span>amount_to_send: u128 = <span class="number">1_000_000_000_000</span>;

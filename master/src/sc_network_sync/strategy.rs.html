@@ -1430,7 +1430,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>set_target_block_finished_warp_sync() {
 		<span class="comment">// Populate database with finalized state.
-		</span><span class="kw">let </span><span class="kw-2">mut </span>client = Arc::new(TestClientBuilder::new().build());
+		</span><span class="kw">let </span>client = Arc::new(TestClientBuilder::new().build());
 		<span class="kw">let </span>block = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span>client)
 			.on_parent_block(client.chain_info().best_hash)
 			.with_parent_block_number(client.chain_info().best_number)
