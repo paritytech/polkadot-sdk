@@ -1019,14 +1019,14 @@ mod tests {
 
 			let current_era = CurrentEra::<Test>::get().unwrap();
 
-			let original_free_balance = Balances::free_balance(&validator_stash);
+			let original_free_balance = asset::stakeable_balance::<Test>(&validator_stash);
 			assert_ok!(Staking::payout_stakers_by_page(
 				RuntimeOrigin::signed(1337),
 				validator_stash,
 				current_era,
 				0
 			));
-			let new_free_balance = Balances::free_balance(&validator_stash);
+			let new_free_balance = asset::stakeable_balance::<Test>(&validator_stash);
 
 			assert!(original_free_balance < new_free_balance);
 		});

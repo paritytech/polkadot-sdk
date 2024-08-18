@@ -25,6 +25,13 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
+		fungible::{
+			hold::{
+				Balanced as FunHoldBalanced, Inspect as FunHoldInspect, Mutate as FunHoldMutate,
+			},
+			Balanced, Inspect as FunInspect, Mutate as FunMutate,
+		},
+		tokens::Precision,
 		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
 		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime,
 	},
@@ -95,6 +102,19 @@ pub mod pallet {
 				Moment = BlockNumberFor<Self>,
 				Balance = Self::CurrencyBalance,
 			> + InspectLockableCurrency<Self::AccountId>;
+
+		#[pallet::no_default]
+		type Fungible: FunHoldMutate<
+				Self::AccountId,
+				Reason = Self::RuntimeHoldReason,
+				Balance = Self::CurrencyBalance,
+			> + FunMutate<Self::AccountId, Balance = Self::CurrencyBalance>
+			+ FunHoldBalanced<Self::AccountId, Balance = Self::CurrencyBalance>;
+
+		/// Overarching hold reason.
+		#[pallet::no_default_bounds]
+		type RuntimeHoldReason: From<HoldReason>;
+
 		/// Just the `Currency::Balance` type; we have this item to allow us to constrain it to
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
@@ -105,6 +125,8 @@ pub mod pallet {
 			+ Default
 			+ From<u64>
 			+ TypeInfo
+			+ Send
+			+ Sync
 			+ MaxEncodedLen;
 		/// Time used for computing era duration.
 		///
@@ -308,6 +330,14 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
+	/// A reason for placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Funds held for stake delegation to another account.
+		#[codec(index = 0)]
+		Staking,
+	}
+
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
@@ -326,6 +356,8 @@ pub mod pallet {
 		impl DefaultConfig for TestDefaultConfig {
 			#[inject_runtime_type]
 			type RuntimeEvent = ();
+			#[inject_runtime_type]
+			type RuntimeHoldReason = ();
 			type CurrencyBalance = u128;
 			type CurrencyToVote = ();
 			type NominationsQuota = crate::FixedNominationsQuota<16>;
@@ -2086,7 +2118,7 @@ pub mod pallet {
 					let new_total = if let Some(total) = maybe_total {
 						let new_total = total.min(stash_balance);
 						// enforce lock == ledger.amount.
-						asset::update_stake::<T>(&stash, new_total);
+						asset::update_stake::<T>(&stash, new_total)?;
 						new_total
 					} else {
 						current_lock
@@ -2113,13 +2145,13 @@ pub mod pallet {
 					// to enforce a new ledger.total and staking lock for this stash.
 					let new_total =
 						maybe_total.ok_or(Error::<T>::CannotRestoreLedger)?.min(stash_balance);
-					asset::update_stake::<T>(&stash, new_total);
+					asset::update_stake::<T>(&stash, new_total)?;
 
 					Ok((stash.clone(), new_total))
 				},
 				Err(Error::<T>::BadState) => {
 					// the stash and ledger do not exist but lock is lingering.
-					asset::kill_stake::<T>(&stash);
+					asset::kill_stake::<T>(&stash)?;
 					ensure!(
 						Self::inspect_bond_state(&stash) == Err(Error::<T>::NotStash),
 						Error::<T>::BadState

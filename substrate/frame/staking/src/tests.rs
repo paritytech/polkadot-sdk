@@ -108,7 +108,7 @@ fn force_unstake_works() {
 		// Cant transfer
 		assert_noop!(
 			Balances::transfer_allow_death(RuntimeOrigin::signed(11), 1, 10),
-			TokenError::Frozen,
+			TokenError::FundsUnavailable,
 		);
 		// Force unstake requires root.
 		assert_noop!(Staking::force_unstake(RuntimeOrigin::signed(11), 11, 2), BadOrigin);
@@ -490,7 +490,7 @@ fn staking_should_work() {
 			}
 		);
 		// e.g. it cannot reserve more than 500 that it has free from the total 2000
-		assert_noop!(Balances::reserve(&3, 501), BalancesError::<Test, _>::LiquidityRestrictions);
+		assert_noop!(Balances::reserve(&3, 501), BalancesError::<Test, _>::InsufficientBalance);
 		assert_ok!(Balances::reserve(&3, 409));
 	});
 }
@@ -999,7 +999,7 @@ fn cannot_transfer_staked_balance() {
 		// Confirm account 11 cannot transfer as a result
 		assert_noop!(
 			Balances::transfer_allow_death(RuntimeOrigin::signed(11), 21, 1),
-			TokenError::Frozen,
+			TokenError::FundsUnavailable,
 		);
 
 		// Give account 11 extra free balance
@@ -1024,7 +1024,7 @@ fn cannot_transfer_staked_balance_2() {
 		// Confirm account 21 can transfer at most 1000
 		assert_noop!(
 			Balances::transfer_allow_death(RuntimeOrigin::signed(21), 21, 1001),
-			TokenError::Frozen,
+			TokenError::FundsUnavailable,
 		);
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(21), 21, 1000));
 	});
@@ -1041,7 +1041,7 @@ fn cannot_reserve_staked_balance() {
 		// Confirm account 11 (via controller 10) is totally staked
 		assert_eq!(Staking::eras_stakers(active_era(), &11).own, 1000);
 		// Confirm account 11 cannot reserve as a result
-		assert_noop!(Balances::reserve(&11, 1), BalancesError::<Test, _>::LiquidityRestrictions);
+		assert_noop!(Balances::reserve(&11, 1), BalancesError::<Test, _>::InsufficientBalance);
 
 		// Give account 11 extra free balance
 		let _ = asset::set_stakeable_balance::<Test>(&11, 10000);
@@ -2077,7 +2077,7 @@ fn bond_with_no_staked_value() {
 			);
 			// bonded with absolute minimum value possible.
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 5, RewardDestination::Account(1)));
-			assert_eq!(pallet_balances::Locks::<Test>::get(&1)[0].amount, 5);
+			assert_eq!(pallet_balances::Holds::<Test>::get(&1)[0].amount, 5);
 
 			// unbonding even 1 will cause all to be unbonded.
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(1), 1));
@@ -2098,14 +2098,14 @@ fn bond_with_no_staked_value() {
 			// not yet removed.
 			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(1), 0));
 			assert!(Staking::ledger(1.into()).is_ok());
-			assert_eq!(pallet_balances::Locks::<Test>::get(&1)[0].amount, 5);
+			assert_eq!(pallet_balances::Holds::<Test>::get(&1)[0].amount, 5);
 
 			mock::start_active_era(3);
 
 			// poof. Account 1 is removed from the staking system.
 			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(1), 0));
 			assert!(Staking::ledger(1.into()).is_err());
-			assert_eq!(pallet_balances::Locks::<Test>::get(&1).len(), 0);
+			assert_eq!(pallet_balances::Holds::<Test>::get(&1).len(), 0);
 		});
 }
 
@@ -2340,7 +2340,18 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 0));
 		assert_eq!(asset::total_balance::<Test>(&11), stake * 2);
 
-		// Set staker
+		// ensure ledger has `stake` and no more.
+		Ledger::<Test>::insert(
+			11,
+			StakingLedgerInspect {
+				stash: 11,
+				total: stake,
+				active: stake,
+				unlocking: Default::default(),
+				legacy_claimed_rewards: bounded_vec![1],
+			},
+		);
+		// Set staker (unsafe, can reduce balance below actual stake)
 		let _ = asset::set_stakeable_balance::<Test>(&11, stake);
 		let _ = asset::set_stakeable_balance::<Test>(&2, stake);
 
@@ -2812,8 +2823,8 @@ fn garbage_collection_after_slashing() {
 			// validator and nominator slash in era are garbage-collected by era change,
 			// so we don't test those here.
 
-			assert_eq!(asset::stakeable_balance::<Test>(&11), 2);
-			assert_eq!(asset::total_balance::<Test>(&11), 2);
+			assert_eq!(asset::stakeable_balance::<Test>(&11), 0);
+			assert_eq!(asset::total_balance::<Test>(&11), 0);
 
 			let slashing_spans = SlashingSpans::<Test>::get(&11).unwrap();
 			assert_eq!(slashing_spans.iter().count(), 2);
