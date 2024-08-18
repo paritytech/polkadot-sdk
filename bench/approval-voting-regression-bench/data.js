@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723823602713,
+  "lastUpdate": 1723964922847,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -15321,6 +15321,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.295491811880143,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Nazar Mokrynskyi",
+            "username": "nazar-pc",
+            "email": "nazar@mokrynskyi.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "feac7a521092c599d47df3e49084e6bff732c7db",
+          "message": "Replace unnecessary `&mut self` with `&self` in `BlockImport::import_block()` (#5339)\n\nThere was no need for it to be `&mut self` since block import can happen\nconcurrently for different blocks and in many cases it was `&mut Arc<dyn\nBlockImport>` anyway :man_shrugging:\n\nSimilar in nature to\nhttps://github.com/paritytech/polkadot-sdk/pull/4844",
+          "timestamp": "2024-08-18T05:23:46Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/feac7a521092c599d47df3e49084e6bff732c7db"
+        },
+        "date": 1723964892982,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63972.590000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52938.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.288442703410018,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.933371620160003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.211134508210249,
             "unit": "seconds"
           }
         ]
