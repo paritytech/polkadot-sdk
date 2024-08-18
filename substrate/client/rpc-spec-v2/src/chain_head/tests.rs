@@ -137,7 +137,7 @@ async fn setup_api() -> (
 		CHILD_VALUE.to_vec(),
 	);
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -186,7 +186,7 @@ async fn setup_api() -> (
 }
 
 async fn import_block(
-	mut client: Arc<Client<Backend>>,
+	client: Arc<Client<Backend>>,
 	parent_hash: <Block as BlockT>::Hash,
 	parent_number: u64,
 ) -> Block {
@@ -203,7 +203,7 @@ async fn import_block(
 }
 
 async fn import_best_block_with_tx(
-	mut client: Arc<Client<Backend>>,
+	client: Arc<Client<Backend>>,
 	parent_hash: <Block as BlockT>::Hash,
 	parent_number: u64,
 	tx: Transfer,
@@ -245,7 +245,7 @@ macro_rules! check_new_and_best_block_events {
 async fn follow_subscription_produces_blocks() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -316,7 +316,7 @@ async fn follow_subscription_produces_blocks() {
 async fn follow_with_runtime() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -469,7 +469,7 @@ async fn get_header() {
 
 #[tokio::test]
 async fn get_body() {
-	let (mut client, api, mut block_sub, sub_id, block) = setup_api().await;
+	let (client, api, mut block_sub, sub_id, block) = setup_api().await;
 	let block_hash = format!("{:?}", block.header.hash());
 	let invalid_hash = hex_string(&INVALID_HASH);
 
@@ -626,7 +626,7 @@ async fn call_runtime() {
 async fn call_runtime_without_flag() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -691,7 +691,7 @@ async fn call_runtime_without_flag() {
 
 #[tokio::test]
 async fn get_storage_hash() {
-	let (mut client, api, mut block_sub, sub_id, block) = setup_api().await;
+	let (client, api, mut block_sub, sub_id, block) = setup_api().await;
 	let block_hash = format!("{:?}", block.header.hash());
 	let invalid_hash = hex_string(&INVALID_HASH);
 	let key = hex_string(&KEY);
@@ -835,7 +835,7 @@ async fn get_storage_hash() {
 
 #[tokio::test]
 async fn get_storage_multi_query_iter() {
-	let (mut client, api, mut block_sub, sub_id, block) = setup_api().await;
+	let (client, api, mut block_sub, sub_id, block) = setup_api().await;
 	let key = hex_string(&KEY);
 
 	// Import a new block with storage changes.
@@ -959,7 +959,7 @@ async fn get_storage_multi_query_iter() {
 
 #[tokio::test]
 async fn get_storage_value() {
-	let (mut client, api, mut block_sub, sub_id, block) = setup_api().await;
+	let (client, api, mut block_sub, sub_id, block) = setup_api().await;
 	let block_hash = format!("{:?}", block.hash());
 	let invalid_hash = hex_string(&INVALID_HASH);
 	let key = hex_string(&KEY);
@@ -1287,7 +1287,7 @@ async fn unique_operation_ids() {
 async fn separate_operation_ids_for_subscriptions() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -1375,7 +1375,7 @@ async fn separate_operation_ids_for_subscriptions() {
 async fn follow_generates_initial_blocks() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -1533,7 +1533,7 @@ async fn follow_generates_initial_blocks() {
 async fn follow_exceeding_pinned_blocks() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -1612,7 +1612,7 @@ async fn follow_exceeding_pinned_blocks() {
 async fn follow_with_unpin() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -1720,7 +1720,7 @@ async fn follow_with_unpin() {
 async fn unpin_duplicate_hashes() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -1825,7 +1825,7 @@ async fn unpin_duplicate_hashes() {
 async fn follow_with_multiple_unpin_hashes() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -1972,7 +1972,7 @@ async fn follow_with_multiple_unpin_hashes() {
 async fn follow_prune_best_block() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -2160,7 +2160,7 @@ async fn follow_prune_best_block() {
 async fn follow_forks_pruned_block() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -2322,7 +2322,7 @@ async fn follow_forks_pruned_block() {
 async fn follow_report_multiple_pruned_block() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let api = ChainHead::new(
 		client.clone(),
@@ -2559,7 +2559,7 @@ async fn pin_block_references() {
 	)
 	.unwrap();
 
-	let mut client = Arc::new(
+	let client = Arc::new(
 		new_in_mem::<_, Block, _, RuntimeApi>(
 			backend.clone(),
 			executor,
@@ -2705,7 +2705,7 @@ async fn pin_block_references() {
 async fn follow_finalized_before_new_block() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	let client_mock = Arc::new(ChainHeadMockClient::new(client.clone()));
 
@@ -2823,7 +2823,7 @@ async fn ensure_operation_limits_works() {
 		CHILD_VALUE.to_vec(),
 	);
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	// Configure the chainHead with maximum 1 ongoing operations.
 	let api = ChainHead::new(
@@ -2930,7 +2930,7 @@ async fn check_continue_operation() {
 		CHILD_VALUE.to_vec(),
 	);
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	// Configure the chainHead with maximum 1 item before asking for pagination.
 	let api = ChainHead::new(
@@ -3115,7 +3115,7 @@ async fn stop_storage_operation() {
 		CHILD_VALUE.to_vec(),
 	);
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	// Configure the chainHead with maximum 1 item before asking for pagination.
 	let api = ChainHead::new(
@@ -3221,7 +3221,7 @@ async fn stop_storage_operation() {
 
 #[tokio::test]
 async fn storage_closest_merkle_value() {
-	let (mut client, api, mut sub, sub_id, block) = setup_api().await;
+	let (client, api, mut sub, sub_id, block) = setup_api().await;
 
 	/// The core of this test.
 	///
@@ -3414,7 +3414,7 @@ async fn storage_closest_merkle_value() {
 async fn chain_head_stop_all_subscriptions() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
-	let mut client = Arc::new(builder.build());
+	let client = Arc::new(builder.build());
 
 	// Configure the chainHead to stop all subscriptions on lagging distance of 5 blocks.
 	let api = ChainHead::new(

@@ -216,7 +216,7 @@ async fn should_notify_about_storage_changes() {
 	init_logger();
 
 	let mut sub = {
-		let mut client = Arc::new(substrate_test_runtime_client::new());
+		let client = Arc::new(substrate_test_runtime_client::new());
 		let (api, _child) = new_full(client.clone(), test_executor(), DenyUnsafe::No);
 
 		let api_rpc = api.into_rpc();
@@ -256,7 +256,7 @@ async fn should_send_initial_storage_changes_and_notifications() {
 	init_logger();
 
 	let mut sub = {
-		let mut client = Arc::new(substrate_test_runtime_client::new());
+		let client = Arc::new(substrate_test_runtime_client::new());
 		let (api, _child) = new_full(client.clone(), test_executor(), DenyUnsafe::No);
 
 		let alice_balance_key = [
@@ -304,10 +304,10 @@ async fn should_send_initial_storage_changes_and_notifications() {
 
 #[tokio::test]
 async fn should_query_storage() {
-	async fn run_tests(mut client: Arc<TestClient>) {
+	async fn run_tests(client: Arc<TestClient>) {
 		let (api, _child) = new_full(client.clone(), test_executor(), DenyUnsafe::No);
 
-		let mut add_block = |index| {
+		let add_block = |index| {
 			let mut builder = BlockBuilderBuilder::new(&*client)
 				.on_parent_block(client.chain_info().best_hash)
 				.with_parent_block_number(client.chain_info().best_number)
