@@ -133,7 +133,8 @@ impl<Prefix, Hasher1, Key1, Hasher2, Key2, Value, QueryKind, OnEmpty, MaxValues>
 			OnEmpty,
 			MaxValues,
 		>,
-	> where
+	>
+where
 	Prefix: StorageInstance,
 	Hasher1: crate::hash::StorageHasher,
 	Hasher2: crate::hash::StorageHasher,
@@ -163,33 +164,27 @@ where
 	MaxValues: Get<Option<u32>>,
 {
 	/// Pallet prefix. Used for generating final key.
-	#[deprecated]
-	fn pallet_prefix() -> &'static [u8] {
+	pub fn pallet_prefix() -> &'static [u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
 	/// Storage prefix. Used for generating final key.
-	#[deprecated]
-	fn storage_prefix() -> &'static [u8] {
+	pub fn storage_prefix() -> &'static [u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
 	}
 	/// The full prefix; just the hash of `pallet_prefix` concatenated to the hash of
 	/// `storage_prefix`.
-	#[deprecated]
-	fn prefix_hash() -> [u8; 32] {
+	pub fn prefix_hash() -> [u8; 32] {
 		Prefix::prefix_hash()
 	}
 	/// Convert an optional value retrieved from storage to the type queried.
-	#[deprecated]
-	fn from_optional_value_to_query(v: Option<Value>) -> QueryKind::Query {
+	pub fn from_optional_value_to_query(v: Option<Value>) -> QueryKind::Query {
 		QueryKind::from_optional_value_to_query(v)
 	}
 	/// Convert a query to an optional value into storage.
-	#[deprecated]
-	fn from_query_to_optional_value(v: QueryKind::Query) -> Option<Value> {
+	pub fn from_query_to_optional_value(v: QueryKind::Query) -> Option<Value> {
 		QueryKind::from_query_to_optional_value(v)
 	}
 	/// Generate the first part of the key used in top storage.
-	#[deprecated]
 	pub fn storage_double_map_final_key1<KArg1>(k1: KArg1) -> Vec<u8>
 	where
 		KArg1: EncodeLike<Key1>,
@@ -1312,8 +1307,8 @@ mod test {
 	use crate::{hash::*, storage::types::ValueQuery};
 	use sp_io::{hashing::twox_128, TestExternalities};
 	use sp_metadata_ir::{StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR};
-	use storage::types::test::{key_after_prefix, key_before_prefix, frame_system, Runtime};
 	use std::collections::BTreeSet;
+	use storage::types::test::{frame_system, key_after_prefix, key_before_prefix, Runtime};
 
 	struct Prefix;
 	impl StorageInstance for Prefix {

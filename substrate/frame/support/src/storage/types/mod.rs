@@ -155,7 +155,6 @@ mod test {
 	use sp_io::TestExternalities;
 	use sp_runtime::{generic, traits::BlakeTwo256, BuildStorage};
 
-
 	#[crate::pallet]
 	pub mod frame_system {
 		#[allow(unused)]
@@ -202,7 +201,7 @@ mod test {
 
 		#[pallet::storage]
 		pub type DoubleMap<T> =
-		StorageDoubleMap<_, Blake2_128Concat, u16, Twox64Concat, u32, u64, ValueQuery>;
+			StorageDoubleMap<_, Blake2_128Concat, u16, Twox64Concat, u32, u64, ValueQuery>;
 
 		#[pallet::storage]
 		pub type NMap<T> = StorageNMap<
@@ -381,7 +380,6 @@ mod test {
 				"don't change value"
 			);
 
-			
 			assert_noop!(
 				NumberMap::try_mutate(0, |value| -> Result<(), &'static str> {
 					*value = 4;
@@ -389,7 +387,6 @@ mod test {
 				}),
 				"don't change value"
 			);
-
 
 			assert_noop!(
 				DoubleMap::try_mutate(0, 0, |value| -> Result<(), &'static str> {
@@ -409,12 +406,10 @@ mod test {
 				Ok(())
 			}));
 
-			
 			assert_ok!(NumberMap::try_mutate(0, |value| -> Result<(), &'static str> {
 				*value = 4;
 				Ok(())
 			}));
-
 
 			assert_ok!(DoubleMap::try_mutate(0, 0, |value| -> Result<(), &'static str> {
 				*value = 6;

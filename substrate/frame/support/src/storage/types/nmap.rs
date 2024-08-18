@@ -102,37 +102,31 @@ where
 	QueryKind: QueryKindTrait<Value, OnEmpty>,
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
-{	
+{
 	/// Pallet prefix. Used for generating final key.
-	#[deprecated]
 	pub fn pallet_prefix() -> &'static [u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
 	/// Storage prefix. Used for generating final key.
-	#[deprecated]
 	pub fn storage_prefix() -> &'static [u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
 	}
 	/// The full prefix; just the hash of `pallet_prefix` concatenated to the hash of
 	/// `storage_prefix`.
-	#[deprecated]
 	pub fn prefix_hash() -> [u8; 32] {
 		Prefix::prefix_hash()
 	}
 	/// Convert an optional value retrieved from storage to the type queried.
-	#[deprecated]
 	pub fn from_optional_value_to_query(v: Option<Value>) -> QueryKind::Query {
 		QueryKind::from_optional_value_to_query(v)
 	}
 	/// Convert a query to an optional value into storage.
-	#[deprecated]
 	pub fn from_query_to_optional_value(v: QueryKind::Query) -> Option<Value> {
 		QueryKind::from_query_to_optional_value(v)
 	}
 
 	/// Generate a partial key used in top storage.
-	#[deprecated]
-	fn storage_n_map_partial_key<KP>(key: KP) -> Vec<u8>
+	pub fn storage_n_map_partial_key<KP>(key: KP) -> Vec<u8>
 	where
 		Key: HasKeyPrefix<KP>,
 	{
@@ -148,8 +142,7 @@ where
 	}
 
 	/// Generate the full key used in top storage.
-	#[deprecated]
-	fn storage_n_map_final_key<KG, KArg>(key: KArg) -> Vec<u8>
+	pub fn storage_n_map_final_key<KG, KArg>(key: KArg) -> Vec<u8>
 	where
 		KG: KeyGenerator,
 		KArg: EncodeLikeTuple<KG::KArg> + TupleToEncodedIter,
@@ -1063,7 +1056,7 @@ mod test {
 	};
 	use sp_io::{hashing::twox_128, TestExternalities};
 	use sp_metadata_ir::{StorageEntryModifierIR, StorageHasherIR};
-	use storage::types::test::{key_after_prefix, key_before_prefix, frame_system, Runtime};
+	use storage::types::test::{frame_system, key_after_prefix, key_before_prefix, Runtime};
 
 	struct Prefix;
 	impl StorageInstance for Prefix {
@@ -1781,7 +1774,6 @@ mod test {
 			}
 		});
 	}
-
 
 	#[test]
 	fn n_map_reversible_reversible_iteration() {
