@@ -949,15 +949,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#798" id="798">798</a>
 <a href="#799" id="799">799</a>
 <a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
-<a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
-<a href="#809" id="809">809</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1316,8 +1307,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_empty_root() {
 		<span class="comment">// given
-		</span>sp_tracing::init_for_tests();
-		<span class="kw">let </span>data: Vec&lt;[u8; <span class="number">1</span>]&gt; = Default::default();
+		</span><span class="kw">let </span>data: Vec&lt;[u8; <span class="number">1</span>]&gt; = Default::default();
 
 		<span class="comment">// when
 		</span><span class="kw">let </span>out = merkle_root::&lt;Keccak256, <span class="kw">_</span>&gt;(data);
@@ -1332,8 +1322,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_single_root() {
 		<span class="comment">// given
-		</span>sp_tracing::init_for_tests();
-		<span class="kw">let </span>data = <span class="macro">vec!</span>[array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">20</span>&gt;(
+		</span><span class="kw">let </span>data = <span class="macro">vec!</span>[array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">20</span>&gt;(
 			<span class="string">"E04CC55ebEE1cBCE552f250e85c57B70B2E2625b"</span>,
 		)];
 
@@ -1350,8 +1339,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_root_pow_2() {
 		<span class="comment">// given
-		</span>sp_tracing::init_for_tests();
-		<span class="kw">let </span>data = <span class="macro">vec!</span>[
+		</span><span class="kw">let </span>data = <span class="macro">vec!</span>[
 			array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">20</span>&gt;(<span class="string">"E04CC55ebEE1cBCE552f250e85c57B70B2E2625b"</span>),
 			array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">20</span>&gt;(<span class="string">"25451A4de12dcCc2D166922fA938E900fCc4ED24"</span>),
 		];
@@ -1368,7 +1356,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_root_complex() {
-		sp_tracing::init_for_tests();
 		<span class="kw">let </span>test = |root, data| {
 			<span class="macro">assert_eq!</span>(array_bytes::bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>merkle_root::&lt;Keccak256, <span class="kw">_</span>&gt;(data)), root);
 		};
@@ -1397,8 +1384,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_and_verify_proof_simple() {
 		<span class="comment">// given
-		</span>sp_tracing::init_for_tests();
-		<span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>];
+		</span><span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>];
 
 		<span class="comment">// when
 		</span><span class="kw">let </span>proof0 = merkle_proof::&lt;Keccak256, <span class="kw">_</span>, <span class="kw">_</span>&gt;(data.clone(), <span class="number">0</span>);
@@ -1461,8 +1447,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_and_verify_proof_complex() {
 		<span class="comment">// given
-		</span>sp_tracing::init_for_tests();
-		<span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>, <span class="string">"d"</span>, <span class="string">"e"</span>, <span class="string">"f"</span>, <span class="string">"g"</span>, <span class="string">"h"</span>, <span class="string">"i"</span>, <span class="string">"j"</span>];
+		</span><span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>, <span class="string">"d"</span>, <span class="string">"e"</span>, <span class="string">"f"</span>, <span class="string">"g"</span>, <span class="string">"h"</span>, <span class="string">"i"</span>, <span class="string">"j"</span>];
 
 		<span class="kw">for </span>l <span class="kw">in </span><span class="number">0</span>..data.len() {
 			<span class="comment">// when
@@ -1481,8 +1466,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_and_verify_proof_large() {
 		<span class="comment">// given
-		</span>sp_tracing::init_for_tests();
-		<span class="kw">let </span><span class="kw-2">mut </span>data = <span class="macro">vec!</span>[];
+		</span><span class="kw">let </span><span class="kw-2">mut </span>data = <span class="macro">vec!</span>[];
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..<span class="number">16 </span>{
 			<span class="kw">for </span>c <span class="kw">in </span><span class="string">'a'</span>..<span class="string">'z' </span>{
 				<span class="kw">if </span>c <span class="kw">as </span>usize % i != <span class="number">0 </span>{
@@ -1508,8 +1492,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_and_verify_proof_large_tree() {
 		<span class="comment">// given
-		</span>sp_tracing::init_for_tests();
-		<span class="kw">let </span><span class="kw-2">mut </span>data = <span class="macro">vec!</span>[];
+		</span><span class="kw">let </span><span class="kw-2">mut </span>data = <span class="macro">vec!</span>[];
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">6000 </span>{
 			data.push(<span class="macro">format!</span>(<span class="string">"{}"</span>, i));
 		}
@@ -1531,7 +1514,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	#[should_panic]
 	</span><span class="kw">fn </span>should_panic_on_invalid_leaf_index() {
-		sp_tracing::init_for_tests();
 		merkle_proof::&lt;Keccak256, <span class="kw">_</span>, <span class="kw">_</span>&gt;(<span class="macro">vec!</span>[<span class="string">"a"</span>], <span class="number">5</span>);
 	}
 
