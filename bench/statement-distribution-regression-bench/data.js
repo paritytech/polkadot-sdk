@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723965831456,
+  "lastUpdate": 1724017206430,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -8819,6 +8819,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.049563087898000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "3fe22d17c4904c5ae016034b6ec2c335464b4165",
+          "message": "binary-merkle-tree: Do not spam test output (#5376)\n\nThe CI isn't happy with the amount of output:\nhttps://gitlab.parity.io/parity/mirrors/polkadot-sdk/-/jobs/7035621/raw\n\n---------\n\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>",
+          "timestamp": "2024-08-18T19:41:47Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3fe22d17c4904c5ae016034b6ec2c335464b4165"
+        },
+        "date": 1724017175054,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.94599999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.037045164278,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04562181083199999,
             "unit": "seconds"
           }
         ]
