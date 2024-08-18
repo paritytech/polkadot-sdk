@@ -1,7 +1,6 @@
 //! Facade of currency implementation. Useful while migrating from old to new currency system.
 
 use frame_support::traits::{Currency, InspectLockableCurrency, LockableCurrency};
-use sp_staking::StakingInterface;
 
 use crate::{BalanceOf, Config, NegativeImbalanceOf, PositiveImbalanceOf};
 
