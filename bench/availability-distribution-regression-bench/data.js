@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723823986899,
+  "lastUpdate": 1723965237622,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -22671,6 +22671,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16514682506666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Nazar Mokrynskyi",
+            "username": "nazar-pc",
+            "email": "nazar@mokrynskyi.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "feac7a521092c599d47df3e49084e6bff732c7db",
+          "message": "Replace unnecessary `&mut self` with `&self` in `BlockImport::import_block()` (#5339)\n\nThere was no need for it to be `&mut self` since block import can happen\nconcurrently for different blocks and in many cases it was `&mut Arc<dyn\nBlockImport>` anyway :man_shrugging:\n\nSimilar in nature to\nhttps://github.com/paritytech/polkadot-sdk/pull/4844",
+          "timestamp": "2024-08-18T05:23:46Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/feac7a521092c599d47df3e49084e6bff732c7db"
+        },
+        "date": 1723965207154,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012495519419999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02239268813333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17261624884000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01076929369333334,
             "unit": "seconds"
           }
         ]
