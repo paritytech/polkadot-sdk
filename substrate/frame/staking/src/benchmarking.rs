@@ -26,7 +26,7 @@ use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProv
 use frame_support::{
 	pallet_prelude::*,
 	storage::bounded_vec::BoundedVec,
-	traits::{Currency, Get, Imbalance, UnfilteredDispatchable},
+	traits::{Get, Imbalance, UnfilteredDispatchable},
 };
 use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
