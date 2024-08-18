@@ -414,12 +414,12 @@ impl<T: Config> Pallet<T> {
 		let dest = Self::payee(StakingAccount::Stash(stash.clone()))?;
 
 		let maybe_imbalance = match dest {
-			RewardDestination::Stash => asset::mint::<T>(stash, amount),
+			RewardDestination::Stash => asset::mint_existing::<T>(stash, amount),
 			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {
 					ledger.active += amount;
 					ledger.total += amount;
-					let r = asset::mint::<T>(stash, amount);
+					let r = asset::mint_existing::<T>(stash, amount);
 
 					let _ = ledger
 						.update()
@@ -429,7 +429,7 @@ impl<T: Config> Pallet<T> {
 				})
 				.unwrap_or_default(),
 			RewardDestination::Account(ref dest_account) =>
-				Some(T::Currency::deposit_creating(&dest_account, amount)),
+				Some(asset::mint_creating::<T>(&dest_account, amount)),
 			RewardDestination::None => None,
 			#[allow(deprecated)]
 			RewardDestination::Controller => Self::bonded(stash)
@@ -437,7 +437,7 @@ impl<T: Config> Pallet<T> {
 						defensive!("Paying out controller as reward destination which is deprecated and should be migrated.");
 						// This should never happen once payees with a `Controller` variant have been migrated.
 						// But if it does, just pay the controller account.
-						T::Currency::deposit_creating(&controller, amount)
+						asset::mint_creating::<T>(&controller, amount)
 		}),
 		};
 		maybe_imbalance.map(|imbalance| (imbalance, dest))
