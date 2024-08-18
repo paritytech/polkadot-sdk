@@ -814,34 +814,6 @@ macro_rules! assert_ok {
 	};
 }
 
-/// Assert that the maximum encoding size does not exceed the value defined in
-/// [`MAX_MODULE_ERROR_ENCODED_SIZE`] during compilation.
-///
-/// This macro is intended to be used in conjunction with `tt_call!`.
-#[macro_export]
-#[doc(hidden)]
-#[deprecated(note = "This macro was intended to be used internally. It will be removed in 2025")]
-macro_rules! assert_error_encoded_size {
-	{
-		path = [{ $($path:ident)::+ }]
-		runtime = [{ $runtime:ident }]
-		assert_message = [{ $assert_message:literal }]
-		error = [{ $error:ident }]
-	} => {
-		const _: () = assert!(
-			<
-				$($path::)+$error<$runtime> as $crate::traits::PalletError
-			>::MAX_ENCODED_SIZE <= $crate::MAX_MODULE_ERROR_ENCODED_SIZE,
-			$assert_message
-		);
-	};
-	{
-		path = [{ $($path:ident)::+ }]
-		runtime = [{ $runtime:ident }]
-		assert_message = [{ $assert_message:literal }]
-	} => {};
-}
-
 /// Do something hypothetically by rolling back any changes afterwards.
 ///
 /// Returns the original result of the closure.
