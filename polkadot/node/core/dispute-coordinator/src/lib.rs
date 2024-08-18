@@ -478,6 +478,18 @@ pub fn is_potential_spam(
 	let all_invalid_votes_disabled = vote_state.invalid_votes_all_disabled(is_disabled);
 	let ignore_disabled = !is_confirmed && all_invalid_votes_disabled;
 
+	gum::trace!(
+		target: LOG_TARGET,
+		?candidate_hash,
+		?is_disputed,
+		?is_included,
+		?is_backed,
+		?is_confirmed,
+		?all_invalid_votes_disabled,
+		?ignore_disabled,
+		"Checking for potential spam"
+	);
+
 	(is_disputed && !is_included && !is_backed && !is_confirmed) || ignore_disabled
 }
 
