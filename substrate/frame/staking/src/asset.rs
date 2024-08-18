@@ -61,7 +61,7 @@ pub fn slash<T: Config>(
 	T::Currency::slash(who, value)
 }
 
-/// Mint reward.
+/// Mint reward into an existing account. Does not increase the total issuance.
 pub fn mint_existing<T: Config>(
 	who: &T::AccountId,
 	value: BalanceOf<T>,
@@ -69,14 +69,17 @@ pub fn mint_existing<T: Config>(
 	T::Currency::deposit_into_existing(who, value).ok()
 }
 
+/// Mint reward and create if account does not exist. Does not increase the total issuance.
 pub fn mint_creating<T: Config>(who: &T::AccountId, value: BalanceOf<T>) -> PositiveImbalanceOf<T> {
 	T::Currency::deposit_creating(who, value)
 }
 
-pub fn resolve_creating<T: Config>(who: &T::AccountId, value: NegativeImbalanceOf<T>) {
+/// Deposit to who from slashed value.
+pub fn deposit_slashed<T: Config>(who: &T::AccountId, value: NegativeImbalanceOf<T>) {
 	T::Currency::resolve_creating(who, value)
 }
 
+/// Increases total issuance.
 pub fn issue<T: Config>(value: BalanceOf<T>) -> NegativeImbalanceOf<T> {
 	T::Currency::issue(value)
 }

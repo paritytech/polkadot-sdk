@@ -586,7 +586,7 @@ pub fn do_slash<T: Config>(
 
 	// Skip slashing for virtual stakers. The pallets managing them should handle the slashing.
 	if !Pallet::<T>::is_virtual_staker(stash) {
-		let (imbalance, missing) = T::Currency::slash(stash, value);
+		let (imbalance, missing) = asset::slash::<T>(stash, value);
 		slashed_imbalance.subsume(imbalance);
 
 		if !missing.is_zero() {
@@ -656,7 +656,7 @@ fn pay_reporters<T: Config>(
 
 		// this cancels out the reporter reward imbalance internally, leading
 		// to no change in total issuance.
-		T::Currency::resolve_creating(reporter, reporter_reward);
+		asset::deposit_slashed::<T>(reporter, reporter_reward);
 	}
 
 	// the rest goes to the on-slash imbalance handler (e.g. treasury)
