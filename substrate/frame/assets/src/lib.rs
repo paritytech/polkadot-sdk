@@ -193,6 +193,7 @@ use frame_support::{
 	},
 };
 use frame_system::Config as SystemConfig;
+use sp_core::H256;
 
 use binary_merkle_tree::MerkleProof;
 
@@ -459,6 +460,7 @@ pub mod pallet {
 	>;
 
 	pub type DistributionCounter = u32;
+	pub type DistributionProof<T, I> = MerkleProof<H256, (<T as frame_system::Config>::AccountId, <T as Config<I>>::Balance)>;
 
 	#[pallet::storage]
 	/// Merklized distribution of an asset.
@@ -466,7 +468,7 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		DistributionCounter,
-		(T::AssetId, T::Hash),
+		(T::AssetId, H256),
 		OptionQuery,
 	>;
 
@@ -666,7 +668,7 @@ pub mod pallet {
 		/// Some assets were withdrawn from the account (e.g. for transaction fees).
 		Withdrawn { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
 		/// A distribution of assets were issued.
-		DistributionIssued { asset_id: T::AssetId, merkle_root: T::Hash },
+		DistributionIssued { asset_id: T::AssetId, merkle_root: H256 },
 	}
 
 	#[pallet::error]
@@ -1842,7 +1844,7 @@ pub mod pallet {
 		pub fn mint_distribution(
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,
-			merkle_root: T::Hash,
+			merkle_root: H256,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
@@ -1865,7 +1867,7 @@ pub mod pallet {
 		pub fn claim_distribution(
 			origin: OriginFor<T>,
 			distribution_id: DistributionCounter,
-			merkle_proof: MerkleProof<T::Hash, (T::AccountId, T::Balance)>,
+			merkle_proof: DistributionProof<T, I>,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			Self::do_claim_distribution(distribution_id, merkle_proof)?;
