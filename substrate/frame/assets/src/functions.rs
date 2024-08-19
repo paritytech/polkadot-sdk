@@ -481,6 +481,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// 	merkle_proof.leaf,
 		// );
 
+		ensure!(verified, "TODO ERROR");
+
 		Self::do_mint(asset_id, &beneficiary, amount, None)?;
 		MerklizedDistributionTracker::<T, I>::insert(&distribution_id, &beneficiary, ());
 
