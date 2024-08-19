@@ -467,14 +467,23 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let (asset_id, merkle_root) = MerklizedDistribution::<T, I>::get(distribution_id).ok_or(Error::<T, I>::Unknown)?;
 
 		ensure!(merkle_root == merkle_proof.root, "TODO ERROR");
+		let (beneficiary, amount) = merkle_proof.leaf;
+		let already_claimed = MerklizedDistributionTracker::<T, I>::contains_key(&distribution_id, &beneficiary);
+		ensure!(!already_claimed, "TODO ERROR");
 
-		// binary_merkle_tree::verify_proof::<_, _, _>(
+		use sp_runtime::traits::BlakeTwo256;
+		let verified = true;
+		// let verified = binary_merkle_tree::verify_proof::<BlakeTwo256, _, (T::AccountId, T::Balance)>(
 		// 	&merkle_proof.root,
 		// 	merkle_proof.proof,
 		// 	merkle_proof.number_of_leaves,
 		// 	merkle_proof.leaf_index,
 		// 	merkle_proof.leaf,
 		// );
+
+		Self::do_mint(asset_id, &beneficiary, amount, None)?;
+		MerklizedDistributionTracker::<T, I>::insert(&distribution_id, &beneficiary, ());
+
 		Ok(())
 	}
 
