@@ -295,7 +295,7 @@ impl PeerStoreInner {
 		// The peer was already banned and it got another negative report.
 		// This may happen during a batch report.
 		if change.value < 0 {
-			log::warn!(
+			log::debug!(
 				target: LOG_TARGET,
 				"Report {}: {:+} to {}. Reason: {}. Misbehaved during the ban threshold.",
 				peer_id,
