@@ -615,7 +615,6 @@ where
 			}
 
 			// Update atomic variables
-			self.num_connected.store(self.peers.len(), Ordering::Relaxed);
 			self.is_major_syncing.store(self.strategy.is_major_syncing(), Ordering::Relaxed);
 
 			// Process actions requested by a syncing strategy.
@@ -853,6 +852,7 @@ where
 		if let Some(metrics) = &self.metrics {
 			metrics.peers.dec();
 		}
+		self.num_connected.fetch_sub(1, Ordering::AcqRel);
 
 		if self.important_peers.contains(&peer_id) {
 			log::warn!(target: LOG_TARGET, "Reserved peer {peer_id} disconnected");
@@ -1033,6 +1033,7 @@ where
 				metrics.peers.inc();
 			}
 		}
+		self.num_connected.fetch_add(1, Ordering::AcqRel);
 		self.peer_store_handle.set_peer_role(&peer_id, status.roles.into());
 
 		if self.default_peers_set_no_slot_peers.contains(&peer_id) {
