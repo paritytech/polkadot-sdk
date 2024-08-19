@@ -1125,8 +1125,10 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 	let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 	let staking_pot = StakingPot::get();
 
-	let foreign_asset_id_location =
-		xcm::v5::Location::new(2, [xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::Rococo)]);
+	let foreign_asset_id_location = xcm::v5::Location::new(
+		2,
+		[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(ROCOCO_GENESIS_HASH))],
+	);
 	let foreign_asset_id_minimum_balance = 1_000_000_000;
 	// sovereign account as foreign asset owner (can be whoever for this scenario)
 	let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();
@@ -1194,8 +1196,10 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 	let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 	let staking_pot = StakingPot::get();
 
-	let foreign_asset_id_location =
-		xcm::v5::Location::new(2, [xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::Rococo)]);
+	let foreign_asset_id_location = xcm::v5::Location::new(
+		2,
+		[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(ROCOCO_GENESIS_HASH))],
+	);
 	let foreign_asset_id_minimum_balance = 1_000_000_000;
 	// sovereign account as foreign asset owner (can be whoever for this scenario)
 	let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();

@@ -91,7 +91,10 @@ use bridge_hub_common::{
 use pallet_xcm::EnsureXcm;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use xcm::{latest::WESTEND_GENESIS_HASH, VersionedLocation};
+use xcm::{
+	latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+	VersionedLocation,
+};
 use xcm_config::{TreasuryAccount, XcmOriginToTransactDispatchOrigin, XcmRouter};
 
 #[cfg(any(feature = "std", test))]
@@ -1439,7 +1442,7 @@ impl_runtime_apis! {
 						Runtime,
 						bridge_common_config::BridgeGrandpaWestendInstance,
 						bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
-					>(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(Rococo), Parachain(42)].into()))
+					>(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(42)].into()))
 				}
 
 				fn prepare_message_delivery_proof(
@@ -1474,7 +1477,7 @@ impl_runtime_apis! {
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
 						bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
-					>(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(Rococo), Parachain(42)].into()))
+					>(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(42)].into()))
 				}
 
 				fn prepare_message_delivery_proof(
