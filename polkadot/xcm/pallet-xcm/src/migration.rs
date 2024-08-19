@@ -34,7 +34,7 @@ pub mod v1 {
 	/// enacted on-chain.
 	///
 	/// Use experimental [`MigrateToV1`] instead.
-	pub struct VersionUncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct VersionUncheckedMigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight = T::DbWeight::get().reads(1);
@@ -81,7 +81,7 @@ pub mod v1 {
 /// `XCM_VERSION`.
 ///
 /// NOTE: This migration can be permanently added to the runtime migrations.
-pub struct MigrateToLatestXcmVersion<T>(sp_std::marker::PhantomData<T>);
+pub struct MigrateToLatestXcmVersion<T>(core::marker::PhantomData<T>);
 impl<T: Config> OnRuntimeUpgrade for MigrateToLatestXcmVersion<T> {
 	fn on_runtime_upgrade() -> Weight {
 		CurrentMigration::<T>::put(VersionMigrationStage::default());

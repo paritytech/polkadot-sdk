@@ -5,7 +5,7 @@ on:
     branches:
       - master
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [ opened, synchronize, reopened, ready_for_review ]
   merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -15,7 +15,7 @@ jobs:
   changes:
     permissions:
       pull-requests: read
-    uses: ./.github/workflows/check-changed-files.yml
+    uses: ./.github/workflows/reusable-check-changed-files.yml
 
   set-image:
     # GitHub Actions allows using 'env' in a container context.
@@ -31,7 +31,7 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
 
   quick-benchmarks:
-    needs: [set-image, changes]
+    needs: [ set-image, changes ]
     if: ${{ needs.changes.outputs.rust }}
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 60
@@ -50,7 +50,7 @@ jobs:
 
   # cf https://github.com/paritytech/polkadot-sdk/issues/1652
   test-syscalls:
-    needs: [set-image, changes]
+    needs: [ set-image, changes ]
     if: ${{ needs.changes.outputs.rust }}
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 60
@@ -75,7 +75,7 @@ jobs:
     #   fi
 
   cargo-check-all-benches:
-    needs: [set-image, changes]
+    needs: [ set-image, changes ]
     if: ${{ needs.changes.outputs.rust }}
     runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 60

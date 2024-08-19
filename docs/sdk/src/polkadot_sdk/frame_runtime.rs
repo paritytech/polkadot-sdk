@@ -54,7 +54,7 @@
 //!
 //! ### Example
 //!
-//! The following examples showcases a minimal pallet.
+//! The following example showcases a minimal pallet.
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", pallet)]
 //!
 //!
@@ -85,7 +85,7 @@
 //! [`crate::reference_docs::wasm_meta_protocol`]). Notable examples are:
 //!
 //! * writing a runtime in pure Rust, as done in [this template](https://github.com/JoshOrndorff/frameless-node-template).
-//! * writing a runtime in AssemblyScript,as explored in [this project](https://github.com/LimeChain/subsembly).
+//! * writing a runtime in AssemblyScript, as explored in [this project](https://github.com/LimeChain/subsembly).
 
 /// A FRAME based pallet. This `mod` is the entry point for everything else. All
 /// `#[pallet::xxx]` macros must be defined in this `mod`. Although, frame also provides an
@@ -119,11 +119,11 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
 
-	/// The events tha this pallet can emit.
+	/// The events that this pallet can emit.
 	#[pallet::event]
 	pub enum Event<T: Config> {}
 
-	/// A storage item that this pallet contains. This will be part of the state root trie/root
+	/// A storage item that this pallet contains. This will be part of the state root trie
 	/// of the blockchain.
 	#[pallet::storage]
 	pub type Value<T> = StorageValue<Value = u32>;

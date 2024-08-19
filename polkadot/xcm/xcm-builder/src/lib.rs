@@ -20,6 +20,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(test)]
 mod tests;
 
@@ -32,6 +34,9 @@ pub use asset_conversion::ConvertedConcreteAssetId;
 pub use asset_conversion::{
 	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId,
 };
+
+mod asset_exchange;
+pub use asset_exchange::SingleAssetExchangeAdapter;
 
 mod barriers;
 pub use barriers::{
@@ -54,7 +59,7 @@ pub use currency_adapter::CurrencyAdapter;
 
 mod fee_handling;
 pub use fee_handling::{
-	deposit_or_burn_fee, HandleFee, XcmFeeManagerFromComponents, XcmFeeToAccount,
+	deposit_or_burn_fee, HandleFee, SendXcmFeeToAccount, XcmFeeManagerFromComponents,
 };
 
 mod filter_asset_location;

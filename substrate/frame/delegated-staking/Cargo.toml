@@ -4,7 +4,7 @@ version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME delegated staking pallet"
 
@@ -16,9 +16,10 @@ codec = { features = ["derive"], workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-std = { workspace = true }
 sp-runtime = { workspace = true }
 sp-staking = { workspace = true }
+sp-io = { workspace = true }
+log = { workspace = true }
 
 [dev-dependencies]
 sp-core = { workspace = true, default-features = true }
@@ -39,6 +40,7 @@ std = [
 	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-balances/std",
 	"pallet-nomination-pools/std",
 	"pallet-staking/std",
@@ -48,7 +50,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",

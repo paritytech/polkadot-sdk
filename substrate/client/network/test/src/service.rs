@@ -154,7 +154,7 @@ impl TestNetworkBuilder {
 
 		let protocol_id = ProtocolId::from("test-protocol-name");
 		let fork_id = Some(String::from("test-fork-id"));
-		let mut full_net_config = FullNetworkConfiguration::new(&network_config);
+		let mut full_net_config = FullNetworkConfiguration::new(&network_config, None);
 
 		let (chain_sync_network_provider, chain_sync_network_handle) =
 			self.chain_sync_network.unwrap_or(NetworkServiceProvider::new());
@@ -197,6 +197,7 @@ impl TestNetworkBuilder {
 				.iter()
 				.map(|bootnode| bootnode.peer_id.into())
 				.collect(),
+			None,
 		);
 		let peer_store_handle: Arc<dyn PeerStoreProvider> = Arc::new(peer_store.handle());
 		tokio::spawn(peer_store.run().boxed());

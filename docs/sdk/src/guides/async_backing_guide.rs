@@ -27,8 +27,8 @@
 //! "scheduling_lookahead": 2
 //! ```
 //!
-//! <div class="warning">`scheduling_lookahead` must be set to 2, otherwise parachain block times
-//! will degrade to worse than with sync backing!</div>
+//! <div class="warning"><code>scheduling_lookahead</code> must be set to 2, otherwise parachain
+//! block times will degrade to worse than with sync backing!</div>
 //!
 //! ## Phase 1 - Update Parachain Runtime
 //!
@@ -174,7 +174,7 @@
 //!    - In the `para_client` field, pass in a cloned para client rather than the original
 //!    - Add a `para_backend` parameter after `para_client`, passing in our para backend
 //!    - Provide a `code_hash_provider` closure like that shown below
-//!    - Increase `authoring_duration` from 500 milliseconds to 1500
+//!    - Increase `authoring_duration` from 500 milliseconds to 2000
 //! ```ignore
 //! let params = AuraParams {
 //!     ..
@@ -185,7 +185,7 @@
 //!         client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 //!     },
 //!     ..
-//!     authoring_duration: Duration::from_millis(1500),
+//!     authoring_duration: Duration::from_millis(2000),
 //!     ..
 //! };
 //! ```

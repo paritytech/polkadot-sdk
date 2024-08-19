@@ -17,13 +17,10 @@ use crate::imports::*;
 
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
-	let asset_native = Box::new(v3::Location::try_from(RelayLocation::get()).unwrap());
-	let asset_one = Box::new(v3::Location::new(
+	let asset_native = Box::new(Location::try_from(RelayLocation::get()).unwrap());
+	let asset_one = Box::new(Location::new(
 		0,
-		[
-			v3::Junction::PalletInstance(ASSETS_PALLET_ID),
-			v3::Junction::GeneralIndex(ASSET_ID.into()),
-		],
+		[Junction::PalletInstance(ASSETS_PALLET_ID), Junction::GeneralIndex(ASSET_ID.into())],
 	));
 
 	AssetHubRococo::execute_with(|| {
@@ -112,11 +109,11 @@ fn swap_locally_on_chain_using_local_assets() {
 
 #[test]
 fn swap_locally_on_chain_using_foreign_assets() {
-	let asset_native = Box::new(v3::Location::try_from(RelayLocation::get()).unwrap());
+	let asset_native = Box::new(Location::try_from(RelayLocation::get()).unwrap());
 	let asset_location_on_penpal =
-		v3::Location::try_from(PenpalLocalTeleportableToAssetHub::get()).unwrap();
+		Location::try_from(PenpalLocalTeleportableToAssetHub::get()).unwrap();
 	let foreign_asset_at_asset_hub_rococo =
-		v3::Location::new(1, [v3::Junction::Parachain(PenpalA::para_id().into())])
+		Location::new(1, [Junction::Parachain(PenpalA::para_id().into())])
 			.appended_with(asset_location_on_penpal)
 			.unwrap();
 
@@ -141,7 +138,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		// 1. Mint foreign asset (in reality this should be a teleport or some such)
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::mint(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone().into()),
-			foreign_asset_at_asset_hub_rococo,
+			foreign_asset_at_asset_hub_rococo.clone(),
 			sov_penpal_on_ahr.clone().into(),
 			ASSET_HUB_ROCOCO_ED * 3_000_000_000_000,
 		));
@@ -157,7 +154,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
 			asset_native.clone(),
-			Box::new(foreign_asset_at_asset_hub_rococo),
+			Box::new(foreign_asset_at_asset_hub_rococo.clone()),
 		));
 
 		assert_expected_events!(
@@ -171,7 +168,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone()),
 			asset_native.clone(),
-			Box::new(foreign_asset_at_asset_hub_rococo),
+			Box::new(foreign_asset_at_asset_hub_rococo.clone()),
 			1_000_000_000_000,
 			2_000_000_000_000,
 			0,
@@ -189,7 +186,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		);
 
 		// 4. Swap!
-		let path = vec![asset_native.clone(), Box::new(foreign_asset_at_asset_hub_rococo)];
+		let path = vec![asset_native.clone(), Box::new(foreign_asset_at_asset_hub_rococo.clone())];
 
 		assert_ok!(
 			<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::swap_exact_tokens_for_tokens(
@@ -216,7 +213,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::remove_liquidity(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone()),
 			asset_native.clone(),
-			Box::new(foreign_asset_at_asset_hub_rococo),
+			Box::new(foreign_asset_at_asset_hub_rococo.clone()),
 			1414213562273 - ASSET_HUB_ROCOCO_ED * 2, // all but the 2 EDs can't be retrieved.
 			0,
 			0,
@@ -252,8 +249,8 @@ fn cannot_create_pool_from_pool_assets() {
 		assert_matches::assert_matches!(
 			<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
 				<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-				Box::new(v3::Location::try_from(asset_native).unwrap()),
-				Box::new(v3::Location::try_from(asset_one).unwrap()),
+				Box::new(Location::try_from(asset_native).unwrap()),
+				Box::new(Location::try_from(asset_one).unwrap()),
 			),
 			Err(DispatchError::Module(ModuleError{index: _, error: _, message})) => assert_eq!(message, Some("Unknown"))
 		);
@@ -262,12 +259,12 @@ fn cannot_create_pool_from_pool_assets() {
 
 #[test]
 fn pay_xcm_fee_with_some_asset_swapped_for_native() {
-	let asset_native = v3::Location::try_from(RelayLocation::get()).unwrap();
-	let asset_one = xcm::v3::Location {
+	let asset_native = Location::try_from(RelayLocation::get()).unwrap();
+	let asset_one = Location {
 		parents: 0,
 		interior: [
-			xcm::v3::Junction::PalletInstance(ASSETS_PALLET_ID),
-			xcm::v3::Junction::GeneralIndex(ASSET_ID.into()),
+			Junction::PalletInstance(ASSETS_PALLET_ID),
+			Junction::GeneralIndex(ASSET_ID.into()),
 		]
 		.into(),
 	};
@@ -296,8 +293,8 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-			Box::new(asset_native),
-			Box::new(asset_one),
+			Box::new(asset_native.clone()),
+			Box::new(asset_one.clone()),
 		));
 
 		assert_expected_events!(

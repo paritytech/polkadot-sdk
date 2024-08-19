@@ -19,7 +19,7 @@
 //! Implementations of public traits, namely [`DelegationInterface`] and [`OnStakingUpdate`].
 
 use super::*;
-use sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator, OnStakingUpdate};
+use sp_staking::{DelegationInterface, DelegationMigrator, OnStakingUpdate};
 
 impl<T: Config> DelegationInterface for Pallet<T> {
 	type Balance = BalanceOf<T>;
@@ -32,28 +32,34 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 			.ok()
 	}
 
+	fn agent_transferable_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance> {
+		AgentLedgerOuter::<T>::get(&agent.get())
+			.map(|a| a.ledger.unclaimed_withdrawals)
+			.ok()
+	}
+
 	fn delegator_balance(delegator: Delegator<Self::AccountId>) -> Option<Self::Balance> {
 		Delegation::<T>::get(&delegator.get()).map(|d| d.amount)
 	}
 
 	/// Delegate funds to an `Agent`.
-	fn delegate(
-		who: Delegator<Self::AccountId>,
+	fn register_agent(
 		agent: Agent<Self::AccountId>,
 		reward_account: &Self::AccountId,
-		amount: Self::Balance,
 	) -> DispatchResult {
 		Pallet::<T>::register_agent(
 			RawOrigin::Signed(agent.clone().get()).into(),
 			reward_account.clone(),
-		)?;
+		)
+	}
 
-		// Delegate the funds from who to the `Agent` account.
-		Pallet::<T>::delegate_to_agent(RawOrigin::Signed(who.get()).into(), agent.get(), amount)
+	/// Remove `Agent` registration.
+	fn remove_agent(agent: Agent<Self::AccountId>) -> DispatchResult {
+		Pallet::<T>::remove_agent(RawOrigin::Signed(agent.clone().get()).into())
 	}
 
 	/// Add more delegation to the `Agent` account.
-	fn delegate_extra(
+	fn delegate(
 		who: Delegator<Self::AccountId>,
 		agent: Agent<Self::AccountId>,
 		amount: Self::Balance,
@@ -118,7 +124,7 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 
 	/// Only used for testing.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn drop_agent(agent: Agent<Self::AccountId>) {
+	fn migrate_to_direct_staker(agent: Agent<Self::AccountId>) {
 		<Agents<T>>::remove(agent.clone().get());
 		<Delegators<T>>::iter()
 			.filter(|(_, delegation)| delegation.agent == agent.clone().get())
@@ -139,7 +145,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn on_slash(
 		who: &T::AccountId,
 		_slashed_active: BalanceOf<T>,
-		_slashed_unlocking: &sp_std::collections::btree_map::BTreeMap<EraIndex, BalanceOf<T>>,
+		_slashed_unlocking: &alloc::collections::btree_map::BTreeMap<EraIndex, BalanceOf<T>>,
 		slashed_total: BalanceOf<T>,
 	) {
 		<Agents<T>>::mutate(who, |maybe_register| match maybe_register {

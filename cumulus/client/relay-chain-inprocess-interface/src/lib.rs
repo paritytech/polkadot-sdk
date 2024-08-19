@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{pin::Pin, sync::Arc, time::Duration};
+use std::{collections::btree_map::BTreeMap, pin::Pin, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use cumulus_primitives_core::{
@@ -38,7 +38,7 @@ use sc_client_api::{
 use sc_telemetry::TelemetryWorkerHandle;
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
-use sp_core::{sp_std::collections::btree_map::BTreeMap, Pair};
+use sp_core::Pair;
 use sp_state_machine::{Backend as StateBackend, StorageValue};
 
 /// The timeout in seconds after that the waiting for a block should be aborted.
@@ -423,7 +423,7 @@ mod tests {
 
 	#[test]
 	fn returns_directly_for_available_block() {
-		let (mut client, block, relay_chain_interface) = build_client_backend_and_block();
+		let (client, block, relay_chain_interface) = build_client_backend_and_block();
 		let hash = block.hash();
 
 		block_on(client.import(BlockOrigin::Own, block)).expect("Imports the block");
@@ -439,7 +439,7 @@ mod tests {
 
 	#[test]
 	fn resolve_after_block_import_notification_was_received() {
-		let (mut client, block, relay_chain_interface) = build_client_backend_and_block();
+		let (client, block, relay_chain_interface) = build_client_backend_and_block();
 		let hash = block.hash();
 
 		block_on(async move {
@@ -468,7 +468,7 @@ mod tests {
 
 	#[test]
 	fn do_not_resolve_after_different_block_import_notification_was_received() {
-		let (mut client, block, relay_chain_interface) = build_client_backend_and_block();
+		let (client, block, relay_chain_interface) = build_client_backend_and_block();
 		let hash = block.hash();
 
 		let ext = construct_transfer_extrinsic(

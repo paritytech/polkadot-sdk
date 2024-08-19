@@ -17,8 +17,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 use crate::service::Block;
 use crate::{
-	chain_spec,
-	chain_spec::GenericChainSpec,
+	chain_spec::{self, GenericChainSpec},
 	cli::{Cli, RelayChainCli, Subcommand},
 	common::NodeExtraArgs,
 	fake_runtime_api::{
@@ -296,6 +295,7 @@ fn extract_parachain_id(id: &str) -> (&str, &str, Option<ParaId>) {
 	let para_prefixes = [
 		// Penpal
 		"penpal-rococo-",
+		"penpal-westend-",
 		"penpal-kusama-",
 		"penpal-polkadot-",
 		// Glutton Kusama
@@ -388,7 +388,7 @@ impl SubstrateCli for RelayChainCli {
 
 fn new_node_spec(
 	config: &sc_service::Configuration,
-	extra_args: NodeExtraArgs,
+	extra_args: &NodeExtraArgs,
 ) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
 	Ok(match config.chain_spec.runtime()? {
 		Runtime::AssetHubPolkadot =>
@@ -421,35 +421,35 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let node = new_node_spec(&config, cli.node_extra_args())?;
+				let node = new_node_spec(&config, &cli.node_extra_args())?;
 				node.prepare_check_block_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let node = new_node_spec(&config, cli.node_extra_args())?;
+				let node = new_node_spec(&config, &cli.node_extra_args())?;
 				node.prepare_export_blocks_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ExportState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let node = new_node_spec(&config, cli.node_extra_args())?;
+				let node = new_node_spec(&config, &cli.node_extra_args())?;
 				node.prepare_export_state_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ImportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let node = new_node_spec(&config, cli.node_extra_args())?;
+				let node = new_node_spec(&config, &cli.node_extra_args())?;
 				node.prepare_import_blocks_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::Revert(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let node = new_node_spec(&config, cli.node_extra_args())?;
+				let node = new_node_spec(&config, &cli.node_extra_args())?;
 				node.prepare_revert_cmd(config, cmd)
 			})
 		},
@@ -471,7 +471,7 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::ExportGenesisHead(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| {
-				let node = new_node_spec(&config, cli.node_extra_args())?;
+				let node = new_node_spec(&config, &cli.node_extra_args())?;
 				node.run_export_genesis_head_cmd(config, cmd)
 			})
 		},
@@ -494,12 +494,12 @@ pub fn run() -> Result<()> {
 					))
 				}),
 				BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
-					let node = new_node_spec(&config, cli.node_extra_args())?;
+					let node = new_node_spec(&config, &cli.node_extra_args())?;
 					node.run_benchmark_block_cmd(config, cmd)
 				}),
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
-					let node = new_node_spec(&config, cli.node_extra_args())?;
+					let node = new_node_spec(&config, &cli.node_extra_args())?;
 					node.run_benchmark_storage_cmd(config, cmd)
 				}),
 				BenchmarkCmd::Machine(cmd) =>
@@ -607,9 +607,9 @@ async fn start_node(
 	extra_args: NodeExtraArgs,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> Result<sc_service::TaskManager> {
-	let node_spec = new_node_spec(&config, extra_args)?;
+	let node_spec = new_node_spec(&config, &extra_args)?;
 	node_spec
-		.start_node(config, polkadot_config, collator_options, id, hwbench)
+		.start_node(config, polkadot_config, collator_options, id, hwbench, extra_args)
 		.await
 		.map_err(Into::into)
 }

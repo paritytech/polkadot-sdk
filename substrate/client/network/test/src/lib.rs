@@ -217,7 +217,7 @@ impl BlockImport<Block> for PeersClient {
 	}
 
 	async fn import_block(
-		&mut self,
+		&self,
 		block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.client.import_block(block).await
@@ -607,7 +607,7 @@ where
 	}
 
 	async fn import_block(
-		&mut self,
+		&self,
 		block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.import_block(block).await
@@ -824,7 +824,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			network_config.default_peers_set.reserved_nodes = addrs;
 			network_config.default_peers_set.non_reserved_mode = NonReservedPeerMode::Deny;
 		}
-		let mut full_net_config = FullNetworkConfiguration::new(&network_config);
+		let mut full_net_config = FullNetworkConfiguration::new(&network_config, None);
 
 		let protocol_id = ProtocolId::from("test-protocol-name");
 
@@ -896,6 +896,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				.iter()
 				.map(|bootnode| bootnode.peer_id.into())
 				.collect(),
+			None,
 		);
 		let peer_store_handle = Arc::new(peer_store.handle());
 		self.spawn_task(peer_store.run().boxed());

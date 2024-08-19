@@ -42,7 +42,7 @@ packages required to compile this template - please take note of the Rust compil
 🔨 Use the following command to build the node without launching it:
 
 ```sh
-cargo build --package minimal-template-node --release
+cargo build --release
 ```
 
 🐳 Alternatively, build the docker image:
