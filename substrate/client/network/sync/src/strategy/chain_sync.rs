@@ -43,7 +43,7 @@ use crate::{
 
 use codec::Encode;
 use log::{debug, error, info, trace, warn};
-use prometheus_endpoint::{register, Gauge, GaugeVec, Opts, PrometheusError, Registry, U64};
+use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network_common::sync::message::{
@@ -128,7 +128,6 @@ mod rep {
 struct Metrics {
 	queued_blocks: Gauge<U64>,
 	fork_targets: Gauge<U64>,
-	justifications: GaugeVec<U64>,
 }
 
 impl Metrics {
@@ -141,16 +140,6 @@ impl Metrics {
 			},
 			fork_targets: {
 				let g = Gauge::new("substrate_sync_fork_targets", "Number of fork sync targets")?;
-				register(g, r)?
-			},
-			justifications: {
-				let g = GaugeVec::new(
-					Opts::new(
-						"substrate_sync_extra_justifications",
-						"Number of extra justifications requests",
-					),
-					&["status"],
-				)?;
 				register(g, r)?
 			},
 		})
@@ -374,7 +363,7 @@ where
 		client: Arc<Client>,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
-		metrics_registry: Option<Registry>,
+		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
@@ -384,7 +373,7 @@ where
 			blocks: BlockCollection::new(),
 			best_queued_hash: Default::default(),
 			best_queued_number: Zero::zero(),
-			extra_justifications: ExtraRequests::new("justification"),
+			extra_justifications: ExtraRequests::new("justification", metrics_registry),
 			mode,
 			queue_blocks: Default::default(),
 			fork_targets: Default::default(),
@@ -396,7 +385,7 @@ where
 			import_existing: false,
 			gap_sync: None,
 			actions: Vec::new(),
-			metrics: metrics_registry.and_then(|r| match Metrics::register(&r) {
+			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
 				Ok(metrics) => Some(metrics),
 				Err(err) => {
 					log::error!(
@@ -1178,24 +1167,6 @@ where
 			metrics
 				.queued_blocks
 				.set(self.queue_blocks.len().try_into().unwrap_or(std::u64::MAX));
-
-			let justifications_metrics = self.extra_justifications.metrics();
-			metrics
-				.justifications
-				.with_label_values(&["pending"])
-				.set(justifications_metrics.pending_requests.into());
-			metrics
-				.justifications
-				.with_label_values(&["active"])
-				.set(justifications_metrics.active_requests.into());
-			metrics
-				.justifications
-				.with_label_values(&["failed"])
-				.set(justifications_metrics.failed_requests.into());
-			metrics
-				.justifications
-				.with_label_values(&["importing"])
-				.set(justifications_metrics.importing_requests.into());
 		}
 	}
 

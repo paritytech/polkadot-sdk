@@ -210,7 +210,7 @@ where
 				client.clone(),
 				config.max_parallel_downloads,
 				config.max_blocks_per_request,
-				config.metrics_registry.clone(),
+				config.metrics_registry.as_ref(),
 				std::iter::empty(),
 			)?;
 			Ok(Self {
@@ -552,7 +552,7 @@ where
 						self.client.clone(),
 						self.config.max_parallel_downloads,
 						self.config.max_blocks_per_request,
-						self.config.metrics_registry.clone(),
+						self.config.metrics_registry.as_ref(),
 						self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 							(*peer_id, *best_hash, *best_number)
 						}),
@@ -580,7 +580,7 @@ where
 				self.client.clone(),
 				self.config.max_parallel_downloads,
 				self.config.max_blocks_per_request,
-				self.config.metrics_registry.clone(),
+				self.config.metrics_registry.as_ref(),
 				self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 					(*peer_id, *best_hash, *best_number)
 				}),
