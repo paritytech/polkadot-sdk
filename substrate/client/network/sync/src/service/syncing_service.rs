@@ -50,7 +50,6 @@ pub enum ToServiceCommand<B: BlockT> {
 	EventStream(TracingUnboundedSender<SyncEvent>),
 	Status(oneshot::Sender<SyncStatus<B>>),
 	NumActivePeers(oneshot::Sender<usize>),
-	SyncState(oneshot::Sender<SyncStatus<B>>),
 	BestSeenBlock(oneshot::Sender<Option<NumberFor<B>>>),
 	NumSyncPeers(oneshot::Sender<u32>),
 	NumQueuedBlocks(oneshot::Sender<u32>),
