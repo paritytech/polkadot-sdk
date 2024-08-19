@@ -137,13 +137,15 @@ mod tests {
 		// ClearOrigin works.
 		assert!(process(v3_xcm(true)).unwrap());
 		assert!(process(v4_xcm(true)).unwrap());
+		assert!(process(v5_xcm(true)).unwrap());
 	}
 
 	#[test]
 	fn process_message_trivial_fails() {
 		// Trap makes it fail.
 		assert!(!process(v3_xcm(false)).unwrap());
-		assert!(!process(v3_xcm(false)).unwrap());
+		assert!(!process(v4_xcm(false)).unwrap());
+		assert!(!process(v5_xcm(false)).unwrap());
 	}
 
 	#[test]
