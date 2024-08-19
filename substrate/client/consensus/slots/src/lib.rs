@@ -517,7 +517,12 @@ pub async fn start_slot_worker<B, C, W, SO, CIDP, Proof>(
 	CIDP: CreateInherentDataProviders<B, ()> + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 {
-	let mut slots = Slots::new(slot_duration.as_duration(), create_inherent_data_providers, client, sync_oracle);
+	let mut slots = Slots::new(
+		slot_duration.as_duration(),
+		create_inherent_data_providers,
+		client,
+		sync_oracle,
+	);
 
 	loop {
 		let slot_info = slots.next_slot().await;

@@ -103,7 +103,7 @@ impl<Block, SC, IDP, SO> Slots<Block, SC, IDP, SO> {
 		slot_duration: Duration,
 		create_inherent_data_providers: IDP,
 		select_chain: SC,
-		sync_oracle: SO
+		sync_oracle: SO,
 	) -> Self {
 		Slots {
 			last_slot: 0.into(),
