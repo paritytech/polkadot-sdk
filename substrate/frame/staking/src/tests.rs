@@ -27,7 +27,7 @@ use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
 	pallet_prelude::*,
-	traits::{Currency, Get, InspectLockableCurrency, ReservableCurrency},
+	traits::{Currency, Get, ReservableCurrency},
 };
 
 use mock::*;
