@@ -31,7 +31,6 @@ where
 	Block: BlockT + DeserializeOwned,
 	Block::Header: DeserializeOwned,
 {
-	use frame_support::storage::generator::StorageMap;
 
 	let mut ext = Builder::<Block>::new()
 		.mode(Mode::Online(OnlineConfig {

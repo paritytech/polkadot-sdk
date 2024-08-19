@@ -17,7 +17,6 @@
 //! Test to execute the sanity-check of the voter bag.
 
 use frame_support::{
-	storage::generator::StorageMap,
 	traits::{Get, PalletInfoAccess},
 };
 use remote_externalities::{Builder, Mode, OnlineConfig};

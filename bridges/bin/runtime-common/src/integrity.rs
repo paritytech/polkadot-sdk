@@ -23,7 +23,7 @@ use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{ChainWithMessages, InboundLaneData, MessageNonce};
 use bp_runtime::Chain;
 use codec::Encode;
-use frame_support::{storage::generator::StorageValue, traits::Get, weights::Weight};
+use frame_support::{traits::Get, weights::Weight};
 use frame_system::limits;
 use pallet_bridge_messages::WeightInfoExt as _;
 

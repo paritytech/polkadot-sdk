@@ -849,7 +849,6 @@ pub(crate) mod tests {
 		assert_noop, assert_ok,
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::Pays,
-		storage::generator::{StorageDoubleMap, StorageMap},
 		traits::Get,
 		weights::Weight,
 	};

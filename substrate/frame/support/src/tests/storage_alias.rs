@@ -19,7 +19,7 @@ use sp_core::Get;
 
 use super::{new_test_ext, BlockNumberFor, Config, Pallet, Runtime};
 use crate::{
-	assert_noop, assert_ok, parameter_types, storage::generator::StorageValue, Blake2_128Concat,
+	assert_noop, assert_ok, parameter_types, Blake2_128Concat,
 };
 
 #[test]
